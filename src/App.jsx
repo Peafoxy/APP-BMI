@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.96.3";
+const VERSION = "2.98.2";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -207,12 +207,15 @@ let dialogApi = null;
 const uAlert = (m) => (dialogApi ? dialogApi.open("alert", m) : Promise.resolve());
 const uConfirm = (m) => (dialogApi ? dialogApi.open("confirm", m) : Promise.resolve(false));
 const uPrompt = (m, def = "") => (dialogApi ? dialogApi.open("prompt", m, def) : Promise.resolve(null));
+// Choix STRICT parmi une liste fixe de boutons — pas de texte libre, donc pas
+// de faute de frappe ni de valeur inventée possible.
+const uChoix = (m, options) => (dialogApi ? dialogApi.open("choix", m, null, options) : Promise.resolve(null));
 
 function DialogHost() {
   const [d, setD] = useState(null);
   const [val, setVal] = useState("");
   dialogApi = {
-    open: (type, m, def = "") => new Promise((resolve) => { setVal(def == null ? "" : String(def)); setD({ type, m, resolve }); }),
+    open: (type, m, def = "", options = []) => new Promise((resolve) => { setVal(def == null ? "" : String(def)); setD({ type, m, resolve, options }); }),
   };
   if (!d) return null;
   const close = (result) => { d.resolve(result); setD(null); };
@@ -225,9 +228,17 @@ function DialogHost() {
             value={val} onChange={(e) => setVal(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && close(val)} />
         )}
+        {d.type === "choix" && (
+          <div className="mt-3 space-y-2">
+            {d.options.map((opt) => (
+              <button key={opt} onClick={() => close(opt)} className="w-full text-left px-3 py-2.5 rounded-lg border-2 border-slate-200 hover:border-sky-700 hover:bg-sky-50 text-sm font-bold text-slate-700">{opt}</button>
+            ))}
+          </div>
+        )}
         <div className="mt-4 flex justify-end gap-2">
-          {d.type !== "alert" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
-          <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>
+          {d.type !== "alert" && d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
+          {d.type === "choix" && <button onClick={() => close(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
+          {d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
         </div>
       </div>
     </div>
@@ -287,17 +298,52 @@ const appliquerRetenuesCredit = (u, mois, par) =>
     return { ...c, echeances, remboursements, statut: solde ? "solde" : "approuve", date_solde: solde ? today() : c.date_solde };
   });
 
-// Boutique dont la caisse supporte la sortie d'argent (salaire, prêt…)
+// Boutique dont la caisse supporte la sortie d'argent (salaire, prêt, commission…)
+// Choix STRICT parmi les boutiques de vente réelles (jamais un dépôt, qui n'a
+// pas de caisse) + l'option « Chez le comptable » — jamais de texte libre,
+// pour ne plus jamais risquer une boutique mal orthographiée ou inventée.
 async function choisirBoutiqueDebitG(db, u, titre) {
-  const noms = db.boutiques.map((b) => b.nom);
-  if (!noms.length) return "";
-  if (noms.length === 1) return noms[0];
-  const defaut = u.boutique && noms.includes(u.boutique) ? u.boutique : noms[0];
-  const b = await uPrompt(`${titre}\n\nBoutique dont la caisse est débitée ? (${noms.join(" / ")})`, defaut);
-  if (b === null) return null;
-  const nom = String(b).trim().toUpperCase();
-  if (!noms.includes(nom)) { uAlert("Boutique inconnue."); return null; }
-  return nom;
+  const noms = boutiquesVente(db).map((b) => b.nom);
+  const options = [...noms, "Chez le comptable"];
+  if (options.length === 1) return options[0];
+  const defaut = u.boutique && noms.includes(u.boutique) ? u.boutique : null;
+  const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}`, options);
+  return b; // null = annulé ; sinon une valeur EXACTE de la liste, jamais autre chose
+}
+
+// Prévient la ou les bonnes personnes qu'une sortie de caisse vient d'être
+// réglée (commission, salaire, avance, crédit, prime d'installation…) et
+// d'où l'argent est sorti — pour que la caisse concernée (boutique ou
+// comptable) sache que cette sortie est passée, et à qui.
+function messagesNotifSortieCaisse(db, profile, destination, nomBeneficiaire, montant, libelle = "Commission payée à", sens = "sortie") {
+  const base = { date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, lu_par: [profile.id] };
+  const texte = `💰 ${libelle} ${nomBeneficiaire} : ${fmt(montant)} — ${sens === "entree" ? "entrée de caisse" : "sortie de caisse"} : ${destination}.`;
+  const destinataires = destination === "Chez le comptable"
+    ? db.users.filter((u) => u.role === "comptable" && u.actif !== false)
+    : db.users.filter((u) => (u.role === "vendeur" || u.role === "gerant") && u.boutique === destination && u.actif !== false);
+  return destinataires.map((u) => ({ ...base, id: uid(), a_id: u.id, texte }));
+}
+// Ancien nom conservé par compatibilité (les 3 flux de commission l'utilisaient déjà).
+const messagesNotifPaiementCommission = messagesNotifSortieCaisse;
+
+// Quand on supprime une dépense générée automatiquement par un paiement
+// (commission, prime d'installation…), il faut aussi redonner leur statut
+// « non payé » aux ventes / chantiers liés — sinon la commission reste
+// bloquée en "payée" pour toujours, sans qu'aucune trace de paiement ne subsiste.
+function annulerLiensDepense(db, d) {
+  if (d.auto === "commission") {
+    return { ventes: (db.ventes || []).map((v) => (v.commission_dep === d.id ? { ...v, commission_payee: false, commission_dep: null } : v)) };
+  }
+  if (d.auto === "commission_equipe") {
+    return { ventes: (db.ventes || []).map((v) => (v.override_dep === d.id ? { ...v, override_payee: false, override_dep: null } : v)) };
+  }
+  if (d.auto === "commission_ext") {
+    return { ventes: (db.ventes || []).map((v) => (v.apporteur?.dep_id === d.id ? { ...v, apporteur: { ...v.apporteur, payee: false, dep_id: null, date_paiement: null } } : v)) };
+  }
+  if (d.auto === "installation") {
+    return { clients_installes: (db.clients_installes || []).map((c) => ({ ...c, equipe: (c.equipe || []).map((e) => (e.dep_id === d.id ? { ...e, paye: false, date_paiement: null, dep_id: null } : e)) })) };
+  }
+  return {};
 }
 
 // Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
@@ -346,7 +392,8 @@ async function envoyerVirementG(db, save, profile, u, moisImpose) {
   save({
     ...db,
     users: db.users.map((x) => (x.id === u.id ? { ...x, virements: [...(x.virements || []), virement], credits: appliquerRetenuesCredit(x, m, profile.nom) } : x)),
-    depenses: [...deps, ...db.depenses]
+    depenses: [...deps, ...db.depenses],
+    messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Salaire versé à"), ...(db.messages || [])],
   }, `Virement de ${fmt(montant)} envoyé à ${u.nom} (${libelleMoisFR(m)})`);
   uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires ».`);
 }
@@ -530,11 +577,11 @@ const LIBELLE_ONGLET = {
   equipe: "👑 Équipe", prospects: "🧲 Prospects", parc: "🏠 Clients installés", messages: "💬 Messages",
   salaires: "💵 Salaires (tous)", users: "👥 Utilisateurs", historique: "🕘 Historique", parametres: "⚙ Paramètres", rentabilite: "📈 Rentabilité",
   commission: "💵 Ma commission", taches: "✅ Mes tâches", salaire: "💵 Salaire", espace_client: "🏠 Mon espace", ravitaillement: "🚚 Ravitaillement",
-  nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis",
+  nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
 };
 
 const ONGLETS_ROLE = {
-  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "depenses", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
+  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
   technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
   resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "messages", "commission", "salaire", "nouveau_client"],
@@ -542,7 +589,7 @@ const ONGLETS_ROLE = {
   magasinier: ["stocks", "salaire", "messages", "nouveau_client"],
   gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client"],
   vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client"],
-  comptable: ["dashboard", "rentabilite", "depenses", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
+  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
   client: ["espace_client", "messages"],
 };
 
@@ -1335,9 +1382,9 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
     ? [["equipe", "👑 Mon équipe"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
@@ -1458,7 +1505,7 @@ export default function App() {
       {tab === "dashboard" && (isAdmin || isComptable) && <Dashboard db={db} />}
       {tab === "ventes" && !isCommercial && <Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
       {tab === "commande" && isCommercial && <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
-      {tab === "commandes" && !isCommercial && <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct }); setTab("ventes"); }} />}
+      {tab === "commandes" && !isCommercial && <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel }); setTab("ventes"); }} />}
       {tab === "dimensionnement" && <Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
         if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
         setPreRempli({ boutique, panier, remise });
@@ -1466,6 +1513,7 @@ export default function App() {
       }} />}
       {tab === "tous_devis" && <TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />}
       {tab === "depenses" && <Depenses db={db} save={save} profile={profile} />}
+      {tab === "chez_comptable" && <ChezComptable db={db} save={save} profile={profile} />}
       {tab === "dettes" && <Dettes db={db} save={save} profile={profile} />}
       {tab === "clients" && <Clients db={db} profile={profile} />}
       {tab === "nouveau_client" && <CreerClient db={db} save={save} profile={profile} />}
@@ -2022,7 +2070,7 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const fraisInstallDevis = Number(devisOrigine?.frais_installation || 0);
   const fraisTransportDevis = Number(devisOrigine?.frais_transport || 0);
   useEffect(() => { if (preRempli && onPreRempliConsomme) onPreRempliConsomme(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [f, setF] = useState({ client: "", tel: "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
+  const [f, setF] = useState({ client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
   // Apporteur d'affaires EXTERNE (pas un utilisateur de l'application)
   const [ext, setExt] = useState({ actif: false, nom: "", tel: "", taux: "", montant: "" });
   const [code, setCode] = useState("");
@@ -2368,9 +2416,17 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
             </div>
 
             <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Field label="Client (facultatif)"><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} /></Field>
-              <Field label="Numéro du client"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
-              <Field label="Remise (%) — facultatif"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
+              <Field label={origineDevis ? "Payeur (si différent du client)" : "Client (facultatif)"}><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : ""} /></Field>
+              <Field label={origineDevis ? "Son numéro" : "Numéro du client"}><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+              {origineDevis ? (
+                Number(f.remise || 0) > 0 && (
+                  <Field label="Remise (déjà fixée sur le devis)">
+                    <div className={`${inputCls} bg-slate-50 text-slate-600 flex items-center`}>{f.remise} %</div>
+                  </Field>
+                )
+              ) : (
+                <Field label="Remise (%) — facultatif"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
+              )}
               {f.commercial && tauxCom > 0 && (
                 <Field label={`Rabais offert par ${f.commercial} (F)`}>
                   <input type="number" min="0" max={rabaisMax} className={inputCls} value={f.rabais} onChange={(e) => setF({ ...f, rabais: e.target.value })} />
@@ -2746,7 +2802,7 @@ function CommandesRecues({ db, save, profile, onValider }) {
     save({ ...db, commandes: db.commandes.map((x) => (x.id === c.id ? { ...x, statut: "validee", valide_par: profile.nom } : x)) }, `Commande de ${c.commercial} validée par ${profile.nom} — ${c.boutique}`);
     // origine_devis suit jusqu'à l'encaissement : c'est lui qui déclenchera la
     // création de la fiche d'installation.
-    onValider(c.boutique, c.articles, c.commercial, c.responsable, c.rabais, c.origine_devis || null, c.remise_pct || 0);
+    onValider(c.boutique, c.articles, c.commercial, c.responsable, c.rabais, c.origine_devis || null, c.remise_pct || 0, c.client || "", c.tel || "");
   };
 
   const refuser = async (c) => {
@@ -2853,7 +2909,7 @@ function CommandesRecues({ db, save, profile, onValider }) {
                         <button onClick={() => {
                           const panier = panierDeReprise(c);
                           if (panier.length === 0) { uAlert("Aucun article retrouvé pour ce devis (ni sur la commande, ni sur le devis d'origine). Contactez l'administrateur pour vérifier ce dossier avant d'encaisser."); return; }
-                          onValider(c.boutique, panier, c.commercial, c.responsable, c.rabais, c.origine_devis, c.remise_pct || 0);
+                          onValider(c.boutique, panier, c.commercial, c.responsable, c.rabais, c.origine_devis, c.remise_pct || 0, c.client || "", c.tel || "");
                         }} className="mt-1 text-[10px] font-bold text-white bg-amber-600 rounded px-2 py-0.5 hover:bg-amber-700">↻ Reprendre l'encaissement</button>
                       </div>
                     )}
@@ -2885,8 +2941,9 @@ function Depenses({ db, save, profile }) {
 
   const supprimerDepense = async (d) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (await uConfirm(`Supprimer la dépense de ${fmt(d.montant)} (${d.categorie}) du ${dFR(d.date)} ?`)) {
-      save({ ...db, depenses: db.depenses.filter((x) => x.id !== d.id) }, `Suppression dépense ${fmt(d.montant)} (${d.categorie}) — ${d.boutique}`);
+    const avertissement = d.auto ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
+    if (await uConfirm(`Supprimer la dépense de ${fmt(d.montant)} (${d.categorie}) du ${dFR(d.date)} ?${avertissement}`)) {
+      save({ ...db, ...annulerLiensDepense(db, d), depenses: db.depenses.filter((x) => x.id !== d.id) }, `Suppression dépense ${fmt(d.montant)} (${d.categorie}) — ${d.boutique}`);
     }
   };
 
@@ -2916,6 +2973,62 @@ function Depenses({ db, save, profile }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune dépense enregistrée.</td></tr>}
+            {liste.map((x) => (
+              <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
+                <td className="px-3 py-2">{dFR(x.date)}</td>
+                <td className="px-3 py-2 font-semibold">{x.categorie}</td>
+                <td className="px-3 py-2">{x.description || "—"}</td>
+                <td className="px-3 py-2 tabular-nums font-bold">{fmt(x.montant)}</td>
+                <td className="px-3 py-2">{x.paiement}</td>
+                <td className="px-3 py-2">{x.par}</td>
+                <td className="px-3 py-2">
+                  {profile.role === "admin" && (
+                    <button onClick={() => supprimerDepense(x)} className="text-xs text-red-600 underline">Suppr.</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============ CHEZ LE COMPTABLE ============
+// Regroupe toutes les sorties de caisse qui n'ont pas été débitées d'une
+// boutique mais confiées au comptable (commissions, salaires, etc. payés
+// « Chez le comptable ») — sinon ces dépenses étaient invisibles nulle part.
+function ChezComptable({ db, save, profile }) {
+  const liste = (db.depenses || []).filter((x) => x.boutique === "Chez le comptable")
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const totalMois = liste.filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
+  const total = liste.reduce((s, x) => s + Number(x.montant), 0);
+
+  const supprimerDepense = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const avertissement = d.auto ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
+    if (await uConfirm(`Supprimer la dépense de ${fmt(d.montant)} (${d.categorie}) du ${dFR(d.date)} ?${avertissement}`)) {
+      save({ ...db, ...annulerLiensDepense(db, d), depenses: db.depenses.filter((x) => x.id !== d.id) }, `Suppression dépense ${fmt(d.montant)} (${d.categorie}) — Chez le comptable`);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="font-bold text-slate-800 mb-1">🧾 Sorties de caisse confiées au comptable</div>
+        <div className="text-xs text-slate-500">Commissions, salaires ou autres sorties payées « Chez le comptable » plutôt que débitées d'une boutique.</div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
+          <span>Chez le comptable</span>
+          <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)} · Total : {fmt(total)}</span>
+        </div>
+        <table className="w-full text-sm min-w-[680px]">
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <tbody>
+            {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune sortie de caisse « Chez le comptable » pour l'instant.</td></tr>}
             {liste.map((x) => (
               <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2">{dFR(x.date)}</td>
@@ -4614,9 +4727,8 @@ function Users({ db, save, profile }) {
 
   const changerBoutique = async (u) => {
     const noms = db.boutiques.map((b) => b.nom);
-    const b = await uPrompt(`Boutique assignée à ${u.nom} ? (${noms.join(" / ")})`, u.boutique || noms[0]);
-    if (!b) return;
-    const nom = b.trim().toUpperCase();
+    const nom = await uChoix(`Boutique assignée à ${u.nom} ?`, noms);
+    if (!nom) return;
     if (!noms.includes(nom)) { uAlert("Boutique inconnue."); return; }
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, boutique: nom } : x)) });
   };
@@ -4770,7 +4882,7 @@ function Users({ db, save, profile }) {
         description: `Avance sur salaire ${libelleMoisFR(mois.trim())} — ${u.nom}`,
         montant, paiement: normPaiement(moyen), par: profile.nom, auto: "avance", user_id: u.id
       };
-      next = { ...next, depenses: [dep, ...next.depenses] };
+      next = { ...next, depenses: [dep, ...next.depenses], messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Avance versée à"), ...(db.messages || [])] };
     }
 
     save(next, `${type === "prime" ? "Prime" : "Avance"} de ${fmt(montant)} pour ${u.nom} (${mois.trim()})${motif.trim() ? " — " + motif.trim() : ""}`);
@@ -4838,7 +4950,8 @@ function Users({ db, save, profile }) {
     save({
       ...db,
       users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? credit : y)) } : x)),
-      depenses: [dep, ...db.depenses]
+      depenses: [dep, ...db.depenses],
+      messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Crédit BMI accordé à"), ...(db.messages || [])],
     }, `Crédit BMI de ${fmt(montant)} accordé à ${u.nom}`);
     uAlert(`✅ Crédit de ${fmt(montant)} accordé à ${u.nom}. Sortie de caisse enregistrée.`);
   };
@@ -4874,7 +4987,8 @@ function Users({ db, save, profile }) {
     save({
       ...db,
       users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? credit : y)) } : x)),
-      depenses: [dep, ...db.depenses]
+      depenses: [dep, ...db.depenses],
+      messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Remboursement de crédit reçu de", "entree"), ...(db.messages || [])],
     }, `Remboursement de crédit : ${fmt(montant)} de ${u.nom}${solde ? " — crédit soldé" : ""}`);
   };
 
@@ -8015,7 +8129,7 @@ function EspaceClient({ db, profile, save, setTab }) {
       messages: [message, ...(db.messages || [])],
       users: db.users.map((u) => (u.id === profile.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
-            ? { ...x, statut: "rejete", motif_rejet: motif.trim(), rejete_le: today() }
+            ? { ...x, statut: "rejete", motif_rejet: motif.trim(), rejete_le: today(), vu_par: [] }
             : x)) }
         : u)),
     }, `❌ Devis ${fmt(d.total)} REJETÉ par le client ${profile.nom} — ${motif.trim()}`);
@@ -8045,7 +8159,7 @@ function EspaceClient({ db, profile, save, setTab }) {
       messages: [message, ...(db.messages || [])],
       users: db.users.map((u) => (u.id === profile.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
-            ? { ...x, statut: "modification", demande_modif: quoi.trim(), modif_le: today() }
+            ? { ...x, statut: "modification", demande_modif: quoi.trim(), modif_le: today(), vu_par: [] }
             : x)) }
         : u)),
     }, `✏️ Modification demandée par le client ${profile.nom} sur un devis de ${fmt(d.total)}`);
@@ -9528,7 +9642,8 @@ function ClientsInstalles({ db, save, profile, isAdmin }) {
     // changé) — pas de rappel en double si l'équipe était déjà inchangée.
     const idsAvant = new Set((c.equipe || []).map((e) => e.user_id));
     const dateAvant = c.date_installation || "";
-    const nouveauxMembres = equipe.filter((e) => !idsAvant.has(e.user_id) || dateAvant !== p.date);
+    const dateAChange = dateAvant !== p.date;
+    const nouveauxMembres = equipe.filter((e) => !idsAvant.has(e.user_id) || dateAChange);
     const messagesNotif = nouveauxMembres.map((e) => ({
       id: uid(),
       date: today(),
@@ -9540,14 +9655,30 @@ function ClientsInstalles({ db, save, profile, isAdmin }) {
       texte: `📅 Vous avez été affecté${e.chef ? " comme chef d'équipe ⭐" : ""} à l'installation de ${c.prenom} ${c.nom} le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`,
     }));
 
+    // Le CLIENT aussi doit savoir — surtout s'il avait émis des réserves et
+    // attend un passage de rattrapage. Sans ce message, il n'avait aucun moyen
+    // de savoir qu'une date (nouvelle ou changée) venait d'être fixée.
+    const messageClient = (c.user_id && dateAChange) ? [{
+      id: uid(),
+      date: today(),
+      ts: new Date().toISOString(),
+      de_id: profile.id,
+      de_nom: profile.nom,
+      a_id: c.user_id,
+      lu_par: [profile.id],
+      texte: dateAvant
+        ? `📅 La date de votre installation a été mise à jour : ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`
+        : `📅 Votre installation est programmée le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`,
+    }] : [];
+
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, date_installation: p.date, equipe, a_programmer: false }
         : x)),
-      messages: [...messagesNotif, ...(db.messages || [])],
+      messages: [...messagesNotif, ...messageClient, ...(db.messages || [])],
     }, `📅 Installation de ${c.prenom} ${c.nom} programmée le ${dFR(p.date)} — chef ${db.users.find((u) => u.id === p.chef)?.nom || "?"}`);
-    uAlert(`✅ Installation programmée le ${dFR(p.date)}.\n\nLe chef d'équipe pourra marquer les travaux terminés le jour venu.${messagesNotif.length ? `\n\n${messagesNotif.length} membre(s) de l'équipe ont été notifiés par message.` : ""}`);
+    uAlert(`✅ Installation programmée le ${dFR(p.date)}.\n\nLe chef d'équipe pourra marquer les travaux terminés le jour venu.${messagesNotif.length ? `\n\n${messagesNotif.length} membre(s) de l'équipe ont été notifiés par message.` : ""}${messageClient.length ? `\nLe client a aussi été prévenu par message.` : ""}`);
   };
 
   // ---- LE CHEF DE CHANTIER DÉCLARE LES TRAVAUX TERMINÉS ----
@@ -9637,14 +9768,8 @@ function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (!isAdmin) { uAlert("Seul l'administrateur paie les parts d'installation."); return; }
     const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
     if (moyen === null) return;
-    const noms = boutiquesVente(db).map((b) => b.nom);
-    let bq = noms[0] || "";
-    if (noms.length > 1) {
-      const r = await uPrompt(`Boutique dont la caisse est débitée ? (${noms.join(" / ")})`, noms[0]);
-      if (r === null) return;
-      bq = String(r).trim().toUpperCase();
-      if (!noms.includes(bq)) { uAlert("Boutique inconnue."); return; }
-    }
+    const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`);
+    if (bq === null) return;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${bq} : ${fmt(e.montant)}`)) return;
     const dep = {
       id: uid(), date: today(), boutique: bq, categorie: "Prime d'installation",
@@ -9654,11 +9779,12 @@ function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today() } : y)) }
+        ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep.id } : y)) }
         : x)),
       depenses: [dep, ...db.depenses],
+      messages: [...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"), ...(db.messages || [])],
     }, `Part d'installation payée : ${fmt(e.montant)} à ${e.nom} (chantier ${c.nom})`);
-    uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}.`);
+    uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${bq}.`);
   };
 
   const modifierEntretien = async (c) => {
@@ -10245,10 +10371,11 @@ function MonEquipe({ db, save, profile }) {
     };
     save({
       ...db,
-      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, override_payee: true } : v)),
+      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, override_payee: true, override_dep: dep.id } : v)),
       depenses: [dep, ...db.depenses],
+      messages: [...messagesNotifPaiementCommission(db, profile, bq, c.u.nom, c.due), ...(db.messages || [])],
     }, `Commission d'équipe payée à ${c.u.nom} : ${fmt(c.due)}`);
-    uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}.`);
+    uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}. Sortie de caisse : ${bq}.`);
   };
 
   // Nombre de CLIENTS DISTINCTS apportés depuis toujours (pas seulement sur la période)
@@ -10298,14 +10425,8 @@ function MonEquipe({ db, save, profile }) {
     if (a.due <= 0) { uAlert("Aucune commission en attente pour " + a.nom + "."); return; }
     const moyen = await uPrompt(`Moyen de paiement pour ${a.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
     if (moyen === null) return;
-    const noms = db.boutiques.filter((b) => !b.depot).map((b) => b.nom);
-    let bq = noms[0] || "";
-    if (noms.length > 1) {
-      const r = await uPrompt(`Boutique dont la caisse est débitée ? (${noms.join(" / ")})`, noms[0]);
-      if (r === null) return;
-      bq = String(r).trim().toUpperCase();
-      if (!noms.includes(bq)) { uAlert("Boutique inconnue."); return; }
-    }
+    const bq = await choisirBoutiqueDebitG(db, {}, `Commission de ${fmt(a.due)} à l'apporteur ${a.nom}`);
+    if (bq === null) return;
     if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n${a.ventes.length} vente(s) concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
     const ids = new Set(a.ventes);
     const dep = {
@@ -10315,10 +10436,11 @@ function MonEquipe({ db, save, profile }) {
     };
     save({
       ...db,
-      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom } } : v)),
-      depenses: [dep, ...db.depenses]
+      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : v)),
+      depenses: [dep, ...db.depenses],
+      messages: [...messagesNotifPaiementCommission(db, profile, bq, a.nom, a.due), ...(db.messages || [])],
     }, `Commission de ${fmt(a.due)} payée à l'apporteur externe ${a.nom}`);
-    uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée.`);
+    uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée — sortie de caisse : ${bq}.`);
   };
 
   // Assigner une tâche à un agent (stockée dans sa fiche : visible dans son onglet ✅ Mes tâches)
@@ -10354,9 +10476,10 @@ function MonEquipe({ db, save, profile }) {
     save({
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, commission_payee: true, commission_dep: dep.id } : v)),
-      depenses: [dep, ...db.depenses]
+      depenses: [dep, ...db.depenses],
+      messages: [...messagesNotifPaiementCommission(db, profile, bq, st.u.nom, st.commissionDue), ...(db.messages || [])],
     }, `Commission payée à ${st.u.nom} : ${fmt(st.commissionDue)} (validée par ${profile.nom})`);
-    uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée.`);
+    uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie de caisse : ${bq}.`);
   };
 
   return (
