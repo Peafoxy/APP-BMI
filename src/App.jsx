@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.95.2";
+const VERSION = "2.95.3";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1363,11 +1363,11 @@ export default function App() {
   const titreOnglet = (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
 
   const BadgeSync = ({ sombre }) => (
-    <span className="inline-flex flex-col">
+    <span className="inline-flex flex-col shrink-0">
       <span className="inline-flex items-center gap-1.5">
         {sync.enLigne && sync.supabaseOk
-          ? <span className={`text-xs font-semibold ${sombre ? "text-green-400" : "text-green-700"}`}>🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente} à envoyer` : ""}</span>
-          : <span className={`text-xs font-semibold ${sombre ? "text-amber-400" : "text-amber-600"}`}>🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente} en attente` : ""}</span>}
+          ? <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-green-400" : "text-green-700"}`}>🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente} à envoyer` : ""}</span>
+          : <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-amber-400" : "text-amber-600"}`}>🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente} en attente` : ""}</span>}
         {/* La version : maintenant déjà affichée en haut à côté de « Lomé, Togo »
             (visible partout, y compris sur téléphone). Ici, on ne la garde en double
             que sur ordinateur, où la barre latérale est toujours visible — sur
@@ -1549,7 +1549,7 @@ export default function App() {
                 <div className="text-xs text-slate-400">v{VERSION} — Lomé, Togo</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-3 text-sm flex-wrap">
               <button onClick={() => setRechercheOuverte(true)} className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍</button>
               <BadgeSync sombre />
               {saveStatus === "error" && <span className="text-xs text-red-400">⚠ Erreur locale</span>}
