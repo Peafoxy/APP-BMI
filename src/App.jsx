@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.96.2";
+const VERSION = "2.96.3";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1547,8 +1547,8 @@ export default function App() {
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
                 <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
-                  <span>v{VERSION} — Lomé, Togo</span>
                   {profile?.nom && <span className="font-bold text-orange-500">👤 {profile.nom}</span>}
+                  <span>v{VERSION}</span>
                 </div>
               </div>
             </div>
