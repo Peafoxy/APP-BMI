@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.89.0";
+const VERSION = "2.90.0";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1287,6 +1287,15 @@ export default function App() {
 
   const nonLus = compterNonLus(db, profile);
   const labelMessages = `💬 Messages${nonLus ? ` (${nonLus})` : ""}`;
+  const nouveauxDevis = compterNouveauxDevis(db, profile);
+  const labelTousDevis = (
+    <span className="inline-flex items-center gap-1.5">
+      📋 Tous les devis
+      {nouveauxDevis > 0 && (
+        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full animate-pulse">{nouveauxDevis}</span>
+      )}
+    </span>
+  );
   const notifsPaie = compterNotifsSalaire(db, profile);
   const labelSalaire = `💵 Salaire${notifsPaie ? ` (${notifsPaie})` : ""}`;
   const jeSuisApporteur = estApporteur(db, profile);
@@ -1298,22 +1307,22 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", "📋 Tous les devis"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
-    ? [["equipe", "👑 Mon équipe"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", "🏠 Clients installés"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", "📋 Tous les devis"], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["equipe", "👑 Mon équipe"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", "🏠 Clients installés"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
-    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", "📋 Tous les devis"], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", "👑 Mon équipe"]] : [])]
+    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", "👑 Mon équipe"]] : [])]
     : isTechnicienBMI
-    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", "📋 Tous les devis"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", "📋 Tous les devis"], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
-    : [["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", "📋 Tous les devis"], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]];
+    : [["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -1425,7 +1434,7 @@ export default function App() {
         setPreRempli({ boutique, panier, remise });
         setTab((isCommercial || isTechnicien) ? "commande" : "ventes");
       }} />}
-      {tab === "tous_devis" && <TousLesDevis db={db} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />}
+      {tab === "tous_devis" && <TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />}
       {tab === "depenses" && <Depenses db={db} save={save} profile={profile} />}
       {tab === "dettes" && <Dettes db={db} save={save} profile={profile} />}
       {tab === "clients" && <Clients db={db} profile={profile} />}
@@ -6558,7 +6567,7 @@ function joursDepuis(dateStr) {
 }
 const SEUIL_RELANCE_JOURS = 15;
 
-function TousLesDevis({ db, profile, onModifierDevis }) {
+function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
 
   const tousDevis = db.users
@@ -6572,6 +6581,19 @@ function TousLesDevis({ db, profile, onModifierDevis }) {
   const [filtreType, setFiltreType] = useState("");
   const [recherche, setRecherche] = useState("");
   const [relanceSeule, setRelanceSeule] = useState(false);
+
+  // Ouvrir un devis le marque comme « vu » — la pastille rouge ne le comptera plus.
+  const ouvrirDevis = (d) => {
+    setOuvert(ouvert === d.id ? null : d.id);
+    if (!(d.vu_par || []).includes(profile.id)) {
+      save({
+        ...db,
+        users: db.users.map((u) => (u.id === d.client?.id
+          ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, vu_par: [...(x.vu_par || []), profile.id] } : x)) }
+          : u)),
+      });
+    }
+  };
 
   const enAttenteDeRelance = (d) => (d.statut || "propose") === "propose" && joursDepuis(d.date) >= SEUIL_RELANCE_JOURS;
   const nbARelancer = tousDevis.filter(enAttenteDeRelance).length;
@@ -6637,12 +6659,15 @@ function TousLesDevis({ db, profile, onModifierDevis }) {
           <div className="divide-y divide-slate-100">
             {devisFiltres.map((d) => (
               <div key={d.id}>
-                <button onClick={() => setOuvert(ouvert === d.id ? null : d.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50 flex-wrap">
+                <button onClick={() => ouvrirDevis(d)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50 flex-wrap">
                   <span className="flex-1 min-w-[180px]">
                     <span className="font-bold text-slate-800">{d.client?.nom_base || d.client?.nom || "Client"}</span>
                     <span className="text-xs text-slate-500 ml-2">{libelleTypeDevis(d)}</span>
                     <span className="block text-xs text-slate-400">Le {dFR(d.date)} par {d.par} — {d.boutique}</span>
                   </span>
+                  {!(d.vu_par || []).includes(profile.id) && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" title="Nouveau — pas encore ouvert"></span>
+                  )}
                   <span className="font-bold text-sky-800 whitespace-nowrap">{fmt(d.total)}</span>
                   {enAttenteDeRelance(d) && (
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-300" title="Devis proposé sans réponse depuis longtemps">
@@ -8248,23 +8273,33 @@ function EspaceClient({ db, profile, save, setTab }) {
                       <div className="mt-4 text-xs text-slate-500">⭐ Merci, votre avis sur {d.par} a bien été enregistré.</div>
                     )}
 
-                    {d.statut === "valide" && (
-                      <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-                        <div className="font-bold text-amber-900">⏳ Validé — en attente de votre paiement</div>
-                        <div className="text-sm text-slate-700 mt-1">
-                          Passez à la boutique <b>{d.boutique_paiement}</b> pour régler {fmt(d.total)}. Le vendeur vous attend.
-                        </div>
-                        {(d.boutique_adresse || d.boutique_tel || (d.boutique_lat && d.boutique_lng)) && (
-                          <div className="text-sm text-slate-700 mt-2 pt-2 border-t border-amber-200">
-                            {d.boutique_adresse && <div>📍 {d.boutique_adresse}</div>}
-                            {d.boutique_tel && <div>📞 {d.boutique_tel}</div>}
-                            {d.boutique_lat && d.boutique_lng && (
-                              <a href={`https://www.google.com/maps?q=${d.boutique_lat},${d.boutique_lng}`} target="_blank" rel="noreferrer" className="inline-block mt-1 text-sky-700 font-bold underline">🗺️ Voir l'itinéraire sur la carte</a>
-                            )}
+                    {d.statut === "valide" && (() => {
+                      // Lu EN DIRECT depuis la fiche boutique — pas figé au moment de la validation,
+                      // pour que le client voie toujours les informations à jour, même si elles ont
+                      // été complétées après coup.
+                      const infosBoutique = db.boutiques.find((b) => b.nom === d.boutique_paiement);
+                      const adresse = infosBoutique?.adresse || d.boutique_adresse;
+                      const tel = infosBoutique?.tel || d.boutique_tel;
+                      const lat = infosBoutique?.lat || d.boutique_lat;
+                      const lng = infosBoutique?.lng || d.boutique_lng;
+                      return (
+                        <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+                          <div className="font-bold text-amber-900">⏳ Validé — en attente de votre paiement</div>
+                          <div className="text-sm text-slate-700 mt-1">
+                            Passez à la boutique <b>{d.boutique_paiement}</b> pour régler {fmt(d.total)}. Le vendeur vous attend.
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {(adresse || tel || (lat && lng)) && (
+                            <div className="text-sm text-slate-700 mt-2 pt-2 border-t border-amber-200">
+                              {adresse && <div>📍 {adresse}</div>}
+                              {tel && <div>📞 {tel}</div>}
+                              {lat && lng && (
+                                <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer" className="inline-block mt-1 text-sky-700 font-bold underline">🗺️ Voir l'itinéraire sur la carte</a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {d.statut === "paye" && (
                       <div className="mt-4 rounded-xl border-2 border-green-300 bg-green-50 p-3">
@@ -8720,6 +8755,19 @@ function compterNonLus(db, profile) {
     }
     return m.a_id === profile.id;
   }).length;
+}
+
+// Nombre de devis pas encore ouverts par cet utilisateur, dans la même
+// visibilité que « Tous les devis » (l'admin et le resp. commercial voient
+// tout ; les autres élaborateurs ne comptent que les leurs).
+function compterNouveauxDevis(db, profile) {
+  const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
+  return db.users
+    .filter((u) => u.role === "client")
+    .flatMap((u) => u.devis || [])
+    .filter((d) => voitTout || d.par_id === profile.id)
+    .filter((d) => !(d.vu_par || []).includes(profile.id))
+    .length;
 }
 
 // ============ FRAIS D'INSTALLATION ============
