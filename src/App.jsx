@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.88.2";
+const VERSION = "2.89.0";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -7935,10 +7935,11 @@ function EspaceClient({ db, profile, save, setTab }) {
     if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
     const infosBoutique = db.boutiques.find((b) => b.nom === boutique);
     const localisation = infosBoutique?.adresse ? `\n📍 ${infosBoutique.adresse}` : "";
+    const lienCarte = infosBoutique?.lat && infosBoutique?.lng ? `\n🗺️ Itinéraire : https://www.google.com/maps?q=${infosBoutique.lat},${infosBoutique.lng}` : "";
     const telBoutique = infosBoutique?.tel ? `\n📞 ${infosBoutique.tel}` : "";
     if (!await uConfirm(
       `Valider ce devis de ${fmt(d.total)} ?\n\n` +
-      `Vous vous engagez à passer payer à la boutique ${boutique}.${localisation}${telBoutique}\n` +
+      `Vous vous engagez à passer payer à la boutique ${boutique}.${localisation}${lienCarte}${telBoutique}\n` +
       `Le vendeur y sera prévenu de votre venue.\n\n` +
       `L'installation sera programmée après votre paiement.`
     )) return;
@@ -7984,12 +7985,12 @@ function EspaceClient({ db, profile, save, setTab }) {
       prospects: prospectsMaj,
       users: db.users.map((u) => (u.id === profile.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
-            ? { ...x, statut: "valide", boutique_paiement: boutique, boutique_adresse: infosBoutique?.adresse || "", boutique_tel: infosBoutique?.tel || "", valide_le: today(), commande_id: commande.id }
+            ? { ...x, statut: "valide", boutique_paiement: boutique, boutique_adresse: infosBoutique?.adresse || "", boutique_tel: infosBoutique?.tel || "", boutique_lat: infosBoutique?.lat || null, boutique_lng: infosBoutique?.lng || null, valide_le: today(), commande_id: commande.id }
             : x)) }
         : u)),
     }, `Devis ${fmt(d.total)} VALIDÉ par le client ${profile.nom} — paiement prévu à ${boutique}`);
 
-    uAlert(`✅ Merci ! Votre devis est validé.\n\nPassez à la boutique ${boutique} pour régler.${localisation}${telBoutique}\nLe vendeur vous attend.\n\nDès votre paiement, nous programmerons votre installation.`);
+    uAlert(`✅ Merci ! Votre devis est validé.\n\nPassez à la boutique ${boutique} pour régler.${localisation}${lienCarte}${telBoutique}\nLe vendeur vous attend.\n\nDès votre paiement, nous programmerons votre installation.`);
   };
 
   // ---- RÉCEPTION DES TRAVAUX PAR LE CLIENT ----
@@ -8253,10 +8254,13 @@ function EspaceClient({ db, profile, save, setTab }) {
                         <div className="text-sm text-slate-700 mt-1">
                           Passez à la boutique <b>{d.boutique_paiement}</b> pour régler {fmt(d.total)}. Le vendeur vous attend.
                         </div>
-                        {(d.boutique_adresse || d.boutique_tel) && (
+                        {(d.boutique_adresse || d.boutique_tel || (d.boutique_lat && d.boutique_lng)) && (
                           <div className="text-sm text-slate-700 mt-2 pt-2 border-t border-amber-200">
                             {d.boutique_adresse && <div>📍 {d.boutique_adresse}</div>}
                             {d.boutique_tel && <div>📞 {d.boutique_tel}</div>}
+                            {d.boutique_lat && d.boutique_lng && (
+                              <a href={`https://www.google.com/maps?q=${d.boutique_lat},${d.boutique_lng}`} target="_blank" rel="noreferrer" className="inline-block mt-1 text-sky-700 font-bold underline">🗺️ Voir l'itinéraire sur la carte</a>
+                            )}
                           </div>
                         )}
                       </div>
@@ -10427,6 +10431,7 @@ function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, der
 
   const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false, adresse: "", tel: "" });
   const [couleurPour, setCouleurPour] = useState(null);
+  const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   const nomCouleur = (hex) => (PALETTE.find(([, h]) => h === hex) || [hex])[0];
 
   const utilisee = (nom) =>
@@ -10726,6 +10731,15 @@ function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, der
     uAlert("Informations du reçu mises à jour !");
   };
 
+  const enregistrerPosition = (b, lat, lng) => {
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, lat, lng } : x)) }, `Position GPS de ${b.nom} mise à jour`);
+  };
+  const retirerPosition = async (b) => {
+    if (!await uConfirm(`Retirer la position GPS de ${b.nom} ?`)) return;
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, lat: null, lng: null } : x)) }, `Position GPS de ${b.nom} retirée`);
+    setPositionPour(null);
+  };
+
   return (
     <div className="space-y-4">
       {couleurPour && (
@@ -10743,6 +10757,25 @@ function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, der
             <div className="mt-2 text-xs text-slate-500">Survolez une pastille pour voir le nom de la couleur.</div>
             <div className="mt-4 flex justify-end">
               <button onClick={() => setCouleurPour(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {positionPour && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-lg">
+            <div className="font-bold text-slate-900 mb-1">📌 Position GPS de {positionPour.nom}</div>
+            <div className="text-xs text-slate-500 mb-3">Cliquez sur la carte, ou faites glisser le repère, pour marquer l'emplacement exact. C'est ce lien qui sera envoyé au client pour qu'il s'y rende facilement.</div>
+            <CarteChoixPosition
+              lat={db.boutiques.find((x) => x.id === positionPour.id)?.lat}
+              lng={db.boutiques.find((x) => x.id === positionPour.id)?.lng}
+              onChoisir={(lat, lng) => enregistrerPosition(positionPour, lat, lng)}
+            />
+            <div className="mt-4 flex justify-between items-center">
+              {positionPour.lat
+                ? <button onClick={() => retirerPosition(positionPour)} className="text-xs text-red-600 underline">Retirer la position</button>
+                : <span />}
+              <button onClick={() => setPositionPour(null)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">Terminé</button>
             </div>
           </div>
         </div>
@@ -10797,6 +10830,7 @@ function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, der
                   <button onClick={() => chargerLogo(b)} className="text-xs font-bold text-blue-700 underline mr-2">🖼 Logo</button>
                   {b.logo && <button onClick={() => retirerLogo(b)} className="text-xs text-slate-500 underline mr-2">Retirer</button>}
                   <button onClick={() => modifierInfos(b)} className="text-xs font-bold text-sky-800 underline mr-2">📍 Infos reçu</button>
+                  <button onClick={() => setPositionPour(b)} className={`text-xs font-bold underline mr-2 ${b.lat ? "text-green-700" : "text-sky-800"}`}>📌 {b.lat ? "Position GPS ✓" : "Position GPS"}</button>
                   <button onClick={() => setCouleurPour(b)} className="text-xs font-bold text-sky-800 underline mr-2">Couleur</button>
                   <button onClick={() => supprimer(b)} className="text-xs text-red-600 underline mr-2">Suppr.</button>
                   {utilisee(b.nom) && <button onClick={() => supprimerAvecDonnees(b)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-0.5 hover:bg-red-800">Suppr. avec ses données</button>}
