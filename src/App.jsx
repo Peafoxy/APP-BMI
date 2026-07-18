@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.88.0";
+const VERSION = "2.88.2";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -5086,11 +5086,11 @@ function categorieMoteur(poidsKg) {
 // dépendance entre deux lignes). Le Solaire garde sa propre version : le choix
 // du convertisseur y détermine si un régulateur est nécessaire, une dépendance
 // entre deux rôles que cette version générique ne gère pas.
-function useSelectionAvecVerrou(meilleurChoix) {
-  const [choix, setChoix] = useState({});
+function useSelectionAvecVerrou(meilleurChoix, initial) {
+  const [choix, setChoix] = useState(() => initial?.choix || {});
   const [manuelOuvert, setManuelOuvert] = useState({});
   const [brouillonManuel, setBrouillonManuel] = useState({});
-  const [verrous, setVerrous] = useState({});
+  const [verrous, setVerrous] = useState(() => initial?.verrous || {});
 
   const recalculerNonVerrouilles = (items) => {
     setChoix((avant) => {
@@ -5303,6 +5303,7 @@ function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAR
   // ---- Besoins du client (liste d'appareils) ----
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
   const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const lignesReprises = devisAReprendre?.devis?.lignes || [];
   const [appareils, setAppareils] = useState(() =>
     besoinsRepris?.appareils?.length
       ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) }))
@@ -5368,12 +5369,29 @@ function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAR
   };
 
   // choix[roleId] = { type: "stock", produit_id, qte } OU { type: "manuel", nom, prix, qte }
-  const [choix, setChoix] = useState({});
+  // Reconstruit les équipements déjà choisis depuis les lignes RÉELLES du devis
+  // repris — restitue aussi ceux saisis directement à la main.
+  const initialSelectionSolaire = (() => {
+    if (!lignesReprises.length || !devisAReprendre) return null;
+    const choix = {}, verrous = {};
+    ROLES_EQUIPEMENT.forEach((role) => {
+      const ligne = lignesReprises.find((l) => l.categorie === role.label);
+      if (!ligne) return;
+      const options = candidats(role);
+      const trouve = options.find((o) => o.p.nom === ligne.article);
+      choix[role.id] = trouve
+        ? { type: "stock", produit_id: trouve.p.id, qte: Number(ligne.qte) || 1 }
+        : { type: "manuel", nom: ligne.article, prix: Number(ligne.pu) || 0, qte: Number(ligne.qte) || 1 };
+      verrous[role.id] = true;
+    });
+    return { choix, verrous };
+  })();
+  const [choix, setChoix] = useState(() => initialSelectionSolaire?.choix || {});
   const [manuelOuvert, setManuelOuvert] = useState({}); // { roleId: bool } — affiche le mini-formulaire de saisie libre
   const [brouillonManuel, setBrouillonManuel] = useState({}); // { roleId: { nom, prix, qte } }
   // Rôles que le vendeur a choisi de saisir/sélectionner lui-même : la sélection
   // automatique ne doit plus jamais y toucher tant qu'il ne revient pas en arrière.
-  const [rolesManuels, setRolesManuels] = useState({});
+  const [rolesManuels, setRolesManuels] = useState(() => initialSelectionSolaire?.verrous || {});
 
   useEffect(() => {
     setChoix((avant) => {
@@ -5467,14 +5485,20 @@ function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAR
   // ---- Rails de fixation : quantité et prix calculés automatiquement ----
   // Formule : (nombre de panneaux × 2,2) ÷ 4,2 = quantité de rails ; prix fixe 5 500 F/rail
   const nombrePanneaux = choix.panneau?.qte || 0;
-  const [railsQte, setRailsQte] = useState(0);
+  const ligneRailsReprise = lignesReprises.find((l) => l.categorie === "Rails de fixation");
+  const [railsQte, setRailsQte] = useState(ligneRailsReprise ? Number(ligneRailsReprise.qte) : 0);
+  const premierRenduRails = useRef(true);
   useEffect(() => {
+    if (premierRenduRails.current) { premierRenduRails.current = false; return; } // ne pas écraser la reprise au montage
     setRailsQte(nombrePanneaux > 0 ? Math.ceil(nombrePanneaux * 2.2) : 0);
   }, [nombrePanneaux]);
   const sousTotalRails = railsQte * PRIX_RAIL;
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
-  const [autres, setAutres] = useState([]);
+  const [autres, setAutres] = useState(() =>
+    lignesReprises.filter((l) => l.categorie === "Autres équipements")
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+  );
   const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
   const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const retirerAutre = (id) => setAutres(autres.filter((a) => a.id !== id));
@@ -5764,6 +5788,7 @@ function DimensionnementGarage({ db, profile, save, onConvertirEnVente, devisARe
   // ---- Besoins du client ----
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
   const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const lignesReprises = devisAReprendre?.devis?.lignes || [];
   const [type, setType] = useState(besoinsRepris?.type_ouvrant || "portail_coulissant");
   const [largeur, setLargeur] = useState(besoinsRepris?.largeur ? String(besoinsRepris.largeur) : "");
   const [hauteur, setHauteur] = useState(besoinsRepris?.hauteur ? String(besoinsRepris.hauteur) : "");
@@ -5836,11 +5861,30 @@ function DimensionnementGarage({ db, profile, save, onConvertirEnVente, devisARe
     return { type: "stock", produit_id: meilleur.p.id, qte };
   };
 
+  // Reconstruit les équipements déjà choisis depuis les lignes RÉELLES du devis
+  // repris — restitue aussi ceux saisis directement à la main, sans quoi ils
+  // disparaissaient à la reprise.
+  const initialSelectionGarage = (() => {
+    if (!lignesReprises.length || !devisAReprendre) return undefined;
+    const choix = {}, verrous = {};
+    ROLES_EQUIPEMENT_GARAGE.forEach((role) => {
+      const ligne = lignesReprises.find((l) => l.categorie === role.label);
+      if (!ligne) return;
+      const options = candidats(role);
+      const trouve = options.find((o) => o.p.nom === ligne.article);
+      choix[role.id] = trouve
+        ? { type: "stock", produit_id: trouve.p.id, qte: Number(ligne.qte) || 1 }
+        : { type: "manuel", nom: ligne.article, prix: Number(ligne.pu) || 0, qte: Number(ligne.qte) || 1 };
+      verrous[role.id] = true;
+    });
+    return { choix, verrous };
+  })();
+
   const {
     choix, manuelOuvert, brouillonManuel, setBrouillonManuel,
     recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte,
     ouvrirManuel: ouvrirManuelBase, validerManuel, annulerManuel,
-  } = useSelectionAvecVerrou(meilleurChoix);
+  } = useSelectionAvecVerrou(meilleurChoix, initialSelectionGarage);
 
   useEffect(() => {
     recalculerNonVerrouilles(ROLES_EQUIPEMENT_GARAGE);
@@ -5874,15 +5918,20 @@ function DimensionnementGarage({ db, profile, save, onConvertirEnVente, devisARe
 
 
   // ---- Kit solaire autonome (si pas d'électricité à proximité) ----
-  const [kitSolaire, setKitSolaire] = useState(false);
-  const [prixKitSolaire, setPrixKitSolaire] = useState("");
+  const ligneKitSolaire = lignesReprises.find((l) => l.article === "Kit solaire autonome (motorisation)");
+  const [kitSolaire, setKitSolaire] = useState(!!ligneKitSolaire);
+  const [prixKitSolaire, setPrixKitSolaire] = useState(ligneKitSolaire ? String(ligneKitSolaire.pu) : "");
 
   // ---- Batterie de secours (externe) : en option, cochée par le client ----
-  const [batterieSecours, setBatterieSecours] = useState(false);
-  const [prixBatterieSecours, setPrixBatterieSecours] = useState("");
+  const ligneBatterieSecours = lignesReprises.find((l) => l.article === "Batterie de secours (externe)");
+  const [batterieSecours, setBatterieSecours] = useState(!!ligneBatterieSecours);
+  const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : "");
 
   // ---- Autres équipements : coffret de commande, câblage… ----
-  const [autres, setAutres] = useState([]);
+  const [autres, setAutres] = useState(() =>
+    lignesReprises.filter((l) => l.categorie === "Autres équipements")
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+  );
   const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
   const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const retirerAutre = (id) => setAutres(autres.filter((a) => a.id !== id));
@@ -6188,17 +6237,35 @@ function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisARep
 
   const categories = [...new Set(produitsBoutique.map((p) => p.categorie || "Autre"))].sort();
   const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const lignesReprises = devisAReprendre?.devis?.lignes || [];
   const [categorieChoisie, setCategorieChoisie] = useState(besoinsRepris?.categorie || "");
   useEffect(() => { if (!categorieChoisie && categories.length > 0) setCategorieChoisie(categories[0]); }, [categories.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const produitsCategorie = produitsBoutique.filter((p) => (p.categorie || "Autre") === categorieChoisie);
 
   // ---- Besoins du client : liste libre, remplie au fil de l'eau ----
-  // Si on reprend un devis (modification/rejet), on repart de sa liste de besoins d'origine.
-  const [besoins, setBesoins] = useState(() =>
-    besoinsRepris?.articles_demandes?.length
-      ? besoinsRepris.articles_demandes.map((a) => ({ id: uid(), nom: a.nom, qte: String(a.qte || 1) }))
-      : [{ id: uid(), nom: "", qte: "1" }]
-  );
+  // Si on reprend un devis (modification/rejet), on repart des lignes RÉELLES du
+  // devis d'origine (et non de la simple liste de recherche) : ça restitue aussi
+  // les articles qui avaient été saisis directement à la main, sans jamais passer
+  // par le champ de recherche — sinon ils disparaissaient purement et simplement.
+  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie === besoinsRepris.categorie) : [];
+  // Reconstruit besoins + choix/verrous à partir des mêmes lignes, en tentant de
+  // retrouver l'article correspondant en stock — sinon on restitue le prix d'origine tel quel.
+  const initialSelection = (() => {
+    if (!lignesCategorie.length) return undefined;
+    const choix = {}, verrous = {}, besoinsInit = [];
+    lignesCategorie.forEach((l) => {
+      const id = uid();
+      besoinsInit.push({ id, nom: l.article, qte: String(l.qte) });
+      const matches = correspondancesBesoin(l.article, produitsCategorie);
+      const trouve = matches.find((m) => m.p.nom === l.article) || matches[0];
+      choix[id] = trouve
+        ? { type: "stock", produit_id: trouve.p.id, qte: Number(l.qte) || 1 }
+        : { type: "manuel", nom: l.article, prix: Number(l.pu) || 0, qte: Number(l.qte) || 1 };
+      verrous[id] = true;
+    });
+    return { choix, verrous, besoinsInit };
+  })();
+  const [besoins, setBesoins] = useState(() => initialSelection?.besoinsInit || [{ id: uid(), nom: "", qte: "1" }]);
 
   const meilleurChoixBesoin = (besoin) => {
     if (!besoin || !besoin.nom || !besoin.nom.trim()) return null;
@@ -6211,7 +6278,7 @@ function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisARep
     choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel, verrous: besoinsManuels,
     recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte: changerQteChoix,
     ouvrirManuel: ouvrirManuelBase, validerManuel, annulerManuel,
-  } = useSelectionAvecVerrou(meilleurChoixBesoin);
+  } = useSelectionAvecVerrou(meilleurChoixBesoin, initialSelection);
 
   const changerProduit = (besoinId, produitId) => changerProduitBase(besoinId, produitId, () => {
     const besoin = besoins.find((b) => b.id === besoinId);
@@ -6263,7 +6330,10 @@ function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisARep
   const totalRoles = lignesDevis.reduce((s, l) => s + l.sousTotal, 0);
 
   // ---- Autres équipements : hors de la catégorie choisie ----
-  const [autres, setAutres] = useState([]);
+  const [autres, setAutres] = useState(() =>
+    lignesReprises.filter((l) => l.categorie === "Autres équipements")
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+  );
   const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
   const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const retirerAutre = (id) => setAutres(autres.filter((a) => a.id !== id));
@@ -8346,6 +8416,15 @@ function Messagerie({ db, save, profile }) {
         .filter(Boolean)
     : [];
 
+  // ---- Clients qui M'ONT ÉCRIT directement (ex. demande de modification/rejet
+  // d'un devis) : sans ça, leur message compte dans le badge « non lus » mais
+  // reste invisible et impossible à ouvrir — un message orphelin, sans conversation.
+  const clientsQuiMOntEcrit = !estClient
+    ? [...new Set(messages.filter((m) => m.a_id === profile.id && !m.canal && m.de_id).map((m) => m.de_id))]
+        .map((id) => db.users.find((u) => u.id === id && u.role === "client" && u.actif !== false))
+        .filter(Boolean)
+    : [];
+
   // ---- Fils clients visibles par moi ----
   const clientsAvecFil = db.users.filter((u) => u.role === "client" && u.actif !== false && peutVoirFilClient(profile, u.id, db));
 
@@ -8449,6 +8528,21 @@ function Messagerie({ db, save, profile }) {
               })}
             </>
           )}
+          {!estClient && clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).length > 0 && (
+            <>
+              <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👤 Clients qui vous ont écrit</div>
+              {clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).map((u) => {
+                const c = { type: "user", id: u.id };
+                const nb = nonLusPour(c);
+                return (
+                  <button key={"ecrit" + u.id} onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${conv?.type === "user" && conv?.id === u.id ? "bg-sky-50" : ""}`}>
+                    <span className="font-semibold text-sm">{u.nom_base || u.nom}</span>
+                    {nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nb}</span>}
+                  </button>
+                );
+              })}
+            </>
+          )}
           {!estClient && clientsAvecFil.length > 0 && (
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">🛟 Support clients</div>
@@ -8499,7 +8593,7 @@ function Messagerie({ db, save, profile }) {
             </>
           )}
           {estClient && !chatLibre && <div className="px-4 py-3 text-xs text-slate-400">Vos messages sont transmis à l'équipe BMI Togo (administration, techniciens et votre commercial).</div>}
-          {!estClient && contacts.length === 0 && clientsAvecFil.length === 0 && mesGroupes.length === 0 && mesClientsEnTantQueChef.length === 0 && !isAdmin && <div className="px-4 py-6 text-sm text-slate-400 text-center">Aucun contact pour l'instant — les autres membres de l'équipe apparaîtront ici dès leur création.</div>}
+          {!estClient && contacts.length === 0 && clientsAvecFil.length === 0 && mesGroupes.length === 0 && mesClientsEnTantQueChef.length === 0 && clientsQuiMOntEcrit.length === 0 && !isAdmin && <div className="px-4 py-6 text-sm text-slate-400 text-center">Aucun contact pour l'instant — les autres membres de l'équipe apparaîtront ici dès leur création.</div>}
         </div>
       </div>
 
