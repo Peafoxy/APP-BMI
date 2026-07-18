@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.90.2";
+const VERSION = "2.91.0";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1303,6 +1303,15 @@ export default function App() {
       )}
     </span>
   );
+  const chantiersAProgrammer = compterChantiersAProgrammer(db, profile);
+  const labelParc = (
+    <span className="inline-flex items-center gap-1.5">
+      🏠 Clients installés
+      {chantiersAProgrammer > 0 && (
+        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full animate-pulse" title="Chantier(s) payé(s) en attente de programmation">{chantiersAProgrammer}</span>
+      )}
+    </span>
+  );
   const notifsPaie = compterNotifsSalaire(db, profile);
   const labelSalaire = `💵 Salaire${notifsPaie ? ` (${notifsPaie})` : ""}`;
   const jeSuisApporteur = estApporteur(db, profile);
@@ -1314,11 +1323,11 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
-    ? [["equipe", "👑 Mon équipe"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", "🏠 Clients installés"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["equipe", "👑 Mon équipe"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
     ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", "👑 Mon équipe"]] : [])]
     : isTechnicienBMI
@@ -1554,6 +1563,7 @@ function Login({ db, onLogin, save }) {
   const [nomSaisi, setNomSaisi] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");
+  const [connexionEnCours, setConnexionEnCours] = useState(false);
   const go = async () => {
     const saisie = nomSaisi.trim().toLowerCase();
     if (!saisie) { setErr("Entrez votre nom d'utilisateur."); return; }
@@ -1567,9 +1577,15 @@ function Login({ db, onLogin, save }) {
     if (!u.pwd_hash && save) {
       save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, pwd_hash: h, pwd: undefined } : x)) });
     }
-    // Établit une vraie session Supabase sécurisée (en arrière-plan, sans
-    // bloquer la connexion si hors ligne ou serveur indisponible)
-    synchroniserAuth(u.id, pwd);
+    // Établit une vraie session Supabase sécurisée AVANT de continuer — et non
+    // en arrière-plan sans attendre : sinon la synchronisation générale qui
+    // démarre juste après risquait de partir AVANT que la session ne soit
+    // prête, et ne récupérait alors que les données publiques (les comptes),
+    // pas le reste (devis, chantiers, messages...). Un échec ici (hors ligne,
+    // serveur indisponible) ne bloque jamais la connexion locale.
+    setConnexionEnCours(true);
+    await synchroniserAuth(u.id, pwd).catch(() => {});
+    setConnexionEnCours(false);
     onLogin(u);
   };
   return (
@@ -1589,7 +1605,7 @@ function Login({ db, onLogin, save }) {
             <input type="password" className={inputCls} value={pwd} onChange={(e) => { setPwd(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
           </Field>
           {err && <div className="text-xs text-red-600 font-semibold">{err}</div>}
-          <button onClick={go} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">Se connecter</button>
+          <button onClick={go} disabled={connexionEnCours} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{connexionEnCours ? "Connexion…" : "Se connecter"}</button>
           <div className="text-center text-[11px] text-slate-400">Version {VERSION}</div>
         </div>
       </div>
@@ -8777,6 +8793,15 @@ function compterNouveauxDevis(db, profile) {
     .length;
 }
 
+// Chantiers créés par le paiement d'un devis, mais jamais encore programmés —
+// sans alerte, ils peuvent rester en dormance indéfiniment, personne ne
+// pensant à revenir les vérifier. Seuls l'administrateur et le responsable
+// commercial peuvent programmer : eux seuls voient cette pastille.
+function compterChantiersAProgrammer(db, profile) {
+  if (profile.role !== "admin" && profile.role !== "resp_commercial") return 0;
+  return (db.clients_installes || []).filter((c) => c.a_programmer && !c.date_installation).length;
+}
+
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
 // chantier. Le CHEF DU CHANTIER (désigné par l'administrateur, chantier par chantier)
@@ -9785,8 +9810,8 @@ function ClientsInstalles({ db, save, profile, isAdmin }) {
                       {STATUT_CHANTIER[statutChantier(c)].label}
                     </div>
                     {c.a_programmer && !c.date_installation && (
-                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-purple-50 text-purple-700 border-purple-200 ml-1">
-                        📅 À PROGRAMMER
+                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-red-50 text-red-700 border-red-300 ml-1 animate-pulse">
+                        🔔 À PROGRAMMER
                       </div>
                     )}
                     {statutChantier(c) === "reserves" && <div className="text-[10px] text-red-600 mt-0.5 italic">« {c.reserves} »</div>}
