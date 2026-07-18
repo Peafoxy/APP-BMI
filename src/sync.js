@@ -261,47 +261,68 @@ export async function synchroniser() {
       let maxVu = curseur;
 
       // 2a) Les suppressions distantes
-      const morts = await lireTout("tombstones", "deleted_at", depuis);
-      for (const m of morts) {
-        if (m.table_name === "*") {
-          // Réinitialisation générale : cet appareil vide sa base locale ET sa
-          // file d'attente, sinon il repousserait ses vieilles données.
-          // On ne traite CHAQUE réinitialisation QU'UNE FOIS : sans ce garde-fou,
-          // une relecture complète (curseur remis à zéro) reviderait la file
-          // d'attente à chaque fois — et détruirait des ventes faites hors ligne.
-          const dejaVu = await idb.meta.get("reset_traite");
-          if (!dejaVu || String(dejaVu.valeur) < String(m.deleted_at)) {
-            await idb.transaction("rw", [...TABLES.map((t) => idb.table(t)), idb.outbox, idb.meta], async () => {
-              await idb.outbox.clear();
-              for (const t of TABLES) {
-                if (t === "users") continue;
-                await idb.table(t).clear();
-              }
-              await idb.meta.put({ cle: "reset_traite", valeur: m.deleted_at });
-            });
+      // Isolée dans son propre essai : sur un appareil neuf sans session encore
+      // établie, cette lecture peut échouer (table verrouillée aux sessions
+      // authentifiées) — ça ne doit PAS empêcher la suite de tourner, sinon la
+      // table users (elle, publique) ne serait jamais atteinte : cercle vicieux
+      // qui empêchait un nouveau compte de se reconnaître à la première connexion.
+      try {
+        const morts = await lireTout("tombstones", "deleted_at", depuis);
+        for (const m of morts) {
+          if (m.table_name === "*") {
+            // Réinitialisation générale : cet appareil vide sa base locale ET sa
+            // file d'attente, sinon il repousserait ses vieilles données.
+            // On ne traite CHAQUE réinitialisation QU'UNE FOIS : sans ce garde-fou,
+            // une relecture complète (curseur remis à zéro) reviderait la file
+            // d'attente à chaque fois — et détruirait des ventes faites hors ligne.
+            const dejaVu = await idb.meta.get("reset_traite");
+            if (!dejaVu || String(dejaVu.valeur) < String(m.deleted_at)) {
+              await idb.transaction("rw", [...TABLES.map((t) => idb.table(t)), idb.outbox, idb.meta], async () => {
+                await idb.outbox.clear();
+                for (const t of TABLES) {
+                  if (t === "users") continue;
+                  await idb.table(t).clear();
+                }
+                await idb.meta.put({ cle: "reset_traite", valeur: m.deleted_at });
+              });
+              recuQuelqueChose = true;
+              console.warn("Réinitialisation reçue : base locale vidée.");
+            }
+          } else if (TABLES.includes(m.table_name)) {
+            await idb.table(m.table_name).delete(m.record_id);
             recuQuelqueChose = true;
-            console.warn("Réinitialisation reçue : base locale vidée.");
           }
-        } else if (TABLES.includes(m.table_name)) {
-          await idb.table(m.table_name).delete(m.record_id);
-          recuQuelqueChose = true;
+          if (m.deleted_at > maxVu) maxVu = m.deleted_at;
         }
-        if (m.deleted_at > maxVu) maxVu = m.deleted_at;
+      } catch (e) {
+        console.warn("Lecture des suppressions distantes reportée :", e?.message || e);
       }
 
       // 2b) Les données des autres appareils, table par table, PAGE PAR PAGE
+      // CHAQUE TABLE dans son propre essai : sur un appareil neuf sans session
+      // encore établie, la plupart des tables refusent la lecture — mais
+      // « users », elle, reste publique en lecture spécifiquement pour permettre
+      // à un nouveau compte de se retrouver dès sa toute première connexion.
+      // Si une seule erreur globale arrêtait la boucle, cette table ne serait
+      // jamais atteinte selon son rang dans la liste (elle n'est pas la première).
       for (const t of TABLES) {
-        const lignes = await lireTout(t, "updated_at", depuis);
-        for (const ligne of lignes) {
-          const local = await idb.table(t).get(ligne.id);
-          const tsDistant = String(ligne.data?.updated_at || ligne.updated_at || "");
-          // Le plus récent gagne. Une modification locale non encore envoyée,
-          // si elle est plus récente, est conservée : elle partira au prochain envoi.
-          if (!local || String(local.updated_at || "") < tsDistant) {
-            await idb.table(t).put(ligne.data);
-            recuQuelqueChose = true;
+        try {
+          const lignes = await lireTout(t, "updated_at", depuis);
+          for (const ligne of lignes) {
+            const local = await idb.table(t).get(ligne.id);
+            const tsDistant = String(ligne.data?.updated_at || ligne.updated_at || "");
+            // Le plus récent gagne. Une modification locale non encore envoyée,
+            // si elle est plus récente, est conservée : elle partira au prochain envoi.
+            if (!local || String(local.updated_at || "") < tsDistant) {
+              await idb.table(t).put(ligne.data);
+              recuQuelqueChose = true;
+            }
+            if (ligne.updated_at > maxVu) maxVu = ligne.updated_at;
           }
-          if (ligne.updated_at > maxVu) maxVu = ligne.updated_at;
+        } catch (e) {
+          echecReseau = true;
+          if (!derniereErreur) derniereErreur = `Lecture de « ${t} » impossible : ${String(e?.message || e)}`;
+          console.warn(`Lecture de "${t}" reportée :`, e?.message || e);
         }
       }
 
