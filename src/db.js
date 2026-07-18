@@ -159,7 +159,12 @@ export const compterEnAttente = () => idb.outbox.count();
 export async function forcerResynchronisation() {
   const enAttente = await compterEnAttente();
   if (enAttente > 0) return enAttente;         // on NE touche à rien
-  await idb.meta.put({ cle: "derniere_sync", valeur: "1970-01-01T00:00:00Z" });
+  // Chaque table a désormais son propre curseur (voir sync.js) : on les remet
+  // TOUTES à zéro, plus seulement l'ancienne clé unique.
+  await idb.meta.put({ cle: "derniere_sync:tombstones", valeur: "1970-01-01T00:00:00Z" });
+  for (const t of TABLES) {
+    await idb.meta.put({ cle: `derniere_sync:${t}`, valeur: "1970-01-01T00:00:00Z" });
+  }
   return 0;
 }
 

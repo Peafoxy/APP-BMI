@@ -282,10 +282,15 @@ export async function synchroniser() {
     // le marqueur de réinitialisation effacerait aussitôt ce qu'on vient de lire —
     // y compris la trace de l'effacement lui-même.
     try {
-      const meta = await idb.meta.get("derniere_sync");
-      const curseur = meta?.valeur || "1970-01-01T00:00:00Z";
-      const depuis = reculer(curseur, MARGE_HORLOGE_MS); // marge anti-décalage d'horloge
-      let maxVu = curseur;
+      // ⚠ CURSEUR PAR TABLE, pas un seul curseur global pour toutes les tables.
+      // Avant, une seule valeur « derniere_sync » avançait dès qu'UNE table
+      // réussissait — si une AUTRE table avait échoué ce cycle-là (session pas
+      // encore prête, etc.), le curseur global avançait quand même derrière
+      // elle, et cette table en retard ne pouvait alors plus JAMAIS rattraper
+      // ce qu'elle avait raté : le curseur avait déjà dépassé ses données non
+      // lues. C'est ce qui a fait qu'un appareil ayant connu un souci de
+      // synchronisation passager gardait des données manquantes pour toujours.
+      const curseurDe = async (cle) => (await idb.meta.get(cle))?.valeur || "1970-01-01T00:00:00Z";
 
       // 2a) Les suppressions distantes
       // Isolée dans son propre essai : sur un appareil neuf sans session encore
@@ -294,6 +299,9 @@ export async function synchroniser() {
       // table users (elle, publique) ne serait jamais atteinte : cercle vicieux
       // qui empêchait un nouveau compte de se reconnaître à la première connexion.
       try {
+        const curseur = await curseurDe("derniere_sync:tombstones");
+        const depuis = reculer(curseur, MARGE_HORLOGE_MS); // marge anti-décalage d'horloge
+        let maxVu = curseur;
         const morts = await lireTout("tombstones", "deleted_at", depuis);
         for (const m of morts) {
           if (m.table_name === "*") {
@@ -321,11 +329,13 @@ export async function synchroniser() {
           }
           if (m.deleted_at > maxVu) maxVu = m.deleted_at;
         }
+        await idb.meta.put({ cle: "derniere_sync:tombstones", valeur: maxVu });
       } catch (e) {
         console.warn("Lecture des suppressions distantes reportée :", e?.message || e);
       }
 
-      // 2b) Les données des autres appareils, table par table, PAGE PAR PAGE
+      // 2b) Les données des autres appareils, table par table, PAGE PAR PAGE,
+      // chacune avec SON PROPRE curseur — voir l'explication tout en haut.
       // CHAQUE TABLE dans son propre essai : sur un appareil neuf sans session
       // encore établie, la plupart des tables refusent la lecture — mais
       // « users », elle, reste publique en lecture spécifiquement pour permettre
@@ -333,7 +343,11 @@ export async function synchroniser() {
       // Si une seule erreur globale arrêtait la boucle, cette table ne serait
       // jamais atteinte selon son rang dans la liste (elle n'est pas la première).
       for (const t of TABLES) {
+        const cle = `derniere_sync:${t}`;
         try {
+          const curseur = await curseurDe(cle);
+          const depuis = reculer(curseur, MARGE_HORLOGE_MS);
+          let maxVu = curseur;
           const lignes = await lireTout(t, "updated_at", depuis);
           for (const ligne of lignes) {
             const local = await idb.table(t).get(ligne.id);
@@ -346,14 +360,14 @@ export async function synchroniser() {
             }
             if (ligne.updated_at > maxVu) maxVu = ligne.updated_at;
           }
+          // Le curseur de CETTE table n'avance que si CETTE table a réussi.
+          await idb.meta.put({ cle, valeur: maxVu });
         } catch (e) {
           echecReseau = true;
           if (!derniereErreur) derniereErreur = `Lecture de « ${t} » impossible : ${String(e?.message || e)}`;
           console.warn(`Lecture de "${t}" reportée :`, e?.message || e);
         }
       }
-
-      await idb.meta.put({ cle: "derniere_sync", valeur: maxVu });
     } catch (e) {
       // Réseau ou Supabase : on réessaiera au prochain cycle. Rien n'est perdu :
       // tout ce qui n'est pas parti reste dans la file d'attente locale.
