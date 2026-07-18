@@ -61,7 +61,7 @@ export function genererPDF(d, logo) {
 // Document commercial remis à un client qui demande un prix. Il porte la mention
 // PROFORMA (pas « Reçu ») et n'a AUCUNE valeur comptable : il n'est pas enregistré
 // comme une vente, ne déduit pas le stock. C'est une simple offre de prix.
-export function genererProforma(p, logo) {
+export function genererProforma(p, logo, retournerDoc = false) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
@@ -141,6 +141,7 @@ export function genererProforma(p, logo) {
   doc.setTextColor(150, 150, 150);
   doc.text("BMI-Gestions Boutiques", largeur / 2, hauteur - 8, { align: "center" });
 
+  if (retournerDoc) return doc;
   doc.save(`Proforma_${p.numero}.pdf`);
 }
 
