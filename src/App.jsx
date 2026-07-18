@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.95.1";
+const VERSION = "2.95.2";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1368,9 +1368,11 @@ export default function App() {
         {sync.enLigne && sync.supabaseOk
           ? <span className={`text-xs font-semibold ${sombre ? "text-green-400" : "text-green-700"}`}>🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente} à envoyer` : ""}</span>
           : <span className={`text-xs font-semibold ${sombre ? "text-amber-400" : "text-amber-600"}`}>🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente} en attente` : ""}</span>}
-        {/* La version, TOUJOURS visible — y compris sur téléphone, où la barre
-            latérale est cachée. C'est le premier réflexe après un déploiement. */}
-        <span className={`text-[10px] font-bold ${sombre ? "text-sky-300/80" : "text-slate-400"}`}>v{VERSION}</span>
+        {/* La version : maintenant déjà affichée en haut à côté de « Lomé, Togo »
+            (visible partout, y compris sur téléphone). Ici, on ne la garde en double
+            que sur ordinateur, où la barre latérale est toujours visible — sur
+            téléphone, elle ferait doublon avec l'en-tête juste au-dessus. */}
+        <span className={`hidden lg:inline text-[10px] font-bold ${sombre ? "text-sky-300/80" : "text-slate-400"}`}>v{VERSION}</span>
       </span>
       {/* Le nom de l'utilisateur connecté, en orange, sous le point vert.
           Visible partout — y compris sur téléphone où la barre latérale est cachée. */}
