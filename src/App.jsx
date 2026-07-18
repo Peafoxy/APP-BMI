@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.98.4";
+const VERSION = "2.98.6";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1818,6 +1818,30 @@ function Dashboard({ db }) {
   const nbVentes = db.ventes.length;
   const nbClients = new Set(db.ventes.filter(v => v.client).map(v => v.client)).size;
 
+  // ---- ENSEMBLE DES COMMISSIONS (rien n'était affiché ici auparavant) ----
+  // On regroupe les 4 types de commission existants dans l'app : commission de
+  // base (commercial/technicien), commission d'équipe (chef sur ses filleuls),
+  // commission d'apporteur externe, et prime d'installation.
+  const commissionsBase = (payee) => db.ventes.filter((v) => Boolean(v.commission_payee) === payee)
+    .reduce((s, v) => {
+      const u = db.users.find((x) => x.nom === v.commercial);
+      return s + commissionVente(v, Number(u?.taux_commission || 0));
+    }, 0);
+  const commissionsEquipe = (payee) => db.ventes.filter((v) => Boolean(v.override_payee) === payee)
+    .reduce((s, v) => {
+      const vendeur = db.users.find((x) => x.nom === v.commercial);
+      const chef = vendeur?.parrain_id ? db.users.find((x) => x.id === vendeur.parrain_id) : null;
+      if (!chef || !estChefEquipe(db, chef)) return s;
+      const tauxEq = Number(chef.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
+      return s + Math.round((commissionVente(v, Number(vendeur.taux_commission || 0)) * tauxEq) / 100);
+    }, 0);
+  const commissionsApporteurs = (payee) => db.ventes.filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
+    .reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
+  const commissionsInstallation = (payee) => (db.clients_installes || []).flatMap((c) => c.equipe || [])
+    .filter((e) => Boolean(e.paye) === payee).reduce((s, e) => s + Number(e.montant || 0), 0);
+  const totalCommissionsDues = commissionsBase(false) + commissionsEquipe(false) + commissionsApporteurs(false) + commissionsInstallation(false);
+  const totalCommissionsPayees = commissionsBase(true) + commissionsEquipe(true) + commissionsApporteurs(true) + commissionsInstallation(true);
+
   const Stat = ({ label, value, accent }) => (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 border-l-4 border-l-sky-700">
       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</div>
@@ -1861,6 +1885,8 @@ function Dashboard({ db }) {
         <Stat label="Total des ventes" value={fmt(totalVentes)} />
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} />
         <Stat label="Total des dettes" value={fmt(totalDettes)} accent="text-red-600" />
+        <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} accent="text-red-600" />
+        <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} accent="text-green-700" />
         {(totalFraisInstallation + totalFraisTransport) > 0 && (
           <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} accent="text-amber-600" />
         )}
@@ -2237,7 +2263,7 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
   };
 
-  const proformaWhatsApp = async () => {
+  const proformaWhatsApp = () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     const pf = construireProforma();
     enregistrerProforma(pf);
@@ -2252,29 +2278,20 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       `Ceci est une offre de prix (proforma), sans valeur de reçu. Valable ${pf.validite}.`,
       `BMI TOGO — Les bâtiments modernes et intelligents`,
     ];
-    const texte = lignes.join("\n");
     const num = telDigits(pf.tel);
-
-    // On tente d'abord le partage natif du téléphone/ordinateur (fichier PDF
-    // joint directement dans WhatsApp) — disponible sur la plupart des mobiles.
-    // S'il n'est pas disponible (cas fréquent sur PC), on bascule sur l'ancien
-    // comportement : PDF téléchargé + message WhatsApp à joindre soi-même.
-    try {
-      const doc = genererProforma(pf, LOGO, true);
-      const blob = doc.output("blob");
-      const fichier = new File([blob], `Proforma_${pf.numero}.pdf`, { type: "application/pdf" });
-      if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
-        await navigator.share({ files: [fichier], title: `Proforma ${pf.numero}`, text: texte });
-        setMsg(`✅ Proforma ${pf.numero} émis — PDF partagé (non comptabilisé).`);
-        return;
-      }
-    } catch (e) {
-      // Partage annulé ou impossible : on continue sur le repli ci-dessous.
-    }
-    genererProforma(pf, LOGO); // téléchargé, à joindre manuellement dans WhatsApp
-    const txt = encodeURIComponent(texte);
+    const txt = encodeURIComponent(lignes.join("\n"));
+    // On ouvre WhatsApp EN PREMIER et de façon strictement synchrone (avant
+    // tout traitement du PDF) : dès qu'un await s'intercale avant window.open,
+    // le navigateur considère que ce n'est plus une action directe de l'utilisateur
+    // et bloque l'ouverture silencieusement — c'était la cause du souci.
+    // Le numéro du client (déjà saisi sur la commande) est utilisé directement :
+    // la discussion s'ouvre sur SON contact, pas sur un choix générique.
     window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
-    setMsg(`✅ Proforma ${pf.numero} émis : PDF téléchargé et WhatsApp ouvert — joignez le PDF au message (non comptabilisé).`);
+    // Le PDF est généré et téléchargé juste après, prêt à être joint au message.
+    genererProforma(pf, LOGO);
+    setMsg(num
+      ? `✅ Proforma ${pf.numero} émis : WhatsApp ouvert sur le numéro du client et PDF téléchargé — joignez-le au message (non comptabilisé).`
+      : `✅ Proforma ${pf.numero} émis : aucun numéro sur cette commande, WhatsApp ouvert en générique. PDF téléchargé, à joindre au message (non comptabilisé).`);
   };
 
   const proformaPDF = () => {
