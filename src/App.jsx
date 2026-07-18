@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.96.1";
+const VERSION = "2.96.2";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1541,23 +1541,21 @@ export default function App() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* ══ En-tête compact (petit écran) ══ */}
         <header className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
-          <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+          <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <img src={LOGO} alt="BMI Togo" className="h-10 w-auto rounded bg-white p-1 shrink-0" />
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
-                <div className="text-xs text-slate-400 truncate">v{VERSION} — Lomé, Togo</div>
+                <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
+                  <span>v{VERSION} — Lomé, Togo</span>
+                  {profile?.nom && <span className="font-bold text-orange-500">👤 {profile.nom}</span>}
+                </div>
               </div>
             </div>
-            {profile?.nom && (
-              <span className="shrink-0 flex items-center gap-1.5">
-                <span className="text-sm font-bold text-orange-500 whitespace-nowrap">👤 {profile.nom}</span>
-                {nonLus > 0 && (
-                  <button onClick={() => setTab("messages")} className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse" title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}>
-                    💬 +{nonLus}
-                  </button>
-                )}
-              </span>
+            {nonLus > 0 && (
+              <button onClick={() => setTab("messages")} className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse" title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}>
+                💬 +{nonLus}
+              </button>
             )}
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
