@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.95.0";
+const VERSION = "2.95.1";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1507,8 +1507,8 @@ export default function App() {
         <div className="px-4 py-4 flex items-center gap-3 border-b border-white/10">
           <img src={LOGO} alt="BMI" className="h-11 w-auto rounded-lg bg-white p-1" />
           <div>
-            <div className="font-bold leading-tight tracking-wide">BMI-GESTION SYSTÈME <span className="text-[10px] font-semibold text-sky-300/80">v{VERSION}</span></div>
-            <div className="text-[10px] text-sky-200/70 uppercase tracking-widest">Lomé, Togo</div>
+            <div className="font-bold leading-tight tracking-wide">BMI-GESTION SYSTÈME</div>
+            <div className="text-[10px] text-sky-200/70 uppercase tracking-widest">v{VERSION} — Lomé, Togo</div>
           </div>
         </div>
         <div className="px-4 pt-3">
@@ -1544,7 +1544,7 @@ export default function App() {
               <img src={LOGO} alt="BMI Togo" className="h-10 w-auto rounded bg-white p-1" />
               <div>
                 <div className="font-bold text-lg leading-tight">BMI-GESTION SYSTÈME</div>
-                <div className="text-xs text-slate-400">Lomé, Togo</div>
+                <div className="text-xs text-slate-400">v{VERSION} — Lomé, Togo</div>
               </div>
             </div>
             <div className="flex items-center gap-3 text-sm">
