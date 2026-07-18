@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.95.3";
+const VERSION = "2.96.0";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1541,24 +1541,34 @@ export default function App() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* ══ En-tête compact (petit écran) ══ */}
         <header className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
-          <div className="px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-3">
-              <img src={LOGO} alt="BMI Togo" className="h-10 w-auto rounded bg-white p-1" />
-              <div>
-                <div className="font-bold text-lg leading-tight">BMI-GESTION SYSTÈME</div>
-                <div className="text-xs text-slate-400">v{VERSION} — Lomé, Togo</div>
-              </div>
+          <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+            <img src={LOGO} alt="BMI Togo" className="h-10 w-auto rounded bg-white p-1 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
+              <div className="text-xs text-slate-400 truncate">v{VERSION} — Lomé, Togo</div>
             </div>
-            <div className="flex items-center gap-3 text-sm flex-wrap">
-              <button onClick={() => setRechercheOuverte(true)} className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍</button>
-              <BadgeSync sombre />
-              {saveStatus === "error" && <span className="text-xs text-red-400">⚠ Erreur locale</span>}
-              <button onClick={load} disabled={syncEnCours} className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold disabled:opacity-70">
-                <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
-              </button>
-              {profile.boutique && <span className="hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
-              <button onClick={() => { setProfile(null); try { localStorage.removeItem("bmi_session"); } catch {} }} className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold">Se déconnecter</button>
-            </div>
+          </div>
+          {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
+              plutôt qu'un empilement désordonné quand tout ne tient pas. */}
+          <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+            <button onClick={() => setRechercheOuverte(true)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍</button>
+            <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
+              {sync.enLigne && sync.supabaseOk
+                ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap">🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
+                : <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>}
+              {profile?.nom && <span className="text-xs font-bold text-orange-500 whitespace-nowrap">👤 {profile.nom}</span>}
+              {nonLus > 0 && (
+                <button onClick={() => setTab("messages")} className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse shrink-0" title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}>
+                  💬 +{nonLus}
+                </button>
+              )}
+            </span>
+            {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
+            <button onClick={load} disabled={syncEnCours} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold disabled:opacity-70 whitespace-nowrap">
+              <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
+            </button>
+            {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
+            <button onClick={() => { setProfile(null); try { localStorage.removeItem("bmi_session"); } catch {} }} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap">Se déconnecter</button>
           </div>
           <nav className="px-4 flex gap-1 overflow-x-auto">
             {tabsAutorises.map(([id, label]) => (
