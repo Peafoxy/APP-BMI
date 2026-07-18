@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.91.1";
+const VERSION = "2.93.0";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -720,10 +720,12 @@ function imprimerRecu(v, bq = {}) {
     </table>
 
     <table class="totaux">
-      <tr><td>Sous-total :</td><td>${fmt(brut)}</td></tr>
+      <tr><td>Sous-total articles :</td><td>${fmt(brut)}</td></tr>
       <tr><td>Remise${v.remise_pct ? ` (${v.remise_pct} %)` : ""} :</td><td>${v.remise ? "−" + fmt(v.remise) : fmt(0)}</td></tr>
-      <tr class="total"><td>TOTAL TTC :</td><td>${fmt(net)}</td></tr>
-      ${v.paiement === "Crédit (dette)" ? `<tr><td>Avance versée :</td><td>${fmt(v.avance || 0)}</td></tr><tr class="total"><td>RESTE À PAYER :</td><td>${fmt(Math.max(0, net - (Number(v.avance) || 0)))}</td></tr>` : ""}
+      ${Number(v.frais_installation || 0) > 0 ? `<tr><td>Frais d'installation :</td><td>${fmt(v.frais_installation)}</td></tr>` : ""}
+      ${Number(v.frais_transport || 0) > 0 ? `<tr><td>Transport / livraison :</td><td>${fmt(v.frais_transport)}</td></tr>` : ""}
+      <tr class="total"><td>TOTAL TTC :</td><td>${fmt(net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0))}</td></tr>
+      ${v.paiement === "Crédit (dette)" ? `<tr><td>Avance versée :</td><td>${fmt(v.avance || 0)}</td></tr><tr class="total"><td>RESTE À PAYER :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - (Number(v.avance) || 0)))}</td></tr>` : ""}
     </table>
 
     <div class="paiement"><b>Mode de paiement :</b><br>${casesMode}<div style="margin-top:4px;font-size:11px;color:#555">${esc(v.paiement || "")}</div></div>
@@ -1303,6 +1305,15 @@ export default function App() {
       )}
     </span>
   );
+  const commandesEnAttente = compterCommandesEnAttente(db, profile);
+  const labelCommandes = (
+    <span className="inline-flex items-center gap-1.5">
+      📥 Commandes reçues
+      {commandesEnAttente > 0 && (
+        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full animate-pulse">{commandesEnAttente}</span>
+      )}
+    </span>
+  );
   const chantiersAProgrammer = compterChantiersAProgrammer(db, profile);
   const labelParc = (
     <span className="inline-flex items-center gap-1.5">
@@ -1323,7 +1334,7 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", "👑 Équipe"], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
@@ -1335,10 +1346,10 @@ export default function App() {
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
-    : [["ventes", "💰 Ventes"], ["commandes", "📥 Commandes reçues"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]];
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -1664,6 +1675,11 @@ function Dashboard({ db }) {
   const totalVentes = db.ventes.reduce((s, v) => s + totalVente(v), 0);
   const totalDepenses = db.depenses.reduce((s, d) => s + Number(d.montant), 0);
   const totalDettes = dettesClassiques(db).reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0);
+  // Frais d'installation et transport réellement encaissés — jamais comptés
+  // dans le chiffre d'affaires (ci-dessus), mais bien réels : cette carte est
+  // le seul endroit où les retrouver globalement, tous devis confondus.
+  const totalFraisInstallation = db.ventes.reduce((s, v) => s + Number(v.frais_installation || 0), 0);
+  const totalFraisTransport = db.ventes.reduce((s, v) => s + Number(v.frais_transport || 0), 0);
   // Avances encaissées sur réservations non encore livrées : c'est de l'argent reçu
   // que l'entreprise DOIT en marchandise. C'est un engagement, pas une créance.
   const totalAvances = reservations(db).filter((r) => r.statut !== "livree" && r.statut !== "annulee")
@@ -1714,6 +1730,9 @@ function Dashboard({ db }) {
         <Stat label="Total des ventes" value={fmt(totalVentes)} />
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} />
         <Stat label="Total des dettes" value={fmt(totalDettes)} accent="text-red-600" />
+        {(totalFraisInstallation + totalFraisTransport) > 0 && (
+          <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} accent="text-amber-600" />
+        )}
         {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} accent="text-orange-600" />}
         <Stat label="Clients uniques" value={nbClients} />
       </div>
@@ -1961,6 +1980,16 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   // ATTENTION : preRempli est vidé dès l'affichage. On garde donc l'origine du
   // devis dans l'état local, sinon elle serait perdue avant l'encaissement.
   const [origineDevis, setOrigineDevis] = useState(() => preRempli?.origineDevis || null);
+  // Le devis d'origine : c'est LUI qui porte les frais d'installation et de
+  // transport facturés au client. Sans ça, l'écran d'encaissement ne montrait
+  // que le total des articles — le vendeur n'avait alors aucune indication du
+  // montant RÉEL à demander au client (articles + frais), et la caisse ne
+  // comptait jamais ces frais, même quand ils étaient bel et bien encaissés.
+  const devisOrigine = origineDevis
+    ? (db.users.find((u) => u.id === origineDevis.client_id)?.devis || []).find((d) => d.id === origineDevis.devis_id)
+    : null;
+  const fraisInstallDevis = Number(devisOrigine?.frais_installation || 0);
+  const fraisTransportDevis = Number(devisOrigine?.frais_transport || 0);
   useEffect(() => { if (preRempli && onPreRempliConsomme) onPreRempliConsomme(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [f, setF] = useState({ client: "", tel: "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
   // Apporteur d'affaires EXTERNE (pas un utilisateur de l'application)
@@ -2023,6 +2052,10 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const rabaisMax = Math.round(((brut - remise) * tauxCom) / 100);
   const rabais = Math.min(Number(f.rabais || 0), rabaisMax);
   const total = brut - remise - rabais;
+  // Ce que le vendeur doit RÉELLEMENT demander au client : le total des
+  // articles, PLUS les frais d'installation et de transport du devis d'origine
+  // (qui, eux, n'entrent jamais dans le chiffre d'affaires — voir plus haut).
+  const totalAEncaisser = total + fraisInstallDevis + fraisTransportDevis;
 
   // Commission de l'apporteur externe : soit un pourcentage du total, soit un montant fixe.
   const commissionExt = (montantVente) => {
@@ -2107,7 +2140,10 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       if (p && Number(l.qte) > stockActuel(db, p)) { setMsg(`Stock insuffisant pour « ${p.nom} ».`); return; }
     }
     setMsg("");
-    if (!await uConfirm(`Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""} ?`)) return;
+    const messageConfirm = (fraisInstallDevis > 0 || fraisTransportDevis > 0)
+      ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
+      : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""} ?`;
+    if (!await uConfirm(messageConfirm)) return;
 
     const annee = today().slice(0, 4);
     const numero = `${prefixeBoutique(boutique)}-${annee}-${String(db.ventes.filter((x) => x.boutique === boutique && String(x.date).slice(0, 4) === annee).length + 1).padStart(4, "0")}`;
@@ -2122,6 +2158,12 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       tel: f.tel,
       remise,
       remise_pct: remisePct,
+      // Frais du devis d'origine, réellement encaissés en plus des articles —
+      // jamais comptés dans le chiffre d'affaires, mais désormais tracés :
+      // visibles sur le reçu, comptés en caisse, et disponibles pour la
+      // répartition d'équipe sans ressaisie.
+      frais_installation: fraisInstallDevis,
+      frais_transport: fraisTransportDevis,
       paiement: f.paiement,
       avance: f.paiement === "Crédit (dette)" ? Math.max(0, Math.min(total, Number(f.avance) || 0)) : 0,
       commercial: f.commercial || null,
@@ -2345,11 +2387,26 @@ function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
               )}
             </div>
 
+            {(fraisInstallDevis > 0 || fraisTransportDevis > 0) && (
+              <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+                <div className="font-bold text-amber-900 text-sm mb-1">🔧 Ce devis inclut des frais en plus des articles</div>
+                <div className="text-sm text-slate-700 space-y-0.5">
+                  <div>Articles : {fmt(total)}</div>
+                  {fraisInstallDevis > 0 && <div>Frais d'installation : {fmt(fraisInstallDevis)}</div>}
+                  {fraisTransportDevis > 0 && <div>Transport / livraison : {fmt(fraisTransportDevis)}</div>}
+                </div>
+                <div className="text-base font-bold text-amber-900 mt-2 pt-2 border-t border-amber-300">
+                  MONTANT TOTAL À DEMANDER AU CLIENT : {fmt(totalAEncaisser)}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">Les frais ne sont pas comptés dans le chiffre d'affaires (ils servent à payer l'équipe d'installation) — mais ils sont bien réels : demandez le montant total ci-dessus.</div>
+              </div>
+            )}
+
             <div className="mt-4 flex items-center gap-4 flex-wrap">
               <button onClick={encaisserVente} className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 shadow-sm">💳 Encaisser la vente</button>
               <button onClick={proformaWhatsApp} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</button>
               <button onClick={proformaPDF} title="Imprimer une offre de prix (non comptabilisée)" className="px-3 py-2.5 rounded-lg bg-white border-2 border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50">🖨️</button>
-              <span className="text-base font-bold tabular-nums">Total : {fmt(total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>
+              <span className="text-base font-bold tabular-nums">Total{fraisInstallDevis > 0 || fraisTransportDevis > 0 ? " articles" : ""} : {fmt(total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>
               {msg && <span className="text-sm text-red-600 font-semibold">{msg}</span>}
             </div>
           </>
@@ -3311,7 +3368,8 @@ function Caisse({ db, save, profile }) {
   const [notes, setNotes] = useState("");
   const t = today();
 
-  const especesVentes = db.ventes.filter((v) => v.boutique === boutique && String(v.date) === t && v.paiement === "Espèces").reduce((s, v) => s + totalVente(v), 0);
+  const especesVentes = db.ventes.filter((v) => v.boutique === boutique && String(v.date) === t && v.paiement === "Espèces")
+    .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
   const especesDepenses = db.depenses.filter((x) => x.boutique === boutique && String(x.date) === t && x.paiement === "Espèces").reduce((s, x) => s + Number(x.montant), 0);
   // Les règlements de dettes et les versements sur réservation entrent aussi dans la caisse.
   // (Ils étaient oubliés : le théorique du jour était donc faux.)
@@ -7808,6 +7866,20 @@ function EspaceClient({ db, profile, save, setTab }) {
   const [devisOuvert, setDevisOuvert] = useState(null);
   const [bqPaiement, setBqPaiement] = useState({});
 
+  // Ouvrir un devis le marque comme vu par le client — la pastille clignotante
+  // ne le signalera plus comme nouveau une fois consulté.
+  const ouvrirMonDevis = (d) => {
+    setDevisOuvert(devisOuvert === d.id ? null : d.id);
+    if (!(d.vu_par || []).includes(profile.id)) {
+      save({
+        ...db,
+        users: db.users.map((u) => (u.id === profile.id
+          ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, vu_par: [...(x.vu_par || []), profile.id] } : x)) }
+          : u)),
+      });
+    }
+  };
+
   // ---- PARRAINAGE : le client amène un autre client ----
   const [parr, setParr] = useState({ nom: "", tel: "", note: "" });
 
@@ -8161,11 +8233,14 @@ function EspaceClient({ db, profile, save, setTab }) {
           <div className="space-y-2">
             {mesDevis.map((d) => (
               <div key={d.id} className="rounded-xl border-2 border-emerald-200 bg-emerald-50 overflow-hidden">
-                <button onClick={() => setDevisOuvert(devisOuvert === d.id ? null : d.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-emerald-100">
+                <button onClick={() => ouvrirMonDevis(d)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-emerald-100">
                   <span>
                     <span className="font-bold text-emerald-900">{d.type_devis === "garage" ? "Motorisation portail/garage" : d.type_devis === "autre" ? (d.besoins?.categorie || "Devis") : "Installation solaire"} — {fmt(d.total)}</span>
                     <span className="block text-xs text-slate-500">Établi le {dFR(d.date)} par {d.par}</span>
                   </span>
+                  {!(d.vu_par || []).includes(profile.id) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-red-600 rounded-full px-2 py-0.5 animate-pulse">🆕 Nouveau</span>
+                  )}
                   <span className="text-sm font-bold text-emerald-800">{devisOuvert === d.id ? "▾" : "▸"}</span>
                 </button>
 
@@ -8791,6 +8866,18 @@ function compterNouveauxDevis(db, profile) {
     .filter((d) => voitTout || d.par_id === profile.id)
     .filter((d) => !(d.vu_par || []).includes(profile.id))
     .length;
+}
+
+// Commandes en attente de validation, dans la même visibilité que l'écran
+// « Commandes reçues » (l'admin voit toutes les boutiques ; un gérant ou
+// vendeur ne voit que la sienne, et seulement celles qui lui sont destinées).
+function compterCommandesEnAttente(db, profile) {
+  const isAdmin = profile.role === "admin";
+  return (db.commandes || []).filter((c) =>
+    c.statut === "en_attente" &&
+    (isAdmin || c.boutique === profile.boutique) &&
+    (isAdmin || !c.vendeur_cible || c.vendeur_cible === profile.nom)
+  ).length;
 }
 
 // Chantiers créés par le paiement d'un devis, mais jamais encore programmés —
