@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.87.1";
+const VERSION = "2.88.0";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -1084,6 +1084,7 @@ export default function App() {
   const [sync, setSync] = useState({ enLigne: navigator.onLine, supabaseOk: false, enAttente: 0 });
   const [rappelSauvegarde, setRappelSauvegarde] = useState(false);
   const [preRempli, setPreRempli] = useState(null); // { boutique, panier } transmis depuis le Dimensionnement solaire
+  const [devisAReprendre, setDevisAReprendre] = useState(null); // { devis, client } — devis en modification/rejeté que le vendeur reprend
   const dbRef = useRef(null);
   const autoSauvFaite = useRef(false);
   const [dossierAuto, setDossierAuto] = useState(null);
@@ -1419,12 +1420,12 @@ export default function App() {
       {tab === "ventes" && !isCommercial && <Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
       {tab === "commande" && isCommercial && <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
       {tab === "commandes" && !isCommercial && <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct }); setTab("ventes"); }} />}
-      {tab === "dimensionnement" && <Dimensionnement db={db} profile={profile} save={save} onConvertirEnVente={(boutique, panier, remise) => {
+      {tab === "dimensionnement" && <Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
         if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
         setPreRempli({ boutique, panier, remise });
         setTab((isCommercial || isTechnicien) ? "commande" : "ventes");
       }} />}
-      {tab === "tous_devis" && <TousLesDevis db={db} profile={profile} />}
+      {tab === "tous_devis" && <TousLesDevis db={db} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />}
       {tab === "depenses" && <Depenses db={db} save={save} profile={profile} />}
       {tab === "dettes" && <Dettes db={db} save={save} profile={profile} />}
       {tab === "clients" && <Clients db={db} profile={profile} />}
@@ -5261,15 +5262,21 @@ async function resoudreClientDevis(db, clientDevis, nouvClient, profile) {
 // identifiants et le lien vers son espace. `ligneEntete` = les 1-2 lignes
 // spécifiques à l'outil (type d'installation + montant), le reste du message
 // (identifiants, lien, signature) est commun aux 3 outils.
-function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete }) {
+function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
   const dbFinal = {
     ...dbApres,
-    users: dbApres.users.map((u) => (u.id === compte.id ? { ...u, devis: [devis, ...(u.devis || [])] } : u)),
+    users: dbApres.users.map((u) => (u.id === compte.id
+      ? { ...u, devis: idAReprendre ? u.devis.map((x) => (x.id === idAReprendre ? { ...devis, id: idAReprendre } : x)) : [devis, ...(u.devis || [])] }
+      : u)),
+    // Le message de demande de modification / rejet n'a plus lieu d'être : le vendeur vient d'y répondre.
+    messages: idAReprendre ? (dbApres.messages || []).filter((m) => m.devis_id !== idAReprendre) : dbApres.messages,
   };
-  save(dbFinal, `Devis (${fmt(devis.total)}) envoyé au client ${compte.nom} par ${profile.nom}`);
+  save(dbFinal, idAReprendre
+    ? `Devis corrigé (${fmt(devis.total)}) renvoyé au client ${compte.nom} par ${profile.nom}`
+    : `Devis (${fmt(devis.total)}) envoyé au client ${compte.nom} par ${profile.nom}`);
 
   const lignesMsg = [
-    `Bonjour${compte.nom_base ? " " + compte.nom_base : ""}, voici votre devis BMI TOGO.`,
+    `Bonjour${compte.nom_base ? " " + compte.nom_base : ""}, voici votre devis BMI TOGO${idAReprendre ? ", corrigé selon votre demande" : ""}.`,
     ``,
     ...ligneEntete,
     ``,
@@ -5287,18 +5294,24 @@ function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save
   window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
 }
 
-function DimensionnementSolaire({ db, profile, save, onConvertirEnVente }) {
+function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
   // ---- Besoins du client (liste d'appareils) ----
-  const [appareils, setAppareils] = useState([{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
-  const [autonomie, setAutonomie] = useState("1");
+  // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
+  const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const [appareils, setAppareils] = useState(() =>
+    besoinsRepris?.appareils?.length
+      ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) }))
+      : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
+  );
+  const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : "1");
   const [soleil, setSoleil] = useState("5");
-  const [tension, setTension] = useState("24");
-  const [typeBatterie, setTypeBatterie] = useState("lifepo4");
+  const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : "24");
+  const [typeBatterie, setTypeBatterie] = useState(() => besoinsRepris?.type_batterie || "lifepo4");
 
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
@@ -5471,7 +5484,7 @@ function DimensionnementSolaire({ db, profile, save, onConvertirEnVente }) {
   const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis } = useTotauxDevis(totalArticles);
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
-  const [clientDevis, setClientDevis] = useState("");   // compte client existant
+  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");   // compte client existant
   const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
 
@@ -5537,10 +5550,12 @@ function DimensionnementSolaire({ db, profile, save, onConvertirEnVente }) {
     envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
+      idAReprendre: devisAReprendre?.devis?.id,
     });
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
+    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -5709,8 +5724,12 @@ function DimensionnementSolaire({ db, profile, save, onConvertirEnVente }) {
 // Point d'entrée affiché dans l'onglet « Dimensionnement ». Un simple aiguillage
 // entre les trois outils, qui partagent la même mécanique (besoins du
 // client → équipements proposés depuis le stock → devis → envoi WhatsApp / vente).
-function Dimensionnement({ db, profile, save, onConvertirEnVente }) {
+function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const [mode, setMode] = useState("solaire");
+  // Bascule automatiquement sur le bon outil dès qu'un devis à reprendre arrive.
+  useEffect(() => {
+    if (devisAReprendre) setMode(devisAReprendre.devis.type_devis === "garage" ? "garage" : devisAReprendre.devis.type_devis === "autre" ? "autre" : "solaire");
+  }, [devisAReprendre]);
   return (
     <div className="space-y-4">
       <div className="inline-flex rounded-lg border border-slate-300 bg-white p-1 shadow-sm">
@@ -5718,29 +5737,41 @@ function Dimensionnement({ db, profile, save, onConvertirEnVente }) {
         <button onClick={() => setMode("garage")} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${mode === "garage" ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>🚪 Garage</button>
         <button onClick={() => setMode("autre")} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${mode === "autre" ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>📦 Autre</button>
       </div>
-      {mode === "solaire" && <DimensionnementSolaire db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} />}
-      {mode === "garage" && <DimensionnementGarage db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} />}
-      {mode === "autre" && <DimensionnementAutre db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} />}
+      {devisAReprendre && (
+        <div className="rounded-xl p-3 bg-amber-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-2">
+          <div className="text-sm text-amber-900">
+            <b>✏️ Reprise du devis de {devisAReprendre.client?.nom_base || devisAReprendre.client?.nom}</b> ({fmt(devisAReprendre.devis.total)})
+            {devisAReprendre.devis.demande_modif && <span> — souhaite : « {devisAReprendre.devis.demande_modif} »</span>}
+            {devisAReprendre.devis.motif_rejet && <span> — avait rejeté : « {devisAReprendre.devis.motif_rejet} »</span>}
+          </div>
+          <button onClick={onDevisRepriseConsomme} className="text-xs font-bold text-amber-700 underline whitespace-nowrap">Annuler la reprise</button>
+        </div>
+      )}
+      {mode === "solaire" && <DimensionnementSolaire db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis !== "garage" && devisAReprendre?.devis?.type_devis !== "autre" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />}
+      {mode === "garage" && <DimensionnementGarage db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis === "garage" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />}
+      {mode === "autre" && <DimensionnementAutre db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis === "autre" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />}
     </div>
   );
 }
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
-function DimensionnementGarage({ db, profile, save, onConvertirEnVente }) {
+function DimensionnementGarage({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
   // ---- Besoins du client ----
-  const [type, setType] = useState("portail_coulissant");
-  const [largeur, setLargeur] = useState("");
-  const [hauteur, setHauteur] = useState("");
-  const [poids, setPoids] = useState("");
-  const [vantaux, setVantaux] = useState("1");
-  const [frequence, setFrequence] = useState("moyenne");
-  const [telecosSouhaitees, setTelecosSouhaitees] = useState("2");
-  const [alimentationProche, setAlimentationProche] = useState(true);
+  // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
+  const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const [type, setType] = useState(besoinsRepris?.type_ouvrant || "portail_coulissant");
+  const [largeur, setLargeur] = useState(besoinsRepris?.largeur ? String(besoinsRepris.largeur) : "");
+  const [hauteur, setHauteur] = useState(besoinsRepris?.hauteur ? String(besoinsRepris.hauteur) : "");
+  const [poids, setPoids] = useState(besoinsRepris?.poids ? String(besoinsRepris.poids) : "");
+  const [vantaux, setVantaux] = useState(besoinsRepris?.vantaux ? String(besoinsRepris.vantaux) : "1");
+  const [frequence, setFrequence] = useState(besoinsRepris?.frequence || "moyenne");
+  const [telecosSouhaitees, setTelecosSouhaitees] = useState(besoinsRepris?.telecommandes != null ? String(besoinsRepris.telecommandes) : "2");
+  const [alimentationProche, setAlimentationProche] = useState(besoinsRepris?.alimentation_proche != null ? besoinsRepris.alimentation_proche : true);
 
   const estCoulissant = type === "portail_coulissant";
   const estBattant = type === "portail_battant";
@@ -5750,8 +5781,12 @@ function DimensionnementGarage({ db, profile, save, onConvertirEnVente }) {
   const longueurCremaillere = estCoulissant && Number(largeur) > 0 ? Math.ceil(Number(largeur) + 1) : 0; // +1 m de marge
 
   // ---- Porte / portail : calculée automatiquement au m² (largeur × hauteur), prix modifiable ----
-  const [prixM2Porte, setPrixM2Porte] = useState(PRIX_PORTE_M2[type] || 0);
-  useEffect(() => { setPrixM2Porte(PRIX_PORTE_M2[type] || 0); }, [type]);
+  const [prixM2Porte, setPrixM2Porte] = useState(besoinsRepris?.prix_m2_porte || PRIX_PORTE_M2[type] || 0);
+  const premierRenduPorte = useRef(true);
+  useEffect(() => {
+    if (premierRenduPorte.current) { premierRenduPorte.current = false; return; } // ne pas écraser la reprise au montage
+    setPrixM2Porte(PRIX_PORTE_M2[type] || 0);
+  }, [type]);
   const surfacePorte = Math.round(Number(largeur || 0) * Number(hauteur || 0) * 100) / 100;
   const sousTotalPorte = Math.round(surfacePorte * Number(prixM2Porte || 0));
 
@@ -5867,7 +5902,7 @@ function DimensionnementGarage({ db, profile, save, onConvertirEnVente }) {
   ];
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
-  const [clientDevis, setClientDevis] = useState("");
+  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");
   const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
 
@@ -5936,10 +5971,12 @@ function DimensionnementGarage({ db, profile, save, onConvertirEnVente }) {
         `🚪 Motorisation de portail/garage — *${fmt(totalDevis)}*`,
         `${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""}${Number(largeur) > 0 ? ` · ${largeur} m` : ""}${Number(poids) > 0 ? ` · ${poids} kg` : ""}`,
       ],
+      idAReprendre: devisAReprendre?.devis?.id,
     });
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
+    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -6143,19 +6180,25 @@ function correspondancesBesoin(nomBesoin, produits) {
 // Le vendeur choisit une catégorie déjà utilisée dans la gestion de stock, décrit
 // les besoins du client au fil de l'eau, et l'article correspondant se propose
 // automatiquement depuis le stock de cette catégorie — saisie manuelle sinon.
-function DimensionnementAutre({ db, profile, save, onConvertirEnVente }) {
+function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
   const categories = [...new Set(produitsBoutique.map((p) => p.categorie || "Autre"))].sort();
-  const [categorieChoisie, setCategorieChoisie] = useState("");
+  const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const [categorieChoisie, setCategorieChoisie] = useState(besoinsRepris?.categorie || "");
   useEffect(() => { if (!categorieChoisie && categories.length > 0) setCategorieChoisie(categories[0]); }, [categories.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const produitsCategorie = produitsBoutique.filter((p) => (p.categorie || "Autre") === categorieChoisie);
 
   // ---- Besoins du client : liste libre, remplie au fil de l'eau ----
-  const [besoins, setBesoins] = useState([{ id: uid(), nom: "", qte: "1" }]);
+  // Si on reprend un devis (modification/rejet), on repart de sa liste de besoins d'origine.
+  const [besoins, setBesoins] = useState(() =>
+    besoinsRepris?.articles_demandes?.length
+      ? besoinsRepris.articles_demandes.map((a) => ({ id: uid(), nom: a.nom, qte: String(a.qte || 1) }))
+      : [{ id: uid(), nom: "", qte: "1" }]
+  );
 
   const meilleurChoixBesoin = (besoin) => {
     if (!besoin || !besoin.nom || !besoin.nom.trim()) return null;
@@ -6235,7 +6278,7 @@ function DimensionnementAutre({ db, profile, save, onConvertirEnVente }) {
   ];
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
-  const [clientDevis, setClientDevis] = useState("");
+  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");
   const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
 
@@ -6289,10 +6332,12 @@ function DimensionnementAutre({ db, profile, save, onConvertirEnVente }) {
     envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
+      idAReprendre: devisAReprendre?.devis?.id,
     });
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
+    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -6443,7 +6488,7 @@ function joursDepuis(dateStr) {
 }
 const SEUIL_RELANCE_JOURS = 15;
 
-function TousLesDevis({ db, profile }) {
+function TousLesDevis({ db, profile, onModifierDevis }) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
 
   const tousDevis = db.users
@@ -6559,7 +6604,10 @@ function TousLesDevis({ db, profile }) {
                         ))}
                       </tbody>
                     </table>
-                    <div className="flex justify-end mt-3">
+                    <div className="flex justify-end mt-3 gap-2">
+                      {(d.statut === "modification" || d.statut === "rejete") && onModifierDevis && (
+                        <button onClick={() => onModifierDevis(d, d.client)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
+                      )}
                       <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 PDF (télécharger / imprimer)</button>
                     </div>
                   </div>
@@ -7730,6 +7778,7 @@ function EspaceClient({ db, profile, save, setTab }) {
       id: uid(), date: today(), ts: new Date().toISOString(),
       de_id: profile.id, de_nom: profile.nom,
       a_id: d.par_id,
+      devis_id: d.id,
       texte: `❌ DEVIS REJETÉ (${fmt(d.total)}) — motif : ${motif.trim()}`,
       lu_par: [profile.id],
     };
@@ -7759,6 +7808,7 @@ function EspaceClient({ db, profile, save, setTab }) {
       id: uid(), date: today(), ts: new Date().toISOString(),
       de_id: profile.id, de_nom: profile.nom,
       a_id: d.par_id,
+      devis_id: d.id,
       texte: `✏️ MODIFICATION DEMANDÉE sur le devis de ${fmt(d.total)} : ${quoi.trim()}`,
       lu_par: [profile.id],
     };
