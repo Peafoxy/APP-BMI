@@ -96,6 +96,33 @@ async function lireTout(table, colonneDate, depuis) {
   return tout;
 }
 
+// ============ AMORÇAGE DES COMPTES (avant toute connexion) ============
+// Un appareil neuf n'a AUCUNE donnée locale : il doit retrouver au moins la
+// table des comptes pour qu'un utilisateur (surtout un client qui vient de
+// recevoir ses identifiants) puisse se reconnaître au tout premier login.
+// Volontairement SÉPARÉE de synchroniser() : plus simple, moins d'étapes qui
+// pourraient échouer, donc plus fiable pour ce cas précis. La table « users »
+// reste lisible sans session (voir supabase/durcir_securite.sql) — c'est ce
+// qui rend cet appel possible avant toute connexion.
+export async function amorcerComptes() {
+  if (!supabaseConfigure || !navigator.onLine) return false;
+  try {
+    const { data, error } = await supabase.from("users").select("*");
+    if (error) throw error;
+    for (const ligne of data || []) {
+      const local = await idb.table("users").get(ligne.id);
+      const tsDistant = String(ligne.data?.updated_at || ligne.updated_at || "");
+      if (!local || String(local.updated_at || "") < tsDistant) {
+        await idb.table("users").put(ligne.data);
+      }
+    }
+    return true;
+  } catch (e) {
+    console.warn("Amorçage des comptes reporté :", e?.message || e);
+    return false;
+  }
+}
+
 // Synchronisation d'OUVERTURE DE SESSION.
 // Différence avec la synchro normale : on s'assure d'abord que TOUT ce qui a été
 // créé hors ligne est bien PARTI vers le serveur, avant de lire quoi que ce soit.
