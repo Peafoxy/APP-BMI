@@ -1,0 +1,451 @@
+// ============================================================
+// lib/calculs.js — Fonctions de calcul métier pures (aucun JSX) :
+// stocks, paie, crédit BMI, virements, notifications de sortie de
+// caisse, prospects, parrainage, commissions, dettes/réservations,
+// ravitaillement, apporteurs d'affaires, dépôts, droits/pouvoirs,
+// tâches, config des onglets par rôle.
+//
+// Extrait de App.jsx (refactorisation) — copié tel quel.
+// ============================================================
+import { uid, SALARIES, normPaiement, lignesVente, totalVente, fmt, today } from "./core";
+import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
+
+// ============ CALCULS ============
+export const stockVendu = (db, pid) =>
+  db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
+
+export const stockAjuste = (db, pid) =>
+  (db.ajustements || []).filter((a) => a.produit_id === pid)
+    .reduce((s, a) => s + Number(a.qte || 0), 0);
+
+export const stockActuel = (db, p) =>
+  Number(p.initial || 0) + Number(p.entrees || 0)
+  - stockVendu(db, p.id) + stockAjuste(db, p.id);
+
+// ============ PAIE : calcul du net d'un mois + virements ============
+// Un « virement » est un versement de salaire envoyé par l'administrateur.
+// Il reste « en attente » tant que l'employé ne l'a pas confirmé (accepté).
+export const virementsMois = (u, mois) => (u.virements || []).filter((v) => v.mois === mois);
+
+// ============ CRÉDIT BMI (prêt accordé à un employé) ============
+// Un employé demande un crédit ; l'admin approuve ou refuse.
+// Remboursement : soit par retenue automatique sur salaire (échéancier),
+// soit librement (versements saisis par l'admin).
+export const totalRembourseCredit = (c) => (c.remboursements || []).reduce((s, r) => s + Number(r.montant || 0), 0);
+export const resteCredit = (c) => Math.max(0, Number(c.montant_accorde || 0) - totalRembourseCredit(c));
+export const creditsDe = (u) => u.credits || [];
+export const creditsEnAttente = (u) => creditsDe(u).filter((c) => c.statut === "en_attente");
+export const creditsEnCours = (u) => creditsDe(u).filter((c) => c.statut === "approuve" && resteCredit(c) > 0);
+
+// Décale un mois "AAAA-MM" de k mois
+export const moisPlus = (mois, k) => {
+  const [a, m] = String(mois).split("-").map(Number);
+  const d = new Date(a, m - 1 + k, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+// Retenue de crédit prévue sur le salaire d'un mois donné
+export const retenueCreditMois = (u, mois) =>
+  creditsDe(u).filter((c) => c.statut === "approuve" || c.statut === "solde")
+    .reduce((s, c) => s + (c.echeances || []).filter((e) => e.mois === mois).reduce((t, e) => t + Number(e.montant || 0), 0), 0);
+
+// Marque les échéances du mois comme retenues (appelé quand l'admin verse le salaire)
+export const appliquerRetenuesCredit = (u, mois, par) =>
+  creditsDe(u).map((c) => {
+    if (c.statut !== "approuve") return c;
+    const dues = (c.echeances || []).filter((e) => e.mois === mois && !e.paye);
+    if (!dues.length) return c;
+    const total = dues.reduce((s, e) => s + Number(e.montant || 0), 0);
+    const echeances = (c.echeances || []).map((e) => (e.mois === mois && !e.paye ? { ...e, paye: true, date_paiement: today() } : e));
+    const remboursements = [...(c.remboursements || []), { date: today(), montant: total, par, source: "salaire", note: `Retenue sur salaire ${libelleMoisFR(mois)}` }];
+    const rembourse = remboursements.reduce((s, r) => s + Number(r.montant || 0), 0);
+    const solde = Number(c.montant_accorde || 0) - rembourse <= 0;
+    return { ...c, echeances, remboursements, statut: solde ? "solde" : "approuve", date_solde: solde ? today() : c.date_solde };
+  });
+
+// Boutique dont la caisse supporte la sortie d'argent (salaire, prêt, commission…)
+// Choix STRICT parmi les boutiques de vente réelles (jamais un dépôt, qui n'a
+// pas de caisse) + l'option « Chez le comptable » — jamais de texte libre,
+// pour ne plus jamais risquer une boutique mal orthographiée ou inventée.
+export async function choisirBoutiqueDebitG(db, u, titre) {
+  const noms = boutiquesVente(db).map((b) => b.nom);
+  const options = [...noms, "Chez le comptable"];
+  if (options.length === 1) return options[0];
+  const defaut = u.boutique && noms.includes(u.boutique) ? u.boutique : null;
+  const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}`, options);
+  return b; // null = annulé ; sinon une valeur EXACTE de la liste, jamais autre chose
+}
+
+// Prévient la ou les bonnes personnes qu'une sortie de caisse vient d'être
+// réglée (commission, salaire, avance, crédit, prime d'installation…) et
+// d'où l'argent est sorti — pour que la caisse concernée (boutique ou
+// comptable) sache que cette sortie est passée, et à qui.
+export function messagesNotifSortieCaisse(db, profile, destination, nomBeneficiaire, montant, libelle = "Commission payée à", sens = "sortie") {
+  const base = { date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, lu_par: [profile.id] };
+  const texte = `💰 ${libelle} ${nomBeneficiaire} : ${fmt(montant)} — ${sens === "entree" ? "entrée de caisse" : "sortie de caisse"} : ${destination}.`;
+  const destinataires = destination === "Chez le comptable"
+    ? db.users.filter((u) => u.role === "comptable" && u.actif !== false)
+    : db.users.filter((u) => (u.role === "vendeur" || u.role === "gerant") && u.boutique === destination && u.actif !== false);
+  return destinataires.map((u) => ({ ...base, id: uid(), a_id: u.id, texte }));
+}
+// Ancien nom conservé par compatibilité (les 3 flux de commission l'utilisaient déjà).
+export const messagesNotifPaiementCommission = messagesNotifSortieCaisse;
+
+// Quand on supprime une dépense générée automatiquement par un paiement
+// (commission, prime d'installation…), il faut aussi redonner leur statut
+// « non payé » aux ventes / chantiers liés — sinon la commission reste
+// bloquée en "payée" pour toujours, sans qu'aucune trace de paiement ne subsiste.
+export function annulerLiensDepense(db, d) {
+  if (d.auto === "commission") {
+    return { ventes: (db.ventes || []).map((v) => (v.commission_dep === d.id ? { ...v, commission_payee: false, commission_dep: null } : v)) };
+  }
+  if (d.auto === "commission_equipe") {
+    return { ventes: (db.ventes || []).map((v) => (v.override_dep === d.id ? { ...v, override_payee: false, override_dep: null } : v)) };
+  }
+  if (d.auto === "commission_ext") {
+    return { ventes: (db.ventes || []).map((v) => (v.apporteur?.dep_id === d.id ? { ...v, apporteur: { ...v.apporteur, payee: false, dep_id: null, date_paiement: null } } : v)) };
+  }
+  if (d.auto === "installation") {
+    return { clients_installes: (db.clients_installes || []).map((c) => ({ ...c, equipe: (c.equipe || []).map((e) => (e.dep_id === d.id ? { ...e, paye: false, date_paiement: null, dep_id: null } : e)) })) };
+  }
+  return {};
+}
+
+// Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
+export async function envoyerVirementG(db, save, profile, u, moisImpose) {
+  const mois = moisImpose || await uPrompt(`Mois du virement pour ${u.nom} (AAAA-MM) :`, today().slice(0, 7));
+  if (!mois) return;
+  if (!/^\d{4}-\d{2}$/.test(String(mois).trim())) { uAlert("Format attendu : AAAA-MM (ex : 2026-07)."); return; }
+  const m = String(mois).trim();
+  const p = paieMois(u, m);
+  const suggestion = Math.max(0, p.reste);
+  const v = await uPrompt(
+    `Montant du virement (F CFA) — ${libelleMoisFR(m)}\n\n` +
+    `Salaire de base : ${fmt(p.base)}\nPrimes : +${fmt(p.primes)}\nAvances : −${fmt(p.avances)}\nRetenue crédit BMI : −${fmt(p.retenueCredit)}\nNet à percevoir : ${fmt(p.net)}\n` +
+    `Déjà envoyé ce mois : ${fmt(p.verse)}\nReste à verser : ${fmt(Math.max(0, p.reste))}`,
+    String(suggestion || "")
+  );
+  if (v === null) return;
+  const montant = Number(v);
+  if (!montant || montant <= 0) { uAlert("Montant invalide."); return; }
+  const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Virement bancaire");
+  if (moyen === null) return;
+  const ref = await uPrompt("Référence ou note (facultatif) :", "");
+  if (ref === null) return;
+  const bq = await choisirBoutiqueDebitG(db, u, `Virement de ${fmt(montant)} à ${u.nom}`);
+  if (bq === null) return;
+  const retenue = (u.credits || []).filter((c) => c.statut === "approuve")
+    .reduce((s, c) => s + (c.echeances || []).filter((e) => e.mois === m && !e.paye).reduce((t, e) => t + Number(e.montant || 0), 0), 0);
+  if (!await uConfirm(`Envoyer un virement de ${fmt(montant)} à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie de caisse ${bq || ""} : ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
+  const virement = {
+    id: uid(), mois: m, montant, moyen: String(moyen).trim(), ref: String(ref).trim(), boutique: bq,
+    statut: "envoye", date_envoi: today(), par: profile.nom
+  };
+  const paie = normPaiement(moyen);
+  const deps = [{
+    id: uid(), date: today(), boutique: bq, categorie: "Salaires",
+    description: `Salaire ${libelleMoisFR(m)} — ${u.nom}`,
+    montant: montant + retenue, paiement: paie, par: profile.nom, auto: "virement", user_id: u.id
+  }];
+  if (retenue > 0) {
+    deps.push({
+      id: uid(), date: today(), boutique: bq, categorie: "Prêt au personnel",
+      description: `Remboursement crédit BMI retenu sur salaire ${libelleMoisFR(m)} — ${u.nom}`,
+      montant: -retenue, paiement: paie, par: profile.nom, auto: "retenue", user_id: u.id
+    });
+  }
+  save({
+    ...db,
+    users: db.users.map((x) => (x.id === u.id ? { ...x, virements: [...(x.virements || []), virement], credits: appliquerRetenuesCredit(x, m, profile.nom) } : x)),
+    depenses: [...deps, ...db.depenses],
+    messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Salaire versé à"), ...(db.messages || [])],
+  }, `Virement de ${fmt(montant)} envoyé à ${u.nom} (${libelleMoisFR(m)})`);
+  uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires ».`);
+}
+
+// À partir de ce nombre de clients apportés, un apporteur externe devient
+// éligible au statut de Commercial (compte utilisateur avec commission).
+export const SEUIL_COMMERCIAL = 5;
+
+// ---- PROSPECTS DORMANTS ----
+// Un prospect qui n'a pas bougé depuis des mois n'est plus un prospect : c'est un
+// contact. Le laisser dans la file active fausse les tableaux de bord et noie les
+// vraies pistes. On le signale, on l'archive — on ne le supprime jamais : un numéro
+// qualifié garde de la valeur pour une campagne future.
+export const SEUIL_DORMANT_JOURS = 150; // ~5 mois
+
+// Dernière trace d'activité : la dernière modification, à défaut la création.
+export const derniereActivite = (p) => p.maj_le || p.date;
+export const joursSansActivite = (p) => {
+  const d = Date.parse(derniereActivite(p));
+  if (Number.isNaN(d)) return 0;
+  return Math.floor((Date.now() - d) / 86400000);
+};
+export const estDormant = (p) => !p.converti && !p.archive && joursSansActivite(p) >= SEUIL_DORMANT_JOURS;
+
+// Toute modification d'un prospect l'horodate : sans cela, impossible de savoir
+// lequel dort vraiment.
+export const toucher = (p) => ({ ...p, maj_le: today() });
+
+// Un CLIENT peut en parrainer un autre. Il touche alors une commission sur la
+// vente de son filleul — comme un apporteur externe, mais avec un compte.
+// Taux par défaut ; l'administrateur peut le régler compte par compte
+// (users[].taux_commission), exactement comme pour un commercial.
+export const TAUX_PARRAINAGE_CLIENT = 3;
+
+// Le client note celui qui est venu chez lui. Trois critères, notés sur 5.
+export const CRITERES_NOTE = [
+  { id: "habillement", label: "Présentation / tenue", emoji: "👔" },
+  { id: "maitrise", label: "Maîtrise du sujet", emoji: "🎓" },
+  { id: "respect", label: "Respect et courtoisie", emoji: "🤝" },
+];
+export const moyenneNote = (e) => {
+  const n = CRITERES_NOTE.map((c) => Number(e[c.id] || 0)).filter((x) => x > 0);
+  return n.length ? n.reduce((a, b) => a + b, 0) / n.length : 0;
+};
+// Moyenne d'un employé sur toutes ses évaluations.
+export const noteMoyenne = (u) => {
+  const evs = u.evaluations || [];
+  if (!evs.length) return null;
+  return evs.reduce((s, e) => s + moyenneNote(e), 0) / evs.length;
+};
+export const etoiles = (n) => "★".repeat(Math.round(n)) + "☆".repeat(5 - Math.round(n));
+// Taux par défaut du parrainage, réglable dans ⚙ Paramètres. Rangé dans la fiche
+// boutique — comme la note du dimensionnement — donc AUCUNE migration de base.
+export const tauxParrainageDefaut = (db) => {
+  const b = (db?.boutiques || []).find((x) => typeof x.taux_parrainage === "number");
+  return b ? b.taux_parrainage : TAUX_PARRAINAGE_CLIENT;
+};
+// Le taux d'un parrain : son taux personnel s'il en a un, sinon le taux par défaut.
+export const tauxParrain = (u, db) => Number(u?.taux_commission || tauxParrainageDefaut(db));
+
+// Un commercial qui a recruté ce nombre de filleuls devient CHEF D'ÉQUIPE
+// automatiquement, et touche une commission sur les commissions de son équipe.
+export const SEUIL_CHEF_EQUIPE = 5;
+export const TAUX_EQUIPE_DEFAUT = 10; // % de la commission de chaque filleul
+
+// Les commerciaux recrutés par u (son équipe)
+// Réseau COMMERCIAL uniquement : un client parrainé ne doit JAMAIS compter ici,
+// sinon un client cumulant 5 filleuls deviendrait « chef d'équipe ».
+// Le parrainage entre clients utilise un champ distinct : parrain_client_id.
+export const filleulsDe = (db, u) => (db.users || []).filter((x) =>
+  x.parrain_id === u.id && x.actif !== false && (x.role === "commercial" || x.role === "technicien"));
+
+// Chef d'équipe : soit désigné par l'admin, soit atteint le seuil de recrutement
+export const estChefEquipe = (db, u) => !!u.chef_equipe || filleulsDe(db, u).length >= SEUIL_CHEF_EQUIPE;
+
+// COMMISSION D'UNE VENTE pour son commercial.
+// Le RABAIS accordé au client est déduit de la commission : c'est le commercial
+// qui l'offre, pas l'entreprise. La marge de BMI est donc préservée.
+// Le verrou est posé ICI, à la source : toutes les vues des commissions passent
+// par cette fonction. Une vente issue d'un devis ne rapporte RIEN tant que le
+// client n'a pas réceptionné l'installation.
+export const commissionBloquee = (v) => v.commission_a_la_reception === true;
+
+export const commissionBrute = (v, taux) => {
+  const base = totalVente(v) + Number(v.rabais || 0); // total avant le rabais du commercial
+  return Math.max(0, Math.round((base * Number(taux || 0)) / 100) - Number(v.rabais || 0));
+};
+
+export const commissionVente = (v, taux) => (commissionBloquee(v) ? 0 : commissionBrute(v, taux));
+
+// Ce qui est gagné mais pas encore exigible : en attente de la réception des travaux.
+export const commissionEnAttente = (v, taux) => (commissionBloquee(v) ? commissionBrute(v, taux) : 0);
+
+// Commission d'une personne sur une vente : seul le COMMERCIAL supporte le rabais
+// qu'il a lui-même offert. Le responsable associé, lui, n'a pas à le payer.
+//
+// Le blocage « réception » est déjà appliqué par commissionVente ci-dessus.
+export const commissionPour = (v, nom, taux) => (v.commercial === nom
+  ? commissionVente(v, taux)
+  : (commissionBloquee(v) ? 0 : Math.round((totalVente(v) * Number(taux || 0)) / 100)));
+
+// Normalise un nom d'article pour le comparer : majuscules, sans accents,
+// sans ponctuation, sans espaces multiples, et au singulier grossier.
+// « Panneaux 550 W » et « PANNEAU 550W » deviennent la même chose.
+export const normNom = (s) => String(s || "")
+  .toUpperCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^A-Z0-9]+/g, " ")
+  .trim()
+  .split(" ").map((m) => (m.length > 3 && m.endsWith("S") ? m.slice(0, -1) : m)).join(" ");
+
+// Cherche l'article correspondant dans une liste : d'abord exact, puis par inclusion.
+export const trouverArticle = (liste, nom) => {
+  const n = normNom(nom);
+  if (!n) return null;
+  return liste.find((p) => normNom(p.nom) === n)
+    || liste.find((p) => normNom(p.nom).includes(n) || n.includes(normNom(p.nom)))
+    || null;
+};
+
+// ============ RÉSERVATIONS PRÉPAYÉES ============
+// Le client paie par tranches AVANT d'emporter. L'argent encaissé est une AVANCE
+// (compte 4191), pas un chiffre d'affaires : il ne devient CA qu'à la livraison.
+// Le stock n'est réservé qu'à la livraison (décision retenue).
+export const estReservation = (d) => d.type === "prepaye";
+export const reservations = (db) => (db.dettes || []).filter(estReservation);
+export const dettesClassiques = (db) => (db.dettes || []).filter((d) => !estReservation(d));
+export const resteAPayer = (d) => Math.max(0, Number(d.montant || 0) - Number(d.paye || 0));
+export const totalReservation = (r) => (r.articles || []).reduce((s, l) => s + Number(l.qte) * Number(l.pu), 0);
+
+// ============ DEMANDES DE RAVITAILLEMENT ============
+// Une boutique demande de la marchandise ; la demande est stockée dans SA fiche
+// (aucune migration de base). Le magasinier la voit, prépare le bon, et sert.
+export const demandesDe = (b) => b.demandes || [];
+export const demandesEnAttente = (db) =>
+  (db.boutiques || []).filter((b) => !b.depot)
+    .flatMap((b) => demandesDe(b).filter((d) => d.statut === "en_attente").map((d) => ({ boutique: b.nom, d })));
+
+// Articles sous le seuil dans les boutiques de vente (le magasinier voit l'alerte,
+// pas le stock complet de la boutique).
+export const alertesBoutiques = (db, stock) =>
+  (db.produits || [])
+    .filter((p) => !estDepot(db, p.boutique))
+    .map((p) => ({ p, actuel: stock(db, p) }))
+    .filter((x) => x.actuel <= Number(x.p.seuil || 0))
+    .sort((a, b) => a.actuel - b.actuel);
+
+// ============ APPORTEURS D'AFFAIRES ============
+// N'IMPORTE QUEL utilisateur qui amène un client peut être crédité de la vente
+// et toucher sa commission, s'il a un taux de commission défini par l'admin.
+export const aUnTaux = (u) => Number(u.taux_commission || 0) > 0;
+export const apporteursPossibles = (db) => {
+  const noms = new Map();
+  (db.users || []).filter((u) => u.actif !== false && u.role !== "client" && aUnTaux(u))
+    .forEach((u) => noms.set(u.nom, { id: u.id, nom: u.nom, taux: Number(u.taux_commission || 0), role: u.role }));
+  (db.commerciaux || []).filter((c) => c.actif !== false)
+    .forEach((c) => { if (!noms.has(c.nom)) noms.set(c.nom, { id: c.id, nom: c.nom, taux: Number(c.taux || 0), role: "commercial" }); });
+  return [...noms.values()].sort((a, b) => a.nom.localeCompare(b.nom));
+};
+// A-t-il quelque chose à voir dans « Ma commission » ?
+export const estApporteur = (db, profile) => {
+  const moi = (db.users || []).find((u) => u.id === profile.id);
+  return (moi && aUnTaux(moi)) || (db.ventes || []).some((v) => v.commercial === profile.nom || v.responsable === profile.nom);
+};
+
+// ============ MAGASINS (dépôts) ============
+// Une « boutique » marquée depot:true est un MAGASIN : on y stocke, on n'y vend pas.
+// Les boutiques de vente sont ravitaillées depuis les magasins (transferts).
+export const estDepot = (db, nom) => !!(db.boutiques || []).find((b) => b.nom === nom)?.depot;
+export const boutiquesVente = (db) => (db.boutiques || []).filter((b) => !b.depot);
+export const magasinsDe = (db) => (db.boutiques || []).filter((b) => b.depot);
+
+// ============ POUVOIRS (droits désactivables par l'administrateur) ============
+// Chaque compte possède, selon son rôle, une liste de pouvoirs par défaut.
+// L'administrateur peut en désactiver n'importe lequel : les identifiants
+// désactivés sont stockés dans u.droits_off.
+export const LIBELLE_ONGLET = {
+  dashboard: "📊 Tableau de bord", ventes: "💰 Ventes", commande: "🛒 Nouvelle commande", commandes: "📥 Commandes reçues",
+  dimensionnement: "☀️ Dimensionnement", depenses: "📤 Dépenses", dettes: "🧾 Dettes", clients: "👤 Clients",
+  caisse: "🔒 Caisse", stocks: "📦 Stocks", fournisseurs: "🚚 Fournisseurs", commerciaux: "🎯 Commerciaux",
+  equipe: "👑 Équipe", prospects: "🧲 Prospects", parc: "🏠 Clients installés", messages: "💬 Messages",
+  salaires: "💵 Salaires (tous)", users: "👥 Utilisateurs", historique: "🕘 Historique", parametres: "⚙ Paramètres", rentabilite: "📈 Rentabilité",
+  commission: "💵 Ma commission", taches: "✅ Mes tâches", salaire: "💵 Salaire", espace_client: "🏠 Mon espace", ravitaillement: "🚚 Ravitaillement",
+  nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
+};
+
+export const ONGLETS_ROLE = {
+  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
+  commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
+  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
+  resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "messages", "commission", "salaire", "nouveau_client"],
+  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "commission", "messages", "salaire", "nouveau_client"],
+  magasinier: ["stocks", "salaire", "messages", "nouveau_client"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client"],
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client"],
+  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
+  client: ["espace_client", "messages"],
+};
+
+// Pouvoirs d'action (au-delà des onglets)
+export const ACTIONS_POUVOIR = [
+  ["act_ecriture", "✏️ Créer / modifier / supprimer (sinon : lecture seule)", (r) => r !== "comptable" && r !== "client"],
+  ["act_credit", "🏦 Demander un crédit BMI", (r) => SALARIES.includes(r)],
+  ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
+  ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
+  ["act_taches", "✅ Assigner des tâches", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
+];
+
+export const pouvoirsDuRole = (role) => [
+  ...(ONGLETS_ROLE[role] || []).map((id) => [id, LIBELLE_ONGLET[id] || id, "Onglet"]),
+  ...ACTIONS_POUVOIR.filter(([, , cond]) => cond(role)).map(([id, lbl]) => [id, lbl, "Action"]),
+];
+
+// Lecture EN DIRECT des droits (le profil de connexion est figé au login)
+export const droitsOffDe = (db, profile) => (((db.users || []).find((u) => u.id === profile.id) || profile).droits_off) || [];
+export const aDroit = (db, profile, id) => !droitsOffDe(db, profile).includes(id);
+
+// Le comptable est en LECTURE SEULE par nature (consultation + exports).
+// Pour les autres rôles, l'admin peut retirer le pouvoir « act_ecriture ».
+export const peutEcrire = (db, profile) => profile.role !== "comptable" && aDroit(db, profile, "act_ecriture");
+export const bloquerSiLecture = (db, profile) => {
+  if (peutEcrire(db, profile)) return false;
+  uAlert("🔒 Votre compte est en lecture seule : vous pouvez consulter et exporter, mais pas modifier les données.");
+  return true;
+};
+
+// ============ TÂCHES ASSIGNÉES ============
+export const tachesDe = (u) => u.taches || [];
+export const tachesOuvertes = (u) => tachesDe(u).filter((t) => t.statut !== "terminee");
+// Réponses du magasin (demande servie ou refusée) que la boutique n'a pas encore vues
+export function compterReponsesRavitaillement(db, profile) {
+  if (!profile.boutique) return 0;
+  const b = (db.boutiques || []).find((x) => x.nom === profile.boutique);
+  if (!b) return 0;
+  return demandesDe(b).filter((d) => d.statut !== "en_attente" && !d.vu_boutique).length;
+}
+
+export function compterTaches(db, profile) {
+  const moi = (db.users || []).find((u) => u.id === profile.id);
+  return moi ? tachesOuvertes(moi).length : 0;
+}
+
+// Notifications de l'onglet 💵 Salaire d'un employé :
+// virements à confirmer + décisions de crédit pas encore vues.
+export function compterNotifsSalaire(db, profile) {
+  if (!SALARIES.includes(profile.role)) return 0;
+  const moi = (db.users || []).find((u) => u.id === profile.id);
+  if (!moi) return 0;
+  const virements = (moi.virements || []).filter((v) => v.statut !== "accepte").length;
+  const decisions = creditsDe(moi).filter((c) => (c.statut === "approuve" || c.statut === "refuse") && !c.vu_employe).length;
+  return virements + decisions;
+}
+
+// Notifications de l'onglet 👥 Utilisateurs (admin) : demandes de crédit à traiter.
+export const compterDemandesCredit = (db) => (db.users || []).reduce((s, u) => s + creditsEnAttente(u).length, 0);
+
+export function paieMois(u, mois) {
+  const base = Number(u.salaire_base || 0);
+  const primes = (u.primes || []).filter((p) => p.mois === mois).reduce((s, p) => s + Number(p.montant || 0), 0);
+  const avances = (u.avances || []).filter((a) => a.mois === mois).reduce((s, a) => s + Number(a.montant || 0), 0);
+  const retenueCredit = retenueCreditMois(u, mois);
+  const vs = virementsMois(u, mois);
+  const verse = vs.reduce((s, v) => s + Number(v.montant || 0), 0);
+  const accepte = vs.filter((v) => v.statut === "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
+  const enAttente = vs.filter((v) => v.statut !== "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
+  const net = base + primes - avances - retenueCredit;
+  return { base, primes, avances, retenueCredit, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
+}
+
+export const libelleMoisFR = (m) => {
+  const noms = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  const i = Number(String(m).slice(5, 7)) - 1;
+  return noms[i] ? `${noms[i]} ${String(m).slice(0, 4)}` : String(m);
+};
+
+export function periodes() {
+  const now = new Date();
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const t = iso(now);
+  const lundi = new Date(now); lundi.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  return [
+    ["Aujourd'hui", t, t],
+    ["Cette semaine", iso(lundi), t],
+    ["Ce mois", `${t.slice(0, 7)}-01`, t],
+    ["Cette année", `${t.slice(0, 4)}-01-01`, t],
+    ["Depuis le début", "0000-01-01", "9999-12-31"]
+  ];
+}
+
+// ============ REÇU CLIENT ============
