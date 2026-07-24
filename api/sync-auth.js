@@ -59,15 +59,21 @@ export default async function handler(req, res) {
     // Vérification serveur : ce compte existe-t-il, et le mot de passe fourni
     // correspond-il VRAIMENT à celui enregistré ? Sans ça, n'importe qui
     // pouvait usurper n'importe quel compte, y compris l'administrateur.
-    const { data: ligne, error: erreurLigne } = await admin.from("users").select("pwd_hash, pwd, pwd_salt, pwd_hash2").eq("id", id).maybeSingle();
+    // ⚠ Les tables Supabase de cette app n'ont PAS une colonne par champ :
+    // chaque ligne est { id, data (JSONB avec tout l'enregistrement), updated_at }.
+    // Interroger "pwd_hash" comme une colonne à part échoue silencieusement
+    // (colonne inexistante) — c'est ce qui avait cassé la connexion de TOUT
+    // le monde après le précédent correctif. On lit "data" et on regarde dedans.
+    const { data: ligne, error: erreurLigne } = await admin.from("users").select("data").eq("id", id).maybeSingle();
     if (erreurLigne) throw erreurLigne;
     if (!ligne) return res.status(401).json({ error: "Compte inconnu du serveur." });
+    const champs = ligne.data || {};
 
-    const motDePasseValide = ligne.pwd_salt && ligne.pwd_hash2
-      ? ligne.pwd_hash2 === hacherFortServeur(motDePasse, ligne.pwd_salt)
-      : ligne.pwd_hash
-        ? ligne.pwd_hash === hacherServeur(motDePasse)
-        : ligne.pwd === motDePasse; // anciens comptes pas encore migrés au hachage
+    const motDePasseValide = champs.pwd_salt && champs.pwd_hash2
+      ? champs.pwd_hash2 === hacherFortServeur(motDePasse, champs.pwd_salt)
+      : champs.pwd_hash
+        ? champs.pwd_hash === hacherServeur(motDePasse)
+        : champs.pwd === motDePasse; // anciens comptes pas encore migrés au hachage
     if (!motDePasseValide) {
       return res.status(401).json({ error: "Mot de passe incorrect." });
     }
