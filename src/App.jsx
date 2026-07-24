@@ -39,7 +39,7 @@ const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-const VERSION = "2.98.6";
+const VERSION = "2.98.8";
 
 const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -149,10 +149,59 @@ const resumeArticles = (v) => lignesVente(v).map((l) => `${l.qte}× ${l.article}
 const totalVente = (v) => brutVente(v) - Number(v.remise || 0);
 
 // Hachage SHA-256 des mots de passe (plus de stockage en clair)
+// Ancien hachage (conservé UNIQUEMENT pour reconnaître et migrer les comptes
+// pas encore mis à jour) : SHA-256 avec un sel unique partagé par toute
+// l'entreprise — c'est justement ce qui posait problème (voir plus bas).
 async function hacher(txt) {
   const donnees = new TextEncoder().encode("bmi-sel-2026::" + String(txt));
   const buf = await crypto.subtle.digest("SHA-256", donnees);
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ⚠ CORRECTIF SÉCURITÉ : hachage renforcé des mots de passe.
+// Avant : SHA-256 avec le MÊME sel pour tout le monde → un seul calcul
+// (une "rainbow table") suffisait à casser tous les mots de passe de
+// l'entreprise d'un coup, et deux personnes avec le même mot de passe
+// avaient le même hachage (visible dans la base).
+// Maintenant : un sel ALÉATOIRE différent pour chaque utilisateur
+// (pwd_salt) + PBKDF2 (150 000 tours) au lieu d'un simple SHA-256 — un
+// calcul volontairement lent, pour rendre un essai systématique hors ligne
+// beaucoup plus coûteux même si la base venait à fuiter.
+const PBKDF2_ITERATIONS = 150000;
+
+function genererSelHex() {
+  const octets = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(octets).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function hacherFort(txt, selHex) {
+  const selOctets = new Uint8Array(selHex.match(/.{2}/g).map((h) => parseInt(h, 16)));
+  const cle = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(txt)), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: selOctets, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" }, cle, 256);
+  return Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// À utiliser PARTOUT où un nouveau mot de passe est défini (création de
+// compte, changement de mot de passe) — jamais hacher() directement.
+async function definirMotDePasse(txt) {
+  const pwd_salt = genererSelHex();
+  const pwd_hash2 = await hacherFort(txt, pwd_salt);
+  return { pwd_salt, pwd_hash2, pwd_hash: undefined, pwd: undefined };
+}
+
+// Vérifie un mot de passe saisi contre un compte, quel que soit son format
+// (nouveau hachage salé, ancien hachage à sel partagé, ou très ancien mot
+// de passe en clair) — et signale s'il faut migrer vers le format fort.
+async function verifierMotDePasse(u, saisie) {
+  if (u.pwd_salt && u.pwd_hash2) {
+    return { ok: (await hacherFort(saisie, u.pwd_salt)) === u.pwd_hash2, aMigrer: false };
+  }
+  if (u.pwd_hash) {
+    const ok = u.pwd_hash === (await hacher(saisie));
+    return { ok, aMigrer: ok };
+  }
+  const ok = u.pwd === saisie;
+  return { ok, aMigrer: ok };
 }
 
 const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "RCP");
@@ -1712,12 +1761,13 @@ function Login({ db, onLogin, save }) {
     const u = db.users.find((x) => x.nom.trim().toLowerCase() === saisie);
     if (!u) { setErr("Utilisateur introuvable."); return; }
     if (u.actif === false) { setErr("Ce compte a été bloqué par l'administrateur."); return; }
-    const h = await hacher(pwd);
-    const ok = u.pwd_hash ? u.pwd_hash === h : u.pwd === pwd;
+    const { ok, aMigrer } = await verifierMotDePasse(u, pwd);
     if (!ok) { setErr("Mot de passe incorrect."); return; }
-    // Migration : les anciens mots de passe en clair sont hachés au 1er login
-    if (!u.pwd_hash && save) {
-      save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, pwd_hash: h, pwd: undefined } : x)) });
+    // Migration transparente vers le hachage renforcé (sel individuel + PBKDF2),
+    // qu'il s'agisse d'un ancien hachage à sel partagé ou d'un mot de passe en clair.
+    if (aMigrer && save) {
+      const nouveauxChamps = await definirMotDePasse(pwd);
+      save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, ...nouveauxChamps } : x)) });
     }
     // Établit une vraie session Supabase sécurisée AVANT de continuer — et non
     // en arrière-plan sans attendre : sinon la synchronisation générale qui
@@ -4791,9 +4841,8 @@ function Users({ db, save, profile }) {
     }
 
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
-    const pwd_hash = await hacher(f.pwd);
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
-    const nouvelUser = { id: uid(), nom: f.nom, pwd_hash, role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true };
+    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true };
     if (f.role === "commercial" || f.role === "technicien") {
       nouvelUser.taux_commission = Number(f.taux || 0);
       if (f.chef) nouvelUser.chef_equipe = true;
@@ -4828,8 +4877,8 @@ function Users({ db, save, profile }) {
   const changerPwd = async (u) => {
     const p = await uPrompt(`Nouveau mot de passe pour ${u.nom} (6 caractères minimum, exigé par la sécurisation Supabase) :`);
     if (!p || p.length < 6) { if (p !== null) uAlert("Mot de passe trop court (6 caractères minimum)."); return; }
-    const pwd_hash = await hacher(p);
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, pwd_hash, pwd: undefined } : x)) }, `Changement de mot de passe : ${u.nom}`);
+    const nouveauxChamps = await definirMotDePasse(p);
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, ...nouveauxChamps } : x)) }, `Changement de mot de passe : ${u.nom}`);
   };
 
   const supprimerU = async (u) => {
@@ -7177,6 +7226,9 @@ function Prospects({ db, save, profile, isAdmin }) {
   const ajouter = () => {
     if (!f.nom.trim() || !f.tel.trim()) { uAlert("Le nom et le numéro du prospect sont obligatoires."); return; }
     const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f };
+    // WhatsApp est ouvert AVANT le save, de façon strictement synchrone (sinon
+    // le navigateur bloque l'ouverture — cf. correctif du même souci sur le proforma).
+    envoyerAccueilProspectWhatsApp(f.nom, f.tel);
     save({ ...db, prospects: [p, ...db.prospects] }, `Nouveau prospect « ${f.nom} » (${f.categorie}) — ${profile.nom}`);
     setF(vide);
     setCarteOuverte(false);
@@ -9343,6 +9395,21 @@ function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse, tel) {
   window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
 }
 
+// Simple accusé de prise de contact envoyé à un nouveau prospect — pas
+// d'identifiants ici, il n'est pas encore client (voir convertirEnClient).
+function envoyerAccueilProspectWhatsApp(nomAffiche, tel) {
+  const lignes = [
+    `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
+    ``,
+    `Merci pour votre intérêt pour BMI TOGO ! Un technicien BMI vous recontacte très prochainement pour la suite.`,
+    ``,
+    `BMI TOGO — Les bâtiments modernes et intelligents`,
+  ];
+  const num = telDigits(tel);
+  const txt = encodeURIComponent(lignes.join("\n"));
+  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+}
+
 async function fabriquerCompteClient(db, nom, tel, parQui) {
   const identifiant = identifiantClient(db, nom, tel);
   const motDePasse = motDePasseClient(nom, tel);
@@ -9351,7 +9418,7 @@ async function fabriquerCompteClient(db, nom, tel, parQui) {
     nom: identifiant,
     nom_base: String(nom || "").trim().toUpperCase(), // sert à RECALCULER le mot de passe
     tel: String(tel || "").trim(),
-    pwd_hash: await hacher(motDePasse),
+    ...await definirMotDePasse(motDePasse),
     role: "client",            // ← imposé : ce chemin ne crée QUE des clients
     boutique: null,
     actif: true,
@@ -10523,9 +10590,8 @@ function MonEquipe({ db, save, profile }) {
     if (tx === null) return;
     const taux = Math.max(0, Math.min(100, Number(tx) || 0));
     if (!await uConfirm(`Créer le compte COMMERCIAL « ${nom} » pour ${a.nom} avec ${taux} % de commission ?`)) return;
-    const pwd_hash = await hacher(String(pwd));
     const nouvel = {
-      id: uid(), nom, pwd_hash, role: "commercial", boutique: null, actif: true,
+      id: uid(), nom, ...await definirMotDePasse(String(pwd)), role: "commercial", boutique: null, actif: true,
       taux_commission: taux, nom_complet: a.nom, tel: a.tel || "", promu_de: "apporteur_externe", date_promotion: today()
     };
     save({
@@ -11215,8 +11281,7 @@ function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, der
     const mdp = await uPrompt("🔑 Dernière étape : saisissez VOTRE mot de passe pour confirmer votre identité.", "");
     if (mdp === null) return;
     const moi = db.users.find((u) => u.id === profile.id);
-    const empreinte = await hacher(String(mdp));
-    const bon = moi?.pwd_hash ? moi.pwd_hash === empreinte : moi?.pwd === mdp;
+    const { ok: bon } = await verifierMotDePasse(moi || {}, String(mdp));
     if (!bon) {
       uAlert("❌ Mot de passe incorrect. Réinitialisation annulée.\n\nAucune donnée n'a été touchée.");
       return;

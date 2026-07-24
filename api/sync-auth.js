@@ -1,8 +1,17 @@
 // Fonction serveur Vercel (jamais envoyée au navigateur) : synchronise le
 // mot de passe d'un utilisateur BMI avec un vrai compte d'authentification
-// Supabase. Appelée uniquement APRÈS que l'application ait déjà vérifié
-// localement que le mot de passe est correct — cette fonction ne fait que
-// mettre en cohérence Supabase Auth avec ce qui a été vérifié.
+// Supabase.
+//
+// ⚠ CORRECTIF SÉCURITÉ : cette fonction utilisait la clé "service_role"
+// (accès total) en faisant confiance à l'appelant sans aucune vérification —
+// n'importe qui connaissant un identifiant pouvait changer son mot de passe
+// à distance, sans jamais connaître l'ancien. Elle revérifie maintenant
+// elle-même le mot de passe, côté serveur, avant d'agir : elle relit le
+// pwd_hash déjà stocké pour cet utilisateur dans la table "users" de
+// Supabase (avec la clé service_role, donc indépendamment de tout RLS) et
+// compare avec le hachage du mot de passe reçu, calculé exactement comme
+// dans l'app (voir hacher() dans App.jsx — même sel, même algorithme).
+// Sans correspondance, la requête est refusée.
 //
 // Utilise la clé "service_role" de Supabase, qui donne un accès total —
 // c'est pourquoi elle ne doit JAMAIS être mise dans le fichier .env avec le
@@ -10,6 +19,20 @@
 // variable d'environnement côté serveur sur Vercel.
 
 import { createClient } from "@supabase/supabase-js";
+import { createHash, pbkdf2Sync } from "crypto";
+
+// Doit rester IDENTIQUE à hacher() dans src/App.jsx (ancien format, conservé
+// pour les comptes pas encore migrés).
+function hacherServeur(txt) {
+  return createHash("sha256").update("bmi-sel-2026::" + String(txt)).digest("hex");
+}
+
+// Doit rester IDENTIQUE à hacherFort() dans src/App.jsx (nouveau format :
+// sel individuel + PBKDF2, 150 000 tours, SHA-256, 256 bits).
+function hacherFortServeur(txt, selHex) {
+  const sel = Buffer.from(selHex, "hex");
+  return pbkdf2Sync(String(txt), sel, 150000, 32, "sha256").toString("hex");
+}
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -33,6 +56,22 @@ export default async function handler(req, res) {
   const email = `${id}@bmi.internal`;
 
   try {
+    // Vérification serveur : ce compte existe-t-il, et le mot de passe fourni
+    // correspond-il VRAIMENT à celui enregistré ? Sans ça, n'importe qui
+    // pouvait usurper n'importe quel compte, y compris l'administrateur.
+    const { data: ligne, error: erreurLigne } = await admin.from("users").select("pwd_hash, pwd, pwd_salt, pwd_hash2").eq("id", id).maybeSingle();
+    if (erreurLigne) throw erreurLigne;
+    if (!ligne) return res.status(401).json({ error: "Compte inconnu du serveur." });
+
+    const motDePasseValide = ligne.pwd_salt && ligne.pwd_hash2
+      ? ligne.pwd_hash2 === hacherFortServeur(motDePasse, ligne.pwd_salt)
+      : ligne.pwd_hash
+        ? ligne.pwd_hash === hacherServeur(motDePasse)
+        : ligne.pwd === motDePasse; // anciens comptes pas encore migrés au hachage
+    if (!motDePasseValide) {
+      return res.status(401).json({ error: "Mot de passe incorrect." });
+    }
+
     // Cherche si un compte d'authentification existe déjà pour cet utilisateur
     const { data: liste, error: erreurListe } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (erreurListe) throw erreurListe;
