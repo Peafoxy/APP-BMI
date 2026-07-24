@@ -34,6 +34,42 @@ function hacherFortServeur(txt, selHex) {
   return pbkdf2Sync(String(txt), sel, 150000, 32, "sha256").toString("hex");
 }
 
+// ⚠ CORRECTIF SÉCURITÉ : verrouillage progressif contre les essais
+// systématiques (« brute force ») en ligne. Sans lui, rien n'empêchait
+// d'essayer des centaines de mots de passe par minute sur un identifiant
+// connu (ex. l'admin) — voir table public.tentatives_connexion.
+// Verrouillage PAR IDENTIFIANT (pas par IP, trop facile à changer).
+const PALIERS_VERROUILLAGE = [
+  { echecs: 15, minutes: 60 },
+  { echecs: 10, minutes: 15 },
+  { echecs: 5, minutes: 1 },
+];
+
+async function verifierVerrouillage(admin, id) {
+  const { data, error } = await admin.from("tentatives_connexion").select("*").eq("id", id).maybeSingle();
+  // Si la table n'existe pas encore (script SQL pas encore exécuté), on ne
+  // bloque personne : on se contente de ne pas compter les échecs pour l'instant.
+  if (error) return { verrouille: false, echecsActuels: 0 };
+  if (data?.verrouille_jusqu_a && new Date(data.verrouille_jusqu_a) > new Date()) {
+    const minutesRestantes = Math.ceil((new Date(data.verrouille_jusqu_a) - new Date()) / 60000);
+    return { verrouille: true, minutesRestantes };
+  }
+  return { verrouille: false, echecsActuels: data?.echecs || 0 };
+}
+
+async function enregistrerEchec(admin, id, echecsActuels) {
+  const echecs = echecsActuels + 1;
+  const palier = PALIERS_VERROUILLAGE.find((p) => echecs >= p.echecs);
+  const verrouille_jusqu_a = palier ? new Date(Date.now() + palier.minutes * 60000).toISOString() : null;
+  await admin.from("tentatives_connexion").upsert({
+    id, echecs, dernier_echec: new Date().toISOString(), verrouille_jusqu_a,
+  });
+}
+
+async function reinitialiserEchecs(admin, id) {
+  await admin.from("tentatives_connexion").upsert({ id, echecs: 0, dernier_echec: null, verrouille_jusqu_a: null });
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -56,6 +92,13 @@ export default async function handler(req, res) {
   const email = `${id}@bmi.internal`;
 
   try {
+    // Verrouillage progressif : refus immédiat si ce compte est actuellement
+    // bloqué, AVANT même de vérifier le mot de passe.
+    const etatVerrou = await verifierVerrouillage(admin, id);
+    if (etatVerrou.verrouille) {
+      return res.status(429).json({ error: `Trop de tentatives échouées. Réessayez dans ${etatVerrou.minutesRestantes} minute(s).` });
+    }
+
     // Vérification serveur : ce compte existe-t-il, et le mot de passe fourni
     // correspond-il VRAIMENT à celui enregistré ? Sans ça, n'importe qui
     // pouvait usurper n'importe quel compte, y compris l'administrateur.
@@ -66,7 +109,10 @@ export default async function handler(req, res) {
     // le monde après le précédent correctif. On lit "data" et on regarde dedans.
     const { data: ligne, error: erreurLigne } = await admin.from("users").select("data").eq("id", id).maybeSingle();
     if (erreurLigne) throw erreurLigne;
-    if (!ligne) return res.status(401).json({ error: "Compte inconnu du serveur." });
+    if (!ligne) {
+      await enregistrerEchec(admin, id, etatVerrou.echecsActuels);
+      return res.status(401).json({ error: "Compte inconnu du serveur." });
+    }
     const champs = ligne.data || {};
 
     const motDePasseValide = champs.pwd_salt && champs.pwd_hash2
@@ -75,8 +121,11 @@ export default async function handler(req, res) {
         ? champs.pwd_hash === hacherServeur(motDePasse)
         : champs.pwd === motDePasse; // anciens comptes pas encore migrés au hachage
     if (!motDePasseValide) {
+      await enregistrerEchec(admin, id, etatVerrou.echecsActuels);
       return res.status(401).json({ error: "Mot de passe incorrect." });
     }
+    // Mot de passe correct : on efface l'historique d'échecs de ce compte.
+    await reinitialiserEchecs(admin, id);
 
     // Cherche si un compte d'authentification existe déjà pour cet utilisateur
     const { data: liste, error: erreurListe } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
