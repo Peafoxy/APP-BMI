@@ -8444,16 +8444,31 @@ function ClientsInstalles({ db, save, profile, isAdmin }) {
   const [mat, setMat] = useState({ nom: "", qte: "", serie: "" });
 
   // Reprend automatiquement les articles de la vente rattachée : plus de double saisie.
+  // ⚠ CORRECTIF : avant, cette fonction préremplissait juste le nom/téléphone
+  // en texte libre, SANS JAMAIS chercher si un compte client existait déjà —
+  // d'où le message « aucun compte rattaché » même quand le client avait
+  // bel et bien un compte, simplement parce que personne ne l'avait
+  // sélectionné à la main dans le menu déroulant plus bas.
   const chargerDepuisVente = (venteId) => {
     const v = db.ventes.find((x) => x.id === venteId);
     if (!v) { setF((p) => ({ ...p, vente_id: "" })); return; }
     const lignes = lignesVente(v).map((l) => ({ nom: l.article, qte: Number(l.qte), serie: "" }));
+    const telVente = chiffresTel(v.tel);
+    const motsNom = (v.client || "").trim().split(/\s+/).filter(Boolean);
+    // On cherche un compte "client" déjà existant correspondant à cette vente :
+    // d'abord par téléphone (le plus fiable), puis par nom si pas de téléphone.
+    const compteTrouve = db.users.find((u) => u.role === "client" && u.actif !== false && (
+      (telVente.length >= 6 && chiffresTel(u.tel) === telVente)
+      || (v.client && (u.nom_complet || u.nom_base || u.nom || "").trim().toLowerCase() === v.client.trim().toLowerCase())
+    ));
     setF((p) => ({
       ...p,
       vente_id: venteId,
       materiel: lignes,
-      nom: p.nom || (v.client ? v.client.split(" ").slice(-1)[0] : ""),
+      prenom: p.prenom || (motsNom.length > 1 ? motsNom.slice(0, -1).join(" ") : ""),
+      nom: p.nom || (motsNom.length ? motsNom.slice(-1)[0] : ""),
       tel: p.tel || v.tel || "",
+      user_id: p.user_id || compteTrouve?.id || "",
     }));
   };
 
