@@ -4,7 +4,8 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { LOGO, VERSION, verifierMotDePasse, definirMotDePasse } from "../lib/core";
+import { LOGO, VERSION } from "../lib/constants";
+import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { Field, inputCls } from "../components/ui";
 import { synchroniserAuth } from "../supabaseClient";
 

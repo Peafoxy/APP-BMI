@@ -7,7 +7,8 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { col, light, LOGO } from "../lib/core";
+import { col, light } from "../lib/core";
+import { LOGO } from "../lib/constants";
 import { genererPDF } from "../pdf";
 
 // ============ COMPOSANTS UI ============

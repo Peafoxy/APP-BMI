@@ -5,14 +5,13 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
-import {
-  LOGO, uid, PAIEMENTS, qteVente, resumeArticles, totalVente, prefixeBoutique,
-  numeroRecu, fmt, today, dFR, telDigits, col,
-} from "../lib/core";
+import { LOGO, PAIEMENTS } from "../lib/constants";
+import { uid, qteVente, resumeArticles, totalVente, prefixeBoutique, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp } from "../lib/impression";
 import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture } from "../lib/calculs";
-import { BoutiqueTabs, SelecteurArticle } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { SelecteurArticle } from "../components/SelecteurArticle";
 
 // ============ VENTES ============
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {

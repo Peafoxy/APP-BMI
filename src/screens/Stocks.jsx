@@ -12,7 +12,7 @@ import {
   bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu,
   demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle,
 } from "../lib/calculs";
-import { BoutiqueTabs } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement } from "./Ravitaillement";
 
 // ============ STOCKS ============

@@ -7,7 +7,8 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, SALARIES, normPaiement, lignesVente, totalVente, fmt, today } from "./core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today } from "./core";
+import { SALARIES } from "./constants";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 
 // ============ CALCULS ============
@@ -449,3 +450,13 @@ export function periodes() {
 }
 
 // ============ REÇU CLIENT ============
+// ============ NOTE DU DIMENSIONNEMENT (texte modifiable) ============
+// Le texte affiché sous le tableau des équipements proposés. Modifiable par
+// l'administrateur (⚙ Paramètres). Rangé dans la fiche boutique — comme le
+// message du reçu — donc AUCUNE migration de base.
+export const NOTE_DIM_DEFAUT = "Calcul indicatif basé sur des marges de sécurité usuelles (pertes système 20 %, convertisseur dimensionné à 2 fois la puissance totale des appareils). Les équipements « hors stock » saisis manuellement ne modifient aucun stock lors de la vente — pensez à les commander séparément si besoin. Un article contenant le mot « hybride » est considéré comme intégrant déjà le chargeur MPPT.";
+export const noteDimensionnement = (db) => {
+  const b = (db.boutiques || []).find((x) => typeof x.note_dim === "string");
+  return b ? b.note_dim : NOTE_DIM_DEFAUT;
+};
+

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm } from "../components/ui";
 import { boutiquesVente, dettesClassiques } from "../lib/calculs";
-import { BoutiqueTabs } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient,
   envoyerIdentifiantsWhatsApp, motDePasseConnu, messagesNouveauClient,

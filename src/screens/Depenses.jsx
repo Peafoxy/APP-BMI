@@ -5,10 +5,11 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, CATEGORIES, PAIEMENTS, fmt, today, dFR } from "../lib/core";
+import { uid, fmt, today, dFR } from "../lib/core";
+import { CATEGORIES, PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { bloquerSiLecture, annulerLiensDepense, boutiquesVente } from "../lib/calculs";
-import { BoutiqueTabs } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DÉPENSES ============
 export function Depenses({ db, save, profile }) {

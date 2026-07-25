@@ -5,10 +5,12 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
-import { uid, PAIEMENTS, fmt, today, dFR, totalVente } from "../lib/core";
+import { uid, fmt, today, dFR, totalVente } from "../lib/core";
+import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { stockActuel, boutiquesVente } from "../lib/calculs";
-import { BoutiqueTabs, SelecteurArticle } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { SelecteurArticle } from "../components/SelecteurArticle";
 
 // ============ NOUVELLE COMMANDE (rôle Commercial) ============
 // Le commercial compose un panier et l'envoie à une boutique — il ne peut

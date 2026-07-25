@@ -4,12 +4,9 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useCallback } from "react";
-import {
-  fmt, today, dFR, inP, col, totalVente, lignesVente, qteVente, resumeArticles,
-  lignesJournal, numeroRecu,
-} from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
 import { btnDark, Badge } from "../components/ui";
-import { exportCSV } from "../lib/impression";
+import { exportCSV } from "../lib/export";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
   dettesClassiques, estReservation, periodes, reservations,

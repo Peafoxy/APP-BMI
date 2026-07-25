@@ -1,18 +1,12 @@
 // ============================================================
-// lib/impression.js — Génération de documents imprimables (reçu,
-// proforma, bon de ravitaillement, bulletin de paie), envoi WhatsApp
-// du reçu, export CSV/Excel, et sauvegarde JSON (manuelle + dossier
-// automatique horaire).
-//
-// Extrait de App.jsx (refactorisation) — copié tel quel. printApi et
-// exportApi restent définis dans components/ui.jsx (à côté des
-// composants React PrintHost/ExportHost qui les réaffectent) : grâce
-// aux liaisons « live » des modules ES, ce fichier voit toujours leur
-// valeur à jour sans setter séparé.
+// lib/impression.js — Génération de documents imprimables : reçu
+// client, proforma, bon de ravitaillement, bulletin de paie, et
+// message WhatsApp du reçu. printApi vit dans components/ui.jsx
+// (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { LOGO, today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDigits } from "./core";
-import { printApi, exportApi } from "../components/ui";
-import { marquerSauvegardeAuto } from "../db";
+import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDigits } from "./core";
+import { LOGO } from "./constants";
+import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./calculs";
 
 // ============ REÇU CLIENT ============
@@ -346,50 +340,4 @@ export function recuWhatsApp(v, bq = {}) {
   const txt = lignes.join("\n");
   const num = telDigits(v.tel);
   window.open(num ? `https://wa.me/${num}?text=${encodeURIComponent(txt)}` : `https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
-}
-
-export function telechargerSauvegarde(db, suffixe = "") {
-  const blob = new Blob([JSON.stringify(db, null, 1)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `sauvegarde_bmi_${today()}${suffixe}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
-
-// ============ SAUVEGARDE HORAIRE DANS UN DOSSIER ============
-// Chrome / Edge permettent à l'application d'écrire dans un dossier que vous
-// désignez. Si ce dossier est synchronisé par Google Drive, la sauvegarde part
-// dans le cloud toute seule. Le MÊME fichier est réécrit : pas d'accumulation.
-export const NOM_FICHIER_AUTO = "sauvegarde_bmi.json";
-export const dossierDispo = () => typeof window !== "undefined" && "showDirectoryPicker" in window;
-
-// Écrit (ou réécrit) le fichier dans le dossier mémorisé.
-export async function ecrireDansDossier(db, handle) {
-  const perm = await handle.queryPermission({ mode: "readwrite" });
-  if (perm !== "granted") {
-    const demande = await handle.requestPermission({ mode: "readwrite" });
-    if (demande !== "granted") throw new Error("Autorisation refusée sur le dossier.");
-  }
-  const fichier = await handle.getFileHandle(NOM_FICHIER_AUTO, { create: true });
-  const flux = await fichier.createWritable();
-  await flux.write(JSON.stringify({ ...db, _sauvegarde: new Date().toISOString() }, null, 1));
-  await flux.close();
-  await marquerSauvegardeAuto();
-}
-
-export function exportCSV(nom, headers, rows, filtre = "") {
-  const esc = (x) => `"${String(x ?? "").replace(/"/g, '""')}"`;
-  const csv = "\uFEFF" + [
-    headers.map(esc).join(";"),
-    ...rows.map((r) => r.map(esc).join(";"))
-  ].join("\n");
-  const tsv = [
-    headers.join("\t"),
-    ...rows.map((r) => r.map((x) => String(x ?? "").replace(/[\t\n]/g, " ")).join("\t"))
-  ].join("\n");
-  const fichier = `${nom}_${today()}${filtre ? `_${filtre}` : ""}.csv`;
-  if (exportApi) exportApi.open({ nom, fichier, csv, tsv, headers, rows, lignes: rows.length });
 }

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente } from "../lib/calculs";
-import { BoutiqueTabs } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {

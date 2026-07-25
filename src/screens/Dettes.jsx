@@ -4,11 +4,12 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, PAIEMENTS, fmt, today, dFR, telDigits, normPaiement } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, normPaiement } from "../lib/core";
+import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { imprimerRecu } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel } from "../lib/calculs";
-import { BoutiqueTabs } from "../components/Selecteurs";
+import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
