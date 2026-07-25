@@ -17,7 +17,7 @@ import { normNom } from "../lib/calculs";
 // vendeur ne voit que sa boutique, un commercial que ses propres prospects
 // et devis, etc.). Limité à quelques résultats par catégorie : c'est un
 // aiguillage rapide, pas un rapport complet.
-function rechercherGlobalement(db, profile, texte) {
+export function rechercherGlobalement(db, profile, texte) {
   const q = normNom(texte);
   if (q.length < 2) return null;
   const isAdmin = profile.role === "admin";
@@ -49,13 +49,21 @@ function rechercherGlobalement(db, profile, texte) {
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 6);
 
+  // Proformas : mêmes yeux que la liste « Proformas émis » de l'onglet Ventes
+  const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
+  const proformas = !voitProformas ? [] : (db.proformas || [])
+    .filter((pf) => !maBoutique || pf.boutique === maBoutique)
+    .filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(q))
+    .sort((a, b) => String(b.ts || b.date).localeCompare(String(a.ts || a.date)))
+    .slice(0, 6);
+
   const prospects = (db.prospects || [])
     .filter((p) => voitToutProspects || p.commercial === profile.nom)
     .filter((p) => normNom(`${p.nom} ${p.tel || ""}`).includes(q))
     .slice(0, 6);
 
-  const total = clients.length + ventes.length + produits.length + devis.length + prospects.length;
-  return { clients, ventes, produits, devis, prospects, total };
+  const total = clients.length + ventes.length + produits.length + devis.length + prospects.length + proformas.length;
+  return { clients, ventes, produits, devis, prospects, proformas, total };
 }
 
 // Modale de recherche globale : ouverte depuis la loupe toujours visible en
@@ -109,6 +117,12 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer }) {
                 <>
                   <span className="text-sm"><span className="font-mono text-xs text-slate-500">{numeroRecu(v)}</span> — <span className="font-semibold">{v.client || "Client"}</span></span>
                   <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(totalVente(v))}</span>
+                </>
+              )} />
+              <Categorie titre="📄 Proformas" tab="ventes" items={resultats.proformas} rendu={(pf) => (
+                <>
+                  <span className="text-sm"><span className="font-mono text-xs text-slate-500">{pf.numero}</span> — <span className="font-semibold">{pf.client || "Client"}</span></span>
+                  <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(pf.total)}</span>
                 </>
               )} />
               <Categorie titre="📦 Produits" tab="stocks" items={resultats.produits} rendu={(p) => (
