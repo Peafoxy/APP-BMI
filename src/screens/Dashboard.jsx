@@ -3,7 +3,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   fmt, today, dFR, inP, col, totalVente, lignesVente, qteVente, resumeArticles,
   lignesJournal, numeroRecu,
