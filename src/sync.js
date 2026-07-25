@@ -246,10 +246,20 @@ export async function synchroniser() {
               continue;
             }
 
-            const { error } = await supabase
+            const { data: ecrit, error } = await supabase
               .from(op.table)
-              .upsert({ id: op.id, data: op.data, updated_at: op.data.updated_at });
+              .upsert({ id: op.id, data: op.data, updated_at: op.data.updated_at })
+              .select("updated_at")
+              .single();
             if (error) throw error;
+            // Le déclencheur SQL "horodatage_serveur" impose sa propre valeur de
+            // updated_at (l'heure réelle du serveur), qui peut différer de celle
+            // qu'on vient d'envoyer (horloge de cet appareil potentiellement
+            // fausse). On aligne la copie locale sur cette valeur de référence,
+            // pour que les futures comparaisons restent fiables.
+            if (ecrit?.updated_at) {
+              await idb.table(op.table).put({ ...op.data, updated_at: ecrit.updated_at });
+            }
           } else {
             const del = await supabase.from(op.table).delete().eq("id", op.id);
             if (del.error) throw del.error;
