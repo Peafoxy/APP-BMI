@@ -481,3 +481,33 @@ export function tachesAValider(db, profile) {
   return out.sort((a, b) => String(a.date_fin || "").localeCompare(String(b.date_fin || "")));
 }
 export const compterTachesAValider = (db, profile) => tachesAValider(db, profile).length;
+
+// ============ RÉINITIALISATION : QUI, ET DEPUIS OÙ ============
+// La réinitialisation efface TOUT. Elle est donc réservée :
+//   1. au LOGICIEL WINDOWS (le .exe) — jamais depuis le site web,
+//   2. à l'ADMINISTRATEUR PRINCIPAL — jamais à un autre administrateur.
+// Un administrateur qui se connecte depuis Vercel, même légitime, ne peut rien
+// effacer : il faut être physiquement sur la machine de direction.
+export const estAppWindows = () => typeof navigator !== "undefined" && /electron/i.test(navigator.userAgent || "");
+
+// L'administrateur principal est celui qui porte le drapeau. À défaut, c'est le
+// PREMIER administrateur créé (les comptes sont ajoutés en fin de liste).
+export const adminPrincipal = (db) =>
+  (db.users || []).find((u) => u.admin_principal && u.role === "admin" && u.actif !== false) ||
+  (db.users || []).find((u) => u.role === "admin" && u.actif !== false) || null;
+
+export const estAdminPrincipal = (db, profile) => {
+  const p = adminPrincipal(db);
+  return !!p && p.id === profile.id;
+};
+
+// Code aléatoire à recopier : impossible à taper machinalement, contrairement
+// à un mot toujours identique.
+export const codeConfirmation = () => {
+  const L = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans I, O, 0, 1 : illisibles
+  let c = "";
+  for (let i = 0; i < 3; i++) c += L[Math.floor(Math.random() * L.length)];
+  c += "-";
+  for (let i = 0; i < 3; i++) c += L[Math.floor(Math.random() * L.length)];
+  return c;
+};
