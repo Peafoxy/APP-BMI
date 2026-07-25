@@ -246,19 +246,25 @@ export async function synchroniser() {
               continue;
             }
 
-            const { data: ecrit, error } = await supabase
+            const { error } = await supabase
               .from(op.table)
-              .upsert({ id: op.id, data: op.data, updated_at: op.data.updated_at })
-              .select("updated_at")
-              .single();
+              .upsert({ id: op.id, data: op.data, updated_at: op.data.updated_at });
             if (error) throw error;
             // Le déclencheur SQL "horodatage_serveur" impose sa propre valeur de
             // updated_at (l'heure réelle du serveur), qui peut différer de celle
             // qu'on vient d'envoyer (horloge de cet appareil potentiellement
-            // fausse). On aligne la copie locale sur cette valeur de référence,
-            // pour que les futures comparaisons restent fiables.
-            if (ecrit?.updated_at) {
-              await idb.table(op.table).put({ ...op.data, updated_at: ecrit.updated_at });
+            // fausse). On essaie d'aligner la copie locale sur cette valeur de
+            // référence — mais en ÉTAPE SÉPARÉE, non bloquante : l'écriture
+            // ci-dessus a déjà réussi, un souci ici ne doit jamais la faire
+            // repasser pour un échec (c'est justement ce qui s'est produit avec
+            // .single(), trop strict, dans une version précédente de ce correctif).
+            try {
+              const { data: ecrit } = await supabase.from(op.table).select("updated_at").eq("id", op.id).limit(1);
+              if (ecrit?.[0]?.updated_at) {
+                await idb.table(op.table).put({ ...op.data, updated_at: ecrit[0].updated_at });
+              }
+            } catch (e2) {
+              console.warn("Alignement de l'horodatage local reporté (sans conséquence) :", op.table, e2?.message || e2);
             }
           } else {
             const del = await supabase.from(op.table).delete().eq("id", op.id);
