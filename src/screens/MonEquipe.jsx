@@ -7,9 +7,9 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
-import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP } from "../lib/core";
+import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -233,8 +233,51 @@ export function MonEquipe({ db, save, profile }) {
     uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie de caisse : ${bq}.`);
   };
 
+  // ---- VALIDATION DES TÂCHES ----
+  // Les tâches déclarées terminées par les membres attendent ici : on valide,
+  // ou on rouvre avec un motif (le membre le verra en rouge dans Mes tâches).
+  const aValider = tachesAValider(db, profile);
+
+  const validerTache = async (tv) => {
+    if (!await uConfirm(`Valider la tâche « ${tv.titre} » de ${tv.membre.nom} ?${tv.photo ? "" : "\n\n⚠ Aucune photo de preuve n'a été jointe."}`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === tv.membre.id ? { ...x, taches: (x.taches || []).map((y) => (y.id === tv.id ? { ...y, statut: "validee", valide_par: profile.nom, date_validation: today() } : y)) } : x)) },
+      `Tâche de ${tv.membre.nom} validée par ${profile.nom} : ${tv.titre}`);
+  };
+
+  const rouvrirTache = async (tv) => {
+    const motif = await uPrompt(`Motif de la réouverture (visible par ${tv.membre.nom}) :`, "");
+    if (motif === null) return;
+    if (!motif.trim()) { uAlert("Le motif est obligatoire : le membre doit savoir quoi corriger."); return; }
+    save({ ...db, users: db.users.map((x) => (x.id === tv.membre.id ? { ...x, taches: (x.taches || []).map((y) => (y.id === tv.id ? { ...y, statut: "a_faire", date_fin: null, commentaire_reouverture: motif.trim() } : y)) } : x)) },
+      `Tâche de ${tv.membre.nom} rouverte par ${profile.nom} : ${tv.titre} (${motif.trim()})`);
+  };
+
   return (
     <div className="space-y-4">
+      {aValider.length > 0 && (
+        <Panel>
+          <div className="font-bold mb-1 text-amber-800">⏳ Tâches à valider ({aValider.length})</div>
+          <div className="text-xs text-slate-500 mb-3">Déclarées terminées par les membres — validez, ou rouvrez avec un motif.</div>
+          <div className="space-y-2">
+            {aValider.map((tv) => (
+              <div key={tv.membre.id + tv.id} className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-[55%]">
+                  <div className="font-bold text-slate-800">{tv.titre}</div>
+                  <div className="text-xs text-slate-500 mt-1">{tv.membre.nom} · terminée le {dFR(tv.date_fin)}{tv.echeance ? ` · échéance ${dFR(tv.echeance)}` : ""}</div>
+                  {tv.detail && <div className="text-sm text-slate-600 mt-1">{tv.detail}</div>}
+                  {tv.photo
+                    ? <img src={tv.photo} alt="Preuve" className="mt-2 rounded-lg border border-amber-200 max-h-32" />
+                    : <div className="text-xs text-amber-700 mt-2">Aucune photo de preuve jointe.</div>}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => validerTache(tv)} className="px-4 py-2 rounded-lg bg-green-700 text-white text-sm font-bold hover:bg-green-800">✅ Valider</button>
+                  <button onClick={() => rouvrirTache(tv)} className="px-4 py-2 rounded-lg bg-white border border-red-300 text-red-700 text-sm font-bold hover:bg-red-50">↩ Rouvrir</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
       <Panel>
         <div className="font-bold mb-3">👑 Mon équipe — vue d'ensemble</div>
         <div className="flex flex-wrap gap-2 mb-4">

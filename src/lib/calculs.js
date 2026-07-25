@@ -388,7 +388,8 @@ export const bloquerSiLecture = (db, profile) => {
 
 // ============ TÂCHES ASSIGNÉES ============
 export const tachesDe = (u) => u.taches || [];
-export const tachesOuvertes = (u) => tachesDe(u).filter((t) => t.statut !== "terminee");
+// Une tâche est « ouverte » tant qu'elle n'est ni déclarée terminée ni validée.
+export const tachesOuvertes = (u) => tachesDe(u).filter((t) => t.statut !== "terminee" && t.statut !== "validee");
 // Réponses du magasin (demande servie ou refusée) que la boutique n'a pas encore vues
 export function compterReponsesRavitaillement(db, profile) {
   if (!profile.boutique) return 0;
@@ -462,3 +463,21 @@ export const noteDimensionnement = (db) => {
 
 // Statut d'un chantier (par défaut : en cours)
 export const statutChantier = (c) => c.statut || "en_cours";
+
+// ============ VALIDATION DES TÂCHES ============
+// Cycle : à faire → terminée (déclarée par l'exécutant, plus modifiable par
+// lui) → validée OU rouverte avec motif par l'assignateur. L'admin voit
+// toutes les tâches en attente ; un responsable ne voit que les siennes
+// (champ « par » rempli à l'assignation).
+export function tachesAValider(db, profile) {
+  const isAdmin = profile.role === "admin";
+  const out = [];
+  for (const u of db.users || []) {
+    for (const t of u.taches || []) {
+      if (t.statut !== "terminee") continue;
+      if (isAdmin || t.par === profile.nom) out.push({ ...t, membre: u });
+    }
+  }
+  return out.sort((a, b) => String(a.date_fin || "").localeCompare(String(b.date_fin || "")));
+}
+export const compterTachesAValider = (db, profile) => tachesAValider(db, profile).length;

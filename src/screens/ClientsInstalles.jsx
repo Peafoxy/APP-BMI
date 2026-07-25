@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier } from "../lib/calculs";
 
@@ -22,29 +22,6 @@ const PART_CHEF_DEFAUT = 40;
 // Qui peut intervenir sur un chantier
 
 // ============ DOSSIER DE CHANTIER ============
-// Compresse une photo avant stockage : sans cela, quelques clichés suffiraient
-// à saturer la base. Cible : ~1000 px de large, qualité 55 % → environ 80 Ko.
-function compresserPhoto(fichier, maxLargeur = 1000, qualite = 0.55) {
-  return new Promise((resolve, reject) => {
-    const lecteur = new FileReader();
-    lecteur.onerror = () => reject(new Error("Lecture impossible"));
-    lecteur.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Image illisible"));
-      img.onload = () => {
-        const ratio = Math.min(1, maxLargeur / img.width);
-        const c = document.createElement("canvas");
-        c.width = Math.round(img.width * ratio);
-        c.height = Math.round(img.height * ratio);
-        const ctx = c.getContext("2d");
-        ctx.drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL("image/jpeg", qualite));
-      };
-      img.src = lecteur.result;
-    };
-    lecteur.readAsDataURL(fichier);
-  });
-}
 const MAX_PHOTOS = 6;
 
 // Fin de garantie = date d'installation + N mois

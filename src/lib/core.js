@@ -166,3 +166,28 @@ export const inP = (dt, a, b) => {
 export function setColors(c) {
   COLORS = c;
 }
+
+// Compresse une photo avant stockage : sans cela, quelques clichés suffiraient
+// à saturer la base. Cible : ~1000 px de large, qualité 55 % → environ 80 Ko.
+export function compresserPhoto(fichier, maxLargeur = 1000, qualite = 0.55) {
+  return new Promise((resolve, reject) => {
+    const lecteur = new FileReader();
+    lecteur.onerror = () => reject(new Error("Lecture impossible"));
+    lecteur.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Image illisible"));
+      img.onload = () => {
+        const ratio = Math.min(1, maxLargeur / img.width);
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * ratio);
+        c.height = Math.round(img.height * ratio);
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/jpeg", qualite));
+      };
+      img.src = lecteur.result;
+    };
+    lecteur.readAsDataURL(fichier);
+  });
+}
+
