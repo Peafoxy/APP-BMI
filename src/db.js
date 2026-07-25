@@ -216,14 +216,17 @@ export async function heuresDepuisSauvegardeAuto() {
 }
 
 // ============ RÉINITIALISATION ============
-// Vide toutes les tables locales SAUF les comptes utilisateurs, et purge la
-// file d'attente : sans ça, des écritures en attente ressusciteraient les
-// données effacées à la prochaine synchronisation.
+// Vide TOUTES les tables locales — comptes utilisateurs COMPRIS — et purge la
+// file d'attente. Règle : rien ne vit en local à part ce qui reste à envoyer.
+// La table users porte aussi les devis des clients, les tâches et les fiches
+// employés : l'épargner laissait survivre d'anciens employés et devis sur
+// certains appareils. Après cette purge, amorcerComptes() retélécharge les
+// comptes (nécessaire pour l'écran de connexion), puis la synchronisation
+// complète ramène tout le reste.
 export async function viderLocal() {
   await idb.transaction("rw", [...TABLES.map((t) => idb.table(t)), idb.outbox, idb.meta], async () => {
     await idb.outbox.clear();
     for (const t of TABLES) {
-      if (t === "users") continue;
       await idb.table(t).clear();
     }
     // CRUCIAL : remettre tous les curseurs de synchronisation à zéro.
@@ -235,4 +238,32 @@ export async function viderLocal() {
       await idb.meta.put({ cle: `derniere_sync:${t}`, valeur: "1970-01-01T00:00:00Z" });
     }
   });
+}
+
+// ============ COMPTES DE SECOURS ============
+// Copie MINIMALE des comptes, rafraîchie à chaque synchronisation réussie et
+// conservée à travers la purge totale (elle vit dans `meta`, pas dans les
+// tables). Elle ne sert qu'à UNE chose : permettre à l'écran de connexion de
+// fonctionner hors ligne après une purge. Elle n'alimente aucun onglet — les
+// devis, tâches et fiches employés n'y figurent pas — donc aucune donnée
+// fantôme ne peut réapparaître par elle. Un employé retiré côté serveur
+// disparaît du secours à la synchronisation suivante de l'appareil.
+const CHAMPS_SECOURS = ["id", "nom", "role", "boutique", "actif", "admin_principal", "chef_equipe", "pwd_salt", "pwd_hash2", "pwd_hash", "pwd"];
+
+export async function majComptesSecours() {
+  const users = await idb.users.toArray();
+  if (!users.length) return; // ne jamais écraser le secours par du vide
+  const minimal = users.map((u) => {
+    const o = {};
+    for (const c of CHAMPS_SECOURS) if (u[c] !== undefined) o[c] = u[c];
+    return o;
+  });
+  await idb.meta.put({ cle: "comptes_secours", valeur: JSON.stringify(minimal) });
+}
+
+export async function lireComptesSecours() {
+  try {
+    const m = await idb.meta.get("comptes_secours");
+    return m ? JSON.parse(m.valeur) : [];
+  } catch { return []; }
 }

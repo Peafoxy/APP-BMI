@@ -35,7 +35,7 @@ import {
   envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu,
 } from "./lib/comptesClients";
 import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
-  memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente } from "./db";
+  memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
@@ -86,6 +86,9 @@ export default function App() {
   // Vrai pendant le rechargement complet qui suit une connexion : l'écran
   // part de zéro et un bandeau explique que les données arrivent du serveur.
   const [syncInitiale, setSyncInitiale] = useState(false);
+  // Comptes de secours : copie minimale des comptes (voir db.js), utilisée
+  // par l'écran de connexion quand la table users est vide (purge + hors ligne).
+  const [secours, setSecours] = useState([]);
   const [rappelSauvegarde, setRappelSauvegarde] = useState(false);
   const [preRempli, setPreRempli] = useState(null); // { boutique, panier } transmis depuis le Dimensionnement solaire
   const [devisAReprendre, setDevisAReprendre] = useState(null); // { devis, client } — devis en modification/rejeté que le vendeur reprend
@@ -183,9 +186,15 @@ export default function App() {
         }
       } catch {}
 
+      // Fichier de secours des comptes : instantané au démarrage, puis
+      // rafraîchi après chaque synchronisation réussie (etat.rafraichir).
+      majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       demarrerSync(async (etat) => {       // sync Supabase en arrière-plan
         setSync(etat);
-        if (etat.rafraichir) setDb(await chargerTout());
+        if (etat.rafraichir) {
+          setDb(await chargerTout());
+          majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
+        }
       });
       try {
         const j = await joursDepuisSauvegarde();
@@ -277,7 +286,15 @@ export default function App() {
   };
 
   if (!db) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><LoadingSpinner /></div>;
-  if (!profile) return <><DialogHost /><Login db={db} save={save} onLogin={(u) => {
+  if (!profile) {
+    // Table users vide (purge + hors ligne) : l'écran de connexion s'appuie
+    // sur les comptes de secours. Dans ce mode, pas de sauvegarde (la
+    // migration de mot de passe écrirait des fiches minimales par-dessus
+    // les fiches complètes du serveur) — elle se fera à la prochaine
+    // connexion avec la vraie table.
+    const dbLogin = db.users.length > 0 ? db : { ...db, users: secours };
+    const saveLogin = db.users.length > 0 ? save : null;
+    return <><DialogHost /><Login db={dbLogin} save={saveLogin} onLogin={(u) => {
     setProfile(u);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
     (async () => {
@@ -290,16 +307,18 @@ export default function App() {
       try {
         if ((await compterEnAttente()) === 0) {
           await viderLocal();
-          setDb(await chargerTout()); // zéro : seuls les comptes restent
+          setDb(await chargerTout()); // zéro absolu : plus rien de local
         }
       } catch {}
       setSyncInitiale(true);
       try { await synchroniserOuverture(); } catch {}
       setDb(await chargerTout());
+      majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
     })();
     setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
   }} /></>;
+  }
 
   // ---- DÉCONNEXION AVEC PURGE SÉCURISÉE ----
   // Objectif : plus jamais d'anciennes données affichées après un changement
@@ -309,16 +328,30 @@ export default function App() {
   // (hors ligne), on NE purge PAS — perdre une vente serait bien pire que
   // voir un chiffre périmé — et on préviendra à la déconnexion suivante.
   const deconnexion = async (automatique = false) => {
+    // Dernière tentative d'envoi immédiat avant toute décision.
     try { await synchroniser(); } catch { /* hors ligne : on vérifie l'outbox juste après */ }
-    try {
-      const restants = await compterEnAttente();
-      if (restants === 0) {
-        await viderLocal();
-        setDb(await chargerTout()); // l'état en mémoire reflète la purge : rien de périmé ne peut se réafficher
-      } else if (!automatique) {
-        uAlert(`⚠ ${restants} opération(s) faites hors ligne ne sont pas encore synchronisées.\n\nLes données locales sont CONSERVÉES pour ne rien perdre. Reconnectez-vous avec du réseau, synchronisez, et la purge se fera à la prochaine déconnexion.`);
+    let restants = 0;
+    try { restants = await compterEnAttente(); } catch {}
+    if (restants > 0) {
+      if (!automatique) {
+        // RÈGLE : impossible de se déconnecter tant que tout n'est pas envoyé.
+        // L'application continue d'essayer toute seule (toutes les 20 s et dès
+        // que le réseau revient) — le bouton se réactivera automatiquement.
+        uAlert(`🔒 Déconnexion impossible : ${restants} opération(s) restent à envoyer au serveur.\n\nL'application réessaie automatiquement toutes les 20 secondes et dès que le réseau revient. Le bouton se réactivera dès que tout sera parti — ne fermez pas la page.`);
+        return;
       }
-    } catch { /* ne jamais bloquer la déconnexion */ }
+      // Déconnexion AUTOMATIQUE d'inactivité : on déconnecte quand même par
+      // sécurité (machine sans surveillance), mais SANS purger — les
+      // opérations en attente partiront à la reconnexion.
+    } else {
+      try {
+        await viderLocal();
+        setDb(await chargerTout()); // l'état en mémoire reflète la purge : plus rien
+        // Retélécharger immédiatement les comptes pour que l'écran de
+        // connexion fonctionne (le reste arrivera à la prochaine connexion).
+        amorcerComptes().then((ok) => { if (ok) { chargerTout().then(setDb); majComptesSecours().then(() => lireComptesSecours().then(setSecours)); } }).catch(() => {});
+      } catch {}
+    }
     setProfile(null);
     try { localStorage.removeItem("bmi_session"); } catch {}
   };
@@ -580,7 +613,7 @@ export default function App() {
             <button onClick={load} disabled={syncEnCours} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold disabled:opacity-70">
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
-            <button onClick={() => deconnexion(false)} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold">Se déconnecter</button>
+            <button onClick={() => deconnexion(false)} disabled={sync.enAttente > 0} title={sync.enAttente > 0 ? "Déconnexion bloquée : des opérations restent à envoyer au serveur (envoi automatique en cours)" : ""} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold ${sync.enAttente > 0 ? "bg-amber-500/30 text-amber-100 cursor-not-allowed" : "bg-white/10 hover:bg-white/20"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer…` : "Se déconnecter"}</button>
           </div>
         </div>
       </aside>
@@ -619,7 +652,7 @@ export default function App() {
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
             {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
-            <button onClick={() => deconnexion(false)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap">Se déconnecter</button>
+            <button onClick={() => deconnexion(false)} disabled={sync.enAttente > 0} title={sync.enAttente > 0 ? "Déconnexion bloquée : des opérations restent à envoyer au serveur (envoi automatique en cours)" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white cursor-not-allowed opacity-80" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer…` : "Se déconnecter"}</button>
           </div>
           <nav className="px-4 flex gap-1 overflow-x-auto">
             {tabsAutorises.map(([id, label]) => (
