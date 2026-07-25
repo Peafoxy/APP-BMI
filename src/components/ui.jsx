@@ -187,3 +187,11 @@ export function ExportHost() {
     </div>
   );
 }
+
+// Petite ligne étiquette/valeur utilisée dans les fiches (devis, chantiers…)
+export const Info = ({ label, valeur }) => (
+  <div className="rounded-xl p-3 bg-white border border-slate-200">
+    <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
+    <div className="text-sm font-bold mt-0.5">{valeur || "—"}</div>
+  </div>
+);
