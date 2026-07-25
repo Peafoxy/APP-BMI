@@ -277,9 +277,24 @@ export default function App() {
   if (!profile) return <><DialogHost /><Login db={db} save={save} onLogin={(u) => {
     setProfile(u);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
-    // Synchronisation d'ouverture à CHAQUE connexion manuelle : envoie d'abord ce
-    // qui est en attente, puis relit. Sans écraser les données locales.
-    synchroniserOuverture().then(async () => { setDb(await chargerTout()); }).catch(() => {});
+    // À CHAQUE connexion : retéléchargement COMPLET depuis le serveur.
+    // 1. S'il n'y a rien à envoyer, on remet les curseurs de lecture à zéro
+    //    (forcerResynchronisation) : la synchronisation qui suit relit alors
+    //    TOUT le serveur — lignes ET suppressions (tombstones) — et l'état
+    //    local devient une copie exacte du serveur. Aucune donnée périmée
+    //    ne peut survivre à une connexion avec réseau.
+    // 2. S'il reste des opérations à envoyer, on ne touche pas aux curseurs :
+    //    la synchronisation d'ouverture pousse d'abord, puis relit — et le
+    //    retéléchargement complet aura lieu à la connexion suivante.
+    // 3. Hors ligne : la lecture échoue sans rien casser, on travaille sur
+    //    les données locales — c'est le principe même du hors-ligne d'abord.
+    (async () => {
+      try {
+        if ((await compterEnAttente()) === 0) await forcerResynchronisation();
+      } catch {}
+      try { await synchroniserOuverture(); } catch {}
+      setDb(await chargerTout());
+    })();
     setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
   }} /></>;
 

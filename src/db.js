@@ -226,5 +226,13 @@ export async function viderLocal() {
       if (t === "users") continue;
       await idb.table(t).clear();
     }
+    // CRUCIAL : remettre tous les curseurs de synchronisation à zéro.
+    // La lecture étant incrémentale, sans cela une purge suivie d'une
+    // synchronisation ne ramènerait que les nouveautés récentes — et
+    // l'appareil resterait quasi vide alors que le serveur a tout.
+    await idb.meta.put({ cle: "derniere_sync:tombstones", valeur: "1970-01-01T00:00:00Z" });
+    for (const t of TABLES) {
+      await idb.meta.put({ cle: `derniere_sync:${t}`, valeur: "1970-01-01T00:00:00Z" });
+    }
   });
 }
