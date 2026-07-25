@@ -83,6 +83,9 @@ export default function App() {
   const [tab, setTab] = useState("ventes");
   const [saveStatus, setSaveStatus] = useState("saved");
   const [sync, setSync] = useState({ enLigne: navigator.onLine, supabaseOk: false, enAttente: 0 });
+  // Vrai pendant le rechargement complet qui suit une connexion : l'écran
+  // part de zéro et un bandeau explique que les données arrivent du serveur.
+  const [syncInitiale, setSyncInitiale] = useState(false);
   const [rappelSauvegarde, setRappelSauvegarde] = useState(false);
   const [preRempli, setPreRempli] = useState(null); // { boutique, panier } transmis depuis le Dimensionnement solaire
   const [devisAReprendre, setDevisAReprendre] = useState(null); // { devis, client } — devis en modification/rejeté que le vendeur reprend
@@ -277,23 +280,23 @@ export default function App() {
   if (!profile) return <><DialogHost /><Login db={db} save={save} onLogin={(u) => {
     setProfile(u);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
-    // À CHAQUE connexion : retéléchargement COMPLET depuis le serveur.
-    // 1. S'il n'y a rien à envoyer, on remet les curseurs de lecture à zéro
-    //    (forcerResynchronisation) : la synchronisation qui suit relit alors
-    //    TOUT le serveur — lignes ET suppressions (tombstones) — et l'état
-    //    local devient une copie exacte du serveur. Aucune donnée périmée
-    //    ne peut survivre à une connexion avec réseau.
-    // 2. S'il reste des opérations à envoyer, on ne touche pas aux curseurs :
-    //    la synchronisation d'ouverture pousse d'abord, puis relit — et le
-    //    retéléchargement complet aura lieu à la connexion suivante.
-    // 3. Hors ligne : la lecture échoue sans rien casser, on travaille sur
-    //    les données locales — c'est le principe même du hors-ligne d'abord.
     (async () => {
+      // Règle : à chaque connexion, l'écran démarre À ZÉRO ; les données
+      // n'apparaissent qu'une fois la synchronisation avec le serveur passée.
+      // viderLocal remet aussi les curseurs de lecture à 1970 : la sync qui
+      // suit retélécharge donc TOUT le serveur, lignes et suppressions.
+      // Exception vitale : s'il reste des opérations à envoyer (travail fait
+      // hors ligne), on ne purge pas — on pousse d'abord, puis on relit.
       try {
-        if ((await compterEnAttente()) === 0) await forcerResynchronisation();
+        if ((await compterEnAttente()) === 0) {
+          await viderLocal();
+          setDb(await chargerTout()); // zéro : seuls les comptes restent
+        }
       } catch {}
+      setSyncInitiale(true);
       try { await synchroniserOuverture(); } catch {}
       setDb(await chargerTout());
+      setSyncInitiale(false);
     })();
     setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
   }} /></>;
@@ -531,6 +534,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 lg:flex">
+      {syncInitiale && (
+        <div className="fixed top-0 inset-x-0 z-[9999] bg-sky-800 text-white text-center text-sm font-semibold py-2 shadow-lg">
+          ⏳ Synchronisation avec le serveur — les données arrivent…
+        </div>
+      )}
       <DialogHost />
       <ExportHost />
       <PrintHost />
