@@ -18,7 +18,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./screens/Dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
 import { Prospects } from "./screens/Prospects";
 import { EspaceClient } from "./screens/EspaceClient";
-import { Messagerie } from "./screens/Messagerie";
+import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
 import {
   ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp,
   envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu,
@@ -28,7 +28,8 @@ import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursD
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
-import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE } from "./lib/constants";
+import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
+} from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
@@ -52,7 +53,7 @@ import {
   droitsOffDe, aDroit, peutEcrire, bloquerSiLecture,
   tachesDe, tachesOuvertes, compterReponsesRavitaillement, compterTaches, compterNotifsSalaire, compterDemandesCredit,
   paieMois, libelleMoisFR, periodes,
-  NOTE_DIM_DEFAUT, noteDimensionnement,
+  NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -2227,7 +2228,6 @@ const STATUT_CHANTIER = {
   receptionne: { label: "✅ Réceptionné par le client", couleur: "text-green-700 bg-green-50 border-green-200" },
   reserves: { label: "⚠ Réserves émises par le client", couleur: "text-red-700 bg-red-50 border-red-200" },
 };
-const statutChantier = (c) => c.statut || "en_cours";
 const chefDuChantier = (c) => (c.equipe || []).find((e) => e.chef);
 // Le chef de CE chantier, ou l'administrateur, peut le déclarer terminé.
 const peutTerminer = (c, profile, isAdmin) =>
@@ -2258,7 +2258,6 @@ function repartitionProposee(equipeIds, chefId, partChef) {
 const fraisRepartis = (c) => (c.equipe || []).reduce((s, e) => s + Number(e.montant || 0), 0);
 
 // ============ CLIENTS INSTALLÉS (parc client) ============
-const TYPES_INSTALLATION = ["Solaire résidentiel", "Solaire commercial", "Pompage solaire", "Éclairage public", "Kit autonome", "Autre"];
 
 function ClientsInstalles({ db, save, profile, isAdmin }) {
   const estChef = !!profile.chef_equipe;

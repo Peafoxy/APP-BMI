@@ -460,3 +460,5 @@ export const noteDimensionnement = (db) => {
   return b ? b.note_dim : NOTE_DIM_DEFAUT;
 };
 
+// Statut d'un chantier (par défaut : en cours)
+export const statutChantier = (c) => c.statut || "en_cours";

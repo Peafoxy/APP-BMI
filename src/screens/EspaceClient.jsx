@@ -8,7 +8,7 @@ import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient 
 import { PAIEMENTS } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier } from "../lib/calculs";
 
 // ============ ESPACE CLIENT (rôle client) ============
 export function EspaceClient({ db, profile, save, setTab }) {

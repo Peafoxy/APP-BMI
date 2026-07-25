@@ -5,6 +5,9 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
+import { genererProforma } from "../pdf";
+import { chiffresTel } from "../lib/comptesClients";
+import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, totalVente, prefixeBoutique, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";

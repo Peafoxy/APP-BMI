@@ -4,6 +4,7 @@
 // les écrans respectifs. Aiguillage rapide, pas un rapport complet.
 // ============================================================
 import { useState } from "react";
+import { libelleTypeDevis } from "../screens/TousLesDevis";
 import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { totalVente, numeroRecu, fmt, col } from "../lib/core";

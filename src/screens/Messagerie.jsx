@@ -12,7 +12,7 @@ import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
 // - Fil « Support » par client : le client écrit, et l'admin, les techniciens,
 //   les chefs d'équipe et le commercial rattaché à sa fiche voient et répondent
 // - Un client autorisé par l'admin (chat_libre) peut aussi discuter en 1-à-1
-function peutVoirFilClient(moi, clientId, db) {
+export function peutVoirFilClient(moi, clientId, db) {
   if (moi.role === "admin" || moi.role === "technicien" || moi.role === "technicien_bmi" || moi.chef_equipe) return true;
   if (moi.role === "commercial") {
     const fiche = (db.clients_installes || []).find((c) => c.user_id === clientId);

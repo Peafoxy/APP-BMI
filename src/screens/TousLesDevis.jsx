@@ -11,7 +11,7 @@ import { inputCls } from "../components/ui";
 import { normNom } from "../lib/calculs";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
-function libelleTypeDevis(d) {
+export function libelleTypeDevis(d) {
   if (d.type_devis === "garage") return "🚪 Garage";
   if (d.type_devis === "autre") return `📦 ${d.besoins?.categorie || "Autre"}`;
   return "☀️ Solaire";

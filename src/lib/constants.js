@@ -37,7 +37,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.98.27";
+export const VERSION = "2.98.28";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -78,3 +78,6 @@ export const COMPTE_CHARGE = {
   "Prêt au personnel": ["421", "Personnel — avances et acomptes"],
   "Autre": ["658", "Charges diverses"],
 };
+
+// Types d'installation proposés pour un chantier
+export const TYPES_INSTALLATION = ["Solaire résidentiel", "Solaire commercial", "Pompage solaire", "Éclairage public", "Kit autonome", "Autre"];
