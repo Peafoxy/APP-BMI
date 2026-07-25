@@ -237,6 +237,7 @@ export function MonEquipe({ db, save, profile }) {
   // Les tâches déclarées terminées par les membres attendent ici : on valide,
   // ou on rouvre avec un motif (le membre le verra en rouge dans Mes tâches).
   const aValider = tachesAValider(db, profile);
+  const [membreTaches, setMembreTaches] = useState(null); // fiche dont on affiche l'historique des tâches
 
   const validerTache = async (tv) => {
     if (!await uConfirm(`Valider la tâche « ${tv.titre} » de ${tv.membre.nom} ?${tv.photo ? "" : "\n\n⚠ Aucune photo de preuve n'a été jointe."}`)) return;
@@ -254,6 +255,49 @@ export function MonEquipe({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
+      {(() => {
+        const membre = membreTaches && db.users.find((u) => u.id === membreTaches);
+        if (!membre) return null;
+        const ORDRE = { a_faire: 0, terminee: 1, validee: 2 };
+        const liste = [...(membre.taches || [])].sort((a, b) => {
+          const oa = ORDRE[a.statut] ?? 0, ob = ORDRE[b.statut] ?? 0;
+          if (oa !== ob) return oa - ob;
+          return String(b.date || "").localeCompare(String(a.date || ""));
+        });
+        const BADGE = {
+          terminee: <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">⏳ En validation</span>,
+          validee: <span className="text-xs font-bold px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">✅ Validée</span>,
+        };
+        return (
+          <Panel>
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-bold">🗂 Tâches de {membre.nom} ({liste.length})</div>
+              <button onClick={() => setMembreTaches(null)} className="text-xs font-bold text-slate-500 underline">Fermer</button>
+            </div>
+            <div className="space-y-2">
+              {liste.map((t) => (
+                <div key={t.id} className={`rounded-xl border p-3 flex flex-wrap items-start justify-between gap-2 ${t.statut === "validee" ? "bg-slate-50 border-slate-200" : t.statut === "terminee" ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}`}>
+                  <div className="min-w-[55%]">
+                    <div className={`font-bold text-sm ${t.statut === "validee" ? "text-slate-400 line-through" : "text-slate-800"}`}>{t.titre}</div>
+                    {t.detail && <div className="text-xs text-slate-600 mt-0.5">{t.detail}</div>}
+                    {t.commentaire_reouverture && t.statut === "a_faire" && (
+                      <div className="text-xs font-semibold text-red-700 mt-1">↩ Rouverte : {t.commentaire_reouverture}</div>
+                    )}
+                    <div className="text-xs text-slate-400 mt-1">
+                      Assignée par {t.par} le {dFR(t.date)}
+                      {t.echeance ? ` · échéance ${dFR(t.echeance)}` : ""}
+                      {t.date_fin ? ` · terminée le ${dFR(t.date_fin)}` : ""}
+                      {t.statut === "validee" && t.valide_par ? ` · validée par ${t.valide_par} le ${dFR(t.date_validation)}` : ""}
+                    </div>
+                    {t.photo && <img src={t.photo} alt="Preuve" className="mt-2 rounded-lg border border-slate-200 max-h-24" />}
+                  </div>
+                  <div>{BADGE[t.statut] || <span className="text-xs font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200 whitespace-nowrap">🔵 À faire</span>}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        );
+      })()}
       {aValider.length > 0 && (
         <Panel>
           <div className="font-bold mb-1 text-amber-800">⏳ Tâches à valider ({aValider.length})</div>
@@ -315,7 +359,10 @@ export function MonEquipe({ db, save, profile }) {
                 <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}</td>
                 <td className="px-3 py-2 tabular-nums">{st.prospects}</td>
                 <td className="px-3 py-2 tabular-nums">{st.commandesAttente}</td>
-                <td className="px-3 py-2 tabular-nums">{tachesOuvertes(st.u).length > 0 ? <span className="font-bold text-amber-600">{tachesOuvertes(st.u).length} en cours</span> : <span className="text-slate-400">—</span>}</td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                  {tachesOuvertes(st.u).length > 0 ? <span className="font-bold text-amber-600">{tachesOuvertes(st.u).length} en cours</span> : <span className="text-slate-400">—</span>}
+                  {(st.u.taches || []).length > 0 && <button onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} className="ml-2 text-xs font-bold text-sky-800 underline">🗂 voir ({(st.u.taches || []).length})</button>}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   {aDroit(db, profile, "act_taches") && <button onClick={() => assignerTache(st)} className="text-xs font-bold text-sky-800 underline mr-2">✅ Tâche</button>}
                   {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <button onClick={() => payerCommission(st)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900 mr-1">✓ Marquer payé</button>}
