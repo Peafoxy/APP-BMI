@@ -14,7 +14,7 @@ import { BoutiqueTabs } from "./components/SelecteurBoutique";
 import { SelecteurArticle } from "./components/SelecteurArticle";
 import { CarteChoixPosition } from "./components/Carte";
 import { RechercheGlobale } from "./components/RechercheGlobale";
-import { Dimensionnement, TYPES_PORTAIL } from "./screens/Dimensionnement";
+import { Dimensionnement, TYPES_PORTAIL } from "./screens/dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
 import { Prospects } from "./screens/Prospects";
 import { EspaceClient } from "./screens/EspaceClient";

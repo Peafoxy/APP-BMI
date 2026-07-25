@@ -3,7 +3,7 @@
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
 import { useState } from "react";
-import { Dimensionnement, TYPES_PORTAIL } from "../screens/Dimensionnement";
+import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { PAIEMENTS } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";

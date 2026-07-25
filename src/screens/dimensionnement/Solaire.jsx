@@ -1,0 +1,472 @@
+// ============================================================
+// screens/dimensionnement/Solaire.jsx — Volet Solaire : besoins électriques, calcul panneaux/batteries/
+// convertisseur avec marges de sécurité, équipements hors stock.
+// ============================================================
+import { useState, useEffect, useRef } from "react";
+import { BoutiqueTabs } from "../../components/SelecteurBoutique";
+import { uid, fmt, today } from "../../lib/core";
+import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
+import { toucher, boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis } from "./Partages";
+
+
+
+const estHybrideTexte = (texte) => /hybride|hybrid/i.test(texte || "");
+const PRIX_RAIL = 5500;
+
+const ROLES_EQUIPEMENT = [
+  { id: "panneau", label: "Panneaux solaires", mots: ["panneau", "panel", "photovolta", "pv "], unites: ["w", "wc"] },
+  { id: "batterie", label: "Batteries", mots: ["batterie", "battery", "lifepo4", "lithium"], unites: ["ah"] },
+  { id: "convertisseur", label: "Convertisseur", mots: ["convertisseur", "onduleur", "inverter", "inverseur"], unites: ["w", "va"] },
+  { id: "regulateur", label: "Régulateur MPPT", mots: ["régulateur", "regulateur", "mppt", "chargeur solaire", "controller"], unites: ["a"] },
+];
+
+export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
+  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const [bq, setBq] = useState(profile.boutique || premiere);
+  const boutique = profile.boutique || bq;
+  const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
+
+  // ---- Besoins du client (liste d'appareils) ----
+  // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
+  const besoinsRepris = devisAReprendre?.devis?.besoins;
+  const lignesReprises = devisAReprendre?.devis?.lignes || [];
+  const [appareils, setAppareils] = useState(() =>
+    besoinsRepris?.appareils?.length
+      ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) }))
+      : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
+  );
+  const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : "1");
+  const [soleil, setSoleil] = useState("5");
+  const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : "24");
+  const [typeBatterie, setTypeBatterie] = useState(() => besoinsRepris?.type_batterie || "lifepo4");
+
+  const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
+  const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
+  const retirerAppareil = (id) => setAppareils(appareils.filter((a) => a.id !== id));
+
+  const whParJour = appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.heures || 0) * Number(a.qte || 1), 0);
+  const puissanceSimultanee = appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
+
+  // ---- Calculs de dimensionnement (indicatifs, avec marges de sécurité usuelles) ----
+  const dod = typeBatterie === "lifepo4" ? 0.9 : 0.5;
+  const rendementSysteme = 0.8;
+
+  const wcPanneaux = soleil > 0 ? Math.ceil(whParJour / Number(soleil) / rendementSysteme) : 0;
+  const whBatterie = whParJour * Number(autonomie || 1);
+  const ahBatterie = tension > 0 ? Math.ceil(whBatterie / Number(tension) / dod) : 0;
+  const wConvertisseur = Math.ceil(puissanceSimultanee * 2); // marge : somme des puissances × 2
+  const kwConvertisseur = wConvertisseur / 1000;
+  const aRegulateur = tension > 0 ? Math.ceil((wcPanneaux / Number(tension)) * 1.25) : 0;
+
+  const besoinParRole = { panneau: wcPanneaux, batterie: ahBatterie, convertisseur: wConvertisseur, regulateur: aRegulateur };
+
+  const candidats = (role) => produitsBoutique
+    .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
+    .filter(({ p, spec }) => {
+      const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
+      const motCorrespond = role.mots.some((m) => texte.includes(m));
+      const uniteOk = spec && role.unites.includes(spec.unite);
+      return motCorrespond && uniteOk;
+    });
+
+  // Panneaux/batteries : le plus gros calibre dispo (on empile plusieurs unités).
+  // Convertisseur/régulateur : le plus PETIT modèle qui couvre le besoin (un seul article,
+  // inutile de payer un calibre surdimensionné) ; si aucun ne suffit seul, on prend le plus
+  // gros dispo et on complète avec plusieurs unités.
+  const empilable = (roleId) => roleId === "panneau" || roleId === "batterie";
+
+  const meilleurChoix = (role) => {
+    const options = candidats(role).sort((a, b) => a.spec.valeur - b.spec.valeur);
+    const besoin = besoinParRole[role.id];
+    if (options.length === 0 || besoin <= 0) return null;
+
+    if (!empilable(role.id)) {
+      const suffisant = options.find((o) => o.spec.valeur >= besoin);
+      if (suffisant) return { type: "stock", produit_id: suffisant.p.id, qte: 1 };
+      // Aucun modèle seul ne suffit : on prend le plus gros et on complète en quantité
+      const plusGros = options[options.length - 1];
+      const qte = Math.min(50, Math.max(1, Math.ceil(besoin / plusGros.spec.valeur)));
+      return { type: "stock", produit_id: plusGros.p.id, qte };
+    }
+
+    const meilleur = options[options.length - 1];
+    const qte = Math.min(50, Math.max(1, Math.ceil(besoin / meilleur.spec.valeur)));
+    return { type: "stock", produit_id: meilleur.p.id, qte };
+  };
+
+  // choix[roleId] = { type: "stock", produit_id, qte } OU { type: "manuel", nom, prix, qte }
+  // Reconstruit les équipements déjà choisis depuis les lignes RÉELLES du devis
+  // repris — restitue aussi ceux saisis directement à la main.
+  const initialSelectionSolaire = (() => {
+    if (!lignesReprises.length || !devisAReprendre) return null;
+    const choix = {}, verrous = {};
+    ROLES_EQUIPEMENT.forEach((role) => {
+      const ligne = lignesReprises.find((l) => l.categorie === role.label);
+      if (!ligne) return;
+      const options = candidats(role);
+      const trouve = options.find((o) => o.p.nom === ligne.article);
+      choix[role.id] = trouve
+        ? { type: "stock", produit_id: trouve.p.id, qte: Number(ligne.qte) || 1 }
+        : { type: "manuel", nom: ligne.article, prix: Number(ligne.pu) || 0, qte: Number(ligne.qte) || 1 };
+      verrous[role.id] = true;
+    });
+    return { choix, verrous };
+  })();
+  const [choix, setChoix] = useState(() => initialSelectionSolaire?.choix || {});
+  const [manuelOuvert, setManuelOuvert] = useState({}); // { roleId: bool } — affiche le mini-formulaire de saisie libre
+  const [brouillonManuel, setBrouillonManuel] = useState({}); // { roleId: { nom, prix, qte } }
+  // Rôles que le vendeur a choisi de saisir/sélectionner lui-même : la sélection
+  // automatique ne doit plus jamais y toucher tant qu'il ne revient pas en arrière.
+  const [rolesManuels, setRolesManuels] = useState(() => initialSelectionSolaire?.verrous || {});
+
+  useEffect(() => {
+    setChoix((avant) => {
+      const nouveauChoix = { ...avant };
+      for (const role of ROLES_EQUIPEMENT) {
+        if (rolesManuels[role.id]) continue; // ne pas écraser un choix fait à la main
+        if (role.id === "regulateur") {
+          const convChoice = nouveauChoix.convertisseur;
+          const conv = convChoice?.type === "stock" && produitsBoutique.find((p) => p.id === convChoice.produit_id);
+          const hybride = convChoice?.type === "manuel" ? estHybrideTexte(convChoice.nom) : !!(conv && estHybrideTexte(conv.nom + " " + (conv.categorie || "")));
+          if (hybride) { delete nouveauChoix.regulateur; continue; }
+        }
+        const c = meilleurChoix(role);
+        if (c) nouveauChoix[role.id] = c; else delete nouveauChoix[role.id];
+      }
+      return nouveauChoix;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, db.produits]);
+
+  const produitConvertisseurChoisi = choix.convertisseur?.type === "stock" && produitsBoutique.find((p) => p.id === choix.convertisseur.produit_id);
+  const convertisseurEstHybride = choix.convertisseur?.type === "manuel"
+    ? estHybrideTexte(choix.convertisseur.nom)
+    : !!(produitConvertisseurChoisi && estHybrideTexte(produitConvertisseurChoisi.nom + " " + (produitConvertisseurChoisi.categorie || "")));
+
+  const ligneRole = (role) => {
+    const c = choix[role.id];
+    if (!c) return { role, produit: null, qte: 0, sousTotal: 0 };
+    if (c.type === "manuel") return { role, produit: { nom: c.nom, prix_vente: c.prix, manuel: true }, qte: c.qte, sousTotal: c.prix * c.qte };
+    const p = produitsBoutique.find((x) => x.id === c.produit_id);
+    return p ? { role, produit: p, qte: c.qte, sousTotal: p.prix_vente * c.qte } : { role, produit: null, qte: 0, sousTotal: 0 };
+  };
+
+  const lignesDevis = ROLES_EQUIPEMENT.map(ligneRole);
+  const totalRoles = lignesDevis.reduce((s, l) => s + l.sousTotal, 0);
+
+  const changerProduit = (roleId, produitId) => {
+    setRolesManuels({ ...rolesManuels, [roleId]: true }); // choix explicite : on ne le recalcule plus tout seul
+    if (!produitId) { const c2 = { ...choix }; delete c2[roleId]; setChoix(c2); return; }
+    const p = produitsBoutique.find((x) => x.id === produitId);
+    const spec = p ? specDepuisNom(p.nom + " " + (p.categorie || "")) : null;
+    const besoin = besoinParRole[roleId];
+    const qte = spec && spec.valeur > 0
+      ? (!empilable(roleId) && spec.valeur >= besoin ? 1 : Math.min(50, Math.max(1, Math.ceil(besoin / spec.valeur))))
+      : 1;
+    const nouveauChoix = { ...choix, [roleId]: { type: "stock", produit_id: produitId, qte } };
+    if (roleId === "convertisseur") {
+      const hybride = p && estHybrideTexte(p.nom + " " + (p.categorie || ""));
+      if (hybride) delete nouveauChoix.regulateur;
+      else { const c = meilleurChoix(ROLES_EQUIPEMENT.find((r) => r.id === "regulateur")); if (c) nouveauChoix.regulateur = c; else delete nouveauChoix.regulateur; }
+    }
+    setChoix(nouveauChoix);
+  };
+
+  const changerQte = (roleId, qte) => setChoix({ ...choix, [roleId]: { ...choix[roleId], qte: Math.max(1, Number(qte) || 1) } });
+
+  const ouvrirManuel = (roleId) => {
+    setRolesManuels({ ...rolesManuels, [roleId]: true }); // dès l'ouverture : la sélection automatique n'y touche plus
+    setManuelOuvert({ ...manuelOuvert, [roleId]: true });
+    setBrouillonManuel({ ...brouillonManuel, [roleId]: brouillonManuel[roleId] || { nom: "", prix: "", qte: "1" } });
+  };
+  const validerManuel = (roleId) => {
+    const b = brouillonManuel[roleId];
+    if (!b || !b.nom.trim() || !b.prix) { uAlert("Indiquez au moins le nom et le prix de l'article."); return; }
+    const nouveauChoix = { ...choix, [roleId]: { type: "manuel", nom: b.nom.trim(), prix: Number(b.prix), qte: Math.max(1, Number(b.qte) || 1) } };
+    if (roleId === "convertisseur" && !estHybrideTexte(b.nom)) {
+      const c = meilleurChoix(ROLES_EQUIPEMENT.find((r) => r.id === "regulateur"));
+      if (c) nouveauChoix.regulateur = c;
+    }
+    if (roleId === "convertisseur" && estHybrideTexte(b.nom)) delete nouveauChoix.regulateur;
+    setChoix(nouveauChoix);
+    setManuelOuvert({ ...manuelOuvert, [roleId]: false });
+  };
+  // Repasse ce rôle en sélection automatique (relâche le verrou et relance meilleurChoix)
+  const annulerManuel = (roleId) => {
+    setManuelOuvert({ ...manuelOuvert, [roleId]: false });
+    setRolesManuels((v) => { const n = { ...v }; delete n[roleId]; return n; });
+    const role = ROLES_EQUIPEMENT.find((r) => r.id === roleId);
+    const c = role ? meilleurChoix(role) : null;
+    const nouveauChoix = { ...choix };
+    if (c) nouveauChoix[roleId] = c; else delete nouveauChoix[roleId];
+    if (roleId === "convertisseur") {
+      const p = c?.type === "stock" && produitsBoutique.find((x) => x.id === c.produit_id);
+      const hybride = p && estHybrideTexte(p.nom + " " + (p.categorie || ""));
+      if (hybride) delete nouveauChoix.regulateur;
+      else if (!rolesManuels.regulateur) { const cr = meilleurChoix(ROLES_EQUIPEMENT.find((r) => r.id === "regulateur")); if (cr) nouveauChoix.regulateur = cr; else delete nouveauChoix.regulateur; }
+    }
+    setChoix(nouveauChoix);
+  };
+
+  // ---- Rails de fixation : quantité et prix calculés automatiquement ----
+  // Formule : (nombre de panneaux × 2,2) ÷ 4,2 = quantité de rails ; prix fixe 5 500 F/rail
+  const nombrePanneaux = choix.panneau?.qte || 0;
+  const ligneRailsReprise = lignesReprises.find((l) => l.categorie === "Rails de fixation");
+  const [railsQte, setRailsQte] = useState(ligneRailsReprise ? Number(ligneRailsReprise.qte) : 0);
+  const premierRenduRails = useRef(true);
+  useEffect(() => {
+    if (premierRenduRails.current) { premierRenduRails.current = false; return; } // ne pas écraser la reprise au montage
+    setRailsQte(nombrePanneaux > 0 ? Math.ceil(nombrePanneaux * 2.2) : 0);
+  }, [nombrePanneaux]);
+  const sousTotalRails = railsQte * PRIX_RAIL;
+
+  // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
+  const [autres, setAutres] = useState(() =>
+    lignesReprises.filter((l) => l.categorie === "Autres équipements")
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+  );
+  const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
+  const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
+  const retirerAutre = (id) => setAutres(autres.filter((a) => a.id !== id));
+  const totalAutres = autres.reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
+
+  const totalArticles = totalRoles + sousTotalRails + totalAutres;
+  const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis } = useTotauxDevis(totalArticles);
+
+  // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
+  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");   // compte client existant
+  const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
+  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
+
+  const envoyerDevisWhatsApp = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (totalDevis <= 0) { uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
+
+    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile);
+    if (!resolu) return;
+    const { compte, motDePasse, dbApres } = resolu;
+
+    // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
+    const panier = [
+      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
+      ...(railsQte > 0 ? [{ produit_id: null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
+    ];
+
+    // Le devis, rangé DANS la fiche du client : aucune migration de base.
+    const devis = {
+      id: uid(),
+      date: today(),
+      heure: new Date().toTimeString().slice(0, 5),
+      par: profile.nom,
+      par_id: profile.id,
+      par_role: profile.role,           // décide si une commission sera due
+      statut: "propose",                // propose → valide → paye
+      panier,                           // ce que le vendeur encaissera
+      boutique,
+      besoins: {
+        wh_jour: whParJour,
+        puissance_simultanee: puissanceSimultanee,
+        autonomie: Number(autonomie || 1),
+        tension: Number(tension),
+        type_batterie: typeBatterie,
+        appareils: appareils.filter((a) => a.nom && a.puissance).map((a) => ({
+          nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: Number(a.qte || 1),
+        })),
+      },
+      lignes: [
+        ...lignesDevis.filter((l) => l.produit).map((l) => ({
+          categorie: l.role.label, article: l.produit.nom, qte: l.qte,
+          pu: l.produit.prix_vente, total: l.sousTotal,
+        })),
+        ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rail de fixation", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
+        ...autres.filter((a) => a.nom).map((a) => ({
+          categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
+          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1),
+        })),
+        ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
+        ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
+        ...(remise > 0 ? [{ categorie: "Remise", article: `Remise (${pctRemise} %)`, qte: 1, pu: -remise, total: -remise }] : []),
+      ],
+      total: totalDevis,
+      frais_installation: fraisInstallation,
+      pct_installation: Number(pctInstall || 0),
+      frais_transport: fraisTransport,
+      pct_transport: Number(pctTransport || 0),
+      remise,
+      pct_remise: Number(pctRemise || 0),
+    };
+
+    envoyerDevisEtOuvrirWhatsApp({
+      dbApres, compte, motDePasse, devis, save, profile, nouvClient,
+      ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
+      idAReprendre: devisAReprendre?.devis?.id,
+    });
+
+    setClientDevis("");
+    setNouvClient({ nom: "", tel: "" });
+    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
+  };
+
+
+  const convertir = () => {
+    const panier = [
+      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
+      ...(railsQte > 0 ? [{ produit_id: null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
+    ];
+    if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
+  };
+
+  return (
+    <div className="space-y-4">
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+
+      <Panel boutique={boutique}>
+        <div className="font-bold mb-3">☀️ Besoins électriques du client <Badge boutique={boutique} /></div>
+        <div className="space-y-2">
+          {appareils.map((a) => (
+            <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
+              <Field label="Appareil"><input className={inputCls} placeholder="Ex : Téléviseur" value={a.nom} onChange={(e) => majAppareil(a.id, "nom", e.target.value)} /></Field>
+              <Field label="Puissance (W)"><input type="number" className={inputCls} value={a.puissance} onChange={(e) => majAppareil(a.id, "puissance", e.target.value)} /></Field>
+              <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>
+              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>
+              <button onClick={() => retirerAppareil(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={ajouterAppareil} className="mt-2 text-sm font-bold text-sky-800 underline">➕ Ajouter un appareil</button>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+          <Field label="Autonomie souhaitée (jours)"><input type="number" min="1" className={inputCls} value={autonomie} onChange={(e) => setAutonomie(e.target.value)} /></Field>
+          <Field label="Ensoleillement (h/jour)"><input type="number" className={inputCls} value={soleil} onChange={(e) => setSoleil(e.target.value)} /></Field>
+          <Field label="Tension du système">
+            <select className={inputCls} value={tension} onChange={(e) => setTension(e.target.value)}>
+              <option value="12">12 V</option><option value="24">24 V</option><option value="48">48 V</option>
+            </select>
+          </Field>
+          <Field label="Type de batterie">
+            <select className={inputCls} value={typeBatterie} onChange={(e) => setTypeBatterie(e.target.value)}>
+              <option value="lifepo4">LiFePO4 (lithium)</option><option value="plomb">Plomb / AGM</option>
+            </select>
+          </Field>
+        </div>
+      </Panel>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
+          <div className="text-xs font-semibold text-slate-500 uppercase">Consommation</div>
+          <div className="text-xl font-bold tabular-nums mt-1">{Math.round(whParJour)} Wh/j</div>
+        </div>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
+          <div className="text-xs font-semibold text-slate-500 uppercase">Panneaux nécessaires</div>
+          <div className="text-xl font-bold tabular-nums mt-1">{wcPanneaux} Wc</div>
+        </div>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
+          <div className="text-xs font-semibold text-slate-500 uppercase">Batterie ({tension}V)</div>
+          <div className="text-xl font-bold tabular-nums mt-1">{ahBatterie} Ah</div>
+        </div>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
+          <div className="text-xs font-semibold text-slate-500 uppercase">Convertisseur{!convertisseurEstHybride ? " / MPPT" : ""}</div>
+          <div className="text-xl font-bold tabular-nums mt-1">{kwConvertisseur.toFixed(2)} kW{!convertisseurEstHybride ? ` · ${aRegulateur} A` : ""}</div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Équipements proposés (stock de {boutique})</div>
+        <table className="w-full text-sm min-w-[760px]">
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <tbody>
+            {lignesDevis.map((l) => {
+              if (l.role.id === "regulateur" && convertisseurEstHybride) {
+                return (
+                  <tr key={l.role.id} className="border-t border-slate-100">
+                    <td className="px-3 py-2 font-semibold">{l.role.label}</td>
+                    <td className="px-3 py-2 text-xs text-green-700">✓ Intégré au convertisseur hybride — pas d'article séparé nécessaire</td>
+                    <td className="px-3 py-2 text-slate-400">—</td><td className="px-3 py-2 text-slate-400">—</td><td className="px-3 py-2 text-slate-400">—</td>
+                    <td className="px-3 py-2 tabular-nums text-slate-400">{fmt(0)}</td>
+                  </tr>
+                );
+              }
+              const options = candidats(l.role);
+              const besoinAffiche = l.role.id === "convertisseur" ? `${(besoinParRole[l.role.id] / 1000).toFixed(2)} kW` : `${besoinParRole[l.role.id]}${l.role.id === "regulateur" ? " A" : ""}`;
+              const enManuel = manuelOuvert[l.role.id] || (l.produit?.manuel);
+              return (
+                <tr key={l.role.id} className="border-t border-slate-100 align-top">
+                  <td className="px-3 py-2 font-semibold whitespace-nowrap">{l.role.label}</td>
+                  <td className="px-3 py-2">
+                    {enManuel ? (
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuel[l.role.id]?.nom ?? l.produit?.nom ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { qte: "1" }), nom: e.target.value } })} />
+                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuel[l.role.id]?.prix ?? l.produit?.prix_vente ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { nom: l.produit?.nom || "" }), prix: e.target.value } })} />
+                        <button onClick={() => validerManuel(l.role.id)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
+                        <button onClick={() => annulerManuel(l.role.id)} className="text-xs text-slate-500 underline">Annuler (revenir à la sélection automatique)</button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {options.length === 0 ? (
+                          <span className="text-xs text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
+                        ) : (
+                          <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.role.id, e.target.value)}>
+                            <option value="">— Aucun —</option>
+                            {options.map(({ p, spec }) => <option key={p.id} value={p.id}>{p.nom} ({spec.valeur >= 1000 ? (spec.valeur / 1000).toFixed(1) + "k" : spec.valeur}{spec.unite}){estHybrideTexte(p.nom) ? " — hybride" : ""}</option>)}
+                          </select>
+                        )}
+                        <button onClick={() => ouvrirManuel(l.role.id)} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">✏️ Saisir un article hors stock</button>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
+                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
+                  <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
+                </tr>
+              );
+            })}
+
+            {/* Rails de fixation : quantité et prix calculés automatiquement */}
+            <tr className="border-t border-slate-100 bg-amber-50/40">
+              <td className="px-3 py-2 font-semibold whitespace-nowrap">Rails de fixation</td>
+              <td className="px-3 py-2 text-xs text-slate-500">Calculé automatiquement : {nombrePanneaux} panneaux × 2,2</td>
+              <td className="px-3 py-2 text-slate-400">—</td>
+              <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={railsQte} onChange={(e) => setRailsQte(Math.max(0, Number(e.target.value) || 0))} /></td>
+              <td className="px-3 py-2 tabular-nums">{fmt(PRIX_RAIL)}</td>
+              <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalRails)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <BlocAutresEquipements
+          titre="Autres équipements (câbles, protections AC/DC, accessoires…)"
+          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre}
+          placeholder="Ex : Câble 6mm² (rouleau)"
+        />
+
+        <BlocTotauxDevis
+          totalArticles={totalArticles}
+          pctRemise={pctRemise} setPctRemise={setPctRemise} remise={remise}
+          pctInstall={pctInstall} setPctInstall={setPctInstall} fraisInstallation={fraisInstallation}
+          pctTransport={pctTransport} setPctTransport={setPctTransport} fraisTransport={fraisTransport}
+          totalDevis={totalDevis} onConvertir={convertir}
+        />
+      </div>
+
+      {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}
+      <BlocEnvoiDevisClient
+        db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
+        nouvClient={nouvClient} setNouvClient={setNouvClient}
+        comptesClients={comptesClients} onEnvoyer={envoyerDevisWhatsApp}
+      />
+
+
+      {noteDimensionnement(db) && (
+        <div className="text-xs text-slate-400 whitespace-pre-line">
+          {noteDimensionnement(db)}
+        </div>
+      )}
+    </div>
+  );
+}
