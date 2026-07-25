@@ -35,7 +35,7 @@ import {
   envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu,
 } from "./lib/comptesClients";
 import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
-  memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal } from "./db";
+  memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente } from "./db";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
@@ -236,8 +236,7 @@ export default function App() {
     evts.forEach((e) => window.addEventListener(e, activite));
     const minuterie = setInterval(() => {
       if (Date.now() - derniereActivite > DUREE_INACTIVITE) {
-        setProfile(null);
-        try { localStorage.removeItem("bmi_session"); } catch {}
+        deconnexion(true); // purge silencieuse si tout est synchronisé
       }
     }, 30000);
     return () => { evts.forEach((e) => window.removeEventListener(e, activite)); clearInterval(minuterie); };
@@ -283,6 +282,28 @@ export default function App() {
     synchroniserOuverture().then(async () => { setDb(await chargerTout()); }).catch(() => {});
     setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
   }} /></>;
+
+  // ---- DÉCONNEXION AVEC PURGE SÉCURISÉE ----
+  // Objectif : plus jamais d'anciennes données affichées après un changement
+  // d'utilisateur. À la déconnexion : on POUSSE d'abord tout ce qui attend,
+  // puis on PURGE les données locales (sauf les comptes, pour pouvoir se
+  // reconnecter même hors ligne). Si des opérations n'ont pas pu partir
+  // (hors ligne), on NE purge PAS — perdre une vente serait bien pire que
+  // voir un chiffre périmé — et on préviendra à la déconnexion suivante.
+  const deconnexion = async (automatique = false) => {
+    try { await synchroniser(); } catch { /* hors ligne : on vérifie l'outbox juste après */ }
+    try {
+      const restants = await compterEnAttente();
+      if (restants === 0) {
+        await viderLocal();
+        setDb(await chargerTout()); // l'état en mémoire reflète la purge : rien de périmé ne peut se réafficher
+      } else if (!automatique) {
+        uAlert(`⚠ ${restants} opération(s) faites hors ligne ne sont pas encore synchronisées.\n\nLes données locales sont CONSERVÉES pour ne rien perdre. Reconnectez-vous avec du réseau, synchronisez, et la purge se fera à la prochaine déconnexion.`);
+      }
+    } catch { /* ne jamais bloquer la déconnexion */ }
+    setProfile(null);
+    try { localStorage.removeItem("bmi_session"); } catch {}
+  };
 
   const isAdmin = profile.role === "admin";
   const isCommercial = profile.role === "commercial";
@@ -536,7 +557,7 @@ export default function App() {
             <button onClick={load} disabled={syncEnCours} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold disabled:opacity-70">
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
-            <button onClick={() => { setProfile(null); try { localStorage.removeItem("bmi_session"); } catch {} }} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold">Se déconnecter</button>
+            <button onClick={() => deconnexion(false)} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold">Se déconnecter</button>
           </div>
         </div>
       </aside>
@@ -575,7 +596,7 @@ export default function App() {
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
             {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
-            <button onClick={() => { setProfile(null); try { localStorage.removeItem("bmi_session"); } catch {} }} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap">Se déconnecter</button>
+            <button onClick={() => deconnexion(false)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap">Se déconnecter</button>
           </div>
           <nav className="px-4 flex gap-1 overflow-x-auto">
             {tabsAutorises.map(([id, label]) => (
