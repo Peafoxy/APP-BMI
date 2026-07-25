@@ -12,7 +12,7 @@ import { btnDark, Badge } from "../components/ui";
 import { exportCSV } from "../lib/impression";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
-  dettesClassiques, estReservation,
+  dettesClassiques, estReservation, periodes, reservations,
 } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============

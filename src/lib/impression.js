@@ -13,6 +13,7 @@
 import { LOGO, today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDigits } from "./core";
 import { printApi, exportApi } from "../components/ui";
 import { marquerSauvegardeAuto } from "../db";
+import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./calculs";
 
 // ============ REÇU CLIENT ============
 export function imprimerRecu(v, bq = {}) {
