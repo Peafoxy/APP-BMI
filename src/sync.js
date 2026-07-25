@@ -339,6 +339,19 @@ export async function synchroniser() {
               recuQuelqueChose = true;
               console.warn("Réinitialisation reçue : base locale vidée.");
             }
+          } else if (TABLES.includes(m.table_name) && m.record_id === "__TRUNCATE__") {
+            // Table entière vidée directement en SQL (TRUNCATE) : on vide la copie
+            // locale de CETTE table, sans toucher aux autres — même logique de
+            // "traité une seule fois" que la réinitialisation générale ci-dessus,
+            // mais table par table.
+            const cleTraite = `truncate_traite:${m.table_name}`;
+            const dejaVu = await idb.meta.get(cleTraite);
+            if (!dejaVu || String(dejaVu.valeur) < String(m.deleted_at)) {
+              await idb.table(m.table_name).clear();
+              await idb.meta.put({ cle: cleTraite, valeur: m.deleted_at });
+              recuQuelqueChose = true;
+              console.warn(`Vidage reçu pour "${m.table_name}" : copie locale effacée.`);
+            }
           } else if (TABLES.includes(m.table_name)) {
             await idb.table(m.table_name).delete(m.record_id);
             recuQuelqueChose = true;
