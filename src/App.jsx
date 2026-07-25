@@ -338,7 +338,7 @@ export default function App() {
     : (isCommercial || isTechnicien)
     ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", "👑 Mon équipe"]] : [])]
     : isTechnicienBMI
-    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isGerant
@@ -475,7 +475,7 @@ export default function App() {
       {tab === "historique" && (isAdmin || isComptable) && <Historique db={db} />}
       {tab === "commission" && jeSuisApporteur && <MaCommission db={db} profile={profile} />}
       {tab === "equipe" && (isAdmin || isRespCom || ((isCommercial || isTechnicien) && estChefEquipe(db, profile))) && <MonEquipe db={db} save={save} profile={profile} />}
-      {tab === "taches" && (isCommercial || isTechnicien || isRespCom) && <MesTaches db={db} save={save} profile={profile} />}
+      {tab === "taches" && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <MesTaches db={db} save={save} profile={profile} />}
       {tab === "parc" && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />}
       {tab === "messages" && <Messagerie db={db} save={save} profile={profile} />}
       {tab === "ravitaillement" && profile.boutique && <DemandeRavitaillement db={db} save={save} profile={profile} boutique={profile.boutique} marquerVues />}
