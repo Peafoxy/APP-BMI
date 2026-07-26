@@ -36,7 +36,7 @@ import {
 } from "./lib/comptesClients";
 import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
-import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes } from "./sync";
+import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes, reconcilierMiroir } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
@@ -176,7 +176,14 @@ export default function App() {
         const brut = localStorage.getItem("bmi_session");
         if (brut) {
           const { id, ts } = JSON.parse(brut);
-          const u = donnees.users.find((x) => x.id === id);
+          let u = donnees.users.find((x) => x.id === id);
+          // Table users vide (actualisation pendant la fenêtre purge → sync) :
+          // on restaure depuis les comptes de secours, comme l'écran de
+          // connexion. Si la table est remplie et que l'identifiant n'y est
+          // pas, le compte n'existe vraiment plus : pas de repêchage.
+          if (!u && donnees.users.length === 0) {
+            u = (await lireComptesSecours()).find((x) => x.id === id);
+          }
           if (u && u.actif !== false && Date.now() - ts < DUREE_INACTIVITE) {
             setProfile(u);
             setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
@@ -298,20 +305,19 @@ export default function App() {
     setProfile(u);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
     (async () => {
-      // Règle : à chaque connexion, l'écran démarre À ZÉRO ; les données
-      // n'apparaissent qu'une fois la synchronisation avec le serveur passée.
-      // viderLocal remet aussi les curseurs de lecture à 1970 : la sync qui
-      // suit retélécharge donc TOUT le serveur, lignes et suppressions.
-      // Exception vitale : s'il reste des opérations à envoyer (travail fait
-      // hors ligne), on ne purge pas — on pousse d'abord, puis on relit.
-      try {
-        if ((await compterEnAttente()) === 0) {
-          await viderLocal();
-          setDb(await chargerTout()); // zéro absolu : plus rien de local
-        }
-      } catch {}
+      // MIROIR : à chaque connexion avec réseau, retéléchargement complet du
+      // serveur (curseurs à 1970) PUIS réconciliation — toute ligne locale
+      // inconnue du serveur est supprimée. Après cela, le local est une copie
+      // exacte du serveur. Hors ligne : on travaille sur les données de la
+      // dernière synchronisation (vente et dimensionnement restent possibles),
+      // et rien n'est supprimé. S'il reste des opérations à envoyer, elles
+      // partent d'abord ; le miroir attendra qu'elles soient toutes parties.
       setSyncInitiale(true);
+      try {
+        if ((await compterEnAttente()) === 0) await forcerResynchronisation();
+      } catch {}
       try { await synchroniserOuverture(); } catch {}
+      try { await reconcilierMiroir(); } catch {}
       setDb(await chargerTout());
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
@@ -332,26 +338,14 @@ export default function App() {
     try { await synchroniser(); } catch { /* hors ligne : on vérifie l'outbox juste après */ }
     let restants = 0;
     try { restants = await compterEnAttente(); } catch {}
-    if (restants > 0) {
-      if (!automatique) {
-        // RÈGLE : impossible de se déconnecter tant que tout n'est pas envoyé.
-        // L'application continue d'essayer toute seule (toutes les 20 s et dès
-        // que le réseau revient) — le bouton se réactivera automatiquement.
-        uAlert(`🔒 Déconnexion impossible : ${restants} opération(s) restent à envoyer au serveur.\n\nL'application réessaie automatiquement toutes les 20 secondes et dès que le réseau revient. Le bouton se réactivera dès que tout sera parti — ne fermez pas la page.`);
-        return;
-      }
-      // Déconnexion AUTOMATIQUE d'inactivité : on déconnecte quand même par
-      // sécurité (machine sans surveillance), mais SANS purger — les
-      // opérations en attente partiront à la reconnexion.
-    } else {
-      try {
-        await viderLocal();
-        setDb(await chargerTout()); // l'état en mémoire reflète la purge : plus rien
-        // Retélécharger immédiatement les comptes pour que l'écran de
-        // connexion fonctionne (le reste arrivera à la prochaine connexion).
-        amorcerComptes().then((ok) => { if (ok) { chargerTout().then(setDb); majComptesSecours().then(() => lireComptesSecours().then(setSecours)); } }).catch(() => {});
-      } catch {}
+    if (restants > 0 && !automatique) {
+      // RÈGLE : impossible de se déconnecter tant que tout n'est pas envoyé.
+      uAlert(`🔒 Déconnexion impossible : ${restants} opération(s) restent à envoyer au serveur.\n\nL'application réessaie automatiquement toutes les 20 secondes et dès que le réseau revient. Le bouton se réactivera dès que tout sera parti — ne fermez pas la page.`);
+      return;
     }
+    // Pas de purge : les données locales restent le cache de travail hors
+    // ligne. Leur exactitude est garantie par le miroir à chaque connexion
+    // avec réseau — plus par l'effacement.
     setProfile(null);
     try { localStorage.removeItem("bmi_session"); } catch {}
   };

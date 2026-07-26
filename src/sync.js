@@ -446,3 +446,49 @@ export async function reinitialiserDistant() {
   }
   return rapport;
 }
+
+// ============ RÉCONCILIATION MIROIR ============
+// Après un retéléchargement complet, supprime toute ligne locale que le
+// serveur ne connaît pas. C'est la pièce qui manquait depuis le début :
+// la synchronisation ajoute et modifie, les tombstones suppriment ce qui a
+// été supprimé PAR l'application — mais une ligne née uniquement en local
+// (données de démonstration, création avortée, vieux amorçage) n'a pas de
+// tombstone et ne mourait jamais. Après ce passage, le local est une copie
+// exacte du serveur : les données fantômes sont impossibles par construction.
+// Règles de sécurité :
+//  - jamais pendant qu'il reste des opérations à envoyer (l'outbox d'abord) ;
+//  - à la moindre erreur de lecture (hors ligne, serveur), on ne supprime RIEN.
+export async function reconcilierMiroirAvec(listerIdsServeur) {
+  if ((await compterEnAttente()) > 0) return { fait: false, raison: "outbox" };
+  let supprimees = 0;
+  for (const table of TABLES) {
+    const ids = await listerIdsServeur(table);
+    if (ids === null) return { fait: false, raison: "lecture", table }; // erreur : on s'arrête sans rien toucher de plus
+    const locaux = await idb.table(table).toArray();
+    for (const l of locaux) {
+      if (!ids.has(l.id)) { await idb.table(table).delete(l.id); supprimees++; }
+    }
+  }
+  return { fait: true, supprimees };
+}
+
+// Liste complète des identifiants d'une table côté serveur, page par page
+// (même précaution que lireTout : sans .order() ni pagination, Supabase
+// renvoie 1000 lignes au hasard). Renvoie null en cas d'erreur.
+async function listerIdsSupabase(table) {
+  const ids = new Set();
+  let de = 0;
+  for (;;) {
+    const { data, error } = await supabase.from(table).select("id").order("id").range(de, de + PAGE - 1);
+    if (error) return null;
+    for (const r of data || []) ids.add(r.id);
+    if (!data || data.length < PAGE) break;
+    de += PAGE;
+  }
+  return ids;
+}
+
+export async function reconcilierMiroir() {
+  if (!supabaseConfigure || !navigator.onLine) return { fait: false, raison: "hors_ligne" };
+  return reconcilierMiroirAvec(listerIdsSupabase);
+}
