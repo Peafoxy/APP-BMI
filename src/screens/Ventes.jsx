@@ -26,7 +26,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const categories = [...new Set(produits.map((p) => p.categorie || "Autre"))].sort();
 
   const [cat, setCat] = useState("");
-  const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "" });
+  const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   const [panier, setPanier] = useState(() => preRempli?.panier || []);
   // ATTENTION : preRempli est vidé dès l'affichage. On garde donc l'origine du
   // devis dans l'état local, sinon elle serait perdue avant l'encaissement.
@@ -59,16 +59,30 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const choisir = (id) => {
     // Recherche dans TOUS les produits de la boutique (plus robuste)
     const p = produits.find((x) => x.id === id);
-    setSel({ produit_id: id, qte: "1", pu: p && p.prix_vente != null ? String(p.prix_vente) : "" });
+    setSel({ produit_id: id, qte: "1", pu: p && p.prix_vente != null ? String(p.prix_vente) : "", remF: "", remP: "" });
     // La catégorie de l'article choisi s'affiche automatiquement dans le filtre
     if (p) setCat(p.categorie || "Autre");
   };
 
-  const mettreAuPanier = (p, q, pu) => {
+  // ---- REMISE LIGNE : deux champs liés. Taper des FCFA calcule le %,
+  // taper un % calcule les FCFA — toujours sur la base qté × prix unitaire. ----
+  const baseLigne = () => Number(sel.qte || 0) * Number(sel.pu || 0);
+  const saisirRemF = (txt) => {
+    const base = baseLigne();
+    const f_ = Math.max(0, Number(txt || 0));
+    setSel({ ...sel, remF: txt, remP: base > 0 && txt !== "" ? String(Math.round((f_ / base) * 1000) / 10) : "" });
+  };
+  const saisirRemP = (txt) => {
+    const base = baseLigne();
+    const p_ = Math.max(0, Number(txt || 0));
+    setSel({ ...sel, remP: txt, remF: base > 0 && txt !== "" ? String(Math.round((base * p_) / 100)) : "" });
+  };
+
+  const mettreAuPanier = (p, q, pu, remiseLigne = 0) => {
     setPanier((pan) => {
       const i = pan.findIndex((l) => l.produit_id === p.id && Number(l.pu) === Number(pu));
-      if (i >= 0) { const cp = [...pan]; cp[i] = { ...cp[i], qte: Number(cp[i].qte) + q }; return cp; }
-      return [...pan, { produit_id: p.id, article: p.nom, qte: q, pu: Number(pu) }];
+      if (i >= 0) { const cp = [...pan]; cp[i] = { ...cp[i], qte: Number(cp[i].qte) + q, remise_ligne: Number(cp[i].remise_ligne || 0) + Number(remiseLigne || 0) }; return cp; }
+      return [...pan, { produit_id: p.id, article: p.nom, qte: q, pu: Number(pu), remise_ligne: Number(remiseLigne || 0) }];
     });
   };
 
@@ -78,8 +92,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     if (!p || !q || q <= 0 || !sel.pu) { setMsg("Choisissez un article, la quantité et le prix."); return; }
     if (q > dispoRestant(p)) { setMsg(`Stock insuffisant : il reste ${dispoRestant(p)} pour « ${p.nom} ».`); return; }
     setMsg("");
-    mettreAuPanier(p, q, sel.pu);
-    setSel({ produit_id: "", qte: "", pu: "" });
+    const remL = Math.max(0, Number(sel.remF || 0));
+    if (remL > q * Number(sel.pu)) { setMsg("La remise de la ligne ne peut pas dépasser son montant."); return; }
+    mettreAuPanier(p, q, sel.pu, remL);
+    setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   };
 
   // Lecteur de code-barres USB : il « tape » le code puis Entrée
@@ -97,7 +113,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
 
   const retirer = (i) => setPanier(panier.filter((_, j) => j !== i));
 
-  const brut = panier.reduce((s, l) => s + Number(l.qte) * Number(l.pu), 0);
+  const brut = panier.reduce((s, l) => s + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0), 0);
+  const totalRemisesLigne = panier.reduce((s, l) => s + Number(l.remise_ligne || 0), 0);
   const remisePct = Number(f.remise || 0);
   const remise = Math.round((brut * remisePct) / 100);
   // RABAIS COMMERCIAL : le commercial l'offre au client sur SA commission.
@@ -143,9 +160,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     tel: f.tel || "",
     lignes: panier.map((l) => ({
       article: l.article || (produits.find((x) => x.id === l.produit_id)?.nom) || "Article",
-      qte: Number(l.qte), pu: Number(l.pu), total: Number(l.qte) * Number(l.pu),
+      qte: Number(l.qte), pu: Number(l.pu), remise_ligne: Number(l.remise_ligne || 0),
+      total: Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0),
     })),
-    total: brut,           // total des articles, SANS remise ni rabais : c'est un prix affiché
+    total: brut,           // total des articles (net des remises ligne), SANS remise globale ni rabais
     validite: "15 jours",
   });
 
@@ -331,9 +349,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
         next = { ...next, dettes: [{ id: uid(), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
       }
     }
+    const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
     save(next, od
-      ? `Vente ${numero} (${fmt(total)}) — ${boutique} — DEVIS PAYÉ : chantier créé, à programmer`
-      : `Vente ${numero} (${fmt(total)}) — ${boutique}`);
+      ? `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne} — DEVIS PAYÉ : chantier créé, à programmer`
+      : `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}`);
     // Le reçu s'imprime immédiatement, sans clic supplémentaire : au comptoir,
     // l'encaissement et le reçu ne font qu'un geste.
     try { imprimerRecu(vente, infoBq(boutique)); } catch {}
@@ -383,7 +402,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <Field label="Catégorie (filtre facultatif)">
-                <select className={inputCls} value={cat} onChange={(e) => { setCat(e.target.value); setSel({ produit_id: "", qte: "", pu: "" }); }}>
+                <select className={inputCls} value={cat} onChange={(e) => { setCat(e.target.value); setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" }); }}>
                   <option value="">— Toutes —</option>
                   {categories.map((c) => <option key={c}>{c}</option>)}
                 </select>
@@ -392,22 +411,25 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
                 <SelecteurArticle produits={produits} valeur={sel.produit_id} onChoisir={choisir} dispoRestant={dispoRestant} categorieFiltre={cat} />
               </Field>
               <Field label="Quantité"><input type="number" min="1" className={inputCls} value={sel.qte} onChange={(e) => setSel({ ...sel, qte: e.target.value })} /></Field>
-              <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value })} /></Field>
+              <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value, remF: "", remP: "" })} /></Field>
+              <Field label="Remise ligne (F)"><input type="number" min="0" className={inputCls} value={sel.remF} onChange={(e) => saisirRemF(e.target.value)} placeholder="0" /></Field>
+              <Field label="Remise ligne (%)"><input type="number" min="0" max="100" step="0.1" className={inputCls} value={sel.remP} onChange={(e) => saisirRemP(e.target.value)} placeholder="0" /></Field>
               <div className="flex items-end"><button onClick={ajouterAuPanier} className={`w-full ${btnDark}`}>➕ Ajouter au panier</button></div>
             </div>
 
             <div className="mt-4 bg-white rounded-lg border border-slate-200 overflow-x-auto">
               <div className="px-3 py-2 text-sm font-bold text-slate-700 border-b border-slate-100 bg-slate-50">🛒 Panier ({panier.length} article{panier.length > 1 ? "s" : ""})</div>
               <table className="w-full text-sm">
-                <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "P.U.", "Montant", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "P.U.", "Remise", "Montant", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
                 <tbody>
-                  {panier.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-400">Panier vide — scannez ou choisissez des articles.</td></tr>}
+                  {panier.length === 0 && <tr><td colSpan={6} className="px-3 py-4 text-center text-slate-400">Panier vide — scannez ou choisissez des articles.</td></tr>}
                   {panier.map((l, i) => (
                     <tr key={i} className="border-t border-slate-100">
                       <td className="px-3 py-2 font-semibold">{l.article}</td>
                       <td className="px-3 py-2 tabular-nums">{l.qte}</td>
                       <td className="px-3 py-2 tabular-nums">{fmt(l.pu)}</td>
-                      <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.qte * l.pu)}</td>
+                      <td className="px-3 py-2 tabular-nums text-red-600">{Number(l.remise_ligne || 0) > 0 ? `−${fmt(l.remise_ligne)}` : "—"}</td>
+                      <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.qte * l.pu - Number(l.remise_ligne || 0))}</td>
                       <td className="px-3 py-2"><button onClick={() => retirer(i)} className="text-xs text-red-600 underline">Retirer</button></td>
                     </tr>
                   ))}

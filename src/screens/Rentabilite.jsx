@@ -28,7 +28,7 @@ export function Rentabilite({ db }) {
       const achat = p ? Number(p.prix_achat || 0) : 0;
       if (!parProduit[nom]) parProduit[nom] = { nom, categorie: p?.categorie || "—", qte: 0, ca: 0, cout: 0 };
       parProduit[nom].qte += Number(l.qte || 0);
-      parProduit[nom].ca += Number(l.qte || 0) * Number(l.pu || 0);
+      parProduit[nom].ca += Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0); // CA net : la remise ligne pèse sur la marge du produit concerné
       parProduit[nom].cout += Number(l.qte || 0) * achat;
     });
   });

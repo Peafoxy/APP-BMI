@@ -83,7 +83,8 @@ export function imprimerRecu(v, bq = {}) {
     <table class="articles">
       <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
       <tbody>
-        ${lignesVente(v).map((l) => `<tr><td>${esc(l.article)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(Number(l.qte) * Number(l.pu))}</td></tr>`).join("")}
+        ${lignesVente(v).map((l) => { const rl = Number(l.remise_ligne || 0); const net = Number(l.qte) * Number(l.pu) - rl;
+          return `<tr><td>${esc(l.article)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(net)}</td></tr>`; }).join("")}
       </tbody>
     </table>
 
@@ -156,7 +157,8 @@ export function imprimerProforma(p, logo) {
     <table class="articles">
       <thead><tr><th>Article</th><th>Qté</th><th>Prix unitaire</th><th>Total</th></tr></thead>
       <tbody>
-        ${p.lignes.map((l) => `<tr><td>${esc(l.article)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.total)}</td></tr>`).join("")}
+        ${p.lignes.map((l) => { const rl = Number(l.remise_ligne || 0);
+          return `<tr><td>${esc(l.article)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.total)}</td></tr>`; }).join("")}
       </tbody>
     </table>
     <table class="totaux"><tr class="total"><td>TOTAL</td><td style="text-align:right">${fmt(p.total)} FCFA</td></tr></table>
