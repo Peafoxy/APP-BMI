@@ -59,10 +59,11 @@ export function imprimerRecu(v, bq = {}) {
       <td><img src="${logo}" alt="${esc(v.boutique)}"></td>
       <td class="soc">
         <div class="nom">${esc(v.boutique)}</div>
-        <div class="marque">BMI TOGO</div>
         <div>${esc(bq.adresse || "Lomé, Togo")}</div>
         ${bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}
         <div>Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}</div>
+        <div>NIF : 1001790098</div>
+        <div>RCCM : TG-LFW-01-2022-A10-01523</div>
       </td>
     </tr></table>
 
@@ -141,7 +142,7 @@ export function imprimerProforma(p, logo) {
   <div class="prf-doc">
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
-      <td class="soc"><div class="nom">BMI TOGO</div><div class="marque">Les bâtiments modernes et intelligents</div><div>Lomé, Togo</div></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
     </tr></table>
     <h1>FACTURE PROFORMA</h1>
     <div class="meta">
@@ -199,7 +200,7 @@ export function imprimerBonRavitaillement(bon, db) {
   <div class="bon">
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
-      <td class="soc"><div class="nom">BMI TOGO</div><div>${esc(bqSrc.adresse || "Lomé, Togo")}</div></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div>${esc(bqSrc.adresse || "Lomé, Togo")}</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
     </tr></table>
     <h1>BON DE RAVITAILLEMENT</h1>
     <div class="meta">

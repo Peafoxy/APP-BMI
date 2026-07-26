@@ -80,8 +80,9 @@ export function genererProforma(p, logo, retournerDoc = false) {
   doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
   doc.setFontSize(8);
   doc.setTextColor(110, 110, 110);
-  doc.text("Les bâtiments modernes et intelligents", largeur - 14, 21, { align: "right" });
-  doc.text("Lomé, Togo", largeur - 14, 25, { align: "right" });
+  doc.text("Lomé, Togo", largeur - 14, 21, { align: "right" });
+  doc.text("NIF : 1001790098", largeur - 14, 25, { align: "right" });
+  doc.text("RCCM : TG-LFW-01-2022-A10-01523", largeur - 14, 29, { align: "right" });
 
   // Bandeau PROFORMA — bien visible, pour qu'on ne le confonde pas avec un reçu
   doc.setFillColor(30, 90, 138);
@@ -167,8 +168,9 @@ export function genererDevis(d, logo) {
   doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
   doc.setFontSize(8);
   doc.setTextColor(110, 110, 110);
-  doc.text("Les bâtiments modernes et intelligents", largeur - 14, 21, { align: "right" });
-  doc.text("Lomé, Togo", largeur - 14, 25, { align: "right" });
+  doc.text("Lomé, Togo", largeur - 14, 21, { align: "right" });
+  doc.text("NIF : 1001790098", largeur - 14, 25, { align: "right" });
+  doc.text("RCCM : TG-LFW-01-2022-A10-01523", largeur - 14, 29, { align: "right" });
 
   // Bandeau DEVIS
   doc.setFillColor(30, 90, 138);
