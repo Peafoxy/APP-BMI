@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, totalVente, prefixeBoutique, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp } from "../lib/impression";
-import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture } from "../lib/calculs";
+import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -334,6 +334,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     save(next, od
       ? `Vente ${numero} (${fmt(total)}) — ${boutique} — DEVIS PAYÉ : chantier créé, à programmer`
       : `Vente ${numero} (${fmt(total)}) — ${boutique}`);
+    // Le reçu s'imprime immédiatement, sans clic supplémentaire : au comptoir,
+    // l'encaissement et le reçu ne font qu'un geste.
+    try { imprimerRecu(vente, infoBq(boutique)); } catch {}
     if (od) {
       setOrigineDevis(null); // consommé : une seule fiche d'installation par devis
       uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
@@ -352,6 +355,16 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
 
   const liste = db.ventes.filter((v) => v.boutique === boutique);
   const totalJour = liste.filter((v) => String(v.date) === today()).reduce((s, v) => s + totalVente(v), 0);
+
+  // ---- Listes regroupées : Ventes (par défaut) / Proformas, avec recherche ----
+  const [vueListe, setVueListe] = useState("ventes");
+  const [rechercheListe, setRechercheListe] = useState("");
+  const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
+  const proformasListe = db.proformas || [];
+  const qListe = normNom(rechercheListe);
+  const listeFiltree = !qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.client || ""} ${x.tel || ""}`).includes(qListe));
+  const proformasFiltres = !qListe ? proformasListe : proformasListe.filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(qListe));
+  const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
 
   return (
@@ -487,14 +500,26 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
         )}
       </Panel>
 
-      {/* Liste des proformas émis — visible par vendeur, resp. commercial, admin. */}
-      {["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role) && (db.proformas || []).length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-sky-50">🧾 Proformas émis ({(db.proformas || []).length}) — non comptabilisés</div>
+      {/* ══════ VENTES & PROFORMAS : regroupés, ventes par défaut, recherche ══════ */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex gap-2">
+            <button onClick={() => setVueListe("ventes")} className={btnVue(vueListe === "ventes")}>💰 Ventes ({liste.length})</button>
+            {voitProformas && <button onClick={() => setVueListe("proformas")} className={btnVue(vueListe === "proformas")}>🧾 Proformas ({proformasListe.length})</button>}
+          </div>
+          {vueListe === "ventes"
+            ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}</span>
+            : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
+        </div>
+        <div className="px-4 py-2 border-b border-slate-100 bg-white">
+          <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher par numéro ou nom de client…" className={inputCls} />
+        </div>
+        {vueListe === "proformas" && voitProformas ? (
           <table className="w-full text-sm min-w-[700px]">
             <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N°", "Client", "Articles", "Total", "Émis par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>
-              {(db.proformas || []).map((pf) => (
+              {proformasFiltres.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune proforma ne correspond à la recherche." : "Aucune proforma émise pour l'instant."}</td></tr>}
+              {proformasFiltres.map((pf) => (
                 <tr key={pf.id} className="border-t border-slate-100 hover:bg-sky-50">
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(pf.date)}</td>
                   <td className="px-3 py-2 font-mono text-xs">{pf.numero}</td>
@@ -509,18 +534,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
-          <span>Ventes — {boutique}</span><span className="text-sm font-semibold text-slate-500">Aujourd'hui : {fmt(totalJour)}</span>
-        </div>
-        <table className="w-full text-sm min-w-[1000px]">
+        ) : (
+          <table className="w-full text-sm min-w-[1000px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N° reçu", "Articles", "Client", "Qté", "Remise", "Total", "Paiement", "Commercial", "Reçu", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={11} className="px-4 py-6 text-center text-slate-400">Aucune vente pour l'instant.</td></tr>}
-            {liste.map((v) => (
+            {listeFiltree.length === 0 && <tr><td colSpan={11} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
+            {listeFiltree.map((v) => (
               <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}{v.heure ? ` ${v.heure}` : ""}</td>
                 <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}</td>
@@ -544,6 +563,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
