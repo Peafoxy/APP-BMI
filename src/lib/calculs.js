@@ -379,7 +379,12 @@ export const aDroit = (db, profile, id) => !droitsOffDe(db, profile).includes(id
 
 // Le comptable est en LECTURE SEULE par nature (consultation + exports).
 // Pour les autres rôles, l'admin peut retirer le pouvoir « act_ecriture ».
-export const peutEcrire = (db, profile) => profile.role !== "comptable" && aDroit(db, profile, "act_ecriture");
+// L'administrateur PRINCIPAL n'est jamais en lecture seule : si le pouvoir
+// d'écriture était retiré à tous les admins, plus personne ne pourrait le
+// rétablir (rétablir un pouvoir est aussi une écriture) — verrou définitif.
+export const peutEcrire = (db, profile) =>
+  estAdminPrincipal(db, profile) ||
+  (profile.role !== "comptable" && aDroit(db, profile, "act_ecriture"));
 export const bloquerSiLecture = (db, profile) => {
   if (peutEcrire(db, profile)) return false;
   uAlert("🔒 Votre compte est en lecture seule : vous pouvez consulter et exporter, mais pas modifier les données.");

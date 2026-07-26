@@ -265,6 +265,17 @@ export default function App() {
   // réseau), puis mise en file pour Supabase.
   // Toute action sensible est tracée dans le journal d'audit (onglet Historique)
   const save = async (next, action) => {
+    // ---- VERROU LECTURE SEULE À LA SOURCE ----
+    // TOUTE écriture de l'application passe par ici : un compte privé du
+    // pouvoir « act_ecriture » ne peut rien persister, quel que soit l'écran
+    // ou le bouton — y compris ceux qui n'appellent pas bloquerSiLecture.
+    // Les actions volontaires (avec libellé de journal) déclenchent l'alerte ;
+    // les écritures techniques sans libellé (marquages « vu / lu ») sont
+    // simplement ignorées, sans alerte.
+    if (profile && !peutEcrire(dbRef.current, profile)) {
+      if (action) uAlert("🔒 Votre compte est en lecture seule : vous pouvez consulter et exporter, mais pas modifier ni supprimer.");
+      return;
+    }
     const prev = dbRef.current;
     const final = action
       ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", action }, ...(next.audits || [])] }
