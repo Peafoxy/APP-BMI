@@ -96,9 +96,18 @@ export function PrintHost() {
     <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
       <style>{`@media print {
         body * { visibility: hidden !important; }
-        #zone-impression, #zone-impression * { visibility: visible !important; }
+        #zone-impression, #zone-impression * {
+          visibility: visible !important;
+          /* Sans ceci, le navigateur supprime les fonds colorés à l'impression :
+             les en-têtes de tableau (texte blanc sur fond bleu) sortaient en
+             blanc sur blanc — invisibles — et les bandeaux disparaissaient.
+             C'était l'écart entre l'aperçu et le papier. */
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         #zone-impression { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; max-height: none !important; overflow: visible !important; padding: 0 !important; }
-      }`}</style>
+      }
+      @page { size: A4; margin: 12mm; }`}</style>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[92vh]">
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
           <div className="font-bold text-slate-900 text-sm">Aperçu avant impression</div>
