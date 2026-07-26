@@ -110,6 +110,9 @@ export function imprimerRecu(v, bq = {}) {
 }
 
 // ============ PROFORMA (aperçu avant impression, pas de téléchargement direct) ============
+// Même base visuelle que le reçu de vente : titre souligné (pas de pavé plein),
+// bandeaux clairs, en-têtes de tableau bleus, total en bordure — sobre à
+// l'impression maintenant que les couleurs sortent réellement sur papier.
 export function imprimerProforma(p, logo) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const html = `
@@ -120,21 +123,24 @@ export function imprimerProforma(p, logo) {
   #zone-impression .prf-doc .entete img{max-width:150px;max-height:110px;object-fit:contain}
   #zone-impression .prf-doc .soc{text-align:right;line-height:1.5}
   #zone-impression .prf-doc .soc .nom{font-size:20px;font-weight:bold;color:#1e5a8a}
-  #zone-impression .prf-doc h1{text-align:center;font-size:17px;letter-spacing:2px;margin:10px 0 12px;color:#fff;background:#1e5a8a;padding:8px;border-radius:4px}
+  #zone-impression .prf-doc .soc .marque{font-size:12px;font-weight:bold;color:#3d8b40}
+  #zone-impression .prf-doc h1{text-align:center;font-size:17px;letter-spacing:2px;margin:10px 0 12px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
   #zone-impression .prf-doc .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+  #zone-impression .prf-doc .btitre{font-weight:bold;color:#1e5a8a;border-bottom:1px solid #d5e2ee;margin:10px 0 4px;font-size:12px;letter-spacing:1px}
+  #zone-impression .prf-doc .client div{padding:2px 0}
   #zone-impression .prf-doc table.articles{width:100%;border-collapse:collapse;margin:10px 0 6px}
   #zone-impression .prf-doc table.articles th{background:#1e5a8a;color:#fff;padding:6px;font-size:11px;text-align:left}
   #zone-impression .prf-doc table.articles th:not(:first-child),#zone-impression .prf-doc table.articles td:not(:first-child){text-align:right}
   #zone-impression .prf-doc table.articles td{border:1px solid #d5e2ee;padding:6px}
-  #zone-impression .prf-doc table.totaux{width:60%;margin-left:auto;border-collapse:collapse}
+  #zone-impression .prf-doc table.totaux{width:52%;margin-left:auto;border-collapse:collapse}
   #zone-impression .prf-doc table.totaux td{padding:6px}
-  #zone-impression .prf-doc table.totaux tr.total td{background:#1e5a8a;color:#fff;font-weight:bold;font-size:14px;border-radius:4px}
-  #zone-impression .prf-doc .mentions{margin-top:16px;font-size:10px;color:#888;border-top:1px dashed #aaa;padding-top:8px}
+  #zone-impression .prf-doc table.totaux tr.total td{border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
+  #zone-impression .prf-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
   </style>
   <div class="prf-doc">
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
-      <td class="soc"><div class="nom">BMI TOGO</div><div>Les bâtiments modernes et intelligents</div><div>Lomé, Togo</div></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div class="marque">Les bâtiments modernes et intelligents</div><div>Lomé, Togo</div></td>
     </tr></table>
     <h1>FACTURE PROFORMA</h1>
     <div class="meta">
@@ -142,9 +148,10 @@ export function imprimerProforma(p, logo) {
       <div><b>Date :</b> ${esc(p.date)}</div>
       ${p.boutique ? `<div><b>Boutique :</b> ${esc(p.boutique)}</div>` : ""}
     </div>
-    <div class="meta">
-      <div><b>Client :</b> ${esc(p.client || "—")}</div>
-      ${p.tel ? `<div><b>Tél :</b> ${esc(p.tel)}</div>` : ""}
+    <div class="btitre">CLIENT</div>
+    <div class="client">
+      <div><b>${esc(p.client || "—")}</b></div>
+      ${p.tel ? `<div>Tél : ${esc(p.tel)}</div>` : ""}
     </div>
     <table class="articles">
       <thead><tr><th>Article</th><th>Qté</th><th>Prix unitaire</th><th>Total</th></tr></thead>
