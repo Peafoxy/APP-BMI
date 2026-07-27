@@ -11,7 +11,7 @@ import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
@@ -406,8 +406,10 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (email === null) return;
     const message = await uPrompt(`Message en bas du reçu :`, b.message || "Merci pour votre achat ! / Thank you for your purchase!");
     if (message === null) return;
-    const duplicata = await uConfirm(`Imprimer les reçus de ${b.nom} en 2 exemplaires ?\n\n« Oui » : exemplaire client + souche boutique marquée DUPLICATA (2 pages).\n« Annuler » : un seul exemplaire.\n\nActuellement : ${b.recu_duplicata ? "2 exemplaires" : "1 exemplaire"}.`);
-    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, adresse, tel, email, message, recu_duplicata: !!duplicata } : x)) }, `Reçus de ${b.nom} : ${duplicata ? "2 exemplaires (client + duplicata)" : "1 exemplaire"}`);
+    const choix = await uChoix(`Impression des reçus de ${b.nom} — actuellement : ${b.recu_duplicata ? "2 exemplaires" : "1 exemplaire"}.`, ["1 exemplaire (client)", "2 exemplaires (client + DUPLICATA boutique)"]);
+    if (choix === null) return;
+    const duplicata = String(choix).startsWith("2");
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, adresse, tel, email, message, recu_duplicata: duplicata } : x)) }, `Reçus de ${b.nom} : ${duplicata ? "2 exemplaires (client + duplicata)" : "1 exemplaire"}`);
     uAlert("Informations du reçu mises à jour !");
   };
 

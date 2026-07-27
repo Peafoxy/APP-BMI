@@ -7,6 +7,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { col, light } from "../lib/core";
 import { LOGO } from "../lib/constants";
 import { genererPDF } from "../pdf";
@@ -92,24 +93,31 @@ export function PrintHost() {
   const [html, setHtml] = useState(null);
   printApi = { open: (h) => setHtml(h) };
   if (!html) return null;
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
+  return createPortal(
+    <div className="portail-impression fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
       <style>{`@media print {
-        body * { visibility: hidden !important; }
+        /* Le PrintHost est rendu par un portail DIRECTEMENT sous <body>
+           (hors de #root) : on peut donc masquer toute l'application par
+           display:none et laisser la zone d'impression en flux NORMAL.
+           C'est indispensable : en position absolue, Chrome IGNORE les
+           sauts de page — le DUPLICATA ne commençait jamais en page 2. */
+        body > *:not(.portail-impression) { display: none !important; }
+        .portail-impression { position: static !important; padding: 0 !important; background: none !important; display: block !important; }
+        .portail-impression .cadre-apercu { position: static !important; max-height: none !important; box-shadow: none !important; border-radius: 0 !important; display: block !important; }
+        .portail-impression .barre-apercu { display: none !important; }
+        #zone-impression { max-height: none !important; overflow: visible !important; padding: 0 !important; }
         #zone-impression, #zone-impression * {
-          visibility: visible !important;
           /* Sans ceci, le navigateur supprime les fonds colorés à l'impression :
-             les en-têtes de tableau (texte blanc sur fond bleu) sortaient en
-             blanc sur blanc — invisibles — et les bandeaux disparaissaient.
-             C'était l'écart entre l'aperçu et le papier. */
+             les en-têtes de tableau (texte blanc sur fond bleu) sortiraient en
+             blanc sur blanc. */
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        #zone-impression { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; max-height: none !important; overflow: visible !important; padding: 0 !important; }
+        #zone-impression .saut-page { break-before: page !important; page-break-before: always !important; }
       }
       @page { size: A4; margin: 12mm; }`}</style>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[92vh]">
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
+      <div className="cadre-apercu bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[92vh]">
+        <div className="barre-apercu flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
           <div className="font-bold text-slate-900 text-sm">Aperçu avant impression</div>
           <div className="flex gap-2">
             <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
@@ -118,7 +126,8 @@ export function PrintHost() {
         </div>
         <div id="zone-impression" className="overflow-auto p-4" dangerouslySetInnerHTML={{ __html: html }} />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -113,8 +113,7 @@ export function imprimerRecu(v, bq = {}) {
   // page, la souche boutique marquée DUPLICATA.
   const sortie = bq.recu_duplicata
     ? html +
-      `<div style="page-break-before:always"></div>` +
-      `<div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div>` +
+      `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
     : html;
   if (printApi) printApi.open(sortie);
