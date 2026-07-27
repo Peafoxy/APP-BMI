@@ -65,6 +65,7 @@ import {
   tachesDe, tachesOuvertes, compterReponsesRavitaillement, compterTaches, compterTachesAValider, compterNotifsSalaire, compterDemandesCredit,
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
+  debloquerCommissionsReception,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -86,6 +87,33 @@ export default function App() {
   // Vrai pendant le rechargement complet qui suit une connexion : l'écran
   // part de zéro et un bandeau explique que les données arrivent du serveur.
   const [syncInitiale, setSyncInitiale] = useState(false);
+
+  // ---- Réception AUTOMATIQUE : 7 jours après la fin de travaux déclarée
+  // par BMI, si le client n'a pas réceptionné dans son espace, la réception
+  // est actée d'office (statut « Réceptionné », commissions débloquées,
+  // parrain prévenu). S'exécute à la connexion d'un compte pouvant écrire.
+  useEffect(() => {
+    if (!db || !profile || syncInitiale) return;
+    if (!peutEcrire(dbRef.current, profile)) return;
+    const seuil = Date.now() - 7 * 86400000;
+    const eligibles = (db.clients_installes || []).filter((x) =>
+      x.statut === "termine" && x.date_fin && new Date(x.date_fin).getTime() <= seuil);
+    if (!eligibles.length) return;
+    let next = { ...db };
+    const noms = [];
+    for (const x of eligibles) {
+      next = {
+        ...next,
+        clients_installes: next.clients_installes.map((y) => (y.id === x.id
+          ? { ...y, statut: "receptionne", receptionne_le: today(), receptionne_par: "Réception automatique (7 jours après fin de travaux)" }
+          : y)),
+        ...debloquerCommissionsReception(next, x.vente_id, "automatique, 7 jours après la fin des travaux"),
+      };
+      noms.push(`${x.nom} ${x.prenom || ""}`.trim());
+    }
+    save(next, `Réception AUTOMATIQUE (7 jours après fin de travaux) : ${noms.join(", ")} — commissions débloquées`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, syncInitiale, db?.clients_installes]);
   // Comptes de secours : copie minimale des comptes (voir db.js), utilisée
   // par l'écran de connexion quand la table users est vide (purge + hors ligne).
   const [secours, setSecours] = useState([]);

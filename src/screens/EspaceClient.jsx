@@ -8,7 +8,7 @@ import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient 
 import { PAIEMENTS } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
 
 // ============ ESPACE CLIENT (rôle client) ============
 export function EspaceClient({ db, profile, save, setTab }) {
@@ -281,16 +281,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
       clients_installes: db.clients_installes.map((c) => (c.id === fiche.id
         ? { ...c, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
         : c)),
-      ventes: (db.ventes || []).map((v) => (v.id === fiche.vente_id
-        ? {
-            ...v,
-            commission_a_la_reception: false,
-            commission_debloquee_le: today(),
-            // La part du parrain se débloque en même temps.
-            apporteur: v.apporteur ? { ...v.apporteur, a_la_reception: false } : v.apporteur,
-          }
-        : v)),
-    }, `Travaux RÉCEPTIONNÉS par le client ${profile.nom}${fiche.vente_id ? " — commission débloquée" : ""}`);
+      // Déblocage des commissions (commercial + parrain) et notification du
+      // parrain : logique commune aux trois chemins de réception.
+      ...debloquerCommissionsReception(db, fiche.vente_id, `par ${profile.nom}`),
+    }, `Travaux RÉCEPTIONNÉS par le client ${profile.nom}${fiche.vente_id ? " — commissions débloquées" : ""}`);
     uAlert("✅ Merci ! Votre réception a bien été enregistrée.");
   };
 

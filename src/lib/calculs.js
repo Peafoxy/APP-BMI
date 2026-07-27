@@ -243,6 +243,35 @@ export const estChefEquipe = (db, u) => !!u.chef_equipe || filleulsDe(db, u).len
 // client n'a pas réceptionné l'installation.
 export const commissionBloquee = (v) => v.commission_a_la_reception === true;
 
+// ---- Réception d'un chantier : déblocage des commissions + notification ----
+// Utilisé par les TROIS chemins de réception : le client dans son espace,
+// le constat par BMI, et la réception automatique à J+7. Retourne les
+// fragments { ventes, messages } à étaler dans le save appelant.
+// - débloque la commission du commercial/technicien (commission_a_la_reception)
+// - débloque la part du parrain client (apporteur.a_la_reception)
+// - si un parrain existe : dépose un message dans son fil « support »
+//   (son espace client), non lu, pour qu'il soit prévenu activement.
+export const debloquerCommissionsReception = (db, vente_id, contexte) => {
+  const ventes = db.ventes || [];
+  const vente = ventes.find((v) => v.id === vente_id);
+  if (!vente) return { ventes, messages: db.messages || [] };
+  const majVentes = ventes.map((v) => (v.id === vente_id
+    ? { ...v, commission_a_la_reception: false, commission_debloquee_le: today(),
+        apporteur: v.apporteur ? { ...v.apporteur, a_la_reception: false } : v.apporteur }
+    : v));
+  let messages = db.messages || [];
+  const app = vente.apporteur;
+  if (app && app.parrain_user_id && app.a_la_reception && Number(app.montant || 0) > 0) {
+    messages = [{
+      id: uid(), date: today(), ts: new Date().toISOString(),
+      de_id: "bmi-systeme", de_nom: "BMI TOGO",
+      canal: "support", client_id: app.parrain_user_id, lu_par: [],
+      texte: `🎉 Bonne nouvelle ! L'installation de votre filleul${app.nom ? ` ${app.nom}` : ""} a été réceptionnée${contexte ? ` (${contexte})` : ""}. Votre commission de parrainage de ${fmt(app.montant)} F est maintenant due : elle vous sera versée par BMI TOGO. Merci de votre confiance !`,
+    }, ...messages];
+  }
+  return { ventes: majVentes, messages };
+};
+
 export const commissionBrute = (v, taux) => {
   const base = totalVente(v) + Number(v.rabais || 0); // total avant le rabais du commercial
   return Math.max(0, Math.round((base * Number(taux || 0)) / 100) - Number(v.rabais || 0));

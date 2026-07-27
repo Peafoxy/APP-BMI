@@ -11,7 +11,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWh
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -406,6 +406,25 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     uAlert(compte
       ? "✅ Travaux déclarés terminés. Le client peut maintenant les réceptionner depuis son espace."
       : "✅ Travaux déclarés terminés. (Ce client n'a pas de compte : la réception ne pourra pas se faire dans l'application.)");
+  };
+
+  // BMI constate la réception quand le client ne l'a pas faite dans l'app
+  // (PV signé, réception physique) : mêmes effets que la réception client.
+  const constaterReception = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(
+      `Constater la RÉCEPTION des travaux de ${c.nom} ${c.prenom || ""} ?\n\n` +
+      `À faire uniquement si le client a réceptionné en vrai (PV signé, accord donné) sans passer par l'application.\n\n` +
+      `Effets : chantier « Réceptionné », commissions débloquées (commercial et parrain éventuel), parrain prévenu dans son espace.`
+    )) return;
+    save({
+      ...db,
+      clients_installes: db.clients_installes.map((x) => (x.id === c.id
+        ? { ...x, statut: "receptionne", receptionne_le: today(), receptionne_par: `BMI — constat de ${profile.nom}` }
+        : x)),
+      ...debloquerCommissionsReception(db, c.vente_id, `constatée par BMI`),
+    }, `Réception CONSTATÉE par ${profile.nom} pour ${c.nom} ${c.prenom || ""} — commissions débloquées`);
+    uAlert("✅ Réception enregistrée : commissions débloquées.");
   };
 
   // L'administrateur peut lever des réserves une fois corrigées
@@ -959,6 +978,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     )}
                     {statutChantier(c) === "reserves" && isAdmin && (
                       <button onClick={() => releverReserves(c)} className="text-xs font-bold text-white bg-red-600 rounded px-2 py-1 hover:bg-red-700 mr-2">↻ Réserves levées</button>
+                    )}
+                    {statutChantier(c) === "termine" && isAdmin && (
+                      <button onClick={() => constaterReception(c)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 mr-2">✅ Réception constatée</button>
                     )}
                     <button onClick={() => ouvrirRepartition(c)} className="text-xs font-bold text-purple-700 underline mr-2">
                       🔧 Frais {Number(c.frais_installation || 0) > 0 ? `(${fmt(c.frais_installation)})` : ""}
