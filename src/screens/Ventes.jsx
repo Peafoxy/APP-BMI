@@ -388,8 +388,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
   const proformasListe = db.proformas || [];
   const qListe = normNom(rechercheListe);
-  const listeFiltree = !qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.client || ""} ${x.tel || ""}`).includes(qListe));
-  const proformasFiltres = !qListe ? proformasListe : proformasListe.filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(qListe));
+  // Ordre DÉCROISSANT : les ventes et proformas les plus récentes d'abord
+  // (ventes : date + heure ; proformas : date + horodatage précis).
+  const cleDate = (x) => `${x.date || ""} ${x.heure || ""} ${x.ts || ""}`;
+  const triDesc = (a, b) => cleDate(b).localeCompare(cleDate(a));
+  const listeFiltree = (!qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.client || ""} ${x.tel || ""}`).includes(qListe))).slice().sort(triDesc);
+  const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(qListe))).slice().sort(triDesc);
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
 
@@ -543,9 +547,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
         <div className="px-4 py-2 border-b border-slate-100 bg-white">
           <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher par numéro ou nom de client…" className={inputCls} />
         </div>
+        <div className="max-h-[480px] overflow-y-auto">
         {vueListe === "proformas" && voitProformas ? (
           <table className="w-full text-sm min-w-[700px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N°", "Client", "Articles", "Total", "Émis par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N°", "Client", "Articles", "Total", "Émis par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>
               {proformasFiltres.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune proforma ne correspond à la recherche." : "Aucune proforma émise pour l'instant."}</td></tr>}
               {proformasFiltres.map((pf) => (
@@ -565,7 +570,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
           </table>
         ) : (
           <table className="w-full text-sm min-w-[1000px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N° reçu", "Articles", "Client", "Qté", "Remise", "Total", "Paiement", "Commercial", "Reçu", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N° reçu", "Articles", "Client", "Qté", "Remise", "Total", "Paiement", "Commercial", "Reçu", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {listeFiltree.length === 0 && <tr><td colSpan={11} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
             {listeFiltree.map((v) => (
@@ -593,6 +598,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
           </tbody>
         </table>
         )}
+        </div>
       </div>
     </div>
   );
