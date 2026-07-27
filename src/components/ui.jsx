@@ -89,6 +89,38 @@ export function DialogHost() {
 // dès que PrintHost le réaffecte ci-dessous, les imports le voient aussitôt
 // à jour — aucun setter séparé n'est nécessaire ici).
 export let printApi = null;
+// Impression par DOCUMENT DÉDIÉ : le HTML du document est écrit dans une
+// iframe invisible qui possède sa propre page, en flux normal. C'est la seule
+// méthode où la pagination (sauts de page du DUPLICATA compris) est fiable à
+// 100 % : aucune interférence avec les styles, portails ou positionnements de
+// l'application. Les gabarits étant préfixés « #zone-impression », le contenu
+// est enveloppé dans un div portant cet id.
+function imprimerDocumentDedie(html) {
+  const cadre = document.createElement("iframe");
+  cadre.setAttribute("aria-hidden", "true");
+  cadre.style.cssText = "position:absolute;width:0;height:0;border:0;overflow:hidden";
+  document.body.appendChild(cadre);
+  const d = cadre.contentDocument;
+  d.open();
+  d.write(`<!doctype html><html><head><meta charset="utf-8"><style>
+    @page { size: A4; margin: 12mm; }
+    body { margin: 0; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .saut-page { break-before: page !important; page-break-before: always !important; }
+  </style></head><body><div id="zone-impression">${html}</div></body></html>`);
+  d.close();
+  const lancer = () => {
+    try {
+      const w = cadre.contentWindow;
+      w.focus();
+      w.print();
+    } catch { /* environnement sans impression (tests) */ }
+    setTimeout(() => { try { cadre.remove(); } catch {} }, 60000);
+  };
+  if (d.readyState === "complete") setTimeout(lancer, 50);
+  else cadre.addEventListener("load", () => setTimeout(lancer, 50));
+}
+
 export function PrintHost() {
   const [html, setHtml] = useState(null);
   printApi = { open: (h) => setHtml(h) };
@@ -120,7 +152,7 @@ export function PrintHost() {
         <div className="barre-apercu flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
           <div className="font-bold text-slate-900 text-sm">Aperçu avant impression</div>
           <div className="flex gap-2">
-            <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
+            <button onClick={() => imprimerDocumentDedie(html)} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
             <button onClick={() => setHtml(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
           </div>
         </div>
