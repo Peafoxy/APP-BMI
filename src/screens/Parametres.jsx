@@ -406,7 +406,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (email === null) return;
     const message = await uPrompt(`Message en bas du reçu :`, b.message || "Merci pour votre achat ! / Thank you for your purchase!");
     if (message === null) return;
-    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, adresse, tel, email, message } : x)) });
+    const duplicata = await uConfirm(`Imprimer les reçus de ${b.nom} en 2 exemplaires ?\n\n« Oui » : exemplaire client + souche boutique marquée DUPLICATA (2 pages).\n« Annuler » : un seul exemplaire.\n\nActuellement : ${b.recu_duplicata ? "2 exemplaires" : "1 exemplaire"}.`);
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, adresse, tel, email, message, recu_duplicata: !!duplicata } : x)) }, `Reçus de ${b.nom} : ${duplicata ? "2 exemplaires (client + duplicata)" : "1 exemplaire"}`);
     uAlert("Informations du reçu mises à jour !");
   };
 

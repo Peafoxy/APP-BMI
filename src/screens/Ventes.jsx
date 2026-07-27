@@ -163,7 +163,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       qte: Number(l.qte), pu: Number(l.pu), remise_ligne: Number(l.remise_ligne || 0),
       total: Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0),
     })),
-    total: brut,           // total des articles (net des remises ligne), SANS remise globale ni rabais
+    // La remise globale saisie dans la machine s'applique aussi à la proforma :
+    // le client voit le sous-total, la remise, et le total net — comme sur le reçu.
+    sous_total: brut,
+    remise_pct: Number(remise || 0),
+    remise_montant: Math.round((brut * Number(remise || 0)) / 100),
+    total: brut - Math.round((brut * Number(remise || 0)) / 100),
     validite: "15 jours",
   });
 
@@ -171,6 +176,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     // On garde une trace (liste visible par vendeur / resp. commercial / admin).
     const ligne = { id: uid(), date: today(), ts: new Date().toISOString(),
       numero: pf.numero, boutique, client: pf.client, tel: pf.tel,
+      sous_total: pf.sous_total, remise_pct: pf.remise_pct, remise_montant: pf.remise_montant,
       total: pf.total, lignes: pf.lignes, par: profile.nom };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
   };
@@ -185,6 +191,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       ``,
       ...pf.lignes.map((l) => `• ${l.article} ×${l.qte} : ${l.total.toLocaleString("fr-FR")} F`),
       ``,
+      ...(pf.remise_montant > 0 ? [`Sous-total : ${pf.sous_total.toLocaleString("fr-FR")} F`, `Remise ${pf.remise_pct} % : -${pf.remise_montant.toLocaleString("fr-FR")} F`] : []),
       `*TOTAL : ${pf.total.toLocaleString("fr-FR")} FCFA*`,
       ``,
       `Ceci est une offre de prix (proforma), sans valeur de reçu. Valable ${pf.validite}.`,

@@ -118,6 +118,19 @@ export function genererProforma(p, logo, retournerDoc = false) {
   });
 
   let y = doc.lastAutoTable.finalY + 8;
+  // Sous-total et remise globale, au-dessus du bandeau TOTAL
+  if (Number(p.remise_montant || 0) > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(60, 60, 60);
+    doc.text("Sous-total :", largeur - 60, y);
+    doc.text(`${fmtMontant(p.sous_total)} F`, largeur - 18, y, { align: "right" });
+    y += 5;
+    doc.setTextColor(61, 139, 64);
+    doc.text(`Remise ${p.remise_pct} % :`, largeur - 60, y);
+    doc.text(`-${fmtMontant(p.remise_montant)} F`, largeur - 18, y, { align: "right" });
+    doc.setTextColor(60, 60, 60);
+    y += 7;
+  }
   // Bandeau TOTAL : un rectangle plein aligné à droite, texte blanc à l'intérieur.
   // Ainsi le montant ET « FCFA » tiennent toujours, sans débordement ni coupure.
   const bandeauLargeur = 90;

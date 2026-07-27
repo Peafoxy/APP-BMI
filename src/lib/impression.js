@@ -108,7 +108,16 @@ export function imprimerRecu(v, bq = {}) {
 
     <div class="merci">${esc(bq.message || "Merci pour votre achat ! / Thank you for your purchase!")}</div>
   </div>`;
-  if (printApi) printApi.open(html);
+  // Mode 2 exemplaires (réglage de la boutique dans Paramètres) : le même
+  // reçu deux fois — l'exemplaire client d'abord, puis, sur une nouvelle
+  // page, la souche boutique marquée DUPLICATA.
+  const sortie = bq.recu_duplicata
+    ? html +
+      `<div style="page-break-before:always"></div>` +
+      `<div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div>` +
+      html
+    : html;
+  if (printApi) printApi.open(sortie);
 }
 
 // ============ PROFORMA (aperçu avant impression, pas de téléchargement direct) ============
@@ -162,7 +171,11 @@ export function imprimerProforma(p, logo) {
           return `<tr><td>${esc(l.article)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.total)}</td></tr>`; }).join("")}
       </tbody>
     </table>
-    <table class="totaux"><tr class="total"><td>TOTAL</td><td style="text-align:right">${fmt(p.total)} FCFA</td></tr></table>
+    <table class="totaux">
+      ${Number(p.remise_montant || 0) > 0 ? `<tr><td>Sous-total</td><td style="text-align:right">${fmt(p.sous_total)}</td></tr>
+      <tr><td style="color:#3d8b40">Remise ${p.remise_pct} %</td><td style="text-align:right;color:#3d8b40">-${fmt(p.remise_montant)}</td></tr>` : ""}
+      <tr class="total"><td>TOTAL</td><td style="text-align:right">${fmt(p.total)} FCFA</td></tr>
+    </table>
     <div class="mentions">
       Ce document est une facture proforma : il constitue une offre de prix et n'a pas de valeur comptable.<br>
       Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.${p.validite ? ` Offre valable ${esc(p.validite)}.` : ""}

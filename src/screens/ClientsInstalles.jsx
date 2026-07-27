@@ -450,20 +450,28 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (!fraisRep || fraisRep <= 0) { uAlert("Saisissez les frais d'installation facturés au client."); return; }
     if (!rep.equipe.length) { uAlert("Cochez au moins un technicien présent sur le chantier."); return; }
     if (!rep.chef) { uAlert("Désignez le chef du chantier."); return; }
-    if (Math.abs(totalPct - 100) > 0.5) { uAlert(`Le total des pourcentages fait ${totalPct} % — il doit faire 100 %.`); return; }
+    if (totalPct > 100.5) { uAlert(`Le total des pourcentages fait ${Math.round(totalPct * 10) / 10} % — il ne peut pas dépasser 100 %.`); return; }
+    // En dessous de 100 %, la différence est la PART BMI : on distribue une
+    // partie des frais aux techniciens, l'entreprise garde le reste.
+    // Protection des paiements : on ne réécrit pas une répartition dont des
+    // parts réelles (> 0 F) ont déjà été payées.
+    const partsPayees = (c.equipe || []).filter((e) => e.paye && Number(e.montant || 0) > 0);
+    if (partsPayees.length) { uAlert(`Impossible de modifier : ${partsPayees.length} part(s) déjà payée(s). Les paiements effectués ne peuvent pas être effacés.`); return; }
     const equipe = rep.equipe.map((id) => {
       const u = db.users.find((x) => x.id === id);
       const pct = Number(rep.pcts[id] || 0);
       return { user_id: id, nom: u ? u.nom : "?", pct, montant: Math.round((fraisRep * pct) / 100), chef: id === rep.chef, paye: false };
     });
     const resume = equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom} : ${e.pct} % = ${fmt(e.montant)}`).join("\n");
-    if (!await uConfirm(`Répartir ${fmt(fraisRep)} de frais d'installation ?\n\n${resume}\n\nLes techniciens verront leur part. Le paiement se fait ensuite, technicien par technicien.`)) return;
+    const pctBMI = Math.round((100 - totalPct) * 10) / 10;
+    const ligneBMI = pctBMI > 0.5 ? `\n🏢 Part BMI (non distribuée) : ${pctBMI} % = ${fmt(Math.round((fraisRep * pctBMI) / 100))}` : "";
+    if (!await uConfirm(`Répartir ${fmt(fraisRep)} de frais d'installation ?\n\n${resume}${ligneBMI}\n\nLes techniciens verront leur part. Le paiement se fait ensuite, technicien par technicien.`)) return;
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, frais_installation: fraisRep, chef_id: rep.chef, part_chef: Number(rep.partChef), equipe, date_repartition: today(), par_repartition: profile.nom }
         : x)),
-    }, `Frais d'installation de ${fmt(fraisRep)} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom})`);
+    }, `Frais d'installation de ${fmt(fraisRep)} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""})`);
     setChantier(null);
     uAlert("✅ Répartition enregistrée.");
   };
@@ -472,6 +480,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const payerPart = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin) { uAlert("Seul l'administrateur paie les parts d'installation."); return; }
+    if (!(Number(e.montant) > 0)) { uAlert("Cette part est de 0 F : rien à payer. Refaites la répartition avec le bon pourcentage."); return; }
     const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`);
@@ -806,8 +815,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               <Field label="Part du chef de chantier (%)">
                 <input type="number" min="0" max="100" step="5" className={inputCls} value={rep.partChef} onChange={(e) => changerPartChef(e.target.value)} />
               </Field>
-              <div className="flex items-end text-sm font-bold text-slate-600">
-                Total réparti : <span className={`ml-2 tabular-nums ${Math.abs(totalPct - 100) > 0.5 ? "text-red-600" : "text-green-700"}`}>{Math.round(totalPct * 10) / 10} %</span>
+              <div className="flex flex-col justify-end text-sm font-bold text-slate-600">
+                <div>Total réparti : <span className={`ml-1 tabular-nums ${totalPct > 100.5 ? "text-red-600" : "text-green-700"}`}>{Math.round(totalPct * 10) / 10} %</span></div>
+                {totalPct < 99.5 && (
+                  <div className="text-xs text-slate-500">🏢 Part BMI : {Math.round((100 - totalPct) * 10) / 10} % = {fmt(Math.round((fraisRep * (100 - totalPct)) / 100))}</div>
+                )}
               </div>
             </div>
 
