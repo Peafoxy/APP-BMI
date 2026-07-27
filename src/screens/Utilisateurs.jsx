@@ -15,6 +15,24 @@ import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, credits
 export function Users({ db, save, profile }) {
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
   const [avisOuvert, setAvisOuvert] = useState(null);
+  // ---- Liste classée par rôle : un bouton par rôle, ~5 lignes visibles
+  // avec défilement, et une recherche par nom qui traverse tous les rôles. ----
+  const [roleActif, setRoleActif] = useState("admin");
+  const [rechercheU, setRechercheU] = useState("");
+  const ROLES_LISTE = [
+    ["admin", "👑 Admins"], ["gerant", "Gérants"], ["vendeur", "Vendeurs"],
+    ["magasinier", "Magasiniers"], ["commercial", "Commerciaux"], ["technicien", "Techniciens"],
+    ["technicien_bmi", "🔧 Tech. BMI"], ["resp_commercial", "Resp. com."],
+    ["comptable", "📒 Comptables"], ["client", "Clients"],
+  ];
+  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, db.users.filter((x) => x.role === r).length]));
+  const rolesPresents = ROLES_LISTE.filter(([r]) => nbParRole[r] > 0);
+  const roleAffiche = nbParRole[roleActif] > 0 ? roleActif : (rolesPresents[0]?.[0] || "admin");
+  const qU = rechercheU.trim().toLowerCase();
+  const enRecherche = qU.length > 0;
+  const listeAffichee = enRecherche
+    ? db.users.filter((x) => `${x.nom || ""} ${x.nom_complet || ""}`.toLowerCase().includes(qU))
+    : db.users.filter((x) => x.role === roleAffiche);
   const vide = { nom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
   const [msg, setMsg] = useState("");
@@ -416,12 +434,27 @@ export function Users({ db, save, profile }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Utilisateurs</div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+          <div className="font-bold text-slate-800 mb-2">Utilisateurs ({db.users.length})</div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {rolesPresents.map(([r, lbl]) => (
+              <button key={r} onClick={() => { setRoleActif(r); setRechercheU(""); }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold ${!enRecherche && roleAffiche === r ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`}>
+                {lbl} ({nbParRole[r]})
+              </button>
+            ))}
+          </div>
+          <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
+            placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={inputCls} />
+          {enRecherche && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans tous les rôles</div>}
+        </div>
+        <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[560px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Rôle", "Boutique", "Salaire / Taux", "Statut", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Nom", "Rôle", "Boutique", "Salaire / Taux", "Statut", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {db.users.map((u) => (
+            {listeAffichee.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">{enRecherche ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun compte pour ce rôle."}</td></tr>}
+            {listeAffichee.map((u) => (
               <tr key={u.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-4 py-2 font-semibold">{u.nom}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
@@ -514,6 +547,7 @@ export function Users({ db, save, profile }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {cible && (
