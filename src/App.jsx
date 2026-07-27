@@ -292,7 +292,7 @@ export default function App() {
   // Toute modification est écrite d'abord en local (instantané, même sans
   // réseau), puis mise en file pour Supabase.
   // Toute action sensible est tracée dans le journal d'audit (onglet Historique)
-  const save = async (next, action) => {
+  const save = async (next, action, options = {}) => {
     // ---- VERROU LECTURE SEULE À LA SOURCE ----
     // TOUTE écriture de l'application passe par ici : un compte privé du
     // pouvoir « act_ecriture » ne peut rien persister, quel que soit l'écran
@@ -300,7 +300,12 @@ export default function App() {
     // Les actions volontaires (avec libellé de journal) déclenchent l'alerte ;
     // les écritures techniques sans libellé (marquages « vu / lu ») sont
     // simplement ignorées, sans alerte.
-    if (profile && !peutEcrire(dbRef.current, profile)) {
+    // SEULE exception : le POINTAGE DES DÉCAISSEMENTS par le comptable
+    // (options.pointageComptable, posé uniquement par le panneau « Chez le
+    // comptable ») — il marque « remis / pas encore remis » les sorties de SA
+    // caisse, sans autre pouvoir d'écriture.
+    const pointageAutorise = options.pointageComptable === true && profile?.role === "comptable";
+    if (profile && !peutEcrire(dbRef.current, profile) && !pointageAutorise) {
       if (action) uAlert("🔒 Votre compte est en lecture seule : vous pouvez consulter et exporter, mais pas modifier ni supprimer.");
       return;
     }

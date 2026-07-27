@@ -89,6 +89,26 @@ export function Depenses({ db, save, profile }) {
 export function ChezComptable({ db, save, profile }) {
   const liste = (db.depenses || []).filter((x) => x.boutique === "Chez le comptable")
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  // ---- POINTAGE DES DÉCAISSEMENTS : le comptable marque ce qu'il a
+  // réellement remis (billets donnés / virement fait), pour ne plus se
+  // mélanger entre le déjà-payé et le pas-encore-payé. C'est la SEULE
+  // écriture autorisée à son compte (porte pointageComptable de save).
+  const estComptable = profile.role === "comptable";
+  const aRemettre = liste.filter((x) => !x.decaisse_le);
+  const dejaRemis = liste.filter((x) => x.decaisse_le);
+  const marquerRemis = async (dep) => {
+    if (!await uConfirm(`Marquer ${dep.montant < 0 ? "l'encaissement" : "la remise"} comme faite ?\n\n${dep.description || dep.categorie} — ${fmt(Math.abs(dep.montant))}\n\nCela confirme que l'argent a réellement ${dep.montant < 0 ? "été encaissé" : "été remis au bénéficiaire"}.`)) return;
+    save({ ...db, depenses: db.depenses.map((x) => (x.id === dep.id ? { ...x, decaisse_le: today(), decaisse_par: profile.nom } : x)) },
+      `Décaissement pointé « remis » par ${profile.nom} : ${fmt(Math.abs(dep.montant))} — ${dep.description || dep.categorie}`,
+      { pointageComptable: true });
+  };
+  const annulerRemis = async (dep) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(`Annuler le pointage « remis » de ${fmt(Math.abs(dep.montant))} (${dep.description || dep.categorie}) ?`)) return;
+    save({ ...db, depenses: db.depenses.map((x) => (x.id === dep.id ? { ...x, decaisse_le: null, decaisse_par: null } : x)) },
+      `Pointage de décaissement ANNULÉ par ${profile.nom} : ${fmt(Math.abs(dep.montant))} — ${dep.description || dep.categorie}`);
+  };
   const totalMois = liste.filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
   const total = liste.reduce((s, x) => s + Number(x.montant), 0);
 
@@ -102,6 +122,42 @@ export function ChezComptable({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
+      {/* ═══ Décaissements : à remettre / remis ═══ */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="font-bold text-slate-800 mb-2">💰 Décaissements de ma caisse
+          <span className="ml-2 text-xs font-semibold text-red-600">à remettre : {aRemettre.length}</span>
+          <span className="ml-2 text-xs font-semibold text-green-700">remis : {dejaRemis.length}</span>
+        </div>
+        {aRemettre.length === 0 && <div className="text-sm text-slate-400">Rien en attente : tout ce qui est passé par la caisse « Chez le comptable » a été remis.</div>}
+        <div className="max-h-[300px] overflow-y-auto space-y-1">
+          {aRemettre.map((x) => (
+            <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+              <div>
+                <b>{fmt(Math.abs(x.montant))}</b> — {x.description || x.categorie}
+                <div className="text-xs text-slate-500">{dFR(x.date)} · enregistré par {x.par}{x.montant < 0 ? " · 💵 entrée de caisse" : ""}</div>
+              </div>
+              {estComptable && <button onClick={() => marquerRemis(x)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ {x.montant < 0 ? "Encaissé" : "Remis"}</button>}
+            </div>
+          ))}
+        </div>
+        {dejaRemis.length > 0 && (
+          <div className="mt-3">
+            <div className="text-xs font-bold text-slate-500 uppercase mb-1">Déjà remis</div>
+            <div className="max-h-[220px] overflow-y-auto space-y-1">
+              {dejaRemis.map((x) => (
+                <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
+                  <div>
+                    {fmt(Math.abs(x.montant))} — {x.description || x.categorie}
+                    <span className="ml-2 text-xs text-green-700">✅ remis le {dFR(x.decaisse_le)} par {x.decaisse_par}</span>
+                  </div>
+                  {profile.role === "admin" && <button onClick={() => annulerRemis(x)} className="text-xs text-red-600 underline whitespace-nowrap">annuler</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="font-bold text-slate-800 mb-1">🧾 Sorties de caisse confiées au comptable</div>
         <div className="text-xs text-slate-500">Commissions, salaires ou autres sorties payées « Chez le comptable » plutôt que débitées d'une boutique.</div>
