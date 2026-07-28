@@ -516,7 +516,17 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep.id } : y)) }
         : x)),
       depenses: [dep, ...db.depenses],
-      messages: [...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"), ...(db.messages || [])],
+      messages: [
+        // Le bénéficiaire est prévenu DIRECTEMENT : sans ce message, le
+        // paiement de sa prime passait inaperçu dans son espace.
+        ...(e.user_id ? [{
+          id: uid(), date: today(), ts: new Date().toISOString(),
+          de_id: profile.id, de_nom: profile.nom, a_id: e.user_id, lu_par: [profile.id],
+          texte: `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « Ma commission ».`,
+        }] : []),
+        ...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"),
+        ...(db.messages || []),
+      ],
     }, `Part d'installation payée : ${fmt(e.montant)} à ${e.nom} (chantier ${c.nom})`);
     uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${bq}.`);
   };

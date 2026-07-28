@@ -11,6 +11,18 @@ import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commi
 // ============ MA COMMISSION (commerciaux et techniciens) ============
 export function MaCommission({ db, profile }) {
   const [periode, setPeriode] = useState("mois");
+  // ---- Mes primes d'installation : parts des frais de chantier qui me
+  // reviennent (répartition validée par l'admin), à percevoir ou payées.
+  // Sans cette section, un paiement de prime passait totalement inaperçu
+  // pour le technicien — aucune trace dans son espace.
+  const mesParts = (db.clients_installes || []).flatMap((c) =>
+    (c.equipe || [])
+      .filter((e) => e.user_id === profile.id && Number(e.montant || 0) > 0)
+      .map((e) => ({ chantier: c, part: e })));
+  const partsAPercevoir = mesParts.filter((x) => !x.part.paye);
+  const partsPayees = mesParts.filter((x) => x.part.paye);
+  const totalAPercevoir = partsAPercevoir.reduce((s, x) => s + Number(x.part.montant), 0);
+  const totalPercu = partsPayees.reduce((s, x) => s + Number(x.part.montant), 0);
   const [pa, setPa] = useState(today().slice(0, 8) + "01");
   const [pb, setPb] = useState(today());
 
@@ -156,6 +168,36 @@ export function MaCommission({ db, profile }) {
             ))}
           </div>
         </Panel>
+      )}
+
+      {mesParts.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="font-bold text-slate-800 mb-2">🔧 Mes primes d'installation
+            <span className="ml-2 text-xs font-semibold text-red-600">à percevoir : {fmt(totalAPercevoir)}</span>
+            <span className="ml-2 text-xs font-semibold text-green-700">déjà perçu : {fmt(totalPercu)}</span>
+          </div>
+          <div className="max-h-[300px] overflow-y-auto space-y-1">
+            {partsAPercevoir.map((x) => (
+              <div key={x.chantier.id + "-att"} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <div>
+                  <b>{fmt(x.part.montant)}</b> — chantier {x.chantier.nom} {x.chantier.prenom || ""}
+                  <div className="text-xs text-slate-500">{x.part.pct} % des frais d'installation{x.part.chef ? " · ⭐ chef de chantier" : ""}</div>
+                </div>
+                <span className="text-xs font-bold text-amber-700 whitespace-nowrap">⏳ À percevoir</span>
+              </div>
+            ))}
+            {partsPayees.map((x) => (
+              <div key={x.chantier.id + "-pay"} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
+                <div>
+                  {fmt(x.part.montant)} — chantier {x.chantier.nom} {x.chantier.prenom || ""}
+                  <span className="ml-2 text-xs text-slate-400">{x.part.pct} %{x.part.chef ? " · ⭐ chef" : ""}</span>
+                </div>
+                <span className="text-xs font-bold text-green-700 whitespace-nowrap">✅ Payée{x.part.date_paiement ? ` le ${dFR(x.part.date_paiement)}` : ""}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-xs text-slate-400">La prime devient payable une fois la répartition validée par l'administration ; le paiement vous est notifié dans Messages.</div>
+        </div>
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
