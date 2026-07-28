@@ -125,7 +125,12 @@ export function MonEquipe({ db, save, profile }) {
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, override_payee: true, override_dep: dep.id } : v)),
       depenses: [dep, ...db.depenses],
-      messages: [...messagesNotifPaiementCommission(db, profile, bq, c.u.nom, c.due), ...(db.messages || [])],
+      messages: [
+        { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: c.u.id, lu_par: [profile.id],
+          texte: `💰 Votre commission d'équipe vous a été payée : ${fmt(c.due)} (${normPaiement(moyen)}) — ${c.tauxEq} % sur les commissions de vos ${c.nbFilleuls} recrue(s). Retrouvez le détail dans « Ma commission ».` },
+        ...messagesNotifPaiementCommission(db, profile, bq, c.u.nom, c.due),
+        ...(db.messages || []),
+      ],
     }, `Commission d'équipe payée à ${c.u.nom} : ${fmt(c.due)}`);
     uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}. Sortie de caisse : ${bq}.`);
   };
@@ -228,7 +233,14 @@ export function MonEquipe({ db, save, profile }) {
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, commission_payee: true, commission_dep: dep.id } : v)),
       depenses: [dep, ...db.depenses],
-      messages: [...messagesNotifPaiementCommission(db, profile, bq, st.u.nom, st.commissionDue), ...(db.messages || [])],
+      messages: [
+        // Le bénéficiaire est prévenu DIRECTEMENT — sans ce message, le
+        // paiement n'apparaissait que dans la caisse, jamais chez lui.
+        { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: st.u.id, lu_par: [profile.id],
+          texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s) de la période. Retrouvez le détail dans « Ma commission ».` },
+        ...messagesNotifPaiementCommission(db, profile, bq, st.u.nom, st.commissionDue),
+        ...(db.messages || []),
+      ],
     }, `Commission payée à ${st.u.nom} : ${fmt(st.commissionDue)} (validée par ${profile.nom})`);
     uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie de caisse : ${bq}.`);
   };

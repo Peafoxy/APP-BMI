@@ -23,6 +23,13 @@ export function MaCommission({ db, profile }) {
   const partsPayees = mesParts.filter((x) => x.part.paye);
   const totalAPercevoir = partsAPercevoir.reduce((s, x) => s + Number(x.part.montant), 0);
   const totalPercu = partsPayees.reduce((s, x) => s + Number(x.part.montant), 0);
+  // ---- Mes paiements de commission reçus : la trace de CHAQUE règlement
+  // (montant exact touché, date, moyen), reconstituée depuis les dépenses
+  // générées par les paiements — la même source que la caisse et l'Historique.
+  const mesPaiements = (db.depenses || [])
+    .filter((d) => d.user_id === profile.id && (d.auto === "commission" || d.auto === "commission_equipe"))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const totalCommissionsRecues = mesPaiements.reduce((s, d) => s + Number(d.montant || 0), 0);
   const [pa, setPa] = useState(today().slice(0, 8) + "01");
   const [pb, setPb] = useState(today());
 
@@ -168,6 +175,25 @@ export function MaCommission({ db, profile }) {
             ))}
           </div>
         </Panel>
+      )}
+
+      {mesPaiements.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="font-bold text-slate-800 mb-2">💰 Mes paiements de commission reçus
+            <span className="ml-2 text-xs font-semibold text-green-700">total perçu : {fmt(totalCommissionsRecues)}</span>
+          </div>
+          <div className="max-h-[300px] overflow-y-auto space-y-1">
+            {mesPaiements.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <div>
+                  <b>{fmt(d.montant)}</b> — {dFR(d.date)}{d.paiement ? ` · ${d.paiement}` : ""}
+                  <div className="text-xs text-slate-500">{d.auto === "commission_equipe" ? "Commission d'équipe" : "Commission sur ventes"}{d.description ? ` — ${d.description}` : ""}</div>
+                </div>
+                <span className="text-xs font-bold text-green-700 whitespace-nowrap">✅ Payée</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {mesParts.length > 0 && (
