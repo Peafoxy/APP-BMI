@@ -282,8 +282,15 @@ export async function synchroniser() {
           bloques.add(cle); // on préserve l'ordre des opérations sur cet enregistrement
           const msg = String(e?.message || e);
           const refusRLS = /row-level security|permission denied|JWT|policy/i.test(msg);
+          // Un refus d'écriture du serveur signifie que la session sécurisée ne
+          // vaut plus rien — même si supabase-js la croit encore valide. On la
+          // marque MORTE : (1) assurerSession forcera son rétablissement au
+          // prochain cycle au lieu de la croire sur parole ; (2) le bouton de
+          // déconnexion offrira la sortie « se déconnecter sans envoyer »
+          // (sinon : compteur figé pour toujours, en ligne, sans issue).
+          if (refusRLS) Object.assign(etatAuth, { ok: false, raison: "Écriture refusée par le serveur — session à rétablir" });
           derniereErreur = refusRLS
-            ? `Écriture refusée par Supabase (${op.table}) : aucune session sécurisée. ${etatAuth.raison}`
+            ? `⚠ ${etatAuth.ok ? `Écriture refusée par Supabase (${op.table}) : ${msg}` : `Session sécurisée expirée — déconnectez-vous puis reconnectez-vous : les opérations en attente partiront automatiquement après.`}`
             : `Envoi (${op.table}) : ${msg}`;
           console.warn("Élément non envoyé, on réessaiera :", op.table, msg);
         }

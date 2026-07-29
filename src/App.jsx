@@ -383,9 +383,20 @@ export default function App() {
     let restants = 0;
     try { restants = await compterEnAttente(); } catch {}
     if (restants > 0 && !automatique) {
-      // RÈGLE : impossible de se déconnecter tant que tout n'est pas envoyé.
-      uAlert(`🔒 Déconnexion impossible : ${restants} opération(s) restent à envoyer au serveur.\n\nL'application réessaie automatiquement toutes les 20 secondes et dès que le réseau revient. Le bouton se réactivera dès que tout sera parti — ne fermez pas la page.`);
-      return;
+      // PLUS DE BLOCAGE (décision Timo, 2.98.66) : depuis le passage au
+      // miroir, la déconnexion ne purge RIEN — l'ancienne règle stricte
+      // (héritée de l'époque où déconnexion = purge) n'avait plus que ses
+      // inconvénients : elle EMPRISONNAIT l'utilisateur quand l'envoi était
+      // durablement impossible (session refusée, réseau instable). On informe
+      // et on laisse choisir : les opérations restent sur l'appareil et
+      // partiront automatiquement, dans l'ordre, à la prochaine connexion —
+      // le miroir ne supprime jamais rien tant que la file n'est pas vide.
+      const ok = await uConfirm(
+        `⚠ ${restants} opération(s) ne sont pas encore envoyées au serveur.\n\n` +
+        `Se déconnecter quand même ?\n\n` +
+        `Elles restent enregistrées sur CET appareil et partiront automatiquement, dans l'ordre, à la prochaine connexion. Rien n'est perdu — mais n'effacez pas les données du navigateur d'ici là.`
+      );
+      if (!ok) return;
     }
     // Pas de purge : les données locales restent le cache de travail hors
     // ligne. Leur exactitude est garantie par le miroir à chaque connexion
@@ -530,6 +541,13 @@ export default function App() {
           🔒 <b>Compte en lecture seule.</b> Vous pouvez consulter les données et faire les exports, mais pas créer, modifier ni supprimer.
         </div>
       )}
+      {sync.enLigne && sync.enAttente > 0 && sync.erreur && (
+        <div className="mb-4 rounded-lg border-2 border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
+          ⚠ <b>{sync.enAttente} opération(s) n'arrivent pas à partir vers le serveur.</b>
+          <div className="text-xs mt-1">{sync.erreur}</div>
+          <div className="text-xs mt-1 text-red-700">L'application réessaie toutes les 20 secondes. Si le compteur ne descend pas d'ici une minute : déconnectez-vous puis reconnectez-vous — le bouton de déconnexion vous guidera, et vos opérations partiront automatiquement après. Rien n'est perdu : elles sont enregistrées sur cet appareil.</div>
+        </div>
+      )}
       {isAdmin && rappelSauvegarde && (
         <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           💾 Aucune sauvegarde de secours récente. Allez dans <b>⚙ Paramètres → Sauvegarde de secours</b> pour exporter une copie de vos données.
@@ -651,7 +669,7 @@ export default function App() {
             <button onClick={load} disabled={syncEnCours} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold disabled:opacity-70">
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
-            <button onClick={() => deconnexion(false)} disabled={sync.enAttente > 0} title={sync.enAttente > 0 ? "Déconnexion bloquée : des opérations restent à envoyer au serveur (envoi automatique en cours)" : ""} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold ${sync.enAttente > 0 ? "bg-amber-500/30 text-amber-100 cursor-not-allowed" : "bg-white/10 hover:bg-white/20"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer…` : "Se déconnecter"}</button>
+            <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold ${sync.enAttente > 0 ? "bg-amber-500/30 text-amber-100 hover:bg-amber-500/40" : "bg-white/10 hover:bg-white/20"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
         </div>
       </aside>
@@ -690,7 +708,7 @@ export default function App() {
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
             {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
-            <button onClick={() => deconnexion(false)} disabled={sync.enAttente > 0} title={sync.enAttente > 0 ? "Déconnexion bloquée : des opérations restent à envoyer au serveur (envoi automatique en cours)" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white cursor-not-allowed opacity-80" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer…` : "Se déconnecter"}</button>
+            <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
           <nav className="px-4 flex gap-1 overflow-x-auto">
             {tabsAutorises.map(([id, label]) => (

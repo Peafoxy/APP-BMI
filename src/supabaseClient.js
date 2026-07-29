@@ -91,12 +91,29 @@ export async function sessionActive() {
 // silence et restait « en attente » pour toujours.
 export async function assurerSession() {
   if (!supabaseConfigure) return false;
-  if (await sessionActive()) {
-    Object.assign(etatAuth, { ok: true, raison: "Session sécurisée active" });
+  // Si un refus d'écriture a marqué la session comme morte (etatAuth.ok à
+  // false), on NE la croit PAS sur parole même si supabase-js la dit active :
+  // on force le rafraîchissement, puis la reconnexion complète si possible.
+  // Sans cela, la boucle « session crue valide → écriture refusée → session
+  // crue valide » ne guérissait jamais.
+  if (etatAuth.ok && await sessionActive()) {
     return true;
   }
+  // Rafraîchissement EXPLICITE : quand une coupure réseau fait échouer le
+  // rafraîchissement automatique, supabase-js peut laisser tomber la session
+  // alors que le jeton de rafraîchissement stocké est encore valable. On
+  // retente donc l'échange nous-mêmes avant de déclarer la session perdue —
+  // c'est ce qui évite le blocage « au retour de la connexion, ça ne part
+  // toujours pas ».
+  try {
+    const { data } = await supabase.auth.refreshSession();
+    if (data?.session) {
+      Object.assign(etatAuth, { ok: true, raison: "Session sécurisée active" });
+      return true;
+    }
+  } catch { /* on continue avec les identifiants s'ils sont connus */ }
   if (!identifiants) {
-    Object.assign(etatAuth, { ok: false, raison: "Session expirée. Reconnectez-vous pour rétablir la synchronisation." });
+    Object.assign(etatAuth, { ok: false, raison: "Session expirée : déconnectez-vous puis reconnectez-vous pour rétablir l'envoi." });
     return false;
   }
   const r = await synchroniserAuth(identifiants.id, identifiants.motDePasse);
