@@ -1,6 +1,7 @@
 node_modules
 dist
+dist-electron
 .env
-release
-build
-*.exe
+.env.local
+*.log
+.DS_Store
