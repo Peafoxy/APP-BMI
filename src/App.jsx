@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Login } from "./screens/Connexion";
 import { Dashboard } from "./screens/Dashboard";
@@ -101,6 +101,18 @@ export default function App() {
   const [db, setDbRaw] = useState(null);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("ventes");
+  // Barre(s) d'onglets défilantes (mobile horizontale, barre latérale
+  // desktop) : après une actualisation de la page, l'onglet retrouvé (voir
+  // tabDeDepart) peut être hors du cadre visible — la barre reste à son
+  // point de départ. On la positionne sur l'onglet actif AVANT que le
+  // navigateur n'affiche quoi que ce soit (useLayoutEffect, pas useEffect) :
+  // aucun saut visible, l'onglet est déjà à la bonne place dès la première
+  // image affichée — pas un défilement animé, juste jamais la mauvaise
+  // position à l'écran. Demandé par Timo après avoir vu un bref instant où
+  // la barre montrait Tableau de bord avant de se corriger.
+  useLayoutEffect(() => {
+    document.querySelectorAll(`[data-tab-id="${tab}"]`).forEach((el) => el.scrollIntoView?.({ inline: "center", block: "nearest" }));
+  }, [tab]);
   // Mémorise l'onglet actif à chaque changement, pour le retrouver après une
   // actualisation de la page (voir tabDeDepart ci-dessus) — seulement une
   // fois connecté, pour ne jamais mémoriser l'écran de connexion lui-même.
@@ -682,7 +694,7 @@ export default function App() {
         </div>
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
           {tabsAutorises.map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)}
+            <button key={id} data-tab-id={id} onClick={() => setTab(id)}
               className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${tab === id ? "bg-sky-700/60 text-white shadow-inner" : "text-sky-100/70 hover:bg-white/10 hover:text-white"}`}>
               {label}
             </button>
@@ -738,7 +750,7 @@ export default function App() {
           </div>
           <nav className="px-4 flex gap-1 overflow-x-auto">
             {tabsAutorises.map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)}
+              <button key={id} data-tab-id={id} onClick={() => setTab(id)}
                 className={`px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${tab === id ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`}>{label}</button>
             ))}
           </nav>
