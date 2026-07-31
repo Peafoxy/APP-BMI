@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -114,6 +114,16 @@ export function Users({ db, save, profile }) {
     if (u.role === "admin" && db.users.filter((x) => x.role === "admin" && x.actif !== false).length === 1 && u.actif !== false) {
       uAlert("Impossible de bloquer le dernier administrateur actif."); return;
     }
+    // Bloquer PRÉCISÉMENT le compte qui porte le drapeau d'admin principal —
+    // sinon la solution de secours (« premier admin trouvé », voir
+    // adminPrincipal dans calculs.js) désigne quelqu'un d'autre à sa place,
+    // en silence, sans que personne ne l'ait décidé. Signalé par Timo :
+    // le rôle « changeait tout seul » après certaines mises à jour — la
+    // cause était ce trou, pas la synchronisation.
+    if (u.actif !== false && adminPrincipal(db)?.id === u.id) {
+      uAlert(`🔒 Impossible de bloquer ${u.nom} : ce compte est l'administrateur PRINCIPAL.\n\nTransférez d'abord ce rôle à quelqu'un d'autre (⚙ Paramètres → Transférer le rôle) avant de le bloquer.`);
+      return;
+    }
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, actif: x.actif === false } : x)) }, `${u.actif === false ? "Réactivation" : "Blocage"} du compte ${u.nom}`);
   };
 
@@ -146,6 +156,12 @@ export function Users({ db, save, profile }) {
 
   const supprimerU = async (u) => {
     if (profile && u.id === profile.id) { uAlert("Vous ne pouvez pas supprimer le compte avec lequel vous êtes connecté."); return; }
+    // Même protection que pour le blocage : ne jamais supprimer le porteur
+    // du drapeau d'admin principal sans un transfert explicite d'abord.
+    if (adminPrincipal(db)?.id === u.id) {
+      uAlert(`🔒 Impossible de supprimer ${u.nom} : ce compte est l'administrateur PRINCIPAL.\n\nTransférez d'abord ce rôle à quelqu'un d'autre (⚙ Paramètres → Transférer le rôle) avant de le supprimer.`);
+      return;
+    }
     const autresAdmins = db.users.filter((x) => x.role === "admin" && x.actif !== false && x.id !== u.id);
     if (u.role === "admin" && autresAdmins.length === 0) { uAlert("Impossible : il faut garder au moins un administrateur actif."); return; }
     if (await uConfirm(`Supprimer définitivement le compte « ${u.nom} » (${u.role}) ?\nSes ventes et actions passées restent enregistrées.`)) {
