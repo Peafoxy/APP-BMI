@@ -5,15 +5,19 @@
 import { useState } from "react";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  // Changer OU consulter un mot de passe est réservé à l'administrateur
+  // PRINCIPAL — jamais aux autres administrateurs, même avec le pouvoir
+  // « Utilisateurs ». Décision de Timo.
+  const jeSuisAdminPrincipal = estAdminPrincipal(db, profile);
   const [avisOuvert, setAvisOuvert] = useState(null);
   // ---- Liste classée par rôle : un bouton par rôle, ~5 lignes visibles
   // avec défilement, et une recherche par nom qui traverse tous les rôles. ----
@@ -104,10 +108,30 @@ export function Users({ db, save, profile }) {
   };
 
   const changerPwd = async (u) => {
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut changer un mot de passe."); return; }
     const p = await uPrompt(`Nouveau mot de passe pour ${u.nom} (6 caractères minimum, exigé par la sécurisation Supabase) :`);
     if (!p || p.length < 6) { if (p !== null) uAlert("Mot de passe trop court (6 caractères minimum)."); return; }
     const nouveauxChamps = await definirMotDePasse(p);
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, ...nouveauxChamps } : x)) }, `Changement de mot de passe : ${u.nom}`);
+    save({
+      ...db,
+      users: db.users.map((x) => (x.id === u.id
+        ? {
+            ...x, ...nouveauxChamps,
+            pwd_visible: p, // gardé EN CLAIR uniquement pour que l'admin principal puisse le consulter plus tard (bouton « 👁 Voir ») — c'est un choix de gestion assumé, pas le mécanisme de connexion (qui reste le hachage ci-dessus)
+            ...(x.role === "client" ? { mdp_auto: false } : {}), // ce n'est plus le mot de passe auto-généré
+          }
+        : x)),
+    }, `Changement de mot de passe : ${u.nom} (par l'administrateur principal)`);
+  };
+
+  const voirPwd = (u) => {
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut consulter un mot de passe."); return; }
+    const mdp = u.pwd_visible || motDePasseConnu(u);
+    if (!mdp) {
+      uAlert(`Aucun mot de passe consultable pour ${u.nom}.\n\nIl a été défini avant cette fonctionnalité (ou changé par le client lui-même depuis son espace). Utilisez « Mot de passe » pour lui en attribuer un nouveau — il deviendra alors consultable.`);
+      return;
+    }
+    uAlert(`🔑 Mot de passe de ${u.nom} : ${mdp}`);
   };
 
   const supprimerU = async (u) => {
@@ -530,7 +554,8 @@ export function Users({ db, save, profile }) {
                   {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className="text-xs font-bold text-amber-700 underline mr-2">🤝 Parrain</button>}
                   {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className="text-xs font-bold text-amber-700 underline mr-2">⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT}%</button>}
                   <button onClick={() => changerIdentite(u)} className="text-xs font-bold text-sky-800 underline mr-2">🪪 Identité</button>
-                  <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>
+                  {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
+                  {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
                   {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className="text-xs font-bold text-sky-800 underline mr-2">Boutique</button>}
                   {SALARIES.includes(u.role) && <button onClick={() => changerSalaire(u)} className="text-xs font-bold text-sky-800 underline mr-2">Salaire</button>}
                   {SALARIES.includes(u.role) && <button onClick={() => changerTauxAvancement(u)} className="text-xs font-bold text-sky-800 underline mr-2">Taux %</button>}

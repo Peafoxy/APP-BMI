@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
 
@@ -303,6 +303,24 @@ export function EspaceClient({ db, profile, save, setTab }) {
     }, `⚠ RÉSERVES émises par le client ${profile.nom} : ${motif.trim()}`);
     uAlert("Vos réserves ont été transmises à BMI Togo. Un technicien vous recontactera.");
   };
+  // Le client change SON PROPRE mot de passe — c'est le seul mot de passe
+  // qu'il a le droit de modifier lui-même (décision de Timo). Une fois
+  // changé, il n'est plus le mot de passe auto-généré : personne ne peut
+  // plus le recalculer — sauf l'administrateur principal, qui peut toujours
+  // en attribuer un nouveau depuis Utilisateurs si besoin.
+  const changerMonMotDePasse = async () => {
+    const p = await uPrompt("Nouveau mot de passe (6 caractères minimum) :");
+    if (!p || p.length < 6) { if (p !== null) uAlert("Mot de passe trop court (6 caractères minimum)."); return; }
+    const confirmation = await uPrompt("Retapez-le pour confirmer :");
+    if (confirmation !== p) { uAlert("Les deux mots de passe ne correspondent pas. Rien n'a été changé."); return; }
+    const nouveauxChamps = await definirMotDePasse(p);
+    save({
+      ...db,
+      users: db.users.map((x) => (x.id === profile.id ? { ...x, ...nouveauxChamps, mdp_auto: false } : x)),
+    }, `Mot de passe changé par le client ${profile.nom} lui-même`);
+    uAlert("✅ Votre mot de passe a été changé. Utilisez-le dès votre prochaine connexion.");
+  };
+
   return (
     <div className="space-y-4">
       {/* ═══════ CADEAU ═══════ */}
@@ -638,6 +656,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
         ) : (
           <div className="text-sm text-slate-400 py-4">Votre fiche d'installation n'est pas encore disponible. Elle apparaîtra ici une fois créée par nos équipes.</div>
         )}
+      </Panel>
+      <Panel>
+        <div className="font-bold mb-1">🔑 Mon mot de passe</div>
+        <div className="text-xs text-slate-500 mb-3">Vous pouvez le changer à tout moment. Ne le partagez avec personne.</div>
+        <button onClick={changerMonMotDePasse} className="px-4 py-2 rounded-lg bg-slate-800 text-white font-bold text-sm hover:bg-slate-900">Changer mon mot de passe</button>
       </Panel>
       <div className="text-xs text-slate-400">Utilisez l'onglet 💬 Messages pour écrire à nos équipes.</div>
     </div>
