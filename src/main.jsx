@@ -14,7 +14,7 @@ import App from "./App.jsx";
 const majSW = registerSW({
   immediate: true,
   onNeedRefresh() {
-    afficherBanniere(() => majSW(true));
+    afficherFenetreMaj(() => majSW(true));
   },
   onRegisteredSW(url, registration) {
     // On vérifie toutes les 15 minutes s'il existe une nouvelle version.
@@ -22,19 +22,39 @@ const majSW = registerSW({
   },
 });
 
-function afficherBanniere(recharger) {
+// Fenêtre bien visible au centre de l'écran (pas une simple bannière en bas,
+// facile à manquer) — avec le NUMÉRO de la nouvelle version, récupéré sur le
+// réseau (jamais via le cache : version.json n'est volontairement PAS mis en
+// cache par le service worker, voir vite.config.js) pour être toujours juste.
+async function afficherFenetreMaj(recharger) {
   if (document.getElementById("bmi-maj")) return;
-  const barre = document.createElement("div");
-  barre.id = "bmi-maj";
-  barre.style.cssText =
-    "position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#1e5a8a;color:#fff;" +
-    "padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;" +
-    "font-family:system-ui,sans-serif;font-size:14px;box-shadow:0 -2px 10px rgba(0,0,0,.25)";
-  barre.innerHTML =
-    '<span><b>Nouvelle version disponible</b><br><span style="font-size:12px;opacity:.85">Rechargez pour en profiter.</span></span>' +
-    '<button id="bmi-maj-btn" style="background:#fff;color:#1e5a8a;border:0;border-radius:8px;' +
-    'padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">Recharger</button>';
-  document.body.appendChild(barre);
+  let version = "";
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}version.json?t=${Date.now()}`, { cache: "no-store" });
+    if (r.ok) version = (await r.json()).version || "";
+  } catch { /* pas grave : on affiche la fenêtre sans le numéro */ }
+
+  const fond = document.createElement("div");
+  fond.id = "bmi-maj";
+  fond.style.cssText =
+    "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.6);" +
+    "display:flex;align-items:center;justify-content:center;padding:16px;" +
+    "font-family:system-ui,sans-serif;";
+  fond.innerHTML =
+    '<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;' +
+    'box-shadow:0 10px 40px rgba(0,0,0,.35);overflow:hidden;text-align:center">' +
+      '<div style="background:#1e5a8a;color:#fff;padding:20px 20px 16px">' +
+        '<div style="font-size:32px;line-height:1">🔄</div>' +
+        '<div style="font-weight:800;font-size:17px;margin-top:8px">Nouvelle version disponible</div>' +
+        (version ? `<div style="font-size:13px;opacity:.9;margin-top:4px">Version ${version}</div>` : "") +
+      "</div>" +
+      '<div style="padding:18px 20px">' +
+        '<div style="font-size:14px;color:#334155;margin-bottom:16px">Rechargez maintenant pour profiter des dernières mises à jour de l\'application.</div>' +
+        '<button id="bmi-maj-btn" style="width:100%;background:#1e5a8a;color:#fff;border:0;border-radius:10px;' +
+        'padding:12px 16px;font-weight:700;font-size:15px;cursor:pointer">🔄 Recharger maintenant</button>' +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(fond);
   document.getElementById("bmi-maj-btn").onclick = () => recharger();
 }
 

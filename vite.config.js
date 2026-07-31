@@ -2,10 +2,32 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { readFileSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Génère public/version.json à partir de VERSION (src/lib/constants.js) —
+// AVANT chaque build, pour que l'app puisse annoncer le numéro exact de la
+// nouvelle version disponible (voir main.jsx : la bannière de mise à jour
+// affiche ce numéro en le récupérant sur le réseau, jamais via le cache).
+function ecrireVersionJson() {
+  return {
+    name: "ecrire-version-json",
+    buildStart() {
+      const src = readFileSync(resolve(__dirname, "src/lib/constants.js"), "utf-8");
+      const m = src.match(/VERSION\s*=\s*"([^"]+)"/);
+      const version = m ? m[1] : "?";
+      writeFileSync(resolve(__dirname, "public/version.json"), JSON.stringify({ version }));
+    },
+  };
+}
 
 export default defineConfig({
   base: "./",
   plugins: [
+    ecrireVersionJson(),
     react(),
     tailwindcss(),
     VitePWA({
