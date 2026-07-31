@@ -587,7 +587,7 @@ export default function App() {
 
       {tab === "dashboard" && (isAdmin || isComptable) && <Dashboard db={db} />}
       {tab === "ventes" && !isCommercial && <Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
-      {tab === "commande" && isCommercial && <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
+      {tab === "commande" && (isCommercial || isTechnicien) && <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
       {tab === "commandes" && !isCommercial && <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />}
       {tab === "dimensionnement" && <Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
         if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
@@ -616,7 +616,7 @@ export default function App() {
       {tab === "ravitaillement" && profile.boutique && <DemandeRavitaillement db={db} save={save} profile={profile} boutique={profile.boutique} marquerVues />}
       {tab === "salaire" && SALARIES.includes(profile.role) && <Salaire db={db} save={save} profile={profile} />}
       {tab === "espace_client" && isClient && <EspaceClient db={db} profile={profile} save={save} setTab={setTab} />}
-      {tab === "prospects" && (isAdmin || isCommercial || isTechnicienBMI || isRespCom) && <Prospects db={db} save={save} profile={profile} isAdmin={isAdmin} />}
+      {tab === "prospects" && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <Prospects db={db} save={save} profile={profile} isAdmin={isAdmin} />}
       {tab === "parametres" && isAdmin && <Parametres db={db} save={save} setDb={setDb} profile={profile} dossierAuto={dossierAuto} setDossierAuto={setDossierAuto} dernierAuto={dernierAuto} />}
     </>
   );
