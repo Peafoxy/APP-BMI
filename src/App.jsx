@@ -77,11 +77,37 @@ import { exportCSV } from "./lib/export";
 // 30 min partout ailleurs (application Windows, ou navigateur sur PC).
 const DUREE_INACTIVITE = /Android/i.test(navigator.userAgent || "") ? 5 * 60 * 1000 : 30 * 60 * 1000;
 
+// Onglet à ouvrir à la connexion (fraîche ou restaurée après actualisation
+// de la page) : on reprend le DERNIER onglet où la personne travaillait,
+// s'il existe encore et reste valide pour son rôle — sinon on retombe sur
+// l'onglet par défaut habituel de ce rôle. Demandé par Timo : ne plus jamais
+// revenir au premier onglet après une actualisation de la page.
+function tabDeDepart(role) {
+  const parDefaut = role === "admin" || role === "comptable" ? "dashboard"
+    : (role === "commercial" || role === "technicien") ? "commande"
+    : role === "resp_commercial" ? "equipe"
+    : role === "technicien_bmi" ? "dimensionnement"
+    : role === "magasinier" ? "stocks"
+    : role === "client" ? "espace_client" : "ventes";
+  try {
+    const dernier = localStorage.getItem("bmi_dernier_onglet");
+    if (dernier && (ONGLETS_ROLE[role] || []).includes(dernier)) return dernier;
+  } catch {}
+  return parDefaut;
+}
+
 // ============ APPLICATION PRINCIPALE ============
 export default function App() {
   const [db, setDbRaw] = useState(null);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("ventes");
+  // Mémorise l'onglet actif à chaque changement, pour le retrouver après une
+  // actualisation de la page (voir tabDeDepart ci-dessus) — seulement une
+  // fois connecté, pour ne jamais mémoriser l'écran de connexion lui-même.
+  useEffect(() => {
+    if (!profile) return;
+    try { localStorage.setItem("bmi_dernier_onglet", tab); } catch {}
+  }, [tab, profile]);
   const [saveStatus, setSaveStatus] = useState("saved");
   const [sync, setSync] = useState({ enLigne: navigator.onLine, supabaseOk: false, enAttente: 0 });
   // Vrai pendant le rechargement complet qui suit une connexion : l'écran
@@ -214,7 +240,7 @@ export default function App() {
           }
           if (u && u.actif !== false && Date.now() - ts < DUREE_INACTIVITE) {
             setProfile(u);
-            setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
+            setTab(tabDeDepart(u.role));
           } else {
             localStorage.removeItem("bmi_session");
           }
@@ -366,7 +392,7 @@ export default function App() {
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
     })();
-    setTab(u.role === "admin" || u.role === "comptable" ? "dashboard" : (u.role === "commercial" || u.role === "technicien") ? "commande" : u.role === "resp_commercial" ? "equipe" : u.role === "technicien_bmi" ? "dimensionnement" : u.role === "magasinier" ? "stocks" : u.role === "client" ? "espace_client" : "ventes");
+    setTab(tabDeDepart(u.role));
   }} /></>;
   }
 
