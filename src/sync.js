@@ -370,15 +370,31 @@ export async function synchroniser() {
         console.warn("Lecture des suppressions distantes reportée :", e?.message || e);
       }
 
-      // 2b) Les données des autres appareils, table par table, PAGE PAR PAGE,
-      // chacune avec SON PROPRE curseur — voir l'explication tout en haut.
-      // CHAQUE TABLE dans son propre essai : sur un appareil neuf sans session
-      // encore établie, la plupart des tables refusent la lecture — mais
-      // « users », elle, reste publique en lecture spécifiquement pour permettre
-      // à un nouveau compte de se retrouver dès sa toute première connexion.
-      // Si une seule erreur globale arrêtait la boucle, cette table ne serait
-      // jamais atteinte selon son rang dans la liste (elle n'est pas la première).
-      for (const t of TABLES) {
+      // 2b) Les données des autres appareils — PAR LOTS EN PARALLÈLE plutôt
+      // qu'une table après l'autre. Avant : 18 allers-retours réseau l'un
+      // derrière l'autre, un temps total qui grossit avec le nombre de
+      // tables. Maintenant : plusieurs tables interrogées EN MÊME TEMPS.
+      //
+      // Chaque table reste ISOLÉE (son propre essai, son propre curseur, sa
+      // propre erreur) — voir synchroniserTable ci-dessous : c'était déjà le
+      // cas avant, la parallélisation ne change QUE l'ordre d'exécution, pas
+      // la logique de chacune. « users » reste joignable même sans session
+      // (nouveau compte) puisqu'elle est toujours dans le lot exécuté.
+      //
+      // Un LOT à la fois (pas les 18 tables d'un coup) : pour ne pas envoyer
+      // trop de requêtes simultanées à Supabase (limite de connexions du
+      // plan, prudence réseau mobile).
+      const TABLES_PAR_LOT = 5;
+      for (let i = 0; i < TABLES.length; i += TABLES_PAR_LOT) {
+        const lot = TABLES.slice(i, i + TABLES_PAR_LOT);
+        await Promise.all(lot.map((t) => synchroniserTable(t)));
+      }
+
+      // Isolée dans sa propre fonction pour pouvoir être lancée en parallèle
+      // avec ses semblables (Promise.all ci-dessus) tout en gardant EXACTEMENT
+      // la même logique qu'avant (curseur, marge d'horloge, comparaison du
+      // plus récent, gestion d'erreur) — rien de fonctionnel n'a changé ici.
+      async function synchroniserTable(t) {
         const cle = `derniere_sync:${t}`;
         try {
           const curseur = await curseurDe(cle);
