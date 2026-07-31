@@ -117,6 +117,8 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
     `👤 Identifiant : *${identifiant}*`,
     `🔑 Mot de passe : *${motDePasse}*`,
     ``,
+    `🔒 Pour votre confidentialité, nous vous recommandons de changer ce mot de passe dès votre première connexion (rubrique "🔑 Mon mot de passe" de votre espace).`,
+    ``,
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
