@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
@@ -95,6 +95,16 @@ export function Users({ db, save, profile }) {
       next = { ...next, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, actif: true }] };
     }
     save(next, `Création utilisateur ${f.nom} (${f.role})`);
+    // Invitation WhatsApp — comme pour un client, mais sans conseil de
+    // changer le mot de passe (impossible pour un employé : seul l'admin
+    // principal peut le faire). Seulement si un numéro a été renseigné.
+    if (chiffresTel(f.tel).length >= 4) {
+      const { nom: nomEmp, pwd: pwdEmp, role: roleEmp, tel: telEmp } = f;
+      if (await uConfirm(`✅ Compte créé.\n\n👤 ${nomEmp}\n🔑 ${pwdEmp}\n\nEnvoyer ces identifiants à ${nomEmp} par WhatsApp ?`)) {
+        envoyerIdentifiantsEmployeWhatsApp(nomEmp, nomEmp, pwdEmp, roleEmp, telEmp);
+      }
+    }
+    setF(vide);
     setF({ nom: "", pwd: "", role: "vendeur", boutique: premiere, taux: "5" });
     setMsg("✅ Utilisateur créé");
     setTimeout(() => setMsg(""), 3000);
@@ -439,6 +449,9 @@ export function Users({ db, save, profile }) {
             <Field label="Numéro de téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           ) : (
             <Field label="Mot de passe"><input className={inputCls} value={f.pwd} onChange={(e) => setF({ ...f, pwd: e.target.value })} /></Field>
+          )}
+          {f.role !== "client" && (
+            <Field label="Téléphone (pour lui envoyer ses identifiants par WhatsApp, facultatif)"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
           <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
           {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}

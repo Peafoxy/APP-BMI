@@ -127,6 +127,38 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
   window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
 }
 
+// Libellés lisibles des rôles employés — pour le message d'invitation
+// WhatsApp (ci-dessous) et nulle part ailleurs pour l'instant.
+export const LIBELLE_ROLE_EMPLOYE = {
+  vendeur: "Vendeur", gerant: "Gérant de boutique", magasinier: "Magasinier",
+  commercial: "Commercial", technicien: "Technicien", technicien_bmi: "Technicien BMI",
+  resp_commercial: "Responsable Commercial", comptable: "Comptable", admin: "Administrateur",
+};
+
+// Invitation WhatsApp pour un EMPLOYÉ (tout rôle sauf client) : mêmes
+// identifiants qu'au client, mais SANS conseil de changer le mot de passe —
+// pour un employé, ce n'est pas possible : seul l'administrateur PRINCIPAL
+// peut changer un mot de passe (voir Utilisateurs.jsx). Le rôle est précisé
+// pour que la personne sache tout de suite ce qu'elle vient de recevoir.
+export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motDePasse, role, tel) {
+  const libelleRole = LIBELLE_ROLE_EMPLOYE[role] || role;
+  const lignes = [
+    `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
+    ``,
+    `Votre compte BMI TOGO (${libelleRole}) a été créé. Voici votre espace personnel :`,
+    ADRESSE_APP,
+    ``,
+    `👤 Identifiant : *${identifiant}*`,
+    `🔑 Mot de passe : *${motDePasse}*`,
+    ``,
+    `À bientôt !`,
+    `BMI TOGO — Les bâtiments modernes et intelligents`,
+  ];
+  const num = telDigits(tel);
+  const txt = encodeURIComponent(lignes.join("\n"));
+  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+}
+
 // Simple accusé de prise de contact envoyé à un nouveau prospect — pas
 // d'identifiants ici, il n'est pas encore client (voir convertirEnClient).
 export function envoyerAccueilProspectWhatsApp(nomAffiche, tel) {
@@ -179,10 +211,28 @@ export function messagesNouveauClient(db, user, parQui) {
   }));
 }
 
-// Retrouve le mot de passe d'un compte client généré automatiquement — en
-// réutilisant la variante et la longueur mémorisées à la création (comptes
-// créés avant ce mécanisme : variante 0 / longueur 6, comportement inchangé).
-export const motDePasseConnu = (u) => (u && u.mdp_auto && u.tel
-  ? motDePasseClient(u.nom_base || u.nom, u.tel, u.mdp_variante || 0, u.mdp_longueur || 6)
-  : null);
+// Retrouve le mot de passe d'un compte client généré automatiquement.
+//
+// ⚠ POINT CRITIQUE : un compte créé AVANT le mélange (2.98.68) a été HACHÉ
+// avec l'ANCIEN algorithme fixe (4 derniers chiffres + 2 premières lettres).
+// Il n'a donc JAMAIS reçu de champ mdp_variante. Si on le recalculait avec
+// le NOUVEL algorithme mélangé par défaut, on obtiendrait un mot de passe
+// différent de celui réellement stocké — et la connexion échouerait tant que
+// personne ne l'a changé manuellement (bug signalé par Timo, corrigé ici).
+// La présence explicite de mdp_variante (même à 0) est donc le vrai marqueur
+// « ce compte utilise le nouvel algorithme » — son ABSENCE signifie ancien.
+const motDePasseClientAncien = (nom, tel) => {
+  const d = chiffresTel(tel);
+  const quatre = d.slice(-4).padStart(4, "0");
+  const deux = (lettresNom(nom).slice(0, 2) || "XX").padEnd(2, "X");
+  return quatre + deux;
+};
+
+export const motDePasseConnu = (u) => {
+  if (!u || !u.mdp_auto || !u.tel) return null;
+  const nom = u.nom_base || u.nom;
+  return (u.mdp_variante === undefined || u.mdp_variante === null)
+    ? motDePasseClientAncien(nom, u.tel)
+    : motDePasseClient(nom, u.tel, u.mdp_variante, u.mdp_longueur || 6);
+};
 
