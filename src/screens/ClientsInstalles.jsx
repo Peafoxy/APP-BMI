@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
@@ -110,7 +110,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     }
 
     const identifiant = identifiantClient(db, nom, tel);
-    const motDePasse = motDePasseClient(nom, tel);
+    const { motDePasse } = await resoudreMotDePasseClient(db, nom, tel);
     if (!await uConfirm(
       `Créer le compte client de ${nom.toUpperCase()} ?\n\n` +
       `👤 Identifiant : ${identifiant}\n🔑 Mot de passe : ${motDePasse}\n\n` +

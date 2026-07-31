@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
@@ -51,7 +51,7 @@ export function Users({ db, save, profile }) {
         return;
       }
       const identifiant = identifiantClient(db, f.nom, f.tel);
-      const motDePasse = motDePasseClient(f.nom, f.tel);
+      const { motDePasse } = await resoudreMotDePasseClient(db, f.nom, f.tel);
       if (!await uConfirm(
         `Créer le compte client de ${f.nom.trim().toUpperCase()} ?\n\n` +
         `👤 Identifiant : ${identifiant}\n🔑 Mot de passe : ${motDePasse}\n\n` +

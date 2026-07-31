@@ -10,7 +10,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm } from "../components/ui";
 import { boutiquesVente, dettesClassiques } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
-  chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient,
+  chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
   envoyerIdentifiantsWhatsApp, motDePasseConnu, messagesNouveauClient,
 } from "../lib/comptesClients";
 
@@ -33,7 +33,7 @@ export function CreerClient({ db, save, profile }) {
     if (existant) { uAlert(`Un compte existe déjà pour ce numéro : ${existant.nom}.\n\nRien n'a été recréé.`); return; }
 
     const identifiant = identifiantClient(db, nom, tel);
-    const motDePasse = motDePasseClient(nom, tel);
+    const { motDePasse } = await resoudreMotDePasseClient(db, nom, tel);
     if (!await uConfirm(
       `Créer le compte de ${nom.toUpperCase()} ?\n\n👤 Identifiant : ${identifiant}\n🔑 Mot de passe : ${motDePasse}\n\nSes identifiants lui seront envoyés par WhatsApp.`
     )) return;

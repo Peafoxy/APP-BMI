@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture } from "../lib/calculs";
@@ -94,7 +94,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
     }
 
     const identifiant = identifiantClient(db, p.nom, p.tel);
-    const motDePasse = motDePasseClient(p.nom, p.tel);
+    const { motDePasse } = await resoudreMotDePasseClient(db, p.nom, p.tel);
     if (!await uConfirm(
       `Convertir « ${p.nom} » en client ?\n\n` +
       `👤 Identifiant : ${identifiant}\n🔑 Mot de passe : ${motDePasse}\n\n` +
