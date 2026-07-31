@@ -82,7 +82,7 @@ const DUREE_INACTIVITE = /Android/i.test(navigator.userAgent || "") ? 5 * 60 * 1
 // s'il existe encore et reste valide pour son rôle — sinon on retombe sur
 // l'onglet par défaut habituel de ce rôle. Demandé par Timo : ne plus jamais
 // revenir au premier onglet après une actualisation de la page.
-function tabDeDepart(role) {
+function tabDeDepart(role, userId) {
   const parDefaut = role === "admin" || role === "comptable" ? "dashboard"
     : (role === "commercial" || role === "technicien") ? "commande"
     : role === "resp_commercial" ? "equipe"
@@ -90,7 +90,11 @@ function tabDeDepart(role) {
     : role === "magasinier" ? "stocks"
     : role === "client" ? "espace_client" : "ventes";
   try {
-    const dernier = localStorage.getItem("bmi_dernier_onglet");
+    // Clé PROPRE À CHAQUE COMPTE (id inclus) — sinon, sur un appareil
+    // partagé (plusieurs employés sur le même téléphone Android), la
+    // personne qui se connecte après une autre atterrit dans l'onglet où
+    // celle-ci travaillait. Bug signalé par Timo.
+    const dernier = localStorage.getItem(`bmi_dernier_onglet:${userId}`);
     if (dernier && (ONGLETS_ROLE[role] || []).includes(dernier)) return dernier;
   } catch {}
   return parDefaut;
@@ -118,7 +122,7 @@ export default function App() {
   // fois connecté, pour ne jamais mémoriser l'écran de connexion lui-même.
   useEffect(() => {
     if (!profile) return;
-    try { localStorage.setItem("bmi_dernier_onglet", tab); } catch {}
+    try { localStorage.setItem(`bmi_dernier_onglet:${profile.id}`, tab); } catch {}
   }, [tab, profile]);
   const [saveStatus, setSaveStatus] = useState("saved");
   const [sync, setSync] = useState({ enLigne: navigator.onLine, supabaseOk: false, enAttente: 0 });
@@ -252,7 +256,7 @@ export default function App() {
           }
           if (u && u.actif !== false && Date.now() - ts < DUREE_INACTIVITE) {
             setProfile(u);
-            setTab(tabDeDepart(u.role));
+            setTab(tabDeDepart(u.role, u.id));
           } else {
             localStorage.removeItem("bmi_session");
           }
@@ -404,7 +408,7 @@ export default function App() {
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
     })();
-    setTab(tabDeDepart(u.role));
+    setTab(tabDeDepart(u.role, u.id));
   }} /></>;
   }
 
