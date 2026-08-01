@@ -650,7 +650,7 @@ export default function App() {
       {tab === "salaires" && isAdmin && <SalairesAdmin db={db} save={save} profile={profile} />}
       {tab === "users" && isAdmin && <Users db={db} save={save} profile={profile} />}
       {tab === "historique" && (isAdmin || isComptable) && <Historique db={db} />}
-      {tab === "commission" && (jeSuisApporteur || isTechnicienBMI || isRespCom) && <MaCommission db={db} profile={profile} />}
+      {tab === "commission" && (jeSuisApporteur || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && <MaCommission db={db} profile={profile} />}
       {tab === "equipe" && (isAdmin || isRespCom || ((isCommercial || isTechnicien) && estChefEquipe(db, profile))) && <MonEquipe db={db} save={save} profile={profile} />}
       {tab === "taches" && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <MesTaches db={db} save={save} profile={profile} />}
       {tab === "parc" && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />}
