@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+/* ============================================================
+   Retour visuel sur TOUS les boutons de l'app (demande Timo) :
+   avant, pointer un bouton (ex. « Dossier » dans Clients installés)
+   ne montrait rien — impossible de savoir qu'on est dessus. Cette
+   règle GLOBALE s'applique à chaque <button> sans toucher au code
+   des écrans : elle ajoute juste un effet par-dessus les couleurs
+   déjà définies (via `filter`, une propriété qui s'ajoute sans
+   entrer en conflit avec les classes Tailwind existantes) — donc
+   aucun risque de casser un style déjà en place.
+   - :hover  → léger assombrissement (survol souris/trackpad)
+   - :active → assombrissement plus marqué + tassement (appui,
+     y compris au toucher sur Android, où :hover n'existe pas)
+   - :focus-visible → contour visible (navigation clavier)
+   Les boutons désactivés (:disabled) ne bougent pas — ils doivent
+   rester visiblement inertes. */
+button:not(:disabled) {
+  cursor: pointer;
+  transition: filter 120ms ease, transform 80ms ease;
+}
+button:not(:disabled):hover {
+  filter: brightness(0.94);
+}
+button:not(:disabled):active {
+  filter: brightness(0.87);
+  transform: scale(0.97);
+}
+button:not(:disabled):focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
