@@ -174,6 +174,23 @@ export function envoyerAccueilProspectWhatsApp(nomAffiche, tel) {
   window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
 }
 
+// Relance WhatsApp d'un prospect — UN CLIC : le message est déjà prêt, il
+// ne reste qu'à l'envoyer. Pas une automatisation à zéro clic (WhatsApp ne
+// le permet pas gratuitement, voir échange avec Timo) mais tout le travail
+// de recherche et de rédaction disparaît.
+export function envoyerRelanceProspectWhatsApp(nomAffiche, tel) {
+  const lignes = [
+    `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
+    ``,
+    `Je me permets de revenir vers vous concernant votre projet avec BMI TOGO — êtes-vous toujours intéressé ? Je reste à votre disposition pour en discuter.`,
+    ``,
+    `BMI TOGO — Les bâtiments modernes et intelligents`,
+  ];
+  const num = telDigits(tel);
+  const txt = encodeURIComponent(lignes.join("\n"));
+  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+}
+
 export async function fabriquerCompteClient(db, nom, tel, parQui) {
   const identifiant = identifiantClient(db, nom, tel);
   const { motDePasse, variante, longueur } = await resoudreMotDePasseClient(db, nom, tel);

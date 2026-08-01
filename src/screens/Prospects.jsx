@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture } from "../lib/calculs";
@@ -160,6 +160,16 @@ export function Prospects({ db, save, profile, isAdmin }) {
     save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? toucher({ ...x, relance: d.trim() }) : x)) }, `Relance mise à jour pour ${p.nom}`);
   };
 
+  // Relance WhatsApp EN UN CLIC : le message part directement, et on note
+  // silencieusement le contact dans l'historique (remet à jour la dernière
+  // activité, sort le prospect de l'état « dormant » si besoin) — sans
+  // aucune boîte de dialogue qui ralentirait le geste.
+  const relancerWhatsApp = (p) => {
+    envoyerRelanceProspectWhatsApp(p.nom, p.tel);
+    const historique = [{ date: today(), par: profile.nom, note: "Relance WhatsApp envoyée" }, ...(p.contacts || [])];
+    save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? toucher({ ...x, contacts: historique }) : x)) }, `Relance WhatsApp envoyée à ${p.nom}`);
+  };
+
   // ---- Liste : ses propres prospects (Commercial) ou tous (Admin) ----
   // Les prospects DEVENUS CLIENTS sortent de la liste : on ne relance pas
   // quelqu'un qui a déjà payé et été installé. Ils restent consultables.
@@ -174,6 +184,18 @@ export function Prospects({ db, save, profile, isAdmin }) {
     : vue === "dormants" ? dormants
     : voirAcquis ? db.prospects.filter((p) => !p.archive)
     : actifs;
+  // Taux de conversion : parmi tous les prospects qui ont un jour existé
+  // pour cette vue (actifs + archivés + déjà convertis), combien sont
+  // devenus clients. Les dormants sont un sous-ensemble des actifs (pas
+  // comptés en double).
+  const perimetre = voitTout ? { actifs, archives, acquis } : {
+    actifs: actifs.filter((p) => p.commercial === profile.nom),
+    archives: archives.filter((p) => p.commercial === profile.nom),
+    acquis: acquis.filter((p) => p.commercial === profile.nom),
+  };
+  const totalPerimetre = perimetre.actifs.length + perimetre.archives.length + perimetre.acquis.length;
+  const tauxConversion = totalPerimetre > 0 ? Math.round((perimetre.acquis.length / totalPerimetre) * 100) : 0;
+
   let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom);
   if (filtreRelance) liste = liste.filter((p) => p.relance && p.relance <= today());
   if (q) liste = liste.filter((p) => (p.nom + " " + p.tel + " " + p.localisation).toLowerCase().includes(q.toLowerCase()));
@@ -182,6 +204,31 @@ export function Prospects({ db, save, profile, isAdmin }) {
 
   return (
     <div className="space-y-4">
+      {/* ═══ Tableau de bord commercial ═══ */}
+      <Panel>
+        <div className="font-bold mb-3">📊 Tableau de bord commercial</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+            <div className="text-2xl font-extrabold text-slate-800">{actifs.length}</div>
+            <div className="text-xs text-slate-500 mt-1">Prospects actifs</div>
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${aRelancerAujourdhui > 0 ? "border-orange-300 bg-orange-50" : "border-slate-200 bg-slate-50"}`}>
+            <div className={`text-2xl font-extrabold ${aRelancerAujourdhui > 0 ? "text-orange-700" : "text-slate-800"}`}>{aRelancerAujourdhui}</div>
+            <div className="text-xs text-slate-500 mt-1">🔔 À relancer aujourd'hui</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+            <div className="text-2xl font-extrabold text-slate-800">{dormants.length}</div>
+            <div className="text-xs text-slate-500 mt-1">💤 Dormants</div>
+          </div>
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-center">
+            <div className="text-2xl font-extrabold text-green-700">{tauxConversion}%</div>
+            <div className="text-xs text-slate-500 mt-1">✅ Taux de conversion</div>
+          </div>
+        </div>
+        {aRelancerAujourdhui > 0 && (
+          <button onClick={() => setFiltreRelance(true)} className="mt-3 text-xs font-bold text-orange-700 underline">Voir les {aRelancerAujourdhui} prospect(s) à relancer →</button>
+        )}
+      </Panel>
       {isAdmin && (
         <Panel>
           <div className="font-bold mb-3">Catégories de prospects <span className="text-xs font-normal text-slate-500">(gérées par l'administrateur)</span></div>
@@ -323,6 +370,9 @@ export function Prospects({ db, save, profile, isAdmin }) {
                   {isAdmin && <td className="px-3 py-2">{p.commercial}</td>}
                   <td className="px-3 py-2 whitespace-nowrap">
                     {!isAdmin && <button onClick={() => modifierRelance(p)} className="text-xs font-bold text-sky-800 underline mr-2">Relance</button>}
+                    {enRetard && p.tel && (isAdmin || p.commercial === profile.nom) && (
+                      <button onClick={() => relancerWhatsApp(p)} className="text-xs font-bold text-white bg-orange-600 rounded px-2 py-0.5 hover:bg-orange-700 mr-2">📱 Relancer</button>
+                    )}
                     {voitTout && aDroit(db, profile, "act_reaffecter") && <button onClick={() => reassigner(p)} className="text-xs font-bold text-sky-800 underline mr-2">Réassigner</button>}
                     {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
                       <button onClick={() => contacte(p)} className="text-xs text-sky-700 underline font-semibold" title={`Dernière activité : ${dFR(derniereActivite(p))}`}>📞 Contacté</button>
