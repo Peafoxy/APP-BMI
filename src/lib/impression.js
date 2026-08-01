@@ -8,6 +8,7 @@ import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDig
 import { LOGO } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./calculs";
+import { genererSVGCode128 } from "./barcode";
 
 // ============ REÇU CLIENT ============
 export function imprimerRecu(v, bq = {}) {
@@ -362,4 +363,26 @@ export function recuWhatsApp(v, bq = {}) {
   const txt = lignes.join("\n");
   const num = telDigits(v.tel);
   window.open(num ? `https://wa.me/${num}?text=${encodeURIComponent(txt)}` : `https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
+}
+
+// ============ ÉTIQUETTE PRODUIT (code-barres) ============
+// Fonctionnalité nouvelle, indépendante des documents existants
+// ci-dessus : imprime une étiquette avec le nom de l'article, son
+// code-barres Code128 (généré ci-dessus dans ./barcode, sans
+// bibliothèque externe) et le code en clair en dessous (au cas où
+// le lecteur n'arrive pas à scanner). Passe par le MÊME aperçu et
+// le même mécanisme d'impression que les autres documents.
+export function imprimerEtiquetteProduit(p) {
+  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const svg = genererSVGCode128(p.code, { largeurModule: 2, hauteur: 60 });
+  if (!svg) return false; // code invalide (caractères non ASCII) : on n'imprime rien de cassé
+  const html = `
+    <div style="width:260px;padding:10px;border:1px solid #94a3b8;border-radius:6px;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;word-break:break-word">${esc(p.nom)}</div>
+      <div style="display:flex;justify-content:center">${svg}</div>
+      <div style="font-family:monospace;font-size:12px;letter-spacing:1px;margin-top:4px">${esc(p.code)}</div>
+      ${p.prix_vente ? `<div style="font-weight:700;font-size:14px;margin-top:4px">${fmt(p.prix_vente)}</div>` : ""}
+    </div>`;
+  if (printApi) printApi.open(html);
+  return true;
 }

@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { imprimerBonRavitaillement } from "../lib/impression";
+import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
 import {
   bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu,
   demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle,
@@ -332,6 +332,21 @@ export function Stocks({ db, save, profile }) {
     save({ ...db, produits: db.produits.map((x) => (x.id === p.id ? { ...x, code: c.trim() } : x)) }, `Code-barres « ${p.nom} » : ${c.trim() || "retiré"} — ${bq}`);
   };
 
+  // Étiquette imprimable avec code-barres RÉEL (scannable), généré à la
+  // demande — jamais automatiquement à la création de l'article. Un
+  // article garde TOUJOURS le même code, quelle que soit la quantité en
+  // stock : ce n'est pas un numéro de série par exemplaire, juste
+  // l'identifiant du modèle (comme sur l'emballage en magasin). Si le
+  // produit a déjà un code, on le réutilise tel quel sans y toucher.
+  const imprimerEtiquette = async (p) => {
+    let code = (p.code || "").trim();
+    if (!code) {
+      code = ("ART" + p.id).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+      save({ ...db, produits: db.produits.map((x) => (x.id === p.id ? { ...x, code } : x)) }, `Code-barres généré pour « ${p.nom} » : ${code} — ${bq}`);
+    }
+    if (!imprimerEtiquetteProduit({ ...p, code })) uAlert("Impossible de générer ce code-barres (caractères non pris en charge).");
+  };
+
   const liste = db.produits.filter((p) => p.boutique === bq);
   const mouvements = (db.ajustements || []).filter((a) => a.boutique === bq).slice(0, 20);
   const nomProduit = (pid) => db.produits.find((p) => p.id === pid)?.nom || "?";
@@ -645,6 +660,7 @@ export function Stocks({ db, save, profile }) {
                   <td className="px-3 py-2 tabular-nums">{fmt(p.prix_vente)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <button onClick={() => definirCode(p)} className="text-xs font-bold text-sky-800 underline mr-2">Code</button>
+                    <button onClick={() => imprimerEtiquette(p)} className="text-xs font-bold text-sky-800 underline mr-2">🖨 Étiquette</button>
                     <button onClick={() => reappro(p)} className="text-xs font-bold text-sky-800 underline mr-2">+ Entrée</button>
                     <button onClick={() => ajuster(p)} className="text-xs font-bold text-sky-800 underline mr-2">± Ajuster</button>
                     <button onClick={() => transferer(p)} className="text-xs font-bold text-blue-700 underline mr-2">⇄ Transfert</button>
