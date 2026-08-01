@@ -376,12 +376,18 @@ export function imprimerEtiquetteProduit(p) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const svg = genererSVGCode128(p.code, { largeurModule: 2, hauteur: 60 });
   if (!svg) return false; // code invalide (caractères non ASCII) : on n'imprime rien de cassé
+  // Espacement resserré (demande Timo) : le nom, le code-barres, le code en
+  // clair et le prix se suivent directement, sans grand vide entre eux.
+  // line-height:0 sur le conteneur du SVG retire l'espace « fantôme » que
+  // les navigateurs ajoutent sous une image en ligne (réservé pour la
+  // descente des lettres — invisible ici, mais il compte dans la mise en
+  // page). Ce n'est qu'une mise en page à moi, pas un format imposé.
   const html = `
-    <div style="width:260px;padding:10px;border:1px solid #94a3b8;border-radius:6px;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box">
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px;word-break:break-word">${esc(p.nom)}</div>
-      <div style="display:flex;justify-content:center">${svg}</div>
-      <div style="font-family:monospace;font-size:12px;letter-spacing:1px;margin-top:4px">${esc(p.code)}</div>
-      ${p.prix_vente ? `<div style="font-weight:700;font-size:14px;margin-top:4px">${fmt(p.prix_vente)}</div>` : ""}
+    <div style="width:260px;padding:10px;border:1px solid #94a3b8;border-radius:6px;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1.1">
+      <div style="font-weight:700;font-size:13px;margin-bottom:2px;word-break:break-word">${esc(p.nom)}</div>
+      <div style="display:flex;justify-content:center;line-height:0">${svg}</div>
+      <div style="font-family:monospace;font-size:12px;letter-spacing:1px;margin-top:2px">${esc(p.code)}</div>
+      ${p.prix_vente ? `<div style="font-weight:700;font-size:14px;margin-top:2px">${fmt(p.prix_vente)}</div>` : ""}
     </div>`;
   if (printApi) printApi.open(html);
   return true;
