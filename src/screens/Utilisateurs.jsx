@@ -195,6 +195,16 @@ export function Users({ db, save, profile }) {
     const off = u.droits_off || [];
     const actif = !off.includes(id);
     if (u.id === profile.id) { uAlert("Vous ne pouvez pas modifier vos propres pouvoirs."); return; }
+    // Retirer un pouvoir à l'administrateur PRINCIPAL est bloqué — même
+    // logique que pour le blocage/la suppression de son compte (2.98.76) :
+    // sinon n'importe quel autre admin pourrait le priver, pouvoir par
+    // pouvoir, de capacités précises (ex. payer des commissions) sans
+    // jamais toucher au compte lui-même. Rétablir un pouvoir reste permis
+    // (ça ne peut que l'aider).
+    if (actif && adminPrincipal(db)?.id === u.id) {
+      uAlert(`🔒 Impossible de retirer un pouvoir à ${u.nom} : ce compte est l'administrateur PRINCIPAL — il conserve toujours tous ses pouvoirs.\n\nTransférez d'abord ce rôle à quelqu'un d'autre (⚙ Paramètres → Transférer le rôle) si vous voulez vraiment restreindre ce compte.`);
+      return;
+    }
     const nouveau = actif ? [...off, id] : off.filter((x) => x !== id);
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, droits_off: nouveau } : x)) },
       `${actif ? "Retrait" : "Rétablissement"} du pouvoir « ${label} » pour ${u.nom}`);
