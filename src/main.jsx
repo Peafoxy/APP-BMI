@@ -17,8 +17,19 @@ const majSW = registerSW({
     afficherFenetreMaj(() => majSW(true));
   },
   onRegisteredSW(url, registration) {
-    // On vérifie toutes les 15 minutes s'il existe une nouvelle version.
-    if (registration) setInterval(() => registration.update(), 15 * 60 * 1000);
+    if (!registration) return;
+    // AVANT : la première vérification n'avait lieu qu'après 15 minutes
+    // (setInterval ne se déclenche qu'à la FIN du délai, jamais à l'ouverture)
+    // — c'est ce qui donnait l'impression que « ça ne détecte jamais »
+    // (signalé par Timo). Corrigé : on vérifie MAINTENANT, dès l'ouverture
+    // de l'application — puis à chaque fois qu'on y revient au premier plan
+    // (utile si l'app était en arrière-plan pendant le déploiement), en plus
+    // du contrôle toutes les 15 minutes pour une session restée ouverte.
+    registration.update();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") registration.update();
+    });
+    setInterval(() => registration.update(), 15 * 60 * 1000);
   },
 });
 
