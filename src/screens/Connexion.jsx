@@ -40,16 +40,31 @@ export function Login({ db, onLogin, save }) {
     setConnexionEnCours(false);
     onLogin(u);
   };
+  // Personnalisation de l'écran de connexion (fêtes, etc.), réglée dans
+  // Paramètres par l'admin principal — stockée sur les boutiques (déjà
+  // lisibles ici avant toute connexion), donc disponible directement.
+  const b0 = db.boutiques[0] || {};
+  const accueilTexte = b0.accueil_texte || "BIENVENUE SUR NOTRE SYSTÈME";
+  const accueilBadge = b0.accueil_couleur_badge || db.boutiques.find((b) => b.nom === "DEMAKPOE")?.couleur || "#0284c7";
+  const accueilFond = b0.accueil_couleur_fond || "#ffffff";
+  const accueilImage = b0.accueil_image || "";
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-        <div className="text-center mb-5">
+      <div
+        className="rounded-2xl p-6 w-full max-w-sm shadow-xl"
+        style={accueilImage
+          ? { backgroundImage: `url(${accueilImage})`, backgroundSize: "cover", backgroundPosition: "center" }
+          : { backgroundColor: accueilFond }}
+      >
+        {/* Fond semi-transparent derrière le logo/titre : reste lisible même
+            si la couleur ou l'image de fond choisie est sombre. */}
+        <div className="text-center mb-5 bg-white/75 backdrop-blur-sm rounded-xl p-3">
           <img src={LOGO} alt="BMI Togo" className="mx-auto mb-3 w-40 h-auto" />
           <div className="text-xl font-bold text-slate-900">GESTION SYSTÈME</div>
-          <span className="inline-block px-3 py-1 rounded-full text-sm font-bold text-white mt-2" style={{ backgroundColor: db.boutiques.find((b) => b.nom === "DEMAKPOE")?.couleur || "#0284c7" }}>BIENVENUE SUR NOTRE SYSTÈME</span>
+          <span className="inline-block px-3 py-1 rounded-full text-sm font-bold text-white mt-2" style={{ backgroundColor: accueilBadge }}>{accueilTexte}</span>
           <div className="text-xs text-slate-400 mt-1">Espace de gestion — Lomé, Togo</div>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 bg-white/90 backdrop-blur-sm rounded-xl p-3">
           <Field label="Utilisateur">
             <input className={inputCls} autoCapitalize="words" placeholder="Votre nom" value={nomSaisi} onChange={(e) => { setNomSaisi(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
           </Field>

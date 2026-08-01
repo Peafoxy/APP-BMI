@@ -10,7 +10,7 @@ import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossi
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
-import { uid, verifierMotDePasse, col } from "../lib/core";
+import { uid, verifierMotDePasse, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
@@ -44,6 +44,45 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     }, `👑 Rôle d'administrateur principal transféré de ${profile.nom} à ${u.nom}`);
     setNouveauPrincipal("");
     uAlert(`✅ ${u.nom} est désormais l'administrateur principal.`);
+  };
+
+  // ---- PERSONNALISATION DE L'ÉCRAN DE CONNEXION (fêtes, etc.) ----
+  // Réservé à l'admin PRINCIPAL, comme le transfert de rôle ci-dessus.
+  // Stocké sur CHAQUE boutique (même mécanisme que taux_parrainage /
+  // note_dim juste au-dessus) : pas de nouvelle table, pas de nouvelle
+  // règle de sécurité côté Supabase — l'écran de connexion lit déjà
+  // db.boutiques avant toute authentification (c'est ainsi qu'il colore
+  // déjà le bandeau aujourd'hui), donc cette donnée y est visible de la
+  // même façon, sans rien changer côté serveur.
+  const boutiqueRef = db.boutiques[0] || {};
+  const [accueilTexte, setAccueilTexte] = useState(boutiqueRef.accueil_texte || "");
+  const [accueilBadge, setAccueilBadge] = useState(boutiqueRef.accueil_couleur_badge || "#0284c7");
+  const [accueilFond, setAccueilFond] = useState(boutiqueRef.accueil_couleur_fond || "#ffffff");
+  const [imageEnCours, setImageEnCours] = useState(false);
+
+  const enregistrerAccueil = (champs) => {
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, ...champs })) }, `Personnalisation de l'écran de connexion modifiée`);
+  };
+
+  const chargerImageAccueil = async (fichier) => {
+    if (!fichier) return;
+    setImageEnCours(true);
+    try {
+      // Écran de connexion assez petit (carte ~380px) : 500px de large
+      // suffit largement, garde le poids de synchronisation raisonnable.
+      const data = await compresserPhoto(fichier, 500, 0.6);
+      enregistrerAccueil({ accueil_image: data });
+    } catch {
+      uAlert("Impossible de lire cette image.");
+    } finally {
+      setImageEnCours(false);
+    }
+  };
+
+  const reinitialiserAccueil = async () => {
+    if (!await uConfirm("Revenir à l'écran de connexion normal (texte, couleurs et image par défaut) ?")) return;
+    setAccueilTexte(""); setAccueilBadge("#0284c7"); setAccueilFond("#ffffff");
+    enregistrerAccueil({ accueil_texte: "", accueil_couleur_badge: "", accueil_couleur_fond: "", accueil_image: "" });
   };
 
   // ---- NOTE AFFICHÉE SOUS LE DIMENSIONNEMENT ----
@@ -636,6 +675,43 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </div>
         )}
       </div>
+
+      {/* ---- PERSONNALISATION DE L'ÉCRAN DE CONNEXION (fêtes, etc.) ---- */}
+      {estAdminPrincipal(db, profile) && (
+        <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
+          <div className="font-bold mb-1 text-purple-900">🎉 Personnaliser l'écran de connexion</div>
+          <div className="text-xs text-slate-500 mb-3">
+            Pour souhaiter une bonne fête (Noël, Nouvel An…) à tous ceux qui se connectent. Visible par tout le monde, sur tous les appareils, dès la prochaine synchronisation.
+          </div>
+          <div className="space-y-3">
+            <Field label="Texte du bandeau (vide = « BIENVENUE SUR NOTRE SYSTÈME »)">
+              <div className="flex gap-2">
+                <input className={inputCls} maxLength={60} placeholder="Ex. : Joyeux Noël !" value={accueilTexte} onChange={(e) => setAccueilTexte(e.target.value)} />
+                <button onClick={() => enregistrerAccueil({ accueil_texte: accueilTexte.trim() })} className="px-4 py-2 rounded-lg bg-purple-700 text-white text-sm font-bold hover:bg-purple-800 whitespace-nowrap">Enregistrer</button>
+              </div>
+            </Field>
+            <div className="flex flex-wrap gap-4">
+              <Field label="Couleur du bandeau">
+                <input type="color" value={accueilBadge} onChange={(e) => { setAccueilBadge(e.target.value); enregistrerAccueil({ accueil_couleur_badge: e.target.value }); }} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+              </Field>
+              <Field label="Couleur de fond de la carte">
+                <input type="color" value={accueilFond} onChange={(e) => { setAccueilFond(e.target.value); enregistrerAccueil({ accueil_couleur_fond: e.target.value }); }} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+              </Field>
+            </div>
+            <Field label="Image de fond (remplace la couleur de fond si présente)">
+              <input type="file" accept="image/*" onChange={(e) => chargerImageAccueil(e.target.files?.[0])} disabled={imageEnCours} className="text-sm" />
+              {imageEnCours && <div className="text-xs text-slate-400 mt-1">Compression de l'image…</div>}
+              {boutiqueRef.accueil_image && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img src={boutiqueRef.accueil_image} alt="Aperçu" className="h-16 rounded-lg border border-slate-300" />
+                  <button onClick={() => enregistrerAccueil({ accueil_image: "" })} className="text-xs font-semibold text-red-600 underline">Retirer l'image</button>
+                </div>
+              )}
+            </Field>
+            <button onClick={reinitialiserAccueil} className="px-4 py-2 rounded-lg border-2 border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-50">↺ Revenir à l'écran normal</button>
+          </div>
+        </div>
+      )}
 
       {/* ---- SÉCURITÉ SUPABASE : écran de contrôle avant durcissement ---- */}
       <div className="rounded-xl p-4 bg-white border-2 border-sky-200">
