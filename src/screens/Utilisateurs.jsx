@@ -508,7 +508,7 @@ export function Users({ db, save, profile }) {
             <Field label="Mot de passe"><input className={inputCls} value={f.pwd} onChange={(e) => setF({ ...f, pwd: e.target.value })} /></Field>
           )}
           {f.role !== "client" && (
-            <Field label="Téléphone (pour lui envoyer ses identifiants par WhatsApp, facultatif)"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+            <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
           <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
           {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}

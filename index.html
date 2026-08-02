@@ -8,7 +8,19 @@
     <title>BMI-Gestion Système</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Écran affiché IMMÉDIATEMENT, en pur HTML/CSS, AVANT que React ne
+         s'exécute — sans ça, la zone #root reste totalement vide (blanc)
+         pendant tout le démarrage (rechargement après mise à jour, ou
+         simple ouverture de l'app). C'est ce vide-là, pas le bouton de
+         mise à jour, qui donnait l'impression que « rien ne se passe ».
+         React remplace ce contenu dès qu'il est prêt (voir main.jsx). -->
+    <div id="root">
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:linear-gradient(to bottom right,#0f172a,#082f49,#0c4a6e);font-family:system-ui,sans-serif">
+        <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:bmi-tourne 0.8s linear infinite"></div>
+        <div style="color:#cbd5e1;font-size:14px;font-weight:600">Chargement…</div>
+      </div>
+    </div>
+    <style>@keyframes bmi-tourne { to { transform: rotate(360deg); } }</style>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

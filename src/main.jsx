@@ -66,7 +66,20 @@ async function afficherFenetreMaj(recharger) {
       "</div>" +
     "</div>";
   document.body.appendChild(fond);
-  document.getElementById("bmi-maj-btn").onclick = () => recharger();
+  document.getElementById("bmi-maj-btn").onclick = (e) => {
+    // Le rechargement (extinction de l'ancienne version + nettoyage du
+    // cache + rechargement réel) n'est jamais instantané côté navigateur —
+    // sans retour visuel, on a tendance à cliquer plusieurs fois de suite,
+    // ce qui relance le même processus en double/triple et ralentit
+    // encore plus les choses. Signalé par Timo. On désactive le bouton dès
+    // le premier clic et on prévient qu'il faut patienter.
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "wait";
+    btn.textContent = "⏳ Rechargement en cours…";
+    recharger();
+  };
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
