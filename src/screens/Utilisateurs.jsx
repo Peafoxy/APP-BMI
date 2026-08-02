@@ -29,14 +29,21 @@ export function Users({ db, save, profile }) {
     ["technicien_bmi", "🔧 Tech. BMI"], ["resp_commercial", "Resp. com."],
     ["comptable", "📒 Comptables"], ["client", "Clients"],
   ];
-  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, db.users.filter((x) => x.role === r).length]));
+  // Le compte de l'admin PRINCIPAL n'apparaît dans AUCUNE liste ni compteur
+  // pour les autres admins (demande Timo) — mais reste visible pour
+  // lui-même. Ça ne cache que la FICHE : son nom continue d'apparaître
+  // normalement partout ailleurs (Historique, Messages, ventes...) s'il y
+  // est actif — rien à voir avec la traçabilité de ses actions, qui reste
+  // entière comme partout dans l'app.
+  const utilisateursVisibles = jeSuisAdminPrincipal ? db.users : db.users.filter((x) => adminPrincipal(db)?.id !== x.id);
+  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r).length]));
   const rolesPresents = ROLES_LISTE.filter(([r]) => nbParRole[r] > 0);
   const roleAffiche = nbParRole[roleActif] > 0 ? roleActif : (rolesPresents[0]?.[0] || "admin");
   const qU = rechercheU.trim().toLowerCase();
   const enRecherche = qU.length > 0;
   const listeAffichee = enRecherche
-    ? db.users.filter((x) => `${x.nom || ""} ${x.nom_complet || ""}`.toLowerCase().includes(qU))
-    : db.users.filter((x) => x.role === roleAffiche);
+    ? utilisateursVisibles.filter((x) => `${x.nom || ""} ${x.nom_complet || ""}`.toLowerCase().includes(qU))
+    : utilisateursVisibles.filter((x) => x.role === roleAffiche);
   const vide = { nom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
   const [msg, setMsg] = useState("");
@@ -76,6 +83,12 @@ export function Users({ db, save, profile }) {
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
     const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true };
+    // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
+    // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
+    // qu'un point de départ : n'importe quel admin peut toujours redonner
+    // ces pouvoirs précis à un autre admin via « 🔐 Pouvoirs » — sauf
+    // évidemment les retirer au principal, protégé depuis la 2.98.86.
+    if (f.role === "admin") nouvelUser.droits_off = ["historique", "parametres"];
     if (f.role === "commercial" || f.role === "technicien") {
       nouvelUser.taux_commission = Number(f.taux || 0);
       if (f.chef) nouvelUser.chef_equipe = true;
@@ -215,6 +228,24 @@ export function Users({ db, save, profile }) {
     if (await uConfirm(`Rétablir TOUS les pouvoirs de ${u.nom} ?`)) {
       save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, droits_off: [] } : x)) }, `Tous les pouvoirs rétablis pour ${u.nom}`);
     }
+  };
+
+  // Applique la restriction Historique + Paramètres à tous les admins
+  // ACTUELS (sauf le principal) en un seul geste explicite — demandé par
+  // Timo pour couvrir les comptes créés avant ce réglage. Un geste VOLONTAIRE
+  // et confirmé, jamais automatique : n'écrase pas d'autres pouvoirs déjà
+  // retirés à quelqu'un, se contente d'AJOUTER ces deux-là s'ils manquent.
+  const restreindreAdminsExistants = async () => {
+    const admins = db.users.filter((u) => u.role === "admin" && adminPrincipal(db)?.id !== u.id);
+    if (!admins.length) { uAlert("Il n'y a aucun autre administrateur."); return; }
+    if (!await uConfirm(`Retirer Historique et Paramètres à ${admins.length} administrateur(s) (tous, sauf vous) ?\n\nChacun pourra toujours les récupérer ensuite via « 🔐 Pouvoirs », individuellement.`)) return;
+    save({
+      ...db,
+      users: db.users.map((u) => (u.role === "admin" && adminPrincipal(db)?.id !== u.id
+        ? { ...u, droits_off: [...new Set([...(u.droits_off || []), "historique", "parametres"])] }
+        : u)),
+    }, `Historique et Paramètres retirés à tous les administrateurs (sauf le principal)`);
+    uAlert(`✅ Fait pour ${admins.length} administrateur(s).`);
   };
 
   // ---- PARRAINAGE : quel commercial a recruté cet utilisateur ----
@@ -508,6 +539,11 @@ export function Users({ db, save, profile }) {
               </button>
             ))}
           </div>
+          {jeSuisAdminPrincipal && roleAffiche === "admin" && !enRecherche && (
+            <button onClick={restreindreAdminsExistants} className="mb-2 text-xs font-bold text-white bg-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-800">
+              🔒 Retirer Historique + Paramètres à tous les autres admins
+            </button>
+          )}
           <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
             placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={inputCls} />
           {enRecherche && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans tous les rôles</div>}
