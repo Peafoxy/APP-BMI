@@ -80,6 +80,24 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     return 48;
   };
 
+  // Batterie : la tension est presque toujours écrite en toutes lettres
+  // dans le nom (ex. « BATERIE 25.6V300AH ») — on la lit directement plutôt
+  // que de deviner à partir d'une règle approximative. 25,6V et 51,2V sont
+  // les tensions nominales réelles d'une batterie LiFePO4 24V/48V (8S/16S) ;
+  // on regroupe donc autour des tensions usuelles. Si aucune tension claire
+  // n'est trouvée dans le nom, on reste permissif (on ne bloque pas sur du
+  // flou) — signalé par Timo après une batterie 25,6V proposée à tort sur
+  // un système 48V.
+  const tensionInfereeBatterie = (nomTexte) => {
+    const m = String(nomTexte || "").match(/(\d+(?:[.,]\d+)?)\s*V(?!A)/i);
+    if (!m) return null;
+    const v = Number(m[1].replace(",", "."));
+    if (v >= 10 && v <= 15) return 12;
+    if (v >= 20 && v <= 30) return 24;
+    if (v >= 40 && v <= 56) return 48;
+    return null;
+  };
+
   const candidats = (role) => produitsBoutique
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
@@ -87,15 +105,16 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       const motCorrespond = role.mots.some((m) => texte.includes(m));
       const uniteOk = spec && role.unites.includes(spec.unite);
       // Tension : ne jamais proposer un convertisseur 48V pour un système
-      // réglé sur 24V, ou l'inverse. Batterie : un article sans tension
-      // renseignée reste proposé comme avant (on ne sait pas, on ne
-      // bloque pas — pas de règle d'inférence pour les batteries).
-      // Convertisseur : à défaut de tension renseignée, on l'infère à
-      // partir de la puissance (règle ci-dessus) plutôt que de rester
-      // permissif à l'aveugle.
+      // réglé sur 24V, ou l'inverse. Priorité à une tension EXPLICITEMENT
+      // taguée en stock ; à défaut, on l'infère (batterie : lue dans le
+      // nom ; convertisseur : déduite de la puissance) ; si même
+      // l'inférence ne trouve rien de clair, on reste permissif.
       let tensionOk = true;
-      if (role.id === "batterie") tensionOk = !p.tension || Number(p.tension) === Number(tension);
-      else if (role.id === "convertisseur") {
+      if (role.id === "batterie") {
+        tensionOk = p.tension
+          ? Number(p.tension) === Number(tension)
+          : (() => { const dev = tensionInfereeBatterie(p.nom); return dev === null || dev === Number(tension); })();
+      } else if (role.id === "convertisseur") {
         tensionOk = p.tension
           ? Number(p.tension) === Number(tension)
           : (!spec || tensionInfereeConvertisseur(spec.valeur) === Number(tension));
