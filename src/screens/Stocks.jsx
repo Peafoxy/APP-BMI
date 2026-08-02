@@ -22,7 +22,7 @@ export function Stocks({ db, save, profile }) {
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
   const bq = profile.boutique || bqSel;
-  const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "" });
+  const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "" });
   const autres = db.boutiques.map((b) => b.nom).filter((n) => n !== bq);
 
   // ---- RAVITAILLEMENT : d'un magasin vers une boutique ----
@@ -61,7 +61,7 @@ export function Stocks({ db, save, profile }) {
       let cible = produits.find((x) => x.boutique === rav.dest && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
       if (!cible) {
         // L'article n'existe pas encore dans la boutique : on le crée automatiquement
-        cible = { id: uid(), boutique: rav.dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, code: p.code || "" };
+        cible = { id: uid(), boutique: rav.dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, code: p.code || "", tension: p.tension || "" };
         produits = [...produits, cible];
       }
       ajusts.push({ id: uid(), date: today(), produit_id: p.id, boutique: bq, qte: -Number(l.qte), motif: `Ravitaillement ${numero} → ${rav.dest}`, par: profile.nom, ref, type: "ravitaillement" });
@@ -215,8 +215,8 @@ export function Stocks({ db, save, profile }) {
   const ajouter = () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom d'article."); return; }
-    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
-    setF({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "" });
+    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "" }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
+    setF({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "" });
     uAlert("Article ajouté !");
   };
 
@@ -307,7 +307,7 @@ export function Stocks({ db, save, profile }) {
     let produits = db.produits;
     let cible = produits.find((x) => x.boutique === dest && x.nom.trim().toLowerCase() === p.nom.trim().toLowerCase());
     if (!cible) {
-      cible = { id: uid(), boutique: dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente };
+      cible = { id: uid(), boutique: dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, tension: p.tension || "" };
       produits = [...produits, cible];
     }
     save({ ...db, produits, ajustements: [
@@ -578,6 +578,22 @@ export function Stocks({ db, save, profile }) {
           <Field label="Prix achat (F)"><input type="number" className={inputCls} value={f.prix_achat} onChange={(e) => setF({ ...f, prix_achat: e.target.value })} /></Field>
           <Field label="Prix vente (F)"><input type="number" className={inputCls} value={f.prix_vente} onChange={(e) => setF({ ...f, prix_vente: e.target.value })} /></Field>
           <Field label="Code-barres (facultatif)"><input className={inputCls} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="Scannez ou tapez" /></Field>
+          {/* Champ Tension : uniquement utile pour une batterie ou un
+              convertisseur — masqué pour toute autre catégorie d'article
+              (demande Timo : « il y a beaucoup d'autres produits qui ne
+              demandent pas ce champ »). Reconnaissance par mots-clés dans
+              la catégorie saisie, les mêmes que ceux utilisés pour
+              proposer les équipements en dimensionnement. */}
+          {/(batterie|battery|lifepo4|lithium|convertisseur|onduleur|inverter|inverseur)/i.test((f.categorie || "").trim()) && (
+            <Field label="Tension — batterie/convertisseur (facultatif)">
+              <select className={inputCls} value={f.tension} onChange={(e) => setF({ ...f, tension: e.target.value })}>
+                <option value="">— Non applicable —</option>
+                <option value="12">12V</option>
+                <option value="24">24V</option>
+                <option value="48">48V</option>
+              </select>
+            </Field>
+          )}
         </div>
         <div className="mt-3 flex gap-2 flex-wrap">
           <button onClick={ajouter} className={btnDark}>Ajouter</button>

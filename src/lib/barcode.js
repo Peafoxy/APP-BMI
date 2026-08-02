@@ -56,5 +56,9 @@ export function genererSVGCode128(texte, { largeurModule = 2, hauteur = 70 } = {
     x += largeur;
     barre = !barre;
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${x}" height="${hauteur}" viewBox="0 0 ${x} ${hauteur}">${rects.join("")}</svg>`;
+  // width/height en style (pas seulement en attributs) : permet au SVG de
+  // s'adapter proportionnellement à un conteneur en taille physique réelle
+  // (mm), pour une impression à dimension garantie plutôt que dépendante
+  // des réglages d'échelle du navigateur.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${x}" height="${hauteur}" viewBox="0 0 ${x} ${hauteur}" style="width:100%;height:auto;display:block">${rects.join("")}</svg>`;
 }

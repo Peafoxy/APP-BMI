@@ -25,7 +25,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
-  const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
+  // Mode LIBRE (3e position à côté des boutiques, admin/commercial multi-
+  // boutique uniquement) : le dimensionnement n'est associé à AUCUNE
+  // boutique — pas de stock réel à proposer, seulement les caractéristiques
+  // complètes des équipements nécessaires (aucun prix, puisqu'aucun article
+  // réel n'est encore choisi).
+  const [modeLibre, setModeLibre] = useState(false);
+  const produitsBoutique = modeLibre ? [] : db.produits.filter((p) => p.boutique === boutique);
 
   // ---- Besoins du client (liste d'appareils) ----
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
@@ -37,7 +43,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
   );
   const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : "1");
-  const [soleil, setSoleil] = useState("5");
+  const [soleil, setSoleil] = useState("3");
   const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : "24");
   const [typeBatterie, setTypeBatterie] = useState(() => besoinsRepris?.type_batterie || "lifepo4");
 
@@ -61,13 +67,40 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   const besoinParRole = { panneau: wcPanneaux, batterie: ahBatterie, convertisseur: wConvertisseur, regulateur: aRegulateur };
 
+  // Règle usuelle des convertisseurs HYBRIDES, communiquée par Timo : à
+  // défaut de tension renseignée en stock, on la devine à partir de la
+  // puissance — 0 à 2,5kW généralement en 12V, 2,6 à 4,5kW en 24V,
+  // 4,6 à 30kW en 48V. Reste une estimation, jamais aussi fiable qu'une
+  // tension explicitement indiquée en stock — juste un meilleur filet que
+  // de proposer n'importe quelle puissance sans distinction de tension.
+  const tensionInfereeConvertisseur = (w) => {
+    const kw = w / 1000;
+    if (kw <= 2.5) return 12;
+    if (kw <= 4.5) return 24;
+    return 48;
+  };
+
   const candidats = (role) => produitsBoutique
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
       const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
       const motCorrespond = role.mots.some((m) => texte.includes(m));
       const uniteOk = spec && role.unites.includes(spec.unite);
-      return motCorrespond && uniteOk;
+      // Tension : ne jamais proposer un convertisseur 48V pour un système
+      // réglé sur 24V, ou l'inverse. Batterie : un article sans tension
+      // renseignée reste proposé comme avant (on ne sait pas, on ne
+      // bloque pas — pas de règle d'inférence pour les batteries).
+      // Convertisseur : à défaut de tension renseignée, on l'infère à
+      // partir de la puissance (règle ci-dessus) plutôt que de rester
+      // permissif à l'aveugle.
+      let tensionOk = true;
+      if (role.id === "batterie") tensionOk = !p.tension || Number(p.tension) === Number(tension);
+      else if (role.id === "convertisseur") {
+        tensionOk = p.tension
+          ? Number(p.tension) === Number(tension)
+          : (!spec || tensionInfereeConvertisseur(spec.valeur) === Number(tension));
+      }
+      return motCorrespond && uniteOk && tensionOk;
     });
 
   // Panneaux/batteries : le plus gros calibre dispo (on empile plusieurs unités).
@@ -76,7 +109,23 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // gros dispo et on complète avec plusieurs unités.
   const empilable = (roleId) => roleId === "panneau" || roleId === "batterie";
 
+  // Mode Libre : pas de stock à chercher, on propose directement la
+  // caractéristique complète nécessaire (aucun prix — aucun article réel
+  // n'est choisi, seulement ce qu'il FAUDRA chercher/acheter).
+  const specLibre = (role) => {
+    const besoin = besoinParRole[role.id];
+    if (besoin <= 0) return null;
+    const libelles = {
+      panneau: `Panneaux solaires — ${besoin} Wc au total`,
+      batterie: `Batterie ${tension}V — ${besoin} Ah au total (${typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Plomb/Gel"})`,
+      convertisseur: `Convertisseur ${tension}V — ${(besoin / 1000).toFixed(2)} kW`,
+      regulateur: `Régulateur MPPT ${tension}V — ${besoin} A`,
+    };
+    return { type: "manuel", nom: libelles[role.id], prix: 0, qte: 1 };
+  };
+
   const meilleurChoix = (role) => {
+    if (modeLibre) return specLibre(role);
     const options = candidats(role).sort((a, b) => a.spec.valeur - b.spec.valeur);
     const besoin = besoinParRole[role.id];
     if (options.length === 0 || besoin <= 0) return null;
@@ -137,7 +186,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       return nouveauChoix;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, db.produits]);
+  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, modeLibre, db.produits]);
 
   const produitConvertisseurChoisi = choix.convertisseur?.type === "stock" && produitsBoutique.find((p) => p.id === choix.convertisseur.produit_id);
   const convertisseurEstHybride = choix.convertisseur?.type === "manuel"
@@ -323,7 +372,15 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <BoutiqueTabs db={db} value={modeLibre ? "" : bq} onChange={(nom) => { setBq(nom); setModeLibre(false); }} />
+          <button onClick={() => setModeLibre(true)}
+            className={`px-4 py-1.5 rounded-full text-sm font-bold ${modeLibre ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
+            🆓 Libre
+          </button>
+        </div>
+      )}
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">☀️ Besoins électriques du client <Badge boutique={boutique} /></div>
@@ -376,7 +433,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Équipements proposés (stock de {boutique})</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">{modeLibre ? "Équipements nécessaires (mode libre — sans prix, à choisir ensuite)" : `Équipements proposés (stock de ${boutique})`}</div>
         <table className="w-full text-sm min-w-[760px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
