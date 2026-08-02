@@ -14,6 +14,11 @@ import { DimensionnementAutre } from "./Autre";
 // client → équipements proposés depuis le stock → devis → envoi WhatsApp / vente).
 export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const [mode, setMode] = useState("solaire");
+  // Même logique que pour l'onglet Dimensionnement lui-même dans App.jsx :
+  // ces 3 volets contiennent chacun de longs formulaires — basculer de l'un
+  // à l'autre ne doit plus effacer ce qui n'est pas encore enregistré.
+  const [visite, setVisite] = useState({ solaire: true });
+  useEffect(() => { setVisite((v) => (v[mode] ? v : { ...v, [mode]: true })); }, [mode]);
   // Bascule automatiquement sur le bon outil dès qu'un devis à reprendre arrive.
   useEffect(() => {
     if (devisAReprendre) setMode(devisAReprendre.devis.type_devis === "garage" ? "garage" : devisAReprendre.devis.type_devis === "autre" ? "autre" : "solaire");
@@ -35,9 +40,21 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
           <button onClick={onDevisRepriseConsomme} className="text-xs font-bold text-amber-700 underline whitespace-nowrap">Annuler la reprise</button>
         </div>
       )}
-      {mode === "solaire" && <DimensionnementSolaire db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis !== "garage" && devisAReprendre?.devis?.type_devis !== "autre" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />}
-      {mode === "garage" && <DimensionnementGarage db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis === "garage" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />}
-      {mode === "autre" && <DimensionnementAutre db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis === "autre" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />}
+      {visite.solaire && (
+        <div style={{ display: mode === "solaire" ? "block" : "none" }}>
+          <DimensionnementSolaire db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis !== "garage" && devisAReprendre?.devis?.type_devis !== "autre" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />
+        </div>
+      )}
+      {visite.garage && (
+        <div style={{ display: mode === "garage" ? "block" : "none" }}>
+          <DimensionnementGarage db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis === "garage" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />
+        </div>
+      )}
+      {visite.autre && (
+        <div style={{ display: mode === "autre" ? "block" : "none" }}>
+          <DimensionnementAutre db={db} profile={profile} save={save} onConvertirEnVente={onConvertirEnVente} devisAReprendre={devisAReprendre?.devis?.type_devis === "autre" ? devisAReprendre : null} onDevisRepriseConsomme={onDevisRepriseConsomme} />
+        </div>
+      )}
     </div>
   );
 }

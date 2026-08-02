@@ -105,6 +105,15 @@ export default function App() {
   const [db, setDbRaw] = useState(null);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("ventes");
+  // L'onglet Dimensionnement contient de longs formulaires (liste d'appareils,
+  // besoins, choix d'équipements) — en changer d'onglet le démonte et
+  // efface tout ce qui n'est pas encore enregistré (demande Timo : « que
+  // les données ne disparaissent pas en défilant d'un onglet à l'autre »).
+  // On le garde désormais « en veille » (masqué, pas détruit) une fois
+  // visité une première fois — jamais monté du tout avant cette première
+  // visite, pour ne rien alourdir chez ceux qui ne l'utilisent pas.
+  const [dimensionnementVisite, setDimensionnementVisite] = useState(false);
+  useEffect(() => { if (tab === "dimensionnement") setDimensionnementVisite(true); }, [tab]);
   // Barre(s) d'onglets défilantes (mobile horizontale, barre latérale
   // desktop) : après une actualisation de la page, l'onglet retrouvé (voir
   // tabDeDepart) peut être hors du cadre visible — la barre reste à son
@@ -631,11 +640,15 @@ export default function App() {
       {tab === "ventes" && !isCommercial && <Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
       {tab === "commande" && (isCommercial || isTechnicien) && <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
       {tab === "commandes" && !isCommercial && <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />}
-      {tab === "dimensionnement" && <Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
-        if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
-        setPreRempli({ boutique, panier, remise });
-        setTab((isCommercial || isTechnicien) ? "commande" : "ventes");
-      }} />}
+      {dimensionnementVisite && (
+        <div style={{ display: tab === "dimensionnement" ? "block" : "none" }}>
+          <Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
+            if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
+            setPreRempli({ boutique, panier, remise });
+            setTab((isCommercial || isTechnicien) ? "commande" : "ventes");
+          }} />
+        </div>
+      )}
       {tab === "tous_devis" && <TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />}
       {tab === "depenses" && <Depenses db={db} save={save} profile={profile} />}
       {tab === "chez_comptable" && <ChezComptable db={db} save={save} profile={profile} />}
