@@ -34,8 +34,17 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // main, pour voir la quantité réelle recalculée en direct (demande Timo :
   // proposer des combinaisons RÉALISTES — aucun panneau n'existe à 14100W,
   // il faut dire "35 panneaux de 550W" plutôt qu'un seul chiffre abstrait).
-  const [wattagePanneauLibre, setWattagePanneauLibre] = useState("");
-  const [capaciteBatterieLibre, setCapaciteBatterieLibre] = useState("");
+  // Taille d'UNITÉ pour panneau/batterie/convertisseur en mode Libre —
+  // TOUJOURS définie (jamais vide) : la proposition est automatique dès le
+  // départ (550Wc, 314Ah, taille commerciale la plus proche pour le
+  // convertisseur), modifiable à tout moment. La quantité en découle
+  // TOUJOURS de cette valeur — jamais poussée une seule fois puis oubliée,
+  // ce qui causait le bug « la quantité revient à 1 » : un recalcul en
+  // fond de tableau régénérait la ligne avec une quantité figée à 1,
+  // écrasant ce qui avait été tapé. Demande Timo, après un 2e retour.
+  const [pxPanneauLibre, setPxPanneauLibre] = useState(550);
+  const [ahBatterieLibre, setAhBatterieLibre] = useState(314);
+  const [kwConvertisseurLibre, setKwConvertisseurLibre] = useState(null); // null = taille commerciale auto
   const produitsBoutique = modeLibre ? [] : db.produits.filter((p) => p.boutique === boutique);
 
   // ---- Besoins du client (liste d'appareils) ----
@@ -169,15 +178,21 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const specLibre = (role) => {
     const besoin = besoinParRole[role.id];
     if (besoin <= 0) return null;
-    const libelles = {
-      panneau: `Panneaux solaires — ${besoin} Wc au total`,
-      batterie: `Batterie ${tension}V — ${besoin} Ah au total (${typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Plomb/Gel"})`,
+    if (role.id === "panneau") {
+      const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(pxPanneauLibre) || 550)));
+      return { type: "manuel", nom: `Panneaux solaires — ${pxPanneauLibre} Wc`, prix: 0, qte, libre: true };
+    }
+    if (role.id === "batterie") {
+      const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(ahBatterieLibre) || 314)));
+      return { type: "manuel", nom: `Batterie ${tension}V — ${ahBatterieLibre} Ah (${typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Plomb/Gel"})`, prix: 0, qte, libre: true };
+    }
+    if (role.id === "convertisseur") {
       // "hybride" reste dans le nom : c'est ce mot qui fait disparaître
       // automatiquement la ligne Régulateur juste en dessous (déjà intégré).
-      convertisseur: `Convertisseur hybride ${tension}V — ${tailleConvertisseurReco / 1000} kW`,
-      regulateur: `Régulateur MPPT ${tension}V — ${besoin} A`,
-    };
-    return { type: "manuel", nom: libelles[role.id], prix: 0, qte: 1, libre: true };
+      const kw = kwConvertisseurLibre ? Number(kwConvertisseurLibre) : tailleConvertisseurReco / 1000;
+      return { type: "manuel", nom: `Convertisseur hybride ${tension}V — ${kw} kW`, prix: 0, qte: 1, libre: true };
+    }
+    return { type: "manuel", nom: `Régulateur MPPT ${tension}V — ${besoin} A`, prix: 0, qte: 1, libre: true };
   };
 
   const meilleurChoix = (role) => {
@@ -242,7 +257,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       return nouveauChoix;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, modeLibre, db.produits]);
+  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, modeLibre, db.produits, pxPanneauLibre, ahBatterieLibre, kwConvertisseurLibre]);
 
   const produitConvertisseurChoisi = choix.convertisseur?.type === "stock" && produitsBoutique.find((p) => p.id === choix.convertisseur.produit_id);
   const convertisseurEstHybride = choix.convertisseur?.type === "manuel"
@@ -524,35 +539,31 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                   <td className="px-3 py-2 font-semibold whitespace-nowrap">{l.role.label}</td>
                   <td className="px-3 py-2">
                     {enLibre ? (
-                      // Mode Libre : une SPÉCIFICATION à lire, pas un article à
-                      // renseigner — jamais de champ à remplir ici (demande
-                      // Timo : il ne faut pas réclamer de saisie manuelle).
-                      // Pour panneaux/batteries : un calculateur À PART, en
-                      // plus du texte, pour tester une puissance/capacité
-                      // précise sans que ce soit un champ obligatoire.
+                      // Mode Libre : une SPÉCIFICATION à lire, jamais un
+                      // formulaire à remplir obligatoirement — la
+                      // proposition (550Wc, 314Ah, taille de convertisseur)
+                      // est déjà là par défaut. Le champ ne sert qu'à
+                      // corriger cette valeur si besoin ; la quantité s'en
+                      // déduit TOUJOURS automatiquement, de façon stable
+                      // (demande Timo, après un 2e retour sur ce point).
                       <div>
                         <div className="text-sm text-slate-700">{l.produit.nom}</div>
                         {l.role.id === "panneau" && (
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-xs text-slate-400">Puissance d'un panneau (W) :</span>
-                            <input type="number" min="1" className={`${inputCls} w-24`} placeholder="Ex. 550" value={wattagePanneauLibre} onChange={(e) => {
-                              setWattagePanneauLibre(e.target.value);
-                              const w = Number(e.target.value);
-                              // Remplit VRAIMENT la colonne Quantité (pas juste un
-                              // texte à côté) — sinon les rails de fixation, calculés
-                              // à partir de cette quantité, restent faux (demande Timo).
-                              if (w > 0) changerQte(l.role.id, Math.ceil(besoinParRole.panneau / w));
-                            }} />
+                            <input type="number" min="1" className={`${inputCls} w-24`} value={pxPanneauLibre} onChange={(e) => setPxPanneauLibre(e.target.value)} />
                           </div>
                         )}
                         {l.role.id === "batterie" && (
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-xs text-slate-400">Capacité d'une batterie (Ah) :</span>
-                            <input type="number" min="1" className={`${inputCls} w-24`} placeholder="Ex. 314" value={capaciteBatterieLibre} onChange={(e) => {
-                              setCapaciteBatterieLibre(e.target.value);
-                              const c = Number(e.target.value);
-                              if (c > 0) changerQte(l.role.id, Math.ceil(besoinParRole.batterie / c));
-                            }} />
+                            <input type="number" min="1" className={`${inputCls} w-24`} value={ahBatterieLibre} onChange={(e) => setAhBatterieLibre(e.target.value)} />
+                          </div>
+                        )}
+                        {l.role.id === "convertisseur" && (
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-xs text-slate-400">Puissance du convertisseur (kW) :</span>
+                            <input type="number" min="1" step="0.1" className={`${inputCls} w-24`} value={kwConvertisseurLibre ?? (tailleConvertisseurReco / 1000)} onChange={(e) => setKwConvertisseurLibre(e.target.value)} />
                           </div>
                         )}
                       </div>
@@ -578,7 +589,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     )}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
-                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || (enLibre && l.role.id !== "panneau" && l.role.id !== "batterie")} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
+                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || enLibre} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
                   <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
                 </tr>
