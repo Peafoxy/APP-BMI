@@ -45,6 +45,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const [pxPanneauLibre, setPxPanneauLibre] = useState(550);
   const [ahBatterieLibre, setAhBatterieLibre] = useState(314);
   const [kwConvertisseurLibre, setKwConvertisseurLibre] = useState(null); // null = taille commerciale auto
+  // Prix unitaire tapé par ligne en mode Libre (facultatif, 0 par défaut —
+  // demande Timo). Même principe stable que pxPanneauLibre/ahBatterieLibre
+  // ci-dessus : dérivé à chaque recalcul, jamais poussé une seule fois puis
+  // écrasé (même bug que la quantité aurait pu se reproduire ici).
+  const [prixLibre, setPrixLibre] = useState({});
   const produitsBoutique = modeLibre ? [] : db.produits.filter((p) => p.boutique === boutique);
 
   // ---- Besoins du client (liste d'appareils) ----
@@ -178,21 +183,22 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const specLibre = (role) => {
     const besoin = besoinParRole[role.id];
     if (besoin <= 0) return null;
+    const prix = Number(prixLibre[role.id]) || 0;
     if (role.id === "panneau") {
       const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(pxPanneauLibre) || 550)));
-      return { type: "manuel", nom: `Panneaux solaires — ${pxPanneauLibre} Wc`, prix: 0, qte, libre: true };
+      return { type: "manuel", nom: `Panneaux solaires — ${pxPanneauLibre} Wc`, prix, qte, libre: true };
     }
     if (role.id === "batterie") {
       const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(ahBatterieLibre) || 314)));
-      return { type: "manuel", nom: `Batterie ${tension}V — ${ahBatterieLibre} Ah (${typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Plomb/Gel"})`, prix: 0, qte, libre: true };
+      return { type: "manuel", nom: `Batterie ${tension}V — ${ahBatterieLibre} Ah (${typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Plomb/Gel"})`, prix, qte, libre: true };
     }
     if (role.id === "convertisseur") {
       // "hybride" reste dans le nom : c'est ce mot qui fait disparaître
       // automatiquement la ligne Régulateur juste en dessous (déjà intégré).
       const kw = kwConvertisseurLibre ? Number(kwConvertisseurLibre) : tailleConvertisseurReco / 1000;
-      return { type: "manuel", nom: `Convertisseur hybride ${tension}V — ${kw} kW`, prix: 0, qte: 1, libre: true };
+      return { type: "manuel", nom: `Convertisseur hybride ${tension}V — ${kw} kW`, prix, qte: 1, libre: true };
     }
-    return { type: "manuel", nom: `Régulateur MPPT ${tension}V — ${besoin} A`, prix: 0, qte: 1, libre: true };
+    return { type: "manuel", nom: `Régulateur MPPT ${tension}V — ${besoin} A`, prix, qte: 1, libre: true };
   };
 
   const meilleurChoix = (role) => {
@@ -257,7 +263,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       return nouveauChoix;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, modeLibre, db.produits, pxPanneauLibre, ahBatterieLibre, kwConvertisseurLibre]);
+  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, modeLibre, db.produits, pxPanneauLibre, ahBatterieLibre, kwConvertisseurLibre, prixLibre]);
 
   const produitConvertisseurChoisi = choix.convertisseur?.type === "stock" && produitsBoutique.find((p) => p.id === choix.convertisseur.produit_id);
   const convertisseurEstHybride = choix.convertisseur?.type === "manuel"
@@ -590,7 +596,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                   </td>
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
                   <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || enLibre} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
-                  <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums">
+                    {enLibre ? (
+                      <input type="number" min="0" className={`${inputCls} w-24`} value={prixLibre[l.role.id] ?? ""} placeholder="0" onChange={(e) => setPrixLibre({ ...prixLibre, [l.role.id]: e.target.value })} />
+                    ) : l.produit ? fmt(l.produit.prix_vente) : "—"}
+                  </td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
                 </tr>
               );
