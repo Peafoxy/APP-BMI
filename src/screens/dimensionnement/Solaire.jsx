@@ -250,7 +250,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setChoix((avant) => {
       const nouveauChoix = { ...avant };
       for (const role of ROLES_EQUIPEMENT) {
-        if (rolesManuels[role.id]) continue; // ne pas écraser un choix fait à la main
+        // En mode Libre, on ignore volontairement tout ancien réglage manuel
+        // qui traînerait (ex. si on avait cliqué le crayon "hors stock" sur
+        // cette ligne AVANT de passer en Libre — possible maintenant que
+        // l'écran reste en veille plutôt que redémarré entre deux visites) :
+        // sinon la ligne concernée reste coincée sur l'ancien état et perd
+        // l'édition du prix/quantité du mode Libre. Signalé par Timo sur le
+        // convertisseur précisément.
+        if (!modeLibre && rolesManuels[role.id]) continue; // ne pas écraser un choix fait à la main
         if (role.id === "regulateur") {
           const convChoice = nouveauChoix.convertisseur;
           const conv = convChoice?.type === "stock" && produitsBoutique.find((p) => p.id === convChoice.produit_id);
