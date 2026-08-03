@@ -144,6 +144,25 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     return null;
   };
 
+  // Type de batterie (Lithium/Gel/Plomb) lu dans le nom — un article dont
+  // le nom mentionne clairement un autre type que celui choisi est exclu ;
+  // sans mention claire, on reste permissif (même logique que la tension).
+  // Signalé par Timo : le sélecteur "Type de batterie" ne changeait jamais
+  // l'article proposé, seulement le calcul — la batterie Gel restait
+  // toujours choisie même en sélectionnant Lithium.
+  const MOTS_TYPE_BATTERIE = {
+    lifepo4: ["lifepo4", "lithium", "li-ion", "lifep04"],
+    gel: ["gel"],
+    plomb: ["plomb", "agm", "acide"],
+  };
+  const typeBatterieInfere = (nomTexte) => {
+    const t = nomTexte.toLowerCase();
+    for (const [type, mots] of Object.entries(MOTS_TYPE_BATTERIE)) {
+      if (mots.some((m) => t.includes(m))) return type;
+    }
+    return null;
+  };
+
   const candidats = (role) => produitsBoutique
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
@@ -165,7 +184,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           ? Number(p.tension) === Number(tension)
           : (!spec || tensionInfereeConvertisseur(spec.valeur) === Number(tension));
       }
-      return motCorrespond && uniteOk && tensionOk;
+      let typeOk = true;
+      if (role.id === "batterie") {
+        const typeDetecte = typeBatterieInfere(p.nom);
+        typeOk = typeDetecte === null || typeDetecte === typeBatterie;
+      }
+      return motCorrespond && uniteOk && tensionOk && typeOk;
     });
 
   // Panneaux/batteries : le plus gros calibre dispo (on empile plusieurs unités).
