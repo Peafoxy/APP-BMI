@@ -348,6 +348,21 @@ export function Stocks({ db, save, profile }) {
   };
 
   const liste = db.produits.filter((p) => p.boutique === bq);
+  // Filtres d'affichage du tableau (catégories cliquables + recherche par
+  // nom + fenêtre limitée à 7 lignes) — même mécanique déjà éprouvée que
+  // l'écran Utilisateurs. N'affecte QUE l'affichage : l'inventaire et les
+  // autres opérations continuent d'utiliser la liste complète de la
+  // boutique, jamais ce sous-ensemble filtré/limité.
+  const [categorieActive, setCategorieActive] = useState("");
+  const [rechercheStock, setRechercheStock] = useState("");
+  const categoriesPresentes = [...new Set(liste.map((p) => p.categorie || "Autre"))].sort();
+  const nbParCategorie = Object.fromEntries(categoriesPresentes.map((c) => [c, liste.filter((p) => (p.categorie || "Autre") === c).length]));
+  const qStock = rechercheStock.trim().toLowerCase();
+  const enRechercheStock = qStock.length > 0;
+  const categorieAffichee = categorieActive && categoriesPresentes.includes(categorieActive) ? categorieActive : (categoriesPresentes[0] || "");
+  const listeAffichee = enRechercheStock
+    ? liste.filter((p) => p.nom.toLowerCase().includes(qStock))
+    : liste.filter((p) => (p.categorie || "Autre") === categorieAffichee);
   const mouvements = (db.ajustements || []).filter((a) => a.boutique === bq).slice(0, 20);
   const nomProduit = (pid) => db.produits.find((p) => p.id === pid)?.nom || "?";
 
@@ -645,15 +660,29 @@ export function Stocks({ db, save, profile }) {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
-          <span>Stocks — {bq}</span>
-          {!inv && <button onClick={ouvrirInventaire} className="px-4 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800">📋 Faire l'inventaire</button>}
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span className="font-bold text-slate-800">Stocks — {bq}</span>
+            {!inv && <button onClick={ouvrirInventaire} className="px-4 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800">📋 Faire l'inventaire</button>}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {categoriesPresentes.map((c) => (
+              <button key={c} onClick={() => { setCategorieActive(c); setRechercheStock(""); }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold ${!enRechercheStock && categorieAffichee === c ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`}>
+                {c} ({nbParCategorie[c]})
+              </button>
+            ))}
+          </div>
+          <input value={rechercheStock} onChange={(e) => setRechercheStock(e.target.value)}
+            placeholder="🔍 Rechercher un article par son nom (toutes catégories confondues)…" className={inputCls} />
+          {enRechercheStock && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans toutes les catégories</div>}
         </div>
+        <div className="max-h-[380px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[960px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">Aucun article.</td></tr>}
-            {liste.map((p) => {
+            {listeAffichee.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">{enRechercheStock ? "Aucun article ne correspond à cette recherche." : "Aucun article dans cette catégorie."}</td></tr>}
+            {listeAffichee.map((p) => {
               const vendu = stockVendu(db, p.id), aj = stockAjuste(db, p.id), actuel = stockActuel(db, p), al = actuel <= Number(p.seuil);
               return (
                 <tr key={p.id} className={`border-t border-slate-100 ${al ? "bg-red-50" : ""}`}>
@@ -687,6 +716,7 @@ export function Stocks({ db, save, profile }) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
