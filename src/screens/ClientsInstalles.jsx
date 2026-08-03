@@ -4,7 +4,7 @@
 // en cours → terminé → réceptionné/réserves), frais d'installation
 // répartis entre techniciens avec part majorée du chef de chantier.
 // ============================================================
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
@@ -80,7 +80,12 @@ const fraisRepartis = (c) => (c.equipe || []).reduce((s, e) => s + Number(e.mont
 export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const estChef = !!profile.chef_equipe;
   const estTechnicien = profile.role === "technicien";
-  const voitTout = isAdmin || estChef || estTechnicien;
+  // Un technicien voyait TOUT auparavant (au même titre qu'un chef d'équipe
+  // ou un admin) — demande Timo : il ne doit voir que SES PROPRES dossiers
+  // (créés par lui) et ceux où il intervient réellement (présent dans
+  // l'équipe du chantier). Le chef d'équipe et l'admin gardent leur vue
+  // complète, inchangée.
+  const voitTout = isAdmin || estChef;
 
   const vide = { nom: "", prenom: "", tel: "", type_installation: TYPES_INSTALLATION[0], date_installation: today(), date_entretien: "", localisation: "", lat: null, lng: null, user_id: "", vente_id: "", garantie_mois: "24", equipe_prevue: [], chef_prevu: "", materiel: [] };
   const [f, setF] = useState(vide);
@@ -549,13 +554,31 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, user_id: u.id } : x)) }, `Fiche « ${c.nom} » liée au compte ${u.nom}`);
   };
 
-  let liste = voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter((c) => c.commercial === profile.nom);
+  // Ses propres dossiers (créés par lui, champ "commercial") + ceux où il
+  // intervient réellement (présent dans l'équipe du chantier).
+  const voitCeDossier = (c) => c.commercial === profile.nom || (estTechnicien && (c.equipe || []).some((e) => e.user_id === profile.id));
+  let liste = voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter(voitCeDossier);
   if (q) liste = liste.filter((c) => (String(c.nom) + " " + String(c.prenom) + " " + String(c.tel) + " " + String(c.type_installation)).toLowerCase().includes(q.toLowerCase()));
   if (filtreEntretien) liste = liste.filter((c) => c.date_entretien && c.date_entretien <= today());
 
-  const entretiensDus = (voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter((c) => c.commercial === profile.nom)).filter((c) => c.date_entretien && c.date_entretien <= today()).length;
+  const entretiensDus = (voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter(voitCeDossier)).filter((c) => c.date_entretien && c.date_entretien <= today()).length;
 
   const commerciauxActifs = db.users.filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false);
+
+  // ---- Regroupement par catégorie (demande Timo) : à programmer / en cours
+  // / à réceptionner / réserves / réceptionné. Purement un tri + des lignes
+  // d'en-tête insérées dans le MÊME tableau — le rendu de chaque ligne de
+  // client, plus bas, reste totalement inchangé.
+  const CATEGORIES_CHANTIER = [
+    { id: "a_programmer", label: "📅 À programmer", test: (c) => statutChantier(c) === "en_cours" && !(c.equipe || []).length },
+    { id: "en_cours", label: "🔧 En cours", test: (c) => statutChantier(c) === "en_cours" && (c.equipe || []).length > 0 },
+    { id: "termine", label: "⏳ Terminé — à réceptionner", test: (c) => statutChantier(c) === "termine" },
+    { id: "reserves", label: "⚠ Réserves émises", test: (c) => statutChantier(c) === "reserves" },
+    { id: "receptionne", label: "✅ Réceptionné", test: (c) => statutChantier(c) === "receptionne" },
+  ];
+  const categorieDe = (c) => CATEGORIES_CHANTIER.find((cat) => cat.test(c))?.id || "en_cours";
+  const indexCategorie = (c) => CATEGORIES_CHANTIER.findIndex((cat) => cat.id === categorieDe(c));
+  const listeGroupee = [...liste].sort((a, b) => indexCategorie(a) - indexCategorie(b));
 
   return (
     <div className="space-y-4">
@@ -941,9 +964,20 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Numéro", "Installation", "Installé le", "Entretien", "Localisation", "Commercial", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun client installé{q ? " ne correspond à la recherche" : " pour l'instant"}.</td></tr>}
-            {liste.map((c) => {
+            {listeGroupee.map((c, idx) => {
+              const cat = categorieDe(c);
+              const catPrecedente = idx > 0 ? categorieDe(listeGroupee[idx - 1]) : null;
+              const infoCat = CATEGORIES_CHANTIER.find((x) => x.id === cat);
               const entretienDu = c.date_entretien && c.date_entretien <= today();
               return (
+                <Fragment key={c.id}>
+                  {cat !== catPrecedente && (
+                    <tr className="bg-slate-100 border-t-2 border-slate-200">
+                      <td colSpan={8} className="px-3 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                        {infoCat.label} ({listeGroupee.filter((x) => categorieDe(x) === cat).length})
+                      </td>
+                    </tr>
+                  )}
                 <tr key={c.id} className={`border-t border-slate-100 hover:bg-sky-50 ${entretienDu ? "bg-orange-50" : ""}`}>
                   <td className="px-3 py-2 font-semibold">{c.prenom} {c.nom}{c.user_id ? " 🔑" : ""}
                     <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${STATUT_CHANTIER[statutChantier(c)].couleur}`}>
@@ -1000,6 +1034,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     {(isAdmin || c.commercial === profile.nom) && <button onClick={() => supprimer(c)} className="text-xs text-red-600 underline">Suppr.</button>}
                   </td>
                 </tr>
+                </Fragment>
               );
             })}
           </tbody>
