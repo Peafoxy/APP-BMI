@@ -20,6 +20,8 @@ import { Prospects } from "./screens/Prospects";
 import { EspaceClient } from "./screens/EspaceClient";
 import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
 import { ClientsInstalles } from "./screens/ClientsInstalles";
+import { PrimesRemises } from "./screens/PrimesRemises";
+import { PrimesRecues } from "./screens/PrimesRecues";
 import { Commerciaux } from "./screens/Commerciaux";
 import { MesTaches } from "./screens/MesTaches";
 import { Rentabilite } from "./screens/Rentabilite";
@@ -460,6 +462,7 @@ export default function App() {
   const isCommercial = profile.role === "commercial";
   const isMagasinier = profile.role === "magasinier";
   const isGerant = profile.role === "gerant";
+  const isVendeur = profile.role === "vendeur";
   const isTechnicien = profile.role === "technicien";
   const isTechnicienBMI = profile.role === "technicien_bmi";
   const isRespCom = profile.role === "resp_commercial";
@@ -515,7 +518,7 @@ export default function App() {
     : isRespCom
     ? [["equipe", labelMonEquipe], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
-    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : [])]
+    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : [])]
     : isTechnicienBMI
     ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isMagasinier
@@ -524,7 +527,7 @@ export default function App() {
     ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]];
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -753,6 +756,16 @@ export default function App() {
       {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
         <div style={{ display: tab === "parc" ? "block" : "none" }}>
           <ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />
+        </div>
+      )}
+      {ongletsVisites.primes_remises && isVendeur && (
+        <div style={{ display: tab === "primes_remises" ? "block" : "none" }}>
+          <PrimesRemises db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.primes_recues && isTechnicien && (
+        <div style={{ display: tab === "primes_recues" ? "block" : "none" }}>
+          <PrimesRecues db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.messages && (

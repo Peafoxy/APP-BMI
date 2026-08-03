@@ -92,6 +92,64 @@ export function messagesNotifSortieCaisse(db, profile, destination, nomBeneficia
 // Ancien nom conservé par compatibilité (les 3 flux de commission l'utilisaient déjà).
 export const messagesNotifPaiementCommission = messagesNotifSortieCaisse;
 
+// ============ PRIME D'INSTALLATION : demande → validation par le vendeur ============
+// Circuit à deux temps (demande Timo, même principe que la validation des
+// commandes) : demanderPaiementPrime choisit la boutique qui paiera ;
+// n'importe quel vendeur DE CETTE BOUTIQUE (ou l'admin) peut ensuite valider
+// — plus besoin que ce soit systématiquement l'administrateur. Cette
+// fonction fait le VRAI travail (sortie de caisse + notification), appelée
+// à l'identique depuis ClientsInstalles.jsx (bouton inline) et depuis
+// l'onglet dédié PrimesRemises.jsx — pour ne jamais avoir deux versions de
+// la même logique qui pourraient un jour diverger.
+export function construirePaiementPrime(db, profile, c, e, moyen) {
+  const bq = e.prime_boutique;
+  const dep = {
+    id: uid(), date: today(), boutique: bq, categorie: "Prime d'installation",
+    description: `Installation ${c.nom} — ${e.nom}${e.chef ? " (chef de chantier)" : ""} · ${e.pct} %`,
+    montant: e.montant, paiement: normPaiement(moyen), par: profile.nom, auto: "installation", user_id: e.user_id,
+  };
+  return {
+    ...db,
+    clients_installes: db.clients_installes.map((x) => (x.id === c.id
+      ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep.id, demande_prime: false, validee_par: profile.nom } : y)) }
+      : x)),
+    depenses: [dep, ...db.depenses],
+    messages: [
+      ...(e.user_id ? [{
+        id: uid(), date: today(), ts: new Date().toISOString(),
+        de_id: profile.id, de_nom: profile.nom, a_id: e.user_id, lu_par: [profile.id],
+        texte: `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « 💰 Primes reçues ».`,
+      }] : []),
+      ...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"),
+    ],
+  };
+}
+
+// Toutes les demandes de prime en attente de validation, aplaties depuis
+// chaque chantier — pour l'onglet du vendeur (filtré par sa boutique) et,
+// avec includeToutes, pour l'admin qui voit tout.
+export function primesEnAttente(db, boutique) {
+  const out = [];
+  for (const c of db.clients_installes || []) {
+    for (const e of c.equipe || []) {
+      if (e.demande_prime && (!boutique || e.prime_boutique === boutique)) out.push({ client: c, entree: e });
+    }
+  }
+  return out;
+}
+
+// Toutes les primes (en attente + payées) d'UN technicien précis, aplaties
+// depuis chaque chantier — pour son onglet « Primes reçues ».
+export function primesDeTechnicien(db, userId) {
+  const out = [];
+  for (const c of db.clients_installes || []) {
+    for (const e of c.equipe || []) {
+      if (e.user_id === userId && Number(e.montant) > 0) out.push({ client: c, entree: e });
+    }
+  }
+  return out.sort((a, b) => (b.entree.date_paiement || b.entree.prime_demandee_le || "").localeCompare(a.entree.date_paiement || a.entree.prime_demandee_le || ""));
+}
+
 // Quand on supprime une dépense générée automatiquement par un paiement
 // (commission, prime d'installation…), il faut aussi redonner leur statut
 // « non payé » aux ventes / chantiers liés — sinon la commission reste
@@ -373,17 +431,18 @@ export const LIBELLE_ONGLET = {
   salaires: "💵 Salaires (tous)", users: "👥 Utilisateurs", historique: "🕘 Historique", parametres: "⚙ Paramètres", rentabilite: "📈 Rentabilité",
   commission: "💵 Ma commission", taches: "✅ Mes tâches", salaire: "💵 Salaire", espace_client: "🏠 Mon espace", ravitaillement: "🚚 Ravitaillement",
   nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
+  primes_remises: "💰 Primes remises", primes_recues: "💰 Primes reçues",
 };
 
 export const ONGLETS_ROLE = {
   admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
-  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
+  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues"],
   resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "messages", "commission", "salaire", "nouveau_client"],
   technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "commission", "messages", "salaire", "nouveau_client"],
   magasinier: ["stocks", "salaire", "messages", "nouveau_client"],
   gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client"],
-  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client"],
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises"],
   comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
   client: ["espace_client", "messages"],
 };

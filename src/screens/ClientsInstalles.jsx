@@ -11,7 +11,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -500,40 +500,37 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     uAlert("✅ Répartition enregistrée.");
   };
 
-  // Paiement de la part d'un technicien → vraie sortie de caisse
-  const payerPart = async (c, e) => {
+  // Paiement de la part d'un technicien, en DEUX temps (demande Timo) :
+  // 1) demanderPaiementPrime — choisit la boutique qui paiera, crée une
+  //    DEMANDE en attente (visible du vendeur de cette boutique-là).
+  // 2) validerPaiementPrime — exécute la VRAIE sortie de caisse ; utilisable
+  //    par le vendeur de la boutique concernée (plus besoin de l'admin à
+  //    chaque fois), ou par l'admin directement comme avant.
+  // Tout reste dans clients_installes (table déjà synchronisée) — aucune
+  // nouvelle table Supabase à créer pour ce chantier.
+  const demanderPaiementPrime = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin) { uAlert("Seul l'administrateur paie les parts d'installation."); return; }
+    if (!isAdmin) { uAlert("Seul l'administrateur déclenche une demande de paiement de prime."); return; }
     if (!(Number(e.montant) > 0)) { uAlert("Cette part est de 0 F : rien à payer. Refaites la répartition avec le bon pourcentage."); return; }
-    const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
-    if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`);
     if (bq === null) return;
-    if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${bq} : ${fmt(e.montant)}`)) return;
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Prime d'installation",
-      description: `Installation ${c.nom} — ${e.nom}${e.chef ? " (chef de chantier)" : ""} · ${e.pct} %`,
-      montant: e.montant, paiement: normPaiement(moyen), par: profile.nom, auto: "installation", user_id: e.user_id,
-    };
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep.id } : y)) }
+        ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, demande_prime: true, prime_boutique: bq, prime_demandee_par: profile.nom, prime_demandee_le: today() } : y)) }
         : x)),
-      depenses: [dep, ...db.depenses],
-      messages: [
-        // Le bénéficiaire est prévenu DIRECTEMENT : sans ce message, le
-        // paiement de sa prime passait inaperçu dans son espace.
-        ...(e.user_id ? [{
-          id: uid(), date: today(), ts: new Date().toISOString(),
-          de_id: profile.id, de_nom: profile.nom, a_id: e.user_id, lu_par: [profile.id],
-          texte: `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « Ma commission ».`,
-        }] : []),
-        ...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"),
-        ...(db.messages || []),
-      ],
-    }, `Part d'installation payée : ${fmt(e.montant)} à ${e.nom} (chantier ${c.nom})`);
-    uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${bq}.`);
+    }, `Demande de paiement de prime d'installation — ${e.nom} · ${fmt(e.montant)} · ${bq}`);
+    uAlert(`✅ Demande envoyée. Le vendeur de ${bq} peut désormais la valider depuis son onglet « 💰 Primes remises ».`);
+  };
+
+  const validerPaiementPrime = async (c, e) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
+    const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    if (moyen === null) return;
+    if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`)) return;
+    save(construirePaiementPrime(db, profile, c, e, moyen), `Part d'installation payée : ${fmt(e.montant)} à ${e.nom} (chantier ${c.nom})`);
+    uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`);
   };
 
   const modifierEntretien = async (c) => {
@@ -931,9 +928,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         <td className="px-3 py-2 tabular-nums font-bold">{fmt(e.montant)}</td>
                         <td className="px-3 py-2">{e.paye
                           ? <span className="text-xs font-bold text-green-700">✅ Payé le {dFR(e.date_paiement)}</span>
-                          : <span className="text-xs font-bold text-orange-600">⏳ À payer</span>}</td>
+                          : e.demande_prime
+                            ? <span className="text-xs font-bold text-sky-700">📤 Demandé — {e.prime_boutique}</span>
+                            : <span className="text-xs font-bold text-orange-600">⏳ À payer</span>}</td>
                         <td className="px-3 py-2">
-                          {!e.paye && isAdmin && <button onClick={() => payerPart(c, e)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900">✓ Payer</button>}
+                          {!e.paye && !e.demande_prime && isAdmin && <button onClick={() => demanderPaiementPrime(c, e)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900">📤 Demander le paiement</button>}
+                          {!e.paye && e.demande_prime && (isAdmin || profile.boutique === e.prime_boutique) && <button onClick={() => validerPaiementPrime(c, e)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800">✓ Valider et payer</button>}
                         </td>
                       </tr>
                     ))}
