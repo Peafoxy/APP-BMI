@@ -79,6 +79,16 @@ async function afficherFenetreMaj(recharger) {
     btn.style.cursor = "wait";
     btn.textContent = "⏳ Rechargement en cours…";
     recharger();
+    // FILET DE SÉCURITÉ : sur certains navigateurs/webviews Android, la
+    // bascule automatique (extinction de l'ancienne version → l'événement
+    // du navigateur qui déclenche normalement le rechargement) ne se
+    // produit pas de façon fiable — le bouton restait alors bloqué pour de
+    // bon, sans que rien ne se passe, jusqu'à ce qu'on actualise la page à
+    // la main. Signalé par Timo : « la recharge ne marche pas, il faut
+    // actualiser la page d'abord ». Si rien ne s'est passé après quelques
+    // secondes, on force nous-mêmes un vrai rechargement — sans dépendre
+    // de ce mécanisme du navigateur pour sortir la personne de ce blocage.
+    setTimeout(() => window.location.reload(), 3000);
   };
 }
 
