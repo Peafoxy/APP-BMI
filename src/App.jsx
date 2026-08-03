@@ -105,15 +105,15 @@ export default function App() {
   const [db, setDbRaw] = useState(null);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("ventes");
-  // L'onglet Dimensionnement contient de longs formulaires (liste d'appareils,
-  // besoins, choix d'équipements) — en changer d'onglet le démonte et
-  // efface tout ce qui n'est pas encore enregistré (demande Timo : « que
-  // les données ne disparaissent pas en défilant d'un onglet à l'autre »).
-  // On le garde désormais « en veille » (masqué, pas détruit) une fois
-  // visité une première fois — jamais monté du tout avant cette première
-  // visite, pour ne rien alourdir chez ceux qui ne l'utilisent pas.
-  const [dimensionnementVisite, setDimensionnementVisite] = useState(false);
-  useEffect(() => { if (tab === "dimensionnement") setDimensionnementVisite(true); }, [tab]);
+  // Tout écran contenant un formulaire perd ses données non enregistrées en
+  // changeant d'onglet — React démonte le composant, réinitialisant son
+  // state interne (demande Timo, d'abord pour Dimensionnement en 2.98.98,
+  // puis étendue à TOUS les onglets ici). Chaque onglet visité une fois
+  // reste désormais « en veille » (masqué via CSS, jamais détruit) au lieu
+  // d'être démonté — rien n'est chargé avant sa première visite, pour ne
+  // rien alourdir chez qui n'utilise pas tel ou tel écran.
+  const [ongletsVisites, setOngletsVisites] = useState({});
+  useEffect(() => { setOngletsVisites((v) => (v[tab] ? v : { ...v, [tab]: true })); }, [tab]);
   // Barre(s) d'onglets défilantes (mobile horizontale, barre latérale
   // desktop) : après une actualisation de la page, l'onglet retrouvé (voir
   // tabDeDepart) peut être hors du cadre visible — la barre reste à son
@@ -636,11 +636,27 @@ export default function App() {
         );
       })()}
 
-      {tab === "dashboard" && (isAdmin || isComptable) && <Dashboard db={db} />}
-      {tab === "ventes" && !isCommercial && <Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
-      {tab === "commande" && (isCommercial || isTechnicien) && <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />}
-      {tab === "commandes" && !isCommercial && <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />}
-      {dimensionnementVisite && (
+      {ongletsVisites.dashboard && (isAdmin || isComptable) && (
+        <div style={{ display: tab === "dashboard" ? "block" : "none" }}>
+          <Dashboard db={db} />
+        </div>
+      )}
+      {ongletsVisites.ventes && !isCommercial && (
+        <div style={{ display: tab === "ventes" ? "block" : "none" }}>
+          <Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />
+        </div>
+      )}
+      {ongletsVisites.commande && (isCommercial || isTechnicien) && (
+        <div style={{ display: tab === "commande" ? "block" : "none" }}>
+          <NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />
+        </div>
+      )}
+      {ongletsVisites.commandes && !isCommercial && (
+        <div style={{ display: tab === "commandes" ? "block" : "none" }}>
+          <CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />
+        </div>
+      )}
+      {ongletsVisites.dimensionnement && (
         <div style={{ display: tab === "dimensionnement" ? "block" : "none" }}>
           <Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
             if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
@@ -649,30 +665,126 @@ export default function App() {
           }} />
         </div>
       )}
-      {tab === "tous_devis" && <TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />}
-      {tab === "depenses" && <Depenses db={db} save={save} profile={profile} />}
-      {tab === "chez_comptable" && <ChezComptable db={db} save={save} profile={profile} />}
-      {tab === "dettes" && <Dettes db={db} save={save} profile={profile} />}
-      {tab === "clients" && <Clients db={db} profile={profile} />}
-      {tab === "nouveau_client" && <CreerClient db={db} save={save} profile={profile} />}
-      {tab === "caisse" && <Caisse db={db} save={save} profile={profile} />}
-      {tab === "stocks" && (isAdmin || isMagasinier || isGerant || isComptable) && <Stocks db={db} save={save} profile={profile} />}
-      {tab === "fournisseurs" && (isAdmin || isGerant) && <Fournisseurs db={db} save={save} />}
-      {tab === "commerciaux" && isAdmin && <Commerciaux db={db} save={save} />}
-      {tab === "rentabilite" && (isAdmin || isComptable) && <Rentabilite db={db} />}
-      {tab === "salaires" && isAdmin && <SalairesAdmin db={db} save={save} profile={profile} />}
-      {tab === "users" && isAdmin && <Users db={db} save={save} profile={profile} />}
-      {tab === "historique" && (isAdmin || isComptable) && <Historique db={db} />}
-      {tab === "commission" && (jeSuisApporteur || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && <MaCommission db={db} profile={profile} />}
-      {tab === "equipe" && (isAdmin || isRespCom || ((isCommercial || isTechnicien) && estChefEquipe(db, profile))) && <MonEquipe db={db} save={save} profile={profile} />}
-      {tab === "taches" && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <MesTaches db={db} save={save} profile={profile} />}
-      {tab === "parc" && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />}
-      {tab === "messages" && <Messagerie db={db} save={save} profile={profile} />}
-      {tab === "ravitaillement" && profile.boutique && <DemandeRavitaillement db={db} save={save} profile={profile} boutique={profile.boutique} marquerVues />}
-      {tab === "salaire" && SALARIES.includes(profile.role) && <Salaire db={db} save={save} profile={profile} />}
-      {tab === "espace_client" && isClient && <EspaceClient db={db} profile={profile} save={save} setTab={setTab} />}
-      {tab === "prospects" && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && <Prospects db={db} save={save} profile={profile} isAdmin={isAdmin} />}
-      {tab === "parametres" && isAdmin && <Parametres db={db} save={save} setDb={setDb} profile={profile} dossierAuto={dossierAuto} setDossierAuto={setDossierAuto} dernierAuto={dernierAuto} />}
+      {ongletsVisites.tous_devis && (
+        <div style={{ display: tab === "tous_devis" ? "block" : "none" }}>
+          <TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />
+        </div>
+      )}
+      {ongletsVisites.depenses && (
+        <div style={{ display: tab === "depenses" ? "block" : "none" }}>
+          <Depenses db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.chez_comptable && (
+        <div style={{ display: tab === "chez_comptable" ? "block" : "none" }}>
+          <ChezComptable db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.dettes && (
+        <div style={{ display: tab === "dettes" ? "block" : "none" }}>
+          <Dettes db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.clients && (
+        <div style={{ display: tab === "clients" ? "block" : "none" }}>
+          <Clients db={db} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.nouveau_client && (
+        <div style={{ display: tab === "nouveau_client" ? "block" : "none" }}>
+          <CreerClient db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.caisse && (
+        <div style={{ display: tab === "caisse" ? "block" : "none" }}>
+          <Caisse db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.stocks && (isAdmin || isMagasinier || isGerant || isComptable) && (
+        <div style={{ display: tab === "stocks" ? "block" : "none" }}>
+          <Stocks db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.fournisseurs && (isAdmin || isGerant) && (
+        <div style={{ display: tab === "fournisseurs" ? "block" : "none" }}>
+          <Fournisseurs db={db} save={save} />
+        </div>
+      )}
+      {ongletsVisites.commerciaux && isAdmin && (
+        <div style={{ display: tab === "commerciaux" ? "block" : "none" }}>
+          <Commerciaux db={db} save={save} />
+        </div>
+      )}
+      {ongletsVisites.rentabilite && (isAdmin || isComptable) && (
+        <div style={{ display: tab === "rentabilite" ? "block" : "none" }}>
+          <Rentabilite db={db} />
+        </div>
+      )}
+      {ongletsVisites.salaires && isAdmin && (
+        <div style={{ display: tab === "salaires" ? "block" : "none" }}>
+          <SalairesAdmin db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.users && isAdmin && (
+        <div style={{ display: tab === "users" ? "block" : "none" }}>
+          <Users db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.historique && (isAdmin || isComptable) && (
+        <div style={{ display: tab === "historique" ? "block" : "none" }}>
+          <Historique db={db} />
+        </div>
+      )}
+      {ongletsVisites.commission && (jeSuisApporteur || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && (
+        <div style={{ display: tab === "commission" ? "block" : "none" }}>
+          <MaCommission db={db} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.equipe && (isAdmin || isRespCom || ((isCommercial || isTechnicien) && estChefEquipe(db, profile))) && (
+        <div style={{ display: tab === "equipe" ? "block" : "none" }}>
+          <MonEquipe db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.taches && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
+        <div style={{ display: tab === "taches" ? "block" : "none" }}>
+          <MesTaches db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
+        <div style={{ display: tab === "parc" ? "block" : "none" }}>
+          <ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />
+        </div>
+      )}
+      {ongletsVisites.messages && (
+        <div style={{ display: tab === "messages" ? "block" : "none" }}>
+          <Messagerie db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.ravitaillement && profile.boutique && (
+        <div style={{ display: tab === "ravitaillement" ? "block" : "none" }}>
+          <DemandeRavitaillement db={db} save={save} profile={profile} boutique={profile.boutique} marquerVues />
+        </div>
+      )}
+      {ongletsVisites.salaire && SALARIES.includes(profile.role) && (
+        <div style={{ display: tab === "salaire" ? "block" : "none" }}>
+          <Salaire db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.espace_client && isClient && (
+        <div style={{ display: tab === "espace_client" ? "block" : "none" }}>
+          <EspaceClient db={db} profile={profile} save={save} setTab={setTab} />
+        </div>
+      )}
+      {ongletsVisites.prospects && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
+        <div style={{ display: tab === "prospects" ? "block" : "none" }}>
+          <Prospects db={db} save={save} profile={profile} isAdmin={isAdmin} />
+        </div>
+      )}
+      {ongletsVisites.parametres && isAdmin && (
+        <div style={{ display: tab === "parametres" ? "block" : "none" }}>
+          <Parametres db={db} save={save} setDb={setDb} profile={profile} dossierAuto={dossierAuto} setDossierAuto={setDossierAuto} dernierAuto={dernierAuto} />
+        </div>
+      )}
     </>
   );
 

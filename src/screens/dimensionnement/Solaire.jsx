@@ -3,8 +3,7 @@
 // convertisseur avec marges de sécurité, équipements hors stock.
 // ============================================================
 import { useState, useEffect, useRef } from "react";
-import { BoutiqueTabs } from "../../components/SelecteurBoutique";
-import { uid, fmt, today } from "../../lib/core";
+import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
 import { toucher, boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis } from "./Partages";
@@ -37,15 +36,31 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
   const besoinsRepris = devisAReprendre?.devis?.besoins;
   const lignesReprises = devisAReprendre?.devis?.lignes || [];
+  // Brouillon persistant (survit à une actualisation de page) — seulement
+  // s'il n'y a PAS de devis repris (qui a toujours priorité, cas plus rare
+  // et plus intentionnel). Effacé automatiquement une fois le devis
+  // réellement enregistré ou envoyé — voir plus bas.
+  const cleBrouillon = `bmi_brouillon_dim_solaire:${profile.id}`;
+  const brouillon = !besoinsRepris ? brouillonLire(cleBrouillon) : null;
   const [appareils, setAppareils] = useState(() =>
     besoinsRepris?.appareils?.length
       ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) }))
-      : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
+      : brouillon?.appareils?.length
+        ? brouillon.appareils
+        : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
   );
-  const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : "1");
-  const [soleil, setSoleil] = useState("3");
-  const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : "24");
-  const [typeBatterie, setTypeBatterie] = useState(() => besoinsRepris?.type_batterie || "lifepo4");
+  const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : (brouillon?.autonomie ?? "1"));
+  const [soleil, setSoleil] = useState(() => brouillon?.soleil ?? "3");
+  const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : (brouillon?.tension ?? "24"));
+  const [typeBatterie, setTypeBatterie] = useState(() => besoinsRepris?.type_batterie || brouillon?.typeBatterie || "lifepo4");
+
+  // Écrit le brouillon à chaque changement — survit à une actualisation de
+  // page. Effacé uniquement une fois le devis réellement enregistré ou
+  // envoyé (voir convertir() et l'envoi WhatsApp plus bas), jamais avant.
+  useEffect(() => {
+    brouillonEcrire(cleBrouillon, { appareils, autonomie, soleil, tension, typeBatterie });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appareils, autonomie, soleil, tension, typeBatterie]);
 
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
@@ -140,7 +155,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       convertisseur: `Convertisseur ${tension}V — ${(besoin / 1000).toFixed(2)} kW`,
       regulateur: `Régulateur MPPT ${tension}V — ${besoin} A`,
     };
-    return { type: "manuel", nom: libelles[role.id], prix: 0, qte: 1 };
+    return { type: "manuel", nom: libelles[role.id], prix: 0, qte: 1, libre: true };
   };
 
   const meilleurChoix = (role) => {
@@ -215,7 +230,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const ligneRole = (role) => {
     const c = choix[role.id];
     if (!c) return { role, produit: null, qte: 0, sousTotal: 0 };
-    if (c.type === "manuel") return { role, produit: { nom: c.nom, prix_vente: c.prix, manuel: true }, qte: c.qte, sousTotal: c.prix * c.qte };
+    if (c.type === "manuel") return { role, produit: { nom: c.nom, prix_vente: c.prix, manuel: true, libre: !!c.libre }, qte: c.qte, sousTotal: c.prix * c.qte };
     const p = produitsBoutique.find((x) => x.id === c.produit_id);
     return p ? { role, produit: p, qte: c.qte, sousTotal: p.prix_vente * c.qte } : { role, produit: null, qte: 0, sousTotal: 0 };
   };
@@ -375,6 +390,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+    brouillonEffacer(cleBrouillon);
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -386,6 +402,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
     ];
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    brouillonEffacer(cleBrouillon);
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 
@@ -393,10 +410,19 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     <div className="space-y-4">
       {!profile.boutique && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <BoutiqueTabs db={db} value={modeLibre ? "" : bq} onChange={(nom) => { setBq(nom); setModeLibre(false); }} />
+          {/* Rendu ici même (plutôt que via <BoutiqueTabs>) : ce composant
+              partagé s'enveloppe dans son PROPRE conteneur — Libre se
+              retrouvait alors hors de cette rangée interne, mal aligné
+              (signalé par Timo). Même code/style que BoutiqueTabs, pour
+              rester identique visuellement. */}
+          {boutiquesVente(db).map((b) => (
+            <button key={b.nom} onClick={() => { setBq(b.nom); setModeLibre(false); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-bold ${!modeLibre && bq === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
+              style={!modeLibre && bq === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : ""}{b.nom}</button>
+          ))}
           <button onClick={() => setModeLibre(true)}
             className={`px-4 py-1.5 rounded-full text-sm font-bold ${modeLibre ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
-            🆓 Libre
+            Libre
           </button>
         </div>
       )}
@@ -469,12 +495,18 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               }
               const options = candidats(l.role);
               const besoinAffiche = l.role.id === "convertisseur" ? `${(besoinParRole[l.role.id] / 1000).toFixed(2)} kW` : `${besoinParRole[l.role.id]}${l.role.id === "regulateur" ? " A" : ""}`;
-              const enManuel = manuelOuvert[l.role.id] || (l.produit?.manuel);
+              const enLibre = !!l.produit?.libre;
+              const enManuel = !enLibre && (manuelOuvert[l.role.id] || l.produit?.manuel);
               return (
                 <tr key={l.role.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2 font-semibold whitespace-nowrap">{l.role.label}</td>
                   <td className="px-3 py-2">
-                    {enManuel ? (
+                    {enLibre ? (
+                      // Mode Libre : une SPÉCIFICATION à lire, pas un article à
+                      // renseigner — jamais de champ à remplir ici (demande
+                      // Timo : il ne faut pas réclamer de saisie manuelle).
+                      <div className="text-sm text-slate-700">{l.produit.nom}</div>
+                    ) : enManuel ? (
                       <div className="flex flex-wrap gap-2 items-center">
                         <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuel[l.role.id]?.nom ?? l.produit?.nom ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { qte: "1" }), nom: e.target.value } })} />
                         <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuel[l.role.id]?.prix ?? l.produit?.prix_vente ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { nom: l.produit?.nom || "" }), prix: e.target.value } })} />
@@ -496,7 +528,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     )}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
-                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
+                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || enLibre} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
                   <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
                 </tr>

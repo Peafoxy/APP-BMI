@@ -169,6 +169,25 @@ export function setColors(c) {
 
 // Compresse une photo avant stockage : sans cela, quelques clichés suffiraient
 // à saturer la base. Cible : ~1000 px de large, qualité 55 % → environ 80 Ko.
+// ============ BROUILLON PERSISTANT (survit à une actualisation de page) ============
+// Uniquement pour le dimensionnement (demande Timo) : ces formulaires sont les
+// plus longs de l'app, perdre 15 appareils saisis à cause d'une actualisation
+// est le scénario le plus coûteux. Clé PROPRE À CHAQUE COMPTE (id inclus) —
+// même piège que le dernier onglet mémorisé (2.98.80) : sur un appareil
+// partagé, un brouillon ne doit jamais fuiter vers le compte suivant.
+export function brouillonLire(cle) {
+  try {
+    const brut = localStorage.getItem(cle);
+    return brut ? JSON.parse(brut) : null;
+  } catch { return null; }
+}
+export function brouillonEcrire(cle, valeur) {
+  try { localStorage.setItem(cle, JSON.stringify(valeur)); } catch {}
+}
+export function brouillonEffacer(cle) {
+  try { localStorage.removeItem(cle); } catch {}
+}
+
 export function compresserPhoto(fichier, maxLargeur = 1000, qualite = 0.55) {
   return new Promise((resolve, reject) => {
     const lecteur = new FileReader();
