@@ -283,6 +283,39 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // automatique ne doit plus jamais y toucher tant qu'il ne revient pas en arrière.
   const [rolesManuels, setRolesManuels] = useState(() => initialSelectionSolaire?.verrous || {});
 
+  // RÉACTIF à chaque NOUVELLE reprise de devis — pas seulement au tout
+  // premier montage. Même piège que Ventes.jsx/Commandes.jsx (2.99.13) :
+  // depuis que Dimensionnement reste en veille plutôt que d'être redémarré
+  // entre deux visites (2.98.98/99), un simple useState(() => ...) ne se
+  // déclenche plus qu'une fois pour toute la session — reprendre un 2e devis
+  // (ou un 3e...) après le premier laissait tout le formulaire figé sur
+  // l'ancien. Signalé par Timo après la découverte du même piège côté
+  // Ventes/Commandes : « vérifie s'il n'y a pas autre chose de cassé ».
+  useEffect(() => {
+    if (!devisAReprendre) return;
+    if (besoinsRepris?.appareils?.length) {
+      setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) })));
+    }
+    if (besoinsRepris?.autonomie) setAutonomie(String(besoinsRepris.autonomie));
+    if (besoinsRepris?.tension) setTension(String(besoinsRepris.tension));
+    if (besoinsRepris?.type_batterie) setTypeBatterie(besoinsRepris.type_batterie === "plomb" ? "gel" : besoinsRepris.type_batterie);
+    setClientDevis(devisAReprendre?.client?.id || "");
+    if (initialSelectionSolaire) {
+      setChoix(initialSelectionSolaire.choix || {});
+      setRolesManuels(initialSelectionSolaire.verrous || {});
+    }
+    // Rails de fixation : même piège, raté par la recherche précédente car
+    // useState(valeur) sans wrapper () => en paraît différent, mais se
+    // comporte pareil (valeur figée au tout premier montage). Le garde
+    // "premierRendu" doit aussi se réarmer à CHAQUE reprise — sinon le
+    // recalcul automatique (déclenché juste après par le nouveau nombre de
+    // panneaux) écraserait immédiatement la quantité reprise.
+    const ligneRails = lignesReprises.find((l) => l.categorie === "Rails de fixation");
+    setRailsQte(ligneRails ? Number(ligneRails.qte) : 0);
+    premierRenduRails.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
+
   useEffect(() => {
     setChoix((avant) => {
       const nouveauChoix = { ...avant };

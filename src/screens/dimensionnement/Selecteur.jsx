@@ -66,5 +66,5 @@ export function useSelectionAvecVerrou(meilleurChoix, initial) {
     setChoix((avant) => { const n = { ...avant }; if (c) n[itemId] = c; else delete n[itemId]; return n; });
   };
 
-  return { choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel, verrous, recalculerNonVerrouilles, changerProduit, changerQte, ouvrirManuel, validerManuel, annulerManuel };
+  return { choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel, verrous, setVerrous, recalculerNonVerrouilles, changerProduit, changerQte, ouvrirManuel, validerManuel, annulerManuel };
 }

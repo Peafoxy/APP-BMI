@@ -81,10 +81,29 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   };
 
   const {
-    choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel, verrous: besoinsManuels,
+    choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel, verrous: besoinsManuels, setVerrous: setBesoinsManuels,
     recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte: changerQteChoix,
     ouvrirManuel: ouvrirManuelBase, validerManuel, annulerManuel,
   } = useSelectionAvecVerrou(meilleurChoixBesoin, initialSelection);
+
+  // RÉACTIF à chaque NOUVELLE reprise de devis — même piège que
+  // Ventes.jsx/Commandes.jsx (2.99.13), Solaire.jsx et Garage.jsx : cet
+  // écran reste désormais en veille entre deux visites, donc un
+  // useState(() => ...) figé au montage ne suffit plus pour un 2e devis
+  // repris après le premier.
+  useEffect(() => {
+    if (!devisAReprendre) return;
+    if (besoinsRepris?.categorie) setCategorieChoisie(besoinsRepris.categorie);
+    if (initialSelection?.besoinsInit) setBesoins(initialSelection.besoinsInit);
+    if (initialSelection) {
+      setChoix(initialSelection.choix || {});
+      setBesoinsManuels(initialSelection.verrous || {});
+    }
+    setAutres(lignesReprises.filter((l) => l.categorie === "Autres équipements")
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) })));
+    setClientDevis(devisAReprendre?.client?.id || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
 
   const changerProduit = (besoinId, produitId) => changerProduitBase(besoinId, produitId, () => {
     const besoin = besoins.find((b) => b.id === besoinId);

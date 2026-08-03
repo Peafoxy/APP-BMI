@@ -160,10 +160,37 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   })();
 
   const {
-    choix, manuelOuvert, brouillonManuel, setBrouillonManuel,
-    recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte,
+    choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel,
+    verrous, setVerrous, recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte,
     ouvrirManuel: ouvrirManuelBase, validerManuel, annulerManuel,
   } = useSelectionAvecVerrou(meilleurChoix, initialSelectionGarage);
+
+  // RÉACTIF à chaque NOUVELLE reprise de devis — même piège que
+  // Ventes.jsx/Commandes.jsx (2.99.13) et Solaire.jsx : depuis que cet écran
+  // reste en veille plutôt que d'être redémarré entre deux visites, un
+  // useState(() => ...) figé au montage ne suffit plus pour un 2e devis
+  // repris après le premier. Couvre TOUT le formulaire, pas seulement
+  // choix/verrous (déjà exposés par le hook partagé, corrigé pour
+  // l'occasion — setVerrous n'était pas exposé avant).
+  useEffect(() => {
+    if (!devisAReprendre) return;
+    if (besoinsRepris?.type_ouvrant) setType(besoinsRepris.type_ouvrant);
+    if (besoinsRepris?.largeur) setLargeur(String(besoinsRepris.largeur));
+    if (besoinsRepris?.hauteur) setHauteur(String(besoinsRepris.hauteur));
+    if (besoinsRepris?.poids) setPoids(String(besoinsRepris.poids));
+    if (besoinsRepris?.vantaux) setVantaux(String(besoinsRepris.vantaux));
+    if (besoinsRepris?.frequence) setFrequence(besoinsRepris.frequence);
+    if (besoinsRepris?.telecommandes != null) setTelecosSouhaitees(String(besoinsRepris.telecommandes));
+    if (besoinsRepris?.alimentation_proche != null) setAlimentationProche(besoinsRepris.alimentation_proche);
+    if (besoinsRepris?.prix_m2_porte) setPrixM2Porte(besoinsRepris.prix_m2_porte);
+    premierRenduPorte.current = true; // même piège que les rails de Solaire.jsx : réarmer à chaque reprise
+    setClientDevis(devisAReprendre?.client?.id || "");
+    if (initialSelectionGarage) {
+      setChoix(initialSelectionGarage.choix || {});
+      setVerrous(initialSelectionGarage.verrous || {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
 
   useEffect(() => {
     recalculerNonVerrouilles(ROLES_EQUIPEMENT_GARAGE);
