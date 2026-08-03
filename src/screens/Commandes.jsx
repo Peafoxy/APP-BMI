@@ -31,7 +31,28 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
   const responsables = db.users.filter((u) => u.role === "resp_commercial" && u.actif !== false);
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
-  useEffect(() => { if (preRempli && onPreRempliConsomme) onPreRempliConsomme(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // RÉACTIF à chaque nouveau preRempli — même correctif que Ventes.jsx
+  // (voir son commentaire) : les écrans restent désormais en veille entre
+  // deux visites (2.98.99), donc un useState(() => ...) figé au montage ne
+  // suffit plus. En plus de ce piège, LE PANIER LUI-MÊME n'était encore
+  // JAMAIS repris ici (contrairement à Ventes.jsx) — un devis converti en
+  // commande par un commercial/technicien perdait TOUT son contenu
+  // (panneaux, batteries, rails...), pas seulement en cas de veille.
+  useEffect(() => {
+    if (!preRempli) return;
+    if (preRempli.boutique) setBq(preRempli.boutique);
+    setPanier(preRempli.panier || []);
+    setF((f0) => ({
+      ...f0,
+      client: preRempli.client || f0.client,
+      tel: preRempli.tel || f0.tel,
+      remise: preRempli.remise ? String(preRempli.remise) : f0.remise,
+      responsable: preRempli.responsable || f0.responsable,
+      rabais: preRempli.rabais || f0.rabais,
+    }));
+    if (onPreRempliConsomme) onPreRempliConsomme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preRempli]);
 
   const vendeursBoutique = db.users.filter((u) => u.role === "vendeur" && u.boutique === boutique && u.actif !== false);
   const produitsFiltres = cat ? produits.filter((p) => (p.categorie || "Autre") === cat) : produits;

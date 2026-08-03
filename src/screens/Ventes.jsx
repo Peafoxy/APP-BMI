@@ -34,7 +34,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   // Id de la commande d'origine (si cette vente vient d'une commande validée
   // par un commercial) : permet de retrouver la vente depuis la commande,
   // et donc de savoir si une commande validée a bien été encaissée ou non.
-  const [origineCommande] = useState(() => preRempli?.commandeId || null);
+  const [origineCommande, setOrigineCommande] = useState(() => preRempli?.commandeId || null);
   // Le devis d'origine : c'est LUI qui porte les frais d'installation et de
   // transport facturés au client. Sans ça, l'écran d'encaissement ne montrait
   // que le total des articles — le vendeur n'avait alors aucune indication du
@@ -45,7 +45,31 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     : null;
   const fraisInstallDevis = Number(devisOrigine?.frais_installation || 0);
   const fraisTransportDevis = Number(devisOrigine?.frais_transport || 0);
-  useEffect(() => { if (preRempli && onPreRempliConsomme) onPreRempliConsomme(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // RÉACTIF à chaque nouveau preRempli — pas seulement au tout premier
+  // montage. Depuis que les écrans restent en veille plutôt que d'être
+  // redémarrés entre deux visites (2.98.99), un simple useState(() => ...)
+  // ne se déclenche plus qu'une fois pour toute la session : si Ventes a
+  // déjà été visité avant qu'un devis soit converti, le panier du devis
+  // n'arrivait plus jamais. Signalé par Timo : « convertir en vente un
+  // devis ne ramène rien dans le panier du vendeur ».
+  useEffect(() => {
+    if (!preRempli) return;
+    if (preRempli.boutique) setBq(preRempli.boutique);
+    setPanier(preRempli.panier || []);
+    setOrigineDevis(preRempli.origineDevis || null);
+    setOrigineCommande(preRempli.commandeId || null);
+    setF((f0) => ({
+      ...f0,
+      client: preRempli.client || f0.client,
+      tel: preRempli.tel || f0.tel,
+      remise: preRempli.remise ? String(preRempli.remise) : f0.remise,
+      commercial: preRempli.commercial || f0.commercial,
+      responsable: preRempli.responsable || f0.responsable,
+      rabais: preRempli.rabais || f0.rabais,
+    }));
+    if (onPreRempliConsomme) onPreRempliConsomme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preRempli]);
   const [f, setF] = useState({ client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
   // Apporteur d'affaires EXTERNE (pas un utilisateur de l'application)
   const [ext, setExt] = useState({ actif: false, nom: "", tel: "", taux: "", montant: "" });

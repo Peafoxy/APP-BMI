@@ -72,7 +72,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : (brouillon?.autonomie ?? "1"));
   const [soleil, setSoleil] = useState(() => brouillon?.soleil ?? "3");
   const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : (brouillon?.tension ?? "24"));
-  const [typeBatterie, setTypeBatterie] = useState(() => besoinsRepris?.type_batterie || brouillon?.typeBatterie || "lifepo4");
+  const [typeBatterie, setTypeBatterie] = useState(() => {
+    // "plomb" retiré du choix (demande Timo) — un ancien devis repris ou un
+    // brouillon qui l'aurait encore enregistré ne doit jamais coincer le
+    // menu sur une valeur qui n'existe plus ; "gel" est le plus proche.
+    const v = besoinsRepris?.type_batterie || brouillon?.typeBatterie || "lifepo4";
+    return v === "plomb" ? "gel" : v;
+  });
 
   // Écrit le brouillon à chaque changement — survit à une actualisation de
   // page. Effacé uniquement une fois le devis réellement enregistré ou
@@ -146,10 +152,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // Type de batterie (Lithium/Gel/Plomb) lu dans le nom — un article dont
   // le nom mentionne clairement un autre type que celui choisi est exclu ;
-  // sans mention claire, on reste permissif (même logique que la tension).
+  // sans mention claire, on considère LITHIUM par défaut (demande explicite
+  // de Timo — pas de flottement entre les deux types comme pour la tension).
   // Signalé par Timo : le sélecteur "Type de batterie" ne changeait jamais
   // l'article proposé, seulement le calcul — la batterie Gel restait
-  // toujours choisie même en sélectionnant Lithium.
+  // toujours choisie même en sélectionnant Lithium. "Plomb / AGM" retiré du
+  // choix (demande Timo) — un article de ce type reste malgré tout exclu de
+  // partout, puisqu'il ne correspond jamais ni à "lifepo4" ni à "gel".
   const MOTS_TYPE_BATTERIE = {
     lifepo4: ["lifepo4", "lithium", "li-ion", "lifep04"],
     gel: ["gel"],
@@ -160,7 +169,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     for (const [type, mots] of Object.entries(MOTS_TYPE_BATTERIE)) {
       if (mots.some((m) => t.includes(m))) return type;
     }
-    return null;
+    return "lifepo4"; // rien de mentionné → considéré Lithium par défaut
   };
 
   const candidats = (role) => produitsBoutique
@@ -186,8 +195,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       }
       let typeOk = true;
       if (role.id === "batterie") {
-        const typeDetecte = typeBatterieInfere(p.nom);
-        typeOk = typeDetecte === null || typeDetecte === typeBatterie;
+        typeOk = typeBatterieInfere(p.nom) === typeBatterie;
       }
       return motCorrespond && uniteOk && tensionOk && typeOk;
     });
@@ -218,7 +226,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     }
     if (role.id === "batterie") {
       const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(ahBatterieLibre) || 314)));
-      const libelleType = typeBatterie === "lifepo4" ? "Lithium LiFePO4" : typeBatterie === "gel" ? "Gel" : "Plomb / AGM";
+      const libelleType = typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Gel";
       return { type: "manuel", nom: `Batterie ${tension}V — ${ahBatterieLibre} Ah (${libelleType})`, prix, qte, libre: true };
     }
     if (role.id === "convertisseur") {
@@ -374,6 +382,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // ---- Rails de fixation : quantité et prix calculés automatiquement ----
   // Formule : (nombre de panneaux × 2,2) ÷ 4,2 = quantité de rails ; prix fixe 5 500 F/rail
   const nombrePanneaux = choix.panneau?.qte || 0;
+  // Si un article "Rails de fixation" existe réellement en stock, on relie
+  // la ligne à lui — la VRAIE quantité calculée sera alors déduite du stock
+  // à la vente. Le prix, lui, reste TOUJOURS celui calculé ici (5 500 F),
+  // jamais celui du stock — demande explicite de Timo. S'il n'y a pas cet
+  // article en stock, tout reste exactement comme avant (aucun lien,
+  // aucune vérification de stock, le calcul n'est jamais impacté).
+  const articleRailsStock = produitsBoutique.find((p) => /rail/i.test(p.nom) || /rail/i.test(p.categorie || ""));
   const ligneRailsReprise = lignesReprises.find((l) => l.categorie === "Rails de fixation");
   const [railsQte, setRailsQte] = useState(ligneRailsReprise ? Number(ligneRailsReprise.qte) : 0);
   const premierRenduRails = useRef(true);
@@ -412,7 +427,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
     const panier = [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
-      ...(railsQte > 0 ? [{ produit_id: null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
       ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
     ];
 
@@ -477,7 +492,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const convertir = () => {
     const panier = [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
-      ...(railsQte > 0 ? [{ produit_id: null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
       ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
     ];
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
@@ -531,7 +546,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           </Field>
           <Field label="Type de batterie">
             <select className={inputCls} value={typeBatterie} onChange={(e) => setTypeBatterie(e.target.value)}>
-              <option value="lifepo4">LiFePO4 (lithium)</option><option value="gel">Gel</option><option value="plomb">Plomb / AGM</option>
+              <option value="lifepo4">LiFePO4 (lithium)</option><option value="gel">Gel</option>
             </select>
           </Field>
         </div>
