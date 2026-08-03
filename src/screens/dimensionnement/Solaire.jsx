@@ -90,6 +90,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const puissanceSimultanee = appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
 
   // ---- Calculs de dimensionnement (indicatifs, avec marges de sécurité usuelles) ----
+  // "Gel" est désormais reconnu comme un type à part (menu déroulant) pour
+  // le LIBELLÉ — mais partage le même taux de décharge que Plomb/AGM (50%),
+  // une hypothèse courante (guides usuels ~50% pour tout plomb scellé,
+  // Gel inclus) — à ajuster si Timo a un autre repère précis pour le Gel.
   const dod = typeBatterie === "lifepo4" ? 0.9 : 0.5;
   const rendementSysteme = 0.8;
   // Tension RÉELLE d'un pack LiFePO4 (16S/8S/4S) — on calcule avec elle, pas
@@ -190,7 +194,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     }
     if (role.id === "batterie") {
       const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(ahBatterieLibre) || 314)));
-      return { type: "manuel", nom: `Batterie ${tension}V — ${ahBatterieLibre} Ah (${typeBatterie === "lifepo4" ? "Lithium LiFePO4" : "Plomb/Gel"})`, prix, qte, libre: true };
+      const libelleType = typeBatterie === "lifepo4" ? "Lithium LiFePO4" : typeBatterie === "gel" ? "Gel" : "Plomb / AGM";
+      return { type: "manuel", nom: `Batterie ${tension}V — ${ahBatterieLibre} Ah (${libelleType})`, prix, qte, libre: true };
     }
     if (role.id === "convertisseur") {
       // "hybride" reste dans le nom : c'est ce mot qui fait disparaître
@@ -502,7 +507,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           </Field>
           <Field label="Type de batterie">
             <select className={inputCls} value={typeBatterie} onChange={(e) => setTypeBatterie(e.target.value)}>
-              <option value="lifepo4">LiFePO4 (lithium)</option><option value="plomb">Plomb / AGM</option>
+              <option value="lifepo4">LiFePO4 (lithium)</option><option value="gel">Gel</option><option value="plomb">Plomb / AGM</option>
             </select>
           </Field>
         </div>
