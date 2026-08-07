@@ -5,7 +5,7 @@
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
 import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDigits } from "./core";
-import { LOGO } from "./constants";
+import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
@@ -275,7 +275,11 @@ export function imprimerContratInstallation(d, db) {
   // l'image d'accueil de l'écran de connexion. Signature de l'initiateur :
   // retrouvée via d.par (le nom saisi sur le devis) plutôt que par id, car
   // c'est déjà ainsi que le devis identifie qui l'a créé.
-  const cachet = (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi;
+  // Cachet BMI Togo : celui uploadé par l'admin (Paramètres) a priorité s'il
+  // existe, sinon le VRAI cachet extrait du modèle Word fourni par Timo sert
+  // de valeur par défaut — l'app a donc toujours un cachet correct, sans
+  // dépendre d'un upload préalable.
+  const cachet = (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT;
   const initiateur = (db.users || []).find((u) => u.nom === d.par);
   // Libellé du rôle affiché à la place de "Pour BMI Togo" — demande Timo sur
   // la base d'un vrai modèle Word qu'il a fourni ("Le (rôle de l'initiateur
@@ -336,9 +340,9 @@ export function imprimerContratInstallation(d, db) {
         ${d.contrat_signature ? `<img src="${d.contrat_signature}" alt="Signature" />Signature du Client` : "Signature du Client<br>(en attente)"}
       </div>
       <div class="case">
-        ${cachet ? `<img src="${cachet}" alt="Cachet BMI Togo" style="max-height:60px;opacity:0.9" /><br>` : ""}
+        ${`<img src="${cachet}" alt="Cachet BMI Togo" style="max-height:70px;opacity:0.9" /><br>`}
         ${initiateur?.signature_personnelle ? `<img src="${initiateur.signature_personnelle}" alt="Signature" />` : ""}
-        Pour BMI Togo${initiateur ? `<br><span style="font-size:10px">${esc(initiateur.nom)}</span>` : ""}
+        ${libelleRoleInitiateur}${initiateur ? `<br><span style="font-size:10px">${esc(initiateur.nom)}</span>` : ""}
       </div>
     </div>
 
