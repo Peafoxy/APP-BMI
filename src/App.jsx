@@ -22,6 +22,7 @@ import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
 import { ClientsInstalles } from "./screens/ClientsInstalles";
 import { PrimesRemises } from "./screens/PrimesRemises";
 import { PrimesRecues } from "./screens/PrimesRecues";
+import { ContratsInstallation } from "./screens/ContratsInstallation";
 import { Commerciaux } from "./screens/Commerciaux";
 import { MesTaches } from "./screens/MesTaches";
 import { Rentabilite } from "./screens/Rentabilite";
@@ -512,30 +513,38 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
-    ? [["equipe", labelMonEquipe], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["equipe", labelMonEquipe], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
-    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : [])]
+    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : []), ["contrats", "📄 Contrats"]]
     : isTechnicienBMI
-    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"]];
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
     ? [...tabs, ["commission", "💵 Ma commission"]]
     : tabs;
 
+  // "Mes contrats" apparaît pour un client SEULEMENT le jour où il a
+  // effectivement signé au moins un contrat — pas avant (demande Timo).
+  // Même principe que "Ma commission" ci-dessus pour un apporteur.
+  const aUnContratSigne = isClient && (db.users.find((u) => u.id === profile.id)?.devis || []).some((d) => d.contrat_signature);
+  const tabsPlus2 = aUnContratSigne && !tabsPlus.some(([id]) => id === "mes_contrats")
+    ? [...tabsPlus, ["mes_contrats", "📄 Mes contrats"]]
+    : tabsPlus;
+
   // Pouvoirs retirés par l'administrateur
-  const tabsAutorises = tabsPlus.filter(([id]) => aDroit(db, profile, id));
+  const tabsAutorises = tabsPlus2.filter(([id]) => aDroit(db, profile, id));
   const ongletAutorise = tabsAutorises.some(([id]) => id === tab);
   const titreOnglet = (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
 
@@ -766,6 +775,16 @@ export default function App() {
       {ongletsVisites.primes_recues && isTechnicien && (
         <div style={{ display: tab === "primes_recues" ? "block" : "none" }}>
           <PrimesRecues db={db} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.contrats && (isAdmin || isRespCom || isCommercial || isTechnicien || isTechnicienBMI || isGerant || isVendeur) && (
+        <div style={{ display: tab === "contrats" ? "block" : "none" }}>
+          <ContratsInstallation db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.mes_contrats && isClient && (
+        <div style={{ display: tab === "mes_contrats" ? "block" : "none" }}>
+          <ContratsInstallation db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.messages && (

@@ -270,6 +270,18 @@ export function imprimerContrat(c, db) {
 export function imprimerContratInstallation(d, db) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const client = (db.users || []).find((u) => (u.devis || []).some((x) => x.id === d.id));
+  // Cachet BMI Togo (2.99.29) : un seul cachet pour toute l'entreprise, quel
+  // que soit l'initiateur — stocké sur chaque boutique (broadcast), comme
+  // l'image d'accueil de l'écran de connexion. Signature de l'initiateur :
+  // retrouvée via d.par (le nom saisi sur le devis) plutôt que par id, car
+  // c'est déjà ainsi que le devis identifie qui l'a créé.
+  const cachet = (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi;
+  const initiateur = (db.users || []).find((u) => u.nom === d.par);
+  // Libellé du rôle affiché à la place de "Pour BMI Togo" — demande Timo sur
+  // la base d'un vrai modèle Word qu'il a fourni ("Le (rôle de l'initiateur
+  // du devis)"). Rôles pouvant initier un devis, cf. ONGLETS_ROLE.
+  const LIBELLE_ROLE_CONTRAT = { commercial: "Le Commercial", vendeur: "Le Vendeur", technicien: "Le Technicien", technicien_bmi: "Le Technicien", gerant: "Le Gérant", admin: "L'Administrateur", resp_commercial: "Le Responsable Commercial" };
+  const libelleRoleInitiateur = LIBELLE_ROLE_CONTRAT[initiateur?.role] || "Pour BMI Togo";
   const garanties = (d.panier || [])
     .map((l) => (db.produits || []).find((p) => p.id === l.produit_id))
     .filter((p) => p?.garantie_fabricant)
@@ -293,12 +305,15 @@ export function imprimerContratInstallation(d, db) {
   <div class="ctr-doc">
     <table class="entete"><tr>
       <td><img src="${LOGO}" alt="BMI" /></td>
-      <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div>E-mail : info@bmitogo.com</div><div>NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div><div>Représenté par Mr EGBAOU Essozimna</div></td>
     </tr></table>
-    <h1>CONTRAT D'INSTALLATION${d.contrat_numero ? ` N° ${esc(d.contrat_numero)}` : ""}</h1>
+    <h1>CONTRAT DE FOURNITURE D'INSTALLATION${d.type_devis === "garage" ? " D'UN SYSTEME DE MOTORISATION" : d.type_devis === "autre" ? "" : " D'UN SYSTEME SOLAIRE PHOTOVOLTAIQUE"}${d.contrat_numero ? ` N° ${esc(d.contrat_numero)}` : ""}</h1>
 
-    <div class="art">Entre <b>BMI Togo</b> (Les Bâtiments Modernes et Intelligents), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, ci-après « le Prestataire »,<br>
-    Et <b>${esc(client?.nom || "")}</b>${client?.tel ? `, tél. ${esc(client.tel)}` : ""}, ci-après « le Client »,</div>
+    <div class="art">Date : ${dFR(d.contrat_date_signature)}</div>
+    <div class="art">Entre les soussignés :</div>
+    <div class="art">BMI (Bâtiments Modernes et Intelligents) E-mail : info@bmitogo.com ; NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523 ; représenté par Mr EGBAOU Essozimna</div>
+    <div class="art">Et :</div>
+    <div class="art">Mr/Mme : ${esc(client?.nom || "")}${client?.tel ? `, tél. ${esc(client.tel)}` : ""}</div>
 
     <div class="art"><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de <b>${fmt(d.total)} FCFA</b>.</div>
     <div class="art"><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</div>
@@ -320,7 +335,11 @@ export function imprimerContratInstallation(d, db) {
       <div class="case">
         ${d.contrat_signature ? `<img src="${d.contrat_signature}" alt="Signature" />Signature du Client` : "Signature du Client<br>(en attente)"}
       </div>
-      <div class="case">Pour BMI Togo</div>
+      <div class="case">
+        ${cachet ? `<img src="${cachet}" alt="Cachet BMI Togo" style="max-height:60px;opacity:0.9" /><br>` : ""}
+        ${initiateur?.signature_personnelle ? `<img src="${initiateur.signature_personnelle}" alt="Signature" />` : ""}
+        Pour BMI Togo${initiateur ? `<br><span style="font-size:10px">${esc(initiateur.nom)}</span>` : ""}
+      </div>
     </div>
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>

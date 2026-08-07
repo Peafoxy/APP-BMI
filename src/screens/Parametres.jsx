@@ -85,6 +85,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     enregistrerAccueil({ accueil_texte: "", accueil_couleur_badge: "", accueil_couleur_fond: "", accueil_image: "" });
   };
 
+  // ---- CACHET BMI TOGO — utilisé sur tous les contrats d'installation,
+  // quel que soit l'initiateur (demande Timo). Même mécanisme de stockage
+  // que l'image d'accueil ci-dessus (broadcast sur chaque boutique, déjà
+  // lisible avant authentification) — pas de nouvelle table.
+  const [cachetEnCours, setCachetEnCours] = useState(false);
+  const chargerCachet = async (fichier) => {
+    if (!fichier) return;
+    setCachetEnCours(true);
+    try {
+      const data = await compresserPhoto(fichier, 400, 0.7);
+      save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, cachet_bmi: data })) }, "Cachet BMI Togo mis à jour");
+    } catch {
+      uAlert("Impossible de lire cette image.");
+    } finally {
+      setCachetEnCours(false);
+    }
+  };
+
   // ---- NOTE AFFICHÉE SOUS LE DIMENSIONNEMENT ----
   const [note, setNote] = useState(noteDimensionnement(db));
 
@@ -710,6 +728,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             </Field>
             <button onClick={reinitialiserAccueil} className="px-4 py-2 rounded-lg border-2 border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-50">↺ Revenir à l'écran normal</button>
           </div>
+        </div>
+      )}
+
+      {/* ---- CACHET BMI TOGO (utilisé sur tous les contrats) ---- */}
+      {estAdminPrincipal(db, profile) && (
+        <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
+          <div className="font-bold mb-1 text-emerald-900">🏷️ Cachet BMI Togo</div>
+          <div className="text-xs text-slate-500 mb-3">
+            Utilisé automatiquement sur tous les contrats d'installation, quel que soit l'initiateur (commercial, technicien, vous-même…). Un seul cachet pour toute l'entreprise.
+          </div>
+          <input type="file" accept="image/*" onChange={(e) => chargerCachet(e.target.files?.[0])} disabled={cachetEnCours} className="text-sm" />
+          {cachetEnCours && <div className="text-xs text-slate-400 mt-1">Compression de l'image…</div>}
+          {db.boutiques[0]?.cachet_bmi && (
+            <div className="mt-2 flex items-center gap-2">
+              <img src={db.boutiques[0].cachet_bmi} alt="Cachet BMI Togo" className="h-20 rounded-lg border border-slate-300 bg-white p-1" />
+              <button onClick={() => save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, cachet_bmi: "" })) }, "Cachet BMI Togo retiré")} className="text-xs font-semibold text-red-600 underline">Retirer le cachet</button>
+            </div>
+          )}
         </div>
       )}
 

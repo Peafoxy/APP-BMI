@@ -154,6 +154,15 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
 // spécifiques à l'outil (type d'installation + montant), le reste du message
 // (identifiants, lien, signature) est commun aux 3 outils.
 export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
+  // Signature personnelle exigée AVANT tout envoi de devis (demande Timo) —
+  // elle sera réutilisée automatiquement sur tous les contrats futurs de
+  // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
+  // point de contrôle ici, puisque cette fonction est déjà partagée par
+  // les 3 volets du dimensionnement (Solaire/Garage/Autre).
+  if (!profile.signature_personnelle) {
+    uAlert("Avant d'envoyer un devis, vous devez d'abord enregistrer votre signature — rendez-vous dans l'onglet « 📄 Contrats » pour le faire, une seule fois.");
+    return false;
+  }
   const dbFinal = {
     ...dbApres,
     users: dbApres.users.map((u) => (u.id === compte.id

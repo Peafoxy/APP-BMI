@@ -150,6 +150,22 @@ export function primesDeTechnicien(db, userId) {
   return out.sort((a, b) => (b.entree.date_paiement || b.entree.prime_demandee_le || "").localeCompare(a.entree.date_paiement || a.entree.prime_demandee_le || ""));
 }
 
+// Tous les contrats d'installation SIGNÉS, aplatis depuis chaque client —
+// pour l'onglet "📄 Contrats" : admin et responsable commercial voient tout
+// (aucun filtre), un commercial ne voit que ses propres devis (filtre
+// `commercial`), un client ne voit que ses propres contrats (filtre
+// `clientId`). Un devis sans contrat_signature n'apparaît jamais ici.
+export function contratsInstallation(db, { commercial, clientId } = {}) {
+  const out = [];
+  for (const u of db.users || []) {
+    if (clientId && u.id !== clientId) continue;
+    for (const d of u.devis || []) {
+      if (d.contrat_signature && (!commercial || d.par === commercial)) out.push({ client: u, devis: d });
+    }
+  }
+  return out.sort((a, b) => (b.devis.contrat_date_signature || "").localeCompare(a.devis.contrat_date_signature || ""));
+}
+
 // Quand on supprime une dépense générée automatiquement par un paiement
 // (commission, prime d'installation…), il faut aussi redonner leur statut
 // « non payé » aux ventes / chantiers liés — sinon la commission reste
@@ -432,19 +448,20 @@ export const LIBELLE_ONGLET = {
   commission: "💵 Ma commission", taches: "✅ Mes tâches", salaire: "💵 Salaire", espace_client: "🏠 Mon espace", ravitaillement: "🚚 Ravitaillement",
   nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
   primes_remises: "💰 Primes remises", primes_recues: "💰 Primes reçues",
+  contrats: "📄 Contrats", mes_contrats: "📄 Mes contrats",
 };
 
 export const ONGLETS_ROLE = {
-  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
-  commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client"],
-  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues"],
-  resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "messages", "commission", "salaire", "nouveau_client"],
-  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "commission", "messages", "salaire", "nouveau_client"],
+  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
+  commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "contrats"],
+  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues", "contrats"],
+  resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "commission", "salaire", "nouveau_client"],
+  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "commission", "messages", "salaire", "nouveau_client", "contrats"],
   magasinier: ["stocks", "salaire", "messages", "nouveau_client"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client"],
-  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats"],
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats"],
   comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
-  client: ["espace_client", "messages"],
+  client: ["espace_client", "messages", "mes_contrats"],
 };
 
 // Pouvoirs d'action (au-delà des onglets)

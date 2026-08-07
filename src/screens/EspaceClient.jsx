@@ -226,9 +226,16 @@ export function EspaceClient({ db, profile, save, setTab }) {
   };
 
   const positionCanvas = (e, canvas) => {
+    // Le canevas a une résolution interne fixe (440×120) mais s'affiche à
+    // une largeur variable selon l'écran (className w-full) — sans cette
+    // mise à l'échelle, la position dessinée ne correspondait pas à celle
+    // du doigt dès que la taille affichée différait de la résolution
+    // interne (systématique sur mobile). Signalé par Timo.
     const rect = canvas.getBoundingClientRect();
     const point = e.touches ? e.touches[0] : e;
-    return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+    const echelleX = canvas.width / rect.width;
+    const echelleY = canvas.height / rect.height;
+    return { x: (point.clientX - rect.left) * echelleX, y: (point.clientY - rect.top) * echelleY };
   };
   const debuterTrait = (e) => {
     e.preventDefault();
@@ -714,10 +721,15 @@ export function EspaceClient({ db, profile, save, setTab }) {
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
             <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5">
               <div className="text-center mb-3">
-                <div className="font-bold text-lg text-sky-900">BMI TOGO — Contrat d'installation</div>
-                <div className="text-xs text-slate-400">NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div>
+                <div className="font-bold text-lg text-sky-900">CONTRAT DE FOURNITURE D'INSTALLATION{d.type_devis === "garage" ? " D'UN SYSTEME DE MOTORISATION" : d.type_devis === "autre" ? "" : " D'UN SYSTEME SOLAIRE PHOTOVOLTAIQUE"}</div>
+                <div className="text-xs text-slate-400">E-mail : info@bmitogo.com · NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div>
               </div>
               <div className="text-sm text-slate-700 space-y-2 mb-4">
+                <p>Date : {dFR(today())}</p>
+                <p>Entre les soussignés :</p>
+                <p>BMI (Bâtiments Modernes et Intelligents) E-mail : info@bmitogo.com ; NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523 ; représenté par Mr EGBAOU Essozimna</p>
+                <p>Et :</p>
+                <p>Mr/Mme : {profile.nom}{profile.tel ? `, tél. ${profile.tel}` : ""}</p>
                 <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de {fmt(d.total)} FCFA.</p>
                 <p><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</p>
                 <p><b>Article 3 — Garanties des équipements.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement."}</p>
