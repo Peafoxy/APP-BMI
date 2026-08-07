@@ -12,6 +12,16 @@ import { COMPTE_TRESORERIE, COMPTE_CHARGE } from "./constants";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+// Jeton de signature de contrat : DOIT être imprévisible (contrairement à
+// uid() ci-dessus, qui utilise Math.random() — bien pour un simple id
+// d'enregistrement, pas pour un droit d'accès). crypto.getRandomValues est
+// la source aléatoire réellement sûre du navigateur.
+export const genererJetonSignature = () => {
+  const octets = new Uint8Array(32);
+  crypto.getRandomValues(octets);
+  return [...octets].map((o) => o.toString(16).padStart(2, "0")).join("");
+};
+
 // Normalise un moyen de paiement saisi librement vers la liste officielle
 export const normPaiement = (t) => {
   const s = String(t || "").toLowerCase();

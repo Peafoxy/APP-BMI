@@ -184,7 +184,75 @@ export function imprimerProforma(p, logo) {
   if (printApi) printApi.open(html);
 }
 
-// ============ BON DE RAVITAILLEMENT ============
+// ============ CONTRAT DE RÉCEPTION DE PRESTATION ============
+// Même base visuelle que la proforma/le reçu. Le montant est le VRAI total
+// de la vente d'origine (équipements + installation), pas seulement les
+// frais d'installation — demande Timo. La signature (image, écrite par la
+// page bmitogo.com au moment où le client signe) est intégrée si présente ;
+// sinon la zone reste vide (contrat pas encore signé, ou réception forcée
+// sans signature — cas exceptionnel, déjà signalé par ailleurs sur la fiche).
+export function imprimerContrat(c, db) {
+  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const vente = db.ventes.find((v) => v.id === c.vente_id);
+  const montant = vente ? totalVente(vente) : Number(c.frais_installation || 0);
+  const avenant = c.avenant_statut === "signe";
+  const html = `
+  <style>
+  #zone-impression .ctr-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto;line-height:1.6}
+  #zone-impression .ctr-doc .entete{width:100%;border-collapse:collapse}
+  #zone-impression .ctr-doc .entete td{vertical-align:middle;padding:0 0 8px 0}
+  #zone-impression .ctr-doc .entete img{max-width:150px;max-height:110px;object-fit:contain}
+  #zone-impression .ctr-doc .soc{text-align:right;line-height:1.5}
+  #zone-impression .ctr-doc .soc .nom{font-size:20px;font-weight:bold;color:#1e5a8a}
+  #zone-impression .ctr-doc h1{text-align:center;font-size:16px;letter-spacing:1.5px;margin:10px 0 14px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
+  #zone-impression .ctr-doc .art{margin:12px 0}
+  #zone-impression .ctr-doc .art b{color:#1e5a8a}
+  #zone-impression .ctr-doc .etat{background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin:8px 0}
+  #zone-impression .ctr-doc .reserve{color:#b91c1c;font-weight:bold}
+  #zone-impression .ctr-doc .sig{margin-top:22px;display:flex;justify-content:space-between;gap:20px}
+  #zone-impression .ctr-doc .sig .case{flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:11px}
+  #zone-impression .ctr-doc .sig img{max-height:70px;display:block;margin:0 auto 4px}
+  #zone-impression .ctr-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
+  </style>
+  <div class="ctr-doc">
+    <table class="entete"><tr>
+      <td><img src="${LOGO}" alt="BMI" /></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
+    </tr></table>
+    <h1>${avenant ? "AVENANT AU CONTRAT DE RÉCEPTION" : "CONTRAT DE RÉCEPTION DE PRESTATION"}${c.contrat_numero ? ` N° ${esc(c.contrat_numero)}` : ""}</h1>
+
+    <div class="art">Entre <b>BMI Togo</b> (Les Bâtiments Modernes et Intelligents), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, ci-après « le Prestataire »,<br>
+    Et <b>${esc(c.prenom)} ${esc(c.nom)}</b>${c.tel ? `, tél. ${esc(c.tel)}` : ""}, ci-après « le Client »,</div>
+
+    ${avenant ? `
+    <div class="art"><b>Objet.</b> Le présent avenant constate que les réserves émises lors de la réception initiale (contrat N° ${esc(c.contrat_numero || "—")}) ont été corrigées par le Prestataire, à savoir : <i>${esc(c.contrat_reserve_texte || "—")}</i>. En signant, le Client confirme la réception définitive, sans réserve, de la prestation.</div>
+    ` : `
+    <div class="art"><b>Article 1 — Objet.</b> Le présent contrat constate la réception, par le Client, des travaux de <b>${esc(c.type_installation)}</b> réalisés à l'adresse suivante : <b>${esc(c.adresse_contrat || "—")}</b>, pour un montant total de <b>${fmt(montant)} FCFA</b>.</div>
+    <div class="art etat"><b>Article 2 — État de la réception.</b> ${c.contrat_reserve_texte
+      ? `Le Client accepte les travaux <span class="reserve">avec les réserves suivantes</span>, que le Prestataire s'engage à corriger dans un délai raisonnable : <i>${esc(c.contrat_reserve_texte)}</i>.`
+      : "Le Client déclare accepter les travaux <b>sans réserve</b>."}</div>
+    <div class="art"><b>Article 3 — Garantie.</b> Le Prestataire garantit les équipements installés contre tout défaut de fabrication ou d'installation pour une durée de <b>${esc(c.garantie_mois || "24")} mois</b> à compter de la date de signature, hors usure normale, mauvaise utilisation, ou intervention d'un tiers non autorisé.</div>
+    <div class="art"><b>Article 4 — Signature.</b> En signant ci-dessous, le Client reconnaît avoir vérifié la conformité des travaux et accepte les termes du présent contrat.</div>
+    `}
+
+    <div class="art">Fait à Lomé, le ${dFR(avenant ? c.avenant_date_signature : (c.contrat_date_signature || c.contrat_force_le))}.</div>
+
+    <div class="sig">
+      <div class="case">
+        ${c.contrat_force_par
+          ? `<div style="color:#b91c1c;font-weight:bold">⚠ Réceptionné sans signature<br>par ${esc(c.contrat_force_par)} (BMI Togo)</div>`
+          : (avenant ? c.avenant_signature : c.contrat_signature)
+            ? `<img src="${avenant ? c.avenant_signature : c.contrat_signature}" alt="Signature" />Signature du Client`
+            : "Signature du Client<br>(en attente)"}
+      </div>
+      <div class="case">Pour BMI Togo</div>
+    </div>
+
+    <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
+  </div>`;
+  if (printApi) printApi.open(html);
+}
+
 export function imprimerBonRavitaillement(bon, db) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const bqSrc = (db.boutiques || []).find((b) => b.nom === bon.source) || {};

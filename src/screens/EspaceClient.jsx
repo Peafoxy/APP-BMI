@@ -269,40 +269,12 @@ export function EspaceClient({ db, profile, save, setTab }) {
   };
 
   // ---- RÉCEPTION DES TRAVAUX PAR LE CLIENT ----
-  const receptionner = async () => {
-    if (!await uConfirm(
-      `Confirmez-vous que l'installation a bien été réalisée, et que vous l'acceptez en l'état ?\n\n` +
-      `Cette confirmation vaut réception des travaux. Elle est enregistrée à votre nom et à la date du jour.`
-    )) return;
-    // La réception DÉBLOQUE la commission de celui qui a fait le devis.
-    // C'est le jour où le client dit « c'est bon » que la vente est vraiment faite.
-    save({
-      ...db,
-      clients_installes: db.clients_installes.map((c) => (c.id === fiche.id
-        ? { ...c, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
-        : c)),
-      // Déblocage des commissions (commercial + parrain) et notification du
-      // parrain : logique commune aux trois chemins de réception.
-      ...debloquerCommissionsReception(db, fiche.vente_id, `par ${profile.nom}`),
-    }, `Travaux RÉCEPTIONNÉS par le client ${profile.nom}${fiche.vente_id ? " — commissions débloquées" : ""}`);
-    uAlert("✅ Merci ! Votre réception a bien été enregistrée.");
-  };
-
-  const emettreReserves = async () => {
-    const motif = await uPrompt(
-      "Qu'est-ce qui ne va pas ? Décrivez le problème constaté.\n\nBMI Togo en sera informé immédiatement.",
-      ""
-    );
-    if (motif === null) return;
-    if (!motif.trim()) { uAlert("Merci de décrire le problème."); return; }
-    save({
-      ...db,
-      clients_installes: db.clients_installes.map((c) => (c.id === fiche.id
-        ? { ...c, statut: "reserves", reserves: motif.trim(), reserves_le: today() }
-        : c)),
-    }, `⚠ RÉSERVES émises par le client ${profile.nom} : ${motif.trim()}`);
-    uAlert("Vos réserves ont été transmises à BMI Togo. Un technicien vous recontactera.");
-  };
+  // receptionner() et emettreReserves() retirées (Timo, chantier contrat de
+  // prestation) : ce bouton permettait de réceptionner SANS AUCUNE signature,
+  // contournant complètement la nouvelle exigence — un client avec un compte
+  // aurait pu passer à côté du contrat, contrairement à celui sans compte
+  // qui, lui, doit obligatoirement passer par le lien de signature. Un seul
+  // chemin de réception désormais, cohérent pour tous : le lien signé.
   // Le client change SON PROPRE mot de passe — c'est le seul mot de passe
   // qu'il a le droit de modifier lui-même (décision de Timo). Une fois
   // changé, il n'est plus le mot de passe auto-généré : personne ne peut
@@ -623,9 +595,8 @@ export function EspaceClient({ db, profile, save, setTab }) {
                   {fiche.date_fin ? ` le ${dFR(fiche.date_fin)}` : ""}.
                   <b> Vérifiez l'installation, puis confirmez ci-dessous.</b> Si quelque chose ne va pas, dites-le-nous — un technicien reviendra.
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  <button onClick={receptionner} className="px-5 py-2 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800">✅ Je réceptionne les travaux</button>
-                  <button onClick={emettreReserves} className="px-4 py-2 rounded-lg border-2 border-red-400 text-red-700 font-bold text-sm hover:bg-red-50">⚠ Signaler un problème</button>
+                <div className="text-sm text-slate-600 bg-white border border-amber-200 rounded-lg px-3 py-2">
+                  📲 Un lien de réception sécurisé vous a été envoyé par WhatsApp, pour signer directement depuis votre téléphone. Si vous ne l'avez pas reçu, contactez BMI Togo.
                 </div>
               </div>
             )}

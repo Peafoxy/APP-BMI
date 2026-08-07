@@ -9,7 +9,8 @@ import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
+import { imprimerContrat } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime } from "../lib/calculs";
 
@@ -87,7 +88,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // complète, inchangée.
   const voitTout = isAdmin || estChef;
 
-  const vide = { nom: "", prenom: "", tel: "", type_installation: TYPES_INSTALLATION[0], date_installation: today(), date_entretien: "", localisation: "", lat: null, lng: null, user_id: "", vente_id: "", garantie_mois: "24", equipe_prevue: [], chef_prevu: "", materiel: [] };
+  const vide = { nom: "", prenom: "", tel: "", type_installation: TYPES_INSTALLATION[0], date_installation: today(), date_entretien: "", localisation: "", adresse_contrat: "", lat: null, lng: null, user_id: "", vente_id: "", garantie_mois: "24", equipe_prevue: [], chef_prevu: "", materiel: [] };
   const [f, setF] = useState(vide);
   const [carteOuverte, setCarteOuverte] = useState(false);
   const [q, setQ] = useState("");
@@ -395,12 +396,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // ---- LE CHEF DE CHANTIER DÉCLARE LES TRAVAUX TERMINÉS ----
   const marquerTermine = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
-    const compte = db.users.find((u) => u.id === c.user_id);
     if (!await uConfirm(
       `Déclarer l'installation de ${c.nom} ${c.prenom} TERMINÉE ?\n\n` +
-      (compte
-        ? `Le client verra alors un bouton « Je réceptionne les travaux » dans son espace.`
-        : `⚠ Ce client n'a PAS de compte : il ne pourra pas réceptionner depuis l'application.\nRattachez-lui un compte client pour cela.`)
+      `Vous pourrez ensuite envoyer le lien de signature du contrat de réception au client.`
     )) return;
     save({
       ...db,
@@ -408,40 +406,73 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, statut: "termine", termine_par: profile.nom, date_fin: today() }
         : x)),
     }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom}`);
-    uAlert(compte
-      ? "✅ Travaux déclarés terminés. Le client peut maintenant les réceptionner depuis son espace."
-      : "✅ Travaux déclarés terminés. (Ce client n'a pas de compte : la réception ne pourra pas se faire dans l'application.)");
+    uAlert("✅ Travaux déclarés terminés. Vous pouvez maintenant envoyer le lien de signature au client.");
   };
 
-  // BMI constate la réception quand le client ne l'a pas faite dans l'app
-  // (PV signé, réception physique) : mêmes effets que la réception client.
-  const constaterReception = async (c) => {
+  // ---- ENVOI DU LIEN DE SIGNATURE (contrat de réception) ----
+  // Remplace l'ancien circuit "réception dans l'app" : désormais le SEUL
+  // chemin normal vers "Réceptionné"/"Réserves" passe par la signature du
+  // client sur bmitogo.com (jeton unique, aucun compte requis). Demande
+  // Timo, "carte blanche" puis précisions successives.
+  const envoyerPourSignature = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
+    if (!isAdmin) { uAlert("Seul l'administrateur envoie le lien de signature."); return; }
+    if (!c.adresse_contrat) { uAlert("Merci de renseigner l'« Adresse formelle (pour le contrat) » sur la fiche de ce chantier avant d'envoyer le lien de signature."); return; }
+    if (!c.tel) { uAlert("Aucun numéro de téléphone enregistré pour ce client."); return; }
+    const jeton = genererJetonSignature();
+    const numero = `CTR-${today().slice(0, 4)}-${c.id.slice(0, 6).toUpperCase()}`;
+    const lien = `https://bmitogo.com/signature/${jeton}`;
+    const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le contrat, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
+    save({
+      ...db,
+      clients_installes: db.clients_installes.map((x) => (x.id === c.id
+        ? { ...x, contrat_jeton: jeton, contrat_numero: numero, contrat_statut: "attente_signature" }
+        : x)),
+    }, `Lien de signature du contrat envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
+    window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
+  };
+
+  // BMI constate la réception SANS AUCUNE SIGNATURE (cas exceptionnel —
+  // client injoignable, refus catégorique). Volontairement dissuasif :
+  // confirmation explicite + trace PERMANENTE et visible sur la fiche
+  // ensuite (pas juste un message qui disparait). Demande Timo.
+  const forcerReceptionSansSignature = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!isAdmin) return;
     if (!await uConfirm(
-      `Constater la RÉCEPTION des travaux de ${c.nom} ${c.prenom || ""} ?\n\n` +
-      `À faire uniquement si le client a réceptionné en vrai (PV signé, accord donné) sans passer par l'application.\n\n` +
-      `Effets : chantier « Réceptionné », commissions débloquées (commercial et parrain éventuel), parrain prévenu dans son espace.`
+      `⚠ Vous êtes sur le point de marquer ce chantier « Réceptionné » SANS SIGNATURE du client.\n\n` +
+      `Aucun contrat n'existera pour cette installation. Cette exception doit rester rare.\n\n` +
+      `Confirmez-vous vraiment vouloir continuer ?`
     )) return;
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, statut: "receptionne", receptionne_le: today(), receptionne_par: `BMI — constat de ${profile.nom}` }
+        ? { ...x, statut: "receptionne", receptionne_le: today(), receptionne_par: `BMI — forcé par ${profile.nom}`, contrat_force_par: profile.nom, contrat_force_le: today() }
         : x)),
-      ...debloquerCommissionsReception(db, c.vente_id, `constatée par BMI`),
-    }, `Réception CONSTATÉE par ${profile.nom} pour ${c.nom} ${c.prenom || ""} — commissions débloquées`);
-    uAlert("✅ Réception enregistrée : commissions débloquées.");
+      ...debloquerCommissionsReception(db, c.vente_id, `forcée par BMI (${profile.nom}), sans signature`),
+    }, `⚠ Réception FORCÉE sans signature par ${profile.nom} — ${c.nom} ${c.prenom || ""}`);
+    uAlert("⚠ Réception forcée sans signature — cette exception reste visible en permanence sur la fiche.");
   };
 
-  // L'administrateur peut lever des réserves une fois corrigées
-  const releverReserves = async (c) => {
+
+  // Une fois les réserves corrigées : un AVENANT (pas un nouveau contrat
+  // entier) est signé par le client, référençant le contrat initial. Une
+  // fois SIGNÉ (par le site, pas ici), le statut passera enfin à
+  // "receptionne" définitif. Demande Timo.
+  const envoyerAvenant = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin) return;
-    if (!await uConfirm(`Les réserves de ${c.nom} ${c.prenom} ont-elles été corrigées ?\n\nLe chantier repassera « Terminé », et le client pourra réceptionner à nouveau.`)) return;
+    if (!await uConfirm(`Les réserves de ${c.nom} ${c.prenom} ont-elles bien été corrigées ?\n\nUn nouveau lien de signature (avenant de levée de réserves, référençant le contrat ${c.contrat_numero || "initial"}) sera envoyé au client.`)) return;
+    const jeton = genererJetonSignature();
+    const lien = `https://bmitogo.com/avenant/${jeton}`;
+    const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nLes réserves signalées sur votre installation ont été corrigées. Merci de confirmer en signant l'avenant, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, statut: "termine", reserves_levees_le: today(), reserves_levees_par: profile.nom }
+        ? { ...x, avenant_jeton: jeton, avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
         : x)),
-    }, `Réserves levées — ${c.nom} ${c.prenom} (par ${profile.nom})`);
+    }, `Avenant de levée de réserves envoyé — ${c.nom} ${c.prenom} (par ${profile.nom})`);
+    window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
   };
 
   const ouvrirRepartition = (c) => {
@@ -634,6 +665,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   📍 {f.lat ? "Position ✓" : "Choisir sur la carte"}
                 </button>
               </div>
+            </Field>
+          </div>
+          <div className="lg:col-span-2">
+            <Field label="Adresse formelle (numéro, rue/quartier, ville) — pour le contrat de réception">
+              <input className={inputCls} value={f.adresse_contrat} onChange={(e) => setF({ ...f, adresse_contrat: e.target.value })} placeholder="Ex : 12 Rue des Palmiers, Bè, Lomé" />
             </Field>
           </div>
         </div>
@@ -983,6 +1019,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${STATUT_CHANTIER[statutChantier(c)].couleur}`}>
                       {STATUT_CHANTIER[statutChantier(c)].label}
                     </div>
+                    {c.contrat_force_par && (
+                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-red-50 text-red-700 border-red-300 ml-1" title="Aucun contrat signé n'existe pour ce chantier">
+                        ⚠ Réceptionné SANS SIGNATURE par {c.contrat_force_par}, le {dFR(c.contrat_force_le)}
+                      </div>
+                    )}
                     {c.a_programmer && !c.date_installation && (
                       <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-red-50 text-red-700 border-red-300 ml-1 animate-pulse">
                         🔔 À PROGRAMMER
@@ -1020,11 +1061,25 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     {peutTerminer(c, profile, isAdmin) && (
                       <button onClick={() => marquerTermine(c)} className="text-xs font-bold text-white bg-amber-600 rounded px-2 py-1 hover:bg-amber-700 mr-2">🏁 Marquer terminé</button>
                     )}
-                    {statutChantier(c) === "reserves" && isAdmin && (
-                      <button onClick={() => releverReserves(c)} className="text-xs font-bold text-white bg-red-600 rounded px-2 py-1 hover:bg-red-700 mr-2">↻ Réserves levées</button>
+                    {statutChantier(c) === "termine" && isAdmin && c.contrat_statut !== "attente_signature" && (
+                      <button onClick={() => envoyerPourSignature(c)} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-1 hover:bg-sky-900 mr-2">📤 Envoyer pour signature</button>
+                    )}
+                    {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && (
+                      <span className="text-xs font-bold text-sky-700 mr-2">📤 En attente de signature{isAdmin ? " — " : ""}
+                        {isAdmin && <button onClick={() => envoyerPourSignature(c)} className="underline">renvoyer le lien</button>}
+                      </span>
                     )}
                     {statutChantier(c) === "termine" && isAdmin && (
-                      <button onClick={() => constaterReception(c)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 mr-2">✅ Réception constatée</button>
+                      <button onClick={() => forcerReceptionSansSignature(c)} className="text-xs font-bold text-red-700 border border-red-300 rounded px-2 py-1 hover:bg-red-50 mr-2" title="Cas exceptionnel — aucun contrat n'existera">⚠ Forcer sans signature</button>
+                    )}
+                    {statutChantier(c) === "reserves" && isAdmin && c.avenant_statut !== "attente_signature" && (
+                      <button onClick={() => envoyerAvenant(c)} className="text-xs font-bold text-white bg-red-600 rounded px-2 py-1 hover:bg-red-700 mr-2">📤 Envoyer l'avenant (réserves corrigées)</button>
+                    )}
+                    {statutChantier(c) === "reserves" && c.avenant_statut === "attente_signature" && (
+                      <span className="text-xs font-bold text-sky-700 mr-2">📤 Avenant en attente de signature</span>
+                    )}
+                    {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
+                      <button onClick={() => imprimerContrat(c, db)} className="text-xs font-bold text-white bg-slate-700 rounded px-2 py-1 hover:bg-slate-800 mr-2">📄 Voir le contrat</button>
                     )}
                     <button onClick={() => ouvrirRepartition(c)} className="text-xs font-bold text-purple-700 underline mr-2">
                       🔧 Frais {Number(c.frais_installation || 0) > 0 ? `(${fmt(c.frais_installation)})` : ""}
