@@ -261,6 +261,74 @@ export function imprimerContrat(c, db) {
   if (printApi) printApi.open(html);
 }
 
+// ============ CONTRAT D'INSTALLATION (avant travaux, lu+signé à la
+// validation du devis) — distinct du imprimerContrat ci-dessus, qui sert
+// le PROCÈS-VERBAL DE RÉCEPTION (fin de chantier). Même style visuel que
+// les autres documents, mêmes 8 articles que ceux lus/signés dans
+// EspaceClient.jsx — permet au client de retélécharger son contrat depuis
+// son espace, à tout moment après signature (demande Timo). ============
+export function imprimerContratInstallation(d, db) {
+  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const client = (db.users || []).find((u) => (u.devis || []).some((x) => x.id === d.id));
+  const garanties = (d.panier || [])
+    .map((l) => (db.produits || []).find((p) => p.id === l.produit_id))
+    .filter((p) => p?.garantie_fabricant)
+    .map((p) => `${esc(p.nom)} : garantie fabricant ${esc(p.garantie_fabricant)}${p.conditions_garantie ? ` (${esc(p.conditions_garantie)})` : ""}`);
+  const html = `
+  <style>
+  #zone-impression .ctr-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto;line-height:1.6}
+  #zone-impression .ctr-doc .entete{width:100%;border-collapse:collapse}
+  #zone-impression .ctr-doc .entete td{vertical-align:middle;padding:0 0 8px 0}
+  #zone-impression .ctr-doc .entete img{max-width:150px;max-height:110px;object-fit:contain}
+  #zone-impression .ctr-doc .soc{text-align:right;line-height:1.5}
+  #zone-impression .ctr-doc .soc .nom{font-size:20px;font-weight:bold;color:#1e5a8a}
+  #zone-impression .ctr-doc h1{text-align:center;font-size:16px;letter-spacing:1.5px;margin:10px 0 14px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
+  #zone-impression .ctr-doc .art{margin:12px 0}
+  #zone-impression .ctr-doc .art b{color:#1e5a8a}
+  #zone-impression .ctr-doc .sig{margin-top:22px;display:flex;justify-content:space-between;gap:20px}
+  #zone-impression .ctr-doc .sig .case{flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:11px}
+  #zone-impression .ctr-doc .sig img{max-height:70px;display:block;margin:0 auto 4px}
+  #zone-impression .ctr-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
+  </style>
+  <div class="ctr-doc">
+    <table class="entete"><tr>
+      <td><img src="${LOGO}" alt="BMI" /></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
+    </tr></table>
+    <h1>CONTRAT D'INSTALLATION${d.contrat_numero ? ` N° ${esc(d.contrat_numero)}` : ""}</h1>
+
+    <div class="art">Entre <b>BMI Togo</b> (Les Bâtiments Modernes et Intelligents), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, ci-après « le Prestataire »,<br>
+    Et <b>${esc(client?.nom || "")}</b>${client?.tel ? `, tél. ${esc(client.tel)}` : ""}, ci-après « le Client »,</div>
+
+    <div class="art"><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de <b>${fmt(d.total)} FCFA</b>.</div>
+    <div class="art"><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</div>
+    <div class="art"><b>Article 3 — Garanties des équipements.</b> ${garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement."}</div>
+    <div class="art"><b>Article 4 — Garantie d'installation.</b> BMI TOGO garantit les travaux d'installation pendant 12 mois à compter de la signature du procès-verbal de réception, contre tout défaut lié à la pose. En cas de dysfonctionnement, BMI TOGO procède d'abord à un diagnostic pour déterminer l'origine du problème. Si le défaut relève de l'installation, la réparation est prise en charge intégralement et gratuitement par BMI TOGO. Si le défaut relève de l'équipement lui-même, BMI TOGO accompagne le Client dans les démarches de prise en charge auprès du fabricant ou du fournisseur ; le remplacement ou la réparation est soumis aux conditions de garantie du fabricant, et les frais de main-d'œuvre, de déplacement ou de réinstallation pourront être facturés au Client si ceux-ci ne sont pas pris en charge par le fabricant.</div>
+    <div class="art"><b>Article 5 — Exclusions de garantie.</b> La garantie ne s'applique pas en cas de : catastrophe naturelle (foudre, inondation, incendie...) ; surtension ou défaut du réseau électrique ; mauvaise utilisation ou négligence ; défaut d'entretien ; modification, réparation ou intervention effectuée par une personne non autorisée par BMI TOGO ; usure normale des équipements.</div>
+    <div class="art"><b>Article 6 — Obligations de BMI TOGO.</b> Installer les équipements conformément aux règles de l'art, respecter les normes de sécurité, former le Client à l'utilisation du système.</div>
+    <div class="art"><b>Article 7 — Obligations du Client.</b> Régler les paiements conformément au devis accepté, faciliter l'accès au chantier, ne pas modifier l'installation sans accord écrit de BMI TOGO.</div>
+    <div class="art"><b>Article 8 — Réception.</b> Un procès-verbal de réception sera signé à la fin des travaux ; sa date de signature marque le début des garanties.</div>
+    <div class="art"><b>Article 9 — Résiliation volontaire.</b> Le Client peut renoncer au présent contrat à tout moment avant l'exécution des travaux, par notification écrite à BMI TOGO, sous réserve du remboursement des sommes déjà engagées par BMI TOGO pour la réservation de matériel ou la mobilisation d'équipe, le cas échéant.</div>
+    <div class="art"><b>Article 10 — Force majeure.</b> Aucune des parties ne pourra être tenue responsable d'un manquement à ses obligations résultant d'un cas de force majeure (retard d'approvisionnement, rupture d'importation, décision administrative, ou tout événement échappant au contrôle raisonnable de BMI TOGO). Les délais prévus au présent contrat seront alors suspendus jusqu'à la cessation de l'événement.</div>
+    <div class="art"><b>Article 11 — Confidentialité des données.</b> BMI TOGO s'engage à utiliser les informations personnelles du Client (identité, coordonnées, adresse) exclusivement dans le cadre de l'exécution du présent contrat, et à ne pas les communiquer à des tiers sans l'accord du Client, sauf obligation légale.</div>
+    <div class="art"><b>Article 12 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</div>
+    <div class="art"><b>Article 13 — Entrée en vigueur et caducité.</b> Le présent contrat entre en vigueur à sa signature. Le Client s'engage à effectuer le paiement prévu dans un délai maximum de sept (7) jours calendaires à compter de la signature, sauf accord écrit contraire. À défaut de paiement dans ce délai, le présent contrat devient automatiquement caduc, sans mise en demeure préalable. BMI TOGO se réserve le droit de suspendre toute intervention, réservation de matériel ou planification. Le Client pourra solliciter une nouvelle validation, pouvant donner lieu à un nouveau contrat et, le cas échéant, à une révision du devis.</div>
+
+    <div class="art">Fait à Lomé, le ${dFR(d.contrat_date_signature)}. Paiement prévu à la boutique ${esc(d.boutique_paiement || "—")}.</div>
+
+    <div class="sig">
+      <div class="case">
+        ${d.contrat_signature ? `<img src="${d.contrat_signature}" alt="Signature" />Signature du Client` : "Signature du Client<br>(en attente)"}
+      </div>
+      <div class="case">Pour BMI Togo</div>
+    </div>
+
+    <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
+  </div>`;
+  if (printApi) printApi.open(html);
+}
+
+// ============ BON DE RAVITAILLEMENT ============
 export function imprimerBonRavitaillement(bon, db) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const bqSrc = (db.boutiques || []).find((b) => b.nom === bon.source) || {};

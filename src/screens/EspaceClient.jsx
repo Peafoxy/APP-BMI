@@ -9,6 +9,7 @@ import { PAIEMENTS } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
+import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
 export function EspaceClient({ db, profile, save, setTab }) {
@@ -598,6 +599,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                               )}
                             </div>
                           )}
+                          {d.contrat_signature && (
+                            <button onClick={() => imprimerContratInstallation(d, db)} className="mt-3 px-4 py-1.5 rounded-lg bg-white border-2 border-sky-700 text-sky-800 font-bold text-xs hover:bg-sky-50">📄 Télécharger mon contrat</button>
+                          )}
                         </div>
                       );
                     })()}
@@ -716,12 +720,17 @@ export function EspaceClient({ db, profile, save, setTab }) {
               <div className="text-sm text-slate-700 space-y-2 mb-4">
                 <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de {fmt(d.total)} FCFA.</p>
                 <p><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</p>
-                <p><b>Article 3 — Garanties.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement."} Les travaux d'installation sont garantis 12 mois à compter de la signature du procès-verbal de réception.</p>
-                <p><b>Article 4 — Obligations de BMI TOGO.</b> Installer les équipements conformément aux règles de l'art, respecter les normes de sécurité, former le Client à l'utilisation du système.</p>
-                <p><b>Article 5 — Obligations du Client.</b> Régler les paiements conformément au devis accepté, faciliter l'accès au chantier, ne pas modifier l'installation sans accord écrit de BMI TOGO.</p>
-                <p><b>Article 6 — Réception.</b> Un procès-verbal de réception sera signé à la fin des travaux ; sa date de signature marque le début des garanties.</p>
-                <p><b>Article 7 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</p>
-                <p><b>Article 8 — Entrée en vigueur et caducité.</b> Le présent contrat entre en vigueur à sa signature. Le Client s'engage à effectuer le paiement prévu dans un délai maximum de sept (7) jours calendaires à compter de la signature, sauf accord écrit contraire. À défaut de paiement dans ce délai, le présent contrat devient automatiquement caduc, sans mise en demeure préalable. BMI TOGO se réserve le droit de suspendre toute intervention, réservation de matériel ou planification. Le Client pourra solliciter une nouvelle validation, pouvant donner lieu à un nouveau contrat et, le cas échéant, à une révision du devis.</p>
+                <p><b>Article 3 — Garanties des équipements.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement."}</p>
+                <p><b>Article 4 — Garantie d'installation.</b> BMI TOGO garantit les travaux d'installation pendant 12 mois à compter de la signature du procès-verbal de réception, contre tout défaut lié à la pose. En cas de dysfonctionnement, BMI TOGO procède d'abord à un diagnostic pour déterminer l'origine du problème. Si le défaut relève de l'installation, la réparation est prise en charge intégralement et gratuitement par BMI TOGO. Si le défaut relève de l'équipement lui-même, BMI TOGO accompagne le Client dans les démarches de prise en charge auprès du fabricant ou du fournisseur ; le remplacement ou la réparation est soumis aux conditions de garantie du fabricant, et les frais de main-d'œuvre, de déplacement ou de réinstallation pourront être facturés au Client si ceux-ci ne sont pas pris en charge par le fabricant.</p>
+                <p><b>Article 5 — Exclusions de garantie.</b> La garantie ne s'applique pas en cas de : catastrophe naturelle (foudre, inondation, incendie...) ; surtension ou défaut du réseau électrique ; mauvaise utilisation ou négligence ; défaut d'entretien ; modification, réparation ou intervention effectuée par une personne non autorisée par BMI TOGO ; usure normale des équipements.</p>
+                <p><b>Article 6 — Obligations de BMI TOGO.</b> Installer les équipements conformément aux règles de l'art, respecter les normes de sécurité, former le Client à l'utilisation du système.</p>
+                <p><b>Article 7 — Obligations du Client.</b> Régler les paiements conformément au devis accepté, faciliter l'accès au chantier, ne pas modifier l'installation sans accord écrit de BMI TOGO.</p>
+                <p><b>Article 8 — Réception.</b> Un procès-verbal de réception sera signé à la fin des travaux ; sa date de signature marque le début des garanties.</p>
+                <p><b>Article 9 — Résiliation volontaire.</b> Le Client peut renoncer au présent contrat à tout moment avant l'exécution des travaux, par notification écrite à BMI TOGO, sous réserve du remboursement des sommes déjà engagées par BMI TOGO pour la réservation de matériel ou la mobilisation d'équipe, le cas échéant.</p>
+                <p><b>Article 10 — Force majeure.</b> Aucune des parties ne pourra être tenue responsable d'un manquement à ses obligations résultant d'un cas de force majeure (retard d'approvisionnement, rupture d'importation, décision administrative, ou tout événement échappant au contrôle raisonnable de BMI TOGO). Les délais prévus au présent contrat seront alors suspendus jusqu'à la cessation de l'événement.</p>
+                <p><b>Article 11 — Confidentialité des données.</b> BMI TOGO s'engage à utiliser les informations personnelles du Client (identité, coordonnées, adresse) exclusivement dans le cadre de l'exécution du présent contrat, et à ne pas les communiquer à des tiers sans l'accord du Client, sauf obligation légale.</p>
+                <p><b>Article 12 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</p>
+                <p><b>Article 13 — Entrée en vigueur et caducité.</b> Le présent contrat entre en vigueur à sa signature. Le Client s'engage à effectuer le paiement prévu dans un délai maximum de sept (7) jours calendaires à compter de la signature, sauf accord écrit contraire. À défaut de paiement dans ce délai, le présent contrat devient automatiquement caduc, sans mise en demeure préalable. BMI TOGO se réserve le droit de suspendre toute intervention, réservation de matériel ou planification. Le Client pourra solliciter une nouvelle validation, pouvant donner lieu à un nouveau contrat et, le cas échéant, à une révision du devis.</p>
                 <p className="text-xs text-slate-500">Paiement prévu à la boutique <b>{boutique}</b>.</p>
               </div>
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
