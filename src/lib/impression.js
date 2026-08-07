@@ -11,8 +11,16 @@ import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./ca
 import { genererSVGCode128 } from "./barcode";
 
 // ============ REÇU CLIENT ============
-export function imprimerRecu(v, bq = {}) {
+export function imprimerRecu(v, bq = {}, produits = []) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // MODULE GARANTIES : si l'article vendu a une "Garantie boutique"
+  // renseignée sur sa fiche produit, on l'ajoute entre parenthèses après le
+  // nom — jamais si le champ est vide, pour ne rien changer aux reçus déjà
+  // habituels (demande Timo, cahier des charges garanties).
+  const garantieBoutiqueDe = (l) => {
+    const p = l.produit_id ? produits.find((x) => x.id === l.produit_id) : null;
+    return p?.garantie_boutique ? ` (Garantie : ${esc(p.garantie_boutique)})` : "";
+  };
   const logo = bq.logo || LOGO;
   const brut = brutVente(v);
   const net = totalVente(v);
@@ -86,7 +94,7 @@ export function imprimerRecu(v, bq = {}) {
       <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
       <tbody>
         ${lignesVente(v).map((l) => { const rl = Number(l.remise_ligne || 0); const net = Number(l.qte) * Number(l.pu) - rl;
-          return `<tr><td>${esc(l.article)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(net)}</td></tr>`; }).join("")}
+          return `<tr><td>${esc(l.article)}${garantieBoutiqueDe(l)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(net)}</td></tr>`; }).join("")}
       </tbody>
     </table>
 

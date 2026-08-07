@@ -386,7 +386,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       : `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}`);
     // Le reçu s'imprime immédiatement, sans clic supplémentaire : au comptoir,
     // l'encaissement et le reçu ne font qu'un geste.
-    try { imprimerRecu(vente, infoBq(boutique)); } catch {}
+    try { imprimerRecu(vente, infoBq(boutique), db.produits); } catch {}
     if (od) {
       setOrigineDevis(null); // consommé : une seule fiche d'installation par devis
       uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
@@ -609,7 +609,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
                 <td className="px-3 py-2">{v.paiement}</td>
                 <td className="px-3 py-2">{v.commercial || "—"}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <button onClick={() => imprimerRecu(v, infoBq(v.boutique))} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu">🖨</button>
+                  <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu">🖨</button>
                   <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className="text-xs font-bold text-green-700 underline" title="Envoyer par WhatsApp">WhatsApp</button>
                 </td>
                 <td className="px-3 py-2">

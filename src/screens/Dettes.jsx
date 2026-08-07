@@ -98,7 +98,7 @@ export function Dettes({ db, save, profile }) {
       ventes: [vente, ...db.ventes],
       dettes: db.dettes.map((x) => (x.id === r.id ? { ...x, statut: "livree", date_livraison: today(), vente_id: vente.id } : x)),
     }, `Livraison de la réservation de ${r.client} (${fmt(r.montant)}) — ${r.boutique}`);
-    imprimerRecu(vente, db.boutiques.find((b) => b.nom === r.boutique) || {});
+    imprimerRecu(vente, db.boutiques.find((b) => b.nom === r.boutique) || {}, db.produits);
   };
 
   const annulerReservation = async (r) => {

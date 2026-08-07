@@ -2,7 +2,7 @@
 // screens/EspaceClient.jsx — Espace du rôle Client : ses devis, ses
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { PAIEMENTS } from "../lib/constants";
@@ -205,7 +205,66 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // Il choisit la boutique où il ira payer. La demande part chez les vendeurs de
   // cette boutique, qui l'encaisseront. C'est le paiement qui déclenche
   // l'installation — pas la validation.
-  const validerDevis = async (d) => {
+  // ---- CONTRAT D'INSTALLATION — lu et signé AVANT que la validation du
+  // devis ne se poursuive (demande Timo : « il lit le contrat et signe
+  // avant de continuer »). Signature numérique capturée directement ici,
+  // dans l'app (pas via bmitogo.com, contrairement au PV de réception qui,
+  // lui, doit rester accessible sans compte). Un seul état possible pour ce
+  // contrat : signé — pas d'étape "en attente" séparée, il est créé au
+  // moment même de la signature.
+  const [contratOuvert, setContratOuvert] = useState(null); // devis en cours de lecture/signature
+  const [dessinEnCours, setDessinEnCours] = useState(false);
+  const canvasRef = useRef(null);
+  const aSigneRef = useRef(false);
+
+  const ouvrirContrat = (d) => {
+    const boutique = bqPaiement[d.id];
+    if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
+    setContratOuvert(d.id);
+    aSigneRef.current = false;
+  };
+
+  const positionCanvas = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const point = e.touches ? e.touches[0] : e;
+    return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+  };
+  const debuterTrait = (e) => {
+    e.preventDefault();
+    setDessinEnCours(true);
+    aSigneRef.current = true;
+    const ctx = canvasRef.current.getContext("2d");
+    const { x, y } = positionCanvas(e, canvasRef.current);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+  const continuerTrait = (e) => {
+    if (!dessinEnCours) return;
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext("2d");
+    const { x, y } = positionCanvas(e, canvasRef.current);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  };
+  const terminerTrait = () => setDessinEnCours(false);
+  const effacerSignature = () => {
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    aSigneRef.current = false;
+  };
+
+  const signerEtValider = async (d) => {
+    if (!aSigneRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
+    const signatureDataUrl = canvasRef.current.toDataURL("image/png");
+    const numeroContrat = `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
+    setContratOuvert(null);
+    await finaliserValidation(d, { contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today() });
+  };
+
+  const finaliserValidation = async (d, infosContrat) => {
     const boutique = bqPaiement[d.id];
     if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
     const infosBoutique = db.boutiques.find((b) => b.nom === boutique);
@@ -260,7 +319,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
       prospects: prospectsMaj,
       users: db.users.map((u) => (u.id === profile.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
-            ? { ...x, statut: "valide", boutique_paiement: boutique, boutique_adresse: infosBoutique?.adresse || "", boutique_tel: infosBoutique?.tel || "", boutique_lat: infosBoutique?.lat || null, boutique_lng: infosBoutique?.lng || null, valide_le: today(), commande_id: commande.id }
+            ? { ...x, statut: "valide", boutique_paiement: boutique, boutique_adresse: infosBoutique?.adresse || "", boutique_tel: infosBoutique?.tel || "", boutique_lat: infosBoutique?.lat || null, boutique_lng: infosBoutique?.lng || null, valide_le: today(), commande_id: commande.id, ...infosContrat }
             : x)) }
         : u)),
     }, `Devis ${fmt(d.total)} VALIDÉ par le client ${profile.nom} — paiement prévu à ${boutique}`);
@@ -292,6 +351,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
     }, `Mot de passe changé par le client ${profile.nom} lui-même`);
     uAlert("✅ Votre mot de passe a été changé. Utilisez-le dès votre prochaine connexion.");
   };
+
+  const garantiesDuDevis = (d) => (d.panier || [])
+    .map((l) => (db.produits || []).find((p) => p.id === l.produit_id))
+    .filter((p) => p?.garantie_fabricant)
+    .map((p) => `${p.nom} : garantie fabricant ${p.garantie_fabricant}${p.conditions_garantie ? ` (${p.conditions_garantie})` : ""}`);
 
   return (
     <div className="space-y-4">
@@ -451,7 +515,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                               {boutiquesVente(db).map((b) => <option key={b.nom} value={b.nom}>{b.nom}</option>)}
                             </select>
                           </Field>
-                          <button onClick={() => validerDevis(d)} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✅ JE VALIDE</button>
+                          <button onClick={() => ouvrirContrat(d)} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✅ JE VALIDE</button>
                         </div>
 
                         <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-sky-200">
@@ -634,6 +698,45 @@ export function EspaceClient({ db, profile, save, setTab }) {
         <button onClick={changerMonMotDePasse} className="px-4 py-2 rounded-lg bg-slate-800 text-white font-bold text-sm hover:bg-slate-900">Changer mon mot de passe</button>
       </Panel>
       <div className="text-xs text-slate-400">Utilisez l'onglet 💬 Messages pour écrire à nos équipes.</div>
+
+      {/* ═══════ CONTRAT D'INSTALLATION — lecture + signature obligatoires
+          avant que la validation du devis ne se poursuive ═══════ */}
+      {contratOuvert && (() => {
+        const d = mesDevis.find((x) => x.id === contratOuvert);
+        if (!d) return null;
+        const boutique = bqPaiement[d.id];
+        const garanties = garantiesDuDevis(d);
+        return (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+            <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5">
+              <div className="text-center mb-3">
+                <div className="font-bold text-lg text-sky-900">BMI TOGO — Contrat d'installation</div>
+                <div className="text-xs text-slate-400">NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div>
+              </div>
+              <div className="text-sm text-slate-700 space-y-2 mb-4">
+                <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de {fmt(d.total)} FCFA.</p>
+                <p><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</p>
+                <p><b>Article 3 — Garanties.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement."} Les travaux d'installation sont garantis 12 mois à compter de la signature du procès-verbal de réception.</p>
+                <p><b>Article 4 — Obligations de BMI TOGO.</b> Installer les équipements conformément aux règles de l'art, respecter les normes de sécurité, former le Client à l'utilisation du système.</p>
+                <p><b>Article 5 — Obligations du Client.</b> Régler les paiements conformément au devis accepté, faciliter l'accès au chantier, ne pas modifier l'installation sans accord écrit de BMI TOGO.</p>
+                <p><b>Article 6 — Réception.</b> Un procès-verbal de réception sera signé à la fin des travaux ; sa date de signature marque le début des garanties.</p>
+                <p><b>Article 7 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</p>
+                <p><b>Article 8 — Entrée en vigueur et caducité.</b> Le présent contrat entre en vigueur à sa signature. Le Client s'engage à effectuer le paiement prévu dans un délai maximum de sept (7) jours calendaires à compter de la signature, sauf accord écrit contraire. À défaut de paiement dans ce délai, le présent contrat devient automatiquement caduc, sans mise en demeure préalable. BMI TOGO se réserve le droit de suspendre toute intervention, réservation de matériel ou planification. Le Client pourra solliciter une nouvelle validation, pouvant donner lieu à un nouveau contrat et, le cas échéant, à une révision du devis.</p>
+                <p className="text-xs text-slate-500">Paiement prévu à la boutique <b>{boutique}</b>.</p>
+              </div>
+              <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
+              <canvas ref={canvasRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+                onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}
+                onTouchStart={debuterTrait} onTouchMove={continuerTrait} onTouchEnd={terminerTrait} />
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button onClick={effacerSignature} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+                <button onClick={() => signerEtValider(d)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer et valider</button>
+                <button onClick={() => setContratOuvert(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

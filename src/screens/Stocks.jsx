@@ -22,7 +22,8 @@ export function Stocks({ db, save, profile }) {
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
   const bq = profile.boutique || bqSel;
-  const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "" });
+  const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+  const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   const autres = db.boutiques.map((b) => b.nom).filter((n) => n !== bq);
 
   // ---- RAVITAILLEMENT : d'un magasin vers une boutique ----
@@ -215,8 +216,8 @@ export function Stocks({ db, save, profile }) {
   const ajouter = () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom d'article."); return; }
-    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "" }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
-    setF({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "" });
+    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "", garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
+    setF({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
     uAlert("Article ajouté !");
   };
 
@@ -610,6 +611,35 @@ export function Stocks({ db, save, profile }) {
             </Field>
           )}
         </div>
+
+        {/* MODULE GARANTIES — bouton "Autres informations" pour ne pas
+            surcharger la fiche produit (demande Timo, après discussion avec
+            ChatGPT sur la spec) : garantie boutique (affichée sur reçu/
+            facture, à côté du nom de l'article, uniquement si renseignée),
+            garantie fabricant (utilisée pour devis/contrat/SAV, jamais sur
+            le reçu), conditions, fiche technique, notes internes. */}
+        <button type="button" onClick={() => setAutresInfosOuvert(!autresInfosOuvert)} className="mt-3 text-xs font-bold text-sky-800 underline">
+          {autresInfosOuvert ? "▾" : "▸"} Autres informations (garanties, notes...)
+        </button>
+        {autresInfosOuvert && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <Field label="🏪 Garantie boutique — affichée sur reçu/facture">
+              <input className={inputCls} value={f.garantie_boutique} onChange={(e) => setF({ ...f, garantie_boutique: e.target.value })} placeholder="Ex : 12 mois" />
+            </Field>
+            <Field label="🏭 Garantie fabricant — pour devis/contrat/SAV">
+              <input className={inputCls} value={f.garantie_fabricant} onChange={(e) => setF({ ...f, garantie_fabricant: e.target.value })} placeholder="Ex : 10 ans" />
+            </Field>
+            <Field label="📄 Conditions de garantie (facultatif)">
+              <input className={inputCls} value={f.conditions_garantie} onChange={(e) => setF({ ...f, conditions_garantie: e.target.value })} placeholder="Ex : hors casse, hors surtension..." />
+            </Field>
+            <Field label="🔗 Fiche technique — lien (facultatif)">
+              <input className={inputCls} value={f.fiche_technique} onChange={(e) => setF({ ...f, fiche_technique: e.target.value })} placeholder="https://..." />
+            </Field>
+            <Field label="📝 Notes internes (facultatif)">
+              <input className={inputCls} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
+            </Field>
+          </div>
+        )}
         <div className="mt-3 flex gap-2 flex-wrap">
           <button onClick={ajouter} className={btnDark}>Ajouter</button>
           <button onClick={importerArticles} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importation rapide</button>
