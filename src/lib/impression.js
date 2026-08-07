@@ -301,9 +301,15 @@ export function imprimerContratInstallation(d, db) {
   #zone-impression .ctr-doc h1{text-align:center;font-size:16px;letter-spacing:1.5px;margin:10px 0 14px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
   #zone-impression .ctr-doc .art{margin:12px 0}
   #zone-impression .ctr-doc .art b{color:#1e5a8a}
-  #zone-impression .ctr-doc .sig{margin-top:22px;display:flex;justify-content:space-between;gap:20px}
-  #zone-impression .ctr-doc .sig .case{flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:11px}
-  #zone-impression .ctr-doc .sig img{max-height:70px;display:block;margin:0 auto 4px}
+  #zone-impression .ctr-doc .sig3-row{display:flex;align-items:flex-end;gap:6px;margin-top:22px}
+  #zone-impression .ctr-doc .sig3-head{font-weight:bold;margin-bottom:4px}
+  #zone-impression .ctr-doc .sig3-col{text-align:center;font-size:11px}
+  #zone-impression .ctr-doc .sig3-col:first-child{flex:0 0 150px}
+  #zone-impression .ctr-doc .sig3-col:last-child{flex:1}
+  #zone-impression .ctr-doc .sig3-col img.signature{max-height:55px;display:block;margin:6px auto 2px}
+  #zone-impression .ctr-doc .sig3-col .ligne{border-top:1px solid #333;padding-top:4px;margin-top:4px}
+  #zone-impression .ctr-doc .sig3-cachet{flex:0 0 110px;text-align:center;margin-right:30px}
+  #zone-impression .ctr-doc .sig3-cachet img{max-width:120px;opacity:0.9}
   #zone-impression .ctr-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
   </style>
   <div class="ctr-doc">
@@ -335,14 +341,20 @@ export function imprimerContratInstallation(d, db) {
 
     <div class="art">Fait à Lomé, le ${dFR(d.contrat_date_signature)}. Paiement prévu à la boutique ${esc(d.boutique_paiement || "—")}.</div>
 
-    <div class="sig">
-      <div class="case">
-        ${d.contrat_signature ? `<img src="${d.contrat_signature}" alt="Signature" />Signature du Client` : "Signature du Client<br>(en attente)"}
+    <div class="sig3-row">
+      <div class="sig3-col">
+        <div class="sig3-head">POUR BMI</div>
+        ${libelleRoleInitiateur}
+        ${initiateur?.signature_personnelle ? `<img class="signature" src="${initiateur.signature_personnelle}" alt="Signature" />` : "<br><br>"}
+        <div class="ligne">${initiateur ? esc(initiateur.nom) : "Nom de l'initiateur du devis"}</div>
       </div>
-      <div class="case">
-        ${`<img src="${cachet}" alt="Cachet BMI Togo" style="max-height:70px;opacity:0.9" /><br>`}
-        ${initiateur?.signature_personnelle ? `<img src="${initiateur.signature_personnelle}" alt="Signature" />` : ""}
-        ${libelleRoleInitiateur}${initiateur ? `<br><span style="font-size:10px">${esc(initiateur.nom)}</span>` : ""}
+      <div class="sig3-cachet">
+        <img src="${cachet}" alt="Cachet BMI Togo" />
+      </div>
+      <div class="sig3-col">
+        <div class="sig3-head">LE CLIENT</div>
+        ${d.contrat_signature ? `<img class="signature" src="${d.contrat_signature}" alt="Signature" />` : "<br><br>"}
+        <div class="ligne">${esc(client?.nom || "Nom du client")}</div>
       </div>
     </div>
 
