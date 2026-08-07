@@ -764,6 +764,33 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               <Info label="👷 Équipe" valeur={(c.equipe || []).length ? c.equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom}`).join(", ") : "Non affectée"} />
             </div>
 
+            {/* ADRESSE FORMELLE + GARANTIE — éditables ici, pas seulement à
+                la création : même défaut repéré pour la garantie que pour
+                l'adresse (Timo, en vérifiant après le correctif précédent).
+                Les chantiers créés avant ces champs (ou toute fiche à
+                corriger) doivent pouvoir les renseigner après coup. */}
+            {isAdmin && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-3 grid sm:grid-cols-2 gap-3">
+                <Field label="🏠 Adresse formelle (numéro, rue/quartier, ville) — pour le contrat">
+                  <div className="flex gap-2">
+                    <input className={inputCls} defaultValue={c.adresse_contrat || ""} placeholder="Ex : 12 Rue des Palmiers, Bè, Lomé"
+                      onBlur={(e) => {
+                        if (e.target.value === (c.adresse_contrat || "")) return;
+                        save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, adresse_contrat: e.target.value } : x)) }, `Adresse (contrat) mise à jour — ${c.nom} ${c.prenom || ""}`);
+                      }} />
+                  </div>
+                </Field>
+                <Field label="🛡 Garantie (mois) — pour le contrat">
+                  <input type="number" min="0" className={inputCls} defaultValue={c.garantie_mois ?? ""} placeholder="Ex : 24"
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (val === Number(c.garantie_mois || 0)) return;
+                      save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, garantie_mois: val } : x)) }, `Garantie mise à jour — ${c.nom} ${c.prenom || ""} (${val} mois)`);
+                    }} />
+                </Field>
+              </div>
+            )}
+
             {/* PROGRAMMATION — admin et responsable commercial */}
             {peutProgrammer && statutChantier(c) !== "receptionne" && (
               <div className="rounded-lg border-2 border-purple-300 bg-purple-50 p-3 mb-3">
