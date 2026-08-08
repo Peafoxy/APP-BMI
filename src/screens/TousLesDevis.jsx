@@ -74,16 +74,22 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const enAttenteDeRelance = (d) => (d.statut || "propose") === "propose" && joursDepuis(d.date) >= SEUIL_RELANCE_JOURS;
   const nbARelancer = tousDevis.filter(enAttenteDeRelance).length;
 
-  const devisFiltres = tousDevis.filter((d) => {
+  // Base pour les compteurs des onglets de statut : tous les AUTRES filtres
+  // s'appliquent (recherche, type, relance), mais PAS le statut lui-même —
+  // sinon le compteur d'un onglet non sélectionné retomberait toujours à 0.
+  const devisAvantStatut = tousDevis.filter((d) => {
     if (relanceSeule && !enAttenteDeRelance(d)) return false;
-    if (filtreStatut && (d.statut || "propose") !== filtreStatut) return false;
     if (filtreType && (d.type_devis || "solaire") !== filtreType) return false;
     if (recherche) {
       const texte = normNom(`${d.client?.nom_base || d.client?.nom || ""} ${d.par || ""}`);
       if (!texte.includes(normNom(recherche))) return false;
     }
     return true;
-  }).sort((a, b) =>
+  });
+  const compteStatut = (s) => (s ? devisAvantStatut.filter((d) => (d.statut || "propose") === s).length : devisAvantStatut.length);
+
+  const devisFiltres = devisAvantStatut.filter((d) => !filtreStatut || (d.statut || "propose") === filtreStatut)
+    .sort((a, b) =>
     (ORDRE_STATUT_DEVIS[a.statut || "propose"] - ORDRE_STATUT_DEVIS[b.statut || "propose"])
     || `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
 
@@ -106,26 +112,28 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="font-bold text-slate-800 mb-3">📋 Tous les devis {voitTout ? "" : "— les vôtres"}</div>
+        {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
+            juste sous le titre — pas un simple classement passif de la liste. */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"]].map(([id, label]) => (
+            <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
+              className={`px-3 py-1.5 rounded-full text-sm font-bold border transition-colors ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+              {label} <span className={`ml-1 ${filtreStatut === id ? "text-sky-200" : "text-slate-400"}`}>({compteStatut(id)})</span>
+            </button>
+          ))}
+        </div>
         {nbARelancer > 0 && (
           <button onClick={() => setRelanceSeule((v) => !v)} className={`mb-3 w-full text-left rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${relanceSeule ? "bg-amber-100 border-amber-400 text-amber-900" : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"}`}>
             ⚠️ {nbARelancer} devis proposé{nbARelancer > 1 ? "s" : ""} depuis plus de {SEUIL_RELANCE_JOURS} jours sans réponse — {relanceSeule ? "voir tous les devis" : "voir uniquement ceux-ci"}
           </button>
         )}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid sm:grid-cols-2 gap-2">
           <input className={inputCls} placeholder="Rechercher un client ou un vendeur…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
           <select className={inputCls} value={filtreType} onChange={(e) => setFiltreType(e.target.value)}>
             <option value="">Tous les types</option>
             <option value="solaire">☀️ Solaire</option>
             <option value="garage">🚪 Garage</option>
             <option value="autre">📦 Autre</option>
-          </select>
-          <select className={inputCls} value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)}>
-            <option value="">Tous les statuts</option>
-            <option value="propose">⏳ Proposé</option>
-            <option value="valide">✅ Validé</option>
-            <option value="paye">💰 Payé</option>
-            <option value="modification">✏️ Modification demandée</option>
-            <option value="rejete">❌ Rejeté</option>
           </select>
         </div>
       </div>
