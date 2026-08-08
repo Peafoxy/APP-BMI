@@ -211,6 +211,18 @@ export function imprimerPV(c, db) {
   const montant = vente ? totalVente(vente) : Number(c.frais_installation || 0);
   const avenant = c.avenant_statut === "signe";
   const chef = (c.equipe || []).find((e) => e.chef);
+  const chefCompte = chef ? (db.users || []).find((u) => u.nom === chef.nom) : null;
+  const cachet = (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT;
+  // Identification du projet (Timo, après relecture ChatGPT) : relie le PV
+  // au reste du dossier — n° de vente/facture, et n° du contrat
+  // d'installation signé avant travaux, retrouvé via la chaîne
+  // vente → commande → devis (aucun champ direct, jamais construit avant).
+  const commande = vente?.commande_id ? (db.commandes || []).find((cm) => cm.id === vente.commande_id) : null;
+  const devisOrigine = commande?.devis_id
+    ? (db.users || []).flatMap((u) => u.devis || []).find((d) => d.id === commande.devis_id)
+    : null;
+  const dateSignature = avenant ? c.avenant_date_signature : (c.contrat_date_signature || c.contrat_force_le);
+  const heureSignature = dateSignature && dateSignature.includes("T") ? dateSignature.slice(11, 16) : "";
   const html = `
   <style>
   #zone-impression .ctr-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto;line-height:1.6}
@@ -224,9 +236,15 @@ export function imprimerPV(c, db) {
   #zone-impression .ctr-doc .art b{color:#1e5a8a}
   #zone-impression .ctr-doc .etat{background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin:8px 0}
   #zone-impression .ctr-doc .reserve{color:#b91c1c;font-weight:bold}
-  #zone-impression .ctr-doc .sig{margin-top:22px;display:flex;justify-content:space-between;gap:20px}
-  #zone-impression .ctr-doc .sig .case{flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:11px}
-  #zone-impression .ctr-doc .sig img{max-height:70px;display:block;margin:0 auto 4px}
+  #zone-impression .ctr-doc .sig3-row{display:flex;align-items:flex-end;gap:6px;margin-top:22px}
+  #zone-impression .ctr-doc .sig3-head{font-weight:bold;margin-bottom:4px}
+  #zone-impression .ctr-doc .sig3-col{text-align:center;font-size:11px}
+  #zone-impression .ctr-doc .sig3-col:first-child{flex:0 0 150px}
+  #zone-impression .ctr-doc .sig3-col:last-child{flex:1}
+  #zone-impression .ctr-doc .sig3-col img.signature{max-height:55px;display:block;margin:6px auto 2px}
+  #zone-impression .ctr-doc .sig3-col .ligne{border-top:1px solid #333;padding-top:4px;margin-top:4px}
+  #zone-impression .ctr-doc .sig3-cachet{flex:0 0 110px;text-align:center;margin-right:30px}
+  #zone-impression .ctr-doc .sig3-cachet img{max-width:120px;opacity:0.9}
   #zone-impression .ctr-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
   </style>
   <div class="ctr-doc">
@@ -242,28 +260,40 @@ export function imprimerPV(c, db) {
     ${avenant ? `
     <div class="art"><b>Objet.</b> Le présent avenant constate que les réserves émises lors de la réception initiale (contrat N° ${esc(c.contrat_numero || "—")}) ont été corrigées par le Prestataire, à savoir : <i>${esc(c.contrat_reserve_texte || "—")}</i>. En signant, le Client confirme la réception définitive, sans réserve, de la prestation.</div>
     ` : `
-    <div class="art"><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>${esc(c.type_installation)}</b> réalisés à l'adresse suivante : <b>${esc(c.adresse_contrat || "—")}</b>, pour un montant total de <b>${fmt(montant)} FCFA</b>.</div>
+    <div class="art"><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>${esc(c.type_installation)}</b> réalisés à l'adresse suivante : <b>${esc(c.adresse_contrat || "—")}</b>, pour un montant total de <b>${fmt(montant)} FCFA</b>.
+    <div style="margin-top:6px;font-size:11px;color:#555">Identification du dossier — ${devisOrigine?.contrat_numero ? `N° du contrat d'installation : ${esc(devisOrigine.contrat_numero)} · ` : ""}${vente?.numero ? `N° de facture : ${esc(vente.numero)}` : "N° de facture : —"}</div></div>
     <div class="art"><b>Article 2 — Matériel installé.</b> ${(c.materiel || []).length > 0
       ? `<ul style="margin:6px 0 0 18px;padding:0">${c.materiel.map((m) => `<li>${esc(m.nom)} — quantité : ${esc(m.qte)}${m.serie ? ` — N° de série : ${esc(m.serie)}` : ""}</li>`).join("")}</ul>`
       : "Liste du matériel non renseignée."}${chef ? `<div style="margin-top:6px;font-size:11px;color:#555">Constaté par ${esc(chef.nom)}, chef d'équipe.</div>` : ""}</div>
     <div class="art etat"><b>Article 3 — État de la réception.</b> ${c.contrat_reserve_texte
-      ? `Le Client accepte les travaux <span class="reserve">avec les réserves suivantes</span>, que le Prestataire s'engage à corriger dans un délai raisonnable : <i>${esc(c.contrat_reserve_texte)}</i>.`
-      : "Le Client déclare accepter les travaux <b>sans réserve</b>."} Le système a été mis en service et testé en présence du Client au moment de la réception. Les documents remis (fiches techniques, consignes d'utilisation et de sécurité) ont été transmis au Client, conformément à l'Article 2 du contrat d'installation.</div>
+      ? `Le Client accepte les travaux <span class="reserve">avec les réserves suivantes</span>, que le Prestataire s'engage à corriger${c.reserves_delai ? ` avant le <b>${dFR(c.reserves_delai)}</b>` : " dans un délai raisonnable"} : <i>${esc(c.contrat_reserve_texte)}</i>.`
+      : "Le Client reconnaît que les travaux sont entièrement achevés conformément au devis accepté, testés en sa présence, et réceptionnés <b>sans réserve</b>."} Les documents remis (fiches techniques, consignes d'utilisation et de sécurité) ont été transmis au Client, conformément à l'Article 2 du contrat d'installation.</div>
     <div class="art"><b>Article 4 — Garantie.</b> Le Prestataire garantit les équipements installés contre tout défaut de fabrication ou d'installation pour une durée de <b>${esc(c.garantie_mois || "24")} mois</b> à compter de la date de signature, hors usure normale, mauvaise utilisation, ou intervention d'un tiers non autorisé.</div>
-    <div class="art"><b>Article 5 — Signature.</b> En signant ci-dessous, le Client reconnaît avoir vérifié la conformité des travaux et accepte les termes du présent procès-verbal.</div>
+    <div class="art"><b>Article 5 — Transfert de responsabilité.</b> À compter de la signature du présent procès-verbal, l'installation est réputée réceptionnée. La garde, l'utilisation et l'entretien de l'installation sont transférés au Client, sous réserve des garanties prévues à l'Article 4.</div>
+    <div class="art"><b>Article 6 — Signature.</b> En signant ci-dessous, le Client reconnaît avoir vérifié la conformité des travaux et accepte les termes du présent procès-verbal.</div>
     `}
 
-    <div class="art">Fait à Lomé, le ${dFR(avenant ? c.avenant_date_signature : (c.contrat_date_signature || c.contrat_force_le))}.${!avenant && c.date_entretien ? ` Prochain entretien recommandé : ${dFR(c.date_entretien)}.` : ""}</div>
+    <div class="art">Fait à Lomé, le ${dFR(dateSignature)}${heureSignature ? ` à ${heureSignature}` : ""}.${!avenant && c.date_entretien ? ` Prochain entretien recommandé : ${dFR(c.date_entretien)}.` : ""}</div>
 
-    <div class="sig">
-      <div class="case">
-        ${c.contrat_force_par
-          ? `<div style="color:#b91c1c;font-weight:bold">⚠ Réceptionné sans signature<br>par ${esc(c.contrat_force_par)} (BMI Togo)</div>`
-          : (avenant ? c.avenant_signature : c.contrat_signature)
-            ? `<img src="${avenant ? c.avenant_signature : c.contrat_signature}" alt="Signature" />Signature du Client`
-            : "Signature du Client<br>(en attente)"}
+    <div class="sig3-row">
+      <div class="sig3-col">
+        <div class="sig3-head">POUR BMI</div>
+        Chef d'équipe
+        ${chefCompte?.signature_personnelle ? `<img class="signature" src="${chefCompte.signature_personnelle}" alt="Signature" />` : "<br><br>"}
+        <div class="ligne">${chef ? esc(chef.nom) : "Nom du chef d'équipe"}</div>
       </div>
-      <div class="case">Pour BMI Togo</div>
+      <div class="sig3-cachet">
+        <img src="${cachet}" alt="Cachet BMI Togo" />
+      </div>
+      <div class="sig3-col">
+        <div class="sig3-head">LE CLIENT</div>
+        ${c.contrat_force_par
+          ? `<div style="color:#b91c1c;font-weight:bold;font-size:10px">⚠ Réceptionné sans signature<br>(forcé par ${esc(c.contrat_force_par)})</div>`
+          : (avenant ? c.avenant_signature : c.contrat_signature)
+            ? `<img class="signature" src="${avenant ? c.avenant_signature : c.contrat_signature}" alt="Signature" />`
+            : "<br><br>(en attente)"}
+        <div class="ligne">${esc(c.prenom)} ${esc(c.nom)}</div>
+      </div>
     </div>
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>

@@ -788,6 +788,15 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, garantie_mois: val } : x)) }, `Garantie mise à jour — ${c.nom} ${c.prenom || ""} (${val} mois)`);
                     }} />
                 </Field>
+                {c.contrat_reserve_texte && (
+                  <Field label="⏳ Délai convenu pour la levée des réserves — pour le PV">
+                    <input type="date" className={inputCls} defaultValue={c.reserves_delai || ""}
+                      onBlur={(e) => {
+                        if (e.target.value === (c.reserves_delai || "")) return;
+                        save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, reserves_delai: e.target.value } : x)) }, `Délai de levée des réserves fixé — ${c.nom} ${c.prenom || ""} (${e.target.value})`);
+                      }} />
+                  </Field>
+                )}
               </div>
             )}
 
