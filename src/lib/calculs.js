@@ -155,12 +155,15 @@ export function primesDeTechnicien(db, userId) {
 // (aucun filtre), un commercial ne voit que ses propres devis (filtre
 // `commercial`), un client ne voit que ses propres contrats (filtre
 // `clientId`). Un devis sans contrat_signature n'apparaît jamais ici.
-export function contratsInstallation(db, { commercial, clientId } = {}) {
+// `payeSeulement` (Timo) : tant que le devis n'est pas encaissé (statut
+// "paye"), seul l'admin peut le voir — l'initiateur et le client doivent
+// attendre l'encaissement pour accéder à leur contrat.
+export function contratsInstallation(db, { commercial, clientId, payeSeulement } = {}) {
   const out = [];
   for (const u of db.users || []) {
     if (clientId && u.id !== clientId) continue;
     for (const d of u.devis || []) {
-      if (d.contrat_signature && (!commercial || d.par === commercial)) out.push({ client: u, devis: d });
+      if (d.contrat_signature && (!commercial || d.par === commercial) && (!payeSeulement || d.statut === "paye")) out.push({ client: u, devis: d });
     }
   }
   return out.sort((a, b) => (b.devis.contrat_date_signature || "").localeCompare(a.devis.contrat_date_signature || ""));

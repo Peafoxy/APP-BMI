@@ -12,15 +12,19 @@ import { imprimerContratInstallation } from "../lib/impression";
 
 export function ContratsInstallation({ db, save, profile }) {
   const isClient = profile.role === "client";
+  const isAdmin = profile.role === "admin";
   // Seuls admin et responsable commercial ont une vue d'ensemble — tout
   // autre rôle qui peut initier un devis (commercial, technicien,
   // technicien BMI, gérant, vendeur) ne voit que SES propres contrats,
   // jamais ceux d'un collègue (élargi à ces rôles, demande Timo).
   const isSupervision = profile.role === "admin" || profile.role === "resp_commercial";
 
+  // Tant que le devis n'est pas encaissé, SEUL L'ADMIN peut voir le
+  // contrat — ni le client, ni l'initiateur (même le responsable
+  // commercial) n'y ont accès avant l'encaissement (demande Timo).
   const contrats = isClient
-    ? contratsInstallation(db, { clientId: profile.id })
-    : contratsInstallation(db, { commercial: isSupervision ? undefined : profile.nom });
+    ? contratsInstallation(db, { clientId: profile.id, payeSeulement: true })
+    : contratsInstallation(db, { commercial: isSupervision ? undefined : profile.nom, payeSeulement: !isAdmin });
 
   // ---- SIGNATURE PERSONNELLE — enregistrée UNE FOIS, réutilisée
   // automatiquement sur tous les contrats futurs de la personne (demande
@@ -98,10 +102,12 @@ export function ContratsInstallation({ db, save, profile }) {
         <div className="font-bold mb-1">📄 {isClient ? "Mes contrats" : "Contrats d'installation"}</div>
         <div className="text-xs text-slate-500 mb-3">
           {isClient
-            ? "Vos contrats d'installation signés, toujours accessibles ici."
-            : isSupervision
-              ? "Tous les contrats signés, tous initiateurs confondus."
-              : "Les contrats signés sur vos propres devis."}
+            ? "Vos contrats, une fois le paiement encaissé, sont accessibles ici."
+            : isAdmin
+              ? "Tous les contrats signés — y compris ceux en attente de paiement."
+              : isSupervision
+                ? "Tous les contrats déjà encaissés, tous initiateurs confondus."
+                : "Les contrats déjà encaissés sur vos propres devis."}
         </div>
 
         {contrats.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">Aucun contrat signé pour l'instant.</div>}

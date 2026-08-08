@@ -606,9 +606,6 @@ export function EspaceClient({ db, profile, save, setTab }) {
                               )}
                             </div>
                           )}
-                          {d.contrat_signature && (
-                            <button onClick={() => imprimerContratInstallation(d, db)} className="mt-3 px-4 py-1.5 rounded-lg bg-white border-2 border-sky-700 text-sky-800 font-bold text-xs hover:bg-sky-50">📄 Télécharger mon contrat</button>
-                          )}
                         </div>
                       );
                     })()}
@@ -619,6 +616,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                         <div className="text-sm text-slate-700 mt-1">
                           Réglé le {dFR(d.paye_le)} à {d.boutique_paiement}. Nos équipes vous contacteront pour convenir de la date. Suivez l'avancement ci-dessous.
                         </div>
+                        {d.contrat_signature && (
+                          <button onClick={() => imprimerContratInstallation(d, db)} className="mt-3 px-4 py-1.5 rounded-lg bg-white border-2 border-green-700 text-green-800 font-bold text-xs hover:bg-green-100">📄 Télécharger mon contrat</button>
+                        )}
                       </div>
                     )}
 

@@ -199,11 +199,18 @@ export function imprimerProforma(p, logo) {
 // page bmitogo.com au moment où le client signe) est intégrée si présente ;
 // sinon la zone reste vide (contrat pas encore signé, ou réception forcée
 // sans signature — cas exceptionnel, déjà signalé par ailleurs sur la fiche).
-export function imprimerContrat(c, db) {
+// ============ PROCÈS-VERBAL DE RÉCEPTION (ex-"imprimerContrat" — mal
+// nommé à l'origine, corrigé sur demande de Timo : ce document constate la
+// RÉCEPTION en fin de chantier, ce n'est pas le contrat signé avant
+// travaux). Enrichi du matériel posé (avec numéros de série si connus,
+// déjà saisi sur la fiche du chantier — jamais affiché avant) et du chef
+// d'équipe qui l'a constaté. ============
+export function imprimerPV(c, db) {
   const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const vente = db.ventes.find((v) => v.id === c.vente_id);
   const montant = vente ? totalVente(vente) : Number(c.frais_installation || 0);
   const avenant = c.avenant_statut === "signe";
+  const chef = (c.equipe || []).find((e) => e.chef);
   const html = `
   <style>
   #zone-impression .ctr-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto;line-height:1.6}
@@ -227,7 +234,7 @@ export function imprimerContrat(c, db) {
       <td><img src="${LOGO}" alt="BMI" /></td>
       <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
     </tr></table>
-    <h1>${avenant ? "AVENANT AU CONTRAT DE RÉCEPTION" : "CONTRAT DE RÉCEPTION DE PRESTATION"}${c.contrat_numero ? ` N° ${esc(c.contrat_numero)}` : ""}</h1>
+    <h1>${avenant ? "AVENANT AU PROCÈS-VERBAL DE RÉCEPTION" : "PROCÈS-VERBAL DE RÉCEPTION"}${c.contrat_numero ? ` N° ${esc(c.contrat_numero)}` : ""}</h1>
 
     <div class="art">Entre <b>BMI Togo</b> (Les Bâtiments Modernes et Intelligents), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, ci-après « le Prestataire »,<br>
     Et <b>${esc(c.prenom)} ${esc(c.nom)}</b>${c.tel ? `, tél. ${esc(c.tel)}` : ""}, ci-après « le Client »,</div>
@@ -235,15 +242,18 @@ export function imprimerContrat(c, db) {
     ${avenant ? `
     <div class="art"><b>Objet.</b> Le présent avenant constate que les réserves émises lors de la réception initiale (contrat N° ${esc(c.contrat_numero || "—")}) ont été corrigées par le Prestataire, à savoir : <i>${esc(c.contrat_reserve_texte || "—")}</i>. En signant, le Client confirme la réception définitive, sans réserve, de la prestation.</div>
     ` : `
-    <div class="art"><b>Article 1 — Objet.</b> Le présent contrat constate la réception, par le Client, des travaux de <b>${esc(c.type_installation)}</b> réalisés à l'adresse suivante : <b>${esc(c.adresse_contrat || "—")}</b>, pour un montant total de <b>${fmt(montant)} FCFA</b>.</div>
-    <div class="art etat"><b>Article 2 — État de la réception.</b> ${c.contrat_reserve_texte
+    <div class="art"><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>${esc(c.type_installation)}</b> réalisés à l'adresse suivante : <b>${esc(c.adresse_contrat || "—")}</b>, pour un montant total de <b>${fmt(montant)} FCFA</b>.</div>
+    <div class="art"><b>Article 2 — Matériel installé.</b> ${(c.materiel || []).length > 0
+      ? `<ul style="margin:6px 0 0 18px;padding:0">${c.materiel.map((m) => `<li>${esc(m.nom)} — quantité : ${esc(m.qte)}${m.serie ? ` — N° de série : ${esc(m.serie)}` : ""}</li>`).join("")}</ul>`
+      : "Liste du matériel non renseignée."}${chef ? `<div style="margin-top:6px;font-size:11px;color:#555">Constaté par ${esc(chef.nom)}, chef d'équipe.</div>` : ""}</div>
+    <div class="art etat"><b>Article 3 — État de la réception.</b> ${c.contrat_reserve_texte
       ? `Le Client accepte les travaux <span class="reserve">avec les réserves suivantes</span>, que le Prestataire s'engage à corriger dans un délai raisonnable : <i>${esc(c.contrat_reserve_texte)}</i>.`
-      : "Le Client déclare accepter les travaux <b>sans réserve</b>."}</div>
-    <div class="art"><b>Article 3 — Garantie.</b> Le Prestataire garantit les équipements installés contre tout défaut de fabrication ou d'installation pour une durée de <b>${esc(c.garantie_mois || "24")} mois</b> à compter de la date de signature, hors usure normale, mauvaise utilisation, ou intervention d'un tiers non autorisé.</div>
-    <div class="art"><b>Article 4 — Signature.</b> En signant ci-dessous, le Client reconnaît avoir vérifié la conformité des travaux et accepte les termes du présent contrat.</div>
+      : "Le Client déclare accepter les travaux <b>sans réserve</b>."} Le système a été mis en service et testé en présence du Client au moment de la réception. Les documents remis (fiches techniques, consignes d'utilisation et de sécurité) ont été transmis au Client, conformément à l'Article 2 du contrat d'installation.</div>
+    <div class="art"><b>Article 4 — Garantie.</b> Le Prestataire garantit les équipements installés contre tout défaut de fabrication ou d'installation pour une durée de <b>${esc(c.garantie_mois || "24")} mois</b> à compter de la date de signature, hors usure normale, mauvaise utilisation, ou intervention d'un tiers non autorisé.</div>
+    <div class="art"><b>Article 5 — Signature.</b> En signant ci-dessous, le Client reconnaît avoir vérifié la conformité des travaux et accepte les termes du présent procès-verbal.</div>
     `}
 
-    <div class="art">Fait à Lomé, le ${dFR(avenant ? c.avenant_date_signature : (c.contrat_date_signature || c.contrat_force_le))}.</div>
+    <div class="art">Fait à Lomé, le ${dFR(avenant ? c.avenant_date_signature : (c.contrat_date_signature || c.contrat_force_le))}.${!avenant && c.date_entretien ? ` Prochain entretien recommandé : ${dFR(c.date_entretien)}.` : ""}</div>
 
     <div class="sig">
       <div class="case">

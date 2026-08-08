@@ -10,7 +10,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
-import { imprimerContrat } from "../lib/impression";
+import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime } from "../lib/calculs";
 
@@ -417,18 +417,18 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const envoyerPourSignature = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin) { uAlert("Seul l'administrateur envoie le lien de signature."); return; }
-    if (!c.adresse_contrat) { uAlert("Merci de renseigner l'« Adresse formelle (pour le contrat) » sur la fiche de ce chantier avant d'envoyer le lien de signature."); return; }
+    if (!c.adresse_contrat) { uAlert("Merci de renseigner l'« Adresse formelle (pour le PV) » sur la fiche de ce chantier avant d'envoyer le lien de signature."); return; }
     if (!c.tel) { uAlert("Aucun numéro de téléphone enregistré pour ce client."); return; }
     const jeton = genererJetonSignature();
-    const numero = `CTR-${today().slice(0, 4)}-${c.id.slice(0, 6).toUpperCase()}`;
+    const numero = `PV-${today().slice(0, 4)}-${c.id.slice(0, 6).toUpperCase()}`;
     const lien = `https://bmitogo.com/signature/${jeton}`;
-    const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le contrat, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
+    const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le procès-verbal, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, contrat_jeton: jeton, contrat_numero: numero, contrat_statut: "attente_signature" }
         : x)),
-    }, `Lien de signature du contrat envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
+    }, `Lien de signature du PV envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
     window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
   };
 
@@ -441,7 +441,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (!isAdmin) return;
     if (!await uConfirm(
       `⚠ Vous êtes sur le point de marquer ce chantier « Réceptionné » SANS SIGNATURE du client.\n\n` +
-      `Aucun contrat n'existera pour cette installation. Cette exception doit rester rare.\n\n` +
+      `Aucun PV n'existera pour cette installation. Cette exception doit rester rare.\n\n` +
       `Confirmez-vous vraiment vouloir continuer ?`
     )) return;
     save({
@@ -462,7 +462,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const envoyerAvenant = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin) return;
-    if (!await uConfirm(`Les réserves de ${c.nom} ${c.prenom} ont-elles bien été corrigées ?\n\nUn nouveau lien de signature (avenant de levée de réserves, référençant le contrat ${c.contrat_numero || "initial"}) sera envoyé au client.`)) return;
+    if (!await uConfirm(`Les réserves de ${c.nom} ${c.prenom} ont-elles bien été corrigées ?\n\nUn nouveau lien de signature (avenant de levée de réserves, référençant le PV ${c.contrat_numero || "initial"}) sera envoyé au client.`)) return;
     const jeton = genererJetonSignature();
     const lien = `https://bmitogo.com/avenant/${jeton}`;
     const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nLes réserves signalées sur votre installation ont été corrigées. Merci de confirmer en signant l'avenant, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
@@ -668,7 +668,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             </Field>
           </div>
           <div className="lg:col-span-2">
-            <Field label="Adresse formelle (numéro, rue/quartier, ville) — pour le contrat de réception">
+            <Field label="Adresse formelle (numéro, rue/quartier, ville) — pour le PV de réception">
               <input className={inputCls} value={f.adresse_contrat} onChange={(e) => setF({ ...f, adresse_contrat: e.target.value })} placeholder="Ex : 12 Rue des Palmiers, Bè, Lomé" />
             </Field>
           </div>
@@ -771,7 +771,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                 corriger) doivent pouvoir les renseigner après coup. */}
             {isAdmin && (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-3 grid sm:grid-cols-2 gap-3">
-                <Field label="🏠 Adresse formelle (numéro, rue/quartier, ville) — pour le contrat">
+                <Field label="🏠 Adresse formelle (numéro, rue/quartier, ville) — pour le PV">
                   <div className="flex gap-2">
                     <input className={inputCls} defaultValue={c.adresse_contrat || ""} placeholder="Ex : 12 Rue des Palmiers, Bè, Lomé"
                       onBlur={(e) => {
@@ -780,7 +780,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       }} />
                   </div>
                 </Field>
-                <Field label="🛡 Garantie (mois) — pour le contrat">
+                <Field label="🛡 Garantie (mois) — pour le PV">
                   <input type="number" min="0" className={inputCls} defaultValue={c.garantie_mois ?? ""} placeholder="Ex : 24"
                     onBlur={(e) => {
                       const val = Number(e.target.value || 0);
@@ -1097,7 +1097,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       </span>
                     )}
                     {statutChantier(c) === "termine" && isAdmin && (
-                      <button onClick={() => forcerReceptionSansSignature(c)} className="text-xs font-bold text-red-700 border border-red-300 rounded px-2 py-1 hover:bg-red-50 mr-2" title="Cas exceptionnel — aucun contrat n'existera">⚠ Forcer sans signature</button>
+                      <button onClick={() => forcerReceptionSansSignature(c)} className="text-xs font-bold text-red-700 border border-red-300 rounded px-2 py-1 hover:bg-red-50 mr-2" title="Cas exceptionnel — aucun PV n'existera">⚠ Forcer sans signature</button>
                     )}
                     {statutChantier(c) === "reserves" && isAdmin && c.avenant_statut !== "attente_signature" && (
                       <button onClick={() => envoyerAvenant(c)} className="text-xs font-bold text-white bg-red-600 rounded px-2 py-1 hover:bg-red-700 mr-2">📤 Envoyer l'avenant (réserves corrigées)</button>
@@ -1106,7 +1106,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       <span className="text-xs font-bold text-sky-700 mr-2">📤 Avenant en attente de signature</span>
                     )}
                     {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
-                      <button onClick={() => imprimerContrat(c, db)} className="text-xs font-bold text-white bg-slate-700 rounded px-2 py-1 hover:bg-slate-800 mr-2">📄 Voir le contrat</button>
+                      <button onClick={() => imprimerPV(c, db)} className="text-xs font-bold text-white bg-slate-700 rounded px-2 py-1 hover:bg-slate-800 mr-2">📄 Voir le PV</button>
                     )}
                     <button onClick={() => ouvrirRepartition(c)} className="text-xs font-bold text-purple-700 underline mr-2">
                       🔧 Frais {Number(c.frais_installation || 0) > 0 ? `(${fmt(c.frais_installation)})` : ""}
