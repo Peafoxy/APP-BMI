@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
 import { toucher, boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 
 
 
@@ -443,6 +443,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   const totalArticles = totalRoles + sousTotalRails + totalAutres;
   const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis } = useTotauxDevis(totalArticles);
+  const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+  const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");   // compte client existant
@@ -506,6 +508,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       pct_transport: Number(pctTransport || 0),
       remise,
       pct_remise: Number(pctRemise || 0),
+      pct_acompte: Number(pctAcompte || 100),
+      montant_acompte: montantAcompte,
+      delai_installation: delaiInstallation.trim(),
     };
 
     envoyerDevisEtOuvrirWhatsApp({
@@ -714,6 +719,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           pctInstall={pctInstall} setPctInstall={setPctInstall} fraisInstallation={fraisInstallation}
           pctTransport={pctTransport} setPctTransport={setPctTransport} fraisTransport={fraisTransport}
           totalDevis={totalDevis} onConvertir={convertir}
+        />
+        <BlocConditionsPaiement
+          pctAcompte={pctAcompte} setPctAcompte={setPctAcompte}
+          delaiInstallation={delaiInstallation} setDelaiInstallation={setDelaiInstallation}
+          montantAcompte={montantAcompte} totalDevis={totalDevis}
         />
       </div>
 

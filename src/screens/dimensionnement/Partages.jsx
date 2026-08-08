@@ -86,6 +86,36 @@ export function useTotauxDevis(totalArticles) {
   return { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis };
 }
 
+// ---- Conditions de paiement — % d'acompte et délai d'installation propres
+// à CHAQUE devis (demande Timo : "pourcentage acompte par devis, pour
+// certains devis on exige un paiement à 100%"). Par défaut 100% (paiement
+// comptant), l'initiateur ajuste au cas par cas. Le délai d'installation
+// "varie d'un chantier à l'autre" — texte libre plutôt qu'un nombre fixe,
+// pour couvrir "15 jours ouvrés", "sous 3 semaines selon disponibilité du
+// matériel", etc. Réutilisé par le contrat d'installation généré à la
+// validation du devis.
+export function useConditionsPaiement() {
+  const [pctAcompte, setPctAcompte] = useState("100");
+  const [delaiInstallation, setDelaiInstallation] = useState("");
+  return { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation };
+}
+
+export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, montantAcompte, totalDevis }) {
+  return (
+    <div className="px-4 py-3 border-t border-slate-200 bg-amber-50 flex flex-wrap gap-4 items-end">
+      <Field label="💰 Acompte exigé pour démarrer (%)">
+        <div className="flex items-center gap-2">
+          <input type="number" min="1" max="100" step="5" value={pctAcompte} onChange={(e) => setPctAcompte(e.target.value)} className="w-20 rounded border border-slate-300 px-2 py-1 text-right" />
+          <span className="text-sm text-slate-600">% = <b>{fmt(montantAcompte)}</b>{Number(pctAcompte) < 100 ? ` (solde : ${fmt(totalDevis - montantAcompte)})` : ""}</span>
+        </div>
+      </Field>
+      <Field label="🗓 Délai d'installation indicatif">
+        <input type="text" value={delaiInstallation} onChange={(e) => setDelaiInstallation(e.target.value)} placeholder="Ex : 15 jours ouvrés à compter de la signature" className="rounded border border-slate-300 px-2 py-1 text-sm w-72" />
+      </Field>
+    </div>
+  );
+}
+
 // ---- Bloc « Envoyer le devis au client » : sélection/création du compte + bouton WhatsApp ----
 export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer }) {
   return (

@@ -8,7 +8,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -247,6 +247,8 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const totalBatterieSecours = batterieSecours ? Number(prixBatterieSecours || 0) : 0;
   const totalArticles = totalRoles + totalAutres + totalKitSolaire + totalBatterieSecours + sousTotalPorte;
   const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis } = useTotauxDevis(totalArticles);
+  const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+  const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
   const construirePanier = () => [
     ...(sousTotalPorte > 0 ? [{ produit_id: null, article: `Porte — ${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""} (${surfacePorte} m²)`, qte: surfacePorte, pu: prixM2Porte }] : []),
@@ -318,6 +320,9 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       pct_transport: Number(pctTransport || 0),
       remise,
       pct_remise: Number(pctRemise || 0),
+      pct_acompte: Number(pctAcompte || 100),
+      montant_acompte: montantAcompte,
+      delai_installation: delaiInstallation.trim(),
     };
 
     envoyerDevisEtOuvrirWhatsApp({
@@ -490,6 +495,11 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
           pctInstall={pctInstall} setPctInstall={setPctInstall} fraisInstallation={fraisInstallation}
           pctTransport={pctTransport} setPctTransport={setPctTransport} fraisTransport={fraisTransport}
           totalDevis={totalDevis} onConvertir={convertir}
+        />
+        <BlocConditionsPaiement
+          pctAcompte={pctAcompte} setPctAcompte={setPctAcompte}
+          delaiInstallation={delaiInstallation} setDelaiInstallation={setDelaiInstallation}
+          montantAcompte={montantAcompte} totalDevis={totalDevis}
         />
       </div>
 
