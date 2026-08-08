@@ -794,6 +794,39 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             })()}
           </>
         )}
+
+        {/* ---- ÉTAT DES MOTS DE PASSE STOCKÉS (lu localement, aucun appel réseau) ----
+             Guide la purge côté Supabase (supabase/purger-mots-de-passe.sql) :
+             la purge est SANS RISQUE dès qu'aucun compte n'est « à migrer ». */}
+        {(() => {
+          const forts = utilisateursActifs.filter((u) => u.pwd_salt && u.pwd_hash2);
+          const fantomes = forts.filter((u) => u.pwd !== undefined || u.pwd_hash !== undefined);
+          const anciens = utilisateursActifs.filter((u) => !(u.pwd_salt && u.pwd_hash2) && u.pwd_hash);
+          const enClair = utilisateursActifs.filter((u) => !(u.pwd_salt && u.pwd_hash2) && !u.pwd_hash && u.pwd !== undefined);
+          const aMigrer = [...anciens, ...enClair];
+          return (
+            <div className="mt-4 pt-3 border-t border-sky-100">
+              <div className="text-xs font-bold text-slate-500 uppercase mb-1.5">🔑 Format des mots de passe enregistrés</div>
+              <div className="flex flex-wrap gap-1.5 text-xs font-semibold">
+                <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200">🟢 Hachage fort : {forts.length}</span>
+                <span className={`px-2 py-0.5 rounded-full border ${anciens.length ? "bg-amber-50 text-amber-800 border-amber-300" : "bg-slate-50 text-slate-400 border-slate-200"}`}>🟠 Ancien hachage : {anciens.length}</span>
+                <span className={`px-2 py-0.5 rounded-full border ${enClair.length ? "bg-red-50 text-red-800 border-red-300" : "bg-slate-50 text-slate-400 border-slate-200"}`}>🔴 En clair : {enClair.length}</span>
+                {fantomes.length > 0 && <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">👻 Restes à nettoyer : {fantomes.length}</span>}
+              </div>
+              {aMigrer.length > 0 ? (
+                <div className="mt-2">
+                  <div className="text-xs text-slate-500 mb-1">Ces comptes doivent se <b>reconnecter une fois</b> (leur mot de passe sera automatiquement converti au format fort) avant de lancer la purge côté serveur :</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aMigrer.map((u) => <span key={u.id} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{u.nom}</span>)}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 text-xs font-bold text-green-700">✅ Tous les comptes actifs sont au format fort — la purge serveur (purger-mots-de-passe.sql) peut être lancée sans bloquer personne.</div>
+              )}
+              <div className="mt-1 text-[11px] text-slate-400">Cet état reflète les données de CET appareil (dernière synchronisation) — les comptes bloqués ne sont pas comptés.</div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ---- ZONE DANGEREUSE ---- */}

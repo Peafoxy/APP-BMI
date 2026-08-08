@@ -25,7 +25,13 @@ export function Login({ db, onLogin, save }) {
     if (!ok) { setErr("Mot de passe incorrect."); return; }
     // Migration transparente vers le hachage renforcé (sel individuel + PBKDF2),
     // qu'il s'agisse d'un ancien hachage à sel partagé ou d'un mot de passe en clair.
-    if (aMigrer && save) {
+    // ⚠ 2.99.43 : on nettoie AUSSI les champs « fantômes » — un compte déjà au
+    // format fort qui traînerait encore un vieux `pwd` (en clair) ou `pwd_hash`
+    // (ancien hachage faible), par exemple ramené par la synchronisation d'un
+    // appareil resté longtemps hors ligne. À la première connexion réussie,
+    // ces restes sont définitivement supprimés et la suppression se propage.
+    const resteAncienChamp = u.pwd !== undefined || (u.pwd_hash !== undefined && u.pwd_salt && u.pwd_hash2);
+    if ((aMigrer || resteAncienChamp) && save) {
       const nouveauxChamps = await definirMotDePasse(pwd);
       save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, ...nouveauxChamps } : x)) });
     }
