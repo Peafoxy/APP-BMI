@@ -85,6 +85,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 
     <div class="meta">
       <div><b>Numéro de reçu :</b> ${numero}</div>
+      ${v.numero_avant_collision ? `<div style="font-size:10px;color:#92400e">Annule et remplace le reçu n° ${esc(v.numero_avant_collision)} (renumérotation après saisie hors ligne simultanée — même vente, même montant).</div>` : ""}
       <div><b>Date :</b> ${dFR(v.date)}</div>
       <div><b>Heure :</b> ${esc(v.heure || "—")}</div>
     </div>

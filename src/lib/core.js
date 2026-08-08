@@ -146,6 +146,86 @@ export async function verifierMotDePasse(u, saisie) {
 }
 
 export const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "RCP");
+
+// ============ NUMÉROTATION DES VENTES (2.99.44 — Lot C) ============
+// ⚠ L'ancien calcul « nombre de ventes + 1 » produisait des DOUBLONS de
+// numéro de reçu dans deux cas réels :
+//   1. Une vente supprimée : la suivante reprenait le numéro de la dernière
+//      (10 ventes − 1 supprimée = compte 9 → prochain « n°10 », déjà émis).
+//   2. Deux appareils de la même boutique vendant HORS LIGNE en même temps :
+//      chacun comptait le même total local → même numéro des deux côtés.
+// Nouveau calcul : (plus grand numéro déjà attribué) + 1, avec vérification
+// finale que le numéro n'existe pas encore. Le cas n°1 disparaît totalement ;
+// le cas n°2 devient rare et, s'il survient quand même, il est réparé
+// automatiquement à la synchronisation (voir repararNumerosVentes).
+export const prochainNumeroVente = (db, boutique, date = today()) => {
+  const annee = String(date).slice(0, 4);
+  const prefixe = `${prefixeBoutique(boutique)}-${annee}-`;
+  const pris = new Set();
+  let maxSeq = 0;
+  for (const v of db.ventes || []) {
+    const n = String(v.numero || "");
+    if (!n.startsWith(prefixe)) continue;
+    pris.add(n);
+    const seq = parseInt(n.slice(prefixe.length), 10);
+    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+  }
+  let seq = maxSeq + 1;
+  while (pris.has(prefixe + String(seq).padStart(4, "0"))) seq += 1;
+  return prefixe + String(seq).padStart(4, "0");
+};
+
+// Répare les collisions de numéros (deux ventes portant le même numéro,
+// typiquement après une période hors ligne sur deux appareils).
+// Règle DÉTERMINISTE — identique sur tous les appareils, pour que chacun
+// aboutisse au MÊME résultat sans se contredire : parmi les ventes en
+// collision, la « première » (date, puis heure, puis id) GARDE son numéro ;
+// les autres reçoivent le prochain numéro libre de leur boutique/année, et
+// leur ancien numéro est conservé dans `numero_avant_collision` (le reçu
+// papier déjà imprimé reste ainsi retrouvable).
+// Renvoie null s'il n'y a rien à réparer.
+export function repararNumerosVentes(db) {
+  const parNumero = new Map();
+  for (const v of db.ventes || []) {
+    if (!v.numero) continue;
+    const liste = parNumero.get(v.numero) || [];
+    liste.push(v);
+    parNumero.set(v.numero, liste);
+  }
+  const groupes = [...parNumero.values()].filter((l) => l.length > 1);
+  if (!groupes.length) return null;
+  const pris = new Set([...parNumero.keys()]);
+  const corrections = [];
+  for (const liste of groupes) {
+    liste.sort((a, b) =>
+      String(a.date).localeCompare(String(b.date)) ||
+      String(a.heure || "").localeCompare(String(b.heure || "")) ||
+      String(a.id).localeCompare(String(b.id)));
+    for (const v of liste.slice(1)) {
+      const annee = String(v.date).slice(0, 4);
+      const prefixe = `${prefixeBoutique(v.boutique)}-${annee}-`;
+      let maxSeq = 0;
+      for (const n of pris) {
+        if (!n.startsWith(prefixe)) continue;
+        const s = parseInt(n.slice(prefixe.length), 10);
+        if (Number.isFinite(s) && s > maxSeq) maxSeq = s;
+      }
+      let seq = maxSeq + 1;
+      while (pris.has(prefixe + String(seq).padStart(4, "0"))) seq += 1;
+      const nouveau = prefixe + String(seq).padStart(4, "0");
+      pris.add(nouveau);
+      corrections.push({ id: v.id, ancien: v.numero, nouveau });
+    }
+  }
+  const parId = new Map(corrections.map((c) => [c.id, c]));
+  return {
+    ventes: db.ventes.map((v) => (parId.has(v.id)
+      ? { ...v, numero: parId.get(v.id).nouveau, numero_avant_collision: v.numero }
+      : v)),
+    corrections,
+  };
+}
+
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
 export const today = () => new Date().toISOString().slice(0, 10);

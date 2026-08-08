@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, telDigits, normPaiement } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { imprimerRecu } from "../lib/impression";
@@ -89,7 +89,11 @@ export function Dettes({ db, save, profile }) {
     if (manquants.length) { uAlert(`Stock insuffisant pour :\n${manquants.map((m) => m.nom).join("\n")}\n\nRavitaillez la boutique avant de livrer.`); return; }
     if (!await uConfirm(`Livrer la réservation de ${r.client} ?\n\n${(r.articles || []).length} article(s), ${fmt(r.montant)}\n\nLe stock sera déduit et la vente enregistrée.`)) return;
     const vente = {
-      id: uid(), date: today(), boutique: r.boutique, client: r.client, tel: r.tel,
+      // 2.99.44 (Lot C) : cette vente n'avait AUCUN numéro (le reçu affichait
+      // un numéro de secours dérivé de l'id) — elle entre maintenant dans la
+      // même numérotation séquentielle que les ventes normales.
+      id: uid(), numero: prochainNumeroVente(db, r.boutique),
+      date: today(), boutique: r.boutique, client: r.client, tel: r.tel,
       articles: r.articles, remise: 0, paiement: "Prépayé", avance: 0,
       commercial: null, responsable: null, apporteur: null, par: profile.nom, reservation_id: r.id,
     };

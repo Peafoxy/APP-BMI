@@ -44,7 +44,7 @@ import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
-import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
+import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
   uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
@@ -232,6 +232,29 @@ export default function App() {
     })();
   }, [db, profile]);
 
+  // ============ RÉPARATION DES COLLISIONS DE NUMÉROS (2.99.44 — Lot C) ============
+  // Si deux appareils hors ligne ont émis le même numéro de reçu, la
+  // synchronisation fait apparaître le doublon ici. La réparation est
+  // DÉTERMINISTE (voir repararNumerosVentes) : tous les appareils calculent
+  // la même correction, qui se propage ensuite normalement. L'ancien numéro
+  // reste conservé sur la vente (numero_avant_collision) et une ligne de
+  // journal est écrite — le reçu papier déjà imprimé reste retrouvable.
+  const chargerEtReparer = async () => {
+    const donnees = await chargerTout();
+    const r = repararNumerosVentes(donnees);
+    if (!r) return donnees;
+    const final = {
+      ...donnees,
+      ventes: r.ventes,
+      audits: [{
+        id: uid(), date: new Date().toISOString(), user: "Système",
+        action: `Collision de numéros de reçu réparée (ventes hors ligne simultanées) : ${r.corrections.map((c) => `${c.ancien} → ${c.nouveau}`).join(", ")}`,
+      }, ...(donnees.audits || [])],
+    };
+    try { await sauvegarderDiff(donnees, final); synchroniser(); } catch { /* réessaiera au prochain chargement */ }
+    return final;
+  };
+
   const setDb = (d) => {
     setColors(Object.fromEntries((d.boutiques || []).map((b) => [b.nom, b.couleur])));
     dbRef.current = d;
@@ -241,7 +264,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await initialiserDonnees(SEED);      // 1er lancement : données de départ
-      const donnees = await chargerTout(); // lecture de la base LOCALE (hors ligne OK)
+      const donnees = await chargerEtReparer(); // lecture LOCALE (hors ligne OK) + réparation éventuelle des numéros
       setDb(donnees);
 
       // Amorçage rapide et dédié de la table des comptes : indispensable sur un
@@ -281,7 +304,7 @@ export default function App() {
       demarrerSync(async (etat) => {       // sync Supabase en arrière-plan
         setSync(etat);
         if (etat.rafraichir) {
-          setDb(await chargerTout());
+          setDb(await chargerEtReparer());
           majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
         }
       });
@@ -293,7 +316,7 @@ export default function App() {
       // vide (vrai premier lancement). Ainsi, un nettoyage du navigateur suivi
       // d'une synchro ne réinstalle jamais de fausses boutiques par-dessus le serveur.
       const amorcageApresSync = async () => {
-        try { await amorcerSiVide(); setDb(await chargerTout()); } catch {}
+        try { await amorcerSiVide(); setDb(await chargerEtReparer()); } catch {}
       };
 
       // À CHAQUE OUVERTURE : synchronisation d'ouverture sûre.
@@ -384,7 +407,7 @@ export default function App() {
     setSyncEnCours(true);
     try {
       await synchroniser();
-      setDb(await chargerTout());
+      setDb(await chargerEtReparer());
     } finally {
       setSyncEnCours(false);          // s'arrête TOUJOURS, même en cas d'erreur
     }
@@ -416,7 +439,7 @@ export default function App() {
       } catch {}
       try { await synchroniserOuverture(); } catch {}
       try { await reconcilierMiroir(); } catch {}
-      setDb(await chargerTout());
+      setDb(await chargerEtReparer());
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
     })();

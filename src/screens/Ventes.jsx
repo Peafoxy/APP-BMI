@@ -9,7 +9,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, totalVente, prefixeBoutique, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
+import { uid, qteVente, resumeArticles, totalVente, prefixeBoutique, prochainNumeroVente, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp } from "../lib/impression";
 import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom } from "../lib/calculs";
@@ -259,8 +259,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
       : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""} ?`;
     if (!await uConfirm(messageConfirm)) return;
 
-    const annee = today().slice(0, 4);
-    const numero = `${prefixeBoutique(boutique)}-${annee}-${String(db.ventes.filter((x) => x.boutique === boutique && String(x.date).slice(0, 4) === annee).length + 1).padStart(4, "0")}`;
+    // 2.99.44 (Lot C) : numérotation robuste partagée — (max attribué) + 1,
+    // au lieu de « nombre de ventes + 1 » qui doublonnait après une
+    // suppression ou entre deux appareils hors ligne.
+    const numero = prochainNumeroVente(db, boutique);
     const vente = {
       id: uid(),
       numero,
@@ -416,7 +418,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
   // (ventes : date + heure ; proformas : date + horodatage précis).
   const cleDate = (x) => `${x.date || ""} ${x.heure || ""} ${x.ts || ""}`;
   const triDesc = (a, b) => cleDate(b).localeCompare(cleDate(a));
-  const listeFiltree = (!qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.client || ""} ${x.tel || ""}`).includes(qListe))).slice().sort(triDesc);
+  // ⚠ Lot C : l'ancien numéro d'une vente renumérotée après collision
+  // (numero_avant_collision) reste cherchable — c'est LUI qui figure sur le
+  // reçu papier déjà remis au client avant la réparation.
+  const listeFiltree = (!qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.numero_avant_collision || ""} ${x.client || ""} ${x.tel || ""}`).includes(qListe))).slice().sort(triDesc);
   const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(qListe))).slice().sort(triDesc);
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
@@ -600,7 +605,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
             {listeFiltree.map((v) => (
               <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}{v.heure ? ` ${v.heure}` : ""}</td>
-                <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}</td>
+                <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision.split("-").pop()}</span>}</td>
                 <td className="px-3 py-2 font-semibold">{resumeArticles(v)}</td>
                 <td className="px-3 py-2">{v.client || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{qteVente(v)}</td>
