@@ -10,9 +10,14 @@ import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
 
+// ============ ÉCHAPPEMENT HTML (partagé par tous les documents) ============
+// Une seule définition pour tout le fichier (elle était dupliquée 7 fois).
+// Le guillemet double est échappé aussi : sans cela, un nom contenant «"»
+// pouvait casser un attribut HTML (ex. alt="...") du document imprimé.
+const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 // ============ REÇU CLIENT ============
 export function imprimerRecu(v, bq = {}, produits = []) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   // MODULE GARANTIES : si l'article vendu a une "Garantie boutique"
   // renseignée sur sa fiche produit, on l'ajoute entre parenthèses après le
   // nom — jamais si le champ est vide, pour ne rien changer aux reçus déjà
@@ -133,7 +138,6 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 // bandeaux clairs, en-têtes de tableau bleus, total en bordure — sobre à
 // l'impression maintenant que les couleurs sortent réellement sur papier.
 export function imprimerProforma(p, logo) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const html = `
   <style>
   #zone-impression .prf-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
@@ -206,7 +210,6 @@ export function imprimerProforma(p, logo) {
 // déjà saisi sur la fiche du chantier — jamais affiché avant) et du chef
 // d'équipe qui l'a constaté. ============
 export function imprimerPV(c, db) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const vente = db.ventes.find((v) => v.id === c.vente_id);
   const montant = vente ? totalVente(vente) : Number(c.frais_installation || 0);
   const avenant = c.avenant_statut === "signe";
@@ -308,7 +311,6 @@ export function imprimerPV(c, db) {
 // EspaceClient.jsx — permet au client de retélécharger son contrat depuis
 // son espace, à tout moment après signature (demande Timo). ============
 export function imprimerContratInstallation(d, db) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const client = (db.users || []).find((u) => (u.devis || []).some((x) => x.id === d.id));
   // Cachet BMI Togo (2.99.29) : un seul cachet pour toute l'entreprise, quel
   // que soit l'initiateur — stocké sur chaque boutique (broadcast), comme
@@ -426,7 +428,6 @@ export function imprimerContratInstallation(d, db) {
 
 // ============ BON DE RAVITAILLEMENT ============
 export function imprimerBonRavitaillement(bon, db) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const bqSrc = (db.boutiques || []).find((b) => b.nom === bon.source) || {};
   const logo = bqSrc.logo || LOGO;
   const total = bon.lignes.reduce((s, l) => s + Number(l.qte || 0), 0);
@@ -479,7 +480,6 @@ export function imprimerBonRavitaillement(bon, db) {
 
 // ============ BULLETIN DE PAIE ============
 export function imprimerBulletin(u, mois, db) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const bq = (db.boutiques || []).find((b) => b.nom === u.boutique) || (db.boutiques || [])[0] || {};
   const logo = bq.logo || LOGO;
   const p = paieMois(u, mois);
@@ -613,7 +613,6 @@ export function recuWhatsApp(v, bq = {}) {
 // le lecteur n'arrive pas à scanner). Passe par le MÊME aperçu et
 // le même mécanisme d'impression que les autres documents.
 export function imprimerEtiquetteProduit(p) {
-  const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const svg = genererSVGCode128(p.code, { largeurModule: 2, hauteur: 60 });
   if (!svg) return false; // code invalide (caractères non ASCII) : on n'imprime rien de cassé
   // Espacement resserré (demande Timo) : le nom, le code-barres, le code en

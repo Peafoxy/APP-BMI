@@ -4,6 +4,17 @@ import { registerSW } from "virtual:pwa-register";
 import "./index.css";
 import App from "./App.jsx";
 
+// ============ PERSISTANCE DU STOCKAGE LOCAL ============
+// Sans cette demande, le navigateur (surtout sur téléphone) a le DROIT de
+// purger la base locale (IndexedDB) s'il manque d'espace — des ventes saisies
+// hors ligne pourraient disparaître avant d'avoir été synchronisées. Avec
+// elle, le stockage passe en mode « persistant » : le navigateur ne l'efface
+// plus de lui-même. C'est une simple demande : si elle est refusée, rien ne
+// change par rapport à avant.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 // ============ MISE À JOUR DE L'APPLICATION ============
 // L'application est une PWA : le téléphone garde une COPIE du code. Sans ce
 // mécanisme, il continue de servir l'ancienne version indéfiniment — c'est ce

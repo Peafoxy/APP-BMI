@@ -127,10 +127,22 @@ export default async function handler(req, res) {
     // Mot de passe correct : on efface l'historique d'échecs de ce compte.
     await reinitialiserEchecs(admin, id);
 
-    // Cherche si un compte d'authentification existe déjà pour cet utilisateur
-    const { data: liste, error: erreurListe } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (erreurListe) throw erreurListe;
-    const existant = liste.users.find((u) => u.email === email);
+    // Cherche si un compte d'authentification existe déjà pour cet utilisateur.
+    // ⚠ On parcourt TOUTES les pages (comme dans etat-auth.js) : au-delà de
+    // 1000 comptes, une seule page pouvait « manquer » un compte existant —
+    // il aurait alors été recréé, et la création aurait échoué (email déjà
+    // pris), bloquant la connexion de cet utilisateur.
+    let existant = null;
+    let page = 1;
+    for (;;) {
+      const { data: liste, error: erreurListe } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (erreurListe) throw erreurListe;
+      existant = (liste.users || []).find((u) => u.email === email) || null;
+      if (existant) break;
+      if (!liste.users || liste.users.length < 1000) break;
+      page += 1;
+      if (page > 20) break; // garde-fou, même limite qu'etat-auth
+    }
 
     if (existant) {
       const { error } = await admin.auth.admin.updateUserById(existant.id, { password: String(motDePasse) });

@@ -130,13 +130,26 @@ export function oublierSession() {
 // d'authentification Supabase ? Sans compte, ils ne pourront plus rien
 // synchroniser une fois la sécurité activée.
 export async function etatComptesAuth(ids) {
+  // ⚠ Depuis 2.99.42, le serveur exige l'identité de l'administrateur (vérifiée
+  // côté serveur, avec anti-« brute force ») : sans cela, n'importe qui pouvait
+  // lui demander quels comptes existent. Les identifiants de la session en
+  // cours sont gardés EN MÉMOIRE uniquement (voir plus haut) — s'ils sont
+  // absents (connexion faite hors ligne), on explique quoi faire.
+  if (!identifiants) {
+    return { ok: false, raison: "Vérification impossible : la session sécurisée n'a pas été établie. Déconnectez-vous puis reconnectez-vous avec une connexion internet active, et réessayez.", existants: [] };
+  }
   try {
     const reponse = await fetch(URL_ETAT_AUTH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ ids, id: identifiants.id, motDePasse: identifiants.motDePasse }),
     });
-    if (!reponse.ok) return { ok: false, raison: `Le serveur a répondu ${reponse.status}`, existants: [] };
+    if (!reponse.ok) {
+      const txt = await reponse.text().catch(() => "");
+      let msg = `Le serveur a répondu ${reponse.status}`;
+      try { const j = JSON.parse(txt); if (j.error) msg = j.error; } catch { /* réponse non JSON */ }
+      return { ok: false, raison: msg, existants: [] };
+    }
     const d = await reponse.json();
     return { ok: true, existants: d.existants || [], total: d.total || 0 };
   } catch (e) {
