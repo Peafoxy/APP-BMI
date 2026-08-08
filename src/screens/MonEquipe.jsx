@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider , ventesDuCommercial } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -28,11 +28,11 @@ export function MonEquipe({ db, save, profile }) {
   const equipe = db.users.filter((u) => u.actif !== false && u.role !== "client" && (
     ["commercial", "technicien", "technicien_bmi"].includes(u.role) ||
     Number(u.taux_commission || 0) > 0 ||
-    db.ventes.some((v) => v.commercial === u.nom)
+    ventesDuCommercial(db, u.nom).length > 0
   ));
 
   const stats = equipe.map((u) => {
-    const ventes = db.ventes.filter((v) => v.commercial === u.nom && inP(v.date, debut, fin));
+    const ventes = ventesDuCommercial(db, u.nom).filter((v) => inP(v.date, debut, fin));
     const enAttente = ventes.filter((v) => !v.commission_payee);
     const reglees = ventes.filter((v) => v.commission_payee);
     const ca = ventes.reduce((s, v) => s + totalVente(v), 0);
@@ -58,7 +58,7 @@ export function MonEquipe({ db, save, profile }) {
     if (!estAdmin) return;
     if (st.nbReglees === 0) { uAlert("Aucune commission réglée à annuler pour " + st.u.nom + " sur cette période."); return; }
     if (!await uConfirm(`⚠ ANNULER le règlement de commission de ${st.u.nom} sur cette période ?\n\n${st.nbReglees} vente(s) réglée(s), soit ${fmt(st.commissionReglee)} de commission, redeviendront « à payer ».`)) return;
-    const ventesConcernees = db.ventes.filter((v) => v.commercial === st.u.nom && inP(v.date, debut, fin) && v.commission_payee);
+    const ventesConcernees = ventesDuCommercial(db, st.u.nom).filter((v) => inP(v.date, debut, fin) && v.commission_payee);
     const ids = new Set(ventesConcernees.map((v) => v.id));
     // On retire aussi les dépenses « Commissions » générées par ces paiements
     const depsAnnulees = new Set(ventesConcernees.map((v) => v.commission_dep).filter(Boolean));
@@ -96,7 +96,7 @@ export function MonEquipe({ db, save, profile }) {
       let due = 0, versees = 0, ventesDues = [];
       filleulsDe(db, u).forEach((fu) => {
         const tu = Number(fu.taux_commission || 0);
-        db.ventes.filter((v) => v.commercial === fu.nom && inP(v.date, debut, fin)).forEach((v) => {
+        ventesDuCommercial(db, fu.nom).filter((v) => inP(v.date, debut, fin)).forEach((v) => {
           const part = Math.round((commissionVente(v, tu) * tauxEq) / 100);
           if (v.override_payee) versees += part; else { due += part; ventesDues.push(v.id); }
         });
@@ -223,7 +223,7 @@ export function MonEquipe({ db, save, profile }) {
     const bq = await choisirBoutiqueDebitG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`);
     if (bq === null) return;
     if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} (${fmt(st.caAttente)} de ventes × ${st.u.taux_commission ?? 0} %)\n\nSortie de caisse ${bq} : ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).`)) return;
-    const ids = new Set(db.ventes.filter((v) => v.commercial === st.u.nom && inP(v.date, debut, fin) && !v.commission_payee).map((v) => v.id));
+    const ids = new Set(ventesDuCommercial(db, st.u.nom).filter((v) => inP(v.date, debut, fin) && !v.commission_payee).map((v) => v.id));
     const dep = {
       id: uid(), date: today(), boutique: bq, categorie: "Commissions",
       description: `Commission — ${st.u.nom} (${ids.size} vente(s))`,

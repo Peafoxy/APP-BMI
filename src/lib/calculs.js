@@ -12,12 +12,48 @@ import { SALARIES } from "./constants";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 
 // ============ CALCULS ============
+// ═══════════ LOT D (2.99.45) : INDEX PRÉCALCULÉS ═══════════
+// Construit UNE FOIS par mise à jour des données (voir setDb dans App.jsx),
+// au lieu de reparcourir TOUTES les ventes pour CHAQUE produit à CHAQUE
+// rendu (Stocks passait de O(produits × ventes) à O(1) par produit, Équipe
+// de plusieurs balayages complets par commercial à une simple lecture).
+// `__index` n'est PAS une table : jamais sauvegardé (sauvegarderDiff ne
+// parcourt que TABLES), jamais dans le fichier de secours (voir sauvegarde.js).
+export function construireIndexDb(db) {
+  const venduParProduit = new Map();
+  const ventesParCommercial = new Map();
+  for (const v of db.ventes || []) {
+    for (const l of lignesVente(v)) {
+      if (l.produit_id) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
+    }
+    if (v.commercial) {
+      const liste = ventesParCommercial.get(v.commercial) || [];
+      liste.push(v);
+      ventesParCommercial.set(v.commercial, liste);
+    }
+  }
+  const ajusteParProduit = new Map();
+  for (const a of db.ajustements || []) {
+    ajusteParProduit.set(a.produit_id, (ajusteParProduit.get(a.produit_id) || 0) + Number(a.qte || 0));
+  }
+  return { venduParProduit, ventesParCommercial, ajusteParProduit };
+}
+
+// Les ventes d'un commercial — via l'index quand il est là, sinon balayage
+// (les tests unitaires et tout code recevant un db « nu » restent corrects).
+export const ventesDuCommercial = (db, nom) =>
+  db.__index ? (db.__index.ventesParCommercial.get(nom) || []) : (db.ventes || []).filter((v) => v.commercial === nom);
+
 export const stockVendu = (db, pid) =>
-  db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
+  db.__index
+    ? (db.__index.venduParProduit.get(pid) || 0)
+    : db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
 
 export const stockAjuste = (db, pid) =>
-  (db.ajustements || []).filter((a) => a.produit_id === pid)
-    .reduce((s, a) => s + Number(a.qte || 0), 0);
+  db.__index
+    ? (db.__index.ajusteParProduit.get(pid) || 0)
+    : (db.ajustements || []).filter((a) => a.produit_id === pid)
+        .reduce((s, a) => s + Number(a.qte || 0), 0);
 
 export const stockActuel = (db, p) =>
   Number(p.initial || 0) + Number(p.entrees || 0)

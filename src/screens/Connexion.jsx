@@ -13,6 +13,7 @@ import { synchroniserAuth } from "../supabaseClient";
 export function Login({ db, onLogin, save }) {
   const [nomSaisi, setNomSaisi] = useState("");
   const [pwd, setPwd] = useState("");
+  const [pwdVisible, setPwdVisible] = useState(false);
   const [err, setErr] = useState("");
   const [connexionEnCours, setConnexionEnCours] = useState(false);
   const go = async () => {
@@ -75,7 +76,12 @@ export function Login({ db, onLogin, save }) {
             <input className={inputCls} autoCapitalize="words" placeholder="Votre nom" value={nomSaisi} onChange={(e) => { setNomSaisi(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
           </Field>
           <Field label="Mot de passe">
-            <input type="password" className={inputCls} value={pwd} onChange={(e) => { setPwd(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
+            <div className="relative">
+              <input type={pwdVisible ? "text" : "password"} className={`${inputCls} pr-10`} value={pwd} onChange={(e) => { setPwd(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
+              <button type="button" tabIndex={-1} onClick={() => setPwdVisible((v) => !v)} aria-label={pwdVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={pwdVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">
+                {pwdVisible ? "🙈" : "👁"}
+              </button>
+            </div>
           </Field>
           {err && <div className="text-xs text-red-600 font-semibold">{err}</div>}
           <button onClick={go} disabled={connexionEnCours} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{connexionEnCours ? "Connexion…" : "Se connecter"}</button>

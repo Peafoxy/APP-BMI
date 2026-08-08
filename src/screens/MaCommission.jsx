@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { resumeArticles, totalVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
 import { Field, inputCls, Badge, Panel } from "../components/ui";
-import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionEnAttente, commissionPour } from "../lib/calculs";
+import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionEnAttente, commissionPour , ventesDuCommercial } from "../lib/calculs";
 
 // ============ MA COMMISSION (commerciaux et techniciens) ============
 export function MaCommission({ db, profile }) {
@@ -59,7 +59,7 @@ export function MaCommission({ db, profile }) {
   const jeSuisChef = estChefEquipe(db, moiLive);
   const tauxEquipe = Number(moiLive.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
   const detailEquipe = monEquipe.map((u) => {
-    const ventesU = db.ventes.filter((v) => v.commercial === u.nom && inP(v.date, debut, fin));
+    const ventesU = ventesDuCommercial(db, u.nom).filter((v) => inP(v.date, debut, fin));
     const tu = Number(u.taux_commission || 0);
     const comDue = ventesU.filter((v) => !v.commission_payee).reduce((s, v) => s + commissionVente(v, tu), 0);
     const comTotale = ventesU.reduce((s, v) => s + commissionVente(v, tu), 0);

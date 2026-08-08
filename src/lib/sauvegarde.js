@@ -3,11 +3,15 @@
 // écriture horaire automatique dans un dossier (File System API).
 // ============================================================
 import { today } from "./core";
-import { marquerSauvegardeAuto } from "../db";
+import { marquerSauvegardeAuto, TABLES } from "../db";
 
+// Le fichier de sauvegarde ne contient QUE les vraies tables — jamais les
+// champs techniques du db en mémoire (ex. __index du lot D, qui contient des
+// Map non sérialisables et se reconstruit tout seul au chargement).
+const donneesTables = (db) => Object.fromEntries(TABLES.map((t) => [t, db[t] || []]));
 
 export function telechargerSauvegarde(db, suffixe = "") {
-  const blob = new Blob([JSON.stringify(db, null, 1)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(donneesTables(db), null, 1)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `sauvegarde_bmi_${today()}${suffixe}.json`;
@@ -33,7 +37,7 @@ export async function ecrireDansDossier(db, handle) {
   }
   const fichier = await handle.getFileHandle(NOM_FICHIER_AUTO, { create: true });
   const flux = await fichier.createWritable();
-  await flux.write(JSON.stringify({ ...db, _sauvegarde: new Date().toISOString() }, null, 1));
+  await flux.write(JSON.stringify({ ...donneesTables(db), _sauvegarde: new Date().toISOString() }, null, 1));
   await flux.close();
   await marquerSauvegardeAuto();
 }

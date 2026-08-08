@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, totalVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { periodes } from "../lib/calculs";
+import { periodes , ventesDuCommercial } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
@@ -54,7 +54,7 @@ export function Commerciaux({ db, save }) {
 
   // Statistiques d'un commercial sur la période choisie
   const stats = (c) => {
-    const vs = db.ventes.filter((v) => v.commercial === c.nom && inP(v.date, debutP, finP));
+    const vs = ventesDuCommercial(db, c.nom).filter((v) => inP(v.date, debutP, finP));
     const ca = vs.reduce((s, v) => s + totalVente(v), 0);
     const commission = Math.round((ca * Number(c.taux)) / 100);
     const objectifP = nbMois && c.objectif > 0 ? c.objectif * nbMois : null;
