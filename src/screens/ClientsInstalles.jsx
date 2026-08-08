@@ -1032,8 +1032,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             <input className={`${inputCls} w-48`} placeholder="🔍 Rechercher..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
+        <div className="max-h-[625px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[820px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Numéro", "Installation", "Installé le", "Entretien", "Localisation", "Commercial", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Client", "Numéro", "Installation", "Installé le", "Entretien", "Localisation", "Commercial", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun client installé{q ? " ne correspond à la recherche" : " pour l'instant"}.</td></tr>}
             {listeGroupee.map((c, idx) => {
@@ -1130,6 +1131,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="text-xs text-slate-400">🔑 = fiche liée à un compte d'accès client. ⚠ fond orange = entretien dû. Les commerciaux ne voient que leurs propres clients ; l'administrateur, les techniciens et les chefs d'équipe voient tout le parc.</div>
     </div>

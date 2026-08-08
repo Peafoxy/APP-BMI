@@ -37,6 +37,12 @@ function joursDepuis(dateStr) {
 }
 const SEUIL_RELANCE_JOURS = 15;
 
+// ⚠ Demande Timo : la liste est classée par STATUT (proposé → validé → payé →
+// modification demandée → rejeté), et à l'intérieur d'un même statut, du plus
+// récent au plus ancien (ordre déjà en place avant ce classement).
+const ORDRE_STATUT_DEVIS = { propose: 0, valide: 1, paye: 2, modification: 3, rejete: 4 };
+const NB_DEVIS_AFFICHES = 7;
+
 export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
 
@@ -77,7 +83,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       if (!texte.includes(normNom(recherche))) return false;
     }
     return true;
-  });
+  }).sort((a, b) =>
+    (ORDRE_STATUT_DEVIS[a.statut || "propose"] - ORDRE_STATUT_DEVIS[b.statut || "propose"])
+    || `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
 
   const telechargerPDF = (d) => {
     genererDevis({
@@ -126,7 +134,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         {devisFiltres.length === 0 ? (
           <div className="p-6 text-center text-sm text-slate-400">Aucun devis{voitTout ? "" : " établi par vous"} pour l'instant.</div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 max-h-[455px] overflow-y-auto">
             {devisFiltres.map((d) => (
               <div key={d.id}>
                 <button onClick={() => ouvrirDevis(d)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50 flex-wrap">

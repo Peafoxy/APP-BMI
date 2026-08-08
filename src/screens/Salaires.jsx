@@ -77,8 +77,9 @@ export function SalairesAdmin({ db, save, profile }) {
         {lignes.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-6">Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier ou Technicien BMI.</div>
         ) : (
+          <div className="max-h-[460px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm min-w-[860px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Employé", "Base", "Primes", "Avances", "Retenue crédit", "Net", "Versé", "Reste", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Employé", "Base", "Primes", "Avances", "Retenue crédit", "Net", "Versé", "Reste", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>
               {lignes.map(({ u, p, credit }) => (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-sky-50">
@@ -115,6 +116,7 @@ export function SalairesAdmin({ db, save, profile }) {
               </tr>
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

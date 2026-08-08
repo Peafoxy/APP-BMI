@@ -478,7 +478,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
             </div>
 
             <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Field label={origineDevis ? "Payeur (si différent du client)" : "Client (facultatif)"}><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : ""} /></Field>
+              <Field label={origineDevis ? "Payeur (si différent du client)" : "Client"}><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : ""} /></Field>
               <Field label={origineDevis ? "Son numéro" : "Numéro du client"}><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
               {origineDevis ? (
                 Number(f.remise || 0) > 0 && (
@@ -487,7 +487,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
                   </Field>
                 )
               ) : (
-                <Field label="Remise (%) — facultatif"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
+                <Field label="Remise (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
               )}
               {f.commercial && tauxCom > 0 && (
                 <Field label={`Rabais offert par ${f.commercial} (F)`}>
@@ -495,6 +495,26 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
                   <div className="text-xs text-orange-600 mt-1 font-semibold">
                     Maximum : {fmt(rabaisMax)} — pris sur sa commission, pas sur la marge BMI.
                   </div>
+                </Field>
+              )}
+              {(profile.role === "commercial" || f.commercial) ? (
+                <Field label="Commercial"><input className={inputCls} value={f.commercial || profile.nom} disabled /></Field>
+              ) : commerciaux.length > 0 && (
+                <Field label="Commercial">
+                  <select className={inputCls} value={f.commercial} onChange={(e) => setF({ ...f, commercial: e.target.value })}>
+                    <option value="">— Aucun —</option>
+                    {commerciaux.map((c) => <option key={c.id} value={c.nom}>{c.nom}{c.taux ? ` — ${c.taux} %` : ""}</option>)}
+                  </select>
+                </Field>
+              )}
+              <Field label="Paiement">
+                <select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>
+                  {PAIEMENTS.map((p) => <option key={p}>{p}</option>)}
+                </select>
+              </Field>
+              {f.paiement === "Crédit (dette)" && (
+                <Field label="Avance versée">
+                  <input type="number" min="0" placeholder="0" className={inputCls} value={f.avance || ""} onChange={(e) => setF({ ...f, avance: e.target.value })} />
                 </Field>
               )}
               <div className="sm:col-span-2 lg:col-span-4">
@@ -514,26 +534,6 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
                   </div>
                 )}
               </div>
-              <Field label="Paiement">
-                <select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>
-                  {PAIEMENTS.map((p) => <option key={p}>{p}</option>)}
-                </select>
-              </Field>
-              {f.paiement === "Crédit (dette)" && (
-                <Field label="Avance versée (facultatif)">
-                  <input type="number" min="0" placeholder="0" className={inputCls} value={f.avance || ""} onChange={(e) => setF({ ...f, avance: e.target.value })} />
-                </Field>
-              )}
-              {(profile.role === "commercial" || f.commercial) ? (
-                <Field label="Commercial"><input className={inputCls} value={f.commercial || profile.nom} disabled /></Field>
-              ) : commerciaux.length > 0 && (
-                <Field label="Commercial (facultatif)">
-                  <select className={inputCls} value={f.commercial} onChange={(e) => setF({ ...f, commercial: e.target.value })}>
-                    <option value="">— Aucun —</option>
-                    {commerciaux.map((c) => <option key={c.id} value={c.nom}>{c.nom}{c.taux ? ` — ${c.taux} %` : ""}</option>)}
-                  </select>
-                </Field>
-              )}
             </div>
 
             {(fraisInstallDevis > 0 || fraisTransportDevis > 0) && (

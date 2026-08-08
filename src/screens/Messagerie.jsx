@@ -82,6 +82,12 @@ export function Messagerie({ db, save, profile }) {
 
   const nonLusPour = (c) => messagesDe(c).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id)).length;
 
+  // ⚠ Demande Timo : les fils avec des messages non lus remontent TOUJOURS en
+  // première position dans chaque liste — tri stable (ne change pas l'ordre
+  // entre deux fils tous deux lus, ou tous deux non lus).
+  const nonLusEnPremier = (liste, cOf) =>
+    liste.map((x) => ({ x, nb: nonLusPour(cOf(x)) })).sort((a, b) => (b.nb > 0) - (a.nb > 0)).map((e) => e.x);
+
   const ouvrir = (c) => {
     setConv(c);
     setGestionMembres(false);
@@ -158,7 +164,7 @@ export function Messagerie({ db, save, profile }) {
           {!estClient && mesClientsEnTantQueChef.length > 0 && (
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👷 Mes clients (chef d'équipe)</div>
-              {mesClientsEnTantQueChef.map((u) => {
+              {nonLusEnPremier(mesClientsEnTantQueChef, (u) => ({ type: "user", id: u.id })).map((u) => {
                 const c = { type: "user", id: u.id };
                 const nb = nonLusPour(c);
                 return (
@@ -173,7 +179,7 @@ export function Messagerie({ db, save, profile }) {
           {!estClient && clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).length > 0 && (
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👤 Clients qui vous ont écrit</div>
-              {clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).map((u) => {
+              {nonLusEnPremier(clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)), (u) => ({ type: "user", id: u.id })).map((u) => {
                 const c = { type: "user", id: u.id };
                 const nb = nonLusPour(c);
                 return (
@@ -188,7 +194,7 @@ export function Messagerie({ db, save, profile }) {
           {!estClient && clientsAvecFil.length > 0 && (
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">🛟 Support clients</div>
-              {clientsAvecFil.map((u) => {
+              {nonLusEnPremier(clientsAvecFil, (u) => ({ type: "client", id: u.id })).map((u) => {
                 const c = { type: "client", id: u.id };
                 const nb = nonLusPour(c);
                 return (
@@ -207,7 +213,7 @@ export function Messagerie({ db, save, profile }) {
                 {isAdmin && <button onClick={() => setCreationGroupe(true)} className="text-sky-800 font-bold normal-case text-xs">+ Nouveau</button>}
               </div>
               {mesGroupes.length === 0 && <div className="px-4 py-3 text-xs text-slate-400">{isAdmin ? "Créez un groupe pour discuter avec plusieurs collaborateurs à la fois." : "Aucun groupe pour l'instant."}</div>}
-              {mesGroupes.map((g) => {
+              {nonLusEnPremier(mesGroupes, (g) => ({ type: "groupe", id: g.id })).map((g) => {
                 const c = { type: "groupe", id: g.id };
                 const nb = nonLusPour(c);
                 return (
@@ -222,7 +228,7 @@ export function Messagerie({ db, save, profile }) {
           {contacts.length > 0 && (
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👤 Équipe</div>
-              {contacts.map((u) => {
+              {nonLusEnPremier(contacts, (u) => ({ type: "user", id: u.id })).map((u) => {
                 const c = { type: "user", id: u.id };
                 const nb = nonLusPour(c);
                 return (
