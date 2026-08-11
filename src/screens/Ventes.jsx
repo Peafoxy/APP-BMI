@@ -9,7 +9,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, totalVente, prefixeBoutique, prochainNumeroVente, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
+import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp } from "../lib/impression";
 import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom } from "../lib/calculs";
@@ -17,7 +17,24 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
 // ============ VENTES ============
-export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
+// Convertit les articles d'une vente (déjà nets de leur remise de ligne — voir
+// le correctif 2.99.50) en lignes de devis libre, catégorie "Autres
+// équipements" : c'est cette catégorie qu'Autre.jsx accepte sans devoir
+// appartenir au stock d'une catégorie précise — indispensable puisqu'une
+// vente peut mélanger des articles de catégories très différentes.
+function lignesVenteEnAutres(v) {
+  return lignesVente(v).map((l) => {
+    const net = Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);
+    // ⚠ Cette vente a DÉJÀ été comptée dans le chiffre d'affaires et les
+    // commissions le jour où elle a été encaissée — hors_boutique=true évite
+    // de la recompter une seconde fois quand ce nouveau devis deviendra à son
+    // tour une vente. Seuls les articles ajoutés APRÈS coup (par le vendeur,
+    // dans l'écran qui s'ouvre) entreront dans le CA de cette nouvelle vente.
+    return { categorie: "Autres équipements", article: l.article, qte: Number(l.qte || 0), pu: net / Math.max(1, Number(l.qte || 0)), total: net, hors_boutique: true };
+  });
+}
+
+export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
   const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
   const boutique = profile.boutique || bq;
@@ -405,6 +422,30 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
     }
   };
 
+  // ⚠ Demande Timo : reprendre une vente déjà encaissée pour en faire un devis
+  // (libre, comme « Autre ») — le client peut ainsi demander d'ajouter des
+  // équipements + une installation, avec le même parcours qu'un devis normal
+  // (signature du contrat, programmation du chantier). Réservé à l'admin, au
+  // responsable commercial, et au vendeur qui a fait CETTE vente précise.
+  const peutTransformerEnDevis = (v) => profile.role === "admin" || profile.role === "resp_commercial" || v.par === profile.nom;
+  const transformerEnDevis = async (v) => {
+    if (!(await uConfirm(`Transformer la vente ${numeroRecu(v)} (${fmt(totalVente(v))}) en devis d'installation ?\n\nLes articles de la vente serviront de point de départ — vous pourrez en ajouter d'autres, comme pour un devis normal.`))) return;
+    // Client : on tente de retrouver un compte existant par téléphone (le plus
+    // fiable) pour pré-remplir le destinataire ; sinon le vendeur le choisira
+    // ou en créera un, exactement comme pour un devis créé de zéro.
+    const clientTrouve = v.tel ? db.users.find((u) => u.role === "client" && telDigits(u.tel) && telDigits(u.tel) === telDigits(v.tel)) : null;
+    onTransformerEnDevis({
+      depuis_vente: true,
+      client: clientTrouve || null,
+      devis: {
+        type_devis: "autre",
+        total: totalVente(v),
+        vente_numero: numeroRecu(v),
+        lignes: lignesVenteEnAutres(v),
+      },
+    });
+  };
+
   const liste = db.ventes.filter((v) => v.boutique === boutique);
   const totalJour = liste.filter((v) => String(v.date) === today()).reduce((s, v) => s + totalVente(v), 0);
 
@@ -617,7 +658,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme }) {
                   <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu">🖨</button>
                   <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className="text-xs font-bold text-green-700 underline" title="Envoyer par WhatsApp">WhatsApp</button>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {peutTransformerEnDevis(v) && onTransformerEnDevis && (
+                    <button onClick={() => transformerEnDevis(v)} className="text-xs font-bold text-purple-700 underline mr-2" title="Reprendre cette vente pour en faire un devis d'installation">📋 Devis</button>
+                  )}
                   {profile.role === "admin" && (
                     <button onClick={() => supprimerVente(v)} className="text-xs text-red-600 underline">Suppr.</button>
                   )}

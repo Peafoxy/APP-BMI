@@ -145,10 +145,11 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // disparaissaient à la reprise.
   const initialSelectionGarage = (() => {
     if (!lignesReprises.length || !devisAReprendre) return undefined;
-    const choix = {}, verrous = {};
+    const choix = {}, verrous = {}, hb = {};
     ROLES_EQUIPEMENT_GARAGE.forEach((role) => {
       const ligne = lignesReprises.find((l) => l.categorie === role.label);
       if (!ligne) return;
+      if (ligne.hors_boutique) hb[role.id] = true;
       const options = candidats(role);
       const trouve = options.find((o) => o.p.nom === ligne.article);
       choix[role.id] = trouve
@@ -156,8 +157,10 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
         : { type: "manuel", nom: ligne.article, prix: Number(ligne.pu) || 0, qte: Number(ligne.qte) || 1 };
       verrous[role.id] = true;
     });
-    return { choix, verrous };
+    return { choix, verrous, hb };
   })();
+
+  const [rolesHB, setRolesHB] = useState(() => initialSelectionGarage?.hb || {});
 
   const {
     choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel,
@@ -188,6 +191,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     if (initialSelectionGarage) {
       setChoix(initialSelectionGarage.choix || {});
       setVerrous(initialSelectionGarage.verrous || {});
+      setRolesHB(initialSelectionGarage.hb || {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
@@ -236,7 +240,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // ---- Autres équipements : coffret de commande, câblage… ----
   const [autres, setAutres] = useState(() =>
     lignesReprises.filter((l) => l.categorie === "Autres équipements")
-      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique }))
   );
   const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
   const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
@@ -252,10 +256,10 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
 
   const construirePanier = () => [
     ...(sousTotalPorte > 0 ? [{ produit_id: null, article: `Porte — ${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""} (${surfacePorte} m²)`, qte: surfacePorte, pu: prixM2Porte }] : []),
-    ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
+    ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
     ...(kitSolaire && totalKitSolaire > 0 ? [{ produit_id: null, article: "Kit solaire autonome (motorisation)", qte: 1, pu: totalKitSolaire }] : []),
     ...(batterieSecours && totalBatterieSecours > 0 ? [{ produit_id: null, article: "Batterie de secours (externe)", qte: 1, pu: totalBatterieSecours }] : []),
-    ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
+    ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
   ];
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
@@ -301,13 +305,13 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
         ...(sousTotalPorte > 0 ? [{ categorie: "Porte", article: `Porte — ${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""} (${surfacePorte} m²)`, qte: surfacePorte, pu: prixM2Porte, total: sousTotalPorte }] : []),
         ...lignesDevis.filter((l) => l.produit).map((l) => ({
           categorie: l.role.label, article: l.produit.nom, qte: l.qte,
-          pu: l.produit.prix_vente, total: l.sousTotal,
+          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
         })),
         ...(kitSolaire && totalKitSolaire > 0 ? [{ categorie: "Alimentation", article: "Kit solaire autonome (motorisation)", qte: 1, pu: totalKitSolaire, total: totalKitSolaire }] : []),
         ...(batterieSecours && totalBatterieSecours > 0 ? [{ categorie: "Alimentation", article: "Batterie de secours (externe)", qte: 1, pu: totalBatterieSecours, total: totalBatterieSecours }] : []),
         ...autres.filter((a) => a.nom).map((a) => ({
           categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
-          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1),
+          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
         })),
         ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
         ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
@@ -407,7 +411,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Équipements proposés (stock de {boutique})</div>
         <table className="w-full text-sm min-w-[760px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total", "HB"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {/* Porte / portail : calculée automatiquement au m² (largeur × hauteur), prix modifiable */}
             <tr className="border-t border-slate-100 bg-amber-50/40">
@@ -417,6 +421,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
               <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{surfacePorte} m²</td>
               <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-28`} value={prixM2Porte} onChange={(e) => setPrixM2Porte(Math.max(0, Number(e.target.value) || 0))} /></td>
               <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalPorte)}</td>
+              <td className="px-3 py-2"></td>
             </tr>
             {lignesDevis.map((l) => {
               const options = candidats(l.role);
@@ -451,6 +456,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
                   <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
                   <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
+                  <td className="px-3 py-2"><input type="checkbox" checked={!!rolesHB[l.role.id]} onChange={(e) => setRolesHB({ ...rolesHB, [l.role.id]: e.target.checked })} title="Hors boutique : exclu du chiffre d'affaires et des commissions" /></td>
                 </tr>
               );
             })}

@@ -97,6 +97,34 @@ export const qteVente = (v) => lignesVente(v).reduce((s, l) => s + Number(l.qte 
 export const resumeArticles = (v) => lignesVente(v).map((l) => `${l.qte}× ${l.article}`).join(", ");
 export const totalVente = (v) => brutVente(v) - Number(v.remise || 0);
 
+// ⚠ FONCTIONNALITÉ 2.99.53 (demande Timo) : le CHIFFRE D'AFFAIRES n'est PAS
+// toujours égal au montant total payé par le client — deux cas l'excluent :
+//   1. Une ligne cochée « hors boutique » (HB) dans le devis d'origine — un
+//      article facturé par BMI mais qui ne vient pas de son propre stock.
+//   2. Une ligne marquée automatiquement quand un devis a été créé à partir
+//      d'une vente déjà encaissée (voir Ventes.jsx « Transformer en devis ») —
+//      son montant a DÉJÀ été compté au CA le jour de cette première vente ;
+//      seuls les articles ajoutés ENSUITE doivent recompter.
+// Les deux cas utilisent le MÊME champ `hors_boutique` sur la ligne : l'effet
+// sur le CA est identique, qu'importe la raison. Le montant réellement
+// encaissé (totalVente, le reçu, le "à payer" du client) n'est JAMAIS touché
+// par cette exclusion — seuls les calculs INTERNES (CA, commissions) la
+// respectent.
+//
+// La remise globale (v.remise, en F, calculée sur TOUT le panier) est
+// répartie au PRORATA entre lignes incluses et exclues, plutôt que
+// soustraite en bloc du CA : sinon une remise de 10 % sur un panier mi-HB
+// mi-boutique ferait porter TOUTE la remise sur la seule part boutique.
+export const caVente = (v) => {
+  const lignes = lignesVente(v);
+  const netLigne = (l) => Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);
+  const brutTotal = lignes.reduce((s, l) => s + netLigne(l), 0);
+  const brutInclus = lignes.reduce((s, l) => (l.hors_boutique ? s : s + netLigne(l)), 0);
+  if (brutTotal <= 0) return 0;
+  const part = brutInclus / brutTotal;
+  return Math.round(brutInclus - Number(v.remise || 0) * part);
+};
+
 // Hachage SHA-256 des mots de passe (plus de stockage en clair)
 // Ancien hachage (conservé UNIQUEMENT pour reconnaître et migrer les comptes
 // pas encore mis à jour) : SHA-256 avec un sel unique partagé par toute

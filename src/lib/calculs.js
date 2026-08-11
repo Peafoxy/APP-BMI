@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, totalVente, fmt, today } from "./core";
+import { uid, normPaiement, lignesVente, caVente, fmt, today } from "./core";
 import { SALARIES } from "./constants";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 
@@ -385,8 +385,12 @@ export const debloquerCommissionsReception = (db, vente_id, contexte) => {
   return { ventes: majVentes, messages };
 };
 
+// ⚠ Demande Timo : la commission se calcule sur le CHIFFRE D'AFFAIRES réel de
+// la vente (caVente), pas sur le montant total payé par le client — un
+// article « hors boutique » ou déjà compté lors d'une vente antérieure (voir
+// Ventes.jsx « Transformer en devis ») n'ouvre droit à AUCUNE commission.
 export const commissionBrute = (v, taux) => {
-  const base = totalVente(v) + Number(v.rabais || 0); // total avant le rabais du commercial
+  const base = caVente(v) + Number(v.rabais || 0); // total avant le rabais du commercial
   return Math.max(0, Math.round((base * Number(taux || 0)) / 100) - Number(v.rabais || 0));
 };
 
@@ -401,7 +405,7 @@ export const commissionEnAttente = (v, taux) => (commissionBloquee(v) ? commissi
 // Le blocage « réception » est déjà appliqué par commissionVente ci-dessus.
 export const commissionPour = (v, nom, taux) => (v.commercial === nom
   ? commissionVente(v, taux)
-  : (commissionBloquee(v) ? 0 : Math.round((totalVente(v) * Number(taux || 0)) / 100)));
+  : (commissionBloquee(v) ? 0 : Math.round((caVente(v) * Number(taux || 0)) / 100)));
 
 // Normalise un nom d'article pour le comparer : majuscules, sans accents,
 // sans ponctuation, sans espaces multiples, et au singulier grossier.

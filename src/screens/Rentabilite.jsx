@@ -23,6 +23,10 @@ export function Rentabilite({ db }) {
   const parProduit = {};
   ventesP.forEach((v) => {
     (v.articles || []).forEach((l) => {
+      // ⚠ Demande Timo : un article « hors boutique » (HB) n'entre ni dans le
+      // CA ni dans les commissions — logiquement, il sort aussi de la
+      // rentabilité par produit (ce n'est pas une vente de stock BMI).
+      if (l.hors_boutique) return;
       const p = db.produits.find((x) => x.id === l.produit_id);
       const nom = p ? p.nom : (l.article || "?");
       const achat = p ? Number(p.prix_achat || 0) : 0;

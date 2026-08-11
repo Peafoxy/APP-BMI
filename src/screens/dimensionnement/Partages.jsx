@@ -29,10 +29,13 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
       <div className="font-bold text-sm text-slate-700 mb-2">{titre}</div>
       <div className="space-y-2">
         {autres.map((a) => (
-          <div key={a.id} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+          <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
             <Field label="Article"><input className={inputCls} placeholder={placeholder} value={a.nom} onChange={(e) => onModifier(a.id, "nom", e.target.value)} /></Field>
             <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={a.prix} onChange={(e) => onModifier(a.id, "prix", e.target.value)} /></Field>
             <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 pb-2" title="Ne compte ni dans le chiffre d'affaires ni dans les commissions — pour un article que BMI facture sans qu'il vienne de son propre stock.">
+              <input type="checkbox" checked={!!a.hors_boutique} onChange={(e) => onModifier(a.id, "hors_boutique", e.target.checked)} /> HB
+            </label>
             <button onClick={() => onRetirer(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
           </div>
         ))}

@@ -263,10 +263,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // repris — restitue aussi ceux saisis directement à la main.
   const initialSelectionSolaire = (() => {
     if (!lignesReprises.length || !devisAReprendre) return null;
-    const choix = {}, verrous = {};
+    const choix = {}, verrous = {}, hb = {};
     ROLES_EQUIPEMENT.forEach((role) => {
       const ligne = lignesReprises.find((l) => l.categorie === role.label);
       if (!ligne) return;
+      if (ligne.hors_boutique) hb[role.id] = true;
       const options = candidats(role);
       const trouve = options.find((o) => o.p.nom === ligne.article);
       choix[role.id] = trouve
@@ -274,9 +275,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         : { type: "manuel", nom: ligne.article, prix: Number(ligne.pu) || 0, qte: Number(ligne.qte) || 1 };
       verrous[role.id] = true;
     });
-    return { choix, verrous };
+    return { choix, verrous, hb };
   })();
   const [choix, setChoix] = useState(() => initialSelectionSolaire?.choix || {});
+  const [rolesHB, setRolesHB] = useState(() => initialSelectionSolaire?.hb || {});
   const [manuelOuvert, setManuelOuvert] = useState({}); // { roleId: bool } — affiche le mini-formulaire de saisie libre
   const [brouillonManuel, setBrouillonManuel] = useState({}); // { roleId: { nom, prix, qte } }
   // Rôles que le vendeur a choisi de saisir/sélectionner lui-même : la sélection
@@ -303,6 +305,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     if (initialSelectionSolaire) {
       setChoix(initialSelectionSolaire.choix || {});
       setRolesManuels(initialSelectionSolaire.verrous || {});
+      setRolesHB(initialSelectionSolaire.hb || {});
     }
     // Rails de fixation : même piège, raté par la recherche précédente car
     // useState(valeur) sans wrapper () => en paraît différent, mais se
@@ -434,7 +437,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
   const [autres, setAutres] = useState(() =>
     lignesReprises.filter((l) => l.categorie === "Autres équipements")
-      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique }))
   );
   const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
   const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
@@ -461,9 +464,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
     // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
     const panier = [
-      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
+      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
       ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
-      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
+      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
     ];
 
     // Le devis, rangé DANS la fiche du client : aucune migration de base.
@@ -490,12 +493,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       lignes: [
         ...lignesDevis.filter((l) => l.produit).map((l) => ({
           categorie: l.role.label, article: l.produit.nom, qte: l.qte,
-          pu: l.produit.prix_vente, total: l.sousTotal,
+          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
         })),
         ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rail de fixation", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
         ...autres.filter((a) => a.nom).map((a) => ({
           categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
-          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1),
+          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
         })),
         ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
         ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
@@ -529,9 +532,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   const convertir = () => {
     const panier = [
-      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
+      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
       ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
-      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
+      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
     ];
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
     brouillonEffacer(cleBrouillon);
@@ -612,7 +615,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">{modeLibre ? "Équipements nécessaires (mode libre — sans prix, à choisir ensuite)" : `Équipements proposés (stock de ${boutique})`}</div>
         <table className="w-full text-sm min-w-[760px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total", "HB"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {lignesDevis.map((l) => {
               if (l.role.id === "regulateur" && convertisseurEstHybride) {
@@ -622,6 +625,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     <td className="px-3 py-2 text-xs text-green-700">✓ Intégré au convertisseur hybride — pas d'article séparé nécessaire</td>
                     <td className="px-3 py-2 text-slate-400">—</td><td className="px-3 py-2 text-slate-400">—</td><td className="px-3 py-2 text-slate-400">—</td>
                     <td className="px-3 py-2 tabular-nums text-slate-400">{fmt(0)}</td>
+                    <td className="px-3 py-2"></td>
                   </tr>
                 );
               }
@@ -691,6 +695,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     ) : l.produit ? fmt(l.produit.prix_vente) : "—"}
                   </td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
+                  <td className="px-3 py-2"><input type="checkbox" checked={!!rolesHB[l.role.id]} onChange={(e) => setRolesHB({ ...rolesHB, [l.role.id]: e.target.checked })} title="Hors boutique : exclu du chiffre d'affaires et des commissions" /></td>
                 </tr>
               );
             })}
@@ -703,6 +708,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={railsQte} onChange={(e) => setRailsQte(Math.max(0, Number(e.target.value) || 0))} /></td>
               <td className="px-3 py-2 tabular-nums">{fmt(PRIX_RAIL)}</td>
               <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalRails)}</td>
+              <td className="px-3 py-2"></td>
             </tr>
           </tbody>
         </table>

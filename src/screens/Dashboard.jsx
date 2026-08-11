@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useCallback } from "react";
-import { fmt, today, dFR, inP, col, totalVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
 import { btnDark, Badge } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
@@ -29,7 +29,7 @@ export function Dashboard({ db }) {
   const rows = periodes().map(([label, a, b]) => {
     const v = {}, d = {};
     NOMS.forEach((bq) => {
-      v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + totalVente(x), 0);
+      v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
       d[bq] = db.depenses.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
     return { label, v, d };
@@ -39,7 +39,7 @@ export function Dashboard({ db }) {
     const [label, a, b] = getPeriod();
     const v = {}, d = {};
     NOMS.forEach((bq) => {
-      v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + totalVente(x), 0);
+      v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
       d[bq] = db.depenses.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
     return { label, v, d };
@@ -60,7 +60,7 @@ export function Dashboard({ db }) {
   const resM = somme(m.v) - somme(m.d);
   const resCustom = somme(customRow.v) - somme(customRow.d);
 
-  const totalVentes = db.ventes.reduce((s, v) => s + totalVente(v), 0);
+  const totalVentes = db.ventes.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
   const totalDepenses = db.depenses.reduce((s, d) => s + Number(d.montant), 0);
   const totalDettes = dettesClassiques(db).reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0);
   // Frais d'installation et transport réellement encaissés — jamais comptés
@@ -114,7 +114,7 @@ export function Dashboard({ db }) {
     const key = d.toISOString().slice(0, 7);
     const vals = {};
     NOMS.forEach((b) => {
-      vals[b] = db.ventes.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + totalVente(x), 0);
+      vals[b] = db.ventes.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVente(x), 0);
     });
     mois6.push({ nom: moisNoms[d.getMonth()], vals });
   }
@@ -125,7 +125,7 @@ export function Dashboard({ db }) {
   const ventesPeriode = db.ventes.filter((v) => inP(v.date, paG, pbG));
   const topProduits = (() => {
     const cumul = {};
-    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { cumul[l.article] = (cumul[l.article] || 0) + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0); }));
+    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0); }));
     return Object.entries(cumul).sort((x, y) => y[1] - x[1]).slice(0, 5);
   })();
   const maxTop = Math.max(1, ...topProduits.map((x) => x[1]));

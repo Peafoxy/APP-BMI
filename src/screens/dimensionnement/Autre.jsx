@@ -61,7 +61,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     const choix = {}, verrous = {}, besoinsInit = [];
     lignesCategorie.forEach((l) => {
       const id = uid();
-      besoinsInit.push({ id, nom: l.article, qte: String(l.qte) });
+      besoinsInit.push({ id, nom: l.article, qte: String(l.qte), hors_boutique: !!l.hors_boutique });
       const matches = correspondancesBesoin(l.article, produitsCategorie);
       const trouve = matches.find((m) => m.p.nom === l.article) || matches[0];
       choix[id] = trouve
@@ -100,7 +100,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       setBesoinsManuels(initialSelection.verrous || {});
     }
     setAutres(lignesReprises.filter((l) => l.categorie === "Autres équipements")
-      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) })));
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique })));
     setClientDevis(devisAReprendre?.client?.id || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
@@ -132,6 +132,13 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     changerQteChoix(id, qte);
   };
 
+  // ⚠ Demande Timo : un article du devis (même normal, du stock) peut être
+  // coché « hors boutique » (HB) — il ne compte alors NI dans le chiffre
+  // d'affaires NI dans les commissions, une fois la vente conclue (voir
+  // caVente() dans core.js). Case cochable au cas par cas, indépendante du
+  // mode « article hors stock » (qui ne concerne que la saisie manuelle).
+  const majBesoinHB = (id, hb) => setBesoins(besoins.map((b) => (b.id === id ? { ...b, hors_boutique: hb } : b)));
+
   const retirerBesoin = (id) => {
     setBesoins(besoins.filter((b) => b.id !== id));
     setChoix((avant) => { const n = { ...avant }; delete n[id]; return n; });
@@ -150,14 +157,13 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     const p = produitsBoutique.find((x) => x.id === c.produit_id);
     return p ? { besoin, produit: p, qte: c.qte, sousTotal: p.prix_vente * c.qte } : { besoin, produit: null, qte: 0, sousTotal: 0 };
   };
-
   const lignesDevis = besoins.map(ligneBesoin);
   const totalRoles = lignesDevis.reduce((s, l) => s + l.sousTotal, 0);
 
   // ---- Autres équipements : hors de la catégorie choisie ----
   const [autres, setAutres] = useState(() =>
     lignesReprises.filter((l) => l.categorie === "Autres équipements")
-      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte) }))
+      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique }))
   );
   const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
   const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
@@ -170,8 +176,8 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
   const construirePanier = () => [
-    ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente })),
-    ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix) })),
+    ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!l.besoin.hors_boutique })),
+    ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
   ];
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
@@ -207,11 +213,11 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       lignes: [
         ...lignesDevis.filter((l) => l.produit).map((l) => ({
           categorie: categorieChoisie, article: l.produit.nom, qte: l.qte,
-          pu: l.produit.prix_vente, total: l.sousTotal,
+          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!l.besoin.hors_boutique,
         })),
         ...autres.filter((a) => a.nom).map((a) => ({
           categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
-          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1),
+          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
         })),
         ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
         ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
@@ -274,7 +280,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock « {categorieChoisie || "—"} » de {boutique})</div>
         <table className="w-full text-sm min-w-[820px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Besoin du client", "Article proposé", "Quantité", "Prix unit.", "Sous-total", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Besoin du client", "Article proposé", "Quantité", "Prix unit.", "Sous-total", "HB", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {lignesDevis.map((l) => {
               const matches = correspondancesBesoin(l.besoin.nom, produitsCategorie);
@@ -318,6 +324,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                   <td className="px-3 py-2"><input type="number" min="1" className={`${inputCls} w-20`} value={l.besoin.qte} onChange={(e) => majBesoinQte(l.besoin.id, e.target.value)} /></td>
                   <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
+                  <td className="px-3 py-2"><input type="checkbox" checked={!!l.besoin.hors_boutique} onChange={(e) => majBesoinHB(l.besoin.id, e.target.checked)} title="Hors boutique : exclu du chiffre d'affaires et des commissions" /></td>
                   <td className="px-3 py-2"><button onClick={() => retirerBesoin(l.besoin.id)} className="text-xs text-red-600 underline whitespace-nowrap">Retirer</button></td>
                 </tr>
               );

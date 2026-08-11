@@ -33,9 +33,15 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
       {devisAReprendre && (
         <div className="rounded-xl p-3 bg-amber-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm text-amber-900">
-            <b>✏️ Reprise du devis de {devisAReprendre.client?.nom_base || devisAReprendre.client?.nom}</b> ({fmt(devisAReprendre.devis.total)})
-            {devisAReprendre.devis.demande_modif && <span> — souhaite : « {devisAReprendre.devis.demande_modif} »</span>}
-            {devisAReprendre.devis.motif_rejet && <span> — avait rejeté : « {devisAReprendre.devis.motif_rejet} »</span>}
+            {devisAReprendre.depuis_vente ? (
+              <b>📋 Devis créé depuis la vente {devisAReprendre.devis.vente_numero} — ajoutez ce qu'il faut, puis envoyez-le au client{devisAReprendre.client ? ` (${devisAReprendre.client.nom_base || devisAReprendre.client.nom})` : ""}.</b>
+            ) : (
+              <>
+                <b>✏️ Reprise du devis de {devisAReprendre.client?.nom_base || devisAReprendre.client?.nom}</b> ({fmt(devisAReprendre.devis.total)})
+                {devisAReprendre.devis.demande_modif && <span> — souhaite : « {devisAReprendre.devis.demande_modif} »</span>}
+                {devisAReprendre.devis.motif_rejet && <span> — avait rejeté : « {devisAReprendre.devis.motif_rejet} »</span>}
+              </>
+            )}
           </div>
           <button onClick={onDevisRepriseConsomme} className="text-xs font-bold text-amber-700 underline whitespace-nowrap">Annuler la reprise</button>
         </div>
