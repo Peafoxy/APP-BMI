@@ -125,7 +125,7 @@ export function Dashboard({ db }) {
   const ventesPeriode = db.ventes.filter((v) => inP(v.date, paG, pbG));
   const topProduits = (() => {
     const cumul = {};
-    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { cumul[l.article] = (cumul[l.article] || 0) + Number(l.qte) * Number(l.pu); }));
+    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { cumul[l.article] = (cumul[l.article] || 0) + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0); }));
     return Object.entries(cumul).sort((x, y) => y[1] - x[1]).slice(0, 5);
   })();
   const maxTop = Math.max(1, ...topProduits.map((x) => x[1]));

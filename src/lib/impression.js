@@ -590,7 +590,14 @@ export function recuWhatsApp(v, bq = {}) {
     `Reçu N° : ${numeroRecu(v)}`,
     v.client ? `Client : ${v.client}` : null,
     `------------------------`,
-    ...lignesVente(v).map((l) => `${l.qte} × ${l.article} = ${fmt(Number(l.qte) * Number(l.pu))}`),
+    // ⚠ 2.99.51 : chaque ligne affiche désormais son montant NET (remise de
+    // ligne déjà soustraite), sinon la somme des lignes ne correspondait plus
+    // au "Sous-total" juste en dessous depuis la correction de brutVente().
+    ...lignesVente(v).map((l) => {
+      const rl = Number(l.remise_ligne || 0);
+      const net = Number(l.qte) * Number(l.pu) - rl;
+      return `${l.qte} × ${l.article} = ${fmt(net)}${rl > 0 ? ` (remise −${fmt(rl)})` : ""}`;
+    }),
     `Sous-total : ${fmt(brutVente(v))}`,
     v.remise ? `Remise${v.remise_pct ? ` (${v.remise_pct}%)` : ""} : −${fmt(v.remise)}` : null,
     `*TOTAL : ${fmt(totalVente(v))}*`,
