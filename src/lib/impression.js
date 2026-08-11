@@ -138,6 +138,105 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 // Même base visuelle que le reçu de vente : titre souligné (pas de pavé plein),
 // bandeaux clairs, en-têtes de tableau bleus, total en bordure — sobre à
 // l'impression maintenant que les couleurs sortent réellement sur papier.
+// ============ REÇU DE VERSEMENT (dette / réservation prépayée) ============
+// Émis à CHAQUE versement partiel (demande Timo) : reprend tout l'historique
+// des versements déjà faits (celui du jour compris), pas seulement le
+// dernier — pour que le client ait toujours, en main, la preuve complète de
+// ce qu'il a déjà payé. Quand le versement solde la dette (reste = 0), le
+// document devient automatiquement le REÇU DÉFINITIF plutôt qu'un simple
+// reçu de versement de plus.
+export function imprimerRecuVersement(d, bq = {}) {
+  const logo = bq.logo || LOGO;
+  const montantDu = Number(d.montant || 0);
+  const totalVerse = Number(d.paye || 0);
+  const reste = Math.max(0, montantDu - totalVerse);
+  const solde = reste <= 0;
+  const paiements = d.paiements || [];
+  const dernier = paiements[paiements.length - 1];
+
+  const html = `
+  <style>
+  #zone-impression .recu-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
+  #zone-impression .recu-doc .entete{width:100%;border-collapse:collapse}
+  #zone-impression .recu-doc .entete td{vertical-align:middle;padding:0 0 8px 0}
+  #zone-impression .recu-doc .entete img{max-width:150px;max-height:110px;object-fit:contain}
+  #zone-impression .recu-doc .soc{text-align:right;line-height:1.5}
+  #zone-impression .recu-doc .soc .nom{font-size:20px;font-weight:bold;color:#1e5a8a}
+  #zone-impression .recu-doc h1{text-align:center;font-size:17px;letter-spacing:2px;margin:10px 0 12px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
+  #zone-impression .recu-doc h1.solde{color:#166534;border-bottom-color:#166534}
+  #zone-impression .recu-doc .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+  #zone-impression .recu-doc .btitre{font-weight:bold;color:#1e5a8a;border-bottom:1px solid #d5e2ee;margin:10px 0 4px;font-size:12px;letter-spacing:1px}
+  #zone-impression .recu-doc .client div{padding:2px 0}
+  #zone-impression .recu-doc table.articles{width:100%;border-collapse:collapse;margin:10px 0 6px}
+  #zone-impression .recu-doc table.articles th{background:#1e5a8a;color:#fff;padding:6px;font-size:11px;text-align:left}
+  #zone-impression .recu-doc table.articles th:not(:first-child),#zone-impression .recu-doc table.articles td:not(:first-child){text-align:right}
+  #zone-impression .recu-doc table.articles td{border:1px solid #d5e2ee;padding:6px}
+  #zone-impression .recu-doc table.articles tr.jour td{background:#f2f6fa;font-weight:bold}
+  #zone-impression .recu-doc table.totaux{width:60%;margin-left:auto;border-collapse:collapse}
+  #zone-impression .recu-doc table.totaux td{padding:4px 6px}
+  #zone-impression .recu-doc table.totaux td:last-child{text-align:right;white-space:nowrap}
+  #zone-impression .recu-doc table.totaux tr.total td{border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
+  #zone-impression .recu-doc table.totaux tr.solde td{border-top:2px solid #166534;font-weight:bold;font-size:14px;color:#166534}
+  #zone-impression .recu-doc .bandeau-solde{margin:12px 0;padding:10px;background:#f0fdf4;border:2px solid #166534;border-radius:6px;text-align:center;font-weight:bold;color:#166534;letter-spacing:1px}
+  #zone-impression .recu-doc table.sign{width:100%;border-collapse:collapse;margin-top:26px}
+  #zone-impression .recu-doc table.sign td{width:33%;text-align:center;font-size:11px;color:#333;padding:0 12px}
+  #zone-impression .recu-doc table.sign .ligne{border-top:1px solid #555;padding-top:4px}
+  #zone-impression .recu-doc .merci{text-align:center;font-style:italic;color:#555;margin-top:16px;border-top:1px dashed #aaa;padding-top:8px}
+  </style>
+  <div class="recu-doc">
+    <table class="entete"><tr>
+      <td><img src="${logo}" alt="${esc(d.boutique)}"></td>
+      <td class="soc">
+        <div class="nom">${esc(d.boutique)}</div>
+        <div>${esc(bq.adresse || "Lomé, Togo")}</div>
+        ${bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}
+        <div>Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}</div>
+        <div>NIF : 1001790098</div>
+        <div>RCCM : TG-LFW-01-2022-A10-01523</div>
+      </td>
+    </tr></table>
+
+    <h1${solde ? ' class="solde"' : ""}>${solde ? "REÇU DÉFINITIF — DETTE SOLDÉE" : "REÇU DE VERSEMENT"}</h1>
+
+    <div class="meta">
+      <div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}</div>
+      <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>
+    </div>
+
+    <div class="btitre">CLIENT</div>
+    <div class="client">
+      <div><b>Nom :</b> ${esc(d.client || "________________________")}</div>
+      <div><b>Téléphone :</b> ${esc(d.tel || "________________________")}</div>
+      <div><b>Motif :</b> ${esc(d.motif || "—")}</div>
+    </div>
+
+    <div class="btitre">HISTORIQUE DES VERSEMENTS</div>
+    <table class="articles">
+      <thead><tr><th>Date</th><th>Moyen</th><th>Reçu par</th><th>Montant</th></tr></thead>
+      <tbody>
+        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p === dernier && i === paiements.length - 1 ? " (aujourd'hui)" : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
+      </tbody>
+    </table>
+
+    <table class="totaux">
+      <tr><td>Montant total dû :</td><td>${fmt(montantDu)}</td></tr>
+      <tr class="${solde ? "solde" : "total"}"><td>Total versé à ce jour :</td><td>${fmt(totalVerse)}</td></tr>
+      ${!solde ? `<tr class="total"><td>RESTE À PAYER :</td><td>${fmt(reste)}</td></tr>` : ""}
+    </table>
+
+    ${solde ? `<div class="bandeau-solde">✔ CETTE DETTE EST INTÉGRALEMENT SOLDÉE — AUCUN MONTANT NE RESTE DÛ</div>` : ""}
+
+    <table class="sign"><tr>
+      <td></td>
+      <td><div class="ligne">Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : ""}</div></td>
+      <td></td>
+    </tr></table>
+
+    <div class="merci">${esc(bq.message || "Merci pour votre confiance !")}</div>
+  </div>`;
+  if (printApi) printApi.open(html);
+}
+
 export function imprimerProforma(p, logo) {
   const html = `
   <style>

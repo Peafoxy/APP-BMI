@@ -7,7 +7,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { imprimerRecu } from "../lib/impression";
+import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
@@ -36,9 +36,14 @@ export function Dettes({ db, save, profile }) {
     if (moyen === null) return;
     if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${d.client} ?`)) return;
     const paiement = { id: uid(), date: today(), montant: m, paiement: normPaiement(moyen), par: profile.nom };
-    save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? { ...x, paye: Number(x.paye) + m, paiements: [...(x.paiements || []), paiement] } : x)) },
+    const dApres = { ...d, paye: Number(d.paye) + m, paiements: [...(d.paiements || []), paiement] };
+    save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? dApres : x)) },
       `${estReservation(d) ? "Versement réservation" : "Paiement dette"} ${fmt(m)} de ${d.client} — ${d.boutique}`);
     uAlert("Versement enregistré !");
+    // ⚠ Demande Timo : un reçu sort à CHAQUE versement, reprenant tout
+    // l'historique cumulé (pas seulement celui du jour) — et devient
+    // automatiquement le reçu DÉFINITIF si ce versement solde la dette.
+    imprimerRecuVersement(dApres, db.boutiques.find((b) => b.nom === d.boutique) || {});
   };
 
   // ---- RÉSERVATION PRÉPAYÉE ----
