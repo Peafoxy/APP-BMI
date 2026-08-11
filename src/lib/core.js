@@ -84,7 +84,15 @@ export function lignesJournal(db, a, b) {
 // Une vente peut contenir plusieurs articles (panier). Les anciennes ventes
 // à article unique restent compatibles.
 export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, article: v.article, qte: v.qte, pu: v.pu }]);
-export const brutVente = (v) => lignesVente(v).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0), 0);
+// ⚠ CORRECTIF 2.99.50 : brutVente() ignorait les remises PAR LIGNE
+// (remise_ligne) — elle ne faisait que qte×pu, sans jamais les soustraire.
+// Résultat concret : un reçu avec des remises par article (et aucune remise
+// globale) affichait un total supérieur de exactement la somme des remises
+// de ligne au montant réellement encaissé. Comme totalVente() ET tout le
+// reste de l'app (commissions, dettes, contrats, message WhatsApp) partent
+// de brutVente(), le bug se propageait partout SAUF sur l'écran de vente
+// lui-même (qui recalculait déjà correctement, en local, dans Ventes.jsx).
+export const brutVente = (v) => lignesVente(v).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0);
 export const qteVente = (v) => lignesVente(v).reduce((s, l) => s + Number(l.qte || 0), 0);
 export const resumeArticles = (v) => lignesVente(v).map((l) => `${l.qte}× ${l.article}`).join(", ");
 export const totalVente = (v) => brutVente(v) - Number(v.remise || 0);
