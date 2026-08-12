@@ -98,9 +98,16 @@ export async function chargerTout() {
     try { db[t] = await idb.table(t).toArray(); }
     catch { db[t] = []; }
   }
-  // Tri par date décroissante pour les listes chronologiques
+  // Tri par date décroissante pour les listes chronologiques — cree_le
+  // départage les enregistrements du MÊME jour dans le bon ordre (voir
+  // sauvegarderDiff ci-dessus). Repli sur l'ordre existant si cree_le
+  // manque des deux côtés (enregistrements d'avant ce correctif).
   for (const t of ["ventes", "depenses", "dettes", "ajustements", "clotures", "audits", "prospects", "commandes", "messages", "clients_installes", "proformas", "groupes"]) {
-    db[t].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    db[t].sort((a, b) => {
+      const parDate = String(b.date || "").localeCompare(String(a.date || ""));
+      if (parDate !== 0) return parDate;
+      return String(b.cree_le || "").localeCompare(String(a.cree_le || ""));
+    });
   }
   return db;
 }
@@ -123,7 +130,18 @@ export async function sauvegarderDiff(prev, next) {
       for (const [id, r] of apres) {
         const a = avant.get(id);
         if (!a || sansMeta(a) !== sansMeta(r)) {
+          // ⚠ Demande Timo : classement fiable même pour plusieurs
+          // enregistrements créés le MÊME JOUR (date = jour seul, sans
+          // heure). cree_le fixe l'instant de création UNE SEULE FOIS,
+          // jamais réécrit lors des modifications suivantes — sinon un
+          // simple versement sur une VIEILLE dette la ferait remonter comme
+          // si elle venait d'être créée. Absent sur les enregistrements
+          // d'avant ce correctif : laissé tel quel plutôt qu'inventé après
+          // coup (le tri retombe alors sur l'ordre existant pour eux, sans
+          // régression).
+          const cree_le = (a && a.cree_le) || r.cree_le || (!a ? maintenant : undefined);
           const rec = { ...r, updated_at: maintenant };
+          if (cree_le) rec.cree_le = cree_le;
           await idb.table(t).put(rec);
           await idb.outbox.add({ table: t, op: "upsert", id, data: rec });
         }
