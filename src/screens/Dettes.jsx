@@ -83,10 +83,21 @@ export function Dettes({ db, save, profile }) {
   };
 
   // Livraison : c'est SEULEMENT ici que le stock sort et que la vente est créée.
+  // ⚠ Décision Timo : une réservation, c'est le client qui paie AVANT
+  // d'emporter — elle ne devrait normalement être livrée qu'une fois soldée.
+  // S'il faut livrer avant que ce soit soldé (le client insiste), ce n'est
+  // plus une réservation : elle BASCULE en dette classique — quitte
+  // définitivement la liste des réservations, réapparaît dans "Dettes" avec
+  // tout son historique de versements conservé (relançable comme une dette
+  // normale). Le CA, lui, NE CHANGE PAS : une dette classique compte déjà sa
+  // valeur totale au CA dès la livraison (comportement existant, partout
+  // ailleurs dans l'app) — la bascule aligne juste le CLASSEMENT de la
+  // fiche sur ce qui se passe réellement, elle ne touche à aucun calcul.
   const livrer = async (r) => {
     if (bloquerSiLecture(db, profile)) return;
     const reste = resteAPayer(r);
-    if (reste > 0 && !await uConfirm(`⚠ ${r.client} n'a pas tout payé : il reste ${fmt(reste)}.\n\nLivrer quand même ? Le solde restera dû.`)) return;
+    const basculeEnDette = reste > 0;
+    if (basculeEnDette && !await uConfirm(`⚠ ${r.client} n'a pas tout payé : il reste ${fmt(reste)}.\n\nCe n'est plus une réservation prépayée si elle est livrée maintenant — elle va devenir une DETTE CLASSIQUE (elle quittera la liste des réservations pour rejoindre "Dettes", avec son historique de versements conservé). Continuer ?`)) return;
     const manquants = (r.articles || []).filter((l) => {
       const p = db.produits.find((x) => x.id === l.produit_id);
       return !p || stockActuel(db, p) < Number(l.qte);
@@ -119,8 +130,18 @@ export function Dettes({ db, save, profile }) {
     save({
       ...db,
       ventes: [vente, ...db.ventes],
-      dettes: db.dettes.map((x) => (x.id === r.id ? { ...x, statut: "livree", date_livraison: today(), vente_id: vente.id } : x)),
-    }, `Livraison de la réservation de ${r.client} (${fmt(r.montant)}) — ${r.boutique}`);
+      dettes: basculeEnDette
+        // Bascule : la fiche RÉSERVATION disparaît (filter), remplacée par
+        // une DETTE CLASSIQUE toute neuve — historique de versements et
+        // montant/payé intégralement conservés, seul le classement change.
+        ? [
+            { id: uid(), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id },
+            ...db.dettes.filter((x) => x.id !== r.id),
+          ]
+        : db.dettes.map((x) => (x.id === r.id ? { ...x, statut: "livree", date_livraison: today(), vente_id: vente.id } : x)),
+    }, basculeEnDette
+      ? `Réservation de ${r.client} livrée AVANT solde — basculée en dette classique (${fmt(reste)} restant) — ${r.boutique}`
+      : `Livraison de la réservation de ${r.client} (${fmt(r.montant)}) — ${r.boutique}`);
     imprimerRecu(vente, db.boutiques.find((b) => b.nom === r.boutique) || {}, db.produits);
   };
 

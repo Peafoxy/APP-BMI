@@ -437,7 +437,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       const avance = Math.max(0, Math.min(total, Number(f.avance) || 0));
       if (await uConfirm(`Enregistrer cette vente à crédit pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(total - avance)}`)) {
         const paiementsInitiaux = avance > 0 ? [{ date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, par: profile.nom }] : [];
-        next = { ...next, dettes: [{ id: uid(), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+        next = { ...next, dettes: [{ id: uid(), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: panier, montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
       }
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";

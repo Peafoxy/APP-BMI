@@ -210,14 +210,23 @@ export function imprimerRecuVersement(d, bq = {}) {
     <div class="client">
       <div><b>Nom :</b> ${esc(d.client || "________________________")}</div>
       <div><b>Téléphone :</b> ${esc(d.tel || "________________________")}</div>
-      <div><b>Motif :</b> ${esc(d.motif || "—")}</div>
+      <div><b>Motif :</b> ${(d.articles && d.articles.length > 0) ? (estReservation(d) ? "Réservation" : "Vente à crédit") : esc(d.motif || "—")}</div>
     </div>
+
+    ${(d.articles && d.articles.length > 0) ? `
+    <div class="btitre">ARTICLES</div>
+    <table class="articles">
+      <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
+      <tbody>
+        ${d.articles.map((l) => `<tr><td>${esc(l.nom || l.article || "")}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0))}</td></tr>`).join("")}
+      </tbody>
+    </table>` : ""}
 
     <div class="btitre">HISTORIQUE DES VERSEMENTS</div>
     <table class="articles">
       <thead><tr><th>Date</th><th>Moyen</th><th>Reçu par</th><th>Montant</th></tr></thead>
       <tbody>
-        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}${p === dernier && i === paiements.length - 1 ? " (aujourd'hui)" : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
+        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
       </tbody>
     </table>
 
