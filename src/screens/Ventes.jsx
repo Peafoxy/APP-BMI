@@ -266,6 +266,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (bloquerSiLecture(db, profile)) return;
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
+    // ⚠ Demande Timo : le statut de l'article ne doit JAMAIS être pré-rempli
+    // ni deviné — le vendeur doit le choisir explicitement à chaque vente à
+    // crédit, sinon l'encaissement est bloqué (évite qu'une vente parte par
+    // erreur comme "livrée" alors que rien n'a encore été remis, ou l'inverse).
+    if (f.paiement === "Crédit (dette)" && !origineDevis && !f.statutArticle) { setMsg("Choisissez le statut de l'article (Livré ou Non livré) avant d'encaisser."); return; }
     for (const l of panier) {
       const p = produits.find((x) => x.id === l.produit_id);
       if (p && Number(l.qte) > stockActuel(db, p)) { setMsg(`Stock insuffisant pour « ${p.nom} ».`); return; }
@@ -305,7 +310,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // reservation.type === "prepaye" et statut !== "livree".
       try { imprimerRecuVersement(reservation, infoBq(boutique)); } catch {}
       setPanier([]);
-      setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "livre", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
+      setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
       setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
       setCat("");
       uAlert("✅ Réservation créée — le stock ne sera déduit et la vente enregistrée qu'à la livraison, depuis Dettes → Réservations prépayées.");
@@ -596,9 +601,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </Field>
               {f.paiement === "Crédit (dette)" && !origineDevis && (
                 <Field label="Statut de l'article">
-                  <select className={inputCls} value={f.statutArticle || "livre"} onChange={(e) => setF({ ...f, statutArticle: e.target.value })}>
-                    <option value="livre">Livré — le client repart avec</option>
-                    <option value="non_livre">Non livré — le client paie avant d'emporter</option>
+                  <select className={inputCls} value={f.statutArticle || ""} onChange={(e) => setF({ ...f, statutArticle: e.target.value })}>
+                    <option value="">— Choisir —</option>
+                    <option value="livre">Livré</option>
+                    <option value="non_livre">Non livré</option>
                   </select>
                 </Field>
               )}

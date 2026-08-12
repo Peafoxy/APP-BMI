@@ -249,7 +249,16 @@ export function imprimerRecuVersement(d, bq = {}) {
 
     <div class="merci">${esc(bq.message || "Merci pour votre confiance !")}</div>
   </div>`;
-  if (printApi) printApi.open(html);
+  // Même mécanisme de duplicata que le reçu de vente (imprimerRecu) — couvre
+  // à la fois les versements sur dette classique ET sur réservation, puisque
+  // les deux passent par cette même fonction. Trouvé manquant ici par Timo :
+  // le réglage boutique existait déjà, juste jamais branché sur ce reçu-là.
+  const sortie = bq.recu_duplicata
+    ? html +
+      `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
+      html
+    : html;
+  if (printApi) printApi.open(sortie);
 }
 
 export function imprimerProforma(p, logo) {
