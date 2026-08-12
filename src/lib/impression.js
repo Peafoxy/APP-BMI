@@ -202,7 +202,7 @@ export function imprimerRecuVersement(d, bq = {}) {
     <h1${solde ? ' class="solde"' : ""}>${solde ? "REÇU DÉFINITIF — DETTE SOLDÉE" : "REÇU DE VERSEMENT"}</h1>
 
     <div class="meta">
-      <div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}</div>
+      <div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}${dernier?.heure ? ` à ${dernier.heure}` : ""}</div>
       <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>
     </div>
 
@@ -217,7 +217,7 @@ export function imprimerRecuVersement(d, bq = {}) {
     <table class="articles">
       <thead><tr><th>Date</th><th>Moyen</th><th>Reçu par</th><th>Montant</th></tr></thead>
       <tbody>
-        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p === dernier && i === paiements.length - 1 ? " (aujourd'hui)" : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
+        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}${p === dernier && i === paiements.length - 1 ? " (aujourd'hui)" : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
       </tbody>
     </table>
 

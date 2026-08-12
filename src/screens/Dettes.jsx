@@ -35,7 +35,7 @@ export function Dettes({ db, save, profile }) {
     const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
     if (moyen === null) return;
     if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${d.client} ?`)) return;
-    const paiement = { id: uid(), date: today(), montant: m, paiement: normPaiement(moyen), par: profile.nom };
+    const paiement = { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: m, paiement: normPaiement(moyen), par: profile.nom };
     const dApres = { ...d, paye: Number(d.paye) + m, paiements: [...(d.paiements || []), paiement] };
     save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? dApres : x)) },
       `${estReservation(d) ? "Versement réservation" : "Paiement dette"} ${fmt(m)} de ${d.client} — ${d.boutique}`);
@@ -73,7 +73,7 @@ export function Dettes({ db, save, profile }) {
       id: uid(), type: "prepaye", date: today(), boutique, client: res.client.trim(), tel: res.tel.trim(),
       motif: `Réservation — ${panierRes.length} article(s)`,
       articles: panierRes, montant: totalRes, paye: avance,
-      paiements: avance > 0 ? [{ id: uid(), date: today(), montant: avance, paiement: normPaiement(res.moyen), par: profile.nom }] : [],
+      paiements: avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(res.moyen), par: profile.nom }] : [],
       echeance: res.echeance || null, statut: "en_cours", par: profile.nom,
     };
     save({ ...db, dettes: [r, ...db.dettes] }, `Réservation prépayée ${res.client.trim()} (${fmt(totalRes)}) — ${boutique}`);
@@ -98,8 +98,16 @@ export function Dettes({ db, save, profile }) {
       // un numéro de secours dérivé de l'id) — elle entre maintenant dans la
       // même numérotation séquentielle que les ventes normales.
       id: uid(), numero: prochainNumeroVente(db, r.boutique),
-      date: today(), boutique: r.boutique, client: r.client, tel: r.tel,
-      articles: r.articles, remise: 0, paiement: "Prépayé", avance: 0,
+      date: today(), heure: new Date().toTimeString().slice(0, 5), boutique: r.boutique, client: r.client, tel: r.tel,
+      // ⚠ VRAI BUG trouvé par Timo (préexistant, pas introduit par les
+      // réservations créées depuis Ventes.jsx) : les articles d'une
+      // réservation portent un champ `nom` (voir creerReservation ci-dessus),
+      // alors que tout le reste de l'app — dont le reçu imprimé — attend
+      // `article`. Résultat : la description restait VIDE sur le reçu de
+      // vente émis à la livraison. Corrigé en remappant ici, au seul endroit
+      // où une réservation devient une vraie vente.
+      articles: (r.articles || []).map((l) => ({ produit_id: l.produit_id, article: l.nom, qte: l.qte, pu: l.pu })),
+      remise: 0, paiement: "Prépayé", avance: 0,
       // ⚠ Repris de la réservation (r.commercial etc.) — pas systématiquement
       // null : sinon un commercial/apporteur choisi lors d'une vente à crédit
       // "non livrée" (Ventes.jsx) perdrait sa commission pour toujours, faute

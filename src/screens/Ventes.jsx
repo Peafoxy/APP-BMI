@@ -289,7 +289,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         motif: `Réservation — ${resumeArticles({ articles: panier })}`,
         articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
         montant: total, paye: avanceRes,
-        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), montant: avanceRes, par: profile.nom }] : [],
+        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avanceRes, par: profile.nom }] : [],
         echeance: null, statut: "en_cours", par: profile.nom,
         // ⚠ Trouvé en audit général (pas dans le scope initial de la demande
         // "non livré") : sans ceci, un commercial/apporteur choisi sur cette
@@ -436,7 +436,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (f.paiement === "Crédit (dette)") {
       const avance = Math.max(0, Math.min(total, Number(f.avance) || 0));
       if (await uConfirm(`Enregistrer cette vente à crédit pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(total - avance)}`)) {
-        const paiementsInitiaux = avance > 0 ? [{ date: today(), montant: avance, par: profile.nom }] : [];
+        const paiementsInitiaux = avance > 0 ? [{ date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, par: profile.nom }] : [];
         next = { ...next, dettes: [{ id: uid(), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
       }
     }
