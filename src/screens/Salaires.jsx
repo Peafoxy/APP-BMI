@@ -7,12 +7,25 @@ import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR } from "../lib/calculs";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
+import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC } from "../lib/cnss";
+
+// Petite carte chiffrée (label + valeur), réutilisée par SalairesAdmin ET
+// Salaire (vue individuelle employé) — auparavant définie deux fois : une
+// fois en fonction locale dans SalairesAdmin, une fois dupliquée en ligne
+// dans la section CNSS de Salaire. Un seul endroit désormais.
+const CarteStat = ({ label, valeur, couleur }) => (
+  <div className={`rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 ${couleur}`}>
+    <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
+    <div className="text-xl font-bold tabular-nums mt-1">{valeur}</div>
+  </div>
+);
 
 // ============ SALAIRES — VUE ADMINISTRATEUR ============
 export function SalairesAdmin({ db, save, profile }) {
+  const [modeVue, setModeVue] = useState("salaires"); // "salaires" | "cnss"
   const [mois, setMois] = useState(today().slice(0, 7));
   const options = [];
   const d0 = new Date();
@@ -40,15 +53,16 @@ export function SalairesAdmin({ db, save, profile }) {
     return <span className="text-xs font-bold text-green-700">✅ Payé & confirmé</span>;
   };
 
-  const Carte = ({ label, valeur, couleur }) => (
-    <div className={`rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 ${couleur}`}>
-      <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
-      <div className="text-xl font-bold tabular-nums mt-1">{valeur}</div>
-    </div>
-  );
-
   return (
     <div className="space-y-4">
+      <div className="flex gap-2">
+        <button onClick={() => setModeVue("salaires")} className={`px-4 py-2 rounded-lg font-bold text-sm ${modeVue === "salaires" ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>💵 Salaires</button>
+        <button onClick={() => setModeVue("cnss")} className={`px-4 py-2 rounded-lg font-bold text-sm ${modeVue === "cnss" ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>🏦 CNSS</button>
+      </div>
+      {modeVue === "cnss" ? (
+        <PanneauCNSS db={db} save={save} profile={profile} employes={employes} mois={mois} setMois={setMois} options={options} />
+      ) : (
+      <>
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-1">💵 Masse salariale — {libelleMoisFR(mois)}</div>
         <div className="text-xs text-slate-500 mb-3">Vue d'ensemble de la paie du mois. Les virements envoyés d'ici sont enregistrés en dépense « Salaires ».</div>
@@ -58,11 +72,11 @@ export function SalairesAdmin({ db, save, profile }) {
           </select>
         </Field>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-          <Carte label="Masse salariale (net)" valeur={fmt(masse)} couleur="border-l-sky-700" />
-          <Carte label="Déjà versé" valeur={fmt(verse)} couleur="border-l-green-600" />
-          <Carte label="Reste à verser" valeur={fmt(reste)} couleur="border-l-red-500" />
-          <Carte label="À confirmer par l'employé" valeur={fmt(attente)} couleur="border-l-amber-500" />
-          <Carte label="Encours crédits BMI" valeur={fmt(encoursCredit)} couleur="border-l-purple-600" />
+          <CarteStat label="Masse salariale (net)" valeur={fmt(masse)} couleur="border-l-sky-700" />
+          <CarteStat label="Déjà versé" valeur={fmt(verse)} couleur="border-l-green-600" />
+          <CarteStat label="Reste à verser" valeur={fmt(reste)} couleur="border-l-red-500" />
+          <CarteStat label="À confirmer par l'employé" valeur={fmt(attente)} couleur="border-l-amber-500" />
+          <CarteStat label="Encours crédits BMI" valeur={fmt(encoursCredit)} couleur="border-l-purple-600" />
         </div>
       </div>
 
@@ -70,8 +84,8 @@ export function SalairesAdmin({ db, save, profile }) {
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
           <span>Détail par employé</span>
           <button className={btnDark} onClick={() => exportCSV(`salaires_${mois}`,
-            ["Employé", "Rôle", "Boutique", "Salaire de base", "Primes", "Avances", "Retenue crédit", "Net à percevoir", "Versé", "Reste à verser", "Crédit en cours"],
-            lignes.map(({ u, p, credit }) => [u.nom, roleCourt(u.role), u.boutique || "Toutes", p.base, p.primes, p.avances, p.retenueCredit, p.net, p.verse, Math.max(0, p.reste), credit]),
+            ["Employé", "Rôle", "Boutique", "Salaire de base", "Primes", "Avances", "Retenue crédit", "Retenue CNSS", "Net à percevoir", "Versé", "Reste à verser", "Crédit en cours"],
+            lignes.map(({ u, p, credit }) => [u.nom, roleCourt(u.role), u.boutique || "Toutes", p.base, p.primes, p.avances, p.retenueCredit, p.retenueCNSS || 0, p.net, p.verse, Math.max(0, p.reste), credit]),
             `Paie ${libelleMoisFR(mois)}`)}>📄 Exporter</button>
         </div>
         {lignes.length === 0 ? (
@@ -79,7 +93,7 @@ export function SalairesAdmin({ db, save, profile }) {
         ) : (
           <div className="max-h-[460px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm min-w-[860px]">
-            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Employé", "Base", "Primes", "Avances", "Retenue crédit", "Net", "Versé", "Reste", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Employé", "Base", "Primes", "Avances", "Retenue crédit", "Retenue CNSS", "Net", "Versé", "Reste", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>
               {lignes.map(({ u, p, credit }) => (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-sky-50">
@@ -92,6 +106,7 @@ export function SalairesAdmin({ db, save, profile }) {
                   <td className="px-3 py-2 tabular-nums text-green-700">{p.primes ? "+" + fmt(p.primes) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums text-orange-600">{p.avances ? "−" + fmt(p.avances) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums text-red-600">{p.retenueCredit ? "−" + fmt(p.retenueCredit) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-red-600">{p.retenueCNSS ? "−" + fmt(p.retenueCNSS) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(p.net)}</td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(p.verse)}</td>
                   <td className={`px-3 py-2 tabular-nums font-bold ${p.reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(Math.max(0, p.reste))}</td>
@@ -108,6 +123,7 @@ export function SalairesAdmin({ db, save, profile }) {
                 <td className="px-3 py-2 tabular-nums text-green-700">{fmt(lignes.reduce((s, l) => s + l.p.primes, 0))}</td>
                 <td className="px-3 py-2 tabular-nums text-orange-600">{fmt(lignes.reduce((s, l) => s + l.p.avances, 0))}</td>
                 <td className="px-3 py-2 tabular-nums text-red-600">{fmt(lignes.reduce((s, l) => s + l.p.retenueCredit, 0))}</td>
+                <td className="px-3 py-2 tabular-nums text-red-600">{fmt(lignes.reduce((s, l) => s + (l.p.retenueCNSS || 0), 0))}</td>
                 <td className="px-3 py-2 tabular-nums">{fmt(masse)}</td>
                 <td className="px-3 py-2 tabular-nums text-green-700">{fmt(verse)}</td>
                 <td className="px-3 py-2 tabular-nums text-red-600">{fmt(reste)}</td>
@@ -119,11 +135,201 @@ export function SalairesAdmin({ db, save, profile }) {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
 
-// ============ SALAIRE (vendeurs, gérants, magasiniers) ============
+// ============ CNSS — DÉCLARATION DES RÉMUNÉRATIONS ET DES COTISATIONS ============
+// ⚠ Depuis janvier 2024, la CNSS Togo a remplacé la DNR trimestrielle par la
+// DRC (Déclaration des Rémunérations et des Cotisations), mensuelle, soumise
+// en ligne (services.cnss.tg) — directement ou par import d'un fichier Excel.
+// Le format ci-dessous suit EXACTEMENT le guide officiel de la CNSS
+// (GUIDE-EXCEL_DRC.pdf, décembre 2023). Vérifier un premier export avec le
+// modèle réel du portail ou avec un comptable avant tout envoi officiel.
+function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
+  const cle = (u) => (u.cnss_mensuel || {})[mois] || {};
+  const brouillonVide = () => Object.fromEntries(employes.map((u) => [u.id, {
+    assujetti: !!u.cnss_assujetti,
+    matricule: u.cnss_matricule || "", numeroAssurance: u.cnss_numero_assurance || "",
+    codeType: u.cnss_code_type || 1, dateEmbauche: u.cnss_date_embauche || "",
+    dateSortie: u.cnss_date_sortie || "", codeMotifSortie: u.cnss_code_motif_sortie || "",
+    jours: cle(u).jours ?? "", nature: cle(u).nature || 1,
+  }]));
+  const [brouillon, setBrouillon] = useState(brouillonVide);
+
+  // ⚠ Même piège que partout ailleurs dans l'app : réarmer le brouillon à
+  // chaque changement de MOIS (jours travaillés/nature sont mensuels) ou si
+  // la liste d'employés change — sinon on affiche les jours du mois précédent.
+  useEffect(() => {
+    setBrouillon(brouillonVide());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mois, employes.map((u) => u.id).join(",")]);
+
+  const maj = (id, champ, val) => setBrouillon((b) => ({ ...b, [id]: { ...b[id], [champ]: val } }));
+
+  const enregistrer = () => {
+    save({
+      ...db,
+      users: db.users.map((u) => {
+        const b = brouillon[u.id];
+        if (!b) return u;
+        return {
+          ...u,
+          cnss_assujetti: !!b.assujetti,
+          cnss_matricule: b.matricule, cnss_numero_assurance: b.numeroAssurance,
+          cnss_code_type: Number(b.codeType) || 1, cnss_date_embauche: b.dateEmbauche,
+          cnss_date_sortie: b.dateSortie, cnss_code_motif_sortie: b.codeMotifSortie ? Number(b.codeMotifSortie) : "",
+          cnss_mensuel: { ...(u.cnss_mensuel || {}), [mois]: { jours: b.jours === "" ? "" : Number(b.jours), nature: Number(b.nature) || 1 } },
+        };
+      }),
+    }, `Mise à jour des informations CNSS — ${libelleMoisFR(mois)}`);
+    uAlert("✅ Informations CNSS enregistrées.");
+  };
+
+  const lignesExport = employes.map((u) => {
+    const b = brouillon[u.id] || {};
+    const p = paieMois(u, mois);
+    // Rémunération déclarée = base + primes du mois (avant avances/retenues
+    // BMI, qui sont des affaires internes sans lien avec la CNSS). À faire
+    // confirmer par le comptable si votre pratique diffère.
+    const remuneration = (p.base || 0) + (p.primes || 0);
+    return { u, remuneration, jours: b.jours, natureCode: b.nature, motifSortieCode: b.codeMotifSortie };
+  });
+  const pretsPourExport = lignesExport.filter(({ u, jours }) => brouillon[u.id]?.assujetti && cnssPret(u, { jours }));
+  const nbAssujettis = employes.filter((u) => brouillon[u.id]?.assujetti).length;
+  const nonPrets = nbAssujettis - pretsPourExport.length;
+
+  const exporter = () => {
+    if (nbAssujettis === 0) { uAlert("Aucun employé n'est coché « Assujetti CNSS ». Cochez d'abord les employés concernés, puis renseignez leurs informations."); return; }
+    if (pretsPourExport.length === 0) { uAlert("Aucun employé assujetti n'est prêt pour l'export : renseignez au minimum le n° d'assurance CNSS, la date d'embauche et les jours travaillés."); return; }
+    const nomFichier = genererFichierDRC(pretsPourExport, mois);
+    uAlert(`✅ Fichier ${nomFichier} généré (${pretsPourExport.length} employé(s))${nonPrets > 0 ? `.\n⚠ ${nonPrets} employé(s) assujetti(s) exclu(s) — informations manquantes.` : "."}`);
+  };
+
+  // ⚠ Demande Timo : la part PATRONALE (22,5%) est une vraie dépense — mais
+  // contrairement au virement de salaire, elle ne se déclenche PAS
+  // automatiquement : c'est un bouton séparé, à cliquer quand le paiement à
+  // la CNSS a RÉELLEMENT lieu (la loi laisse jusqu'au 15 du mois suivant, la
+  // déclaration et le règlement ne tombent pas forcément le même jour).
+  // Le montant enregistré en dépense est le TOTAL remis à la CNSS (part
+  // patronale 22,5% + part salariale 9% déjà retenue sur les salaires) —
+  // pas seulement les 22,5% : l'entreprise reverse aussi ce qu'elle a
+  // prélevé sur ses employés, donc cet argent sort bien de sa caisse.
+  const totalRemunerationAssujettis = pretsPourExport.reduce((s, { remuneration }) => s + Number(remuneration || 0), 0);
+  const repartitionTotale = repartitionCNSS(totalRemunerationAssujettis);
+  const dejaEnregistreCeMois = (db.depenses || []).some((d) => d.categorie === "Cotisations CNSS" && String(d.date || "").slice(0, 7) === mois);
+
+  const payerCNSS = async () => {
+    if (pretsPourExport.length === 0) { uAlert("Aucun employé assujetti prêt : rien à régler pour ce mois."); return; }
+    if (dejaEnregistreCeMois) {
+      if (!await uConfirm(`Un paiement CNSS a déjà été enregistré pour ${libelleMoisFR(mois)}. Enregistrer un second paiement quand même ?`)) return;
+    }
+    const bq = await choisirBoutiqueDebitG(db, {}, `Paiement CNSS de ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`);
+    if (bq === null) return;
+    if (!await uConfirm(`Confirmer le paiement CNSS de ${libelleMoisFR(mois)} ?\n\nPart patronale (22,5 %) : ${fmt(repartitionTotale.partPatronale)}\nPart salariale déjà retenue (9 %) : ${fmt(repartitionTotale.partSalariale)}\nTOTAL à reverser à la CNSS : ${fmt(repartitionTotale.total)}\n\nSortie de caisse ${bq} : ${fmt(repartitionTotale.total)}.`)) return;
+    const dep = {
+      id: uid(), date: today(), boutique: bq, categorie: "Cotisations CNSS",
+      description: `Cotisations CNSS ${libelleMoisFR(mois)} — ${pretsPourExport.length} employé(s) (dont part patronale ${fmt(repartitionTotale.partPatronale)} et part salariale déjà retenue ${fmt(repartitionTotale.partSalariale)})`,
+      montant: repartitionTotale.total, paiement: "Virement bancaire", par: profile.nom, auto: "cnss", mois,
+    };
+    save({ ...db, depenses: [dep, ...db.depenses] }, `Paiement CNSS ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`);
+    uAlert(`✅ Paiement CNSS de ${fmt(repartitionTotale.total)} enregistré en dépense — sortie de caisse : ${bq}.`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl p-4 bg-white border border-slate-200">
+        <div className="font-bold mb-1">🏦 CNSS — Déclaration des Rémunérations et des Cotisations (DRC)</div>
+        <div className="text-xs text-slate-500 mb-3">Toutes les informations CNSS de vos employés, regroupées ici. Le n° d'assurance, la date d'embauche et le type de contrat se renseignent une fois ; les jours travaillés et la nature de rémunération se mettent à jour chaque mois.</div>
+        <Field label="Mois concerné">
+          <select className={inputCls} value={mois} onChange={(e) => setMois(e.target.value)}>
+            {options.map((m) => <option key={m} value={m}>{libelleMoisFR(m)}</option>)}
+          </select>
+        </Field>
+        {pretsPourExport.length > 0 && (
+          <div className="grid sm:grid-cols-3 gap-3 mt-3">
+            <div className="rounded-xl p-3 bg-white border border-slate-200 shadow-sm border-l-4 border-l-purple-600">
+              <div className="text-xs font-semibold text-slate-500 uppercase">Part patronale (22,5 %)</div>
+              <div className="text-lg font-bold tabular-nums mt-1">{fmt(repartitionTotale.partPatronale)}</div>
+            </div>
+            <div className="rounded-xl p-3 bg-white border border-slate-200 shadow-sm border-l-4 border-l-red-500">
+              <div className="text-xs font-semibold text-slate-500 uppercase">Part salariale déjà retenue (9 %)</div>
+              <div className="text-lg font-bold tabular-nums mt-1">{fmt(repartitionTotale.partSalariale)}</div>
+            </div>
+            <div className="rounded-xl p-3 bg-purple-50 border border-purple-200 shadow-sm border-l-4 border-l-purple-700">
+              <div className="text-xs font-semibold text-purple-700 uppercase">Total à reverser à la CNSS</div>
+              <div className="text-lg font-bold tabular-nums mt-1 text-purple-800">{fmt(repartitionTotale.total)}</div>
+            </div>
+          </div>
+        )}
+        {dejaEnregistreCeMois && <div className="mt-2 text-xs font-semibold text-amber-700">⚠ Un paiement CNSS a déjà été enregistré pour ce mois.</div>}
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+          <span>Informations par employé</span>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={enregistrer} className={btnDark}>💾 Enregistrer</button>
+            <button onClick={exporter} className="px-4 py-2 rounded-lg font-bold text-sm bg-green-700 text-white">📥 Générer le fichier DRC (Excel)</button>
+            <button onClick={payerCNSS} className="px-4 py-2 rounded-lg font-bold text-sm bg-purple-700 text-white">💸 Enregistrer le paiement CNSS du mois</button>
+          </div>
+        </div>
+        {nonPrets > 0 && (
+          <div className="px-4 py-2 text-xs font-semibold text-amber-700 bg-amber-50 border-b border-amber-200">
+            ⚠ {nonPrets} employé(s) assujetti(s) mais incomplet(s) pour l'export — il manque le n° d'assurance CNSS, la date d'embauche, et/ou les jours travaillés de {libelleMoisFR(mois)}.
+          </div>
+        )}
+        {employes.length === 0 ? (
+          <div className="text-sm text-slate-400 text-center py-6">Aucun employé salarié actif.</div>
+        ) : (
+        <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
+        <table className="w-full text-sm min-w-[1100px]">
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
+            {["Employé", "Assujetti CNSS", "Matricule", "N° Assurance CNSS", "Type", "Date d'embauche", "Jours travaillés", "Nature rémun.", "Rémunération", "RP 2%", "PF 3%", "PV 16,5%", "AMU 10%"].map((h) => <th key={h} className="text-left px-3 py-2 whitespace-nowrap">{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {lignesExport.map(({ u, remuneration }) => {
+              const b = brouillon[u.id] || {};
+              const c = cotisationsCNSS(remuneration);
+              const actif = !!b.assujetti;
+              return (
+                <tr key={u.id} className={`border-t border-slate-100 hover:bg-sky-50 ${!actif ? "opacity-60" : ""}`}>
+                  <td className="px-3 py-2 font-semibold whitespace-nowrap">{u.nom_complet || u.nom}</td>
+                  <td className="px-3 py-2"><input type="checkbox" checked={actif} onChange={(e) => maj(u.id, "assujetti", e.target.checked)} title="Cet employé doit-il être déclaré à la CNSS ?" /></td>
+                  <td className="px-3 py-2"><input disabled={!actif} className={`${inputCls} w-24`} value={b.matricule} onChange={(e) => maj(u.id, "matricule", e.target.value)} /></td>
+                  <td className="px-3 py-2"><input disabled={!actif} className={`${inputCls} w-32`} value={b.numeroAssurance} onChange={(e) => maj(u.id, "numeroAssurance", e.target.value)} placeholder="Obligatoire" /></td>
+                  <td className="px-3 py-2">
+                    <select disabled={!actif} className={`${inputCls} w-40`} value={b.codeType} onChange={(e) => maj(u.id, "codeType", e.target.value)}>
+                      {CODES_TYPE_ASSURE.map((t) => <option key={t.code} value={t.code}>{t.code} — {t.libelle}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2"><input disabled={!actif} type="date" className={`${inputCls} w-36`} value={b.dateEmbauche} onChange={(e) => maj(u.id, "dateEmbauche", e.target.value)} /></td>
+                  <td className="px-3 py-2"><input disabled={!actif} type="number" min="0" max="31" className={`${inputCls} w-20`} value={b.jours} onChange={(e) => maj(u.id, "jours", e.target.value)} placeholder="Obligatoire" /></td>
+                  <td className="px-3 py-2">
+                    <select disabled={!actif} className={`${inputCls} w-40`} value={b.nature} onChange={(e) => maj(u.id, "nature", e.target.value)}>
+                      {CODES_NATURE_REMUN.map((n) => <option key={n.code} value={n.code}>{n.code} — {n.libelle}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2 tabular-nums font-bold">{actif ? fmt(remuneration) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-slate-500">{actif ? fmt(c.RP) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-slate-500">{actif ? fmt(c.PF) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-slate-500">{actif ? fmt(c.PV) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-slate-500">{actif ? fmt(c.AMU) : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 export function Salaire({ db, save, profile }) {
   // Lit la fiche À JOUR depuis la base (le profil de connexion est figé au
   // login, or l'admin peut ajouter primes/avances pendant la session).
@@ -236,6 +442,12 @@ export function Salaire({ db, save, profile }) {
             <div className="text-xs font-semibold text-slate-500 uppercase">Retenue crédit BMI</div>
             <div className="text-xl font-bold tabular-nums mt-1 text-red-600">{p.retenueCredit ? "−" + fmt(p.retenueCredit) : fmt(0)}</div>
           </div>
+          {moi.cnss_assujetti && (
+            <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-red-500">
+              <div className="text-xs font-semibold text-slate-500 uppercase">Retenue CNSS (9%)</div>
+              <div className="text-xl font-bold tabular-nums mt-1 text-red-600">{p.retenueCNSS ? "−" + fmt(p.retenueCNSS) : fmt(0)}</div>
+            </div>
+          )}
           <div className="rounded-xl p-4 bg-green-50 border border-green-200 shadow-sm border-l-4 border-l-green-700">
             <div className="text-xs font-semibold text-green-700 uppercase">Net à percevoir</div>
             <div className="text-xl font-bold tabular-nums mt-1 text-green-800">{fmt(net)}</div>
@@ -437,6 +649,32 @@ export function Salaire({ db, save, profile }) {
 
       {base === 0 && primes.length === 0 && avances.length === 0 && p.virements.length === 0 && mesCredits.length === 0 && (
         <div className="text-sm text-slate-400 text-center py-6">Aucune information de salaire n'a encore été renseignée par l'administration pour ce mois.</div>
+      )}
+
+      {moi.cnss_assujetti && (
+        <div className="rounded-xl p-4 bg-white border border-slate-200">
+          <div className="font-bold mb-3">🏦 Mes informations CNSS — {libelleMois(mois)}</div>
+          <div className="grid sm:grid-cols-2 gap-2 text-sm mb-4">
+            <div><span className="text-slate-500">Matricule :</span> <b>{moi.cnss_matricule || "—"}</b></div>
+            <div><span className="text-slate-500">N° Assurance CNSS :</span> <b>{moi.cnss_numero_assurance || "—"}</b></div>
+            <div><span className="text-slate-500">Date d'embauche :</span> <b>{moi.cnss_date_embauche ? dFR(moi.cnss_date_embauche) : "—"}</b></div>
+            <div><span className="text-slate-500">Type de contrat :</span> <b>{(CODES_TYPE_ASSURE.find((t) => t.code === Number(moi.cnss_code_type || 1)) || {}).libelle || "—"}</b></div>
+          </div>
+          {(() => {
+            const donneesMois = (moi.cnss_mensuel || {})[mois];
+            if (!donneesMois?.jours) return <div className="text-xs text-slate-400">Jours travaillés non encore renseignés pour ce mois par l'administration.</div>;
+            const remuneration = base + totalPrimes;
+            const c = cotisationsCNSS(remuneration);
+            return (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <CarteStat label="Jours travaillés" valeur={String(donneesMois.jours)} couleur="border-l-sky-700" />
+                <CarteStat label="Rémunération déclarée" valeur={fmt(remuneration)} couleur="border-l-sky-700" />
+                <CarteStat label="Cotisation pensions vieillesse (16,5%)" valeur={fmt(c.PV)} couleur="border-l-purple-600" />
+              </div>
+            );
+          })()}
+          <div className="text-xs text-slate-400 mt-3">Ces informations sont renseignées et mises à jour chaque mois par l'administration.</div>
+        </div>
       )}
     </div>
   );

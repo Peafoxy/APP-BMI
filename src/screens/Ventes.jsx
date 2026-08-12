@@ -271,6 +271,36 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       if (p && Number(l.qte) > stockActuel(db, p)) { setMsg(`Stock insuffisant pour « ${p.nom} ».`); return; }
     }
     setMsg("");
+
+    // ⚠ Demande Timo : une vente à crédit dont l'article n'est PAS encore
+    // livré devient une RÉSERVATION PRÉPAYÉE (écran Dettes → Réservations),
+    // pas une vente classique — exactement le même mécanisme que la création
+    // manuelle d'une réservation dans Dettes.jsx : le stock ne sort et la
+    // vente n'existe qu'à la LIVRAISON (fonction livrer(), inchangée). Sans
+    // cette distinction, le stock sortirait deux fois — une fois ici, une
+    // fois à la livraison. Indisponible si la vente vient d'un devis payé :
+    // ce circuit-là exige la création immédiate du chantier.
+    if (f.paiement === "Crédit (dette)" && f.statutArticle === "non_livre" && !origineDevis) {
+      const avanceRes = Math.max(0, Math.min(total, Number(f.avance) || 0));
+      if (!await uConfirm(`Créer une réservation prépayée pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avanceRes)}\nReste à payer : ${fmt(total - avanceRes)}\n\nLa marchandise ne sortira du stock qu'à la livraison (écran Dettes → Réservations prépayées).`)) return;
+      const reservation = {
+        id: uid(), type: "prepaye", date: today(), boutique,
+        client: f.client || "Client non renseigné", tel: f.tel,
+        motif: `Réservation — ${resumeArticles({ articles: panier })}`,
+        articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
+        montant: total, paye: avanceRes,
+        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), montant: avanceRes, par: profile.nom }] : [],
+        echeance: null, statut: "en_cours", par: profile.nom,
+      };
+      save({ ...db, dettes: [reservation, ...db.dettes] }, `Réservation prépayée ${f.client || "Client non renseigné"} (${fmt(total)}) — ${boutique} — créée depuis Ventes`);
+      setPanier([]);
+      setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "livre", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
+      setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
+      setCat("");
+      uAlert("✅ Réservation créée — le stock ne sera déduit et la vente enregistrée qu'à la livraison, depuis Dettes → Réservations prépayées.");
+      return;
+    }
+
     const messageConfirm = (fraisInstallDevis > 0 || fraisTransportDevis > 0)
       ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
       : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""} ?`;
@@ -553,6 +583,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   {PAIEMENTS.map((p) => <option key={p}>{p}</option>)}
                 </select>
               </Field>
+              {f.paiement === "Crédit (dette)" && !origineDevis && (
+                <Field label="Statut de l'article">
+                  <select className={inputCls} value={f.statutArticle || "livre"} onChange={(e) => setF({ ...f, statutArticle: e.target.value })}>
+                    <option value="livre">Livré — le client repart avec</option>
+                    <option value="non_livre">Non livré — le client paie avant d'emporter</option>
+                  </select>
+                </Field>
+              )}
               {f.paiement === "Crédit (dette)" && (
                 <Field label="Avance versée">
                   <input type="number" min="0" placeholder="0" className={inputCls} value={f.avance || ""} onChange={(e) => setF({ ...f, avance: e.target.value })} />

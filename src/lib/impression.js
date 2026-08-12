@@ -7,7 +7,7 @@
 import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDigits } from "./core";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
-import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit } from "./calculs";
+import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
 
 // ============ ÉCHAPPEMENT HTML (partagé par tous les documents) ============
@@ -182,8 +182,11 @@ export function imprimerRecuVersement(d, bq = {}) {
   #zone-impression .recu-doc table.sign td{width:33%;text-align:center;font-size:11px;color:#333;padding:0 12px}
   #zone-impression .recu-doc table.sign .ligne{border-top:1px solid #555;padding-top:4px}
   #zone-impression .recu-doc .merci{text-align:center;font-style:italic;color:#555;margin-top:16px;border-top:1px dashed #aaa;padding-top:8px}
+  #zone-impression .recu-doc{position:relative}
+  #zone-impression .recu-doc .filigrane{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:56px;font-weight:900;letter-spacing:6px;color:#dc2626;opacity:0.18;white-space:nowrap;pointer-events:none;z-index:1;user-select:none}
   </style>
   <div class="recu-doc">
+    ${estReservation(d) && d.statut !== "livree" ? `<div class="filigrane">NON LIVRÉ</div>` : ""}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="${esc(d.boutique)}"></td>
       <td class="soc">
@@ -652,6 +655,7 @@ export function imprimerBulletin(u, mois, db) {
         ${primes.map((x) => ligne(`Prime${x.motif ? " — " + x.motif : ""}`, x.montant, "+")).join("")}
         ${avances.map((x) => ligne(`Avance sur salaire${x.motif ? " — " + x.motif : ""}`, x.montant, "-")).join("")}
         ${p.retenueCredit > 0 ? ligne("Retenue crédit BMI", p.retenueCredit, "-") : ""}
+        ${p.retenueCNSS > 0 ? ligne("Retenue CNSS (9 % — pension vieillesse + AMU)", p.retenueCNSS, "-") : ""}
         <tr class="net"><td>NET À PERCEVOIR</td><td>${fmt(p.net)}</td></tr>
       </tbody>
     </table>

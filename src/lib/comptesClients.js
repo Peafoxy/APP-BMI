@@ -9,7 +9,7 @@
 import { telDigits, uid, definirMotDePasse, hacherFort, today } from "./core";
 
 // Adresse publique de l'application, envoyée au client par WhatsApp.
-export const ADRESSE_APP = "https://www.gestion-bmi.com";
+export const ADRESSE_APP = "https://gestion.bmitogo.com";
 
 // ============ COMPTES CLIENTS : IDENTIFIANTS AUTOMATIQUES ============
 // Le client ne choisit rien : nom + téléphone suffisent, sans aucune autre

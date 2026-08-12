@@ -9,6 +9,7 @@
 // ============================================================
 import { uid, normPaiement, lignesVente, caVente, fmt, today } from "./core";
 import { SALARIES } from "./constants";
+import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 
 // ============ CALCULS ============
@@ -575,12 +576,18 @@ export function paieMois(u, mois) {
   const primes = (u.primes || []).filter((p) => p.mois === mois).reduce((s, p) => s + Number(p.montant || 0), 0);
   const avances = (u.avances || []).filter((a) => a.mois === mois).reduce((s, a) => s + Number(a.montant || 0), 0);
   const retenueCredit = retenueCreditMois(u, mois);
+  // ⚠ Demande Timo : la part SALARIALE de la CNSS (4% pension vieillesse +
+  // 5% assurance maladie universelle = 9%) est retenue automatiquement sur
+  // le net, mais SEULEMENT pour un employé coché « assujetti CNSS » (voir
+  // PanneauCNSS, Salaires.jsx). Taux officiels : decret n°2012-038 (CNSS,
+  // pensions) + CGAMU (AMU) — voir TAUX_CNSS_SALARIE dans lib/cnss.js.
+  const retenueCNSS = u.cnss_assujetti ? Math.round((base + primes) * TAUX_CNSS_SALARIE) : 0;
   const vs = virementsMois(u, mois);
   const verse = vs.reduce((s, v) => s + Number(v.montant || 0), 0);
   const accepte = vs.filter((v) => v.statut === "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
   const enAttente = vs.filter((v) => v.statut !== "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
-  const net = base + primes - avances - retenueCredit;
-  return { base, primes, avances, retenueCredit, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
+  const net = base + primes - avances - retenueCredit - retenueCNSS;
+  return { base, primes, avances, retenueCredit, retenueCNSS, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
 }
 
 export const libelleMoisFR = (m) => {
