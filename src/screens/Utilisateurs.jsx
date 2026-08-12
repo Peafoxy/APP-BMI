@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -49,6 +49,7 @@ export function Users({ db, save, profile }) {
   const [msg, setMsg] = useState("");
 
   const creer = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     // ══════ DEUX RÈGLES, ET DEUX SEULEMENT ══════
     // 1. CLIENT  → mot de passe GÉNÉRÉ (4 derniers chiffres du téléphone +
     //    2 premières lettres du nom). Il est donc recalculable : on peut le lui
@@ -141,6 +142,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerPwd = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut changer un mot de passe."); return; }
     const p = await uPrompt(`Nouveau mot de passe pour ${u.nom} (6 caractères minimum, exigé par la sécurisation Supabase) :`);
     if (!p || p.length < 6) { if (p !== null) uAlert("Mot de passe trop court (6 caractères minimum)."); return; }
@@ -168,6 +170,7 @@ export function Users({ db, save, profile }) {
   };
 
   const supprimerU = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (profile && u.id === profile.id) { uAlert("Vous ne pouvez pas supprimer le compte avec lequel vous êtes connecté."); return; }
     // Même protection que pour le blocage : ne jamais supprimer le porteur
     // du drapeau d'admin principal sans un transfert explicite d'abord.
@@ -183,6 +186,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerBoutique = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const noms = db.boutiques.map((b) => b.nom);
     const nom = await uChoix(`Boutique assignée à ${u.nom} ?`, noms);
     if (!nom) return;
@@ -224,6 +228,7 @@ export function Users({ db, save, profile }) {
   };
 
   const toutRetablir = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!(u.droits_off || []).length) { uAlert("Ce compte a déjà tous ses pouvoirs."); return; }
     if (await uConfirm(`Rétablir TOUS les pouvoirs de ${u.nom} ?`)) {
       save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, droits_off: [] } : x)) }, `Tous les pouvoirs rétablis pour ${u.nom}`);
@@ -236,6 +241,7 @@ export function Users({ db, save, profile }) {
   // et confirmé, jamais automatique : n'écrase pas d'autres pouvoirs déjà
   // retirés à quelqu'un, se contente d'AJOUTER ces deux-là s'ils manquent.
   const restreindreAdminsExistants = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     const admins = db.users.filter((u) => u.role === "admin" && adminPrincipal(db)?.id !== u.id);
     if (!admins.length) { uAlert("Il n'y a aucun autre administrateur."); return; }
     if (!await uConfirm(`Retirer Historique et Paramètres à ${admins.length} administrateur(s) (tous, sauf vous) ?\n\nChacun pourra toujours les récupérer ensuite via « 🔐 Pouvoirs », individuellement.`)) return;
@@ -251,6 +257,7 @@ export function Users({ db, save, profile }) {
   // ---- PARRAINAGE : quel commercial a recruté cet utilisateur ----
   // À 5 filleuls, le parrain devient automatiquement chef d'équipe.
   const changerParrain = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const parrains = db.users.filter((x) => x.actif !== false && ["commercial", "technicien"].includes(x.role) && x.id !== u.id);
     if (!parrains.length) { uAlert("Aucun commercial disponible comme parrain."); return; }
     const actuel = db.users.find((x) => x.id === u.parrain_id);
@@ -274,6 +281,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerTauxEquipe = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Commission d'équipe de ${u.nom} (%) — pourcentage qu'il touche sur les commissions de ses filleuls :`, String(u.taux_equipe ?? TAUX_EQUIPE_DEFAUT));
     if (v === null) return;
     const t = Math.max(0, Math.min(50, Number(v) || 0));
@@ -283,6 +291,7 @@ export function Users({ db, save, profile }) {
 
   // ---- TAUX DE COMMISSION (tout rôle : celui qui amène un client est commissionné) ----
   const changerTauxCommission = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Taux de commission de ${u.nom} (%) — appliqué à toute vente qui lui est attribuée.\n0 = aucune commission.`, String(u.taux_commission ?? 0));
     if (v === null) return;
     const taux = Math.max(0, Math.min(100, Number(v) || 0));
@@ -294,6 +303,7 @@ export function Users({ db, save, profile }) {
   // Renseignée après la création du compte. C'est cette identité qui figure
   // sur le bulletin de paie (le « nom » du compte ne sert qu'à la connexion).
   const changerIdentite = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const nc = await uPrompt(`Nom et prénom(s) officiels de ${u.nom} (tels qu'ils apparaîtront sur le bulletin de paie) :`, u.nom_complet || u.nom || "");
     if (nc === null) return;
     if (!nc.trim()) { uAlert("Le nom et prénom(s) sont obligatoires."); return; }
@@ -306,6 +316,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerTauxAvancement = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Taux d'avancement annuel de ${u.nom} (en %) :`, String(u.taux_avancement || ""));
     if (v === null) return;
     const taux = Math.max(0, Number(v) || 0);
@@ -317,6 +328,7 @@ export function Users({ db, save, profile }) {
   // est défini pour l'employé, le nouveau montant est pré-calculé
   // automatiquement (ancien × (1 + taux %)) — l'admin peut toujours l'ajuster.
   const changerSalaire = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const ancien0 = Number(u.salaire_base || 0);
     const taux0 = Number(u.taux_avancement || 0);
     const suggestion = ancien0 > 0 && taux0 > 0 ? String(Math.round(ancien0 * (1 + taux0 / 100))) : String(u.salaire_base || "");
@@ -341,6 +353,7 @@ export function Users({ db, save, profile }) {
   // Enregistre une prime ou une avance sur salaire pour un mois donné.
   // L'avance est déduite du net à percevoir du mois concerné.
   const ajouterMouvementSalaire = async (u, type) => {
+    if (bloquerSiLecture(db, profile)) return;
     const libelle = type === "prime" ? "prime" : "avance sur salaire";
     const mois = await uPrompt(`Mois de la ${libelle} pour ${u.nom} (AAAA-MM) :`, today().slice(0, 7));
     if (!mois) return;
@@ -379,6 +392,7 @@ export function Users({ db, save, profile }) {
   const envoyerVirement = (u) => envoyerVirementG(db, save, profile, u);
 
   const annulerVirement = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
     const attente = (u.virements || []).filter((v) => v.statut !== "accepte");
     if (!attente.length) { uAlert("Aucun virement en attente pour cet employé."); return; }
     const dernier = attente[attente.length - 1];
@@ -398,6 +412,7 @@ export function Users({ db, save, profile }) {
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((c) => (c.id === credit.id ? credit : c)) } : x)) }, label);
 
   const approuverCredit = async (u, c) => {
+    if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Montant accordé à ${u.nom} (demandé : ${fmt(c.montant_demande)}) :`, String(c.montant_demande));
     if (v === null) return;
     const montant = Number(v);
@@ -442,6 +457,7 @@ export function Users({ db, save, profile }) {
   };
 
   const refuserCredit = async (u, c) => {
+    if (bloquerSiLecture(db, profile)) return;
     const motif = await uPrompt(`Motif du refus (visible par ${u.nom}) :`, "");
     if (motif === null) return;
     if (!await uConfirm(`Refuser la demande de crédit de ${fmt(c.montant_demande)} de ${u.nom} ?`)) return;
@@ -450,6 +466,7 @@ export function Users({ db, save, profile }) {
   };
 
   const rembourserCredit = async (u, c) => {
+    if (bloquerSiLecture(db, profile)) return;
     const reste = resteCredit(c);
     const v = await uPrompt(`Versement de remboursement de ${u.nom} (reste dû : ${fmt(reste)}) :`, String(reste));
     if (v === null) return;

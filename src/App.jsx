@@ -774,12 +774,12 @@ export default function App() {
       )}
       {ongletsVisites.fournisseurs && (isAdmin || isGerant) && (
         <div style={{ display: tab === "fournisseurs" ? "block" : "none" }}>
-          <M.Fournisseurs db={db} save={save} />
+          <M.Fournisseurs db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.commerciaux && isAdmin && (
         <div style={{ display: tab === "commerciaux" ? "block" : "none" }}>
-          <M.Commerciaux db={db} save={save} />
+          <M.Commerciaux db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.rentabilite && (isAdmin || isComptable) && (

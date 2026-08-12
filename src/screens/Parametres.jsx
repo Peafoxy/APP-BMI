@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -31,6 +31,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [nouveauPrincipal, setNouveauPrincipal] = useState("");
 
   const transfererPrincipal = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!estAdminPrincipal(db, profile)) return;
     const u = db.users.find((x) => x.id === nouveauPrincipal);
     if (!u) { uAlert("Choisissez un administrateur."); return; }
@@ -61,6 +62,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [imageEnCours, setImageEnCours] = useState(false);
 
   const enregistrerAccueil = (champs) => {
+    if (bloquerSiLecture(db, profile)) return;
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, ...champs })) }, `Personnalisation de l'écran de connexion modifiée`);
   };
 
@@ -91,6 +93,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // lisible avant authentification) — pas de nouvelle table.
   const [cachetEnCours, setCachetEnCours] = useState(false);
   const chargerCachet = async (fichier) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!fichier) return;
     setCachetEnCours(true);
     try {
@@ -109,6 +112,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [tauxParr, setTauxParr] = useState(String(tauxParrainageDefaut(db)));
 
   const enregistrerTauxParrainage = () => {
+    if (bloquerSiLecture(db, profile)) return;
     const t = Number(tauxParr);
     if (Number.isNaN(t) || t < 0 || t > 100) { uAlert("Entrez un taux entre 0 et 100."); return; }
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, taux_parrainage: t })) },
@@ -117,6 +121,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const enregistrerNote = () => {
+    if (bloquerSiLecture(db, profile)) return;
     // L'écran Paramètres est déjà réservé à l'administrateur : pas de contrôle en plus.
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, note_dim: note })) },
       "Note du dimensionnement modifiée");
@@ -124,6 +129,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const retablirNote = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!await uConfirm("Rétablir le texte d'origine ?")) return;
     setNote(NOTE_DIM_DEFAUT);
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, note_dim: NOTE_DIM_DEFAUT })) },
@@ -176,6 +182,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     db.depenses.some((x) => x.boutique === nom) || db.dettes.some((x) => x.boutique === nom);
 
   const ajouter = () => {
+    if (bloquerSiLecture(db, profile)) return;
     const nom = f.nom.trim().toUpperCase();
     if (!nom) { uAlert("Veuillez saisir un nom."); return; }
     if (db.boutiques.some((b) => b.nom === nom)) { uAlert("Cette boutique existe déjà."); return; }
@@ -185,6 +192,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const basculerDepot = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     const versDepot = !b.depot;
     if (versDepot && db.ventes.some((v) => v.boutique === b.nom)) {
       if (!await uConfirm(`⚠ « ${b.nom} » a déjà des ventes enregistrées.\n\nEn faire un magasin la retirera des écrans de vente et de caisse (les ventes passées restent consultables).\n\nContinuer ?`)) return;
@@ -195,6 +203,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const supprimer = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (db.boutiques.length <= 1) { uAlert("Gardez au moins une boutique."); return; }
     if (utilisee(b.nom)) { uAlert(`« ${b.nom} » contient des données. Utilisez « Supprimer avec ses données » si vous voulez vraiment la retirer.`); return; }
     if (await uConfirm(`Supprimer « ${b.nom} » ?`)) save({ ...db, boutiques: db.boutiques.filter((x) => x.id !== b.id) }, `Suppression boutique ${b.nom}`);
@@ -204,6 +213,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // (produits, ventes, dépenses, dettes, ajustements, clôtures, prospects,
   // commandes). Irréversible — double confirmation obligatoire.
   const supprimerAvecDonnees = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (db.boutiques.length <= 1) { uAlert("Gardez au moins une boutique."); return; }
     const nom = b.nom;
     const compte = (arr) => arr.filter((x) => x.boutique === nom).length;
@@ -236,6 +246,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // Téléverser le logo d'une boutique (redimensionné puis stocké dans la
   // base : il se synchronise automatiquement sur toutes les machines)
   const chargerLogo = (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -270,6 +281,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const retirerLogo = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Retirer le logo de ${b.nom} ? (le logo BMI sera utilisé sur les reçus)`)) {
       save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, logo: null } : x)) });
     }
@@ -308,6 +320,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const reinitialiserToutesLesDonnees = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     // ══════ BARRIÈRE 1 : uniquement depuis le LOGICIEL WINDOWS ══════
     if (!estAppWindows()) {
       uAlert(
@@ -455,6 +468,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const modifierInfos = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     const adresse = await uPrompt(`Adresse de ${b.nom} (imprimée sur les reçus) :`, b.adresse || "Lomé, Togo");
     if (adresse === null) return;
     const tel = await uPrompt(`Téléphone de ${b.nom} (imprimé sur les reçus) :`, b.tel || "");
@@ -471,9 +485,11 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   const enregistrerPosition = (b, lat, lng) => {
+    if (bloquerSiLecture(db, profile)) return;
     save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, lat, lng } : x)) }, `Position GPS de ${b.nom} mise à jour`);
   };
   const retirerPosition = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!await uConfirm(`Retirer la position GPS de ${b.nom} ?`)) return;
     save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, lat: null, lng: null } : x)) }, `Position GPS de ${b.nom} retirée`);
     setPositionPour(null);
@@ -488,7 +504,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <div className="flex flex-wrap gap-3">
               {PALETTE.map(([nomC, hex]) => (
                 <button key={hex} title={nomC}
-                  onClick={() => { save({ ...db, boutiques: db.boutiques.map((x) => (x.id === couleurPour.id ? { ...x, couleur: hex } : x)) }, `Couleur de ${couleurPour.nom} → ${nomC}`); setCouleurPour(null); }}
+                  onClick={() => { if (bloquerSiLecture(db, profile)) return; save({ ...db, boutiques: db.boutiques.map((x) => (x.id === couleurPour.id ? { ...x, couleur: hex } : x)) }, `Couleur de ${couleurPour.nom} → ${nomC}`); setCouleurPour(null); }}
                   className={`w-10 h-10 rounded-full border-2 shadow ${couleurPour.couleur === hex ? "border-slate-900 scale-110" : "border-white"}`}
                   style={{ backgroundColor: hex }}></button>
               ))}
@@ -743,7 +759,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           {db.boutiques[0]?.cachet_bmi && (
             <div className="mt-2 flex items-center gap-2">
               <img src={db.boutiques[0].cachet_bmi} alt="Cachet BMI Togo" className="h-20 rounded-lg border border-slate-300 bg-white p-1" />
-              <button onClick={() => save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, cachet_bmi: "" })) }, "Cachet BMI Togo retiré")} className="text-xs font-semibold text-red-600 underline">Retirer le cachet</button>
+              <button onClick={() => { if (bloquerSiLecture(db, profile)) return; save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, cachet_bmi: "" })) }, "Cachet BMI Togo retiré"); }} className="text-xs font-semibold text-red-600 underline">Retirer le cachet</button>
             </div>
           )}
         </div>

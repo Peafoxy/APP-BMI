@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse } from "../lib/calculs";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
 import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC } from "../lib/cnss";
@@ -170,6 +170,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
   const maj = (id, champ, val) => setBrouillon((b) => ({ ...b, [id]: { ...b[id], [champ]: val } }));
 
   const enregistrer = () => {
+    if (bloquerSiLecture(db, profile)) return;
     save({
       ...db,
       users: db.users.map((u) => {
@@ -222,6 +223,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
   const dejaEnregistreCeMois = (db.depenses || []).some((d) => d.categorie === "Cotisations CNSS" && String(d.date || "").slice(0, 7) === mois);
 
   const payerCNSS = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     if (pretsPourExport.length === 0) { uAlert("Aucun employé assujetti prêt : rien à régler pour ce mois."); return; }
     if (dejaEnregistreCeMois) {
       if (!await uConfirm(`Un paiement CNSS a déjà été enregistré pour ${libelleMoisFR(mois)}. Enregistrer un second paiement quand même ?`)) return;
@@ -363,6 +365,7 @@ export function Salaire({ db, save, profile }) {
   const [msgC, setMsgC] = useState("");
 
   const demanderCredit = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     const montant = Number(dem.montant);
     if (!montant || montant <= 0) { setMsgC("Indiquez le montant souhaité."); return; }
     if (!dem.motif.trim()) { setMsgC("Indiquez le motif de votre demande."); return; }
@@ -398,12 +401,14 @@ export function Salaire({ db, save, profile }) {
   }, []);
 
   const annulerDemande = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!await uConfirm(`Annuler votre demande de crédit de ${fmt(c.montant_demande)} ?`)) return;
     save({ ...db, users: db.users.map((x) => (x.id === moi.id ? { ...x, credits: (x.credits || []).filter((y) => y.id !== c.id) } : x)) },
       `${moi.nom} a annulé sa demande de crédit de ${fmt(c.montant_demande)}`);
   };
 
   const accepterVirement = async (v) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!await uConfirm(`Confirmez-vous avoir bien reçu ${fmt(v.montant)}${v.moyen ? ` par ${v.moyen}` : ""} pour ${libelleMois(v.mois)} ?\n\nCette confirmation est enregistrée et visible par l'administration.`)) return;
     const maj = { ...v, statut: "accepte", date_acceptation: today() };
     save({ ...db, users: db.users.map((x) => (x.id === moi.id ? { ...x, virements: (x.virements || []).map((y) => (y.id === v.id ? maj : y)) } : x)) },

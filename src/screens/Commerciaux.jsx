@@ -7,11 +7,11 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, totalVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { periodes , ventesDuCommercial } from "../lib/calculs";
+import { periodes , ventesDuCommercial, bloquerSiLecture } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
-export function Commerciaux({ db, save }) {
+export function Commerciaux({ db, save, profile }) {
   const [f, setF] = useState({ nom: "", tel: "", zone: "", taux: "", objectif: "" });
   const [periodeIndex, setPeriodeIndex] = useState(2); // Ce mois par défaut
   const [customDebut, setCustomDebut] = useState("");
@@ -32,6 +32,7 @@ export function Commerciaux({ db, save }) {
   })();
 
   const ajouter = () => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
     save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, taux: Number(f.taux || 0), objectif: Number(f.objectif || 0), actif: true }] });
     setF({ nom: "", tel: "", zone: "", taux: "", objectif: "" });
@@ -39,6 +40,7 @@ export function Commerciaux({ db, save }) {
   };
 
   const modifier = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
     const taux = await uPrompt(`Taux de commission de ${c.nom} (%) :`, c.taux);
     if (taux === null) return;
     const objectif = await uPrompt(`Objectif mensuel de ${c.nom} (F) :`, c.objectif);
@@ -46,9 +48,10 @@ export function Commerciaux({ db, save }) {
     save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, taux: Number(taux || 0), objectif: Number(objectif || 0) } : x)) });
   };
 
-  const toggleActif = (c) => save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, actif: x.actif === false } : x)) });
+  const toggleActif = (c) => { if (bloquerSiLecture(db, profile)) return; save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, actif: x.actif === false } : x)) }); };
 
   const supprimer = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Supprimer le commercial « ${c.nom} » ?`)) save({ ...db, commerciaux: db.commerciaux.filter((x) => x.id !== c.id) });
   };
 

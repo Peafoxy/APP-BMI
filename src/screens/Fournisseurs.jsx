@@ -3,14 +3,16 @@
 // dettes fournisseur liées aux ravitaillements.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt } from "../lib/core";
+import { uid, fmt, today } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { bloquerSiLecture, choisirBoutiqueDebitG } from "../lib/calculs";
 
 // ============ FOURNISSEURS ============
-export function Fournisseurs({ db, save }) {
+export function Fournisseurs({ db, save, profile }) {
   const [f, setF] = useState({ nom: "", tel: "", adresse: "", site_web: "", produits: "", doit: "", paye: "" });
 
   const ajouter = () => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
     save({ ...db, fournisseurs: [...db.fournisseurs, { id: uid(), nom: f.nom, tel: f.tel, adresse: f.adresse, site_web: f.site_web, produits: f.produits, doit: Number(f.doit || 0), paye: Number(f.paye || 0) }] });
     setF({ nom: "", tel: "", adresse: "", site_web: "", produits: "", doit: "", paye: "" });
@@ -18,14 +20,24 @@ export function Fournisseurs({ db, save }) {
   };
 
   const payer = async (fo) => {
+    if (bloquerSiLecture(db, profile)) return;
     const s = await uPrompt(`Montant réglé à ${fo.nom} (F) :`);
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
-    save({ ...db, fournisseurs: db.fournisseurs.map((x) => (x.id === fo.id ? { ...x, paye: Number(x.paye) + m } : x)) });
-    uAlert(`Paiement de ${fmt(m)} enregistré !`);
+    // ⚠ Trouvé en audit général (2.99.65) : un règlement fournisseur ne
+    // créait jusqu'ici AUCUNE dépense — invisible dans "Total dépenses",
+    // contrairement aux salaires/primes/commissions/CNSS. Corrigé : même
+    // sélecteur de boutique que pour les autres sorties de caisse (CNSS,
+    // virement de salaire), catégorie "Achat marchandises" (déjà existante).
+    const bq = await choisirBoutiqueDebitG(db, {}, `Paiement de ${fmt(m)} à ${fo.nom}`);
+    if (bq === null) return;
+    const dep = { id: uid(), date: today(), boutique: bq, categorie: "Achat marchandises", description: `Règlement fournisseur ${fo.nom}`, montant: m, paiement: "Espèces", par: profile.nom };
+    save({ ...db, fournisseurs: db.fournisseurs.map((x) => (x.id === fo.id ? { ...x, paye: Number(x.paye) + m } : x)), depenses: [dep, ...db.depenses] }, `Paiement fournisseur ${fo.nom} (${fmt(m)}) — ${bq}`);
+    uAlert(`Paiement de ${fmt(m)} enregistré ! (dépense créée — sortie de caisse : ${bq})`);
   };
 
   const nouvelleDette = async (fo) => {
+    if (bloquerSiLecture(db, profile)) return;
     const s = await uPrompt(`Nouvelle commande à crédit chez ${fo.nom} — montant (F) :`);
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
@@ -34,6 +46,7 @@ export function Fournisseurs({ db, save }) {
   };
 
   const supprimer = async (fo) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Supprimer le fournisseur « ${fo.nom} » ?`)) save({ ...db, fournisseurs: db.fournisseurs.filter((x) => x.id !== fo.id) });
   };
 

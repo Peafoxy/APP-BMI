@@ -100,7 +100,13 @@ export function Dettes({ db, save, profile }) {
       id: uid(), numero: prochainNumeroVente(db, r.boutique),
       date: today(), boutique: r.boutique, client: r.client, tel: r.tel,
       articles: r.articles, remise: 0, paiement: "Prépayé", avance: 0,
-      commercial: null, responsable: null, apporteur: null, par: profile.nom, reservation_id: r.id,
+      // ⚠ Repris de la réservation (r.commercial etc.) — pas systématiquement
+      // null : sinon un commercial/apporteur choisi lors d'une vente à crédit
+      // "non livrée" (Ventes.jsx) perdrait sa commission pour toujours, faute
+      // d'avoir jamais été reporté sur la vraie vente créée ici.
+      commercial: r.commercial || null, responsable: r.responsable || null,
+      rabais: r.rabais || 0, apporteur: r.apporteur || null,
+      par: profile.nom, reservation_id: r.id,
     };
     save({
       ...db,
@@ -146,7 +152,7 @@ export function Dettes({ db, save, profile }) {
       {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
 
       <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
-        <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — le client paie avant d'emporter</div>
+        <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</div>
         <div className="text-xs text-slate-500 mb-4">Le prix est bloqué, les versements s'accumulent. La marchandise ne sort du stock qu'au moment de la livraison.</div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -211,6 +217,7 @@ export function Dettes({ db, save, profile }) {
                           : <span className="text-xs font-bold text-amber-600">⏳ En cours</span>}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
+                      <button onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {})} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu (avec filigrane NON LIVRÉ si pas encore livrée)">🖨 Reçu</button>
                       {r.statut !== "livree" && <button onClick={() => encaisser(r)} className="text-xs font-bold text-sky-800 underline mr-2">+ Versement</button>}
                       {r.statut !== "livree" && <button onClick={() => livrer(r)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800 mr-2">📦 Livrer</button>}
                       {r.statut !== "livree" && <button onClick={() => annulerReservation(r)} className="text-xs text-red-600 underline">Annuler</button>}

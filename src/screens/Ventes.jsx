@@ -11,7 +11,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
-import { imprimerRecu, imprimerProforma, recuWhatsApp } from "../lib/impression";
+import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
 import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
@@ -291,8 +291,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         montant: total, paye: avanceRes,
         paiements: avanceRes > 0 ? [{ id: uid(), date: today(), montant: avanceRes, par: profile.nom }] : [],
         echeance: null, statut: "en_cours", par: profile.nom,
+        // ⚠ Trouvé en audit général (pas dans le scope initial de la demande
+        // "non livré") : sans ceci, un commercial/apporteur choisi sur cette
+        // vente perdait définitivement sa commission — la réservation, puis
+        // la vente créée à la livraison, ne portaient jamais ces infos.
+        commercial: f.commercial || null, responsable: f.responsable || null,
+        rabais, apporteur: apporteurExterne(total),
       };
       save({ ...db, dettes: [reservation, ...db.dettes] }, `Réservation prépayée ${f.client || "Client non renseigné"} (${fmt(total)}) — ${boutique} — créée depuis Ventes`);
+      // Le client repart avec une preuve de ce qu'il a payé — même document
+      // que celui d'un versement ultérieur (2.99.54), avec le filigrane
+      // "NON LIVRÉ" (2.99.62) qui s'applique automatiquement puisque
+      // reservation.type === "prepaye" et statut !== "livree".
+      try { imprimerRecuVersement(reservation, infoBq(boutique)); } catch {}
       setPanier([]);
       setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "livre", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
       setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });

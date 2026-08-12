@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { stockActuel, boutiquesVente } from "../lib/calculs";
+import { stockActuel, boutiquesVente, bloquerSiLecture } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -103,6 +103,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
   const total = brut - remise;
 
   const envoyer = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
     setMsg("");
@@ -294,6 +295,7 @@ export function CommandesRecues({ db, save, profile, onValider }) {
   const historique = [...enSuspensListe, ...historiqueBrut.filter((c) => !venteEnSuspens(c)).slice(0, 30)];
 
   const valider = (c) => {
+    if (bloquerSiLecture(db, profile)) return;
     save({ ...db, commandes: db.commandes.map((x) => (x.id === c.id ? { ...x, statut: "validee", valide_par: profile.nom, suivi_vente: true } : x)) }, `Commande de ${c.commercial} validée par ${profile.nom} — ${c.boutique}`);
     // origine_devis suit jusqu'à l'encaissement : c'est lui qui déclenchera la
     // création de la fiche d'installation.

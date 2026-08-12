@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm } from "../components/ui";
-import { boutiquesVente, dettesClassiques } from "../lib/calculs";
+import { boutiquesVente, dettesClassiques, bloquerSiLecture } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
@@ -27,6 +27,7 @@ export function CreerClient({ db, save, profile }) {
   const mesClients = (db.users || []).filter((u) => u.role === "client" && u.amene_par_id === profile.id);
 
   const creer = async () => {
+    if (bloquerSiLecture(db, profile)) return;
     const nom = f.nom.trim(), tel = f.tel.trim();
     if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom du client et son numéro (au moins 4 chiffres)."); return; }
     const existant = (db.users || []).find((u) => u.role === "client" && u.tel && chiffresTel(u.tel) === chiffresTel(tel));
