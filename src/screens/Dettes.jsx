@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
@@ -20,7 +20,7 @@ export function Dettes({ db, save, profile }) {
 
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
-    save({ ...db, dettes: [{ id: uid(), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: Number(f.paye || 0), par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}`);
+    save({ ...db, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: Number(f.paye || 0), par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}`);
     setF({ client: "", tel: "", motif: "", montant: "", paye: "" });
     uAlert("Dette enregistrée avec succès !");
   };
@@ -70,7 +70,7 @@ export function Dettes({ db, save, profile }) {
     if (avance > totalRes) { uAlert("L'avance dépasse le total de la réservation."); return; }
     if (!await uConfirm(`Créer la réservation de ${res.client.trim()} ?\n\nTotal : ${fmt(totalRes)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(totalRes - avance)}\n\nLa marchandise ne sortira du stock qu'à la livraison.`)) return;
     const r = {
-      id: uid(), type: "prepaye", date: today(), boutique, client: res.client.trim(), tel: res.tel.trim(),
+      id: uid(), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique, client: res.client.trim(), tel: res.tel.trim(),
       motif: `Réservation — ${panierRes.length} article(s)`,
       articles: panierRes, montant: totalRes, paye: avance,
       paiements: avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(res.moyen), par: profile.nom }] : [],
@@ -141,7 +141,7 @@ export function Dettes({ db, save, profile }) {
         // une DETTE CLASSIQUE toute neuve — historique de versements et
         // montant/payé intégralement conservés, seul le classement change.
         ? [
-            { id: uid(), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id, date_livraison: today() },
+            { id: uid(), numero: r.numero || prochainNumeroDette(db, r.boutique), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id, date_livraison: today() },
             ...db.dettes.filter((x) => x.id !== r.id),
           ]
         : db.dettes.map((x) => (x.id === r.id ? { ...x, statut: "livree", date_livraison: today(), vente_id: vente.id } : x)),

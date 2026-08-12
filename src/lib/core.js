@@ -262,6 +262,30 @@ export function repararNumerosVentes(db) {
   };
 }
 
+// Même principe anti-collision que prochainNumeroVente (voir ci-dessus) —
+// mais pour les dettes/réservations, qui ont leur PROPRE numérotation :
+// préfixe "-DET-" pour ne jamais se confondre visuellement avec un numéro
+// de vente sur un même reçu (une réservation n'est pas encore une vente).
+export const prochainNumeroDette = (db, boutique, date = today()) => {
+  const annee = String(date).slice(0, 4);
+  const prefixe = `${prefixeBoutique(boutique)}-DET-${annee}-`;
+  const pris = new Set();
+  let maxSeq = 0;
+  for (const d of db.dettes || []) {
+    const n = String(d.numero || "");
+    if (!n.startsWith(prefixe)) continue;
+    pris.add(n);
+    const seq = parseInt(n.slice(prefixe.length), 10);
+    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+  }
+  let seq = maxSeq + 1;
+  while (pris.has(prefixe + String(seq).padStart(4, "0"))) seq += 1;
+  return prefixe + String(seq).padStart(4, "0");
+};
+// Secours pour une dette/réservation créée AVANT ce numéro (legacy) — même
+// principe que numeroRecu() ci-dessus.
+export const numeroRecuDette = (d) => d.numero || `${prefixeBoutique(d.boutique)}-DET-${String(d.date).slice(0, 4)}-${String(d.id).slice(0, 4).toUpperCase()}`;
+
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
 export const today = () => new Date().toISOString().slice(0, 10);

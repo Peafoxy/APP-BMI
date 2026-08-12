@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, telDigits } from "./core";
+import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits } from "./core";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
@@ -203,6 +203,7 @@ export function imprimerRecuVersement(d, bq = {}) {
     <h1${solde ? ' class="solde"' : ""}>${solde ? "REÇU DÉFINITIF — DETTE SOLDÉE" : "REÇU DE VERSEMENT"}</h1>
 
     <div class="meta">
+      <div><b>N° de reçu :</b> ${esc(numeroRecuDette(d))}</div>
       <div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}${dernier?.heure ? ` à ${dernier.heure}` : ""}</div>
       <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>
     </div>

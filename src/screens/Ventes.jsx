@@ -9,7 +9,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
+import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
 import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom } from "../lib/calculs";
@@ -289,7 +289,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       const avanceRes = Math.max(0, Math.min(total, Number(f.avance) || 0));
       if (!await uConfirm(`Créer une réservation prépayée pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avanceRes)}\nReste à payer : ${fmt(total - avanceRes)}\n\nLa marchandise ne sortira du stock qu'à la livraison (écran Dettes → Réservations prépayées).`)) return;
       const reservation = {
-        id: uid(), type: "prepaye", date: today(), boutique,
+        id: uid(), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique,
         client: f.client || "Client non renseigné", tel: f.tel,
         motif: `Réservation — ${resumeArticles({ articles: panier })}`,
         articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
@@ -442,7 +442,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       const avance = Math.max(0, Math.min(total, Number(f.avance) || 0));
       if (await uConfirm(`Enregistrer cette vente à crédit pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(total - avance)}`)) {
         const paiementsInitiaux = avance > 0 ? [{ date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, par: profile.nom }] : [];
-        next = { ...next, dettes: [{ id: uid(), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: panier, montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+        next = { ...next, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: panier, montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
       }
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
