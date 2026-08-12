@@ -178,6 +178,7 @@ export function imprimerRecuVersement(d, bq = {}) {
   #zone-impression .recu-doc table.totaux tr.total td{border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
   #zone-impression .recu-doc table.totaux tr.solde td{border-top:2px solid #166534;font-weight:bold;font-size:14px;color:#166534}
   #zone-impression .recu-doc .bandeau-solde{margin:12px 0;padding:10px;background:#f0fdf4;border:2px solid #166534;border-radius:6px;text-align:center;font-weight:bold;color:#166534;letter-spacing:1px}
+  #zone-impression .recu-doc .bandeau-livree{margin:12px 0;padding:10px;background:#eff6ff;border:2px solid #1e5a8a;border-radius:6px;text-align:center;font-weight:bold;color:#1e5a8a;letter-spacing:1px}
   #zone-impression .recu-doc table.sign{width:100%;border-collapse:collapse;margin-top:26px}
   #zone-impression .recu-doc table.sign td{width:33%;text-align:center;font-size:11px;color:#333;padding:0 12px}
   #zone-impression .recu-doc table.sign .ligne{border-top:1px solid #555;padding-top:4px}
@@ -237,6 +238,8 @@ export function imprimerRecuVersement(d, bq = {}) {
     </table>
 
     ${solde ? `<div class="bandeau-solde">✔ CETTE DETTE EST INTÉGRALEMENT SOLDÉE — AUCUN MONTANT NE RESTE DÛ</div>` : ""}
+
+    ${d.vente_id ? `<div class="bandeau-livree">📦 MARCHANDISE DÉJÀ LIVRÉE${d.date_livraison ? ` LE ${dFR(d.date_livraison)}` : ""}</div>` : ""}
 
     <table class="sign"><tr>
       <td></td>

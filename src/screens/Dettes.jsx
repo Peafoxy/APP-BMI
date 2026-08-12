@@ -118,7 +118,13 @@ export function Dettes({ db, save, profile }) {
       // vente émis à la livraison. Corrigé en remappant ici, au seul endroit
       // où une réservation devient une vraie vente.
       articles: (r.articles || []).map((l) => ({ produit_id: l.produit_id, article: l.nom, qte: l.qte, pu: l.pu })),
-      remise: 0, paiement: "Prépayé", avance: 0,
+      // ⚠ Demande Timo : sur le reçu d'une réservation livrée SANS être
+      // soldée, il faut voir "Avance versée" et "RESTE À PAYER" — exactement
+      // ce que sait déjà faire imprimerRecu() pour toute vente marquée
+      // "Crédit (dette)" (voir impression.js). Il suffit donc de la marquer
+      // ainsi ici, avec l'avance déjà versée reprise — sans toucher au
+      // gabarit d'impression, qui gère déjà ce cas pour les ventes normales.
+      remise: 0, paiement: basculeEnDette ? "Crédit (dette)" : "Prépayé", avance: basculeEnDette ? r.paye : 0,
       // ⚠ Repris de la réservation (r.commercial etc.) — pas systématiquement
       // null : sinon un commercial/apporteur choisi lors d'une vente à crédit
       // "non livrée" (Ventes.jsx) perdrait sa commission pour toujours, faute
@@ -135,7 +141,7 @@ export function Dettes({ db, save, profile }) {
         // une DETTE CLASSIQUE toute neuve — historique de versements et
         // montant/payé intégralement conservés, seul le classement change.
         ? [
-            { id: uid(), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id },
+            { id: uid(), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id, date_livraison: today() },
             ...db.dettes.filter((x) => x.id !== r.id),
           ]
         : db.dettes.map((x) => (x.id === r.id ? { ...x, statut: "livree", date_livraison: today(), vente_id: vente.id } : x)),
@@ -308,6 +314,7 @@ export function Dettes({ db, save, profile }) {
                     {estRetard && <span className="ml-1 text-red-600 font-bold">⚠</span>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
+                    <button onClick={() => imprimerRecuVersement(d, db.boutiques.find((b) => b.nom === d.boutique) || {})} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)">🖨 Reçu</button>
                     {st !== "Payée" && (
                       <>
                         <button onClick={() => encaisser(d)} className="text-xs font-bold text-sky-800 underline mr-2">+ Paiement</button>
