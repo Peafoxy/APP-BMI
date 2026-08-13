@@ -272,6 +272,57 @@ export function EspaceClient({ db, profile, save, setTab }) {
     await finaliserValidation(d, { contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today() });
   };
 
+  // ⚠ Demande Timo : signer le PV de réception (ou son avenant) DIRECTEMENT
+  // dans l'app, EN PLUS du lien WhatsApp/bmitogo.com existant — le client
+  // choisit. Repose sur le même canevas tactile que le contrat d'installation
+  // ci-dessus (positionCanvas déjà générique), mais avec son propre état :
+  // un client pourrait en théorie avoir un devis à signer ET un chantier en
+  // attente de PV en même temps, les deux ne doivent jamais se mélanger.
+  const [dessinPvEnCours, setDessinPvEnCours] = useState(false);
+  const canvasPvRef = useRef(null);
+  const aSignePvRef = useRef(false);
+  const debuterTraitPv = (e) => {
+    e.preventDefault();
+    setDessinPvEnCours(true);
+    aSignePvRef.current = true;
+    const ctx = canvasPvRef.current.getContext("2d");
+    const { x, y } = positionCanvas(e, canvasPvRef.current);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+  const continuerTraitPv = (e) => {
+    if (!dessinPvEnCours) return;
+    e.preventDefault();
+    const ctx = canvasPvRef.current.getContext("2d");
+    const { x, y } = positionCanvas(e, canvasPvRef.current);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  };
+  const terminerTraitPv = () => setDessinPvEnCours(false);
+  const effacerSignaturePv = () => {
+    const ctx = canvasPvRef.current.getContext("2d");
+    ctx.clearRect(0, 0, canvasPvRef.current.width, canvasPvRef.current.height);
+    aSignePvRef.current = false;
+  };
+  // estAvenant distingue les 2 cas : PV normal (fin de chantier) vs avenant
+  // (réserves corrigées) — mêmes champs que ceux déjà écrits par la page
+  // externe (voir imprimerPV, lib/impression.js), donc le document généré
+  // ensuite est rigoureusement identique, peu importe où le client a signé.
+  const signerPv = async (estAvenant) => {
+    if (!aSignePvRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
+    const signatureDataUrl = canvasPvRef.current.toDataURL("image/png");
+    const maintenant = new Date().toISOString();
+    const champs = estAvenant
+      ? { avenant_signature: signatureDataUrl, avenant_statut: "signe", avenant_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
+      : { contrat_signature: signatureDataUrl, contrat_statut: "signe", contrat_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom };
+    aSignePvRef.current = false;
+    save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === fiche.id ? { ...x, ...champs } : x)) },
+      `${estAvenant ? "Avenant" : "PV de réception"} signé directement dans l'app par ${profile.nom} — ${fiche.nom}`);
+  };
+
   const finaliserValidation = async (d, infosContrat) => {
     const boutique = bqPaiement[d.id];
     if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
@@ -673,6 +724,18 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <div className="text-sm text-slate-600 bg-white border border-amber-200 rounded-lg px-3 py-2">
                   📲 Un lien de réception sécurisé vous a été envoyé par WhatsApp, pour signer directement depuis votre téléphone. Si vous ne l'avez pas reçu, contactez BMI Togo.
                 </div>
+                {fiche.contrat_statut === "attente_signature" && (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-white p-3">
+                    <div className="text-xs font-semibold text-slate-600 mb-1">Ou signez directement ici :</div>
+                    <canvas ref={canvasPvRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+                      onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
+                      onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      <button onClick={effacerSignaturePv} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+                      <button onClick={() => signerPv(false)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer la réception</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -690,6 +753,18 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <div className="font-bold text-red-800">⚠ Vous avez signalé un problème</div>
                 <div className="text-sm text-slate-700 mt-1">« {fiche.reserves} »</div>
                 <div className="text-xs text-slate-500 mt-2">Signalé le {dFR(fiche.reserves_le)}. Nos équipes ont été prévenues et vous recontacteront.</div>
+                {fiche.avenant_statut === "attente_signature" && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-white p-3">
+                    <div className="text-sm text-slate-700 mb-2">Les réserves ont été corrigées. Un lien de signature vous a été envoyé par WhatsApp — ou signez directement ici :</div>
+                    <canvas ref={canvasPvRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+                      onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
+                      onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      <button onClick={effacerSignaturePv} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+                      <button onClick={() => signerPv(true)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer l'avenant</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
