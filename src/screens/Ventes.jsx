@@ -294,28 +294,48 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     let creerCommeReservation = nonLivreCredit;
     if (manquants.length > 0 && !origineDevis) {
       const noms = manquants.map((l) => `${l.qte}× ${l.article}`).join(", ");
-      // ⚠ Demande Timo : proposer les DEUX chemins possibles, pas un seul —
+      // ⚠ Demande Timo : proposer TROIS chemins distincts, pas deux —
       // (1) le client paie tout de suite, réservation prépayée (2.99.80) ;
-      // (2) le client ne paie rien aujourd'hui, on demande le transfert de
-      // l'article manquant à une autre boutique/au magasin (mécanisme déjà
-      // existant, Ravitaillement.jsx), et l'encaissement n'a lieu que plus
-      // tard, une fois le stock réellement arrivé — une vente tout à fait
-      // normale à ce moment-là, juste différée dans le temps.
+      // (2) RAVITAILLEMENT — demande au dépôt (magasin ↔ boutique, mécanisme
+      // existant Ravitaillement.jsx, catalogue du magasin) ;
+      // (3) TRANSFERT — demande à une AUTRE BOUTIQUE précise (ex. Apessito),
+      // pas le dépôt. Ce sont deux circuits VRAIMENT différents dans l'app
+      // (Timo y a tenu, après m'avoir corrigé d'avoir mélangé les deux la
+      // première fois) : le ravitaillement passe par une file d'attente que
+      // SEUL le dépôt peut voir ; le transfert est stocké directement sur la
+      // fiche de la boutique cible, visible d'elle seule (voir Stocks.jsx,
+      // section "🔁 Demandes de transfert reçues", ajoutée pour l'occasion).
+      // Dans les deux cas (2) et (3) : le client ne paie rien aujourd'hui,
+      // l'encaissement n'a lieu qu'une fois le stock réellement arrivé.
       const choix = await uChoix(
         `Stock insuffisant pour : ${noms}.\n\nComment voulez-vous procéder ?`,
-        ["Le client paie maintenant (réservation prépayée)", "Demander un transfert — le client paiera une fois le stock arrivé", "Annuler"]
+        ["Le client paie maintenant (réservation prépayée)", "Ravitaillement (demander au dépôt)", "Transfert (demander à une autre boutique)", "Annuler"]
       );
       if (choix === "Le client paie maintenant (réservation prépayée)") {
         creerCommeReservation = true;
-      } else if (choix === "Demander un transfert — le client paiera une fois le stock arrivé") {
+      } else if (choix === "Ravitaillement (demander au dépôt)") {
         const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: Number(l.qte) }));
-        if (!await uConfirm(`Envoyer une demande de transfert/ravitaillement pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (visible dans l'onglet 🚚 Ravitaillement, ou dès qu'une autre boutique valide le transfert).`)) return;
+        if (!await uConfirm(`Envoyer une demande de ravitaillement au dépôt pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (visible dans l'onglet 🚚 Ravitaillement).`)) return;
         const demandeR = { id: uid(), date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
         save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === boutique ? { ...b, demandes: [...demandesDe(b), demandeR] } : b)) },
           `Demande de ravitaillement de ${boutique} (depuis Ventes, ${lignesDemande.length} article(s)) — pour ${f.client || "client non renseigné"}`);
         setPanier([]);
         setMsg("");
-        uAlert("✅ Demande de transfert envoyée. Revenez encaisser cette vente une fois le stock arrivé (onglet 🚚 Ravitaillement).");
+        uAlert("✅ Demande de ravitaillement envoyée au dépôt. Revenez encaisser cette vente une fois le stock arrivé (onglet 🚚 Ravitaillement).");
+        return;
+      } else if (choix === "Transfert (demander à une autre boutique)") {
+        const autresBoutiques = boutiquesVente(db).map((b) => b.nom).filter((n) => n !== boutique);
+        if (!autresBoutiques.length) { uAlert("Aucune autre boutique disponible."); return; }
+        const dest = await uChoix(`Demander ce transfert à quelle boutique ?`, autresBoutiques);
+        if (!dest) return;
+        const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: Number(l.qte) }));
+        if (!await uConfirm(`Envoyer une demande de transfert à ${dest} pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (${dest} doit valider depuis son propre écran Stocks).`)) return;
+        const demandeT = { id: uid(), type: "transfert", demandeur: boutique, date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes par ${boutique} — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
+        save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === dest ? { ...b, demandes: [...demandesDe(b), demandeT] } : b)) },
+          `Demande de transfert de ${boutique} vers ${dest} (depuis Ventes, ${lignesDemande.length} article(s)) — pour ${f.client || "client non renseigné"}`);
+        setPanier([]);
+        setMsg("");
+        uAlert(`✅ Demande de transfert envoyée à ${dest}. Revenez encaisser cette vente une fois le stock arrivé.`);
         return;
       } else {
         setMsg(`Stock insuffisant pour : ${noms}.`);
