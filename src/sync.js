@@ -123,6 +123,35 @@ export async function amorcerComptes() {
   }
 }
 
+// ⚠ Demande Timo : sur un appareil TOUT NEUF (jamais connecté), l'écran de
+// connexion affichait toujours les couleurs/textes PAR DÉFAUT — la
+// personnalisation choisie par l'admin (couleur du badge, fond, image) ne
+// prenait effet qu'APRÈS une première connexion réussie, puisque
+// "boutiques" n'était lue qu'à ce moment-là (synchronisation complète,
+// après authentification). Même principe que amorcerComptes() ci-dessus,
+// pour la même raison : lecture PUBLIQUE nécessaire avant toute connexion.
+// ⚠ Suppose que la table "boutiques" a bien la politique de lecture
+// publique — voir supabase/corriger-lecture-boutiques.sql (à exécuter côté
+// Supabase si ce n'est pas déjà fait).
+export async function amorcerBoutiques() {
+  if (!supabaseConfigure || !navigator.onLine) return false;
+  try {
+    const { data, error } = await supabase.from("boutiques").select("*");
+    if (error) throw error;
+    for (const ligne of data || []) {
+      const local = await idb.table("boutiques").get(ligne.id);
+      const tsDistant = String(ligne.data?.updated_at || ligne.updated_at || "");
+      if (!local || String(local.updated_at || "") < tsDistant) {
+        await idb.table("boutiques").put(ligne.data);
+      }
+    }
+    return true;
+  } catch (e) {
+    console.warn("Amorçage des boutiques reporté :", e?.message || e);
+    return false;
+  }
+}
+
 // Synchronisation d'OUVERTURE DE SESSION.
 // Différence avec la synchro normale : on s'assure d'abord que TOUT ce qui a été
 // créé hors ligne est bien PARTI vers le serveur, avant de lire quoi que ce soit.

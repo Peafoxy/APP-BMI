@@ -66,7 +66,7 @@ import {
 } from "./lib/comptesClients";
 import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
-import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes, reconcilierMiroir } from "./sync";
+import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes, amorcerBoutiques, reconcilierMiroir } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
@@ -304,6 +304,10 @@ export default function App() {
       // tentative de connexion — avant même que la synchronisation générale,
       // plus longue et plus complexe, n'ait eu le temps de s'exécuter.
       amorcerComptes().then((reussi) => { if (reussi) chargerTout().then(setDb); });
+      // ⚠ Même besoin que ci-dessus, pour l'écran de connexion : sans ça, la
+      // personnalisation (couleur, badge, image) d'un appareil neuf reste
+      // aux valeurs par défaut jusqu'à la toute première connexion réussie.
+      amorcerBoutiques().then((reussi) => { if (reussi) chargerTout().then(setDb); });
 
       // Restaure la session après un rafraîchissement de page (site web),
       // à condition qu'elle date de moins de 15 minutes et que le compte
