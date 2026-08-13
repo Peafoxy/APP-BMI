@@ -220,8 +220,10 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
           <ul className="text-xs text-slate-500 space-y-1">
             {historique.map((d) => (
               <li key={d.id}>
-                {d.demandeur} — {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")} —{" "}
-                {d.statut === "servie" ? <span className="text-green-700 font-semibold">✅ Servie</span> : <span className="text-red-600 font-semibold">❌ Refusée{d.motif ? ` (${d.motif})` : ""}</span>}
+                {d.demandeur} (demandé par {d.par}) — {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")} —{" "}
+                {d.statut === "servie"
+                  ? <span className="text-green-700 font-semibold">✅ Servie par {d.traite_par}</span>
+                  : <span className="text-red-600 font-semibold">❌ Refusée par {d.traite_par}{d.motif ? ` (${d.motif})` : ""}</span>}
               </li>
             ))}
           </ul>
