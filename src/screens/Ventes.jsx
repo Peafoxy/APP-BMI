@@ -326,8 +326,21 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       } else if (choix === "Transfert (demander à une autre boutique)") {
         const autresBoutiques = boutiquesVente(db).map((b) => b.nom).filter((n) => n !== boutique);
         if (!autresBoutiques.length) { uAlert("Aucune autre boutique disponible."); return; }
-        const dest = await uChoix(`Demander ce transfert à quelle boutique ?`, autresBoutiques);
-        if (!dest) return;
+        // ⚠ Demande Timo : ne pas laisser le vendeur choisir à l'aveugle —
+        // montrer directement combien chaque boutique a en stock pour
+        // chaque article manquant, pour qu'il sache où ça a une chance
+        // d'aboutir avant même d'envoyer la demande.
+        const dispoChez = (nomBoutique, article) => {
+          const p = db.produits.find((x) => x.boutique === nomBoutique && x.nom.trim().toLowerCase() === article.trim().toLowerCase());
+          return p ? stockActuel(db, p) : 0;
+        };
+        const optionsBoutiques = autresBoutiques.map((nomBoutique) => {
+          const detail = manquants.map((l) => `${l.article} : ${dispoChez(nomBoutique, l.article)}`).join(", ");
+          return `${nomBoutique} — ${detail}`;
+        });
+        const choixBoutique = await uChoix(`Demander ce transfert à quelle boutique ?\n\n(stock actuel affiché pour chacune)`, optionsBoutiques);
+        if (!choixBoutique) return;
+        const dest = autresBoutiques[optionsBoutiques.indexOf(choixBoutique)];
         const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: Number(l.qte) }));
         if (!await uConfirm(`Envoyer une demande de transfert à ${dest} pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (${dest} doit valider depuis son propre écran Stocks).`)) return;
         const demandeT = { id: uid(), type: "transfert", demandeur: boutique, date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes par ${boutique} — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
