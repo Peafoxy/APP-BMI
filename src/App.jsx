@@ -8,7 +8,7 @@ import { Depenses, ChezComptable } from "./screens/Depenses";
 import { Dettes } from "./screens/Dettes";
 import { CreerClient, Clients } from "./screens/Clients";
 import { Caisse } from "./screens/Caisse";
-import { DemandeRavitaillement } from "./screens/Ravitaillement";
+import { DemandeRavitaillement, DemandesTransfertRecues } from "./screens/Ravitaillement";
 import { Stocks } from "./screens/Stocks";
 import { BoutiqueTabs } from "./components/SelecteurBoutique";
 import { SelecteurArticle } from "./components/SelecteurArticle";
@@ -54,7 +54,7 @@ const propsEcranEgales = (avant, apres) => {
 const memoEcran = (C) => React.memo(C, propsEcranEgales);
 const M = Object.fromEntries(Object.entries({
   Dashboard, Ventes, NouvelleCommande, CommandesRecues, Depenses, ChezComptable,
-  Dettes, CreerClient, Clients, Caisse, DemandeRavitaillement, Stocks,
+  Dettes, CreerClient, Clients, Caisse, DemandeRavitaillement, DemandesTransfertRecues, Stocks,
   Dimensionnement, TousLesDevis, Prospects, EspaceClient, Messagerie,
   ClientsInstalles, PrimesRemises, PrimesRecues, ContratsInstallation,
   Commerciaux, MesTaches, Rentabilite, SalairesAdmin, Salaire, MonEquipe,
@@ -92,7 +92,7 @@ import {
   estDepot, boutiquesVente, magasinsDe,
   LIBELLE_ONGLET, ONGLETS_ROLE, ACTIONS_POUVOIR, pouvoirsDuRole,
   droitsOffDe, aDroit, peutEcrire, bloquerSiLecture,
-  tachesDe, tachesOuvertes, compterReponsesRavitaillement, compterTaches, compterTachesAValider, compterNotifsSalaire, compterDemandesCredit,
+  tachesDe, tachesOuvertes, compterReponsesRavitaillement, compterDemandesTransfertRecues, compterDemandesTransfertToutes, compterTaches, compterTachesAValider, compterNotifsSalaire, compterDemandesCredit,
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, construireIndexDb,
@@ -558,6 +558,10 @@ export default function App() {
   const jeSuisApporteur = estApporteur(db, profile);
   const nbReponsesRav = compterReponsesRavitaillement(db, profile);
   const labelRavitaillement = `🚚 Ravitaillement${nbReponsesRav ? ` (${nbReponsesRav})` : ""}`;
+  const nbTransfertRecu = compterDemandesTransfertRecues(db, profile);
+  const labelTransfert = `🔁 Transfert${nbTransfertRecu ? ` (${nbTransfertRecu})` : ""}`;
+  const nbTransfertToutes = compterDemandesTransfertToutes(db);
+  const labelStocksAdmin = `📦 Stocks${nbTransfertToutes ? ` (${nbTransfertToutes})` : ""}`;
   const nbTaches = compterTaches(db, profile);
   const labelTaches = `✅ Mes tâches${nbTaches ? ` (${nbTaches})` : ""}`;
   const nbAValider = compterTachesAValider(db, profile);
@@ -567,7 +571,7 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
@@ -579,10 +583,10 @@ export default function App() {
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -850,6 +854,11 @@ export default function App() {
       {ongletsVisites.ravitaillement && profile.boutique && (
         <div style={{ display: tab === "ravitaillement" ? "block" : "none" }}>
           <M.DemandeRavitaillement db={db} save={save} profile={profile} boutique={profile.boutique} marquerVues />
+        </div>
+      )}
+      {ongletsVisites.transfert && profile.boutique && (
+        <div style={{ display: tab === "transfert" ? "block" : "none" }}>
+          <M.DemandesTransfertRecues db={db} save={save} profile={profile} boutique={profile.boutique} />
         </div>
       )}
       {ongletsVisites.salaire && SALARIES.includes(profile.role) && (

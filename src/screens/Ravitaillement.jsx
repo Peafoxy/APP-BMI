@@ -5,8 +5,8 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
-import { Field, inputCls, uAlert, uConfirm } from "../components/ui";
-import { bloquerSiLecture, demandesDe, estDepot, magasinsDe } from "../lib/calculs";
+import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel } from "../lib/calculs";
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
 // Utilisé à deux endroits : dans l'onglet 📦 Stocks (gérant, admin) et comme
@@ -127,6 +127,104 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ TRANSFERT (boutique → boutique) — reçu par MA boutique ============
+// ⚠ Distinct du ravitaillement ci-dessus : une demande de transfert est
+// stockée directement sur la fiche de la boutique CIBLE (pas le dépôt),
+// donc visible par elle seule. Composant PARTAGÉ — utilisé à la fois comme
+// onglet dédié "🔁 Transfert" (vendeur, gérant : validation simple, sans
+// détour par Stocks) et à l'intérieur de l'écran Stocks (admin/magasinier).
+export function DemandesTransfertRecues({ db, save, profile, boutique }) {
+  const bq = boutique || profile.boutique || "";
+  const maBoutique = db.boutiques.find((b) => b.nom === bq);
+  const demandesTransfertRecues = demandesDe(maBoutique || {}).filter((d) => d.type === "transfert" && d.statut === "en_attente");
+  const historique = demandesDe(maBoutique || {}).filter((d) => d.type === "transfert" && d.statut !== "en_attente").slice(-10).reverse();
+
+  // ⚠ Le nom de l'article vient du catalogue RÉEL de la boutique demandeuse
+  // (choisi dans Ventes.jsx, pas tapé à la main comme pour un ravitaillement)
+  // — la correspondance par nom est donc fiable, pas besoin de la sophistication
+  // d'association manuelle utilisée côté magasin pour le ravitaillement.
+  const servirDemandeTransfert = async (demande) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const manquants = demande.lignes.filter((l) => {
+      const p = db.produits.find((x) => x.boutique === bq && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
+      return !p || stockActuel(db, p) < Number(l.qte);
+    });
+    if (manquants.length) { uAlert(`Stock insuffisant chez vous pour :\n${manquants.map((m) => m.nom).join("\n")}`); return; }
+    if (!await uConfirm(`Envoyer ce transfert vers ${demande.demandeur} ?\n\n${demande.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}${demande.note ? `\n\n${demande.note}` : ""}`)) return;
+    const ref = uid();
+    const numero = `TRF-${today().replace(/-/g, "")}-${ref.slice(0, 4).toUpperCase()}`;
+    let produits = db.produits;
+    const ajusts = [];
+    demande.lignes.forEach((l) => {
+      const p = produits.find((x) => x.boutique === bq && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
+      let cible = produits.find((x) => x.boutique === demande.demandeur && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
+      if (!cible) {
+        cible = { id: uid(), boutique: demande.demandeur, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, code: p.code || "", tension: p.tension || "" };
+        produits = [...produits, cible];
+      }
+      ajusts.push({ id: uid(), date: today(), produit_id: p.id, boutique: bq, qte: -Number(l.qte), motif: `Transfert ${numero} → ${demande.demandeur}`, par: profile.nom, ref, type: "transfert" });
+      ajusts.push({ id: uid(), date: today(), produit_id: cible.id, boutique: demande.demandeur, qte: Number(l.qte), motif: `Transfert ${numero} ← ${bq}`, par: profile.nom, ref, type: "transfert" });
+    });
+    const boutiques = db.boutiques.map((b) => (b.nom === bq
+      ? { ...b, demandes: demandesDe(b).map((x) => (x.id === demande.id ? { ...x, statut: "servie", numero_bon: numero, traite_par: profile.nom, date_traitement: today() } : x)) }
+      : b));
+    save({ ...db, boutiques, produits, ajustements: [...ajusts, ...db.ajustements] }, `Transfert ${numero} : ${bq} → ${demande.demandeur} (${demande.lignes.length} article(s), répond à une demande)`);
+    uAlert(`✅ Transfert envoyé vers ${demande.demandeur}.`);
+  };
+
+  const refuserDemandeTransfert = async (demande) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const motif = await uPrompt(`Motif du refus (visible par ${demande.demandeur}) :`, "Rupture de stock");
+    if (motif === null) return;
+    save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === bq
+      ? { ...b, demandes: demandesDe(b).map((x) => (x.id === demande.id ? { ...x, statut: "refusee", motif: motif.trim(), traite_par: profile.nom, date_traitement: today() } : x)) }
+      : b)) }, `Demande de transfert de ${demande.demandeur} refusée : ${motif.trim()} (par ${profile.nom})`);
+  };
+
+  if (!bq) return <div className="text-sm text-slate-400 text-center py-6">Votre compte n'est rattaché à aucune boutique.</div>;
+
+  return (
+    <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
+      <div className="font-bold mb-1 text-purple-800">🔁 Demandes de transfert reçues {demandesTransfertRecues.length > 0 ? `(${demandesTransfertRecues.length})` : ""}</div>
+      <div className="text-xs text-slate-500 mb-4">Une autre boutique a besoin de ces articles — probablement pour finaliser une vente en attente. Validez simplement si vous les avez en stock.</div>
+      {demandesTransfertRecues.length === 0 ? (
+        <div className="text-sm text-slate-400 text-center py-4">Aucune demande de transfert en attente.</div>
+      ) : (
+        <div className="space-y-3">
+          {demandesTransfertRecues.map((d) => (
+            <div key={d.id} className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm">
+                  <b>{d.demandeur}</b> demande : {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}
+                  {d.note && <div className="text-xs text-slate-500 mt-1">{d.note}</div>}
+                  <div className="text-xs text-slate-400 mt-1">{dFR(d.date)} — par {d.par}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => servirDemandeTransfert(d)} className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-xs font-bold hover:bg-purple-800">✅ Valider</button>
+                  <button onClick={() => refuserDemandeTransfert(d)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Refuser</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {historique.length > 0 && (
+        <div className="mt-4">
+          <div className="text-xs font-bold text-slate-500 uppercase mb-2">Historique récent</div>
+          <ul className="text-xs text-slate-500 space-y-1">
+            {historique.map((d) => (
+              <li key={d.id}>
+                {d.demandeur} — {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")} —{" "}
+                {d.statut === "servie" ? <span className="text-green-700 font-semibold">✅ Servie</span> : <span className="text-red-600 font-semibold">❌ Refusée{d.motif ? ` (${d.motif})` : ""}</span>}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

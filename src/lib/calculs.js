@@ -552,6 +552,23 @@ export function compterReponsesRavitaillement(db, profile) {
   return demandesDe(b).filter((d) => d.statut !== "en_attente" && !d.vu_boutique).length;
 }
 
+// Compte les demandes de TRANSFERT (boutique → boutique) en attente adressées
+// à MA boutique — sert de badge de notification sur le nouvel onglet dédié.
+export function compterDemandesTransfertRecues(db, profile) {
+  if (!profile.boutique) return 0;
+  const b = (db.boutiques || []).find((x) => x.nom === profile.boutique);
+  if (!b) return 0;
+  return demandesDe(b).filter((d) => d.type === "transfert" && d.statut === "en_attente").length;
+}
+
+// ⚠ L'administrateur n'est rattaché à AUCUNE boutique précise (il supervise
+// tout) — compterDemandesTransfertRecues() lui renverrait toujours 0. Ce
+// compteur additionne les demandes en attente de TOUTES les boutiques, pour
+// un badge global sur son onglet Stocks (sinon rien ne l'avertit jamais).
+export function compterDemandesTransfertToutes(db) {
+  return (db.boutiques || []).reduce((s, b) => s + demandesDe(b).filter((d) => d.type === "transfert" && d.statut === "en_attente").length, 0);
+}
+
 export function compterTaches(db, profile) {
   const moi = (db.users || []).find((u) => u.id === profile.id);
   return moi ? tachesOuvertes(moi).length : 0;

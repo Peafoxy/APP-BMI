@@ -13,7 +13,7 @@ import {
   demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle,
 } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { DemandeRavitaillement } from "./Ravitaillement";
+import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
 // ============ STOCKS ============
 export function Stocks({ db, save, profile }) {
@@ -91,14 +91,6 @@ export function Stocks({ db, save, profile }) {
   const demandesRecues = estMagasin ? demandesEnAttente(db) : [];
   const alertesDesBoutiques = estMagasin ? alertesBoutiques(db, stockActuel) : [];
 
-  // ⚠ Demande Timo : un TRANSFERT (boutique → boutique) est différent d'un
-  // RAVITAILLEMENT (magasin ↔ boutique, réservé au dépôt ci-dessus). Une
-  // demande de transfert est stockée directement sur la fiche de la
-  // boutique CIBLE (celle qui a le stock) — donc visible ici pour N'IMPORTE
-  // QUELLE boutique, pas seulement le dépôt (contrairement à demandesRecues).
-  const maBoutique = db.boutiques.find((b) => b.nom === bq);
-  const demandesTransfertRecues = demandesDe(maBoutique || {}).filter((d) => d.type === "transfert" && d.statut === "en_attente");
-
   // Charge une demande dans le bon de ravitaillement en préparation.
   // La correspondance des noms est SOUPLE (accents, pluriel, espaces, casse).
   // Ce qui ne peut pas être associé automatiquement est proposé à la main.
@@ -146,48 +138,6 @@ export function Stocks({ db, save, profile }) {
         ? { ...b, demandes: demandesDe(b).map((x) => (x.id === dm.d.id ? { ...x, statut: "refusee", motif: motif.trim(), traite_par: profile.nom, date_traitement: today() } : x)) }
         : b))
     }, `Demande de ${dm.boutique} refusée : ${motif.trim()} (par ${profile.nom})`);
-  };
-
-  // ⚠ Le nom de l'article vient du catalogue RÉEL de la boutique demandeuse
-  // (choisi dans Ventes.jsx, pas tapé à la main comme pour un ravitaillement)
-  // — la correspondance par nom est donc fiable, pas besoin de la sophistication
-  // d'association manuelle utilisée côté magasin.
-  const servirDemandeTransfert = async (demande) => {
-    if (bloquerSiLecture(db, profile)) return;
-    const manquants = demande.lignes.filter((l) => {
-      const p = db.produits.find((x) => x.boutique === bq && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
-      return !p || stockActuel(db, p) < Number(l.qte);
-    });
-    if (manquants.length) { uAlert(`Stock insuffisant chez vous pour :\n${manquants.map((m) => m.nom).join("\n")}`); return; }
-    if (!await uConfirm(`Envoyer ce transfert vers ${demande.demandeur} ?\n\n${demande.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}${demande.note ? `\n\n${demande.note}` : ""}`)) return;
-    const ref = uid();
-    const numero = `TRF-${today().replace(/-/g, "")}-${ref.slice(0, 4).toUpperCase()}`;
-    let produits = db.produits;
-    const ajusts = [];
-    demande.lignes.forEach((l) => {
-      const p = produits.find((x) => x.boutique === bq && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
-      let cible = produits.find((x) => x.boutique === demande.demandeur && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
-      if (!cible) {
-        cible = { id: uid(), boutique: demande.demandeur, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, code: p.code || "", tension: p.tension || "" };
-        produits = [...produits, cible];
-      }
-      ajusts.push({ id: uid(), date: today(), produit_id: p.id, boutique: bq, qte: -Number(l.qte), motif: `Transfert ${numero} → ${demande.demandeur}`, par: profile.nom, ref, type: "transfert" });
-      ajusts.push({ id: uid(), date: today(), produit_id: cible.id, boutique: demande.demandeur, qte: Number(l.qte), motif: `Transfert ${numero} ← ${bq}`, par: profile.nom, ref, type: "transfert" });
-    });
-    const boutiques = db.boutiques.map((b) => (b.nom === bq
-      ? { ...b, demandes: demandesDe(b).map((x) => (x.id === demande.id ? { ...x, statut: "servie", numero_bon: numero, traite_par: profile.nom, date_traitement: today() } : x)) }
-      : b));
-    save({ ...db, boutiques, produits, ajustements: [...ajusts, ...db.ajustements] }, `Transfert ${numero} : ${bq} → ${demande.demandeur} (${demande.lignes.length} article(s), répond à une demande)`);
-    uAlert(`✅ Transfert envoyé vers ${demande.demandeur}.`);
-  };
-
-  const refuserDemandeTransfert = async (demande) => {
-    if (bloquerSiLecture(db, profile)) return;
-    const motif = await uPrompt(`Motif du refus (visible par ${demande.demandeur}) :`, "Rupture de stock");
-    if (motif === null) return;
-    save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === bq
-      ? { ...b, demandes: demandesDe(b).map((x) => (x.id === demande.id ? { ...x, statut: "refusee", motif: motif.trim(), traite_par: profile.nom, date_traitement: today() } : x)) }
-      : b)) }, `Demande de transfert de ${demande.demandeur} refusée : ${motif.trim()} (par ${profile.nom})`);
   };
 
   // ---- INVENTAIRE PHYSIQUE ----
@@ -452,29 +402,7 @@ export function Stocks({ db, save, profile }) {
         );
       })()}
 
-      {demandesTransfertRecues.length > 0 && (
-        <div className="rounded-xl p-4 bg-white border-2 border-purple-300">
-          <div className="font-bold mb-1 text-purple-800">🔁 Demandes de transfert reçues ({demandesTransfertRecues.length})</div>
-          <div className="text-xs text-slate-500 mb-3">Une autre boutique a besoin de ces articles — probablement pour finaliser une vente en attente.</div>
-          <div className="space-y-3">
-            {demandesTransfertRecues.map((d) => (
-              <div key={d.id} className="rounded-lg border border-purple-200 bg-purple-50 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm">
-                    <b>{d.demandeur}</b> demande : {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}
-                    {d.note && <div className="text-xs text-slate-500 mt-1">{d.note}</div>}
-                    <div className="text-xs text-slate-400 mt-1">{dFR(d.date)} — par {d.par}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => servirDemandeTransfert(d)} className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-xs font-bold hover:bg-purple-800">Envoyer le transfert</button>
-                    <button onClick={() => refuserDemandeTransfert(d)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Refuser</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <DemandesTransfertRecues db={db} save={save} profile={profile} boutique={bq} />
 
       {estMagasin && demandesRecues.length > 0 && (
         <div className="rounded-xl p-4 bg-white border-2 border-blue-300">
