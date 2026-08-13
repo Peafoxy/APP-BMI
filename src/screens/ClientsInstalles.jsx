@@ -7,7 +7,7 @@
 import { useState, Fragment } from "react";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
@@ -394,35 +394,74 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   // ---- LE CHEF DE CHANTIER DÉCLARE LES TRAVAUX TERMINÉS ----
+  // ⚠ Demande Timo : le message envoyé par WhatsApp propose maintenant DEUX
+  // façons de signer — directement dans l'app (avec les identifiants du
+  // client, si un compte existe) OU via le lien externe sans compte, comme
+  // avant. Le mot de passe n'est JAMAIS stocké en clair : motDePasseConnu()
+  // le RECALCULE de façon déterministe (comptesClients.js) — s'il renvoie
+  // null (compte changé de mot de passe manuellement, ou pas de compte du
+  // tout), seul le lien externe est proposé, sans bloc identifiants.
+  const construireMessagePv = (c, lien) => {
+    const compte = c.user_id ? (db.users || []).find((u) => u.id === c.user_id) : null;
+    const mdp = compte ? motDePasseConnu(compte) : null;
+    const intro = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le procès-verbal.`;
+    if (compte && mdp) {
+      return `${intro}\n\n👉 Directement depuis votre espace client sur ${ADRESSE_APP} :\n👤 Identifiant : *${compte.nom}*\n🔑 Mot de passe : *${mdp}*\n\n👉 Ou sans compte, en cliquant sur ce lien :\n${lien}\n\nBMI Togo`;
+    }
+    return `${intro}\n\n${lien}\n\nBMI Togo`;
+  };
+
+  const genererEtEnvoyerLienPv = (c) => {
+    const jeton = genererJetonSignature();
+    const numero = `PV-${today().slice(0, 4)}-${c.id.slice(0, 6).toUpperCase()}`;
+    const lien = `https://bmitogo.com/signature/${jeton}`;
+    return { jeton, numero, texte: construireMessagePv(c, lien) };
+  };
+
+  // ⚠ Demande Timo : dès que le chantier passe « terminé », le lien de
+  // signature part AUTOMATIQUEMENT par WhatsApp — plus besoin du clic
+  // séparé « Envoyer pour signature » (qui reste disponible juste après,
+  // pour un RENVOI si le premier message a été perdu ou mal envoyé). Ce
+  // geste étant désormais déclenché par la même personne qui termine le
+  // chantier (souvent un technicien, pas forcément l'admin), la
+  // restriction « admin seulement » ne s'applique qu'au bouton de renvoi
+  // manuel ci-dessous, jamais à cet envoi automatique.
   const marquerTermine = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!await uConfirm(
       `Déclarer l'installation de ${c.nom} ${c.prenom} TERMINÉE ?\n\n` +
-      `Vous pourrez ensuite envoyer le lien de signature du contrat de réception au client.`
+      `Le lien de signature du PV sera envoyé automatiquement au client par WhatsApp, juste après.`
     )) return;
+    const champs = { statut: "termine", termine_par: profile.nom, date_fin: today() };
+    if (!c.adresse_contrat || !c.tel) {
+      save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, ...champs } : x)) },
+        `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom}`);
+      uAlert(`✅ Travaux déclarés terminés.\n\n⚠ Le lien de signature n'a PAS pu être envoyé automatiquement : ${!c.adresse_contrat ? "l'« Adresse formelle (pour le PV) »" : "le numéro de téléphone"} manque sur la fiche. Renseignez-le, puis utilisez « Envoyer pour signature ».`);
+      return;
+    }
+    const { jeton, numero, texte } = genererEtEnvoyerLienPv(c);
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, statut: "termine", termine_par: profile.nom, date_fin: today() }
+        ? { ...x, ...champs, contrat_jeton: jeton, contrat_numero: numero, contrat_statut: "attente_signature" }
         : x)),
-    }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom}`);
-    uAlert("✅ Travaux déclarés terminés. Vous pouvez maintenant envoyer le lien de signature au client.");
+    }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom} — lien de signature envoyé automatiquement (${numero})`);
+    window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
+    uAlert("✅ Travaux déclarés terminés. Le lien de signature vient de s'ouvrir dans WhatsApp.");
   };
 
   // ---- ENVOI DU LIEN DE SIGNATURE (contrat de réception) ----
   // Remplace l'ancien circuit "réception dans l'app" : désormais le SEUL
   // chemin normal vers "Réceptionné"/"Réserves" passe par la signature du
   // client sur bmitogo.com (jeton unique, aucun compte requis). Demande
-  // Timo, "carte blanche" puis précisions successives.
+  // Timo, "carte blanche" puis précisions successives. Sert maintenant de
+  // RENVOI manuel — l'envoi initial est automatique (voir marquerTermine).
   const envoyerPourSignature = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin) { uAlert("Seul l'administrateur envoie le lien de signature."); return; }
     if (!c.adresse_contrat) { uAlert("Merci de renseigner l'« Adresse formelle (pour le PV) » sur la fiche de ce chantier avant d'envoyer le lien de signature."); return; }
     if (!c.tel) { uAlert("Aucun numéro de téléphone enregistré pour ce client."); return; }
-    const jeton = genererJetonSignature();
-    const numero = `PV-${today().slice(0, 4)}-${c.id.slice(0, 6).toUpperCase()}`;
-    const lien = `https://bmitogo.com/signature/${jeton}`;
-    const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le procès-verbal, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
+    const { jeton, numero, texte } = genererEtEnvoyerLienPv(c);
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
