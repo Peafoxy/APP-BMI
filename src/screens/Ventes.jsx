@@ -45,6 +45,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [cat, setCat] = useState("");
   const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   const [panier, setPanier] = useState(() => preRempli?.panier || []);
+  // ⚠ Demande Timo, après correction du parcours : une demande de transfert
+  // NE VIDE PLUS le panier — le vendeur reclique sur "Encaisser la vente"
+  // (même panier) une fois l'autre boutique prévenue par téléphone. Ce suivi
+  // permet à encaisserVente() de retrouver la demande envoyée et vérifier
+  // son statut à chaque nouvelle tentative, sans jamais la renvoyer en double.
+  const [transfertEnAttente, setTransfertEnAttente] = useState(null); // { id, dest }
   // ATTENTION : preRempli est vidé dès l'affichage. On garde donc l'origine du
   // devis dans l'état local, sinon elle serait perdue avant l'encaissement.
   const [origineDevis, setOrigineDevis] = useState(() => preRempli?.origineDevis || null);
@@ -291,6 +297,31 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         return p && Number(l.qte) > stockActuel(db, p);
       });
     }
+    // ⚠ Une demande de transfert a déjà été envoyée pour CE panier — on
+    // vérifie son statut ACTUEL avant toute chose, plutôt que de reproposer
+    // le choix depuis zéro. Le stock étant réellement déplacé dès que
+    // l'autre boutique valide (voir servirDemandeTransfert, Ravitaillement.jsx),
+    // un simple nouveau calcul de "manquants" suffit à détecter que c'est bon.
+    if (manquants.length > 0 && transfertEnAttente) {
+      const boutiqueDest = db.boutiques.find((b) => b.nom === transfertEnAttente.dest);
+      const demandeActuelle = (boutiqueDest?.demandes || []).find((d) => d.id === transfertEnAttente.id);
+      if (demandeActuelle?.statut === "en_attente") {
+        uAlert(`⏳ ${transfertEnAttente.dest} n'a pas encore validé ce transfert.\n\nRéessayez dans quelques instants — pas besoin de tout ressaisir, le panier reste tel quel.`);
+        return;
+      }
+      if (demandeActuelle?.statut === "refusee") {
+        uAlert(`❌ ${transfertEnAttente.dest} a refusé ce transfert${demandeActuelle.motif ? ` : ${demandeActuelle.motif}` : ""}.\n\nCliquez à nouveau sur "Encaisser la vente" pour choisir une autre solution.`);
+        setTransfertEnAttente(null);
+        return;
+      }
+      // statut === "servie" : le stock a été transféré — on efface le suivi
+      // et on recalcule, ça doit désormais passer normalement.
+      setTransfertEnAttente(null);
+      manquants = panier.filter((l) => {
+        const p = produits.find((x) => x.id === l.produit_id);
+        return p && Number(l.qte) > stockActuel(db, p);
+      });
+    }
     let creerCommeReservation = nonLivreCredit;
     if (manquants.length > 0 && !origineDevis) {
       const noms = manquants.map((l) => `${l.qte}× ${l.article}`).join(", ");
@@ -346,9 +377,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         const demandeT = { id: uid(), type: "transfert", demandeur: boutique, date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes par ${boutique} — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
         save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === dest ? { ...b, demandes: [...demandesDe(b), demandeT] } : b)) },
           `Demande de transfert de ${boutique} vers ${dest} (depuis Ventes, ${lignesDemande.length} article(s)) — pour ${f.client || "client non renseigné"}`);
-        setPanier([]);
+        // ⚠ Le panier reste rempli — le vendeur appelle l'autre boutique par
+        // téléphone (comme dans la vraie vie) et reclique "Encaisser la
+        // vente" une fois prévenu que c'est validé. Pas de réservation
+        // séparée, pas de reprise ailleurs : le même geste, juste répété.
+        setTransfertEnAttente({ id: demandeT.id, dest });
         setMsg("");
-        uAlert(`✅ Demande de transfert envoyée à ${dest}. Revenez encaisser cette vente une fois le stock arrivé.`);
+        uAlert(`✅ Demande envoyée à ${dest}.\n\nLe panier reste tel quel — dès qu'${dest} aura validé, recliquez sur "Encaisser la vente" pour finaliser normalement.`);
         return;
       } else {
         setMsg(`Stock insuffisant pour : ${noms}.`);
@@ -543,6 +578,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
     }
     setPanier([]);
+    setTransfertEnAttente(null);
     setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
     setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
     setCat("");
