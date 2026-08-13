@@ -9,10 +9,10 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
+import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement } from "../lib/core";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom } from "../lib/calculs";
+import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -131,8 +131,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const p = produits.find((x) => x.id === sel.produit_id);
     const q = Number(sel.qte);
     if (!p || !q || q <= 0 || !sel.pu) { setMsg("Choisissez un article, la quantité et le prix."); return; }
-    if (q > dispoRestant(p)) { setMsg(`Stock insuffisant : il reste ${dispoRestant(p)} pour « ${p.nom} ».`); return; }
-    setMsg("");
+    // ⚠ Demande Timo (vraie insuffisance) : un article en rupture ne doit PAS
+    // bloquer l'ajout au panier — un vendeur suivant un devis déjà signé par
+    // le client doit pouvoir continuer la vente ; c'est SEULEMENT au moment
+    // d'encaisser que l'app tranche (vente immédiate si stock dispo, sinon
+    // proposition de réservation prépayée — voir encaisserVente()).
+    if (q > dispoRestant(p)) { setMsg(`⚠ Stock insuffisant pour « ${p.nom} » (${dispoRestant(p)} disponible) — ajouté quand même, l'encaissement proposera une réservation si besoin.`); }
+    else { setMsg(""); }
     const remL = Math.max(0, Number(sel.remF || 0));
     if (remL > q * Number(sel.pu)) { setMsg("La remise de la ligne ne peut pas dépasser son montant."); return; }
     mettreAuPanier(p, q, sel.pu, remL);
@@ -147,8 +152,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (!c) return;
     const p = produits.find((x) => String(x.code || "").trim() === c);
     if (!p) { setMsg(`Aucun article avec le code « ${c} » dans ${boutique}. Assignez les codes dans l'onglet Stocks.`); return; }
-    if (dispoRestant(p) < 1) { setMsg(`Stock épuisé pour « ${p.nom} ».`); return; }
-    setMsg("");
+    if (dispoRestant(p) < 1) { setMsg(`⚠ Stock épuisé pour « ${p.nom} » — ajouté quand même, l'encaissement proposera une réservation si besoin.`); }
+    else { setMsg(""); }
     mettreAuPanier(p, 1, p.prix_vente);
   };
 
@@ -271,22 +276,70 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // crédit, sinon l'encaissement est bloqué (évite qu'une vente parte par
     // erreur comme "livrée" alors que rien n'a encore été remis, ou l'inverse).
     if (f.paiement === "Crédit (dette)" && !origineDevis && !f.statutArticle) { setMsg("Choisissez le statut de l'article (Livré ou Non livré) avant d'encaisser."); return; }
-    for (const l of panier) {
-      const p = produits.find((x) => x.id === l.produit_id);
-      if (p && Number(l.qte) > stockActuel(db, p)) { setMsg(`Stock insuffisant pour « ${p.nom} ».`); return; }
+    const nonLivreCredit = f.paiement === "Crédit (dette)" && f.statutArticle === "non_livre" && !origineDevis;
+    // ⚠ Trouvaille Timo (vraie insuffisance) : un client qui règle COMPTANT
+    // un article en rupture (devis déjà signé) n'avait AUCUNE porte de
+    // sortie — le stock insuffisant bloquait tout net, sans lien avec le
+    // crédit. Plutôt qu'ajouter un choix obligatoire à CHAQUE vente (même
+    // les 99% déjà en stock, sans rapport avec ce problème), la réservation
+    // n'est proposée qu'AU MOMENT où le stock manque réellement, quel que
+    // soit le moyen de paiement — pas de friction ajoutée au cas courant.
+    let manquants = [];
+    if (!nonLivreCredit) {
+      manquants = panier.filter((l) => {
+        const p = produits.find((x) => x.id === l.produit_id);
+        return p && Number(l.qte) > stockActuel(db, p);
+      });
+    }
+    let creerCommeReservation = nonLivreCredit;
+    if (manquants.length > 0 && !origineDevis) {
+      const noms = manquants.map((l) => `${l.qte}× ${l.article}`).join(", ");
+      // ⚠ Demande Timo : proposer les DEUX chemins possibles, pas un seul —
+      // (1) le client paie tout de suite, réservation prépayée (2.99.80) ;
+      // (2) le client ne paie rien aujourd'hui, on demande le transfert de
+      // l'article manquant à une autre boutique/au magasin (mécanisme déjà
+      // existant, Ravitaillement.jsx), et l'encaissement n'a lieu que plus
+      // tard, une fois le stock réellement arrivé — une vente tout à fait
+      // normale à ce moment-là, juste différée dans le temps.
+      const choix = await uChoix(
+        `Stock insuffisant pour : ${noms}.\n\nComment voulez-vous procéder ?`,
+        ["Le client paie maintenant (réservation prépayée)", "Demander un transfert — le client paiera une fois le stock arrivé", "Annuler"]
+      );
+      if (choix === "Le client paie maintenant (réservation prépayée)") {
+        creerCommeReservation = true;
+      } else if (choix === "Demander un transfert — le client paiera une fois le stock arrivé") {
+        const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: Number(l.qte) }));
+        if (!await uConfirm(`Envoyer une demande de transfert/ravitaillement pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (visible dans l'onglet 🚚 Ravitaillement, ou dès qu'une autre boutique valide le transfert).`)) return;
+        const demandeR = { id: uid(), date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
+        save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === boutique ? { ...b, demandes: [...demandesDe(b), demandeR] } : b)) },
+          `Demande de ravitaillement de ${boutique} (depuis Ventes, ${lignesDemande.length} article(s)) — pour ${f.client || "client non renseigné"}`);
+        setPanier([]);
+        setMsg("");
+        uAlert("✅ Demande de transfert envoyée. Revenez encaisser cette vente une fois le stock arrivé (onglet 🚚 Ravitaillement).");
+        return;
+      } else {
+        setMsg(`Stock insuffisant pour : ${noms}.`);
+        return;
+      }
+    } else if (manquants.length > 0) {
+      setMsg(`Stock insuffisant pour : ${manquants.map((l) => l.article).join(", ")}.`);
+      return;
     }
     setMsg("");
 
-    // ⚠ Demande Timo : une vente à crédit dont l'article n'est PAS encore
-    // livré devient une RÉSERVATION PRÉPAYÉE (écran Dettes → Réservations),
+    // ⚠ Demande Timo : une vente dont l'article n'est PAS encore livré
+    // devient une RÉSERVATION PRÉPAYÉE (écran Dettes → Réservations),
     // pas une vente classique — exactement le même mécanisme que la création
     // manuelle d'une réservation dans Dettes.jsx : le stock ne sort et la
     // vente n'existe qu'à la LIVRAISON (fonction livrer(), inchangée). Sans
     // cette distinction, le stock sortirait deux fois — une fois ici, une
     // fois à la livraison. Indisponible si la vente vient d'un devis payé :
     // ce circuit-là exige la création immédiate du chantier.
-    if (f.paiement === "Crédit (dette)" && f.statutArticle === "non_livre" && !origineDevis) {
-      const avanceRes = Math.max(0, Math.min(total, Number(f.avance) || 0));
+    if (creerCommeReservation) {
+      // Crédit(dette) : le client peut ne verser qu'une avance partielle.
+      // Tout autre moyen (Espèces, Mobile Money, Virement) : par définition
+      // il paie la totalité tout de suite — il n'y a pas de notion d'avance.
+      const avanceRes = f.paiement === "Crédit (dette)" ? Math.max(0, Math.min(total, Number(f.avance) || 0)) : total;
       if (!await uConfirm(`Créer une réservation prépayée pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avanceRes)}\nReste à payer : ${fmt(total - avanceRes)}\n\nLa marchandise ne sortira du stock qu'à la livraison (écran Dettes → Réservations prépayées).`)) return;
       const reservation = {
         id: uid(), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique,
@@ -294,7 +347,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         motif: `Réservation — ${resumeArticles({ articles: panier })}`,
         articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
         montant: total, paye: avanceRes,
-        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avanceRes, par: profile.nom }] : [],
+        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avanceRes, paiement: normPaiement(f.paiement), par: profile.nom }] : [],
         echeance: null, statut: "en_cours", par: profile.nom,
         // ⚠ Trouvé en audit général (pas dans le scope initial de la demande
         // "non livré") : sans ceci, un commercial/apporteur choisi sur cette
