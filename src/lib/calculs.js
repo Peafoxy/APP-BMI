@@ -497,8 +497,23 @@ export const estApporteur = (db, profile) => {
 // Une « boutique » marquée depot:true est un MAGASIN : on y stocke, on n'y vend pas.
 // Les boutiques de vente sont ravitaillées depuis les magasins (transferts).
 export const estDepot = (db, nom) => !!(db.boutiques || []).find((b) => b.nom === nom)?.depot;
-export const boutiquesVente = (db) => (db.boutiques || []).filter((b) => !b.depot);
+export const boutiquesVente = (db) => (db.boutiques || []).filter((b) => !b.depot && !b.terrain);
 export const magasinsDe = (db) => (db.boutiques || []).filter((b) => b.depot);
+// ⚠ Boutique VIRTUELLE (pas un vrai point de vente) — sert uniquement de
+// caisse séparée pour les encaissements de terrain (« Pose seule », demande
+// Timo : un technicien encaisse en espèces/mobile money sur un chantier,
+// sans jamais passer par une boutique physique). N'apparaît JAMAIS dans les
+// sélecteurs de boutique classiques (vente, stock…) — seulement dans Caisse
+// et dans le mécanisme d'encaissement dédié aux chantiers "pose seule".
+export const NOM_BOUTIQUE_TERRAIN = "TERRAIN";
+export const boutiqueTerrain = (db) => (db.boutiques || []).find((b) => b.terrain) || null;
+// Crée la boutique TERRAIN si elle n'existe pas encore — appelé au moment
+// où la première fiche "pose seule" en a besoin, pas au démarrage de l'app
+// (évite de l'imposer aux installations qui ne l'utiliseront jamais).
+export const assurerBoutiqueTerrain = (db) => {
+  if (boutiqueTerrain(db)) return db;
+  return { ...db, boutiques: [...(db.boutiques || []), { id: "b_terrain", nom: NOM_BOUTIQUE_TERRAIN, terrain: true, actif: true }] };
+};
 
 // ============ POUVOIRS (droits désactivables par l'administrateur) ============
 // Chaque compte possède, selon son rôle, une liste de pouvoirs par défaut.

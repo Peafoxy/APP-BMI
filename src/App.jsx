@@ -590,7 +590,10 @@ export default function App() {
     ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
+    // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
+    // un vendeur doit pouvoir encaisser un chantier "pose seule" payé en
+    // boutique (cas rare), ce qui exige d'atteindre cette fiche.
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["transfert", labelTransfert], ["parc", labelParc], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -825,7 +828,7 @@ export default function App() {
           <M.MesTaches db={db} save={save} profile={profile} />
         </div>
       )}
-      {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
+      {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isVendeur) && (
         <div style={{ display: tab === "parc" ? "block" : "none" }}>
           <M.ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />
         </div>

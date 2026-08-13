@@ -5,10 +5,10 @@
 import { useState, useRef } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
-import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente } from "../lib/core";
+import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -219,8 +219,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
   const aSigneRef = useRef(false);
 
   const ouvrirContrat = (d) => {
-    const boutique = bqPaiement[d.id];
-    if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
+    if (!d.pose_seule) {
+      const boutique = bqPaiement[d.id];
+      if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
+    }
     setContratOuvert(d.id);
     aSigneRef.current = false;
   };
@@ -340,6 +342,50 @@ export function EspaceClient({ db, profile, save, setTab }) {
   };
 
   const finaliserValidation = async (d, infosContrat) => {
+    // ⚠ "Pose seule" (demande Timo) : le client a déjà le matériel, il n'y a
+    // rien à payer avant travaux — pas de boutique à choisir, pas de
+    // commande en attente. Le chantier se crée DIRECTEMENT à la signature ;
+    // le règlement (technicien sur le terrain le plus souvent, boutique en
+    // de rares cas) se fait ensuite, comme une dette classique — plusieurs
+    // versements possibles, dans une caisse dédiée « TERRAIN », séparée des
+    // boutiques physiques.
+    if (d.pose_seule) {
+      if (!await uConfirm(
+        `Valider ce devis de ${fmt(d.total)} (pose seule — matériel déjà en votre possession) ?\n\n` +
+        `Nos équipes vous contacteront pour programmer l'intervention. Le règlement se fait au technicien à la fin des travaux (ou en boutique si besoin).`
+      )) return;
+      const dbT = assurerBoutiqueTerrain(db);
+      const dette = {
+        id: uid(), numero: prochainNumeroDette(dbT, NOM_BOUTIQUE_TERRAIN), date: today(),
+        boutique: NOM_BOUTIQUE_TERRAIN, client: moi.nom_base || profile.nom, tel: moi.tel || "",
+        motif: `Prestation de pose${infosContrat?.contrat_numero ? ` — contrat ${infosContrat.contrat_numero}` : ""}`,
+        montant: d.total, paye: 0, paiements: [], par: profile.nom,
+      };
+      const chantier = {
+        id: uid(), date: today(),
+        nom: moi.nom_base || moi.nom || profile.nom, prenom: "", tel: moi.tel || "",
+        user_id: profile.id,
+        type_installation: TYPES_INSTALLATION[0],
+        date_installation: "", date_entretien: "", localisation: "", lat: null, lng: null,
+        vente_id: null, devis_id: d.id, pose_seule: true, dette_id: dette.id,
+        garantie_mois: 24, equipe: [],
+        materiel: (d.lignes || d.panier || []).map((l) => ({ nom: l.article, qte: l.qte, serie: "" })),
+        frais_installation: d.total,
+        statut: "en_cours",
+        adresse_contrat: "",
+      };
+      save({
+        ...dbT,
+        dettes: [dette, ...(dbT.dettes || [])],
+        clients_installes: [chantier, ...(dbT.clients_installes || [])],
+        users: dbT.users.map((u) => (u.id === profile.id
+          ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, statut: "valide", valide_le: today(), ...infosContrat } : x)) }
+          : u)),
+      }, `Devis pose seule ${fmt(d.total)} VALIDÉ par ${profile.nom} — chantier créé directement, sans passage en boutique`);
+      setContratOuvert(null);
+      uAlert("✅ Contrat signé. Votre chantier est créé — nos équipes vous contacteront pour programmer l'intervention.");
+      return;
+    }
     const boutique = bqPaiement[d.id];
     if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
     const infosBoutique = db.boutiques.find((b) => b.nom === boutique);
@@ -581,15 +627,19 @@ export function EspaceClient({ db, profile, save, setTab }) {
                       <div className="mt-4 rounded-xl border-2 border-sky-300 bg-sky-50 p-3">
                         <div className="font-bold text-sky-900 mb-1">Ce devis vous convient ?</div>
                         <div className="text-xs text-slate-600 mb-3">
-                          Validez-le, et choisissez la boutique où vous passerez régler. Le vendeur y sera prévenu. <b>Votre installation sera programmée dès votre paiement.</b>
+                          {d.pose_seule
+                            ? <>Validez-le pour signer le contrat. <b>Nos équipes vous contacteront pour programmer l'intervention.</b> Le règlement se fait au technicien à la fin des travaux.</>
+                            : <>Validez-le, et choisissez la boutique où vous passerez régler. Le vendeur y sera prévenu. <b>Votre installation sera programmée dès votre paiement.</b></>}
                         </div>
                         <div className="grid sm:grid-cols-2 gap-2 items-end">
-                          <Field label="Boutique où je vais payer">
-                            <select className={inputCls} value={bqPaiement[d.id] || ""} onChange={(e) => setBqPaiement({ ...bqPaiement, [d.id]: e.target.value })}>
-                              <option value="">— Choisir la boutique —</option>
-                              {boutiquesVente(db).map((b) => <option key={b.nom} value={b.nom}>{b.nom}</option>)}
-                            </select>
-                          </Field>
+                          {!d.pose_seule && (
+                            <Field label="Boutique où je vais payer">
+                              <select className={inputCls} value={bqPaiement[d.id] || ""} onChange={(e) => setBqPaiement({ ...bqPaiement, [d.id]: e.target.value })}>
+                                <option value="">— Choisir la boutique —</option>
+                                {boutiquesVente(db).map((b) => <option key={b.nom} value={b.nom}>{b.nom}</option>)}
+                              </select>
+                            </Field>
+                          )}
                           <button onClick={() => ouvrirContrat(d)} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✅ JE VALIDE</button>
                         </div>
 
@@ -802,7 +852,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
             <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5">
               <div className="text-center mb-3">
-                <div className="font-bold text-lg text-sky-900">CONTRAT DE FOURNITURE D'INSTALLATION{d.type_devis === "garage" ? " D'UN SYSTEME DE MOTORISATION" : d.type_devis === "autre" ? "" : " D'UN SYSTEME SOLAIRE PHOTOVOLTAIQUE"}</div>
+                <div className="font-bold text-lg text-sky-900">{d.pose_seule ? "CONTRAT DE PRESTATION DE POSE" : `CONTRAT DE FOURNITURE D'INSTALLATION${d.type_devis === "garage" ? " D'UN SYSTEME DE MOTORISATION" : d.type_devis === "autre" ? "" : " D'UN SYSTEME SOLAIRE PHOTOVOLTAIQUE"}`}</div>
                 <div className="text-xs text-slate-400">E-mail : info@bmitogo.com · NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div>
               </div>
               <div className="text-sm text-slate-700 space-y-2 mb-4">
@@ -811,6 +861,26 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p>BMI (Bâtiments Modernes et Intelligents) E-mail : info@bmitogo.com ; NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523 ; représenté par Mr EGBAOU Essozimna</p>
                 <p>Et :</p>
                 <p>Mr/Mme : {profile.nom}{profile.tel ? `, tél. ${profile.tel}` : ""}</p>
+                {d.pose_seule ? (<>
+                  <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>, pour un montant total de {fmt(d.total)} FCFA (main d'œuvre uniquement — le Prestataire ne facture ni ne fournit aucun équipement dans le cadre du présent contrat). Le Client déclare avoir acquis lui-même les équipements à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.</p>
+                  <p><b>Article 2 — Origine et conformité du matériel.</b> Le Client garantit que les équipements fournis sont neufs ou en bon état de fonctionnement, conformes à l'usage prévu, et compatibles entre eux. Le Prestataire se réserve le droit de refuser la pose d'un équipement qu'il jugerait manifestement défectueux ou non conforme aux normes de sécurité, sans que ce refus n'engage sa responsabilité.</p>
+                  <p><b>Article 3 — Documents remis.</b> BMI TOGO remettra au Client les consignes d'utilisation et de sécurité relatives à la pose réalisée.</p>
+                  <p><b>Article 4 — Modalités de paiement.</b> Le montant de la prestation, fixé au présent contrat, est payable à 70 % avant le début des travaux et les 30 % restants à la signature du procès-verbal de réception, qui constate l'achèvement des travaux. Le Client s'engage à régler ce solde au moment de cette signature, ou dans les 3 jours qui suivent au plus tard.</p>
+                  <p><b>Article 5 — Délai d'exécution.</b> Les travaux seront exécutés dans un délai indicatif de {d.delai_installation || "à convenir avec le Client"} à compter de la signature du présent contrat ou de la mise à disposition effective du matériel par le Client, selon la dernière de ces deux dates.</p>
+                  <p><b>Article 6 — Garantie de la pose.</b> Le Prestataire garantit la qualité de son intervention (pose, raccordement, mise en service) pendant 12 mois à compter de la signature du procès-verbal de réception, contre tout défaut lié directement à l'installation. Cette garantie ne couvre en aucun cas les équipements eux-mêmes : leur garantie relève exclusivement du fabricant ou du vendeur auprès duquel le Client les a acquis.</p>
+                  <p><b>Article 7 — Exclusions de garantie.</b> La garantie de pose ne s'applique pas en cas de : défaut inhérent au matériel fourni par le Client ; catastrophe naturelle ; surtension ou défaut du réseau électrique ; mauvaise utilisation ou négligence ; modification ou intervention effectuée par un tiers non autorisé par BMI TOGO.</p>
+                  <p><b>Article 8 — Responsabilité limitée.</b> Le Prestataire n'est pas responsable des dommages, pannes ou dysfonctionnements résultant d'un défaut, d'une non-conformité, ou d'une incompatibilité du matériel fourni par le Client — y compris lorsque ce défaut n'était pas décelable au moment de la pose.</p>
+                  <p><b>Article 9 — Obligations de BMI TOGO.</b> Réaliser la pose conformément aux règles de l'art et aux normes de sécurité applicables, et former le Client à l'utilisation de l'installation.</p>
+                  <p><b>Article 10 — Obligations du Client.</b> Mettre à disposition le matériel à installer, en bon état et complet, à la date convenue ; faciliter l'accès au chantier ; garantir la sécurité du site ; s'assurer de la solidité de tout support d'installation concerné.</p>
+                  <p><b>Article 11 — Travaux supplémentaires.</b> Toute prestation non prévue au présent contrat fait l'objet d'un devis complémentaire, soumis à l'accord écrit préalable du Client.</p>
+                  <p><b>Article 12 — Réception.</b> Un procès-verbal de réception sera signé à la fin des travaux ; sa date de signature marque le début de la garantie de pose (Article 6).</p>
+                  <p><b>Article 13 — Résiliation ou renonciation du Client.</b> Le Client peut renoncer au présent contrat avant le commencement des travaux, par notification écrite. Si les travaux ont déjà commencé, le Client reste tenu du paiement des prestations déjà exécutées.</p>
+                  <p><b>Article 14 — Force majeure.</b> Aucune des parties ne pourra être tenue responsable d'un manquement résultant d'un événement de force majeure.</p>
+                  <p><b>Article 15 — Confidentialité des données.</b> BMI TOGO s'engage à traiter les données personnelles du Client conformément à la loi n° 2019-014 relative à la protection des données à caractère personnel en République Togolaise.</p>
+                  <p><b>Article 16 — Hiérarchie des documents.</b> En cas de contradiction entre le présent contrat et tout autre document, le présent contrat prévaut, sauf accord écrit contraire des parties.</p>
+                  <p><b>Article 17 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</p>
+                  <p><b>Article 18 — Défaut de paiement.</b> En cas de non-paiement à l'échéance convenue, BMI TOGO pourra suspendre toute intervention restant à exécuter et réclamer le paiement des sommes dues.</p>
+                </>) : (<>
                 <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de {fmt(d.total)} FCFA. Le devis accepté, ainsi que ses éventuelles annexes techniques, nomenclatures, fiches techniques et plans validés par les parties, font partie intégrante du présent contrat. Ils définissent notamment les équipements fournis, leurs quantités, leurs caractéristiques principales et les prestations d'installation comprises dans le prix. Toute prestation ou fourniture non expressément prévue dans ces documents fait l'objet d'un devis complémentaire soumis à l'accord préalable du Client.
                   {listeEquipements.length > 0 && <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{listeEquipements.map((l, i) => <li key={i}>{l}</li>)}</ul>}</p>
                 <p><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</p>
@@ -838,6 +908,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p><b>Article 20 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</p>
                 <p><b>Article 21 — Paiement, défaut de paiement et suspension des prestations.</b> Le Client s'engage à effectuer les paiements conformément aux échéances prévues à l'Article 3 et au devis accepté. En cas de non-paiement total ou partiel d'une somme arrivée à échéance, BMI TOGO pourra adresser au Client une mise en demeure de payer. À défaut de régularisation dans le délai indiqué dans la mise en demeure, BMI TOGO pourra, conformément aux dispositions légales applicables : a) suspendre les travaux, la livraison, la mise en service ou toute autre prestation restant à exécuter ; b) suspendre toute intervention ou prestation non encore exécutée ; c) demander le paiement des sommes échues et de toute somme devenue exigible ; d) résilier le contrat en cas de manquement suffisamment grave du Client ; e) réclamer, lorsque les conditions légales sont réunies, la réparation des préjudices et frais résultant du défaut de paiement. Les prestations déjà exécutées, les équipements déjà fournis ou commandés ainsi que les frais effectivement engagés par BMI TOGO restent dus par le Client, sous réserve des dispositions légales applicables. La réception de l'installation ne constitue pas une renonciation de BMI TOGO au paiement du solde restant dû : lorsque le prix n'a pas été intégralement payé, la signature du procès-verbal de réception ne vaut pas quittance du prix total. En cas de défaut de paiement, BMI TOGO conserve l'ensemble des droits et recours prévus par la législation applicable.</p>
                 <p className="text-xs text-slate-500">Paiement prévu à la boutique <b>{boutique}</b>.</p>
+                </>)}
               </div>
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
               <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
@@ -873,9 +944,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 ) : (
                   <>
                     <p><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>{fiche.type_installation}</b> réalisés à l'adresse suivante : <b>{fiche.adresse_contrat || "—"}</b>, pour un montant total de <b>{fmt(montant)} FCFA</b>.</p>
-                    <p><b>Article 2 — Matériel installé.</b> {(fiche.materiel || []).length > 0
+                    <p><b>Article 2 — Matériel installé{fiche.pose_seule ? " (fourni par le Client)" : ""}.</b> {(fiche.materiel || []).length > 0
                       ? <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{fiche.materiel.map((m, i) => <li key={i}>{m.nom} — quantité : {m.qte}{m.serie ? ` — N° de série : ${m.serie}` : ""}</li>)}</ul>
-                      : "Liste du matériel non renseignée."}{chef && <span className="block text-xs text-slate-500 mt-1">Constaté par {chef.nom}, chef d'équipe.</span>}</p>
+                      : "Liste du matériel non renseignée."}{fiche.pose_seule && <span className="block text-xs text-slate-500 mt-1">Ce matériel a été fourni par le Client — BMI Togo n'assure que la pose.</span>}{chef && <span className="block text-xs text-slate-500 mt-1">Constaté par {chef.nom}, chef d'équipe.</span>}</p>
                     <p className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2"><b>Article 3 — État de la réception.</b> {fiche.contrat_reserve_texte
                       ? <>Le Client accepte les travaux <b className="text-red-700">avec les réserves suivantes</b>, que le Prestataire s'engage à corriger{fiche.reserves_delai ? ` avant le ${dFR(fiche.reserves_delai)}` : " dans un délai raisonnable"} : <i>{fiche.contrat_reserve_texte}</i>.</>
                       : "Le Client reconnaît que les travaux sont entièrement achevés conformément au devis accepté, testés en sa présence, et réceptionnés sans réserve."} Les documents remis (fiches techniques, consignes d'utilisation et de sécurité) ont été transmis au Client, conformément à l'Article 2 du contrat d'installation.</p>

@@ -44,7 +44,7 @@ export function Caisse({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} avecTerrain />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse du jour <Badge boutique={boutique} /></div>
         {dejaCloturee ? (

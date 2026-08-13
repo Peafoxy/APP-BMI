@@ -445,7 +445,16 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const totalAutres = autres.reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
 
   const totalArticles = totalRoles + sousTotalRails + totalAutres;
-  const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis } = useTotauxDevis(totalArticles);
+  const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation: fraisInstallationPct, pctTransport, setPctTransport, fraisTransport, totalDevis: totalDevisNormal } = useTotauxDevis(totalArticles);
+  // ⚠ "Pose seule" (demande Timo) : le client a déjà acheté son matériel
+  // ailleurs, BMI ne facture QUE la main d'œuvre — jamais un pourcentage
+  // du matériel (puisque BMI ne l'a pas vendu), un MONTANT FIXE saisi au
+  // cas par cas pour chaque chantier. Le panier reste utilisable
+  // normalement à côté (petits accessoires que BMI fournirait quand même).
+  const [poseSeule, setPoseSeule] = useState(false);
+  const [montantPoseFixe, setMontantPoseFixe] = useState("");
+  const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
+  const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
   const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
@@ -500,13 +509,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
           pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
         })),
-        ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
+        ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: poseSeule ? "Frais de pose (matériel du client)" : `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
         ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
         ...(remise > 0 ? [{ categorie: "Remise", article: `Remise (${pctRemise} %)`, qte: 1, pu: -remise, total: -remise }] : []),
       ],
       total: totalDevis,
+      pose_seule: poseSeule,
       frais_installation: fraisInstallation,
-      pct_installation: Number(pctInstall || 0),
+      pct_installation: poseSeule ? null : Number(pctInstall || 0),
       frais_transport: fraisTransport,
       pct_transport: Number(pctTransport || 0),
       remise,
@@ -719,10 +729,24 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           placeholder="Ex : Câble 6mm² (rouleau)"
         />
 
+        <div className="px-4 py-3 border-t border-slate-200">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input type="checkbox" checked={poseSeule} onChange={(e) => setPoseSeule(e.target.checked)} />
+            Pose seule (matériel déjà acheté par le client — BMI ne facture que la main d'œuvre)
+          </label>
+          {poseSeule && (
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className="text-slate-500">Montant de la main d'œuvre (F CFA, fixé pour ce chantier)</span>
+              <input type="number" min="0" value={montantPoseFixe} onChange={(e) => setMontantPoseFixe(e.target.value)} className="w-32 rounded border border-slate-300 px-2 py-1 text-right" />
+            </div>
+          )}
+        </div>
+
         <BlocTotauxDevis
           totalArticles={totalArticles}
           pctRemise={pctRemise} setPctRemise={setPctRemise} remise={remise}
           pctInstall={pctInstall} setPctInstall={setPctInstall} fraisInstallation={fraisInstallation}
+          masquerInstallationPct={poseSeule}
           pctTransport={pctTransport} setPctTransport={setPctTransport} fraisTransport={fraisTransport}
           totalDevis={totalDevis} onConvertir={convertir}
         />

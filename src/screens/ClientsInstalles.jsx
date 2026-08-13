@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, resteAPayer } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -471,6 +471,43 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
   };
 
+  // ⚠ « Pose seule » (demande Timo) : le règlement de la main d'œuvre se
+  // fait APRÈS les travaux, en un ou plusieurs versements — jamais figé en
+  // un seul geste, exactement comme une dette classique. Réutilise ici la
+  // MÊME mécanique que Dettes.jsx (resteAPayer, tableau paiements) plutôt
+  // que d'en recréer une séparée. Visible : le chef d'équipe du chantier
+  // (encaissement sur le terrain, caisse TERRAIN) OU tout vendeur/
+  // responsable commercial/admin (cas rare : client venu payer en
+  // boutique — l'argent tombe alors dans LEUR caisse, pas TERRAIN).
+  const peutEncaisserPose = (c) =>
+    chefDuChantier(c)?.user_id === profile.id
+    || ["vendeur", "resp_commercial", "admin"].includes(profile.role);
+
+  const encaisserPose = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
+    if (!dette) { uAlert("Aucun encaissement en attente pour ce chantier."); return; }
+    const reste = resteAPayer(dette);
+    if (reste <= 0) { uAlert("Ce chantier est déjà entièrement réglé."); return; }
+    const enBoutique = profile.role !== "technicien" && profile.role !== "technicien_bmi";
+    const boutiqueEncaissement = enBoutique ? (profile.boutique || boutiquesVente(db)[0]?.nom) : dette.boutique;
+    const s = await uPrompt(`Montant reçu de ${c.nom} (F) — reste dû : ${fmt(reste)}`, String(reste || ""));
+    const m = Number(s);
+    if (!s || isNaN(m) || m <= 0) return;
+    if (m > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
+    const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
+    if (moyen === null) return;
+    if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${c.nom} ?\n\n${enBoutique ? `Encaissé en boutique (${boutiqueEncaissement}).` : "Encaissé sur le terrain (caisse TERRAIN)."}`)) return;
+    const paiement = { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: m, paiement: normPaiement(moyen), par: profile.nom };
+    // Le versement change la boutique de la dette UNIQUEMENT s'il vient
+    // d'être payé en boutique cette fois-ci — chaque versement peut donc
+    // provenir d'un endroit différent (terrain puis boutique, ou l'inverse).
+    const detteApres = { ...dette, boutique: boutiqueEncaissement, paye: Number(dette.paye) + m, paiements: [...(dette.paiements || []), paiement] };
+    save({ ...db, dettes: db.dettes.map((x) => (x.id === dette.id ? detteApres : x)) },
+      `Versement pose seule ${fmt(m)} de ${c.nom} — ${boutiqueEncaissement} (${enBoutique ? "boutique" : "terrain"})`);
+    uAlert("✅ Versement enregistré !");
+  };
+
   // BMI constate la réception SANS AUCUNE SIGNATURE (cas exceptionnel —
   // client injoignable, refus catégorique). Volontairement dissuasif :
   // confirmation explicite + trace PERMANENTE et visible sur la fiche
@@ -623,7 +660,15 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   // Ses propres dossiers (créés par lui, champ "commercial") + ceux où il
   // intervient réellement (présent dans l'équipe du chantier).
-  const voitCeDossier = (c) => c.commercial === profile.nom || (estTechnicien && (c.equipe || []).some((e) => e.user_id === profile.id));
+  const voitCeDossier = (c) => c.commercial === profile.nom || (estTechnicien && (c.equipe || []).some((e) => e.user_id === profile.id))
+    // ⚠ Demande Timo : un vendeur ou un responsable commercial doit pouvoir
+    // retrouver N'IMPORTE QUEL chantier "pose seule" pas encore soldé, même
+    // sans y être rattaché — c'est le cas rare où le client vient payer en
+    // boutique plutôt que sur le terrain. Sans ça, impossible de l'encaisser.
+    || (c.pose_seule && (profile.role === "vendeur" || profile.role === "resp_commercial") && (() => {
+      const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
+      return dette && resteAPayer(dette) > 0;
+    })());
   let liste = voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter(voitCeDossier);
   if (q) liste = liste.filter((c) => (String(c.nom) + " " + String(c.prenom) + " " + String(c.tel) + " " + String(c.type_installation)).toLowerCase().includes(q.toLowerCase()));
   if (filtreEntretien) liste = liste.filter((c) => c.date_entretien && c.date_entretien <= today());
@@ -1157,6 +1202,17 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
                       <button onClick={() => imprimerPV(c, db)} className="text-xs font-bold text-white bg-slate-700 rounded px-2 py-1 hover:bg-slate-800 mr-2">📄 Voir le PV</button>
                     )}
+                    {c.pose_seule && peutEncaisserPose(c) && (() => {
+                      const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
+                      const reste = dette ? resteAPayer(dette) : 0;
+                      return reste > 0 ? (
+                        <button onClick={() => encaisserPose(c)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800 mr-2">
+                          💰 Encaisser (reste {fmt(reste)})
+                        </button>
+                      ) : dette ? (
+                        <span className="text-xs font-bold text-emerald-700 mr-2">✅ Pose soldée</span>
+                      ) : null;
+                    })()}
                     <button onClick={() => ouvrirRepartition(c)} className="text-xs font-bold text-purple-700 underline mr-2">
                       🔧 Frais {Number(c.frais_installation || 0) > 0 ? `(${fmt(c.frais_installation)})` : ""}
                     </button>

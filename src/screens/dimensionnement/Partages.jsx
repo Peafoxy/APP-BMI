@@ -46,7 +46,7 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
 }
 
 // ---- Bloc totaux : remise (sur les articles uniquement) → installation → transport → total ----
-export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis, onConvertir }) {
+export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, masquerInstallationPct, pctTransport, setPctTransport, fraisTransport, totalDevis, onConvertir }) {
   return (
     <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
       <div className="flex flex-col items-end gap-1">
@@ -58,11 +58,13 @@ export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise
           <input type="number" min="0" max="100" step="0.5" value={pctRemise} onChange={(e) => setPctRemise(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
           <span className="text-slate-500">% = −</span><span className="font-semibold text-red-600">{fmt(remise)}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Frais d'installation</span>
-          <input type="number" min="0" max="100" step="0.5" value={pctInstall} onChange={(e) => setPctInstall(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
-          <span className="text-slate-500">% =</span><span className="font-semibold">{fmt(fraisInstallation)}</span>
-        </div>
+        {!masquerInstallationPct && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-slate-500">Frais d'installation</span>
+            <input type="number" min="0" max="100" step="0.5" value={pctInstall} onChange={(e) => setPctInstall(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
+            <span className="text-slate-500">% =</span><span className="font-semibold">{fmt(fraisInstallation)}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-500">Transport / livraison</span>
           <input type="number" min="0" max="100" step="0.5" value={pctTransport} onChange={(e) => setPctTransport(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
