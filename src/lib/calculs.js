@@ -206,6 +206,20 @@ export function contratsInstallation(db, { commercial, clientId, payeSeulement }
   return out.sort((a, b) => (b.devis.contrat_date_signature || "").localeCompare(a.devis.contrat_date_signature || ""));
 }
 
+// ⚠ Demande Timo : le PV de réception doit apparaître sur la MÊME fiche
+// que le contrat correspondant (onglet Contrats), pas dans une liste à
+// part. Un devis n'a pas de lien direct vers son chantier — la chaîne
+// passe par devis → commande (commande.devis_id) → vente (vente.commande_id)
+// → chantier (clients_installes.vente_id), exactement le même chemin que
+// celui déjà utilisé par imprimerPV() (lib/impression.js) en sens inverse.
+export function pvDuContrat(db, devisId) {
+  const commande = (db.commandes || []).find((cm) => cm.devis_id === devisId);
+  if (!commande) return null;
+  const vente = (db.ventes || []).find((v) => v.commande_id === commande.id);
+  if (!vente) return null;
+  return (db.clients_installes || []).find((c) => c.vente_id === vente.id) || null;
+}
+
 // Quand on supprime une dépense générée automatiquement par un paiement
 // (commission, prime d'installation…), il faut aussi redonner leur statut
 // « non payé » aux ventes / chantiers liés — sinon la commission reste

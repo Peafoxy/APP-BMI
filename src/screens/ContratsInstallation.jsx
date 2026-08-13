@@ -7,8 +7,8 @@
 import { useState, useRef } from "react";
 import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert } from "../components/ui";
-import { contratsInstallation, bloquerSiLecture } from "../lib/calculs";
-import { imprimerContratInstallation } from "../lib/impression";
+import { contratsInstallation, pvDuContrat, bloquerSiLecture } from "../lib/calculs";
+import { imprimerContratInstallation, imprimerPV } from "../lib/impression";
 
 export function ContratsInstallation({ db, save, profile }) {
   const isClient = profile.role === "client";
@@ -129,7 +129,10 @@ export function ContratsInstallation({ db, save, profile }) {
         {contrats.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">Aucun contrat signé pour l'instant.</div>}
 
         <div className="space-y-2">
-          {contrats.map(({ client, devis: d }) => (
+          {contrats.map(({ client, devis: d }) => {
+            const fichePv = pvDuContrat(db, d.id);
+            const pvSigne = fichePv && (fichePv.contrat_statut === "signe" || fichePv.avenant_statut === "signe" || fichePv.contrat_force_par);
+            return (
             <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 flex-wrap">
               <div>
                 <div className="font-semibold text-sm">
@@ -146,9 +149,11 @@ export function ContratsInstallation({ db, save, profile }) {
               <div className="flex items-center gap-2">
                 <span className="font-bold tabular-nums">{fmt(d.total)}</span>
                 <button onClick={() => voirContrat(client, d)} className="text-xs font-bold text-sky-800 underline">📄 Voir</button>
+                {pvSigne && <button onClick={() => imprimerPV(fichePv, db)} className="text-xs font-bold text-emerald-700 underline">📄 Voir le PV</button>}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </Panel>
 

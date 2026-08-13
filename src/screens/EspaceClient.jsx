@@ -6,7 +6,7 @@ import { useState, useRef } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
@@ -231,11 +231,21 @@ export function EspaceClient({ db, profile, save, setTab }) {
     // mise à l'échelle, la position dessinée ne correspondait pas à celle
     // du doigt dès que la taille affichée différait de la résolution
     // interne (systématique sur mobile). Signalé par Timo.
+    // ⚠ Bug trouvé plus tard (signalé par Timo, décalage constaté au clavier-souris
+    // dans un navigateur) : getBoundingClientRect() inclut la bordure CSS
+    // (border-2, 2px) alors que le TRAIT dessiné se cale sur le bord
+    // intérieur (la zone de contenu du canevas, sans la bordure). L'échelle
+    // ET le décalage devaient donc utiliser clientWidth/clientHeight (zone
+    // de contenu réelle, bordure exclue) et clientLeft/clientTop (épaisseur
+    // de la bordure), pas le rectangle englobant seul.
     const rect = canvas.getBoundingClientRect();
     const point = e.touches ? e.touches[0] : e;
-    const echelleX = canvas.width / rect.width;
-    const echelleY = canvas.height / rect.height;
-    return { x: (point.clientX - rect.left) * echelleX, y: (point.clientY - rect.top) * echelleY };
+    const echelleX = canvas.width / canvas.clientWidth;
+    const echelleY = canvas.height / canvas.clientHeight;
+    return {
+      x: (point.clientX - rect.left - canvas.clientLeft) * echelleX,
+      y: (point.clientY - rect.top - canvas.clientTop) * echelleY,
+    };
   };
   const debuterTrait = (e) => {
     e.preventDefault();
@@ -281,6 +291,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
   const [dessinPvEnCours, setDessinPvEnCours] = useState(false);
   const canvasPvRef = useRef(null);
   const aSignePvRef = useRef(false);
+  // ⚠ Demande Timo : le client ne doit plus voir la zone de signature
+  // directement — il doit d'abord LIRE le PV en entier, comme pour le
+  // contrat d'installation ci-dessus. "pvLectureOuverte" distingue le cas
+  // normal de l'avenant (même principe que "estAvenant" dans signerPv).
+  const [pvLectureOuverte, setPvLectureOuverte] = useState(null); // null | "normal" | "avenant"
   const debuterTraitPv = (e) => {
     e.preventDefault();
     setDessinPvEnCours(true);
@@ -312,7 +327,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // externe (voir imprimerPV, lib/impression.js), donc le document généré
   // ensuite est rigoureusement identique, peu importe où le client a signé.
   const signerPv = async (estAvenant) => {
-    if (!aSignePvRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
+    if (!aSignePvRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return false; }
     const signatureDataUrl = canvasPvRef.current.toDataURL("image/png");
     const maintenant = new Date().toISOString();
     const champs = estAvenant
@@ -321,6 +336,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     aSignePvRef.current = false;
     save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === fiche.id ? { ...x, ...champs } : x)) },
       `${estAvenant ? "Avenant" : "PV de réception"} signé directement dans l'app par ${profile.nom} — ${fiche.nom}`);
+    return true;
   };
 
   const finaliserValidation = async (d, infosContrat) => {
@@ -726,14 +742,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 </div>
                 {fiche.contrat_statut === "attente_signature" && (
                   <div className="mt-3 rounded-lg border border-amber-200 bg-white p-3">
-                    <div className="text-xs font-semibold text-slate-600 mb-1">Ou signez directement ici :</div>
-                    <canvas ref={canvasPvRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
-                      onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
-                      onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                      <button onClick={effacerSignaturePv} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
-                      <button onClick={() => signerPv(false)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer la réception</button>
-                    </div>
+                    <button onClick={() => { setPvLectureOuverte("normal"); aSignePvRef.current = false; }} className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">📄 Lire et signer le PV directement ici</button>
                   </div>
                 )}
               </div>
@@ -755,14 +764,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <div className="text-xs text-slate-500 mt-2">Signalé le {dFR(fiche.reserves_le)}. Nos équipes ont été prévenues et vous recontacteront.</div>
                 {fiche.avenant_statut === "attente_signature" && (
                   <div className="mt-3 rounded-lg border border-red-200 bg-white p-3">
-                    <div className="text-sm text-slate-700 mb-2">Les réserves ont été corrigées. Un lien de signature vous a été envoyé par WhatsApp — ou signez directement ici :</div>
-                    <canvas ref={canvasPvRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
-                      onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
-                      onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                      <button onClick={effacerSignaturePv} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
-                      <button onClick={() => signerPv(true)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer l'avenant</button>
-                    </div>
+                    <button onClick={() => { setPvLectureOuverte("avenant"); aSignePvRef.current = false; }} className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">📄 Lire et signer l'avenant directement ici</button>
                   </div>
                 )}
               </div>
@@ -845,6 +847,53 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <button onClick={effacerSignature} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
                 <button onClick={() => signerEtValider(d)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer et valider</button>
                 <button onClick={() => setContratOuvert(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {pvLectureOuverte && fiche && (() => {
+        const estAvenant = pvLectureOuverte === "avenant";
+        const vente = (db.ventes || []).find((v) => v.id === fiche.vente_id);
+        const montant = vente ? totalVente(vente) : Number(fiche.frais_installation || 0);
+        const chef = (fiche.equipe || []).find((e) => e.chef);
+        return (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+            <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5">
+              <div className="text-center mb-3">
+                <div className="font-bold text-lg text-sky-900">{estAvenant ? "AVENANT AU PROCÈS-VERBAL DE RÉCEPTION" : "PROCÈS-VERBAL DE RÉCEPTION"}{fiche.contrat_numero ? ` N° ${fiche.contrat_numero}` : ""}</div>
+                <div className="text-xs text-slate-400">BMI Togo · Lomé, Togo · NIF 1001790098 · RCCM TG-LFW-01-2022-A10-01523</div>
+              </div>
+              <div className="text-sm text-slate-700 space-y-2 mb-4">
+                <p>Entre <b>BMI Togo</b> (Les Bâtiments Modernes et Intelligents), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, ci-après « le Prestataire »,<br />
+                Et <b>{fiche.prenom} {fiche.nom}</b>{fiche.tel ? `, tél. ${fiche.tel}` : ""}, ci-après « le Client »,</p>
+                {estAvenant ? (
+                  <p><b>Objet.</b> Le présent avenant constate que les réserves émises lors de la réception initiale (contrat N° {fiche.contrat_numero || "—"}) ont été corrigées par le Prestataire, à savoir : <i>{fiche.contrat_reserve_texte || "—"}</i>. En signant, le Client confirme la réception définitive, sans réserve, de la prestation.</p>
+                ) : (
+                  <>
+                    <p><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>{fiche.type_installation}</b> réalisés à l'adresse suivante : <b>{fiche.adresse_contrat || "—"}</b>, pour un montant total de <b>{fmt(montant)} FCFA</b>.</p>
+                    <p><b>Article 2 — Matériel installé.</b> {(fiche.materiel || []).length > 0
+                      ? <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{fiche.materiel.map((m, i) => <li key={i}>{m.nom} — quantité : {m.qte}{m.serie ? ` — N° de série : ${m.serie}` : ""}</li>)}</ul>
+                      : "Liste du matériel non renseignée."}{chef && <span className="block text-xs text-slate-500 mt-1">Constaté par {chef.nom}, chef d'équipe.</span>}</p>
+                    <p className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2"><b>Article 3 — État de la réception.</b> {fiche.contrat_reserve_texte
+                      ? <>Le Client accepte les travaux <b className="text-red-700">avec les réserves suivantes</b>, que le Prestataire s'engage à corriger{fiche.reserves_delai ? ` avant le ${dFR(fiche.reserves_delai)}` : " dans un délai raisonnable"} : <i>{fiche.contrat_reserve_texte}</i>.</>
+                      : "Le Client reconnaît que les travaux sont entièrement achevés conformément au devis accepté, testés en sa présence, et réceptionnés sans réserve."} Les documents remis (fiches techniques, consignes d'utilisation et de sécurité) ont été transmis au Client, conformément à l'Article 2 du contrat d'installation.</p>
+                    <p><b>Article 4 — Garantie.</b> Le Prestataire garantit les équipements installés contre tout défaut de fabrication ou d'installation pour une durée de <b>{fiche.garantie_mois || "24"} mois</b> à compter de la date de signature, hors usure normale, mauvaise utilisation, ou intervention d'un tiers non autorisé.</p>
+                    <p><b>Article 5 — Transfert de responsabilité.</b> À compter de la signature du présent procès-verbal, l'installation est réputée réceptionnée. La garde, l'utilisation et l'entretien de l'installation sont transférés au Client, sous réserve des garanties prévues à l'Article 4.</p>
+                    <p><b>Article 6 — Signature.</b> En signant ci-dessous, le Client reconnaît avoir vérifié la conformité des travaux et accepte les termes du présent procès-verbal.</p>
+                  </>
+                )}
+                <p className="text-xs text-slate-500">Fait à Lomé, le {dFR(today())}.</p>
+              </div>
+              <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
+              <canvas ref={canvasPvRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+                onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
+                onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button onClick={effacerSignaturePv} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+                <button onClick={async () => { const ok = await signerPv(estAvenant); if (ok) setPvLectureOuverte(null); }} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer {estAvenant ? "l'avenant" : "la réception"}</button>
+                <button onClick={() => setPvLectureOuverte(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
               </div>
             </div>
           </div>

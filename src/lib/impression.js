@@ -353,27 +353,32 @@ export function imprimerPV(c, db) {
   const heureSignature = dateSignature && dateSignature.includes("T") ? dateSignature.slice(11, 16) : "";
   const html = `
   <style>
-  #zone-impression .ctr-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto;line-height:1.6}
+  #zone-impression .ctr-doc{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:#111;max-width:680px;margin:0 auto;line-height:1.45}
   #zone-impression .ctr-doc .entete{width:100%;border-collapse:collapse}
-  #zone-impression .ctr-doc .entete td{vertical-align:middle;padding:0 0 8px 0}
-  #zone-impression .ctr-doc .entete img{max-width:150px;max-height:110px;object-fit:contain}
-  #zone-impression .ctr-doc .soc{text-align:right;line-height:1.5}
-  #zone-impression .ctr-doc .soc .nom{font-size:20px;font-weight:bold;color:#1e5a8a}
-  #zone-impression .ctr-doc h1{text-align:center;font-size:16px;letter-spacing:1.5px;margin:10px 0 14px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
-  #zone-impression .ctr-doc .art{margin:12px 0}
+  #zone-impression .ctr-doc .entete td{vertical-align:middle;padding:0 0 6px 0}
+  #zone-impression .ctr-doc .entete img{max-width:130px;max-height:90px;object-fit:contain}
+  #zone-impression .ctr-doc .soc{text-align:right;line-height:1.4}
+  #zone-impression .ctr-doc .soc .nom{font-size:18px;font-weight:bold;color:#1e5a8a}
+  #zone-impression .ctr-doc h1{text-align:center;font-size:15px;letter-spacing:1.5px;margin:6px 0 10px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:6px}
+  #zone-impression .ctr-doc .art{margin:7px 0}
   #zone-impression .ctr-doc .art b{color:#1e5a8a}
-  #zone-impression .ctr-doc .etat{background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin:8px 0}
+  #zone-impression .ctr-doc .etat{background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:6px 9px;margin:6px 0}
   #zone-impression .ctr-doc .reserve{color:#b91c1c;font-weight:bold}
-  #zone-impression .ctr-doc .sig3-row{display:flex;align-items:flex-end;gap:6px;margin-top:22px}
+  /* ⚠ Signature en TABLEAU plutôt qu'en flexbox — même choix que l'en-tête
+     ci-dessus, plus fiable à l'impression réelle (Timo a signalé le cachet
+     absent du document imprimé — le tableau ne dépend d'aucun calcul de
+     largeur flexible qui pourrait être mal interprété par le moteur
+     d'impression). page-break-inside:avoid garde toute la ligne de
+     signature ensemble, jamais coupée entre deux pages. */
+  #zone-impression .ctr-doc .sig3{width:100%;border-collapse:collapse;margin-top:14px;page-break-inside:avoid;break-inside:avoid}
+  #zone-impression .ctr-doc .sig3 td{vertical-align:bottom;text-align:center;font-size:11px;padding:0}
   #zone-impression .ctr-doc .sig3-head{font-weight:bold;margin-bottom:4px}
-  #zone-impression .ctr-doc .sig3-col{text-align:center;font-size:11px}
-  #zone-impression .ctr-doc .sig3-col:first-child{flex:0 0 150px}
-  #zone-impression .ctr-doc .sig3-col:last-child{flex:1}
-  #zone-impression .ctr-doc .sig3-col img.signature{max-height:55px;display:block;margin:6px auto 2px}
+  #zone-impression .ctr-doc .sig3 td:first-child{width:150px}
+  #zone-impression .ctr-doc .sig3 td:nth-child(2){width:110px;padding-right:30px}
+  #zone-impression .ctr-doc .sig3-col img.signature{max-height:50px;display:block;margin:5px auto 2px}
   #zone-impression .ctr-doc .sig3-col .ligne{border-top:1px solid #333;padding-top:4px;margin-top:4px}
-  #zone-impression .ctr-doc .sig3-cachet{flex:0 0 110px;text-align:center;margin-right:30px}
-  #zone-impression .ctr-doc .sig3-cachet img{max-width:120px;opacity:0.9}
-  #zone-impression .ctr-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
+  #zone-impression .ctr-doc .sig3-cachet img{max-width:110px;opacity:0.9}
+  #zone-impression .ctr-doc .mentions{margin-top:10px;font-size:9.5px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:6px}
   </style>
   <div class="ctr-doc">
     <table class="entete"><tr>
@@ -403,17 +408,17 @@ export function imprimerPV(c, db) {
 
     <div class="art">Fait à Lomé, le ${dFR(dateSignature)}${heureSignature ? ` à ${heureSignature}` : ""}.${!avenant && c.date_entretien ? ` Prochain entretien recommandé : ${dFR(c.date_entretien)}.` : ""}</div>
 
-    <div class="sig3-row">
-      <div class="sig3-col">
+    <table class="sig3"><tr>
+      <td class="sig3-col">
         <div class="sig3-head">POUR BMI</div>
         Chef d'équipe
         ${chefCompte?.signature_personnelle ? `<img class="signature" src="${chefCompte.signature_personnelle}" alt="Signature" />` : "<br><br>"}
         <div class="ligne">${chef ? esc(chef.nom) : "Nom du chef d'équipe"}</div>
-      </div>
-      <div class="sig3-cachet">
+      </td>
+      <td class="sig3-cachet">
         <img src="${cachet}" alt="Cachet BMI Togo" />
-      </div>
-      <div class="sig3-col">
+      </td>
+      <td class="sig3-col">
         <div class="sig3-head">LE CLIENT</div>
         ${c.contrat_force_par
           ? `<div style="color:#b91c1c;font-weight:bold;font-size:10px">⚠ Réceptionné sans signature<br>(forcé par ${esc(c.contrat_force_par)})</div>`
@@ -421,8 +426,8 @@ export function imprimerPV(c, db) {
             ? `<img class="signature" src="${avenant ? c.avenant_signature : c.contrat_signature}" alt="Signature" />`
             : "<br><br>(en attente)"}
         <div class="ligne">${esc(c.prenom)} ${esc(c.nom)}</div>
-      </div>
-    </div>
+      </td>
+    </tr></table>
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
   </div>`;
