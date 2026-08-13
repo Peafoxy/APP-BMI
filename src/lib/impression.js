@@ -467,6 +467,13 @@ export function imprimerContratInstallation(d, db) {
   // demande Timo). Reprend le panier tel quel, comme le fait déjà le PV
   // pour le matériel réellement posé.
   const listeEquipements = (d.panier || []).map((l) => `${esc(l.article)} — quantité : ${esc(l.qte)}`);
+  // ⚠ "Pose seule" (2.99.97) : le panier peut contenir du matériel VENDU
+  // par BMI en plus de la pose (ex. disjoncteurs) — l'Article 1 disait à
+  // tort "aucun équipement fourni" même dans ce cas (signalé par Timo).
+  // Séparé du reste du panier via la catégorie "Installation" (= la ligne
+  // de pose elle-même, jamais un vrai équipement).
+  const equipementsBMI = (d.panier || []).filter((l) => l.categorie !== "Installation");
+  const totalEquipementsBMI = equipementsBMI.reduce((s, l) => s + Number(l.total || 0), 0);
   const estSolaire = d.type_devis !== "garage" && d.type_devis !== "autre";
   const montantAcompte = Number(d.montant_acompte ?? d.total);
   const pctAcompteAffiche = Number(d.pct_acompte ?? 100);
@@ -506,7 +513,11 @@ export function imprimerContratInstallation(d, db) {
     <div class="art">Mr/Mme : ${esc(client?.nom || "")}${client?.tel ? `, tél. ${esc(client.tel)}` : ""}</div>
 
     ${d.pose_seule ? `
-    <div class="art"><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>, pour un montant total de <b>${fmt(d.total)} FCFA</b> (main d'œuvre uniquement — le Prestataire ne facture ni ne fournit aucun équipement dans le cadre du présent contrat). Le Client déclare avoir acquis lui-même les équipements à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception. Toute prestation non expressément prévue ci-dessus fait l'objet d'un devis complémentaire soumis à l'accord préalable du Client.</div>
+    <div class="art"><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>${totalEquipementsBMI > 0 ? `, ainsi que la fourniture des équipements complémentaires listés ci-dessous` : ""}, pour un <b>montant total dû à BMI TOGO de ${fmt(d.total)} FCFA</b>, se décomposant comme suit : main d'œuvre de pose — <b>${fmt(d.total - totalEquipementsBMI)} FCFA</b>${totalEquipementsBMI > 0 ? ` ; équipements fournis par BMI TOGO — <b>${fmt(totalEquipementsBMI)} FCFA</b>` : ""}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.
+    ${totalEquipementsBMI > 0 ? `<div style="margin-top:6px"><b>Équipements fournis par BMI TOGO :</b><ul style="margin:6px 0 0 18px;padding:0">${equipementsBMI.map((l) => `<li>${esc(l.article)} — quantité : ${esc(l.qte)}</li>`).join("")}</ul></div>` : ""}</div>
+    ${totalEquipementsBMI > 0 ? `
+    <div class="art"><b>Article 1 bis — Garantie, propriété et risques des équipements fournis par BMI TOGO.</b> ${garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement, le cas échéant."} Ces équipements demeurent la propriété de BMI TOGO jusqu'au paiement intégral du prix convenu ; les risques de perte, vol ou détérioration les concernant sont transférés au Client à compter de leur livraison ou de leur installation. Ces dispositions ne s'appliquent en aucun cas au matériel apporté par le Client lui-même (Article 2).</div>
+    ` : ""}
     <div class="art"><b>Article 2 — Origine et conformité du matériel.</b> Le Client garantit que les équipements fournis sont neufs ou en bon état de fonctionnement, conformes à l'usage prévu, et compatibles entre eux. Le Prestataire se réserve le droit de refuser la pose d'un équipement qu'il jugerait manifestement défectueux, non conforme aux normes de sécurité, ou incompatible avec l'installation prévue — sans que ce refus n'engage sa responsabilité.</div>
     <div class="art"><b>Article 3 — Documents remis.</b> BMI TOGO remettra au Client les consignes d'utilisation et de sécurité relatives à la pose réalisée.</div>
     <div class="art"><b>Article 4 — Modalités de paiement.</b> Le montant de la prestation, fixé au présent contrat, est payable à <b>70 % avant le début des travaux</b> et les <b>30 % restants à la signature du procès-verbal de réception</b>, qui constate l'achèvement des travaux. Le Client s'engage à régler ce solde au moment de cette signature, ou dans les <b>3 jours</b> qui suivent au plus tard.</div>

@@ -845,6 +845,8 @@ export function EspaceClient({ db, profile, save, setTab }) {
         const boutique = bqPaiement[d.id];
         const garanties = garantiesDuDevis(d);
         const listeEquipements = (d.panier || []).map((l) => `${l.article} — quantité : ${l.qte}`);
+        const equipementsBMI = (d.panier || []).filter((l) => l.categorie !== "Installation");
+        const totalEquipementsBMI = equipementsBMI.reduce((s, l) => s + Number(l.total || 0), 0);
         const estSolaire = d.type_devis !== "garage" && d.type_devis !== "autre";
         const montantAcompte = Number(d.montant_acompte ?? d.total);
         const pctAcompteAffiche = Number(d.pct_acompte ?? 100);
@@ -862,7 +864,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p>Et :</p>
                 <p>Mr/Mme : {profile.nom}{profile.tel ? `, tél. ${profile.tel}` : ""}</p>
                 {d.pose_seule ? (<>
-                  <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>, pour un montant total de {fmt(d.total)} FCFA (main d'œuvre uniquement — le Prestataire ne facture ni ne fournit aucun équipement dans le cadre du présent contrat). Le Client déclare avoir acquis lui-même les équipements à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.</p>
+                  <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>{totalEquipementsBMI > 0 ? ", ainsi que la fourniture des équipements complémentaires listés ci-dessous" : ""}, pour un <b>montant total dû à BMI TOGO de {fmt(d.total)} FCFA</b>, se décomposant comme suit : main d'œuvre de pose — <b>{fmt(d.total - totalEquipementsBMI)} FCFA</b>{totalEquipementsBMI > 0 ? <> ; équipements fournis par BMI TOGO — <b>{fmt(totalEquipementsBMI)} FCFA</b></> : null}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.
+                    {totalEquipementsBMI > 0 && <span className="block mt-1"><b>Équipements fournis par BMI TOGO :</b><ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{equipementsBMI.map((l, i) => <li key={i}>{l.article} — quantité : {l.qte}</li>)}</ul></span>}</p>
+                  {totalEquipementsBMI > 0 && (
+                    <p><b>Article 1 bis — Garantie, propriété et risques des équipements fournis par BMI TOGO.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement, le cas échéant."} Ces équipements demeurent la propriété de BMI TOGO jusqu'au paiement intégral du prix convenu ; les risques de perte, vol ou détérioration les concernant sont transférés au Client à compter de leur livraison ou de leur installation. Ces dispositions ne s'appliquent en aucun cas au matériel apporté par le Client lui-même (Article 2).</p>
+                  )}
                   <p><b>Article 2 — Origine et conformité du matériel.</b> Le Client garantit que les équipements fournis sont neufs ou en bon état de fonctionnement, conformes à l'usage prévu, et compatibles entre eux. Le Prestataire se réserve le droit de refuser la pose d'un équipement qu'il jugerait manifestement défectueux ou non conforme aux normes de sécurité, sans que ce refus n'engage sa responsabilité.</p>
                   <p><b>Article 3 — Documents remis.</b> BMI TOGO remettra au Client les consignes d'utilisation et de sécurité relatives à la pose réalisée.</p>
                   <p><b>Article 4 — Modalités de paiement.</b> Le montant de la prestation, fixé au présent contrat, est payable à 70 % avant le début des travaux et les 30 % restants à la signature du procès-verbal de réception, qui constate l'achèvement des travaux. Le Client s'engage à régler ce solde au moment de cette signature, ou dans les 3 jours qui suivent au plus tard.</p>
