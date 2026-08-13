@@ -148,7 +148,7 @@ export function ContratsInstallation({ db, save, profile }) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-bold tabular-nums">{fmt(d.total)}</span>
-                <button onClick={() => voirContrat(client, d)} className="text-xs font-bold text-sky-800 underline">📄 Voir</button>
+                <button onClick={() => voirContrat(client, d)} className="text-xs font-bold text-sky-800 underline">📄 Voir le contrat</button>
                 {pvSigne && <button onClick={() => imprimerPV(fichePv, db)} className="text-xs font-bold text-emerald-700 underline">📄 Voir le PV</button>}
               </div>
             </div>
@@ -162,7 +162,7 @@ export function ContratsInstallation({ db, save, profile }) {
           <div className="bg-white rounded-xl max-w-md w-full p-5">
             <div className="font-bold text-lg text-sky-900 mb-1">Ma signature</div>
             <div className="text-xs text-slate-500 mb-3">Elle apparaîtra sur tous vos contrats, à côté du cachet de BMI Togo.</div>
-            <canvas ref={canvasRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+            <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
               onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}
               onTouchStart={debuterTrait} onTouchMove={continuerTrait} onTouchEnd={terminerTrait} />
             <div className="flex gap-2 mt-3 flex-wrap">

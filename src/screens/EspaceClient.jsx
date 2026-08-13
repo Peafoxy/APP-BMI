@@ -840,7 +840,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p className="text-xs text-slate-500">Paiement prévu à la boutique <b>{boutique}</b>.</p>
               </div>
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
-              <canvas ref={canvasRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+              <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
                 onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}
                 onTouchStart={debuterTrait} onTouchMove={continuerTrait} onTouchEnd={terminerTrait} />
               <div className="flex gap-2 mt-3 flex-wrap">
@@ -887,7 +887,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p className="text-xs text-slate-500">Fait à Lomé, le {dFR(today())}.</p>
               </div>
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
-              <canvas ref={canvasPvRef} width={440} height={120} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
+              <canvas ref={canvasPvRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
                 onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
                 onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
               <div className="flex gap-2 mt-3 flex-wrap">
