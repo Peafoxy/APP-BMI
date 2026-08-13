@@ -213,6 +213,13 @@ export function contratsInstallation(db, { commercial, clientId, payeSeulement }
 // → chantier (clients_installes.vente_id), exactement le même chemin que
 // celui déjà utilisé par imprimerPV() (lib/impression.js) en sens inverse.
 export function pvDuContrat(db, devisId) {
+  // ⚠ Correction (2.99.91 était trop fragile) : le chantier porte en fait
+  // un lien DIRECT vers son devis (`devis_id`, posé dès sa création dans
+  // Ventes.jsx au moment où le paiement déclenche l'installation) — pas
+  // besoin de repasser par commande→vente. La chaîne indirecte reste en
+  // repli pour d'éventuels chantiers créés à la main sans ce champ.
+  const direct = (db.clients_installes || []).find((c) => c.devis_id === devisId);
+  if (direct) return direct;
   const commande = (db.commandes || []).find((cm) => cm.devis_id === devisId);
   if (!commande) return null;
   const vente = (db.ventes || []).find((v) => v.commande_id === commande.id);
