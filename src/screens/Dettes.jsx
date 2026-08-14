@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -174,6 +174,7 @@ export function Dettes({ db, save, profile }) {
   };
 
   const liste = db.dettes.filter((x) => x.boutique === boutique && !estReservation(x));
+  const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
   const mesReservations = db.dettes.filter((x) => x.boutique === boutique && estReservation(x) && x.statut !== "annulee");
   const statut = (d) => (d.montant - d.paye <= 0 ? "Payée" : d.paye > 0 ? "Partielle" : "En cours");
 
@@ -293,7 +294,7 @@ export function Dettes({ db, save, profile }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Client", "Téléphone", "Motif", "Dette", "Payé", "Reste", "Statut", "Ancienneté", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucune dette enregistrée.</td></tr>}
-            {liste.map((d) => {
+            {listePage.map((d) => {
               const st = statut(d);
               const jours = Math.floor((new Date(today()) - new Date(d.date)) / (1000 * 60 * 60 * 24));
               const estRetard = jours > 30 && d.montant - d.paye > 0;
@@ -330,6 +331,7 @@ export function Dettes({ db, save, profile }) {
             })}
           </tbody>
         </table>
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>
   );

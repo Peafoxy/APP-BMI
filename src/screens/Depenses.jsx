@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { CATEGORIES, PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, usePagination, Pagination } from "../components/ui";
 import { bloquerSiLecture, annulerLiensDepense, boutiquesVente } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
@@ -36,6 +36,7 @@ export function Depenses({ db, save, profile }) {
 
   const liste = db.depenses.filter((x) => x.boutique === boutique);
   const totalMois = liste.filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
+  const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
   return (
     <div className="space-y-4">
@@ -60,7 +61,7 @@ export function Depenses({ db, save, profile }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune dépense enregistrée.</td></tr>}
-            {liste.map((x) => (
+            {listePage.map((x) => (
               <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2">{dFR(x.date)}</td>
                 <td className="px-3 py-2 font-semibold">{x.categorie}</td>
@@ -77,6 +78,7 @@ export function Depenses({ db, save, profile }) {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>
   );
@@ -89,6 +91,7 @@ export function Depenses({ db, save, profile }) {
 export function ChezComptable({ db, save, profile }) {
   const liste = (db.depenses || []).filter((x) => x.boutique === "Chez le comptable")
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const { pageItems: listePage, page: pageCC, setPage: setPageCC, totalPages: totalPagesCC } = usePagination(liste, 50);
 
   // ---- POINTAGE DES DÉCAISSEMENTS : le comptable marque ce qu'il a
   // réellement remis (billets donnés / virement fait), pour ne plus se
@@ -172,7 +175,7 @@ export function ChezComptable({ db, save, profile }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune sortie de caisse « Chez le comptable » pour l'instant.</td></tr>}
-            {liste.map((x) => (
+            {listePage.map((x) => (
               <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2">{dFR(x.date)}</td>
                 <td className="px-3 py-2 font-semibold">{x.categorie}</td>
@@ -189,6 +192,7 @@ export function ChezComptable({ db, save, profile }) {
             ))}
           </tbody>
         </table>
+        <Pagination page={pageCC} setPage={setPageCC} totalPages={totalPagesCC} />
       </div>
     </div>
   );

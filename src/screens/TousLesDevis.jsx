@@ -7,7 +7,7 @@ import { useState } from "react";
 import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
 import { fmt, dFR } from "../lib/core";
-import { inputCls } from "../components/ui";
+import { inputCls, usePagination, Pagination } from "../components/ui";
 import { normNom } from "../lib/calculs";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
@@ -92,6 +92,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     .sort((a, b) =>
     (ORDRE_STATUT_DEVIS[a.statut || "propose"] - ORDRE_STATUT_DEVIS[b.statut || "propose"])
     || `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
+  const { pageItems: devisPage, page, setPage, totalPages } = usePagination(devisFiltres, 50);
 
   const telechargerPDF = (d) => {
     genererDevis({
@@ -143,7 +144,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
           <div className="p-6 text-center text-sm text-slate-400">Aucun devis{voitTout ? "" : " établi par vous"} pour l'instant.</div>
         ) : (
           <div className="divide-y divide-slate-100 max-h-[455px] overflow-y-auto">
-            {devisFiltres.map((d) => (
+            {devisPage.map((d) => (
               <div key={d.id}>
                 <button onClick={() => ouvrirDevis(d)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50 flex-wrap">
                   <span className="flex-1 min-w-[180px]">
@@ -197,6 +198,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
             ))}
           </div>
         )}
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>
   );

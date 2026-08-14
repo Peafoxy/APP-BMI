@@ -6,7 +6,12 @@ import { boutiquesVente } from "../lib/calculs";
 
 // ============ SÉLECTEUR BOUTIQUE ============
 export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false }) {
-  const base = avecDepots ? db.boutiques : boutiquesVente(db);
+  // ⚠ Bug trouvé par Timo (capture Stocks) : avecDepots utilisait db.boutiques
+  // SANS filtrer TERRAIN — la boutique virtuelle apparaissait donc dans
+  // Stocks (et partout ailleurs utilisant avecDepots), alors qu'elle ne
+  // détient jamais de stock physique. TERRAIN ne doit apparaître QUE là où
+  // avecTerrain est explicitement demandé (Caisse), jamais via avecDepots.
+  const base = avecDepots ? (db.boutiques || []).filter((b) => !b.terrain) : boutiquesVente(db);
   const terrain = avecTerrain && !avecDepots ? (db.boutiques || []).filter((b) => b.terrain) : [];
   const liste = [...base, ...terrain];
   return (

@@ -187,7 +187,9 @@ export function Users({ db, save, profile }) {
 
   const changerBoutique = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
-    const noms = db.boutiques.map((b) => b.nom);
+    // ⚠ TERRAIN (boutique virtuelle) n'est jamais un rattachement valide
+    // pour un employé — même bug que Stocks/Caisse/Dashboard.
+    const noms = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom);
     const nom = await uChoix(`Boutique assignée à ${u.nom} ?`, noms);
     if (!nom) return;
     if (!noms.includes(nom)) { uAlert("Boutique inconnue."); return; }

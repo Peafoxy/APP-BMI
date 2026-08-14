@@ -6,13 +6,42 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { col, light } from "../lib/core";
 import { LOGO } from "../lib/constants";
 import { genererPDF } from "../pdf";
 
 // ============ COMPOSANTS UI ============
+// ⚠ Pagination (demande Timo, réponse à "l'app va-t-elle ramer") : la
+// donnée est déjà TOUTE chargée en local (offline-first) — pas besoin de
+// redemander une page au serveur comme dans une app classique. On découpe
+// juste l'AFFICHAGE, pour ne jamais rendre des milliers de lignes DOM à la
+// fois. Se réinitialise à la page 1 quand la longueur de la liste change
+// (nouveau filtre, recherche...) pour éviter une page vide.
+export function usePagination(liste, parPage = 50) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(liste.length / parPage));
+  const pageAffichee = Math.min(page, totalPages);
+  useEffect(() => { setPage(1); }, [liste.length]);
+  const debut = (pageAffichee - 1) * parPage;
+  const pageItems = liste.slice(debut, debut + parPage);
+  return { page: pageAffichee, setPage, totalPages, pageItems, parPage };
+}
+
+export function Pagination({ page, setPage, totalPages }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-3 py-3">
+      <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}
+        className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">← Précédent</button>
+      <span className="text-sm text-slate-500">Page {page} / {totalPages}</span>
+      <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
+        className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Suivant →</button>
+    </div>
+  );
+}
+
 export const Field = ({ label, children }) => (
   <label className="block">
     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</span>

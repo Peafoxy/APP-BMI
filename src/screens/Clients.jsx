@@ -6,7 +6,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination } from "../components/ui";
 import { boutiquesVente, dettesClassiques, bloquerSiLecture } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
@@ -158,6 +158,7 @@ export function Clients({ db, profile }) {
 
   let clients = Object.values(map).sort((a, b) => b.totalAchats - a.totalAchats);
   if (q) clients = clients.filter((c) => (c.nom + " " + (c.tel || "")).toLowerCase().includes(q.toLowerCase()));
+  const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
 
   const contacter = (c) => {
     const num = telDigits(c.tel);
@@ -177,7 +178,7 @@ export function Clients({ db, profile }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucun client trouvé.</td></tr>}
-            {clients.map((c, i) => (
+            {clientsPage.map((c, i) => (
               <tr key={i} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2 font-semibold">{c.nom}</td>
                 <td className="px-3 py-2">{c.tel || "—"}</td>
@@ -190,6 +191,7 @@ export function Clients({ db, profile }) {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>
   );

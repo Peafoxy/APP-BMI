@@ -8,7 +8,7 @@ import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -199,6 +199,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom);
   if (filtreRelance) liste = liste.filter((p) => p.relance && p.relance <= today());
   if (q) liste = liste.filter((p) => (p.nom + " " + p.tel + " " + p.localisation).toLowerCase().includes(q.toLowerCase()));
+  const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;
 
@@ -330,7 +331,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Nom", "Numéro", "Catégorie", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucun prospect pour l'instant.</td></tr>}
-            {liste.map((p) => {
+            {listePage.map((p) => {
               const enRetard = p.relance && p.relance <= today();
               return (
                 <tr key={p.id} className={`border-t border-slate-100 hover:bg-sky-50 ${enRetard ? "bg-orange-50" : ""}`}>
@@ -390,6 +391,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
             })}
           </tbody>
         </table>
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>
   );

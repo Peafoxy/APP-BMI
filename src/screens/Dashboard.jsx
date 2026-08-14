@@ -14,7 +14,9 @@ import {
 
 // ============ TABLEAU DE BORD ============
 export function Dashboard({ db }) {
-  const NOMS = db.boutiques.map((b) => b.nom);
+  // ⚠ TERRAIN (encaissements de terrain, pas des ventes) exclu du tableau
+  // de bord — même bug que Stocks/Caisse, corrigé suite à la capture Timo.
+  const NOMS = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom);
   const [periodeIndex, setPeriodeIndex] = useState(2);
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");

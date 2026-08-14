@@ -24,7 +24,10 @@ export function Stocks({ db, save, profile }) {
   const bq = profile.boutique || bqSel;
   const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
-  const autres = db.boutiques.map((b) => b.nom).filter((n) => n !== bq);
+  // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
+  // comme destination de transfert — corrigé suite au même bug que
+  // BoutiqueTabs (Timo, capture Stocks).
+  const autres = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom).filter((n) => n !== bq);
 
   // ---- RAVITAILLEMENT : d'un magasin vers une boutique ----
   const estMagasin = estDepot(db, bq);
