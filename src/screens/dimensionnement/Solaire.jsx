@@ -526,22 +526,17 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       delai_installation: delaiInstallation.trim(),
     };
 
-    // Retour false = envoi refusé (ex. signature personnelle manquante) : on
-    // ne vide rien, le vendeur corrige et renvoie. Le message de succès et
-    // l'ouverture de WhatsApp sont désormais portés par le modal à bouton de
-    // envoyerDevisEtOuvrirWhatsApp — ne PAS afficher de uAlert après, il
-    // remplacerait ce modal (DialogHost n'affiche qu'un dialogue à la fois).
-    const ok = envoyerDevisEtOuvrirWhatsApp({
+    envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
       idAReprendre: devisAReprendre?.devis?.id,
     });
-    if (!ok) return;
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     brouillonEffacer(cleBrouillon);
+    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
 

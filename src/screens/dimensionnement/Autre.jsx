@@ -242,18 +242,16 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       delai_installation: delaiInstallation.trim(),
     };
 
-    // Voir Solaire.jsx : succès + ouverture WhatsApp portés par le modal à
-    // bouton (anti-blocage popup) — aucun uAlert après, il l'écraserait.
-    const ok = envoyerDevisEtOuvrirWhatsApp({
+    envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
       idAReprendre: devisAReprendre?.devis?.id,
     });
-    if (!ok) return;
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
 
