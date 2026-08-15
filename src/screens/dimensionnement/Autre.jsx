@@ -192,11 +192,14 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
 
   const envoyerDevisWhatsApp = async () => {
-    if (bloquerSiLecture(db, profile)) return;
-    if (totalDevis <= 0) { uAlert("Le devis est vide : décrivez d'abord les besoins du client."); return; }
+    // ⚠ Même correctif que Solaire.jsx — ouverture SYNCHRONE avant tout
+    // `await`, sinon le navigateur bloque WhatsApp (demande Timo).
+    const fenetre = window.open("", "_blank");
+    if (bloquerSiLecture(db, profile)) { fenetre?.close(); return; }
+    if (totalDevis <= 0) { fenetre?.close(); uAlert("Le devis est vide : décrivez d'abord les besoins du client."); return; }
 
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile);
-    if (!resolu) return;
+    if (!resolu) { fenetre?.close(); return; }
     const { compte, motDePasse, dbApres } = resolu;
 
     const panier = construirePanier();
@@ -245,7 +248,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
-      idAReprendre: devisAReprendre?.devis?.id,
+      idAReprendre: devisAReprendre?.devis?.id, fenetre,
     });
 
     setClientDevis("");

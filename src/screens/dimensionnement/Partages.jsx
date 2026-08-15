@@ -188,7 +188,14 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
 // identifiants et le lien vers son espace. `ligneEntete` = les 1-2 lignes
 // spécifiques à l'outil (type d'installation + montant), le reste du message
 // (identifiants, lien, signature) est commun aux 3 outils.
-export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
+// ⚠ `fenetre` (demande Timo, "la redirection WhatsApp refuse") : DOIT être
+// une fenêtre déjà ouverte de façon SYNCHRONE (window.open("", "_blank"),
+// avant tout await) par l'appelant — sinon le navigateur bloque l'ouverture,
+// puisque trop de temps s'est écoulé depuis le clic (résolution du client,
+// écriture en base...) pour que ça compte encore comme un geste utilisateur
+// direct. On se contente ici de rediriger cette fenêtre déjà ouverte vers
+// l'URL WhatsApp, ce qui reste toujours autorisé.
+export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre, fenetre }) {
   // Signature personnelle exigée AVANT tout envoi de devis (demande Timo) —
   // elle sera réutilisée automatiquement sur tous les contrats futurs de
   // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
@@ -226,5 +233,7 @@ export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devi
   ];
   const num = telDigits(compte.tel || nouvClient.tel);
   const txt = encodeURIComponent(lignesMsg.join("\n"));
-  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+  const url = num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`;
+  if (fenetre && !fenetre.closed) fenetre.location.href = url;
+  else window.open(url, "_blank");
 }
