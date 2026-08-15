@@ -274,14 +274,11 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
 
   const envoyerDevisWhatsApp = async () => {
-    // ⚠ Même correctif que Solaire.jsx — ouverture SYNCHRONE avant tout
-    // `await`, sinon le navigateur bloque WhatsApp (confirmé par capture).
-    const fenetre = window.open("", "_blank");
-    if (bloquerSiLecture(db, profile)) { fenetre?.close(); return; }
-    if (totalDevis <= 0) { fenetre?.close(); uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
+    if (bloquerSiLecture(db, profile)) return;
+    if (totalDevis <= 0) { uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
 
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile);
-    if (!resolu) { fenetre?.close(); return; }
+    if (!resolu) return;
     const { compte, motDePasse, dbApres } = resolu;
 
     const panier = construirePanier();
@@ -339,19 +336,21 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       delai_installation: delaiInstallation.trim(),
     };
 
-    envoyerDevisEtOuvrirWhatsApp({
+    // Voir Solaire.jsx : succès + ouverture WhatsApp portés par le modal à
+    // bouton (anti-blocage popup) — aucun uAlert après, il l'écraserait.
+    const ok = envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [
         `🚪 Motorisation de portail/garage — *${fmt(totalDevis)}*`,
         `${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""}${Number(largeur) > 0 ? ` · ${largeur} m` : ""}${Number(poids) > 0 ? ` · ${poids} kg` : ""}`,
       ],
-      idAReprendre: devisAReprendre?.devis?.id, fenetre,
+      idAReprendre: devisAReprendre?.devis?.id,
     });
+    if (!ok) return;
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
-    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
 

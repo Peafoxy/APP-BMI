@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
 import { fmt, telDigits, col } from "../../lib/core";
-import { Field, inputCls, uAlert } from "../../components/ui";
+import { Field, inputCls, uAlert, uOuvrirLien } from "../../components/ui";
 
 // ============ OUTILS DE DIMENSIONNEMENT SOLAIRE ============
 // Extrait une caractéristique numérique du nom d'un article
@@ -188,14 +188,7 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
 // identifiants et le lien vers son espace. `ligneEntete` = les 1-2 lignes
 // spécifiques à l'outil (type d'installation + montant), le reste du message
 // (identifiants, lien, signature) est commun aux 3 outils.
-// ⚠ `fenetre` (demande Timo, confirmé par capture — "redirection impossible")
-// : DOIT être une fenêtre déjà ouverte de façon SYNCHRONE (window.open("",
-// "_blank"), avant tout await) par l'appelant — sinon le navigateur bloque
-// l'ouverture, puisque trop de temps s'est écoulé depuis le clic (résolution
-// du client, écriture en base...) pour que ça compte encore comme un geste
-// utilisateur direct. On se contente ici de rediriger cette fenêtre déjà
-// ouverte vers l'URL WhatsApp, ce qui reste toujours autorisé.
-export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre, fenetre }) {
+export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
   // Signature personnelle exigée AVANT tout envoi de devis (demande Timo) —
   // elle sera réutilisée automatiquement sur tous les contrats futurs de
   // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
@@ -234,6 +227,15 @@ export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devi
   const num = telDigits(compte.tel || nouvClient.tel);
   const txt = encodeURIComponent(lignesMsg.join("\n"));
   const url = num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`;
-  if (fenetre && !fenetre.closed) fenetre.location.href = url;
-  else window.open(url, "_blank");
+  // Plus JAMAIS de window.open() automatique ici : après le `await` de
+  // resoudreClientDevis (création de compte, écriture en base), les
+  // navigateurs le bloquent comme un popup ("WhatsApp refuse", constaté sur
+  // les comptes Commerciaux). La fenêtre pré-ouverte a été essayée puis
+  // annulée (écran blanc sur mobile). À la place : un modal de confirmation
+  // avec un bouton — le clic dessus est un geste direct, jamais bloqué.
+  uOuvrirLien(
+    `✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nAppuyez sur le bouton pour ouvrir WhatsApp avec le message prêt (identifiants du client + lien de son espace).`,
+    url
+  );
+  return true;
 }

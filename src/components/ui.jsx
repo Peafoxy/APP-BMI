@@ -78,12 +78,22 @@ export const uPrompt = (m, def = "") => (dialogApi ? dialogApi.open("prompt", m,
 // Choix STRICT parmi une liste fixe de boutons — pas de texte libre, donc pas
 // de faute de frappe ni de valeur inventée possible.
 export const uChoix = (m, options) => (dialogApi ? dialogApi.open("choix", m, null, options) : Promise.resolve(null));
+// Ouverture d'un lien externe (WhatsApp) par un BOUTON dans un modal.
+// Pourquoi : un window.open() appelé après un vrai `await` (écriture en base,
+// création de compte...) est bloqué par les règles anti-popup des navigateurs
+// — c'est le bug "WhatsApp refuse" vu sur les comptes Commerciaux après un
+// dimensionnement. La fenêtre pré-ouverte ("about:blank" redirigée ensuite)
+// a été essayée puis ANNULÉE : écran blanc sur mobile. Ici, plus aucune
+// ouverture automatique : le clic sur le bouton du modal est un geste
+// utilisateur direct et window.open(urlFinale) y est SYNCHRONE — le même
+// schéma que tous les autres boutons WhatsApp de l'app, qui fonctionnent.
+export const uOuvrirLien = (m, url, libelle = "📲 Ouvrir WhatsApp") => (dialogApi ? dialogApi.open("lien", m, url, [libelle]) : Promise.resolve(false));
 
 export function DialogHost() {
   const [d, setD] = useState(null);
   const [val, setVal] = useState("");
   dialogApi = {
-    open: (type, m, def = "", options = []) => new Promise((resolve) => { setVal(def == null ? "" : String(def)); setD({ type, m, resolve, options }); }),
+    open: (type, m, def = "", options = []) => new Promise((resolve) => { setVal(def == null ? "" : String(def)); setD({ type, m, resolve, options, def }); }),
   };
   if (!d) return null;
   const close = (result) => { d.resolve(result); setD(null); };
@@ -103,10 +113,19 @@ export function DialogHost() {
             ))}
           </div>
         )}
+        {d.type === "lien" && (
+          <div className="mt-4">
+            {/* window.open ICI, dans le onClick, de façon SYNCHRONE avec
+                l'URL finale : geste utilisateur direct, jamais bloqué. */}
+            <button onClick={() => { try { window.open(d.def, "_blank"); } catch { /* rien */ } close(true); }}
+              className="w-full px-4 py-3 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700">{d.options[0]}</button>
+          </div>
+        )}
         <div className="mt-4 flex justify-end gap-2">
-          {d.type !== "alert" && d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
+          {d.type !== "alert" && d.type !== "choix" && d.type !== "lien" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
           {d.type === "choix" && <button onClick={() => close(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
-          {d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
+          {d.type === "lien" && <button onClick={() => close(false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>}
+          {d.type !== "choix" && d.type !== "lien" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
         </div>
       </div>
     </div>

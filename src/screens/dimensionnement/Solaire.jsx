@@ -464,18 +464,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
 
   const envoyerDevisWhatsApp = async () => {
-    // ⚠ Demande Timo, confirmé par capture ("redirection impossible") :
-    // ouverture SYNCHRONE de la fenêtre, avant tout `await` — sinon le
-    // navigateur bloque l'ouverture, le délai introduit par la résolution
-    // du client (création de compte, écriture en base) rompant le lien
-    // direct avec le geste de clic. Fermée aussitôt si on n'aboutit
-    // finalement pas à un envoi réel.
-    const fenetre = window.open("", "_blank");
-    if (bloquerSiLecture(db, profile)) { fenetre?.close(); return; }
-    if (totalDevis <= 0) { fenetre?.close(); uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
+    if (bloquerSiLecture(db, profile)) return;
+    if (totalDevis <= 0) { uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
 
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile);
-    if (!resolu) { fenetre?.close(); return; }
+    if (!resolu) return;
     const { compte, motDePasse, dbApres } = resolu;
 
     // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
@@ -533,17 +526,22 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       delai_installation: delaiInstallation.trim(),
     };
 
-    envoyerDevisEtOuvrirWhatsApp({
+    // Retour false = envoi refusé (ex. signature personnelle manquante) : on
+    // ne vide rien, le vendeur corrige et renvoie. Le message de succès et
+    // l'ouverture de WhatsApp sont désormais portés par le modal à bouton de
+    // envoyerDevisEtOuvrirWhatsApp — ne PAS afficher de uAlert après, il
+    // remplacerait ce modal (DialogHost n'affiche qu'un dialogue à la fois).
+    const ok = envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
-      idAReprendre: devisAReprendre?.devis?.id, fenetre,
+      idAReprendre: devisAReprendre?.devis?.id,
     });
+    if (!ok) return;
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     brouillonEffacer(cleBrouillon);
-    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
 
