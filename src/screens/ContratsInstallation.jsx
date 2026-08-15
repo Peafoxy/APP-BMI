@@ -7,7 +7,7 @@
 import { useState, useRef } from "react";
 import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert } from "../components/ui";
-import { contratsInstallation, pvDuContrat, bloquerSiLecture } from "../lib/calculs";
+import { contratsInstallation, pvDuContrat, bloquerSiLecture, resteAPayer } from "../lib/calculs";
 import { imprimerContratInstallation, imprimerPV } from "../lib/impression";
 
 export function ContratsInstallation({ db, save, profile }) {
@@ -86,12 +86,46 @@ export function ContratsInstallation({ db, save, profile }) {
   // qu'on est le client (aller payer en boutique) ou l'initiateur
   // (attendre que le client passe payer), plutôt que de cacher le bouton
   // sans explication (demande Timo).
+  // ⚠ Pour un devis "pose seule", `statut` ne passe JAMAIS à "paye" — le
+  // règlement se fait via la dette du chantier, en un ou plusieurs
+  // versements, jamais lié au statut du devis (bug signalé par Timo : le
+  // contrat restait bloqué à vie, même une fois entièrement réglé). Le
+  // déblocage doit suivre le solde RÉEL de cette dette, jamais un paiement
+  // PARTIEL (précision de Timo) — `resteAPayer(dette) <= 0` uniquement.
+  const detteDuDevisSoldee = (d) => {
+    if (!d.pose_seule) return true;
+    const chantier = (db.clients_installes || []).find((c) => c.devis_id === d.id);
+    const dette = chantier ? (db.dettes || []).find((x) => x.id === chantier.dette_id) : null;
+    return dette ? resteAPayer(dette) <= 0 : false;
+  };
+  const detteChantierSoldee = (fiche) => {
+    if (!fiche?.dette_id) return true;
+    const dette = (db.dettes || []).find((x) => x.id === fiche.dette_id);
+    return dette ? resteAPayer(dette) <= 0 : false;
+  };
+
   const voirContrat = (c, d) => {
-    if (isAdmin || d.statut === "paye") { imprimerContratInstallation(d, db); return; }
+    if (isAdmin || (d.pose_seule ? detteDuDevisSoldee(d) : d.statut === "paye")) { imprimerContratInstallation(d, db); return; }
     if (isClient) {
-      uAlert(`Ce contrat n'est pas encore téléchargeable. Rendez-vous à la boutique ${d.boutique_paiement || "choisie"} pour régler — vous pourrez alors le télécharger ici.`);
+      uAlert(d.pose_seule
+        ? "Ce contrat n'est pas encore téléchargeable — le règlement n'est pas encore soldé. Vous pourrez le télécharger une fois le paiement terminé."
+        : `Ce contrat n'est pas encore téléchargeable. Rendez-vous à la boutique ${d.boutique_paiement || "choisie"} pour régler — vous pourrez alors le télécharger ici.`);
     } else {
-      uAlert(`Ce contrat n'est pas encore téléchargeable : ${c.nom} n'est pas encore passé(e) payer. Vous pourrez le télécharger une fois le paiement encaissé.`);
+      uAlert(`Ce contrat n'est pas encore téléchargeable : ${c.nom} n'est pas encore passé(e) payer${d.pose_seule ? " intégralement" : ""}. Vous pourrez le télécharger une fois le paiement encaissé.`);
+    }
+  };
+
+  // ⚠ Même règle appliquée au PV (précision de Timo) : le bouton "Voir le
+  // PV" ne vérifiait jusqu'ici QUE la signature, jamais le paiement — pour
+  // une pose seule, un client pouvait donc le télécharger même sans avoir
+  // rien réglé. Reste visible dès la signature (informatif), mais le clic
+  // n'ouvre le document que si la dette est réellement soldée.
+  const voirPvDepuisContrat = (c, fichePv) => {
+    if (isAdmin || detteChantierSoldee(fichePv)) { imprimerPV(fichePv, db); return; }
+    if (isClient) {
+      uAlert("Ce PV n'est pas encore téléchargeable — le règlement n'est pas encore soldé. Vous pourrez le télécharger une fois le paiement terminé.");
+    } else {
+      uAlert(`Ce PV n'est pas encore téléchargeable : le règlement de ${c.nom} n'est pas encore soldé.`);
     }
   };
 
@@ -149,7 +183,7 @@ export function ContratsInstallation({ db, save, profile }) {
               <div className="flex items-center gap-2">
                 <span className="font-bold tabular-nums">{fmt(d.total)}</span>
                 <button onClick={() => voirContrat(client, d)} className="text-xs font-bold text-sky-800 underline">📄 Voir le contrat</button>
-                {pvSigne && <button onClick={() => imprimerPV(fichePv, db)} className="text-xs font-bold text-emerald-700 underline">📄 Voir le PV</button>}
+                {pvSigne && <button onClick={() => voirPvDepuisContrat(client, fichePv)} className="text-xs font-bold text-emerald-700 underline">📄 Voir le PV</button>}
               </div>
             </div>
             );
