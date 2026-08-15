@@ -27,6 +27,15 @@ export function Caisse({ db, save, profile }) {
     .reduce((s, d) => s + (d.paiements || [])
       .filter((p) => String(p.date) === t && (p.paiement || "Espèces") === "Espèces")
       .reduce((t2, p) => t2 + Number(p.montant || 0), 0), 0);
+  // ⚠ Demande Timo (caisse TERRAIN) : "comment reconnaître que tel paiement
+  // correspond à tel devis de ce client ?" — le total seul ne le dit pas.
+  // Détail ligne par ligne, réutilisant les mêmes données que le calcul
+  // ci-dessus (chaque paiement porte déjà client/motif/heure/par).
+  const detailReglements = (db.dettes || []).filter((d) => d.boutique === boutique)
+    .flatMap((d) => (d.paiements || [])
+      .filter((p) => String(p.date) === t)
+      .map((p) => ({ ...p, client: d.client, motif: d.motif, numero: d.numero, detteId: d.id })))
+    .sort((a, b) => (a.heure || "").localeCompare(b.heure || ""));
   const theorique = especesVentes + especesReglements - especesDepenses;
   const dejaCloturee = db.clotures.some((c) => c.boutique === boutique && String(c.date) === t);
   const ecart = compte === "" ? null : Number(compte) - theorique;
@@ -61,6 +70,25 @@ export function Caisse({ db, save, profile }) {
                 <div className={`font-bold tabular-nums ${ecart === null ? "text-slate-400" : ecart === 0 ? "text-green-700" : "text-red-600"}`}>{ecart === null ? "—" : fmt(ecart)}</div>
               </div>
             </div>
+            {detailReglements.length > 0 && (
+              <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-hidden">
+                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Détail des encaissements du jour — qui a payé quoi</div>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Heure</th><th className="text-left px-3 py-1.5">Client</th><th className="text-left px-3 py-1.5">Motif</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Encaissé par</th></tr></thead>
+                  <tbody>
+                    {detailReglements.map((p) => (
+                      <tr key={p.id} className="border-t border-slate-100">
+                        <td className="px-3 py-1.5">{p.heure || "—"}</td>
+                        <td className="px-3 py-1.5 font-semibold">{p.client}</td>
+                        <td className="px-3 py-1.5 text-slate-500">{p.motif}{p.numero ? ` (${p.numero})` : ""}</td>
+                        <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(p.montant)}</td>
+                        <td className="px-3 py-1.5">{p.par}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <Field label="Espèces comptées (F)"><input type="number" className={inputCls} value={compte} onChange={(e) => setCompte(e.target.value)} /></Field>
               <div className="lg:col-span-2"><Field label="Remarques"><input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex : Monnaie rendue..." /></Field></div>

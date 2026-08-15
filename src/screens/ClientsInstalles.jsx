@@ -11,7 +11,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, resteAPayer } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
@@ -490,7 +490,16 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const reste = resteAPayer(dette);
     if (reste <= 0) { uAlert("Ce chantier est déjà entièrement réglé."); return; }
     const enBoutique = profile.role !== "technicien" && profile.role !== "technicien_bmi";
-    const boutiqueEncaissement = enBoutique ? (profile.boutique || boutiquesVente(db)[0]?.nom) : dette.boutique;
+    // ⚠ Bug trouvé par Timo (capture) : un admin (ou resp_commercial) n'est
+    // rattaché à AUCUNE boutique précise (`profile.boutique` vaut null) —
+    // le code prenait alors silencieusement la PREMIÈRE boutique de la
+    // liste, sans jamais demander. Corrigé : on lui demande explicitement.
+    // Un vendeur, lui, reste rattaché à sa boutique — pas de question.
+    let boutiqueEncaissement = enBoutique ? profile.boutique : dette.boutique;
+    if (enBoutique && !boutiqueEncaissement) {
+      boutiqueEncaissement = await uChoix("Encaissé dans quelle boutique ?", boutiquesVente(db).map((b) => b.nom));
+      if (!boutiqueEncaissement) return;
+    }
     const s = await uPrompt(`Montant reçu de ${c.nom} (F) — reste dû : ${fmt(reste)}`, String(reste || ""));
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
