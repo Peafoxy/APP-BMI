@@ -8,12 +8,12 @@ import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, pro
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "" });
@@ -185,7 +185,7 @@ export function Dettes({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
         <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</div>

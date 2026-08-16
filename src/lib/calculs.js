@@ -55,6 +55,18 @@ export function construireIndexDb(db) {
 // réflexe qui a laissé passer plusieurs trous : Dashboard "CA total" en
 // tête, Rentabilité, Commission personnelle, Mon Équipe).
 export const boutiquesFormation = (db) => new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
+// ⚠ Séparation formation/réel PAR COMPTE (demande Timo, suite au drapeau
+// formation déjà posé sur les boutiques) : un compte marqué formation ne
+// voit QUE les boutiques de formation, un compte réel ne voit QUE les
+// vraies — l'admin PRINCIPAL voit toujours tout, un autre admin voit tout
+// SEULEMENT si on lui a explicitement donné le pouvoir "act_voir_tout"
+// (ACTIONS_POUVOIR plus bas). Utilisée par BoutiqueTabs, remplace l'accès
+// direct à db.boutiques dans tout sélecteur de boutique.
+export const boutiquesVisibles = (db, profile, liste) => {
+  if (estAdminPrincipal(db, profile)) return liste;
+  if (profile.role === "admin" && aDroit(db, profile, "act_voir_tout")) return liste;
+  return liste.filter((b) => !!b.formation === !!profile.formation);
+};
 export const ventesReelles = (db) => {
   const f = boutiquesFormation(db);
   return (db.ventes || []).filter((v) => !f.has(v.boutique));
@@ -571,6 +583,10 @@ export const ACTIONS_POUVOIR = [
   ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
   ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
   ["act_taches", "✅ Assigner des tâches", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
+  // ⚠ Désactivé par défaut pour tout nouvel admin (voir droits_off posé à
+  // la création, Utilisateurs.jsx) — seul l'admin PRINCIPAL peut le
+  // redonner à un autre admin, comme les autres pouvoirs sensibles.
+  ["act_voir_tout", "👁️ Voir les boutiques de formation ET réelles ensemble", (r) => r === "admin"],
 ];
 
 export const pouvoirsDuRole = (role) => [

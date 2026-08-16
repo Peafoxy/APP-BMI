@@ -10,14 +10,14 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } fro
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
 import {
   bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu,
-  demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle,
+  demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles,
 } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
 // ============ STOCKS ============
 export function Stocks({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
   // Un employé rattaché à un site (vendeur, gérant, magasinier) est VERROUILLÉ dessus :
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
@@ -372,7 +372,7 @@ export function Stocks({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBqSel} avecDepots />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBqSel} avecDepots profile={profile} />}
       {profile.boutique && (
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600">
           <span>{estMagasin ? "🏭 Magasin" : "🏪 Boutique"} :</span> <Badge boutique={bq} />

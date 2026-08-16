@@ -83,13 +83,13 @@ export function Users({ db, save, profile }) {
 
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
-    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true };
+    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!f.formationCompte };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
     // qu'un point de départ : n'importe quel admin peut toujours redonner
     // ces pouvoirs précis à un autre admin via « 🔐 Pouvoirs » — sauf
     // évidemment les retirer au principal, protégé depuis la 2.98.86.
-    if (f.role === "admin") nouvelUser.droits_off = ["historique", "parametres"];
+    if (f.role === "admin") nouvelUser.droits_off = ["historique", "parametres", "act_voir_tout"];
     if (f.role === "commercial" || f.role === "technicien") {
       nouvelUser.taux_commission = Number(f.taux || 0);
       if (f.chef) nouvelUser.chef_equipe = true;
@@ -157,6 +157,35 @@ export function Users({ db, save, profile }) {
           }
         : x)),
     }, `Changement de mot de passe : ${u.nom} (par l'administrateur principal)`);
+  };
+
+  // ⚠ Bascule formation ↔ réel (demande Timo, tous les comptes actuels
+  // passent en formation d'un coup via basculerFormationEnMasse ci-dessous,
+  // puis chacun peut être repassé en réel individuellement au fur et à
+  // mesure — c'est le cas d'usage principal de ce bouton).
+  const basculerFormation = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    const versFormation = !u.formation;
+    if (!(await uConfirm(versFormation
+      ? `Passer le compte de ${u.nom} en FORMATION ?\n\nIl ne verra plus que les boutiques de formation, jamais les vraies.`
+      : `Passer le compte de ${u.nom} en RÉEL ?\n\nIl ne verra plus que les vraies boutiques, jamais celles de formation.`))) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, formation: versFormation } : x)) },
+      `Compte ${u.nom} passé en ${versFormation ? "formation" : "réel"} par l'administrateur principal`);
+  };
+
+  // ⚠ Action UNIQUE demandée par Timo : marquer TOUS les comptes actuels
+  // (sauf l'admin principal, jamais concerné) comme formation d'un coup —
+  // il les repassera lui-même en réel un par un ensuite, via le bouton
+  // ci-dessus. Ne touche jamais un compte DÉJÀ formation (idempotent).
+  const basculerFormationEnMasse = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    const concernes = db.users.filter((u) => u.role !== "client" && !estAdminPrincipal(db, u) && !u.formation);
+    if (concernes.length === 0) { uAlert("Aucun compte à basculer — tous sont déjà en formation (hors admin principal)."); return; }
+    if (!(await uConfirm(`Passer ${concernes.length} compte(s) en FORMATION d'un coup (sauf vous, admin principal) ?\n\nVous les repasserez ensuite en réel un par un, individuellement.`))) return;
+    save({ ...db, users: db.users.map((x) => (concernes.some((c) => c.id === x.id) ? { ...x, formation: true } : x)) },
+      `${concernes.length} compte(s) basculés en formation d'un coup par l'administrateur principal`);
   };
 
   const voirPwd = (u) => {
@@ -530,7 +559,7 @@ export function Users({ db, save, profile }) {
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
           <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
-          {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}
+          {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.filter((b) => !!b.formation === !!f.formationCompte).map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}
           {(f.role === "commercial" || f.role === "technicien") && <Field label="Taux de commission (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.taux} onChange={(e) => setF({ ...f, taux: e.target.value })} /></Field>}
           {(f.role === "resp_commercial" || f.role === "technicien_bmi") && <Field label="Taux de commission (%) — facultatif"><input type="number" min="0" max="100" step="0.5" placeholder="0 = aucune commission" className={inputCls} value={f.taux_resp || ""} onChange={(e) => setF({ ...f, taux_resp: e.target.value })} /></Field>}
           {SALARIES.includes(f.role) && <Field label="Taux d'avancement annuel (%)"><input type="number" min="0" max="100" step="0.5" placeholder="Ex : 5" className={inputCls} value={f.taux_avancement || ""} onChange={(e) => setF({ ...f, taux_avancement: e.target.value })} /></Field>}
@@ -540,11 +569,24 @@ export function Users({ db, save, profile }) {
               Chef d'équipe (responsable commercial)
             </label>
           )}
+          {f.role && f.role !== "client" && (
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mt-2">
+              <input type="checkbox" checked={!!f.formationCompte} onChange={(e) => setF({ ...f, formationCompte: e.target.checked })} />
+              🎓 Compte de formation — ne verra que les boutiques de formation, jamais les vraies
+            </label>
+          )}
         </div>
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <button onClick={creer} className={btnDark}>Créer</button>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
         </div>
+        {jeSuisAdminPrincipal && (
+          <div className="mt-3 pt-3 border-t border-amber-200">
+            <button onClick={basculerFormationEnMasse} className="text-xs font-bold text-amber-700 underline">
+              🎓 Passer tous les comptes actuels en formation d'un coup (sauf vous)
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -650,6 +692,11 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerIdentite(u)} className="text-xs font-bold text-sky-800 underline mr-2">🪪 Identité</button>
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
+                  {jeSuisAdminPrincipal && u.role !== "client" && (
+                    <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
+                      {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
+                    </button>
+                  )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className="text-xs font-bold text-sky-800 underline mr-2">Boutique</button>}
                   {SALARIES.includes(u.role) && <button onClick={() => changerSalaire(u)} className="text-xs font-bold text-sky-800 underline mr-2">Salaire</button>}
                   {SALARIES.includes(u.role) && <button onClick={() => changerTauxAvancement(u)} className="text-xs font-bold text-sky-800 underline mr-2">Taux %</button>}

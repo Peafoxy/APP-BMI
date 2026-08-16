@@ -8,12 +8,12 @@ import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { CATEGORIES, PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, usePagination, Pagination } from "../components/ui";
-import { bloquerSiLecture, annulerLiensDepense, boutiquesVente } from "../lib/calculs";
+import { bloquerSiLecture, annulerLiensDepense, boutiquesVente, boutiquesVisibles } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DÉPENSES ============
 export function Depenses({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const [f, setF] = useState({ categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0] });
@@ -40,7 +40,7 @@ export function Depenses({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dépense <Badge boutique={boutique} /></div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

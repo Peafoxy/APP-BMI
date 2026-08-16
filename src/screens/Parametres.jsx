@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -325,6 +325,56 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       lecteur.readAsText(fich);
     };
     input.click();
+  };
+
+  // ⚠ Réinitialisation FORMATION SEULE (demande Timo, suite à la séparation
+  // formation/réel par compte, 2.100.23) : contrairement à la vraie
+  // réinitialisation ci-dessous (6 barrières, dont Windows + internet
+  // obligatoire), Timo a confirmé EXPLICITEMENT vouloir UNIQUEMENT la
+  // barrière admin principal ici — "c'est suffisant", ses propres mots.
+  // Passe par le save() NORMAL de l'app (pas d'appel Supabase direct) :
+  // fonctionne donc aussi hors ligne, comme n'importe quelle autre action.
+  const reinitialiserFormationSeule = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!estAdminPrincipal(db, profile)) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    const bf = boutiquesFormation(db);
+    if (bf.size === 0) { uAlert("Aucune boutique de formation n'existe pour le moment."); return; }
+
+    // Boutique d'un chantier : via la vente si elle existe, sinon via la
+    // dette liée (pose seule) — même repli qu'ailleurs dans l'app (imprimerPV).
+    const boutiqueDuChantier = (c) => {
+      const vente = db.ventes.find((v) => v.id === c.vente_id);
+      if (vente) return vente.boutique;
+      const dette = c.dette_id ? (db.dettes || []).find((d) => d.id === c.dette_id) : null;
+      return dette?.boutique;
+    };
+
+    const nVentes = db.ventes.filter((v) => bf.has(v.boutique)).length;
+    const nDettes = (db.dettes || []).filter((d) => bf.has(d.boutique)).length;
+    const nChantiers = (db.clients_installes || []).filter((c) => bf.has(boutiqueDuChantier(c))).length;
+    const nCommandes = (db.commandes || []).filter((c) => bf.has(c.boutique)).length;
+    const nProformas = (db.proformas || []).filter((p) => bf.has(p.boutique)).length;
+    const total = nVentes + nDettes + nChantiers + nCommandes + nProformas;
+
+    if (!(await uConfirm(`Réinitialiser UNIQUEMENT les données de formation ?\n\n${total} enregistrement(s) seront effacés (ventes, dettes, chantiers, commandes, proformas des ${bf.size} boutique(s) de formation).\n\nLes VRAIES boutiques ne seront jamais touchées.`))) return;
+
+    const nettoyerCompteFormation = (u) => {
+      if (!u.formation) return u; // un compte RÉEL n'est jamais concerné, même si la base en contient
+      const { devis, credits, signature_personnelle, notes, ...reste } = u;
+      return reste;
+    };
+
+    save({
+      ...db,
+      ventes: db.ventes.filter((v) => !bf.has(v.boutique)),
+      dettes: (db.dettes || []).filter((d) => !bf.has(d.boutique)),
+      clients_installes: (db.clients_installes || []).filter((c) => !bf.has(boutiqueDuChantier(c))),
+      commandes: (db.commandes || []).filter((c) => !bf.has(c.boutique)),
+      proformas: (db.proformas || []).filter((p) => !bf.has(p.boutique)),
+      users: db.users.map(nettoyerCompteFormation),
+    }, `🎓 Réinitialisation FORMATION SEULE par l'administrateur principal — ${total} enregistrement(s) effacé(s), vraies boutiques non touchées`);
+
+    uAlert(`✅ Formation réinitialisée.\n\n${total} enregistrement(s) effacés sur les boutiques de formation.\nLes vraies boutiques et données n'ont pas été touchées.`);
   };
 
   const reinitialiserToutesLesDonnees = async () => {
@@ -887,6 +937,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             : "bg-red-700 text-white hover:bg-red-800"}`}>
           🧨 Réinitialiser toutes les données
         </button>
+
+        {/* ⚠ Réinitialisation FORMATION SEULE : Timo a confirmé explicitement
+            vouloir SEULEMENT la barrière admin principal ici, pas les 3
+            barrières de la vraie réinitialisation ci-dessus. Style distinct
+            (ambre, pas rouge) pour ne jamais confondre les deux boutons. */}
+        {boutiquesFormation(db).size > 0 && (
+          <div className="mt-4 pt-4 border-t border-amber-200">
+            <div className="text-xs text-slate-600 mb-2">Efface uniquement les ventes/dettes/chantiers des boutiques de formation — les vraies données ne sont jamais touchées. Fonctionne aussi hors ligne.</div>
+            <button
+              onClick={reinitialiserFormationSeule}
+              disabled={!estAdminPrincipal(db, profile)}
+              className={`px-5 py-2 rounded-lg font-bold text-sm ${!estAdminPrincipal(db, profile)
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-amber-600 text-white hover:bg-amber-700"}`}>
+              🎓 Réinitialiser uniquement la formation
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { stockActuel, boutiquesVente, bloquerSiLecture } from "../lib/calculs";
+import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -16,7 +16,7 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 // Le commercial compose un panier et l'envoie à une boutique — il ne peut
 // pas encaisser lui-même, c'est un vendeur de cette boutique qui validera.
 export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(preRempli?.boutique || premiere);
   const boutique = bq;
   const produits = db.produits.filter((p) => p.boutique === boutique);
@@ -144,7 +144,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 
   return (
     <div className="space-y-4">
-      <BoutiqueTabs db={db} value={bq} onChange={setBq} />
+      <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">🛒 Nouvelle commande <Badge boutique={boutique} /></div>
         {produits.length === 0 ? (
@@ -259,7 +259,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 // l'onglet Ventes, panier déjà prêt).
 export function CommandesRecues({ db, save, profile, onValider }) {
   const isAdmin = profile.role === "admin";
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
 
@@ -340,7 +340,7 @@ export function CommandesRecues({ db, save, profile, onValider }) {
 
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center gap-2">📥 Commandes en attente <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({enAttente.length})</span></div>
