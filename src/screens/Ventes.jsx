@@ -9,10 +9,10 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement } from "../lib/core";
+import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe } from "../lib/calculs";
+import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -620,6 +620,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // ---- Listes regroupées : Ventes (par défaut) / Proformas, avec recherche ----
   const [vueListe, setVueListe] = useState("ventes");
   const [rechercheListe, setRechercheListe] = useState("");
+  // ⚠ Demande Timo (capture Ventes) : filtre par période (jour/semaine/
+  // mois/année) + onglets par mode de paiement, en plus de la recherche —
+  // réutilise periodes()/inP() déjà existants (Dashboard.jsx) pour rester
+  // cohérent avec le reste de l'app. "Tout" = pas de filtre (comportement
+  // d'origine préservé par défaut).
+  const [periodeIndex, setPeriodeIndex] = useState(null);
+  const [filtrePaiement, setFiltrePaiement] = useState("");
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
   const proformasListe = db.proformas || [];
   const qListe = normNom(rechercheListe);
@@ -630,7 +637,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // ⚠ Lot C : l'ancien numéro d'une vente renumérotée après collision
   // (numero_avant_collision) reste cherchable — c'est LUI qui figure sur le
   // reçu papier déjà remis au client avant la réparation.
-  const listeFiltree = (!qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.numero_avant_collision || ""} ${x.client || ""} ${x.tel || ""}`).includes(qListe))).slice().sort(triDesc);
+  const listeFiltree = (!qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.numero_avant_collision || ""} ${x.client || ""} ${x.tel || ""}`).includes(qListe)))
+    .filter((x) => periodeIndex === null || inP(x.date, periodes()[periodeIndex][1], periodes()[periodeIndex][2]))
+    .filter((x) => !filtrePaiement || x.paiement === filtrePaiement)
+    .slice().sort(triDesc);
   const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(qListe))).slice().sort(triDesc);
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
@@ -791,9 +801,29 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}</span>
             : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
         </div>
-        <div className="px-4 py-2 border-b border-slate-100 bg-white">
-          <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher par numéro ou nom de client…" className={inputCls} />
+        <div className="px-4 py-2 border-b border-slate-100 bg-white flex flex-wrap items-center gap-2">
+          <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher…" className={`${inputCls} max-w-[220px]`} />
+          {vueListe === "ventes" && (
+            <div className="flex gap-1.5 flex-wrap">
+              <button onClick={() => setPeriodeIndex(null)}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${periodeIndex === null ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>Tout</button>
+              {periodes().slice(0, 4).map(([label], idx) => (
+                <button key={label} onClick={() => setPeriodeIndex(idx)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold border ${periodeIndex === idx ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>{label}</button>
+              ))}
+            </div>
+          )}
         </div>
+        {vueListe === "ventes" && (
+          <div className="px-4 py-2 border-b border-slate-100 bg-white flex gap-1.5 flex-wrap">
+            <button onClick={() => setFiltrePaiement("")}
+              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${!filtrePaiement ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>Tout paiement</button>
+            {PAIEMENTS.map((p) => (
+              <button key={p} onClick={() => setFiltrePaiement(p)}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${filtrePaiement === p ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>{p}</button>
+            ))}
+          </div>
+        )}
         <div className="max-h-[480px] overflow-y-auto">
         {vueListe === "proformas" && voitProformas ? (
           <table className="w-full text-sm min-w-[700px]">
