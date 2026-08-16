@@ -36,8 +36,17 @@ $P -q -f supabase/test/fixture.sql
 sleep 1
 echo "▸ Étape 1 — colonne et déclencheurs"
 $P -q -f supabase/espace-1-colonne.sql >/dev/null 2>&1
-echo "▸ Étape 3 — politiques"
+echo "▸ Étape 2 — vérification (lecture seule)"
+echo
+$P -f supabase/espace-2-verifier.sql 2>&1 | grep -iE "BLOQUANT|jamais reconnecté|revendication périmée|aucun compte Supabase|WARNING|NOTICE" | sed 's/^/  /'
+echo
+echo "▸ Étape 3, VAGUE 1 — trois tables sans enjeu comptable"
 $P -q -f supabase/espace-3-politiques.sql >/dev/null 2>&1
+$P -tA -c "select '  proformas cloisonnee : ' || count(*) from pg_policies where policyname='espace_cloisonnement' and tablename='proformas';"
+$P -tA -c "select '  ventes PAS ENCORE cloisonnee : ' || (count(*)=0) from pg_policies where policyname='espace_cloisonnement' and tablename='ventes';"
+echo "▸ Étape 3, VAGUE 2 — les 11 tables"
+sed 's/vague constant int := 1;/vague constant int := 2;/' supabase/espace-3-politiques.sql > "$D/vague2.sql"
+$P -q -f "$D/vague2.sql" >/dev/null 2>&1
 echo "▸ Vérifications"
 echo
 $P -f supabase/test/verifier.sql 2>&1 | grep -viE "^$|pager|CREATE FUNCTION|^ incarner|^ redevenir" | sed 's/^ //'

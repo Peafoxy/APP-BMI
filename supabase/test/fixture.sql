@@ -57,6 +57,28 @@ begin
   end loop;
 end $$;
 
+-- ---- auth.users : la table de Supabase, réduite aux colonnes utilisées
+-- par espace-2-verifier.sql. On y place volontairement un cas BLOQUANT
+-- (un compte réel portant la revendication formation) et un cas en
+-- retard (jamais reconnecté), pour vérifier que l'alerte se déclenche.
+create table auth.users (
+  id uuid default gen_random_uuid(),
+  email text,
+  raw_app_meta_data jsonb default '{}'::jsonb,
+  last_sign_in_at timestamptz
+);
+insert into public.users (id, data) values
+  ('TIMO',      '{"nom":"TIMO","role":"admin","admin_principal":true}'),
+  ('KOSSI',     '{"nom":"KOSSI","role":"vendeur","boutique":"APESSITO"}'),
+  ('STAGIAIRE', '{"nom":"STAGIAIRE","role":"vendeur","boutique":"APESSITO FORMATION","formation":true}'),
+  ('AMA',       '{"nom":"AMA","role":"vendeur","boutique":"HEDZRANAWOE"}'),
+  ('SANSAUTH',  '{"nom":"SANSAUTH","role":"technicien"}');
+insert into auth.users (email, raw_app_meta_data, last_sign_in_at) values
+  ('TIMO@bmi.internal',      '{"espace":"reel"}',      now()),
+  ('KOSSI@bmi.internal',     '{"espace":"formation"}', now()),   -- ⛔ cas bloquant
+  ('STAGIAIRE@bmi.internal', '{"espace":"formation"}', now()),
+  ('AMA@bmi.internal',       '{}',                     null);    -- ℹ️ jamais reconnecté
+
 -- ---- Données : deux boutiques réelles, une de formation, un dépôt de chaque
 insert into public.boutiques (id, data) values
   ('b1', '{"nom":"APESSITO"}'),

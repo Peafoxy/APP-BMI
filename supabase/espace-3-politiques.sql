@@ -45,25 +45,34 @@
 -- ============================================================
 -- PRÉREQUIS — À NE PAS SAUTER
 -- ============================================================
---  1. espace-1-colonne.sql exécuté, et sa section VÉRIFICATION lue : pas
---     de lignes non classées inattendues.
---  2. api/sync-auth.js déployé sur Vercel avec la revendication d'espace.
---  3. TOUT LE MONDE s'est reconnecté au moins une fois DEPUIS ce
---     déploiement, avec du réseau. Vérifiez-le par la requête ci-dessous
---     AVANT de lancer ce script :
+--  1. espace-1-colonne.sql exécuté.
+--  2. api/sync-auth.js déployé sur Vercel (revendication d'espace).
+--  3. Tout le monde s'est reconnecté une fois depuis ce déploiement.
+--  4. espace-2-verifier.sql lancé, et il affiche 🟢 ou 🟡 — JAMAIS ⛔.
+--     Ce script ne modifie rien : c'est lui qui remplace la base de test
+--     qu'on n'a pas. Tant qu'il affiche ⛔, on ne va pas plus loin.
+--  5. Un jour calme, avec du réseau, et une heure devant soi.
 --
---       select u.email, u.raw_app_meta_data->>'espace' as espace,
---              u.last_sign_in_at
---       from auth.users u
---       order by u.raw_app_meta_data->>'espace' nulls first, u.email;
+-- ============================================================
+-- DÉPLOIEMENT EN DEUX VAGUES — ET C'EST IMPORTANT
+-- ============================================================
+-- Sans base de test, on n'allume pas tout d'un coup. Réglez « vague »
+-- juste en dessous :
 --
---     Un compte dont « espace » est vide n'est PAS bloqué pour autant :
---     il sera traité comme RÉEL (voir le coalesce plus bas). Le seul vrai
---     défaut serait un compte de formation encore sans revendication : il
---     continuerait de voir les vraies données jusqu'à sa reconnexion.
+--   vague = 1  →  proformas, prospects, commandes
+--                 Trois tables SANS aucun enjeu comptable : ni argent
+--                 encaissé, ni stock, ni écriture remise au comptable.
+--                 Si quelque chose se passe mal, il ne se passe rien de
+--                 grave — et vous l'aurez appris sans rien risquer.
+--                 Laissez tourner UNE JOURNÉE COMPLÈTE d'activité
+--                 normale avant d'aller plus loin.
 --
---  4. Choisissez un jour calme. Juste après, vérifiez sur un poste :
---     une connexion, une vente, une dépense, une clôture de caisse.
+--   vague = 2  →  les 11 tables, y compris ventes, dépenses, stock et
+--                 caisse. La vague 2 contient la vague 1 : il suffit de
+--                 relancer ce même script avec la valeur 2.
+--
+-- Relancer ce script est toujours sans danger : il repart d'une couche
+-- propre à chaque exécution.
 --
 -- À exécuter dans Supabase → SQL Editor → coller → Run.
 -- ============================================================
@@ -141,13 +150,24 @@ end $$;
 -- └──────────────────────────────────────────────────────────────────
 do $$
 declare
+  -- ┌──────────────────────────────────────────────────────────────┐
+  -- │  ▼▼▼  LA SEULE VALEUR À CHANGER  ▼▼▼                          │
+  vague constant int := 1;
+  -- │  1 = trois tables sans enjeu comptable (première mise en     │
+  -- │      service, à laisser tourner une journée)                 │
+  -- │  2 = les 11 tables, comptabilité et stock compris            │
+  -- └──────────────────────────────────────────────────────────────┘
   t text;
+  tables text[];
   revendication constant text := 'coalesce(auth.jwt() -> ''app_metadata'' ->> ''espace'', ''reel'')';
 begin
-  foreach t in array array[
-    'ventes', 'depenses', 'dettes', 'produits', 'ajustements', 'clotures',
-    'commandes', 'proformas', 'boutiques', 'prospects', 'clients_installes'
-  ]
+  tables := case when vague = 1
+    then array['proformas', 'prospects', 'commandes']
+    else array['ventes', 'depenses', 'dettes', 'produits', 'ajustements', 'clotures',
+               'commandes', 'proformas', 'boutiques', 'prospects', 'clients_installes']
+  end;
+
+  foreach t in array tables
   loop
     -- Relancer ce script est sans danger : on repart d'une couche propre.
     execute format('drop policy if exists "espace_cloisonnement" on public.%I;', t);
@@ -163,7 +183,11 @@ begin
       t, revendication, t, t, revendication
     );
   end loop;
-  raise notice 'Cloisonnement posé sur 11 tables. Pour tout annuler : voir le bloc en tête de ce fichier.';
+  raise notice 'Vague % : cloisonnement posé sur % table(s) — %.', vague, array_length(tables, 1), array_to_string(tables, ', ');
+  if vague = 1 then
+    raise notice 'Laissez tourner une journée complète, puis relancez ce script avec vague = 2.';
+  end if;
+  raise notice 'Pour tout annuler immédiatement : le bloc en tête de ce fichier.';
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════

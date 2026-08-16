@@ -108,16 +108,40 @@ miroir ne descend plus que les lignes autorisées. **L'appareil d'un
 stagiaire cesse de détenir une copie des données réelles**, au lieu de
 simplement s'interdire d'y toucher.
 
-#### Ordre de déploiement (ne pas intervertir)
+#### Ordre de déploiement — il n'y a pas de base de test, la prudence est donc dans la procédure
 
-1. Poser la colonne et le déclencheur, puis remplir `espace` sur
-   l'historique. **Aucune politique n'est encore modifiée** : à ce stade
-   rien ne change pour personne, et la colonne se vérifie tranquillement.
-2. Déployer `sync-auth.js` avec la revendication, puis faire reconnecter
-   tout le monde une fois. Vérifier dans Supabase → Authentication que
-   chaque compte porte bien `app_metadata.espace`.
-3. Seulement ensuite, activer la politique — un jour calme, en vérifiant
-   immédiatement une connexion, une vente et une dépense.
+| # | Action | Effet immédiat | Réversible |
+|---|---|---|---|
+| 1 | `espace-1-colonne.sql` | **Aucun** | Oui, bloc en fin de fichier |
+| 2 | Déployer sur Vercel, faire reconnecter tout le monde | **Aucun** | Sans objet |
+| 3 | `espace-2-verifier.sql` | **Aucun** — lecture seule | Sans objet |
+| 4 | `espace-3-politiques.sql` avec `vague = 1` | 3 tables sans enjeu comptable | Oui, bloc en tête |
+| 5 | *(une journée d'activité normale)* | | |
+| 6 | Le même, avec `vague = 2` | Les 11 tables | Oui, même bloc |
+
+**`espace-2-verifier.sql` remplace la base de test.** Il ne modifie rien,
+se relance à volonté, et répond à la seule question qui compte : *qui
+perdrait accès à quoi si je lançais l'étape suivante ?* Il termine par un
+feu 🟢 / 🟡 / ⛔ — **tant qu'il affiche ⛔, on ne passe pas à l'étape 4.**
+
+Le seul cas ⛔ possible est un compte **réel** portant par erreur la
+revendication `formation` : c'est le seul qui perdrait quelque chose (sa
+copie locale des vraies données ; le serveur, lui, garde tout). Il se
+corrige en le faisant se reconnecter.
+
+**Les deux vagues.** La vague 1 ne porte que sur `proformas`, `prospects`
+et `commandes` — ni argent encaissé, ni stock, ni écriture remise au
+comptable. Si quelque chose se passe mal, il ne se passe rien de grave, et
+vous l'aurez appris sans rien risquer. La vague 2 contient la vague 1 : il
+suffit de relancer le même script avec `vague = 2`.
+
+#### Une protection à connaître, elle joue en votre faveur
+
+`reconcilierMiroir` (voir `src/sync.js`) **ne s'exécute jamais tant que
+l'appareil a des opérations en attente d'envoi**. Un poste qui a travaillé
+hors ligne ne peut donc pas voir ses ventes du matin effacées par le
+miroir : elles partent d'abord. Demandez tout de même à chacun de
+synchroniser avant l'opération — c'est gratuit et ça ferme le sujet.
 
 #### Les trois pièges à connaître
 
