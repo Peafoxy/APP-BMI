@@ -278,8 +278,13 @@ export function Users({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     // ⚠ TERRAIN (boutique virtuelle) n'est jamais un rattachement valide
     // pour un employé — même bug que Stocks/Caisse/Dashboard.
-    const noms = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom);
-    const nom = await uChoix(`Boutique assignée à ${u.nom} ?`, noms);
+    // ⚠ Cloisonnement : on ne propose que les boutiques de l'espace du
+    // compte concerné. Rattacher un compte de formation à une vraie
+    // boutique par ce chemin annulerait la bascule (voir basculerFormation).
+    const espaceDeU = !!u.formation;
+    const noms = db.boutiques.filter((b) => !b.terrain && !!b.formation === espaceDeU).map((b) => b.nom);
+    if (!noms.length) { uAlert(`Aucune boutique ${espaceDeU ? "de formation" : "réelle"} n'existe — créez-en une dans ⚙ Paramètres avant de rattacher ce compte.`); return; }
+    const nom = await uChoix(`Boutique assignée à ${u.nom} (espace ${espaceDeU ? "formation" : "réel"}) ?`, noms);
     if (!nom) return;
     if (!noms.includes(nom)) { uAlert("Boutique inconnue."); return; }
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, boutique: nom } : x)) });

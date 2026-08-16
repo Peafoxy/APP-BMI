@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation } from "../../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
@@ -271,7 +271,13 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");
   const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
-  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
+  // ⚠ Cloisonnement : on ne propose que les clients de SON espace.
+  // Sans ce filtre, un compte de formation adressait ses devis d'essai a
+  // de VRAIS clients — qui les recevaient par WhatsApp, dans leur vrai
+  // espace client, et ne pouvaient plus receptionner le chantier ensuite.
+  const espaceDevis = espaceDuCompte(db, profile);
+  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
+    && (espaceDevis === undefined || !!u.formation === espaceDevis));
 
   const envoyerDevisWhatsApp = async () => {
     if (bloquerSiLecture(db, profile)) return;

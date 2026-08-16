@@ -133,6 +133,19 @@ export const chantiersReels = (db) => {
   const f = boutiquesFormation(db);
   return (db.clients_installes || []).filter((c) => !f.has(boutiqueDuChantier(db, c)));
 };
+// Les chantiers que le compte connecté a le droit de modifier — utilisé par
+// les traitements de masse (réception automatique à J+7), qui écrivent tout
+// en un seul save() et seraient refusés en bloc s'ils mélangeaient les deux
+// espaces. Un chantier sans boutique identifiable reste traité par tous :
+// il n'appartient à aucun espace, et le verrou le laisse passer.
+export const chantiersDeMonEspace = (db, profile) => {
+  if (voitLesDeuxEspaces(db, profile)) return db.clients_installes || [];
+  const monEspace = estCompteFormation(db, profile);
+  return (db.clients_installes || []).filter((c) => {
+    const b = boutiqueDuChantier(db, c);
+    return !b || estBoutiqueFormation(db, b) === monEspace;
+  });
+};
 
 export const ventesDuCommercial = (db, nom) => {
   if (db.__index) return db.__index.ventesParCommercial.get(nom) || [];
@@ -782,12 +795,22 @@ export function verifierEcritureEspace(prev, next, profile) {
   };
 
   for (const t of TABLES_PAR_BOUTIQUE) {
+    // L'app met à jour par recopie immuable : une table non touchée par ce
+    // save garde EXACTEMENT le même tableau. La plupart des écritures ne
+    // concernent qu'une ou deux tables — ce test évite de reparcourir les
+    // milliers de lignes des autres à chaque fois.
+    if (prev && prev[t] === next[t]) continue;
     const avant = new Map((prev?.[t] || []).map((r) => [r.id, r]));
     for (const r of next[t] || []) {
       const a = avant.get(r.id);
+      // ⚠ Retirer la ligne de `avant` AVANT toute autre décision : ce qui
+      // reste dans la carte à la fin, ce sont les suppressions. Sortir de la
+      // boucle sans l'avoir retirée ferait passer une ligne simplement
+      // INCHANGÉE pour une suppression — et refuserait alors la quasi-
+      // totalité des enregistrements d'un compte de formation.
+      avant.delete(r.id);
       if (a && memeEnregistrement(a, r)) continue;       // ligne inchangée
       if (boutiqueRefusee(r.boutique)) return { table: t, boutique: r.boutique };
-      avant.delete(r.id);
     }
     // Suppressions : effacer une ligne de l'autre espace est tout aussi grave.
     for (const a of avant.values()) {
@@ -797,6 +820,7 @@ export function verifierEcritureEspace(prev, next, profile) {
 
   // Les chantiers ne portent pas de boutique : elle se retrouve par la
   // vente (ou la dette) liée — même chemin que partout ailleurs.
+  if (prev && prev.clients_installes === next.clients_installes) return null;
   const chantiersAvant = new Map((prev?.clients_installes || []).map((c) => [c.id, c]));
   for (const c of next.clients_installes || []) {
     const a = chantiersAvant.get(c.id);

@@ -96,7 +96,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, construireIndexDb,
-  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte,
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -178,7 +178,12 @@ export default function App() {
     if (!db || !profile || syncInitiale) return;
     if (!peutEcrire(dbRef.current, profile)) return;
     const seuil = Date.now() - 7 * 86400000;
-    const eligibles = (db.clients_installes || []).filter((x) =>
+    // ⚠ Cloisonnement : ce rattrapage tourne sous le compte connecté et
+    // écrit tout d'un seul save(). S'il mélangeait des chantiers réels et
+    // des chantiers de formation, le verrou d'espace refuserait le save
+    // ENTIER — et la réception automatique ne passerait plus jamais. On ne
+    // traite donc que les chantiers de l'espace du compte connecté.
+    const eligibles = chantiersDeMonEspace(db, profile).filter((x) =>
       x.statut === "termine" && x.date_fin && new Date(x.date_fin).getTime() <= seuil);
     if (!eligibles.length) return;
     let next = { ...db };
