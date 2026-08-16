@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -645,6 +645,25 @@ export function Users({ db, save, profile }) {
           <button onClick={creer} className={btnDark}>Créer</button>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
         </div>
+        {/* ⚠ Comptes hérités de la 2.100.24 : leur bascule avait posé le
+            drapeau sans déplacer le rattachement, elle n'a donc jamais rien
+            produit. Ils travaillent normalement (la boutique fait foi), mais
+            il faut refaire la bascule pour qu'elle prenne effet. */}
+        {jeSuisAdminPrincipal && comptesEspaceIncoherent(db).length > 0 && (
+          <div className="mt-3 rounded-lg border-2 border-amber-400 bg-amber-50 p-3">
+            <div className="font-bold text-sm text-amber-900">
+              ⚠ {comptesEspaceIncoherent(db).length} compte(s) marqué(s) « formation » travaillent en réalité dans une vraie boutique
+            </div>
+            <div className="text-xs text-amber-800 mt-1">
+              Leur bascule date d'une version où elle ne déplaçait pas le rattachement : elle n'a donc jamais rien changé.
+              Ils continuent de travailler normalement — c'est leur <b>boutique</b> qui fait foi, pas l'étiquette.
+              Pour les mettre réellement en formation, refaites la bascule ci-dessous : elle déplacera cette fois leur rattachement.
+            </div>
+            <div className="text-xs text-amber-900 mt-2">
+              {comptesEspaceIncoherent(db).map((u) => `${u.nom} (${u.boutique})`).join(" · ")}
+            </div>
+          </div>
+        )}
         {jeSuisAdminPrincipal && (
           <div className="mt-3 pt-3 border-t border-amber-200">
             <button onClick={basculerFormationEnMasse} className="text-xs font-bold text-amber-700 underline">

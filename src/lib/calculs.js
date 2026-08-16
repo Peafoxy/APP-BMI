@@ -65,11 +65,43 @@ export const estBoutiqueFormation = (db, nom) => !!(db.boutiques || []).find((b)
 // qu'une bascule formation ↔ réel décidée par l'admin ne prenait effet
 // qu'à la reconnexion suivante — l'admin croyait la personne isolée alors
 // qu'elle ne l'était pas encore. Même principe que droitsOffDe() plus bas.
+// ⚠ LA BOUTIQUE RATTACHÉE FAIT FOI, quand il y en a une.
+// Raison : la version 2.100.24 posait le drapeau `formation` sans déplacer
+// le rattachement (c'est le défaut corrigé depuis — voir basculerFormation
+// dans Utilisateurs.jsx). Un vendeur passé « en formation » à cette
+// époque porte donc encore `formation: true` ET sa VRAIE boutique. Se
+// fier au seul drapeau reviendrait, dès la mise à jour, à lui refuser
+// toutes ses saisies alors qu'il travaille dans la vraie boutique : une
+// panne, pas une protection.
+//
+// La boutique est de toute façon déjà la source de vérité de toute
+// l'application (`boutique = profile.boutique || bq` dans chaque écran) :
+// on ne fait ici que l'assumer. Un compte incohérent est donc traité selon
+// l'endroit où il travaille RÉELLEMENT, et l'administrateur en est
+// averti dans 👥 Utilisateurs (voir comptesEspaceIncoherent).
+//
+// Les comptes sans boutique (admin, commercial, technicien, responsable
+// commercial, comptable, client) n'ont que le drapeau : il fait foi.
 export const estCompteFormation = (db, profile) => {
   if (!profile) return false;
-  const moi = (db.users || []).find((u) => u.id === profile.id);
-  return !!(moi || profile).formation;
+  const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
+  if (moi.boutique) {
+    const b = (db.boutiques || []).find((x) => x.nom === moi.boutique);
+    if (b) return !!b.formation;
+  }
+  return !!moi.formation;
 };
+
+// Les comptes dont le drapeau et la boutique se contredisent — héritage de
+// la 2.100.24. Ils ne sont pas en panne (voir ci-dessus), mais leur
+// bascule n'a jamais rien produit : l'administrateur doit la refaire pour
+// qu'elle prenne effet.
+export const comptesEspaceIncoherent = (db) =>
+  (db.users || []).filter((u) => {
+    if (!u.boutique || u.role === "client" || u.actif === false) return false;
+    const b = (db.boutiques || []).find((x) => x.nom === u.boutique);
+    return !!b && !!b.formation !== !!u.formation;
+  });
 
 // Qui a le droit de voir (et de toucher) les DEUX espaces à la fois :
 // l'admin PRINCIPAL toujours, un autre admin seulement si on lui a

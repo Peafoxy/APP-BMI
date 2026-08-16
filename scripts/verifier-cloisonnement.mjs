@@ -138,10 +138,20 @@ titre("L'espace du compte est lu en direct, pas dans le profil figé");
 {
   const db = base();
   // Profil capturé À LA CONNEXION, avant que l'admin ne bascule le compte.
+  // La bascule corrigée déplace AUSSI le rattachement (basculerFormation) :
+  // c'est ce que reproduit `apresBascule`.
   const profilFige = { id: "u_vend", role: "vendeur", boutique: "APESSITO" };
-  const apresBascule = { ...db, users: db.users.map((u) => (u.id === "u_vend" ? { ...u, formation: true } : u)) };
+  const apresBascule = { ...db, users: db.users.map((u) => (u.id === "u_vend"
+    ? { ...u, formation: true, boutique: "APESSITO FORMATION", boutique_avant_espace: "APESSITO" }
+    : u)) };
   test("la bascule prend effet immédiatement, sans reconnexion",
     C.estCompteFormation(apresBascule, profilFige) === true);
+  test("le profil figé n'est jamais consulté pour l'espace",
+    C.estCompteFormation(apresBascule, { id: "u_vend" }) === true);
+  // Un compte sans boutique (admin, commercial…) : le drapeau fait foi.
+  const admin2Bascule = { ...db, users: db.users.map((u) => (u.id === "u_admin2" ? { ...u, formation: true } : u)) };
+  test("pour un compte sans boutique, le drapeau seul décide",
+    C.estCompteFormation(admin2Bascule, { id: "u_admin2", role: "admin" }) === true);
 }
 
 titre("Les totaux et les exports excluent la formation");
@@ -214,6 +224,26 @@ titre("Le journal comptable remis au comptable est propre");
     !texte.includes("999999") && !texte.includes("888888"));
   test("les écritures réelles y sont toujours", texte.includes("APESSITO") && lignes.length === 2);
 }
+
+titre("Comptes hérités de la 2.100.24 : la boutique fait foi, personne n'est bloqué");
+{
+  // Le cas exact laissé par « passer tous les comptes en formation d'un
+  // coup » avant le correctif : drapeau posé, rattachement inchangé.
+  const db = base();
+  db.users = db.users.map((u) => (u.id === "u_vend" ? { ...u, formation: true } : u));
+  const profil = { id: "u_vend", role: "vendeur", boutique: "APESSITO" };
+  test("un vendeur marqué formation mais resté dans sa VRAIE boutique est traité comme réel",
+    C.estCompteFormation(db, profil) === false);
+  test("…et il peut donc continuer d'encaisser normalement", (() => {
+    const apres = { ...db, ventes: [...db.ventes, { id: "vN", boutique: "APESSITO" }] };
+    return C.verifierEcritureEspace(db, apres, profil) === null;
+  })());
+  test("l'administrateur est averti de l'incohérence",
+    C.comptesEspaceIncoherent(db).some((u) => u.id === "u_vend"));
+  test("aucune alerte quand drapeau et boutique concordent",
+    C.comptesEspaceIncoherent(base()).length === 0);
+}
+
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
