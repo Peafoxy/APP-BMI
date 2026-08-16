@@ -144,12 +144,22 @@ function imprimerDocumentDedie(html, titre = "Document") {
     .saut-page { break-before: page !important; page-break-before: always !important; }
   </style></head><body><div id="zone-impression">${html}</div></body></html>`);
   d.close();
+  // ⚠ Correctif du correctif (capture Timo, app Windows/Electron) : le
+  // titre posé sur l'IFRAME (ci-dessus) est ignoré par la boîte de
+  // dialogue "Enregistrer en PDF" de Chromium/Electron — elle reprend le
+  // titre de la page PRINCIPALE (index.html, "BMI-Gestion Système"), pas
+  // celui du cadre imprimé, même quand c'est bien ce cadre qui déclenche
+  // l'impression. Technique fiable : changer temporairement le titre de la
+  // page principale pendant l'impression, puis le restaurer juste après.
+  const titrePrincipalOriginal = document.title;
   const lancer = () => {
+    document.title = titre;
     try {
       const w = cadre.contentWindow;
       w.focus();
       w.print();
     } catch { /* environnement sans impression (tests) */ }
+    setTimeout(() => { document.title = titrePrincipalOriginal; }, 1000);
     setTimeout(() => { try { cadre.remove(); } catch {} }, 60000);
   };
   if (d.readyState === "complete") setTimeout(lancer, 50);

@@ -693,13 +693,19 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const CATEGORIES_CHANTIER = [
     { id: "a_programmer", label: "📅 À programmer", test: (c) => statutChantier(c) === "en_cours" && !(c.equipe || []).length },
     { id: "en_cours", label: "🔧 En cours", test: (c) => statutChantier(c) === "en_cours" && (c.equipe || []).length > 0 },
-    { id: "termine", label: "⏳ Terminé — à réceptionner", test: (c) => statutChantier(c) === "termine" },
+    { id: "termine", label: "⏳ En attente du client", test: (c) => statutChantier(c) === "termine" },
     { id: "reserves", label: "⚠ Réserves émises", test: (c) => statutChantier(c) === "reserves" },
     { id: "receptionne", label: "✅ Réceptionné", test: (c) => statutChantier(c) === "receptionne" },
   ];
   const categorieDe = (c) => CATEGORIES_CHANTIER.find((cat) => cat.test(c))?.id || "en_cours";
   const indexCategorie = (c) => CATEGORIES_CHANTIER.findIndex((cat) => cat.id === categorieDe(c));
-  const listeGroupee = [...liste].sort((a, b) => indexCategorie(a) - indexCategorie(b));
+  // ⚠ Onglets par catégorie (demande Timo, même principe que TousLesDevis.jsx
+  // — filtres en pilule avec compteur). "Tout" garde les en-têtes de
+  // catégorie groupées comme avant ; un onglet précis affiche sa liste
+  // seule, sans en-tête redondant puisque déjà filtrée à cette catégorie.
+  const [ongletChantier, setOngletChantier] = useState("tout");
+  const listeTriee = [...liste].sort((a, b) => indexCategorie(a) - indexCategorie(b));
+  const listeGroupee = ongletChantier === "tout" ? listeTriee : listeTriee.filter((c) => categorieDe(c) === ongletChantier);
 
   return (
     <div className="space-y-4">
@@ -1125,11 +1131,26 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             <input className={`${inputCls} w-48`} placeholder="🔍 Rechercher..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
+        <div className="px-4 py-2 border-b border-slate-200 flex gap-2 flex-wrap">
+          <button onClick={() => setOngletChantier("tout")}
+            className={`px-3 py-1.5 rounded-full text-sm font-bold border transition-colors ${ongletChantier === "tout" ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+            Tout <span className={`ml-1 ${ongletChantier === "tout" ? "text-sky-200" : "text-slate-400"}`}>({liste.length})</span>
+          </button>
+          {CATEGORIES_CHANTIER.map(({ id, label }) => {
+            const n = liste.filter((c) => categorieDe(c) === id).length;
+            return (
+              <button key={id} onClick={() => setOngletChantier(id)}
+                className={`px-3 py-1.5 rounded-full text-sm font-bold border transition-colors ${ongletChantier === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+                {label} <span className={`ml-1 ${ongletChantier === id ? "text-sky-200" : "text-slate-400"}`}>({n})</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="max-h-[625px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[820px]">
           <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Client", "Numéro", "Installation", "Installé le", "Entretien", "Localisation", "Commercial", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun client installé{q ? " ne correspond à la recherche" : " pour l'instant"}.</td></tr>}
+            {listeGroupee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun client installé{q ? " ne correspond à la recherche" : ongletChantier !== "tout" ? " dans cette catégorie" : " pour l'instant"}.</td></tr>}
             {listeGroupee.map((c, idx) => {
               const cat = categorieDe(c);
               const catPrecedente = idx > 0 ? categorieDe(listeGroupee[idx - 1]) : null;
@@ -1137,7 +1158,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               const entretienDu = c.date_entretien && c.date_entretien <= today();
               return (
                 <Fragment key={c.id}>
-                  {cat !== catPrecedente && (
+                  {ongletChantier === "tout" && cat !== catPrecedente && (
                     <tr className="bg-slate-100 border-t-2 border-slate-200">
                       <td colSpan={8} className="px-3 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">
                         {infoCat.label} ({listeGroupee.filter((x) => categorieDe(x) === cat).length})
