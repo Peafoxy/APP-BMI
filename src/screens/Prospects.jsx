@@ -9,7 +9,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, marqueEspace, espaceDuCompte } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 export function Prospects({ db, save, profile, isAdmin }) {
@@ -39,7 +39,10 @@ export function Prospects({ db, save, profile, isAdmin }) {
   // ---- Enregistrement d'un prospect ----
   const ajouter = () => {
     if (!f.nom.trim() || !f.tel.trim()) { uAlert("Le nom et le numéro du prospect sont obligatoires."); return; }
-    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f };
+    // ⚠ Cloisonnement : un prospect n'appartient à aucune boutique — sans
+    // cette marque, une fiche inventée pendant un entraînement entrait dans
+    // la vraie file de relance des commerciaux.
+    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, ...marqueEspace(db, profile) };
     // WhatsApp est ouvert AVANT le save, de façon strictement synchrone (sinon
     // le navigateur bloque l'ouverture — cf. correctif du même souci sur le proforma).
     envoyerAccueilProspectWhatsApp(f.nom, f.tel);
@@ -101,7 +104,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
       `Un compte sera créé et ses identifiants lui seront envoyés par WhatsApp.\n\nÀ ne faire que s'il a accepté de devenir client.`
     )) return;
 
-    const { user } = await fabriquerCompteClient(db, p.nom, p.tel, profile.nom);
+    const { user } = await fabriquerCompteClient(db, p.nom, p.tel, profile.nom, marqueEspace(db, profile));
     // Le prospect est marqué converti (il sort de la file active) et lié au compte.
     save({
       ...db,
@@ -175,14 +178,20 @@ export function Prospects({ db, save, profile, isAdmin }) {
   // quelqu'un qui a déjà payé et été installé. Ils restent consultables.
   const [voirAcquis, setVoirAcquis] = useState(false);
   const [vue, setVue] = useState("actifs"); // actifs | dormants | archives
-  const acquis = (db.prospects || []).filter((p) => p.converti);
-  const archives = (db.prospects || []).filter((p) => p.archive && !p.converti);
-  const dormants = (db.prospects || []).filter(estDormant);
-  const actifs = (db.prospects || []).filter((p) => !p.converti && !p.archive);
+  // ⚠ Cloisonnement : un prospect créé pendant un entraînement porte
+  // `formation` (voir marqueEspace). Sans ce filtre, un commercial en
+  // formation — et surtout un chef d'équipe ou un responsable, qui voient
+  // TOUT — retrouvait la vraie file de relance de l'entreprise.
+  const espace = espaceDuCompte(db, profile);
+  const tousProspects = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
+  const acquis = tousProspects.filter((p) => p.converti);
+  const archives = tousProspects.filter((p) => p.archive && !p.converti);
+  const dormants = tousProspects.filter(estDormant);
+  const actifs = tousProspects.filter((p) => !p.converti && !p.archive);
 
   const base = vue === "archives" ? archives
     : vue === "dormants" ? dormants
-    : voirAcquis ? db.prospects.filter((p) => !p.archive)
+    : voirAcquis ? tousProspects.filter((p) => !p.archive)
     : actifs;
   // Taux de conversion : parmi tous les prospects qui ont un jour existé
   // pour cette vue (actifs + archivés + déjà convertis), combien sont

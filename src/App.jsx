@@ -96,7 +96,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, construireIndexDb,
-  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation,
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -1048,9 +1048,14 @@ function compterNonLus(db, profile) {
 // tout ; les autres élaborateurs ne comptent que les leurs).
 function compterNouveauxDevis(db, profile) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
+  // Même visibilité que l'écran, cloisonnement compris : sans cela, la
+  // pastille rouge comptait les devis de l'autre espace — et pointait vers
+  // une liste où ils n'apparaissent pas.
+  const espace = espaceDuCompte(db, profile);
   return db.users
     .filter((u) => u.role === "client")
     .flatMap((u) => u.devis || [])
+    .filter((d) => espace === undefined || !!d.formation === espace)
     .filter((d) => voitTout || d.par_id === profile.id)
     .filter((d) => !(d.vu_par || []).includes(profile.id))
     .length;

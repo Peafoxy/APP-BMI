@@ -9,7 +9,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { totalVente, numeroRecu, fmt, col } from "../lib/core";
 import { Badge } from "../components/ui";
-import { normNom } from "../lib/calculs";
+import { normNom, espaceDuCompte, boutiquesVisibles } from "../lib/calculs";
 
 // ============ RECHERCHE GLOBALE ============
 // Cherche en même temps dans les ventes, produits, devis, clients et
@@ -25,25 +25,37 @@ export function rechercherGlobalement(db, profile, texte) {
   const voitToutProspects = isAdmin || profile.chef_equipe || profile.role === "resp_commercial";
   const maBoutique = profile.boutique;
 
+  // ⚠ Cloisonnement formation / réel. Le filtre par boutique ci-dessous
+  // s'écrit `!maBoutique || …` : il ne s'applique donc PAS aux comptes sans
+  // boutique rattachée (admin, commercial, technicien, responsable
+  // commercial, comptable), qui voyaient ainsi les deux espaces d'un coup —
+  // dans les deux sens. Clients, devis et prospects, eux, n'étaient pas
+  // filtrés du tout. `espace` vaut undefined pour l'admin principal.
+  const espace = espaceDuCompte(db, profile);
+  const boutiquesEspace = new Set(boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom));
+  const bonneBoutique = (nom) => (maBoutique ? nom === maBoutique : boutiquesEspace.has(nom));
+  const bonEspace = (x) => espace === undefined || !!x.formation === espace;
+
   const clients = db.users
-    .filter((u) => u.role === "client" && u.actif !== false)
+    .filter((u) => u.role === "client" && u.actif !== false && bonEspace(u))
     .filter((u) => normNom(`${u.nom_base || u.nom} ${u.tel || ""}`).includes(q))
     .slice(0, 6);
 
   const ventes = (db.ventes || [])
-    .filter((v) => !maBoutique || v.boutique === maBoutique)
+    .filter((v) => bonneBoutique(v.boutique))
     .filter((v) => normNom(`${numeroRecu(v)} ${v.client || ""} ${v.tel || ""}`).includes(q))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 6);
 
   const produits = (db.produits || [])
-    .filter((p) => !maBoutique || p.boutique === maBoutique)
+    .filter((p) => bonneBoutique(p.boutique))
     .filter((p) => normNom(`${p.nom} ${p.code || ""}`).includes(q))
     .slice(0, 6);
 
   const devis = db.users
     .filter((u) => u.role === "client")
     .flatMap((u) => (u.devis || []).map((d) => ({ ...d, client: u })))
+    .filter(bonEspace)
     .filter((d) => voitToutDevis || d.par_id === profile.id)
     .filter((d) => normNom(`${d.client?.nom_base || d.client?.nom || ""} ${libelleTypeDevis(d)}`).includes(q))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
@@ -52,12 +64,13 @@ export function rechercherGlobalement(db, profile, texte) {
   // Proformas : mêmes yeux que la liste « Proformas émis » de l'onglet Ventes
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
   const proformas = !voitProformas ? [] : (db.proformas || [])
-    .filter((pf) => !maBoutique || pf.boutique === maBoutique)
+    .filter((pf) => bonneBoutique(pf.boutique))
     .filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(q))
     .sort((a, b) => String(b.ts || b.date).localeCompare(String(a.ts || a.date)))
     .slice(0, 6);
 
   const prospects = (db.prospects || [])
+    .filter(bonEspace)
     .filter((p) => voitToutProspects || p.commercial === profile.nom)
     .filter((p) => normNom(`${p.nom} ${p.tel || ""}`).includes(q))
     .slice(0, 6);

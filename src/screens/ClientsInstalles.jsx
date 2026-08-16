@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, resteAPayer } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, resteAPayer, marqueEspace } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -123,7 +123,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       `Remettez-lui ces identifiants : c'est avec eux qu'il suivra son installation et réceptionnera les travaux.`
     )) return;
 
-    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom);
+    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
     save({ ...db, users: [...db.users, user], messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])] }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}`);
     setF((p) => ({ ...p, user_id: user.id }));
     // Envoi automatique des identifiants par WhatsApp.

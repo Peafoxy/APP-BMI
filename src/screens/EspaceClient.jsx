@@ -8,7 +8,7 @@ import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient 
 import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -62,7 +62,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     )) return;
 
     // Son compte : mêmes règles d'identifiant automatique. Il porte le lien vers vous.
-    const { user, motDePasse } = await fabriquerCompteClient(db, nom, tel, profile.nom);
+    const { user, motDePasse } = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
     const filleul = { ...user, parrain_client_id: profile.id, parrain_nom: moi.nom_base || profile.nom };
 
     // Un prospect, pour que l'équipe commerciale le rappelle vraiment.
@@ -80,7 +80,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     save({
       ...db,
       users: [...db.users, filleul],
-      prospects: [{ ...prospect, client_user_id: filleul.id }, ...(db.prospects || [])],
+      prospects: [{ ...prospect, client_user_id: filleul.id, ...marqueEspace(db, profile) }, ...(db.prospects || [])],
       messages: [...messagesNouveauClient(db, filleul, profile), ...(db.messages || [])],
     }, `🤝 PARRAINAGE : ${nom.toUpperCase()} amené par le client ${profile.nom}`);
 
