@@ -173,6 +173,23 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
       uAlert("Pour créer le compte, il faut le nom du client et son numéro (au moins 4 chiffres).");
       return null;
     }
+    // ⚠ Bug réel trouvé (compte VIVA, capture Timo) : rien n'empêchait de
+    // créer DEUX FOIS le même client (double-clic, ou nouvel essai après
+    // une coupure réseau pendant le premier) — chaque création génère un
+    // sel/hachage ALÉATOIRE différent, même pour le même mot de passe
+    // affiché ; un mélange entre les deux tentatives lors de la
+    // synchronisation laisse un compte dont le mot de passe recalculé
+    // (affiché à l'admin) ne correspond plus au verrou réellement stocké.
+    // On réutilise maintenant le compte EXISTANT s'il porte déjà ce numéro,
+    // au lieu d'en fabriquer un nouveau à côté.
+    const chiffresSaisis = chiffresTel(tel);
+    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && chiffresTel(u.tel) === chiffresSaisis);
+    if (existant) {
+      return {
+        compte: existant, motDePasse: existant.mdp_auto ? motDePasseConnu(existant) : null,
+        dbApres: db,
+      };
+    }
     const fab = await fabriquerCompteClient(db, nom, tel, profile.nom);
     return {
       compte: fab.user, motDePasse: fab.motDePasse,
