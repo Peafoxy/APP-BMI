@@ -245,5 +245,28 @@ titre("Comptes hérités de la 2.100.24 : la boutique fait foi, personne n'est b
 }
 
 
+titre("Les autres administrateurs ne doivent pas traverser sans qu'on le sache");
+{
+  const db = base();
+  // ADMIN2 porte deja act_voir_tout dans droits_off (cf. base) : il est
+  // cloisonne. On ajoute un admin cree AVANT ce reglage, donc sans rien
+  // dans droits_off — c'est le cas reel d'une installation existante.
+  db.users = [...db.users, { id: "u_admin3", nom: "ELIE", role: "admin" }];
+  const elie = { id: "u_admin3", role: "admin" };
+  test("un admin créé avant le réglage traverse les deux espaces",
+    C.voitLesDeuxEspaces(db, elie) === true);
+  test("…et il est signalé à l'administrateur principal",
+    C.adminsVoyantLesDeuxEspaces(db).some((u) => u.id === "u_admin3"));
+  test("l'admin principal n'est jamais compté dans cette alerte",
+    !C.adminsVoyantLesDeuxEspaces(db).some((u) => u.id === "u_admin"));
+  test("un admin à qui on a retiré le pouvoir est bien cloisonné", (() => {
+    const apres = { ...db, users: db.users.map((u) => (u.id === "u_admin3"
+      ? { ...u, droits_off: ["act_voir_tout"] } : u)) };
+    return C.voitLesDeuxEspaces(apres, elie) === false
+      && C.adminsVoyantLesDeuxEspaces(apres).length === 0;
+  })());
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

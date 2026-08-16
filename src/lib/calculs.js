@@ -96,6 +96,19 @@ export const estCompteFormation = (db, profile) => {
 // la 2.100.24. Ils ne sont pas en panne (voir ci-dessus), mais leur
 // bascule n'a jamais rien produit : l'administrateur doit la refaire pour
 // qu'elle prenne effet.
+// Les administrateurs — autres que le principal — qui traversent encore les
+// deux espaces. ⚠ Le pouvoir « act_voir_tout » est ACCORDÉ par défaut :
+// aDroit() le rend vrai tant qu'il n'est pas explicitement retiré. Il n'est
+// posé dans droits_off qu'à la CRÉATION d'un nouvel admin — tous ceux
+// créés avant ce réglage l'ont donc encore, et le cloisonnement ne
+// s'applique pas à eux. Sur une installation avec plusieurs admins, c'est
+// la porte la plus large qui reste ouverte.
+export const adminsVoyantLesDeuxEspaces = (db) =>
+  (db.users || []).filter((u) =>
+    u.role === "admin" && u.actif !== false
+    && adminPrincipal(db)?.id !== u.id
+    && aDroit(db, u, "act_voir_tout"));
+
 export const comptesEspaceIncoherent = (db) =>
   (db.users || []).filter((u) => {
     if (!u.boutique || u.role === "client" || u.actif === false) return false;

@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, adminsVoyantLesDeuxEspaces } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -336,17 +336,32 @@ export function Users({ db, save, profile }) {
   // Timo pour couvrir les comptes créés avant ce réglage. Un geste VOLONTAIRE
   // et confirmé, jamais automatique : n'écrase pas d'autres pouvoirs déjà
   // retirés à quelqu'un, se contente d'AJOUTER ces deux-là s'ils manquent.
+  // ⚠ « act_voir_tout » ajouté à ce geste (cloisonnement formation/réel) :
+  // ce pouvoir est ACCORDÉ par défaut — aDroit() le rend vrai tant qu'il
+  // n'est pas explicitement retiré — et n'est posé dans droits_off qu'à la
+  // CRÉATION d'un nouvel admin. Tous les administrateurs créés avant ce
+  // réglage traversaient donc les deux espaces, en lecture comme en
+  // écriture (voitLesDeuxEspaces les fait passer à travers le verrou).
+  // Sur une installation à plusieurs admins, c'était la porte la plus
+  // large restée ouverte.
   const restreindreAdminsExistants = async () => {
     if (bloquerSiLecture(db, profile)) return;
     const admins = db.users.filter((u) => u.role === "admin" && adminPrincipal(db)?.id !== u.id);
     if (!admins.length) { uAlert("Il n'y a aucun autre administrateur."); return; }
-    if (!await uConfirm(`Retirer Historique et Paramètres à ${admins.length} administrateur(s) (tous, sauf vous) ?\n\nChacun pourra toujours les récupérer ensuite via « 🔐 Pouvoirs », individuellement.`)) return;
+    const traversent = adminsVoyantLesDeuxEspaces(db).length;
+    if (!await uConfirm(
+      `Retirer Historique, Paramètres et « voir les deux espaces » à ${admins.length} administrateur(s) (tous, sauf vous) ?\n\n` +
+      (traversent > 0
+        ? `🎓 ${traversent} d'entre eux voient aujourd'hui les boutiques de formation ET les vraies ensemble, et peuvent écrire dans les deux. Après ce geste, ils ne verront que l'espace réel.\n\n`
+        : "") +
+      `Chacun pourra toujours les récupérer ensuite via « 🔐 Pouvoirs », individuellement.`
+    )) return;
     save({
       ...db,
       users: db.users.map((u) => (u.role === "admin" && adminPrincipal(db)?.id !== u.id
-        ? { ...u, droits_off: [...new Set([...(u.droits_off || []), "historique", "parametres"])] }
+        ? { ...u, droits_off: [...new Set([...(u.droits_off || []), "historique", "parametres", "act_voir_tout"])] }
         : u)),
-    }, `Historique et Paramètres retirés à tous les administrateurs (sauf le principal)`);
+    }, `Historique, Paramètres et « voir les deux espaces » retirés à tous les administrateurs (sauf le principal)`);
     uAlert(`✅ Fait pour ${admins.length} administrateur(s).`);
   };
 
@@ -684,9 +699,29 @@ export function Users({ db, save, profile }) {
               </button>
             ))}
           </div>
+          {/* ⚠ Cloisonnement : ces administrateurs traversent les deux
+              espaces (pouvoir « act_voir_tout », accordé par défaut à tout
+              compte créé avant ce réglage). Tant qu'ils l'ont, le
+              cloisonnement ne s'applique pas à eux — ni en lecture, ni en
+              écriture. On le dit, avec le bouton qui corrige juste après. */}
+          {jeSuisAdminPrincipal && roleAffiche === "admin" && !enRecherche && adminsVoyantLesDeuxEspaces(db).length > 0 && (
+            <div className="mb-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-3">
+              <div className="font-bold text-sm text-amber-900">
+                🎓 {adminsVoyantLesDeuxEspaces(db).length} administrateur(s) voient encore la formation ET le réel ensemble
+              </div>
+              <div className="text-xs text-amber-800 mt-1">
+                Le pouvoir « voir les boutiques de formation ET réelles » leur est accordé par défaut : le cloisonnement
+                ne s'applique donc pas à eux, ni pour consulter, ni pour enregistrer. Le bouton ci-dessous le leur retire —
+                vous restez le seul à tout voir.
+              </div>
+              <div className="text-xs text-amber-900 mt-2">
+                {adminsVoyantLesDeuxEspaces(db).map((u) => u.nom).join(" · ")}
+              </div>
+            </div>
+          )}
           {jeSuisAdminPrincipal && roleAffiche === "admin" && !enRecherche && (
             <button onClick={restreindreAdminsExistants} className="mb-2 text-xs font-bold text-white bg-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-800">
-              🔒 Retirer Historique + Paramètres à tous les autres admins
+              🔒 Retirer Historique + Paramètres + « voir les deux espaces » aux autres admins
             </button>
           )}
           <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
