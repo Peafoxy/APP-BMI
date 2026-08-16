@@ -172,7 +172,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     }
   };
 
-  const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false, adresse: "", tel: "" });
+  const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false, formation: false, adresse: "", tel: "" });
   const [couleurPour, setCouleurPour] = useState(null);
   const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   const nomCouleur = (hex) => (PALETTE.find(([, h]) => h === hex) || [hex])[0];
@@ -186,9 +186,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     const nom = f.nom.trim().toUpperCase();
     if (!nom) { uAlert("Veuillez saisir un nom."); return; }
     if (db.boutiques.some((b) => b.nom === nom)) { uAlert("Cette boutique existe déjà."); return; }
-    save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, adresse: f.adresse.trim(), tel: f.tel.trim() }] });
-    setF({ nom: "", couleur: "#2563eb", depot: false, adresse: "", tel: "" });
-    uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom} créé(e) !`);
+    save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation: !!f.formation, adresse: f.adresse.trim(), tel: f.tel.trim() }] });
+    setF({ nom: "", couleur: "#2563eb", depot: false, formation: false, adresse: "", tel: "" });
+    uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom}${f.formation ? " (formation)" : ""} créé(e) !`);
   };
 
   const basculerDepot = async (b) => {
@@ -558,6 +558,10 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <input type="checkbox" checked={!!f.depot} onChange={(e) => setF({ ...f, depot: e.target.checked })} />
           🏭 C'est un <b>magasin (dépôt)</b> : on y stocke la marchandise, on n'y vend pas. Il sert à ravitailler les boutiques.
         </label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mt-2">
+          <input type="checkbox" checked={!!f.formation} onChange={(e) => setF({ ...f, formation: e.target.checked })} />
+          🎓 C'est une <b>boutique de formation</b> : pour s'entraîner sans risque — ses chiffres n'apparaissent jamais dans le Tableau de bord.
+        </label>
         <div className="text-xs text-slate-400 mt-2">La localisation et le téléphone pourront toujours être ajoutés ou modifiés plus tard, ci-dessous (« 📍 Infos reçu »).</div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Créer</button>
       </div>
@@ -571,6 +575,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               <tr key={b.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-4 py-2"><Badge boutique={b.nom} />
                   <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>
+                  {b.formation && <div className="text-xs font-bold mt-0.5 text-amber-700">🎓 Formation — hors Tableau de bord</div>}
                   <button onClick={() => basculerDepot(b)} className="text-xs font-bold text-sky-800 underline">{b.depot ? "→ En faire une boutique" : "→ En faire un magasin"}</button>
                 </td>
                 <td className="px-4 py-2">{b.logo ? <img src={b.logo} alt="" className="h-9 w-auto rounded border border-slate-200 bg-white" /> : <span className="text-xs text-slate-400">Logo BMI (défaut)</span>}</td>
