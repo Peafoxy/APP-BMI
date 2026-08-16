@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
-import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace } from "../lib/calculs";
+import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
@@ -136,16 +136,12 @@ export function CreerClient({ db, save, profile }) {
 export function Clients({ db, profile }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
-  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
-  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
-  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
-  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
-  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
-  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
-  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
-  // — et le sélecteur qui aurait permis d'en choisir une était justement
-  // masqué derrière ce blocage.
-  const boutique = profile.boutique || bq || premiere;
+  // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
+  // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
+  // une boutique qui n'existe plus (supprimée, ou effacée par une
+  // réinitialisation). Dans les deux cas, on repart de la boutique par
+  // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
+  const boutique = boutiqueRetenue(db, profile, bq);
   const [q, setQ] = useState("");
   const map = {};
   const key = (nom, tel) => (telDigits(tel) || String(nom || "").trim().toLowerCase());

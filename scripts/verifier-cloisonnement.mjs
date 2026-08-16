@@ -268,5 +268,23 @@ titre("Les autres administrateurs ne doivent pas traverser sans qu'on le sache")
 }
 
 
+titre("La boutique mémorisée par un écran ne peut ni rester vide, ni pointer sur un fantôme");
+{
+  const db = base();
+  test("écran ouvert pendant la synchronisation (mémoire vide) : on repart du défaut",
+    C.boutiqueRetenue(db, P.vendeur === undefined ? P.admin : P.admin, "") === "APESSITO");
+  test("boutique supprimée depuis (réinitialisation, suppression) : on repart du défaut",
+    C.boutiqueRetenue(db, P.admin, "BOUTIQUE QUI N EXISTE PLUS") === "APESSITO");
+  test("boutique valide : elle est conservée",
+    C.boutiqueRetenue(db, P.admin, "HEDZRANAWOE") === "HEDZRANAWOE");
+  test("un stagiaire ne peut pas retenir une VRAIE boutique memorisee",
+    C.boutiqueRetenue(db, P.stagiaire, "APESSITO") === "APESSITO FORMATION");
+  test("un compte rattaché garde toujours SA boutique",
+    C.boutiqueRetenue(db, P.vendeur, "HEDZRANAWOE") === "APESSITO");
+  test("base entièrement vide (après réinitialisation) : rien, et l'écran le dira",
+    C.boutiqueRetenue({ boutiques: [], users: [] }, P.admin, "APESSITO") === "");
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

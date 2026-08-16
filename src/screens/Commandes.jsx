@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
-import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
+import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -18,16 +18,12 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(preRempli?.boutique || premiere);
-  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
-  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
-  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
-  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
-  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
-  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
-  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
-  // — et le sélecteur qui aurait permis d'en choisir une était justement
-  // masqué derrière ce blocage.
-  const boutique = bq || premiere;
+  // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
+  // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
+  // une boutique qui n'existe plus (supprimée, ou effacée par une
+  // réinitialisation). Dans les deux cas, on repart de la boutique par
+  // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
+  const boutique = boutiqueRetenue(db, profile, bq);
   const produits = db.produits.filter((p) => p.boutique === boutique);
   const categories = [...new Set(produits.map((p) => p.categorie || "Autre"))].sort();
 
@@ -274,7 +270,7 @@ export function CommandesRecues({ db, save, profile, onValider }) {
   const isAdmin = profile.role === "admin";
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
-  const boutique = profile.boutique || bq || premiere;
+  const boutique = boutiqueRetenue(db, profile, bq);
 
   const enAttente = (db.commandes || []).filter((c) =>
     c.statut === "en_attente" &&

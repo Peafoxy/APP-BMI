@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
+import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -37,16 +37,12 @@ function lignesVenteEnAutres(v) {
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
-  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
-  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
-  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
-  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
-  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
-  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
-  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
-  // — et le sélecteur qui aurait permis d'en choisir une était justement
-  // masqué derrière ce blocage.
-  const boutique = profile.boutique || bq || premiere;
+  // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
+  // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
+  // une boutique qui n'existe plus (supprimée, ou effacée par une
+  // réinitialisation). Dans les deux cas, on repart de la boutique par
+  // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
+  const boutique = boutiqueRetenue(db, profile, bq);
   const produits = db.produits.filter((p) => p.boutique === boutique);
   const commerciaux = apporteursPossibles(db, profile);
   const categories = [...new Set(produits.map((p) => p.categorie || "Autre"))].sort();

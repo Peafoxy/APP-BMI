@@ -8,7 +8,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -18,16 +18,12 @@ export function Stocks({ db, save, profile }) {
   // Un employé rattaché à un site (vendeur, gérant, magasinier) est VERROUILLÉ dessus :
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
-  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
-  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
-  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
-  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
-  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
-  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
-  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
-  // — et le sélecteur qui aurait permis d'en choisir une était justement
-  // masqué derrière ce blocage.
-  const bq = profile.boutique || bqSel || premiere;
+  // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
+  // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
+  // une boutique qui n'existe plus (supprimée, ou effacée par une
+  // réinitialisation). Dans les deux cas, on repart de la boutique par
+  // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
+  const bq = boutiqueRetenue(db, profile, bqSel);
   const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître

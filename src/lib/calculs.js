@@ -145,6 +145,27 @@ export const boutiquesVisibles = (db, profile, liste) => {
 export const boutiqueParDefaut = (db, profile) =>
   boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || "";
 
+// La boutique réellement retenue par un écran, à partir de celle que
+// l'utilisateur a choisie (`choisie`, un état React).
+//
+// ⚠ Deux pièges, tous deux constatés en production :
+//   1. `choisie` est initialisée UNE SEULE FOIS au premier montage, et les
+//      écrans restent montés toute la session (2.98.99). Un écran ouvert
+//      pendant la synchronisation d'ouverture — quand db.boutiques est
+//      encore vide — gardait une valeur vide pour toujours.
+//   2. `choisie` peut désigner une boutique qui N'EXISTE PLUS : supprimée
+//      dans ⚙ Paramètres, ou effacée par une réinitialisation complète.
+//      L'écran affichait alors son nom en en-tête comme si de rien
+//      n'était, avec un stock vide et aucune explication.
+// Dans les deux cas on retombe sur la boutique par défaut, recalculée à
+// chaque rendu : l'écran se répare tout seul.
+export const boutiqueRetenue = (db, profile, choisie) => {
+  if (profile?.boutique) return profile.boutique;
+  const visibles = boutiquesVisibles(db, profile, db.boutiques || []);
+  if (choisie && visibles.some((b) => b.nom === choisie)) return choisie;
+  return boutiqueParDefaut(db, profile);
+};
+
 export const ventesReelles = (db) => {
   const f = boutiquesFormation(db);
   return (db.ventes || []).filter((v) => !f.has(v.boutique));

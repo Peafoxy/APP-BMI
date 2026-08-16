@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte } from "../../lib/calculs";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 
 
@@ -23,16 +23,12 @@ const ROLES_EQUIPEMENT = [
 export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
-  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
-  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
-  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
-  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
-  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
-  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
-  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
-  // — et le sélecteur qui aurait permis d'en choisir une était justement
-  // masqué derrière ce blocage.
-  const boutique = profile.boutique || bq || premiere;
+  // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
+  // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
+  // une boutique qui n'existe plus (supprimée, ou effacée par une
+  // réinitialisation). Dans les deux cas, on repart de la boutique par
+  // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
+  const boutique = boutiqueRetenue(db, profile, bq);
   // Mode LIBRE (3e position à côté des boutiques, admin/commercial multi-
   // boutique uniquement) : le dimensionnement n'est associé à AUCUNE
   // boutique — pas de stock réel à proposer, seulement les caractéristiques
