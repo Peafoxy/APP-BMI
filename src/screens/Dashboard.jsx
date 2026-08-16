@@ -9,7 +9,7 @@ import { btnDark, Badge } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
-  dettesClassiques, estReservation, periodes, reservations,
+  dettesClassiques, estReservation, periodes, reservations, ventesReelles, boutiquesFormation,
 } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============
@@ -18,6 +18,22 @@ export function Dashboard({ db }) {
   // (demande Timo — un nouveau commercial doit pouvoir s'entraîner sans
   // jamais fausser les vrais chiffres) sont exclues du tableau de bord.
   const NOMS = db.boutiques.filter((b) => !b.terrain && !b.formation).map((b) => b.nom);
+  // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
+  // NOMS protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
+  // TOTAUX GLOBAUX de cette page (CA total, frais, nb clients, commissions,
+  // export du journal comptable) parcouraient db.ventes BRUT, sans jamais
+  // passer par NOMS — trou réel trouvé, une vente de formation aurait
+  // gonflé ces chiffres. Variable UNIQUE réutilisée pour tous ces totaux.
+  const ventesReellesDb = ventesReelles(db);
+  const boutiquesFormationSet = boutiquesFormation(db);
+  // ⚠ Même exclusion pour les DETTES/réservations (pas seulement les
+  // ventes) : filtrée ICI, dans les totaux globaux du Tableau de bord
+  // uniquement — les fonctions partagées dettesClassiques()/reservations()
+  // restent volontairement INCHANGÉES, elles sont aussi utilisées par
+  // l'écran Dettes lui-même, où une boutique de formation doit continuer
+  // à voir SES PROPRES dettes normalement quand on la sélectionne.
+  const dettesReellesDashboard = dettesClassiques(db).filter((d) => !boutiquesFormationSet.has(d.boutique));
+  const reservationsReellesDashboard = reservations(db).filter((r) => !boutiquesFormationSet.has(r.boutique));
   const [periodeIndex, setPeriodeIndex] = useState(2);
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");
@@ -63,31 +79,31 @@ export function Dashboard({ db }) {
   const resM = somme(m.v) - somme(m.d);
   const resCustom = somme(customRow.v) - somme(customRow.d);
 
-  const totalVentes = db.ventes.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
+  const totalVentes = ventesReellesDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
   const totalDepenses = db.depenses.reduce((s, d) => s + Number(d.montant), 0);
-  const totalDettes = dettesClassiques(db).reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0);
+  const totalDettes = dettesReellesDashboard.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0);
   // Frais d'installation et transport réellement encaissés — jamais comptés
   // dans le chiffre d'affaires (ci-dessus), mais bien réels : cette carte est
   // le seul endroit où les retrouver globalement, tous devis confondus.
-  const totalFraisInstallation = db.ventes.reduce((s, v) => s + Number(v.frais_installation || 0), 0);
-  const totalFraisTransport = db.ventes.reduce((s, v) => s + Number(v.frais_transport || 0), 0);
+  const totalFraisInstallation = ventesReellesDb.reduce((s, v) => s + Number(v.frais_installation || 0), 0);
+  const totalFraisTransport = ventesReellesDb.reduce((s, v) => s + Number(v.frais_transport || 0), 0);
   // Avances encaissées sur réservations non encore livrées : c'est de l'argent reçu
   // que l'entreprise DOIT en marchandise. C'est un engagement, pas une créance.
-  const totalAvances = reservations(db).filter((r) => r.statut !== "livree" && r.statut !== "annulee")
+  const totalAvances = reservationsReellesDashboard.filter((r) => r.statut !== "livree" && r.statut !== "annulee")
     .reduce((s, r) => s + Number(r.paye || 0), 0);
-  const nbVentes = db.ventes.length;
-  const nbClients = new Set(db.ventes.filter(v => v.client).map(v => v.client)).size;
+  const nbVentes = ventesReellesDb.length;
+  const nbClients = new Set(ventesReellesDb.filter(v => v.client).map(v => v.client)).size;
 
   // ---- ENSEMBLE DES COMMISSIONS (rien n'était affiché ici auparavant) ----
   // On regroupe les 4 types de commission existants dans l'app : commission de
   // base (commercial/technicien), commission d'équipe (chef sur ses filleuls),
   // commission d'apporteur externe, et prime d'installation.
-  const commissionsBase = (payee) => db.ventes.filter((v) => Boolean(v.commission_payee) === payee)
+  const commissionsBase = (payee) => ventesReellesDb.filter((v) => Boolean(v.commission_payee) === payee)
     .reduce((s, v) => {
       const u = db.users.find((x) => x.nom === v.commercial);
       return s + commissionVente(v, Number(u?.taux_commission || 0));
     }, 0);
-  const commissionsEquipe = (payee) => db.ventes.filter((v) => Boolean(v.override_payee) === payee)
+  const commissionsEquipe = (payee) => ventesReellesDb.filter((v) => Boolean(v.override_payee) === payee)
     .reduce((s, v) => {
       const vendeur = db.users.find((x) => x.nom === v.commercial);
       const chef = vendeur?.parrain_id ? db.users.find((x) => x.id === vendeur.parrain_id) : null;
@@ -95,7 +111,7 @@ export function Dashboard({ db }) {
       const tauxEq = Number(chef.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
       return s + Math.round((commissionVente(v, Number(vendeur.taux_commission || 0)) * tauxEq) / 100);
     }, 0);
-  const commissionsApporteurs = (payee) => db.ventes.filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
+  const commissionsApporteurs = (payee) => ventesReellesDb.filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
     .reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
   const commissionsInstallation = (payee) => (db.clients_installes || []).flatMap((c) => c.equipe || [])
     .filter((e) => Boolean(e.paye) === payee).reduce((s, e) => s + Number(e.montant || 0), 0);
@@ -125,7 +141,7 @@ export function Dashboard({ db }) {
 
   // Analyses sur la période sélectionnée
   const [, paG, pbG] = getPeriod();
-  const ventesPeriode = db.ventes.filter((v) => inP(v.date, paG, pbG));
+  const ventesPeriode = ventesReellesDb.filter((v) => inP(v.date, paG, pbG));
   const topProduits = (() => {
     const cumul = {};
     ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0); }));

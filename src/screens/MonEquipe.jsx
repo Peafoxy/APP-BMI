@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider , ventesDuCommercial } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider , ventesDuCommercial, ventesReelles } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -71,9 +71,12 @@ export function MonEquipe({ db, save, profile }) {
 
   // ---- APPORTEURS EXTERNES (non-utilisateurs) ----
   // Regroupés par nom + téléphone, sur la période choisie.
+  // ⚠ Boutiques de formation (Timo — "ça ne doit pas toucher notre CA
+  // réelle") : ventesReelles() exclue les ventes des boutiques formation,
+  // pour ne jamais gonfler la commission d'un apporteur externe.
   const apporteursExt = (() => {
     const g = {};
-    db.ventes.filter((v) => v.apporteur && v.apporteur.nom && inP(v.date, debut, fin)).forEach((v) => {
+    ventesReelles(db).filter((v) => v.apporteur && v.apporteur.nom && inP(v.date, debut, fin)).forEach((v) => {
       const cle = `${v.apporteur.nom}|${v.apporteur.tel || ""}`;
       if (!g[cle]) g[cle] = { nom: v.apporteur.nom, tel: v.apporteur.tel || "", taux: Number(v.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [] };
       const m = Number(v.apporteur.montant || 0);
@@ -138,7 +141,7 @@ export function MonEquipe({ db, save, profile }) {
   // Nombre de CLIENTS DISTINCTS apportés depuis toujours (pas seulement sur la période)
   const clientsApportes = (a) => {
     const clients = new Set();
-    db.ventes.filter((v) => v.apporteur && v.apporteur.nom === a.nom && (v.apporteur.tel || "") === a.tel)
+    ventesReelles(db).filter((v) => v.apporteur && v.apporteur.nom === a.nom && (v.apporteur.tel || "") === a.tel)
       .forEach((v) => clients.add(((v.client || "") + "|" + (v.tel || "")).trim().toLowerCase()));
     clients.delete("|");
     return clients.size;

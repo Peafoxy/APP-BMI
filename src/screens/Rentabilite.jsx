@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { fmt, today, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge } from "../components/ui";
-import { stockActuel, periodes } from "../lib/calculs";
+import { stockActuel, periodes, ventesReelles } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ RENTABILITÉ PAR PRODUIT ============
@@ -17,11 +17,10 @@ export function Rentabilite({ db }) {
   const [, a, b] = choix;
   const [tri, setTri] = useState("marge");
 
-  // ⚠ Boutiques de formation (2.100.16) : exclues, même principe que le
-  // Tableau de bord — une vente d'entraînement ne doit jamais fausser la
-  // rentabilité réelle (demande Timo, suite audit).
-  const boutiquesFormation = new Set((db.boutiques || []).filter((bq) => bq.formation).map((bq) => bq.nom));
-  const ventesP = db.ventes.filter((v) => inP(v.date, a, b) && !boutiquesFormation.has(v.boutique));
+  // ⚠ Boutiques de formation (2.100.16) : exclues via la fonction centrale
+  // ventesReelles() — même principe que le Tableau de bord, une vente
+  // d'entraînement ne doit jamais fausser la rentabilité réelle.
+  const ventesP = ventesReelles(db).filter((v) => inP(v.date, a, b));
 
   // Agrégation par NOM d'article (tous sites confondus)
   const parProduit = {};

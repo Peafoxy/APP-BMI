@@ -16,6 +16,15 @@ import { genererSVGCode128 } from "./barcode";
 // pouvait casser un attribut HTML (ex. alt="...") du document imprimé.
 const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// ⚠ Bandeau "DOCUMENT DE FORMATION" (demande Timo) : même style visuel que
+// le bandeau DUPLICATA existant plus bas, réutilisé pour tout document
+// (reçu, PV, contrat, bon...) émis depuis une boutique de formation — pour
+// qu'il ne soit JAMAIS confondu avec un vrai document, même si le nom de la
+// boutique seul n'est pas assez explicite.
+const bandeauFormation = (estFormation) => estFormation
+  ? `<div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">🎓 DOCUMENT DE FORMATION — SANS VALEUR</div>`
+  : "";
+
 // ============ REÇU CLIENT ============
 export function imprimerRecu(v, bq = {}, produits = []) {
   // MODULE GARANTIES : si l'article vendu a une "Garantie boutique"
@@ -69,6 +78,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
   #zone-impression .recu-doc .merci{text-align:center;font-style:italic;color:#555;margin-top:16px;border-top:1px dashed #aaa;padding-top:8px}
   </style>
   <div class="recu-doc">
+    ${bandeauFormation(bq.formation)}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="${esc(v.boutique)}"></td>
       <td class="soc">
@@ -187,6 +197,7 @@ export function imprimerRecuVersement(d, bq = {}) {
   #zone-impression .recu-doc .filigrane{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:56px;font-weight:900;letter-spacing:6px;color:#dc2626;opacity:0.18;white-space:nowrap;pointer-events:none;z-index:1;user-select:none}
   </style>
   <div class="recu-doc">
+    ${bandeauFormation(bq.formation)}
     ${estReservation(d) && d.statut !== "livree" ? `<div class="filigrane">NON LIVRÉ</div>` : ""}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="${esc(d.boutique)}"></td>
@@ -262,7 +273,7 @@ export function imprimerRecuVersement(d, bq = {}) {
   if (printApi) printApi.open(sortie, `Reçu ${d.numero || ""}`.trim());
 }
 
-export function imprimerProforma(p, logo) {
+export function imprimerProforma(p, logo, estFormation = false) {
   const html = `
   <style>
   #zone-impression .prf-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
@@ -286,6 +297,7 @@ export function imprimerProforma(p, logo) {
   #zone-impression .prf-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
   </style>
   <div class="prf-doc">
+    ${bandeauFormation(estFormation)}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
       <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
@@ -337,6 +349,12 @@ export function imprimerProforma(p, logo) {
 export function imprimerPV(c, db) {
   const vente = db.ventes.find((v) => v.id === c.vente_id);
   const montant = vente ? totalVente(vente) : Number(c.frais_installation || 0);
+  // ⚠ Boutique du chantier (demande Timo — bandeau formation) : via la
+  // vente si elle existe, sinon via la dette liée (chantier "pose seule",
+  // qui n'a ni commande ni vente — voir la chaîne établie ailleurs).
+  const detteC = c.dette_id ? (db.dettes || []).find((x) => x.id === c.dette_id) : null;
+  const boutiqueDuChantier = vente?.boutique || detteC?.boutique;
+  const estFormationPv = (db.boutiques || []).find((b) => b.nom === boutiqueDuChantier)?.formation;
   const avenant = c.avenant_statut === "signe";
   const chef = (c.equipe || []).find((e) => e.chef);
   const chefCompte = chef ? (db.users || []).find((u) => u.nom === chef.nom) : null;
@@ -381,6 +399,7 @@ export function imprimerPV(c, db) {
   #zone-impression .ctr-doc .mentions{margin-top:10px;font-size:9.5px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:6px}
   </style>
   <div class="ctr-doc">
+    ${bandeauFormation(estFormationPv)}
     <table class="entete"><tr>
       <td><img src="${LOGO}" alt="BMI" /></td>
       <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
@@ -453,6 +472,10 @@ export function imprimerContratInstallation(d, db) {
   // dépendre d'un upload préalable.
   const cachet = (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT;
   const initiateur = (db.users || []).find((u) => u.nom === d.par);
+  // ⚠ Boutique du contrat (demande Timo — bandeau formation) : celle de la
+  // personne qui a créé le devis (initiateur), faute d'un champ boutique
+  // direct sur le devis lui-même avant toute vente.
+  const estFormationContrat = (db.boutiques || []).find((b) => b.nom === initiateur?.boutique)?.formation;
   // Libellé du rôle affiché à la place de "Pour BMI Togo" — demande Timo sur
   // la base d'un vrai modèle Word qu'il a fourni ("Le (rôle de l'initiateur
   // du devis)"). Rôles pouvant initier un devis, cf. ONGLETS_ROLE.
@@ -500,6 +523,7 @@ export function imprimerContratInstallation(d, db) {
   #zone-impression .ctr-doc .mentions{margin-top:16px;font-size:10px;color:#555;font-style:italic;text-align:center;border-top:1px dashed #aaa;padding-top:8px}
   </style>
   <div class="ctr-doc">
+    ${bandeauFormation(estFormationContrat)}
     <table class="entete"><tr>
       <td><img src="${LOGO}" alt="BMI" /></td>
       <td class="soc"><div class="nom">BMI TOGO</div><div>E-mail : info@bmitogo.com</div><div>NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div><div>Représenté par Mr EGBAOU Essozimna</div></td>
@@ -593,6 +617,11 @@ export function imprimerBonRavitaillement(bon, db) {
   const bqSrc = (db.boutiques || []).find((b) => b.nom === bon.source) || {};
   const logo = bqSrc.logo || LOGO;
   const total = bon.lignes.reduce((s, l) => s + Number(l.qte || 0), 0);
+  // ⚠ Un transfert touche DEUX boutiques (source ET destination) — le
+  // bandeau s'affiche si l'UNE des deux est une boutique de formation
+  // (demande Timo).
+  const bqDest = (db.boutiques || []).find((b) => b.nom === bon.destination);
+  const estFormationBon = bqSrc.formation || bqDest?.formation;
   const html = `
   <style>
   #zone-impression .bon{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
@@ -614,6 +643,7 @@ export function imprimerBonRavitaillement(bon, db) {
   #zone-impression .bon table.sign .ligne{border-top:1px solid #555;padding-top:4px}
   </style>
   <div class="bon">
+    ${bandeauFormation(estFormationBon)}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
       <td class="soc"><div class="nom">BMI TOGO</div><div>${esc(bqSrc.adresse || "Lomé, Togo")}</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>

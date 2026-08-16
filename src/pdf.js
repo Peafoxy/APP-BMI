@@ -91,14 +91,26 @@ export function genererProforma(p, logo, retournerDoc = false) {
   doc.setTextColor(255, 255, 255);
   doc.text("FACTURE PROFORMA", largeur / 2, 39, { align: "center" });
 
+  // ⚠ Bandeau "DOCUMENT DE FORMATION" (demande Timo) — même principe que
+  // genererDevis ci-dessus.
+  let yApresPf = 42;
+  if (p.formation) {
+    doc.setFillColor(180, 83, 9);
+    doc.rect(14, 44, largeur - 28, 8, "F");
+    doc.setFontSize(11);
+    doc.setTextColor(255, 255, 255);
+    doc.text("DOCUMENT DE FORMATION — SANS VALEUR", largeur / 2, 49.5, { align: "center" });
+    yApresPf = 54;
+  }
+
   // Infos client + numéro
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
-  doc.text(`N° ${p.numero}`, 14, 50);
-  doc.text(`Date : ${p.date}`, 14, 55);
-  if (p.boutique) doc.text(`Boutique : ${p.boutique}`, 14, 60);
-  doc.text(`Client : ${p.client || "—"}`, largeur - 14, 50, { align: "right" });
-  if (p.tel) doc.text(`Tél : ${p.tel}`, largeur - 14, 55, { align: "right" });
+  doc.text(`N° ${p.numero}`, 14, yApresPf + 8);
+  doc.text(`Date : ${p.date}`, 14, yApresPf + 13);
+  if (p.boutique) doc.text(`Boutique : ${p.boutique}`, 14, yApresPf + 18);
+  doc.text(`Client : ${p.client || "—"}`, largeur - 14, yApresPf + 8, { align: "right" });
+  if (p.tel) doc.text(`Tél : ${p.tel}`, largeur - 14, yApresPf + 13, { align: "right" });
 
   // Tableau des articles
   autoTable(doc, {
@@ -109,7 +121,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
       `${fmtMontant(l.pu)} F`,
       `${fmtMontant(l.total)} F`,
     ]),
-    startY: 66,
+    startY: yApresPf + 24,
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 247, 250] },
@@ -163,7 +175,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
 // Même présentation que le proforma, avec le statut et l'élaborateur en plus —
 // utile pour la rubrique « Tous les devis » consultée par l'admin et le
 // responsable commercial.
-export function genererDevis(d, logo) {
+export function genererDevis(d, logo, retournerDoc = false) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
@@ -192,16 +204,29 @@ export function genererDevis(d, logo) {
   doc.setTextColor(255, 255, 255);
   doc.text(`DEVIS — ${d.titre || ""}`.trim(), largeur / 2, 39, { align: "center" });
 
+  // ⚠ Bandeau "DOCUMENT DE FORMATION" (demande Timo) : même principe que
+  // les autres documents (impression.js) — `d.formation` est calculé par
+  // l'appelant (qui a accès à db, ce module ne l'a pas).
+  let yApres = 42;
+  if (d.formation) {
+    doc.setFillColor(180, 83, 9);
+    doc.rect(14, 44, largeur - 28, 8, "F");
+    doc.setFontSize(11);
+    doc.setTextColor(255, 255, 255);
+    doc.text("DOCUMENT DE FORMATION — SANS VALEUR", largeur / 2, 49.5, { align: "center" });
+    yApres = 54;
+  }
+
   // Infos client + numéro + statut + élaborateur
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
-  doc.text(`N° ${d.numero}`, 14, 50);
-  doc.text(`Date : ${d.date}`, 14, 55);
-  if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, 60);
-  if (d.par) doc.text(`Élaboré par : ${d.par}`, 14, 65);
-  doc.text(`Client : ${d.client || "—"}`, largeur - 14, 50, { align: "right" });
-  if (d.tel) doc.text(`Tél : ${d.tel}`, largeur - 14, 55, { align: "right" });
-  if (d.statut) doc.text(`Statut : ${d.statut}`, largeur - 14, 60, { align: "right" });
+  doc.text(`N° ${d.numero}`, 14, yApres + 8);
+  doc.text(`Date : ${d.date}`, 14, yApres + 13);
+  if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, yApres + 18);
+  if (d.par) doc.text(`Élaboré par : ${d.par}`, 14, yApres + 23);
+  doc.text(`Client : ${d.client || "—"}`, largeur - 14, yApres + 8, { align: "right" });
+  if (d.tel) doc.text(`Tél : ${d.tel}`, largeur - 14, yApres + 13, { align: "right" });
+  if (d.statut) doc.text(`Statut : ${d.statut}`, largeur - 14, yApres + 18, { align: "right" });
 
   autoTable(doc, {
     head: [["Article", "Qté", "Prix unitaire", "Total"]],
@@ -211,7 +236,7 @@ export function genererDevis(d, logo) {
       `${fmtMontant(l.pu)} F`,
       `${fmtMontant(l.total)} F`,
     ]),
-    startY: 72,
+    startY: yApres + 30,
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 247, 250] },
@@ -240,5 +265,6 @@ export function genererDevis(d, logo) {
   doc.setTextColor(150, 150, 150);
   doc.text("BMI-Gestions Boutiques", largeur / 2, hauteur - 8, { align: "center" });
 
+  if (retournerDoc) return doc;
   doc.save(`Devis_${d.numero}.pdf`);
 }

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { resumeArticles, totalVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
 import { Field, inputCls, Badge, Panel } from "../components/ui";
-import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionEnAttente, commissionPour , ventesDuCommercial } from "../lib/calculs";
+import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionEnAttente, commissionPour , ventesDuCommercial, ventesReelles } from "../lib/calculs";
 
 // ============ MA COMMISSION (commerciaux et techniciens) ============
 export function MaCommission({ db, profile }) {
@@ -41,9 +41,11 @@ export function MaCommission({ db, profile }) {
   };
   const [debut, fin] = bornes();
 
+  // ⚠ Boutiques de formation (Timo — "ça ne doit pas toucher notre CA
+  // réelle") : ventesReelles() exclue les ventes des boutiques formation.
   // Une vente déjà réglée au commercial (payee_commission = true) n'entre plus
   // dans le calcul de la commission due — elle a déjà été comptabilisée.
-  const mesVentesTotales = db.ventes.filter((v) => (v.commercial === profile.nom || v.responsable === profile.nom) && inP(v.date, debut, fin));
+  const mesVentesTotales = ventesReelles(db).filter((v) => (v.commercial === profile.nom || v.responsable === profile.nom) && inP(v.date, debut, fin));
   const mesVentes = mesVentesTotales.filter((v) => !v.commission_payee);
   const ca = mesVentes.reduce((s, v) => s + totalVente(v), 0);
   const taux = Number(profile.taux_commission || 0);

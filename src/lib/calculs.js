@@ -28,12 +28,12 @@ export function construireIndexDb(db) {
   // Supabase ne les isole pas physiquement, c'est à l'app de les exclure
   // ici, comme déjà fait pour le Tableau de bord (demande Timo, suite
   // audit après ajout de la boutique de formation).
-  const boutiquesFormation = new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
+  const boutiquesFormationSet = boutiquesFormation(db);
   for (const v of db.ventes || []) {
     for (const l of lignesVente(v)) {
       if (l.produit_id) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
     }
-    if (v.commercial && !boutiquesFormation.has(v.boutique)) {
+    if (v.commercial && !boutiquesFormationSet.has(v.boutique)) {
       const liste = ventesParCommercial.get(v.commercial) || [];
       liste.push(v);
       ventesParCommercial.set(v.commercial, liste);
@@ -48,10 +48,21 @@ export function construireIndexDb(db) {
 
 // Les ventes d'un commercial — via l'index quand il est là, sinon balayage
 // (les tests unitaires et tout code recevant un db « nu » restent corrects).
+// ⚠ Boutiques de formation (2.100.16-17) : source UNIQUE de vérité pour
+// "quelles ventes comptent vraiment" — à utiliser PARTOUT où on calcule un
+// total sur db.ventes (CA, commissions, dépenses liées...), plutôt que de
+// reconstruire ce filtre à chaque écran (c'est justement l'absence de ce
+// réflexe qui a laissé passer plusieurs trous : Dashboard "CA total" en
+// tête, Rentabilité, Commission personnelle, Mon Équipe).
+export const boutiquesFormation = (db) => new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
+export const ventesReelles = (db) => {
+  const f = boutiquesFormation(db);
+  return (db.ventes || []).filter((v) => !f.has(v.boutique));
+};
+
 export const ventesDuCommercial = (db, nom) => {
   if (db.__index) return db.__index.ventesParCommercial.get(nom) || [];
-  const boutiquesFormation = new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
-  return (db.ventes || []).filter((v) => v.commercial === nom && !boutiquesFormation.has(v.boutique));
+  return ventesReelles(db).filter((v) => v.commercial === nom);
 };
 
 export const stockVendu = (db, pid) =>

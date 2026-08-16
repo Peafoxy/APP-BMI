@@ -95,6 +95,11 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const { pageItems: devisPage, page, setPage, totalPages } = usePagination(devisFiltres, 50);
 
   const telechargerPDF = (d) => {
+    // ⚠ Bandeau formation (demande Timo) : le devis n'a pas de champ
+    // boutique direct avant vente — même repli que le contrat d'installation
+    // (impression.js) : la boutique de la personne qui l'a créé (d.par).
+    const initiateur = (db.users || []).find((u) => u.nom === d.par);
+    const estFormation = !!(db.boutiques || []).find((b) => b.nom === initiateur?.boutique)?.formation;
     genererDevis({
       numero: d.id.slice(0, 8).toUpperCase(),
       date: dFR(d.date),
@@ -106,6 +111,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       par: d.par,
       lignes: d.lignes || [],
       total: d.total,
+      formation: estFormation,
     }, LOGO);
   };
 
