@@ -6,18 +6,15 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
-import {
-  bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu,
-  demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle,
-} from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
 // ============ STOCKS ============
 export function Stocks({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   // Un employé rattaché à un site (vendeur, gérant, magasinier) est VERROUILLÉ dessus :
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
@@ -27,11 +24,16 @@ export function Stocks({ db, save, profile }) {
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
   // comme destination de transfert — corrigé suite au même bug que
   // BoutiqueTabs (Timo, capture Stocks).
-  const autres = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom).filter((n) => n !== bq);
+  // ⚠ Cloisonnement : destinations de TRANSFERT limitées à l'espace du
+  // compte. Sans ce filtre, un magasin réel pouvait transférer sa
+  // marchandise vers une boutique d'entraînement (et l'inverse) — le stock
+  // physique ne correspondait alors plus à ce qu'affiche le logiciel.
+  const autres = boutiquesVisibles(db, profile, db.boutiques.filter((b) => !b.terrain)).map((b) => b.nom).filter((n) => n !== bq);
 
   // ---- RAVITAILLEMENT : d'un magasin vers une boutique ----
   const estMagasin = estDepot(db, bq);
-  const cibles = boutiquesVente(db).map((b) => b.nom).filter((n) => n !== bq);
+  // Même filtre que ci-dessus pour les destinations de RAVITAILLEMENT.
+  const cibles = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom).filter((n) => n !== bq);
   const [rav, setRav] = useState({ dest: "", categorie: "", produit_id: "", qte: "" });
   const [bon, setBon] = useState([]); // lignes du bon en préparation
 
@@ -91,8 +93,8 @@ export function Stocks({ db, save, profile }) {
   };
 
   // ---- CÔTÉ MAGASIN : demandes reçues + alertes des boutiques ----
-  const demandesRecues = estMagasin ? demandesEnAttente(db) : [];
-  const alertesDesBoutiques = estMagasin ? alertesBoutiques(db, stockActuel) : [];
+  const demandesRecues = estMagasin ? demandesEnAttente(db, profile) : [];
+  const alertesDesBoutiques = estMagasin ? alertesBoutiques(db, stockActuel, profile) : [];
 
   // Charge une demande dans le bon de ravitaillement en préparation.
   // La correspondance des noms est SOUPLE (accents, pluriel, espaces, casse).
@@ -370,9 +372,13 @@ export function Stocks({ db, save, profile }) {
   const mouvements = (db.ajustements || []).filter((a) => a.boutique === bq).slice(0, 20);
   const nomProduit = (pid) => db.produits.find((p) => p.id === pid)?.nom || "?";
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!bq) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBqSel} avecDepots />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBqSel} avecDepots profile={profile} />}
       {profile.boutique && (
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600">
           <span>{estMagasin ? "🏭 Magasin" : "🏪 Boutique"} :</span> <Badge boutique={bq} />

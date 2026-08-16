@@ -291,3 +291,25 @@ export const Info = ({ label, valeur }) => (
     <div className="text-sm font-bold mt-0.5">{valeur || "—"}</div>
   </div>
 );
+
+// ⚠ Cloisonnement formation / réel : affiché à la place du formulaire quand
+// AUCUNE boutique de l'espace du compte n'est disponible. Auparavant, ces
+// écrans retombaient silencieusement sur db.boutiques[0] — la première
+// boutique de la base, donc une vraie — et écrivaient dedans sans que rien
+// ne le signale. Mieux vaut une page qui explique qu'un formulaire piégé.
+export const AucuneBoutique = ({ formation }) => (
+  <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-6 text-center">
+    <div className="text-3xl mb-2">{formation ? "🎓" : "🏪"}</div>
+    <div className="font-bold text-amber-900">
+      Aucune boutique {formation ? "de formation" : "réelle"} n'est disponible
+    </div>
+    <div className="text-sm text-amber-800 mt-2 max-w-md mx-auto">
+      Votre compte travaille dans l'espace <b>{formation ? "formation" : "réel"}</b>, et aucune boutique
+      de cet espace n'existe pour l'instant. Rien ne peut être enregistré ici tant que ce n'est pas le cas —
+      c'est volontaire : sans cette barrière, votre saisie partirait dans l'autre espace.
+    </div>
+    <div className="text-xs text-amber-700 mt-3">
+      Demandez à l'administrateur {formation ? "de créer une boutique de formation (⚙ Paramètres)" : "de vérifier le rattachement de votre compte"}.
+    </div>
+  </div>
+);

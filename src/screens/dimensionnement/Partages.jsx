@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
 import { fmt, telDigits, col } from "../../lib/core";
 import { Field, inputCls, uAlert } from "../../components/ui";
+import { marqueEspace } from "../../lib/calculs";
 
 // ============ OUTILS DE DIMENSIONNEMENT SOLAIRE ============
 // Extrait une caractéristique numérique du nom d'un article
@@ -190,7 +191,10 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
         dbApres: db,
       };
     }
-    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom);
+    // Le compte client hérite de l'espace de celui qui le crée (voir
+    // marqueEspace) : un « client » inventé pendant un entraînement ne doit
+    // pas se retrouver mêlé aux vrais dans les listes ni dans les relances.
+    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
     return {
       compte: fab.user, motDePasse: fab.motDePasse,
       dbApres: { ...db, users: [...db.users, fab.user], messages: [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
@@ -215,10 +219,18 @@ export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devi
     uAlert("Avant d'envoyer un devis, vous devez d'abord enregistrer votre signature — rendez-vous dans l'onglet « 📄 Contrats » pour le faire, une seule fois.");
     return false;
   }
+  // ⚠ Cloisonnement formation / réel : un devis est rangé dans la fiche du
+  // CLIENT (users[].devis), pas dans une boutique — rien ne le rattachait
+  // donc à un espace, et les devis d'entraînement apparaissaient dans
+  // « Tous les devis » et « Contrats » des comptes réels. On y appose
+  // l'espace de son auteur, à l'unique endroit par lequel passent les
+  // trois volets du dimensionnement. Les devis antérieurs n'ont pas le
+  // champ : ils sont traités comme réels, ce qui est le cas.
+  const devisMarque = { ...devis, ...marqueEspace(dbApres, profile) };
   const dbFinal = {
     ...dbApres,
     users: dbApres.users.map((u) => (u.id === compte.id
-      ? { ...u, devis: idAReprendre ? u.devis.map((x) => (x.id === idAReprendre ? { ...devis, id: idAReprendre } : x)) : [devis, ...(u.devis || [])] }
+      ? { ...u, devis: idAReprendre ? u.devis.map((x) => (x.id === idAReprendre ? { ...devisMarque, id: idAReprendre } : x)) : [devisMarque, ...(u.devis || [])] }
       : u)),
     // Le message de demande de modification / rejet n'a plus lieu d'être : le vendeur vient d'y répondre.
     messages: idAReprendre ? (dbApres.messages || []).filter((m) => m.devis_id !== idAReprendre) : dbApres.messages,

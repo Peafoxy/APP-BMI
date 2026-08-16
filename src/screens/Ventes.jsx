@@ -10,9 +10,9 @@ import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes } from "../lib/calculs";
+import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -35,11 +35,11 @@ function lignesVenteEnAutres(v) {
 }
 
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
   const boutique = profile.boutique || bq;
   const produits = db.produits.filter((p) => p.boutique === boutique);
-  const commerciaux = apporteursPossibles(db);
+  const commerciaux = apporteursPossibles(db, profile);
   const categories = [...new Set(produits.map((p) => p.categorie || "Autre"))].sort();
 
   const [cat, setCat] = useState("");
@@ -355,7 +355,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         uAlert("✅ Demande de ravitaillement envoyée au dépôt. Revenez encaisser cette vente une fois le stock arrivé (onglet 🚚 Ravitaillement).");
         return;
       } else if (choix === "Transfert (demander à une autre boutique)") {
-        const autresBoutiques = boutiquesVente(db).map((b) => b.nom).filter((n) => n !== boutique);
+        // ⚠ Cloisonnement : on ne peut demander un transfert qu'à une
+        // boutique de SON espace. Sans ce filtre, une boutique de formation
+        // adressait sa demande à une vraie boutique, qui en la validant
+        // sortait de la marchandise RÉELLE de son stock.
+        const autresBoutiques = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom).filter((n) => n !== boutique);
         if (!autresBoutiques.length) { uAlert("Aucune autre boutique disponible."); return; }
         // ⚠ Demande Timo : ne pas laisser le vendeur choisir à l'aveugle —
         // montrer directement combien chaque boutique a en stock pour
@@ -647,9 +651,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
         {produits.length === 0 ? (

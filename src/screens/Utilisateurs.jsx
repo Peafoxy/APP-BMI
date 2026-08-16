@@ -9,11 +9,11 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
   // PRINCIPAL — jamais aux autres administrateurs, même avec le pouvoir
   // « Utilisateurs ». Décision de Timo.
@@ -70,7 +70,7 @@ export function Users({ db, save, profile }) {
         `Remettez-lui ces identifiants.`
       )) return;
       const nomCli = f.nom, telCli = f.tel;
-      const { user } = await fabriquerCompteClient(db, f.nom, f.tel, profile.nom);
+      const { user } = await fabriquerCompteClient(db, f.nom, f.tel, profile.nom, marqueEspace(db, profile));
       save({ ...db, users: [...db.users, user], messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])] }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}`);
       setF(vide);
       setMsg(`✅ Client créé — identifiant : ${identifiant} · mot de passe : ${motDePasse}`);
@@ -83,13 +83,13 @@ export function Users({ db, save, profile }) {
 
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
-    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true };
+    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!f.formationCompte };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
     // qu'un point de départ : n'importe quel admin peut toujours redonner
     // ces pouvoirs précis à un autre admin via « 🔐 Pouvoirs » — sauf
     // évidemment les retirer au principal, protégé depuis la 2.98.86.
-    if (f.role === "admin") nouvelUser.droits_off = ["historique", "parametres"];
+    if (f.role === "admin") nouvelUser.droits_off = ["historique", "parametres", "act_voir_tout"];
     if (f.role === "commercial" || f.role === "technicien") {
       nouvelUser.taux_commission = Number(f.taux || 0);
       if (f.chef) nouvelUser.chef_equipe = true;
@@ -159,6 +159,95 @@ export function Users({ db, save, profile }) {
     }, `Changement de mot de passe : ${u.nom} (par l'administrateur principal)`);
   };
 
+  // ⚠⚠ LA BASCULE DOIT DÉPLACER LE COMPTE DE BOUTIQUE, PAS SEULEMENT
+  // POSER UN DRAPEAU. C'était le trou le plus grave du cloisonnement :
+  // un vendeur, un gérant ou un magasinier est RATTACHÉ à une boutique
+  // (`u.boutique`), et tous les écrans calculent leur boutique de travail
+  // par `profile.boutique || bq` — la boutique rattachée l'emporte, et le
+  // sélecteur filtré n'est même pas affiché pour ces comptes. Résultat :
+  // basculer un vendeur en formation ne changeait STRICTEMENT RIEN, il
+  // continuait de vendre et d'encaisser dans la vraie boutique.
+  //
+  // On déplace donc le compte vers une boutique du même TYPE (magasin ↔
+  // magasin, boutique de vente ↔ boutique de vente) dans l'espace visé, et
+  // on mémorise celle d'origine (`boutique_avant_espace`) pour la lui
+  // rendre au retour. Si l'espace visé n'a aucune boutique convenable, on
+  // REFUSE la bascule : mieux vaut ne rien changer que laisser un compte
+  // « de formation » travailler dans une vraie boutique.
+  const boutiqueCibleEspace = (u, versFormation) => {
+    if (!u.boutique) return { ok: true, boutique: null };              // compte multi-boutique : rien à déplacer
+    const ancienne = db.boutiques.find((b) => b.nom === u.boutique);
+    // On rend d'abord sa boutique d'origine si elle correspond à l'espace visé.
+    const memoire = db.boutiques.find((b) => b.nom === u.boutique_avant_espace && !!b.formation === versFormation);
+    if (memoire) return { ok: true, boutique: memoire.nom };
+    const cible = db.boutiques.find((b) =>
+      !!b.formation === versFormation && !b.terrain && !!b.depot === !!ancienne?.depot);
+    if (!cible) return { ok: false, typeManquant: ancienne?.depot ? "magasin" : "boutique de vente" };
+    return { ok: true, boutique: cible.nom };
+  };
+
+  const appliquerEspace = (u, versFormation, cible) => ({
+    ...u,
+    formation: versFormation,
+    ...(u.boutique ? { boutique: cible, boutique_avant_espace: u.boutique } : {}),
+  });
+
+  const basculerFormation = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    const versFormation = !u.formation;
+    const cible = boutiqueCibleEspace(u, versFormation);
+    if (!cible.ok) {
+      uAlert(`Impossible de passer ${u.nom} en ${versFormation ? "FORMATION" : "RÉEL"}.\n\n` +
+        `Ce compte est rattaché à « ${u.boutique} », et l'espace ${versFormation ? "formation" : "réel"} ne contient aucun(e) ${cible.typeManquant}.\n\n` +
+        `Créez-la d'abord dans ⚙ Paramètres, sinon ce compte continuerait de travailler dans « ${u.boutique} » malgré la bascule.`);
+      return;
+    }
+    const changeDeBoutique = u.boutique && cible.boutique !== u.boutique;
+    if (!(await uConfirm(
+      (versFormation
+        ? `Passer le compte de ${u.nom} en FORMATION ?\n\nIl ne verra plus que les boutiques de formation, jamais les vraies.`
+        : `Passer le compte de ${u.nom} en RÉEL ?\n\nIl ne verra plus que les vraies boutiques, jamais celles de formation.`) +
+      (changeDeBoutique ? `\n\n🔁 Son rattachement passe de « ${u.boutique} » à « ${cible.boutique} ».` : "")
+    ))) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? appliquerEspace(x, versFormation, cible.boutique) : x)) },
+      `Compte ${u.nom} passé en ${versFormation ? "formation" : "réel"}${changeDeBoutique ? ` et rattaché à ${cible.boutique}` : ""} par l'administrateur principal`);
+  };
+
+  // ⚠ Action UNIQUE demandée par Timo : marquer TOUS les comptes actuels
+  // (sauf l'admin principal, jamais concerné) comme formation d'un coup —
+  // il les repassera lui-même en réel un par un ensuite, via le bouton
+  // ci-dessus. Ne touche jamais un compte DÉJÀ formation (idempotent).
+  // Les comptes qu'on ne peut pas déplacer (aucune boutique de formation du
+  // bon type) sont LAISSÉS EN RÉEL et signalés nommément : les basculer
+  // quand même reviendrait à leur donner l'étiquette « formation » tout en
+  // les laissant travailler dans la vraie boutique — exactement le piège
+  // que ce correctif supprime.
+  const basculerFormationEnMasse = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    const concernes = db.users.filter((u) => u.role !== "client" && !estAdminPrincipal(db, u) && !u.formation);
+    if (concernes.length === 0) { uAlert("Aucun compte à basculer — tous sont déjà en formation (hors admin principal)."); return; }
+    const cibles = new Map();
+    const bloques = [];
+    for (const u of concernes) {
+      const c = boutiqueCibleEspace(u, true);
+      if (c.ok) cibles.set(u.id, c.boutique); else bloques.push(`${u.nom} (${u.boutique})`);
+    }
+    if (cibles.size === 0) {
+      uAlert("Aucun compte ne peut être basculé : l'espace formation ne contient aucune boutique du type requis.\n\nCréez d'abord au moins une boutique de formation dans ⚙ Paramètres.");
+      return;
+    }
+    if (!(await uConfirm(
+      `Passer ${cibles.size} compte(s) en FORMATION d'un coup (sauf vous, admin principal) ?\n\n` +
+      `Les comptes rattachés à une boutique sont AUSSI déplacés vers une boutique de formation — sans cela, ils continueraient de travailler dans la vraie.\n\n` +
+      (bloques.length ? `⚠ ${bloques.length} compte(s) resteront en RÉEL faute de boutique de formation équivalente :\n${bloques.join("\n")}\n\n` : "") +
+      `Vous les repasserez ensuite en réel un par un, individuellement.`
+    ))) return;
+    save({ ...db, users: db.users.map((x) => (cibles.has(x.id) ? appliquerEspace(x, true, cibles.get(x.id)) : x)) },
+      `${cibles.size} compte(s) basculés en formation d'un coup par l'administrateur principal${bloques.length ? ` — ${bloques.length} laissé(s) en réel faute de boutique de formation équivalente` : ""}`);
+  };
+
   const voirPwd = (u) => {
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut consulter un mot de passe."); return; }
     const mdp = u.pwd_visible || motDePasseConnu(u);
@@ -189,8 +278,13 @@ export function Users({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     // ⚠ TERRAIN (boutique virtuelle) n'est jamais un rattachement valide
     // pour un employé — même bug que Stocks/Caisse/Dashboard.
-    const noms = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom);
-    const nom = await uChoix(`Boutique assignée à ${u.nom} ?`, noms);
+    // ⚠ Cloisonnement : on ne propose que les boutiques de l'espace du
+    // compte concerné. Rattacher un compte de formation à une vraie
+    // boutique par ce chemin annulerait la bascule (voir basculerFormation).
+    const espaceDeU = !!u.formation;
+    const noms = db.boutiques.filter((b) => !b.terrain && !!b.formation === espaceDeU).map((b) => b.nom);
+    if (!noms.length) { uAlert(`Aucune boutique ${espaceDeU ? "de formation" : "réelle"} n'existe — créez-en une dans ⚙ Paramètres avant de rattacher ce compte.`); return; }
+    const nom = await uChoix(`Boutique assignée à ${u.nom} (espace ${espaceDeU ? "formation" : "réel"}) ?`, noms);
     if (!nom) return;
     if (!noms.includes(nom)) { uAlert("Boutique inconnue."); return; }
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, boutique: nom } : x)) });
@@ -204,7 +298,7 @@ export function Users({ db, save, profile }) {
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, chef_equipe: !x.chef_equipe } : x)) }, `${u.chef_equipe ? "Retrait" : "Nomination"} chef d'équipe : ${u.nom}`);
   };
 
-  const choisirBoutiqueDebit = (u, titre) => choisirBoutiqueDebitG(db, u, titre);
+  const choisirBoutiqueDebit = (u, titre) => choisirBoutiqueDebitG(db, u, titre, profile);
 
   // ---- POUVOIRS : l'admin active/désactive chaque droit d'un compte ----
   const [pouvoirsPour, setPouvoirsPour] = useState(null);
@@ -530,7 +624,7 @@ export function Users({ db, save, profile }) {
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
           <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
-          {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}
+          {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.filter((b) => !!b.formation === !!f.formationCompte).map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}
           {(f.role === "commercial" || f.role === "technicien") && <Field label="Taux de commission (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.taux} onChange={(e) => setF({ ...f, taux: e.target.value })} /></Field>}
           {(f.role === "resp_commercial" || f.role === "technicien_bmi") && <Field label="Taux de commission (%) — facultatif"><input type="number" min="0" max="100" step="0.5" placeholder="0 = aucune commission" className={inputCls} value={f.taux_resp || ""} onChange={(e) => setF({ ...f, taux_resp: e.target.value })} /></Field>}
           {SALARIES.includes(f.role) && <Field label="Taux d'avancement annuel (%)"><input type="number" min="0" max="100" step="0.5" placeholder="Ex : 5" className={inputCls} value={f.taux_avancement || ""} onChange={(e) => setF({ ...f, taux_avancement: e.target.value })} /></Field>}
@@ -540,11 +634,43 @@ export function Users({ db, save, profile }) {
               Chef d'équipe (responsable commercial)
             </label>
           )}
+          {f.role && f.role !== "client" && (
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mt-2">
+              <input type="checkbox" checked={!!f.formationCompte} onChange={(e) => setF({ ...f, formationCompte: e.target.checked })} />
+              🎓 Compte de formation — ne verra que les boutiques de formation, jamais les vraies
+            </label>
+          )}
         </div>
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <button onClick={creer} className={btnDark}>Créer</button>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
         </div>
+        {/* ⚠ Comptes hérités de la 2.100.24 : leur bascule avait posé le
+            drapeau sans déplacer le rattachement, elle n'a donc jamais rien
+            produit. Ils travaillent normalement (la boutique fait foi), mais
+            il faut refaire la bascule pour qu'elle prenne effet. */}
+        {jeSuisAdminPrincipal && comptesEspaceIncoherent(db).length > 0 && (
+          <div className="mt-3 rounded-lg border-2 border-amber-400 bg-amber-50 p-3">
+            <div className="font-bold text-sm text-amber-900">
+              ⚠ {comptesEspaceIncoherent(db).length} compte(s) marqué(s) « formation » travaillent en réalité dans une vraie boutique
+            </div>
+            <div className="text-xs text-amber-800 mt-1">
+              Leur bascule date d'une version où elle ne déplaçait pas le rattachement : elle n'a donc jamais rien changé.
+              Ils continuent de travailler normalement — c'est leur <b>boutique</b> qui fait foi, pas l'étiquette.
+              Pour les mettre réellement en formation, refaites la bascule ci-dessous : elle déplacera cette fois leur rattachement.
+            </div>
+            <div className="text-xs text-amber-900 mt-2">
+              {comptesEspaceIncoherent(db).map((u) => `${u.nom} (${u.boutique})`).join(" · ")}
+            </div>
+          </div>
+        )}
+        {jeSuisAdminPrincipal && (
+          <div className="mt-3 pt-3 border-t border-amber-200">
+            <button onClick={basculerFormationEnMasse} className="text-xs font-bold text-amber-700 underline">
+              🎓 Passer tous les comptes actuels en formation d'un coup (sauf vous)
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -650,6 +776,11 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerIdentite(u)} className="text-xs font-bold text-sky-800 underline mr-2">🪪 Identité</button>
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
+                  {jeSuisAdminPrincipal && u.role !== "client" && (
+                    <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
+                      {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
+                    </button>
+                  )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className="text-xs font-bold text-sky-800 underline mr-2">Boutique</button>}
                   {SALARIES.includes(u.role) && <button onClick={() => changerSalaire(u)} className="text-xs font-bold text-sky-800 underline mr-2">Salaire</button>}
                   {SALARIES.includes(u.role) && <button onClick={() => changerTauxAvancement(u)} className="text-xs font-bold text-sky-800 underline mr-2">Taux %</button>}

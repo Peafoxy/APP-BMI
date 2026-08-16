@@ -5,13 +5,13 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm } from "../components/ui";
-import { bloquerSiLecture, boutiquesVente } from "../lib/calculs";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
+import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const [compte, setCompte] = useState("");
@@ -51,9 +51,13 @@ export function Caisse({ db, save, profile }) {
 
   const liste = db.clotures.filter((c) => c.boutique === boutique);
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} avecTerrain />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} avecTerrain profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse du jour <Badge boutique={boutique} /></div>
         {dejaCloturee ? (

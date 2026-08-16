@@ -2,10 +2,10 @@
 // components/SelecteurBoutique.jsx — Sélecteur de boutique par
 // onglets colorés (une pastille par boutique, dépôts optionnels).
 // ============================================================
-import { boutiquesVente } from "../lib/calculs";
+import { boutiquesVente, boutiquesVisibles } from "../lib/calculs";
 
 // ============ SÉLECTEUR BOUTIQUE ============
-export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false }) {
+export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false, profile }) {
   // ⚠ Bug trouvé par Timo (capture Stocks) : avecDepots utilisait db.boutiques
   // SANS filtrer TERRAIN — la boutique virtuelle apparaissait donc dans
   // Stocks (et partout ailleurs utilisant avecDepots), alors qu'elle ne
@@ -13,7 +13,14 @@ export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerr
   // avecTerrain est explicitement demandé (Caisse), jamais via avecDepots.
   const base = avecDepots ? (db.boutiques || []).filter((b) => !b.terrain) : boutiquesVente(db);
   const terrain = avecTerrain && !avecDepots ? (db.boutiques || []).filter((b) => b.terrain) : [];
-  const liste = [...base, ...terrain];
+  // ⚠ Séparation formation/réel PAR COMPTE (demande Timo) : appliquée ici,
+  // au même endroit central que le tri dépôts/terrain.
+  // `profile` est OBLIGATOIRE : il était optionnel, avec un repli « tout
+  // visible » — et trois écrans de dimensionnement ne le passaient pas,
+  // affichant donc les vraies boutiques à un compte de formation. Un repli
+  // silencieux dans un mécanisme de cloisonnement est une brèche par
+  // construction : mieux vaut ne rien afficher et que le manque se voie.
+  const liste = boutiquesVisibles(db, profile, [...base, ...terrain]);
   return (
     <div className="flex gap-2 mb-4 flex-wrap">
       {liste.map((b) => (

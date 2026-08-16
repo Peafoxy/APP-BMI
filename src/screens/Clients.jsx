@@ -6,8 +6,8 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination } from "../components/ui";
-import { boutiquesVente, dettesClassiques, bloquerSiLecture } from "../lib/calculs";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
@@ -39,7 +39,7 @@ export function CreerClient({ db, save, profile }) {
       `Créer le compte de ${nom.toUpperCase()} ?\n\n👤 Identifiant : ${identifiant}\n🔑 Mot de passe : ${motDePasse}\n\nSes identifiants lui seront envoyés par WhatsApp.`
     )) return;
 
-    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom);
+    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
     // On note QUI a amené ce client — pour la traçabilité, PAS pour une commission.
     const client = { ...user, amene_par_id: profile.id, amene_par_nom: profile.nom };
 
@@ -52,6 +52,7 @@ export function CreerClient({ db, save, profile }) {
       statut: "Favorable", interet: "Intéressé",
       note: `Amené par ${profile.nom}`,
       client_user_id: user.id,
+      ...marqueEspace(db, profile),
     }, ...(db.prospects || [])] : (db.prospects || []);
 
     save({
@@ -133,7 +134,7 @@ export function CreerClient({ db, save, profile }) {
 }
 
 export function Clients({ db, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const [q, setQ] = useState("");
@@ -166,9 +167,13 @@ export function Clients({ db, profile }) {
     window.open(`https://wa.me/${num}`, "_blank");
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">Clients — {boutique} <span className="text-sm font-normal text-slate-500">({clients.length})</span></span>

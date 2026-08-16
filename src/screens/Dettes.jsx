@@ -6,14 +6,14 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "" });
@@ -183,9 +183,13 @@ export function Dettes({ db, save, profile }) {
     return jours > 30 && d.montant - d.paye > 0;
   });
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
         <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</div>

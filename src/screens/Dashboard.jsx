@@ -10,6 +10,7 @@ import { exportCSV } from "../lib/export";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
   dettesClassiques, estReservation, periodes, reservations, ventesReelles, boutiquesFormation,
+  depensesReelles, dettesReelles, produitsReels, chantiersReels,
 } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============
@@ -25,6 +26,10 @@ export function Dashboard({ db }) {
   // passer par NOMS — trou réel trouvé, une vente de formation aurait
   // gonflé ces chiffres. Variable UNIQUE réutilisée pour tous ces totaux.
   const ventesReellesDb = ventesReelles(db);
+  const depensesReellesDb = depensesReelles(db);
+  const dettesReellesDb = dettesReelles(db);
+  const produitsReelsDb = produitsReels(db);
+  const chantiersReelsDb = chantiersReels(db);
   const boutiquesFormationSet = boutiquesFormation(db);
   // ⚠ Même exclusion pour les DETTES/réservations (pas seulement les
   // ventes) : filtrée ICI, dans les totaux globaux du Tableau de bord
@@ -80,7 +85,11 @@ export function Dashboard({ db }) {
   const resCustom = somme(customRow.v) - somme(customRow.d);
 
   const totalVentes = ventesReellesDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
-  const totalDepenses = db.depenses.reduce((s, d) => s + Number(d.montant), 0);
+  // ⚠ Oubli de l'exclusion 2.100.16 : ce total parcourait db.depenses BRUT
+  // alors que le CA juste au-dessus, lui, excluait déjà la formation — le
+  // « résultat » affiché retranchait donc des dépenses d'entraînement d'un
+  // chiffre d'affaires dont l'entraînement avait été retiré.
+  const totalDepenses = depensesReellesDb.reduce((s, d) => s + Number(d.montant), 0);
   const totalDettes = dettesReellesDashboard.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0);
   // Frais d'installation et transport réellement encaissés — jamais comptés
   // dans le chiffre d'affaires (ci-dessus), mais bien réels : cette carte est
@@ -113,7 +122,9 @@ export function Dashboard({ db }) {
     }, 0);
   const commissionsApporteurs = (payee) => ventesReellesDb.filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
     .reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
-  const commissionsInstallation = (payee) => (db.clients_installes || []).flatMap((c) => c.equipe || [])
+  // ⚠ Même oubli que totalDepenses : les primes d'installation d'un
+  // chantier d'entraînement gonflaient les commissions dues et payées.
+  const commissionsInstallation = (payee) => chantiersReelsDb.flatMap((c) => c.equipe || [])
     .filter((e) => Boolean(e.paye) === payee).reduce((s, e) => s + Number(e.montant || 0), 0);
   const totalCommissionsDues = commissionsBase(false) + commissionsEquipe(false) + commissionsApporteurs(false) + commissionsInstallation(false);
   const totalCommissionsPayees = commissionsBase(true) + commissionsEquipe(true) + commissionsApporteurs(true) + commissionsInstallation(true);
@@ -307,15 +318,20 @@ export function Dashboard({ db }) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="font-bold text-slate-800 mb-2">Exporter les données (Excel / CSV)</div>
+        {/* ⚠ Cloisonnement : ces exports partaient de la base BRUTE — un
+            fichier remis au comptable ou à la direction contenait donc les
+            ventes, dépenses, dettes et stocks d'entraînement, sans aucun
+            moyen de les distinguer. Ils partent désormais des mêmes listes
+            filtrées que les indicateurs affichés au-dessus. */}
         <div className="flex gap-2 flex-wrap">
           <button className={btnDark} onClick={() => exportCSV("ventes", ["Date", "N° reçu", "Boutique", "Articles", "Client", "Téléphone", "Qté totale", "Remise (%)", "Remise (F)", "Total", "Paiement", "Commercial", "Saisi par"],
-            db.ventes.map((v) => [dFR(v.date), numeroRecu(v), v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>
+            ventesReellesDb.map((v) => [dFR(v.date), numeroRecu(v), v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>
           <button className={btnDark} onClick={() => exportCSV("depenses", ["Date", "Boutique", "Catégorie", "Description", "Montant", "Paiement", "Saisi par"],
-            db.depenses.map((x) => [dFR(x.date), x.boutique, x.categorie, x.description, x.montant, x.paiement, x.par]))}>Dépenses</button>
+            depensesReellesDb.map((x) => [dFR(x.date), x.boutique, x.categorie, x.description, x.montant, x.paiement, x.par]))}>Dépenses</button>
           <button className={btnDark} onClick={() => exportCSV("dettes", ["Date", "Nature", "Boutique", "Client", "Téléphone", "Motif", "Montant", "Payé", "Reste", "Saisi par"],
-            db.dettes.map((d) => [dFR(d.date), estReservation(d) ? "Réservation prépayée" : "Dette", d.boutique, d.client, d.tel, d.motif, d.montant, d.paye, Math.max(0, d.montant - d.paye), d.par]))}>Dettes</button>
+            dettesReellesDb.map((d) => [dFR(d.date), estReservation(d) ? "Réservation prépayée" : "Dette", d.boutique, d.client, d.tel, d.motif, d.montant, d.paye, Math.max(0, d.montant - d.paye), d.par]))}>Dettes</button>
           <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
-            db.produits.map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>
+            produitsReelsDb.map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>
           <button className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800"
             onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
         </div>

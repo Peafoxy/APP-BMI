@@ -7,7 +7,7 @@
 import { useState, useRef } from "react";
 import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert } from "../components/ui";
-import { contratsInstallation, pvDuContrat, bloquerSiLecture, resteAPayer } from "../lib/calculs";
+import { contratsInstallation, pvDuContrat, bloquerSiLecture, resteAPayer, espaceDuCompte } from "../lib/calculs";
 import { imprimerContratInstallation, imprimerPV } from "../lib/impression";
 
 export function ContratsInstallation({ db, save, profile }) {
@@ -24,9 +24,16 @@ export function ContratsInstallation({ db, save, profile }) {
   // trompeur, mieux vaut le montrer et expliquer pourquoi il n'est pas
   // encore téléchargeable). Seul le clic sur "Voir" est maintenant
   // conditionné par le paiement, via voirContrat() ci-dessous.
+  // ⚠ Cloisonnement : un contrat signé depuis un compte de formation ne
+  // doit jamais apparaître dans la liste d'un compte réel, ni l'inverse —
+  // le devis porte son espace (`formation`) depuis sa création. Un CLIENT
+  // voit ses contrats quel que soit l'espace : ce sont les siens, et c'est
+  // le seul moyen pour lui de constater qu'un document est un
+  // entraînement (le bandeau est déjà sur le PDF).
+  const espace = espaceDuCompte(db, profile);
   const contrats = isClient
     ? contratsInstallation(db, { clientId: profile.id })
-    : contratsInstallation(db, { commercial: isSupervision ? undefined : profile.nom });
+    : contratsInstallation(db, { commercial: isSupervision ? undefined : profile.nom, espace });
 
   // ---- SIGNATURE PERSONNELLE — enregistrée UNE FOIS, réutilisée
   // automatiquement sur tous les contrats futurs de la personne (demande

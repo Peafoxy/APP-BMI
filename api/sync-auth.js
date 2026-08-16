@@ -144,11 +144,33 @@ export default async function handler(req, res) {
       if (page > 20) break; // garde-fou, même limite qu'etat-auth
     }
 
+    // ⚠ CLOISONNEMENT FORMATION / RÉEL — la revendication d'espace.
+    // C'est le SEUL endroit du système qui a le droit de la poser :
+    // `app_metadata` fait partie du jeton de session, mais n'est
+    // modifiable qu'avec la clé service_role — un appareil ne peut donc
+    // pas se l'attribuer lui-même, contrairement à `user_metadata`.
+    // Les politiques RLS (voir supabase/espace-3-politiques.sql) la
+    // comparent à la colonne `espace` de chaque ligne.
+    //
+    // Elle est réécrite à CHAQUE connexion, juste avant que la session ne
+    // soit créée : basculer un compte en formation prend donc effet dès sa
+    // prochaine connexion, sans aucune manipulation.
+    //
+    // Tant que l'étape 3 n'est pas déployée, cette valeur ne restreint
+    // rien du tout — elle est simplement présente dans le jeton.
+    const espace = champs.formation ? "formation" : "reel";
+
     if (existant) {
-      const { error } = await admin.auth.admin.updateUserById(existant.id, { password: String(motDePasse) });
+      const { error } = await admin.auth.admin.updateUserById(existant.id, {
+        password: String(motDePasse),
+        app_metadata: { ...(existant.app_metadata || {}), espace },
+      });
       if (error) { console.error("sync-auth updateUserById:", JSON.stringify(error)); throw error; }
     } else {
-      const { error } = await admin.auth.admin.createUser({ email, password: String(motDePasse), email_confirm: true });
+      const { error } = await admin.auth.admin.createUser({
+        email, password: String(motDePasse), email_confirm: true,
+        app_metadata: { espace },
+      });
       if (error) { console.error("sync-auth createUser:", JSON.stringify(error)); throw error; }
     }
     return res.status(200).json({ ok: true });

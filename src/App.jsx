@@ -96,6 +96,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, construireIndexDb,
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -177,7 +178,12 @@ export default function App() {
     if (!db || !profile || syncInitiale) return;
     if (!peutEcrire(dbRef.current, profile)) return;
     const seuil = Date.now() - 7 * 86400000;
-    const eligibles = (db.clients_installes || []).filter((x) =>
+    // ⚠ Cloisonnement : ce rattrapage tourne sous le compte connecté et
+    // écrit tout d'un seul save(). S'il mélangeait des chantiers réels et
+    // des chantiers de formation, le verrou d'espace refuserait le save
+    // ENTIER — et la réception automatique ne passerait plus jamais. On ne
+    // traite donc que les chantiers de l'espace du compte connecté.
+    const eligibles = chantiersDeMonEspace(db, profile).filter((x) =>
       x.statut === "termine" && x.date_fin && new Date(x.date_fin).getTime() <= seuil);
     if (!eligibles.length) return;
     let next = { ...db };
@@ -422,6 +428,24 @@ export default function App() {
       return;
     }
     const prev = dbRef.current;
+    // ---- VERROU DE CLOISONNEMENT FORMATION / RÉEL, À LA SOURCE ----
+    // Deuxième verrou du même genre que celui juste au-dessus, et pour la
+    // même raison : TOUTE écriture de l'application passe par ici, donc un
+    // écran qui aurait oublié de filtrer ses boutiques (ou un circuit
+    // indirect : demande de transfert, bon de ravitaillement, paiement de
+    // prime) ne peut pas pour autant écrire dans l'autre espace. Le save
+    // est refusé EN ENTIER — jamais à moitié : un paiement écrit toujours
+    // sa dépense ET la fiche liée dans le même appel, les deux tombent
+    // donc ensemble. `options.horsCloisonnement` est réservé aux actions
+    // de l'admin principal qui doivent traverser volontairement les deux
+    // espaces (réinitialisation de la formation).
+    if (profile && !options.horsCloisonnement) {
+      const infraction = verifierEcritureEspace(prev, next, profile);
+      if (infraction) {
+        uAlert(messageEcritureRefusee(infraction, estCompteFormation(prev, profile)));
+        return;
+      }
+    }
     const final = action
       ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", action }, ...(next.audits || [])] }
       : next;
@@ -564,7 +588,7 @@ export default function App() {
   const labelRavitaillement = `🚚 Ravitaillement${nbReponsesRav ? ` (${nbReponsesRav})` : ""}`;
   const nbTransfertRecu = compterDemandesTransfertRecues(db, profile);
   const labelTransfert = `🔁 Transfert${nbTransfertRecu ? ` (${nbTransfertRecu})` : ""}`;
-  const nbTransfertToutes = compterDemandesTransfertToutes(db);
+  const nbTransfertToutes = compterDemandesTransfertToutes(db, profile);
   const labelStocksAdmin = `📦 Stocks${nbTransfertToutes ? ` (${nbTransfertToutes})` : ""}`;
   const nbTaches = compterTaches(db, profile);
   const labelTaches = `✅ Mes tâches${nbTaches ? ` (${nbTaches})` : ""}`;
@@ -1029,9 +1053,14 @@ function compterNonLus(db, profile) {
 // tout ; les autres élaborateurs ne comptent que les leurs).
 function compterNouveauxDevis(db, profile) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
+  // Même visibilité que l'écran, cloisonnement compris : sans cela, la
+  // pastille rouge comptait les devis de l'autre espace — et pointait vers
+  // une liste où ils n'apparaissent pas.
+  const espace = espaceDuCompte(db, profile);
   return db.users
     .filter((u) => u.role === "client")
     .flatMap((u) => u.devis || [])
+    .filter((d) => espace === undefined || !!d.formation === espace)
     .filter((d) => voitTout || d.par_id === profile.id)
     .filter((d) => !(d.vu_par || []).includes(profile.id))
     .length;

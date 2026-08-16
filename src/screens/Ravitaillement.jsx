@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
 import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel } from "../lib/calculs";
+import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles } from "../lib/calculs";
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
 // Utilisé à deux endroits : dans l'onglet 📦 Stocks (gérant, admin) et comme
@@ -17,6 +17,7 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
   const mesDemandes = demandesDe(maBoutique || {});
   const [dem, setDem] = useState({ nom: "", categorie: "", qte: "", note: "" });
   const [panierDem, setPanierDem] = useState([]);
+  const magasinsVisibles = new Set(boutiquesVisibles(db, profile, magasinsDe(db)).map((b) => b.nom));
 
   // À l'ouverture de l'onglet dédié, les réponses du magasin sont marquées comme vues
   useEffect(() => {
@@ -41,7 +42,9 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
     if (bloquerSiLecture(db, profile)) return;
     if (!bq) { uAlert("Votre compte n'est rattaché à aucune boutique. Voyez avec l'administrateur."); return; }
     if (!panierDem.length) { uAlert("Ajoutez au moins un article à la demande."); return; }
-    if (!magasinsDe(db).length) { uAlert("Aucun magasin n'est déclaré. Demandez à l'administrateur d'en créer un (⚙ Paramètres)."); return; }
+    // ⚠ Cloisonnement : un magasin de l'AUTRE espace ne peut pas servir
+    // cette boutique — inutile (et trompeur) de laisser partir la demande.
+    if (!boutiquesVisibles(db, profile, magasinsDe(db)).length) { uAlert("Aucun magasin de votre espace de travail n'est déclaré. Demandez à l'administrateur d'en créer un (⚙ Paramètres)."); return; }
     if (!await uConfirm(`Envoyer la demande de ravitaillement ?\n\n${panierDem.length} article(s) — elle sera visible par le magasinier.`)) return;
     const demande = { id: uid(), date: today(), par: profile.nom, lignes: panierDem, note: dem.note.trim(), statut: "en_attente" };
     save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === bq ? { ...b, demandes: [...demandesDe(b), demande] } : b)) },
@@ -70,7 +73,10 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
             setDem({ ...dem, nom: e.target.value, categorie: p ? (p.categorie || "") : dem.categorie });
           }}>
             <option value="">— Choisir dans le catalogue du magasin —</option>
-            {[...new Map(db.produits.filter((p) => estDepot(db, p.boutique)).map((p) => [p.nom, p])).values()]
+            {/* ⚠ Cloisonnement : le catalogue proposé est celui des magasins
+                de SON espace — une boutique de formation commandait sinon
+                dans le catalogue du vrai dépôt. */}
+            {[...new Map(db.produits.filter((p) => estDepot(db, p.boutique) && magasinsVisibles.has(p.boutique)).map((p) => [p.nom, p])).values()]
               .sort((a, b) => a.nom.localeCompare(b.nom))
               .map((p) => <option key={p.id} value={p.nom}>{p.nom}{p.categorie ? ` — ${p.categorie}` : ""}</option>)}
           </select>

@@ -5,8 +5,8 @@
 import { useState, useEffect } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
-import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
+import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
@@ -36,7 +36,7 @@ function correspondancesBesoin(nomBesoin, produits) {
 // les besoins du client au fil de l'eau, et l'article correspondant se propose
 // automatiquement depuis le stock de cette catégorie — saisie manuelle sinon.
 export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
@@ -189,7 +189,13 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");
   const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
-  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false);
+  // ⚠ Cloisonnement : on ne propose que les clients de SON espace.
+  // Sans ce filtre, un compte de formation adressait ses devis d'essai a
+  // de VRAIS clients — qui les recevaient par WhatsApp, dans leur vrai
+  // espace client, et ne pouvaient plus receptionner le chantier ensuite.
+  const espaceDevis = espaceDuCompte(db, profile);
+  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
+    && (espaceDevis === undefined || !!u.formation === espaceDevis));
 
   const envoyerDevisWhatsApp = async () => {
     if (bloquerSiLecture(db, profile)) return;
@@ -261,9 +267,13 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">📦 Catégorie de produit <Badge boutique={boutique} /></div>

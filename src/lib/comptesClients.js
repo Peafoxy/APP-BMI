@@ -191,7 +191,13 @@ export function envoyerRelanceProspectWhatsApp(nomAffiche, tel) {
   window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
 }
 
-export async function fabriquerCompteClient(db, nom, tel, parQui) {
+// ⚠ `marque` porte le cloisonnement formation / réel : { formation: true }
+// quand celui qui crée le compte travaille dans l'espace d'entraînement,
+// {} sinon (voir marqueEspace dans lib/calculs.js). Sans lui, un « client »
+// inventé pendant une formation devenait un vrai compte, indiscernable des
+// autres dans les listes, les relances et la messagerie — et il survivait
+// même à la réinitialisation de la formation.
+export async function fabriquerCompteClient(db, nom, tel, parQui, marque = {}) {
   const identifiant = identifiantClient(db, nom, tel);
   const { motDePasse, variante, longueur } = await resoudreMotDePasseClient(db, nom, tel);
   const user = {
@@ -207,6 +213,7 @@ export async function fabriquerCompteClient(db, nom, tel, parQui) {
     mdp_variante: variante,    // non secret : juste ce qu'il faut pour RECALCULER
     mdp_longueur: longueur,    // le même mot de passe plus tard (voir motDePasseConnu)
     cree_par: parQui,
+    ...marque,
   };
   return { user, motDePasse };
 }

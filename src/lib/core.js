@@ -38,8 +38,18 @@ export function lignesJournal(db, a, b) {
   const pousser = (date, journal, piece, compte, intitule, libelle, debit, credit, boutique) =>
     lignes.push([String(date).slice(0, 10), journal, piece, compte, intitule, libelle, debit || "", credit || "", boutique || ""]);
 
+  // ⚠ Cloisonnement formation / réel : ce journal est le document remis au
+  // COMPTABLE. Il parcourait db.ventes / db.depenses / db.dettes en brut —
+  // les écritures d'entraînement s'y retrouvaient donc en partie double,
+  // indiscernables des vraies. Le filtre est posé ici, une seule fois,
+  // plutôt que chez chaque appelant. (La liste des boutiques de formation
+  // est reconstruite localement : lib/core.js ne dépend de rien, et ne doit
+  // pas importer lib/calculs.js — qui, lui, importe déjà core.)
+  const formation = new Set((db.boutiques || []).filter((x) => x.formation).map((x) => x.nom));
+  const reel = (x) => !formation.has(x.boutique);
+
   // Ventes : débit trésorerie (ou clients si crédit) / crédit 701
-  db.ventes.filter((v) => inP(v.date, a, b)).forEach((v) => {
+  db.ventes.filter((v) => reel(v) && inP(v.date, a, b)).forEach((v) => {
     const net = totalVente(v);
     const [ct, it] = COMPTE_TRESORERIE(v.paiement || "");
     const piece = numeroRecu(v);
@@ -49,7 +59,7 @@ export function lignesJournal(db, a, b) {
   });
 
   // Dépenses : débit compte de charge / crédit trésorerie
-  db.depenses.filter((x) => inP(x.date, a, b)).forEach((x) => {
+  db.depenses.filter((x) => reel(x) && inP(x.date, a, b)).forEach((x) => {
     const [cc, ic] = COMPTE_CHARGE[x.categorie] || COMPTE_CHARGE["Autre"];
     const [ct, it] = COMPTE_TRESORERIE(x.paiement || "");
     const piece = "DEP-" + String(x.id).slice(0, 6).toUpperCase();
@@ -66,7 +76,7 @@ export function lignesJournal(db, a, b) {
   });
 
   // Règlements de dettes clients : débit caisse / crédit clients
-  db.dettes.forEach((d) => (d.paiements || []).filter((p) => inP(p.date, a, b)).forEach((p) => {
+  db.dettes.filter(reel).forEach((d) => (d.paiements || []).filter((p) => inP(p.date, a, b)).forEach((p) => {
     const piece = "REG-" + String(p.id).slice(0, 6).toUpperCase();
     // Une RÉSERVATION prépayée n'est pas une créance client : c'est une AVANCE reçue (4191).
     const prepaye = d.type === "prepaye";
@@ -183,6 +193,18 @@ export async function verifierMotDePasse(u, saisie) {
 
 export const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "RCP");
 
+// ⚠ Cloisonnement formation / réel : prefixeBoutique() ne retient que TROIS
+// lettres — « APESSITO » et « APESSITO FORMATION » donnaient donc tous deux
+// « APE », c'est-à-dire la MÊME série de numéros de reçu et de dettes. Les
+// ventes d'entraînement consommaient ainsi des numéros de la série réelle,
+// et la réparation automatique des collisions pouvait renuméroter une vraie
+// vente à cause d'une vente fictive. Les documents de formation ont
+// désormais leur propre série, visiblement distincte : FOR-APE-2026-0001.
+export const prefixeEspace = (db, boutique) =>
+  ((db?.boutiques || []).find((b) => b.nom === boutique)?.formation ? "FOR-" : "");
+const serieDe = (db, boutique, annee, suffixe = "") =>
+  `${prefixeEspace(db, boutique)}${prefixeBoutique(boutique)}-${suffixe}${annee}-`;
+
 // ============ NUMÉROTATION DES VENTES (2.99.44 — Lot C) ============
 // ⚠ L'ancien calcul « nombre de ventes + 1 » produisait des DOUBLONS de
 // numéro de reçu dans deux cas réels :
@@ -196,7 +218,7 @@ export const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g,
 // automatiquement à la synchronisation (voir repararNumerosVentes).
 export const prochainNumeroVente = (db, boutique, date = today()) => {
   const annee = String(date).slice(0, 4);
-  const prefixe = `${prefixeBoutique(boutique)}-${annee}-`;
+  const prefixe = serieDe(db, boutique, annee);
   const pris = new Set();
   let maxSeq = 0;
   for (const v of db.ventes || []) {
@@ -239,7 +261,7 @@ export function repararNumerosVentes(db) {
       String(a.id).localeCompare(String(b.id)));
     for (const v of liste.slice(1)) {
       const annee = String(v.date).slice(0, 4);
-      const prefixe = `${prefixeBoutique(v.boutique)}-${annee}-`;
+      const prefixe = serieDe(db, v.boutique, annee);
       let maxSeq = 0;
       for (const n of pris) {
         if (!n.startsWith(prefixe)) continue;
@@ -268,7 +290,7 @@ export function repararNumerosVentes(db) {
 // de vente sur un même reçu (une réservation n'est pas encore une vente).
 export const prochainNumeroDette = (db, boutique, date = today()) => {
   const annee = String(date).slice(0, 4);
-  const prefixe = `${prefixeBoutique(boutique)}-DET-${annee}-`;
+  const prefixe = serieDe(db, boutique, annee, "DET-");
   const pris = new Set();
   let maxSeq = 0;
   for (const d of db.dettes || []) {

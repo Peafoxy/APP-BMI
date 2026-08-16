@@ -8,7 +8,7 @@ import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
 import { fmt, dFR } from "../lib/core";
 import { inputCls, usePagination, Pagination } from "../components/ui";
-import { normNom } from "../lib/calculs";
+import { normNom, espaceDuCompte } from "../lib/calculs";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
 export function libelleTypeDevis(d) {
@@ -46,9 +46,16 @@ const NB_DEVIS_AFFICHES = 7;
 export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
 
+  // ⚠ Cloisonnement : un devis porte l'espace de son auteur (`formation`,
+  // posé à l'envoi — voir envoyerDevisEtOuvrirWhatsApp). Sans ce filtre,
+  // les devis d'entraînement s'affichaient dans la liste de l'admin et du
+  // responsable commercial, et comptaient dans la pastille rouge. `espace`
+  // vaut undefined pour l'admin principal, qui doit continuer à tout voir.
+  const espace = espaceDuCompte(db, profile);
   const tousDevis = db.users
     .filter((u) => u.role === "client")
     .flatMap((u) => (u.devis || []).map((d) => ({ ...d, client: u })))
+    .filter((d) => espace === undefined || !!d.formation === espace)
     .filter((d) => voitTout || d.par_id === profile.id)
     .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
 
