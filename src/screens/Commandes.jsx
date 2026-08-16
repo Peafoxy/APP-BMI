@@ -7,8 +7,8 @@
 import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles } from "../lib/calculs";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
+import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -16,7 +16,7 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 // Le commercial compose un panier et l'envoie à une boutique — il ne peut
 // pas encaisser lui-même, c'est un vendeur de cette boutique qui validera.
 export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme }) {
-  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(preRempli?.boutique || premiere);
   const boutique = bq;
   const produits = db.produits.filter((p) => p.boutique === boutique);
@@ -142,6 +142,10 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">⏳ En attente</span>;
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
       <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />
@@ -259,7 +263,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 // l'onglet Ventes, panier déjà prêt).
 export function CommandesRecues({ db, save, profile, onValider }) {
   const isAdmin = profile.role === "admin";
-  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
 
@@ -338,6 +342,10 @@ export function CommandesRecues({ db, save, profile, onValider }) {
     return c.articles || [];
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}

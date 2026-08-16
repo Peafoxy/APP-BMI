@@ -6,8 +6,8 @@
 import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
-import { boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
+import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
@@ -59,7 +59,7 @@ function categorieMoteur(poidsKg) {
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
 export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
@@ -358,9 +358,13 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} />}
+      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">🚪 Besoins du client <Badge boutique={boutique} /></div>

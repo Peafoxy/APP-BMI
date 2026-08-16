@@ -628,7 +628,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin) { uAlert("Seul l'administrateur déclenche une demande de paiement de prime."); return; }
     if (!(Number(e.montant) > 0)) { uAlert("Cette part est de 0 F : rien à payer. Refaites la répartition avec le bon pourcentage."); return; }
-    const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`);
+    const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`, profile);
     if (bq === null) return;
     save({
       ...db,

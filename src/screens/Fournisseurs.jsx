@@ -29,7 +29,7 @@ export function Fournisseurs({ db, save, profile }) {
     // contrairement aux salaires/primes/commissions/CNSS. Corrigé : même
     // sélecteur de boutique que pour les autres sorties de caisse (CNSS,
     // virement de salaire), catégorie "Achat marchandises" (déjà existante).
-    const bq = await choisirBoutiqueDebitG(db, {}, `Paiement de ${fmt(m)} à ${fo.nom}`);
+    const bq = await choisirBoutiqueDebitG(db, {}, `Paiement de ${fmt(m)} à ${fo.nom}`, profile);
     if (bq === null) return;
     const dep = { id: uid(), date: today(), boutique: bq, categorie: "Achat marchandises", description: `Règlement fournisseur ${fo.nom}`, montant: m, paiement: "Espèces", par: profile.nom };
     save({ ...db, fournisseurs: db.fournisseurs.map((x) => (x.id === fo.id ? { ...x, paye: Number(x.paye) + m } : x)), depenses: [dep, ...db.depenses] }, `Paiement fournisseur ${fo.nom} (${fmt(m)}) — ${bq}`);

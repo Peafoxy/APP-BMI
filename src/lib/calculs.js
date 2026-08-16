@@ -55,21 +55,83 @@ export function construireIndexDb(db) {
 // réflexe qui a laissé passer plusieurs trous : Dashboard "CA total" en
 // tête, Rentabilité, Commission personnelle, Mon Équipe).
 export const boutiquesFormation = (db) => new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
+// L'espace (réel / formation) d'une boutique, à partir de son NOM — une
+// boutique inconnue de la base (« Chez le comptable », un nom effacé) est
+// traitée comme RÉELLE : le doute profite toujours aux vraies données.
+export const estBoutiqueFormation = (db, nom) => !!(db.boutiques || []).find((b) => b.nom === nom)?.formation;
+
+// ⚠ L'espace d'un COMPTE se lit EN DIRECT dans la base, jamais dans
+// `profile` : le profil est figé à la connexion (voir App.jsx), si bien
+// qu'une bascule formation ↔ réel décidée par l'admin ne prenait effet
+// qu'à la reconnexion suivante — l'admin croyait la personne isolée alors
+// qu'elle ne l'était pas encore. Même principe que droitsOffDe() plus bas.
+export const estCompteFormation = (db, profile) => {
+  if (!profile) return false;
+  const moi = (db.users || []).find((u) => u.id === profile.id);
+  return !!(moi || profile).formation;
+};
+
+// Qui a le droit de voir (et de toucher) les DEUX espaces à la fois :
+// l'admin PRINCIPAL toujours, un autre admin seulement si on lui a
+// explicitement laissé le pouvoir "act_voir_tout" (ACTIONS_POUVOIR).
+export const voitLesDeuxEspaces = (db, profile) =>
+  estAdminPrincipal(db, profile) || (profile?.role === "admin" && aDroit(db, profile, "act_voir_tout"));
+
 // ⚠ Séparation formation/réel PAR COMPTE (demande Timo, suite au drapeau
 // formation déjà posé sur les boutiques) : un compte marqué formation ne
 // voit QUE les boutiques de formation, un compte réel ne voit QUE les
-// vraies — l'admin PRINCIPAL voit toujours tout, un autre admin voit tout
-// SEULEMENT si on lui a explicitement donné le pouvoir "act_voir_tout"
-// (ACTIONS_POUVOIR plus bas). Utilisée par BoutiqueTabs, remplace l'accès
-// direct à db.boutiques dans tout sélecteur de boutique.
+// vraies. Utilisée par BoutiqueTabs, remplace l'accès direct à db.boutiques
+// dans TOUT sélecteur de boutique — sélecteur de vente, de caisse à débiter,
+// de destination de transfert ou de ravitaillement.
 export const boutiquesVisibles = (db, profile, liste) => {
-  if (estAdminPrincipal(db, profile)) return liste;
-  if (profile.role === "admin" && aDroit(db, profile, "act_voir_tout")) return liste;
-  return liste.filter((b) => !!b.formation === !!profile.formation);
+  if (voitLesDeuxEspaces(db, profile)) return liste;
+  const monEspace = estCompteFormation(db, profile);
+  return liste.filter((b) => !!b.formation === monEspace);
 };
+
+// La boutique proposée par défaut à l'ouverture d'un écran.
+// ⚠ Ne retombe JAMAIS sur db.boutiques[0] : c'était le repli historique de
+// sept écrans, et il désignait la PREMIÈRE boutique de la base — donc une
+// vraie — dès que la liste visible était vide (compte de formation avant
+// qu'une boutique d'entraînement n'existe, ou l'inverse). La rangée
+// d'onglets étant alors vide, rien ne signalait l'erreur, mais l'écran
+// écrivait bel et bien dans la boutique de repli. On renvoie "" : chaque
+// écran affiche alors <AucuneBoutique/> au lieu d'un formulaire piégé.
+export const boutiqueParDefaut = (db, profile) =>
+  boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || "";
+
 export const ventesReelles = (db) => {
   const f = boutiquesFormation(db);
   return (db.ventes || []).filter((v) => !f.has(v.boutique));
+};
+// Les dépenses, dettes et produits qui comptent VRAIMENT — mêmes pendants
+// que ventesReelles(), à utiliser partout où un total global ou un export
+// est calculé (c'est leur absence qui laissait « Total des dépenses », le
+// capital dormant et le journal comptable compter l'entraînement).
+export const depensesReelles = (db) => {
+  const f = boutiquesFormation(db);
+  return (db.depenses || []).filter((d) => !f.has(d.boutique));
+};
+export const dettesReelles = (db) => {
+  const f = boutiquesFormation(db);
+  return (db.dettes || []).filter((d) => !f.has(d.boutique));
+};
+export const produitsReels = (db) => {
+  const f = boutiquesFormation(db);
+  return (db.produits || []).filter((p) => !f.has(p.boutique));
+};
+// Un chantier ne porte pas de boutique : elle se retrouve par la vente
+// liée, à défaut par la dette (cas « pose seule »). Même chemin que
+// imprimerPV() et que la réinitialisation de formation.
+export const boutiqueDuChantier = (db, c) => {
+  const vente = (db.ventes || []).find((v) => v.id === c.vente_id);
+  if (vente) return vente.boutique;
+  const dette = c.dette_id ? (db.dettes || []).find((d) => d.id === c.dette_id) : null;
+  return dette?.boutique;
+};
+export const chantiersReels = (db) => {
+  const f = boutiquesFormation(db);
+  return (db.clients_installes || []).filter((c) => !f.has(boutiqueDuChantier(db, c)));
 };
 
 export const ventesDuCommercial = (db, nom) => {
@@ -133,13 +195,31 @@ export const appliquerRetenuesCredit = (u, mois, par) =>
     return { ...c, echeances, remboursements, statut: solde ? "solde" : "approuve", date_solde: solde ? today() : c.date_solde };
   });
 
+// Caisse « hors boutique » confiée au comptable — c'est un bac UNIQUE et
+// bien réel (onglet « Chez le comptable ») : il n'a pas d'équivalent
+// d'entraînement, et n'est donc jamais proposé à un compte de formation.
+export const NOM_CAISSE_COMPTABLE = "Chez le comptable";
+
 // Boutique dont la caisse supporte la sortie d'argent (salaire, prêt, commission…)
-// Choix STRICT parmi les boutiques de vente réelles (jamais un dépôt, qui n'a
-// pas de caisse) + l'option « Chez le comptable » — jamais de texte libre,
-// pour ne plus jamais risquer une boutique mal orthographiée ou inventée.
-export async function choisirBoutiqueDebitG(db, u, titre) {
-  const noms = boutiquesVente(db).map((b) => b.nom);
-  const options = [...noms, "Chez le comptable"];
+// Choix STRICT parmi les boutiques de vente (jamais un dépôt, qui n'a pas de
+// caisse) + l'option « Chez le comptable » — jamais de texte libre, pour ne
+// plus jamais risquer une boutique mal orthographiée ou inventée.
+// ⚠ Cloisonnement : la liste passe par boutiquesVisibles(). Sans ce filtre,
+// ce sélecteur — partagé par TOUS les paiements (commissions, primes,
+// salaires, virements, fournisseurs, CNSS) — proposait les vraies boutiques
+// à un compte de formation : une sortie de caisse d'entraînement creusait
+// alors un trou dans une caisse réelle, et prévenait ses vrais vendeurs.
+export async function choisirBoutiqueDebitG(db, u, titre, profile) {
+  const noms = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom);
+  // Le comptable ne tient qu'une seule caisse, réelle : on ne la propose
+  // qu'aux comptes qui travaillent dans l'espace réel.
+  const options = estCompteFormation(db, profile) && !voitLesDeuxEspaces(db, profile)
+    ? noms
+    : [...noms, NOM_CAISSE_COMPTABLE];
+  if (options.length === 0) {
+    uAlert("Aucune caisse disponible pour votre espace de travail.\n\nDemandez à l'administrateur de créer une boutique correspondante avant d'enregistrer ce paiement.");
+    return null;
+  }
   if (options.length === 1) return options[0];
   const defaut = u.boutique && noms.includes(u.boutique) ? u.boutique : null;
   const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}`, options);
@@ -197,11 +277,19 @@ export function construirePaiementPrime(db, profile, c, e, moyen) {
 // Toutes les demandes de prime en attente de validation, aplaties depuis
 // chaque chantier — pour l'onglet du vendeur (filtré par sa boutique) et,
 // avec includeToutes, pour l'admin qui voit tout.
-export function primesEnAttente(db, boutique) {
+// ⚠ Cloisonnement : `prime_boutique` est la caisse qui paiera — c'est elle
+// qui décide de l'espace. Sans `profile`, un vendeur réel voyait (et
+// pouvait valider) les demandes de prime d'un chantier d'entraînement.
+export function primesEnAttente(db, boutique, profile) {
   const out = [];
+  const filtrer = profile !== undefined && !voitLesDeuxEspaces(db, profile);
+  const monEspace = filtrer ? estCompteFormation(db, profile) : null;
   for (const c of db.clients_installes || []) {
     for (const e of c.equipe || []) {
-      if (e.demande_prime && (!boutique || e.prime_boutique === boutique)) out.push({ client: c, entree: e });
+      if (!e.demande_prime) continue;
+      if (boutique && e.prime_boutique !== boutique) continue;
+      if (filtrer && estBoutiqueFormation(db, e.prime_boutique) !== monEspace) continue;
+      out.push({ client: c, entree: e });
     }
   }
   return out;
@@ -227,16 +315,34 @@ export function primesDeTechnicien(db, userId) {
 // `payeSeulement` (Timo) : tant que le devis n'est pas encaissé (statut
 // "paye"), seul l'admin peut le voir — l'initiateur et le client doivent
 // attendre l'encaissement pour accéder à leur contrat.
-export function contratsInstallation(db, { commercial, clientId, payeSeulement } = {}) {
+// ⚠ Cloisonnement : `espace` vaut true (formation), false (réel) ou
+// undefined (les deux, réservé à l'admin principal). Un devis créé depuis
+// un compte de formation porte `formation: true` (voir devisDeFormation()
+// et envoyerDevisEtOuvrirWhatsApp) — les devis antérieurs à ce marquage
+// n'ont pas le champ et sont donc traités comme réels.
+export function contratsInstallation(db, { commercial, clientId, payeSeulement, espace } = {}) {
   const out = [];
   for (const u of db.users || []) {
     if (clientId && u.id !== clientId) continue;
     for (const d of u.devis || []) {
+      if (espace !== undefined && !!d.formation !== espace) continue;
       if (d.contrat_signature && (!commercial || d.par === commercial) && (!payeSeulement || d.statut === "paye")) out.push({ client: u, devis: d });
     }
   }
   return out.sort((a, b) => (b.devis.contrat_date_signature || "").localeCompare(a.devis.contrat_date_signature || ""));
 }
+
+// L'espace à passer aux fonctions ci-dessus pour le compte connecté :
+// undefined quand il a le droit de voir les deux (admin principal,
+// act_voir_tout), sinon son propre espace.
+export const espaceDuCompte = (db, profile) =>
+  voitLesDeuxEspaces(db, profile) ? undefined : estCompteFormation(db, profile);
+
+// Marque à poser sur tout enregistrement qui n'appartient à AUCUNE boutique
+// (devis, compte client, prospect) et que le cloisonnement par boutique ne
+// peut donc pas rattraper.
+export const marqueEspace = (db, profile) =>
+  (estCompteFormation(db, profile) ? { formation: true } : {});
 
 // ⚠ Demande Timo : le PV de réception doit apparaître sur la MÊME fiche
 // que le contrat correspondant (onglet Contrats), pas dans une liste à
@@ -300,7 +406,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   if (moyen === null) return;
   const ref = await uPrompt("Référence ou note (facultatif) :", "");
   if (ref === null) return;
-  const bq = await choisirBoutiqueDebitG(db, u, `Virement de ${fmt(montant)} à ${u.nom}`);
+  const bq = await choisirBoutiqueDebitG(db, u, `Virement de ${fmt(montant)} à ${u.nom}`, profile);
   if (bq === null) return;
   const retenue = (u.credits || []).filter((c) => c.statut === "approuve")
     .reduce((s, c) => s + (c.echeances || []).filter((e) => e.mois === m && !e.paye).reduce((t, e) => t + Number(e.montant || 0), 0), 0);
@@ -494,29 +600,47 @@ export const totalReservation = (r) => (r.articles || []).reduce((s, l) => s + N
 // Une boutique demande de la marchandise ; la demande est stockée dans SA fiche
 // (aucune migration de base). Le magasinier la voit, prépare le bon, et sert.
 export const demandesDe = (b) => b.demandes || [];
-export const demandesEnAttente = (db) =>
-  (db.boutiques || []).filter((b) => !b.depot)
+// ⚠ Cloisonnement : le magasinier ne doit voir QUE les demandes de son
+// espace. Sans `profile`, le magasinier réel recevait les demandes des
+// boutiques d'entraînement et les servait depuis le VRAI dépôt — le stock
+// physique ne correspondait alors plus au logiciel.
+export const demandesEnAttente = (db, profile) =>
+  boutiquesVisibles(db, profile, (db.boutiques || []).filter((b) => !b.depot))
     .flatMap((b) => demandesDe(b).filter((d) => d.statut === "en_attente").map((d) => ({ boutique: b.nom, d })));
 
 // Articles sous le seuil dans les boutiques de vente (le magasinier voit l'alerte,
-// pas le stock complet de la boutique).
-export const alertesBoutiques = (db, stock) =>
-  (db.produits || [])
-    .filter((p) => !estDepot(db, p.boutique))
+// pas le stock complet de la boutique) — dans son espace uniquement.
+export const alertesBoutiques = (db, stock, profile) => {
+  const visibles = new Set(boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom));
+  return (db.produits || [])
+    .filter((p) => !estDepot(db, p.boutique) && visibles.has(p.boutique))
     .map((p) => ({ p, actuel: stock(db, p) }))
     .filter((x) => x.actuel <= Number(x.p.seuil || 0))
     .sort((a, b) => a.actuel - b.actuel);
+};
 
 // ============ APPORTEURS D'AFFAIRES ============
 // N'IMPORTE QUEL utilisateur qui amène un client peut être crédité de la vente
 // et toucher sa commission, s'il a un taux de commission défini par l'admin.
 export const aUnTaux = (u) => Number(u.taux_commission || 0) > 0;
-export const apporteursPossibles = (db) => {
+// ⚠ Cloisonnement : on ne propose que des collègues du MÊME espace —
+// créditer une vente d'entraînement à un commercial réel (ou l'inverse)
+// n'aurait aucun sens, et la vente porterait son nom pour toujours.
+export const apporteursPossibles = (db, profile) => {
   const noms = new Map();
-  (db.users || []).filter((u) => u.actif !== false && u.role !== "client" && aUnTaux(u))
+  const monEspace = estCompteFormation(db, profile);
+  const memeEspace = (u) => voitLesDeuxEspaces(db, profile) || !!u.formation === monEspace;
+  (db.users || []).filter((u) => u.actif !== false && u.role !== "client" && aUnTaux(u) && memeEspace(u))
     .forEach((u) => noms.set(u.nom, { id: u.id, nom: u.nom, taux: Number(u.taux_commission || 0), role: u.role }));
+  // La table `commerciaux` ne porte pas de drapeau d'espace : on récupère
+  // celui du compte du même nom quand il existe, sinon la fiche est
+  // considérée comme RÉELLE (le doute profite aux vraies données).
   (db.commerciaux || []).filter((c) => c.actif !== false)
-    .forEach((c) => { if (!noms.has(c.nom)) noms.set(c.nom, { id: c.id, nom: c.nom, taux: Number(c.taux || 0), role: "commercial" }); });
+    .forEach((c) => {
+      const compte = (db.users || []).find((u) => u.nom === c.nom);
+      if (!memeEspace(compte || {})) return;
+      if (!noms.has(c.nom)) noms.set(c.nom, { id: c.id, nom: c.nom, taux: Number(c.taux || 0), role: "commercial" });
+    });
   return [...noms.values()].sort((a, b) => a.nom.localeCompare(b.nom));
 };
 // A-t-il quelque chose à voir dans « Ma commission » ?
@@ -612,6 +736,92 @@ export const bloquerSiLecture = (db, profile) => {
   return true;
 };
 
+// ============ VERROU DE CLOISONNEMENT FORMATION / RÉEL ============
+// ⚠ Le filtrage des sélecteurs (boutiquesVisibles) empêche de CHOISIR une
+// boutique de l'autre espace ; il n'empêche pas d'y ÉCRIRE. Chaque écran
+// oublié, chaque repli par défaut, chaque circuit indirect (demande de
+// transfert, bon de ravitaillement, paiement de prime) était une brèche —
+// et le restera à chaque nouvel écran ajouté.
+//
+// Ce verrou est posé UNE fois, à la source : App.jsx fait déjà passer
+// TOUTES les écritures de l'application par save(), où vit déjà le verrou
+// « lecture seule ». On y refuse désormais toute écriture portant sur une
+// boutique qui n'est pas celle de l'espace du compte connecté. C'est le
+// seul point de contrôle qui protège aussi ce qu'on n'a pas pensé à
+// filtrer — y compris demain.
+//
+// Tables portant un champ `boutique` : ce sont elles qui décident.
+export const TABLES_PAR_BOUTIQUE = ["ventes", "depenses", "dettes", "produits", "ajustements", "clotures", "commandes", "proformas"];
+
+// Deux enregistrements sont-ils identiques ? Comparaison par référence
+// d'abord (l'app met à jour par recopie immuable : une ligne inchangée
+// garde son objet), repli sur le contenu pour rester juste si un écran
+// recopie tout de même ses lignes. Même principe que sauvegarderDiff.
+const memeEnregistrement = (a, b) => {
+  if (Object.is(a, b)) return true;
+  if (!a || !b) return false;
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+};
+
+// Renvoie null si l'écriture est légitime, sinon la première infraction
+// trouvée : { table, boutique, espaceBoutique }.
+export function verifierEcritureEspace(prev, next, profile) {
+  if (!profile) return null;
+  if (voitLesDeuxEspaces(next, profile)) return null;   // admin principal, ou pouvoir act_voir_tout
+  const monEspace = estCompteFormation(next, profile);
+
+  // Une boutique du BON espace, ou une valeur vide/inconnue qu'on laisse
+  // passer (rien à cloisonner) — sauf « Chez le comptable » et TERRAIN,
+  // deux caisses bien réelles qui n'ont pas d'équivalent d'entraînement.
+  const boutiqueRefusee = (nom) => {
+    if (!nom) return false;
+    const b = (next.boutiques || []).find((x) => x.nom === nom);
+    if (!b) return nom === NOM_CAISSE_COMPTABLE ? monEspace : false;
+    if (b.terrain) return monEspace;                     // caisse de terrain : réelle
+    return !!b.formation !== monEspace;
+  };
+
+  for (const t of TABLES_PAR_BOUTIQUE) {
+    const avant = new Map((prev?.[t] || []).map((r) => [r.id, r]));
+    for (const r of next[t] || []) {
+      const a = avant.get(r.id);
+      if (a && memeEnregistrement(a, r)) continue;       // ligne inchangée
+      if (boutiqueRefusee(r.boutique)) return { table: t, boutique: r.boutique };
+      avant.delete(r.id);
+    }
+    // Suppressions : effacer une ligne de l'autre espace est tout aussi grave.
+    for (const a of avant.values()) {
+      if (boutiqueRefusee(a.boutique)) return { table: t, boutique: a.boutique, suppression: true };
+    }
+  }
+
+  // Les chantiers ne portent pas de boutique : elle se retrouve par la
+  // vente (ou la dette) liée — même chemin que partout ailleurs.
+  const chantiersAvant = new Map((prev?.clients_installes || []).map((c) => [c.id, c]));
+  for (const c of next.clients_installes || []) {
+    const a = chantiersAvant.get(c.id);
+    if (a && memeEnregistrement(a, c)) continue;
+    if (boutiqueRefusee(boutiqueDuChantier(next, c))) return { table: "clients_installes", boutique: boutiqueDuChantier(next, c) };
+  }
+
+  return null;
+}
+
+// Le message montré à l'utilisateur quand le verrou se déclenche. Il nomme
+// la boutique en cause : sans elle, l'utilisateur ne peut pas comprendre ce
+// qu'on lui refuse.
+export const messageEcritureRefusee = (infraction, monEspace) => {
+  const LIB = {
+    ventes: "une vente", depenses: "une dépense", dettes: "une dette ou une réservation",
+    produits: "un article de stock", ajustements: "un mouvement de stock",
+    clotures: "une clôture de caisse", commandes: "une commande",
+    proformas: "une proforma", clients_installes: "un chantier",
+  };
+  return `🚫 Opération refusée — cloisonnement formation / réel.\n\n` +
+    `Votre compte travaille dans l'espace ${monEspace ? "FORMATION" : "RÉEL"}, mais cette action ${infraction.suppression ? "supprimerait" : "écrirait"} ${LIB[infraction.table] || "un enregistrement"} sur la boutique « ${infraction.boutique || "?"} », qui appartient à l'espace ${monEspace ? "RÉEL" : "FORMATION"}.\n\n` +
+    `Rien n'a été enregistré. Choisissez une boutique de votre espace, ou demandez à l'administrateur principal de vérifier le rattachement de votre compte.`;
+};
+
 // ============ TÂCHES ASSIGNÉES ============
 export const tachesDe = (u) => u.taches || [];
 // Une tâche est « ouverte » tant qu'elle n'est ni déclarée terminée ni validée.
@@ -637,8 +847,9 @@ export function compterDemandesTransfertRecues(db, profile) {
 // tout) — compterDemandesTransfertRecues() lui renverrait toujours 0. Ce
 // compteur additionne les demandes en attente de TOUTES les boutiques, pour
 // un badge global sur son onglet Stocks (sinon rien ne l'avertit jamais).
-export function compterDemandesTransfertToutes(db) {
-  return (db.boutiques || []).reduce((s, b) => s + demandesDe(b).filter((d) => d.type === "transfert" && d.statut === "en_attente").length, 0);
+export function compterDemandesTransfertToutes(db, profile) {
+  return boutiquesVisibles(db, profile, db.boutiques || [])
+    .reduce((s, b) => s + demandesDe(b).filter((d) => d.type === "transfert" && d.statut === "en_attente").length, 0);
 }
 
 export function compterTaches(db, profile) {

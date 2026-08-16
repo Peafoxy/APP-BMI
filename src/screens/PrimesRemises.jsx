@@ -18,7 +18,7 @@ export function PrimesRemises({ db, save, profile }) {
     return <Panel><div className="text-slate-500 text-sm">Aucune boutique rattachée à votre compte — cet onglet est réservé au vendeur d'une boutique précise.</div></Panel>;
   }
 
-  const enAttente = primesEnAttente(db, boutique);
+  const enAttente = primesEnAttente(db, boutique, profile);
   const historique = [];
   for (const c of db.clients_installes || []) {
     for (const e of c.equipe || []) {

@@ -228,7 +228,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
     if (dejaEnregistreCeMois) {
       if (!await uConfirm(`Un paiement CNSS a déjà été enregistré pour ${libelleMoisFR(mois)}. Enregistrer un second paiement quand même ?`)) return;
     }
-    const bq = await choisirBoutiqueDebitG(db, {}, `Paiement CNSS de ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`);
+    const bq = await choisirBoutiqueDebitG(db, {}, `Paiement CNSS de ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`, profile);
     if (bq === null) return;
     if (!await uConfirm(`Confirmer le paiement CNSS de ${libelleMoisFR(mois)} ?\n\nPart patronale (22,5 %) : ${fmt(repartitionTotale.partPatronale)}\nPart salariale déjà retenue (9 %) : ${fmt(repartitionTotale.partSalariale)}\nTOTAL à reverser à la CNSS : ${fmt(repartitionTotale.total)}\n\nSortie de caisse ${bq} : ${fmt(repartitionTotale.total)}.`)) return;
     const dep = {

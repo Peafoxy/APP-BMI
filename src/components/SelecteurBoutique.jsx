@@ -14,10 +14,13 @@ export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerr
   const base = avecDepots ? (db.boutiques || []).filter((b) => !b.terrain) : boutiquesVente(db);
   const terrain = avecTerrain && !avecDepots ? (db.boutiques || []).filter((b) => b.terrain) : [];
   // ⚠ Séparation formation/réel PAR COMPTE (demande Timo) : appliquée ici,
-  // au même endroit central que le tri dépôts/terrain — `profile` est
-  // optionnel pour ne pas casser un appelant qui ne le passerait pas
-  // encore (repli : tout visible, comme avant).
-  const liste = profile ? boutiquesVisibles(db, profile, [...base, ...terrain]) : [...base, ...terrain];
+  // au même endroit central que le tri dépôts/terrain.
+  // `profile` est OBLIGATOIRE : il était optionnel, avec un repli « tout
+  // visible » — et trois écrans de dimensionnement ne le passaient pas,
+  // affichant donc les vraies boutiques à un compte de formation. Un repli
+  // silencieux dans un mécanisme de cloisonnement est une brèche par
+  // construction : mieux vaut ne rien afficher et que le manque se voie.
+  const liste = boutiquesVisibles(db, profile, [...base, ...terrain]);
   return (
     <div className="flex gap-2 mb-4 flex-wrap">
       {liste.map((b) => (

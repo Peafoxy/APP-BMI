@@ -6,8 +6,8 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination } from "../components/ui";
-import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles } from "../lib/calculs";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
@@ -133,7 +133,7 @@ export function CreerClient({ db, save, profile }) {
 }
 
 export function Clients({ db, profile }) {
-  const premiere = boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   const [q, setQ] = useState("");
@@ -166,6 +166,10 @@ export function Clients({ db, profile }) {
     window.open(`https://wa.me/${num}`, "_blank");
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
+  // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
+  // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}

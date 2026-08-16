@@ -13,7 +13,7 @@ import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, credits
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
   // PRINCIPAL — jamais aux autres administrateurs, même avec le pouvoir
   // « Utilisateurs ». Décision de Timo.
@@ -233,7 +233,7 @@ export function Users({ db, save, profile }) {
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, chef_equipe: !x.chef_equipe } : x)) }, `${u.chef_equipe ? "Retrait" : "Nomination"} chef d'équipe : ${u.nom}`);
   };
 
-  const choisirBoutiqueDebit = (u, titre) => choisirBoutiqueDebitG(db, u, titre);
+  const choisirBoutiqueDebit = (u, titre) => choisirBoutiqueDebitG(db, u, titre, profile);
 
   // ---- POUVOIRS : l'admin active/désactive chaque droit d'un compte ----
   const [pouvoirsPour, setPouvoirsPour] = useState(null);

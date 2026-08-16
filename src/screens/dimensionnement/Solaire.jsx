@@ -4,8 +4,8 @@
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert } from "../../components/ui";
-import { toucher, boutiquesVente, bloquerSiLecture, noteDimensionnement } from "../../lib/calculs";
+import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
 
 
@@ -21,7 +21,7 @@ const ROLES_EQUIPEMENT = [
 ];
 
 export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
-  const premiere = boutiquesVente(db)[0]?.nom || db.boutiques[0]?.nom || "";
+  const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = profile.boutique || bq;
   // Mode LIBRE (3e position à côté des boutiques, admin/commercial multi-
@@ -551,6 +551,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 
+  // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté. Le
+  // mode LIBRE reste ouvert (il ne touche à aucun stock ni à aucune
+  // boutique) — c'est tout le reste de l'écran qui écrirait à côté.
+  if (!boutique && !modeLibre) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
       {!profile.boutique && (
@@ -560,7 +564,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               retrouvait alors hors de cette rangée interne, mal aligné
               (signalé par Timo). Même code/style que BoutiqueTabs, pour
               rester identique visuellement. */}
-          {boutiquesVente(db).map((b) => (
+          {/* ⚠ Cloisonnement : boutiquesVente(db) était utilisé brut ici —
+              cette rangée montrait donc les VRAIES boutiques à un compte de
+              formation (et l'inverse). Même filtre que BoutiqueTabs. */}
+          {boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => (
             <button key={b.nom} onClick={() => { setBq(b.nom); setModeLibre(false); }}
               className={`px-4 py-1.5 rounded-full text-sm font-bold ${!modeLibre && bq === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
               style={!modeLibre && bq === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : ""}{b.nom}</button>
