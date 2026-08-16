@@ -159,33 +159,93 @@ export function Users({ db, save, profile }) {
     }, `Changement de mot de passe : ${u.nom} (par l'administrateur principal)`);
   };
 
-  // ⚠ Bascule formation ↔ réel (demande Timo, tous les comptes actuels
-  // passent en formation d'un coup via basculerFormationEnMasse ci-dessous,
-  // puis chacun peut être repassé en réel individuellement au fur et à
-  // mesure — c'est le cas d'usage principal de ce bouton).
+  // ⚠⚠ LA BASCULE DOIT DÉPLACER LE COMPTE DE BOUTIQUE, PAS SEULEMENT
+  // POSER UN DRAPEAU. C'était le trou le plus grave du cloisonnement :
+  // un vendeur, un gérant ou un magasinier est RATTACHÉ à une boutique
+  // (`u.boutique`), et tous les écrans calculent leur boutique de travail
+  // par `profile.boutique || bq` — la boutique rattachée l'emporte, et le
+  // sélecteur filtré n'est même pas affiché pour ces comptes. Résultat :
+  // basculer un vendeur en formation ne changeait STRICTEMENT RIEN, il
+  // continuait de vendre et d'encaisser dans la vraie boutique.
+  //
+  // On déplace donc le compte vers une boutique du même TYPE (magasin ↔
+  // magasin, boutique de vente ↔ boutique de vente) dans l'espace visé, et
+  // on mémorise celle d'origine (`boutique_avant_espace`) pour la lui
+  // rendre au retour. Si l'espace visé n'a aucune boutique convenable, on
+  // REFUSE la bascule : mieux vaut ne rien changer que laisser un compte
+  // « de formation » travailler dans une vraie boutique.
+  const boutiqueCibleEspace = (u, versFormation) => {
+    if (!u.boutique) return { ok: true, boutique: null };              // compte multi-boutique : rien à déplacer
+    const ancienne = db.boutiques.find((b) => b.nom === u.boutique);
+    // On rend d'abord sa boutique d'origine si elle correspond à l'espace visé.
+    const memoire = db.boutiques.find((b) => b.nom === u.boutique_avant_espace && !!b.formation === versFormation);
+    if (memoire) return { ok: true, boutique: memoire.nom };
+    const cible = db.boutiques.find((b) =>
+      !!b.formation === versFormation && !b.terrain && !!b.depot === !!ancienne?.depot);
+    if (!cible) return { ok: false, typeManquant: ancienne?.depot ? "magasin" : "boutique de vente" };
+    return { ok: true, boutique: cible.nom };
+  };
+
+  const appliquerEspace = (u, versFormation, cible) => ({
+    ...u,
+    formation: versFormation,
+    ...(u.boutique ? { boutique: cible, boutique_avant_espace: u.boutique } : {}),
+  });
+
   const basculerFormation = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
     const versFormation = !u.formation;
-    if (!(await uConfirm(versFormation
-      ? `Passer le compte de ${u.nom} en FORMATION ?\n\nIl ne verra plus que les boutiques de formation, jamais les vraies.`
-      : `Passer le compte de ${u.nom} en RÉEL ?\n\nIl ne verra plus que les vraies boutiques, jamais celles de formation.`))) return;
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, formation: versFormation } : x)) },
-      `Compte ${u.nom} passé en ${versFormation ? "formation" : "réel"} par l'administrateur principal`);
+    const cible = boutiqueCibleEspace(u, versFormation);
+    if (!cible.ok) {
+      uAlert(`Impossible de passer ${u.nom} en ${versFormation ? "FORMATION" : "RÉEL"}.\n\n` +
+        `Ce compte est rattaché à « ${u.boutique} », et l'espace ${versFormation ? "formation" : "réel"} ne contient aucun(e) ${cible.typeManquant}.\n\n` +
+        `Créez-la d'abord dans ⚙ Paramètres, sinon ce compte continuerait de travailler dans « ${u.boutique} » malgré la bascule.`);
+      return;
+    }
+    const changeDeBoutique = u.boutique && cible.boutique !== u.boutique;
+    if (!(await uConfirm(
+      (versFormation
+        ? `Passer le compte de ${u.nom} en FORMATION ?\n\nIl ne verra plus que les boutiques de formation, jamais les vraies.`
+        : `Passer le compte de ${u.nom} en RÉEL ?\n\nIl ne verra plus que les vraies boutiques, jamais celles de formation.`) +
+      (changeDeBoutique ? `\n\n🔁 Son rattachement passe de « ${u.boutique} » à « ${cible.boutique} ».` : "")
+    ))) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? appliquerEspace(x, versFormation, cible.boutique) : x)) },
+      `Compte ${u.nom} passé en ${versFormation ? "formation" : "réel"}${changeDeBoutique ? ` et rattaché à ${cible.boutique}` : ""} par l'administrateur principal`);
   };
 
   // ⚠ Action UNIQUE demandée par Timo : marquer TOUS les comptes actuels
   // (sauf l'admin principal, jamais concerné) comme formation d'un coup —
   // il les repassera lui-même en réel un par un ensuite, via le bouton
   // ci-dessus. Ne touche jamais un compte DÉJÀ formation (idempotent).
+  // Les comptes qu'on ne peut pas déplacer (aucune boutique de formation du
+  // bon type) sont LAISSÉS EN RÉEL et signalés nommément : les basculer
+  // quand même reviendrait à leur donner l'étiquette « formation » tout en
+  // les laissant travailler dans la vraie boutique — exactement le piège
+  // que ce correctif supprime.
   const basculerFormationEnMasse = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
     const concernes = db.users.filter((u) => u.role !== "client" && !estAdminPrincipal(db, u) && !u.formation);
     if (concernes.length === 0) { uAlert("Aucun compte à basculer — tous sont déjà en formation (hors admin principal)."); return; }
-    if (!(await uConfirm(`Passer ${concernes.length} compte(s) en FORMATION d'un coup (sauf vous, admin principal) ?\n\nVous les repasserez ensuite en réel un par un, individuellement.`))) return;
-    save({ ...db, users: db.users.map((x) => (concernes.some((c) => c.id === x.id) ? { ...x, formation: true } : x)) },
-      `${concernes.length} compte(s) basculés en formation d'un coup par l'administrateur principal`);
+    const cibles = new Map();
+    const bloques = [];
+    for (const u of concernes) {
+      const c = boutiqueCibleEspace(u, true);
+      if (c.ok) cibles.set(u.id, c.boutique); else bloques.push(`${u.nom} (${u.boutique})`);
+    }
+    if (cibles.size === 0) {
+      uAlert("Aucun compte ne peut être basculé : l'espace formation ne contient aucune boutique du type requis.\n\nCréez d'abord au moins une boutique de formation dans ⚙ Paramètres.");
+      return;
+    }
+    if (!(await uConfirm(
+      `Passer ${cibles.size} compte(s) en FORMATION d'un coup (sauf vous, admin principal) ?\n\n` +
+      `Les comptes rattachés à une boutique sont AUSSI déplacés vers une boutique de formation — sans cela, ils continueraient de travailler dans la vraie.\n\n` +
+      (bloques.length ? `⚠ ${bloques.length} compte(s) resteront en RÉEL faute de boutique de formation équivalente :\n${bloques.join("\n")}\n\n` : "") +
+      `Vous les repasserez ensuite en réel un par un, individuellement.`
+    ))) return;
+    save({ ...db, users: db.users.map((x) => (cibles.has(x.id) ? appliquerEspace(x, true, cibles.get(x.id)) : x)) },
+      `${cibles.size} compte(s) basculés en formation d'un coup par l'administrateur principal${bloques.length ? ` — ${bloques.length} laissé(s) en réel faute de boutique de formation équivalente` : ""}`);
   };
 
   const voirPwd = (u) => {

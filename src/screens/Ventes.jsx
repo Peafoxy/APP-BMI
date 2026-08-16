@@ -355,7 +355,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         uAlert("✅ Demande de ravitaillement envoyée au dépôt. Revenez encaisser cette vente une fois le stock arrivé (onglet 🚚 Ravitaillement).");
         return;
       } else if (choix === "Transfert (demander à une autre boutique)") {
-        const autresBoutiques = boutiquesVente(db).map((b) => b.nom).filter((n) => n !== boutique);
+        // ⚠ Cloisonnement : on ne peut demander un transfert qu'à une
+        // boutique de SON espace. Sans ce filtre, une boutique de formation
+        // adressait sa demande à une vraie boutique, qui en la validant
+        // sortait de la marchandise RÉELLE de son stock.
+        const autresBoutiques = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom).filter((n) => n !== boutique);
         if (!autresBoutiques.length) { uAlert("Aucune autre boutique disponible."); return; }
         // ⚠ Demande Timo : ne pas laisser le vendeur choisir à l'aveugle —
         // montrer directement combien chaque boutique a en stock pour

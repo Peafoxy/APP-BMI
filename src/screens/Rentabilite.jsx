@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { fmt, today, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge } from "../components/ui";
-import { stockActuel, periodes, ventesReelles } from "../lib/calculs";
+import { stockActuel, periodes, ventesReelles, produitsReels } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ RENTABILITÉ PAR PRODUIT ============
@@ -50,8 +50,12 @@ export function Rentabilite({ db }) {
   const tauxGlobal = caTotal > 0 ? Math.round((margeTotale / caTotal) * 1000) / 10 : 0;
 
   // Articles jamais vendus sur la période, mais en stock : capital immobilisé
+  // ⚠ Cloisonnement : ces deux mesures partaient de db.produits BRUT — le
+  // stock des boutiques d'entraînement gonflait donc le « capital dormant »
+  // et polluait la liste des invendus, alors même que le tableau des ventes
+  // juste au-dessus excluait bien la formation.
   const vendus = new Set(Object.keys(parProduit));
-  const dormants = db.produits
+  const dormants = produitsReels(db)
     .filter((p) => !vendus.has(p.nom) && stockActuel(db, p) > 0)
     .map((p) => ({ p, valeur: stockActuel(db, p) * Number(p.prix_achat || 0) }))
     .sort((x, y) => y.valeur - x.valeur);

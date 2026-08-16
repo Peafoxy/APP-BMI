@@ -24,11 +24,16 @@ export function Stocks({ db, save, profile }) {
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
   // comme destination de transfert — corrigé suite au même bug que
   // BoutiqueTabs (Timo, capture Stocks).
-  const autres = db.boutiques.filter((b) => !b.terrain).map((b) => b.nom).filter((n) => n !== bq);
+  // ⚠ Cloisonnement : destinations de TRANSFERT limitées à l'espace du
+  // compte. Sans ce filtre, un magasin réel pouvait transférer sa
+  // marchandise vers une boutique d'entraînement (et l'inverse) — le stock
+  // physique ne correspondait alors plus à ce qu'affiche le logiciel.
+  const autres = boutiquesVisibles(db, profile, db.boutiques.filter((b) => !b.terrain)).map((b) => b.nom).filter((n) => n !== bq);
 
   // ---- RAVITAILLEMENT : d'un magasin vers une boutique ----
   const estMagasin = estDepot(db, bq);
-  const cibles = boutiquesVente(db).map((b) => b.nom).filter((n) => n !== bq);
+  // Même filtre que ci-dessus pour les destinations de RAVITAILLEMENT.
+  const cibles = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom).filter((n) => n !== bq);
   const [rav, setRav] = useState({ dest: "", categorie: "", produit_id: "", qte: "" });
   const [bon, setBon] = useState([]); // lignes du bon en préparation
 
