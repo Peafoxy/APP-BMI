@@ -13,7 +13,16 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 export function Caisse({ db, save, profile }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
-  const boutique = profile.boutique || bq;
+  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
+  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
+  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
+  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
+  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
+  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
+  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
+  // — et le sélecteur qui aurait permis d'en choisir une était justement
+  // masqué derrière ce blocage.
+  const boutique = profile.boutique || bq || premiere;
   const [compte, setCompte] = useState("");
   const [notes, setNotes] = useState("");
   const t = today();

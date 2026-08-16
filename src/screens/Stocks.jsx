@@ -18,7 +18,16 @@ export function Stocks({ db, save, profile }) {
   // Un employé rattaché à un site (vendeur, gérant, magasinier) est VERROUILLÉ dessus :
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
-  const bq = profile.boutique || bqSel;
+  // ⚠ `bq` est un état initialisé UNE SEULE FOIS au premier montage, et les
+  // écrans restent montés toute la session (depuis 2.98.99). Si cet écran a
+  // été ouvert AVANT que les boutiques ne soient arrivées du serveur (la
+  // fenêtre de synchronisation initiale, à la connexion), `bq` reste vide
+  // pour toujours. On retombe donc sur `premiere`, qui est recalculé à
+  // CHAQUE rendu : l'écran se répare tout seul dès que les boutiques
+  // arrivent. Sans ce repli, l'écran restait bloqué sur « Aucune boutique »
+  // — et le sélecteur qui aurait permis d'en choisir une était justement
+  // masqué derrière ce blocage.
+  const bq = profile.boutique || bqSel || premiere;
   const [f, setF] = useState({ nom: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
