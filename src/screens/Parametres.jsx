@@ -17,6 +17,14 @@ import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossie
 
 // ============ PARAMÈTRES ============
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
+  // ⚠⚠⚠ TEMPORAIRE — demande EXPLICITE de Timo (16/08/2026), retiré
+  // volontairement pour pouvoir réinitialiser depuis le site web en
+  // attendant. Timo a dit lui-même qu'il remettrait cette obligation —
+  // NE PAS supprimer cette barrière définitivement de soi-même, et la
+  // restaurer dès qu'il le redemande (repasser `barriereWindowsActive`
+  // à `estAppWindows()` partout ci-dessous). Les deux AUTRES barrières
+  // (admin principal, connexion internet) restent pleinement actives.
+  const barriereWindowsActive = true; // ← mettre estAppWindows() ici pour restaurer
   // ---- SÉCURITÉ SUPABASE : écran de contrôle avant durcissement ----
   const [verifSecu, setVerifSecu] = useState({ statut: "idle", existants: [], total: 0, erreur: "" });
   const utilisateursActifs = db.users.filter((u) => u.actif !== false);
@@ -322,7 +330,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const reinitialiserToutesLesDonnees = async () => {
     if (bloquerSiLecture(db, profile)) return;
     // ══════ BARRIÈRE 1 : uniquement depuis le LOGICIEL WINDOWS ══════
-    if (!estAppWindows()) {
+    if (!barriereWindowsActive) {
       uAlert(
         "🔒 Réinitialisation impossible depuis le site web.\n\n" +
         "Cette action n'est autorisée que depuis le LOGICIEL WINDOWS installé (le .exe), sur la machine de direction.\n\n" +
@@ -862,6 +870,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <div className={estAppWindows() ? "text-green-700 font-semibold" : "text-red-700 font-semibold"}>
             {estAppWindows() ? "✅" : "❌"} Depuis le <b>logiciel Windows</b> {estAppWindows() ? "" : "— vous êtes actuellement sur le site web"}
           </div>
+          {!estAppWindows() && barriereWindowsActive && (
+            <div className="text-amber-700 font-semibold">⚠ Barrière temporairement levée par Timo — le bouton reste actif malgré le ❌ ci-dessus.</div>
+          )}
           <div className={estAdminPrincipal(db, profile) ? "text-green-700 font-semibold" : "text-red-700 font-semibold"}>
             {estAdminPrincipal(db, profile) ? "✅" : "❌"} Être l'<b>administrateur principal</b>{estAdminPrincipal(db, profile) ? "" : ` — c'est ${adminPrincipal(db)?.nom || "quelqu'un d'autre"}`}
           </div>
@@ -870,8 +881,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
         <button
           onClick={reinitialiserToutesLesDonnees}
-          disabled={!estAppWindows() || !estAdminPrincipal(db, profile)}
-          className={`px-5 py-2 rounded-lg font-bold text-sm ${(!estAppWindows() || !estAdminPrincipal(db, profile))
+          disabled={!barriereWindowsActive || !estAdminPrincipal(db, profile)}
+          className={`px-5 py-2 rounded-lg font-bold text-sm ${(!barriereWindowsActive || !estAdminPrincipal(db, profile))
             ? "bg-slate-300 text-slate-500 cursor-not-allowed"
             : "bg-red-700 text-white hover:bg-red-800"}`}>
           🧨 Réinitialiser toutes les données
