@@ -193,6 +193,18 @@ export async function verifierMotDePasse(u, saisie) {
 
 export const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "RCP");
 
+// ⚠ Cloisonnement formation / réel : prefixeBoutique() ne retient que TROIS
+// lettres — « APESSITO » et « APESSITO FORMATION » donnaient donc tous deux
+// « APE », c'est-à-dire la MÊME série de numéros de reçu et de dettes. Les
+// ventes d'entraînement consommaient ainsi des numéros de la série réelle,
+// et la réparation automatique des collisions pouvait renuméroter une vraie
+// vente à cause d'une vente fictive. Les documents de formation ont
+// désormais leur propre série, visiblement distincte : FOR-APE-2026-0001.
+export const prefixeEspace = (db, boutique) =>
+  ((db?.boutiques || []).find((b) => b.nom === boutique)?.formation ? "FOR-" : "");
+const serieDe = (db, boutique, annee, suffixe = "") =>
+  `${prefixeEspace(db, boutique)}${prefixeBoutique(boutique)}-${suffixe}${annee}-`;
+
 // ============ NUMÉROTATION DES VENTES (2.99.44 — Lot C) ============
 // ⚠ L'ancien calcul « nombre de ventes + 1 » produisait des DOUBLONS de
 // numéro de reçu dans deux cas réels :
@@ -206,7 +218,7 @@ export const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g,
 // automatiquement à la synchronisation (voir repararNumerosVentes).
 export const prochainNumeroVente = (db, boutique, date = today()) => {
   const annee = String(date).slice(0, 4);
-  const prefixe = `${prefixeBoutique(boutique)}-${annee}-`;
+  const prefixe = serieDe(db, boutique, annee);
   const pris = new Set();
   let maxSeq = 0;
   for (const v of db.ventes || []) {
@@ -249,7 +261,7 @@ export function repararNumerosVentes(db) {
       String(a.id).localeCompare(String(b.id)));
     for (const v of liste.slice(1)) {
       const annee = String(v.date).slice(0, 4);
-      const prefixe = `${prefixeBoutique(v.boutique)}-${annee}-`;
+      const prefixe = serieDe(db, v.boutique, annee);
       let maxSeq = 0;
       for (const n of pris) {
         if (!n.startsWith(prefixe)) continue;
@@ -278,7 +290,7 @@ export function repararNumerosVentes(db) {
 // de vente sur un même reçu (une réservation n'est pas encore une vente).
 export const prochainNumeroDette = (db, boutique, date = today()) => {
   const annee = String(date).slice(0, 4);
-  const prefixe = `${prefixeBoutique(boutique)}-DET-${annee}-`;
+  const prefixe = serieDe(db, boutique, annee, "DET-");
   const pris = new Set();
   let maxSeq = 0;
   for (const d of db.dettes || []) {

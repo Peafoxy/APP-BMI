@@ -774,6 +774,13 @@ export function imprimerBulletin(u, mois, db) {
 
 export function recuWhatsApp(v, bq = {}) {
   const lignes = [
+    // ⚠ Bandeau formation : il était présent sur le reçu imprimé, le reçu de
+    // versement, la proforma, le devis, le PV, le contrat et le bon — mais
+    // PAS ici. C'est pourtant le seul de tous ces documents qui part chez
+    // un tiers : un reçu d'entraînement arrivait donc chez le client avec
+    // l'apparence d'un vrai.
+    bq.formation ? `🎓 *DOCUMENT DE FORMATION — SANS VALEUR*` : null,
+    bq.formation ? `------------------------` : null,
     `🧾 *REÇU — ${v.boutique}*`,
     bq.adresse || "Lomé, Togo",
     bq.tel ? `Tél : ${bq.tel}` : null,

@@ -349,32 +349,83 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       return dette?.boutique;
     };
 
-    const nVentes = db.ventes.filter((v) => bf.has(v.boutique)).length;
-    const nDettes = (db.dettes || []).filter((d) => bf.has(d.boutique)).length;
-    const nChantiers = (db.clients_installes || []).filter((c) => bf.has(boutiqueDuChantier(c))).length;
-    const nCommandes = (db.commandes || []).filter((c) => bf.has(c.boutique)).length;
-    const nProformas = (db.proformas || []).filter((p) => bf.has(p.boutique)).length;
-    const total = nVentes + nDettes + nChantiers + nCommandes + nProformas;
+    // ⚠ Le nettoyage était INCOMPLET : dépenses, mouvements de stock,
+    // articles, clôtures, demandes de ravitaillement, prospects et comptes
+    // clients d'entraînement restaient en base pour toujours — et les
+    // dépenses continuaient d'alimenter les totaux du Tableau de bord.
+    // Tout ce qui porte une boutique de formation, ou la marque d'espace
+    // `formation` (devis, clients, prospects — qui n'ont pas de boutique),
+    // part maintenant ensemble.
+    const deB = (x) => bf.has(x.boutique);
+    const clientsFormation = new Set(db.users.filter((u) => u.role === "client" && u.formation).map((u) => u.id));
+    const produitsFormation = new Set((db.produits || []).filter(deB).map((p) => p.id));
 
-    if (!(await uConfirm(`Réinitialiser UNIQUEMENT les données de formation ?\n\n${total} enregistrement(s) seront effacés (ventes, dettes, chantiers, commandes, proformas des ${bf.size} boutique(s) de formation).\n\nLes VRAIES boutiques ne seront jamais touchées.`))) return;
+    const compte = {
+      ventes: db.ventes.filter(deB).length,
+      dettes: (db.dettes || []).filter(deB).length,
+      chantiers: (db.clients_installes || []).filter((c) => bf.has(boutiqueDuChantier(c))).length,
+      commandes: (db.commandes || []).filter(deB).length,
+      proformas: (db.proformas || []).filter(deB).length,
+      depenses: (db.depenses || []).filter(deB).length,
+      articles: produitsFormation.size,
+      mouvements: (db.ajustements || []).filter((a) => deB(a) || produitsFormation.has(a.produit_id)).length,
+      clotures: (db.clotures || []).filter(deB).length,
+      prospects: (db.prospects || []).filter((p) => p.formation).length,
+      clients: clientsFormation.size,
+      devis: db.users.reduce((s, u) => s + (u.devis || []).filter((d) => d.formation).length, 0),
+    };
+    const total = Object.values(compte).reduce((s, n) => s + n, 0);
+    if (total === 0) { uAlert("Rien à effacer : aucune donnée de formation n'a encore été saisie."); return; }
 
-    const nettoyerCompteFormation = (u) => {
-      if (!u.formation) return u; // un compte RÉEL n'est jamais concerné, même si la base en contient
-      const { devis, credits, signature_personnelle, notes, ...reste } = u;
-      return reste;
+    const detail = [
+      ["ventes", "vente(s)"], ["dettes", "dette(s) / réservation(s)"], ["chantiers", "chantier(s)"],
+      ["commandes", "commande(s)"], ["proformas", "proforma(s)"], ["depenses", "dépense(s)"],
+      ["articles", "article(s) de stock"], ["mouvements", "mouvement(s) de stock"],
+      ["clotures", "clôture(s) de caisse"], ["devis", "devis"], ["clients", "compte(s) client"],
+      ["prospects", "prospect(s)"],
+    ].filter(([k]) => compte[k] > 0).map(([k, lbl]) => `• ${compte[k]} ${lbl}`).join("\n");
+
+    if (!(await uConfirm(
+      `Réinitialiser UNIQUEMENT les données de formation ?\n\n${detail}\n\n` +
+      `soit ${total} enregistrement(s), sur les ${bf.size} boutique(s) de formation.\n\n` +
+      `Les VRAIES boutiques ne seront jamais touchées. Les fiches du personnel (crédits BMI, signature, notes) ne sont pas touchées non plus, dans aucun des deux espaces.`
+    ))) return;
+
+    // ⚠ Ce nettoyage NE TOUCHE PAS aux fiches du personnel. La version
+    // précédente retirait `devis`, `credits`, `signature_personnelle` et
+    // `notes` de tout compte marqué formation : un employé RÉEL basculé
+    // temporairement en formation perdait alors son historique de CRÉDIT
+    // BMI — une donnée bien réelle, sans sauvegarde et sans avertissement.
+    // Les devis, eux, sont rangés dans la fiche du CLIENT : c'est là qu'on
+    // les enlève, et seulement ceux marqués formation.
+    const nettoyerFiche = (u) => {
+      const devis = (u.devis || []).filter((d) => !d.formation);
+      return devis.length === (u.devis || []).length ? u : { ...u, devis };
     };
 
     save({
       ...db,
-      ventes: db.ventes.filter((v) => !bf.has(v.boutique)),
-      dettes: (db.dettes || []).filter((d) => !bf.has(d.boutique)),
+      ventes: db.ventes.filter((v) => !deB(v)),
+      dettes: (db.dettes || []).filter((d) => !deB(d)),
       clients_installes: (db.clients_installes || []).filter((c) => !bf.has(boutiqueDuChantier(c))),
-      commandes: (db.commandes || []).filter((c) => !bf.has(c.boutique)),
-      proformas: (db.proformas || []).filter((p) => !bf.has(p.boutique)),
-      users: db.users.map(nettoyerCompteFormation),
-    }, `🎓 Réinitialisation FORMATION SEULE par l'administrateur principal — ${total} enregistrement(s) effacé(s), vraies boutiques non touchées`);
+      commandes: (db.commandes || []).filter((c) => !deB(c)),
+      proformas: (db.proformas || []).filter((p) => !deB(p)),
+      depenses: (db.depenses || []).filter((d) => !deB(d)),
+      produits: (db.produits || []).filter((p) => !deB(p)),
+      ajustements: (db.ajustements || []).filter((a) => !deB(a) && !produitsFormation.has(a.produit_id)),
+      clotures: (db.clotures || []).filter((c) => !deB(c)),
+      prospects: (db.prospects || []).filter((p) => !p.formation),
+      // Les demandes de ravitaillement / transfert vivent DANS la fiche
+      // boutique : la boutique de formation reste, sa file d'attente est vidée.
+      boutiques: db.boutiques.map((b) => (b.formation && (b.demandes || []).length ? { ...b, demandes: [] } : b)),
+      // Comptes clients d'entraînement supprimés, et les messages qui leur
+      // étaient adressés avec eux (sinon ils resteraient orphelins).
+      users: db.users.filter((u) => !clientsFormation.has(u.id)).map(nettoyerFiche),
+      messages: (db.messages || []).filter((m) => !clientsFormation.has(m.client_id) && !clientsFormation.has(m.a_id) && !clientsFormation.has(m.de_id)),
+    }, `🎓 Réinitialisation FORMATION SEULE par l'administrateur principal — ${total} enregistrement(s) effacé(s), vraies boutiques et fiches du personnel non touchées`,
+      { horsCloisonnement: true });
 
-    uAlert(`✅ Formation réinitialisée.\n\n${total} enregistrement(s) effacés sur les boutiques de formation.\nLes vraies boutiques et données n'ont pas été touchées.`);
+    uAlert(`✅ Formation réinitialisée.\n\n${total} enregistrement(s) effacés.\nLes vraies boutiques, les vraies données et les fiches du personnel n'ont pas été touchées.`);
   };
 
   const reinitialiserToutesLesDonnees = async () => {
