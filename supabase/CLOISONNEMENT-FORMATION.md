@@ -141,8 +141,34 @@ simplement s'interdire d'y toucher.
   boutique de formation, sinon l'espace d'entraînement retombera sur les
   valeurs par défaut.
 
-Aucun script n'est fourni ici tant qu'il n'a pas été éprouvé sur un projet
-Supabase de test : une politique RLS mal posée **bloque tous les appareils
-en écriture**, ce qui s'est déjà produit lors d'une tentative de
-durcissement précédente (voir l'avertissement en tête de
-`durcir_securite.sql`).
+#### Les scripts, et leur banc d'essai
+
+| Fichier | Rôle | Effet immédiat |
+|---|---|---|
+| `espace-1-colonne.sql` | Colonne, déclencheur, remplissage | **Aucun** — rien n'est restreint |
+| `api/sync-auth.js` | Pose la revendication (déjà déployé dans le code) | **Aucun** tant que l'étape 3 n'est pas passée |
+| `espace-3-politiques.sql` | La couche de cloisonnement | C'est ici que ça devient réel |
+
+`bash scripts/tester-cloisonnement-sql.sh` monte un PostgreSQL local
+jetable qui reproduit l'environnement Supabase (mêmes tables, mêmes rôles,
+même `auth.jwt()`, mêmes politiques permissives de départ), y exécute les
+deux scripts, vérifie le cloisonnement dans les deux sens, **puis rejoue
+les blocs d'annulation extraits des fichiers eux-mêmes**. Aucun contact
+avec votre base Supabase.
+
+Ce qu'il établit, et qui a été constaté :
+
+- le classement des lignes est correct, y compris « Chez le comptable » et
+  TERRAIN, traités comme réels ;
+- le remplissage de l'historique **ne fait pas remonter `updated_at`** —
+  aucun appareil ne retéléchargera la base ;
+- une session sans revendication se comporte comme un compte réel : jamais
+  de blocage ;
+- les écritures croisées sont refusées dans les deux sens, les écritures
+  normales passent ;
+- les politiques d'origine sont toujours là après l'étape 3 ;
+- le bloc d'urgence rend l'accès complet immédiatement, et l'annulation de
+  l'étape 1 ne touche à aucune donnée.
+
+Cela ne remplace pas une exécution prudente sur votre base : lancez-les un
+jour calme, dans l'ordre, en vérifiant entre chaque étape.
