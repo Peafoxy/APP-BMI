@@ -131,7 +131,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
     : html;
-  if (printApi) printApi.open(sortie);
+  if (printApi) printApi.open(sortie, `Reçu ${v.numero || ""}`.trim());
 }
 
 // ============ PROFORMA (aperçu avant impression, pas de téléchargement direct) ============
@@ -259,7 +259,7 @@ export function imprimerRecuVersement(d, bq = {}) {
       `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
     : html;
-  if (printApi) printApi.open(sortie);
+  if (printApi) printApi.open(sortie, `Reçu ${d.numero || ""}`.trim());
 }
 
 export function imprimerProforma(p, logo) {
@@ -318,7 +318,7 @@ export function imprimerProforma(p, logo) {
       Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.${p.validite ? ` Offre valable ${esc(p.validite)}.` : ""}
     </div>
   </div>`;
-  if (printApi) printApi.open(html);
+  if (printApi) printApi.open(html, `Proforma ${p.numero || ""}`.trim());
 }
 
 // ============ CONTRAT DE RÉCEPTION DE PRESTATION ============
@@ -431,7 +431,7 @@ export function imprimerPV(c, db) {
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
   </div>`;
-  if (printApi) printApi.open(html);
+  if (printApi) printApi.open(html, `${avenant ? "Avenant" : "PV"} ${c.contrat_numero || ""}`.trim());
 }
 
 // ============ CONTRAT D'INSTALLATION (avant travaux, lu+signé à la
@@ -585,7 +585,7 @@ export function imprimerContratInstallation(d, db) {
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
   </div>`;
-  if (printApi) printApi.open(html);
+  if (printApi) printApi.open(html, `Contrat ${d.contrat_numero || ""}`.trim());
 }
 
 // ============ BON DE RAVITAILLEMENT ============
@@ -637,7 +637,7 @@ export function imprimerBonRavitaillement(bon, db) {
       <td><div class="ligne">Le réceptionnaire (boutique)</div></td>
     </tr></table>
   </div>`;
-  if (printApi) printApi.open(html);
+  if (printApi) printApi.open(html, `Bon ${bon.numero || ""}`.trim());
 }
 
 // ============ BULLETIN DE PAIE ============
@@ -739,7 +739,7 @@ export function imprimerBulletin(u, mois, db) {
 
     <div class="pied">Document généré par BMI-Gestions Boutiques — à conserver.</div>
   </div>`;
-  if (printApi) printApi.open(html);
+  if (printApi) printApi.open(html, `Bulletin ${u.nom || ""} ${mois || ""}`.trim());
 }
 
 export function recuWhatsApp(v, bq = {}) {
@@ -802,6 +802,6 @@ export function imprimerEtiquetteProduit(p) {
       <div style="font-family:monospace;font-size:12px;letter-spacing:1px;margin-top:1px">${esc(p.code)}</div>
       ${p.prix_vente ? `<div style="font-weight:700;font-size:14px;margin-top:1px">${fmt(p.prix_vente)}</div>` : ""}
     </div>`;
-  if (printApi) printApi.open(html);
+  if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim());
   return true;
 }

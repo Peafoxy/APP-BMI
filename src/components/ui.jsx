@@ -124,14 +124,20 @@ export let printApi = null;
 // 100 % : aucune interférence avec les styles, portails ou positionnements de
 // l'application. Les gabarits étant préfixés « #zone-impression », le contenu
 // est enveloppé dans un div portant cet id.
-function imprimerDocumentDedie(html) {
+// ⚠ `titre` (demande Timo — "le nom par défaut est BMI gestion système pour
+// tout les documents") : sans balise <title> sur ce document dédié, le
+// navigateur reprend le titre de la page PRINCIPALE de l'app comme nom de
+// fichier suggéré à l'impression/enregistrement PDF — identique pour TOUS
+// les documents. Avec cette balise, chaque document propose son propre nom
+// (numéro de reçu, de devis, de contrat...).
+function imprimerDocumentDedie(html, titre = "Document") {
   const cadre = document.createElement("iframe");
   cadre.setAttribute("aria-hidden", "true");
   cadre.style.cssText = "position:absolute;width:0;height:0;border:0;overflow:hidden";
   document.body.appendChild(cadre);
   const d = cadre.contentDocument;
   d.open();
-  d.write(`<!doctype html><html><head><meta charset="utf-8"><style>
+  d.write(`<!doctype html><html><head><meta charset="utf-8"><title>${String(titre).replace(/[<>&]/g, "")}</title><style>
     @page { size: A4; margin: 12mm; }
     body { margin: 0; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -152,7 +158,8 @@ function imprimerDocumentDedie(html) {
 
 export function PrintHost() {
   const [html, setHtml] = useState(null);
-  printApi = { open: (h) => setHtml(h) };
+  const [titreDoc, setTitreDoc] = useState("Document");
+  printApi = { open: (h, titre) => { setTitreDoc(titre || "Document"); setHtml(h); } };
   if (!html) return null;
   return createPortal(
     <div className="portail-impression fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
@@ -181,7 +188,7 @@ export function PrintHost() {
         <div className="barre-apercu flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
           <div className="font-bold text-slate-900 text-sm">Aperçu avant impression</div>
           <div className="flex gap-2">
-            <button onClick={() => imprimerDocumentDedie(html)} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
+            <button onClick={() => imprimerDocumentDedie(html, titreDoc)} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
             <button onClick={() => setHtml(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
           </div>
         </div>
