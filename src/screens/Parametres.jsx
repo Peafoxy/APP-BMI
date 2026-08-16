@@ -429,7 +429,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (rapport.echecs.length) {
       uAlert(`⚠ Réinitialisation INCOMPLÈTE.\n\nEffacées : ${rapport.effacees.length} collection(s).\nÉchecs :\n${rapport.echecs.join("\n")}\n\nRelancez la réinitialisation après avoir vérifié votre connexion.`);
     } else {
-      uAlert(`✅ Réinitialisation terminée.\n\n${rapport.effacees.length} collections effacées, ici et sur le serveur.\nLes comptes utilisateurs sont conservés.\n\nLes AUTRES appareils videront leur base automatiquement à leur prochaine synchronisation — demandez à chacun d'ouvrir l'application une fois.`);
+      uAlert(`✅ Réinitialisation terminée.\n\n${rapport.effacees.length} collections effacées, ici et sur le serveur.\nLes COMPTES utilisateurs sont conservés (nom, mot de passe, rôle) — mais leurs devis, contrats, crédits BMI et infos d'équipe ont bien été effacés.\n\nLes AUTRES appareils videront leur base automatiquement à leur prochaine synchronisation — demandez à chacun d'ouvrir l'application une fois.`);
     }
     setTimeout(() => window.location.reload(), 1500);
   };

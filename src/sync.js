@@ -474,7 +474,37 @@ export const MARQUEUR_RESET = "__RESET_GLOBAL__";
 export async function reinitialiserDistant() {
   const rapport = { effacees: [], echecs: [] };
   for (const t of TABLES) {
-    if (t === "users") continue; // les comptes sont conservés
+    // ⚠ Bug réel trouvé par Timo (capture après réinitialisation) : "users"
+    // était intégralement épargné pour préserver les COMPTES de connexion —
+    // mais de nombreuses données métier vivent EMBARQUÉES à l'intérieur
+    // même des fiches utilisateurs (devis, contrats, crédit BMI, infos
+    // d'équipe/parrainage), jamais dans une table séparée. Les ignorer
+    // entièrement laissait tout ça survivre à une "réinitialisation
+    // complète". Corrigé : les fiches sont maintenant NETTOYÉES (pas
+    // sautées) — seuls les champs nécessaires à la CONNEXION sont
+    // conservés, tout le reste embarqué est retiré.
+    if (t === "users") {
+      try {
+        const { data: comptes, error: errLecture } = await supabase.from("users").select("id,data");
+        if (errLecture) throw errLecture;
+        for (const ligne of comptes || []) {
+          const u = ligne.data || {};
+          const nettoye = {
+            id: u.id, nom: u.nom, nom_base: u.nom_base, tel: u.tel,
+            pwd_salt: u.pwd_salt, pwd_hash2: u.pwd_hash2, pwd_visible: u.pwd_visible,
+            mdp_auto: u.mdp_auto, mdp_variante: u.mdp_variante, mdp_longueur: u.mdp_longueur,
+            role: u.role, boutique: u.boutique, actif: u.actif, cree_par: u.cree_par,
+            updated_at: new Date().toISOString(),
+          };
+          const { error: errEcriture } = await supabase.from("users").upsert({ id: u.id, data: nettoye, updated_at: nettoye.updated_at });
+          if (errEcriture) throw errEcriture;
+        }
+        rapport.effacees.push("users (fiches nettoyées, comptes conservés)");
+      } catch (e) {
+        rapport.echecs.push(`users : ${e?.message || e}`);
+      }
+      continue;
+    }
     try {
       const { error } = await supabase.from(t).delete().neq("id", "___aucun___");
       if (error) throw error;
