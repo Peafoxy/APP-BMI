@@ -494,6 +494,23 @@ export async function reinitialiserDistant() {
             pwd_salt: u.pwd_salt, pwd_hash2: u.pwd_hash2, pwd_visible: u.pwd_visible,
             mdp_auto: u.mdp_auto, mdp_variante: u.mdp_variante, mdp_longueur: u.mdp_longueur,
             role: u.role, boutique: u.boutique, actif: u.actif, cree_par: u.cree_par,
+            // ⚠ Bug réel trouvé par Timo (après réinitialisation, il n'était
+            // plus admin principal) : ce champ manquait à la liste — sans
+            // lui, TOUS les admins perdent le statut, et l'app retombe sur
+            // le premier admin de la liste par défaut (voir adminPrincipal(),
+            // calculs.js). Champ IDENTITAIRE au même titre que le rôle,
+            // jamais une donnée métier — doit être conservé.
+            admin_principal: u.admin_principal,
+            // ⚠ Même famille de bug que admin_principal ci-dessus : ce sont
+            // des STATUTS/AUTORISATIONS posés manuellement par un admin (via
+            // un bouton "Nommer/Retirer"), pas des données d'activité liées
+            // à une vente ou un client — à conserver au même titre qu'un rôle.
+            chef_equipe: u.chef_equipe, chat_libre: u.chat_libre,
+            // ⚠ Confirmé explicitement par Timo : le taux de commission (%)
+            // et le lien parrain/filleul sont des RÉGLAGES d'organisation,
+            // pas des données d'activité — survivent à la réinitialisation
+            // au même titre que chef_equipe ci-dessus.
+            taux_commission: u.taux_commission, taux_equipe: u.taux_equipe, parrain_id: u.parrain_id,
             updated_at: new Date().toISOString(),
           };
           const { error: errEcriture } = await supabase.from("users").upsert({ id: u.id, data: nettoye, updated_at: nettoye.updated_at });
