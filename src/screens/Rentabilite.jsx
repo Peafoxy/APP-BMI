@@ -17,7 +17,11 @@ export function Rentabilite({ db }) {
   const [, a, b] = choix;
   const [tri, setTri] = useState("marge");
 
-  const ventesP = db.ventes.filter((v) => inP(v.date, a, b));
+  // ⚠ Boutiques de formation (2.100.16) : exclues, même principe que le
+  // Tableau de bord — une vente d'entraînement ne doit jamais fausser la
+  // rentabilité réelle (demande Timo, suite audit).
+  const boutiquesFormation = new Set((db.boutiques || []).filter((bq) => bq.formation).map((bq) => bq.nom));
+  const ventesP = db.ventes.filter((v) => inP(v.date, a, b) && !boutiquesFormation.has(v.boutique));
 
   // Agrégation par NOM d'article (tous sites confondus)
   const parProduit = {};

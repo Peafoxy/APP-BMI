@@ -23,11 +23,17 @@ import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 export function construireIndexDb(db) {
   const venduParProduit = new Map();
   const ventesParCommercial = new Map();
+  // ⚠ Boutiques de formation (2.100.16) : leurs ventes ne doivent JAMAIS
+  // compter dans la commission RÉELLE d'un commercial qui s'entraîne —
+  // Supabase ne les isole pas physiquement, c'est à l'app de les exclure
+  // ici, comme déjà fait pour le Tableau de bord (demande Timo, suite
+  // audit après ajout de la boutique de formation).
+  const boutiquesFormation = new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
   for (const v of db.ventes || []) {
     for (const l of lignesVente(v)) {
       if (l.produit_id) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
     }
-    if (v.commercial) {
+    if (v.commercial && !boutiquesFormation.has(v.boutique)) {
       const liste = ventesParCommercial.get(v.commercial) || [];
       liste.push(v);
       ventesParCommercial.set(v.commercial, liste);
@@ -42,8 +48,11 @@ export function construireIndexDb(db) {
 
 // Les ventes d'un commercial — via l'index quand il est là, sinon balayage
 // (les tests unitaires et tout code recevant un db « nu » restent corrects).
-export const ventesDuCommercial = (db, nom) =>
-  db.__index ? (db.__index.ventesParCommercial.get(nom) || []) : (db.ventes || []).filter((v) => v.commercial === nom);
+export const ventesDuCommercial = (db, nom) => {
+  if (db.__index) return db.__index.ventesParCommercial.get(nom) || [];
+  const boutiquesFormation = new Set((db.boutiques || []).filter((b) => b.formation).map((b) => b.nom));
+  return (db.ventes || []).filter((v) => v.commercial === nom && !boutiquesFormation.has(v.boutique));
+};
 
 export const stockVendu = (db, pid) =>
   db.__index
