@@ -53,6 +53,15 @@ const Cnss = await import(pathToFileURL(sortieCnss).href);
 unlinkSync(sortieCnss);
 unlinkSync(bouchonXlsx);
 
+// Le socle partage du Dimensionnement (trois volets) : conditions
+// commerciales d'un devis repris, et quantite necessaire d'un equipement.
+const sortieDim = join("node_modules", ".cache", `bmi-dim-${process.pid}.mjs`);
+await build({ entryPoints: ["src/screens/dimensionnement/Partages.jsx"], bundle: true,
+  format: "esm", platform: "node", outfile: sortieDim, logLevel: "silent",
+  loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+const Dim = await import(pathToFileURL(sortieDim).href);
+unlinkSync(sortieDim);
+
 // ---- Base d'essai : deux boutiques réelles, une de formation, un dépôt
 // de chaque côté, et les quatre profils qui comptent.
 const base = () => ({
@@ -710,6 +719,85 @@ titre("Supprimer un chantier : impossible si des primes ont déjà été payées
     bloque({ equipe: [{ nom: "AMA", montant: 0, paye: true }] }).length === 0);
   test("un chantier sans équipe du tout reste supprimable",
     bloque({}).length === 0);
+}
+
+
+titre("Devis repris : les conditions négociées avec le client sont restituées");
+{
+  // Ce qui disparaissait en silence quand on reprenait un devis rejete.
+  const capter = () => {
+    const v = {};
+    return {
+      v,
+      setPctRemise: (x) => (v.remise = x),
+      setPctInstall: (x) => (v.install = x),
+      setPctTransport: (x) => (v.transport = x),
+      setPctAcompte: (x) => (v.acompte = x),
+      setDelaiInstallation: (x) => (v.delai = x),
+      setPoseSeule: (x) => (v.pose = x),
+      setMontantPoseFixe: (x) => (v.montantPose = x),
+    };
+  };
+
+  const devisNegocie = {
+    pct_remise: 15, pct_installation: 12, pct_transport: 5, pct_acompte: 50,
+    delai_installation: "3 semaines", pose_seule: false, frais_installation: 120000,
+  };
+  const a = capter();
+  Dim.appliquerConditionsReprises(devisNegocie, a);
+  test("la remise accordée au client est bien restituée (elle repartait à 0 %)",
+    a.v.remise === "15");
+  test("le pourcentage de frais d'installation aussi (il repartait à 10 %)",
+    a.v.install === "12");
+  test("le transport aussi", a.v.transport === "5");
+  test("l'acompte exigé aussi (il repartait à 100 %)", a.v.acompte === "50");
+  test("le délai promis au client n'est plus effacé", a.v.delai === "3 semaines");
+
+  // « Pose seule » : montant FIXE de main d'oeuvre, pct_installation vaut null.
+  const devisPose = { pct_remise: 0, pct_installation: null, pct_transport: 0, pct_acompte: 100,
+                      delai_installation: "", pose_seule: true, frais_installation: 250000 };
+  const b = capter();
+  Dim.appliquerConditionsReprises(devisPose, b);
+  test("la case « pose seule » est rétablie (le devis repassait en pourcentage)",
+    b.v.pose === true);
+  test("…avec son montant fixe de main d'œuvre", b.v.montantPose === "250000");
+
+  // Un devis normal ne doit pas heriter d'un montant de pose.
+  const c = capter();
+  Dim.appliquerConditionsReprises(devisNegocie, c);
+  test("un devis normal ne récupère aucun montant de pose fixe",
+    c.v.pose === false && c.v.montantPose === "");
+
+  // Vieux devis sans ces champs : on retombe sur les valeurs par defaut.
+  const d = capter();
+  Dim.appliquerConditionsReprises({}, d);
+  test("un ancien devis sans ces informations retombe sur les valeurs par défaut",
+    d.v.remise === "0" && d.v.install === "10" && d.v.acompte === "100");
+
+  // Aucun devis repris : on ne touche a rien (un devis neuf garde ses reglages).
+  const e = capter();
+  Dim.appliquerConditionsReprises(null, e);
+  test("sans devis repris, aucun réglage n'est écrasé",
+    Object.keys(e.v).length === 0);
+}
+
+
+titre("Quantité d'équipement : plus de plafond silencieux à 50");
+{
+  test("35 panneaux de 550 Wc pour 19 000 Wc : quantité exacte",
+    Dim.quantiteNecessaire(19000, 550) === 35);
+  test("une grosse installation dépasse enfin 50 (elle était tronquée en silence)",
+    Dim.quantiteNecessaire(40000, 550) === 73);
+  test("une quantité au-delà du seuil déclenche l'avertissement visible",
+    Dim.quantiteNecessaire(40000, 550) >= Dim.SEUIL_QTE_INHABITUELLE);
+  test("une installation normale ne déclenche AUCUN avertissement",
+    Dim.quantiteNecessaire(5500, 550) === 10 && 10 < Dim.SEUIL_QTE_INHABITUELLE);
+  test("un article mal nommé (« panneau 5W ») produit une quantité énorme… qui sera signalée",
+    Dim.quantiteNecessaire(19000, 5) === 3800 && 3800 >= Dim.SEUIL_QTE_INHABITUELLE);
+  test("un article sans caractéristique lisible reste à 1 unité, jamais à l'infini",
+    Dim.quantiteNecessaire(19000, 0) === 1);
+  test("un besoin nul ne descend jamais en dessous de 1",
+    Dim.quantiteNecessaire(0, 550) === 1);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

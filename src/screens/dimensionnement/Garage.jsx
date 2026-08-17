@@ -8,7 +8,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -141,7 +141,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       return { type: "stock", produit_id: plusGros.p.id, qte: 1 };
     }
     const meilleur = options[options.length - 1];
-    const qte = Math.min(50, Math.max(1, Math.ceil(besoin / meilleur.spec.valeur)));
+    const qte = quantiteNecessaire(besoin, meilleur.spec.valeur);
     return { type: "stock", produit_id: meilleur.p.id, qte };
   };
 
@@ -225,7 +225,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     return role.unites.length === 0
       ? Math.max(1, besoin)
       : spec && spec.valeur > 0
-      ? (!empilable(roleId) && spec.valeur >= besoin ? 1 : Math.min(50, Math.max(1, Math.ceil(besoin / spec.valeur))))
+      ? (!empilable(roleId) && spec.valeur >= besoin ? 1 : quantiteNecessaire(besoin, spec.valeur))
       : 1;
   });
 
@@ -263,6 +263,21 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
   const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+
+  // ⚠ Reprendre un devis rejeté restituait les appareils et les équipements,
+  // mais PERDAIT en silence tout ce qui avait été négocié : remise, %
+  // d'installation, transport, acompte, délai, et jusqu'à la case « pose
+  // seule » avec son montant fixe. Le devis renvoyé au client n'était donc
+  // plus celui qu'on avait convenu avec lui. Tout était pourtant enregistré :
+  // il ne manquait que cette relecture. Placé APRÈS les déclarations
+  // ci-dessus, seul endroit où les commandes existent toutes.
+  useEffect(() => {
+    appliquerConditionsReprises(devisAReprendre?.devis, {
+      setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
   const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
   const construirePanier = () => [
@@ -475,7 +490,16 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
                     )}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
-                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
+                  <td className="px-3 py-2">
+                    <input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit} onChange={(e) => changerQte(l.role.id, e.target.value)} />
+                    {/* Même avertissement que le volet Solaire : le plafond
+                        silencieux à 50 est levé, remplacé par une alerte. */}
+                    {l.qte >= SEUIL_QTE_INHABITUELLE && (
+                      <div className="text-[11px] font-bold text-amber-700 mt-1 max-w-[13rem]">
+                        ⚠ {l.qte} unités — quantité inhabituelle. Vérifiez que la caractéristique inscrite dans le nom de l'article est la bonne.
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>
                   <td className="px-3 py-2"><input type="checkbox" checked={!!rolesHB[l.role.id]} onChange={(e) => setRolesHB({ ...rolesHB, [l.role.id]: e.target.checked })} title="Hors boutique : exclu du chiffre d'affaires et des commissions" /></td>

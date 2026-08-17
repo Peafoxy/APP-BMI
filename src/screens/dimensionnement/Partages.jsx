@@ -9,6 +9,46 @@ import { fmt, telDigits, col } from "../../lib/core";
 import { Field, inputCls, uAlert } from "../../components/ui";
 import { marqueEspace } from "../../lib/calculs";
 
+// ⚠ QUANTITÉ NÉCESSAIRE (2.100.39) — la quantité proposée était plafonnée à
+// 50 unités, EN SILENCE. Au-delà (grosse installation), le devis partait
+// sous-dimensionné sans que personne ne soit prévenu.
+// Le plafond servait en réalité de filet contre une caractéristique mal lue
+// dans le nom d'un article : un panneau enregistré « PANNEAU 5W » au lieu de
+// « 550W » produit une quantité absurde. On enlève le plafond — la quantité
+// est désormais toujours juste — et on remplace le filet par un AVERTISSEMENT
+// VISIBLE au-delà de ce seuil : à ce niveau-là, c'est soit une très grosse
+// installation (légitime), soit un article mal nommé (à corriger).
+export const SEUIL_QTE_INHABITUELLE = 60;
+export const quantiteNecessaire = (besoin, valeurUnitaire) => {
+  const u = Number(valeurUnitaire || 0);
+  if (!(u > 0)) return 1;
+  return Math.max(1, Math.ceil(Number(besoin || 0) / u));
+};
+
+// ⚠ CONDITIONS COMMERCIALES D'UN DEVIS REPRIS (2.100.39) — reprendre un devis
+// rejeté restituait les appareils, les équipements et les accessoires, mais
+// PERDAIT en silence tout ce qui avait été négocié : la remise accordée, le
+// pourcentage d'installation, le transport, l'acompte exigé, le délai promis,
+// et jusqu'à la case « pose seule » avec son montant fixe de main d'œuvre.
+// Le devis renvoyé au client n'était donc plus celui qui avait été négocié.
+// Toutes ces valeurs étaient pourtant bien ENREGISTRÉES : il ne manquait que
+// leur relecture. Partagé par les trois volets (Solaire, Garage, Autre).
+export function appliquerConditionsReprises(devis, s) {
+  if (!devis) return;
+  s.setPctRemise(String(devis.pct_remise ?? 0));
+  s.setPctTransport(String(devis.pct_transport ?? 0));
+  s.setPctAcompte(String(devis.pct_acompte ?? 100));
+  s.setDelaiInstallation(String(devis.delai_installation || ""));
+  // « Pose seule » : le montant de main d'œuvre est un montant FIXE, pas un
+  // pourcentage — il est rangé dans frais_installation, et pct_installation
+  // vaut null. On rétablit la case ET son montant, sinon le devis repris
+  // repasserait en pourcentage sans prévenir.
+  const pose = !!devis.pose_seule;
+  s.setPoseSeule(pose);
+  s.setMontantPoseFixe(pose ? String(devis.frais_installation ?? "") : "");
+  s.setPctInstall(pose ? "10" : String(devis.pct_installation ?? 10));
+}
+
 // ============ OUTILS DE DIMENSIONNEMENT SOLAIRE ============
 // Extrait une caractéristique numérique du nom d'un article
 // (ex: "Panneau JKM 555W" -> 555 wc, "Convertisseur hybride 3KW" -> 3000 w, "Batterie 200Ah" -> 200 ah)

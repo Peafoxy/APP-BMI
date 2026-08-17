@@ -7,7 +7,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
-import { BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
+import { BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ RECHERCHE DE CORRESPONDANCE (Autre dimensionnement) ============
@@ -184,6 +184,21 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
   const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+
+  // ⚠ Reprendre un devis rejeté restituait les appareils et les équipements,
+  // mais PERDAIT en silence tout ce qui avait été négocié : remise, %
+  // d'installation, transport, acompte, délai, et jusqu'à la case « pose
+  // seule » avec son montant fixe. Le devis renvoyé au client n'était donc
+  // plus celui qu'on avait convenu avec lui. Tout était pourtant enregistré :
+  // il ne manquait que cette relecture. Placé APRÈS les déclarations
+  // ci-dessus, seul endroit où les commandes existent toutes.
+  useEffect(() => {
+    appliquerConditionsReprises(devisAReprendre?.devis, {
+      setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
   const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
   const construirePanier = () => [

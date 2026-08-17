@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
 
 
 
@@ -254,12 +254,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       if (suffisant) return { type: "stock", produit_id: suffisant.p.id, qte: 1 };
       // Aucun modèle seul ne suffit : on prend le plus gros et on complète en quantité
       const plusGros = options[options.length - 1];
-      const qte = Math.min(50, Math.max(1, Math.ceil(besoin / plusGros.spec.valeur)));
+      const qte = quantiteNecessaire(besoin, plusGros.spec.valeur);
       return { type: "stock", produit_id: plusGros.p.id, qte };
     }
 
     const meilleur = options[options.length - 1];
-    const qte = Math.min(50, Math.max(1, Math.ceil(besoin / meilleur.spec.valeur)));
+    const qte = quantiteNecessaire(besoin, meilleur.spec.valeur);
     return { type: "stock", produit_id: meilleur.p.id, qte };
   };
 
@@ -373,7 +373,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const spec = p ? specDepuisNom(p.nom + " " + (p.categorie || "")) : null;
     const besoin = besoinParRole[roleId];
     const qte = spec && spec.valeur > 0
-      ? (!empilable(roleId) && spec.valeur >= besoin ? 1 : Math.min(50, Math.max(1, Math.ceil(besoin / spec.valeur))))
+      ? (!empilable(roleId) && spec.valeur >= besoin ? 1 : quantiteNecessaire(besoin, spec.valeur))
       : 1;
     const nouveauChoix = { ...choix, [roleId]: { type: "stock", produit_id: produitId, qte } };
     if (roleId === "convertisseur") {
@@ -461,6 +461,21 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
   const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+
+  // ⚠ Reprendre un devis rejeté restituait les appareils et les équipements,
+  // mais PERDAIT en silence tout ce qui avait été négocié : remise, %
+  // d'installation, transport, acompte, délai, et jusqu'à la case « pose
+  // seule » avec son montant fixe. Le devis renvoyé au client n'était donc
+  // plus celui qu'on avait convenu avec lui. Tout était pourtant enregistré :
+  // il ne manquait que cette relecture. Placé APRÈS les déclarations
+  // ci-dessus, seul endroit où les commandes existent toutes.
+  useEffect(() => {
+    appliquerConditionsReprises(devisAReprendre?.devis, {
+      setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
   const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
@@ -716,7 +731,18 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     )}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
-                  <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || enLibre} onChange={(e) => changerQte(l.role.id, e.target.value)} /></td>
+                  <td className="px-3 py-2">
+                    <input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || enLibre} onChange={(e) => changerQte(l.role.id, e.target.value)} />
+                    {/* Le plafond silencieux à 50 est levé : la quantité est
+                        toujours juste. À la place, un avertissement visible —
+                        soit c'est une très grosse installation, soit l'article
+                        est mal nommé et sa caractéristique a été mal lue. */}
+                    {l.qte >= SEUIL_QTE_INHABITUELLE && (
+                      <div className="text-[11px] font-bold text-amber-700 mt-1 max-w-[13rem]">
+                        ⚠ {l.qte} unités — quantité inhabituelle. Vérifiez que la caractéristique inscrite dans le nom de l'article est la bonne.
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2 tabular-nums">
                     {enLibre ? (
                       <input type="number" min="0" className={`${inputCls} w-24`} value={prixLibre[l.role.id] ?? ""} placeholder="0" onChange={(e) => setPrixLibre({ ...prixLibre, [l.role.id]: e.target.value })} />
