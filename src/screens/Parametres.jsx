@@ -10,9 +10,9 @@ import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossi
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
-import { uid, verifierMotDePasse, col, compresserPhoto } from "../lib/core";
+import { uid, verifierMotDePasse, col, compresserPhoto, fmt } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -126,6 +126,20 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, taux_parrainage: t })) },
       `Taux de parrainage par défaut fixé à ${t} %`);
     uAlert(`✅ Le taux de parrainage par défaut est désormais ${t} %.\n\nIl s'applique aux clients qui n'ont pas de taux personnel.`);
+  };
+
+  // ---- PRIX DU RAIL DE FIXATION (au mètre) ----
+  // ⚠ Ce prix était écrit en dur dans le code du Dimensionnement : Timo ne
+  // pouvait pas le changer lui-même quand son fournisseur augmentait.
+  const [prixRail, setPrixRail] = useState(String(prixRailMetre(db)));
+
+  const enregistrerPrixRail = () => {
+    if (bloquerSiLecture(db, profile)) return;
+    const v = Number(prixRail);
+    if (Number.isNaN(v) || v <= 0) { uAlert("Entrez un prix supérieur à 0 (le prix d'UN mètre de rail)."); return; }
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, prix_rail: v })) },
+      `Prix du rail de fixation fixé à ${fmt(v)} le mètre`);
+    uAlert(`✅ Le rail de fixation est désormais facturé ${fmt(v)} le mètre.\n\nCe prix s'applique aux PROCHAINS devis. Les devis déjà envoyés gardent le prix auquel ils ont été établis.`);
   };
 
   const enregistrerNote = () => {
@@ -721,6 +735,32 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </Field>
           <button onClick={enregistrerTauxParrainage} className={btnDark}>✅ Enregistrer le taux</button>
         </div>
+      </div>
+
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+        <div className="font-bold mb-1">🔩 Prix du rail de fixation (au mètre)</div>
+        <div className="text-xs text-slate-500 mb-3">
+          Utilisé par ☀️ Dimensionnement solaire, qui compte <b>2,2 mètres de rail par panneau</b>. Ce prix s'applique aux prochains devis — les devis déjà envoyés gardent le prix auquel ils ont été établis.
+        </div>
+        <div className="flex gap-2 items-end flex-wrap">
+          <Field label="Prix du mètre (F)">
+            <input type="number" min="0" step="100" className={inputCls + " w-36"} value={prixRail} onChange={(e) => setPrixRail(e.target.value)} />
+          </Field>
+          <button onClick={enregistrerPrixRail} className={btnDark}>✅ Enregistrer le prix</button>
+          {Number(prixRail) > 0 && (
+            <div className="text-xs text-slate-500 pb-2">
+              Exemple : 10 panneaux → 22 m → <b>{fmt(22 * Number(prixRail))}</b>
+            </div>
+          )}
+        </div>
+        {Number(prixRail) !== PRIX_RAIL_DEFAUT && (
+          <button
+            onClick={() => setPrixRail(String(PRIX_RAIL_DEFAUT))}
+            className="mt-2 text-xs font-semibold text-slate-500 underline"
+          >
+            Revenir au prix d'origine ({fmt(PRIX_RAIL_DEFAUT)} le mètre)
+          </button>
+        )}
       </div>
 
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">

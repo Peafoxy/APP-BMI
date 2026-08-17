@@ -1142,6 +1142,20 @@ export const noteDimensionnement = (db) => {
   return b ? b.note_dim : NOTE_DIM_DEFAUT;
 };
 
+// ---- PRIX DU RAIL DE FIXATION, AU MÈTRE ----
+// ⚠ Ce prix était écrit EN DUR dans le code du Dimensionnement (5 500 F) :
+// le jour où il changeait, Timo ne pouvait pas le modifier lui-même. C'est un
+// prix d'achat au mètre — ça bouge. Il se règle maintenant dans ⚙ Paramètres,
+// rangé comme les autres réglages généraux (sur les boutiques, pour ne créer
+// aucune nouvelle table Supabase).
+// Le repli sur 5 500 F garantit qu'une base qui n'a jamais eu ce réglage
+// continue de calculer exactement comme avant.
+export const PRIX_RAIL_DEFAUT = 5500;
+export const prixRailMetre = (db) => {
+  const b = (db?.boutiques || []).find((x) => Number(x.prix_rail) > 0);
+  return b ? Number(b.prix_rail) : PRIX_RAIL_DEFAUT;
+};
+
 // Statut d'un chantier (par défaut : en cours)
 export const statutChantier = (c) => c.statut || "en_cours";
 

@@ -848,5 +848,24 @@ titre("Rails de fixation : le calcul était juste, c'est le libellé qui trompai
     metres(0) === 0);
 }
 
+
+titre("Prix du rail : réglable dans les Paramètres, sans rien casser de l'existant");
+{
+  test("une base qui n'a jamais touché au réglage garde EXACTEMENT l'ancien prix",
+    C.prixRailMetre({ boutiques: [{ nom: "LOME" }] }) === 5500
+    && C.PRIX_RAIL_DEFAUT === 5500);
+  test("le prix réglé par l'administrateur est bien celui qui s'applique",
+    C.prixRailMetre({ boutiques: [{ nom: "LOME", prix_rail: 6200 }] }) === 6200);
+  test("le réglage est lu même s'il n'est posé que sur une boutique",
+    C.prixRailMetre({ boutiques: [{ nom: "A" }, { nom: "B", prix_rail: 7000 }] }) === 7000);
+  test("une valeur aberrante (0 ou négative) est ignorée au profit du prix d'origine",
+    C.prixRailMetre({ boutiques: [{ prix_rail: 0 }] }) === 5500
+    && C.prixRailMetre({ boutiques: [{ prix_rail: -100 }] }) === 5500);
+  test("une base vide ou absente ne fait pas planter le devis",
+    C.prixRailMetre({}) === 5500 && C.prixRailMetre(null) === 5500);
+  test("un prix relevé change bien le montant du devis (10 panneaux = 22 m)",
+    22 * C.prixRailMetre({ boutiques: [{ prix_rail: 6200 }] }) === 136400);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

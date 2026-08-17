@@ -5,13 +5,16 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue, prixRailMetre } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW } from "./Partages";
 
 
 
 const estHybrideTexte = (texte) => /hybride|hybrid/i.test(texte || "");
-const PRIX_RAIL = 5500;
+// ⚠ Le prix du rail n'est plus figé ici : il se règle dans ⚙ Paramètres
+// (prixRailMetre), pour que Timo puisse le changer lui-même quand son
+// fournisseur bouge. Le repli intégré vaut l'ancien 5 500 F, donc une base
+// qui n'a jamais touché au réglage calcule exactement comme avant.
 
 const ROLES_EQUIPEMENT = [
   { id: "panneau", label: "Panneaux solaires", mots: ["panneau", "panel", "photovolta", "pv "], unites: ["w", "wc"] },
@@ -56,6 +59,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // écrasé (même bug que la quantité aurait pu se reproduire ici).
   const [prixLibre, setPrixLibre] = useState({});
   const produitsBoutique = modeLibre ? [] : db.produits.filter((p) => p.boutique === boutique);
+  const PRIX_RAIL = prixRailMetre(db);
 
   // ---- Besoins du client (liste d'appareils) ----
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
