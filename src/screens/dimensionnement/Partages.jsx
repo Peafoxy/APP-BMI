@@ -9,6 +9,22 @@ import { fmt, telDigits, col } from "../../lib/core";
 import { Field, inputCls, uAlert } from "../../components/ui";
 import { marqueEspace } from "../../lib/calculs";
 
+// ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
+// convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
+// multiplié par le facteur de puissance (0,8 en usage courant). L'application
+// comparait pourtant les deux directement : un besoin de 5 000 W acceptait un
+// convertisseur « 5000VA », qui ne délivre en réalité que 4 000 W — le client
+// repartait sous-équipé d'environ 20 %.
+//
+// Le cas « kVA » est déjà couvert en amont : specDepuisNom() ramène kVA en VA
+// (et kW en W) avant d'arriver ici, donc « 5KVA » vaut 5000 va, puis 4000 W.
+// Peu importe donc que l'article soit écrit en VA ou en kVA.
+export const FACTEUR_PUISSANCE_VA = 0.8;
+export const puissanceUtileW = (spec) => {
+  if (!spec) return 0;
+  return spec.unite === "va" ? Math.round(spec.valeur * FACTEUR_PUISSANCE_VA) : spec.valeur;
+};
+
 // ⚠ QUANTITÉ NÉCESSAIRE (2.100.39) — la quantité proposée était plafonnée à
 // 50 unités, EN SILENCE. Au-delà (grosse installation), le devis partait
 // sous-dimensionné sans que personne ne soit prévenu.

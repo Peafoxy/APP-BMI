@@ -800,5 +800,53 @@ titre("Quantité d'équipement : plus de plafond silencieux à 50");
     Dim.quantiteNecessaire(0, 550) === 1);
 }
 
+
+titre("Convertisseur : les VA sont convertis en watts (et les kVA aussi)");
+{
+  const spec = (nom) => Dim.specDepuisNom(nom);
+  const utile = (nom) => Dim.puissanceUtileW(spec(nom));
+
+  test("« 5000VA » ne vaut pas 5 000 W mais 4 000 W utiles",
+    utile("CONVERTISSEUR 5000VA 48V") === 4000);
+  test("écrit en kVA, c'est le MÊME résultat — « 5KVA » vaut aussi 4 000 W utiles",
+    utile("CONVERTISSEUR 5KVA 48V") === 4000 && spec("CONVERTISSEUR 5KVA 48V").valeur === 5000);
+  test("« 3.5KVA » est lu correctement : 2 800 W utiles",
+    utile("ONDULEUR 3.5KVA") === 2800);
+  test("un convertisseur annoncé en WATTS n'est PAS diminué",
+    utile("CONVERTISSEUR HYBRIDE 5000W 48V") === 5000);
+  test("écrit en kW non plus — « 5KW » reste 5 000 W",
+    utile("CONVERTISSEUR HYBRIDE 5KW 48V") === 5000);
+
+  // Le scenario exact signale : un besoin de 5 000 W.
+  const besoin = 5000;
+  const stock = ["CONVERTISSEUR 5000VA 48V", "CONVERTISSEUR 6000VA 48V", "CONVERTISSEUR 8000VA 48V"];
+  const suffisantAvant = stock.find((n) => spec(n).valeur >= besoin);
+  const suffisantApres = stock.find((n) => Dim.puissanceUtileW(spec(n)) >= besoin);
+  test("AVANT : un 5000VA était proposé pour un besoin de 5 000 W (client sous-équipé)",
+    suffisantAvant === "CONVERTISSEUR 5000VA 48V");
+  test("MAINTENANT : c'est le 6500VA minimum — ici le 8000VA — qui est retenu",
+    suffisantApres === "CONVERTISSEUR 8000VA 48V");
+  test("le 6000VA est bien écarté : il ne donne que 4 800 W",
+    utile("CONVERTISSEUR 6000VA 48V") === 4800 && 4800 < besoin);
+}
+
+
+titre("Rails de fixation : le calcul était juste, c'est le libellé qui trompait");
+{
+  // 5 500 F est le prix AU MÈTRE (confirmé par Timo) : la quantité calculée
+  // — panneaux × 2,2 — est un nombre de MÈTRES, et le total était correct.
+  const PRIX_RAIL = 5500;
+  const metres = (panneaux) => Math.ceil(panneaux * 2.2);
+
+  test("7 panneaux demandent 16 mètres de rail",
+    metres(7) === 16);
+  test("…soit 88 000 F, le montant qui était déjà facturé (rien ne change au prix)",
+    metres(7) * PRIX_RAIL === 88000);
+  test("35 panneaux : 77 mètres",
+    metres(35) === 77);
+  test("aucun panneau, aucun rail",
+    metres(0) === 0);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

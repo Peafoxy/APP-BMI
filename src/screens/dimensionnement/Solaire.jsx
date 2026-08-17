@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW } from "./Partages";
 
 
 
@@ -245,21 +245,26 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   const meilleurChoix = (role) => {
     if (modeLibre) return specLibre(role);
-    const options = candidats(role).sort((a, b) => a.spec.valeur - b.spec.valeur);
+    // ⚠ On compare TOUJOURS des watts utiles : un convertisseur « 5000VA »
+    // ne délivre que 4 000 W (voir puissanceUtileW). Le tri, le choix et la
+    // quantité passent donc par valeurUtile(), jamais par le chiffre brut
+    // inscrit dans le nom de l'article.
+    const valeurUtile = (o) => (role.id === "convertisseur" ? puissanceUtileW(o.spec) : o.spec.valeur);
+    const options = candidats(role).sort((a, b) => valeurUtile(a) - valeurUtile(b));
     const besoin = besoinParRole[role.id];
     if (options.length === 0 || besoin <= 0) return null;
 
     if (!empilable(role.id)) {
-      const suffisant = options.find((o) => o.spec.valeur >= besoin);
+      const suffisant = options.find((o) => valeurUtile(o) >= besoin);
       if (suffisant) return { type: "stock", produit_id: suffisant.p.id, qte: 1 };
       // Aucun modèle seul ne suffit : on prend le plus gros et on complète en quantité
       const plusGros = options[options.length - 1];
-      const qte = quantiteNecessaire(besoin, plusGros.spec.valeur);
+      const qte = quantiteNecessaire(besoin, valeurUtile(plusGros));
       return { type: "stock", produit_id: plusGros.p.id, qte };
     }
 
     const meilleur = options[options.length - 1];
-    const qte = quantiteNecessaire(besoin, meilleur.spec.valeur);
+    const qte = quantiteNecessaire(besoin, valeurUtile(meilleur));
     return { type: "stock", produit_id: meilleur.p.id, qte };
   };
 
@@ -372,8 +377,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const p = produitsBoutique.find((x) => x.id === produitId);
     const spec = p ? specDepuisNom(p.nom + " " + (p.categorie || "")) : null;
     const besoin = besoinParRole[roleId];
-    const qte = spec && spec.valeur > 0
-      ? (!empilable(roleId) && spec.valeur >= besoin ? 1 : quantiteNecessaire(besoin, spec.valeur))
+    // Même conversion VA → W que dans meilleurChoix : le vendeur qui choisit
+    // lui-même un « 5000VA » doit obtenir la quantité calculée sur 4 000 W.
+    const utile = roleId === "convertisseur" ? puissanceUtileW(spec) : (spec ? spec.valeur : 0);
+    const qte = utile > 0
+      ? (!empilable(roleId) && utile >= besoin ? 1 : quantiteNecessaire(besoin, utile))
       : 1;
     const nouveauChoix = { ...choix, [roleId]: { type: "stock", produit_id: produitId, qte } };
     if (roleId === "convertisseur") {
@@ -421,7 +429,17 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   };
 
   // ---- Rails de fixation : quantité et prix calculés automatiquement ----
-  // Formule : (nombre de panneaux × 2,2) ÷ 4,2 = quantité de rails ; prix fixe 5 500 F/rail
+  // ⚠ Le rail se vend AU MÈTRE (confirmé par Timo, 2.100.40) : 5 500 F le
+  // mètre. La quantité calculée — nombre de panneaux × 2,2 — est donc un
+  // NOMBRE DE MÈTRES, et le total était juste depuis le début.
+  // Ce qui était faux, c'est ce que lisaient le vendeur ET le client : la
+  // ligne s'intitulait « Rails de fixation » avec une quantité de 16, qu'on ne
+  // pouvait comprendre que comme 16 rails entiers. Un ancien commentaire
+  // décrivait même une division par 4,2 que le code n'a jamais faite — c'est
+  // ce commentaire qui était faux, pas le calcul. Tout est libellé en mètres.
+  //
+  // La CATÉGORIE de la ligne reste « Rails de fixation » : c'est la clé qui
+  // permet de retrouver cette ligne quand on reprend un ancien devis.
   const nombrePanneaux = choix.panneau?.qte || 0;
   // Si un article "Rails de fixation" existe réellement en stock, on relie
   // la ligne à lui — la VRAIE quantité calculée sera alors déduite du stock
@@ -500,7 +518,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
     const panier = [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
-      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL }] : []),
       ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
     ];
 
@@ -530,7 +548,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           categorie: l.role.label, article: l.produit.nom, qte: l.qte,
           pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
         })),
-        ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rail de fixation", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
+        ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
         ...autres.filter((a) => a.nom).map((a) => ({
           categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
           pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
@@ -569,7 +587,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const convertir = () => {
     const panier = [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
-      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL }] : []),
       ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
     ];
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
@@ -723,7 +741,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                         ) : (
                           <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.role.id, e.target.value)}>
                             <option value="">— Aucun —</option>
-                            {options.map(({ p, spec }) => <option key={p.id} value={p.id}>{p.nom} ({spec.valeur >= 1000 ? (spec.valeur / 1000).toFixed(1) + "k" : spec.valeur}{spec.unite}){estHybrideTexte(p.nom) ? " — hybride" : ""}</option>)}
+                            {options.map(({ p, spec }) => {
+                              const brut = `${spec.valeur >= 1000 ? (spec.valeur / 1000).toFixed(1) + "k" : spec.valeur}${spec.unite}`;
+                              // Un article en VA : on montre aussi ce qu'il donne VRAIMENT en watts.
+                              const utile = puissanceUtileW(spec);
+                              const reel = spec.unite === "va" ? ` = ${utile >= 1000 ? (utile / 1000).toFixed(1) + "kW" : utile + "W"} utiles` : "";
+                              return <option key={p.id} value={p.id}>{p.nom} ({brut}{reel}){estHybrideTexte(p.nom) ? " — hybride" : ""}</option>;
+                            })}
                           </select>
                         )}
                         <button onClick={() => ouvrirManuel(l.role.id)} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">✏️ Saisir un article hors stock</button>
@@ -756,11 +780,16 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
             {/* Rails de fixation : quantité et prix calculés automatiquement */}
             <tr className="border-t border-slate-100 bg-amber-50/40">
-              <td className="px-3 py-2 font-semibold whitespace-nowrap">Rails de fixation</td>
-              <td className="px-3 py-2 text-xs text-slate-500">Calculé automatiquement : {nombrePanneaux} panneaux × 2,2</td>
+              <td className="px-3 py-2 font-semibold whitespace-nowrap">Rails de fixation <span className="font-normal text-slate-500">(en mètres)</span></td>
+              <td className="px-3 py-2 text-xs text-slate-500">Calculé automatiquement : {nombrePanneaux} panneaux × 2,2 m = {railsQte} m</td>
               <td className="px-3 py-2 text-slate-400">—</td>
-              <td className="px-3 py-2"><input type="number" min="0" className={`${inputCls} w-20`} value={railsQte} onChange={(e) => setRailsQte(Math.max(0, Number(e.target.value) || 0))} /></td>
-              <td className="px-3 py-2 tabular-nums">{fmt(PRIX_RAIL)}</td>
+              <td className="px-3 py-2">
+                <div className="flex items-center gap-1">
+                  <input type="number" min="0" className={`${inputCls} w-20`} value={railsQte} onChange={(e) => setRailsQte(Math.max(0, Number(e.target.value) || 0))} />
+                  <span className="text-xs font-semibold text-slate-500">m</span>
+                </div>
+              </td>
+              <td className="px-3 py-2 tabular-nums whitespace-nowrap">{fmt(PRIX_RAIL)} <span className="text-xs text-slate-500">/m</span></td>
               <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalRails)}</td>
               <td className="px-3 py-2"></td>
             </tr>
