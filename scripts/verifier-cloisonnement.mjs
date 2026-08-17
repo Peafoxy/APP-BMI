@@ -497,5 +497,80 @@ titre("« Annuler paiement » : une annulation partielle est refusée, plus jama
     [{ id: "v_x", commission_payee: true }].filter((v) => !v.commission_dep).length === 1);
 }
 
+
+titre("Le verrou regarde d'OÙ vient la ligne, pas seulement où elle va");
+{
+  // La faille exacte : un compte de formation prenait une ligne REELLE et la
+  // faisait basculer dans son espace en reecrivant simplement sa boutique.
+  // Chemin non theorique : l'encaissement d'une « pose seule » reecrit la
+  // boutique de la dette a chaque versement.
+  const boutiques = [{ nom: "LOME", formation: false }, { nom: "ECOLE", formation: true }];
+  const users = [
+    { id: "u_admin", nom: "TIMO", role: "admin", admin_principal: true },
+    { id: "u_vend", nom: "DODO", role: "vendeur", boutique: "ECOLE" },
+  ];
+  const detteReelle = { id: "d1", boutique: "LOME", montant: 500000, paye: 0 };
+  const vide = { ventes: [], depenses: [], produits: [], ajustements: [], clotures: [],
+                 commandes: [], proformas: [], clients_installes: [] };
+  const prev = { boutiques, users, dettes: [detteReelle], ...vide };
+  const stagiaire = { id: "u_vend", role: "vendeur", boutique: "ECOLE" };
+  const timo = { id: "u_admin", role: "admin" };
+
+  test("modifier une vraie dette en la laissant sur sa boutique : toujours refusé",
+    !!C.verifierEcritureEspace(prev, { ...prev, dettes: [{ ...detteReelle, paye: 100000 }] }, stagiaire));
+
+  const deplacee = { ...prev, dettes: [{ ...detteReelle, boutique: "ECOLE", paye: 100000 }] };
+  const inf = C.verifierEcritureEspace(prev, deplacee, stagiaire);
+  test("faire BASCULER cette vraie dette dans l'espace formation : refusé (c'était la faille)",
+    !!inf && inf.deplacement === true && inf.boutique === "LOME");
+  test("le message explique qu'un enregistrement ne peut pas changer d'espace",
+    C.messageEcritureRefusee(inf, true).includes("ne peut pas être déplacé"));
+
+  test("le déplacement inverse (une ligne de formation vers le réel) est refusé aussi", (() => {
+    const p = { boutiques, users, dettes: [{ id: "d2", boutique: "ECOLE", montant: 1000, paye: 0 }], ...vide };
+    const reel = { id: "u_r", role: "vendeur", boutique: "LOME" };
+    const p2 = { ...p, users: [...users, { id: "u_r", nom: "KOFFI", role: "vendeur", boutique: "LOME" }] };
+    const n = { ...p2, dettes: [{ id: "d2", boutique: "LOME", montant: 1000, paye: 500 }] };
+    return !!C.verifierEcritureEspace(p2, n, reel);
+  })());
+
+  test("l'administrateur principal, lui, peut toujours tout faire",
+    C.verifierEcritureEspace(prev, deplacee, timo) === null);
+  test("un encaissement normal, dans son propre espace, passe sans gêne", (() => {
+    const p = { boutiques, users, dettes: [{ id: "d3", boutique: "ECOLE", montant: 1000, paye: 0 }], ...vide };
+    const n = { ...p, dettes: [{ id: "d3", boutique: "ECOLE", montant: 1000, paye: 500 }] };
+    return C.verifierEcritureEspace(p, n, stagiaire) === null;
+  })());
+}
+
+
+titre("Prime d'installation : jamais payée deux fois");
+{
+  // Deux chemins mènent au paiement (l'admin depuis Clients installés, le
+  // vendeur depuis Primes remises) et l'app fonctionne hors ligne.
+  const part = { user_id: "u_tech", nom: "KOSSI", pct: 60, montant: 30000, chef: true,
+                 demande_prime: true, prime_boutique: "LOME" };
+  const chantier = { id: "ch1", nom: "AGBEKO", equipe: [part] };
+  const db = { clients_installes: [chantier], depenses: [], users: [], boutiques: [{ nom: "LOME" }] };
+
+  test("une part pas encore réglée est bien payable",
+    C.primeDejaPayee(db, chantier, part) === false);
+
+  // Quelqu'un d'autre a payé pendant qu'on remplissait la fenêtre.
+  const apres = { ...db, clients_installes: [{ ...chantier,
+    equipe: [{ ...part, paye: true, demande_prime: false, dep_id: "dep1" }] }] };
+  test("si elle vient d'être payée ailleurs, le second paiement est refusé",
+    C.primeDejaPayee(apres, chantier, part) === true);
+  test("le contrôle relit la BASE, pas la ligne affichée à l'écran (qui dit encore « à payer »)",
+    part.paye !== true && C.primeDejaPayee(apres, chantier, part) === true);
+  test("les parts des autres techniciens du même chantier ne sont pas bloquées", (() => {
+    const autre = { user_id: "u_tech2", nom: "AMA", montant: 20000, prime_boutique: "LOME" };
+    const d = { ...db, clients_installes: [{ ...chantier, equipe: [{ ...part, paye: true }, autre] }] };
+    return C.primeDejaPayee(d, chantier, autre) === false;
+  })());
+  test("un chantier introuvable ne fait pas passer le paiement en force",
+    C.primeDejaPayee({ clients_installes: [] }, chantier, part) === false);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

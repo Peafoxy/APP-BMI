@@ -348,6 +348,21 @@ export const messagesNotifPaiementCommission = messagesNotifSortieCaisse;
 // à l'identique depuis ClientsInstalles.jsx (bouton inline) et depuis
 // l'onglet dédié PrimesRemises.jsx — pour ne jamais avoir deux versions de
 // la même logique qui pourraient un jour diverger.
+// ⚠ DOUBLE PAIEMENT (corrigé en 2.100.36) — rien ne vérifiait qu'une prime
+// n'était pas DÉJÀ payée. Deux chemins mènent ici (l'administrateur depuis
+// 🏠 Clients installés, le vendeur depuis 💰 Primes remises) et l'application
+// fonctionne hors ligne : deux personnes, ou deux appareils, pouvaient régler
+// la même part. La fiche du chantier finissait correcte — une seule mention
+// « payée » — mais DEUX dépenses étaient créées, et la caisse débitée deux
+// fois sans que rien ne le signale.
+// On relit donc l'état RÉEL de la part dans la base au moment du paiement,
+// jamais celui affiché à l'écran (qui peut dater de la dernière synchro).
+export function primeDejaPayee(db, c, e) {
+  const chantier = (db.clients_installes || []).find((x) => x.id === c.id);
+  const part = (chantier?.equipe || []).find((y) => y.user_id === e.user_id);
+  return !!part?.paye;
+}
+
 export function construirePaiementPrime(db, profile, c, e, moyen) {
   const bq = e.prime_boutique;
   const dep = {
@@ -956,6 +971,17 @@ export function verifierEcritureEspace(prev, next, profile) {
       avant.delete(r.id);
       if (a && memeEnregistrement(a, r)) continue;       // ligne inchangée
       if (boutiqueRefusee(r.boutique)) return { table: t, boutique: r.boutique };
+      // ⚠ FAILLE 2.100.36 : on ne regardait QUE la boutique d'arrivée. Un
+      // compte de formation pouvait donc prendre une ligne RÉELLE (une dette
+      // client, une vente…) et la faire basculer dans son espace en
+      // réécrivant simplement sa boutique — l'écriture passait, puisque la
+      // destination était bien la sienne. La ligne disparaissait alors des
+      // comptes réels sans être effacée nulle part.
+      // Le chemin n'était pas théorique : l'encaissement d'une « pose seule »
+      // (Clients installés) réécrit justement la boutique de la dette à
+      // chaque versement.
+      // On vérifie donc aussi d'OÙ la ligne vient, pas seulement où elle va.
+      if (a && boutiqueRefusee(a.boutique)) return { table: t, boutique: a.boutique, deplacement: true };
     }
     // Suppressions : effacer une ligne de l'autre espace est tout aussi grave.
     for (const a of avant.values()) {
@@ -971,6 +997,11 @@ export function verifierEcritureEspace(prev, next, profile) {
     const a = chantiersAvant.get(c.id);
     if (a && memeEnregistrement(a, c)) continue;
     if (boutiqueRefusee(boutiqueDuChantier(next, c))) return { table: "clients_installes", boutique: boutiqueDuChantier(next, c) };
+    // Même précaution qu'au-dessus : un chantier change d'espace dès qu'on le
+    // rattache à une autre vente (ou à une autre dette).
+    if (a && boutiqueRefusee(boutiqueDuChantier(prev, a))) {
+      return { table: "clients_installes", boutique: boutiqueDuChantier(prev, a), deplacement: true };
+    }
   }
 
   return null;
@@ -986,9 +1017,13 @@ export const messageEcritureRefusee = (infraction, monEspace) => {
     clotures: "une clôture de caisse", commandes: "une commande",
     proformas: "une proforma", clients_installes: "un chantier",
   };
+  const geste = infraction.suppression ? "supprimerait"
+    : infraction.deplacement ? "ferait basculer dans votre espace" : "écrirait";
   return `🚫 Opération refusée — cloisonnement formation / réel.\n\n` +
-    `Votre compte travaille dans l'espace ${monEspace ? "FORMATION" : "RÉEL"}, mais cette action ${infraction.suppression ? "supprimerait" : "écrirait"} ${LIB[infraction.table] || "un enregistrement"} sur la boutique « ${infraction.boutique || "?"} », qui appartient à l'espace ${monEspace ? "RÉEL" : "FORMATION"}.\n\n` +
-    `Rien n'a été enregistré. Choisissez une boutique de votre espace, ou demandez à l'administrateur principal de vérifier le rattachement de votre compte.`;
+    `Votre compte travaille dans l'espace ${monEspace ? "FORMATION" : "RÉEL"}, mais cette action ${geste} ${LIB[infraction.table] || "un enregistrement"} ${infraction.deplacement ? "qui appartient à" : "sur"} la boutique « ${infraction.boutique || "?"} », qui appartient à l'espace ${monEspace ? "RÉEL" : "FORMATION"}.\n\n` +
+    `Rien n'a été enregistré. ${infraction.deplacement
+      ? "Un enregistrement d'un espace ne peut pas être déplacé dans l'autre : il disparaîtrait des comptes auxquels il appartient."
+      : "Choisissez une boutique de votre espace, ou demandez à l'administrateur principal de vérifier le rattachement de votre compte."}`;
 };
 
 // ============ TÂCHES ASSIGNÉES ============

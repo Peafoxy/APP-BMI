@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, resteAPayer, marqueEspace } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, marqueEspace } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -642,9 +642,14 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const validerPaiementPrime = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
+    if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
     const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
     if (moyen === null) return;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`)) return;
+    // Deuxième lecture APRÈS les questions : entre l'ouverture de la fenêtre
+    // et la confirmation, une synchronisation a pu ramener le paiement fait
+    // par quelqu'un d'autre (l'admin et le vendeur peuvent payer tous les deux).
+    if (primeDejaPayee(db, c, e)) { uAlert(`⚠ La part de ${e.nom} vient d'être payée par quelqu'un d'autre.\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois.`); return; }
     save(construirePaiementPrime(db, profile, c, e, moyen), `Part d'installation payée : ${fmt(e.montant)} à ${e.nom} (chantier ${c.nom})`);
     uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`);
   };
