@@ -46,6 +46,13 @@ export function Users({ db, save, profile }) {
     : utilisateursVisibles.filter((x) => x.role === roleAffiche);
   const vide = { nom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
+  // Les boutiques réellement proposables pour le compte en cours de
+  // création : celles de l'espace coché, jamais TERRAIN (caisse virtuelle,
+  // qui n'est un rattachement valide pour personne). Une seule définition,
+  // partagée par la liste déroulante, l'avertissement sous la case à cocher
+  // et le contrôle final avant création — pour qu'ils ne puissent jamais se
+  // contredire.
+  const boutiquesDuFormulaire = db.boutiques.filter((b) => !b.terrain && !!b.formation === !!f.formationCompte);
   const [msg, setMsg] = useState("");
 
   const creer = async () => {
@@ -83,6 +90,17 @@ export function Users({ db, save, profile }) {
 
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
+    // ⚠ Dernier verrou : un compte rattaché à une boutique ne peut pas être
+    // créé sans boutique VALIDE de son espace. Sans ce contrôle, cocher
+    // « compte de formation » alors qu'aucune boutique d'entraînement
+    // n'existe créait un compte étiqueté formation mais rattaché à une
+    // vraie boutique — qui vendait donc pour de bon (cas DODO / TOTO).
+    if (!estMultiBoutique && !boutiquesDuFormulaire.some((b) => b.nom === f.boutique)) {
+      setMsg(f.formationCompte
+        ? "Impossible : aucune boutique de formation n'existe. Créez-en une dans ⚙ Paramètres → Boutiques (case « 🎓 C'est une boutique de formation »), sinon ce compte serait rattaché à une vraie boutique malgré son étiquette."
+        : "Choisissez la boutique de rattachement de ce compte.");
+      return;
+    }
     const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!f.formationCompte };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
@@ -664,7 +682,22 @@ export function Users({ db, save, profile }) {
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
           <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
-          {SALARIES_BOUTIQUE.includes(f.role) && <Field label="Boutique"><select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>{db.boutiques.filter((b) => !!b.formation === !!f.formationCompte).map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}</select></Field>}
+          {/* ⚠ La liste ne propose que les boutiques de l'espace coché. Quand
+              cet espace n'en contient AUCUNE, la liste devenait vide — et le
+              formulaire gardait en silence la boutique précédemment
+              sélectionnée, donc une VRAIE. C'est ainsi que sont nés des
+              comptes étiquetés « formation » mais rattachés à une vraie
+              boutique. On affiche désormais une option explicite, et la
+              création est refusée plus bas. */}
+          {SALARIES_BOUTIQUE.includes(f.role) && (
+            <Field label="Boutique">
+              <select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>
+                {boutiquesDuFormulaire.length === 0
+                  ? <option value="">— aucune boutique {f.formationCompte ? "de formation" : "réelle"} —</option>
+                  : boutiquesDuFormulaire.map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}
+              </select>
+            </Field>
+          )}
           {(f.role === "commercial" || f.role === "technicien") && <Field label="Taux de commission (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.taux} onChange={(e) => setF({ ...f, taux: e.target.value })} /></Field>}
           {(f.role === "resp_commercial" || f.role === "technicien_bmi") && <Field label="Taux de commission (%) — facultatif"><input type="number" min="0" max="100" step="0.5" placeholder="0 = aucune commission" className={inputCls} value={f.taux_resp || ""} onChange={(e) => setF({ ...f, taux_resp: e.target.value })} /></Field>}
           {SALARIES.includes(f.role) && <Field label="Taux d'avancement annuel (%)"><input type="number" min="0" max="100" step="0.5" placeholder="Ex : 5" className={inputCls} value={f.taux_avancement || ""} onChange={(e) => setF({ ...f, taux_avancement: e.target.value })} /></Field>}
@@ -675,10 +708,27 @@ export function Users({ db, save, profile }) {
             </label>
           )}
           {f.role && f.role !== "client" && (
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mt-2">
-              <input type="checkbox" checked={!!f.formationCompte} onChange={(e) => setF({ ...f, formationCompte: e.target.checked })} />
-              🎓 Compte de formation — ne verra que les boutiques de formation, jamais les vraies
-            </label>
+            <div className="mt-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                {/* Cocher change d'espace : la boutique retenue doit suivre,
+                    sinon elle reste sur celle de l'autre espace. */}
+                <input type="checkbox" checked={!!f.formationCompte} onChange={(e) => {
+                  const versFormation = e.target.checked;
+                  const dispo = db.boutiques.filter((b) => !b.terrain && !!b.formation === versFormation);
+                  setF({ ...f, formationCompte: versFormation, boutique: dispo[0]?.nom || "" });
+                }} />
+                🎓 Compte de formation — ne verra que les boutiques de formation, jamais les vraies
+              </label>
+              {/* Prévenir MAINTENANT, pas au moment du clic sur Créer : on
+                  évite de remplir tout le formulaire pour rien. */}
+              {f.formationCompte && SALARIES_BOUTIQUE.includes(f.role) && boutiquesDuFormulaire.length === 0 && (
+                <div className="mt-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-2.5 text-xs text-amber-900">
+                  <b>Aucune boutique de formation n'existe encore.</b> Créez-en une dans <b>⚙ Paramètres → Boutiques</b>
+                  {" "}(case « 🎓 C'est une boutique de formation ») avant de créer ce compte — sinon il serait rattaché
+                  à une vraie boutique, et travaillerait pour de bon malgré son étiquette.
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="mt-3 flex items-center gap-3 flex-wrap">
