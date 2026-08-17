@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider , ventesDuCommercial, ventesReelles } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider , ventesDuCommercial, ventesReelles } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -35,14 +35,31 @@ export function MonEquipe({ db, save, profile }) {
     const ventes = ventesDuCommercial(db, u.nom).filter((v) => inP(v.date, debut, fin));
     const enAttente = ventes.filter((v) => !v.commission_payee);
     const reglees = ventes.filter((v) => v.commission_payee);
-    const ca = ventes.reduce((s, v) => s + totalVente(v), 0);
-    const caAttente = enAttente.reduce((s, v) => s + totalVente(v), 0);
-    const caRegle = reglees.reduce((s, v) => s + totalVente(v), 0);
+    // ⚠ Une vente issue d'un devis ne rapporte RIEN tant que le client n'a pas
+    // réceptionné l'installation (commissionBloquee). Elle ne compte donc pas
+    // dans le montant payé — et surtout, elle ne doit PAS être tamponnée
+    // « commission payée » : sinon, à la réception, la commission se débloque
+    // sur une vente déjà close et le commercial la perd définitivement.
+    // Le paiement et l'affichage partagent maintenant LA MÊME liste
+    // (idsAPayer) : ils ne peuvent plus diverger.
     const taux = Number(u.taux_commission || 0);
+    const part = repartirCommissions(enAttente, taux);
+    const ca = ventes.reduce((s, v) => s + totalVente(v), 0);
+    const caAttente = part.exigibles.reduce((s, v) => s + totalVente(v), 0);
+    const caRegle = reglees.reduce((s, v) => s + totalVente(v), 0);
     return {
       u, nbVentes: ventes.length, ca, caAttente, caRegle, nbReglees: reglees.length,
-      commissionDue: enAttente.reduce((s, v) => s + commissionVente(v, taux), 0),
-      commissionReglee: Math.round((caRegle * taux) / 100),
+      commissionDue: part.du,
+      idsAPayer: part.idsAPayer,
+      nbGelees: part.gelees.length,
+      commissionGelee: part.gele,
+      // « Déjà payé » : on RELIT le montant réellement versé (stamped à la
+      // seconde du paiement) au lieu de le recalculer. L'ancien calcul
+      // (CA × taux) ignorait les rabais offerts par le commercial et les
+      // lignes hors boutique, et changeait rétroactivement dès qu'on
+      // modifiait le taux. Les paiements antérieurs à 2.100.35 n'ont pas ce
+      // montant : on retombe sur la même formule que la commission due.
+      commissionReglee: reglees.reduce((s, v) => s + montantVerse(v, taux), 0),
       prospects: db.prospects.filter((p) => p.commercial === u.nom).length,
       commandesAttente: (db.commandes || []).filter((c) => c.commercial === u.nom && c.statut === "en_attente").length,
     };
@@ -62,10 +79,20 @@ export function MonEquipe({ db, save, profile }) {
     const ids = new Set(ventesConcernees.map((v) => v.id));
     // On retire aussi les dépenses « Commissions » générées par ces paiements
     const depsAnnulees = new Set(ventesConcernees.map((v) => v.commission_dep).filter(Boolean));
+    const depsSupprimees = db.depenses.filter((d) => depsAnnulees.has(d.id));
+    // ⚠ Le bénéficiaire avait reçu « 💰 votre commission vous a été payée ».
+    // Sans ce message, ce mot restait vrai à ses yeux alors que le règlement
+    // venait d'être défait — et les caisses recréditées n'en savaient rien.
+    const avis = [
+      { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: st.u.id, lu_par: [profile.id],
+        texte: `↩ Le règlement de votre commission a été ANNULÉ par ${profile.nom} : ${fmt(st.commissionReglee)} redeviennent « à payer ». ${st.nbReglees} vente(s) concernée(s). Rapprochez-vous de la direction si cela vous surprend.` },
+      ...depsSupprimees.flatMap((d) => messagesNotifSortieCaisse(db, profile, d.boutique, st.u.nom, Number(d.montant || 0), "Règlement de commission ANNULÉ —", "entree")),
+    ];
     save({
       ...db,
-      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, commission_payee: false, commission_dep: null } : v)),
+      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, commission_payee: false, commission_dep: null, commission_montant: null } : v)),
       depenses: db.depenses.filter((d) => !depsAnnulees.has(d.id)),
+      messages: [...avis, ...(db.messages || [])],
     }, `ANNULATION règlement commission de ${st.u.nom} : ${fmt(st.commissionReglee)} remis à payer (par ${profile.nom})`);
   };
 
@@ -96,17 +123,24 @@ export function MonEquipe({ db, save, profile }) {
   const chefs = db.users.filter((u) => u.actif !== false && estChefEquipe(db, u) && filleulsDe(db, u).length > 0)
     .map((u) => {
       const tauxEq = Number(u.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
-      let due = 0, versees = 0, ventesDues = [];
+      let due = 0, versees = 0, gelee = 0, ventesDues = [];
+      const partParVente = {}; // id de vente → part exacte du chef, inscrite au paiement
       filleulsDe(db, u).forEach((fu) => {
         const tu = Number(fu.taux_commission || 0);
-        ventesDuCommercial(db, fu.nom).filter((v) => inP(v.date, debut, fin)).forEach((v) => {
-          const part = Math.round((commissionVente(v, tu) * tauxEq) / 100);
-          if (v.override_payee) versees += part; else { due += part; ventesDues.push(v.id); }
-        });
+        // ⚠ Même défaut que la commission individuelle : la part du chef sur
+        // une vente encore GELÉE (installation non réceptionnée) vaut 0, mais
+        // la vente partait quand même dans ventesDues — donc tamponnée
+        // « payée » alors que le chef n'avait rien touché. À la réception, sa
+        // part se débloquait sur une vente déjà close : perdue.
+        const r = repartirCommissionEquipe(
+          ventesDuCommercial(db, fu.nom).filter((v) => inP(v.date, debut, fin)), tu, tauxEq);
+        due += r.due; versees += r.versees; gelee += r.gelee;
+        ventesDues.push(...r.idsAPayer);
+        Object.assign(partParVente, r.partParVente);
       });
-      return { u, tauxEq, nbFilleuls: filleulsDe(db, u).length, due, versees, ventesDues };
+      return { u, tauxEq, nbFilleuls: filleulsDe(db, u).length, due, versees, gelee, ventesDues, partParVente };
     })
-    .filter((c) => c.due > 0 || c.versees > 0);
+    .filter((c) => c.due > 0 || c.versees > 0 || c.gelee > 0);
 
   const totalEquipeDu = chefs.reduce((s, c) => s + c.due, 0);
 
@@ -126,7 +160,11 @@ export function MonEquipe({ db, save, profile }) {
     };
     save({
       ...db,
-      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, override_payee: true, override_dep: dep.id } : v)),
+      ventes: db.ventes.map((v) => (ids.has(v.id)
+        // On inscrit la part réellement versée : « Déjà payé » la relira au
+        // lieu de la recalculer avec le taux du moment.
+        ? { ...v, override_payee: true, override_dep: dep.id, override_montant: c.partParVente[v.id] ?? 0 }
+        : v)),
       depenses: [dep, ...db.depenses],
       messages: [
         { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: c.u.id, lu_par: [profile.id],
@@ -146,11 +184,29 @@ export function MonEquipe({ db, save, profile }) {
     clients.delete("|");
     return clients.size;
   };
-  const dejaUtilisateur = (a) => db.users.some((u) => u.nom.trim().toLowerCase() === a.nom.trim().toLowerCase());
+  // ⚠ `u.nom` est l'IDENTIFIANT de connexion (« KOFFI »), pas le nom complet
+  // de l'apporteur (« KOFFI MENSAH ») : la comparaison ne trouvait donc
+  // jamais rien, même juste après une promotion. Le badge « Déjà commercial »
+  // ne s'affichait pas, le bouton « Promouvoir » restait, et la même personne
+  // pouvait recevoir deux comptes. On compare aussi le nom complet (que la
+  // promotion enregistre justement dans nom_complet) et le téléphone.
+  const memeTexte = (a, b) => {
+    const n = (s) => String(s || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+    return !!n(a) && n(a) === n(b);
+  };
+  const memeTel = (a, b) => {
+    const n = (s) => String(s || "").replace(/\D/g, "");
+    return n(a).length >= 6 && n(a) === n(b);
+  };
+  const dejaUtilisateur = (a) => db.users.some((u) =>
+    memeTexte(u.nom, a.nom) || memeTexte(u.nom_complet, a.nom) || memeTel(u.tel, a.tel));
 
   // Promotion : l'apporteur externe devient un COMMERCIAL avec son propre compte
   const promouvoir = async (a) => {
     if (bloquerSiLecture(db, profile)) return;
+    // Deuxième garde-fou : le bouton est déjà masqué quand la personne a un
+    // compte, mais un écran resté ouvert peut être en retard sur les données.
+    if (dejaUtilisateur(a)) { uAlert(`${a.nom} a déjà un compte dans l'application.\n\nInutile de le promouvoir une seconde fois : cela créerait un doublon, avec deux identifiants pour la même personne.`); return; }
     const n = clientsApportes(a);
     const identifiant = await uPrompt(
       `🎖 ${a.nom} a apporté ${n} client(s).\n\nLe promouvoir COMMERCIAL : il aura son propre compte, ses prospects, ses commandes et son onglet « Ma commission ».\n\nIdentifiant de connexion :`,
@@ -225,8 +281,16 @@ export function MonEquipe({ db, save, profile }) {
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile);
     if (bq === null) return;
-    if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} (${fmt(st.caAttente)} de ventes × ${st.u.taux_commission ?? 0} %)\n\nSortie de caisse ${bq} : ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).`)) return;
-    const ids = new Set(ventesDuCommercial(db, st.u.nom).filter((v) => inP(v.date, debut, fin) && !v.commission_payee).map((v) => v.id));
+    if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} — ${st.idsAPayer.length} vente(s) au taux de ${st.u.taux_commission ?? 0} % (rabais éventuels déduits).\n\nSortie de caisse ${bq} : ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).` +
+      (st.nbGelees > 0 ? `\n\n⏳ ${st.nbGelees} vente(s) restent en attente de réception (${fmt(st.commissionGelee)}) : elles ne sont PAS payées aujourd'hui et resteront dues à la réception.` : ""))) return;
+    // ⚠ On ne tamponne QUE les ventes réellement payées (st.idsAPayer, la même
+    // liste que celle qui a servi à calculer le montant). Auparavant on
+    // prenait toutes les ventes non payées de la période, y compris celles
+    // dont la commission était gelée jusqu'à la réception : elles étaient
+    // marquées « payée » sans qu'un franc ne soit versé, et la commission
+    // était perdue pour toujours une fois l'installation réceptionnée.
+    const ids = new Set(st.idsAPayer);
+    const tauxU = Number(st.u.taux_commission || 0);
     const dep = {
       id: uid(), date: today(), boutique: bq, categorie: "Commissions",
       description: `Commission — ${st.u.nom} (${ids.size} vente(s))`,
@@ -234,7 +298,9 @@ export function MonEquipe({ db, save, profile }) {
     };
     save({
       ...db,
-      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, commission_payee: true, commission_dep: dep.id } : v)),
+      ventes: db.ventes.map((v) => (ids.has(v.id)
+        ? { ...v, commission_payee: true, commission_dep: dep.id, commission_montant: commissionVente(v, tauxU) }
+        : v)),
       depenses: [dep, ...db.depenses],
       messages: [
         // Le bénéficiaire est prévenu DIRECTEMENT — sans ce message, le
@@ -371,7 +437,13 @@ export function MonEquipe({ db, save, profile }) {
                 <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>
-                <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}</td>
+                <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}
+                  {st.nbGelees > 0 && (
+                    <div className="text-xs font-semibold text-amber-600 whitespace-nowrap" title="Ventes issues d'un devis : la commission n'est due qu'à la réception de l'installation par le client.">
+                      ⏳ + {fmt(st.commissionGelee)} à la réception
+                    </div>
+                  )}
+                </td>
                 <td className="px-3 py-2 tabular-nums">{st.prospects}</td>
                 <td className="px-3 py-2 tabular-nums">{st.commandesAttente}</td>
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap">
@@ -402,7 +474,13 @@ export function MonEquipe({ db, save, profile }) {
                   <td className="px-3 py-2 font-semibold">{c.u.nom_complet || c.u.nom}</td>
                   <td className="px-3 py-2 tabular-nums">{c.nbFilleuls}</td>
                   <td className="px-3 py-2 tabular-nums">{c.tauxEq} %</td>
-                  <td className="px-3 py-2 tabular-nums font-bold text-red-600">{fmt(c.due)}</td>
+                  <td className="px-3 py-2 tabular-nums font-bold text-red-600">{fmt(c.due)}
+                    {c.gelee > 0 && (
+                      <div className="text-xs font-semibold text-amber-600 whitespace-nowrap" title="Part du chef sur des ventes dont l'installation n'est pas encore réceptionnée.">
+                        ⏳ + {fmt(c.gelee)} à la réception
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(c.versees)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.due > 0 && aDroit(db, profile, "act_commission") && <button onClick={() => payerCommissionEquipe(c)} className="text-xs font-bold text-white bg-amber-600 rounded px-2 py-1 hover:bg-amber-700">✓ Payer</button>}

@@ -361,5 +361,72 @@ titre("Saisie CNSS : le formulaire tape du TEXTE, l'enregistrement stocke des NO
 }
 
 
+
+titre("Commissions : une vente GELÉE (installation non réceptionnée) ne doit jamais être tamponnée « payée »");
+{
+  // Le defaut : le MONTANT ecartait bien les ventes gelees, mais la liste
+  // tamponnee "commission payee" les emportait quand meme. A la reception, la
+  // commission se debloquait sur une vente deja close -> perdue pour toujours.
+  const vNormale = { id: "v1", articles: [{ qte: 1, pu: 1000000 }] };
+  const vGelee   = { id: "v2", articles: [{ qte: 1, pu: 2000000 }], commission_a_la_reception: true };
+  const r = C.repartirCommissions([vNormale, vGelee], 5);
+
+  test("la vente gelée n'est PAS dans la liste à tamponner",
+    r.idsAPayer.length === 1 && r.idsAPayer[0] === "v1");
+  test("le montant payé ne compte que la vente exigible",
+    r.du === 50000);
+  test("la commission gelée est affichée à part, pas perdue de vue",
+    r.gele === 100000 && r.gelees.length === 1);
+  test("le montant affiché et la liste tamponnée portent sur EXACTEMENT les mêmes ventes",
+    r.du === r.idsAPayer.reduce((s, id) => s + C.commissionVente([vNormale, vGelee].find((v) => v.id === id), 5), 0));
+
+  // Le scenario complet, bout en bout : on paie, PUIS le client receptionne.
+  const apresPaiement = [vNormale, vGelee].map((v) => (r.idsAPayer.includes(v.id)
+    ? { ...v, commission_payee: true, commission_montant: C.commissionVente(v, 5) } : v));
+  const apresReception = apresPaiement.map((v) => (v.id === "v2"
+    ? { ...v, commission_a_la_reception: false } : v));
+  const r2 = C.repartirCommissions(apresReception.filter((v) => !v.commission_payee), 5);
+  test("après réception, la commission gelée redevient bien DUE (elle était perdue avant)",
+    r2.du === 100000 && r2.idsAPayer.length === 1 && r2.idsAPayer[0] === "v2");
+
+  // Le rabais offert par le commercial reste bien deduit de SA commission.
+  const vRabais = { id: "v3", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000 };
+  test("le rabais offert par le commercial reste déduit de sa commission",
+    C.repartirCommissions([vRabais], 5).du === 31000);
+}
+
+
+titre("Commissions d'équipe : même règle pour la part du chef");
+{
+  const tauxFilleul = 5, tauxChef = 10;
+  const vNormale = { id: "v1", articles: [{ qte: 1, pu: 1000000 }] };
+  const vGelee   = { id: "v2", articles: [{ qte: 1, pu: 2000000 }], commission_a_la_reception: true };
+  const vPayee   = { id: "v3", articles: [{ qte: 1, pu: 1000000 }], override_payee: true, override_montant: 4200 };
+  const r = C.repartirCommissionEquipe([vNormale, vGelee, vPayee], tauxFilleul, tauxChef);
+
+  test("le chef ne fait tamponner que la vente exigible",
+    r.idsAPayer.length === 1 && r.idsAPayer[0] === "v1");
+  test("sa part due est bien 10 % de la commission de sa recrue",
+    r.due === 5000);
+  test("sa part sur la vente gelée est signalée, pas encaissée",
+    r.gelee === 10000);
+  test("« déjà payé » relit le montant réellement versé (4 200), pas une reconstitution",
+    r.versees === 4200);
+  test("le montant inscrit sur chaque vente correspond à ce qui est payé",
+    r.partParVente.v1 === 5000 && r.partParVente.v2 === undefined);
+}
+
+
+titre("« Déjà payé » : un montant relu, pas recalculé avec le taux du jour");
+{
+  const vente = { id: "v1", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000, commission_payee: true, commission_montant: 31000 };
+  test("le montant versé est relu tel quel",
+    C.montantVerse(vente, 5) === 31000);
+  test("…et ne bouge PAS quand on change le taux du commercial après coup",
+    C.montantVerse(vente, 20) === 31000);
+  test("un paiement ancien (sans montant inscrit) retombe sur la formule complète, rabais déduit",
+    C.montantVerse({ id: "v2", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000 }, 5) === 31000);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -665,6 +665,66 @@ export const commissionPour = (v, nom, taux) => (v.commercial === nom
   ? commissionVente(v, taux)
   : (commissionBloquee(v) ? 0 : Math.round((caVente(v) * Number(taux || 0)) / 100)));
 
+// ---- CE QUI A DÉJÀ ÉTÉ VERSÉ (et non « ce qu'on aurait versé ») ----
+// La colonne « Déjà payé » de 👑 Mon équipe RECONSTITUAIT le montant à partir
+// du chiffre d'affaires et du taux du moment. Deux erreurs : elle oubliait le
+// rabais offert par le commercial et les lignes hors boutique (donc un montant
+// trop élevé), et elle changeait rétroactivement dès qu'on modifiait le taux
+// d'un commercial — l'argent sorti de la caisse, lui, n'avait pas bougé.
+// Depuis 2.100.35 le paiement INSCRIT le montant versé sur la vente ; on le
+// relit. Les paiements plus anciens n'ont pas cette trace : on retombe sur la
+// formule complète (commissionBrute, rabais déduit), qui reste bien plus juste
+// que l'ancien CA × taux.
+export const montantVerse = (v, taux) =>
+  v?.commission_montant != null ? Number(v.commission_montant) : commissionBrute(v, taux);
+
+// Même principe pour la part d'un chef d'équipe sur la vente d'une recrue.
+export const montantVerseEquipe = (v, tauxFilleul, tauxEquipe) =>
+  v?.override_montant != null
+    ? Number(v.override_montant)
+    : Math.round((commissionBrute(v, tauxFilleul) * Number(tauxEquipe || 0)) / 100);
+
+// ---- QUELLES VENTES SONT RÉELLEMENT PAYÉES AUJOURD'HUI ----
+// 👑 Mon équipe calculait le MONTANT sur les ventes exigibles, mais tamponnait
+// « commission payée » sur TOUTES les ventes non réglées de la période —
+// y compris celles dont la commission est gelée jusqu'à la réception de
+// l'installation. Résultat : la vente gelée était close sans qu'un franc ne
+// soit versé, et le jour où le client réceptionnait, la commission débloquée
+// ne réapparaissait jamais. Le commercial la perdait définitivement.
+//
+// Le montant affiché et la liste tamponnée sortent maintenant de la MÊME
+// fonction : ils ne peuvent plus diverger.
+export const repartirCommissions = (ventes, taux) => {
+  const exigibles = [], gelees = [];
+  for (const v of ventes || []) (commissionBloquee(v) ? gelees : exigibles).push(v);
+  return {
+    exigibles, gelees,
+    idsAPayer: exigibles.map((v) => v.id),
+    du: exigibles.reduce((s, v) => s + commissionVente(v, taux), 0),
+    gele: gelees.reduce((s, v) => s + commissionEnAttente(v, taux), 0),
+  };
+};
+
+// Même règle pour la part d'un CHEF D'ÉQUIPE sur les ventes d'une de ses
+// recrues : une vente gelée n'entre jamais dans la liste tamponnée.
+// `partParVente` conserve le montant exact versé pour chaque vente : c'est lui
+// qui est inscrit sur la vente au paiement, pour que « Déjà payé » relise un
+// montant réel au lieu de le reconstituer avec le taux du moment.
+export const repartirCommissionEquipe = (ventes, tauxFilleul, tauxEquipe) => {
+  const tx = Number(tauxEquipe || 0);
+  let due = 0, versees = 0, gelee = 0;
+  const idsAPayer = [], partParVente = {};
+  for (const v of ventes || []) {
+    if (commissionBloquee(v)) { gelee += Math.round((commissionEnAttente(v, tauxFilleul) * tx) / 100); continue; }
+    if (v.override_payee) { versees += montantVerseEquipe(v, tauxFilleul, tauxEquipe); continue; }
+    const part = Math.round((commissionVente(v, tauxFilleul) * tx) / 100);
+    due += part;
+    partParVente[v.id] = part;
+    idsAPayer.push(v.id);
+  }
+  return { due, versees, gelee, idsAPayer, partParVente };
+};
+
 // Normalise un nom d'article pour le comparer : majuscules, sans accents,
 // sans ponctuation, sans espaces multiples, et au singulier grossier.
 // « Panneaux 550 W » et « PANNEAU 550W » deviennent la même chose.
