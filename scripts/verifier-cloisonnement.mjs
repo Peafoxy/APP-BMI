@@ -428,5 +428,74 @@ titre("« Déjà payé » : un montant relu, pas recalculé avec le taux du jour
     C.montantVerse({ id: "v2", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000 }, 5) === 31000);
 }
 
+
+titre("Mon équipe : un compte de formation n'y lit plus les vrais chiffres");
+{
+  // Reproduit la logique exacte de l'ecran (les memes fonctions partagees).
+  const base = {
+    boutiques: [{ nom: "LOME", formation: false }, { nom: "ECOLE", formation: true }],
+    users: [
+      { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true },
+      { id: "u_vrai", nom: "KOFFI", role: "commercial", taux_commission: 5 },
+      { id: "u_form", nom: "DODO", role: "commercial", taux_commission: 5, formation: true, chef_equipe: true },
+    ],
+    ventes: [
+      { id: "v_reel", boutique: "LOME",  commercial: "KOFFI", articles: [{ qte: 1, pu: 1000000 }] },
+      { id: "v_form", boutique: "ECOLE", commercial: "DODO",  articles: [{ qte: 1, pu: 7000 }] },
+    ],
+  };
+  const db = { ...base, __index: C.construireIndexDb(base) };
+  const timo = { id: "u_timo", role: "admin" };
+  const dodo = { id: "u_form", role: "commercial" };
+
+  // La regle de l'ecran : quelles ventes chacun lit pour un commercial donne.
+  const ventesDe = (profile, nom) => {
+    const cloisonne = C.estCompteFormation(db, profile) && !C.voitLesDeuxEspaces(db, profile);
+    return cloisonne
+      ? db.ventes.filter(C.filtreEspaceAffichage(db, profile)).filter((v) => v.commercial === nom)
+      : C.ventesDuCommercial(db, nom);
+  };
+  const memeEspace = (profile, u) => C.voitLesDeuxEspaces(db, profile)
+    || C.estCompteFormation(db, u) === C.estCompteFormation(db, profile);
+
+  test("le compte de formation ne voit PLUS le vrai chiffre d'affaires du commercial",
+    ventesDe(dodo, "KOFFI").length === 0);
+  test("il voit ses propres ventes d'entraînement",
+    ventesDe(dodo, "DODO").length === 1 && ventesDe(dodo, "DODO")[0].id === "v_form");
+  test("le vrai commercial ne figure plus dans SA liste d'équipe",
+    memeEspace(dodo, db.users[1]) === false);
+
+  test("l'administrateur principal, lui, garde exactement la même vue qu'avant",
+    ventesDe(timo, "KOFFI").length === 1 && ventesDe(timo, "KOFFI")[0].id === "v_reel");
+  test("…et PERSONNE ne disparaît de sa liste — ni le vrai, ni celui de formation",
+    memeEspace(timo, db.users[1]) === true && memeEspace(timo, db.users[2]) === true);
+  test("les ventes d'entraînement ne gonflent jamais le chiffre réel",
+    C.ventesDuCommercial(db, "DODO").length === 0);
+}
+
+
+titre("« Annuler paiement » : une annulation partielle est refusée, plus jamais faite à moitié");
+{
+  // Un reglement unique (dep D1) couvrant deux mois. On affiche « ce mois ».
+  const ventes = [
+    { id: "v_juin",   date: "2026-06-10", commission_payee: true, commission_dep: "D1" },
+    { id: "v_juillet", date: "2026-07-10", commission_payee: true, commission_dep: "D1" },
+  ];
+  const debordement = (affichees) => {
+    const ids = new Set(affichees.map((v) => v.id));
+    const deps = new Set(affichees.map((v) => v.commission_dep).filter(Boolean));
+    return ventes.filter((v) => v.commission_payee && v.commission_dep && deps.has(v.commission_dep) && !ids.has(v.id));
+  };
+
+  test("annuler depuis « ce mois » déborde sur juin : c'est refusé",
+    debordement([ventes[1]]).length === 1 && debordement([ventes[1]])[0].id === "v_juin");
+  test("annuler depuis « depuis le début » ne déborde pas : c'est accepté",
+    debordement(ventes).length === 0);
+  test("un règlement qui ne couvre qu'un seul mois s'annule normalement",
+    debordement([{ id: "v_seule", date: "2026-07-10", commission_payee: true, commission_dep: "D2" }]).length === 0);
+  test("une vente réglée SANS dépense rattachée est repérée (risque de double paiement)",
+    [{ id: "v_x", commission_payee: true }].filter((v) => !v.commission_dep).length === 1);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

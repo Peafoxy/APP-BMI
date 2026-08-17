@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider , ventesDuCommercial, ventesReelles } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -23,16 +23,43 @@ export function MonEquipe({ db, save, profile }) {
   };
   const [debut, fin] = bornes();
 
+  // ⚠ CLOISONNEMENT (2.100.36) — cet écran affichait les chiffres RÉELS sans
+  // jamais regarder qui le consulte : un compte de formation qui est chef
+  // d'équipe ou responsable commercial y lisait le vrai chiffre d'affaires de
+  // toute l'équipe, les commissions dues à chacun et vos apporteurs externes
+  // avec leurs téléphones. Il ne pouvait rien ÉCRIRE (le verrou de 2.100.26
+  // refuse ses paiements) : le trou était de visibilité.
+  //
+  // Le choix retenu, pour ne rien casser chez l'administrateur :
+  //   - un compte qui voit les deux espaces (l'admin principal) garde
+  //     EXACTEMENT la même liste qu'avant — personne ne disparaît. Les
+  //     membres de formation sont simplement signalés par un badge 🎓 ;
+  //   - un compte cloisonné, lui, ne voit que les gens de SON espace.
+  const jeVoisTout = voitLesDeuxEspaces(db, profile);
+  const monEspace = estCompteFormation(db, profile);
+  const memeEspace = (u) => jeVoisTout || estCompteFormation(db, u) === monEspace;
+  const enFormation = (u) => estCompteFormation(db, u);
+  // Les ventes de MON espace (pour un compte réel c'est exactement
+  // ventesReelles ; pour un compte de formation, ses ventes d'entraînement).
+  const ventesDeMonEspace = (db.ventes || []).filter(filtreEspaceAffichage(db, profile));
+  // ventesDuCommercial() renvoie TOUJOURS les ventes réelles (c'est ce qu'on
+  // veut pour l'administrateur et pour un compte réel). Un compte cloisonné
+  // en formation, lui, doit lire ses ventes d'entraînement — sinon il
+  // continuerait de voir le vrai chiffre d'affaires de chaque commercial.
+  const ventesDe = (nom) => (monEspace && !jeVoisTout
+    ? ventesDeMonEspace.filter((v) => v.commercial === nom)
+    : ventesDuCommercial(db, nom));
+
   // Tous ceux qui peuvent toucher une commission : commerciaux, techniciens,
   // mais aussi tout autre employé qui a un taux ou des ventes à son nom.
-  const equipe = db.users.filter((u) => u.actif !== false && u.role !== "client" && (
+  const equipe = db.users.filter((u) => u.actif !== false && u.role !== "client" && memeEspace(u) && (
     ["commercial", "technicien", "technicien_bmi"].includes(u.role) ||
     Number(u.taux_commission || 0) > 0 ||
-    ventesDuCommercial(db, u.nom).length > 0
+    ventesDe(u.nom).length > 0
   ));
 
   const stats = equipe.map((u) => {
-    const ventes = ventesDuCommercial(db, u.nom).filter((v) => inP(v.date, debut, fin));
+    const ventes = ventesDe(u.nom).filter((v) => inP(v.date, debut, fin));
     const enAttente = ventes.filter((v) => !v.commission_payee);
     const reglees = ventes.filter((v) => v.commission_payee);
     // ⚠ Une vente issue d'un devis ne rapporte RIEN tant que le client n'a pas
@@ -74,11 +101,36 @@ export function MonEquipe({ db, save, profile }) {
   const annulerPaiement = async (st) => {
     if (!estAdmin) return;
     if (st.nbReglees === 0) { uAlert("Aucune commission réglée à annuler pour " + st.u.nom + " sur cette période."); return; }
-    if (!await uConfirm(`⚠ ANNULER le règlement de commission de ${st.u.nom} sur cette période ?\n\n${st.nbReglees} vente(s) réglée(s), soit ${fmt(st.commissionReglee)} de commission, redeviendront « à payer ».`)) return;
-    const ventesConcernees = ventesDuCommercial(db, st.u.nom).filter((v) => inP(v.date, debut, fin) && v.commission_payee);
+    const ventesConcernees = ventesDe(st.u.nom).filter((v) => inP(v.date, debut, fin) && v.commission_payee);
     const ids = new Set(ventesConcernees.map((v) => v.id));
     // On retire aussi les dépenses « Commissions » générées par ces paiements
     const depsAnnulees = new Set(ventesConcernees.map((v) => v.commission_dep).filter(Boolean));
+
+    // ⚠ ANNULATION PARTIELLE = TROU DE CAISSE (corrigé en 2.100.36).
+    // Un règlement couvre les ventes de la période OÙ IL A ÉTÉ FAIT. Si on
+    // annule depuis une période plus courte, la dépense entière disparaissait
+    // — la caisse récupérait TOUT — alors que seules les ventes affichées
+    // redevenaient « à payer ». La différence, réellement sortie de la caisse,
+    // s'effaçait des livres : ni payable, ni traçable.
+    // On refuse maintenant l'annulation au lieu de la faire à moitié.
+    const debordement = (db.ventes || []).filter((v) =>
+      v.commission_payee && v.commission_dep && depsAnnulees.has(v.commission_dep) && !ids.has(v.id));
+    if (debordement.length > 0) {
+      const dates = debordement.map((v) => String(v.date || "")).filter(Boolean).sort();
+      uAlert(
+        `Annulation impossible depuis cette période.\n\n` +
+        `Ce règlement couvre aussi ${debordement.length} vente(s) en dehors de la période affichée` +
+        (dates.length ? ` (du ${dFR(dates[0])} au ${dFR(dates[dates.length - 1])})` : "") + `.\n\n` +
+        `L'annuler d'ici remettrait tout l'argent dans la caisse mais ne rendrait « à payer » qu'une partie des ventes : la différence disparaîtrait de vos comptes.\n\n` +
+        `➡ Choisissez « Depuis le début » en haut de l'écran, puis recommencez : le règlement sera annulé en entier.`);
+      return;
+    }
+    // Ventes réglées sans dépense rattachée (données anciennes) : les rouvrir
+    // sans rien retirer de la caisse ferait payer deux fois la même commission.
+    const sansDepense = ventesConcernees.filter((v) => !v.commission_dep).length;
+
+    if (!await uConfirm(`⚠ ANNULER le règlement de commission de ${st.u.nom} sur cette période ?\n\n${st.nbReglees} vente(s) réglée(s), soit ${fmt(st.commissionReglee)} de commission, redeviendront « à payer ».\n\nLa dépense « Commissions » correspondante sera supprimée : l'argent revient dans la caisse.` +
+      (sansDepense > 0 ? `\n\n⚠ ${sansDepense} vente(s) n'ont aucune dépense rattachée (règlement ancien) : elles redeviendront dues sans que rien ne soit retiré de la caisse. Vérifiez de ne pas payer deux fois.` : ""))) return;
     const depsSupprimees = db.depenses.filter((d) => depsAnnulees.has(d.id));
     // ⚠ Le bénéficiaire avait reçu « 💰 votre commission vous a été payée ».
     // Sans ce message, ce mot restait vrai à ses yeux alors que le règlement
@@ -103,7 +155,7 @@ export function MonEquipe({ db, save, profile }) {
   // pour ne jamais gonfler la commission d'un apporteur externe.
   const apporteursExt = (() => {
     const g = {};
-    ventesReelles(db).filter((v) => v.apporteur && v.apporteur.nom && inP(v.date, debut, fin)).forEach((v) => {
+    ventesDeMonEspace.filter((v) => v.apporteur && v.apporteur.nom && inP(v.date, debut, fin)).forEach((v) => {
       const cle = `${v.apporteur.nom}|${v.apporteur.tel || ""}`;
       if (!g[cle]) g[cle] = { nom: v.apporteur.nom, tel: v.apporteur.tel || "", taux: Number(v.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [] };
       const m = Number(v.apporteur.montant || 0);
@@ -133,7 +185,7 @@ export function MonEquipe({ db, save, profile }) {
         // « payée » alors que le chef n'avait rien touché. À la réception, sa
         // part se débloquait sur une vente déjà close : perdue.
         const r = repartirCommissionEquipe(
-          ventesDuCommercial(db, fu.nom).filter((v) => inP(v.date, debut, fin)), tu, tauxEq);
+          ventesDe(fu.nom).filter((v) => inP(v.date, debut, fin)), tu, tauxEq);
         due += r.due; versees += r.versees; gelee += r.gelee;
         ventesDues.push(...r.idsAPayer);
         Object.assign(partParVente, r.partParVente);
@@ -179,7 +231,7 @@ export function MonEquipe({ db, save, profile }) {
   // Nombre de CLIENTS DISTINCTS apportés depuis toujours (pas seulement sur la période)
   const clientsApportes = (a) => {
     const clients = new Set();
-    ventesReelles(db).filter((v) => v.apporteur && v.apporteur.nom === a.nom && (v.apporteur.tel || "") === a.tel)
+    ventesDeMonEspace.filter((v) => v.apporteur && v.apporteur.nom === a.nom && (v.apporteur.tel || "") === a.tel)
       .forEach((v) => clients.add(((v.client || "") + "|" + (v.tel || "")).trim().toLowerCase()));
     clients.delete("|");
     return clients.size;
@@ -434,7 +486,13 @@ export function MonEquipe({ db, save, profile }) {
             {stats.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun commercial actif.</td></tr>}
             {stats.map((st) => (
               <tr key={st.u.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
+                <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}
+                  {/* Rien ne disparaît pour l'administrateur : les comptes de
+                      formation restent dans la liste, simplement signalés. */}
+                  {jeVoisTout && enFormation(st.u) && (
+                    <div className="text-xs font-bold text-violet-700" title="Compte d'entraînement : ses chiffres réels sont vides par construction.">🎓 formation</div>
+                  )}
+                </td>
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>
                 <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}
@@ -529,7 +587,12 @@ export function MonEquipe({ db, save, profile }) {
         )}
       </div>
 
-      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. 🔧 = technicien, ⭐ = chef d'équipe. Le paiement d'un apporteur externe est enregistré en dépense.</div>
+      {monEspace && !jeVoisTout && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
+          🎓 <b>Espace formation.</b> Cet écran ne montre que votre équipe et vos chiffres d'entraînement. Les commerciaux, les commissions et les apporteurs de l'entreprise réelle n'y figurent pas.
+        </div>
+      )}
+      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. ⏳ = commission en attente de la réception de l'installation. 🔧 = technicien, ⭐ = chef d'équipe{jeVoisTout ? ", 🎓 = compte de formation" : ""}. Le paiement d'un apporteur externe est enregistré en dépense.</div>
     </div>
   );
 }
