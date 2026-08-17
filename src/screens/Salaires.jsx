@@ -169,6 +169,16 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
 
   const maj = (id, champ, val) => setBrouillon((b) => ({ ...b, [id]: { ...b[id], [champ]: val } }));
 
+  // ⚠ L'export DRC et le paiement CNSS se calculaient sur le BROUILLON —
+  // c'est-à-dire sur ce qui est affiché à l'écran, pas sur ce qui est
+  // enregistré. On pouvait donc déclarer et payer la CNSS sur des valeurs
+  // jamais sauvegardées, puis les perdre en changeant de mois. On compare
+  // désormais le brouillon à la fiche enregistrée, et on refuse tant que
+  // les deux diffèrent.
+  const enregistre = brouillonVide();
+  const modifie = employes.filter((u) => JSON.stringify(brouillon[u.id] || {}) !== JSON.stringify(enregistre[u.id] || {}));
+  const saisieNonEnregistree = modifie.length > 0;
+
   const enregistrer = () => {
     if (bloquerSiLecture(db, profile)) return;
     save({
@@ -203,6 +213,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
   const nonPrets = nbAssujettis - pretsPourExport.length;
 
   const exporter = () => {
+    if (saisieNonEnregistree) { uAlert(`Enregistrez d'abord vos saisies.\n\n${modifie.length} employé(s) ont des informations modifiées mais non enregistrées (${modifie.map((u) => u.nom).join(", ")}).\n\nLe fichier envoyé à la CNSS doit correspondre à ce qui est réellement enregistré.`); return; }
     if (nbAssujettis === 0) { uAlert("Aucun employé n'est coché « Assujetti CNSS ». Cochez d'abord les employés concernés, puis renseignez leurs informations."); return; }
     if (pretsPourExport.length === 0) { uAlert("Aucun employé assujetti n'est prêt pour l'export : renseignez au minimum le n° d'assurance CNSS, la date d'embauche et les jours travaillés."); return; }
     const nomFichier = genererFichierDRC(pretsPourExport, mois);
@@ -220,17 +231,39 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
   // prélevé sur ses employés, donc cet argent sort bien de sa caisse.
   const totalRemunerationAssujettis = pretsPourExport.reduce((s, { remuneration }) => s + Number(remuneration || 0), 0);
   const repartitionTotale = repartitionCNSS(totalRemunerationAssujettis);
-  const dejaEnregistreCeMois = (db.depenses || []).some((d) => d.categorie === "Cotisations CNSS" && String(d.date || "").slice(0, 7) === mois);
+  // ⚠ Le garde comparait la DATE DU PAIEMENT au mois déclaré. Or la CNSS
+  // se règle le mois SUIVANT (jusqu'au 15) : payer juin le 5 juillet
+  // donnait date=2026-07 contre mois=2026-06, donc jamais d'égalité —
+  // l'avertissement ne s'affichait jamais dans le cas normal, et rien
+  // n'empêchait d'enregistrer deux fois le même paiement.
+  // La dépense porte déjà le mois déclaré dans son champ `mois` : c'est
+  // lui qui fait foi (repli sur la date pour les dépenses d'avant ce
+  // correctif, qui ne le portaient pas).
+  const dejaEnregistreCeMois = (db.depenses || []).some((d) =>
+    d.categorie === "Cotisations CNSS" && (d.mois ? d.mois === mois : String(d.date || "").slice(0, 7) === mois));
 
   const payerCNSS = async () => {
     if (bloquerSiLecture(db, profile)) return;
+    if (saisieNonEnregistree) { uAlert(`Enregistrez d'abord vos saisies.\n\n${modifie.length} employé(s) ont des informations modifiées mais non enregistrées (${modifie.map((u) => u.nom).join(", ")}).\n\nUn paiement calculé sur des valeurs non sauvegardées ne correspondrait à rien.`); return; }
     if (pretsPourExport.length === 0) { uAlert("Aucun employé assujetti prêt : rien à régler pour ce mois."); return; }
     if (dejaEnregistreCeMois) {
       if (!await uConfirm(`Un paiement CNSS a déjà été enregistré pour ${libelleMoisFR(mois)}. Enregistrer un second paiement quand même ?`)) return;
     }
+    // ⚠ Le montant ne couvre QUE les employés complets. Un assujetti à qui
+    // il manque le n° d'assurance, la date d'embauche ou les jours du mois
+    // était silencieusement exclu du calcul : on sous-déclarait et on
+    // sous-payait sans que rien ne le dise au moment de valider.
+    if (nonPrets > 0) {
+      const exclus = employes.filter((u) => brouillon[u.id]?.assujetti && !pretsPourExport.some((l) => l.u.id === u.id));
+      if (!await uConfirm(
+        `⚠ Ce paiement ne couvre que ${pretsPourExport.length} employé(s) sur ${nbAssujettis} assujetti(s).\n\n` +
+        `${nonPrets} employé(s) sont EXCLUS du montant faute d'informations complètes :\n${exclus.map((u) => u.nom).join(", ")}\n\n` +
+        `Vous déclarerez et paierez donc moins que ce que vous devez. Complétez leurs informations, ou continuez en connaissance de cause.`
+      )) return;
+    }
     const bq = await choisirBoutiqueDebitG(db, {}, `Paiement CNSS de ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`, profile);
     if (bq === null) return;
-    if (!await uConfirm(`Confirmer le paiement CNSS de ${libelleMoisFR(mois)} ?\n\nPart patronale (22,5 %) : ${fmt(repartitionTotale.partPatronale)}\nPart salariale déjà retenue (9 %) : ${fmt(repartitionTotale.partSalariale)}\nTOTAL à reverser à la CNSS : ${fmt(repartitionTotale.total)}\n\nSortie de caisse ${bq} : ${fmt(repartitionTotale.total)}.`)) return;
+    if (!await uConfirm(`Confirmer le paiement CNSS de ${libelleMoisFR(mois)} ?\n\nCouvre ${pretsPourExport.length} employé(s) sur ${nbAssujettis} assujetti(s).\n\nPart patronale (22,5 %) : ${fmt(repartitionTotale.partPatronale)}\nPart salariale déjà retenue (9 %) : ${fmt(repartitionTotale.partSalariale)}\nTOTAL à reverser à la CNSS : ${fmt(repartitionTotale.total)}\n\nSortie de caisse ${bq} : ${fmt(repartitionTotale.total)}.`)) return;
     const dep = {
       id: uid(), date: today(), boutique: bq, categorie: "Cotisations CNSS",
       description: `Cotisations CNSS ${libelleMoisFR(mois)} — ${pretsPourExport.length} employé(s) (dont part patronale ${fmt(repartitionTotale.partPatronale)} et part salariale déjà retenue ${fmt(repartitionTotale.partSalariale)})`,
@@ -278,6 +311,12 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
             <button onClick={payerCNSS} className="px-4 py-2 rounded-lg font-bold text-sm bg-purple-700 text-white">💸 Enregistrer le paiement CNSS du mois</button>
           </div>
         </div>
+        {saisieNonEnregistree && (
+          <div className="px-4 py-2 text-xs font-semibold text-red-700 bg-red-50 border-b border-red-200">
+            💾 {modifie.length} employé(s) ont des informations modifiées mais <b>non enregistrées</b> ({modifie.map((u) => u.nom).join(", ")}).
+            L'export DRC et le paiement CNSS sont bloqués tant que vous n'avez pas cliqué sur « Enregistrer ».
+          </div>
+        )}
         {nonPrets > 0 && (
           <div className="px-4 py-2 text-xs font-semibold text-amber-700 bg-amber-50 border-b border-amber-200">
             ⚠ {nonPrets} employé(s) assujetti(s) mais incomplet(s) pour l'export — il manque le n° d'assurance CNSS, la date d'embauche, et/ou les jours travaillés de {libelleMoisFR(mois)}.
