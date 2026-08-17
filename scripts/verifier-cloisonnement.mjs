@@ -14,7 +14,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
-import { unlinkSync, mkdirSync } from "node:fs";
+import { unlinkSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // lib/calculs.js importe les boîtes de dialogue (JSX + React) : on bundle
@@ -39,6 +39,19 @@ await build({
 });
 const Core = await import(pathToFileURL(sortieCore).href);
 unlinkSync(sortieCore);
+
+// lib/cnss.js importe la bibliothèque Excel (xlsx), qui ne s'initialise pas
+// hors navigateur. On la remplace par un bouchon vide : les fonctions
+// vérifiées ici (comparaison d'une saisie) n'y touchent pas.
+const bouchonXlsx = join("node_modules", ".cache", `bmi-xlsx-stub-${process.pid}.js`);
+writeFileSync(bouchonXlsx, "export const utils = {}; export const writeFile = () => {};\n");
+const sortieCnss = join("node_modules", ".cache", `bmi-cnss-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/cnss.js"], bundle: true, format: "esm", platform: "node",
+  outfile: sortieCnss, logLevel: "silent", loader: { ".js": "jsx" },
+  alias: { xlsx: "./" + bouchonXlsx } });
+const Cnss = await import(pathToFileURL(sortieCnss).href);
+unlinkSync(sortieCnss);
+unlinkSync(bouchonXlsx);
 
 // ---- Base d'essai : deux boutiques réelles, une de formation, un dépôt
 // de chaque côté, et les quatre profils qui comptent.
@@ -324,6 +337,27 @@ titre("Les écrans de synthèse ne montrent jamais les vrais chiffres à un comp
     return C.afficheChiffresFormation(apres, adminForm) === true
       && apres.ventes.filter(C.filtreEspaceAffichage(apres, adminForm)).length === 1;
   })());
+}
+
+
+titre("Saisie CNSS : le formulaire tape du TEXTE, l'enregistrement stocke des NOMBRES");
+{
+  // Le cas exact signale par Timo : apres un enregistrement reussi, le
+  // paiement CNSS restait bloque sur "non enregistre".
+  const tape       = { assujetti: true, matricule: "", numeroAssurance: "A1", codeType: "1", dateEmbauche: "2020-01-01", dateSortie: "", codeMotifSortie: "", jours: "0", nature: "1" };
+  const enregistre = { assujetti: true, matricule: "", numeroAssurance: "A1", codeType: 1,   dateEmbauche: "2020-01-01", dateSortie: "", codeMotifSortie: "", jours: 0,   nature: 1 };
+  test("« 0 » tapé et 0 enregistré sont reconnus identiques",
+    Cnss.memeSaisieCNSS(tape, enregistre) === true);
+  test("26 jours tapés et 26 enregistrés : identiques",
+    Cnss.memeSaisieCNSS({ ...tape, jours: "26" }, { ...enregistre, jours: 26 }) === true);
+  test("une vraie modification est toujours détectée",
+    Cnss.memeSaisieCNSS({ ...tape, jours: "26" }, enregistre) === false);
+  test("cocher « assujetti » est détecté",
+    Cnss.memeSaisieCNSS({ ...tape, assujetti: false }, enregistre) === false);
+  test("un espace en trop dans le n° d'assurance ne compte pas pour une modification",
+    Cnss.memeSaisieCNSS({ ...tape, numeroAssurance: " A1 " }, enregistre) === true);
+  test("changer le n° d'assurance est détecté",
+    Cnss.memeSaisieCNSS({ ...tape, numeroAssurance: "A2" }, enregistre) === false);
 }
 
 

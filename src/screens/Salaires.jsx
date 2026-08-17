@@ -10,7 +10,7 @@ import { Field, inputCls, btnDark, Panel, uAlert, uConfirm } from "../components
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
-import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC } from "../lib/cnss";
+import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC, memeSaisieCNSS } from "../lib/cnss";
 
 // Petite carte chiffrée (label + valeur), réutilisée par SalairesAdmin ET
 // Salaire (vue individuelle employé) — auparavant définie deux fois : une
@@ -176,7 +176,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
   // désormais le brouillon à la fiche enregistrée, et on refuse tant que
   // les deux diffèrent.
   const enregistre = brouillonVide();
-  const modifie = employes.filter((u) => JSON.stringify(brouillon[u.id] || {}) !== JSON.stringify(enregistre[u.id] || {}));
+  const modifie = employes.filter((u) => !memeSaisieCNSS(brouillon[u.id], enregistre[u.id]));
   const saisieNonEnregistree = modifie.length > 0;
 
   const enregistrer = () => {

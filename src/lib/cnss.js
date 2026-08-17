@@ -161,3 +161,22 @@ export function genererFichierDRC(lignes, mois) {
   XLSX.writeFile(construireClasseurDRC(lignes), nomFichier);
   return nomFichier;
 }
+
+// ⚠ Comparaison d'une ligne de saisie CNSS avec ce qui est ENREGISTRÉ.
+// Les champs du formulaire sont des TEXTES ("0", "26", "1"), tandis que
+// l'enregistrement les convertit en NOMBRES (0, 26, 1). Comparer les deux
+// tels quels faisait croire que rien n'était enregistré alors que si —
+// le paiement CNSS restait bloqué juste après un enregistrement réussi.
+// On compare donc les valeurs converties, jamais leur écriture.
+export const normaliserLigneCNSS = (b) => JSON.stringify({
+  assujetti: !!b?.assujetti,
+  matricule: String(b?.matricule ?? "").trim(),
+  numeroAssurance: String(b?.numeroAssurance ?? "").trim(),
+  codeType: Number(b?.codeType) || 1,
+  dateEmbauche: String(b?.dateEmbauche ?? ""),
+  dateSortie: String(b?.dateSortie ?? ""),
+  codeMotifSortie: b?.codeMotifSortie === "" || b?.codeMotifSortie == null ? "" : Number(b.codeMotifSortie),
+  jours: b?.jours === "" || b?.jours == null ? "" : Number(b.jours),
+  nature: Number(b?.nature) || 1,
+});
+export const memeSaisieCNSS = (a, b) => normaliserLigneCNSS(a) === normaliserLigneCNSS(b);
