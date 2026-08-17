@@ -741,8 +741,12 @@ export function imprimerBulletin(u, mois, db) {
       <thead><tr><th>Libellé</th><th>Montant (F CFA)</th></tr></thead>
       <tbody>
         ${ligne("Salaire de base", p.base, "")}
-        ${primes.map((x) => ligne(`Prime${x.motif ? " — " + x.motif : ""}`, x.montant, "+")).join("")}
-        ${avances.map((x) => ligne(`Avance sur salaire${x.motif ? " — " + x.motif : ""}`, x.montant, "-")).join("")}
+        ${/* ⚠ Seul texte SAISI encore inséré sans échappement dans un document
+              HTML : le motif d'une prime ou d'une avance, tapé librement par
+              l'administration. Tout le reste (nom du client, nom d'article,
+              adresse, garanties) passait déjà par esc(). */""}
+        ${primes.map((x) => ligne(`Prime${x.motif ? " — " + esc(x.motif) : ""}`, x.montant, "+")).join("")}
+        ${avances.map((x) => ligne(`Avance sur salaire${x.motif ? " — " + esc(x.motif) : ""}`, x.montant, "-")).join("")}
         ${p.retenueCredit > 0 ? ligne("Retenue crédit BMI", p.retenueCredit, "-") : ""}
         ${p.retenueCNSS > 0 ? ligne("Retenue CNSS (9 % — pension vieillesse + AMU)", p.retenueCNSS, "-") : ""}
         <tr class="net"><td>NET À PERCEVOIR</td><td>${fmt(p.net)}</td></tr>

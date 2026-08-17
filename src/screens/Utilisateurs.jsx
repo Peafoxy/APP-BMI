@@ -170,7 +170,20 @@ export function Users({ db, save, profile }) {
       users: db.users.map((x) => (x.id === u.id
         ? {
             ...x, ...nouveauxChamps,
-            pwd_visible: p, // gardé EN CLAIR uniquement pour que l'admin principal puisse le consulter plus tard (bouton « 👁 Voir ») — c'est un choix de gestion assumé, pas le mécanisme de connexion (qui reste le hachage ci-dessus)
+            // ⚠ FAILLE CRITIQUE FERMÉE : le mot de passe était conservé EN
+            // CLAIR ici (champ pwd_visible) pour alimenter le bouton « 👁 Voir ».
+            // Or la table des comptes est PUBLIQUEMENT LISIBLE — c'est
+            // volontaire et nécessaire (un appareil neuf doit retrouver son
+            // compte pour se connecter, voir durcir_securite.sql) — et la clé
+            // qui permet cette lecture est dans le code envoyé au navigateur.
+            // N'importe quel visiteur pouvait donc télécharger tous les mots de
+            // passe, y compris celui de l'administrateur principal.
+            // Le même défaut avait déjà été corrigé en 2.99.43 pour l'ancien
+            // champ `pwd` (purger-mots-de-passe.sql) ; pwd_visible, ajouté
+            // ensuite, le réintroduisait à l'identique.
+            // On efface le champ au passage, pour que la correction se propage
+            // d'elle-même à chaque changement de mot de passe.
+            pwd_visible: undefined,
             ...(x.role === "client" ? { mdp_auto: false } : {}), // ce n'est plus le mot de passe auto-généré
           }
         : x)),
@@ -293,9 +306,15 @@ export function Users({ db, save, profile }) {
 
   const voirPwd = (u) => {
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut consulter un mot de passe."); return; }
-    const mdp = u.pwd_visible || motDePasseConnu(u);
+    // ⚠ Plus aucun mot de passe n'est stocké en clair (voir plus haut).
+    // Seuls restent consultables les mots de passe CLIENT auto-générés,
+    // qui se recalculent à partir du nom et du téléphone — ils ne sont donc
+    // stockés nulle part. Pour tous les autres comptes, on n'affiche plus
+    // rien : on attribue un nouveau mot de passe, ce qui est de toute façon
+    // la seule action utile.
+    const mdp = motDePasseConnu(u);
     if (!mdp) {
-      uAlert(`Aucun mot de passe consultable pour ${u.nom}.\n\nIl a été défini avant cette fonctionnalité (ou changé par le client lui-même depuis son espace). Utilisez « Mot de passe » pour lui en attribuer un nouveau — il deviendra alors consultable.`);
+      uAlert(`Le mot de passe de ${u.nom} n'est pas consultable — et c'est voulu.\n\nPlus aucun mot de passe n'est conservé en clair dans la base : ils sont uniquement stockés sous forme chiffrée, impossible à relire.\n\nPour lui redonner un accès, utilisez « Mot de passe » et attribuez-lui-en un nouveau.`);
       return;
     }
     uAlert(`🔑 Mot de passe de ${u.nom} : ${mdp}`);

@@ -491,7 +491,9 @@ export async function reinitialiserDistant() {
           const u = ligne.data || {};
           const nettoye = {
             id: u.id, nom: u.nom, nom_base: u.nom_base, tel: u.tel,
-            pwd_salt: u.pwd_salt, pwd_hash2: u.pwd_hash2, pwd_visible: u.pwd_visible,
+            // ⚠ pwd_visible RETIRÉ : il conservait le mot de passe en clair
+            // dans une table publiquement lisible (faille critique fermée).
+            pwd_salt: u.pwd_salt, pwd_hash2: u.pwd_hash2,
             mdp_auto: u.mdp_auto, mdp_variante: u.mdp_variante, mdp_longueur: u.mdp_longueur,
             role: u.role, boutique: u.boutique, actif: u.actif, cree_par: u.cree_par,
             // ⚠ Bug réel trouvé par Timo (après réinitialisation, il n'était
