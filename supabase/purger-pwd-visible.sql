@@ -23,12 +23,17 @@
 -- 150 000 tours), qui ne sont pas touchés. Personne ne perd son accès.
 --
 -- À exécuter dans Supabase → SQL Editor → coller → Run.
+--
+-- ⚠ NOTE D'ÉCRITURE : on écrit ici jsonb_exists(data, 'pwd_visible') et non
+-- data ? 'pwd_visible'. Les deux font la même chose, mais l'éditeur SQL de
+-- Supabase prend parfois le « ? » pour un emplacement de paramètre et
+-- renvoie une erreur de syntaxe. jsonb_exists() passe toujours.
 -- ============================================================
 
 -- ─── ÉTAPE 1 : combien de comptes sont concernés ? (lecture seule) ───
 select count(*) as comptes_avec_mot_de_passe_en_clair
 from public.users
-where data ? 'pwd_visible';
+where jsonb_exists(data, 'pwd_visible');
 
 -- ─── ÉTAPE 2 : la purge ───
 -- `updated_at` remonte volontairement : la correction se propage ainsi à
@@ -36,12 +41,12 @@ where data ? 'pwd_visible';
 update public.users
 set data = data - 'pwd_visible',
     updated_at = now()
-where data ? 'pwd_visible';
+where jsonb_exists(data, 'pwd_visible');
 
 -- ─── ÉTAPE 3 : vérification — doit renvoyer 0 ───
 select count(*) as reste_a_purger
 from public.users
-where data ? 'pwd_visible';
+where jsonb_exists(data, 'pwd_visible');
 
 -- ============================================================
 -- PAS DE RETOUR EN ARRIÈRE, ET C'EST VOULU
