@@ -725,6 +725,23 @@ export const repartirCommissions = (ventes, taux) => {
 // `partParVente` conserve le montant exact versé pour chaque vente : c'est lui
 // qui est inscrit sur la vente au paiement, pour que « Déjà payé » relise un
 // montant réel au lieu de le reconstituer avec le taux du moment.
+// ---- QUI PEUT ÊTRE AFFECTÉ À UN CHANTIER ----
+// La liste des techniciens ne regardait aucun espace : on pouvait affecter un
+// VRAI technicien à un chantier d'entraînement (et l'inverse). Sa part de
+// frais était alors calculée à son nom, et payable depuis une vraie caisse.
+// `espaceFormation` est l'espace du CHANTIER (pas celui de la personne qui
+// regarde) : c'est lui qui décide, y compris pour l'administrateur.
+export const techniciensDeLEspace = (db, liste, espaceFormation) =>
+  liste.filter((u) => estCompteFormation(db, u) === !!espaceFormation);
+
+// L'espace d'un chantier : celui de sa boutique quand on peut la retrouver
+// (via la vente ou la dette rattachée), sinon celui du compte qui travaille
+// dessus — un chantier sans rattachement n'appartient à aucun des deux.
+export const espaceDuChantier = (db, c, profile) => {
+  const b = c ? boutiqueDuChantier(db, c) : null;
+  return b ? estBoutiqueFormation(db, b) : estCompteFormation(db, profile);
+};
+
 export const repartirCommissionEquipe = (ventes, tauxFilleul, tauxEquipe) => {
   const tx = Number(tauxEquipe || 0);
   let due = 0, versees = 0, gelee = 0;

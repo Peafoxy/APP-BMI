@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, marqueEspace } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, espaceDuChantier } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -52,7 +52,7 @@ const chefDuChantier = (c) => (c.equipe || []).find((e) => e.chef);
 const peutTerminer = (c, profile, isAdmin) =>
   statutChantier(c) === "en_cours" && (isAdmin || chefDuChantier(c)?.user_id === profile.id);
 
-const techniciensDispo = (db) => (db.users || []).filter((u) => {
+const techniciensActifs = (db) => (db.users || []).filter((u) => {
   if (u.actif === false) return false;
   if (!["technicien", "technicien_bmi"].includes(u.role)) return false;
   // Le technicien BMI est salarié : toujours affectable. Seul le technicien
@@ -62,15 +62,26 @@ const techniciensDispo = (db) => (db.users || []).filter((u) => {
 });
 
 // Calcule la répartition proposée : chef = part_chef + une part égale du reste.
+// ⚠ Les parts étaient arrondies CHACUNE au dixième, sans jamais vérifier leur
+// somme. Avec 7 ou 9 techniciens (60 / 7 = 8,571… → 8,6) le total montait à
+// 100,2 ou 100,3 % : BMI distribuait plus que les frais facturés au client,
+// et l'ancienne tolérance de 100,5 % laissait passer l'écart en silence.
+// On arrondit maintenant les parts des NON-CHEFS, et le chef reçoit le reste
+// exact — la somme fait toujours 100 %, au centième près.
 function repartitionProposee(equipeIds, chefId, partChef) {
   const n = equipeIds.length;
   if (!n) return {};
   const reste = Math.max(0, 100 - Number(partChef || 0));
-  const partEgale = reste / n;
+  const partEgale = Math.round((reste / n) * 10) / 10;
   const r = {};
+  let distribue = 0;
   equipeIds.forEach((id) => {
-    r[id] = Math.round((partEgale + (id === chefId ? Number(partChef || 0) : 0)) * 10) / 10;
+    if (id === chefId) return;
+    r[id] = partEgale;
+    distribue += partEgale;
   });
+  const chef = equipeIds.includes(chefId) ? chefId : equipeIds[0];
+  r[chef] = Math.round((100 - distribue) * 100) / 100;
   return r;
 }
 
@@ -306,10 +317,31 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const supprimer = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin && c.commercial !== profile.nom) { uAlert("Seul l'administrateur ou le commercial rattaché peut supprimer cette fiche."); return; }
-    if (await uConfirm(`Supprimer la fiche de « ${c.prenom || ""} ${c.nom} » ?`)) {
-      save({ ...db, clients_installes: db.clients_installes.filter((x) => x.id !== c.id) }, `Suppression fiche client installé « ${c.nom} »`);
+    // ⚠ Supprimer un chantier dont des primes ont été PAYÉES laisse en caisse
+    // des dépenses qui ne se rattachent plus à rien : impossible de savoir à
+    // quoi correspond la sortie d'argent, ni de l'annuler proprement.
+    const primesPayees = (c.equipe || []).filter((e) => e.paye && Number(e.montant || 0) > 0);
+    if (primesPayees.length) {
+      uAlert(
+        `Suppression impossible : ${primesPayees.length} prime(s) d'installation ont déjà été payées sur ce chantier ` +
+        `(${fmt(primesPayees.reduce((s, e) => s + Number(e.montant || 0), 0))} au total).\n\n` +
+        `Supprimer la fiche laisserait ces sorties d'argent en caisse sans plus rien à quoi les rattacher.\n\n` +
+        `➡ Si ce chantier est une erreur, annulez d'abord les paiements depuis 📤 Dépenses, puis revenez ici.`);
+      return;
     }
+    // Un chantier réceptionné (a fortiori avec un PV signé) est une pièce du
+    // dossier client : on ne l'efface pas par simple clic.
+    const receptionne = statutChantier(c) === "receptionne";
+    const enAttente = (c.equipe || []).filter((e) => e.demande_prime).length;
+    const avertissements = [
+      receptionne ? `⚠ Ce chantier est RÉCEPTIONNÉ${c.contrat_numero ? ` et un PV existe (${c.contrat_numero})` : ""} : c'est une pièce du dossier client.` : "",
+      enAttente ? `⚠ ${enAttente} demande(s) de paiement de prime en attente chez un vendeur seront annulées.` : "",
+    ].filter(Boolean).join("\n");
+    if (!await uConfirm(`Supprimer la fiche de « ${c.prenom || ""} ${c.nom} » ?${avertissements ? `\n\n${avertissements}` : ""}\n\nCette suppression est définitive.`)) return;
+    save({ ...db, clients_installes: db.clients_installes.filter((x) => x.id !== c.id) },
+      `Suppression fiche client installé « ${c.nom} »${receptionne ? " (chantier RÉCEPTIONNÉ)" : ""} par ${profile.nom}`);
   };
 
   // ---- FRAIS D'INSTALLATION ----
@@ -317,7 +349,29 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // techniciens présents, et l'application propose la répartition.
   const [chantier, setChantier] = useState(null); // fiche en cours de répartition
   const [rep, setRep] = useState({ frais: "", chef: "", partChef: String(PART_CHEF_DEFAUT), equipe: [], pcts: {} });
-  const techs = techniciensDispo(db);
+  // ⚠ CLOISONNEMENT (2.100.38) — la liste des techniciens ne regardait aucun
+  // espace : on pouvait affecter un VRAI technicien à un chantier
+  // d'entraînement (et l'inverse). Sa part de frais était alors calculée à son
+  // nom, et payable depuis une vraie caisse. C'est l'espace du CHANTIER qui
+  // décide, pas celui de la personne qui regarde — sinon l'administrateur,
+  // qui voit les deux, resterait libre de mélanger. Sur le formulaire de
+  // création (pas encore de chantier), c'est l'espace du compte connecté.
+  const tousLesTechs = techniciensActifs(db);
+  const techsPour = (c) => techniciensDeLEspace(db, tousLesTechs, espaceDuChantier(db, c, profile));
+  const techsMasques = (c) => tousLesTechs.filter((u) => !techsPour(c).some((x) => x.id === u.id));
+  // On ne cache jamais quelqu'un en silence : si un technicien manque à
+  // l'appel, l'écran dit qui, et pourquoi. Sans ça, un rattachement erroné
+  // se traduirait par un nom introuvable et aucune explication.
+  const noteMasques = (c) => {
+    const m = techsMasques(c);
+    if (!m.length) return null;
+    return (
+      <div className="text-xs text-amber-700 mt-2">
+        🎓 {m.length} technicien(s) ne sont pas proposés ici : ils appartiennent à l'autre espace de travail — {m.map((u) => u.nom).join(", ")}.
+        {" "}Si l'un d'eux devrait être disponible, corrigez son rattachement dans 👥 Utilisateurs.
+      </div>
+    );
+  };
   // L'admin et le responsable commercial programment les chantiers.
   const peutProgrammer = isAdmin || profile.role === "resp_commercial";
 
@@ -590,30 +644,68 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (!fraisRep || fraisRep <= 0) { uAlert("Saisissez les frais d'installation facturés au client."); return; }
     if (!rep.equipe.length) { uAlert("Cochez au moins un technicien présent sur le chantier."); return; }
     if (!rep.chef) { uAlert("Désignez le chef du chantier."); return; }
-    if (totalPct > 100.5) { uAlert(`Le total des pourcentages fait ${Math.round(totalPct * 10) / 10} % — il ne peut pas dépasser 100 %.`); return; }
+    // Plus de tolérance à 100,5 % : au-dessus de 100, on distribue davantage
+    // que les frais encaissés. L'arrondi ne peut plus créer l'écart (voir
+    // repartitionProposee), il ne reste que les saisies manuelles.
+    const totalArrondi = Math.round(totalPct * 10) / 10;
+    if (totalArrondi > 100) { uAlert(`Le total des parts fait ${totalArrondi} % — il ne peut pas dépasser 100 %.\n\nAu-dessus de 100 %, vous verseriez aux techniciens plus que les ${fmt(fraisRep)} facturés au client.`); return; }
     // En dessous de 100 %, la différence est la PART BMI : on distribue une
     // partie des frais aux techniciens, l'entreprise garde le reste.
     // Protection des paiements : on ne réécrit pas une répartition dont des
     // parts réelles (> 0 F) ont déjà été payées.
     const partsPayees = (c.equipe || []).filter((e) => e.paye && Number(e.montant || 0) > 0);
     if (partsPayees.length) { uAlert(`Impossible de modifier : ${partsPayees.length} part(s) déjà payée(s). Les paiements effectués ne peuvent pas être effacés.`); return; }
+    // ⚠ Une DEMANDE DE PAIEMENT en attente chez un vendeur disparaissait
+    // silencieusement quand on refaisait la répartition : l'équipe était
+    // reconstruite à neuf, sans les champs de la demande. Le vendeur voyait
+    // la ligne s'évaporer de son écran « 💰 Primes remises », sans explication.
+    // Désormais : une demande dont le MONTANT ne bouge pas est conservée ;
+    // une demande devenue caduque est annulée, annoncée, et son vendeur prévenu.
+    const annulees = [];
     const equipe = rep.equipe.map((id) => {
       const u = db.users.find((x) => x.id === id);
       const pct = Number(rep.pcts[id] || 0);
-      return { user_id: id, nom: u ? u.nom : "?", pct, montant: Math.round((fraisRep * pct) / 100), chef: id === rep.chef, paye: false };
+      const montant = Math.round((fraisRep * pct) / 100);
+      const ancien = (c.equipe || []).find((e) => e.user_id === id);
+      const base = { user_id: id, nom: u ? u.nom : "?", pct, montant, chef: id === rep.chef, paye: false };
+      if (ancien?.demande_prime && Number(ancien.montant || 0) === montant) {
+        return { ...base, demande_prime: true, prime_boutique: ancien.prime_boutique,
+                 prime_demandee_par: ancien.prime_demandee_par, prime_demandee_le: ancien.prime_demandee_le };
+      }
+      if (ancien?.demande_prime) annulees.push(ancien);
+      return base;
     });
+    // Les membres RETIRÉS de l'équipe qui avaient une demande en cours.
+    (c.equipe || []).forEach((e) => {
+      if (e.demande_prime && !rep.equipe.includes(e.user_id)) annulees.push(e);
+    });
+
     const resume = equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom} : ${e.pct} % = ${fmt(e.montant)}`).join("\n");
     const pctBMI = Math.round((100 - totalPct) * 10) / 10;
     const ligneBMI = pctBMI > 0.5 ? `\n🏢 Part BMI (non distribuée) : ${pctBMI} % = ${fmt(Math.round((fraisRep * pctBMI) / 100))}` : "";
-    if (!await uConfirm(`Répartir ${fmt(fraisRep)} de frais d'installation ?\n\n${resume}${ligneBMI}\n\nLes techniciens verront leur part. Le paiement se fait ensuite, technicien par technicien.`)) return;
+    const ligneAnnulees = annulees.length
+      ? `\n\n⚠ ${annulees.length} demande(s) de paiement en attente seront ANNULÉES (le montant a changé ou la personne quitte le chantier) :\n${annulees.map((e) => `• ${e.nom} — ${fmt(e.montant)} chez ${e.prime_boutique}`).join("\n")}\nLes vendeurs concernés seront prévenus.`
+      : "";
+    if (!await uConfirm(`Répartir ${fmt(fraisRep)} de frais d'installation ?\n\n${resume}${ligneBMI}${ligneAnnulees}\n\nLes techniciens verront leur part. Le paiement se fait ensuite, technicien par technicien.`)) return;
+
+    // Prévenir les vendeurs dont la demande disparaît de leur écran.
+    const avis = annulees.flatMap((e) => (db.users || [])
+      .filter((u) => u.actif !== false && u.boutique === e.prime_boutique && ["vendeur", "gerant"].includes(u.role))
+      .map((u) => ({
+        id: uid(), date: today(), ts: new Date().toISOString(),
+        de_id: profile.id, de_nom: profile.nom, a_id: u.id, lu_par: [profile.id],
+        texte: `↩ La demande de prime de ${e.nom} (${fmt(e.montant)}, chantier ${c.nom} ${c.prenom || ""}) a été annulée : la répartition des frais vient d'être refaite par ${profile.nom}. Ne la payez pas — une nouvelle demande vous sera envoyée si besoin.`,
+      })));
+
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, frais_installation: fraisRep, chef_id: rep.chef, part_chef: Number(rep.partChef), equipe, date_repartition: today(), par_repartition: profile.nom }
         : x)),
-    }, `Frais d'installation de ${fmt(fraisRep)} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""})`);
+      ...(avis.length ? { messages: [...avis, ...(db.messages || [])] } : {}),
+    }, `Frais d'installation de ${fmt(fraisRep)} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""}${annulees.length ? ` · ${annulees.length} demande(s) de prime annulée(s)` : ""})`);
     setChantier(null);
-    uAlert("✅ Répartition enregistrée.");
+    uAlert(`✅ Répartition enregistrée.${annulees.length ? `\n\n${annulees.length} demande(s) de paiement annulée(s) — les vendeurs ont été prévenus.` : ""}`);
   };
 
   // Paiement de la part d'un technicien, en DEUX temps (demande Timo) :
@@ -683,11 +775,26 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
       return dette && resteAPayer(dette) > 0;
     })());
-  let liste = voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter(voitCeDossier);
+  // ⚠ CLOISONNEMENT (2.100.38) — cet écran n'avait AUCUNE séparation
+  // formation / réel. Un compte de formation administrateur ou chef d'équipe
+  // y lisait tous les vrais chantiers : noms, téléphones, adresses formelles,
+  // photos des installations, matériel et numéros de série. Plus sensible que
+  // des chiffres : ce sont les coordonnées et le domicile de vos clients.
+  //
+  // Même précaution que sur 👑 Mon équipe : un compte qui voit les deux
+  // espaces (l'administrateur principal) garde EXACTEMENT la même liste
+  // qu'avant — aucun chantier ne disparaît, ceux de formation portent un
+  // badge 🎓. Un compte cloisonné ne voit que son espace.
+  const mesChantiers = chantiersDeMonEspace(db, profile);
+  const chantierEnFormation = (c) => {
+    const b = boutiqueDuChantier(db, c);
+    return !!b && estBoutiqueFormation(db, b);
+  };
+  let liste = voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier);
   if (q) liste = liste.filter((c) => (String(c.nom) + " " + String(c.prenom) + " " + String(c.tel) + " " + String(c.type_installation)).toLowerCase().includes(q.toLowerCase()));
   if (filtreEntretien) liste = liste.filter((c) => c.date_entretien && c.date_entretien <= today());
 
-  const entretiensDus = (voitTout ? (db.clients_installes || []) : (db.clients_installes || []).filter(voitCeDossier)).filter((c) => c.date_entretien && c.date_entretien <= today()).length;
+  const entretiensDus = (voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier)).filter((c) => c.date_entretien && c.date_entretien <= today()).length;
 
   const commerciauxActifs = db.users.filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false);
 
@@ -782,11 +889,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3">
           <div className="font-bold text-sm text-sky-900 mb-1">👷 Équipe prévue sur le chantier</div>
           <div className="text-xs text-slate-500 mb-2">Cochez les techniciens, puis désignez le chef ⭐. C'est lui qui pourra déclarer les travaux terminés.</div>
-          {techs.length === 0 ? (
-            <div className="text-xs text-slate-400">Aucun technicien enregistré.</div>
+          {noteMasques(null)}
+          {techsPour(null).length === 0 ? (
+            <div className="text-xs text-slate-400">Aucun technicien enregistré dans votre espace de travail.</div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {techs.map((t) => {
+              {techsPour(null).map((t) => {
                 const choisi = (f.equipe_prevue || []).includes(t.id);
                 const chef = f.chef_prevu === t.id;
                 return (
@@ -916,11 +1024,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
                 <div className="mt-3">
                   <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Équipe — cochez, puis désignez le chef ⭐</div>
-                  {techs.length === 0 ? (
-                    <div className="text-xs text-slate-400">Aucun technicien enregistré.</div>
+                  {noteMasques(c)}
+                  {noteMasques(c)}
+            {techsPour(c).length === 0 ? (
+                    <div className="text-xs text-slate-400">Aucun technicien enregistré dans l'espace de ce chantier.</div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {techs.map((t) => {
+                      {techsPour(c).map((t) => {
                         const choisi = progDe(c).equipe.includes(t.id);
                         const chef = progDe(c).chef === t.id;
                         return (
@@ -1049,11 +1159,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             </div>
 
             <div className="mt-4 text-xs font-bold text-slate-500 uppercase mb-2">Techniciens présents sur le chantier</div>
-            {techs.length === 0 ? (
-              <div className="text-sm text-slate-400">Aucun technicien actif. Créez des comptes Technicien ou Technicien BMI.</div>
+            {techsPour(c).length === 0 ? (
+              <div className="text-sm text-slate-400">Aucun technicien actif dans l'espace de ce chantier. Créez des comptes Technicien ou Technicien BMI.</div>
             ) : (
               <div className="space-y-2">
-                {techs.map((u) => {
+                {techsPour(c).map((u) => {
                   const present = rep.equipe.includes(u.id);
                   const pct = Number(rep.pcts[u.id] || 0);
                   return (
@@ -1172,6 +1282,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   )}
                 <tr key={c.id} className={`border-t border-slate-100 hover:bg-sky-50 ${entretienDu ? "bg-orange-50" : ""}`}>
                   <td className="px-3 py-2 font-semibold">{c.prenom} {c.nom}{c.user_id ? " 🔑" : ""}
+                    {/* Rien ne disparaît pour l'administrateur : les chantiers
+                        d'entraînement restent listés, simplement signalés. */}
+                    {voitLesDeuxEspaces(db, profile) && chantierEnFormation(c) && (
+                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-violet-50 text-violet-700 border-violet-300 ml-1" title="Chantier d'entraînement : il n'appartient pas à vos données réelles.">
+                        🎓 formation
+                      </div>
+                    )}
                     <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${STATUT_CHANTIER[statutChantier(c)].couleur}`}>
                       {STATUT_CHANTIER[statutChantier(c)].label}
                     </div>

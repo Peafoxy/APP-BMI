@@ -572,5 +572,145 @@ titre("Prime d'installation : jamais payée deux fois");
     C.primeDejaPayee({ clients_installes: [] }, chantier, part) === false);
 }
 
+
+titre("Clients installés : les coordonnées des vrais clients restent dans l'espace réel");
+{
+  const boutiques = [{ nom: "LOME", formation: false }, { nom: "ECOLE", formation: true }];
+  const users = [
+    { id: "u_admin", nom: "TIMO", role: "admin", admin_principal: true },
+    { id: "u_chef", nom: "DODO", role: "technicien", chef_equipe: true, formation: true },
+    { id: "t_reel", nom: "KOSSI", role: "technicien" },
+    { id: "t_form", nom: "STAGE", role: "technicien", formation: true },
+  ];
+  const db = {
+    boutiques, users,
+    ventes: [{ id: "v1", boutique: "LOME" }, { id: "v2", boutique: "ECOLE" }],
+    dettes: [],
+    clients_installes: [
+      { id: "ch_reel", nom: "AGBEKO", tel: "+22890000000", adresse_contrat: "Rue 12, Lomé", vente_id: "v1" },
+      { id: "ch_form", nom: "ESSAI", vente_id: "v2" },
+      { id: "ch_sans", nom: "SANS RATTACHEMENT" },
+    ],
+  };
+  const timo = { id: "u_admin", role: "admin" };
+  const chefForm = { id: "u_chef", role: "technicien" };
+
+  const vus = (p) => C.chantiersDeMonEspace(db, p).map((c) => c.id);
+  test("un chef d'équipe de formation ne voit plus le chantier réel",
+    !vus(chefForm).includes("ch_reel"));
+  test("il voit le chantier d'entraînement",
+    vus(chefForm).includes("ch_form"));
+  test("un chantier sans vente ni dette n'est refusé à personne",
+    vus(chefForm).includes("ch_sans") && vus(timo).includes("ch_sans"));
+  test("l'administrateur principal garde les TROIS chantiers — rien ne disparaît",
+    vus(timo).length === 3);
+
+  // Techniciens proposés : c'est l'espace du CHANTIER qui decide.
+  const tousTechs = users.filter((u) => u.role === "technicien");
+  const proposes = (c, p) => C.techniciensDeLEspace(db, tousTechs, C.espaceDuChantier(db, c, p)).map((u) => u.nom);
+  const chReel = db.clients_installes[0], chForm = db.clients_installes[1];
+  test("sur un VRAI chantier, seul le vrai technicien est proposé — même à l'administrateur",
+    proposes(chReel, timo).includes("KOSSI") && !proposes(chReel, timo).includes("STAGE"));
+  test("sur un chantier d'entraînement, seul le technicien de formation est proposé",
+    proposes(chForm, timo).includes("STAGE") && !proposes(chForm, timo).includes("KOSSI"));
+  test("sur le formulaire de création (aucun chantier), c'est l'espace du compte connecté",
+    C.espaceDuChantier(db, null, chefForm) === true && C.espaceDuChantier(db, null, timo) === false);
+}
+
+
+titre("Répartition des frais d'installation : la somme des parts ne dépasse jamais 100 %");
+{
+  // Reprise EXACTE de repartitionProposee (ClientsInstalles.jsx).
+  const repartition = (ids, chefId, partChef) => {
+    const n = ids.length;
+    if (!n) return {};
+    const reste = Math.max(0, 100 - Number(partChef || 0));
+    const partEgale = Math.round((reste / n) * 10) / 10;
+    const r = {};
+    let distribue = 0;
+    ids.forEach((id) => { if (id === chefId) return; r[id] = partEgale; distribue += partEgale; });
+    const chef = ids.includes(chefId) ? chefId : ids[0];
+    r[chef] = Math.round((100 - distribue) * 100) / 100;
+    return r;
+  };
+  const total = (r) => Math.round(Object.values(r).reduce((s, v) => s + v, 0) * 100) / 100;
+  const ids = (n) => Array.from({ length: n }, (_, i) => `t${i}`);
+
+  let pire = 0;
+  for (let n = 1; n <= 12; n++) {
+    for (const pc of [0, 10, 25, 33, 40, 50, 60, 75, 100]) {
+      pire = Math.max(pire, Math.abs(100 - total(repartition(ids(n), "t0", pc))));
+    }
+  }
+  test("de 1 à 12 techniciens et pour tous les taux de chef : le total fait toujours 100 %",
+    pire === 0);
+  test("le cas qui débordait — 7 techniciens, chef à 40 % — fait bien 100 % (c'était 100,2)",
+    total(repartition(ids(7), "t0", 40)) === 100);
+  test("9 techniciens : 100 % aussi (c'était 100,3)",
+    total(repartition(ids(9), "t0", 40)) === 100);
+  test("le chef reçoit toujours la part la plus forte", (() => {
+    const r = repartition(ids(7), "t0", 40);
+    return r.t0 === Math.max(...Object.values(r));
+  })());
+  test("un seul technicien prend 100 %",
+    total(repartition(ids(1), "t0", 40)) === 100 && repartition(ids(1), "t0", 40).t0 === 100);
+}
+
+
+titre("Une demande de prime en attente n'est plus effacée en silence");
+{
+  // Reprise de la logique de validerRepartition (ClientsInstalles.jsx).
+  const rejouer = (equipeAvant, idsApres, pcts, frais) => {
+    const annulees = [];
+    const equipe = idsApres.map((id) => {
+      const montant = Math.round((frais * Number(pcts[id] || 0)) / 100);
+      const ancien = equipeAvant.find((e) => e.user_id === id);
+      const base = { user_id: id, montant, paye: false };
+      if (ancien?.demande_prime && Number(ancien.montant || 0) === montant) {
+        return { ...base, demande_prime: true, prime_boutique: ancien.prime_boutique };
+      }
+      if (ancien?.demande_prime) annulees.push(ancien);
+      return base;
+    });
+    equipeAvant.forEach((e) => { if (e.demande_prime && !idsApres.includes(e.user_id)) annulees.push(e); });
+    return { equipe, annulees };
+  };
+
+  const avant = [
+    { user_id: "a", nom: "KOSSI", montant: 60000, demande_prime: true, prime_boutique: "LOME" },
+    { user_id: "b", nom: "AMA", montant: 40000, demande_prime: true, prime_boutique: "LOME" },
+  ];
+  // Meme repartition rejouee : les deux demandes doivent SURVIVRE.
+  const r1 = rejouer(avant, ["a", "b"], { a: 60, b: 40 }, 100000);
+  test("une répartition rejouée à l'identique conserve les demandes en attente",
+    r1.annulees.length === 0 && r1.equipe.every((e) => e.demande_prime === true));
+
+  // Le montant de KOSSI change : sa demande devient caduque, celle d'AMA non.
+  const r2 = rejouer(avant, ["a", "b"], { a: 50, b: 40 }, 100000);
+  test("une demande dont le montant a changé est annulée, et signalée",
+    r2.annulees.length === 1 && r2.annulees[0].user_id === "a");
+  test("…tandis que celle dont le montant n'a pas bougé est conservée",
+    r2.equipe.find((e) => e.user_id === "b").demande_prime === true);
+
+  // AMA quitte le chantier.
+  const r3 = rejouer(avant, ["a"], { a: 60 }, 100000);
+  test("un technicien retiré du chantier voit sa demande annulée, pas oubliée",
+    r3.annulees.length === 1 && r3.annulees[0].user_id === "b");
+}
+
+
+titre("Supprimer un chantier : impossible si des primes ont déjà été payées");
+{
+  const bloque = (c) => (c.equipe || []).filter((e) => e.paye && Number(e.montant || 0) > 0);
+  test("un chantier avec une prime payée ne peut pas être supprimé",
+    bloque({ equipe: [{ nom: "KOSSI", montant: 60000, paye: true }] }).length === 1);
+  test("un chantier sans paiement reste supprimable",
+    bloque({ equipe: [{ nom: "KOSSI", montant: 60000, paye: false }] }).length === 0);
+  test("une part à 0 F marquée payée ne bloque pas inutilement",
+    bloque({ equipe: [{ nom: "AMA", montant: 0, paye: true }] }).length === 0);
+  test("un chantier sans équipe du tout reste supprimable",
+    bloque({}).length === 0);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
