@@ -5,11 +5,11 @@
 import { useState } from "react";
 import { fmt, today, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge } from "../components/ui";
-import { stockActuel, periodes, ventesReelles, produitsReels } from "../lib/calculs";
+import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ RENTABILITÉ PAR PRODUIT ============
-export function Rentabilite({ db }) {
+export function Rentabilite({ db, profile }) {
   const [lp, debut, fin] = periodes()[0] ? [null, null, null] : [null, null, null];
   const [periode, setPeriode] = useState("mois");
   const P = periodes();
@@ -20,7 +20,12 @@ export function Rentabilite({ db }) {
   // ⚠ Boutiques de formation (2.100.16) : exclues via la fonction centrale
   // ventesReelles() — même principe que le Tableau de bord, une vente
   // d'entraînement ne doit jamais fausser la rentabilité réelle.
-  const ventesP = ventesReelles(db).filter((v) => inP(v.date, a, b));
+  // ⚠ Même correctif que le Tableau de bord : cet écran excluait la
+  // formation sans regarder qui le consulte — un compte de formation y
+  // voyait donc les marges réelles de l'entreprise.
+  const enFormation = afficheChiffresFormation(db, profile);
+  const dansMonEspace = filtreEspaceAffichage(db, profile);
+  const ventesP = (db.ventes || []).filter(dansMonEspace).filter((v) => inP(v.date, a, b));
 
   // Agrégation par NOM d'article (tous sites confondus)
   const parProduit = {};
@@ -55,7 +60,7 @@ export function Rentabilite({ db }) {
   // et polluait la liste des invendus, alors même que le tableau des ventes
   // juste au-dessus excluait bien la formation.
   const vendus = new Set(Object.keys(parProduit));
-  const dormants = produitsReels(db)
+  const dormants = (db.produits || []).filter(dansMonEspace)
     .filter((p) => !vendus.has(p.nom) && stockActuel(db, p) > 0)
     .map((p) => ({ p, valeur: stockActuel(db, p) * Number(p.prix_achat || 0) }))
     .sort((x, y) => y.valeur - x.valeur);
@@ -70,6 +75,12 @@ export function Rentabilite({ db }) {
 
   return (
     <div className="space-y-4">
+      {enFormation && (
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
+          <div className="font-bold text-amber-900">🎓 Rentabilité de l'espace FORMATION</div>
+          <div className="text-xs text-amber-800 mt-0.5">Votre compte travaille en formation : seules les boutiques d'entraînement sont prises en compte.</div>
+        </div>
+      )}
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-1">📈 Rentabilité par produit</div>
         <div className="text-xs text-slate-500 mb-3">Marge réelle = prix de vente encaissé − prix d'achat. Les remises sont donc prises en compte.</div>

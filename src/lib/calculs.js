@@ -195,6 +195,25 @@ export const boutiqueDuChantier = (db, c) => {
   const dette = c.dette_id ? (db.dettes || []).find((d) => d.id === c.dette_id) : null;
   return dette?.boutique;
 };
+// ⚠ Les écrans de SYNTHÈSE (Tableau de bord, Rentabilité) excluaient la
+// formation « en dur », sans jamais regarder QUI les consulte. Un compte
+// marqué formation y voyait donc le vrai chiffre d'affaires de
+// l'entreprise, ses dépenses et ses marges — le cloisonnement s'arrêtait
+// à la porte de ces deux écrans.
+//
+// Renvoie un test à appliquer sur tout enregistrement portant une
+// `boutique` : un compte de formation ne voit que SES chiffres, tous les
+// autres (y compris l'admin principal) voient les vrais — c'est bien la
+// vue « CA réel » qui est attendue là.
+export const filtreEspaceAffichage = (db, profile) => {
+  const f = boutiquesFormation(db);
+  const enFormation = estCompteFormation(db, profile) && !voitLesDeuxEspaces(db, profile);
+  return (x) => (enFormation ? f.has(x?.boutique) : !f.has(x?.boutique));
+};
+// Vrai quand l'écran doit afficher les chiffres de l'ESPACE FORMATION.
+export const afficheChiffresFormation = (db, profile) =>
+  estCompteFormation(db, profile) && !voitLesDeuxEspaces(db, profile);
+
 export const chantiersReels = (db) => {
   const f = boutiquesFormation(db);
   return (db.clients_installes || []).filter((c) => !f.has(boutiqueDuChantier(db, c)));

@@ -286,5 +286,46 @@ titre("La boutique mémorisée par un écran ne peut ni rester vide, ni pointer 
 }
 
 
+titre("Les écrans de synthèse ne montrent jamais les vrais chiffres à un compte de formation");
+{
+  const db = {
+    ...base(),
+    ventes: [{ id: "v1", boutique: "APESSITO", articles: [{ qte: 1, pu: 1000 }] },
+             { id: "v2", boutique: "APESSITO FORMATION", articles: [{ qte: 1, pu: 7 }] }],
+    depenses: [{ id: "e1", boutique: "APESSITO", montant: 100 },
+               { id: "e2", boutique: "APESSITO FORMATION", montant: 1 }],
+  };
+  const vus = (p, table) => db[table].filter(C.filtreEspaceAffichage(db, p)).map((x) => x.id);
+
+  test("un compte de formation ne voit QUE ses ventes",
+    JSON.stringify(vus(P.stagiaire, "ventes")) === JSON.stringify(["v2"]));
+  test("…et QUE ses dépenses",
+    JSON.stringify(vus(P.stagiaire, "depenses")) === JSON.stringify(["e2"]));
+  test("un compte réel voit les vrais chiffres",
+    JSON.stringify(vus(P.vendeur, "ventes")) === JSON.stringify(["v1"]));
+  test("l'admin principal voit les vrais chiffres (c'est la vue attendue)",
+    JSON.stringify(vus(P.admin, "ventes")) === JSON.stringify(["v1"]));
+  test("le bandeau « chiffres de formation » ne s'affiche que pour eux",
+    C.afficheChiffresFormation(db, P.stagiaire) === true
+    && C.afficheChiffresFormation(db, P.vendeur) === false
+    && C.afficheChiffresFormation(db, P.admin) === false);
+
+  // ⚠ Le cas exact de la capture : un ADMIN marqué formation, mais qui
+  // garde le pouvoir « voir les deux espaces » accordé par defaut.
+  // (u_admin2 de la base a DEJA act_voir_tout retire : on ajoute un admin
+  // cree avant ce reglage, comme HEZOU/NOE/RENE sur l'installation reelle.)
+  const dbAdminForm = { ...db, users: [...db.users, { id: "u_hezou", nom: "HEZOU", role: "admin", formation: true }] };
+  const adminForm = { id: "u_hezou", role: "admin" };
+  test("un admin marqué formation qui garde act_voir_tout voit encore tout",
+    C.voitLesDeuxEspaces(dbAdminForm, adminForm) === true);
+  test("…et une fois le pouvoir retiré, son drapeau prend enfin effet", (() => {
+    const apres = { ...dbAdminForm, users: dbAdminForm.users.map((u) => (u.id === "u_hezou"
+      ? { ...u, droits_off: ["act_voir_tout"] } : u)) };
+    return C.afficheChiffresFormation(apres, adminForm) === true
+      && apres.ventes.filter(C.filtreEspaceAffichage(apres, adminForm)).length === 1;
+  })());
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

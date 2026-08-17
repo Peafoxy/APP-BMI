@@ -739,7 +739,7 @@ export default function App() {
 
       {ongletsVisites.dashboard && (isAdmin || isComptable) && (
         <div style={{ display: tab === "dashboard" ? "block" : "none" }}>
-          <M.Dashboard db={db} />
+          <M.Dashboard db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.ventes && !isCommercial && (
@@ -819,7 +819,7 @@ export default function App() {
       )}
       {ongletsVisites.rentabilite && (isAdmin || isComptable) && (
         <div style={{ display: tab === "rentabilite" ? "block" : "none" }}>
-          <M.Rentabilite db={db} />
+          <M.Rentabilite db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.salaires && isAdmin && (

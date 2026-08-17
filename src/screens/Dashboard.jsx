@@ -9,36 +9,43 @@ import { btnDark, Badge } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
-  dettesClassiques, estReservation, periodes, reservations, ventesReelles, boutiquesFormation,
-  depensesReelles, dettesReelles, produitsReels, chantiersReels,
+  dettesClassiques, estReservation, periodes, reservations,
+  filtreEspaceAffichage, afficheChiffresFormation, boutiqueDuChantier,
 } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============
-export function Dashboard({ db }) {
+export function Dashboard({ db, profile }) {
   // ⚠ TERRAIN (encaissements de terrain) ET les boutiques de FORMATION
   // (demande Timo — un nouveau commercial doit pouvoir s'entraîner sans
   // jamais fausser les vrais chiffres) sont exclues du tableau de bord.
-  const NOMS = db.boutiques.filter((b) => !b.terrain && !b.formation).map((b) => b.nom);
+  // ⚠ Cloisonnement : cet écran excluait la formation « en dur », sans
+  // regarder QUI le consulte — un compte de formation y voyait donc le
+  // vrai chiffre d'affaires de l'entreprise. `dansMonEspace` renvoie les
+  // chiffres de FORMATION à un compte de formation, et les vrais à tous
+  // les autres (dont l'admin principal, pour qui c'est bien la vue
+  // attendue). Le bandeau ci-dessous le rappelle à l'écran.
+  const enFormation = afficheChiffresFormation(db, profile);
+  const dansMonEspace = filtreEspaceAffichage(db, profile);
+  const NOMS = db.boutiques.filter((b) => !b.terrain && !!b.formation === enFormation).map((b) => b.nom);
   // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
   // NOMS protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
   // TOTAUX GLOBAUX de cette page (CA total, frais, nb clients, commissions,
   // export du journal comptable) parcouraient db.ventes BRUT, sans jamais
   // passer par NOMS — trou réel trouvé, une vente de formation aurait
   // gonflé ces chiffres. Variable UNIQUE réutilisée pour tous ces totaux.
-  const ventesReellesDb = ventesReelles(db);
-  const depensesReellesDb = depensesReelles(db);
-  const dettesReellesDb = dettesReelles(db);
-  const produitsReelsDb = produitsReels(db);
-  const chantiersReelsDb = chantiersReels(db);
-  const boutiquesFormationSet = boutiquesFormation(db);
+  const ventesReellesDb = (db.ventes || []).filter(dansMonEspace);
+  const depensesReellesDb = (db.depenses || []).filter(dansMonEspace);
+  const dettesReellesDb = (db.dettes || []).filter(dansMonEspace);
+  const produitsReelsDb = (db.produits || []).filter(dansMonEspace);
+  const chantiersReelsDb = (db.clients_installes || []).filter((c) => dansMonEspace({ boutique: boutiqueDuChantier(db, c) }));
   // ⚠ Même exclusion pour les DETTES/réservations (pas seulement les
   // ventes) : filtrée ICI, dans les totaux globaux du Tableau de bord
   // uniquement — les fonctions partagées dettesClassiques()/reservations()
   // restent volontairement INCHANGÉES, elles sont aussi utilisées par
   // l'écran Dettes lui-même, où une boutique de formation doit continuer
   // à voir SES PROPRES dettes normalement quand on la sélectionne.
-  const dettesReellesDashboard = dettesClassiques(db).filter((d) => !boutiquesFormationSet.has(d.boutique));
-  const reservationsReellesDashboard = reservations(db).filter((r) => !boutiquesFormationSet.has(r.boutique));
+  const dettesReellesDashboard = dettesClassiques(db).filter(dansMonEspace);
+  const reservationsReellesDashboard = reservations(db).filter(dansMonEspace);
   const [periodeIndex, setPeriodeIndex] = useState(2);
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");
@@ -168,6 +175,15 @@ export function Dashboard({ db }) {
 
   return (
     <div className="space-y-5">
+      {enFormation && (
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
+          <div className="font-bold text-amber-900">🎓 Chiffres de l'espace FORMATION</div>
+          <div className="text-xs text-amber-800 mt-0.5">
+            Votre compte travaille en formation : ce tableau de bord ne montre que les boutiques d'entraînement.
+            Les chiffres réels de l'entreprise ne vous sont pas accessibles.
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="Total des ventes" value={fmt(totalVentes)} />
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} />
