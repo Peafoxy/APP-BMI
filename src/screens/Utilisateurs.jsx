@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, adminsVoyantLesDeuxEspaces } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, adminsVoyantLesDeuxEspaces, aDroit } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -191,6 +191,31 @@ export function Users({ db, save, profile }) {
     formation: versFormation,
     ...(u.boutique ? { boutique: cible, boutique_avant_espace: u.boutique } : {}),
   });
+
+  // Cloisonner (ou non) UN administrateur précis. Le pouvoir
+  // « act_voir_tout » l'emporte sur le drapeau formation/réel : tant qu'un
+  // admin l'a, son étiquette n'a aucun effet. On le dit dans la
+  // confirmation, parce que c'est exactement ce qui prête à confusion.
+  const basculerVoirTout = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    const voitTout = aDroit(db, u, "act_voir_tout");
+    const sonEspace = u.formation ? "formation" : "réel";
+    if (!(await uConfirm(voitTout
+      ? `Cloisonner ${u.nom} ?\n\nIl ne verra plus que l'espace ${sonEspace.toUpperCase()} — celui de sa fiche — et ne pourra plus rien enregistrer dans l'autre.\n\nC'est le réglage normal pour quelqu'un qui apprend, ou qui ne supervise qu'un seul espace.`
+      : `Laisser ${u.nom} voir les DEUX espaces ?\n\nIl verra la formation ET le réel ensemble, et pourra enregistrer dans les deux. Son étiquette « ${sonEspace} » n'aura alors plus d'effet.\n\nÀ réserver aux personnes qui supervisent réellement l'ensemble.`))) return;
+    save({
+      ...db,
+      users: db.users.map((x) => (x.id === u.id
+        ? {
+            ...x,
+            droits_off: voitTout
+              ? [...new Set([...(x.droits_off || []), "act_voir_tout"])]
+              : (x.droits_off || []).filter((d) => d !== "act_voir_tout"),
+          }
+        : x)),
+    }, `${u.nom} ${voitTout ? "cloisonné sur son seul espace" : "autorisé à voir les deux espaces"} par l'administrateur principal`);
+  };
 
   const basculerFormation = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -814,6 +839,21 @@ export function Users({ db, save, profile }) {
                   {jeSuisAdminPrincipal && u.role !== "client" && (
                     <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
                       {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
+                    </button>
+                  )}
+                  {/* ⚠ Cloisonnement, AU CAS PAR CAS : le geste de masse est
+                      tout-ou-rien, or tous les administrateurs n'ont pas le
+                      même rôle — certains encadrent, d'autres apprennent.
+                      Cet interrupteur montre l'état réel de chacun (le
+                      pouvoir l'emporte sur le drapeau) et le change pour lui
+                      seul, sans passer par le panneau « 🔐 Pouvoirs ». */}
+                  {jeSuisAdminPrincipal && u.role === "admin" && !estAdminPrincipal(db, u) && (
+                    <button onClick={() => basculerVoirTout(u)}
+                      className={`text-xs font-bold underline mr-2 ${aDroit(db, u, "act_voir_tout") ? "text-amber-700" : "text-green-700"}`}
+                      title={aDroit(db, u, "act_voir_tout")
+                        ? "Ce compte voit la formation ET le réel : le cloisonnement ne s'applique pas à lui"
+                        : "Ce compte ne voit que son propre espace"}>
+                      {aDroit(db, u, "act_voir_tout") ? "👁️ Voit les 2 espaces — cloisonner" : "🔒 Cloisonné — laisser tout voir"}
                     </button>
                   )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className="text-xs font-bold text-sky-800 underline mr-2">Boutique</button>}
