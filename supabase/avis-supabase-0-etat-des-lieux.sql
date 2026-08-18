@@ -57,6 +57,42 @@ order by
   c.relname;
 
 -- ══════════════════════════════════════════════════════════════════
+-- LES RÈGLES QUI SE SUPERPOSENT (les « warnings » sur VOS tables)
+-- ══════════════════════════════════════════════════════════════════
+-- Sur une table protégée, Supabase compte les règles PERMISSIVES (celles
+-- qui OUVRENT un droit) valables pour le même profil et la même action.
+-- Quand il y en a plusieurs, il suffit qu'UNE SEULE dise oui pour que
+-- l'accès passe : les autres ne servent plus à rien, et surtout on ne
+-- sait plus laquelle décide vraiment. D'où la remarque.
+--
+-- ⚠ À ne pas confondre avec les règles RESTRICTIVES posées pendant
+-- l'audit (cloisonnement, rôles) : celles-là ne peuvent que RETRANCHER,
+-- elles ne sont jamais en cause ici et n'apparaissent pas ci-dessous.
+--
+-- Ce tableau ne montre QUE les superpositions réelles.
+-- ⚠ Une règle écrite « pour tout » (ALL) couvre en réalité les quatre
+-- actions : elle doit donc être comparée à chacune. Sans ce dépliage, une
+-- règle ALL et une règle SELECT sur la même table passaient inaperçues,
+-- alors que c'est justement le cas le plus fréquent.
+select
+  p.tablename        as table_nom,
+  a.action,
+  r.profil,
+  count(*)           as nb_regles_qui_ouvrent,
+  string_agg(p.policyname, ' + ' order by p.policyname) as les_regles
+from pg_policies p
+cross join lateral unnest(coalesce(p.roles, '{}')) as r(profil)
+cross join lateral unnest(
+  case when p.cmd = 'ALL' then array['SELECT','INSERT','UPDATE','DELETE']
+       else array[p.cmd] end
+) as a(action)
+where p.schemaname = 'public'
+  and p.permissive = 'PERMISSIVE'
+group by p.tablename, a.action, r.profil
+having count(*) > 1
+order by count(*) desc, p.tablename, a.action;
+
+-- ══════════════════════════════════════════════════════════════════
 -- LES VUES (le point « Security Definer View »)
 -- ══════════════════════════════════════════════════════════════════
 -- Une VUE est une fenêtre sur des tables. Par défaut elle regarde avec
