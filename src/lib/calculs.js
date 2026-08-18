@@ -1168,6 +1168,59 @@ export const noteDimensionnement = (db) => {
 // aucune nouvelle table Supabase).
 // Le repli sur 5 500 F garantit qu'une base qui n'a jamais eu ce réglage
 // continue de calculer exactement comme avant.
+// ============ DOMAINES DE PRODUITS ET LEURS FAMILLES ============
+// ⚠ Demande Timo (18/08/2026) : « dès qu'un domaine est créé dans les
+// paramètres, il apparaît dans le dimensionnement — c'est mieux que d'écrire
+// en dur solaire, garage, autre ».
+//
+// Un DOMAINE = un métier (Solaire, Garage, Caméra…). Chaque domaine porte ses
+// FAMILLES de produits (Panneaux, Batteries…), qui remplacent la catégorie
+// tapée à la main dans le stock — c'est elle qui laissait passer « BATERIE »
+// et empêchait l'application de retrouver les articles.
+//
+// `calcul` dit ce que le domaine sait faire :
+//   • "solaire" / "garage" — les calculs métier existants, écrits ligne à
+//     ligne avec Timo. On ne peut pas en inventer pour un domaine nouveau.
+//   • "libre" — aucun calcul : les familles du domaine, les articles, le
+//     devis. C'est ce que fait déjà le volet « Autre » aujourd'hui.
+//
+// Les familles de Solaire et Garage ci-dessous ne sont PAS inventées : ce
+// sont exactement celles que les écrans de dimensionnement cherchent déjà
+// (ROLES_EQUIPEMENT dans Solaire.jsx et Garage.jsx).
+export const DOMAINES_DEFAUT = [
+  { id: "solaire", nom: "Solaire", icone: "☀️", calcul: "solaire",
+    familles: ["Panneaux solaires", "Batteries", "Convertisseur", "Régulateur MPPT",
+               "Rails de fixation", "Câbles", "Protections / Disjoncteurs", "Accessoires"] },
+  { id: "garage", nom: "Garage", icone: "🚪", calcul: "garage",
+    familles: ["Moteur / motorisation", "Crémaillère", "Télécommande",
+               "Photocellules", "Lampe clignotante", "Déverrouillage manuel",
+               "Câbles", "Accessoires"] },
+  { id: "autre", nom: "Autre", icone: "📦", calcul: "libre", familles: [] },
+];
+
+// Les domaines réglés par l'administrateur, ou ceux d'origine tant qu'il n'y
+// a pas touché. Rangés sur les boutiques comme les autres réglages généraux :
+// aucune nouvelle table Supabase à créer.
+export const domainesDefinis = (db) => {
+  const b = (db?.boutiques || []).find((x) => Array.isArray(x.domaines) && x.domaines.length);
+  return b ? b.domaines : DOMAINES_DEFAUT;
+};
+
+export const domaineParId = (db, id) => domainesDefinis(db).find((d) => d.id === id) || null;
+
+// Les familles d'un domaine — pour remplir les menus du stock.
+export const famillesDuDomaine = (db, id) => (domaineParId(db, id)?.familles) || [];
+
+// Toutes les familles, tous domaines confondus (menu de repli).
+export const toutesLesFamilles = (db) =>
+  [...new Set(domainesDefinis(db).flatMap((d) => d.familles || []))].sort();
+
+// Fabrique un identifiant stable à partir d'un nom saisi : c'est lui qui
+// reliera un article à son domaine, même si le nom affiché change ensuite.
+export const idDepuisNom = (nom) => String(nom || "")
+  .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 24);
+
 export const PRIX_RAIL_DEFAUT = 5500;
 export const prixRailMetre = (db) => {
   const b = (db?.boutiques || []).find((x) => Number(x.prix_rail) > 0);

@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -140,6 +140,56 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, prix_rail: v })) },
       `Prix du rail de fixation fixé à ${fmt(v)} le mètre`);
     uAlert(`✅ Le rail de fixation est désormais facturé ${fmt(v)} le mètre.\n\nCe prix s'applique aux PROCHAINS devis. Les devis déjà envoyés gardent le prix auquel ils ont été établis.`);
+  };
+
+  // ---- DOMAINES DE PRODUITS ET LEURS FAMILLES ----
+  // ⚠ Demande Timo : créer un domaine ici doit suffire à le faire apparaître
+  // dans le dimensionnement. Cette livraison pose la liste ; le
+  // dimensionnement la lira dans la livraison suivante.
+  const [domaines, setDomaines] = useState(() => domainesDefinis(db).map((d) => ({ ...d, familles: [...(d.familles || [])] })));
+  const [nouvDom, setNouvDom] = useState({ nom: "", icone: "📦", calcul: "libre" });
+  const [nouvFam, setNouvFam] = useState({});
+
+  const enregistrerDomaines = (liste, trace) => {
+    if (bloquerSiLecture(db, profile)) return;
+    setDomaines(liste);
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, domaines: liste })) }, trace);
+  };
+
+  const ajouterDomaine = () => {
+    const nom = nouvDom.nom.trim();
+    if (!nom) { uAlert("Donnez un nom au domaine (ex : Caméra)."); return; }
+    const id = idDepuisNom(nom);
+    if (!id) { uAlert("Ce nom ne peut pas servir d'identifiant. Utilisez des lettres."); return; }
+    if (domaines.some((d) => d.id === id)) { uAlert("Ce domaine existe déjà."); return; }
+    enregistrerDomaines([...domaines, { id, nom, icone: nouvDom.icone || "📦", calcul: nouvDom.calcul, familles: [] }],
+      `Domaine « ${nom} » créé`);
+    setNouvDom({ nom: "", icone: "📦", calcul: "libre" });
+    uAlert(`✅ Domaine « ${nom} » créé.\n\nAjoutez-lui ses familles de produits juste en dessous.`);
+  };
+
+  const supprimerDomaine = async (d) => {
+    const utilises = db.produits.filter((p) => p.domaine === d.id).length;
+    if (!await uConfirm(`Supprimer le domaine « ${d.nom} » ?` +
+      (utilises ? `\n\n⚠ ${utilises} article(s) y sont rattachés. Ils ne seront pas effacés, mais se retrouveront sans domaine.` : ""))) return;
+    enregistrerDomaines(domaines.filter((x) => x.id !== d.id), `Domaine « ${d.nom} » supprimé`);
+  };
+
+  const ajouterFamille = (d) => {
+    const nom = String(nouvFam[d.id] || "").trim();
+    if (!nom) return;
+    if ((d.familles || []).some((f) => f.toLowerCase() === nom.toLowerCase())) { uAlert("Cette famille existe déjà dans ce domaine."); return; }
+    enregistrerDomaines(domaines.map((x) => (x.id === d.id ? { ...x, familles: [...(x.familles || []), nom] } : x)),
+      `Famille « ${nom} » ajoutée au domaine ${d.nom}`);
+    setNouvFam({ ...nouvFam, [d.id]: "" });
+  };
+
+  const retirerFamille = async (d, f) => {
+    const utilises = db.produits.filter((p) => p.domaine === d.id && p.categorie === f).length;
+    if (!await uConfirm(`Retirer la famille « ${f} » du domaine ${d.nom} ?` +
+      (utilises ? `\n\n⚠ ${utilises} article(s) l'utilisent. Ils gardent ce nom, mais il ne sera plus proposé.` : ""))) return;
+    enregistrerDomaines(domaines.map((x) => (x.id === d.id ? { ...x, familles: (x.familles || []).filter((y) => y !== f) } : x)),
+      `Famille « ${f} » retirée du domaine ${d.nom}`);
   };
 
   const enregistrerNote = () => {
@@ -759,6 +809,70 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <input type="number" min="0" max="100" step="0.5" className={inputCls + " w-32"} value={tauxParr} onChange={(e) => setTauxParr(e.target.value)} />
           </Field>
           <button onClick={enregistrerTauxParrainage} className={btnDark}>✅ Enregistrer le taux</button>
+        </div>
+      </div>
+
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+        <div className="font-bold mb-1">🗂 Domaines de produits et leurs familles</div>
+        <div className="text-xs text-slate-500 mb-3">
+          Un <b>domaine</b> est un métier : Solaire, Garage, Caméra… Chaque domaine porte ses <b>familles</b> de produits.
+          C'est ce que vous choisirez à la création d'un article, au lieu de taper la catégorie à la main — c'est cette
+          saisie libre qui laissait passer « BATERIE » et empêchait l'application de retrouver vos articles.
+          <br />
+          <b>Solaire</b> et <b>Garage</b> savent calculer (puissances, capacités, courants). Un domaine que vous créez
+          sera de type <b>libre</b> : pas de calcul automatique, mais vos familles, vos articles et votre devis.
+        </div>
+
+        <div className="space-y-3">
+          {domaines.map((d) => (
+            <div key={d.id} className="rounded-lg border border-slate-200 p-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <div className="font-bold text-sm">
+                  {d.icone} {d.nom}
+                  <span className={`ml-2 text-xs font-semibold px-1.5 py-0.5 rounded border ${d.calcul === "libre" ? "bg-slate-50 text-slate-600 border-slate-200" : "bg-sky-50 text-sky-800 border-sky-200"}`}>
+                    {d.calcul === "libre" ? "sans calcul" : "avec calcul automatique"}
+                  </span>
+                  <span className="ml-2 text-xs text-slate-400">{db.produits.filter((p) => p.domaine === d.id).length} article(s)</span>
+                </div>
+                {d.calcul === "libre" && (
+                  <button onClick={() => supprimerDomaine(d)} className="text-xs font-semibold text-red-600 underline">Supprimer</button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {(d.familles || []).length === 0 && <span className="text-xs text-slate-400">Aucune famille pour l'instant.</span>}
+                {(d.familles || []).map((f) => (
+                  <span key={f} className="text-xs bg-slate-100 rounded px-2 py-1 flex items-center gap-1.5">
+                    {f}
+                    <button onClick={() => retirerFamille(d, f)} className="font-bold text-slate-400 hover:text-red-600" title="Retirer">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <input className={inputCls + " w-56"} placeholder="Ex : Câbles, Parafoudre…"
+                       value={nouvFam[d.id] || ""} onChange={(e) => setNouvFam({ ...nouvFam, [d.id]: e.target.value })}
+                       onKeyDown={(e) => { if (e.key === "Enter") ajouterFamille(d); }} />
+                <button onClick={() => ajouterFamille(d)} className="text-xs font-bold text-sky-800 underline">➕ Ajouter cette famille</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-slate-200">
+          <div className="font-bold text-sm mb-2">➕ Nouveau domaine</div>
+          <div className="flex gap-2 items-end flex-wrap">
+            <Field label="Icône">
+              <input className={inputCls + " w-16 text-center"} maxLength={2} value={nouvDom.icone}
+                     onChange={(e) => setNouvDom({ ...nouvDom, icone: e.target.value })} />
+            </Field>
+            <Field label="Nom du domaine">
+              <input className={inputCls + " w-48"} placeholder="Ex : Caméra" value={nouvDom.nom}
+                     onChange={(e) => setNouvDom({ ...nouvDom, nom: e.target.value })} />
+            </Field>
+            <button onClick={ajouterDomaine} className={btnDark}>Créer le domaine</button>
+          </div>
+          <div className="text-xs text-slate-400 mt-2">
+            Il apparaîtra dans ☀️ Dimensionnement une fois la prochaine mise à jour installée.
+          </div>
         </div>
       </div>
 

@@ -1192,5 +1192,53 @@ titre("Dimensionnement solaire : les chiffres de l'écran de Timo, verrouillés"
     sansSoleil.wcPanneaux === 0);
 }
 
+
+titre("Domaines de produits : la liste vient des Paramètres, plus du code");
+{
+  const vierge = { boutiques: [{ nom: "DEMAKPOE" }], produits: [] };
+
+  test("une base qui n'a jamais rien réglé retrouve les 3 domaines d'origine",
+    C.domainesDefinis(vierge).map((d) => d.id).join(",") === "solaire,garage,autre");
+  test("les familles du Solaire sont celles que l'écran cherche déjà", (() => {
+    const f = C.famillesDuDomaine(vierge, "solaire");
+    return ["Panneaux solaires", "Batteries", "Convertisseur", "Régulateur MPPT"].every((x) => f.includes(x));
+  })());
+  test("celles du Garage aussi", (() => {
+    const f = C.famillesDuDomaine(vierge, "garage");
+    return ["Moteur / motorisation", "Crémaillère", "Télécommande", "Photocellules"].every((x) => f.includes(x));
+  })());
+
+  // Timo cree son domaine Camera depuis les Parametres.
+  const avecCamera = {
+    boutiques: [{ nom: "DEMAKPOE", domaines: [
+      ...C.DOMAINES_DEFAUT,
+      { id: "camera", nom: "Caméra", icone: "📹", calcul: "libre",
+        familles: ["Caméra", "Enregistreur", "Disque dur"] },
+    ] }],
+    produits: [],
+  };
+  test("le domaine qu'il crée est bien pris en compte",
+    C.domaineParId(avecCamera, "camera").nom === "Caméra");
+  test("…avec ses propres familles, et elles seules",
+    C.famillesDuDomaine(avecCamera, "camera").join(",") === "Caméra,Enregistreur,Disque dur");
+  test("…sans toucher aux domaines existants",
+    C.famillesDuDomaine(avecCamera, "solaire").includes("Batteries"));
+  test("un domaine inconnu ne fait pas planter l'écran",
+    C.domaineParId(avecCamera, "n_existe_pas") === null
+    && C.famillesDuDomaine(avecCamera, "n_existe_pas").length === 0);
+
+  // L'identifiant doit rester stable et propre, quel que soit ce qui est tape.
+  test("« Caméra » devient l'identifiant « camera »", C.idDepuisNom("Caméra") === "camera");
+  test("« Climatisation / Froid » devient « climatisation_froid »",
+    C.idDepuisNom("Climatisation / Froid") === "climatisation_froid");
+  test("un nom déjà propre n'est pas abîmé", C.idDepuisNom("solaire") === "solaire");
+  test("un nom sans lettre exploitable ne produit pas d'identifiant vide et dangereux",
+    C.idDepuisNom("???") === "" && C.idDepuisNom("") === "");
+
+  test("toutes les familles réunies servent de menu de repli",
+    C.toutesLesFamilles(avecCamera).includes("Enregistreur")
+    && C.toutesLesFamilles(avecCamera).includes("Batteries"));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
