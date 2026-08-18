@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -45,7 +45,15 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const boutique = boutiqueRetenue(db, profile, bq);
   const produits = db.produits.filter((p) => p.boutique === boutique);
   const commerciaux = apporteursPossibles(db, profile);
-  const categories = [...new Set(produits.map((p) => p.categorie || "Autre"))].sort();
+  // ⚠ Filtre par DOMAINE (demande Timo, 18/08/2026) — des familles comme
+  // « Câbles » ou « Accessoires » existent dans plusieurs métiers : filtrer
+  // par catégorie seule mélangeait les câbles solaires, garage et caméra.
+  // Le domaine réduit d'abord au métier ; vide = exactement comme avant.
+  // Filtres d'AFFICHAGE seulement : le scan de code-barres, le panier et
+  // l'encaissement n'y touchent pas.
+  const [dom, setDom] = useState("");
+  const produitsDuDomaine = dom ? produits.filter((p) => p.domaine === dom) : produits;
+  const categories = [...new Set(produitsDuDomaine.map((p) => p.categorie || "Autre"))].sort();
 
   const [cat, setCat] = useState("");
   const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
@@ -104,7 +112,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
 
-  const produitsFiltres = cat ? produits.filter((p) => (p.categorie || "Autre") === cat) : produits;
+  const produitsFiltres = cat ? produitsDuDomaine.filter((p) => (p.categorie || "Autre") === cat) : produitsDuDomaine;
   const dansPanier = (pid) => panier.reduce((s, l) => s + (l.produit_id === pid ? Number(l.qte) : 0), 0);
   const dispoRestant = (p) => stockActuel(db, p) - dansPanier(p.id);
 
@@ -112,8 +120,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // Recherche dans TOUS les produits de la boutique (plus robuste)
     const p = produits.find((x) => x.id === id);
     setSel({ produit_id: id, qte: "1", pu: p && p.prix_vente != null ? String(p.prix_vente) : "", remF: "", remP: "" });
-    // La catégorie de l'article choisi s'affiche automatiquement dans le filtre
-    if (p) setCat(p.categorie || "Autre");
+    // La catégorie (et le domaine) de l'article choisi s'affichent
+    // automatiquement dans les filtres — un article scanné hors filtre ne
+    // doit pas laisser des filtres incohérents avec la ligne affichée.
+    if (p) { setCat(p.categorie || "Autre"); if (p.domaine) setDom(p.domaine); }
   };
 
   // ---- REMISE LIGNE : deux champs liés. Taper des FCFA calcule le %,
@@ -674,7 +684,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={scanner} placeholder="Scannez ou tapez le code puis Entrée…" />
               </Field>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              <Field label="Domaine (filtre facultatif)">
+                <select className={inputCls} value={dom} onChange={(e) => { setDom(e.target.value); setCat(""); setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" }); }}>
+                  <option value="">— Tous —</option>
+                  {domainesDefinis(db).map((d) => <option key={d.id} value={d.id}>{d.icone} {d.nom}</option>)}
+                </select>
+              </Field>
               <Field label="Catégorie (filtre facultatif)">
                 <select className={inputCls} value={cat} onChange={(e) => { setCat(e.target.value); setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" }); }}>
                   <option value="">— Toutes —</option>
@@ -682,7 +698,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 </select>
               </Field>
               <Field label="Article">
-                <SelecteurArticle produits={produits} valeur={sel.produit_id} onChoisir={choisir} dispoRestant={dispoRestant} categorieFiltre={cat} />
+                <SelecteurArticle produits={dom ? produitsDuDomaine : produits} valeur={sel.produit_id} onChoisir={choisir} dispoRestant={dispoRestant} categorieFiltre={cat} />
               </Field>
               <Field label="Quantité"><input type="number" min="1" className={inputCls} value={sel.qte} onChange={(e) => setSel({ ...sel, qte: e.target.value })} /></Field>
               <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value, remF: "", remP: "" })} /></Field>
