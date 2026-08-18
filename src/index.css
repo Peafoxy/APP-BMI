@@ -30,3 +30,23 @@ button:not(:disabled):focus-visible {
   outline: 2px solid #0284c7;
   outline-offset: 2px;
 }
+
+/* ============================================================
+   RÈGLE ANTI-DÉBORDEMENT — GLOBALE (demande Timo, 18/08/2026 :
+   « appliquez une règle qui évite le débordement dans toute
+   l'application, affichage mobile ou Windows »), après une case
+   « Remise ligne » sortie du cadre sur l'écran Ventes.
+
+   La cause profonde : dans une grille CSS, chaque colonne refuse
+   par défaut de devenir plus étroite que son contenu (min-width
+   vaut « auto »). Quand la place manque, la colonne ne se serre
+   pas — elle DÉBORDE du cadre. C'est un piège connu de CSS, et il
+   peut mordre sur n'importe quel écran de l'app.
+
+   Le remède, appliqué partout d'un coup :
+   1. chaque case d'une grille a le droit de se serrer ;
+   2. aucun champ de saisie ne peut être plus large que sa case.
+   Les contenus se partagent alors la place disponible au lieu de
+   sortir du cadre — sur PC comme sur téléphone. */
+.grid > * { min-width: 0; }
+input, select, textarea { max-width: 100%; }

@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.100.58",
+  "version": "2.100.59",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

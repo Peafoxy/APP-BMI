@@ -686,7 +686,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={scanner} placeholder="Scannez ou tapez, puis Entrée…" />
               </Field>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-[170px_190px_minmax(240px,1fr)_110px_150px_140px] gap-3 items-end">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-[0.9fr_1fr_1.6fr_0.6fr_0.9fr_0.9fr] gap-3 items-end">
               <Field label="Domaine">
                 <select className={inputCls} value={dom} onChange={(e) => { setDom(e.target.value); setCat(""); setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" }); }}>
                   <option value="">— Tous —</option>
