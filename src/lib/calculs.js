@@ -894,13 +894,25 @@ export const magasinsDe = (db) => (db.boutiques || []).filter((b) => b.depot);
 // sélecteurs de boutique classiques (vente, stock…) — seulement dans Caisse
 // et dans le mécanisme d'encaissement dédié aux chantiers "pose seule".
 export const NOM_BOUTIQUE_TERRAIN = "TERRAIN";
-export const boutiqueTerrain = (db) => (db.boutiques || []).find((b) => b.terrain) || null;
+// ⚠ La caisse TERRAIN existe en DEUX exemplaires depuis le lot 2 Espace
+// client : une réelle, une d'entraînement. Sans la seconde, un client de
+// FORMATION qui validait un devis « pose seule » créait sa dette dans la
+// caisse TERRAIN réelle — geste que le verrou de cloisonnement (et le
+// serveur) refusaient à juste titre : l'app proposait ce qu'elle
+// interdisait ensuite, exactement la contradiction relevée par Timo sur
+// les boutiques de formation.
+export const NOM_BOUTIQUE_TERRAIN_FORMATION = "TERRAIN (formation)";
+export const boutiqueTerrain = (db, formation = false) =>
+  (db.boutiques || []).find((b) => b.terrain && !!b.formation === !!formation) || null;
 // Crée la boutique TERRAIN si elle n'existe pas encore — appelé au moment
 // où la première fiche "pose seule" en a besoin, pas au démarrage de l'app
 // (évite de l'imposer aux installations qui ne l'utiliseront jamais).
-export const assurerBoutiqueTerrain = (db) => {
-  if (boutiqueTerrain(db)) return db;
-  return { ...db, boutiques: [...(db.boutiques || []), { id: "b_terrain", nom: NOM_BOUTIQUE_TERRAIN, terrain: true, actif: true }] };
+export const assurerBoutiqueTerrain = (db, formation = false) => {
+  if (boutiqueTerrain(db, formation)) return db;
+  const caisse = formation
+    ? { id: "b_terrain_formation", nom: NOM_BOUTIQUE_TERRAIN_FORMATION, terrain: true, formation: true, actif: true }
+    : { id: "b_terrain", nom: NOM_BOUTIQUE_TERRAIN, terrain: true, actif: true };
+  return { ...db, boutiques: [...(db.boutiques || []), caisse] };
 };
 
 // ============ POUVOIRS (droits désactivables par l'administrateur) ============
@@ -1009,7 +1021,9 @@ export function verifierEcritureEspace(prev, next, profile) {
     if (!nom) return false;
     const b = (next.boutiques || []).find((x) => x.nom === nom);
     if (!b) return nom === NOM_CAISSE_COMPTABLE ? monEspace : false;
-    if (b.terrain) return monEspace;                     // caisse de terrain : réelle
+    // Les caisses de terrain suivent la règle commune : la réelle (TERRAIN)
+    // n'a pas de drapeau formation, celle d'entraînement l'a — plus besoin
+    // du cas particulier « terrain = toujours réel » d'avant le lot 2.
     return !!b.formation !== monEspace;
   };
 

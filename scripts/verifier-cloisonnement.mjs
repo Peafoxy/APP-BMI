@@ -154,6 +154,39 @@ test("une écriture sans boutique (message, tâche) passe toujours",
 test("une ligne inchangée n'est jamais comptée comme une écriture",
   !refuse(P.stagiaire, (db) => ({ ventes: db.ventes.slice() })));
 
+// ---- Lot 2 Espace client : la caisse TERRAIN existe dans les deux espaces.
+// Avant, un client de FORMATION qui validait un devis « pose seule » créait
+// sa dette dans la caisse TERRAIN réelle — et le verrou refusait le geste
+// que l'app venait de proposer.
+titre("La caisse TERRAIN a sa jumelle d'entraînement (pose seule en formation)");
+{
+  const cliF = { id: "u_cliF", role: "client" };
+  const cliR = { id: "u_cli", role: "client" };
+  const db2 = C.assurerBoutiqueTerrain(base(), true);
+  test("assurerBoutiqueTerrain(formation) crée « TERRAIN (formation) » marquée terrain + formation",
+    db2.boutiques.some((b) => b.nom === C.NOM_BOUTIQUE_TERRAIN_FORMATION && b.terrain && b.formation));
+  test("la caisse TERRAIN réelle existe déjà : rien n'est recréé",
+    C.assurerBoutiqueTerrain(base()) .boutiques.length === base().boutiques.length);
+  test("boutiqueTerrain() désigne toujours la caisse RÉELLE, même quand les deux existent",
+    C.boutiqueTerrain(db2)?.nom === C.NOM_BOUTIQUE_TERRAIN);
+  test("boutiqueTerrain(formation) désigne la caisse d'entraînement",
+    C.boutiqueTerrain(db2, true)?.nom === C.NOM_BOUTIQUE_TERRAIN_FORMATION);
+  const avecCaisseFormation = (db) => ({ boutiques: C.assurerBoutiqueTerrain(db, true).boutiques });
+  test("un client de FORMATION valide une pose seule dans la caisse d'entraînement",
+    !refuse(cliF, (db) => ({ ...avecCaisseFormation(db),
+      dettes: [{ id: "dt1", boutique: C.NOM_BOUTIQUE_TERRAIN_FORMATION, montant: 100000 }] })));
+  test("un client de FORMATION reste refusé sur la caisse TERRAIN réelle",
+    refuse(cliF, (db) => ({ dettes: [{ id: "dt2", boutique: C.NOM_BOUTIQUE_TERRAIN, montant: 100000 }] })));
+  test("un client RÉEL valide une pose seule dans la caisse TERRAIN réelle",
+    !refuse(cliR, (db) => ({ dettes: [{ id: "dt3", boutique: C.NOM_BOUTIQUE_TERRAIN, montant: 100000 }] })));
+  test("un client RÉEL est refusé sur la caisse d'entraînement",
+    refuse(cliR, (db) => ({ ...avecCaisseFormation(db),
+      dettes: [{ id: "dt4", boutique: C.NOM_BOUTIQUE_TERRAIN_FORMATION, montant: 100000 }] })));
+  test("un stagiaire (vendeur formation) encaisse un versement pose seule dans la caisse d'entraînement",
+    !refuse(P.stagiaire, (db) => ({ ...avecCaisseFormation(db),
+      dettes: [{ id: "dt5", boutique: C.NOM_BOUTIQUE_TERRAIN_FORMATION, montant: 100000, paye: 50000 }] })));
+}
+
 titre("Les sélecteurs ne montrent que l'espace du compte");
 {
   const db = base();

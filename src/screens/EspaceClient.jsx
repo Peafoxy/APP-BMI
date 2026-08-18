@@ -8,7 +8,7 @@ import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient 
 import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, marqueEspace } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -284,8 +284,13 @@ export function EspaceClient({ db, profile, save, setTab }) {
     if (!aSigneRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
     const signatureDataUrl = canvasRef.current.toDataURL("image/png");
     const numeroContrat = `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
-    setContratOuvert(null);
-    await finaliserValidation(d, { contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today() });
+    // ⚠ Le contrat ne se ferme QUE si la validation est allée au bout
+    // (défaut trouvé lors de la revue, lot 2) : on fermait AVANT d'appeler
+    // finaliserValidation, dont la confirmation peut encore être refusée —
+    // le client qui répondait « Annuler » perdait alors sa signature, le
+    // canevas ayant été démonté, et devait tout recommencer.
+    const valide = await finaliserValidation(d, { contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today() });
+    if (valide) setContratOuvert(null);
   };
 
   // ⚠ Demande Timo : signer le PV de réception (ou son avenant) DIRECTEMENT
@@ -367,11 +372,18 @@ export function EspaceClient({ db, profile, save, setTab }) {
       if (!await uConfirm(
         `Valider ce devis de ${fmt(d.total)} (pose seule — matériel déjà en votre possession) ?\n\n` +
         `Nos équipes vous contacteront pour programmer l'intervention. Le règlement se fait au technicien à la fin des travaux (ou en boutique si besoin).`
-      )) return;
-      const dbT = assurerBoutiqueTerrain(db);
+      )) return false;
+      // ⚠ Un client de FORMATION s'entraîne dans la caisse TERRAIN
+      // d'entraînement — jamais dans la réelle. Sans cette distinction, le
+      // verrou de cloisonnement (puis le serveur) refusaient la validation :
+      // l'app proposait un geste qu'elle interdisait ensuite (relevé lors
+      // de la revue Espace client, lot 2).
+      const enFormation = estCompteFormation(db, profile);
+      const caisseTerrain = enFormation ? NOM_BOUTIQUE_TERRAIN_FORMATION : NOM_BOUTIQUE_TERRAIN;
+      const dbT = assurerBoutiqueTerrain(db, enFormation);
       const dette = {
-        id: uid(), numero: prochainNumeroDette(dbT, NOM_BOUTIQUE_TERRAIN), date: today(),
-        boutique: NOM_BOUTIQUE_TERRAIN, client: moi.nom_base || profile.nom, tel: moi.tel || "",
+        id: uid(), numero: prochainNumeroDette(dbT, caisseTerrain), date: today(),
+        boutique: caisseTerrain, client: moi.nom_base || profile.nom, tel: moi.tel || "",
         motif: `Prestation de pose${infosContrat?.contrat_numero ? ` — contrat ${infosContrat.contrat_numero}` : ""}`,
         montant: d.total, paye: 0, paiements: [], par: profile.nom,
       };
@@ -396,12 +408,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
           ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, statut: "valide", valide_le: today(), ...infosContrat } : x)) }
           : u)),
       }, `Devis pose seule ${fmt(d.total)} VALIDÉ par ${profile.nom} — chantier créé directement, sans passage en boutique`);
-      setContratOuvert(null);
       uAlert("✅ Contrat signé. Votre chantier est créé — nos équipes vous contacteront pour programmer l'intervention.");
-      return;
+      return true;
     }
     const boutique = bqPaiement[d.id];
-    if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
+    if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return false; }
     const infosBoutique = db.boutiques.find((b) => b.nom === boutique);
     const localisation = infosBoutique?.adresse ? `\n📍 ${infosBoutique.adresse}` : "";
     const lienCarte = infosBoutique?.lat && infosBoutique?.lng ? `\n🗺️ Itinéraire : https://www.google.com/maps?q=${infosBoutique.lat},${infosBoutique.lng}` : "";
@@ -411,7 +422,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
       `Vous vous engagez à passer payer à la boutique ${boutique}.${localisation}${lienCarte}${telBoutique}\n` +
       `Le vendeur y sera prévenu de votre venue.\n\n` +
       `L'installation sera programmée après votre paiement.`
-    )) return;
+    )) return false;
 
     // La commande part chez les vendeurs — exactement comme une commande commerciale.
     const commande = {
@@ -460,6 +471,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     }, `Devis ${fmt(d.total)} VALIDÉ par le client ${profile.nom} — paiement prévu à ${boutique}`);
 
     uAlert(`✅ Merci ! Votre devis est validé.\n\nPassez à la boutique ${boutique} pour régler.${localisation}${lienCarte}${telBoutique}\nLe vendeur vous attend.\n\nDès votre paiement, nous programmerons votre installation.`);
+    return true;
   };
 
   // ---- RÉCEPTION DES TRAVAUX PAR LE CLIENT ----
@@ -801,8 +813,18 @@ export function EspaceClient({ db, profile, save, setTab }) {
                   {fiche.date_fin ? ` le ${dFR(fiche.date_fin)}` : ""}.
                   <b> Vérifiez l'installation, puis confirmez ci-dessous.</b> Si quelque chose ne va pas, dites-le-nous — un technicien reviendra.
                 </div>
+                {/* ⚠ Ne PAS affirmer qu'un lien WhatsApp a été envoyé quand il
+                    ne l'a pas été (défaut trouvé lors de la revue, lot 2) :
+                    marquerTermine saute l'envoi si l'adresse formelle ou le
+                    téléphone manque sur la fiche — le chantier passe alors
+                    « terminé » SANS jeton de signature (contrat_statut vide).
+                    Le client lisait pourtant « un lien vous a été envoyé »,
+                    attendait un message qui n'existait pas, et rappelait BMI
+                    pour rien. On ne l'affirme que si le lien existe vraiment. */}
                 <div className="text-sm text-slate-600 bg-white border border-amber-200 rounded-lg px-3 py-2">
-                  📲 Un lien de réception sécurisé vous a été envoyé par WhatsApp, pour signer directement depuis votre téléphone. Si vous ne l'avez pas reçu, contactez BMI Togo.
+                  {fiche.contrat_statut === "attente_signature"
+                    ? "📲 Un lien de réception sécurisé vous a été envoyé par WhatsApp, pour signer directement depuis votre téléphone. Si vous ne l'avez pas reçu, contactez BMI Togo."
+                    : "📲 Nos équipes vont vous envoyer par WhatsApp un lien de réception sécurisé, pour signer directement depuis votre téléphone. Si rien ne vient, contactez BMI Togo."}
                 </div>
                 {fiche.contrat_statut === "attente_signature" && (
                   <div className="mt-3 rounded-lg border border-amber-200 bg-white p-3">

@@ -560,7 +560,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (m > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
     const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
     if (moyen === null) return;
-    if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${c.nom} ?\n\n${enBoutique ? `Encaissé en boutique (${boutiqueEncaissement}).` : "Encaissé sur le terrain (caisse TERRAIN)."}`)) return;
+    // Le libellé nomme la caisse RÉELLEMENT utilisée : sur le terrain c'est
+    // celle de la dette — TERRAIN, sa jumelle d'entraînement « TERRAIN
+    // (formation) » pour un chantier de formation (lot 2 Espace client), ou
+    // une boutique si un versement précédent y a déjà déplacé la dette.
+    if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${c.nom} ?\n\n${enBoutique ? `Encaissé en boutique (${boutiqueEncaissement}).` : `Encaissé sur le terrain (caisse ${boutiqueEncaissement}).`}`)) return;
     const paiement = { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: m, paiement: normPaiement(moyen), par: profile.nom };
     // Le versement change la boutique de la dette UNIQUEMENT s'il vient
     // d'être payé en boutique cette fois-ci — chaque versement peut donc

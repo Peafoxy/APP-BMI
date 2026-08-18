@@ -265,7 +265,12 @@ export function Messagerie({ db, save, profile }) {
               <div className="border-b border-slate-200 bg-slate-50 p-3 max-h-48 overflow-y-auto">
                 <div className="text-xs font-bold text-slate-500 uppercase mb-2">Membres du groupe</div>
                 <div className="grid sm:grid-cols-2 gap-1.5">
-                  {db.users.filter((u) => u.actif !== false).map((u) => {
+                  {/* ⚠ Jamais de compte CLIENT dans un groupe (défaut trouvé
+                      lors de la revue Espace client, lot 2) : l'écran du
+                      client ne montre que son fil de support — un client
+                      ajouté ici ne pouvait JAMAIS ouvrir le groupe, mais les
+                      messages du groupe se retrouvaient sur son appareil. */}
+                  {db.users.filter((u) => u.actif !== false && u.role !== "client").map((u) => {
                     const dedans = (groupeOuvert.membres || []).includes(u.id);
                     return (
                       <label key={u.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs cursor-pointer ${dedans ? "bg-sky-50 border-sky-200" : "bg-white border-slate-200"} ${u.id === profile.id ? "opacity-60" : ""}`}>
@@ -308,7 +313,9 @@ export function Messagerie({ db, save, profile }) {
 function CreationGroupeModal({ db, profile, onFermer, onCreer }) {
   const [nom, setNom] = useState("");
   const [choisis, setChoisis] = useState([]);
-  const candidats = db.users.filter((u) => u.id !== profile.id && u.actif !== false);
+  // ⚠ Jamais de compte CLIENT dans un groupe — même règle que la gestion
+  // des membres d'un groupe existant (voir le commentaire là-bas).
+  const candidats = db.users.filter((u) => u.id !== profile.id && u.actif !== false && u.role !== "client");
 
   const basculer = (id) => setChoisis((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
 
