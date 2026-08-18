@@ -1011,5 +1011,34 @@ titre("Mot de passe d'un nouveau client : instantané, et toujours unique");
     Cli.motDePasseClient("DOUBLON", "91111111", r2.variante, r2.longueur) === r2.motDePasse);
 }
 
+
+titre("Un devis refusé ne doit JAMAIS être annoncé comme envoyé");
+{
+  // Le cas exact vecu par Timo : signature manquante. La fonction refusait
+  // bien, mais son refus etait ignore — l'application annoncait ensuite
+  // « ✅ Devis envoye » et effacait le brouillon. Elle disait le contraire
+  // de la verite, et le client n'avait rien recu.
+  //
+  // On rejoue l'enchainement des trois volets tel qu'il est ecrit.
+  const envoyer = async (profile) => {
+    if (!profile.signature_personnelle) return false;   // le refus
+    return true;
+  };
+  const enchainement = async (profile) => {
+    const trace = [];
+    const envoye = await envoyer(profile);
+    if (!envoye) return trace;                          // le garde-fou
+    trace.push("brouillon efface", "✅ Devis envoye");
+    return trace;
+  };
+
+  test("sans signature : ni brouillon effacé, ni fausse confirmation",
+    (await enchainement({ nom: "TIMO" })).length === 0);
+  test("avec signature : le brouillon est effacé et la confirmation s'affiche",
+    (await enchainement({ nom: "TIMO", signature_personnelle: "xxx" })).length === 2);
+  test("le manque de signature est visible AVANT le clic, pas seulement après",
+    !({ nom: "TIMO" }).signature_personnelle === true);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

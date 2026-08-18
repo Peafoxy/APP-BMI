@@ -179,10 +179,20 @@ export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstall
 }
 
 // ---- Bloc « Envoyer le devis au client » : sélection/création du compte + bouton WhatsApp ----
-export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer }) {
+export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, profile }) {
+  // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
+  // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
+  const sansSignature = profile && !profile.signature_personnelle;
   return (
     <div className="rounded-xl p-4 bg-white border-2 border-emerald-300">
       <div className="font-bold text-emerald-900 mb-1">📲 Envoyer ce devis au client</div>
+      {sansSignature && (
+        <div className="mb-3 rounded-lg border-2 border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+          <b>✍️ Votre signature manque.</b> Aucun devis ne peut partir tant qu'elle n'est pas enregistrée.
+          Rendez-vous dans l'onglet <b>📄 Contrats</b> — c'est à faire une seule fois, elle servira ensuite
+          à tous vos devis et contrats.
+        </div>
+      )}
       <div className="text-xs text-slate-500 mb-3">
         Le devis est déposé dans son espace client, et WhatsApp s'ouvre avec ses identifiants et le lien. S'il n'a pas encore de compte, il est créé automatiquement : le nom et le numéro suffisent.
       </div>
@@ -317,4 +327,5 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // sans cela, le devis partait enregistré mais le client n'était jamais
   // prévenu, et personne ne le savait.
   await ouvrirWhatsApp(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, uConfirm);
+  return true;
 }

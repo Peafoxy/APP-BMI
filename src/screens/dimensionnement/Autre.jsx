@@ -272,11 +272,16 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       delai_installation: delaiInstallation.trim(),
     };
 
-    await envoyerDevisEtOuvrirWhatsApp({
+    // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
+    // annonçait ensuite « ✅ Devis envoyé » et effaçait le brouillon,
+    // alors que rien n'était parti. Elle disait exactement le contraire
+    // de la vérité. On respecte maintenant la réponse.
+    const envoye = await envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
       idAReprendre: devisAReprendre?.devis?.id,
     });
+    if (!envoye) return;
 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
@@ -415,7 +420,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       <BlocEnvoiDevisClient
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
-        comptesClients={comptesClients} onEnvoyer={envoyerDevisWhatsApp}
+        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp}
       />
 
 
