@@ -27,6 +27,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const barriereWindowsActive = true; // ← mettre estAppWindows() ici pour restaurer
   // ---- SÉCURITÉ SUPABASE : écran de contrôle avant durcissement ----
   const [verifSecu, setVerifSecu] = useState({ statut: "idle", existants: [], total: 0, erreur: "" });
+  const [onglet, setOnglet] = useState("boutiques"); // sous-onglet ouvert
   const utilisateursActifs = db.users.filter((u) => u.actif !== false);
   const verifierSecurite = async () => {
     setVerifSecu({ statut: "chargement", existants: [], total: 0, erreur: "" });
@@ -727,6 +728,19 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </div>
         </div>
       )}
+      {/* ⚠ Demande Timo (18/08/2026) : « classer en sous-onglets les
+          informations dans Paramètres — un seul écran, ce n'est pas pro ».
+          Les douze blocs sont INCHANGÉS : seulement rangés derrière cinq
+          onglets. Masqués, jamais démontés — un formulaire à moitié rempli
+          survit au changement d'onglet (même principe que Dimensionnement).
+          🔐 Sécurité est volontairement en dernier : les gestes lourds ne
+          doivent pas être sur le chemin de tous les jours. */}
+      <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
+        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"], ["securite", "🔐 Sécurité"]].map(([id, label]) => (
+          <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
+        ))}
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "boutiques" ? undefined : "none" }}>
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-3">Ajouter une boutique</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -799,6 +813,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </table>
       </div>
 
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "catalogue" ? undefined : "none" }}>
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
         <div className="font-bold mb-1">🤝 Taux de parrainage par défaut</div>
         <div className="text-xs text-slate-500 mb-3">
@@ -920,6 +936,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
       </div>
 
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "donnees" ? undefined : "none" }}>
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
         <div className="font-bold mb-1">💾 Sauvegarde de secours</div>
         <div className="text-xs text-slate-500 mb-3">En plus de la synchronisation Supabase, exportez chaque semaine une copie complète des données (un rappel s'affiche automatiquement). Conservez le fichier sur une clé USB ou un Drive.</div>
@@ -978,6 +996,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <button onClick={resyncComplet} className="px-5 py-2 rounded-lg bg-orange-600 text-white font-bold text-sm hover:bg-orange-700">🔁 Tout retélécharger depuis le serveur</button>
       </div>
 
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "securite" ? undefined : "none" }}>
       {/* ---- ADMINISTRATEUR PRINCIPAL ---- */}
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
         <div className="font-bold mb-1">👑 Administrateur principal</div>
@@ -1003,6 +1023,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         )}
       </div>
 
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "apparence" ? undefined : "none" }}>
       {/* ---- PERSONNALISATION DE L'ÉCRAN DE CONNEXION (fêtes, etc.) ---- */}
       {estAdminPrincipal(db, profile) && (
         <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
@@ -1058,6 +1080,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
       )}
 
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "securite" ? undefined : "none" }}>
       {/* ---- SÉCURITÉ SUPABASE : écran de contrôle avant durcissement ---- */}
       <div className="rounded-xl p-4 bg-white border-2 border-sky-200">
         <div className="font-bold mb-1 text-sky-900">🔐 Sécurité Supabase</div>
@@ -1185,6 +1209,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
