@@ -179,16 +179,33 @@ export default async function handler(req, res) {
           || !(Array.isArray(champs.droits_off) ? champs.droits_off : []).includes("act_voir_tout"));
     const espace = voitLesDeuxEspaces ? "tous" : (champs.formation ? "formation" : "reel");
 
+    // ⚠ FAILLE N° 3 — LE SERVEUR NE CONNAISSAIT QUE « connecté ou pas ».
+    // Aucune notion de rôle ni de droits : n'importe lequel des comptes —
+    // y compris un compte CLIENT — pouvait, en dehors de l'application,
+    // effacer toutes les ventes, lire les salaires, ou se nommer
+    // administrateur en modifiant sa propre fiche.
+    // On ajoute donc deux revendications, posées ici pour la même raison
+    // que l'espace : app_metadata n'est modifiable qu'avec la clé
+    // service_role, un appareil ne peut pas se l'attribuer lui-même.
+    //
+    // `ecriture` reproduit peutEcrire() de lib/calculs.js. En cas de doute
+    // on ACCORDE l'écriture : refuser à tort casserait l'application,
+    // accorder à tort laisse simplement la situation d'avant.
+    const droitsOff = Array.isArray(champs.droits_off) ? champs.droits_off : [];
+    const role = String(champs.role || "");
+    const ecriture = champs.admin_principal === true
+      || (role !== "comptable" && !droitsOff.includes("act_ecriture"));
+
     if (existant) {
       const { error } = await admin.auth.admin.updateUserById(existant.id, {
         password: String(motDePasse),
-        app_metadata: { ...(existant.app_metadata || {}), espace },
+        app_metadata: { ...(existant.app_metadata || {}), espace, role, ecriture },
       });
       if (error) { console.error("sync-auth updateUserById:", JSON.stringify(error)); throw error; }
     } else {
       const { error } = await admin.auth.admin.createUser({
         email, password: String(motDePasse), email_confirm: true,
-        app_metadata: { espace },
+        app_metadata: { espace, role, ecriture },
       });
       if (error) { console.error("sync-auth createUser:", JSON.stringify(error)); throw error; }
     }
