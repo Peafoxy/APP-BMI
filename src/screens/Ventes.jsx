@@ -706,7 +706,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value, remF: "", remP: "" })} /></Field>
               <Field label="Remise ligne (F)"><input type="number" min="0" className={inputCls} value={sel.remF} onChange={(e) => saisirRemF(e.target.value)} placeholder="0" /></Field>
               <Field label="Remise ligne (%)"><input type="number" min="0" max="100" step="0.1" className={inputCls} value={sel.remP} onChange={(e) => saisirRemP(e.target.value)} placeholder="0" /></Field>
-              <div className="flex items-end"><button onClick={ajouterAuPanier} className={`w-full ${btnDark}`}>➕ Ajouter au panier</button></div>
+              {/* Demande Timo : le libellé ne va jamais à la ligne dans le bouton. */}
+              <div className="flex items-end"><button onClick={ajouterAuPanier} className={`w-full whitespace-nowrap ${btnDark}`}>Ajouter au panier</button></div>
             </div>
 
             <div className="mt-4 bg-white rounded-lg border border-slate-200 overflow-x-auto">
