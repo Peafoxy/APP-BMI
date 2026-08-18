@@ -17,9 +17,12 @@ export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, ca
 
   return (
     <>
-      <button type="button" onClick={() => setOuvert(true)} className={`${inputCls} text-left flex items-center justify-between`}>
-        <span className={selectionne ? "" : "text-slate-400"}>{selectionne ? selectionne.nom : "— Choisir un article —"}</span>
-        <span className="text-slate-400">▾</span>
+      {/* `truncate` + `gap-2` : un nom long (ou le libellé par défaut dans une
+          colonne étroite) se coupe proprement sur UNE ligne au lieu de replier
+          la flèche dessous — c'est ce qui rendait la case « bizarre » (Timo). */}
+      <button type="button" onClick={() => setOuvert(true)} className={`${inputCls} text-left flex items-center justify-between gap-2`}>
+        <span className={`truncate ${selectionne ? "" : "text-slate-400"}`}>{selectionne ? selectionne.nom : "— Choisir un article —"}</span>
+        <span className="text-slate-400 shrink-0">▾</span>
       </button>
       {ouvert && createPortal(
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" onClick={() => { setOuvert(false); setRecherche(""); }}>

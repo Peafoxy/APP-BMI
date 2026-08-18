@@ -679,19 +679,21 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           <div className="text-sm text-slate-600">Aucun article en stock. L'administrateur doit d'abord enregistrer les articles dans Stocks.</div>
         ) : (
           <>
-            <div className="mb-3">
-              <Field label="🔍 Scanner un code-barres (le lecteur USB tape le code puis Entrée)">
-                <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={scanner} placeholder="Scannez ou tapez le code puis Entrée…" />
+            {/* Demande Timo (18/08/2026) : champ discret — le lecteur USB tape
+                le code puis Entrée, pas besoin d'une pleine largeur. */}
+            <div className="mb-3 max-w-sm">
+              <Field label="🔍 Code-barres">
+                <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={scanner} placeholder="Scannez ou tapez, puis Entrée…" />
               </Field>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-3">
-              <Field label="Domaine (filtre facultatif)">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-[170px_190px_minmax(240px,1fr)_110px_150px_140px] gap-3 items-end">
+              <Field label="Domaine">
                 <select className={inputCls} value={dom} onChange={(e) => { setDom(e.target.value); setCat(""); setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" }); }}>
                   <option value="">— Tous —</option>
                   {domainesDefinis(db).map((d) => <option key={d.id} value={d.id}>{d.icone} {d.nom}</option>)}
                 </select>
               </Field>
-              <Field label="Catégorie (filtre facultatif)">
+              <Field label="Catégorie">
                 <select className={inputCls} value={cat} onChange={(e) => { setCat(e.target.value); setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" }); }}>
                   <option value="">— Toutes —</option>
                   {categories.map((c) => <option key={c}>{c}</option>)}
