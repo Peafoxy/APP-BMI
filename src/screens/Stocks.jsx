@@ -613,9 +613,27 @@ export function Stocks({ db, save, profile }) {
                 saisie libre assistée : les articles déjà en place gardent leur
                 catégorie, rien n'est perdu ni imposé de force. */}
             <input className={inputCls} list="liste-categories" value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} placeholder={f.domaine ? "Choisissez une famille…" : "Ex : Panneaux..."} />
+            {/* ⚠ Relevé par Timo (18/08/2026) : « pourquoi les catégories des
+                autres domaines apparaissent quand on choisit spécifiquement un
+                domaine ? ». C'était ma faute — j'ajoutais SANS CONDITION toutes
+                les catégories déjà en stock, pour ne pas perdre les anciennes
+                valeurs. Résultat : en choisissant Solaire, on retrouvait aussi
+                « BATTERIE », « PANNEAU », « CONVERTISSEUR » — les catégories
+                libres d'articles qui n'appartiennent à aucun domaine.
+                Un domaine choisi ne montre donc plus que SES familles, plus les
+                catégories des articles DÉJÀ rangés dans ce domaine (sinon un
+                article existant perdrait la sienne de vue). */}
             <datalist id="liste-categories">
-              {(f.domaine ? famillesDuDomaine(db, f.domaine) : toutesLesFamilles(db)).map((c) => <option key={c} value={c} />)}
-              {[...new Set(db.produits.map((p) => p.categorie).filter(Boolean))].map((c) => <option key={"h" + c} value={c} />)}
+              {(f.domaine
+                ? [...new Set([
+                    ...famillesDuDomaine(db, f.domaine),
+                    ...db.produits.filter((p) => p.domaine === f.domaine).map((p) => p.categorie).filter(Boolean),
+                  ])]
+                : [...new Set([
+                    ...toutesLesFamilles(db),
+                    ...db.produits.map((p) => p.categorie).filter(Boolean),
+                  ])]
+              ).map((c) => <option key={c} value={c} />)}
             </datalist>
           </Field>
           <Field label="Initial"><input type="number" className={inputCls} value={f.initial} onChange={(e) => setF({ ...f, initial: e.target.value })} /></Field>

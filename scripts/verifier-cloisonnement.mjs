@@ -1328,5 +1328,53 @@ titre("Volet libre : on travaille par DOMAINE, l'étape « catégorie » a dispa
     intitule(null, null) === "Autre");
 }
 
+
+titre("Stocks : choisir un domaine ne doit plus proposer les catégories des autres");
+{
+  // Le cas exact de la capture de Timo : domaine Solaire choisi, et la liste
+  // proposait quand meme BATTERIE / PANNEAU / CONVERTISSEUR — les categories
+  // libres d'articles n'appartenant a aucun domaine.
+  const db = {
+    boutiques: [{ nom: "DEMAKPOE", domaines: [...C.DOMAINES_DEFAUT,
+      { id: "camera", nom: "Caméra", icone: "📹", calcul: "libre", familles: ["Caméra", "Enregistreur"] }] }],
+    produits: [
+      { id: "a", nom: "BATERIE 200AH", categorie: "BATTERIE" },        // sans domaine
+      { id: "b", nom: "PANNEAU 400W", categorie: "PANNEAU" },          // sans domaine
+      { id: "c", nom: "CAMERA IP", domaine: "camera", categorie: "Caméra" },
+      { id: "d", nom: "ONDULEUR 5KVA", domaine: "solaire", categorie: "Convertisseur" },
+    ],
+  };
+  // Reprise de la regle posee dans Stocks.jsx.
+  const proposees = (domaine) => (domaine
+    ? [...new Set([
+        ...C.famillesDuDomaine(db, domaine),
+        ...db.produits.filter((p) => p.domaine === domaine).map((p) => p.categorie).filter(Boolean),
+      ])]
+    : [...new Set([
+        ...C.toutesLesFamilles(db),
+        ...db.produits.map((p) => p.categorie).filter(Boolean),
+      ])]);
+
+  const solaire = proposees("solaire");
+  test("domaine Solaire : ses familles sont proposées",
+    solaire.includes("Panneaux solaires") && solaire.includes("Batteries"));
+  test("…et PLUS les catégories libres des articles sans domaine (le défaut vu par Timo)",
+    !solaire.includes("BATTERIE") && !solaire.includes("PANNEAU"));
+  test("…ni celles d'un autre domaine",
+    !solaire.includes("Caméra") && !solaire.includes("Enregistreur"));
+  test("mais la catégorie d'un article DÉJÀ rangé dans Solaire reste visible",
+    solaire.includes("Convertisseur"));
+
+  const cam = proposees("camera");
+  test("domaine Caméra : ses familles seulement",
+    cam.includes("Caméra") && cam.includes("Enregistreur")
+    && !cam.includes("Batteries") && !cam.includes("BATTERIE"));
+
+  const aucun = proposees("");
+  test("sans domaine choisi : tout reste proposé, rien n'est perdu",
+    aucun.includes("BATTERIE") && aucun.includes("PANNEAU")
+    && aucun.includes("Batteries") && aucun.includes("Caméra"));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
