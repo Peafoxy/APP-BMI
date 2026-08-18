@@ -8,7 +8,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -114,7 +114,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
       const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
-      const motCorrespond = role.mots.some((m) => texte.includes(m));
+      const motCorrespond = contientLeMot(texte, role.mots);
       if (!motCorrespond) return false;
       if (role.unites.length === 0) return true; // accessoire compté à la pièce : pas de spec à vérifier
       return spec && role.unites.includes(spec.unite);

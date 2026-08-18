@@ -1040,5 +1040,45 @@ titre("Un devis refusé ne doit JAMAIS être annoncé comme envoyé");
     !({ nom: "TIMO" }).signature_personnelle === true);
 }
 
+
+titre("Le stock est reconnu même quand le nom comporte une faute");
+{
+  const MOTS_BAT = ["batterie", "battery", "lifepo4", "lithium"];
+  const MOTS_PAN = ["panneau", "panel", "photovolta", "pv "];
+  const MOTS_CONV = ["convertisseur", "onduleur", "inverter", "inverseur"];
+  const MOTS_REG = ["régulateur", "regulateur", "mppt"];
+
+  // Les noms REELS du stock de Timo, qui n'etaient pas reconnus.
+  test("« BATERIE 51,2V200AH » est enfin reconnue comme une batterie",
+    Dim.contientLeMot("BATERIE 51,2V200AH", MOTS_BAT) === true);
+  test("« BATERIE 12.8V100AH GEL » aussi",
+    Dim.contientLeMot("BATERIE 12.8V100AH GEL", MOTS_BAT) === true);
+  test("l'orthographe correcte marche évidemment toujours",
+    Dim.contientLeMot("BATTERIE 200AH", MOTS_BAT) === true);
+  test("le pluriel aussi",
+    Dim.contientLeMot("BATTERIES 200AH", MOTS_BAT) === true);
+
+  test("« PANEAU 400W » est reconnu comme un panneau",
+    Dim.contientLeMot("PANEAU 400W", MOTS_PAN) === true);
+  test("« CONVERTISEUR 5KVA » est reconnu comme un convertisseur",
+    Dim.contientLeMot("CONVERTISEUR 5KVA", MOTS_CONV) === true);
+  test("« REGULATEUR » sans accent est reconnu",
+    Dim.contientLeMot("REGULATEUR MPPT 60A", MOTS_REG) === true);
+
+  // Et surtout : on ne doit RIEN reconnaitre a tort.
+  test("un câble n'est pas pris pour une batterie",
+    Dim.contientLeMot("CABLE 6MM2 SOUPLE", MOTS_BAT) === false);
+  test("un disjoncteur n'est pas pris pour un panneau",
+    Dim.contientLeMot("DISJONCTEUR 63A", MOTS_PAN) === false);
+  test("un coffret n'est pas pris pour un convertisseur",
+    Dim.contientLeMot("COFFRET DE PROTECTION DC", MOTS_CONV) === false);
+  test("une batterie n'est pas prise pour un régulateur",
+    Dim.contientLeMot("BATERIE 51,2V200AH", MOTS_REG) === false);
+
+  test("la simplification ramène bien les deux orthographes au même mot",
+    Dim.simplifierMot("BATTERIE") === Dim.simplifierMot("BATERIE")
+    && Dim.simplifierMot("Régulateur") === Dim.simplifierMot("REGULATEUR"));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

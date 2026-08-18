@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot } from "./Partages";
 
 
 
@@ -181,11 +181,64 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     return "lifepo4"; // rien de mentionné → considéré Lithium par défaut
   };
 
+  // ⚠ Dire POURQUOI (relevé par Timo, 18/08/2026) — l'écran se contentait de
+  // « Aucun article correspondant ». Timo avait trois batteries sous les yeux,
+  // l'application affirmait le contraire, et rien ne lui permettait de
+  // comprendre. Il a dû demander.
+  // examiner() renvoie maintenant, pour chaque article, s'il est retenu et
+  // sinon la RAISON exacte. Le vendeur corrige tout seul en dix secondes.
+  const examiner = (role) => produitsBoutique.map((p) => {
+    const texte = p.nom + " " + (p.categorie || "");
+    const spec = specDepuisNom(texte);
+    if (!contientLeMot(texte, role.mots)) {
+      return { p, spec, ok: false, proche: false,
+        raison: `le nom ne mentionne pas « ${role.mots[0]} »` };
+    }
+    if (!spec || !role.unites.includes(spec.unite)) {
+      const attendu = role.unites.map((u) => u.toUpperCase()).join(" ou ");
+      return { p, spec, ok: false, proche: true,
+        raison: spec ? `caractéristique lue en ${spec.unite.toUpperCase()}, or il faut des ${attendu}`
+                     : `aucune caractéristique lisible dans le nom (attendu : ${attendu})` };
+    }
+    if (role.id === "batterie") {
+      const dev = p.tension ? Number(p.tension) : tensionInfereeBatterie(p.nom);
+      if (dev !== null && dev !== undefined && dev !== Number(tension)) {
+        return { p, spec, ok: false, proche: true,
+          raison: `${dev} V, incompatible avec un système ${tension} V` };
+      }
+      const t = typeBatterieInfere(p.nom);
+      if (t !== typeBatterie) {
+        const lib = { lifepo4: "Lithium", gel: "Gel", plomb: "Plomb / AGM" };
+        return { p, spec, ok: false, proche: true,
+          raison: `type ${lib[t] || t}, or vous avez choisi ${lib[typeBatterie] || typeBatterie}` };
+      }
+    }
+    if (role.id === "convertisseur") {
+      const dev = p.tension ? Number(p.tension) : (spec ? tensionInfereeConvertisseur(spec.valeur) : null);
+      if (dev !== null && dev !== Number(tension)) {
+        return { p, spec, ok: false, proche: true,
+          raison: `${dev} V, incompatible avec un système ${tension} V` };
+      }
+    }
+    return { p, spec, ok: true, proche: true, raison: "" };
+  });
+
+  // Les articles écartés qui étaient VISIBLEMENT destinés à ce rôle : c'est
+  // ce qui a de la valeur. On ne liste pas tout le stock.
+  const ecartes = (role) => {
+    const vus = examiner(role);
+    const proches = vus.filter((x) => !x.ok && x.proche);
+    if (proches.length) return proches;
+    // Personne n'a le bon mot-clé : on signale ceux dont la caractéristique
+    // correspond quand même (une batterie en Ah nommée « ACCU », par exemple).
+    return vus.filter((x) => !x.ok && x.spec && role.unites.includes(x.spec.unite)).slice(0, 3);
+  };
+
   const candidats = (role) => produitsBoutique
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
       const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
-      const motCorrespond = role.mots.some((m) => texte.includes(m));
+      const motCorrespond = contientLeMot(p.nom + " " + (p.categorie || ""), role.mots);
       const uniteOk = spec && role.unites.includes(spec.unite);
       // Tension : ne jamais proposer un convertisseur 48V pour un système
       // réglé sur 24V, ou l'inverse. Priorité à une tension EXPLICITEMENT
@@ -750,7 +803,20 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
                         {options.length === 0 ? (
-                          <span className="text-xs text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
+                          <div className="text-xs">
+                            <span className="text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
+                            {/* On dit POURQUOI : c'est ce qui rend le vendeur autonome. */}
+                            {ecartes(l.role).length > 0 && (
+                              <div className="mt-1 text-slate-500 max-w-md">
+                                {ecartes(l.role).length} article(s) écarté(s) :
+                                <ul className="list-disc ml-4 mt-0.5">
+                                  {ecartes(l.role).slice(0, 4).map((x) => (
+                                    <li key={x.p.id}><b>{x.p.nom}</b> — {x.raison}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.role.id, e.target.value)}>
                             <option value="">— Aucun —</option>

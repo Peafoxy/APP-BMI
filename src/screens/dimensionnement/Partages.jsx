@@ -65,6 +65,27 @@ export function appliquerConditionsReprises(devis, s) {
   s.setPctInstall(pose ? "10" : String(devis.pct_installation ?? 10));
 }
 
+// ⚠ « BATERIE » n'était pas reconnu (relevé par Timo, 18/08/2026) — ses trois
+// batteries étaient sous ses yeux, l'application affirmait qu'il n'y en avait
+// aucune. Il manquait un T. Tout le reste était pourtant lu correctement :
+// 200 Ah, 300 Ah, et même 51,2 V traduit en système 48 V.
+//
+// Une faute d'une lettre sur le mot dont dépend TOUTE la sélection, ça arrive
+// tous les jours — surtout quand plusieurs personnes saisissent le stock.
+// Plutôt que d'énumérer les fautes une à une, on compare des mots simplifiés :
+// sans accent, et sans lettres doublées. « BATERIE » et « BATTERIE » se
+// ramènent tous deux à « baterie ». Idem pour paneau/panneau,
+// convertiseur/convertisseur, regulateur/régulateur.
+export const simplifierMot = (s) => String(s || "")
+  .toLowerCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/(.)\1+/g, "$1");
+
+export const contientLeMot = (texte, mots) => {
+  const t = simplifierMot(texte);
+  return mots.some((m) => t.includes(simplifierMot(m)));
+};
+
 // ============ OUTILS DE DIMENSIONNEMENT SOLAIRE ============
 // Extrait une caractéristique numérique du nom d'un article
 // (ex: "Panneau JKM 555W" -> 555 wc, "Convertisseur hybride 3KW" -> 3000 w, "Batterie 200Ah" -> 200 ah)
