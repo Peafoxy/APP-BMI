@@ -101,14 +101,50 @@ else echo "  ✗ impossible de retirer le déclencheur"; ko=$((ko+1)); fi
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/roles-1-vague1.sql >/dev/null 2>&1
 
 echo
-echo "6. RETOUR EN ARRIERE (extrait du fichier lui-même)"
+echo "6. VAGUE 2 — LE PARCOURS REEL D UN CLIENT, DE BOUT EN BOUT"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/roles-2-vague2.sql >/dev/null 2>&1
+# Le jeton d un vrai client : son adresse porte son identifiant BMI.
+C_CLI2='{"role":"authenticated","email":"u_cli@bmi.internal","app_metadata":{"role":"client","ecriture":true,"espace":"reel"}}'
+psql -h /tmp -p $PORT -U postgres -d bmi -q -c "insert into public.clients_installes(id,data) values('ch_moi','{\"user_id\":\"u_cli\",\"nom\":\"MOI\"}'::jsonb), ('ch_autre','{\"user_id\":\"u_zzz\",\"nom\":\"UN AUTRE\"}'::jsonb);" >/dev/null 2>&1
+
+essai "il valide son devis : la commande part"          PASSE  "$C_CLI2" "insert into public.commandes(id,data) values('k2','{}'::jsonb);"
+essai "…et la dette aussi"                              PASSE  "$C_CLI2" "insert into public.dettes(id,data) values('t2','{}'::jsonb);"
+essai "il signe le PV de SON chantier"                  PASSE  "$C_CLI2" "update public.clients_installes set data=data||'{\"contrat_statut\":\"signe\"}'::jsonb where id='ch_moi';"
+essai "il ne peut PAS toucher au chantier d'un autre"   REFUSE "$C_CLI2" "update public.clients_installes set data=data||'{\"contrat_statut\":\"signe\"}'::jsonb where id='ch_autre';"
+essai "il LIT quand même le chantier de son filleul"    PASSE  "$C_CLI2" "select count(*) from public.clients_installes where id='ch_autre';"
+essai "il note le commercial (écrit dans SA fiche)"     PASSE  "$C_CLI2" "update public.users set data=data||'{\"evaluations\":[]}'::jsonb where id='u_cli';"
+essai "il parraine : un compte client est créé"         PASSE  "$C_CLI2" "insert into public.users(id,data) values('u_fill','{\"role\":\"client\"}'::jsonb);"
+essai "il écrit dans la messagerie"                     PASSE  "$C_CLI2" "insert into public.messages(id,data) values('m2','{}'::jsonb);"
+essai "il change son mot de passe"                      PASSE  "$C_CLI2" "update public.users set data=data||'{\"pwd_hash2\":\"zz\"}'::jsonb where id='u_cli';"
+
+echo "   — et ce qu'il ne doit plus pouvoir faire :"
+# ⚠ Une suppression refusée par une politique est SILENCIEUSE : PostgreSQL
+# ne trouve simplement aucune ligne à supprimer, sans lever d'erreur. Le sens
+# est le bon — on CONSERVE au lieu de perdre. On vérifie donc que la ligne
+# est TOUJOURS LÀ après la tentative, pas qu'une erreur a été levée.
+survit() {
+  local desc="$1" claims="$2" table="$3" id="$4" r
+  r=$($P -c "set role authenticated; select set_config('request.jwt.claims', '$claims', true); delete from public.$table where id='$id'; select count(*) from public.$table where id='$id';" 2>&1 | tail -1)
+  if [ "$r" = "1" ]; then echo "  ✓ $desc"; ok=$((ok+1));
+  else echo "  ✗ $desc (la ligne a été supprimée)"; ko=$((ko+1)); fi
+}
+survit "il ne supprime plus une vente"      "$C_CLI2" ventes            v_essai
+survit "…ni un message"                     "$C_CLI2" messages          m2
+survit "…ni un compte utilisateur"          "$C_CLI2" users             u_fill
+survit "…ni son propre chantier"            "$C_CLI2" clients_installes ch_moi
+essai "un VENDEUR, lui, supprime toujours normalement"  PASSE  "$C_VENDEUR" "delete from public.depenses where id='d2'; select count(*) from public.depenses;"
+
+echo
+echo "7. RETOUR EN ARRIERE (extrait du fichier lui-même)"
 python3 - "$D" <<'PY'
-import io, re, sys
-s = io.open('supabase/roles-1-vague1.sql', encoding='utf-8').read()
-bloc = s.split("POUR TOUT ANNULER EN 5 SECONDES")[1].split("À exécuter dans Supabase")[0]
-lignes = [l[3:] if l.startswith('--   ') else l[2:] for l in bloc.splitlines() if l.strip().startswith('--')]
-sql = "\n".join(l for l in lignes if l.strip() and not l.strip().startswith('copiez'))
-io.open(sys.argv[1] + '/annuler.sql', 'w', encoding='utf-8').write(sql)
+import io, sys
+sql = []
+for f in ['supabase/roles-1-vague1.sql', 'supabase/roles-2-vague2.sql']:
+    s = io.open(f, encoding='utf-8').read()
+    bloc = s.split("POUR TOUT ANNULER EN 5 SECONDES")[1].split("À exécuter dans Supabase")[0]
+    lignes = [l[3:] if l.startswith('--   ') else l[2:] for l in bloc.splitlines() if l.strip().startswith('--')]
+    sql.append("\n".join(l for l in lignes if l.strip() and not l.strip().startswith('copiez')))
+io.open(sys.argv[1] + '/annuler.sql', 'w', encoding='utf-8').write("\n".join(sql))
 PY
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f "$D/annuler.sql" >/dev/null 2>&1 && echo "  ✓ le bloc d'annulation s'exécute sans erreur" && ok=$((ok+1)) || { echo "  ✗ le bloc d'annulation échoue"; ko=$((ko+1)); }
 essai "après annulation, le client peut de nouveau tout faire" PASSE "$C_CLIENT" "insert into public.depenses(id,data) values('d9','{}'::jsonb);"
