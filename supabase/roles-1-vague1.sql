@@ -190,6 +190,20 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
+    -- ⚠ CORRECTIF (2.100.61, signalé par Timo — capture ANGELF) :
+    -- l'application synchronise par UPSERT (« insert … on conflict update »).
+    -- PostgreSQL déclenche AVANT INSERT même quand la ligne existe déjà et
+    -- que l'écriture deviendra une simple mise à jour. Ce contrôle de
+    -- création s'appliquait donc à CHAQUE écriture d'un employé sur sa
+    -- propre fiche — signature, tâches, mot de passe — et la refusait :
+    -- « Creation d'un compte vendeur refusee ». Tous les rôles étaient
+    -- touchés SAUF admin et client.
+    -- Une ligne qui existe déjà n'est pas une création : on laisse passer,
+    -- et le déclencheur BEFORE UPDATE (branche ci-dessous) fera, lui, les
+    -- comparaisons champ à champ sur le chemin « on conflict ».
+    if exists (select 1 from public.users u where u.id = new.id) then
+      return new;
+    end if;
     -- Créer un compte CLIENT reste permis (un client peut en parrainer un
     -- autre). Créer un compte d'un autre rôle : réservé aux administrateurs.
     if coalesce(new.data ->> 'role', 'client') <> 'client' then

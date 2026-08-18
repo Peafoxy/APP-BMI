@@ -91,6 +91,34 @@ essai "un client peut encore créer un compte CLIENT (parrainage)" PASSE "$C_CLI
 essai "l'ADMINISTRATEUR, lui, change bien les rôles"     PASSE  "$C_ADMIN"    "update public.users set data=data||'{\"role\":\"vendeur\"}'::jsonb where id='u_cli';"
 
 echo
+echo "4bis. L'APPLICATION ECRIT PAR UPSERT — le banc d'essai aussi, desormais"
+# ⚠ Defaut reel trouve par Timo (compte ANGELF) : le declencheur refusait
+# l'upsert d'un employe sur SA PROPRE fiche, parce que le controle de
+# creation se declenchait meme quand la ligne existait deja. Mon banc
+# d'essai testait des UPDATE simples : il ne pouvait pas le voir. Chaque
+# role passe desormais par le MEME geste que l'application.
+upsert_soi() {
+  local desc="$1" attendu="$2" role="$3" extra="${4:-}"
+  local id="u_$role"
+  psql -h /tmp -p $PORT -U postgres -d bmi -q -c "insert into public.users(id,data) values('$id','{\"nom\":\"T\",\"role\":\"$role\"$extra}'::jsonb) on conflict (id) do nothing;" >/dev/null 2>&1
+  local claims="{\"role\":\"authenticated\",\"email\":\"$id@bmi.internal\",\"app_metadata\":{\"role\":\"$role\",\"ecriture\":true,\"espace\":\"reel\"}}"
+  essai "$desc" "$attendu" "$claims" "insert into public.users(id,data) values('$id','{\"nom\":\"T\",\"role\":\"$role\"$extra,\"signature_personnelle\":\"sig\"}'::jsonb) on conflict (id) do update set data = excluded.data;"
+}
+upsert_soi "un VENDEUR enregistre sa signature (le cas ANGELF)"        PASSE vendeur ""
+upsert_soi "un COMMERCIAL aussi"                                      PASSE commercial ""
+upsert_soi "un TECHNICIEN aussi"                                      PASSE technicien ""
+upsert_soi "un TECHNICIEN BMI aussi"                                  PASSE technicien_bmi ""
+upsert_soi "un GERANT aussi"                                          PASSE gerant ""
+upsert_soi "un MAGASINIER aussi"                                      PASSE magasinier ""
+upsert_soi "un RESPONSABLE COMMERCIAL aussi"                          PASSE resp_commercial ""
+upsert_soi "un vendeur de FORMATION aussi (le compte exact de la capture)" PASSE vendeur2 ",\"formation\":true"
+C_CLI_UP='{"role":"authenticated","email":"u_cli@bmi.internal","app_metadata":{"role":"client","ecriture":true,"espace":"reel"}}'
+essai "un CLIENT met a jour sa fiche par upsert"                      PASSE "$C_CLI_UP" "insert into public.users(id,data) values('u_cli','{\"nom\":\"CLIENT\",\"role\":\"vendeur\",\"pwd_hash2\":\"n\"}'::jsonb) on conflict (id) do update set data = excluded.data;"
+echo "   — et l'escalade par UPSERT reste bien fermee :"
+essai "se nommer admin PAR UPSERT est toujours refuse"                REFUSE "$C_CLI_UP" "insert into public.users(id,data) values('u_cli','{\"nom\":\"CLIENT\",\"role\":\"admin\"}'::jsonb) on conflict (id) do update set data = excluded.data;"
+essai "creer un compte admin de toutes pieces PAR UPSERT aussi"       REFUSE "$C_CLI_UP" "insert into public.users(id,data) values('u_neuf','{\"role\":\"admin\"}'::jsonb) on conflict (id) do update set data = excluded.data;"
+
+echo
 echo "5. LA CLE DE SERVICE RESTE MAITRESSE (voie de secours)"
 r=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -c "update public.users set data=data||'{\"role\":\"admin\"}'::jsonb where id='u_cli'; select data->>'role' from public.users where id='u_cli';" 2>&1 | tail -1) || true
 if [ "$r" = "admin" ]; then echo "  ✓ l'éditeur SQL peut toujours changer un rôle"; ok=$((ok+1));
