@@ -1287,5 +1287,46 @@ titre("Les onglets du Dimensionnement viennent des Paramètres");
     C.domainesDefinis({ boutiques: [{ nom: "X" }] }).map((d) => d.id).join(",") === "solaire,garage,autre");
 }
 
+
+titre("Volet libre : on travaille par DOMAINE, l'étape « catégorie » a disparu");
+{
+  // Reprise de la regle posee dans Autre.jsx.
+  const vivier = (produitsBoutique, domaine) => {
+    const duDomaine = domaine ? produitsBoutique.filter((p) => p.domaine === domaine.id) : [];
+    return duDomaine.length > 0 ? duDomaine : produitsBoutique;
+  };
+  const camera = { id: "camera", nom: "Caméra", icone: "📹", calcul: "libre", familles: ["Caméra", "Enregistreur"] };
+  const stock = [
+    { id: "p1", nom: "CAMERA IP 4MP", domaine: "camera", categorie: "Caméra" },
+    { id: "p2", nom: "ENREGISTREUR 8 VOIES", domaine: "camera", categorie: "Enregistreur" },
+    { id: "p3", nom: "BATERIE 51,2V200AH", domaine: "solaire", categorie: "Batteries" },
+    { id: "p4", nom: "CABLE 6MM2" },
+  ];
+
+  const v = vivier(stock, camera);
+  test("l'onglet Caméra propose TOUS les articles du domaine, d'un seul coup",
+    v.length === 2 && v.map((p) => p.id).join(",") === "p1,p2");
+  test("…et jamais ceux d'un autre domaine",
+    !v.some((p) => p.id === "p3"));
+  test("plus besoin de choisir une catégorie avant de commencer",
+    v.length === stock.filter((p) => p.domaine === "camera").length);
+
+  // Le filet : un stock pas encore rattache ne doit pas rendre l'ecran vide.
+  const pasEncoreRattache = [{ id: "x1", nom: "CAMERA IP" }, { id: "x2", nom: "ENREGISTREUR" }];
+  test("stock pas encore rattaché : tout reste proposé, l'écran n'est jamais vide",
+    vivier(pasEncoreRattache, camera).length === 2);
+  test("une boutique réellement vide reste vide, sans planter",
+    vivier([], camera).length === 0);
+
+  // Le devis porte le nom du domaine, plus une categorie de stock.
+  const intitule = (besoinsRepris, domaine) => besoinsRepris?.categorie || (domaine ? domaine.nom : "Autre");
+  test("le devis est rangé sous le nom du domaine",
+    intitule(null, camera) === "Caméra");
+  test("un devis repris garde l'intitulé sous lequel il avait été établi",
+    intitule({ categorie: "BATTERIE" }, camera) === "BATTERIE");
+  test("sans domaine du tout, on retombe sur « Autre »",
+    intitule(null, null) === "Autre");
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

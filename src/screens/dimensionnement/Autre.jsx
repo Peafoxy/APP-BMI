@@ -31,10 +31,15 @@ function correspondancesBesoin(nomBesoin, produits) {
     .sort((a, b) => b.score - a.score);
 }
 
-// ============ OUTIL DE DIMENSIONNEMENT — AUTRE (par catégorie de produit) ============
-// Le vendeur choisit une catégorie déjà utilisée dans la gestion de stock, décrit
-// les besoins du client au fil de l'eau, et l'article correspondant se propose
-// automatiquement depuis le stock de cette catégorie — saisie manuelle sinon.
+// ============ OUTIL DE DIMENSIONNEMENT — VOLET LIBRE (par DOMAINE) ============
+// Le vendeur décrit les besoins du client au fil de l'eau, et l'article
+// correspondant se propose automatiquement depuis le stock du DOMAINE ouvert
+// (l'onglet) — saisie manuelle sinon.
+// ⚠ Il fallait auparavant choisir une catégorie de stock avant de commencer.
+// Timo l'a relevé le 18/08/2026 : « pourquoi choisir une catégorie, alors que
+// dans la catégorie on n'a que les mêmes produits ? ». Depuis que chaque
+// domaine a son onglet, cette étape n'ajoutait qu'un clic et masquait une
+// partie du stock.
 export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, domaine }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
@@ -54,20 +59,24 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // Le repli est indispensable : tant qu'un article n'a pas été rattaché à un
   // domaine, sa catégorie doit rester proposée — sinon un stock existant
   // deviendrait invisible du jour au lendemain.
-  const famillesDuDom = domaine ? (domaine.familles || []) : [];
-  const categoriesEnStock = [...new Set(produitsBoutique
-    .filter((p) => !domaine || !p.domaine || p.domaine === domaine.id)
-    .map((p) => p.categorie || "Autre"))];
-  const categories = [...new Set([
-    ...famillesDuDom.filter((f) => produitsBoutique.some((p) => (p.categorie || "Autre") === f)),
-    ...categoriesEnStock,
-  ])].sort();
   const besoinsRepris = devisAReprendre?.devis?.besoins;
   const lignesReprises = devisAReprendre?.devis?.lignes || [];
-  const [categorieChoisie, setCategorieChoisie] = useState(besoinsRepris?.categorie || "");
-  useEffect(() => { if (!categorieChoisie && categories.length > 0) setCategorieChoisie(categories[0]); }, [categories.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
-  const produitsCategorie = produitsBoutique.filter((p) => (p.categorie || "Autre") === categorieChoisie
-    && (!domaine || !p.domaine || p.domaine === domaine.id));
+  // Le devis n'est plus rangé sous une catégorie de stock choisie à la main,
+  // mais sous le nom du DOMAINE — c'est ce que le client lira sur son devis.
+  // Un devis repris garde l'intitulé sous lequel il avait été établi.
+  const categorieChoisie = besoinsRepris?.categorie || (domaine ? domaine.nom : "Autre");
+  // ⚠ Relevé par Timo (18/08/2026) : « pourquoi choisir une catégorie, alors
+  // que dans la catégorie on n'a que les mêmes produits ? ». Il a raison —
+  // depuis que chaque domaine a son propre onglet, l'étape « catégorie » ne
+  // faisait qu'ajouter un clic et masquer une partie du stock.
+  // On cherche donc dans TOUT le domaine d'un coup.
+  //
+  // Repli indispensable : tant qu'aucun article n'a été rattaché à ce
+  // domaine, on garde tout le stock de la boutique — sinon l'écran serait
+  // vide et inutilisable le jour de la mise à jour.
+  const produitsDuDomaine = domaine ? produitsBoutique.filter((p) => p.domaine === domaine.id) : [];
+  const rattachementFait = produitsDuDomaine.length > 0;
+  const produitsCategorie = rattachementFait ? produitsDuDomaine : produitsBoutique;
 
   // ---- Besoins du client : liste libre, remplie au fil de l'eau ----
   // Si on reprend un devis (modification/rejet), on repart des lignes RÉELLES du
@@ -114,7 +123,6 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // repris après le premier.
   useEffect(() => {
     if (!devisAReprendre) return;
-    if (besoinsRepris?.categorie) setCategorieChoisie(besoinsRepris.categorie);
     if (initialSelection?.besoinsInit) setBesoins(initialSelection.besoinsInit);
     if (initialSelection) {
       setChoix(initialSelection.choix || {});
@@ -135,7 +143,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   useEffect(() => {
     recalculerNonVerrouilles(besoins);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categorieChoisie, boutique, db.produits]);
+  }, [categorieChoisie, boutique, db.produits, domaine?.id]);
 
   const ajouterBesoin = () => setBesoins([...besoins, { id: uid(), nom: "", qte: "1" }]);
 
@@ -321,27 +329,17 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
-      <Panel boutique={boutique}>
-        <div className="font-bold mb-3">{domaine ? `${domaine.icone} Famille de produit — ${domaine.nom}` : "📦 Catégorie de produit"} <Badge boutique={boutique} /></div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="Catégorie (celles déjà en stock, ou saisissez-en une nouvelle)">
-            <input
-              className={inputCls}
-              list="liste-categories-autre"
-              placeholder="Ex : Interphonie, Climatisation…"
-              value={categorieChoisie}
-              onChange={(e) => setCategorieChoisie(e.target.value)}
-            />
-            <datalist id="liste-categories-autre">{categories.map((c) => <option key={c} value={c} />)}</datalist>
-            {categories.length === 0 && (
-              <div className="text-xs text-orange-600 mt-1">Aucune catégorie trouvée dans le stock de {boutique} — vous pouvez quand même en saisir une, la recherche d'articles se fera dessus si des articles portent déjà cette catégorie.</div>
-            )}
-          </Field>
+      {/* Le sélecteur de catégorie a disparu : l'onglet porte déjà le domaine.
+          On se contente de signaler quand le stock n'est pas encore rattaché. */}
+      {domaine && !rattachementFait && produitsBoutique.length > 0 && (
+        <div className="rounded-xl p-3 bg-amber-50 border border-amber-300 text-xs text-amber-900">
+          Aucun article de {boutique} n'est encore rattaché au domaine <b>{domaine.nom}</b> : tout le stock de la boutique
+          est donc proposé ci-dessous. Rattachez vos articles dans <b>📦 Stocks</b> pour n'avoir plus que les bons.
         </div>
-      </Panel>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock « {categorieChoisie || "—"} » de {boutique})</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock {domaine ? `domaine ${domaine.nom}` : "de la boutique"} — {boutique})</div>
         <table className="w-full text-sm min-w-[820px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Besoin du client", "Article proposé", "Quantité", "Prix unit.", "Sous-total", "HB", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
@@ -353,12 +351,12 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                   <td className="px-3 py-2">
                     <input
                       className={`${inputCls} w-48`}
-                      list={`liste-${categorieChoisie}`}
+                      list={`liste-${domaine?.id || "autre"}`}
                       placeholder="Ex : Caméra extérieure"
                       value={l.besoin.nom}
                       onChange={(e) => majBesoinNom(l.besoin.id, e.target.value)}
                     />
-                    <datalist id={`liste-${categorieChoisie}`}>{produitsCategorie.map((p) => <option key={p.id} value={p.nom} />)}</datalist>
+                    <datalist id={`liste-${domaine?.id || "autre"}`}>{produitsCategorie.map((p) => <option key={p.id} value={p.nom} />)}</datalist>
                   </td>
                   <td className="px-3 py-2">
                     {enManuel ? (
@@ -373,7 +371,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                         {!l.besoin.nom.trim() ? (
                           <span className="text-xs text-slate-400">Décrivez le besoin à gauche…</span>
                         ) : matches.length === 0 ? (
-                          <span className="text-xs text-orange-600">Aucun article correspondant dans « {categorieChoisie} »</span>
+                          <span className="text-xs text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
                         ) : (
                           <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.besoin.id, e.target.value)}>
                             <option value="">— Aucun —</option>
@@ -400,7 +398,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
         </div>
 
         <BlocAutresEquipements
-          titre={`Autres équipements (hors catégorie « ${categorieChoisie} »)`}
+          titre="Autres équipements"
           autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre}
           placeholder="Ex : Câblage"
         />
