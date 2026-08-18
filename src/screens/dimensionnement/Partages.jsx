@@ -5,8 +5,8 @@
 // ============================================================
 import { useState } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
-import { fmt, telDigits, col } from "../../lib/core";
-import { Field, inputCls, uAlert } from "../../components/ui";
+import { fmt, telDigits, col, ouvrirWhatsApp } from "../../lib/core";
+import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
 import { marqueEspace } from "../../lib/calculs";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
@@ -222,7 +222,7 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
 // Résout le compte client destinataire : crée un compte à la volée (nom + tel) ou
 // récupère un compte existant. Retourne null (une alerte a déjà été affichée) en
 // cas de saisie invalide, sinon { compte, motDePasse, dbApres }.
-export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) {
+export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique) {
   if (clientDevis === "__nouveau__") {
     const nom = nouvClient.nom.trim();
     const tel = nouvClient.tel.trim();
@@ -250,7 +250,7 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
     // Le compte client hérite de l'espace de celui qui le crée (voir
     // marqueEspace) : un « client » inventé pendant un entraînement ne doit
     // pas se retrouver mêlé aux vrais dans les listes ni dans les relances.
-    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
+    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile, boutique));
     return {
       compte: fab.user, motDePasse: fab.motDePasse,
       dbApres: { ...db, users: [...db.users, fab.user], messages: [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
@@ -265,7 +265,7 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile) 
 // identifiants et le lien vers son espace. `ligneEntete` = les 1-2 lignes
 // spécifiques à l'outil (type d'installation + montant), le reste du message
 // (identifiants, lien, signature) est commun aux 3 outils.
-export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
+export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
   // Signature personnelle exigée AVANT tout envoi de devis (demande Timo) —
   // elle sera réutilisée automatiquement sur tous les contrats futurs de
   // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
@@ -282,7 +282,9 @@ export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devi
   // l'espace de son auteur, à l'unique endroit par lequel passent les
   // trois volets du dimensionnement. Les devis antérieurs n'ont pas le
   // champ : ils sont traités comme réels, ce qui est le cas.
-  const devisMarque = { ...devis, ...marqueEspace(dbApres, profile) };
+  // La boutique du devis fait foi : un devis établi depuis une boutique
+  // de formation est un devis de formation, même envoyé par l'administrateur.
+  const devisMarque = { ...devis, ...marqueEspace(dbApres, profile, devis.boutique) };
   const dbFinal = {
     ...dbApres,
     users: dbApres.users.map((u) => (u.id === compte.id
@@ -311,5 +313,8 @@ export function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devi
   ];
   const num = telDigits(compte.tel || nouvClient.tel);
   const txt = encodeURIComponent(lignesMsg.join("\n"));
-  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+  // Si le navigateur bloque l'ouverture, on le DIT et on propose un bouton :
+  // sans cela, le devis partait enregistré mais le client n'était jamais
+  // prévenu, et personne ne le savait.
+  await ouvrirWhatsApp(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, uConfirm);
 }

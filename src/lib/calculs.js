@@ -454,8 +454,26 @@ export const espaceDuCompte = (db, profile) =>
 // Marque à poser sur tout enregistrement qui n'appartient à AUCUNE boutique
 // (devis, compte client, prospect) et que le cloisonnement par boutique ne
 // peut donc pas rattraper.
-export const marqueEspace = (db, profile) =>
-  (estCompteFormation(db, profile) ? { formation: true } : {});
+// ⚠ RELEVÉ PAR TIMO (18/08/2026) — l'espace était déduit de QUI VOUS ÊTES,
+// jamais de LA BOUTIQUE DANS LAQUELLE VOUS TRAVAILLEZ.
+//
+// Pour tous les employés, les deux se confondent : un vendeur de FORMA1
+// EST un compte de formation. Mais l'administrateur, lui, voit les deux
+// espaces — il n'est donc ni l'un ni l'autre, et l'application le
+// considérait comme RÉEL quelle que soit la boutique affichée à l'écran.
+//
+// Conséquence : l'administrateur qui s'entraînait sur une boutique de
+// formation créait de VRAIS clients et de VRAIS devis, qui allaient
+// ensuite polluer ses contrats, ses relances et ses chiffres réels. Le
+// cloisonnement entier était contourné par la seule personne qui peut
+// travailler des deux côtés.
+//
+// La boutique de travail fait donc foi quand elle est connue. À défaut
+// (écran sans boutique), on retombe sur l'espace du compte, comme avant.
+export const marqueEspace = (db, profile, boutique) => {
+  if (boutique) return estBoutiqueFormation(db, boutique) ? { formation: true } : {};
+  return estCompteFormation(db, profile) ? { formation: true } : {};
+};
 
 // ⚠ Demande Timo : le PV de réception doit apparaître sur la MÊME fiche
 // que le contrat correspondant (onglet Contrats), pas dans une liste à

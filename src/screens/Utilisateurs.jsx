@@ -282,7 +282,10 @@ export function Users({ db, save, profile }) {
   const basculerFormationEnMasse = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
-    const concernes = db.users.filter((u) => u.role !== "client" && !estAdminPrincipal(db, u) && !u.formation);
+    // Les clients étaient exclus : ils ne pouvaient jamais basculer. Ils font
+    // pourtant partie de l'espace au même titre que les autres — un client
+    // d'entraînement n'a rien à faire dans les vraies listes.
+    const concernes = db.users.filter((u) => !estAdminPrincipal(db, u) && !u.formation);
     if (concernes.length === 0) { uAlert("Aucun compte à basculer — tous sont déjà en formation (hors admin principal)."); return; }
     const cibles = new Map();
     const bloques = [];
@@ -726,7 +729,11 @@ export function Users({ db, save, profile }) {
               Chef d'équipe (responsable commercial)
             </label>
           )}
-          {f.role && f.role !== "client" && (
+          {/* ⚠ Le client était exclu de ce choix (relevé par Timo) : il ne
+              pouvait JAMAIS être marqué formation, à aucun endroit de
+              l'application. Un client d'entraînement se retrouvait donc
+              mêlé aux vrais — dans les listes, les relances, les contrats. */}
+          {f.role && (
             <div className="mt-2">
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 {/* Cocher change d'espace : la boutique retenue doit suivre,
@@ -905,7 +912,7 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerIdentite(u)} className="text-xs font-bold text-sky-800 underline mr-2">🪪 Identité</button>
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
-                  {jeSuisAdminPrincipal && u.role !== "client" && (
+                  {jeSuisAdminPrincipal && (
                     <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
                       {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
                     </button>

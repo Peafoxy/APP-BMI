@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, boutiqueRetenue } from "../../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
@@ -295,7 +295,11 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // Sans ce filtre, un compte de formation adressait ses devis d'essai a
   // de VRAIS clients — qui les recevaient par WhatsApp, dans leur vrai
   // espace client, et ne pouvaient plus receptionner le chantier ensuite.
-  const espaceDevis = espaceDuCompte(db, profile);
+  // ⚠ La BOUTIQUE de travail décide, pas le compte : l'administrateur qui
+  // établit un devis depuis une boutique de formation doit se voir proposer
+  // les clients de formation, et eux seuls. Sans cela il adressait ses
+  // devis d'entraînement à de VRAIS clients.
+  const espaceDevis = boutique ? estBoutiqueFormation(db, boutique) : espaceDuCompte(db, profile);
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
     && (espaceDevis === undefined || !!u.formation === espaceDevis));
 
@@ -303,7 +307,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
 
-    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile);
+    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
     const { compte, motDePasse, dbApres } = resolu;
 
@@ -362,7 +366,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       delai_installation: delaiInstallation.trim(),
     };
 
-    envoyerDevisEtOuvrirWhatsApp({
+    await envoyerDevisEtOuvrirWhatsApp({
       dbApres, compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [
         `🚪 Motorisation de portail/garage — *${fmt(totalDevis)}*`,

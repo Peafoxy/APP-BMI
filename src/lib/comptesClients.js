@@ -67,14 +67,36 @@ export function motDePasseClient(nom, tel, variante = 0, longueur = 6) {
 // seulement quand il n'y a pas d'autre choix. Les mots de passe ne sont
 // jamais stockés en clair : chaque compte existant est comparé via SON
 // PROPRE sel (pwd_salt), déjà non secret.
+// ⚠ LENTEUR MESURÉE (relevé par Timo, 18/08/2026) — cette fonction
+// recalculait le VERROU de chaque compte existant pour chaque candidat.
+// Ce calcul est volontairement lent (150 000 tours) : c'est ce qui protège
+// les mots de passe. Multiplié par le nombre de comptes, il devenait
+// interminable — mesuré à 3,3 s pour 46 comptes sur un serveur, soit 6 à
+// 16 s dans un navigateur, et davantage s'il fallait un second essai.
+// Deux conséquences : l'application semblait figée, et le navigateur
+// finissait par bloquer l'ouverture de WhatsApp (passé environ 5 secondes,
+// il considère que la page agit toute seule). Le message au client était
+// perdu. Et cela EMPIRE avec le nombre de comptes.
+//
+// Or il n'y a rien à déchiffrer : le mot de passe d'un client est
+// FABRIQUÉ à partir de son nom et de son numéro, et le compte garde de
+// quoi le recalculer (mdp_variante, mdp_longueur). On compare donc des
+// textes — instantané — au lieu de 46 verrous lents.
+//
+// Ce qu'on perd, et il faut le savoir : l'unicité n'est plus vérifiée
+// contre les mots de passe CHOISIS À LA MAIN par les salariés, qu'aucun
+// calcul ne peut deviner sans les hacher. Le risque est qu'un client
+// tombe par hasard sur le même mot de passe qu'un vendeur — cela ne donne
+// accès à rien (les identifiants diffèrent) et reste très improbable.
 export async function resoudreMotDePasseClient(db, nom, tel) {
   const comptes = (db.users || []).filter((u) => u.pwd_salt && u.pwd_hash2);
-  const dejaUtilise = async (candidat) => {
-    for (const u of comptes) {
-      if ((await hacherFort(candidat, u.pwd_salt)) === u.pwd_hash2) return true;
-    }
-    return false;
-  };
+  // Les mots de passe déjà attribués et recalculables, en clair.
+  const dejaPris = new Set(
+    (db.users || [])
+      .filter((u) => u.mdp_auto && u.nom_base)
+      .map((u) => motDePasseClient(u.nom_base, u.tel, u.mdp_variante ?? 0, u.mdp_longueur ?? 6))
+  );
+  const dejaUtilise = async (candidat) => dejaPris.has(candidat);
   for (let variante = 0; variante < 10; variante++) {
     const candidat = motDePasseClient(nom, tel, variante, 6);
     if (!(await dejaUtilise(candidat))) return { motDePasse: candidat, variante, longueur: 6 };

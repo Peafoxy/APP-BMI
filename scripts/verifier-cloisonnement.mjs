@@ -62,6 +62,14 @@ await build({ entryPoints: ["src/screens/dimensionnement/Partages.jsx"], bundle:
 const Dim = await import(pathToFileURL(sortieDim).href);
 unlinkSync(sortieDim);
 
+// Les mots de passe fabriques pour les comptes clients.
+const sortieCli = join("node_modules", ".cache", `bmi-cli-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/comptesClients.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieCli, logLevel: "silent", loader: { ".js": "jsx" },
+  external: ["react", "react-dom"] });
+const Cli = await import(pathToFileURL(sortieCli).href);
+unlinkSync(sortieCli);
+
 // ---- Base d'essai : deux boutiques réelles, une de formation, un dépôt
 // de chaque côté, et les quatre profils qui comptent.
 const base = () => ({
@@ -924,6 +932,83 @@ titre("Un enregistrement refusé par le serveur ne doit plus faire boucler l'app
     contenuRefuse({ message: "Failed to fetch" }) === false);
   test("une permission refusée en LECTURE reste traitée comme un souci de session",
     contenuRefuse({ message: "permission denied for table ventes" }) === false);
+}
+
+
+titre("L'espace suit la BOUTIQUE de travail, plus seulement le compte");
+{
+  const db = {
+    boutiques: [{ nom: "DEMAKPOE", formation: false }, { nom: "FORMA1", formation: true }],
+    users: [
+      { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true },
+      { id: "u_vend", nom: "KOSSI", role: "vendeur", boutique: "DEMAKPOE" },
+      { id: "u_stag", nom: "DODO", role: "vendeur", boutique: "FORMA1" },
+    ],
+  };
+  const timo = { id: "u_timo", role: "admin" };
+  const vendeurReel = { id: "u_vend", role: "vendeur" };
+  const stagiaire = { id: "u_stag", role: "vendeur" };
+
+  test("l'administrateur qui travaille sur FORMA1 produit de la FORMATION (c'était du réel)",
+    C.marqueEspace(db, timo, "FORMA1").formation === true);
+  test("le même administrateur sur DEMAKPOE produit du RÉEL",
+    C.marqueEspace(db, timo, "DEMAKPOE").formation === undefined);
+  test("sans boutique connue, on retombe sur l'espace du compte (comme avant)",
+    C.marqueEspace(db, timo).formation === undefined
+    && C.marqueEspace(db, stagiaire).formation === true);
+  test("un vendeur réel produit toujours du réel, quelle que soit la boutique passée",
+    C.marqueEspace(db, vendeurReel, "DEMAKPOE").formation === undefined);
+  test("un stagiaire sur sa boutique produit toujours de la formation",
+    C.marqueEspace(db, stagiaire, "FORMA1").formation === true);
+  test("une boutique inconnue ne fait pas basculer par erreur : elle reste réelle",
+    C.marqueEspace(db, timo, "BOUTIQUE EFFACEE").formation === undefined);
+
+  // Le client propose dans le selecteur doit suivre la meme regle.
+  const espaceDevis = (profile, boutique) =>
+    (boutique ? C.estBoutiqueFormation(db, boutique) : C.espaceDuCompte(db, profile));
+  test("sur FORMA1, seuls les clients de formation sont proposés",
+    espaceDevis(timo, "FORMA1") === true);
+  test("sur DEMAKPOE, seuls les vrais clients le sont",
+    espaceDevis(timo, "DEMAKPOE") === false);
+}
+
+
+titre("Mot de passe d'un nouveau client : instantané, et toujours unique");
+{
+  // 46 comptes, comme chez Timo. L'ancienne methode recalculait 46 verrous
+  // lents (mesure : 3,3 s ici, 6 a 16 s dans un navigateur) et faisait
+  // bloquer l'ouverture de WhatsApp.
+  const users = Array.from({ length: 46 }, (_, i) => ({
+    id: "u" + i, nom: "CLIENT" + i, nom_base: "CLIENT" + i, tel: "9000" + String(i).padStart(4, "0"),
+    role: "client", mdp_auto: true, mdp_variante: 0, mdp_longueur: 6,
+    pwd_salt: "aa", pwd_hash2: "bb",
+  }));
+  const db = { users };
+
+  const t0 = Date.now();
+  const r = await Cli.resoudreMotDePasseClient(db, "NOUVEAU", "90123456");
+  const duree = Date.now() - t0;
+
+  test("un mot de passe est bien attribué",
+    typeof r.motDePasse === "string" && r.motDePasse.length === 6);
+  test("…en moins d'une demi-seconde (c'était plusieurs secondes)",
+    duree < 500);
+  test("il n'entre en conflit avec aucun compte existant", (() => {
+    const pris = new Set(users.map((u) => Cli.motDePasseClient(u.nom_base, u.tel, 0, 6)));
+    return !pris.has(r.motDePasse);
+  })());
+  test("le mot de passe reste RECALCULABLE à l'identique plus tard",
+    Cli.motDePasseClient("NOUVEAU", "90123456", r.variante, r.longueur) === r.motDePasse);
+
+  // Conflit reel : deux clients de meme nom et meme numero.
+  const enConflit = { ...db, users: [...users, {
+    id: "u_x", nom: "DOUBLON", nom_base: "DOUBLON", tel: "91111111",
+    role: "client", mdp_auto: true, mdp_variante: 0, mdp_longueur: 6, pwd_salt: "aa", pwd_hash2: "bb" }] };
+  const r2 = await Cli.resoudreMotDePasseClient(enConflit, "DOUBLON", "91111111");
+  test("en cas de conflit, une AUTRE variante est choisie — pas le même mot de passe",
+    r2.motDePasse !== Cli.motDePasseClient("DOUBLON", "91111111", 0, 6) && r2.variante > 0);
+  test("…et elle reste recalculable elle aussi",
+    Cli.motDePasseClient("DOUBLON", "91111111", r2.variante, r2.longueur) === r2.motDePasse);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

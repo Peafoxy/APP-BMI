@@ -382,3 +382,26 @@ export function compresserPhoto(fichier, maxLargeur = 1000, qualite = 0.55) {
   });
 }
 
+// ⚠ OUVERTURE DE WHATSAPP — jamais perdue en silence (relevé par Timo,
+// 18/08/2026). Les navigateurs bloquent une ouverture de fenêtre qui n'est
+// pas la conséquence IMMÉDIATE d'un clic : passé environ 5 secondes, ils
+// considèrent que la page agit d'elle-même. Or un envoi de devis passe par
+// des calculs et des questions avant d'arriver ici.
+// Quand c'était bloqué, RIEN ne le disait : l'utilisateur croyait son client
+// prévenu alors qu'il n'avait rien reçu.
+// window.open renvoie null quand il est bloqué. On le détecte, et on propose
+// un bouton — un clic direct n'est JAMAIS bloqué, la fenêtre s'ouvre.
+export async function ouvrirWhatsApp(url, demanderConfirmation) {
+  let fenetre = null;
+  try { fenetre = window.open(url, "_blank"); } catch { fenetre = null; }
+  if (fenetre) return true;
+  if (typeof demanderConfirmation !== "function") return false;
+  const reessayer = await demanderConfirmation(
+    "📵 WhatsApp n'a pas pu s'ouvrir tout seul.\n\n" +
+    "Votre navigateur a bloqué l'ouverture — cela arrive quand l'enregistrement a pris quelques secondes. " +
+    "Rien n'est perdu : l'enregistrement est bien fait, seul le message n'est pas parti.\n\n" +
+    "Ouvrir WhatsApp maintenant ?");
+  if (!reessayer) return false;
+  // Ce second essai part d'un vrai clic : il n'est jamais bloqué.
+  try { window.open(url, "_blank"); return true; } catch { return false; }
+}

@@ -42,7 +42,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
     // ⚠ Cloisonnement : un prospect n'appartient à aucune boutique — sans
     // cette marque, une fiche inventée pendant un entraînement entrait dans
     // la vraie file de relance des commerciaux.
-    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, ...marqueEspace(db, profile) };
+    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, ...marqueEspace(db, profile, f.boutique) };
     // WhatsApp est ouvert AVANT le save, de façon strictement synchrone (sinon
     // le navigateur bloque l'ouverture — cf. correctif du même souci sur le proforma).
     envoyerAccueilProspectWhatsApp(f.nom, f.tel);
