@@ -76,7 +76,7 @@ script jusqu'à ce qu'il soit propre.
 
 C'est le seul qui change vraiment quelque chose. Il se lance **deux fois**.
 
-### Vague 1 — la lecture
+### Vague 1 — trois tables sans enjeu comptable
 
 En haut du fichier, laissez la ligne :
 
@@ -84,13 +84,16 @@ En haut du fichier, laissez la ligne :
 vague constant int := 1;
 ```
 
-Lancez. À partir de là, un appareil de formation ne **voit** plus les vraies
-données, et inversement. L'écriture reste libre.
+Lancez. Le cloisonnement — lecture **et** écriture — s'applique alors à
+**trois tables seulement** : `proformas`, `prospects`, `commandes`.
 
-**Vivez avec pendant quelques jours.** C'est le but : si quelque chose devait
-mal se passer, ça se verra là, et l'écriture n'est pas encore bloquée.
+Ce sont les trois où une erreur ne coûterait ni argent ni stock. C'est la mise
+en service : on vérifie que le mécanisme fonctionne là où il ne peut rien
+casser de grave.
 
-### Vague 2 — l'écriture
+**Laissez tourner au moins une journée complète.**
+
+### Vague 2 — les onze tables
 
 Quand vous êtes tranquille, rouvrez le **même fichier**, changez la ligne en :
 
@@ -98,7 +101,10 @@ Quand vous êtes tranquille, rouvrez le **même fichier**, changez la ligne en :
 vague constant int := 2;
 ```
 
-Relancez le fichier entier. L'écriture est maintenant fermée elle aussi.
+Relancez le fichier entier. Le cloisonnement couvre alors les **onze** tables,
+comptabilité et stock compris : ventes, dépenses, dettes, produits,
+ajustements, clôtures, commandes, proformas, boutiques, prospects,
+clients installés.
 
 ### Retour en arrière
 
