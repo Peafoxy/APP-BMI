@@ -24,9 +24,22 @@
 // température, rendement du convertisseur en charge).
 export const RENDEMENT_SYSTEME = 0.8;
 
-// Profondeur de décharge admissible. Le lithium supporte 90 % ; le gel, comme
-// tout plomb scellé, se limite à 50 % sous peine de vieillir très vite.
-export const profondeurDecharge = (typeBatterie) => (typeBatterie === "lifepo4" ? 0.9 : 0.5);
+// Profondeur de décharge admissible, par type de batterie.
+//
+// ⚠ Le GEL est passé de 50 % à 70 % le 18/08/2026, sur décision de Timo.
+// Le code portait jusque-là 50 % — la valeur des guides usuels pour tout
+// plomb scellé — avec la mention « à ajuster si Timo a un autre repère
+// précis pour le Gel ». C'est ce repère : 70 %.
+// Conséquence concrète : à consommation égale, un parc GEL demande
+// nettement moins de capacité qu'avant (359 Ah → 257 Ah sur le cas de
+// référence). Les devis en gel deviennent donc moins chers.
+//
+// Le PLOMB / AGM reste à 50 % : il n'est plus proposé dans le menu, mais un
+// ancien devis repris peut encore porter ce type, et le descendre plus bas
+// l'abîmerait pour de bon.
+export const PROFONDEUR_DECHARGE = { lifepo4: 0.9, gel: 0.7, plomb: 0.5 };
+export const profondeurDecharge = (typeBatterie) =>
+  PROFONDEUR_DECHARGE[typeBatterie] ?? 0.5;
 
 // Tension RÉELLE d'un pack LiFePO4 (4S / 8S / 16S) — on calcule avec elle, pas
 // avec la tension « ronde » du système : une batterie annoncée 48 V est en

@@ -1139,16 +1139,21 @@ titre("Dimensionnement solaire : les chiffres de l'écran de Timo, verrouillés"
   test("une batterie GEL reste à sa tension nominale exacte",
     Sol.tensionDeCalcul("gel", 48) === 48 && Sol.tensionDeCalcul("gel", 24) === 24);
 
-  test("le lithium se décharge à 90 %, le gel à 50 %",
-    Sol.profondeurDecharge("lifepo4") === 0.9 && Sol.profondeurDecharge("gel") === 0.5);
+  // ⚠ Le gel est passé de 50 % à 70 % le 18/08/2026, sur décision de Timo.
+  test("le lithium se décharge à 90 %, le gel à 70 % (décision Timo)",
+    Sol.profondeurDecharge("lifepo4") === 0.9 && Sol.profondeurDecharge("gel") === 0.7);
+  test("le plomb / AGM reste à 50 % — un ancien devis repris ne doit pas l'abîmer",
+    Sol.profondeurDecharge("plomb") === 0.5);
+  test("un type inconnu retombe sur la valeur la plus prudente",
+    Sol.profondeurDecharge("n_importe_quoi") === 0.5);
   test("les pertes du système restent à 20 %", Sol.RENDEMENT_SYSTEME === 0.8);
 
   // Le gel, à consommation égale, demande bien plus de capacité.
   const enGel = Sol.besoinsSolaires(
     [{ puissance: 1235, heures: 8616 / 1235, qte: 1 }],
     { autonomie: 1, soleil: 3, tension: 48, typeBatterie: "gel" });
-  test("le même besoin en GEL demande 359 Ah au lieu de 187 — presque le double",
-    enGel.ahBatterie === 359);
+  test("le même besoin en GEL demande 257 Ah au lieu de 187 (c'était 359 à 50 %)",
+    enGel.ahBatterie === 257);
   test("…mais le nombre de panneaux ne change pas",
     enGel.wcPanneaux === reel.wcPanneaux);
 
