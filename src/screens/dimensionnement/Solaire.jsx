@@ -10,7 +10,16 @@ import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, 
 
 
 
-const estHybrideTexte = (texte) => /hybride|hybrid/i.test(texte || "");
+// ⚠ Demande Timo (18/08/2026) : « MPPT » dans le nom d'un CONVERTISSEUR
+// signifie qu'il l'a intégré, au même titre que « hybride ». Sans cela, un
+// convertisseur nommé « SOSEN 5.5KVA MPPT » faisait ajouter au devis un
+// régulateur que le client avait déjà payé dedans.
+// Aucun risque de confusion avec le RÔLE « Régulateur MPPT » : cette
+// fonction n'est appliquée qu'au convertisseur retenu, jamais au stock
+// entier — et un article nommé « RÉGULATEUR MPPT » n'est jamais retenu
+// comme convertisseur (il lui faudrait convertisseur/onduleur/inverter
+// dans son nom).
+const estHybrideTexte = (texte) => /hybride|hybrid|mppt/i.test(texte || "");
 // ⚠ Le prix du rail n'est plus figé ici : il se règle dans ⚙ Paramètres
 // (prixRailMetre), pour que Timo puisse le changer lui-même quand son
 // fournisseur bouge. Le repli intégré vaut l'ancien 5 500 F, donc une base
@@ -443,7 +452,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const nouveauChoix = { ...choix, [roleId]: { type: "stock", produit_id: produitId, qte } };
     if (roleId === "convertisseur") {
       const hybride = p && estHybrideTexte(p.nom + " " + (p.categorie || ""));
-      if (hybride) delete nouveauChoix.regulateur;
+      // Un régulateur ajouté volontairement n'est jamais effacé par un
+      // changement de convertisseur.
+      if (hybride && !rolesManuels.regulateur) delete nouveauChoix.regulateur;
       else { const c = meilleurChoix(ROLES_EQUIPEMENT.find((r) => r.id === "regulateur")); if (c) nouveauChoix.regulateur = c; else delete nouveauChoix.regulateur; }
     }
     setChoix(nouveauChoix);
@@ -745,11 +756,21 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Besoin calculé", "Quantité", "Prix unit.", "Sous-total", "HB"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {lignesDevis.map((l) => {
-              if (l.role.id === "regulateur" && convertisseurEstHybride) {
+              // ⚠ La ligne était retirée SANS recours : impossible d'ajouter un
+              // régulateur même en le voulant (demande Timo). Le lien ci-dessous
+              // rend la main — dès qu'il est utilisé, la ligne redevient normale
+              // et le recalcul automatique n'y touche plus.
+              if (l.role.id === "regulateur" && convertisseurEstHybride && !rolesManuels.regulateur) {
                 return (
                   <tr key={l.role.id} className="border-t border-slate-100">
                     <td className="px-3 py-2 font-semibold">{l.role.label}</td>
-                    <td className="px-3 py-2 text-xs text-green-700">✓ Intégré au convertisseur hybride — pas d'article séparé nécessaire</td>
+                    <td className="px-3 py-2 text-xs">
+                      <span className="text-green-700">✓ Intégré au convertisseur — pas d'article séparé nécessaire</span>
+                      <button onClick={() => setRolesManuels({ ...rolesManuels, regulateur: true })}
+                              className="ml-2 font-bold text-sky-800 underline whitespace-nowrap">
+                        ➕ L'ajouter quand même
+                      </button>
+                    </td>
                     <td className="px-3 py-2 text-slate-400">—</td><td className="px-3 py-2 text-slate-400">—</td><td className="px-3 py-2 text-slate-400">—</td>
                     <td className="px-3 py-2 tabular-nums text-slate-400">{fmt(0)}</td>
                     <td className="px-3 py-2"></td>

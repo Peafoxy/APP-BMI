@@ -1080,5 +1080,31 @@ titre("Le stock est reconnu même quand le nom comporte une faute");
     && Dim.simplifierMot("Régulateur") === Dim.simplifierMot("REGULATEUR"));
 }
 
+
+titre("Un convertisseur qui mentionne MPPT l'a intégré : pas de régulateur en double");
+{
+  // Reprise EXACTE de estHybrideTexte (Solaire.jsx).
+  const estHybride = (t) => /hybride|hybrid|mppt/i.test(t || "");
+  const MOTS_CONV = ["convertisseur", "onduleur", "inverter", "inverseur"];
+  const MOTS_REG = ["régulateur", "regulateur", "mppt", "chargeur solaire", "controller"];
+
+  test("« SOSEN 5.5KVA MPPT » : régulateur déjà intégré, pas de ligne en plus",
+    estHybride("SOSEN 5.5KVA MPPT") === true);
+  test("« CONVERTISSEUR HYBRIDE 5KW » : inchangé, toujours reconnu",
+    estHybride("CONVERTISSEUR HYBRIDE 5KW") === true);
+  test("« hybrid » en anglais aussi", estHybride("INVERTER 5KW HYBRID") === true);
+  test("un convertisseur ordinaire demande bien un régulateur",
+    estHybride("CONVERTISSEUR 5000VA 48V") === false);
+
+  // Le piege a eviter : que « MPPT » perturbe le rôle Régulateur lui-même.
+  test("un vrai régulateur reste reconnu comme régulateur",
+    Dim.contientLeMot("REGULATEUR MPPT 60A", MOTS_REG) === true);
+  test("…et n'est JAMAIS pris pour un convertisseur (le piège du mot MPPT)",
+    Dim.contientLeMot("REGULATEUR MPPT 60A", MOTS_CONV) === false);
+  test("un chargeur solaire non plus",
+    Dim.contientLeMot("CHARGEUR SOLAIRE MPPT 100A", MOTS_CONV) === false
+    && Dim.contientLeMot("CHARGEUR SOLAIRE MPPT 100A", MOTS_REG) === true);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
