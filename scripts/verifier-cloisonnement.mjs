@@ -1240,5 +1240,52 @@ titre("Domaines de produits : la liste vient des Paramètres, plus du code");
     && C.toutesLesFamilles(avecCamera).includes("Batteries"));
 }
 
+
+titre("Les onglets du Dimensionnement viennent des Paramètres");
+{
+  const camera = { id: "camera", nom: "Caméra", icone: "📹", calcul: "libre",
+                   familles: ["Caméra", "Enregistreur", "Disque dur"] };
+  const db = { boutiques: [{ nom: "DEMAKPOE", domaines: [...C.DOMAINES_DEFAUT, camera] }], produits: [] };
+
+  const onglets = C.domainesDefinis(db).map((d) => d.id);
+  test("les 3 onglets d'origine sont toujours là, dans le même ordre",
+    onglets.slice(0, 3).join(",") === "solaire,garage,autre");
+  test("le domaine créé par Timo apparaît comme 4ᵉ onglet",
+    onglets[3] === "camera");
+
+  // L'aiguillage : quel ecran ouvre chaque onglet.
+  const ecran = (id) => {
+    const d = C.domaineParId(db, id);
+    return d.calcul === "solaire" ? "Solaire" : d.calcul === "garage" ? "Garage" : "Libre";
+  };
+  test("Solaire garde son écran de calcul", ecran("solaire") === "Solaire");
+  test("Garage garde le sien", ecran("garage") === "Garage");
+  test("Caméra ouvre l'écran libre — aucun calcul inventé", ecran("camera") === "Libre");
+
+  // La reprise d'un ANCIEN devis doit continuer de tomber sur le bon onglet.
+  const domaineDuDevis = (d) => {
+    if (!d) return null;
+    const t = d.type_devis;
+    if (t === "garage") return "garage";
+    if (t === "autre") return C.domainesDefinis(db).some((x) => x.id === d.domaine) ? d.domaine : "autre";
+    return "solaire";
+  };
+  test("un ancien devis solaire (sans domaine) rouvre bien dans Solaire",
+    domaineDuDevis({ type_devis: "solaire" }) === "solaire");
+  test("un ancien devis garage aussi", domaineDuDevis({ type_devis: "garage" }) === "garage");
+  test("un ancien devis « autre », sans domaine, rouvre dans Autre",
+    domaineDuDevis({ type_devis: "autre" }) === "autre");
+  test("un devis Caméra rouvre dans Caméra",
+    domaineDuDevis({ type_devis: "autre", domaine: "camera" }) === "camera");
+  test("un devis dont le domaine a été SUPPRIMÉ depuis retombe dans Autre — jamais dans le vide",
+    domaineDuDevis({ type_devis: "autre", domaine: "plomberie_effacee" }) === "autre");
+  test("un devis sans type du tout retombe sur Solaire, comme avant",
+    domaineDuDevis({}) === "solaire");
+
+  // Filet : une base sans reglage garde exactement les 3 onglets d'avant.
+  test("une base qui n'a jamais rien réglé garde les 3 onglets d'origine",
+    C.domainesDefinis({ boutiques: [{ nom: "X" }] }).map((d) => d.id).join(",") === "solaire,garage,autre");
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

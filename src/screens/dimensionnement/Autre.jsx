@@ -35,7 +35,7 @@ function correspondancesBesoin(nomBesoin, produits) {
 // Le vendeur choisit une catégorie déjà utilisée dans la gestion de stock, décrit
 // les besoins du client au fil de l'eau, et l'article correspondant se propose
 // automatiquement depuis le stock de cette catégorie — saisie manuelle sinon.
-export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
+export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, domaine }) {
   const premiere = boutiqueParDefaut(db, profile);
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -46,12 +46,28 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const boutique = boutiqueRetenue(db, profile, bq);
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
-  const categories = [...new Set(produitsBoutique.map((p) => p.categorie || "Autre"))].sort();
+  // ⚠ Demande Timo (18/08/2026) : « dans Autre, au lieu de faire sélectionner
+  // les catégories, c'est le domaine ». C'est désormais l'ONGLET qui porte le
+  // domaine ; la liste ci-dessous ne montre donc que SES familles, au lieu de
+  // déverser toutes les catégories du stock mélangées.
+  //
+  // Le repli est indispensable : tant qu'un article n'a pas été rattaché à un
+  // domaine, sa catégorie doit rester proposée — sinon un stock existant
+  // deviendrait invisible du jour au lendemain.
+  const famillesDuDom = domaine ? (domaine.familles || []) : [];
+  const categoriesEnStock = [...new Set(produitsBoutique
+    .filter((p) => !domaine || !p.domaine || p.domaine === domaine.id)
+    .map((p) => p.categorie || "Autre"))];
+  const categories = [...new Set([
+    ...famillesDuDom.filter((f) => produitsBoutique.some((p) => (p.categorie || "Autre") === f)),
+    ...categoriesEnStock,
+  ])].sort();
   const besoinsRepris = devisAReprendre?.devis?.besoins;
   const lignesReprises = devisAReprendre?.devis?.lignes || [];
   const [categorieChoisie, setCategorieChoisie] = useState(besoinsRepris?.categorie || "");
   useEffect(() => { if (!categorieChoisie && categories.length > 0) setCategorieChoisie(categories[0]); }, [categories.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
-  const produitsCategorie = produitsBoutique.filter((p) => (p.categorie || "Autre") === categorieChoisie);
+  const produitsCategorie = produitsBoutique.filter((p) => (p.categorie || "Autre") === categorieChoisie
+    && (!domaine || !p.domaine || p.domaine === domaine.id));
 
   // ---- Besoins du client : liste libre, remplie au fil de l'eau ----
   // Si on reprend un devis (modification/rejet), on repart des lignes RÉELLES du
@@ -242,6 +258,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       panier,
       boutique,
       type_devis: "autre",
+      domaine: domaine?.id || "autre",
       besoins: {
         categorie: categorieChoisie,
         articles_demandes: besoins.filter((b) => b.nom.trim()).map((b) => ({ nom: b.nom.trim(), qte: Number(b.qte || 1) })),
@@ -305,7 +322,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3">📦 Catégorie de produit <Badge boutique={boutique} /></div>
+        <div className="font-bold mb-3">{domaine ? `${domaine.icone} Famille de produit — ${domaine.nom}` : "📦 Catégorie de produit"} <Badge boutique={boutique} /></div>
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label="Catégorie (celles déjà en stock, ou saisissez-en une nouvelle)">
             <input
