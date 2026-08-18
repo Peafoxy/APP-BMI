@@ -7,8 +7,8 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
+import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis } from "../../lib/calculs";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, memeFamille, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -114,7 +114,13 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
       const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
-      const motCorrespond = contientLeMot(texte, role.mots);
+      // ⚠ Même règle que le volet Solaire (livraison 3) : si l'article est
+      // rangé dans un domaine, c'est le rangement qui décide ; sinon on
+      // continue de chercher dans son nom, exactement comme avant.
+      const idDomaineGarage = (domainesDefinis(db).find((d) => d.calcul === "garage") || {}).id || "garage";
+      const motCorrespond = p.domaine
+        ? (p.domaine === idDomaineGarage && memeFamille(p.categorie, role.label))
+        : contientLeMot(texte, role.mots);
       if (!motCorrespond) return false;
       if (role.unites.length === 0) return true; // accessoire compté à la pièce : pas de spec à vérifier
       return spec && role.unites.includes(spec.unite);

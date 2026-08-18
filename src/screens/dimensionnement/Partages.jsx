@@ -81,6 +81,18 @@ export const simplifierMot = (s) => String(s || "")
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/(.)\1+/g, "$1");
 
+// Deux noms de famille désignent-ils la même chose ? On compare en simplifié
+// (sans accent ni lettre doublée), et on accepte qu'un nom contienne l'autre :
+// « Photocellules » et « Photocellules (cellules infrarouges) » sont la même
+// famille. L'administrateur peut renommer ses familles dans les Paramètres —
+// si le lien se perd, la recherche par le nom de l'article prend le relais.
+export const memeFamille = (a, b) => {
+  const x = simplifierMot(a).trim(), y = simplifierMot(b).trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return (x.length >= 4 && y.length >= 4) && (x.includes(y) || y.includes(x));
+};
+
 export const contientLeMot = (texte, mots) => {
   const t = simplifierMot(texte);
   return mots.some((m) => t.includes(simplifierMot(m)));

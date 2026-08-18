@@ -1376,5 +1376,50 @@ titre("Stocks : choisir un domaine ne doit plus proposer les catégories des aut
     && aucun.includes("Batteries") && aucun.includes("Caméra"));
 }
 
+
+titre("Livraison 3 : le rangement du stock fait foi, le nom sert de repli");
+{
+  const MOTS_BAT = ["batterie", "battery", "lifepo4", "lithium"];
+  // Reprise EXACTE de la regle posee dans Solaire.jsx et Garage.jsx.
+  const retenu = (p, role, idDomaine) => (p.domaine
+    ? (p.domaine === idDomaine && Dim.memeFamille(p.categorie, role.label))
+    : Dim.contientLeMot(p.nom + " " + (p.categorie || ""), role.mots));
+  const roleBatterie = { label: "Batteries", mots: MOTS_BAT };
+
+  // LE CAS DE TIMO : « BATERIE », mal orthographiee, mais bien rangee.
+  test("une « BATERIE » rangée dans Solaire → Batteries est retenue, malgré la faute",
+    retenu({ nom: "BATERIE 51,2V200AH", domaine: "solaire", categorie: "Batteries" }, roleBatterie, "solaire") === true);
+  test("…et le nom n'entre même plus en jeu : un nom illisible passe s'il est bien rangé",
+    retenu({ nom: "REF-XYZ-9981", domaine: "solaire", categorie: "Batteries" }, roleBatterie, "solaire") === true);
+
+  // Le rangement ECARTE aussi, et c'est le but.
+  test("un article rangé dans une AUTRE famille est écarté, même si son nom dit « batterie »",
+    retenu({ nom: "BATTERIE DE SECOURS", domaine: "solaire", categorie: "Accessoires" }, roleBatterie, "solaire") === false);
+  test("un article rangé dans un AUTRE domaine est écarté",
+    retenu({ nom: "BATTERIE 12V", domaine: "camera", categorie: "Batteries" }, roleBatterie, "solaire") === false);
+
+  // LE REPLI : un article pas encore range se comporte comme avant.
+  test("un article SANS domaine est toujours trouvé par son nom, comme avant",
+    retenu({ nom: "BATERIE 51,2V200AH" }, roleBatterie, "solaire") === true);
+  test("…et toujours écarté si son nom ne dit rien",
+    retenu({ nom: "CABLE 6MM2" }, roleBatterie, "solaire") === false);
+
+  // Les familles renommees : le lien tolere accents, doublons et precisions.
+  const roleCellule = { label: "Photocellules (cellules infrarouges)", mots: ["cellule"] };
+  test("« Photocellules » retrouve « Photocellules (cellules infrarouges) »",
+    retenu({ nom: "CELLULE IR", domaine: "garage", categorie: "Photocellules" }, roleCellule, "garage") === true);
+  const roleReg = { label: "Régulateur MPPT", mots: ["mppt"] };
+  test("« Regulateur MPPT » sans accent retrouve « Régulateur MPPT »",
+    retenu({ nom: "X", domaine: "solaire", categorie: "Regulateur MPPT" }, roleReg, "solaire") === true);
+
+  // Une famille renommee sans rapport : le lien se perd, mais rien ne casse —
+  // l'article est simplement ecarte, et l'ecran en donnera la raison.
+  test("une famille renommée sans rapport écarte l'article, sans planter",
+    retenu({ nom: "BATERIE 200AH", domaine: "solaire", categorie: "Accumulateurs" }, roleBatterie, "solaire") === false);
+
+  test("un article rangé dans le domaine mais SANS famille est écarté",
+    retenu({ nom: "BATERIE 200AH", domaine: "solaire", categorie: "" }, roleBatterie, "solaire") === false);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

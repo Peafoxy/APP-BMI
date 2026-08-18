@@ -5,9 +5,9 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre } from "../../lib/calculs";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis } from "../../lib/calculs";
 import { besoinsSolaires } from "../../lib/solaire";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille } from "./Partages";
 
 
 
@@ -182,12 +182,40 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // comprendre. Il a dû demander.
   // examiner() renvoie maintenant, pour chaque article, s'il est retenu et
   // sinon la RAISON exacte. Le vendeur corrige tout seul en dix secondes.
+  // ⚠ LIVRAISON 3 (18/08/2026) — le rangement du stock fait désormais foi.
+  // Jusqu'ici, retrouver une batterie voulait dire chercher le mot
+  // « batterie » dans le nom de l'article : c'est ce qui avait fait
+  // disparaître les trois « BATERIE » de Timo.
+  // Maintenant, si l'article porte un DOMAINE et une FAMILLE, c'est le
+  // rangement qui décide — l'orthographe du nom n'entre plus en jeu.
+  //
+  // REPLI INDISPENSABLE : un article SANS domaine continue d'être cherché
+  // par son nom, exactement comme avant. Le nouveau système ne peut donc que
+  // faire mieux là où il s'applique ; il ne peut jamais rendre un article
+  // invisible.
+  const idDomaineSolaire = (domainesDefinis(db).find((d) => d.calcul === "solaire") || {}).id || "solaire";
+
   const examiner = (role) => produitsBoutique.map((p) => {
     const texte = p.nom + " " + (p.categorie || "");
     const spec = specDepuisNom(texte);
-    if (!contientLeMot(texte, role.mots)) {
+
+    if (p.domaine) {
+      // Article rangé : le domaine et la famille décident, pas le nom.
+      if (p.domaine !== idDomaineSolaire) {
+        const autre = domainesDefinis(db).find((d) => d.id === p.domaine);
+        return { p, spec, ok: false, proche: false,
+          raison: `rangé dans le domaine ${autre ? autre.nom : p.domaine}` };
+      }
+      if (!memeFamille(p.categorie, role.label)) {
+        return { p, spec, ok: false, proche: false,
+          raison: p.categorie ? `rangé dans la famille « ${p.categorie} »` : "aucune famille renseignée" };
+      }
+      // Bonne famille : on saute le test du nom, mais on vérifie toujours la
+      // caractéristique et la tension — une batterie 12 V reste une batterie
+      // 12 V, même bien rangée.
+    } else if (!contientLeMot(texte, role.mots)) {
       return { p, spec, ok: false, proche: false,
-        raison: `le nom ne mentionne pas « ${role.mots[0]} »` };
+        raison: `le nom ne mentionne pas « ${role.mots[0]} » (article non rangé dans un domaine)` };
     }
     if (!spec || !role.unites.includes(spec.unite)) {
       const attendu = role.unites.map((u) => u.toUpperCase()).join(" ou ");
@@ -233,7 +261,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
     .filter(({ p, spec }) => {
       const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
-      const motCorrespond = contientLeMot(p.nom + " " + (p.categorie || ""), role.mots);
+      // Même règle que examiner() : le rangement d'abord, le nom en repli.
+      const motCorrespond = p.domaine
+        ? (p.domaine === idDomaineSolaire && memeFamille(p.categorie, role.label))
+        : contientLeMot(p.nom + " " + (p.categorie || ""), role.mots);
       const uniteOk = spec && role.unites.includes(spec.unite);
       // Tension : ne jamais proposer un convertisseur 48V pour un système
       // réglé sur 24V, ou l'inverse. Priorité à une tension EXPLICITEMENT
