@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre } from "../../lib/calculs";
+import { besoinsSolaires } from "../../lib/solaire";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot } from "./Partages";
 
 
@@ -110,30 +111,15 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
   const retirerAppareil = (id) => setAppareils(appareils.filter((a) => a.id !== id));
 
-  const whParJour = appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.heures || 0) * Number(a.qte || 1), 0);
-  const puissanceSimultanee = appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
-
-  // ---- Calculs de dimensionnement (indicatifs, avec marges de sécurité usuelles) ----
-  // "Gel" est désormais reconnu comme un type à part (menu déroulant) pour
-  // le LIBELLÉ — mais partage le même taux de décharge que Plomb/AGM (50%),
-  // une hypothèse courante (guides usuels ~50% pour tout plomb scellé,
-  // Gel inclus) — à ajuster si Timo a un autre repère précis pour le Gel.
-  const dod = typeBatterie === "lifepo4" ? 0.9 : 0.5;
-  const rendementSysteme = 0.8;
-  // Tension RÉELLE d'un pack LiFePO4 (16S/8S/4S) — on calcule avec elle, pas
-  // avec la tension "ronde" du système : une batterie 48V annoncée est en
-  // réalité 51,2V, une 24V est 25,6V, une 12V est 12,8V (demande Timo :
-  // « on travaille plus avec 51,2V dans les calculs que 48V »). Une
-  // batterie plomb/gel, elle, est bien à sa tension nominale exacte.
-  const TENSION_REELLE_LIFEPO4 = { 12: 12.8, 24: 25.6, 48: 51.2 };
-  const tensionCalcul = typeBatterie === "lifepo4" ? (TENSION_REELLE_LIFEPO4[Number(tension)] || Number(tension)) : Number(tension);
-
-  const wcPanneaux = soleil > 0 ? Math.ceil(whParJour / Number(soleil) / rendementSysteme) : 0;
-  const whBatterie = whParJour * Number(autonomie || 1);
-  const ahBatterie = tensionCalcul > 0 ? Math.ceil(whBatterie / tensionCalcul / dod) : 0;
-  const wConvertisseur = Math.ceil(puissanceSimultanee * 2); // marge : somme des puissances × 2
-  const kwConvertisseur = wConvertisseur / 1000;
-  const aRegulateur = tensionCalcul > 0 ? Math.ceil((wcPanneaux / tensionCalcul) * 1.25) : 0;
+  // ⚠ Les CALCULS sont sortis dans lib/solaire.js pour pouvoir être vérifiés
+  // automatiquement (demande Timo : « ça ne va rien casser dans le solaire,
+  // j'espère ? »). Les formules sont IDENTIQUES, mot pour mot — elles
+  // reproduisent exactement les chiffres de son écran du 18/08/2026, et ce cas
+  // est désormais verrouillé dans le harnais de vérification.
+  const besoins = besoinsSolaires(appareils, { autonomie, soleil, tension, typeBatterie });
+  const { whParJour, puissanceSimultanee, dod, tensionCalcul,
+          wcPanneaux, ahBatterie, wConvertisseur, kwConvertisseur } = besoins;
+  const aRegulateur = besoins.aRegulateur;
 
   const besoinParRole = { panneau: wcPanneaux, batterie: ahBatterie, convertisseur: wConvertisseur, regulateur: aRegulateur };
 

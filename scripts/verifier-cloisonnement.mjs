@@ -70,6 +70,13 @@ await build({ entryPoints: ["src/lib/comptesClients.js"], bundle: true, format: 
 const Cli = await import(pathToFileURL(sortieCli).href);
 unlinkSync(sortieCli);
 
+// Les calculs du dimensionnement solaire.
+const sortieSol = join("node_modules", ".cache", `bmi-sol-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/solaire.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieSol, logLevel: "silent", loader: { ".js": "jsx" } });
+const Sol = await import(pathToFileURL(sortieSol).href);
+unlinkSync(sortieSol);
+
 // ---- Base d'essai : deux boutiques réelles, une de formation, un dépôt
 // de chaque côté, et les quatre profils qui comptent.
 const base = () => ({
@@ -1104,6 +1111,80 @@ titre("Un convertisseur qui mentionne MPPT l'a intégré : pas de régulateur en
   test("un chargeur solaire non plus",
     Dim.contientLeMot("CHARGEUR SOLAIRE MPPT 100A", MOTS_CONV) === false
     && Dim.contientLeMot("CHARGEUR SOLAIRE MPPT 100A", MOTS_REG) === true);
+}
+
+
+titre("Dimensionnement solaire : les chiffres de l'écran de Timo, verrouillés");
+{
+  // ⚠ CAS DE RÉFÉRENCE — capture d'écran du 18/08/2026, FORMA1, système 48 V
+  // lithium. Ces quatre chiffres sont ceux que l'application affichait
+  // AVANT toute modification. Ils font foi : si l'un d'eux bouge un jour,
+  // c'est qu'une formule a été touchée, et il faudra le vouloir explicitement.
+  const reel = Sol.besoinsSolaires(
+    [{ puissance: 1235, heures: 8616 / 1235, qte: 1 }],
+    { autonomie: 1, soleil: 3, tension: 48, typeBatterie: "lifepo4" });
+
+  test("consommation : 8 616 Wh/jour", Math.round(reel.whParJour) === 8616);
+  test("panneaux nécessaires : 3 590 Wc", reel.wcPanneaux === 3590);
+  test("batterie (48 V) : 187 Ah", reel.ahBatterie === 187);
+  test("convertisseur : 2,47 kW", reel.kwConvertisseur === 2.47);
+  test("régulateur : 88 A", reel.aRegulateur === 88);
+
+  // La règle métier que Timo a lui-même dictée : on calcule avec la tension
+  // RÉELLE du pack lithium, pas avec la tension ronde annoncée.
+  test("un pack 48 V lithium est calculé à 51,2 V, pas à 48",
+    Sol.tensionDeCalcul("lifepo4", 48) === 51.2);
+  test("un 24 V lithium à 25,6 V", Sol.tensionDeCalcul("lifepo4", 24) === 25.6);
+  test("un 12 V lithium à 12,8 V", Sol.tensionDeCalcul("lifepo4", 12) === 12.8);
+  test("une batterie GEL reste à sa tension nominale exacte",
+    Sol.tensionDeCalcul("gel", 48) === 48 && Sol.tensionDeCalcul("gel", 24) === 24);
+
+  test("le lithium se décharge à 90 %, le gel à 50 %",
+    Sol.profondeurDecharge("lifepo4") === 0.9 && Sol.profondeurDecharge("gel") === 0.5);
+  test("les pertes du système restent à 20 %", Sol.RENDEMENT_SYSTEME === 0.8);
+
+  // Le gel, à consommation égale, demande bien plus de capacité.
+  const enGel = Sol.besoinsSolaires(
+    [{ puissance: 1235, heures: 8616 / 1235, qte: 1 }],
+    { autonomie: 1, soleil: 3, tension: 48, typeBatterie: "gel" });
+  test("le même besoin en GEL demande 359 Ah au lieu de 187 — presque le double",
+    enGel.ahBatterie === 359);
+  test("…mais le nombre de panneaux ne change pas",
+    enGel.wcPanneaux === reel.wcPanneaux);
+
+  // Deux jours d'autonomie doublent la batterie, pas les panneaux.
+  const deuxJours = Sol.besoinsSolaires(
+    [{ puissance: 1235, heures: 8616 / 1235, qte: 1 }],
+    { autonomie: 2, soleil: 3, tension: 48, typeBatterie: "lifepo4" });
+  test("2 jours d'autonomie : la batterie double (374 Ah)", deuxJours.ahBatterie === 374);
+  test("…et les panneaux restent identiques", deuxJours.wcPanneaux === reel.wcPanneaux);
+
+  // Moins de soleil = plus de panneaux, pour la même consommation.
+  const peuDeSoleil = Sol.besoinsSolaires(
+    [{ puissance: 1235, heures: 8616 / 1235, qte: 1 }],
+    { autonomie: 1, soleil: 4, tension: 48, typeBatterie: "lifepo4" });
+  test("4 h de soleil au lieu de 3 : moins de panneaux (2 693 Wc)",
+    peuDeSoleil.wcPanneaux === 2693);
+
+  // Le convertisseur ne dépend QUE de la puissance appelée d'un coup.
+  const troisAppareils = [
+    { puissance: 100, heures: 5, qte: 3 },   // 300 W appelés, 1 500 Wh
+    { puissance: 800, heures: 2, qte: 1 },   // 800 W appelés, 1 600 Wh
+  ];
+  const b3 = Sol.besoinsSolaires(troisAppareils, { autonomie: 1, soleil: 3, tension: 24, typeBatterie: "lifepo4" });
+  test("la quantité d'un appareil est bien multipliée",
+    b3.whParJour === 3100 && b3.puissanceSimultanee === 1100);
+  test("le convertisseur double la puissance appelée (2 200 W)",
+    b3.wConvertisseur === 2200);
+
+  // Cas limites : rien ne doit exploser ni renvoyer l'infini.
+  const vide = Sol.besoinsSolaires([], { autonomie: 1, soleil: 3, tension: 48, typeBatterie: "lifepo4" });
+  test("aucun appareil : tout à zéro, aucune erreur",
+    vide.whParJour === 0 && vide.wcPanneaux === 0 && vide.ahBatterie === 0 && vide.aRegulateur === 0);
+  const sansSoleil = Sol.besoinsSolaires(
+    [{ puissance: 100, heures: 5, qte: 1 }], { autonomie: 1, soleil: 0, tension: 48, typeBatterie: "lifepo4" });
+  test("0 heure de soleil : aucun panneau proposé, pas d'infini",
+    sansSoleil.wcPanneaux === 0);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
