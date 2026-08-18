@@ -311,16 +311,39 @@ export async function synchroniser() {
           bloques.add(cle); // on préserve l'ordre des opérations sur cet enregistrement
           const msg = String(e?.message || e);
           const refusRLS = /row-level security|permission denied|JWT|policy/i.test(msg);
+          // ⚠ DEUX REFUS TRÈS DIFFÉRENTS, longtemps confondus (relevé par
+          // Timo, 18/08/2026) :
+          //   • la session a expiré → se reconnecter règle tout ;
+          //   • le CONTENU de la ligne est refusé par une règle du serveur
+          //     (erreur 42501, « new row violates row-level security
+          //     policy ») → se reconnecter n'y changera JAMAIS rien.
+          // Les traiter pareil produisait le pire des cas : l'application
+          // conseillait de se reconnecter, l'opération repartait, était
+          // refusée à nouveau, toutes les 20 secondes, indéfiniment. Timo
+          // l'a rencontré en créant une boutique de formation que le
+          // serveur n'acceptait pas.
+          const contenuRefuse = e?.code === "42501"
+            || /new row violates row-level security/i.test(msg);
           // Un refus d'écriture du serveur signifie que la session sécurisée ne
           // vaut plus rien — même si supabase-js la croit encore valide. On la
           // marque MORTE : (1) assurerSession forcera son rétablissement au
           // prochain cycle au lieu de la croire sur parole ; (2) le bouton de
           // déconnexion offrira la sortie « se déconnecter sans envoyer »
           // (sinon : compteur figé pour toujours, en ligne, sans issue).
-          if (refusRLS) Object.assign(etatAuth, { ok: false, raison: "Écriture refusée par le serveur — session à rétablir" });
-          derniereErreur = refusRLS
-            ? `⚠ ${etatAuth.ok ? `Écriture refusée par Supabase (${op.table}) : ${msg}` : `Session sécurisée expirée — déconnectez-vous puis reconnectez-vous : les opérations en attente partiront automatiquement après.`}`
-            : `Envoi (${op.table}) : ${msg}`;
+          // On ne déclare la session morte QUE si le refus peut venir d'elle.
+          // Un contenu refusé n'a rien à voir avec la session : la marquer
+          // morte enverrait l'utilisateur se reconnaître en boucle.
+          if (refusRLS && !contenuRefuse) {
+            Object.assign(etatAuth, { ok: false, raison: "Écriture refusée par le serveur — session à rétablir" });
+          }
+          derniereErreur = contenuRefuse
+            ? `⛔ Le serveur REFUSE cet enregistrement (${op.table}) — se reconnecter n'y changera rien.\n\n`
+              + `Cet enregistrement appartient à un espace de travail (réel / formation) auquel votre compte n'a pas accès. `
+              + `Il reste sur cet appareil, rien n'est perdu, mais il ne partira pas tant que la situation n'aura pas été corrigée.\n\n`
+              + `Prévenez l'administrateur principal en lui montrant ce message.`
+            : refusRLS
+              ? `⚠ ${etatAuth.ok ? `Écriture refusée par Supabase (${op.table}) : ${msg}` : `Session sécurisée expirée — déconnectez-vous puis reconnectez-vous : les opérations en attente partiront automatiquement après.`}`
+              : `Envoi (${op.table}) : ${msg}`;
           console.warn("Élément non envoyé, on réessaiera :", op.table, msg);
         }
       }

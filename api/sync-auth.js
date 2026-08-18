@@ -158,7 +158,26 @@ export default async function handler(req, res) {
     //
     // Tant que l'étape 3 n'est pas déployée, cette valeur ne restreint
     // rien du tout — elle est simplement présente dans le jeton.
-    const espace = champs.formation ? "formation" : "reel";
+    //
+    // ⚠ TROISIÈME VALEUR : 'tous' (relevé par Timo, 18/08/2026).
+    // L'application prévoit depuis la 2.100.30 qu'un administrateur qui a le
+    // pouvoir « voir les deux espaces » les voie effectivement tous les deux.
+    // Le serveur, lui, ne connaissait que 'reel' et 'formation' : l'écran
+    // Paramètres proposait donc de créer une boutique de FORMATION que le
+    // serveur refusait ensuite, laissant l'opération bloquée dans la file
+    // d'attente pour toujours — avec un message conseillant à tort de se
+    // reconnecter. Une application qui propose un geste que le serveur
+    // refuse est une application cassée.
+    //
+    // La règle reproduit EXACTEMENT voitLesDeuxEspaces() de lib/calculs.js :
+    // l'administrateur principal (toujours), et tout administrateur qui a
+    // conservé le pouvoir « act_voir_tout ». Un administrateur à qui ce
+    // pouvoir a été retiré redevient cloisonné, drapeau formation compris —
+    // c'est ce que fait déjà l'application.
+    const voitLesDeuxEspaces = champs.role === "admin"
+      && (champs.admin_principal === true
+          || !(Array.isArray(champs.droits_off) ? champs.droits_off : []).includes("act_voir_tout"));
+    const espace = voitLesDeuxEspaces ? "tous" : (champs.formation ? "formation" : "reel");
 
     if (existant) {
       const { error } = await admin.auth.admin.updateUserById(existant.id, {

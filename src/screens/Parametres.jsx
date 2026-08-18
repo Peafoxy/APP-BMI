@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -194,7 +194,19 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     }
   };
 
-  const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false, formation: false, adresse: "", tel: "" });
+  // ⚠ CONTRADICTION RELEVÉE PAR TIMO (18/08/2026) — l'écran proposait de
+  // créer une boutique de FORMATION à un compte que le serveur empêche
+  // d'écrire dans cet espace. L'application enregistrait sur l'appareil, le
+  // serveur refusait, et l'opération restait bloquée dans la file d'attente
+  // à réessayer toutes les 20 secondes, pour toujours.
+  // Un écran ne doit jamais proposer un geste que le serveur refusera :
+  // un compte cloisonné ne peut créer une boutique que DANS SON ESPACE, et
+  // la case est verrouillée sur la bonne valeur, avec l'explication.
+  const jeVoisLesDeuxEspaces = voitLesDeuxEspaces(db, profile);
+  const monEspaceFormation = estCompteFormation(db, profile);
+  const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false,
+    formation: voitLesDeuxEspaces(db, profile) ? false : estCompteFormation(db, profile),
+    adresse: "", tel: "" });
   const [couleurPour, setCouleurPour] = useState(null);
   const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   const nomCouleur = (hex) => (PALETTE.find(([, h]) => h === hex) || [hex])[0];
@@ -208,8 +220,15 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     const nom = f.nom.trim().toUpperCase();
     if (!nom) { uAlert("Veuillez saisir un nom."); return; }
     if (db.boutiques.some((b) => b.nom === nom)) { uAlert("Cette boutique existe déjà."); return; }
-    save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation: !!f.formation, adresse: f.adresse.trim(), tel: f.tel.trim() }] });
-    setF({ nom: "", couleur: "#2563eb", depot: false, formation: false, adresse: "", tel: "" });
+    // Le serveur refuserait la ligne : on l'arrête ici, avec la raison,
+    // plutôt que de la laisser bloquer la file d'attente.
+    const formation = jeVoisLesDeuxEspaces ? !!f.formation : monEspaceFormation;
+    if (!jeVoisLesDeuxEspaces && !!f.formation !== monEspaceFormation) {
+      uAlert(`Votre compte travaille dans l'espace ${monEspaceFormation ? "FORMATION" : "RÉEL"} : vous ne pouvez créer qu'une boutique de cet espace.\n\nDemandez à l'administrateur principal s'il vous en faut une autre.`);
+      return;
+    }
+    save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation, adresse: f.adresse.trim(), tel: f.tel.trim() }] });
+    setF({ nom: "", couleur: "#2563eb", depot: false, formation: jeVoisLesDeuxEspaces ? false : monEspaceFormation, adresse: "", tel: "" });
     uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom}${f.formation ? " (formation)" : ""} créé(e) !`);
   };
 
@@ -681,10 +700,16 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <input type="checkbox" checked={!!f.depot} onChange={(e) => setF({ ...f, depot: e.target.checked })} />
           🏭 C'est un <b>magasin (dépôt)</b> : on y stocke la marchandise, on n'y vend pas. Il sert à ravitailler les boutiques.
         </label>
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mt-2">
-          <input type="checkbox" checked={!!f.formation} onChange={(e) => setF({ ...f, formation: e.target.checked })} />
+        <label className={`flex items-center gap-2 text-sm font-semibold mt-2 ${jeVoisLesDeuxEspaces ? "text-slate-700" : "text-slate-400"}`}>
+          <input type="checkbox" checked={!!f.formation} disabled={!jeVoisLesDeuxEspaces}
+                 onChange={(e) => setF({ ...f, formation: e.target.checked })} />
           🎓 C'est une <b>boutique de formation</b> : pour s'entraîner sans risque — ses chiffres n'apparaissent jamais dans le Tableau de bord.
         </label>
+        {!jeVoisLesDeuxEspaces && (
+          <div className="text-xs text-amber-700 mt-1">
+            Votre compte travaille dans l'espace {monEspaceFormation ? "FORMATION" : "RÉEL"} : toute boutique que vous créez appartient à cet espace. Seul l'administrateur principal peut créer dans l'autre.
+          </div>
+        )}
         <div className="text-xs text-slate-400 mt-2">La localisation et le téléphone pourront toujours être ajoutés ou modifiés plus tard, ci-dessous (« 📍 Infos reçu »).</div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Créer</button>
       </div>

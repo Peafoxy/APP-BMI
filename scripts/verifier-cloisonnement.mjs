@@ -867,5 +867,64 @@ titre("Prix du rail : réglable dans les Paramètres, sans rien casser de l'exis
     22 * C.prixRailMetre({ boutiques: [{ prix_rail: 6200 }] }) === 136400);
 }
 
+
+titre("L'administrateur qui voit les deux espaces doit le pouvoir AUSSI côté serveur");
+{
+  // Reprise EXACTE de la regle posee par api/sync-auth.js.
+  const revendication = (champs) => {
+    const voitLesDeux = champs.role === "admin"
+      && (champs.admin_principal === true
+          || !(Array.isArray(champs.droits_off) ? champs.droits_off : []).includes("act_voir_tout"));
+    return voitLesDeux ? "tous" : (champs.formation ? "formation" : "reel");
+  };
+
+  test("l'administrateur principal reçoit « tous » — il peut créer une boutique de formation",
+    revendication({ role: "admin", admin_principal: true }) === "tous");
+  test("un autre administrateur qui garde le pouvoir « voir tout » aussi",
+    revendication({ role: "admin" }) === "tous");
+  test("un administrateur à qui on a RETIRÉ ce pouvoir redevient cloisonné",
+    revendication({ role: "admin", droits_off: ["act_voir_tout"] }) === "reel");
+  test("…y compris s'il est marqué formation",
+    revendication({ role: "admin", formation: true, droits_off: ["act_voir_tout"] }) === "formation");
+  test("l'administrateur principal reste « tous » même marqué formation (comme dans l'app)",
+    revendication({ role: "admin", admin_principal: true, formation: true }) === "tous");
+  test("un vendeur réel reste « reel »",
+    revendication({ role: "vendeur" }) === "reel");
+  test("un vendeur de formation reste « formation »",
+    revendication({ role: "vendeur", formation: true }) === "formation");
+  test("un commercial n'obtient jamais « tous », même sans droits retirés",
+    revendication({ role: "commercial" }) === "reel");
+
+  // La regle serveur doit dire la MEME chose que voitLesDeuxEspaces() de l'app.
+  const db = { boutiques: [], users: [
+    { id: "u1", nom: "TIMO", role: "admin", admin_principal: true },
+    { id: "u2", nom: "ADMIN2", role: "admin" },
+    { id: "u3", nom: "ADMIN3", role: "admin", droits_off: ["act_voir_tout"] },
+    { id: "u4", nom: "KOSSI", role: "vendeur" },
+  ] };
+  const accord = db.users.every((u) =>
+    (revendication(u) === "tous") === C.voitLesDeuxEspaces(db, { id: u.id, role: u.role }));
+  test("l'application et le serveur sont d'accord sur QUI voit les deux espaces", accord);
+}
+
+
+titre("Un enregistrement refusé par le serveur ne doit plus faire boucler l'application");
+{
+  // Reprise de la regle posee dans src/sync.js.
+  const contenuRefuse = (e) => e?.code === "42501"
+    || /new row violates row-level security/i.test(String(e?.message || e));
+
+  test("le refus d'une ligne (erreur 42501) est reconnu comme définitif",
+    contenuRefuse({ code: "42501", message: 'new row violates row-level security policy for table "boutiques"' }) === true);
+  test("il est reconnu même sans code, sur le seul message",
+    contenuRefuse({ message: 'new row violates row-level security policy' }) === true);
+  test("une session expirée n'est PAS confondue avec lui — se reconnecter aide vraiment",
+    contenuRefuse({ message: "JWT expired" }) === false);
+  test("une panne de réseau non plus",
+    contenuRefuse({ message: "Failed to fetch" }) === false);
+  test("une permission refusée en LECTURE reste traitée comme un souci de session",
+    contenuRefuse({ message: "permission denied for table ventes" }) === false);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
