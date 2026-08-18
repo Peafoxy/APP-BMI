@@ -6,7 +6,7 @@ import { useState, useRef } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
@@ -103,7 +103,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
     ];
     const num = telDigits(tel);
     const texteWA = encodeURIComponent(lignesMsg.join("\n"));
-    window.open(num ? `https://wa.me/${num}?text=${texteWA}` : `https://wa.me/?text=${texteWA}`, "_blank");
+    // ⚠ Même protection que l'envoi de devis (2.100.44) : cette ouverture
+    // arrive APRÈS une fenêtre de confirmation, donc le navigateur peut la
+    // bloquer. Sans le bouton de secours, le filleul avait un compte sans le
+    // savoir — et personne n'était prévenu.
+    await ouvrirWhatsApp(num ? `https://wa.me/${num}?text=${texteWA}` : `https://wa.me/?text=${texteWA}`, uConfirm);
 
     setParr({ nom: "", tel: "", note: "" });
     uAlert(`✅ Merci ! WhatsApp s'ouvre pour prévenir ${nom.toUpperCase()} — avec ses identifiants et le lien.\n\nVotre commission de ${tauxParrain(moi, db)} % vous sera versée dès qu'il aura réceptionné son installation.`);
@@ -336,8 +340,18 @@ export function EspaceClient({ db, profile, save, setTab }) {
       ? { avenant_signature: signatureDataUrl, avenant_statut: "signe", avenant_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
       : { contrat_signature: signatureDataUrl, contrat_statut: "signe", contrat_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom };
     aSignePvRef.current = false;
-    save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === fiche.id ? { ...x, ...champs } : x)) },
-      `${estAvenant ? "Avenant" : "PV de réception"} signé directement dans l'app par ${profile.nom} — ${fiche.nom}`);
+    // ⚠ debloquerCommissionsReception était importée ici… et jamais appelée
+    // (défaut trouvé lors de la revue, 18/08/2026) : signer le PV marquait le
+    // chantier réceptionné SANS débloquer la commission du commercial ni la
+    // part du parrain — et le rattrapage J+7, réservé aux chantiers encore
+    // « terminés », ne repassait jamais derrière. Gelées pour toujours.
+    // Le déblocage est maintenant immédiat, et le rattrapage de App.jsx
+    // couvre les signatures faites sur bmitogo.com ainsi que le passé.
+    save({
+      ...db,
+      clients_installes: db.clients_installes.map((x) => (x.id === fiche.id ? { ...x, ...champs } : x)),
+      ...debloquerCommissionsReception(db, fiche.vente_id, "PV signé dans l'application"),
+    }, `${estAvenant ? "Avenant" : "PV de réception"} signé directement dans l'app par ${profile.nom} — ${fiche.nom} — commissions débloquées`);
     return true;
   };
 

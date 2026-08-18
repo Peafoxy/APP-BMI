@@ -1421,5 +1421,74 @@ titre("Livraison 3 : le rangement du stock fait foi, le nom sert de repli");
     retenu({ nom: "BATERIE 200AH", domaine: "solaire", categorie: "" }, roleBatterie, "solaire") === false);
 }
 
+
+titre("Un PV signé ne gèle plus jamais les commissions — et le passé est rattrapé");
+{
+  const boutiques = [{ nom: "DEMAKPOE", formation: false }];
+  const users = [{ id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true }];
+  const timo = { id: "u_timo", role: "admin" };
+
+  const dbAvec = (ventes, chantiers) => ({ boutiques, users, ventes, dettes: [],
+    clients_installes: chantiers, messages: [] });
+
+  // Le scenario exact du defaut : chantier signe (receptionne), vente gelee.
+  const venteGelee = { id: "v1", boutique: "DEMAKPOE", commercial: "KOFFI",
+    articles: [{ qte: 1, pu: 1000000 }], commission_a_la_reception: true };
+  const chantierSigne = { id: "ch1", nom: "AGBEKO", vente_id: "v1", statut: "receptionne" };
+
+  const db1 = dbAvec([venteGelee], [chantierSigne]);
+  test("un chantier signé dont la vente est encore gelée est repéré par le rattrapage",
+    C.chantiersAReconcilier(db1, timo).length === 1);
+
+  test("…et une fois débloquée, la commission redevient payable", (() => {
+    const { ventes } = C.debloquerCommissionsReception(db1, "v1", "test");
+    const v = ventes.find((x) => x.id === "v1");
+    return v.commission_a_la_reception === false && C.commissionVente(v, 5) === 50000;
+  })());
+
+  test("le rattrapage est IDEMPOTENT : une vente débloquée n'est jamais resélectionnée", (() => {
+    const { ventes } = C.debloquerCommissionsReception(db1, "v1", "test");
+    return C.chantiersAReconcilier(dbAvec(ventes, [chantierSigne]), timo).length === 0;
+  })());
+
+  // La part du parrain, gelee elle aussi, est couverte et son message part.
+  const venteParrain = { id: "v2", boutique: "DEMAKPOE",
+    articles: [{ qte: 1, pu: 500000 }],
+    apporteur: { nom: "FILLEUL", parrain_user_id: "u_parrain", a_la_reception: true, montant: 25000 } };
+  const chantierParrain = { id: "ch2", nom: "FILLEUL", vente_id: "v2", statut: "receptionne" };
+  const db2 = dbAvec([venteParrain], [chantierParrain]);
+  test("la part de parrainage gelée est repérée aussi, même sans commission de commercial",
+    C.chantiersAReconcilier(db2, timo).length === 1);
+  test("…débloquée, et le parrain reçoit enfin son message « votre commission est due »", (() => {
+    const { ventes, messages } = C.debloquerCommissionsReception(db2, "v2", "test");
+    const v = ventes.find((x) => x.id === "v2");
+    return v.apporteur.a_la_reception === false
+      && messages.some((m) => m.client_id === "u_parrain" && /commission de parrainage/.test(m.texte));
+  })());
+
+  // Ce que le rattrapage ne doit PAS toucher.
+  test("un chantier encore « terminé » n'est pas pris (c'est le travail du J+7)",
+    C.chantiersAReconcilier(dbAvec([venteGelee], [{ ...chantierSigne, statut: "termine" }]), timo).length === 0);
+  test("un chantier pose seule (sans vente) est ignoré sans planter",
+    C.chantiersAReconcilier(dbAvec([], [{ id: "ch3", nom: "X", vente_id: null, statut: "receptionne", pose_seule: true }]), timo).length === 0);
+  test("un chantier signé dont la vente n'a JAMAIS été gelée n'est pas resélectionné",
+    C.chantiersAReconcilier(dbAvec([{ id: "v3", boutique: "DEMAKPOE", articles: [{ qte: 1, pu: 1000 }] }],
+      [{ id: "ch4", nom: "Y", vente_id: "v3", statut: "receptionne" }]), timo).length === 0);
+  test("une vente introuvable est ignorée sans planter",
+    C.chantiersAReconcilier(dbAvec([], [{ id: "ch5", nom: "Z", vente_id: "v_disparue", statut: "receptionne" }]), timo).length === 0);
+
+  // Cloisonnement : le rattrapage respecte l'espace du compte connecte.
+  const dbMixte = { boutiques: [...boutiques, { nom: "FORMA1", formation: true }],
+    users: [...users, { id: "u_stag", nom: "DODO", role: "vendeur", boutique: "FORMA1" }],
+    ventes: [venteGelee, { id: "v_f", boutique: "FORMA1", commission_a_la_reception: true, articles: [{ qte: 1, pu: 1000 }] }],
+    dettes: [],
+    clients_installes: [chantierSigne, { id: "ch_f", nom: "ESSAI", vente_id: "v_f", statut: "receptionne" }],
+    messages: [] };
+  test("un compte de formation ne rattrape que les chantiers de SON espace",
+    C.chantiersAReconcilier(dbMixte, { id: "u_stag", role: "vendeur" }).map((c) => c.id).join(",") === "ch_f");
+  test("l'administrateur principal rattrape les deux",
+    C.chantiersAReconcilier(dbMixte, timo).length === 2);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

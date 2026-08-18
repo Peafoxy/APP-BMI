@@ -95,7 +95,7 @@ import {
   tachesDe, tachesOuvertes, compterReponsesRavitaillement, compterDemandesTransfertRecues, compterDemandesTransfertToutes, compterTaches, compterTachesAValider, compterNotifsSalaire, compterDemandesCredit,
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
-  debloquerCommissionsReception, construireIndexDb,
+  debloquerCommissionsReception, chantiersAReconcilier, construireIndexDb,
   verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
@@ -185,7 +185,13 @@ export default function App() {
     // traite donc que les chantiers de l'espace du compte connecté.
     const eligibles = chantiersDeMonEspace(db, profile).filter((x) =>
       x.statut === "termine" && x.date_fin && new Date(x.date_fin).getTime() <= seuil);
-    if (!eligibles.length) return;
+    // ⚠ RATTRAPAGE (2.100.55) — les chantiers déjà RÉCEPTIONNÉS dont la vente
+    // porte encore une commission gelée : les deux chemins de SIGNATURE du PV
+    // (app et bmitogo.com) réceptionnaient sans jamais débloquer, et J+7 les
+    // sautait. Voir chantiersAReconcilier (lib/calculs.js). Couvre aussi tout
+    // le passé, site compris.
+    const aReconcilier = chantiersAReconcilier(db, profile);
+    if (!eligibles.length && !aReconcilier.length) return;
     let next = { ...db };
     const noms = [];
     for (const x of eligibles) {
@@ -198,7 +204,16 @@ export default function App() {
       };
       noms.push(`${x.nom} ${x.prenom || ""}`.trim());
     }
-    save(next, `Réception AUTOMATIQUE (7 jours après fin de travaux) : ${noms.join(", ")} — commissions débloquées`);
+    const nomsRattrapes = [];
+    for (const x of aReconcilier) {
+      next = { ...next, ...debloquerCommissionsReception(next, x.vente_id, "rattrapage — chantier déjà réceptionné") };
+      nomsRattrapes.push(`${x.nom} ${x.prenom || ""}`.trim());
+    }
+    const traces = [
+      ...(noms.length ? [`Réception AUTOMATIQUE (7 jours après fin de travaux) : ${noms.join(", ")} — commissions débloquées`] : []),
+      ...(nomsRattrapes.length ? [`RATTRAPAGE : commissions débloquées sur chantier(s) déjà réceptionné(s) — ${nomsRattrapes.join(", ")}`] : []),
+    ];
+    save(next, traces.join(" · "));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, syncInitiale, db?.clients_installes]);
   // Comptes de secours : copie minimale des comptes (voir db.js), utilisée

@@ -676,6 +676,30 @@ export const debloquerCommissionsReception = (db, vente_id, contexte) => {
   return { ventes: majVentes, messages };
 };
 
+// ---- RATTRAPAGE DES COMMISSIONS GELÉES SUR CHANTIER DÉJÀ RÉCEPTIONNÉ ----
+// ⚠ Défaut trouvé lors de la revue de l'Espace client (18/08/2026), le plus
+// grave de la revue écran par écran : les deux chemins de SIGNATURE du PV —
+// dans l'app comme sur bmitogo.com — marquaient le chantier « réceptionné »
+// sans jamais débloquer les commissions. Et le rattrapage J+7 ne regardant
+// que les chantiers encore « terminés », il sautait ceux-là : la commission
+// du commercial et la part du parrain restaient gelées POUR TOUJOURS.
+// Le client qui faisait bien les choses (signer) privait son commercial de
+// sa commission ; celui qui ignorait le PV 7 jours la débloquait.
+//
+// Cette fonction rend les chantiers déjà réceptionnés dont la vente porte
+// encore un gel : le déblocage est rejoué pour eux. Elle couvre les DEUX
+// chemins de signature (celui du site compris, qu'aucun code de l'app ne
+// peut corriger) et tous les chantiers signés PAR LE PASSÉ. Idempotente :
+// une vente débloquée n'est jamais resélectionnée.
+export const chantiersAReconcilier = (db, profile) =>
+  chantiersDeMonEspace(db, profile).filter((c) => {
+    if (statutChantier(c) !== "receptionne" || !c.vente_id) return false;
+    const v = (db.ventes || []).find((x) => x.id === c.vente_id);
+    if (!v) return false;
+    return v.commission_a_la_reception === true
+      || !!(v.apporteur && v.apporteur.a_la_reception && Number(v.apporteur.montant || 0) > 0);
+  });
+
 // ⚠ Demande Timo : la commission se calcule sur le CHIFFRE D'AFFAIRES réel de
 // la vente (caVente), pas sur le montant total payé par le client — un
 // article « hors boutique » ou déjà compté lors d'une vente antérieure (voir
