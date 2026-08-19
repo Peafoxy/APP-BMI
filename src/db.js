@@ -1,11 +1,16 @@
 import Dexie from "dexie";
+import { fusionnerPaie, separerPaie } from "./lib/paie";
 
 // Tables synchronisées avec Supabase
 const TABLES_V1 = [
   "boutiques", "users", "produits", "ventes", "depenses",
   "dettes", "fournisseurs", "ajustements", "clotures", "commerciaux",
 ];
-export const TABLES = [...TABLES_V1, "audits", "prospects", "categories_prospects", "commandes", "messages", "clients_installes", "proformas", "groupes"];
+export const TABLES = [...TABLES_V1, "audits", "prospects", "categories_prospects", "commandes", "messages", "clients_installes", "proformas", "groupes",
+  // ⚠ Les fiches de PAIE, séparées des fiches employés (voir lib/paie.js).
+  // Le serveur ne les envoie qu'à qui a le droit de les lire : sur la
+  // plupart des appareils, cette table reste donc vide — et c'est voulu.
+  "paie"];
 
 // Base locale IndexedDB : fonctionne toujours, même sans connexion
 export const idb = new Dexie("bmi-gestion-boutiques");
@@ -28,6 +33,9 @@ idb.version(5).stores({ messages: "id", clients_installes: "id" });
 idb.version(6).stores({ proformas: "id" });
 // v7 : groupes de discussion (créés par l'admin, membres choisis, supprimables)
 idb.version(7).stores({ groupes: "id" });
+// v8 : fiches de paie, sorties des fiches employés (salaires, virements,
+// crédits, avances, pièce d'identité, CNSS). Voir lib/paie.js.
+idb.version(8).stores({ paie: "id" });
 
 // Au tout premier lancement, remplit la base locale avec les données de départ.
 // Ces données ne sont PAS mises dans l'outbox : elles restent locales
@@ -109,6 +117,10 @@ export async function chargerTout() {
       return String(b.cree_le || "").localeCompare(String(a.cree_le || ""));
     });
   }
+  // Les fiches de paie que cet appareil a le droit de recevoir sont recollées
+  // sur les fiches employés : les écrans continuent de lire `u.salaire_base`
+  // ou `u.virements` sans rien savoir de la séparation (voir lib/paie.js).
+  db.users = fusionnerPaie(db.users, db.paie);
   return db;
 }
 
@@ -119,8 +131,16 @@ const sansMeta = (r) => {
 
 // Compare l'ancien et le nouvel état, applique les différences dans la base
 // locale et enregistre chaque modification dans l'outbox pour la synchronisation.
-export async function sauvegarderDiff(prev, next) {
+export async function sauvegarderDiff(prev, next, ecrivain = {}) {
   const maintenant = new Date().toISOString();
+  // Symétrique de la fusion faite au chargement : on redétache les fiches de
+  // paie AVANT de comparer, pour que chaque champ reparte dans SA table.
+  // Les deux états sont traités de la même façon, sinon la comparaison
+  // verrait des différences qui n'existent pas.
+  const avantSep = separerPaie(prev?.users, ecrivain);
+  const apresSep = separerPaie(next?.users, ecrivain);
+  prev = { ...prev, users: avantSep.users, paie: avantSep.paie };
+  next = { ...next, users: apresSep.users, paie: apresSep.paie };
   await idb.transaction("rw", [...TABLES.map((t) => idb.table(t)), idb.outbox], async () => {
     for (const t of TABLES) {
       const avant = new Map((prev[t] || []).map((r) => [r.id, r]));

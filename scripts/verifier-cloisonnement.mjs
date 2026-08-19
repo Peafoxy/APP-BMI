@@ -77,6 +77,13 @@ await build({ entryPoints: ["src/lib/solaire.js"], bundle: true, format: "esm",
 const Sol = await import(pathToFileURL(sortieSol).href);
 unlinkSync(sortieSol);
 
+// La séparation fiche employé / fiche de paie.
+const sortiePaie = join("node_modules", ".cache", `bmi-paie-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/paie.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortiePaie, logLevel: "silent", loader: { ".js": "jsx" } });
+const Paie = await import(pathToFileURL(sortiePaie).href);
+unlinkSync(sortiePaie);
+
 // ---- Base d'essai : deux boutiques réelles, une de formation, un dépôt
 // de chaque côté, et les quatre profils qui comptent.
 const base = () => ({
@@ -1521,6 +1528,57 @@ titre("Un PV signé ne gèle plus jamais les commissions — et le passé est ra
     C.chantiersAReconcilier(dbMixte, { id: "u_stag", role: "vendeur" }).map((c) => c.id).join(",") === "ch_f");
   test("l'administrateur principal rattrape les deux",
     C.chantiersAReconcilier(dbMixte, timo).length === 2);
+}
+
+titre("Les salaires quittent la fiche employé sans que rien ne se casse");
+{
+  const employes = () => ([
+    { id: "u_vend", nom: "KOSSI", role: "vendeur", boutique: "APESSITO",
+      salaire_base: 120000, primes: [{ mois: "2026-08", montant: 5000 }],
+      virements: [{ id: "v1", statut: "en_attente" }], credits: [],
+      piece_num: "AB1234", cnss_matricule: "M-9" },
+    { id: "u_admin", nom: "TIMO", role: "admin", salaire_base: 400000 },
+    { id: "u_tech", nom: "AYI", role: "technicien" },
+  ]);
+  const admin = { id: "u_admin", admin: true };
+  const vendeur = { id: "u_vend", admin: false };
+
+  const sepAdmin = Paie.separerPaie(employes(), admin);
+  test("l'administrateur détache les fiches de paie de tout le monde",
+    sepAdmin.paie.length === 2);
+  test("le salaire quitte la fiche employé",
+    sepAdmin.users.every((u) => u.salaire_base === undefined));
+  test("le numéro de pièce et le matricule CNSS partent aussi",
+    sepAdmin.users.every((u) => u.piece_num === undefined && u.cnss_matricule === undefined));
+  test("le nom, le rôle et la boutique restent sur la fiche employé",
+    sepAdmin.users[0].nom === "KOSSI" && sepAdmin.users[0].role === "vendeur" && sepAdmin.users[0].boutique === "APESSITO");
+  test("un employé sans aucun champ d'argent n'a pas de fiche de paie inutile",
+    !sepAdmin.paie.some((p) => p.id === "u_tech"));
+  test("recoller les deux redonne EXACTEMENT la fiche de départ",
+    JSON.stringify(Paie.fusionnerPaie(sepAdmin.users, sepAdmin.paie).map((u) => Object.fromEntries(Object.entries(u).sort())))
+    === JSON.stringify(employes().map((u) => Object.fromEntries(Object.entries(u).sort()))));
+
+  // ⚠ Le piège : un appareil qui ne reçoit PAS les fiches de paie des autres
+  // ne doit jamais en fabriquer de vides et les envoyer au serveur.
+  const sepVend = Paie.separerPaie(employes(), vendeur);
+  test("un vendeur ne détache QUE sa propre fiche de paie",
+    sepVend.paie.length === 1 && sepVend.paie[0].id === "u_vend");
+  test("…et laisse intactes les fiches des autres",
+    sepVend.users.find((u) => u.id === "u_admin").salaire_base === 400000);
+  const sepPersonne = Paie.separerPaie(employes(), {});
+  test("sans écrivain connu, rien n'est détaché (comportement d'avant)",
+    sepPersonne.paie.length === 0 && sepPersonne.users[0].salaire_base === 120000);
+
+  // Cas réel d'un appareil de vendeur : il ne reçoit aucune fiche de paie.
+  const sansPaie = Paie.fusionnerPaie(sepAdmin.users, []);
+  test("un appareil qui ne reçoit aucune fiche de paie ne plante pas",
+    sansPaie.length === 3 && sansPaie[0].salaire_base === undefined);
+  test("…et les calculs de paie y renvoient zéro au lieu de casser",
+    (sansPaie[0].virements || []).length === 0 && (sansPaie[0].credits || []).length === 0);
+  test("détacher deux fois de suite ne change plus rien (idempotent)",
+    JSON.stringify(Paie.separerPaie(sepAdmin.users, admin).users) === JSON.stringify(sepAdmin.users));
+  test("les taux de commission RESTENT sur la fiche employé (calculs partagés)",
+    !Paie.CHAMPS_PAIE.includes("taux_commission") && !Paie.CHAMPS_PAIE.includes("taux_equipe"));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

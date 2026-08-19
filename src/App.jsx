@@ -467,7 +467,13 @@ export default function App() {
     setDb(final);
     setSaveStatus("saving");
     try {
-      await sauvegarderDiff(prev, final);
+      // ⚠ Qui écrit ? C'est ce qui décide des fiches de PAIE que cet appareil
+      // a le droit de détacher et d'envoyer : la sienne toujours, celles des
+      // autres seulement pour un administrateur. Sans cette précaution, un
+      // appareil de vendeur — qui ne reçoit pas les fiches de paie des autres
+      // — en fabriquerait des vides et les enverrait au serveur, qui les
+      // refuserait : opération bloquée dans la file (voir lib/paie.js).
+      await sauvegarderDiff(prev, final, { id: profile?.id, admin: profile?.role === "admin" });
       setSaveStatus("saved");
       synchroniser(); // tentative immédiate si on est en ligne
     } catch {
