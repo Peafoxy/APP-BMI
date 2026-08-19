@@ -58,10 +58,20 @@ create table if not exists public.paie (
 );
 create index if not exists paie_updated_at on public.paie (updated_at);
 
--- ⚠ Le visiteur ANONYME n'est volontairement PAS dans cette liste : la clé
--- publique du site n'ouvre donc rien ici, même avant toute règle.
 grant select, insert, update, delete on public.paie to authenticated;
 grant select, insert, update, delete on public.paie to service_role;
+
+-- ⚠ NE PAS SE CONTENTER DE « ne pas accorder » au visiteur anonyme : Supabase
+-- accorde AUTOMATIQUEMENT les droits sur toute table nouvellement créée dans
+-- le schéma public, au visiteur anonyme compris (« default privileges »). Ne
+-- rien écrire ici revenait donc à lui ouvrir la table. Il faut RETIRER
+-- explicitement. Défaut relevé en production par Timo le 19/08/2026 : la
+-- vérification renvoyait « anonyme_peut_lire = true » alors que le script
+-- n'avait rien accordé.
+-- (Les règles ci-dessous ne visant que les comptes connectés, un visiteur
+--  anonyme ne voyait de toute façon aucune ligne — mais on ne laisse pas une
+--  porte déverrouillée sous prétexte qu'un second verrou tient.)
+revoke all on public.paie from anon;
 
 -- Horodatage serveur et signalement des suppressions, comme les autres
 -- tables. On ne les pose que si la fonction correspondante existe déjà :

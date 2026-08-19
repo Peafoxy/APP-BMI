@@ -38,6 +38,12 @@ update public.users set data = data || '{\"nom\":\"CLIENTE\",\"role\":\"client\"
 insert into public.users (id, data) values ('CLI1', '{\"nom\":\"CLI1\",\"role\":\"client\"}');
 " >/dev/null
 
+# ⚠ Supabase accorde AUTOMATIQUEMENT les droits sur toute table créée dans le
+# schéma public — au visiteur anonyme compris. Sans reproduire ce réglage, le
+# banc validait un script qui laissait pourtant la table ouverte en production
+# (défaut relevé par Timo le 19/08/2026).
+$P -c "alter default privileges in schema public grant all on tables to anon, authenticated, service_role;" >/dev/null
+
 echo "▸ Application de paie-1-table.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/paie-1-table.sql >/dev/null 2>&1
 
@@ -86,6 +92,16 @@ essai "…et c'est bien la sienne"                PASSE  "$VEND"  "select 1 from
 essai "un autre vendeur ne voit RIEN de KOSSI"  PASSE  "$AUTRE" "select count(*) from public.paie having count(*) = 0;"
 essai "un compte client ne voit rien du tout"   PASSE  "$CLIENT" "select count(*) from public.paie having count(*) = 0;"
 essai "un compte client ne peut rien écrire"    REFUSE "$CLIENT" "insert into public.paie (id, data) values ('CLI1','{\"salaire_base\":9}');"
+verite "le droit anonyme a bien été RETIRÉ malgré le réglage Supabase" \
+  "select not has_table_privilege('anon','public.paie','select');"
+# Second verrou : même si quelqu'un réaccordait le droit, les règles ne visent
+# que les comptes connectés — un visiteur anonyme ne verrait toujours aucune ligne.
+$P -c "grant select on public.paie to anon;" >/dev/null
+# tail -1 : psql fait précéder le résultat de la trace « SET » du changement de rôle.
+anon_voit=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -c "set role anon; select count(*) from public.paie;" 2>&1 | tail -1 || echo "erreur")
+if [ "$anon_voit" = "0" ]; then ok=$((ok+1)); echo "  ✓ et même avec le droit rendu, le visiteur anonyme ne voit AUCUNE ligne"
+else ko=$((ko+1)); echo "  ✗ le visiteur anonyme voit des lignes : $anon_voit"; fi
+$P -c "revoke all on public.paie from anon;" >/dev/null
 
 echo
 echo "▸ 3. L'employé fait ce qu'il a le droit de faire"
