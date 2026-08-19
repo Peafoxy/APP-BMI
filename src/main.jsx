@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import "./index.css";
 import App from "./App.jsx";
+import { VERSION } from "./lib/constants.js";
 
 // ============ PERSISTANCE DU STOCKAGE LOCAL ============
 // Sans cette demande, le navigateur (surtout sur téléphone) a le DROIT de
@@ -68,7 +69,16 @@ async function afficherFenetreMaj(recharger) {
       '<div style="background:#1e5a8a;color:#fff;padding:20px 20px 16px">' +
         '<div style="font-size:32px;line-height:1">🔄</div>' +
         '<div style="font-weight:800;font-size:17px;margin-top:8px">Nouvelle version disponible</div>' +
-        (version ? `<div style="font-size:13px;opacity:.9;margin-top:4px">Version ${version}</div>` : "") +
+        // Même numéro que la version en cours = redéploiement technique
+        // (configuration, sécurité...) sans changement visible : on le dit,
+        // sinon « nouvelle version 2.100.61 » alors qu'on est déjà en
+        // 2.100.61 sème le doute (signalé par Timo). Recharger reste
+        // nécessaire pour récupérer la nouvelle construction.
+        (version
+          ? `<div style="font-size:13px;opacity:.9;margin-top:4px">${
+              version === VERSION ? `Mise à jour technique (version ${version} inchangée)` : `Version ${version}`
+            }</div>`
+          : "") +
       "</div>" +
       '<div style="padding:18px 20px">' +
         '<div style="font-size:14px;color:#334155;margin-bottom:16px">Rechargez maintenant pour profiter des dernières mises à jour de l\'application.</div>' +
