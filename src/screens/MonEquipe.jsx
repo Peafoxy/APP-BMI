@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -282,7 +282,7 @@ export function MonEquipe({ db, save, profile }) {
     save({
       ...db,
       users: [...db.users, nouvel],
-      commerciaux: [...(db.commerciaux || []), { id: uid(), nom, tel: a.tel || "", taux, actif: true }]
+      commerciaux: [...(db.commerciaux || []), { id: uid(), nom, tel: a.tel || "", taux, actif: true, ...marqueEspace(db, profile) }]
     }, `🎖 ${a.nom} promu COMMERCIAL (${n} clients apportés) — compte « ${nom} », commission ${taux} %`);
     uAlert(`🎖 ${a.nom} est désormais Commercial !\n\nIdentifiant : ${nom}\nMot de passe : ${pwd}\n\nDemandez-lui de le changer à la première connexion.`);
   };

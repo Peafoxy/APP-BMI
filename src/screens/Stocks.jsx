@@ -8,7 +8,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -231,10 +231,17 @@ export function Stocks({ db, save, profile }) {
     uAlert("Article ajouté !");
   };
 
+  // ⚠ Cloisonnement : les fournisseurs sont séparés entre formation et réel
+  // (demande Timo, 19/08/2026). Les deux listes de cet écran doivent donc
+  // proposer les mêmes que l'onglet Fournisseurs, pas la table brute.
+  const espaceStock = espaceDuCompte(db, profile);
+  const fournisseursVisibles = (db.fournisseurs || [])
+    .filter((x) => espaceStock === undefined || !!x.formation === espaceStock);
+
   // Changer le fournisseur d'un article existant
   const changerFournisseur = async (p) => {
     if (bloquerSiLecture(db, profile)) return;
-    const noms = (db.fournisseurs || []).map((x) => x.nom);
+    const noms = fournisseursVisibles.map((x) => x.nom);
     if (!noms.length) { uAlert("Aucun fournisseur enregistré. Créez-le d'abord dans l'onglet 🚚 Fournisseurs."); return; }
     const v = await uPrompt(`Fournisseur de « ${p.nom} » ?\n\nFournisseurs enregistrés :\n${noms.join("\n")}\n\n(laisser vide pour retirer le fournisseur)`, p.fournisseur || "");
     if (v === null) return;
@@ -598,7 +605,7 @@ export function Stocks({ db, save, profile }) {
           <Field label="Fournisseur">
             <select className={inputCls} value={f.fournisseur} onChange={(e) => setF({ ...f, fournisseur: e.target.value })}>
               <option value="">— Aucun —</option>
-              {(db.fournisseurs || []).map((x) => <option key={x.id} value={x.nom}>{x.nom}</option>)}
+              {fournisseursVisibles.map((x) => <option key={x.id} value={x.nom}>{x.nom}</option>)}
             </select>
           </Field>
           <Field label="Domaine">

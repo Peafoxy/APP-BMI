@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { uid, fmt, today } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { bloquerSiLecture, choisirBoutiqueDebitG } from "../lib/calculs";
+import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte } from "../lib/calculs";
 
 // ============ FOURNISSEURS ============
 export function Fournisseurs({ db, save, profile }) {
@@ -14,7 +14,7 @@ export function Fournisseurs({ db, save, profile }) {
   const ajouter = () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
-    save({ ...db, fournisseurs: [...db.fournisseurs, { id: uid(), nom: f.nom, tel: f.tel, adresse: f.adresse, site_web: f.site_web, produits: f.produits, doit: Number(f.doit || 0), paye: Number(f.paye || 0) }] });
+    save({ ...db, fournisseurs: [...db.fournisseurs, { id: uid(), nom: f.nom, tel: f.tel, adresse: f.adresse, site_web: f.site_web, produits: f.produits, doit: Number(f.doit || 0), paye: Number(f.paye || 0), ...marqueEspace(db, profile) }] });
     setF({ nom: "", tel: "", adresse: "", site_web: "", produits: "", doit: "", paye: "" });
     uAlert("Fournisseur ajouté !");
   };
@@ -50,7 +50,12 @@ export function Fournisseurs({ db, save, profile }) {
     if (await uConfirm(`Supprimer le fournisseur « ${fo.nom} » ?`)) save({ ...db, fournisseurs: db.fournisseurs.filter((x) => x.id !== fo.id) });
   };
 
-  const liste = db.fournisseurs || [];
+  // ⚠ Cloisonnement (demande Timo, 19/08/2026 : « fournisseurs de formation
+  // séparés de ceux du réel »). Sans ce filtre, un compte de formation voyait
+  // les VRAIS fournisseurs — et pouvait gonfler leur ardoise ou les supprimer.
+  // Les deux listes sont désormais étanches : chacun crée les siens.
+  const espace = espaceDuCompte(db, profile);
+  const liste = (db.fournisseurs || []).filter((x) => espace === undefined || !!x.formation === espace);
   const resteTotal = liste.reduce((s, x) => s + Math.max(0, x.doit - x.paye), 0);
 
   return (

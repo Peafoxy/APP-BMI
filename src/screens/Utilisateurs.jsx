@@ -124,7 +124,10 @@ export function Users({ db, save, profile }) {
     let next = { ...db, users: [...db.users, nouvelUser] };
     // Un compte Commercial ou Technicien apparaît aussi dans l'onglet Commerciaux (attribution des ventes/commandes)
     if ((f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi") && !db.commerciaux.some((c) => c.nom === f.nom)) {
-      next = { ...next, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, actif: true }] };
+      // ⚠ La fiche Commerciaux suit l'espace du COMPTE créé, pas celui de
+      // l'administrateur qui le crée : un admin réel crée bien un commercial
+      // de formation quand il coche « compte de formation ».
+      next = { ...next, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, actif: true, ...(f.formationCompte ? { formation: true } : {}) }] };
     }
     save(next, `Création utilisateur ${f.nom} (${f.role})`);
     // Invitation WhatsApp — comme pour un client, mais sans conseil de

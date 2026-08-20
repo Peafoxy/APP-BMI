@@ -864,13 +864,16 @@ export const apporteursPossibles = (db, profile) => {
   const memeEspace = (u) => voitLesDeuxEspaces(db, profile) || !!u.formation === monEspace;
   (db.users || []).filter((u) => u.actif !== false && u.role !== "client" && aUnTaux(u) && memeEspace(u))
     .forEach((u) => noms.set(u.nom, { id: u.id, nom: u.nom, taux: Number(u.taux_commission || 0), role: u.role }));
-  // La table `commerciaux` ne porte pas de drapeau d'espace : on récupère
-  // celui du compte du même nom quand il existe, sinon la fiche est
-  // considérée comme RÉELLE (le doute profite aux vraies données).
+  // Depuis le 19/08/2026 la table `commerciaux` porte SA PROPRE marque
+  // d'espace (voir TABLES_PAR_MARQUE). On la lit en priorité ; pour les
+  // fiches créées avant, on retombe sur l'espace du compte du même nom,
+  // et à défaut la fiche est considérée comme RÉELLE (le doute profite
+  // aux vraies données).
   (db.commerciaux || []).filter((c) => c.actif !== false)
     .forEach((c) => {
       const compte = (db.users || []).find((u) => u.nom === c.nom);
-      if (!memeEspace(compte || {})) return;
+      const reference = c.formation !== undefined ? c : (compte || {});
+      if (!memeEspace(reference)) return;
       if (!noms.has(c.nom)) noms.set(c.nom, { id: c.id, nom: c.nom, taux: Number(c.taux || 0), role: "commercial" });
     });
   return [...noms.values()].sort((a, b) => a.nom.localeCompare(b.nom));
@@ -997,6 +1000,17 @@ export const bloquerSiLecture = (db, profile) => {
 // Tables portant un champ `boutique` : ce sont elles qui décident.
 export const TABLES_PAR_BOUTIQUE = ["ventes", "depenses", "dettes", "produits", "ajustements", "clotures", "commandes", "proformas"];
 
+// ⚠ Tables qui n'appartiennent à AUCUNE boutique et que le cloisonnement par
+// boutique ne pouvait donc pas rattraper : elles portent leur propre marque
+// `formation` (voir marqueEspace), comme les prospects.
+//
+// TROU RÉEL TROUVÉ LE 19/08/2026, à la question de Timo « est-ce sûr que les
+// deux espaces ne se mélangent jamais ? » : un compte de FORMATION pouvait
+// enregistrer une commande à crédit chez un VRAI fournisseur — donc gonfler
+// sa vraie ardoise — ou supprimer purement et simplement un fournisseur ou un
+// commercial réel. Ni l'application ni le serveur ne s'y opposaient.
+export const TABLES_PAR_MARQUE = ["fournisseurs", "commerciaux"];
+
 // Deux enregistrements sont-ils identiques ? Comparaison par référence
 // d'abord (l'app met à jour par recopie immuable : une ligne inchangée
 // garde son objet), repli sur le contenu pour rester juste si un écran
@@ -1062,6 +1076,24 @@ export function verifierEcritureEspace(prev, next, profile) {
     }
   }
 
+  // Les tables marquées : mêmes trois cas que ci-dessus (écriture, bascule
+  // d'un espace à l'autre, suppression), mais l'appartenance se lit sur la
+  // marque de la ligne au lieu de sa boutique.
+  for (const t of TABLES_PAR_MARQUE) {
+    if (prev && prev[t] === next[t]) continue;
+    const avant = new Map((prev?.[t] || []).map((r) => [r.id, r]));
+    for (const r of next[t] || []) {
+      const a = avant.get(r.id);
+      avant.delete(r.id);
+      if (a && memeEnregistrement(a, r)) continue;
+      if (!!r.formation !== monEspace) return { table: t, marque: true };
+      if (a && !!a.formation !== monEspace) return { table: t, marque: true, deplacement: true };
+    }
+    for (const a of avant.values()) {
+      if (!!a.formation !== monEspace) return { table: t, marque: true, suppression: true };
+    }
+  }
+
   // Les chantiers ne portent pas de boutique : elle se retrouve par la
   // vente (ou la dette) liée — même chemin que partout ailleurs.
   if (prev && prev.clients_installes === next.clients_installes) return null;
@@ -1089,9 +1121,20 @@ export const messageEcritureRefusee = (infraction, monEspace) => {
     produits: "un article de stock", ajustements: "un mouvement de stock",
     clotures: "une clôture de caisse", commandes: "une commande",
     proformas: "une proforma", clients_installes: "un chantier",
+    fournisseurs: "un fournisseur", commerciaux: "un commercial",
   };
   const geste = infraction.suppression ? "supprimerait"
     : infraction.deplacement ? "ferait basculer dans votre espace" : "écrirait";
+  // Les tables marquées n'ont pas de boutique à nommer : le message doit
+  // désigner l'enregistrement lui-même, sinon il finissait par « la boutique
+  // « ? » », ce qui n'explique rien.
+  if (infraction.marque) {
+    return `🚫 Opération refusée — cloisonnement formation / réel.\n\n` +
+      `Votre compte travaille dans l'espace ${monEspace ? "FORMATION" : "RÉEL"}, mais cette action ${geste} ${LIB[infraction.table] || "un enregistrement"} de l'espace ${monEspace ? "RÉEL" : "FORMATION"}.\n\n` +
+      `Rien n'a été enregistré. ${infraction.suppression
+        ? "Un enregistrement de l'autre espace ne peut pas être supprimé depuis le vôtre."
+        : "Créez le vôtre depuis votre espace : les deux listes sont volontairement séparées."}`;
+  }
   return `🚫 Opération refusée — cloisonnement formation / réel.\n\n` +
     `Votre compte travaille dans l'espace ${monEspace ? "FORMATION" : "RÉEL"}, mais cette action ${geste} ${LIB[infraction.table] || "un enregistrement"} ${infraction.deplacement ? "qui appartient à" : "sur"} la boutique « ${infraction.boutique || "?"} », qui appartient à l'espace ${monEspace ? "RÉEL" : "FORMATION"}.\n\n` +
     `Rien n'a été enregistré. ${infraction.deplacement

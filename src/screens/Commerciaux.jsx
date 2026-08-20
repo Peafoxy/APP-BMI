@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, totalVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { periodes , ventesDuCommercial, bloquerSiLecture } from "../lib/calculs";
+import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
@@ -34,7 +34,7 @@ export function Commerciaux({ db, save, profile }) {
   const ajouter = () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
-    save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, taux: Number(f.taux || 0), objectif: Number(f.objectif || 0), actif: true }] });
+    save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, taux: Number(f.taux || 0), objectif: Number(f.objectif || 0), actif: true, ...marqueEspace(db, profile) }] });
     setF({ nom: "", tel: "", zone: "", taux: "", objectif: "" });
     uAlert("Commercial ajouté !");
   };
@@ -66,7 +66,11 @@ export function Commerciaux({ db, save, profile }) {
     return { nb: vs.length, ca, commission, objectifP, pct, panier };
   };
 
-  const liste = db.commerciaux || [];
+  // ⚠ Même cloisonnement que les fournisseurs : sans ce filtre, un compte de
+  // formation voyait les VRAIS commerciaux, pouvait changer leur taux de
+  // commission ou les supprimer (trou trouvé le 19/08/2026).
+  const espace = espaceDuCompte(db, profile);
+  const liste = (db.commerciaux || []).filter((x) => espace === undefined || !!x.formation === espace);
   const classement = liste.map((c) => ({ c, s: stats(c) })).sort((a, b) => b.s.ca - a.s.ca);
   const totalCA = classement.reduce((s, x) => s + x.s.ca, 0);
   const totalCommissions = classement.reduce((s, x) => s + x.s.commission, 0);

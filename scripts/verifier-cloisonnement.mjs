@@ -106,6 +106,14 @@ const base = () => ({
   ventes: [{ id: "v1", boutique: "APESSITO", date: "2026-08-01" }],
   depenses: [], dettes: [], produits: [], ajustements: [], clotures: [],
   commandes: [], proformas: [], clients_installes: [],
+  fournisseurs: [
+    { id: "f_reel", nom: "SOLARIS", doit: 500000, paye: 0 },
+    { id: "f_form", nom: "FOURNISSEUR ESSAI", doit: 0, paye: 0, formation: true },
+  ],
+  commerciaux: [
+    { id: "co_reel", nom: "KOFFI", taux: 5, actif: true },
+    { id: "co_form", nom: "STAGIAIRE COMMERCIAL", taux: 5, actif: true, formation: true },
+  ],
 });
 
 const P = {
@@ -192,6 +200,57 @@ titre("La caisse TERRAIN a sa jumelle d'entraînement (pose seule en formation)"
   test("un stagiaire (vendeur formation) encaisse un versement pose seule dans la caisse d'entraînement",
     !refuse(P.stagiaire, (db) => ({ ...avecCaisseFormation(db),
       dettes: [{ id: "dt5", boutique: C.NOM_BOUTIQUE_TERRAIN_FORMATION, montant: 100000, paye: 50000 }] })));
+}
+
+titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
+{
+  const modif = (t, f) => (db) => ({ [t]: f(db[t]) });
+  // Le geste exact qui gonflait la vraie ardoise : « commande à crédit ».
+  test("un stagiaire ne gonfle PAS l'ardoise d'un vrai fournisseur",
+    refuse(P.stagiaire, modif("fournisseurs", (l) => l.map((x) => (x.id === "f_reel" ? { ...x, doit: 9000000 } : x)))));
+  test("un stagiaire ne supprime PAS un vrai fournisseur",
+    refuse(P.stagiaire, modif("fournisseurs", (l) => l.filter((x) => x.id !== "f_reel"))));
+  test("un stagiaire ne crée PAS un fournisseur dans l'espace réel",
+    refuse(P.stagiaire, modif("fournisseurs", (l) => [...l, { id: "f_x", nom: "INTRUS" }])));
+  test("un stagiaire ne fait PAS basculer un vrai fournisseur chez lui",
+    refuse(P.stagiaire, modif("fournisseurs", (l) => l.map((x) => (x.id === "f_reel" ? { ...x, formation: true } : x)))));
+  test("un stagiaire ne supprime PAS un vrai commercial",
+    refuse(P.stagiaire, modif("commerciaux", (l) => l.filter((x) => x.id !== "co_reel"))));
+  test("un stagiaire ne change PAS le taux d'un vrai commercial",
+    refuse(P.stagiaire, modif("commerciaux", (l) => l.map((x) => (x.id === "co_reel" ? { ...x, taux: 90 } : x)))));
+  test("un vendeur réel ne touche PAS un fournisseur de formation",
+    refuse(P.vendeur, modif("fournisseurs", (l) => l.map((x) => (x.id === "f_form" ? { ...x, doit: 1 } : x)))));
+
+  test("…mais le stagiaire travaille librement sur SES fournisseurs",
+    !refuse(P.stagiaire, modif("fournisseurs", (l) => l.map((x) => (x.id === "f_form" ? { ...x, doit: 25000 } : x)))));
+  test("…et en crée de nouveaux dans SON espace",
+    !refuse(P.stagiaire, modif("fournisseurs", (l) => [...l, { id: "f_y", nom: "ESSAI 2", formation: true }])));
+  test("le vendeur réel travaille sur les vrais fournisseurs",
+    !refuse(P.vendeur, modif("fournisseurs", (l) => l.map((x) => (x.id === "f_reel" ? { ...x, paye: 100000 } : x)))));
+  test("l'administrateur principal traverse les deux",
+    !refuse(P.admin, modif("fournisseurs", (l) => l.filter((x) => x.id !== "f_reel"))));
+
+  // Le message doit nommer l'enregistrement, pas « la boutique ? ».
+  {
+    const avant = base();
+    const apres = { ...avant, fournisseurs: avant.fournisseurs.filter((x) => x.id !== "f_reel") };
+    const inf = C.verifierEcritureEspace(avant, apres, P.stagiaire);
+    const msg = C.messageEcritureRefusee(inf, true);
+    test("le message d'erreur parle du fournisseur, pas d'une boutique inconnue",
+      inf?.marque === true && msg.includes("un fournisseur") && !msg.includes("boutique « ? »"));
+  }
+
+  // La liste des apporteurs suit la marque de la fiche commercial.
+  {
+    const db = base();
+    const noms = (p) => C.apporteursPossibles(db, p).map((x) => x.nom);
+    test("un stagiaire ne peut pas créditer une vente à un commercial réel",
+      !noms(P.stagiaire).includes("KOFFI"));
+    test("…et voit bien le commercial de son espace",
+      noms(P.stagiaire).includes("STAGIAIRE COMMERCIAL"));
+    test("un vendeur réel ne voit pas le commercial de formation",
+      !noms(P.vendeur).includes("STAGIAIRE COMMERCIAL"));
+  }
 }
 
 titre("Les sélecteurs ne montrent que l'espace du compte");
