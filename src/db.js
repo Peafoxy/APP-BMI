@@ -124,6 +124,19 @@ export async function chargerTout() {
   return db;
 }
 
+// ⚠ ÉTAPE 2 de la fermeture du « trou n° 1 » : range en local LA fiche
+// rapportée par le serveur lors d'une première connexion sur un appareil
+// neuf (voir api/chercher-compte.js et screens/Connexion.jsx).
+//
+// Volontairement HORS de sauvegarderDiff : cette écriture ne doit PAS
+// partir dans l'outbox. Elle ne fait que recopier ce que le serveur vient
+// de donner — le renvoyer serait au mieux inutile, au pire écraser une
+// version plus récente avec celle qu'on vient de recevoir.
+export async function enregistrerCompteLocal(user) {
+  if (!user?.id) return;
+  try { await idb.table("users").put(user); } catch { /* base locale indisponible : la connexion marche quand même */ }
+}
+
 const sansMeta = (r) => {
   const { updated_at, ...reste } = r || {};
   return JSON.stringify(reste);

@@ -7,7 +7,8 @@ import { useState } from "react";
 import { LOGO, VERSION } from "../lib/constants";
 import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { Field, inputCls } from "../components/ui";
-import { synchroniserAuth } from "../supabaseClient";
+import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
+import { enregistrerCompteLocal } from "../db";
 
 // ============ CONNEXION ============
 export function Login({ db, onLogin, save }) {
@@ -19,8 +20,29 @@ export function Login({ db, onLogin, save }) {
   const go = async () => {
     const saisie = nomSaisi.trim().toLowerCase();
     if (!saisie) { setErr("Entrez votre nom d'utilisateur."); return; }
-    const u = db.users.find((x) => x.nom.trim().toLowerCase() === saisie);
-    if (!u) { setErr("Utilisateur introuvable."); return; }
+    let u = db.users.find((x) => x.nom.trim().toLowerCase() === saisie);
+    // ⚠ ÉTAPE 2 de la fermeture du « trou n° 1 » : la table des comptes n'est
+    // plus téléchargée à l'avance (elle était lisible par n'importe qui). Un
+    // appareil NEUF ne connaît donc encore personne : on demande au serveur
+    // LA fiche de l'identifiant saisi, qu'il ne rend que si le mot de passe
+    // est le bon. Ce chemin ne sert QU'À la toute première connexion sur un
+    // appareil — ensuite la fiche est en local et tout marche hors réseau,
+    // exactement comme avant.
+    if (!u) {
+      setConnexionEnCours(true);
+      const r = await chercherCompteEnLigne(nomSaisi.trim(), pwd);
+      setConnexionEnCours(false);
+      if (r.error === "hors_ligne") {
+        setErr("Première connexion sur cet appareil : connectez-vous au réseau une fois. Ensuite, l'application fonctionnera hors ligne.");
+        return;
+      }
+      if (r.error || !r.user) { setErr(r.error || "Utilisateur introuvable."); return; }
+      u = r.user;
+      // La fiche est rangée en local : les connexions suivantes se feront
+      // sans réseau. On n'utilise volontairement pas save() — ce n'est pas
+      // une action de l'utilisateur, et personne n'est encore connecté.
+      await enregistrerCompteLocal(u);
+    }
     if (u.actif === false) { setErr("Ce compte a été bloqué par l'administrateur."); return; }
     const { ok, aMigrer } = await verifierMotDePasse(u, pwd);
     if (!ok) { setErr("Mot de passe incorrect."); return; }

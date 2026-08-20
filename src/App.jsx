@@ -66,7 +66,7 @@ import {
 } from "./lib/comptesClients";
 import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
-import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerComptes, amorcerBoutiques, reconcilierMiroir } from "./sync";
+import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
@@ -319,12 +319,17 @@ export default function App() {
       const donnees = await chargerEtReparer(); // lecture LOCALE (hors ligne OK) + réparation éventuelle des numéros
       setDb(donnees);
 
-      // Amorçage rapide et dédié de la table des comptes : indispensable sur un
-      // appareil neuf pour qu'un utilisateur (client qui vient de recevoir ses
-      // identifiants, par exemple) puisse être retrouvé DÈS sa toute première
-      // tentative de connexion — avant même que la synchronisation générale,
-      // plus longue et plus complexe, n'ait eu le temps de s'exécuter.
-      amorcerComptes().then((reussi) => { if (reussi) chargerTout().then(setDb); });
+      // ⚠ RETIRÉ — ÉTAPE 2 de la fermeture du « trou n° 1 » (19/08/2026).
+      // On téléchargeait ici TOUTE la table des comptes sur chaque appareil
+      // neuf, avant même toute connexion : c'est ce qui obligeait à la
+      // laisser lisible par n'importe qui, y compris sans compte. Les
+      // téléphones du personnel partaient ainsi au premier venu, et les mots
+      // de passe des comptes clients — qui se RECALCULENT depuis le nom et
+      // le téléphone — devenaient reconstituables par un inconnu.
+      // Désormais l'écran de connexion demande au serveur LA seule fiche
+      // correspondant à l'identifiant saisi, et ne l'obtient que si le mot
+      // de passe est le bon (api/chercher-compte.js). Rien ne change pour un
+      // appareil déjà utilisé : sa copie locale suffit, hors réseau compris.
       // ⚠ Même besoin que ci-dessus, pour l'écran de connexion : sans ça, la
       // personnalisation (couleur, badge, image) d'un appareil neuf reste
       // aux valeurs par défaut jusqu'à la toute première connexion réussie.

@@ -19,6 +19,37 @@ const BASE = (import.meta.env.VITE_SYNC_AUTH_URL || "")
   .replace(/\/api\/sync-auth\/?$/, "")
   .replace(/\/$/, "");
 const URL_SYNC_AUTH = BASE ? `${BASE}/api/sync-auth` : "/api/sync-auth";
+// ⚠ ÉTAPE 2 de la fermeture du « trou n° 1 » : la table des comptes n'est
+// plus lisible sans connexion. Un appareil NEUF ne peut donc plus
+// télécharger l'annuaire pour retrouver quelqu'un — il demande au serveur
+// LA fiche correspondant à l'identifiant saisi, et ne l'obtient que si le
+// mot de passe est le bon (voir api/chercher-compte.js).
+const URL_CHERCHER_COMPTE = BASE ? `${BASE}/api/chercher-compte` : "/api/chercher-compte";
+
+// Renvoie { user } si le compte existe ET que le mot de passe est correct,
+// sinon { error } avec un message affichable tel quel.
+// N'est appelée QUE lorsque le compte est introuvable en local : une
+// connexion hors réseau sur un appareil déjà utilisé ne passe jamais par ici.
+export async function chercherCompteEnLigne(nom, motDePasse) {
+  if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
+  if (!navigator.onLine) return { error: "hors_ligne" };
+  try {
+    const reponse = await fetch(URL_CHERCHER_COMPTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nom, motDePasse }),
+    });
+    const corps = await reponse.json().catch(() => ({}));
+    if (!reponse.ok) {
+      return { error: corps?.error || (reponse.status === 404
+        ? "Serveur introuvable. Dans l'application Windows, renseignez VITE_SYNC_AUTH_URL."
+        : `Le serveur a répondu ${reponse.status}.`) };
+    }
+    return { user: corps?.user || null };
+  } catch (e) {
+    return { error: `Serveur injoignable : ${e?.message || e}` };
+  }
+}
 const URL_ETAT_AUTH = BASE ? `${BASE}/api/etat-auth` : "/api/etat-auth";
 
 // Identifiants de la session en cours, gardés EN MÉMOIRE uniquement (jamais

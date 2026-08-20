@@ -96,14 +96,21 @@ async function lireTout(table, colonneDate, depuis) {
   return tout;
 }
 
-// ============ AMORÇAGE DES COMPTES (avant toute connexion) ============
-// Un appareil neuf n'a AUCUNE donnée locale : il doit retrouver au moins la
-// table des comptes pour qu'un utilisateur (surtout un client qui vient de
-// recevoir ses identifiants) puisse se reconnaître au tout premier login.
-// Volontairement SÉPARÉE de synchroniser() : plus simple, moins d'étapes qui
-// pourraient échouer, donc plus fiable pour ce cas précis. La table « users »
-// reste lisible sans session (voir supabase/durcir_securite.sql) — c'est ce
-// qui rend cet appel possible avant toute connexion.
+// ============ AMORÇAGE DES COMPTES — RETIRÉ DU DÉMARRAGE ============
+// ⚠ Cette fonction téléchargeait TOUTE la table des comptes sur un appareil
+// neuf, avant toute connexion. C'est elle qui imposait de laisser `users`
+// lisible sans session — l'ouverture par laquelle les téléphones du
+// personnel, et de quoi recalculer les mots de passe des clients,
+// s'échappaient (audit du 19/08/2026).
+//
+// Elle n'est PLUS APPELÉE au démarrage : l'écran de connexion demande
+// désormais au serveur la seule fiche correspondant à l'identifiant saisi,
+// et ne l'obtient qu'avec le bon mot de passe (api/chercher-compte.js).
+//
+// Conservée telle quelle, sans appelant : après la fermeture de la lecture
+// publique elle ne renvoie plus rien, et son échec est déjà silencieux. Elle
+// reste utile comme point de reprise si l'on devait un jour réamorcer un
+// parc entier depuis un poste d'administration.
 export async function amorcerComptes() {
   if (!supabaseConfigure || !navigator.onLine) return false;
   try {
