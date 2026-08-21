@@ -121,10 +121,10 @@ input, select, textarea { max-width: 100%; }
    Le texte prend toute la largeur du cadre et reste centré : un
    texte calé à x % de la gauche déborderait dès qu'il est long. */
 @keyframes bmi-souhait-monte {
-  0%   { bottom: -18%; opacity: 0; }
-  18%  { opacity: 1; }
-  75%  { opacity: 1; }
-  100% { bottom: 100%;  opacity: 0; }
+  0%   { bottom: -10%; opacity: 0; }
+  12%  { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { bottom: 100%; opacity: 0; }
 }
 .bmi-souhaits {
   position: absolute;
@@ -137,11 +137,11 @@ input, select, textarea { max-width: 100%; }
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -18%;
-  padding: 0 8px;
+  bottom: -10%;
+  padding: 0 10px;
   text-align: center;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.3;
   color: var(--bmi-souhait-couleur, #0284c7);
   /* Halo blanc : garde le texte lisible aussi bien sur un cadre

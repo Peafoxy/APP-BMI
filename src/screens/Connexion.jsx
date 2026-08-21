@@ -105,7 +105,7 @@ export function Login({ db, onLogin, save }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900 flex items-center justify-center p-4">
       <div
-        className="relative z-10 rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
+        className="relative z-10 overflow-hidden rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
         style={{
           // La couleur reste posée SOUS l'image : en mode « image entière »,
           // c'est elle qui comble les bandes laissées libres. Avant, la
@@ -123,7 +123,6 @@ export function Login({ db, onLogin, save }) {
             dans Paramètres (0 % = cadre totalement invisible). */}
         <div className={`relative overflow-hidden text-center mb-5 rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
           {bulles && <Bulles couleur={accueilBadge} />}
-          {souhaits.length > 0 && <Souhaits messages={souhaits} couleur={accueilBadge} />}
           <div className="relative">
           <img src={LOGO} alt="BMI Togo" className="mx-auto mb-3 w-40 h-auto" />
           <div className="text-xl font-bold text-slate-900">GESTION SYSTÈME</div>
@@ -150,6 +149,14 @@ export function Login({ db, onLogin, save }) {
           <div className="text-center text-[11px] text-slate-400">Version {VERSION}</div>
           </div>
         </div>
+        {/* ⚠ Placé APRÈS les deux cadres, et donc AU-DESSUS d'eux (demande
+            Timo : « pourquoi ça ne commence pas par le cadre d'en bas, celui
+            qui comporte les lignes utilisateur et mot de passe ? »). Posé
+            derrière, il disparaissait dès qu'un cadre était opaque. Il
+            traverse maintenant toute la carte, du bas vers le haut.
+            `pointer-events: none` (voir index.css) le rend totalement
+            inoffensif : il ne s'interpose jamais entre le doigt et un champ. */}
+        {souhaits.length > 0 && <Souhaits messages={souhaits} couleur={accueilBadge} />}
       </div>
     </div>
   );
@@ -188,7 +195,9 @@ const BULLES = [
 // qu'on veut éviter. On fait donc tourner le message en JavaScript, et un
 // seul élément est affiché à la fois. Le changement de `key` remonte
 // l'élément, ce qui relance proprement l'animation depuis le bas.
-const MONTEE_SOUHAIT = 9;
+// 11 secondes : la traversée fait désormais toute la hauteur de la carte,
+// pas seulement celle du cadre du haut.
+const MONTEE_SOUHAIT = 11;
 
 function Souhaits({ messages, couleur }) {
   const [index, setIndex] = useState(0);
