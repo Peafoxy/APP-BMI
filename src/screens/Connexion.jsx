@@ -12,7 +12,7 @@ import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
 import { enregistrerCompteLocal } from "../db";
 
 // ============ CONNEXION ============
-export function Login({ db, onLogin, save }) {
+export function Login({ db, apparence, onLogin, save }) {
   const [nomSaisi, setNomSaisi] = useState("");
   const [pwd, setPwd] = useState("");
   const [pwdVisible, setPwdVisible] = useState(false);
@@ -73,7 +73,10 @@ export function Login({ db, onLogin, save }) {
   // Personnalisation de l'écran de connexion (fêtes, etc.), réglée dans
   // Paramètres par l'admin principal — stockée sur les boutiques (déjà
   // lisibles ici avant toute connexion), donc disponible directement.
-  const b0 = db.boutiques[0] || {};
+  // La fiche boutique locale fait foi dès qu'elle existe. Sur un appareil
+  // neuf elle n'est pas encore là : le serveur nous a alors donné la seule
+  // apparence, sans le reste des informations de la boutique.
+  const b0 = db.boutiques[0] || apparence || {};
   const accueilTexte = b0.accueil_texte || "BIENVENUE SUR NOTRE SYSTÈME";
   const accueilBadge = b0.accueil_couleur_badge || db.boutiques.find((b) => b.nom === "DEMAKPOE")?.couleur || "#0284c7";
   const accueilFond = b0.accueil_couleur_fond || "#ffffff";

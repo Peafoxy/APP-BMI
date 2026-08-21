@@ -67,7 +67,7 @@ import {
 import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir } from "./sync";
-import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure } from "./supabaseClient";
+import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
@@ -169,6 +169,9 @@ export default function App() {
   // Vrai pendant le rechargement complet qui suit une connexion : l'écran
   // part de zéro et un bandeau explique que les données arrivent du serveur.
   const [syncInitiale, setSyncInitiale] = useState(false);
+  // Apparence de l'écran de connexion rapportée par le serveur, pour un
+  // appareil qui n'a pas encore les fiches boutiques (voir api/apparence.js).
+  const [apparence, setApparence] = useState(null);
 
   // ---- Réception AUTOMATIQUE : 7 jours après la fin de travaux déclarée
   // par BMI, si le client n'a pas réceptionné dans son espace, la réception
@@ -334,6 +337,12 @@ export default function App() {
       // personnalisation (couleur, badge, image) d'un appareil neuf reste
       // aux valeurs par défaut jusqu'à la toute première connexion réussie.
       amorcerBoutiques().then((reussi) => { if (reussi) chargerTout().then(setDb); });
+      // ⚠ Constaté par Timo (20/08/2026) : sur un appareil NEUF, les fiches
+      // boutiques ne sont pas encore là — l'écran de connexion s'affichait
+      // donc dans son habillage par défaut jusqu'à la première connexion.
+      // Le serveur nous en donne l'apparence, et RIEN d'autre : ni adresses,
+      // ni téléphones, ni réglages internes (voir api/apparence.js).
+      chargerApparence().then((a) => { if (a) setApparence(a); });
 
       // Restaure la session après un rafraîchissement de page (site web),
       // à condition qu'elle date de moins de 15 minutes et que le compte
@@ -507,7 +516,7 @@ export default function App() {
     // connexion avec la vraie table.
     const dbLogin = db.users.length > 0 ? db : { ...db, users: secours };
     const saveLogin = db.users.length > 0 ? save : null;
-    return <><DialogHost /><Login db={dbLogin} save={saveLogin} onLogin={(u) => {
+    return <><DialogHost /><Login db={dbLogin} apparence={apparence} save={saveLogin} onLogin={(u) => {
     setProfile(u);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
     (async () => {

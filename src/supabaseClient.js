@@ -25,6 +25,24 @@ const URL_SYNC_AUTH = BASE ? `${BASE}/api/sync-auth` : "/api/sync-auth";
 // LA fiche correspondant à l'identifiant saisi, et ne l'obtient que si le
 // mot de passe est le bon (voir api/chercher-compte.js).
 const URL_CHERCHER_COMPTE = BASE ? `${BASE}/api/chercher-compte` : "/api/chercher-compte";
+const URL_APPARENCE = BASE ? `${BASE}/api/apparence` : "/api/apparence";
+
+// L'apparence de l'écran de connexion, servie SANS connexion — mais sans
+// publier pour autant la table des boutiques (adresses, téléphones, réglages
+// internes). Voir api/apparence.js. Renvoie null en cas d'échec : l'écran
+// garde alors son habillage par défaut, ce qui n'empêche personne de se
+// connecter.
+export async function chargerApparence() {
+  if (!supabaseConfigure || !navigator.onLine) return null;
+  try {
+    const reponse = await fetch(URL_APPARENCE, { method: "GET" });
+    if (!reponse.ok) return null;
+    const corps = await reponse.json().catch(() => ({}));
+    return corps?.apparence || null;
+  } catch {
+    return null;
+  }
+}
 
 // Renvoie { user } si le compte existe ET que le mot de passe est correct,
 // sinon { error } avec un message affichable tel quel.
