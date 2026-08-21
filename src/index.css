@@ -64,11 +64,18 @@ input, select, textarea { max-width: 100%; }
    La couleur est héritée du bandeau choisi par l'administrateur
    (variable --bmi-bulle-couleur), pour que la décoration reste
    accordée au reste de l'écran. */
+/* ⚠ DÉFAUT CORRIGÉ (signalé par Timo, 20/08/2026 : « les bulles montent mais
+   à peine, elles ne montent pas dans tout le cadre »). La première version
+   déplaçait les bulles avec translateY(-160%) — or un pourcentage de
+   « transform » se calcule sur LA TAILLE DE LA BULLE, pas sur la hauteur du
+   cadre. Une bulle de 14 px ne montait donc que de 22 px, puis disparaissait.
+   On anime maintenant « bottom », dont les pourcentages se rapportent bien à
+   la hauteur du cadre : la traversée est complète quelle que soit sa taille. */
 @keyframes bmi-bulle-monte {
-  0%   { transform: translateY(0) scale(1);      opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { transform: translateY(-160%) scale(1.2); opacity: 0; }
+  0%   { bottom: -20%; opacity: 0; transform: scale(0.9); }
+  10%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { bottom: 105%; opacity: 0; transform: scale(1.15); }
 }
 .bmi-bulles {
   position: absolute;
@@ -79,15 +86,21 @@ input, select, textarea { max-width: 100%; }
 }
 .bmi-bulle {
   position: absolute;
-  bottom: -25%;
+  bottom: -20%;
   border-radius: 9999px;
-  background: var(--bmi-bulle-couleur, rgba(2, 132, 199, 0.18));
+  background: var(--bmi-bulle-couleur, rgba(2, 132, 199, 0.3));
+  /* Un liseré un peu plus soutenu que le corps : sans lui, la bulle se lit
+     comme une tache floue plutôt que comme une bulle. */
+  border: 1px solid var(--bmi-bulle-bord, rgba(2, 132, 199, 0.45));
   animation-name: bmi-bulle-monte;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+  /* « backwards » : pendant son retard au démarrage, la bulle reste dans la
+     position du 0 % (en bas, invisible) au lieu d'attendre en pleine vue. */
+  animation-fill-mode: backwards;
 }
 /* Respect des personnes qui ont demandé moins d'animations sur leur
    appareil (réglage système) : les bulles restent, mais immobiles. */
 @media (prefers-reduced-motion: reduce) {
-  .bmi-bulle { animation: none; opacity: 0.35; }
+  .bmi-bulle { animation: none; opacity: 0.35; bottom: 35%; }
 }

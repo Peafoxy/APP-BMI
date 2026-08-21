@@ -155,21 +155,29 @@ export function Login({ db, onLogin, save }) {
 // non tirés au hasard : une valeur aléatoire changerait à chaque réaffichage
 // de React, et les bulles sauteraient d'un coup au lieu de monter calmement.
 // La couleur suit celle du bandeau, pour rester accordée au reste de l'écran.
+// ⚠ Durées revues à la baisse (Timo : « c'est trop lent ») : 8 à 16 secondes
+// pour traverser un cadre de 200 pixels donnaient un mouvement presque
+// imperceptible. Les retards au démarrage sont aussi raccourcis, pour que le
+// cadre s'anime dès l'ouverture de l'écran au lieu de rester vide 7 secondes.
 const BULLES = [
-  { gauche: 6,  taille: 26, duree: 13, retard: 0 },
-  { gauche: 18, taille: 14, duree: 9,  retard: 2 },
-  { gauche: 31, taille: 34, duree: 16, retard: 5 },
-  { gauche: 44, taille: 18, duree: 11, retard: 1 },
-  { gauche: 57, taille: 24, duree: 14, retard: 7 },
-  { gauche: 69, taille: 12, duree: 8,  retard: 3 },
-  { gauche: 80, taille: 30, duree: 15, retard: 6 },
-  { gauche: 91, taille: 16, duree: 10, retard: 4 },
+  { gauche: 6,  taille: 26, duree: 6.5, retard: 0 },
+  { gauche: 18, taille: 14, duree: 4.5, retard: 0.8 },
+  { gauche: 31, taille: 34, duree: 7.5, retard: 1.6 },
+  { gauche: 44, taille: 18, duree: 5.2, retard: 0.4 },
+  { gauche: 57, taille: 24, duree: 6.8, retard: 2.4 },
+  { gauche: 69, taille: 12, duree: 4.0, retard: 1.2 },
+  { gauche: 80, taille: 30, duree: 7.0, retard: 2.0 },
+  { gauche: 91, taille: 16, duree: 5.0, retard: 2.8 },
 ];
 
 function Bulles({ couleur }) {
-  // « 2e » ajouté à la couleur = environ 18 % d'opacité : décoratif, jamais
-  // gênant pour la lecture du texte posé au-dessus.
-  const teinte = /^#[0-9a-f]{6}$/i.test(String(couleur)) ? `${couleur}2e` : "rgba(2,132,199,0.18)";
+  // Suffixe hexadécimal ajouté à la couleur = son opacité. « 4d » ≈ 30 % pour
+  // le corps, « 80 » ≈ 50 % pour le liseré : assez visible pour se lire comme
+  // une bulle (Timo : « elles apparaissent à peine »), assez dilué pour ne pas
+  // gêner la lecture du texte posé au-dessus.
+  const valide = /^#[0-9a-f]{6}$/i.test(String(couleur));
+  const teinte = valide ? `${couleur}4d` : "rgba(2,132,199,0.3)";
+  const bord = valide ? `${couleur}80` : "rgba(2,132,199,0.5)";
   return (
     <span className="bmi-bulles" aria-hidden="true">
       {BULLES.map((b, i) => (
@@ -183,6 +191,7 @@ function Bulles({ couleur }) {
             animationDuration: `${b.duree}s`,
             animationDelay: `${b.retard}s`,
             "--bmi-bulle-couleur": teinte,
+            "--bmi-bulle-bord": bord,
           }}
         />
       ))}
