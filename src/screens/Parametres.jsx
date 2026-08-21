@@ -79,9 +79,12 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (!fichier) return;
     setImageEnCours(true);
     try {
-      // Écran de connexion assez petit (carte ~380px) : 500px de large
-      // suffit largement, garde le poids de synchronisation raisonnable.
-      const data = await compresserPhoto(fichier, 500, 0.6);
+      // ⚠ 500 px suffisaient quand l'image n'était qu'un fond flouté derrière
+      // deux cadres opaques. Depuis que les cadres peuvent devenir
+      // transparents (demande Timo, 20/08/2026), l'image se voit vraiment :
+      // à 500 px elle paraissait floue et mal découpée sur un téléphone à
+      // écran dense. 900 px reste raisonnable à synchroniser (~150 Ko).
+      const data = await compresserPhoto(fichier, 900, 0.72);
       enregistrerAccueil({ accueil_image: data });
     } catch {
       uAlert("Impossible de lire cette image.");
@@ -93,7 +96,11 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const reinitialiserAccueil = async () => {
     if (!await uConfirm("Revenir à l'écran de connexion normal (texte, couleurs et image par défaut) ?")) return;
     setAccueilTexte(""); setAccueilBadge("#0284c7"); setAccueilFond("#ffffff");
-    enregistrerAccueil({ accueil_texte: "", accueil_couleur_badge: "", accueil_couleur_fond: "", accueil_image: "" });
+    enregistrerAccueil({
+      accueil_texte: "", accueil_couleur_badge: "", accueil_couleur_fond: "", accueil_image: "",
+      accueil_opacite_cadres: "", accueil_bulles: false,
+      accueil_image_ajustement: "", accueil_image_position: "",
+    });
   };
 
   // ---- CACHET BMI TOGO — utilisé sur tous les contrats d'installation,
@@ -1047,6 +1054,35 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 <input type="color" value={accueilFond} onChange={(e) => { setAccueilFond(e.target.value); enregistrerAccueil({ accueil_couleur_fond: e.target.value }); }} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
               </Field>
             </div>
+            <div className="flex flex-wrap gap-4">
+              <Field label="Transparence des cadres">
+                <select
+                  className={inputCls}
+                  value={boutiqueRef.accueil_opacite_cadres ?? ""}
+                  onChange={(e) => enregistrerAccueil({ accueil_opacite_cadres: e.target.value })}
+                >
+                  <option value="">Par défaut</option>
+                  <option value="100">Opaque — cadres blancs pleins</option>
+                  <option value="85">Léger voile (85 %)</option>
+                  <option value="60">Moyen (60 %)</option>
+                  <option value="30">Fort (30 %)</option>
+                  <option value="0">Totalement transparent</option>
+                </select>
+              </Field>
+              <Field label="Bulles animées dans les cadres">
+                <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={boutiqueRef.accueil_bulles === true}
+                    onChange={(e) => enregistrerAccueil({ accueil_bulles: e.target.checked })}
+                  />
+                  <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_bulles === true ? "Activées" : "Désactivées"}</span>
+                </label>
+              </Field>
+            </div>
+            <div className="text-xs text-slate-500 -mt-1">
+              💡 En dessous de 30 %, le texte peut devenir difficile à lire sur une image claire — regardez l'écran de connexion avant de laisser comme ça. « Par défaut » remet l'écran d'origine.
+            </div>
             <Field label="Image de fond (remplace la couleur de fond si présente)">
               <input type="file" accept="image/*" onChange={(e) => chargerImageAccueil(e.target.files?.[0])} disabled={imageEnCours} className="text-sm" />
               {imageEnCours && <div className="text-xs text-slate-400 mt-1">Compression de l'image…</div>}
@@ -1057,6 +1093,32 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 </div>
               )}
             </Field>
+            {boutiqueRef.accueil_image && (
+              <div className="flex flex-wrap gap-4">
+                <Field label="Comment l'image se pose">
+                  <select
+                    className={inputCls}
+                    value={boutiqueRef.accueil_image_ajustement || "remplir"}
+                    onChange={(e) => enregistrerAccueil({ accueil_image_ajustement: e.target.value })}
+                  >
+                    <option value="remplir">Remplir la carte (bords recadrés)</option>
+                    <option value="entier">Image entière (rien de coupé)</option>
+                    <option value="etirer">Étirer (peut déformer)</option>
+                  </select>
+                </Field>
+                <Field label="Partie de l'image à privilégier">
+                  <select
+                    className={inputCls}
+                    value={boutiqueRef.accueil_image_position || "centre"}
+                    onChange={(e) => enregistrerAccueil({ accueil_image_position: e.target.value })}
+                  >
+                    <option value="haut">Le haut</option>
+                    <option value="centre">Le centre</option>
+                    <option value="bas">Le bas</option>
+                  </select>
+                </Field>
+              </div>
+            )}
             <button onClick={reinitialiserAccueil} className="px-4 py-2 rounded-lg border-2 border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-50">↺ Revenir à l'écran normal</button>
           </div>
         </div>

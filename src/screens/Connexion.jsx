@@ -77,23 +77,58 @@ export function Login({ db, onLogin, save }) {
   const accueilBadge = b0.accueil_couleur_badge || db.boutiques.find((b) => b.nom === "DEMAKPOE")?.couleur || "#0284c7";
   const accueilFond = b0.accueil_couleur_fond || "#ffffff";
   const accueilImage = b0.accueil_image || "";
+  // ⚠ Demande Timo (20/08/2026) : les deux cadres blancs étaient figés à 75 %
+  // et 90 % d'opacité — impossible de laisser voir l'image de fond. Ils sont
+  // désormais réglables depuis Paramètres, jusqu'à la transparence totale.
+  const opacite = Math.max(0, Math.min(100,
+    b0.accueil_opacite_cadres === undefined || b0.accueil_opacite_cadres === ""
+      ? 85 : Number(b0.accueil_opacite_cadres)));
+  const fondCadre = `rgba(255,255,255,${opacite / 100})`;
+  // Le flou d'arrière-plan sert à garder le texte lisible sur un fond chargé.
+  // À transparence totale il irait contre l'intention : on veut justement
+  // voir l'image nette. On le retire donc au-dessous de 20 %.
+  const flou = opacite >= 20 ? "backdrop-blur-sm" : "";
+  // ⚠ Demande Timo (20/08/2026) : « ajouter dans ces cadres un fond avec des
+  // bulles qui se mouvementent ». Option décorative, éteinte par défaut.
+  const bulles = b0.accueil_bulles === true;
+  // ⚠ Même demande : une image de fond était toujours recadrée pour remplir
+  // la carte (« cover »), donc souvent amputée de ses bords. On laisse
+  // choisir comment elle se pose, et où elle se cale.
+  const ajustement = b0.accueil_image_ajustement || "remplir";
+  const position = b0.accueil_image_position || "centre";
+  const tailleImage = ajustement === "entier" ? "contain" : ajustement === "etirer" ? "100% 100%" : "cover";
+  const positionImage = position === "haut" ? "top center" : position === "bas" ? "bottom center" : "center";
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900 flex items-center justify-center p-4">
       <div
-        className="rounded-2xl p-6 w-full max-w-sm shadow-xl"
-        style={accueilImage
-          ? { backgroundImage: `url(${accueilImage})`, backgroundSize: "cover", backgroundPosition: "center" }
-          : { backgroundColor: accueilFond }}
+        className="rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
+        style={{
+          // La couleur reste posée SOUS l'image : en mode « image entière »,
+          // c'est elle qui comble les bandes laissées libres. Avant, la
+          // couleur était purement ignorée dès qu'une image existait.
+          backgroundColor: accueilFond,
+          ...(accueilImage ? {
+            backgroundImage: `url(${accueilImage})`,
+            backgroundSize: tailleImage,
+            backgroundPosition: positionImage,
+            backgroundRepeat: "no-repeat",
+          } : {}),
+        }}
       >
-        {/* Fond semi-transparent derrière le logo/titre : reste lisible même
-            si la couleur ou l'image de fond choisie est sombre. */}
-        <div className="text-center mb-5 bg-white/75 backdrop-blur-sm rounded-xl p-3">
+        {/* Voile blanc derrière le logo/titre, dont l'opacité est réglable
+            dans Paramètres (0 % = cadre totalement invisible). */}
+        <div className={`relative overflow-hidden text-center mb-5 rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
+          {bulles && <Bulles couleur={accueilBadge} />}
+          <div className="relative">
           <img src={LOGO} alt="BMI Togo" className="mx-auto mb-3 w-40 h-auto" />
           <div className="text-xl font-bold text-slate-900">GESTION SYSTÈME</div>
           <span className="inline-block px-3 py-1 rounded-full text-sm font-bold text-white mt-2" style={{ backgroundColor: accueilBadge }}>{accueilTexte}</span>
           <div className="text-xs text-slate-400 mt-1">Espace de gestion — Lomé, Togo</div>
+          </div>
         </div>
-        <div className="space-y-3 bg-white/90 backdrop-blur-sm rounded-xl p-3">
+        <div className={`relative overflow-hidden rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
+          {bulles && <Bulles couleur={accueilBadge} />}
+          <div className="relative space-y-3">
           <Field label="Utilisateur">
             <input className={inputCls} autoCapitalize="words" placeholder="Votre nom" value={nomSaisi} onChange={(e) => { setNomSaisi(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
           </Field>
@@ -108,8 +143,49 @@ export function Login({ db, onLogin, save }) {
           {err && <div className="text-xs text-red-600 font-semibold">{err}</div>}
           <button onClick={go} disabled={connexionEnCours} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{connexionEnCours ? "Connexion…" : "Se connecter"}</button>
           <div className="text-center text-[11px] text-slate-400">Version {VERSION}</div>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ============ BULLES ANIMÉES (option décorative) ============
+// Demande Timo (20/08/2026). Position, taille, durée et retard sont FIXES et
+// non tirés au hasard : une valeur aléatoire changerait à chaque réaffichage
+// de React, et les bulles sauteraient d'un coup au lieu de monter calmement.
+// La couleur suit celle du bandeau, pour rester accordée au reste de l'écran.
+const BULLES = [
+  { gauche: 6,  taille: 26, duree: 13, retard: 0 },
+  { gauche: 18, taille: 14, duree: 9,  retard: 2 },
+  { gauche: 31, taille: 34, duree: 16, retard: 5 },
+  { gauche: 44, taille: 18, duree: 11, retard: 1 },
+  { gauche: 57, taille: 24, duree: 14, retard: 7 },
+  { gauche: 69, taille: 12, duree: 8,  retard: 3 },
+  { gauche: 80, taille: 30, duree: 15, retard: 6 },
+  { gauche: 91, taille: 16, duree: 10, retard: 4 },
+];
+
+function Bulles({ couleur }) {
+  // « 2e » ajouté à la couleur = environ 18 % d'opacité : décoratif, jamais
+  // gênant pour la lecture du texte posé au-dessus.
+  const teinte = /^#[0-9a-f]{6}$/i.test(String(couleur)) ? `${couleur}2e` : "rgba(2,132,199,0.18)";
+  return (
+    <span className="bmi-bulles" aria-hidden="true">
+      {BULLES.map((b, i) => (
+        <span
+          key={i}
+          className="bmi-bulle"
+          style={{
+            left: `${b.gauche}%`,
+            width: b.taille,
+            height: b.taille,
+            animationDuration: `${b.duree}s`,
+            animationDelay: `${b.retard}s`,
+            "--bmi-bulle-couleur": teinte,
+          }}
+        />
+      ))}
+    </span>
   );
 }

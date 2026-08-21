@@ -50,3 +50,44 @@ button:not(:disabled):focus-visible {
    sortir du cadre — sur PC comme sur téléphone. */
 .grid > * { min-width: 0; }
 input, select, textarea { max-width: 100%; }
+
+/* ============================================================
+   BULLES ANIMÉES DES CADRES DE CONNEXION (demande Timo,
+   20/08/2026 : « ajouter dans ces cadres un fond avec des bulles
+   qui se mouvementent »).
+
+   Option purement décorative, désactivée par défaut, réglée dans
+   Paramètres → Personnaliser l'écran de connexion. Écrite en CSS
+   pur : aucune bibliothèque, aucun calcul en continu, donc rien
+   qui ralentisse un téléphone d'entrée de gamme.
+
+   La couleur est héritée du bandeau choisi par l'administrateur
+   (variable --bmi-bulle-couleur), pour que la décoration reste
+   accordée au reste de l'écran. */
+@keyframes bmi-bulle-monte {
+  0%   { transform: translateY(0) scale(1);      opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateY(-160%) scale(1.2); opacity: 0; }
+}
+.bmi-bulles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;   /* jamais entre le doigt et un champ de saisie */
+  border-radius: inherit;
+}
+.bmi-bulle {
+  position: absolute;
+  bottom: -25%;
+  border-radius: 9999px;
+  background: var(--bmi-bulle-couleur, rgba(2, 132, 199, 0.18));
+  animation-name: bmi-bulle-monte;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+/* Respect des personnes qui ont demandé moins d'animations sur leur
+   appareil (réglage système) : les bulles restent, mais immobiles. */
+@media (prefers-reduced-motion: reduce) {
+  .bmi-bulle { animation: none; opacity: 0.35; }
+}
