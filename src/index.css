@@ -104,3 +104,51 @@ input, select, textarea { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .bmi-bulle { animation: none; opacity: 0.35; bottom: 35%; }
 }
+
+/* ============================================================
+   SOUHAITS QUI MONTENT SUR L'ÉCRAN DE CONNEXION (demande Timo,
+   20/08/2026 : « du texte qui monte comme les bulles, pour
+   souhaiter les anniversaires et les fêtes de fin d'année »).
+
+   Occupe TOUT l'écran, derrière la carte de connexion : ainsi le
+   texte défile dans les marges libres au-dessus et au-dessous,
+   sans jamais passer devant les champs de saisie.
+
+   Chaque ligne prend toute la largeur et reste centrée : un texte
+   placé « à x % de la gauche » sortirait de l'écran sur un
+   téléphone dès qu'il est un peu long. */
+@keyframes bmi-souhait-monte {
+  0%   { bottom: -6%;  opacity: 0; }
+  14%  { opacity: 1; }
+  78%  { opacity: 1; }
+  100% { bottom: 104%; opacity: 0; }
+}
+.bmi-souhaits {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.bmi-souhait {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6%;
+  padding: 0 16px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.92);
+  /* Halo sombre : garde le texte lisible même quand il passe devant
+     une zone claire du fond ou de la carte. */
+  text-shadow: 0 1px 6px rgba(2, 20, 40, 0.75);
+  animation-name: bmi-souhait-monte;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bmi-souhait { animation: none; opacity: 0.9; bottom: auto; top: 8px; }
+  .bmi-souhait ~ .bmi-souhait { display: none; }
+}

@@ -918,6 +918,44 @@ export const assurerBoutiqueTerrain = (db, formation = false) => {
   return { ...db, boutiques: [...(db.boutiques || []), caisse] };
 };
 
+// ============ SOUHAITS DE L'ÉCRAN DE CONNEXION ============
+// ⚠ Demande Timo (20/08/2026) : « du texte qui monte comme les bulles, pour
+// souhaiter les joyeux anniversaires aux employés et les joyeuses fêtes de
+// fin d'année ».
+//
+// ⚠ CHOIX DE CONCEPTION — on ne garde que le JOUR et le MOIS, jamais l'année.
+// L'écran de connexion s'affiche AVANT que quiconque se connecte : y porter
+// une date de naissance complète reviendrait à publier l'âge de chacun. Le
+// jour et le mois suffisent pour souhaiter, et peuvent rester sur la fiche
+// employé — une date complète, elle, aurait sa place dans la table protégée
+// `paie`, que l'écran de connexion ne peut justement pas lire (voir
+// lib/paie.js).
+//
+// Format retenu : "MM-JJ" (ex. "04-12" pour le 12 avril), c'est-à-dire la
+// fin d'une date ISO — comparable directement, sans conversion.
+export const anniversaireDuJour = (dateDuJour = today()) => String(dateDuJour).slice(5, 10);
+
+// Les messages qui monteront, dans l'ordre d'affichage : les anniversaires du
+// jour d'abord, puis les messages libres saisis par l'administrateur.
+// Renvoie un tableau vide quand il n'y a rien à souhaiter — l'écran de
+// connexion n'affiche alors aucune animation de texte.
+export const souhaitsDuJour = (db, dateDuJour = today()) => {
+  const b0 = (db?.boutiques || [])[0] || {};
+  const libres = String(b0.accueil_messages || "")
+    .split("\n").map((t) => t.trim()).filter(Boolean);
+  let fetes = [];
+  if (b0.accueil_anniversaires === true) {
+    const jour = anniversaireDuJour(dateDuJour);
+    fetes = (db?.users || [])
+      // Les comptes CLIENTS sont exclus : on souhaite aux employés.
+      .filter((u) => u.actif !== false && u.role !== "client" && u.anniv && u.anniv === jour)
+      .map((u) => `🎂 Joyeux anniversaire ${u.nom_complet || u.nom} !`);
+  }
+  // Au-delà de six, les messages se chevauchent à l'écran et deviennent
+  // illisibles : on garde les premiers, anniversaires en tête.
+  return [...fetes, ...libres].slice(0, 6);
+};
+
 // ============ POUVOIRS (droits désactivables par l'administrateur) ============
 // Chaque compte possède, selon son rôle, une liste de pouvoirs par défaut.
 // L'administrateur peut en désactiver n'importe lequel : les identifiants

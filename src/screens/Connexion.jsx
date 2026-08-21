@@ -7,6 +7,7 @@ import { useState } from "react";
 import { LOGO, VERSION } from "../lib/constants";
 import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { Field, inputCls } from "../components/ui";
+import { souhaitsDuJour } from "../lib/calculs";
 import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
 import { enregistrerCompteLocal } from "../db";
 
@@ -91,6 +92,9 @@ export function Login({ db, onLogin, save }) {
   // ⚠ Demande Timo (20/08/2026) : « ajouter dans ces cadres un fond avec des
   // bulles qui se mouvementent ». Option décorative, éteinte par défaut.
   const bulles = b0.accueil_bulles === true;
+  // Anniversaires du jour + messages libres de l'administrateur (voir
+  // souhaitsDuJour dans lib/calculs.js). Tableau vide = aucune animation.
+  const souhaits = souhaitsDuJour(db);
   // ⚠ Même demande : une image de fond était toujours recadrée pour remplir
   // la carte (« cover »), donc souvent amputée de ses bords. On laisse
   // choisir comment elle se pose, et où elle se cale.
@@ -100,8 +104,9 @@ export function Login({ db, onLogin, save }) {
   const positionImage = position === "haut" ? "top center" : position === "bas" ? "bottom center" : "center";
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900 flex items-center justify-center p-4">
+      {souhaits.length > 0 && <Souhaits messages={souhaits} />}
       <div
-        className="rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
+        className="relative z-10 rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
         style={{
           // La couleur reste posée SOUS l'image : en mode « image entière »,
           // c'est elle qui comble les bandes laissées libres. Avant, la
@@ -169,6 +174,36 @@ const BULLES = [
   { gauche: 80, taille: 30, duree: 7.0, retard: 2.0 },
   { gauche: 91, taille: 16, duree: 5.0, retard: 2.8 },
 ];
+
+// ============ SOUHAITS QUI MONTENT (anniversaires et fêtes) ============
+// Demande Timo (20/08/2026). Chaque message monte sur toute la hauteur de
+// l'écran, DERRIÈRE la carte de connexion : il défile dans les marges libres
+// au-dessus et au-dessous, et ne passe jamais devant les champs de saisie.
+//
+// Les départs sont ÉTALÉS : sans cela tous les messages partiraient ensemble
+// et se superposeraient en un bloc illisible. Un message toutes les
+// 7 secondes, et une montée de 13 secondes — assez lente pour être lue.
+const ECART_SOUHAIT = 7;
+const MONTEE_SOUHAIT = 13;
+
+function Souhaits({ messages }) {
+  // Cycle commun à tous : les messages se suivent à intervalle régulier et
+  // reviennent dans le même ordre, indéfiniment.
+  const cycle = Math.max(MONTEE_SOUHAIT, messages.length * ECART_SOUHAIT);
+  return (
+    <div className="bmi-souhaits" aria-hidden="true">
+      {messages.map((texte, i) => (
+        <div
+          key={i}
+          className="bmi-souhait"
+          style={{ animationDuration: `${cycle}s`, animationDelay: `${i * ECART_SOUHAIT}s` }}
+        >
+          {texte}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function Bulles({ couleur }) {
   // Suffixe hexadécimal ajouté à la couleur = son opacité. « 4d » ≈ 30 % pour

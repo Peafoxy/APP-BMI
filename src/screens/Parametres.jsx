@@ -100,6 +100,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       accueil_texte: "", accueil_couleur_badge: "", accueil_couleur_fond: "", accueil_image: "",
       accueil_opacite_cadres: "", accueil_bulles: false,
       accueil_image_ajustement: "", accueil_image_position: "",
+      accueil_messages: "", accueil_anniversaires: false,
     });
   };
 
@@ -1083,6 +1084,34 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <div className="text-xs text-slate-500 -mt-1">
               💡 En dessous de 30 %, le texte peut devenir difficile à lire sur une image claire — regardez l'écran de connexion avant de laisser comme ça. « Par défaut » remet l'écran d'origine.
             </div>
+            <Field label="Messages qui montent à l'écran (un par ligne, 6 maximum)">
+              <textarea
+                className={`${inputCls} h-24`}
+                placeholder={"Joyeuses fêtes de fin d'année !\nBonne et heureuse année à tous"}
+                defaultValue={boutiqueRef.accueil_messages || ""}
+                onBlur={(e) => {
+                  if ((e.target.value || "") !== (boutiqueRef.accueil_messages || "")) {
+                    enregistrerAccueil({ accueil_messages: e.target.value });
+                  }
+                }}
+              />
+              <div className="text-xs text-slate-500 mt-1">
+                Ils montent doucement du bas de l'écran de connexion, un par un. Videz la case pour tout retirer.
+              </div>
+            </Field>
+            <Field label="Souhaiter les anniversaires du jour">
+              <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={boutiqueRef.accueil_anniversaires === true}
+                  onChange={(e) => enregistrerAccueil({ accueil_anniversaires: e.target.checked })}
+                />
+                <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_anniversaires === true ? "Activé" : "Désactivé"}</span>
+              </label>
+              <div className="text-xs text-slate-500 mt-1">
+                🎂 Renseignez le jour et le mois sur chaque fiche employé (onglet Utilisateurs, bouton « Anniversaire »). Les employés dont c'est l'anniversaire sont alors souhaités automatiquement, chaque année. L'année de naissance n'est jamais demandée.
+              </div>
+            </Field>
             <Field label="Image de fond (remplace la couleur de fond si présente)">
               <input type="file" accept="image/*" onChange={(e) => chargerImageAccueil(e.target.files?.[0])} disabled={imageEnCours} className="text-sm" />
               {imageEnCours && <div className="text-xs text-slate-400 mt-1">Compression de l'image…</div>}

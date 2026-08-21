@@ -253,6 +253,60 @@ titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
   }
 }
 
+titre("Les souhaits de l'écran de connexion");
+{
+  const socle = (reglages, users = []) => ({
+    boutiques: [{ id: "b1", nom: "APESSITO", ...reglages }],
+    users,
+  });
+  const equipe = [
+    { id: "u1", nom: "KOSSI", role: "vendeur", anniv: "04-12" },
+    { id: "u2", nom: "AMA", nom_complet: "AMAVI Komla", role: "technicien", anniv: "04-12" },
+    { id: "u3", nom: "PARTI", role: "vendeur", anniv: "04-12", actif: false },
+    { id: "u4", nom: "CLIENT.X", role: "client", anniv: "04-12" },
+    { id: "u5", nom: "AUTRE", role: "vendeur", anniv: "09-30" },
+    { id: "u6", nom: "SANSDATE", role: "vendeur" },
+  ];
+  const LE_12_AVRIL = "2026-04-12";
+
+  test("aucun réglage : rien ne monte à l'écran",
+    C.souhaitsDuJour(socle({}), LE_12_AVRIL).length === 0);
+  test("les messages libres sont repris ligne par ligne",
+    C.souhaitsDuJour(socle({ accueil_messages: "Joyeuses fêtes !\nBonne année" }), LE_12_AVRIL).length === 2);
+  test("les lignes vides et les espaces sont ignorés",
+    C.souhaitsDuJour(socle({ accueil_messages: "  Joyeux Noël  \n\n   \n" }), LE_12_AVRIL)
+      .join("|") === "Joyeux Noël");
+  test("anniversaires éteints : personne n'est souhaité",
+    C.souhaitsDuJour(socle({}, equipe), LE_12_AVRIL).length === 0);
+
+  const duJour = C.souhaitsDuJour(socle({ accueil_anniversaires: true }, equipe), LE_12_AVRIL);
+  test("les employés du jour sont souhaités", duJour.length === 2);
+  test("…par leur nom complet quand il est connu",
+    duJour.some((t) => t.includes("AMAVI Komla")));
+  test("…et par leur nom de compte sinon",
+    duJour.some((t) => t.includes("KOSSI")));
+  test("un compte désactivé n'est pas souhaité",
+    !duJour.some((t) => t.includes("PARTI")));
+  test("un compte CLIENT n'est jamais souhaité (ce sont les employés qu'on fête)",
+    !duJour.some((t) => t.includes("CLIENT.X")));
+  test("un employé dont ce n'est pas la date n'est pas souhaité",
+    !duJour.some((t) => t.includes("AUTRE")));
+  test("un employé sans date renseignée est simplement ignoré, sans planter",
+    !duJour.some((t) => t.includes("SANSDATE")));
+  test("le 30 septembre, c'est l'autre qui est souhaité",
+    C.souhaitsDuJour(socle({ accueil_anniversaires: true }, equipe), "2026-09-30")
+      .join("|").includes("AUTRE"));
+  test("l'année n'entre jamais en jeu : le même jour, une autre année, souhaite pareil",
+    C.souhaitsDuJour(socle({ accueil_anniversaires: true }, equipe), "2031-04-12").length === 2);
+  test("les anniversaires passent AVANT les messages libres",
+    C.souhaitsDuJour(socle({ accueil_anniversaires: true, accueil_messages: "Fêtes" }, equipe), LE_12_AVRIL)[0]
+      .includes("anniversaire"));
+  test("jamais plus de 6 messages à l'écran (au-delà ils se chevauchent)",
+    C.souhaitsDuJour(socle({ accueil_messages: "a\nb\nc\nd\ne\nf\ng\nh" }), LE_12_AVRIL).length === 6);
+  test("une base sans boutique ni compte ne fait rien planter",
+    C.souhaitsDuJour({}, LE_12_AVRIL).length === 0);
+}
+
 titre("Les sélecteurs ne montrent que l'espace du compte");
 {
   const db = base();

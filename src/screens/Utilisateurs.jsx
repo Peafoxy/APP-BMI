@@ -494,6 +494,42 @@ export function Users({ db, save, profile }) {
       `Identité de ${u.nom} enregistrée : ${nc.trim()}${num.trim() ? ` (${tp.trim()} n° ${num.trim()})` : ""}`);
   };
 
+  // ---- ANNIVERSAIRE (jour et mois seulement) ----
+  // ⚠ Demande Timo (20/08/2026) : souhaiter automatiquement les anniversaires
+  // sur l'écran de connexion. On ne demande PAS l'année : cet écran s'affiche
+  // avant toute connexion, et y porter une date complète reviendrait à
+  // publier l'âge de chacun. Rangé sur la fiche employé (et non dans la table
+  // protégée `paie`) précisément parce que l'écran de connexion doit pouvoir
+  // le lire — ce qui reste sans danger, un jour et un mois ne trahissent rien.
+  const changerAnniversaire = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const actuel = u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "";
+    const v = await uPrompt(
+      `Anniversaire de ${u.nom} — jour et mois, sous la forme JJ/MM (ex. 12/04 pour le 12 avril).\n\n` +
+      `Laissez vide pour ne rien souhaiter.`, actuel);
+    if (v === null) return;
+    const saisie = String(v).trim();
+    if (!saisie) {
+      save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, anniv: "" } : x)) },
+        `Anniversaire de ${u.nom} retiré`);
+      return;
+    }
+    const m = saisie.match(/^(\d{1,2})\s*[\/\-. ]\s*(\d{1,2})$/);
+    if (!m) { uAlert("Format non reconnu. Écrivez le jour puis le mois, par exemple 12/04."); return; }
+    const jour = Number(m[1]);
+    const mois = Number(m[2]);
+    // 31 accepté pour tous les mois : c'est un jour d'anniversaire, pas une
+    // date réelle à valider — refuser le 31/04 n'apporterait rien d'utile,
+    // mais refuser le 32 ou le mois 13 évite une saisie inversée (04/12).
+    if (jour < 1 || jour > 31 || mois < 1 || mois > 12) {
+      uAlert("Jour entre 1 et 31, mois entre 1 et 12. Avez-vous inversé le jour et le mois ?");
+      return;
+    }
+    const anniv = `${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, anniv } : x)) },
+      `Anniversaire de ${u.nom} enregistré : ${String(jour).padStart(2, "0")}/${String(mois).padStart(2, "0")}`);
+  };
+
   const changerTauxAvancement = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Taux d'avancement annuel de ${u.nom} (en %) :`, String(u.taux_avancement || ""));
@@ -913,6 +949,7 @@ export function Users({ db, save, profile }) {
                   {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className="text-xs font-bold text-amber-700 underline mr-2">🤝 Parrain</button>}
                   {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className="text-xs font-bold text-amber-700 underline mr-2">⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT}%</button>}
                   <button onClick={() => changerIdentite(u)} className="text-xs font-bold text-sky-800 underline mr-2">🪪 Identité</button>
+                  {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className="text-xs font-bold text-pink-700 underline mr-2">🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
                   {jeSuisAdminPrincipal && (
