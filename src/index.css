@@ -106,49 +106,54 @@ input, select, textarea { max-width: 100%; }
 }
 
 /* ============================================================
-   SOUHAITS QUI MONTENT SUR L'ÉCRAN DE CONNEXION (demande Timo,
+   SOUHAITS QUI MONTENT DANS LES CADRES (demande Timo,
    20/08/2026 : « du texte qui monte comme les bulles, pour
    souhaiter les anniversaires et les fêtes de fin d'année »).
 
-   Occupe TOUT l'écran, derrière la carte de connexion : ainsi le
-   texte défile dans les marges libres au-dessus et au-dessous,
-   sans jamais passer devant les champs de saisie.
+   ⚠ PLACEMENT CORRIGÉ le même jour : la première version faisait
+   monter le texte sur toute la hauteur de l'écran, DERRIÈRE la
+   carte de connexion. Sur un téléphone, la carte occupe presque
+   tout l'écran : le message était donc entièrement masqué
+   (« il n'apparaît pas dans les cadres mais dans le fond de la
+   carte, c'est totalement masqué par les 2 cadres »). Il monte
+   maintenant DANS le cadre, exactement comme les bulles.
 
-   Chaque ligne prend toute la largeur et reste centrée : un texte
-   placé « à x % de la gauche » sortirait de l'écran sur un
-   téléphone dès qu'il est un peu long. */
+   Le texte prend toute la largeur du cadre et reste centré : un
+   texte calé à x % de la gauche déborderait dès qu'il est long. */
 @keyframes bmi-souhait-monte {
-  0%   { bottom: -6%;  opacity: 0; }
-  14%  { opacity: 1; }
-  78%  { opacity: 1; }
-  100% { bottom: 104%; opacity: 0; }
+  0%   { bottom: -18%; opacity: 0; }
+  18%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { bottom: 100%;  opacity: 0; }
 }
 .bmi-souhaits {
-  position: fixed;
+  position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 0;
+  border-radius: inherit;
 }
 .bmi-souhait {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -6%;
-  padding: 0 16px;
+  bottom: -18%;
+  padding: 0 8px;
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.92);
-  /* Halo sombre : garde le texte lisible même quand il passe devant
-     une zone claire du fond ou de la carte. */
-  text-shadow: 0 1px 6px rgba(2, 20, 40, 0.75);
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--bmi-souhait-couleur, #0284c7);
+  /* Halo blanc : garde le texte lisible aussi bien sur un cadre
+     blanc que sur une photo sombre vue à travers un cadre rendu
+     transparent. */
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 1);
   animation-name: bmi-souhait-monte;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   animation-fill-mode: backwards;
 }
 @media (prefers-reduced-motion: reduce) {
-  .bmi-souhait { animation: none; opacity: 0.9; bottom: auto; top: 8px; }
+  .bmi-souhait { animation: none; opacity: 0.9; bottom: 6px; }
   .bmi-souhait ~ .bmi-souhait { display: none; }
 }

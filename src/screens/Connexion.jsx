@@ -3,7 +3,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LOGO, VERSION } from "../lib/constants";
 import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { Field, inputCls } from "../components/ui";
@@ -104,7 +104,6 @@ export function Login({ db, onLogin, save }) {
   const positionImage = position === "haut" ? "top center" : position === "bas" ? "bottom center" : "center";
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900 flex items-center justify-center p-4">
-      {souhaits.length > 0 && <Souhaits messages={souhaits} />}
       <div
         className="relative z-10 rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
         style={{
@@ -124,6 +123,7 @@ export function Login({ db, onLogin, save }) {
             dans Paramètres (0 % = cadre totalement invisible). */}
         <div className={`relative overflow-hidden text-center mb-5 rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
           {bulles && <Bulles couleur={accueilBadge} />}
+          {souhaits.length > 0 && <Souhaits messages={souhaits} couleur={accueilBadge} />}
           <div className="relative">
           <img src={LOGO} alt="BMI Togo" className="mx-auto mb-3 w-40 h-auto" />
           <div className="text-xl font-bold text-slate-900">GESTION SYSTÈME</div>
@@ -176,31 +176,45 @@ const BULLES = [
 ];
 
 // ============ SOUHAITS QUI MONTENT (anniversaires et fêtes) ============
-// Demande Timo (20/08/2026). Chaque message monte sur toute la hauteur de
-// l'écran, DERRIÈRE la carte de connexion : il défile dans les marges libres
-// au-dessus et au-dessous, et ne passe jamais devant les champs de saisie.
+// Demande Timo (20/08/2026), montés DANS le cadre du haut — comme les bulles.
 //
-// Les départs sont ÉTALÉS : sans cela tous les messages partiraient ensemble
-// et se superposeraient en un bloc illisible. Un message toutes les
-// 7 secondes, et une montée de 13 secondes — assez lente pour être lue.
-const ECART_SOUHAIT = 7;
-const MONTEE_SOUHAIT = 13;
+// ⚠ UN SEUL message à la fois. Le cadre ne fait qu'environ 200 pixels de
+// haut : deux messages qui s'y croisent se chevauchent et deviennent
+// illisibles.
+//
+// ⚠ Et il ne faut PAS chercher à les enchaîner uniquement en CSS, avec des
+// retards décalés : toutes les animations ayant la même durée, elles se
+// resynchronisent au deuxième tour et repartent ensemble — précisément ce
+// qu'on veut éviter. On fait donc tourner le message en JavaScript, et un
+// seul élément est affiché à la fois. Le changement de `key` remonte
+// l'élément, ce qui relance proprement l'animation depuis le bas.
+const MONTEE_SOUHAIT = 9;
 
-function Souhaits({ messages }) {
-  // Cycle commun à tous : les messages se suivent à intervalle régulier et
-  // reviennent dans le même ordre, indéfiniment.
-  const cycle = Math.max(MONTEE_SOUHAIT, messages.length * ECART_SOUHAIT);
+function Souhaits({ messages, couleur }) {
+  const [index, setIndex] = useState(0);
+  const nombre = messages.length;
+  useEffect(() => {
+    if (nombre < 2) return undefined;
+    const minuterie = setInterval(
+      () => setIndex((i) => (i + 1) % nombre),
+      MONTEE_SOUHAIT * 1000,
+    );
+    return () => clearInterval(minuterie);
+  }, [nombre]);
+
+  const teinte = /^#[0-9a-f]{6}$/i.test(String(couleur)) ? couleur : "#0284c7";
+  // Repli sur 0 si la liste a raccourci entre-temps (message retiré dans
+  // Paramètres pendant que l'écran est affiché).
+  const texte = messages[index] || messages[0];
   return (
     <div className="bmi-souhaits" aria-hidden="true">
-      {messages.map((texte, i) => (
-        <div
-          key={i}
-          className="bmi-souhait"
-          style={{ animationDuration: `${cycle}s`, animationDelay: `${i * ECART_SOUHAIT}s` }}
-        >
-          {texte}
-        </div>
-      ))}
+      <div
+        key={index}
+        className="bmi-souhait"
+        style={{ animationDuration: `${MONTEE_SOUHAIT}s`, "--bmi-souhait-couleur": teinte }}
+      >
+        {texte}
+      </div>
     </div>
   );
 }
