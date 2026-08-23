@@ -548,6 +548,40 @@ export default function App() {
   };
 
   if (!db) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><LoadingSpinner /></div>;
+  // ⚠ PLACÉ ICI, ET PAS PLUS BAS : tout `useEffect` doit être déclaré AVANT
+  // le retour anticipé de l'écran de connexion ci-dessous. Posé après, il
+  // n'existait pas tant que personne n'était connecté puis apparaissait
+  // ensuite — React refuse ce changement et l'application ne s'affichait
+  // plus du tout (écran blanc, signalé par Timo en 2.100.76).
+  // ⚠ UN COMPTE BLOQUÉ PERD LA MAIN IMMÉDIATEMENT (point 12 de l'audit du
+  // 20/08/2026). L'application ne vérifiait `actif` qu'à la connexion et à la
+  // reprise de session : un employé bloqué — ou licencié — continuait donc de
+  // travailler normalement jusqu'à l'expiration de son jeton.
+  //
+  // On surveille désormais SA fiche en continu. Dès que la synchronisation
+  // rapporte le blocage (ou la désactivation faite depuis un autre appareil),
+  // la session se ferme, avec un message qui explique.
+  //
+  // Ce que cela ne fait PAS, et il faut le savoir : le jeton de session reste
+  // valable côté serveur jusqu'à son expiration. Quelqu'un qui contournerait
+  // l'application pourrait donc encore écrire pendant ce laps de temps. La
+  // fermeture complète demanderait au serveur de révoquer la session — c'est
+  // le prolongement naturel de cette correction.
+  useEffect(() => {
+    if (!profile || !db?.users) return;
+    const moi = db.users.find((u) => u.id === profile.id);
+    // Fiche absente : on ne conclut RIEN. Une synchronisation partielle, ou
+    // une base locale encore incomplète, ne doit jamais déconnecter
+    // quelqu'un par erreur.
+    if (!moi) return;
+    if (moi.actif === false) {
+      setProfile(null);
+      try { localStorage.removeItem("bmi_session"); } catch {}
+      uAlert("🔒 Votre compte vient d'être désactivé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
+    }
+  }, [db?.users, profile]);
+
+
   if (!profile) {
     // Table users vide (purge + hors ligne) : l'écran de connexion s'appuie
     // sur les comptes de secours. Dans ce mode, pas de sauvegarde (la
@@ -588,34 +622,6 @@ export default function App() {
   // reconnecter même hors ligne). Si des opérations n'ont pas pu partir
   // (hors ligne), on NE purge PAS — perdre une vente serait bien pire que
   // voir un chiffre périmé — et on préviendra à la déconnexion suivante.
-  // ⚠ UN COMPTE BLOQUÉ PERD LA MAIN IMMÉDIATEMENT (point 12 de l'audit du
-  // 20/08/2026). L'application ne vérifiait `actif` qu'à la connexion et à la
-  // reprise de session : un employé bloqué — ou licencié — continuait donc de
-  // travailler normalement jusqu'à l'expiration de son jeton.
-  //
-  // On surveille désormais SA fiche en continu. Dès que la synchronisation
-  // rapporte le blocage (ou la désactivation faite depuis un autre appareil),
-  // la session se ferme, avec un message qui explique.
-  //
-  // Ce que cela ne fait PAS, et il faut le savoir : le jeton de session reste
-  // valable côté serveur jusqu'à son expiration. Quelqu'un qui contournerait
-  // l'application pourrait donc encore écrire pendant ce laps de temps. La
-  // fermeture complète demanderait au serveur de révoquer la session — c'est
-  // le prolongement naturel de cette correction.
-  useEffect(() => {
-    if (!profile || !db?.users) return;
-    const moi = db.users.find((u) => u.id === profile.id);
-    // Fiche absente : on ne conclut RIEN. Une synchronisation partielle, ou
-    // une base locale encore incomplète, ne doit jamais déconnecter
-    // quelqu'un par erreur.
-    if (!moi) return;
-    if (moi.actif === false) {
-      setProfile(null);
-      try { localStorage.removeItem("bmi_session"); } catch {}
-      uAlert("🔒 Votre compte vient d'être désactivé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
-    }
-  }, [db?.users, profile]);
-
   const deconnexion = async (automatique = false) => {
     // Dernière tentative d'envoi immédiat avant toute décision.
     try { await synchroniser(); } catch { /* hors ligne : on vérifie l'outbox juste après */ }

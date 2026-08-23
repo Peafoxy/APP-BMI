@@ -14,7 +14,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
-import { unlinkSync, mkdirSync, writeFileSync } from "node:fs";
+import { unlinkSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // lib/calculs.js importe les boîtes de dialogue (JSX + React) : on bundle
@@ -265,6 +265,26 @@ titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
     test("un vendeur réel ne voit pas le commercial de formation",
       !noms(P.vendeur).includes("STAGIAIRE COMMERCIAL"));
   }
+}
+
+titre("Aucun crochet React après le retour anticipé de l'écran de connexion");
+{
+  // ⚠ GARDE-FOU né d'une vraie panne (Timo, 2.100.76 : écran blanc).
+  // Dans App.jsx, quand personne n'est connecté, la fonction s'arrête tôt
+  // pour afficher l'écran de connexion. Tout useEffect/useState déclaré
+  // APRÈS ce point n'existe pas tant que personne n'est connecté, puis
+  // apparaît ensuite : React refuse ce changement de nombre de crochets et
+  // l'application ne s'affiche plus DU TOUT. Le défaut ne se voit ni à la
+  // compilation, ni à la relecture — d'où ce contrôle automatique.
+  const source = readFileSync("src/App.jsx", "utf8").split("\n");
+  const retour = source.findIndex((l) => l.trim() === "if (!profile) {");
+  test("le retour anticipé de l'écran de connexion est bien trouvé", retour > 0);
+  const fautifs = source
+    .map((l, i) => ({ n: i + 1, l }))
+    .filter(({ n, l }) => n > retour + 1 && /\buse(Effect|State|Memo|Ref|Callback)\(/.test(l));
+  if (fautifs.length) console.log(`      → ${fautifs.map((f) => "ligne " + f.n).join(", ")}`);
+  test("aucun crochet React n'est déclaré après lui (sinon : écran blanc)",
+    fautifs.length === 0);
 }
 
 titre("Lot B — deux versements simultanés sur la même dette sont tous deux gardés");
