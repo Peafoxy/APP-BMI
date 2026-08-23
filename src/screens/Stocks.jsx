@@ -6,7 +6,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -313,9 +313,16 @@ export function Stocks({ db, save, profile }) {
     const dispo = stockActuel(db, p);
     let dest = autres[0];
     if (autres.length > 1) {
-      dest = await uPrompt(`Vers quelle boutique ? (${autres.join(" / ")})`);
-      if (!dest || !autres.includes(dest.trim().toUpperCase())) { uAlert("Boutique de destination invalide."); return; }
-      dest = dest.trim().toUpperCase();
+      // ⚠ DÉFAUT CORRIGÉ (point 14 de l'audit du 20/08/2026) : il fallait
+      // TAPER le nom de la boutique, et la comparaison le passait en
+      // MAJUSCULES avant de le chercher dans la liste. Une boutique nommée
+      // « Agoè Nord » était donc introuvable — « AGOÈ NORD » n'existe pas.
+      // Pire : la ligne suivante écrivait quand même le nom en majuscules,
+      // c'est-à-dire une boutique qui n'existe nulle part.
+      // On choisit désormais dans une liste : plus rien à taper, plus de
+      // faute de casse ni d'accent possible, et le nom retenu est le VRAI.
+      dest = await uChoix("Vers quelle boutique ?", autres);
+      if (!dest) return;
     }
     if (!dest) { uAlert("Aucune autre boutique disponible."); return; }
     const s = await uPrompt(`Transfert de « ${p.nom} » : ${bq} → ${dest}\nQuantité (disponible : ${dispo}) :`);

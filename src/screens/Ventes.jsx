@@ -589,7 +589,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (f.paiement === "Crédit (dette)") {
       const avance = Math.max(0, Math.min(total, Number(f.avance) || 0));
       if (await uConfirm(`Enregistrer cette vente à crédit pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(total - avance)}`)) {
-        const paiementsInitiaux = avance > 0 ? [{ date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, par: profile.nom }] : [];
+        // Le moyen de paiement accompagne l'avance : sans lui, la caisse la
+        // comptait en espèces quoi qu'il arrive (point 15 de l'audit).
+        const paiementsInitiaux = avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(f.moyen_avance || PAIEMENTS[0]), par: profile.nom }] : [];
         next = { ...next, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: panier, montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
       }
     }
@@ -785,6 +787,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               {f.paiement === "Crédit (dette)" && (
                 <Field label="Avance versée">
                   <input type="number" min="0" placeholder="0" className={inputCls} value={f.avance || ""} onChange={(e) => setF({ ...f, avance: e.target.value })} />
+                </Field>
+              )}
+              {/* ⚠ Point 15 de l'audit du 20/08/2026 : l'avance d'une vente à
+                  crédit était enregistrée SANS moyen de paiement, et la caisse
+                  compte par défaut ce qui n'en porte pas comme des espèces.
+                  Une avance réglée en Mobile Money gonflait donc la caisse
+                  espèces du jour. Même défaut que sur le formulaire Dettes,
+                  corrigé au lot A — celui-ci m'avait échappé. */}
+              {f.paiement === "Crédit (dette)" && Number(f.avance || 0) > 0 && (
+                <Field label="Avance payée comment ?">
+                  <select className={inputCls} value={f.moyen_avance || PAIEMENTS[0]} onChange={(e) => setF({ ...f, moyen_avance: e.target.value })}>
+                    {PAIEMENTS.filter((x) => !/Crédit/i.test(x)).map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
                 </Field>
               )}
               <div className="sm:col-span-2 lg:col-span-4">

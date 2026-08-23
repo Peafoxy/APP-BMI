@@ -224,8 +224,34 @@ export const prefixeBoutique = (nom) => (String(nom || "").replace(/[^A-Za-z]/g,
 // désormais leur propre série, visiblement distincte : FOR-APE-2026-0001.
 export const prefixeEspace = (db, boutique) =>
   ((db?.boutiques || []).find((b) => b.nom === boutique)?.formation ? "FOR-" : "");
+// ⚠ Point 16 de l'audit du 20/08/2026 : deux boutiques dont le nom commence
+// par les MÊMES TROIS LETTRES — « Agoè Nord » et « Agoè Sud » — partagent le
+// préfixe « AGO ». Il n'en résulte AUCUN doublon (la numérotation balaie tous
+// les numéros portant ce préfixe, quelle que soit la boutique), mais un reçu
+// ne dit plus de quelle boutique il vient.
+//
+// Plutôt que de changer la règle pour tout le monde — ce qui couperait les
+// séries en cours —, chaque boutique peut porter son propre préfixe, réglé
+// dans Paramètres. Sans réglage, le comportement d'avant ne bouge pas.
+// ⚠ POINT 17 DE L'AUDIT DU 20/08/2026 — la bibliothèque « xlsx » est
+// signalée comme ancienne par les outils de sécurité. Elle reste en place,
+// délibérément, pour deux raisons vérifiées :
+//   1. l'application ne s'en sert QUE POUR ÉCRIRE (aoa_to_sheet, book_new,
+//      writeFile). Les failles connues concernent la LECTURE d'un fichier
+//      reçu de l'extérieur — chemin qui n'existe nulle part ici ;
+//   2. les versions récentes ne sont plus publiées sur npm par leur auteur.
+//      Changer de source ou de bibliothèque casserait vos exports CNSS et
+//      comptables pour un risque qui, chez vous, n'a aucun chemin.
+// À revoir le jour où l'application devra LIRE un tableur.
+
+export const prefixeDe = (db, nom) => {
+  const perso = (db?.boutiques || []).find((b) => b.nom === nom)?.prefixe;
+  const propre = String(perso || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return propre || prefixeBoutique(nom);
+};
+
 const serieDe = (db, boutique, annee, suffixe = "") =>
-  `${prefixeEspace(db, boutique)}${prefixeBoutique(boutique)}-${suffixe}${annee}-`;
+  `${prefixeEspace(db, boutique)}${prefixeDe(db, boutique)}-${suffixe}${annee}-`;
 
 // ============ NUMÉROTATION DES VENTES (2.99.44 — Lot C) ============
 // ⚠ L'ancien calcul « nombre de ventes + 1 » produisait des DOUBLONS de

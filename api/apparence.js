@@ -24,6 +24,7 @@
 // l'administrateur, eux, sont destinés à être lus par tous : ils passent.
 
 import { createClient } from "@supabase/supabase-js";
+import { poserCors } from "./_cors.js";
 
 // La liste EXHAUSTIVE de ce qui a le droit de sortir. Tout champ absent
 // d'ici reste dans la base, même si quelqu'un l'ajoute plus tard sur une
@@ -42,10 +43,7 @@ const CHAMPS_APPARENCE = [
 ];
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (poserCors(req, res, "GET, OPTIONS")) return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Méthode non autorisée" });
 
   const url = process.env.VITE_SUPABASE_URL;

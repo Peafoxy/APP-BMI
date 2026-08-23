@@ -10,7 +10,7 @@ import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossi
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
-import { uid, verifierMotDePasse, col, compresserPhoto, fmt } from "../lib/core";
+import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
@@ -685,6 +685,38 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     uAlert("Informations du reçu mises à jour !");
   };
 
+  // ⚠ Point 16 de l'audit du 20/08/2026 : deux boutiques dont le nom commence
+  // par les mêmes trois lettres — « Agoè Nord » et « Agoè Sud » — partagent le
+  // préfixe des numéros de reçu (« AGO »). Aucun doublon n'en résulte, mais un
+  // reçu ne dit plus de quelle boutique il vient. Chacune peut désormais
+  // porter son propre préfixe.
+  const prefixesPartages = (() => {
+    const parPrefixe = new Map();
+    for (const b of (db.boutiques || []).filter((x) => !x.terrain)) {
+      const p = prefixeDe(db, b.nom);
+      if (!parPrefixe.has(p)) parPrefixe.set(p, []);
+      parPrefixe.get(p).push(b.nom);
+    }
+    return [...parPrefixe.entries()].filter(([, noms]) => noms.length > 1);
+  })();
+
+  const changerPrefixe = async (b) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const actuel = prefixeDe(db, b.nom);
+    const v = await uPrompt(
+      `Préfixe des numéros de reçu de ${b.nom} — actuellement « ${actuel} ».\n\n` +
+      `Lettres et chiffres uniquement, 2 à 5 caractères. Laissez vide pour revenir au préfixe automatique ` +
+      `(les 3 premières lettres du nom).\n\n` +
+      `⚠ Les reçus DÉJÀ ÉMIS gardent leur numéro : seuls les prochains utiliseront ce préfixe, ` +
+      `et leur numérotation repartira de 1.`, actuel);
+    if (v === null) return;
+    const propre = String(v).replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 5);
+    if (propre && propre.length < 2) { uAlert("Le préfixe doit faire au moins 2 caractères."); return; }
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, prefixe: propre } : x)) },
+      `Préfixe des reçus de ${b.nom} : ${propre || "automatique"}`);
+    uAlert(propre ? `✅ Les prochains reçus de ${b.nom} commenceront par « ${propre} ».` : "✅ Préfixe automatique rétabli.");
+  };
+
   const enregistrerPosition = (b, lat, lng) => {
     if (bloquerSiLecture(db, profile)) return;
     save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, lat, lng } : x)) }, `Position GPS de ${b.nom} mise à jour`);
@@ -801,6 +833,15 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 <td className="px-4 py-2">{b.logo ? <img src={b.logo} alt="" className="h-9 w-auto rounded border border-slate-200 bg-white" /> : <span className="text-xs text-slate-400">Logo BMI (défaut)</span>}</td>
                 <td className="px-4 py-2 text-xs text-slate-600">
                   <div>{b.adresse || "Lomé, Togo"}</div>
+                  <div className="mt-1">
+                    Numéros de reçu : <b>{prefixeDe(db, b.nom)}-…</b>
+                    <button onClick={() => changerPrefixe(b)} className="ml-2 text-xs font-bold text-sky-800 underline">modifier</button>
+                    {prefixesPartages.some(([, noms]) => noms.includes(b.nom)) && (
+                      <span className="block text-xs font-bold text-amber-700 mt-0.5">
+                        ⚠ Ce préfixe est partagé avec {prefixesPartages.find(([, noms]) => noms.includes(b.nom))[1].filter((n) => n !== b.nom).join(", ")} — un reçu ne dit pas de quelle boutique il vient.
+                      </span>
+                    )}
+                  </div>
                   {b.tel && <div>Tél : {b.tel}</div>}
                   {b.email && <div>{b.email}</div>}
                 </td>

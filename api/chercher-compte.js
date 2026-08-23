@@ -30,6 +30,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
+import { poserCors } from "./_cors.js";
 
 // Doivent rester IDENTIQUES à hacher() / hacherFort() de src/lib/core.js.
 function hacherServeur(txt) {
@@ -82,10 +83,7 @@ function motDePasseCorrect(champs, saisie) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
   const { nom, motDePasse } = req.body || {};

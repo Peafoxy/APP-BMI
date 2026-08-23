@@ -345,6 +345,27 @@ titre("Lot B — deux versements simultanés sur la même dette sont tous deux g
     Fus.fusionner("dettes", { id: "d" }, { id: "d" }, { id: "d" }).paiements === undefined);
 }
 
+titre("Lot D — préfixe des numéros de reçu réglable par boutique");
+{
+  const socle = (boutiques) => ({ boutiques, ventes: [] });
+  test("sans réglage, le préfixe reste les 3 premières lettres du nom",
+    Core.prefixeDe(socle([{ id: "b", nom: "AGOE NORD" }]), "AGOE NORD") === "AGO");
+  test("deux boutiques proches partageaient donc le même préfixe",
+    Core.prefixeDe(socle([{ id: "b1", nom: "AGOE NORD" }, { id: "b2", nom: "AGOE SUD" }]), "AGOE NORD")
+    === Core.prefixeDe(socle([{ id: "b1", nom: "AGOE NORD" }, { id: "b2", nom: "AGOE SUD" }]), "AGOE SUD"));
+  const regle = socle([{ id: "b1", nom: "AGOE NORD", prefixe: "AGN" }, { id: "b2", nom: "AGOE SUD" }]);
+  test("un préfixe réglé est utilisé tel quel", Core.prefixeDe(regle, "AGOE NORD") === "AGN");
+  test("…et l'autre boutique garde le sien", Core.prefixeDe(regle, "AGOE SUD") === "AGO");
+  test("les deux ne se confondent plus",
+    Core.prefixeDe(regle, "AGOE NORD") !== Core.prefixeDe(regle, "AGOE SUD"));
+  test("un préfixe saisi avec des espaces ou accents est nettoyé",
+    Core.prefixeDe(socle([{ id: "b", nom: "X", prefixe: "a g-n" }]), "X") === "AGN");
+  test("un préfixe vide retombe sur le nom",
+    Core.prefixeDe(socle([{ id: "b", nom: "HEDZRANAWOE", prefixe: "" }]), "HEDZRANAWOE") === "HED");
+  test("une boutique inconnue ne fait rien planter",
+    Core.prefixeDe(socle([]), "AILLEURS") === "AIL");
+}
+
 titre("Lot B — une vente qui arrive pendant une fenêtre ouverte n'est plus effacée");
 {
   const T = ["ventes", "dettes", "depenses"];
