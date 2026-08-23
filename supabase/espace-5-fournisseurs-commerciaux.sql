@@ -96,6 +96,10 @@ begin
 end $$;
 
 
+-- ⚠ La dérogation « tous » (l'administrateur principal traverse les deux
+-- espaces) DOIT figurer ici comme sur les onze premières tables. Son oubli
+-- dans la première version de ce script a bloqué les écritures de Timo —
+-- voir espace-6-correctif-tous.sql.
 -- ══════════════════════════════════════════════════════════════════
 -- 3. LA RÈGLE DE CLOISONNEMENT
 -- ══════════════════════════════════════════════════════════════════
@@ -115,12 +119,13 @@ begin
     execute format(
       'create policy "espace_cloisonnement" on public.%I '
       'as restrictive for all to authenticated '
-      'using (espace is null or espace = %s) '
+      'using (%s = ''tous'' or espace is null or espace = %s) '
       'with check ('
-      '  public.espace_de_ligne(%L, data) is null'
+      '  %s = ''tous'''
+      '  or public.espace_de_ligne(%L, data) is null'
       '  or public.espace_de_ligne(%L, data) = %s'
       ');',
-      t, revendication, t, t, revendication
+      t, revendication, revendication, revendication, t, t, revendication
     );
   end loop;
   raise notice 'Cloisonnement pose sur fournisseurs et commerciaux.';

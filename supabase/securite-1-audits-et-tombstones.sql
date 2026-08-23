@@ -80,11 +80,12 @@ begin
   execute format(
     'create policy "espace_cloisonnement" on public.audits '
     'as restrictive for all to authenticated '
-    'using (espace is null or espace = %s) '
+    'using (%s = ''tous'' or espace is null or espace = %s) '
     'with check ('
-    '  public.espace_de_ligne(''audits'', data) is null'
+    '  %s = ''tous'''
+    '  or public.espace_de_ligne(''audits'', data) is null'
     '  or public.espace_de_ligne(''audits'', data) = %s'
-    ');', revendication, revendication);
+    ');', revendication, revendication, revendication, revendication);
 end $$;
 
 

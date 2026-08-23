@@ -29,6 +29,7 @@ psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/test/fixture.sql
 echo "▸ Cloisonnement de base (espace-1 + vague 2)"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/espace-1-colonne.sql >/dev/null 2>&1
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/espace-3-VAGUE-2.sql >/dev/null 2>&1
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/espace-4-admin-voit-tout.sql >/dev/null 2>&1
 
 # Des fiches des deux bords, comme dans la vraie vie.
 $P -c "
@@ -72,6 +73,15 @@ verite "les fiches sans marque sont RÉELLES"     "select espace = 'reel' from p
 verite "les fiches marquées sont en FORMATION"   "select espace = 'formation' from public.fournisseurs where id='f_form';"
 verite "idem pour les commerciaux"               "select espace = 'formation' from public.commerciaux where id='co_form';"
 verite "13 tables cloisonnées au total"          "select count(*) = 13 from pg_policies where schemaname='public' and policyname='espace_cloisonnement';"
+# ⚠ GARDE-FOU né d'un vrai blocage (Timo, 20/08/2026) : la dérogation « tous »,
+# qui laisse l'administrateur principal traverser les deux espaces, avait été
+# oubliee dans ce script et dans celui des audits. Resultat : ses propres
+# ecritures lui etaient refusees, et les operations restaient bloquees dans la
+# file d'envoi. Aucune regle de cloisonnement ne doit plus l'oublier.
+verite "AUCUNE table ne perd la dérogation de l'administrateur principal" \
+  "select count(*) = 0 from pg_policies where schemaname='public' and policyname='espace_cloisonnement' and not (qual like '%tous%' and with_check like '%tous%');"
+essai "l'administrateur principal écrit dans les nouvelles tables" PASSE "$TOUS" \
+  "insert into public.fournisseurs (id, data) values ('f_admin', '{\"nom\":\"ADMIN\"}');"
 
 echo
 echo "▸ 2. Le serveur refuse ce qui traverse"
