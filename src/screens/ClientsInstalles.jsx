@@ -497,7 +497,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, ...champs, contrat_jeton: jeton, contrat_numero: numero, contrat_statut: "attente_signature" }
+        ? { ...x, ...champs, contrat_jeton: jeton, contrat_jeton_le: new Date().toISOString(), contrat_numero: numero, contrat_statut: "attente_signature" }
         : x)),
     }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom} — lien de signature envoyé automatiquement (${numero})`);
     window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
@@ -519,7 +519,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, contrat_jeton: jeton, contrat_numero: numero, contrat_statut: "attente_signature" }
+        ? { ...x, contrat_jeton: jeton, contrat_jeton_le: new Date().toISOString(), contrat_numero: numero, contrat_statut: "attente_signature" }
         : x)),
     }, `Lien de signature du PV envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
     window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
@@ -612,7 +612,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, avenant_jeton: jeton, avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
+        ? { ...x, avenant_jeton: jeton, avenant_jeton_le: new Date().toISOString(), avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
         : x)),
     }, `Avenant de levée de réserves envoyé — ${c.nom} ${c.prenom} (par ${profile.nom})`);
     window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
