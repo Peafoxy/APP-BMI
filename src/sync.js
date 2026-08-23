@@ -65,6 +65,12 @@ export function arreterSync() {
 // futur ». Sans marge, les autres appareils sauteraient définitivement tout ce
 // qui s'écrit pendant cet écart. On relit donc systématiquement les 10 dernières
 // minutes : quelques lignes redondantes valent mieux qu'une vente perdue.
+// Le serveur sait-il appliquer un lot d'écritures d'un seul bloc ? On le
+// découvre au premier essai. S'il ne connaît pas la fonction (script SQL pas
+// encore lancé), on cesse d'essayer pour la session et tout repasse par les
+// envois séparés — l'application marche exactement comme avant.
+let lotIndisponible = false;
+
 const MARGE_HORLOGE_MS = 10 * 60 * 1000;
 const PAGE = 1000; // plafond imposé par Supabase
 
@@ -254,7 +260,93 @@ export async function synchroniser() {
         throw e;
       }
 
+      // ── LES ÉCRITURES LIÉES PARTENT ENSEMBLE, OU PAS DU TOUT ──
+      // Un versement écrit sa dépense ET met à jour la dette. Envoyées
+      // séparément, la première pouvait passer et la seconde être refusée :
+      // l'argent noté en caisse, la dette inchangée, pour toujours (point 8
+      // de l'audit du 20/08/2026).
+      //
+      // Les opérations nées d'un même geste portent le même numéro de lot.
+      // Celles qui vont par deux ou plus sont confiées au serveur en UN SEUL
+      // appel, qui les applique d'un bloc (supabase/lot-1-ecriture-groupee.sql).
+      //
+      // ⚠ Volontairement limité aux lots MULTIPLES : le geste courant, qui
+      // n'écrit qu'une ligne, garde le chemin éprouvé. Et si la fonction
+      // serveur n'est pas installée, tout repasse d'un coup par ce chemin —
+      // l'application fonctionne exactement comme avant.
+      const traitees = new Set();
+      if (!lotIndisponible) {
+        const parLot = new Map();
+        for (const op of ops) {
+          if (!op.lot || tablesAbsentes.has(op.table)) continue;
+          if (!parLot.has(op.lot)) parLot.set(op.lot, []);
+          parLot.get(op.lot).push(op);
+        }
+        for (const [, groupe] of parLot) {
+          if (groupe.length < 2) continue;
+          // Une seule opération refusée d'avance (supprimée ailleurs, ou
+          // version distante plus récente) et on laisse le lot au chemin
+          // habituel, qui sait traiter ces cas un par un.
+          const charge = [];
+          let simple = true;
+          for (const op of groupe) {
+            if (op.op !== "upsert") { charge.push({ table: op.table, id: op.id, op: "delete" }); continue; }
+            const cle = `${op.table}:${op.id}`;
+            const tsBase = String(op.base?.updated_at || "");
+            const tsDistant = etatDistant.get(cle);
+            if (supprimes.get(cle) || (tsDistant && tsBase && tsDistant !== tsBase)) { simple = false; break; }
+            charge.push({ table: op.table, id: op.id, data: op.data, updated_at: op.data?.updated_at });
+          }
+          if (!simple) continue;
+          try {
+            const { error } = await supabase.rpc("appliquer_lot", { operations: charge });
+            if (error) throw error;
+            for (const op of groupe) { await idb.outbox.delete(op.seq); traitees.add(op.seq); }
+            // ⚠ Même réalignement que pour un envoi séparé : la copie locale
+            // reprend l'horodatage RÉEL du serveur. Sans lui, la prochaine
+            // modification de ces lignes partirait avec une version de départ
+            // que le serveur ne reconnaît pas, et déclencherait une fusion
+            // inutile. Étape séparée et non bloquante : l'écriture a réussi,
+            // un souci ici ne doit jamais la faire passer pour un échec.
+            try {
+              const parTableLot = new Map();
+              for (const op of groupe) {
+                if (op.op !== "upsert") continue;
+                if (!parTableLot.has(op.table)) parTableLot.set(op.table, []);
+                parTableLot.get(op.table).push(op);
+              }
+              for (const [table, liste] of parTableLot) {
+                const { data: ecrits } = await supabase
+                  .from(table).select("id,updated_at").in("id", liste.map((o) => o.id));
+                for (const ligne of ecrits || []) {
+                  const op = liste.find((o) => o.id === ligne.id);
+                  if (op && ligne.updated_at) {
+                    await idb.table(table).put({ ...op.data, updated_at: ligne.updated_at });
+                  }
+                }
+              }
+            } catch (e3) {
+              console.warn("Alignement de l'horodatage après lot reporté (sans conséquence) :", e3?.message || e3);
+            }
+          } catch (e) {
+            const msg = String(e?.message || e?.code || e);
+            if (/PGRST202|could not find the function|does not exist/i.test(msg)) {
+              // Fonction pas encore installée : on n'insistera plus de la
+              // session, et tout repart par le chemin habituel.
+              lotIndisponible = true;
+              console.warn("Écriture groupée indisponible sur ce serveur : envois séparés.");
+            } else {
+              // Refus réel : le lot ENTIER reste en attente. Rien n'est passé
+              // à moitié — c'est précisément ce qu'on cherchait.
+              for (const op of groupe) bloques.add(`${op.table}:${op.id}`);
+              console.warn("Lot refusé en entier (aucune écriture partielle) :", msg.slice(0, 120));
+            }
+          }
+        }
+      }
+
       for (const op of ops) {
+        if (traitees.has(op.seq)) continue;            // déjà parti dans son lot
         if (tablesAbsentes.has(op.table)) continue; // serveur pas encore migré pour cette table
         const cle = `${op.table}:${op.id}`;
         if (bloques.has(cle)) continue; // un envoi précédent sur cet enregistrement a échoué

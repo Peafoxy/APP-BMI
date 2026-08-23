@@ -146,6 +146,13 @@ const sansMeta = (r) => {
 // locale et enregistre chaque modification dans l'outbox pour la synchronisation.
 export async function sauvegarderDiff(prev, next, ecrivain = {}) {
   const maintenant = new Date().toISOString();
+  // ⚠ Toutes les écritures nées d'UN MÊME geste portent le même numéro de
+  // lot. Un versement, par exemple, écrit sa dépense ET met à jour la dette :
+  // les deux doivent arriver au serveur ensemble, ou pas du tout. Sans ce
+  // lien, si la première passait et la seconde était refusée, on obtenait une
+  // incohérence qui ne se réparait jamais — l'argent noté en caisse, la dette
+  // inchangée (point 8 de l'audit du 20/08/2026).
+  const lot = `${maintenant}#${Math.random().toString(36).slice(2, 8)}`;
   // Symétrique de la fusion faite au chargement : on redétache les fiches de
   // paie AVANT de comparer, pour que chaque champ reparte dans SA table.
   // Les deux états sont traités de la même façon, sinon la comparaison
@@ -182,14 +189,14 @@ export async function sauvegarderDiff(prev, next, ecrivain = {}) {
           // temps — sans jamais comparer deux horloges — et, le cas échéant,
           // de fusionner à trois plutôt que d'écraser (voir lib/fusion.js et
           // les points 6 et 7 de l'audit du 20/08/2026).
-          await idb.outbox.add({ table: t, op: "upsert", id, data: rec, base: a || null });
+          await idb.outbox.add({ table: t, op: "upsert", id, data: rec, base: a || null, lot });
         }
       }
       // Supprimés → delete local + outbox
       for (const id of avant.keys()) {
         if (!apres.has(id)) {
           await idb.table(t).delete(id);
-          await idb.outbox.add({ table: t, op: "delete", id });
+          await idb.outbox.add({ table: t, op: "delete", id, lot });
         }
       }
     }
