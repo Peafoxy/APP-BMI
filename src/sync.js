@@ -1,5 +1,6 @@
 import { idb, TABLES, compterEnAttente } from "./db";
 import { fusionner } from "./lib/fusion";
+import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth } from "./supabaseClient";
 
 // Moteur de synchronisation :
@@ -13,7 +14,12 @@ import { supabase, supabaseConfigure, assurerSession, etatAuth } from "./supabas
 
 let minuterie = null;
 let rappel = null;
-let enCours = false;
+// ⚠ DÉFAUT SIGNALÉ PAR TIMO (20/08/2026) : « l'envoi des écritures prend
+// souvent du temps ». La cause n'était pas le rythme de vingt secondes, mais
+// ceci : une demande d'envoi arrivant pendant qu'un cycle tournait était
+// purement ABANDONNÉE. Une vente enregistrée à ce moment-là attendait donc le
+// rappel suivant. Le verrou mémorise désormais ces demandes (lib/fileUnique.js).
+const verrouSync = creerVerrou();
 
 // « serveurJoignable » est vrai seulement si le DERNIER échange avec Supabase a
 // réussi. Auparavant, le voyant affichait « En ligne » dès que Windows avait du
@@ -189,17 +195,24 @@ export async function synchroniserOuverture() {
   }
 }
 
-export async function synchroniser() {
-  if (enCours) return;
+export async function synchroniser(options = {}) {
+  if (!verrouSync.prendre(options.urgent)) return;
+  // ⚠ CE CHEMIN DOIT RELÂCHER LE VERROU. Il sort de la fonction AVANT le
+  // try/finally qui s'en charge d'ordinaire : sans ce relâchement, une seule
+  // tentative hors ligne garderait le verrou pour toujours et plus rien ne se
+  // synchroniserait de la session. (Piège rencontré en écrivant ce correctif.)
   if (!supabaseConfigure || !navigator.onLine) {
+    // On ne rejoue PAS une demande en attente ici : hors ligne, elle
+    // échouerait pareil. Le rappel des vingt secondes la reprendra dès le
+    // retour du réseau.
+    verrouSync.relacher();
     await notifier(false);
     return;
   }
-  enCours = true;
   let recuQuelqueChose = false;
   let derniereErreur = "";
 
-  // try/finally : quoi qu'il arrive, « enCours » sera relâché. Sans cela, une
+  // try/finally : quoi qu'il arrive, le verrou sera relâché. Sans cela, une
   // seule exception inattendue bloquait la synchronisation pour toute la session.
   try {
     // ---------- 0) LA SESSION ----------
@@ -614,7 +627,14 @@ export async function synchroniser() {
     serveurJoignable = !echecReseau; // le voyant dit enfin la vérité
     await notifier(recuQuelqueChose, derniereErreur);
   } finally {
-    enCours = false; // TOUJOURS relâché, même en cas d'exception inattendue
+    // TOUJOURS relâché, même en cas d'exception inattendue.
+    // Si une écriture est arrivée pendant ce cycle, on repart tout de suite
+    // au lieu de la faire patienter jusqu'au rappel suivant. setTimeout
+    // plutôt qu'un appel direct : ce cycle-ci se termine proprement d'abord,
+    // sans empiler les appels les uns dans les autres.
+    if (verrouSync.relacher()) {
+      setTimeout(() => { synchroniser({ urgent: true }); }, 0);
+    }
   }
 }
 

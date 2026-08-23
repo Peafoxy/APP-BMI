@@ -303,7 +303,7 @@ export default function App() {
         action: `Collision de numéros de reçu réparée (ventes hors ligne simultanées) : ${r.corrections.map((c) => `${c.ancien} → ${c.nouveau}`).join(", ")}`,
       }, ...(donnees.audits || [])],
     };
-    try { await sauvegarderDiff(donnees, final); synchroniser(); } catch { /* réessaiera au prochain chargement */ }
+    try { await sauvegarderDiff(donnees, final); synchroniser({ urgent: true }); } catch { /* réessaiera au prochain chargement */ }
     return final;
   };
 
@@ -529,7 +529,10 @@ export default function App() {
       // refuserait : opération bloquée dans la file (voir lib/paie.js).
       await sauvegarderDiff(prev, final, { id: profile?.id, admin: profile?.role === "admin" });
       setSaveStatus("saved");
-      synchroniser(); // tentative immédiate si on est en ligne
+      // ⚠ « urgent » : si un cycle tourne déjà, cette demande est MÉMORISÉE et
+      // repart dès sa fin, au lieu d'être abandonnée. C'est ce qui faisait
+      // patienter une vente jusqu'à vingt secondes (signalé par Timo).
+      synchroniser({ urgent: true }); // tentative immédiate si on est en ligne
     } catch {
       setSaveStatus("error");
     }

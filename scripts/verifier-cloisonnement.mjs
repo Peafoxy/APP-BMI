@@ -54,6 +54,13 @@ await build({ entryPoints: ["src/lib/fusion.js"], bundle: true, format: "esm",
 const Fus = await import(pathToFileURL(sortieFus).href);
 unlinkSync(sortieFus);
 
+// Le verrou de synchronisation (une seule à la fois, aucune demande perdue).
+const sortieVer = join("node_modules", ".cache", `bmi-ver-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/fileUnique.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieVer, logLevel: "silent", loader: { ".js": "jsx" } });
+const Ver = await import(pathToFileURL(sortieVer).href);
+unlinkSync(sortieVer);
+
 // lib/cnss.js importe la bibliothèque Excel (xlsx), qui ne s'initialise pas
 // hors navigateur. On la remplace par un bouchon vide : les fonctions
 // vérifiées ici (comparaison d'une saisie) n'y touchent pas.
@@ -343,6 +350,40 @@ titre("Lot B — deux versements simultanés sur la même dette sont tous deux g
     Fus.fusionner("dettes", base, local, null) === local);
   test("un champ absent des deux côtés n'est pas inventé",
     Fus.fusionner("dettes", { id: "d" }, { id: "d" }, { id: "d" }).paiements === undefined);
+}
+
+titre("L'envoi d'une écriture n'est plus perdu quand une synchro tourne déjà");
+{
+  const v = Ver.creerVerrou();
+  test("le premier appel prend le verrou", v.prendre() === true);
+  test("un second appel est refusé", v.prendre() === false);
+  test("…et sans urgence, rien n'est mémorisé", v.relacher() === false);
+
+  const v2 = Ver.creerVerrou();
+  v2.prendre();
+  test("une demande URGENTE pendant un cycle est refusée sur le moment", v2.prendre(true) === false);
+  test("…mais elle est MÉMORISÉE (c'était le défaut : elle disparaissait)",
+    v2.relacher() === true);
+  test("une fois repartie, elle n'est pas rejouée deux fois", v2.relacher() === false);
+
+  // Le rappel automatique des 20 s ne doit PAS s'accumuler : sur une
+  // connexion lente, cela enchaînerait les synchronisations sans répit.
+  const v3 = Ver.creerVerrou();
+  v3.prendre();
+  v3.prendre(false); v3.prendre(false); v3.prendre(false);
+  test("les rappels automatiques ne s'accumulent pas", v3.relacher() === false);
+
+  // Plusieurs écritures pendant un même cycle ne provoquent qu'UN seul renvoi.
+  const v4 = Ver.creerVerrou();
+  v4.prendre();
+  v4.prendre(true); v4.prendre(true); v4.prendre(true);
+  test("trois écritures pendant un cycle ne déclenchent qu'un seul renvoi",
+    v4.relacher() === true && v4.relacher() === false);
+
+  const v5 = Ver.creerVerrou();
+  v5.prendre(); v5.relacher();
+  test("après relâchement, le verrou est de nouveau disponible", v5.prendre() === true);
+  test("l'état du verrou est lisible pour les vérifications", v5.estPris() === true);
 }
 
 titre("Lot D — préfixe des numéros de reçu réglable par boutique");
