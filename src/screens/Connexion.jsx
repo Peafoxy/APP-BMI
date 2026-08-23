@@ -249,8 +249,9 @@ const POUSSIERE = Array.from({ length: 130 }, (_, i) => {
   return {
     gauche: +(a * 100).toFixed(2),
     haut: +(b * 100).toFixed(2),
-    // Presque toutes minuscules : c'est ce qui fait le fond du ciel.
-    taille: +(0.7 + c * 1.3).toFixed(2),
+    // Le fond du ciel : toujours les plus petites, mais un peu plus visibles
+    // qu'à la première version (Timo : « les agrandir encore un peu »).
+    taille: +(1.1 + c * 1.9).toFixed(2),
     teinte: TEINTES[i % TEINTES.length],
     duree: +(3 + a * 5).toFixed(2),
     retard: +(c * 6).toFixed(2),
@@ -266,12 +267,12 @@ const POUSSIERE = Array.from({ length: 130 }, (_, i) => {
 // Elles évitent aussi le centre de l'écran, où se trouve la carte — un astre
 // caché derrière elle serait dessiné pour rien.
 const ASTRES = [
-  { gauche: 8, haut: 14, taille: 16 }, { gauche: 21, haut: 68, taille: 11 },
-  { gauche: 14, haut: 41, taille: 9 }, { gauche: 33, haut: 9, taille: 13 },
-  { gauche: 29, haut: 86, taille: 10 }, { gauche: 50, haut: 6, taille: 18 },
-  { gauche: 68, haut: 22, taille: 12 }, { gauche: 78, haut: 61, taille: 15 },
-  { gauche: 88, haut: 33, taille: 10 }, { gauche: 72, haut: 88, taille: 12 },
-  { gauche: 93, haut: 76, taille: 14 },
+  { gauche: 8, haut: 14, taille: 24 }, { gauche: 21, haut: 68, taille: 16 },
+  { gauche: 14, haut: 41, taille: 13 }, { gauche: 33, haut: 9, taille: 19 },
+  { gauche: 29, haut: 86, taille: 15 }, { gauche: 50, haut: 6, taille: 27 },
+  { gauche: 68, haut: 22, taille: 18 }, { gauche: 78, haut: 61, taille: 22 },
+  { gauche: 88, haut: 33, taille: 14 }, { gauche: 72, haut: 88, taille: 18 },
+  { gauche: 93, haut: 76, taille: 21 },
 ].map((a, i) => ({
   ...a,
   teinte: TEINTES[(i * 3) % TEINTES.length],
