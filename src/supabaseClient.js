@@ -59,9 +59,17 @@ export async function chercherCompteEnLigne(nom, motDePasse) {
     });
     const corps = await reponse.json().catch(() => ({}));
     if (!reponse.ok) {
-      return { error: corps?.error || (reponse.status === 404
-        ? "Serveur introuvable. Dans l'application Windows, renseignez VITE_SYNC_AUTH_URL."
-        : `Le serveur a répondu ${reponse.status}.`) };
+      // ⚠ « refuse » distingue LE SERVEUR A RÉPONDU NON d'un simple souci de
+      // réseau. C'est décisif : un compte supprimé doit être bloqué, alors
+      // qu'un serveur injoignable doit laisser la connexion locale se faire
+      // (sinon plus personne ne travaille dès que le réseau faiblit).
+      const refuse = reponse.status === 401 || reponse.status === 403;
+      return {
+        refuse,
+        error: corps?.error || (reponse.status === 404
+          ? "Serveur introuvable. Dans l'application Windows, renseignez VITE_SYNC_AUTH_URL."
+          : `Le serveur a répondu ${reponse.status}.`),
+      };
     }
     return { user: corps?.user || null };
   } catch (e) {

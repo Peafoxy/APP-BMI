@@ -575,14 +575,30 @@ export default function App() {
   useEffect(() => {
     if (!profile || !db?.users) return;
     const moi = db.users.find((u) => u.id === profile.id);
-    // Fiche absente : on ne conclut RIEN. Une synchronisation partielle, ou
-    // une base locale encore incomplète, ne doit jamais déconnecter
-    // quelqu'un par erreur.
-    if (!moi) return;
-    if (moi.actif === false) {
+    const fermer = (message) => {
       setProfile(null);
       try { localStorage.removeItem("bmi_session"); } catch {}
-      uAlert("🔒 Votre compte vient d'être désactivé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
+      uAlert(message);
+    };
+
+    // ⚠ COMPTE SUPPRIMÉ PENDANT QU'IL TRAVAILLE (demande Timo, 20/08/2026 :
+    // « les anciens comptes supprimés arrivent toujours à se connecter »).
+    // Sa fiche a disparu de la table : la synchronisation vient de rapporter
+    // la suppression faite ailleurs.
+    //
+    // ⚠ On exige que la table soit PEUPLÉE (plus d'un compte). Une fiche
+    // absente d'une table quasi vide ne prouve rien : ce serait une
+    // synchronisation encore en cours, ou un appareil neuf qui ne connaît
+    // que celui qui vient de se connecter. Déconnecter sur ce seul indice
+    // mettrait des gens dehors sans raison.
+    if (!moi) {
+      if ((db.users || []).length > 1) {
+        fermer("🔒 Votre compte a été supprimé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
+      }
+      return;
+    }
+    if (moi.actif === false) {
+      fermer("🔒 Votre compte vient d'être désactivé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
     }
   }, [db?.users, profile]);
 

@@ -137,6 +137,15 @@ export async function enregistrerCompteLocal(user) {
   try { await idb.table("users").put(user); } catch { /* base locale indisponible : la connexion marche quand même */ }
 }
 
+// ⚠ Efface la copie locale d'un compte que le serveur ne reconnaît plus
+// (compte supprimé). Volontairement HORS de sauvegarderDiff : ce n'est pas
+// une modification à propager, c'est le ménage d'une copie périmée. La
+// propager renverrait un ordre de suppression que le serveur a déjà exécuté.
+export async function oublierCompteLocal(id) {
+  if (!id) return;
+  try { await idb.table("users").delete(id); } catch { /* base locale indisponible */ }
+}
+
 const sansMeta = (r) => {
   const { updated_at, ...reste } = r || {};
   return JSON.stringify(reste);

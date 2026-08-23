@@ -9,7 +9,7 @@ import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { Field, inputCls } from "../components/ui";
 import { souhaitsDuJour } from "../lib/calculs";
 import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
-import { enregistrerCompteLocal } from "../db";
+import { enregistrerCompteLocal, oublierCompteLocal } from "../db";
 
 // ============ CONNEXION ============
 export function Login({ db, apparence, onLogin, save }) {
@@ -29,20 +29,43 @@ export function Login({ db, apparence, onLogin, save }) {
     // est le bon. Ce chemin ne sert QU'À la toute première connexion sur un
     // appareil — ensuite la fiche est en local et tout marche hors réseau,
     // exactement comme avant.
-    if (!u) {
+    // ⚠ DÉFAUT SIGNALÉ PAR TIMO (20/08/2026) : « les anciens comptes supprimés
+    // arrivent toujours à se connecter ». La cause : le serveur n'était
+    // consulté QUE si le compte manquait sur l'appareil. Un compte supprimé
+    // mais encore présent dans la copie locale passait donc sans que personne
+    // ne vérifie — et il pouvait passer indéfiniment, tant que l'appareil ne
+    // s'était pas resynchronisé.
+    //
+    // Désormais, DÈS QU'IL Y A DU RÉSEAU, c'est le serveur qui fait foi : on
+    // lui demande toujours, même quand la fiche est déjà là. S'il refuse, la
+    // copie périmée est effacée de l'appareil dans la foulée — la deuxième
+    // tentative ne trouvera plus rien, exactement ce que demandait Timo.
+    //
+    // ⚠ Un serveur INJOIGNABLE n'est pas un refus : dans ce cas on retombe
+    // sur la copie locale, sinon plus personne ne travaillerait dès que le
+    // réseau faiblit. C'est toute l'utilité du drapeau « refuse ».
+    if (navigator.onLine) {
       setConnexionEnCours(true);
       const r = await chercherCompteEnLigne(nomSaisi.trim(), pwd);
       setConnexionEnCours(false);
-      if (r.error === "hors_ligne") {
-        setErr("Première connexion sur cet appareil : connectez-vous au réseau une fois. Ensuite, l'application fonctionnera hors ligne.");
+      if (r.refuse) {
+        if (u) await oublierCompteLocal(u.id);
+        setErr("Ce compte n'existe plus, ou le mot de passe a changé. Rapprochez-vous de l'administrateur.");
         return;
       }
-      if (r.error || !r.user) { setErr(r.error || "Utilisateur introuvable."); return; }
-      u = r.user;
-      // La fiche est rangée en local : les connexions suivantes se feront
-      // sans réseau. On n'utilise volontairement pas save() — ce n'est pas
-      // une action de l'utilisateur, et personne n'est encore connecté.
-      await enregistrerCompteLocal(u);
+      if (r.user) {
+        u = r.user;
+        // La fiche est rangée en local : les connexions suivantes se feront
+        // sans réseau. On n'utilise volontairement pas save() — ce n'est pas
+        // une action de l'utilisateur, et personne n'est encore connecté.
+        await enregistrerCompteLocal(u);
+      }
+    }
+    if (!u) {
+      setErr(navigator.onLine
+        ? "Utilisateur introuvable."
+        : "Première connexion sur cet appareil : connectez-vous au réseau une fois. Ensuite, l'application fonctionnera hors ligne.");
+      return;
     }
     if (u.actif === false) { setErr("Ce compte a été bloqué par l'administrateur."); return; }
     const { ok, aMigrer } = await verifierMotDePasse(u, pwd);

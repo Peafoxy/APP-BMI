@@ -274,6 +274,31 @@ titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
   }
 }
 
+titre("Un compte supprimé ne peut plus se reconnecter");
+{
+  // ⚠ Ces contrôles lisent le CODE, faute de pouvoir simuler un serveur ici.
+  // Ils verrouillent les trois décisions dont dépend la correction (Timo,
+  // 20/08/2026 : « les anciens comptes supprimés arrivent toujours à se
+  // connecter »), pour qu'aucune ne soit défaite par mégarde plus tard.
+  const cnx = readFileSync("src/screens/Connexion.jsx", "utf8");
+  const cli = readFileSync("src/supabaseClient.js", "utf8");
+  const app = readFileSync("src/App.jsx", "utf8");
+
+  test("le serveur est consulté DÈS QU'IL Y A DU RÉSEAU, pas seulement si le compte manque",
+    /if \(navigator\.onLine\)\s*\{[\s\S]{0,400}chercherCompteEnLigne/.test(cnx));
+  test("un refus du serveur bloque la connexion", /if \(r\.refuse\)/.test(cnx));
+  test("…et efface la copie périmée gardée sur l'appareil",
+    /r\.refuse[\s\S]{0,200}oublierCompteLocal/.test(cnx));
+  test("un serveur INJOIGNABLE n'est pas un refus (sinon plus personne ne travaille hors réseau)",
+    /const refuse = reponse\.status === 401 \|\| reponse\.status === 403;/.test(cli));
+  test("la connexion hors réseau reste possible sur un appareil déjà utilisé",
+    /navigator\.onLine[\s\S]{0,600}Première connexion sur cet appareil/.test(cnx));
+  test("un compte supprimé pendant qu'il travaille est déconnecté",
+    /Votre compte a été supprimé par l'administrateur/.test(app));
+  test("…mais jamais sur une table de comptes quasi vide (synchro en cours)",
+    /\(db\.users \|\| \[\]\)\.length > 1/.test(app));
+}
+
 titre("Aucun crochet React après le retour anticipé de l'écran de connexion");
 {
   // ⚠ GARDE-FOU né d'une vraie panne (Timo, 2.100.76 : écran blanc).
