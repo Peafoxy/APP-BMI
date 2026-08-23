@@ -1108,6 +1108,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <option value="85">Léger voile (85 %)</option>
                   <option value="60">Moyen (60 %)</option>
                   <option value="30">Fort (30 %)</option>
+                  <option value="20">Très fort (20 %)</option>
+                  <option value="15">Presque invisible (15 %)</option>
                   <option value="0">Totalement transparent</option>
                 </select>
               </Field>
@@ -1123,7 +1125,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               </Field>
             </div>
             <div className="text-xs text-slate-500 -mt-1">
-              💡 En dessous de 30 %, le texte peut devenir difficile à lire sur une image claire — regardez l'écran de connexion avant de laisser comme ça. « Par défaut » remet l'écran d'origine.
+              💡 Plus le voile est léger, plus l'image se voit — mais plus le texte devient difficile à lire sur une image claire. Regardez l'écran de connexion avant de laisser comme ça. Un léger flou protège la lecture tant qu'il reste un voile ; à « totalement transparent », l'image est parfaitement nette. « Par défaut » remet l'écran d'origine.
             </div>
             <Field label="Messages qui montent à l'écran (un par ligne, 6 maximum)">
               <textarea

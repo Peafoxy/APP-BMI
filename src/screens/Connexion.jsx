@@ -89,9 +89,11 @@ export function Login({ db, apparence, onLogin, save }) {
       ? 85 : Number(b0.accueil_opacite_cadres)));
   const fondCadre = `rgba(255,255,255,${opacite / 100})`;
   // Le flou d'arrière-plan sert à garder le texte lisible sur un fond chargé.
-  // À transparence totale il irait contre l'intention : on veut justement
-  // voir l'image nette. On le retire donc au-dessous de 20 %.
-  const flou = opacite >= 20 ? "backdrop-blur-sm" : "";
+  // Règle volontairement simple, pour rester prévisible quel que soit le
+  // palier choisi : tant qu'il reste un voile, le flou protège la lecture ;
+  // à « totalement transparent », il disparaît et l'image est nette — c'est
+  // exactement ce qu'on demande en choisissant zéro.
+  const flou = opacite > 0 ? "backdrop-blur-sm" : "";
   // ⚠ Demande Timo (20/08/2026) : « ajouter dans ces cadres un fond avec des
   // bulles qui se mouvementent ». Option décorative, éteinte par défaut.
   const bulles = b0.accueil_bulles === true;
