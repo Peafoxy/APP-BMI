@@ -21,12 +21,24 @@ export function Dettes({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq);
-  const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "" });
+  const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
 
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
-    save({ ...db, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: Number(f.paye || 0), par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}`);
-    setF({ client: "", tel: "", motif: "", montant: "", paye: "" });
+    const acompte = Math.max(0, Number(f.paye || 0));
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (20/08/2026) : le « Déjà payé » était inscrit
+    // sur la dette (champ `paye`) mais SANS ligne de paiement. Or la caisse du
+    // jour ne compte que les lignes de paiement (Caisse.jsx). Cet argent était
+    // donc bel et bien encaissé et pourtant invisible : la clôture du soir
+    // était courte d'autant, sans que rien n'explique l'écart.
+    // Le circuit « réservation » du même écran, lui, créait déjà cette ligne —
+    // seul ce formulaire l'oubliait.
+    const paiements = acompte > 0 ? [{
+      id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5),
+      montant: acompte, paiement: normPaiement(f.moyen), par: profile.nom,
+    }] : [];
+    save({ ...db, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: acompte, paiements, par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}${acompte > 0 ? ` — acompte ${fmt(acompte)} (${normPaiement(f.moyen)})` : ""}`);
+    setF({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
     uAlert("Dette enregistrée avec succès !");
   };
 
@@ -291,6 +303,16 @@ export function Dettes({ db, save, profile }) {
           <Field label="Article / Motif"><input className={inputCls} value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} /></Field>
           <Field label="Montant dette (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Déjà payé (F)"><input type="number" className={inputCls} value={f.paye} onChange={(e) => setF({ ...f, paye: e.target.value })} /></Field>
+          {/* Sans ce choix, tout acompte était supposé versé en espèces — et
+              un acompte Mobile Money faussait la caisse du jour dans l'autre
+              sens. Affiché seulement quand il y a un acompte à qualifier. */}
+          {Number(f.paye || 0) > 0 && (
+            <Field label="Payé comment ?">
+              <select className={inputCls} value={f.moyen} onChange={(e) => setF({ ...f, moyen: e.target.value })}>
+                {PAIEMENTS.filter((x) => !/Crédit/i.test(x)).map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </Field>
+          )}
         </div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dette</button>
       </Panel>

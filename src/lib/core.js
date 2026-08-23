@@ -105,7 +105,14 @@ export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles 
 export const brutVente = (v) => lignesVente(v).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0);
 export const qteVente = (v) => lignesVente(v).reduce((s, l) => s + Number(l.qte || 0), 0);
 export const resumeArticles = (v) => lignesVente(v).map((l) => `${l.qte}× ${l.article}`).join(", ");
-export const totalVente = (v) => brutVente(v) - Number(v.remise || 0);
+// ⚠ DÉFAUT TROUVÉ EN AUDIT (20/08/2026) — LE RABAIS ÉTAIT OUBLIÉ ICI.
+// Ventes.jsx demande au client `brut − remise − rabais`, mais cette fonction
+// s'arrêtait à `brut − remise`. Or c'est ELLE qui alimente la caisse du jour
+// (Caisse.jsx) et le reçu (impression.js). Conséquence à chaque vente avec
+// rabais commercial : la caisse réclamait 100 000 quand le client en avait
+// payé 95 000 — un écart rouge systématique — et le reçu affichait un montant
+// que le client n'avait pas versé.
+export const totalVente = (v) => brutVente(v) - Number(v.remise || 0) - Number(v.rabais || 0);
 
 // ⚠ FONCTIONNALITÉ 2.99.53 (demande Timo) : le CHIFFRE D'AFFAIRES n'est PAS
 // toujours égal au montant total payé par le client — deux cas l'excluent :
@@ -125,14 +132,29 @@ export const totalVente = (v) => brutVente(v) - Number(v.remise || 0);
 // répartie au PRORATA entre lignes incluses et exclues, plutôt que
 // soustraite en bloc du CA : sinon une remise de 10 % sur un panier mi-HB
 // mi-boutique ferait porter TOUTE la remise sur la seule part boutique.
-export const caVente = (v) => {
+// La part d'une réduction globale qui retombe sur les lignes COMPTÉES au
+// chiffre d'affaires (voir la répartition au prorata expliquée ci-dessus).
+// Extraite pour que le calcul de commission puisse réutiliser EXACTEMENT la
+// même part du rabais que celle retirée du chiffre d'affaires.
+export const partIncluse = (v) => {
   const lignes = lignesVente(v);
   const netLigne = (l) => Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);
   const brutTotal = lignes.reduce((s, l) => s + netLigne(l), 0);
   const brutInclus = lignes.reduce((s, l) => (l.hors_boutique ? s : s + netLigne(l)), 0);
-  if (brutTotal <= 0) return 0;
-  const part = brutInclus / brutTotal;
-  return Math.round(brutInclus - Number(v.remise || 0) * part);
+  return { brutInclus, part: brutTotal > 0 ? brutInclus / brutTotal : 0 };
+};
+export const rabaisImpute = (v) => Math.round(Number(v.rabais || 0) * partIncluse(v).part);
+
+// ⚠ MÊME DÉFAUT QUE totalVente (audit du 20/08/2026) : le rabais n'était pas
+// retiré du chiffre d'affaires. La formule de commission, elle, le rajoutait
+// (« total avant le rabais du commercial ») en supposant qu'il en avait été
+// retiré — il était donc compté en trop, et chaque commission dépassait le dû
+// de « taux × rabais ». En le retirant ici, la formule de commission redevient
+// juste sans y toucher : elle rajoute une somme qui a réellement été ôtée.
+export const caVente = (v) => {
+  const { brutInclus, part } = partIncluse(v);
+  if (part === 0) return 0;
+  return Math.round(brutInclus - Number(v.remise || 0) * part - Number(v.rabais || 0) * part);
 };
 
 // Hachage SHA-256 des mots de passe (plus de stockage en clair)

@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, caVente, fmt, today } from "./core";
+import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today } from "./core";
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
@@ -705,7 +705,11 @@ export const chantiersAReconcilier = (db, profile) =>
 // article « hors boutique » ou déjà compté lors d'une vente antérieure (voir
 // Ventes.jsx « Transformer en devis ») n'ouvre droit à AUCUNE commission.
 export const commissionBrute = (v, taux) => {
-  const base = caVente(v) + Number(v.rabais || 0); // total avant le rabais du commercial
+  // ⚠ On rajoute EXACTEMENT la part de rabais que caVente vient de retirer
+  // (rabaisImpute), pas le rabais brut : sur un panier mêlant articles de la
+  // boutique et articles « hors boutique », les deux diffèrent, et la base de
+  // calcul serait faussée.
+  const base = caVente(v) + rabaisImpute(v); // total avant le rabais du commercial
   return Math.max(0, Math.round((base * Number(taux || 0)) / 100) - Number(v.rabais || 0));
 };
 

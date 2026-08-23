@@ -233,9 +233,17 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // La remise globale saisie dans la machine s'applique aussi à la proforma :
     // le client voit le sous-total, la remise, et le total net — comme sur le reçu.
     sous_total: brut,
-    remise_pct: Number(remise || 0),
-    remise_montant: Math.round((brut * Number(remise || 0)) / 100),
-    total: brut - Math.round((brut * Number(remise || 0)) / 100),
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (20/08/2026) : `remise` est un MONTANT en
+    // francs (calculé plus haut à partir de `remisePct`), mais il était
+    // enregistré comme un POURCENTAGE puis réinjecté dans un calcul de
+    // pourcentage. Sur 100 000 F et 10 % de remise, la proforma annonçait
+    // « 10000 % », une remise de 10 000 000 F et un total de −9 900 000 F —
+    // et ce document partait tel quel en PDF, sur WhatsApp et dans
+    // l'historique. Le pourcentage et le montant sont maintenant chacun à
+    // leur place.
+    remise_pct: remisePct,
+    remise_montant: remise,
+    total: brut - remise,
     validite: "15 jours",
   });
 

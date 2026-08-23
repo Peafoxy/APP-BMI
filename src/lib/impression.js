@@ -117,6 +117,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
     <table class="totaux">
       <tr><td>Sous-total articles :</td><td>${fmt(brut)}</td></tr>
       <tr><td>Remise${v.remise_pct ? ` (${v.remise_pct} %)` : ""} :</td><td>${v.remise ? "−" + fmt(v.remise) : fmt(0)}</td></tr>
+      ${Number(v.rabais || 0) > 0 ? `<tr><td>Rabais commercial${v.commercial ? ` (${esc(v.commercial)})` : ""} :</td><td>−${fmt(v.rabais)}</td></tr>` : ""}
       ${Number(v.frais_installation || 0) > 0 ? `<tr><td>Frais d'installation :</td><td>${fmt(v.frais_installation)}</td></tr>` : ""}
       ${Number(v.frais_transport || 0) > 0 ? `<tr><td>Transport / livraison :</td><td>${fmt(v.frais_transport)}</td></tr>` : ""}
       <tr class="total"><td>TOTAL TTC :</td><td>${fmt(net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0))}</td></tr>
@@ -803,6 +804,7 @@ export function recuWhatsApp(v, bq = {}) {
     }),
     `Sous-total : ${fmt(brutVente(v))}`,
     v.remise ? `Remise${v.remise_pct ? ` (${v.remise_pct}%)` : ""} : −${fmt(v.remise)}` : null,
+    Number(v.rabais || 0) > 0 ? `Rabais commercial${v.commercial ? ` (${v.commercial})` : ""} : −${fmt(v.rabais)}` : null,
     `*TOTAL : ${fmt(totalVente(v))}*`,
     v.paiement === "Crédit (dette)" ? `Avance versée : ${fmt(v.avance || 0)}` : null,
     v.paiement === "Crédit (dette)" ? `*RESTE À PAYER : ${fmt(Math.max(0, totalVente(v) - (Number(v.avance) || 0)))}*` : null,

@@ -253,6 +253,54 @@ titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
   }
 }
 
+titre("Lot A — le rabais commercial ne fausse plus la caisse ni la commission");
+{
+  // Le cas du quotidien : 100 000 F d'articles, aucune remise, le commercial
+  // offre 5 000 F de rabais sur sa propre commission (taux 5 %).
+  const vente = (extra = {}) => ({
+    id: "v", boutique: "APESSITO", date: "2026-08-20", commercial: "KOSSI",
+    articles: [{ article: "Panneau", qte: 1, pu: 100000 }],
+    remise: 0, rabais: 5000, ...extra,
+  });
+
+  test("le total réclamé est bien ce que le client a payé (95 000, pas 100 000)",
+    Core.totalVente(vente()) === 95000);
+  test("sans rabais, rien ne change",
+    Core.totalVente(vente({ rabais: 0 })) === 100000);
+  test("le rabais se cumule correctement avec une remise",
+    Core.totalVente(vente({ remise: 10000 })) === 85000);
+  test("le chiffre d'affaires retient lui aussi le rabais",
+    Core.caVente(vente()) === 95000);
+
+  // Le commercial finance le rabais : sa commission tombe à zéro quand il
+  // offre exactement ce qu'elle valait.
+  test("un rabais égal à la commission la ramène à zéro",
+    C.commissionBrute(vente(), 5) === 0);
+  test("un rabais partiel ne laisse que le reste",
+    C.commissionBrute(vente({ rabais: 2000 }), 5) === 3000);
+  test("sans rabais, la commission est entière",
+    C.commissionBrute(vente({ rabais: 0 }), 5) === 5000);
+  test("la commission n'est jamais négative",
+    C.commissionBrute(vente({ rabais: 20000 }), 5) === 0);
+
+  // Panier mêlant articles de la boutique et articles « hors boutique » :
+  // la part de rabais retirée du CA doit être celle rajoutée à la base.
+  const mixte = {
+    id: "vm", boutique: "APESSITO", date: "2026-08-20", commercial: "KOSSI",
+    articles: [
+      { article: "Panneau", qte: 1, pu: 60000 },
+      { article: "Groupe", qte: 1, pu: 40000, hors_boutique: true },
+    ],
+    remise: 0, rabais: 5000,
+  };
+  test("sur un panier mixte, seule la part boutique du rabais sort du CA",
+    Core.caVente(mixte) === 57000);
+  test("…et c'est exactement cette part qui revient dans la base de commission",
+    C.commissionBrute(mixte, 5) === Math.max(0, Math.round((57000 + 3000) * 5 / 100) - 5000));
+  test("le client, lui, paie bien tout le panier moins le rabais",
+    Core.totalVente(mixte) === 95000);
+}
+
 titre("Les souhaits de l'écran de connexion");
 {
   const socle = (reglages, users = []) => ({
@@ -567,9 +615,14 @@ titre("Commissions : une vente GELÉE (installation non réceptionnée) ne doit 
     r2.du === 100000 && r2.idsAPayer.length === 1 && r2.idsAPayer[0] === "v2");
 
   // Le rabais offert par le commercial reste bien deduit de SA commission.
+  // ⚠ ATTENDU CORRIGÉ (audit du 20/08/2026) : ce test exigeait 31 000, or
+  // c'était le montant SURPAYÉ. Le rabais était rajouté à une base dont il
+  // n'avait jamais été retiré, gonflant chaque commission de « taux × rabais »
+  // — ici 5 % × 20 000 = 1 000 F. Le juste est 5 % de 1 000 000 (le prix avant
+  // rabais), moins les 20 000 offerts, soit 30 000. Ne pas « rétablir » 31 000.
   const vRabais = { id: "v3", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000 };
   test("le rabais offert par le commercial reste déduit de sa commission",
-    C.repartirCommissions([vRabais], 5).du === 31000);
+    C.repartirCommissions([vRabais], 5).du === 30000);
 }
 
 
@@ -596,13 +649,17 @@ titre("Commissions d'équipe : même règle pour la part du chef");
 
 titre("« Déjà payé » : un montant relu, pas recalculé avec le taux du jour");
 {
+  // Le montant INSCRIT reste 31 000 : c'est ce qui est réellement sorti de la
+  // caisse à l'époque, avant la correction du calcul. On le relit tel quel —
+  // réécrire l'histoire d'un versement déjà effectué serait pire que le bug.
   const vente = { id: "v1", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000, commission_payee: true, commission_montant: 31000 };
   test("le montant versé est relu tel quel",
     C.montantVerse(vente, 5) === 31000);
   test("…et ne bouge PAS quand on change le taux du commercial après coup",
     C.montantVerse(vente, 20) === 31000);
+  // Sans montant inscrit, on recalcule — donc avec la formule CORRIGÉE : 30 000.
   test("un paiement ancien (sans montant inscrit) retombe sur la formule complète, rabais déduit",
-    C.montantVerse({ id: "v2", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000 }, 5) === 31000);
+    C.montantVerse({ id: "v2", articles: [{ qte: 1, pu: 1000000 }], rabais: 20000 }, 5) === 30000);
 }
 
 
