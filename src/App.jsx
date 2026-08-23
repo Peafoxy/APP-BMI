@@ -547,12 +547,14 @@ export default function App() {
     }
   };
 
-  if (!db) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><LoadingSpinner /></div>;
-  // ⚠ PLACÉ ICI, ET PAS PLUS BAS : tout `useEffect` doit être déclaré AVANT
-  // le retour anticipé de l'écran de connexion ci-dessous. Posé après, il
-  // n'existait pas tant que personne n'était connecté puis apparaissait
-  // ensuite — React refuse ce changement et l'application ne s'affichait
-  // plus du tout (écran blanc, signalé par Timo en 2.100.76).
+  // ⚠ PLACÉ AVANT TOUT POINT DE SORTIE de ce composant — il y en a DEUX :
+  // l'écran de chargement juste en dessous (« if (!db) »), puis l'écran de
+  // connexion plus bas. Un `useEffect` déclaré après l'un ou l'autre n'existe
+  // pas au premier affichage puis apparaît ensuite : React refuse ce
+  // changement du nombre de crochets et cesse d'afficher l'application.
+  // Écran blanc, signalé par Timo en 2.100.76 — puis de nouveau en 2.100.77,
+  // parce que je n'avais remonté ce bloc qu'au-dessus du SECOND point de
+  // sortie, sans voir le premier.
   // ⚠ UN COMPTE BLOQUÉ PERD LA MAIN IMMÉDIATEMENT (point 12 de l'audit du
   // 20/08/2026). L'application ne vérifiait `actif` qu'à la connexion et à la
   // reprise de session : un employé bloqué — ou licencié — continuait donc de
@@ -581,7 +583,7 @@ export default function App() {
     }
   }, [db?.users, profile]);
 
-
+  if (!db) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><LoadingSpinner /></div>;
   if (!profile) {
     // Table users vide (purge + hors ligne) : l'écran de connexion s'appuie
     // sur les comptes de secours. Dans ce mode, pas de sauvegarde (la

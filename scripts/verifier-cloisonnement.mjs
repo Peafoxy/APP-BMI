@@ -276,9 +276,17 @@ titre("Aucun crochet React après le retour anticipé de l'écran de connexion")
   // apparaît ensuite : React refuse ce changement de nombre de crochets et
   // l'application ne s'affiche plus DU TOUT. Le défaut ne se voit ni à la
   // compilation, ni à la relecture — d'où ce contrôle automatique.
+  // ⚠ Il y a PLUSIEURS points de sortie, et c'est le PREMIER qui compte.
+  // La première version de ce contrôle ne cherchait que celui de l'écran de
+  // connexion : elle a laissé passer un crochet posé après l'écran de
+  // CHARGEMENT, situé plus haut — et l'écran blanc est revenu (2.100.77).
+  // On repère donc tout retour anticipé et on retient le plus haut.
   const source = readFileSync("src/App.jsx", "utf8").split("\n");
-  const retour = source.findIndex((l) => l.trim() === "if (!profile) {");
-  test("le retour anticipé de l'écran de connexion est bien trouvé", retour > 0);
+  const sorties = source
+    .map((l, i) => ({ n: i, l }))
+    .filter(({ l }) => /^ {2}if \(.*\)\s*return\b/.test(l) || l.trim() === "if (!profile) {");
+  const retour = sorties.length ? sorties[0].n : -1;
+  test("le premier point de sortie du composant est bien trouvé", retour > 0);
   const fautifs = source
     .map((l, i) => ({ n: i + 1, l }))
     .filter(({ n, l }) => n > retour + 1 && /\buse(Effect|State|Memo|Ref|Callback)\(/.test(l));

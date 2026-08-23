@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.100.77",
+  "version": "2.100.78",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -11,7 +11,8 @@
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV=1 electron .\"",
     "dist": "vite build && electron-builder --win",
     "predist": "node scripts/sync-version.mjs",
-    "verifier-cloisonnement": "node scripts/verifier-cloisonnement.mjs"
+    "verifier-cloisonnement": "node scripts/verifier-cloisonnement.mjs",
+    "verifier-ecran": "vite build && node scripts/verifier-ecran.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
