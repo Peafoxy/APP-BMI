@@ -40,6 +40,13 @@ await build({
 const Core = await import(pathToFileURL(sortieCore).href);
 unlinkSync(sortieCore);
 
+// Le report d'une modification d'écran sur l'état le plus récent.
+const sortieReb = join("node_modules", ".cache", `bmi-reb-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/rebase.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieReb, logLevel: "silent", loader: { ".js": "jsx" } });
+const Reb = await import(pathToFileURL(sortieReb).href);
+unlinkSync(sortieReb);
+
 // lib/cnss.js importe la bibliothèque Excel (xlsx), qui ne s'initialise pas
 // hors navigateur. On la remplace par un bouchon vide : les fonctions
 // vérifiées ici (comparaison d'une saisie) n'y touchent pas.
@@ -251,6 +258,59 @@ titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
     test("un vendeur réel ne voit pas le commercial de formation",
       !noms(P.vendeur).includes("STAGIAIRE COMMERCIAL"));
   }
+}
+
+titre("Lot B — une vente qui arrive pendant une fenêtre ouverte n'est plus effacée");
+{
+  const T = ["ventes", "dettes", "depenses"];
+  // L'écran a reçu cet état, puis a ouvert une fenêtre « Confirmer ? ».
+  const recu = {
+    ventes: [{ id: "v1", client: "A" }],
+    dettes: [{ id: "d1", paye: 0 }],
+    depenses: [],
+  };
+  // Pendant ce temps, une vente arrive d'un autre appareil.
+  const courant = {
+    ventes: [{ id: "vSYNC", client: "COLLEGUE" }, { id: "v1", client: "A" }],
+    dettes: [{ id: "d1", paye: 0 }],
+    depenses: [],
+  };
+
+  // L'écran valide : il renvoie SON état, où vSYNC n'existe pas.
+  const renvoye = { ...recu, ventes: [{ id: "v2", client: "B" }, ...recu.ventes] };
+  const r = Reb.rebaser(recu, renvoye, courant, T);
+  test("la vente arrivée entre-temps SURVIT (c'était le défaut : elle était effacée)",
+    r.ventes.some((v) => v.id === "vSYNC"));
+  test("la vente que l'écran voulait créer est bien là",
+    r.ventes.some((v) => v.id === "v2"));
+  test("la vente d'origine est intacte",
+    r.ventes.some((v) => v.id === "v1"));
+  test("la nouveauté de l'écran passe en tête de liste",
+    r.ventes[0].id === "v2");
+
+  // Une suppression VOULUE par l'écran doit, elle, être respectée.
+  const supprime = { ...recu, ventes: [] };
+  const r2 = Reb.rebaser(recu, supprime, courant, T);
+  test("une suppression voulue par l'écran est bien appliquée",
+    !r2.ventes.some((v) => v.id === "v1"));
+  test("…mais elle n'emporte PAS la vente arrivée entre-temps",
+    r2.ventes.some((v) => v.id === "vSYNC"));
+
+  // Une modification d'un enregistrement que l'écran avait bien en main.
+  const modifie = { ...recu, dettes: [{ id: "d1", paye: 5000 }] };
+  const r3 = Reb.rebaser(recu, modifie, courant, T);
+  test("une modification est reportée sur l'état courant",
+    r3.dettes.find((d) => d.id === "d1").paye === 5000);
+  test("les tables auxquelles l'écran n'a pas touché ne bougent pas",
+    r3.ventes === courant.ventes);
+
+  // Le cas où deux écritures se croisent sur des tables différentes.
+  const courant2 = { ...courant, depenses: [{ id: "e1", montant: 100 }] };
+  const r4 = Reb.rebaser(recu, renvoye, courant2, T);
+  test("une dépense arrivée dans une autre table est préservée",
+    r4.depenses.length === 1);
+  test("une table absente des deux côtés ne fait rien planter",
+    Reb.rebaser({}, {}, {}, T).ventes === undefined);
 }
 
 titre("Lot A — le rabais commercial ne fausse plus la caisse ni la commission");

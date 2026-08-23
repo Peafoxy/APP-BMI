@@ -64,8 +64,9 @@ import {
   ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp,
   envoyerAccueilProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu,
 } from "./lib/comptesClients";
-import { initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
+import { TABLES, initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
+import { rebaser } from "./lib/rebase";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
@@ -306,11 +307,28 @@ export default function App() {
     return final;
   };
 
+  // ⚠ Numéro de version de l'état, et mémoire des derniers états servis.
+  // Un écran qui enregistre renvoie `{ ...db, ... }` : il rapporte donc le
+  // numéro de l'état qu'il avait reçu. S'il ne correspond plus à l'état
+  // courant, c'est que des données sont arrivées entre-temps — et il faut
+  // reporter la seule intention de l'écran au lieu d'écraser tout (voir
+  // lib/rebase.js, et le défaut de suppression fantôme qu'il corrige).
+  const versionRef = useRef(0);
+  const etatsServis = useRef(new Map());
+
   const setDb = (d) => {
     // LOT D : index précalculés, TOUJOURS reconstruits ici (jamais réutilisés
     // d'un ancien état — un save({...db, ventes}) recopierait sinon un index
     // périmé). Construction O(ventes), payée UNE fois par vrai changement.
-    const enrichi = { ...d, __index: construireIndexDb(d) };
+    const version = ++versionRef.current;
+    const enrichi = { ...d, __index: construireIndexDb(d), __v: version };
+    // On ne garde que les derniers états : au-delà, une fenêtre restée
+    // ouverte si longtemps ne mérite plus d'être rejouée telle quelle.
+    etatsServis.current.set(version, enrichi);
+    if (etatsServis.current.size > 12) {
+      const trop = etatsServis.current.size - 12;
+      for (const cle of [...etatsServis.current.keys()].slice(0, trop)) etatsServis.current.delete(cle);
+    }
     setColors(Object.fromEntries((enrichi.boutiques || []).map((b) => [b.nom, b.couleur])));
     dbRef.current = enrichi;
     setDbRaw(enrichi);
@@ -455,6 +473,23 @@ export default function App() {
     if (profile && !peutEcrire(dbRef.current, profile) && !pointageAutorise) {
       if (action) uAlert("🔒 Votre compte est en lecture seule : vous pouvez consulter et exporter, mais pas modifier ni supprimer.");
       return;
+    }
+    // ⚠ L'écran a-t-il travaillé sur un état périmé ? (fenêtre de
+    // confirmation restée ouverte pendant qu'une synchronisation apportait
+    // des données). Si oui, on ne retient QUE ce qu'il a voulu changer et on
+    // le reporte sur l'état courant — sinon une vente arrivée entre-temps,
+    // absente de l'état qu'il renvoie, serait prise pour une suppression
+    // voulue et effacée partout, serveur compris.
+    if (next && next.__v != null && dbRef.current && next.__v !== dbRef.current.__v) {
+      const base = etatsServis.current.get(next.__v);
+      if (base) {
+        next = rebaser(base, next, dbRef.current, TABLES);
+      } else {
+        // État trop ancien pour être retrouvé : on refuse plutôt que de
+        // risquer d'effacer ce qu'on ne sait plus comparer.
+        uAlert("⏳ Cette fenêtre est restée ouverte trop longtemps pendant que d'autres données arrivaient.\n\nRien n'a été enregistré, pour ne rien effacer par erreur. Refaites l'opération : l'écran est à jour.");
+        return;
+      }
     }
     const prev = dbRef.current;
     // ---- VERROU DE CLOISONNEMENT FORMATION / RÉEL, À LA SOURCE ----
