@@ -97,7 +97,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, chantiersAReconcilier, construireIndexDb,
-  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace,
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace,
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -511,7 +511,12 @@ export default function App() {
       }
     }
     const final = action
-      ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", action }, ...(next.audits || [])] }
+      // ⚠ Le journal portait les actions des DEUX espaces mélangées : les
+      // gestes d'entraînement apparaissaient dans l'historique réel, avec de
+      // vrais montants dans leur libellé (point 13 de l'audit du 20/08/2026).
+      // Il porte désormais sa marque, comme les prospects, et le serveur le
+      // cloisonne (supabase/securite-1-audits-et-tombstones.sql).
+      ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", action, ...marqueEspace(next, profile) }, ...(next.audits || [])] }
       : next;
     setDb(final);
     setSaveStatus("saving");
@@ -583,6 +588,34 @@ export default function App() {
   // reconnecter même hors ligne). Si des opérations n'ont pas pu partir
   // (hors ligne), on NE purge PAS — perdre une vente serait bien pire que
   // voir un chiffre périmé — et on préviendra à la déconnexion suivante.
+  // ⚠ UN COMPTE BLOQUÉ PERD LA MAIN IMMÉDIATEMENT (point 12 de l'audit du
+  // 20/08/2026). L'application ne vérifiait `actif` qu'à la connexion et à la
+  // reprise de session : un employé bloqué — ou licencié — continuait donc de
+  // travailler normalement jusqu'à l'expiration de son jeton.
+  //
+  // On surveille désormais SA fiche en continu. Dès que la synchronisation
+  // rapporte le blocage (ou la désactivation faite depuis un autre appareil),
+  // la session se ferme, avec un message qui explique.
+  //
+  // Ce que cela ne fait PAS, et il faut le savoir : le jeton de session reste
+  // valable côté serveur jusqu'à son expiration. Quelqu'un qui contournerait
+  // l'application pourrait donc encore écrire pendant ce laps de temps. La
+  // fermeture complète demanderait au serveur de révoquer la session — c'est
+  // le prolongement naturel de cette correction.
+  useEffect(() => {
+    if (!profile || !db?.users) return;
+    const moi = db.users.find((u) => u.id === profile.id);
+    // Fiche absente : on ne conclut RIEN. Une synchronisation partielle, ou
+    // une base locale encore incomplète, ne doit jamais déconnecter
+    // quelqu'un par erreur.
+    if (!moi) return;
+    if (moi.actif === false) {
+      setProfile(null);
+      try { localStorage.removeItem("bmi_session"); } catch {}
+      uAlert("🔒 Votre compte vient d'être désactivé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
+    }
+  }, [db?.users, profile]);
+
   const deconnexion = async (automatique = false) => {
     // Dernière tentative d'envoi immédiat avant toute décision.
     try { await synchroniser(); } catch { /* hors ligne : on vérifie l'outbox juste après */ }

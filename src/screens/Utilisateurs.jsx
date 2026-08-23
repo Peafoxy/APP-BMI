@@ -478,6 +478,52 @@ export function Users({ db, save, profile }) {
       `Taux de commission de ${u.nom} fixé à ${taux} %`);
   };
 
+  // ---- MOTS DE PASSE RESTÉS EN CLAIR ----
+  // ⚠ Point 11 de l'audit du 20/08/2026 : la vérification d'un mot de passe
+  // accepte encore l'ancien format « en clair », pour ne pas enfermer dehors
+  // un compte jamais reconnecté depuis le passage au chiffrement fort.
+  //
+  // La purge SQL, elle, ne pouvait pas les traiter : elle sait effacer un
+  // mot de passe en clair QUAND un hachage existe déjà, mais pas en fabriquer
+  // un — le chiffrement fort (150 000 tours) n'existe que dans le navigateur.
+  //
+  // Cet outil le fait, sans changer le mot de passe de personne : il relit le
+  // clair, en calcule le chiffrement fort, puis EFFACE le clair. Les comptes
+  // au vieux hachage faible ne peuvent pas être convertis ainsi (le mot de
+  // passe n'y est pas récupérable) — ils se convertissent tout seuls à leur
+  // prochaine connexion, ce qui marche déjà.
+  const comptesEnClair = (db.users || []).filter((u) => typeof u.pwd === "string" && u.pwd !== "" && !u.pwd_hash2);
+
+  const convertirMotsDePasseEnClair = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!jeSuisAdminPrincipal) { uAlert("🔒 Réservé à l'administrateur PRINCIPAL."); return; }
+    if (comptesEnClair.length === 0) { uAlert("✅ Aucun mot de passe en clair : rien à convertir."); return; }
+    if (!await uConfirm(
+      `Convertir ${comptesEnClair.length} mot(s) de passe encore enregistré(s) en clair ?\n\n` +
+      `PERSONNE ne change de mot de passe : chacun garde exactement le sien. ` +
+      `Seule la façon dont il est enregistré change — il devient illisible, même pour vous.\n\n` +
+      `Comptes concernés : ${comptesEnClair.map((u) => u.nom).join(", ")}`
+    )) return;
+
+    const convertis = new Map();
+    for (const u of comptesEnClair) {
+      // eslint-disable-next-line no-await-in-loop
+      const champs = await definirMotDePasse(u.pwd);
+      convertis.set(u.id, champs);
+    }
+    save({
+      ...db,
+      users: db.users.map((u) => {
+        const champs = convertis.get(u.id);
+        if (!champs) return u;
+        // Le clair ET l'ancien hachage faible disparaissent de la fiche.
+        const { pwd, pwd_hash, ...reste } = u;
+        return { ...reste, ...champs };
+      }),
+    }, `${convertis.size} mot(s) de passe converti(s) au chiffrement fort (aucun mot de passe modifié)`);
+    uAlert(`✅ ${convertis.size} mot(s) de passe converti(s).\n\nPersonne n'a changé de mot de passe : chacun se connecte comme avant.`);
+  };
+
   // ---- IDENTITÉ OFFICIELLE (nom et prénoms + pièce d'identité) ----
   // Renseignée après la création du compte. C'est cette identité qui figure
   // sur le bulletin de paie (le « nom » du compte ne sert qu'à la connexion).
@@ -817,6 +863,25 @@ export function Users({ db, save, profile }) {
             <div className="text-xs text-amber-900 mt-2">
               {comptesEspaceIncoherent(db).map((u) => `${u.nom} (${u.boutique})`).join(" · ")}
             </div>
+          </div>
+        )}
+        {/* Mots de passe encore enregistrés en clair : la purge SQL ne pouvait
+            pas les traiter (elle sait effacer, pas chiffrer). Voir
+            convertirMotsDePasseEnClair. */}
+        {jeSuisAdminPrincipal && comptesEnClair.length > 0 && (
+          <div className="mt-3 rounded-lg border-2 border-red-400 bg-red-50 p-3">
+            <div className="font-bold text-sm text-red-900">
+              🔓 {comptesEnClair.length} mot(s) de passe encore enregistré(s) en clair
+            </div>
+            <div className="text-xs text-red-800 mt-1">
+              Ces comptes ne se sont jamais reconnectés depuis le passage au chiffrement fort : leur mot de passe est
+              lisible tel quel dans la base par tout compte connecté. La conversion ne change le mot de passe de
+              <b> personne</b> — chacun continue de se connecter exactement comme avant.
+            </div>
+            <div className="text-xs text-red-900 mt-2">{comptesEnClair.map((u) => u.nom).join(" · ")}</div>
+            <button onClick={convertirMotsDePasseEnClair} className="mt-2 px-4 py-2 rounded-lg bg-red-700 text-white font-bold text-xs hover:bg-red-800">
+              🔒 Convertir maintenant
+            </button>
           </div>
         )}
         {jeSuisAdminPrincipal && (
