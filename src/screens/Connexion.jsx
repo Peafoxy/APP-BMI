@@ -97,6 +97,14 @@ export function Login({ db, apparence, onLogin, save }) {
   // ⚠ Demande Timo (20/08/2026) : « ajouter dans ces cadres un fond avec des
   // bulles qui se mouvementent ». Option décorative, éteinte par défaut.
   const bulles = b0.accueil_bulles === true;
+  // ⚠ Demande Timo : la couleur des bulles se règle désormais à part. Sans
+  // réglage, elle suit celle du bandeau — donc rien ne change pour qui n'y
+  // touche pas.
+  const couleurBulles = b0.accueil_couleur_bulles || accueilBadge;
+  // ⚠ Demande Timo : « ajouter dans cet espace des étoiles de différentes
+  // tailles, comme dans l'univers ». Habille le grand aplat bleu qui entoure
+  // la carte sur un écran large. Éteint par défaut.
+  const etoiles = b0.accueil_etoiles === true;
   // Anniversaires du jour + messages libres de l'administrateur (voir
   // souhaitsDuJour dans lib/calculs.js). Tableau vide = aucune animation.
   const souhaits = souhaitsDuJour(db);
@@ -107,8 +115,29 @@ export function Login({ db, apparence, onLogin, save }) {
   const position = b0.accueil_image_position || "centre";
   const tailleImage = ajustement === "entier" ? "contain" : ajustement === "etirer" ? "100% 100%" : "cover";
   const positionImage = position === "haut" ? "top center" : position === "bas" ? "bottom center" : "center";
+  // ⚠ Demande Timo (20/08/2026) : sous Windows la fenêtre est large, la carte
+  // reste au centre et tout le reste est un aplat bleu. L'image peut désormais
+  // occuper TOUTE la fenêtre, la carte devenant un panneau posé dessus — et
+  // comme les cadres sont déjà réglables en transparence, l'image se prolonge
+  // à travers eux sans être recadrée deux fois.
+  // Éteint par défaut : l'écran de ceux qui ne changent rien ne bouge pas.
+  const pleinEcran = accueilImage && b0.accueil_image_etendue === true;
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900 flex items-center justify-center p-4">
+    <div
+      className={`min-h-screen relative flex items-center justify-center p-4${pleinEcran ? "" : " bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"}`}
+      style={pleinEcran ? {
+        backgroundColor: accueilFond,
+        backgroundImage: `url(${accueilImage})`,
+        backgroundSize: tailleImage,
+        backgroundPosition: positionImage,
+        backgroundRepeat: "no-repeat",
+      } : undefined}
+    >
+      {/* Voile sombre entre l'image et la carte : sans lui, une photo claire
+          rendrait le texte de la carte difficile à lire, et la carte elle-même
+          se fondrait dans le décor. */}
+      {pleinEcran && <div className="absolute inset-0" style={{ backgroundColor: "rgba(2, 20, 40, 0.45)" }} />}
+      {etoiles && <Etoiles />}
       <div
         className="relative z-10 overflow-hidden rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
         style={{
@@ -116,7 +145,10 @@ export function Login({ db, apparence, onLogin, save }) {
           // c'est elle qui comble les bandes laissées libres. Avant, la
           // couleur était purement ignorée dès qu'une image existait.
           backgroundColor: accueilFond,
-          ...(accueilImage ? {
+          // En plein écran, l'image est déjà posée derrière TOUTE la fenêtre :
+          // la remettre ici la recadrerait une seconde fois, et les deux
+          // cadrages ne coïncideraient pas.
+          ...(accueilImage && !pleinEcran ? {
             backgroundImage: `url(${accueilImage})`,
             backgroundSize: tailleImage,
             backgroundPosition: positionImage,
@@ -127,7 +159,7 @@ export function Login({ db, apparence, onLogin, save }) {
         {/* Voile blanc derrière le logo/titre, dont l'opacité est réglable
             dans Paramètres (0 % = cadre totalement invisible). */}
         <div className={`relative overflow-hidden text-center mb-5 rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
-          {bulles && <Bulles couleur={accueilBadge} />}
+          {bulles && <Bulles couleur={couleurBulles} />}
           <div className="relative">
           <img src={LOGO} alt="BMI Togo" className="mx-auto mb-3 w-40 h-auto" />
           <div className="text-xl font-bold text-slate-900">GESTION SYSTÈME</div>
@@ -136,7 +168,7 @@ export function Login({ db, apparence, onLogin, save }) {
           </div>
         </div>
         <div className={`relative overflow-hidden rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
-          {bulles && <Bulles couleur={accueilBadge} />}
+          {bulles && <Bulles couleur={couleurBulles} />}
           <div className="relative space-y-3">
           <Field label="Utilisateur">
             <input className={inputCls} autoCapitalize="words" placeholder="Votre nom" value={nomSaisi} onChange={(e) => { setNomSaisi(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
@@ -186,6 +218,47 @@ const BULLES = [
   { gauche: 80, taille: 30, duree: 7.0, retard: 2.0 },
   { gauche: 91, taille: 16, duree: 5.0, retard: 2.8 },
 ];
+
+// ============ CIEL ÉTOILÉ (option décorative) ============
+// Demande Timo (20/08/2026). Positions, tailles et rythmes FIXES et non
+// tirés au hasard : une valeur aléatoire changerait à chaque réaffichage de
+// React, et le ciel se réarrangerait sous les yeux au lieu de scintiller.
+// La suite ci-dessous est calculée une seule fois, au chargement du fichier,
+// et donne toujours le même ciel.
+const ETOILES = Array.from({ length: 70 }, (_, i) => {
+  const a = ((i * 9301 + 49297) % 233280) / 233280;
+  const b = (((i + 7) * 4093 + 12345) % 233280) / 233280;
+  const c = (((i + 13) * 7919 + 104729) % 233280) / 233280;
+  return {
+    gauche: +(a * 100).toFixed(2),
+    haut: +(b * 100).toFixed(2),
+    // Des tailles variées : c'est ce qui donne l'impression de profondeur.
+    taille: +(1 + c * 2.4).toFixed(2),
+    duree: +(2.5 + a * 4).toFixed(2),
+    retard: +(c * 5).toFixed(2),
+  };
+});
+
+function Etoiles() {
+  return (
+    <div className="bmi-etoiles" aria-hidden="true">
+      {ETOILES.map((e, i) => (
+        <span
+          key={i}
+          className="bmi-etoile"
+          style={{
+            left: `${e.gauche}%`,
+            top: `${e.haut}%`,
+            width: e.taille,
+            height: e.taille,
+            animationDuration: `${e.duree}s`,
+            animationDelay: `${e.retard}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 // ============ SOUHAITS QUI MONTENT (anniversaires et fêtes) ============
 // Demande Timo (20/08/2026), montés DANS le cadre du haut — comme les bulles.

@@ -100,7 +100,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       accueil_texte: "", accueil_couleur_badge: "", accueil_couleur_fond: "", accueil_image: "",
       accueil_opacite_cadres: "", accueil_bulles: false,
       accueil_image_ajustement: "", accueil_image_position: "",
-      accueil_messages: "", accueil_anniversaires: false,
+      accueil_messages: "", accueil_anniversaires: false, accueil_image_etendue: false,
+      accueil_etoiles: false, accueil_couleur_bulles: "",
     });
   };
 
@@ -1113,6 +1114,16 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <option value="0">Totalement transparent</option>
                 </select>
               </Field>
+              <Field label="Ciel étoilé autour de la carte">
+                <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={boutiqueRef.accueil_etoiles === true}
+                    onChange={(e) => enregistrerAccueil({ accueil_etoiles: e.target.checked })}
+                  />
+                  <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_etoiles === true ? "Activé" : "Désactivé"}</span>
+                </label>
+              </Field>
               <Field label="Bulles animées dans les cadres">
                 <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
                   <input
@@ -1123,6 +1134,19 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_bulles === true ? "Activées" : "Désactivées"}</span>
                 </label>
               </Field>
+              {boutiqueRef.accueil_bulles === true && (
+                <Field label="Couleur des bulles">
+                  <input
+                    type="color"
+                    value={boutiqueRef.accueil_couleur_bulles || boutiqueRef.accueil_couleur_badge || "#0284c7"}
+                    onChange={(e) => enregistrerAccueil({ accueil_couleur_bulles: e.target.value })}
+                    className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer"
+                  />
+                </Field>
+              )}
+            </div>
+            <div className="text-xs text-slate-500 -mt-1">
+              ⭐ Les étoiles habillent le grand espace autour de la carte — surtout visible sur PC, où la fenêtre est large. Elles restent DERRIÈRE la carte : elles ne gênent jamais la saisie.
             </div>
             <div className="text-xs text-slate-500 -mt-1">
               💡 Plus le voile est léger, plus l'image se voit — mais plus le texte devient difficile à lire sur une image claire. Regardez l'écran de connexion avant de laisser comme ça. Un léger flou protège la lecture tant qu'il reste un voile ; à « totalement transparent », l'image est parfaitement nette. « Par défaut » remet l'écran d'origine.
@@ -1176,6 +1200,16 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                     <option value="remplir">Remplir la carte (bords recadrés)</option>
                     <option value="entier">Image entière (rien de coupé)</option>
                     <option value="etirer">Étirer (peut déformer)</option>
+                  </select>
+                </Field>
+                <Field label="Où poser l'image">
+                  <select
+                    className={inputCls}
+                    value={boutiqueRef.accueil_image_etendue === true ? "ecran" : "carte"}
+                    onChange={(e) => enregistrerAccueil({ accueil_image_etendue: e.target.value === "ecran" })}
+                  >
+                    <option value="carte">Dans la carte seulement</option>
+                    <option value="ecran">Sur tout l'écran (recommandé sur PC)</option>
                   </select>
                 </Field>
                 <Field label="Partie de l'image à privilégier">
