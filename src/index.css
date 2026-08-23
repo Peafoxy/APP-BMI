@@ -159,38 +159,89 @@ input, select, textarea { max-width: 100%; }
 }
 
 /* ============================================================
-   CIEL ÉTOILÉ DE L'ÉCRAN DE CONNEXION (demande Timo, 20/08/2026 :
-   « ajouter dans cet espace des étoiles de différentes tailles,
-   comme dans l'univers »).
+   CIEL ÉTOILÉ DE L'ÉCRAN DE CONNEXION (demande Timo, 20/08/2026)
 
-   Sous Windows la fenêtre est large : la carte reste au centre et
-   tout le reste était un aplat bleu vide. Les étoiles habillent
-   cet espace sans rien coûter — du CSS pur, aucune image, aucune
-   bibliothèque, et rien qui se recalcule en continu.
+   ⚠ PREMIÈRE VERSION REFUSÉE, à juste titre : « c'est des boutons
+   lumineux, pas des étoiles ». Des ronds tous pareils, tous avec
+   le même halo, ne ressemblent effectivement à rien.
 
-   Option éteinte par défaut. Posée DERRIÈRE la carte : elle ne
-   passe jamais devant un champ de saisie. */
-@keyframes bmi-etoile-scintille {
-  0%, 100% { opacity: 0.25; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.35); }
-}
-.bmi-etoiles {
+   Ce qui fait un vrai ciel — « comme une galaxie lointaine » :
+     • une majorité de POUSSIÈRE : des points minuscules et pâles,
+       sans halo. C'est le fond du ciel, et c'est ce qui manquait ;
+     • une poignée d'ASTRES seulement, dessinés avec leurs quatre
+       branches — c'est ce dessin, pas le halo, qui fait lire une
+       étoile comme une étoile ;
+     • des NÉBULEUSES : de larges voiles très flous et très pâles,
+       qui donnent la profondeur et la couleur ;
+     • des teintes VARIÉES (blanc, bleu pâle, ambre) : un vrai champ
+       d'étoiles n'est jamais uniformément blanc.
+
+   Le tout en CSS pur : aucune image, aucune bibliothèque, rien qui
+   se recalcule en continu. Option éteinte par défaut, et posée
+   DERRIÈRE la carte : jamais devant un champ de saisie. */
+.bmi-ciel {
   position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
 }
-.bmi-etoile {
+
+/* ---- Les nébuleuses : de larges voiles flous, presque immobiles ---- */
+@keyframes bmi-nebuleuse-derive {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(2%, -2%, 0) scale(1.08); }
+}
+.bmi-nebuleuse {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  animation-name: bmi-nebuleuse-derive;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* ---- La poussière : le fond du ciel. Minuscule, pâle, sans halo ---- */
+@keyframes bmi-poussiere-respire {
+  0%, 100% { opacity: 0.18; }
+  50%      { opacity: 0.65; }
+}
+.bmi-poussiere {
   position: absolute;
   border-radius: 9999px;
-  background: #fff;
-  /* Le halo donne la profondeur : sans lui, ce sont des points, pas
-     des étoiles. */
-  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.65);
-  animation-name: bmi-etoile-scintille;
+  animation-name: bmi-poussiere-respire;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
+
+/* ---- Les astres : rares, et dessinés avec leurs quatre branches ---- */
+@keyframes bmi-astre-scintille {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.85) rotate(0deg); }
+  50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.15) rotate(8deg); }
+}
+.bmi-astre {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation-name: bmi-astre-scintille;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+/* Les deux branches, croisées. Le dégradé les fait s'éteindre aux
+   pointes — une barre pleine ferait une croix, pas une étoile. */
+.bmi-astre::before,
+.bmi-astre::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(var(--bmi-sens, 90deg),
+    transparent 0%, var(--bmi-astre-couleur, #fff) 50%, transparent 100%);
+}
+.bmi-astre::before { width: 100%; height: 1.5px; }
+.bmi-astre::after  { width: 1.5px; height: 100%; --bmi-sens: 0deg; }
+
 @media (prefers-reduced-motion: reduce) {
-  .bmi-etoile { animation: none; opacity: 0.7; }
+  .bmi-nebuleuse, .bmi-poussiere, .bmi-astre { animation: none; }
+  .bmi-poussiere { opacity: 0.45; }
 }

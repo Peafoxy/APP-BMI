@@ -220,37 +220,120 @@ const BULLES = [
 ];
 
 // ============ CIEL ÉTOILÉ (option décorative) ============
-// Demande Timo (20/08/2026). Positions, tailles et rythmes FIXES et non
-// tirés au hasard : une valeur aléatoire changerait à chaque réaffichage de
-// React, et le ciel se réarrangerait sous les yeux au lieu de scintiller.
-// La suite ci-dessous est calculée une seule fois, au chargement du fichier,
-// et donne toujours le même ciel.
-const ETOILES = Array.from({ length: 70 }, (_, i) => {
-  const a = ((i * 9301 + 49297) % 233280) / 233280;
-  const b = (((i + 7) * 4093 + 12345) % 233280) / 233280;
-  const c = (((i + 13) * 7919 + 104729) % 233280) / 233280;
+// Demande Timo (20/08/2026). ⚠ PREMIÈRE VERSION REFUSÉE à juste titre :
+// « c'est des boutons lumineux, pas des étoiles ». Des ronds tous pareils,
+// tous avec le même halo, ne ressemblent effectivement à rien.
+//
+// Un ciel se compose de trois choses très inégales en nombre :
+//   • beaucoup de POUSSIÈRE — des points minuscules et pâles, sans halo.
+//     C'est le fond du ciel, et c'est ce qui manquait le plus ;
+//   • très peu d'ASTRES — dessinés avec leurs quatre branches. C'est ce
+//     dessin, pas le halo, qui fait lire une étoile comme une étoile ;
+//   • quelques NÉBULEUSES — de larges voiles flous qui donnent la couleur
+//     et la profondeur, « comme dans une galaxie lointaine ».
+//
+// Positions, tailles et rythmes FIXES, calculés une seule fois au
+// chargement : une valeur tirée au hasard changerait à chaque réaffichage
+// de React, et le ciel se réarrangerait sous les yeux au lieu de scintiller.
+
+// Suite déterministe — même ciel à chaque ouverture.
+const suite = (i, a, b) => (((i + a) * b + 104729) % 233280) / 233280;
+
+// Un vrai champ d'étoiles n'est jamais uniformément blanc.
+const TEINTES = ["#ffffff", "#dbe9ff", "#cfe0ff", "#ffeccf", "#ffffff", "#e8f1ff"];
+
+const POUSSIERE = Array.from({ length: 130 }, (_, i) => {
+  const a = suite(i, 0, 9301);
+  const b = suite(i, 7, 4093);
+  const c = suite(i, 13, 7919);
   return {
     gauche: +(a * 100).toFixed(2),
     haut: +(b * 100).toFixed(2),
-    // Des tailles variées : c'est ce qui donne l'impression de profondeur.
-    taille: +(1 + c * 2.4).toFixed(2),
-    duree: +(2.5 + a * 4).toFixed(2),
-    retard: +(c * 5).toFixed(2),
+    // Presque toutes minuscules : c'est ce qui fait le fond du ciel.
+    taille: +(0.7 + c * 1.3).toFixed(2),
+    teinte: TEINTES[i % TEINTES.length],
+    duree: +(3 + a * 5).toFixed(2),
+    retard: +(c * 6).toFixed(2),
   };
 });
 
+// Rares — une dizaine sur tout l'écran. C'est leur rareté qui les fait
+// remarquer, et leurs branches qui les font reconnaître.
+//
+// ⚠ POSITIONS ÉCRITES À LA MAIN, et pas calculées. La suite déterministe
+// utilisée pour la poussière est trop régulière sur onze valeurs seulement :
+// elle alignait les astres en diagonale, ce qui se voyait immédiatement.
+// Elles évitent aussi le centre de l'écran, où se trouve la carte — un astre
+// caché derrière elle serait dessiné pour rien.
+const ASTRES = [
+  { gauche: 8, haut: 14, taille: 16 }, { gauche: 21, haut: 68, taille: 11 },
+  { gauche: 14, haut: 41, taille: 9 }, { gauche: 33, haut: 9, taille: 13 },
+  { gauche: 29, haut: 86, taille: 10 }, { gauche: 50, haut: 6, taille: 18 },
+  { gauche: 68, haut: 22, taille: 12 }, { gauche: 78, haut: 61, taille: 15 },
+  { gauche: 88, haut: 33, taille: 10 }, { gauche: 72, haut: 88, taille: 12 },
+  { gauche: 93, haut: 76, taille: 14 },
+].map((a, i) => ({
+  ...a,
+  teinte: TEINTES[(i * 3) % TEINTES.length],
+  // Des rythmes premiers entre eux : deux astres voisins ne scintillent
+  // jamais ensemble, ce qui ferait clignoter tout le ciel d'un bloc.
+  duree: +(3.4 + (i % 5) * 0.9).toFixed(2),
+  retard: +((i * 1.7) % 6).toFixed(2),
+}));
+
+// Trois voiles seulement : au-delà, le fond devient laiteux et la carte
+// perd son contraste.
+const NEBULEUSES = [
+  { gauche: -8, haut: -12, taille: 62, teinte: "rgba(56, 132, 255, 0.30)", duree: 34, retard: 0 },
+  { gauche: 58, haut: 44, taille: 55, teinte: "rgba(150, 90, 255, 0.24)", duree: 44, retard: 6 },
+  { gauche: 22, haut: 66, taille: 46, teinte: "rgba(0, 190, 210, 0.18)", duree: 39, retard: 12 },
+];
+
 function Etoiles() {
   return (
-    <div className="bmi-etoiles" aria-hidden="true">
-      {ETOILES.map((e, i) => (
+    <div className="bmi-ciel" aria-hidden="true">
+      {NEBULEUSES.map((n, i) => (
         <span
-          key={i}
-          className="bmi-etoile"
+          key={`n${i}`}
+          className="bmi-nebuleuse"
+          style={{
+            left: `${n.gauche}%`,
+            top: `${n.haut}%`,
+            width: `${n.taille}%`,
+            // Hauteur en unités d'écran pour rester ronde quelle que soit
+            // la largeur de la fenêtre.
+            height: `${n.taille}vh`,
+            background: `radial-gradient(circle, ${n.teinte} 0%, transparent 70%)`,
+            animationDuration: `${n.duree}s`,
+            animationDelay: `${n.retard}s`,
+          }}
+        />
+      ))}
+      {POUSSIERE.map((e, i) => (
+        <span
+          key={`p${i}`}
+          className="bmi-poussiere"
           style={{
             left: `${e.gauche}%`,
             top: `${e.haut}%`,
             width: e.taille,
             height: e.taille,
+            backgroundColor: e.teinte,
+            animationDuration: `${e.duree}s`,
+            animationDelay: `${e.retard}s`,
+          }}
+        />
+      ))}
+      {ASTRES.map((e, i) => (
+        <span
+          key={`a${i}`}
+          className="bmi-astre"
+          style={{
+            left: `${e.gauche}%`,
+            top: `${e.haut}%`,
+            width: e.taille,
+            height: e.taille,
+            "--bmi-astre-couleur": e.teinte,
             animationDuration: `${e.duree}s`,
             animationDelay: `${e.retard}s`,
           }}
