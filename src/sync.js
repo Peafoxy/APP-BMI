@@ -1,4 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
+import { fusionner } from "./lib/fusion";
 import { supabase, supabaseConfigure, assurerSession, etatAuth } from "./supabaseClient";
 
 // Moteur de synchronisation :
@@ -261,10 +262,19 @@ export async function synchroniser() {
           if (op.op === "upsert") {
             const tsLocal = String(op.data?.updated_at || "");
 
+            // La version que l'enregistrement portait quand NOUS l'avons
+            // modifié. C'est notre point de repère : il vient du serveur
+            // (réalignement après chaque envoi), donc le comparer à l'état
+            // distant ne fait jamais intervenir l'horloge de cet appareil.
+            const tsBase = String(op.base?.updated_at || "");
+
             // (1) L'enregistrement a été SUPPRIMÉ ailleurs, après notre modification ?
             //     Alors la suppression l'emporte : on ne le ressuscite pas.
+            //     ⚠ On se compare à la version de départ, pas à l'heure locale :
+            //     une montre en retard faisait auparavant passer une suppression
+            //     ancienne pour postérieure à notre travail.
             const tsMort = supprimes.get(cle);
-            if (tsMort && tsMort > tsLocal) {
+            if (tsMort && tsMort > (tsBase || tsLocal)) {
               await idb.table(op.table).delete(op.id);
               await idb.outbox.delete(op.seq);
               recuQuelqueChose = true;
@@ -272,19 +282,41 @@ export async function synchroniser() {
               continue;
             }
 
-            // (2) Le serveur a une version PLUS RÉCENTE ? Alors on n'écrase pas.
-            //     On abandonne notre envoi : la lecture, juste après, nous
-            //     apportera la bonne version. « Le plus récent gagne » — vraiment.
+            // (2) Quelqu'un est-il passé sur cet enregistrement depuis que
+            //     nous l'avons lu ?
+            //
+            //     ⚠ ON NE COMPARE PLUS DEUX HORLOGES (point 7 de l'audit).
+            //     L'ancienne règle opposait l'heure de CET APPAREIL à celle du
+            //     SERVEUR : sur un téléphone dont la montre retarde, une
+            //     modification pourtant plus récente paraissait plus ancienne,
+            //     l'envoi était abandonné et l'opération SUPPRIMÉE de la file.
+            //     Le travail disparaissait sans un mot. Une marge de dix
+            //     minutes existait déjà à la lecture (MARGE_HORLOGE_MS), mais
+            //     jamais à l'envoi : c'est cette asymétrie qu'on corrige.
+            //
+            //     La question posée est maintenant factuelle : le serveur
+            //     porte-t-il TOUJOURS la version que nous avions en main ?
+            let aEnvoyer = op.data;
             const tsDistant = etatDistant.get(cle);
-            if (tsDistant && tsDistant > tsLocal) {
-              await idb.outbox.delete(op.seq);
-              console.warn("Envoi abandonné : le serveur a une version plus récente.", cle);
-              continue;
+            const quelquUnEstPasse = tsDistant && tsBase && tsDistant !== tsBase;
+
+            if (quelquUnEstPasse) {
+              // (3) VRAI conflit. Plutôt que de choisir un gagnant — et de
+              //     perdre un versement au passage (point 6) — on fusionne à
+              //     trois : la base commune, notre version, la leur.
+              const { data: distant } = await supabase
+                .from(op.table).select("data").eq("id", op.id).limit(1);
+              const leur = distant?.[0]?.data;
+              if (leur) {
+                aEnvoyer = fusionner(op.table, op.base, op.data, leur);
+                await idb.table(op.table).put(aEnvoyer);
+                console.warn("Conflit fusionné :", cle);
+              }
             }
 
             const { error } = await supabase
               .from(op.table)
-              .upsert({ id: op.id, data: op.data, updated_at: op.data.updated_at });
+              .upsert({ id: op.id, data: aEnvoyer, updated_at: aEnvoyer.updated_at });
             if (error) throw error;
             // Le déclencheur SQL "horodatage_serveur" impose sa propre valeur de
             // updated_at (l'heure réelle du serveur), qui peut différer de celle
@@ -297,7 +329,7 @@ export async function synchroniser() {
             try {
               const { data: ecrit } = await supabase.from(op.table).select("updated_at").eq("id", op.id).limit(1);
               if (ecrit?.[0]?.updated_at) {
-                await idb.table(op.table).put({ ...op.data, updated_at: ecrit[0].updated_at });
+                await idb.table(op.table).put({ ...aEnvoyer, updated_at: ecrit[0].updated_at });
               }
             } catch (e2) {
               console.warn("Alignement de l'horodatage local reporté (sans conséquence) :", op.table, e2?.message || e2);

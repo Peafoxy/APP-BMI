@@ -47,6 +47,13 @@ await build({ entryPoints: ["src/lib/rebase.js"], bundle: true, format: "esm",
 const Reb = await import(pathToFileURL(sortieReb).href);
 unlinkSync(sortieReb);
 
+// La fusion à trois de deux modifications concurrentes.
+const sortieFus = join("node_modules", ".cache", `bmi-fus-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/fusion.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieFus, logLevel: "silent", loader: { ".js": "jsx" } });
+const Fus = await import(pathToFileURL(sortieFus).href);
+unlinkSync(sortieFus);
+
 // lib/cnss.js importe la bibliothèque Excel (xlsx), qui ne s'initialise pas
 // hors navigateur. On la remplace par un bouchon vide : les fonctions
 // vérifiées ici (comparaison d'une saisie) n'y touchent pas.
@@ -258,6 +265,56 @@ titre("Fournisseurs et commerciaux ne se mélangent plus (trou du 19/08/2026)");
     test("un vendeur réel ne voit pas le commercial de formation",
       !noms(P.vendeur).includes("STAGIAIRE COMMERCIAL"));
   }
+}
+
+titre("Lot B — deux versements simultanés sur la même dette sont tous deux gardés");
+{
+  const base = { id: "d1", client: "KOFFI", montant: 100000, paye: 0, paiements: [] };
+  // Appareil A encaisse 5 000, appareil B encaisse 3 000 — chacun hors ligne.
+  const local = { ...base, paye: 5000, paiements: [{ id: "p1", montant: 5000 }] };
+  const distant = { ...base, paye: 3000, paiements: [{ id: "p2", montant: 3000 }] };
+  const f = Fus.fusionner("dettes", base, local, distant);
+
+  test("les DEUX versements sont conservés (c'était le défaut : un disparaissait)",
+    f.paiements.length === 2);
+  test("le total encaissé est bien la somme des deux",
+    f.paye === 8000);
+  test("le nôtre reste en tête, le sien est ajouté",
+    f.paiements[0].id === "p1" && f.paiements[1].id === "p2");
+
+  test("un versement déjà connu des deux côtés n'est pas compté deux fois",
+    Fus.fusionner("dettes", base,
+      { ...base, paye: 5000, paiements: [{ id: "p1", montant: 5000 }] },
+      { ...base, paye: 5000, paiements: [{ id: "p1", montant: 5000 }] }).paiements.length === 1);
+
+  test("le cumul ne dépasse jamais le montant dû",
+    Fus.fusionner("dettes", base,
+      { ...base, paye: 90000, paiements: [{ id: "p1", montant: 90000 }] },
+      { ...base, paye: 80000, paiements: [{ id: "p2", montant: 80000 }] }).paye === 100000);
+
+  test("une dette ancienne, déjà partiellement payée, part du bon solde",
+    Fus.fusionner("dettes", { ...base, paye: 20000 },
+      { ...base, paye: 25000, paiements: [{ id: "p1", montant: 5000 }] },
+      { ...base, paye: 23000, paiements: [{ id: "p2", montant: 3000 }] }).paye === 28000);
+
+  test("les autres champs gardent NOTRE version",
+    Fus.fusionner("dettes", base, { ...local, motif: "à nous" }, { ...distant, motif: "à eux" }).motif === "à nous");
+
+  // Les fiches de paie : virements et crédits ne doivent pas s'écraser non plus.
+  const bp = { id: "u1", virements: [], credits: [] };
+  const fp = Fus.fusionner("paie", bp,
+    { ...bp, virements: [{ id: "v1" }] },
+    { ...bp, virements: [{ id: "v2" }], credits: [{ id: "c1" }] });
+  test("un virement enregistré ailleurs n'écrase pas le nôtre", fp.virements.length === 2);
+  test("…et un crédit ajouté de leur côté est repris aussi", fp.credits.length === 1);
+
+  // Les tables sans règle gardent le comportement simple, sans surprise.
+  test("une table sans règle de fusion garde notre version telle quelle",
+    Fus.fusionner("ventes", { id: "v", x: 1 }, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
+  test("sans version distante, il n'y a rien à fusionner",
+    Fus.fusionner("dettes", base, local, null) === local);
+  test("un champ absent des deux côtés n'est pas inventé",
+    Fus.fusionner("dettes", { id: "d" }, { id: "d" }, { id: "d" }).paiements === undefined);
 }
 
 titre("Lot B — une vente qui arrive pendant une fenêtre ouverte n'est plus effacée");

@@ -176,7 +176,13 @@ export async function sauvegarderDiff(prev, next, ecrivain = {}) {
           const rec = { ...r, updated_at: maintenant };
           if (cree_le) rec.cree_le = cree_le;
           await idb.table(t).put(rec);
-          await idb.outbox.add({ table: t, op: "upsert", id, data: rec });
+          // ⚠ `base` : l'enregistrement TEL QU'IL ÉTAIT avant notre
+          // modification (null si nous le créons). C'est lui qui permettra,
+          // au moment de l'envoi, de savoir si quelqu'un est passé entre
+          // temps — sans jamais comparer deux horloges — et, le cas échéant,
+          // de fusionner à trois plutôt que d'écraser (voir lib/fusion.js et
+          // les points 6 et 7 de l'audit du 20/08/2026).
+          await idb.outbox.add({ table: t, op: "upsert", id, data: rec, base: a || null });
         }
       }
       // Supprimés → delete local + outbox
