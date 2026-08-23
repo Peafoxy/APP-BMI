@@ -56,6 +56,17 @@ declare
   nom_table text;
   faites integer := 0;
 begin
+  -- ⚠ AUCUN visiteur anonyme ici, quoi qu'il arrive. Ce garde-fou double le
+  -- retrait de droit ci-dessous : si une migration ultérieure réaccordait
+  -- l'exécution par mégarde (Supabase le fait automatiquement à la création
+  -- de toute fonction), la porte resterait fermée.
+  -- Ce n'est pas theorique : la premiere version de ce script ne faisait que
+  -- « revoke ... from public », ce qui ne retire PAS un droit accorde
+  -- directement au role anon. Releve en production par Timo le 20/08/2026.
+  if current_user = 'anon' or session_user = 'anon' then
+    raise exception 'Ecriture groupee reservee aux comptes connectes';
+  end if;
+
   if jsonb_typeof(operations) <> 'array' then
     raise exception 'appliquer_lot attend une liste d''operations';
   end if;
@@ -94,7 +105,15 @@ begin
 end $$;
 
 -- Les comptes connectés peuvent l'appeler ; le visiteur anonyme, non.
+--
+-- ⚠ « revoke from public » NE SUFFIT PAS : Supabase accorde automatiquement
+-- l'exécution de toute nouvelle fonction au rôle `anon` (droits par défaut du
+-- schéma public), et ce droit-là est accordé AU RÔLE, pas à `public`. Il faut
+-- donc le retirer nommément — exactement la même leçon que sur la table
+-- `paie`. La première version de ce script l'avait oublié : la vérification
+-- renvoyait « anonyme_peut_appeler = true ».
 revoke all on function public.appliquer_lot(jsonb) from public;
+revoke all on function public.appliquer_lot(jsonb) from anon;
 grant execute on function public.appliquer_lot(jsonb) to authenticated;
 
 

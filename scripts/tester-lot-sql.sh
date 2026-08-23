@@ -40,6 +40,12 @@ echo "▸ Cloisonnement en place (pour verifier que la fonction n'ouvre rien)"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/espace-1-colonne.sql >/dev/null 2>&1
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/espace-3-VAGUE-2.sql >/dev/null 2>&1
 
+# ⚠ Supabase accorde AUTOMATIQUEMENT l'execution de toute nouvelle fonction du
+# schema public au visiteur anonyme. Sans reproduire ce reglage, le banc
+# validait un script qui laissait pourtant la porte ouverte en production
+# (releve par Timo le 20/08/2026).
+$P -c "alter default privileges in schema public grant all on functions to anon, authenticated, service_role;" >/dev/null
+
 echo "▸ Application de lot-1-ecriture-groupee.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/lot-1-ecriture-groupee.sql >/dev/null 2>&1
 
@@ -99,8 +105,18 @@ essai "une opération sans identifiant est refusée" REFUSE "$REEL" "
 select public.appliquer_lot('[{\"table\":\"ventes\",\"data\":{}}]'::jsonb);"
 essai "un lot démesuré est refusé" REFUSE "$REEL" "
 select public.appliquer_lot((select jsonb_agg(jsonb_build_object('table','ventes','id','x'||g,'data','{}'::jsonb)) from generate_series(1,250) g));"
-verite "le visiteur anonyme ne peut pas appeler la fonction" \
+verite "le visiteur anonyme n'a PAS le droit d'appeler la fonction" \
   "select not has_function_privilege('anon','public.appliquer_lot(jsonb)','execute');"
+# Second verrou : meme si le droit revenait, la fonction refuse d'elle-meme.
+$P -c "grant execute on function public.appliquer_lot(jsonb) to anon;" >/dev/null
+# On garde TOUT le message : psql fait suivre l'erreur d'une ligne CONTEXT,
+# et ne lire que la derniere ligne masquait le refus.
+refus=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -c "set role anon; select public.appliquer_lot('[{\"table\":\"depenses\",\"id\":\"e_anon\",\"data\":{}}]'::jsonb);" 2>&1 || true)
+if echo "$refus" | grep -qi "reservee aux comptes connectes"; then
+  ok=$((ok+1)); echo "  ✓ …et meme avec le droit rendu, elle refuse le visiteur anonyme"
+else ko=$((ko+1)); echo "  ✗ le visiteur anonyme n'a pas ete refuse : $refus"; fi
+verite "…et aucune ligne n'a ete ecrite par ce biais" "select count(*) = 0 from public.depenses where id='e_anon';"
+$P -c "revoke all on function public.appliquer_lot(jsonb) from anon;" >/dev/null
 
 echo
 echo "▸ 4. Les suppressions aussi"
