@@ -21,6 +21,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
+import {
+  adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
+} from "./_verrouillage.js";
 
 // Doit rester IDENTIQUE à hacher() dans src/App.jsx (ancien format, conservé
 // pour les comptes pas encore migrés).
@@ -39,37 +42,17 @@ function hacherFortServeur(txt, selHex) {
 // systématiques (« brute force ») en ligne. Sans lui, rien n'empêchait
 // d'essayer des centaines de mots de passe par minute sur un identifiant
 // connu (ex. l'admin) — voir table public.tentatives_connexion.
-// Verrouillage PAR IDENTIFIANT (pas par IP, trop facile à changer).
-const PALIERS_VERROUILLAGE = [
-  { echecs: 15, minutes: 60 },
-  { echecs: 10, minutes: 15 },
-  { echecs: 5, minutes: 1 },
-];
-
-async function verifierVerrouillage(admin, id) {
-  const { data, error } = await admin.from("tentatives_connexion").select("*").eq("id", id).maybeSingle();
-  // Si la table n'existe pas encore (script SQL pas encore exécuté), on ne
-  // bloque personne : on se contente de ne pas compter les échecs pour l'instant.
-  if (error) return { verrouille: false, echecsActuels: 0 };
-  if (data?.verrouille_jusqu_a && new Date(data.verrouille_jusqu_a) > new Date()) {
-    const minutesRestantes = Math.ceil((new Date(data.verrouille_jusqu_a) - new Date()) / 60000);
-    return { verrouille: true, minutesRestantes };
-  }
-  return { verrouille: false, echecsActuels: data?.echecs || 0 };
-}
-
-async function enregistrerEchec(admin, id, echecsActuels) {
-  const echecs = echecsActuels + 1;
-  const palier = PALIERS_VERROUILLAGE.find((p) => echecs >= p.echecs);
-  const verrouille_jusqu_a = palier ? new Date(Date.now() + palier.minutes * 60000).toISOString() : null;
-  await admin.from("tentatives_connexion").upsert({
-    id, echecs, dernier_echec: new Date().toISOString(), verrouille_jusqu_a,
-  });
-}
-
-async function reinitialiserEchecs(admin, id) {
-  await admin.from("tentatives_connexion").upsert({ id, echecs: 0, dernier_echec: null, verrouille_jusqu_a: null });
-}
+//
+// ⚠ CORRECTION DU 24/08/2026 : le compteur était attaché au SEUL compte
+// visé. Conséquence : un inconnu pouvait, depuis n'importe où, bloquer la
+// synchronisation d'un employé pendant une heure en tapant quinze mauvais
+// mots de passe sur son identifiant. Les trois compteurs d'api/_verrouillage.js
+// règlent ça : celui qui se trompe est le seul puni.
+//
+// ⚠ Les anciennes lignes de tentatives_connexion (rangées sous l'identifiant
+// nu) ne sont plus lues : elles ne gênent personne et disparaîtront d'un
+// simple ménage. Le préfixe « auth » évite tout mélange avec les compteurs
+// de la recherche de compte.
 
 export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
@@ -88,11 +71,14 @@ export default async function handler(req, res) {
 
   const admin = createClient(url, cleService, { auth: { autoRefreshToken: false, persistSession: false } });
   const email = `${id}@bmi.internal`;
+  // Trois compteurs : cet appareil sur ce compte, cet appareil en général,
+  // ce compte depuis partout. Voir api/_verrouillage.js pour le détail.
+  const verrous = clesDeControle("auth", String(id), adresseAppelant(req));
 
   try {
     // Verrouillage progressif : refus immédiat si ce compte est actuellement
     // bloqué, AVANT même de vérifier le mot de passe.
-    const etatVerrou = await verifierVerrouillage(admin, id);
+    const etatVerrou = await lireVerrous(admin, verrous);
     if (etatVerrou.verrouille) {
       return res.status(429).json({ error: `Trop de tentatives échouées. Réessayez dans ${etatVerrou.minutesRestantes} minute(s).` });
     }
@@ -108,7 +94,7 @@ export default async function handler(req, res) {
     const { data: ligne, error: erreurLigne } = await admin.from("users").select("data").eq("id", id).maybeSingle();
     if (erreurLigne) throw erreurLigne;
     if (!ligne) {
-      await enregistrerEchec(admin, id, etatVerrou.echecsActuels);
+      await enregistrerEchec(admin, verrous, etatVerrou.etats);
       return res.status(401).json({ error: "Compte inconnu du serveur." });
     }
     const champs = ligne.data || {};
@@ -119,11 +105,11 @@ export default async function handler(req, res) {
         ? champs.pwd_hash === hacherServeur(motDePasse)
         : champs.pwd === motDePasse; // anciens comptes pas encore migrés au hachage
     if (!motDePasseValide) {
-      await enregistrerEchec(admin, id, etatVerrou.echecsActuels);
+      await enregistrerEchec(admin, verrous, etatVerrou.etats);
       return res.status(401).json({ error: "Mot de passe incorrect." });
     }
     // Mot de passe correct : on efface l'historique d'échecs de ce compte.
-    await reinitialiserEchecs(admin, id);
+    await reinitialiserEchecs(admin, verrous);
 
     // Cherche si un compte d'authentification existe déjà pour cet utilisateur.
     // ⚠ On parcourt TOUTES les pages (comme dans etat-auth.js) : au-delà de

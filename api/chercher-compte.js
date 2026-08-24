@@ -31,6 +31,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
+import {
+  adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
+} from "./_verrouillage.js";
 
 // Doivent rester IDENTIQUES à hacher() / hacherFort() de src/lib/core.js.
 function hacherServeur(txt) {
@@ -39,36 +42,6 @@ function hacherServeur(txt) {
 function hacherFortServeur(txt, selHex) {
   const sel = Buffer.from(selHex, "hex");
   return pbkdf2Sync(String(txt), sel, 150000, 32, "sha256").toString("hex");
-}
-
-// Même verrouillage progressif que api/sync-auth.js, contre les essais
-// systématiques. La clé est ici l'identifiant SAISI (on n'a pas encore
-// l'identifiant technique du compte), préfixée pour ne pas se mélanger
-// avec les compteurs de sync-auth.
-const PALIERS_VERROUILLAGE = [
-  { echecs: 20, minutes: 60 },
-  { echecs: 10, minutes: 15 },
-  { echecs: 5, minutes: 1 },
-];
-
-async function verifierVerrouillage(admin, cle) {
-  const { data, error } = await admin.from("tentatives_connexion").select("*").eq("id", cle).maybeSingle();
-  if (error) return { verrouille: false, echecsActuels: 0 };
-  if (data?.verrouille_jusqu_a && new Date(data.verrouille_jusqu_a) > new Date()) {
-    return { verrouille: true, minutesRestantes: Math.ceil((new Date(data.verrouille_jusqu_a) - new Date()) / 60000) };
-  }
-  return { verrouille: false, echecsActuels: data?.echecs || 0 };
-}
-async function enregistrerEchec(admin, cle, echecsActuels) {
-  const echecs = echecsActuels + 1;
-  const palier = PALIERS_VERROUILLAGE.find((p) => echecs >= p.echecs);
-  await admin.from("tentatives_connexion").upsert({
-    id: cle, echecs, dernier_echec: new Date().toISOString(),
-    verrouille_jusqu_a: palier ? new Date(Date.now() + palier.minutes * 60000).toISOString() : null,
-  });
-}
-async function reinitialiserEchecs(admin, cle) {
-  await admin.from("tentatives_connexion").upsert({ id: cle, echecs: 0, dernier_echec: null, verrouille_jusqu_a: null });
 }
 
 // Vérifie le mot de passe exactement comme verifierMotDePasse() de
@@ -80,6 +53,16 @@ function motDePasseCorrect(champs, saisie) {
   }
   if (champs.pwd_hash) return champs.pwd_hash === hacherServeur(saisie);
   return champs.pwd === saisie;
+}
+
+// ⚠ Dans une recherche « ilike », les caractères % et _ ne sont PAS des
+// lettres : % veut dire « n'importe quoi ». Sans cette précaution, taper
+// simplement « % » comme identifiant faisait remonter LA TABLE ENTIÈRE des
+// comptes depuis Supabase à chaque essai. Rien n'en sortait (la comparaison
+// exacte plus bas rejetait tout), mais c'était un travail inutile offert au
+// premier venu, et donc un levier pour épuiser le serveur.
+function echapperJokers(txt) {
+  return String(txt).replace(/[\\%_]/g, (c) => "\\" + c);
 }
 
 export default async function handler(req, res) {
@@ -95,10 +78,12 @@ export default async function handler(req, res) {
 
   const admin = createClient(url, cleService, { auth: { persistSession: false } });
   const recherche = String(nom).trim().toLowerCase();
-  const cleVerrou = `recherche:${recherche}`;
+  // Trois compteurs : cet appareil sur ce compte, cet appareil en général,
+  // ce compte depuis partout. Voir api/_verrouillage.js pour le détail.
+  const verrous = clesDeControle("recherche", recherche, adresseAppelant(req));
 
   try {
-    const verrou = await verifierVerrouillage(admin, cleVerrou);
+    const verrou = await lireVerrous(admin, verrous);
     if (verrou.verrouille) {
       return res.status(429).json({
         error: `Trop d'essais. Réessayez dans ${verrou.minutesRestantes} minute(s).`,
@@ -110,7 +95,7 @@ export default async function handler(req, res) {
     // (Connexion.jsx) — sinon un compte trouvé hors ligne ne le serait plus
     // en ligne, ou l'inverse.
     const { data: lignes, error } = await admin
-      .from("users").select("id, data").ilike("data->>nom", recherche);
+      .from("users").select("id, data").ilike("data->>nom", echapperJokers(recherche));
     if (error) throw error;
     const ligne = (lignes || []).find(
       (l) => String(l.data?.nom || "").trim().toLowerCase() === recherche
@@ -121,7 +106,7 @@ export default async function handler(req, res) {
     // travaille chez vous en essayant des noms, ce qu'on cherche justement
     // à empêcher.
     const echec = async () => {
-      await enregistrerEchec(admin, cleVerrou, verrou.echecsActuels);
+      await enregistrerEchec(admin, verrous, verrou.etats);
       return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
     };
     if (!ligne) return await echec();
@@ -132,7 +117,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Ce compte a été bloqué par l'administrateur." });
     }
 
-    await reinitialiserEchecs(admin, cleVerrou);
+    await reinitialiserEchecs(admin, verrous);
     // La fiche de l'intéressé, et elle seule. Elle contient son mot de passe
     // chiffré : c'est nécessaire pour que ses PROCHAINES connexions
     // fonctionnent hors réseau, et il vient de prouver qu'il le connaît.
