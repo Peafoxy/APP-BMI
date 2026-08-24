@@ -158,6 +158,87 @@ mesurer("…avec le raccourci par référence (ce que fait le code aujourd'hui)"
 
 
 // ══════════════════════════════════════════════════════════════════
+// UNE BASE QUI A VRAIMENT SERVI — CINQ ANS D'ACTIVITÉ
+// ══════════════════════════════════════════════════════════════════
+// ⚠ La base ci-dessus était FIGÉE : des ventes, des dettes, des messages,
+// mais plusieurs tables laissées VIDES. Question de Timo : « dans ton test,
+// les comptes faisaient quoi ? Envoyaient les devis, ou juste les ventes ? »
+// Réponse honnête : rien du tout. Et l'omission la plus grave était le
+// JOURNAL (audits) — il enregistre CHAQUE geste, c'est donc la table qui
+// grossit le plus vite de toute l'application, et je l'avais mise à zéro.
+//
+// On refait donc la mesure sur une base complète : devis portés par les
+// comptes clients, proformas, commandes, prospects, dépenses, mouvements de
+// stock, clôtures, et un journal de cinq ans.
+console.log("\n▸ UNE BASE QUI A VRAIMENT SERVI (cinq ans d'activité)");
+
+const N_AUDITS = 150000;   // ~100 gestes par jour × 300 jours × 5 ans
+const N_CLIENTS = 3000;
+const N_DEVIS_PAR_CLIENT = 3;
+
+const clients = Array.from({ length: N_CLIENTS }, (_, i) => ({
+  id: `cli${i}`, nom: `CLIENT.${i}`, role: "client", actif: true, mdp_auto: true,
+  tel: `9${String(i).padStart(7, "0")}`,
+  // Les devis d'un client sont portés PAR SA FICHE — c'est ce qui alourdit
+  // le plus la table des comptes.
+  devis: Array.from({ length: N_DEVIS_PAR_CLIENT }, (_, j) => ({
+    id: `dv${i}_${j}`, date: "2026-05-10", total: 850000, statut: j === 0 ? "valide" : "envoye",
+    panier: Array.from({ length: 8 }, (_, k) => ({ article: `Article ${k}`, qte: 2, pu: 45000 })),
+    lignes: [], par: `EMPLOYE${i % N_USERS}`, type_devis: "solaire",
+  })),
+}));
+
+const dbComplete = {
+  ...db,
+  users: [...db.users, ...clients],
+  audits: Array.from({ length: N_AUDITS }, (_, i) => ({
+    id: `a${i}`, date: `2026-0${(i % 8) + 1}-15T10:00:00Z`,
+    user: `EMPLOYE${i % N_USERS}`, action: `Vente encaissée 125 000 — APESSITO (reçu APE-2026-${i})`,
+  })),
+  depenses: Array.from({ length: 12000 }, (_, i) => ({
+    id: `e${i}`, boutique: BOUTIQUES[i % 5], date: "2026-08-01", montant: 25000,
+    categorie: "Transport", paiement: "Espèces",
+  })),
+  ajustements: Array.from({ length: 20000 }, (_, i) => ({
+    id: `aj${i}`, boutique: BOUTIQUES[i % 5], produit_id: `p${i % N_PRODUITS}`, qte: -1, date: "2026-08-01",
+  })),
+  proformas: Array.from({ length: 6000 }, (_, i) => ({
+    id: `pf${i}`, boutique: BOUTIQUES[i % 5], numero: `PRO-${i}`, total: 500000,
+    lignes: Array.from({ length: 6 }, (_, k) => ({ article: `A${k}`, qte: 1, pu: 80000 })),
+  })),
+  commandes: Array.from({ length: 5000 }, (_, i) => ({
+    id: `cm${i}`, boutique: BOUTIQUES[i % 5], statut: "en_attente", articles: [], client: `C${i}`,
+  })),
+  prospects: Array.from({ length: 8000 }, (_, i) => ({ id: `pr${i}`, nom: `PROSPECT ${i}`, tel: `90${i}` })),
+  clotures: Array.from({ length: 7000 }, (_, i) => ({
+    id: `cl${i}`, boutique: BOUTIQUES[i % 5], date: "2026-08-01", theorique: 500000, compte: 500000,
+  })),
+};
+const poidsC = Math.round(JSON.stringify(dbComplete).length / 1024 / 1024);
+console.log(`  ${dbComplete.users.length} comptes (dont ${N_CLIENTS} clients et ${N_CLIENTS * N_DEVIS_PAR_CLIENT} devis)`);
+console.log(`  ${N_AUDITS} lignes de journal · ${dbComplete.ajustements.length} mouvements de stock · ${dbComplete.proformas.length} proformas`);
+console.log(`  ≈ ${poidsC} Mo au total\n`);
+
+const apresC = {
+  ...dbComplete,
+  ventes: [{ id: "vX", boutique: "APESSITO", articles: [], date: "2026-08-20" }, ...dbComplete.ventes],
+  audits: [{ id: "aX", date: "2026-08-20T10:00:00Z", user: "TIMO", action: "Vente encaissée" }, ...dbComplete.audits],
+};
+
+mesurer("construireIndexDb sur la base complète",
+  "à chaque enregistrement", () => C.construireIndexDb(dbComplete));
+mesurer("Le verrou formation / réel sur la base complète",
+  "à chaque enregistrement", () => C.verifierEcritureEspace(dbComplete, apresC, { id: "u1", role: "vendeur", boutique: "APESSITO" }));
+mesurer("separerPaie avec 3000 comptes clients porteurs de devis",
+  "à chaque enregistrement", () => Paie.separerPaie(dbComplete.users, { id: "u1", admin: true }));
+mesurer("Le geste complet : encaisser une vente (index + verrou + paie)",
+  "ce que ressent le vendeur en cliquant", () => {
+    C.verifierEcritureEspace(dbComplete, apresC, { id: "u1", role: "vendeur", boutique: "APESSITO" });
+    Paie.separerPaie(apresC.users, { id: "u1", admin: true });
+    return C.construireIndexDb(apresC);
+  });
+
+// ══════════════════════════════════════════════════════════════════
 // OÙ EST LE POINT DE RUPTURE ?
 // ══════════════════════════════════════════════════════════════════
 // Savoir que « ça tient à 40 000 ventes » ne dit pas quand ça cassera. On
