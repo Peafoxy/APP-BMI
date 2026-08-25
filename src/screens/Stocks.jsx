@@ -4,7 +4,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
@@ -26,6 +26,15 @@ export function Stocks({ db, save, profile }) {
   const bq = boutiqueRetenue(db, profile, bqSel);
   const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
+  // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
+  // un article mal saisi ne se corrigeait pas. On pouvait changer son
+  // fournisseur et son code-barres, rien d'autre — il fallait le supprimer
+  // et tout resaisir, ce qui faisait perdre son historique de ventes et
+  // d'ajustements (ceux-ci sont rattachés à l'identifiant de l'article, pas
+  // à son nom). D'où ce mode « correction » : le MÊME formulaire, rempli
+  // avec la fiche existante.
+  const [enEdition, setEnEdition] = useState(null); // identifiant de l'article corrigé
+  const formulaireRef = useRef(null);
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
   // comme destination de transfert — corrigé suite au même bug que
   // BoutiqueTabs (Timo, capture Stocks).
@@ -222,6 +231,136 @@ export function Stocks({ db, save, profile }) {
     return Object.values(groupes).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 15);
   })();
 
+
+  // Les champs corrigeables, avec leur nom en clair pour le journal.
+  // « nombre » et « texte » ne servent qu'à comparer proprement : sur une
+  // vieille fiche, un champ jamais renseigné vaut tantôt vide, tantôt
+  // absent — sans cette distinction, on annoncerait des changements qui
+  // n'en sont pas.
+  const CHAMPS_CORRIGEABLES = [
+    ["nom", "Nom", "texte"],
+    ["fournisseur", "Fournisseur", "texte"],
+    ["domaine", "Domaine", "texte"],
+    ["categorie", "Catégorie", "texte"],
+    ["code", "Code-barres", "texte"],
+    ["tension", "Tension", "texte"],
+    ["initial", "Quantité initiale", "nombre"],
+    ["seuil", "Seuil d'alerte", "nombre"],
+    ["prix_achat", "Prix d'achat", "nombre"],
+    ["prix_vente", "Prix de vente", "nombre"],
+    ["garantie_boutique", "Garantie boutique", "texte"],
+    ["garantie_fabricant", "Garantie fabricant", "texte"],
+    ["conditions_garantie", "Conditions de garantie", "texte"],
+    ["fiche_technique", "Fiche technique", "texte"],
+    ["notes", "Notes internes", "texte"],
+  ];
+
+  // ⚠ Les prix et la quantité initiale touchent à l'argent et au stock :
+  // ils restent réservés à l'administrateur, comme la suppression. Un
+  // vendeur peut corriger une faute de frappe, pas rectifier un prix de
+  // vente sans que personne ne le voie.
+  const peutCorrigerLArgent = profile.role === "admin";
+  const CHAMPS_ARGENT = ["initial", "prix_achat", "prix_vente"];
+  const argentVerrouille = !!enEdition && !peutCorrigerLArgent;
+
+  const articleCorrige = enEdition ? db.produits.find((x) => x.id === enEdition) : null;
+
+  const corriger = (p) => {
+    if (bloquerSiLecture(db, profile)) return;
+    setEnEdition(p.id);
+    setF({
+      nom: p.nom || "", domaine: p.domaine || "", categorie: p.categorie || "",
+      fournisseur: p.fournisseur || "", initial: p.initial ?? "", seuil: p.seuil ?? "",
+      prix_achat: p.prix_achat ?? "", prix_vente: p.prix_vente ?? "", code: p.code || "",
+      tension: p.tension ?? "", garantie_boutique: p.garantie_boutique || "",
+      garantie_fabricant: p.garantie_fabricant || "", conditions_garantie: p.conditions_garantie || "",
+      fiche_technique: p.fiche_technique || "", notes: p.notes || "",
+    });
+    // Le volet des garanties s'ouvre tout seul s'il contient déjà quelque
+    // chose : sinon on corrigerait à l'aveugle un champ qu'on ne voit pas.
+    if (p.garantie_boutique || p.garantie_fabricant || p.conditions_garantie || p.fiche_technique || p.notes) {
+      setAutresInfosOuvert(true);
+    }
+    formulaireRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const annulerCorrection = () => {
+    setEnEdition(null);
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+  };
+
+  const enregistrerCorrection = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    // ⚠ On retrouve l'article par son identifiant, jamais par son nom ni par
+    // la boutique affichée : l'onglet a pu changer depuis l'ouverture du
+    // formulaire, et corriger l'article d'une autre boutique serait pire que
+    // le défaut qu'on répare.
+    const avant = db.produits.find((x) => x.id === enEdition);
+    if (!avant) { uAlert("Cet article n'existe plus."); annulerCorrection(); return; }
+    if (!f.nom.trim()) { uAlert("Le nom ne peut pas être vide."); return; }
+
+    const apres = {
+      ...avant,
+      nom: f.nom.trim(),
+      domaine: f.domaine || "",
+      categorie: (f.categorie || "").trim(),
+      fournisseur: f.fournisseur || "",
+      seuil: Number(f.seuil || 0),
+      code: (f.code || "").trim(),
+      tension: f.tension ? Number(f.tension) : "",
+      garantie_boutique: (f.garantie_boutique || "").trim(),
+      garantie_fabricant: (f.garantie_fabricant || "").trim(),
+      conditions_garantie: (f.conditions_garantie || "").trim(),
+      fiche_technique: (f.fiche_technique || "").trim(),
+      notes: (f.notes || "").trim(),
+      // ⚠ « entrees » n'est PAS dans ce formulaire : il se nourrit des
+      // réceptions (+ Entrée). L'écraser ici effacerait tout le
+      // ravitaillement de l'article.
+    };
+    if (peutCorrigerLArgent) {
+      apres.initial = Number(f.initial || 0);
+      apres.prix_achat = Number(f.prix_achat || 0);
+      apres.prix_vente = Number(f.prix_vente || 0);
+    }
+
+    const memeValeur = (a, b, genre) => genre === "nombre"
+      ? Number(a || 0) === Number(b || 0)
+      : String(a ?? "").trim() === String(b ?? "").trim();
+    const changements = CHAMPS_CORRIGEABLES
+      .filter(([cle, , genre]) => !memeValeur(avant[cle], apres[cle], genre))
+      .map(([cle, libelle, genre]) => ({
+        cle, libelle,
+        de: genre === "nombre" ? fmt(Number(avant[cle] || 0)) : (String(avant[cle] ?? "").trim() || "—"),
+        vers: genre === "nombre" ? fmt(Number(apres[cle] || 0)) : (String(apres[cle] ?? "").trim() || "—"),
+      }));
+    if (!changements.length) { uAlert("Rien n'a été modifié."); return; }
+
+    const touche = (cle) => changements.some((c) => c.cle === cle);
+    const avertissements = [];
+    if (touche("nom")) {
+      avertissements.push("• Le stock, les ventes et les ajustements de cet article SUIVENT la fiche : rien n'est perdu.");
+      avertissements.push("• En revanche les ventes déjà enregistrées gardent l'ancien nom écrit sur le reçu (un document passé ne se réécrit pas). Le classement des meilleures ventes affichera donc l'ancien et le nouveau nom séparément pendant un temps.");
+    }
+    if (touche("initial")) {
+      const ecart = Number(apres.initial || 0) - Number(avant.initial || 0);
+      avertissements.push(`• Le stock actuel passera de ${stockActuel(db, avant)} à ${stockActuel(db, avant) + ecart}.`);
+    }
+    if (touche("prix_achat")) {
+      avertissements.push("• Les marges des ventes DÉJÀ enregistrées seront recalculées avec le nouveau prix d'achat (l'écran Rentabilité changera).");
+    }
+
+    const recap = changements.map((c) => `• ${c.libelle} : ${c.de} → ${c.vers}`).join("\n");
+    const ok = await uConfirm(
+      `Corriger « ${avant.nom} » (${avant.boutique}) ?\n\n${recap}` +
+      (avertissements.length ? `\n\nÀ SAVOIR :\n${avertissements.join("\n")}` : "")
+    );
+    if (!ok) return;
+
+    save({ ...db, produits: db.produits.map((x) => (x.id === avant.id ? apres : x)) },
+      `Correction de l'article « ${avant.nom} » — ${avant.boutique} : ${changements.map((c) => `${c.libelle} ${c.de} → ${c.vers}`).join(" ; ")} (par ${profile.nom})`);
+    annulerCorrection();
+    uAlert("Article corrigé.");
+  };
 
   const ajouter = () => {
     if (bloquerSiLecture(db, profile)) return;
@@ -605,8 +744,18 @@ export function Stocks({ db, save, profile }) {
 
       {!estMagasin && magasinsDe(db).length > 0 && <DemandeRavitaillement db={db} save={save} profile={profile} boutique={bq} />}
 
-      <Panel boutique={bq}>
-        <div className="font-bold mb-3 flex items-center gap-2">Nouvel article <Badge boutique={bq} /></div>
+      <div ref={formulaireRef}>
+      <Panel boutique={enEdition ? articleCorrige?.boutique || bq : bq}>
+        <div className="font-bold mb-3 flex items-center gap-2">
+          {enEdition
+            ? <>✏️ Correction de « {articleCorrige?.nom} » <Badge boutique={articleCorrige?.boutique || bq} /></>
+            : <>Nouvel article <Badge boutique={bq} /></>}
+        </div>
+        {argentVerrouille && (
+          <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
+            🔒 Quantité initiale et prix : réservés à l'administrateur. Vous pouvez corriger le reste.
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-8 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
           <Field label="Fournisseur">
@@ -650,10 +799,10 @@ export function Stocks({ db, save, profile }) {
               ).map((c) => <option key={c} value={c} />)}
             </datalist>
           </Field>
-          <Field label="Initial"><input type="number" className={inputCls} value={f.initial} onChange={(e) => setF({ ...f, initial: e.target.value })} /></Field>
+          <Field label="Initial"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.initial} onChange={(e) => setF({ ...f, initial: e.target.value })} /></Field>
           <Field label="Seuil"><input type="number" className={inputCls} value={f.seuil} onChange={(e) => setF({ ...f, seuil: e.target.value })} /></Field>
-          <Field label="Prix achat (F)"><input type="number" className={inputCls} value={f.prix_achat} onChange={(e) => setF({ ...f, prix_achat: e.target.value })} /></Field>
-          <Field label="Prix vente (F)"><input type="number" className={inputCls} value={f.prix_vente} onChange={(e) => setF({ ...f, prix_vente: e.target.value })} /></Field>
+          <Field label="Prix achat (F)"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.prix_achat} onChange={(e) => setF({ ...f, prix_achat: e.target.value })} /></Field>
+          <Field label="Prix vente (F)"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.prix_vente} onChange={(e) => setF({ ...f, prix_vente: e.target.value })} /></Field>
           <Field label="Code-barres (facultatif)"><input className={inputCls} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="Scannez ou tapez" /></Field>
           {/* Champ Tension : uniquement utile pour une batterie ou un
               convertisseur — masqué pour toute autre catégorie d'article
@@ -702,10 +851,20 @@ export function Stocks({ db, save, profile }) {
           </div>
         )}
         <div className="mt-3 flex gap-2 flex-wrap">
-          <button onClick={ajouter} className={btnDark}>Ajouter</button>
-          <button onClick={importerArticles} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importation rapide</button>
+          {enEdition ? (
+            <>
+              <button onClick={enregistrerCorrection} className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800">✅ Enregistrer la correction</button>
+              <button onClick={annulerCorrection} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
+            </>
+          ) : (
+            <>
+              <button onClick={ajouter} className={btnDark}>Ajouter</button>
+              <button onClick={importerArticles} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importation rapide</button>
+            </>
+          )}
         </div>
       </Panel>
+      </div>
 
       {inv && (
         <div className="rounded-xl p-4 bg-white border-2 border-emerald-300">
@@ -795,6 +954,7 @@ export function Stocks({ db, save, profile }) {
                   <td className="px-3 py-2 tabular-nums">{fmt(p.prix_achat)}</td>
                   <td className="px-3 py-2 tabular-nums">{fmt(p.prix_vente)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
+                    <button onClick={() => corriger(p)} className="text-xs font-bold text-amber-700 underline mr-2">✏️ Corriger</button>
                     <button onClick={() => definirCode(p)} className="text-xs font-bold text-sky-800 underline mr-2">Code</button>
                     <button onClick={() => imprimerEtiquette(p)} className="text-xs font-bold text-sky-800 underline mr-2">🖨 Étiquette</button>
                     <button onClick={() => reappro(p)} className="text-xs font-bold text-sky-800 underline mr-2">+ Entrée</button>
