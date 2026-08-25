@@ -15,7 +15,8 @@
     "tester-verrouillage": "node scripts/tester-verrouillage.mjs",
     "verifier-ecran": "vite build && node scripts/verifier-ecran.cjs",
     "verifier-ecran-stocks": "node scripts/verifier-ecran-stocks.mjs",
-    "apercu-etiquette": "node scripts/apercu-etiquette.mjs"
+    "apercu-etiquette": "node scripts/apercu-etiquette.mjs",
+    "tester-injection-sql": "bash scripts/tester-injection-sql.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
