@@ -55,6 +55,13 @@ unlinkSync(sortie); unlinkSync(bouchonUI);
 // gardait ses proportions, donc un code long s'ecrasait en hauteur — 6,3 mm
 // pour 20 caracteres, sous le seuil de lecture fiable.
 const CODES = ["12345678", "ARTMG9K2P4X7", "BMI-COFFRET-IP65-12M"];
+// ⚠ Le nom le plus long qu'on ait vu dans le stock, et un pire cas invente :
+// c'est LUI qui pousse le code-barres hors de la vignette quand la hauteur
+// est juste. On le mesure au lieu de l'esperer.
+const NOMS = [
+  "COFFRET ETANCHE IP65 12 MODULES",
+  "BATTERIE LITHIUM LIFEPO4 25,6V 300AH AVEC BMS INTEGRE ET ECRAN DE CONTROLE BLUETOOTH",
+];
 const MM = 96 / 25.4;
 // Les repères du métier, pour un code-barres lu sans effort.
 const BARRE_MINI = 0.25;   // mm — largeur de la barre la plus fine
@@ -66,8 +73,8 @@ const test = (nom, ok) => { console.log(`  ${ok ? "✓" : "✗"} ${nom}`); if (!
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const mesures = [];
 let apercu = "";
-for (const code of CODES) {
-  const article = { nom: "COFFRET ETANCHE IP65 12 MODULES", code, prix_vente: 12000, boutique: "BMI APESSITO" };
+for (const [i, code] of CODES.entries()) {
+  const article = { nom: NOMS[i % NOMS.length], code, prix_vente: 12000, boutique: "BMI APESSITO" };
   if (!M.imprimerEtiquetteProduit(article)) { console.log(`❌ étiquette impossible pour « ${code} »`); process.exit(1); }
   const capture = globalThis.__etiquette || "";
   if (!apercu) apercu = capture;
@@ -79,23 +86,31 @@ for (const code of CODES) {
   const d = await page.evaluate((mm) => {
     const et = document.body.firstElementChild.getBoundingClientRect();
     const sv = document.querySelector("svg").getBoundingClientRect();
-    return { l: et.width / mm, h: et.height / mm, cl: sv.width / mm, ch: sv.height / mm };
+    const boite = document.body.firstElementChild;
+    return { l: et.width / mm, h: et.height / mm, cl: sv.width / mm, ch: sv.height / mm,
+             deborde: (boite.scrollHeight - boite.clientHeight) / mm };
   }, MM);
   await page.close();
   mesures.push({ code, modules, ...d });
-  console.log(`  · « ${code} » (${code.length} car.) → étiquette ${d.l.toFixed(1)}×${d.h.toFixed(1)} mm · code-barres ${d.cl.toFixed(1)}×${d.ch.toFixed(1)} mm · barre fine ${(d.cl / modules).toFixed(3)} mm`);
+  console.log(`  · « ${code} » (${code.length} car., nom de ${article.nom.length} car.) → étiquette ${d.l.toFixed(1)}×${d.h.toFixed(1)} mm · code-barres ${d.cl.toFixed(1)}×${d.ch.toFixed(1)} mm · barre fine ${(d.cl / modules).toFixed(3)} mm`);
 }
 
 const proche = (v, cible) => Math.abs(v - cible) < 0.4;
-test("★ l'étiquette fait exactement 80 × 40 mm, quel que soit le code",
-  mesures.every((m) => proche(m.l, 80) && proche(m.h, 40)));
+test("★ l'étiquette fait exactement 80 × 30 mm, quel que soit le code",
+  mesures.every((m) => proche(m.l, 80) && proche(m.h, 30)));
 test("★ la hauteur du code-barres ne dépend PLUS de la longueur du code",
   mesures.every((m) => proche(m.ch, mesures[0].ch)));
 test(`la barre la plus fine reste au-dessus de ${BARRE_MINI} mm, même sur le code le plus long`,
   mesures.every((m) => m.cl / m.modules >= BARRE_MINI));
 test(`le code-barres reste plus haut que ${HAUTEUR_MINI} mm`, mesures.every((m) => m.ch >= HAUTEUR_MINI));
+// ⚠ SUR 30 mm DE HAUT, C'EST LE PIÈGE PRINCIPAL : si le contenu déborde, ce
+// n'est pas le nom qui est rogné mais le CODE-BARRES, et l'étiquette devient
+// inutilisable sans que personne ne s'en aperçoive avant le scan.
+test("★ rien ne déborde de la vignette (sinon c'est le code-barres qui est rogné)",
+  mesures.every((m) => m.deborde <= 0.2));
+mesures.forEach((m) => { if (m.deborde > 0.2) console.log(`     ↳ « ${m.code} » déborde de ${m.deborde.toFixed(1)} mm`); });
 test("le format de page suit l'étiquette (sinon le rouleau sort sur une page A4)",
-  globalThis.__page === "size: 80mm 40mm; margin: 0;");
+  globalThis.__page === "size: 80mm 30mm; margin: 0;");
 const posB = apercu.indexOf("BMI APESSITO"), posN = apercu.indexOf("COFFRET"), posC = apercu.indexOf("<svg");
 test("★ la boutique est en HAUT, le nom de l'article en BAS", posB < posC && posN > posC);
 
