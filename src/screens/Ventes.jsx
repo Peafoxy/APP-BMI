@@ -35,14 +35,14 @@ function lignesVenteEnAutres(v) {
 }
 
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "ventes" });
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "ventes" });
   const produits = db.produits.filter((p) => p.boutique === boutique);
   const commerciaux = apporteursPossibles(db, profile);
   // ⚠ Filtre par DOMAINE (demande Timo, 18/08/2026) — des familles comme
@@ -682,7 +682,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={bq} onChange={setBq} profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
         {produits.length === 0 ? (

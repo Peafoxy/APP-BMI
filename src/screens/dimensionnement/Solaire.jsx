@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis } from "../../lib/calculs";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires } from "../../lib/solaire";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille } from "./Partages";
 
@@ -34,14 +34,14 @@ const ROLES_EQUIPEMENT = [
 ];
 
 export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "dim-solaire" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dim-solaire" });
   // Mode LIBRE (3e position à côté des boutiques, admin/commercial multi-
   // boutique uniquement) : le dimensionnement n'est associé à AUCUNE
   // boutique — pas de stock réel à proposer, seulement les caractéristiques
@@ -706,7 +706,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               cette rangée montrait donc les VRAIES boutiques à un compte de
               formation (et l'inverse). Même filtre que BoutiqueTabs. */}
           {boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => (
-            <button key={b.nom} onClick={() => { setBq(b.nom); setModeLibre(false); }}
+            // ⚠ Cette rangée est écrite à la main (voir ci-dessus) : elle doit
+            // donc mémoriser elle-même la boutique, comme le fait BoutiqueTabs.
+            // Sans cette ligne, cet écran serait le seul à repartir de zéro
+            // après un rechargement.
+            <button key={b.nom} onClick={() => { memoriserBoutique(profile, "dim-solaire", b.nom); setBq(b.nom); setModeLibre(false); }}
               className={`px-4 py-1.5 rounded-full text-sm font-bold ${!modeLibre && bq === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
               style={!modeLibre && bq === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : ""}{b.nom}</button>
           ))}

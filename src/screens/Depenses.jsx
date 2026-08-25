@@ -13,14 +13,14 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DÉPENSES ============
 export function Depenses({ db, save, profile }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "depenses" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "depenses" });
   const [f, setF] = useState({ categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0] });
 
   const ajouter = async () => {
@@ -49,7 +49,7 @@ export function Depenses({ db, save, profile }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="depenses" db={db} value={bq} onChange={setBq} profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dépense <Badge boutique={boutique} /></div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

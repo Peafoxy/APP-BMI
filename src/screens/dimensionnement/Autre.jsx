@@ -41,14 +41,14 @@ function correspondancesBesoin(nomBesoin, produits) {
 // domaine a son onglet, cette étape n'ajoutait qu'un clic et masquait une
 // partie du stock.
 export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, domaine }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "dim-autre" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dim-autre" });
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
   // ⚠ Demande Timo (18/08/2026) : « dans Autre, au lieu de faire sélectionner
@@ -327,7 +327,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="dim-autre" db={db} value={bq} onChange={setBq} profile={profile} />}
 
       {/* Le sélecteur de catégorie a disparu : l'onglet porte déjà le domaine.
           On se contente de signaler quand le stock n'est pas encore rattaché. */}

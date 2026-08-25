@@ -134,14 +134,14 @@ export function CreerClient({ db, save, profile }) {
 }
 
 export function Clients({ db, profile }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "clients" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "clients" });
   const [q, setQ] = useState("");
   const map = {};
   const key = (nom, tel) => (telDigits(tel) || String(nom || "").trim().toLowerCase());
@@ -178,7 +178,7 @@ export function Clients({ db, profile }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="clients" db={db} value={bq} onChange={setBq} profile={profile} />}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">Clients — {boutique} <span className="text-sm font-normal text-slate-500">({clients.length})</span></span>

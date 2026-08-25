@@ -16,14 +16,14 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 // Le commercial compose un panier et l'envoie à une boutique — il ne peut
 // pas encaisser lui-même, c'est un vendeur de cette boutique qui validera.
 export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "commandes-nouvelle" });
   const [bq, setBq] = useState(preRempli?.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "commandes-nouvelle" });
   const produits = db.produits.filter((p) => p.boutique === boutique);
   const categories = [...new Set(produits.map((p) => p.categorie || "Autre"))].sort();
 
@@ -153,7 +153,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />
+      <BoutiqueTabs ecran="commandes-nouvelle" db={db} value={bq} onChange={setBq} profile={profile} />
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">🛒 Nouvelle commande <Badge boutique={boutique} /></div>
         {produits.length === 0 ? (
@@ -268,9 +268,9 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 // l'onglet Ventes, panier déjà prêt).
 export function CommandesRecues({ db, save, profile, onValider }) {
   const isAdmin = profile.role === "admin";
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "commandes-recues" });
   const [bq, setBq] = useState(profile.boutique || premiere);
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "commandes-recues" });
 
   const enAttente = (db.commandes || []).filter((c) =>
     c.statut === "en_attente" &&
@@ -353,7 +353,7 @@ export function CommandesRecues({ db, save, profile, onValider }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="commandes-recues" db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center gap-2">📥 Commandes en attente <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({enAttente.length})</span></div>

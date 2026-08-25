@@ -19,7 +19,7 @@ export function Stocks({ db, save, profile }) {
   // doit donc pouvoir en être un, sinon un magasinier repartirait chaque
   // fois sur la première boutique de vente. TERRAIN reste exclu : cette
   // boutique virtuelle ne détient jamais de stock.
-  const premiere = boutiqueParDefaut(db, profile, (db.boutiques || []).filter((b) => !b.terrain));
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "stocks", permises: (db.boutiques || []).filter((b) => !b.terrain) });
   // Un employé rattaché à un site (vendeur, gérant, magasinier) est VERROUILLÉ dessus :
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);
@@ -28,7 +28,7 @@ export function Stocks({ db, save, profile }) {
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const bq = boutiqueRetenue(db, profile, bqSel);
+  const bq = boutiqueRetenue(db, profile, bqSel, { ecran: "stocks" });
   const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
@@ -584,7 +584,7 @@ export function Stocks({ db, save, profile }) {
   if (!bq) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBqSel} avecDepots profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="stocks" db={db} value={bq} onChange={setBqSel} avecDepots profile={profile} />}
       {profile.boutique && (
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600">
           <span>{estMagasin ? "🏭 Magasin" : "🏪 Boutique"} :</span> <Badge boutique={bq} />

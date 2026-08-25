@@ -11,14 +11,14 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "caisse" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "caisse" });
   const [compte, setCompte] = useState("");
   const [notes, setNotes] = useState("");
   const t = today();
@@ -62,7 +62,7 @@ export function Caisse({ db, save, profile }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} avecTerrain profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={setBq} avecTerrain profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse du jour <Badge boutique={boutique} /></div>
         {dejaCloturee ? (

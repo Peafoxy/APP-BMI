@@ -5,7 +5,7 @@
 import { boutiquesVente, boutiquesVisibles, memoriserBoutique } from "../lib/calculs";
 
 // ============ SÉLECTEUR BOUTIQUE ============
-export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false, profile }) {
+export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false, profile, ecran }) {
   // ⚠ Bug trouvé par Timo (capture Stocks) : avecDepots utilisait db.boutiques
   // SANS filtrer TERRAIN — la boutique virtuelle apparaissait donc dans
   // Stocks (et partout ailleurs utilisant avecDepots), alors qu'elle ne
@@ -29,7 +29,7 @@ export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerr
         // au simple affichage : sinon un écran dont la liste autorisée
         // diffère écraserait le choix de l'utilisateur sans qu'il ait rien
         // demandé.
-        <button key={b.nom} onClick={() => { memoriserBoutique(profile, b.nom); onChange(b.nom); }}
+        <button key={b.nom} onClick={() => { memoriserBoutique(profile, ecran, b.nom); onChange(b.nom); }}
           className={`px-4 py-1.5 rounded-full text-sm font-bold ${value === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
           style={value === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : b.terrain ? "🚐 " : ""}{b.nom}</button>
       ))}

@@ -160,32 +160,44 @@ export const boutiquesVisibles = (db, profile, liste) => {
 // l'autre), et retrouvée au rechargement.
 const CLE_BOUTIQUE = "bmi_boutique";
 
+// ⚠ UNE MÉMOIRE PAR ÉCRAN (choix de Timo, 25/08/2026 — « mémoire par écran
+// c'est mieux »). La clé porte donc trois choses : le compte, et l'écran.
+// Conséquence voulue : la boutique où vous encaissez (Ventes) et celle où
+// vous rangez le stock (Stocks) sont deux réglages distincts, et aucun des
+// deux ne bouge parce que vous avez travaillé dans l'autre.
+//
+// Un écran jamais utilisé n'a pas de mémoire : il ouvre sur la boutique par
+// défaut, exactement comme avant.
+const cleDe = (profile, ecran) => `${CLE_BOUTIQUE}:${profile.id}:${ecran || "general"}`;
+
 // ⚠ Le stockage du navigateur n'existe pas partout où ce fichier est chargé
 // (bancs d'essai sous Node, rendu hors navigateur). Toute lecture et toute
 // écriture sont donc protégées : au pire on ne mémorise rien, on ne casse
 // jamais rien.
-export const boutiqueMemorisee = (profile) => {
+export const boutiqueMemorisee = (profile, ecran) => {
   if (!profile?.id) return "";
-  try { return localStorage.getItem(`${CLE_BOUTIQUE}:${profile.id}`) || ""; }
+  try { return localStorage.getItem(cleDe(profile, ecran)) || ""; }
   catch { return ""; }
 };
 
-export const memoriserBoutique = (profile, nom) => {
+export const memoriserBoutique = (profile, ecran, nom) => {
   if (!profile?.id || !nom) return;
-  try { localStorage.setItem(`${CLE_BOUTIQUE}:${profile.id}`, String(nom)); }
+  try { localStorage.setItem(cleDe(profile, ecran), String(nom)); }
   catch { /* navigation privée, stockage plein : sans conséquence */ }
 };
 
-// `permises` : la liste dans laquelle la boutique doit se trouver. Par
-// défaut les boutiques de vente — mais l'écran Stocks travaille AUSSI dans
-// les magasins (dépôts), et doit donc pouvoir retrouver le sien.
-export const boutiqueParDefaut = (db, profile, permises = null) => {
-  const visibles = boutiquesVisibles(db, profile, permises || boutiquesVente(db));
+// `options.ecran`    : quel écran demande — c'est lui qui a sa propre mémoire.
+// `options.permises` : la liste dans laquelle la boutique doit se trouver.
+//                      Par défaut les boutiques de vente — mais l'écran
+//                      Stocks travaille AUSSI dans les magasins (dépôts) et
+//                      doit pouvoir retrouver le sien.
+export const boutiqueParDefaut = (db, profile, options = {}) => {
+  const visibles = boutiquesVisibles(db, profile, options.permises || boutiquesVente(db));
   // ⚠ La boutique mémorisée ne court-circuite JAMAIS le cloisonnement ni la
   // liste autorisée : elle n'est retenue que si elle est encore visible pour
   // ce compte. Une boutique supprimée, ou une vraie boutique mémorisée avant
   // qu'un compte ne passe en formation, est simplement ignorée.
-  const memo = boutiqueMemorisee(profile);
+  const memo = boutiqueMemorisee(profile, options.ecran);
   if (memo && visibles.some((b) => b.nom === memo)) return memo;
   return visibles[0]?.nom || "";
 };
@@ -204,11 +216,11 @@ export const boutiqueParDefaut = (db, profile, permises = null) => {
 //      n'était, avec un stock vide et aucune explication.
 // Dans les deux cas on retombe sur la boutique par défaut, recalculée à
 // chaque rendu : l'écran se répare tout seul.
-export const boutiqueRetenue = (db, profile, choisie) => {
+export const boutiqueRetenue = (db, profile, choisie, options = {}) => {
   if (profile?.boutique) return profile.boutique;
   const visibles = boutiquesVisibles(db, profile, db.boutiques || []);
   if (choisie && visibles.some((b) => b.nom === choisie)) return choisie;
-  return boutiqueParDefaut(db, profile);
+  return boutiqueParDefaut(db, profile, options);
 };
 
 export const ventesReelles = (db) => {

@@ -13,14 +13,14 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "dettes" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dettes" });
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
 
   const ajouter = () => {
@@ -206,7 +206,7 @@ export function Dettes({ db, save, profile }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="dettes" db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
         <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</div>

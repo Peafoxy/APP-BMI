@@ -1984,15 +1984,14 @@ titre("Les salaires quittent la fiche employé sans que rien ne se casse");
 }
 
 
-titre("La boutique choisie survit au rechargement de la page (demande Timo, 25/08/2026)");
+titre("La boutique choisie survit au rechargement de la page — une mémoire PAR ÉCRAN");
 {
   // ⚠ CE QUE CE BLOC PROTÈGE. Le choix de la boutique ne vivait que dans la
   // mémoire vive de la page : au moindre rechargement — F5, le bouton
   // « Nouvelle version — recharger », un téléphone qui met l'application en
   // veille — les écrans repartaient sur LA PREMIÈRE boutique de la liste,
   // en silence. C'est ainsi que le stock d'un magasin a été saisi dans un
-  // autre, et les écrans Ventes, Caisse, Dépenses et Dettes avaient le
-  // même défaut.
+  // autre, et Ventes, Caisse, Dépenses et Dettes avaient le même défaut.
   //
   // Le stockage du navigateur n'existe pas sous Node : on le simule, ce qui
   // permet AUSSI de vérifier ce qui se passe quand il est indisponible.
@@ -2006,41 +2005,51 @@ titre("La boutique choisie survit au rechargement de la page (demande Timo, 25/0
   // pourrait hériter d'une vraie boutique mémorisée.
   const formLibre = { id: "u_form_libre", role: "vendeur" };
   db.users.push({ id: "u_form_libre", nom: "STAGIAIRE LIBRE", role: "vendeur", formation: true });
+  const sansTerrain = db.boutiques.filter((b) => !b.terrain);
 
   test("sans rien de mémorisé, le comportement d'avant ne change pas",
-    C.boutiqueParDefaut(db, P.admin) === "APESSITO");
+    C.boutiqueParDefaut(db, P.admin, { ecran: "ventes" }) === "APESSITO");
 
-  C.memoriserBoutique(P.admin, "HEDZRANAWOE");
+  C.memoriserBoutique(P.admin, "ventes", "HEDZRANAWOE");
   test("★ après un rechargement, on revient dans la boutique où on travaillait",
-    C.boutiqueParDefaut(db, P.admin) === "HEDZRANAWOE");
+    C.boutiqueParDefaut(db, P.admin, { ecran: "ventes" }) === "HEDZRANAWOE");
   test("★ …et l'écran la retient aussi quand la page est rouverte à vide",
-    C.boutiqueRetenue(db, P.admin, "") === "HEDZRANAWOE");
+    C.boutiqueRetenue(db, P.admin, "", { ecran: "ventes" }) === "HEDZRANAWOE");
+
+  // ⚠ LE CHOIX DE TIMO : chaque écran a SA boutique. Encaisser à
+  // HEDZRANAWOE ne doit pas déplacer le rangement du stock.
+  C.memoriserBoutique(P.admin, "stocks", "DEPOT");
+  test("★ chaque écran garde SA boutique : Ventes reste à HEDZRANAWOE…",
+    C.boutiqueParDefaut(db, P.admin, { ecran: "ventes" }) === "HEDZRANAWOE");
+  test("★ …pendant que Stocks reste au DEPOT",
+    C.boutiqueParDefaut(db, P.admin, { ecran: "stocks", permises: sansTerrain }) === "DEPOT");
+  test("★ un écran jamais utilisé n'hérite de rien : il ouvre sur la boutique par défaut",
+    C.boutiqueParDefaut(db, P.admin, { ecran: "depenses" }) === "APESSITO");
+  test("les deux écrans de Commandes ne se marchent pas dessus",
+    C.boutiqueParDefaut(db, P.admin, { ecran: "commandes-nouvelle" }) === "APESSITO"
+    && C.boutiqueParDefaut(db, P.admin, { ecran: "commandes-recues" }) === "APESSITO");
 
   // ⚠ LE POINT LE PLUS IMPORTANT DE CE BLOC.
-  C.memoriserBoutique(formLibre, "APESSITO");
+  C.memoriserBoutique(formLibre, "ventes", "APESSITO");
   test("★ la mémoire ne franchit JAMAIS le cloisonnement : un compte de formation ne récupère pas une vraie boutique",
-    C.boutiqueParDefaut(db, formLibre) === "APESSITO FORMATION");
+    C.boutiqueParDefaut(db, formLibre, { ecran: "ventes" }) === "APESSITO FORMATION");
 
-  C.memoriserBoutique(P.admin2, "BOUTIQUE SUPPRIMEE DEPUIS");
+  C.memoriserBoutique(P.admin2, "ventes", "BOUTIQUE SUPPRIMEE DEPUIS");
   test("une boutique disparue est ignorée, on repart du défaut",
-    C.boutiqueParDefaut(db, P.admin2) === "APESSITO");
+    C.boutiqueParDefaut(db, P.admin2, { ecran: "ventes" }) === "APESSITO");
 
   test("la mémoire est PAR COMPTE : deux personnes sur le même appareil ne se mélangent pas",
-    C.boutiqueMemorisee(P.admin) === "HEDZRANAWOE" && C.boutiqueMemorisee(P.admin2) === "BOUTIQUE SUPPRIMEE DEPUIS");
+    C.boutiqueMemorisee(P.admin, "ventes") === "HEDZRANAWOE"
+    && C.boutiqueMemorisee(P.admin2, "ventes") === "BOUTIQUE SUPPRIMEE DEPUIS");
   test("un compte rattaché à une boutique n'est jamais déplacé par la mémoire",
-    C.boutiqueRetenue(db, P.vendeur, "") === "APESSITO");
+    C.boutiqueRetenue(db, P.vendeur, "", { ecran: "ventes" }) === "APESSITO");
 
-  // L'écran Stocks travaille aussi dans les magasins : il doit pouvoir y revenir.
-  const sansTerrain = db.boutiques.filter((b) => !b.terrain);
-  C.memoriserBoutique(P.admin, "DEPOT");
-  test("★ un magasin (dépôt) se retrouve aussi — l'écran Stocks y travaille",
-    C.boutiqueParDefaut(db, P.admin, sansTerrain) === "DEPOT");
-  test("…mais un magasin n'est jamais proposé aux écrans de vente",
-    C.boutiqueParDefaut(db, P.admin) === "APESSITO");
+  test("…et un magasin n'est jamais proposé aux écrans de vente",
+    C.boutiqueParDefaut(db, P.admin, { ecran: "stocks" }) === "APESSITO");
   // ⚠ TERRAIN est une boutique virtuelle, sans stock : jamais un lieu de travail.
-  C.memoriserBoutique(P.admin, "TERRAIN");
+  C.memoriserBoutique(P.admin, "stocks", "TERRAIN");
   test("TERRAIN, boutique virtuelle, n'est jamais retrouvée comme lieu de travail",
-    C.boutiqueParDefaut(db, P.admin, sansTerrain) === "APESSITO");
+    C.boutiqueParDefaut(db, P.admin, { ecran: "stocks", permises: sansTerrain }) === "APESSITO");
 
   // Navigation privée, stockage plein, vieux navigateur : rien ne doit casser.
   globalThis.localStorage = {
@@ -2048,13 +2057,14 @@ titre("La boutique choisie survit au rechargement de la page (demande Timo, 25/0
     setItem: () => { throw new Error("stockage refusé"); },
   };
   test("★ si le navigateur refuse le stockage, l'application marche comme avant",
-    C.boutiqueParDefaut(db, P.admin) === "APESSITO" && C.boutiqueMemorisee(P.admin) === "");
+    C.boutiqueParDefaut(db, P.admin, { ecran: "ventes" }) === "APESSITO"
+    && C.boutiqueMemorisee(P.admin, "ventes") === "");
   let planta = false;
-  try { C.memoriserBoutique(P.admin, "APESSITO"); } catch { planta = true; }
+  try { C.memoriserBoutique(P.admin, "ventes", "APESSITO"); } catch { planta = true; }
   test("…et mémoriser ne fait jamais planter l'écran", !planta);
   delete globalThis.localStorage;
   test("sans stockage du tout (rendu hors navigateur), rien ne casse non plus",
-    C.boutiqueParDefaut(db, P.admin) === "APESSITO");
+    C.boutiqueParDefaut(db, P.admin, { ecran: "ventes" }) === "APESSITO");
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

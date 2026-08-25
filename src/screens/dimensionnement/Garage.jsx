@@ -59,14 +59,14 @@ function categorieMoteur(poidsKg) {
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
 export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  const premiere = boutiqueParDefaut(db, profile, { ecran: "dim-garage" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq);
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dim-garage" });
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
   // ---- Besoins du client ----
@@ -405,7 +405,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="dim-garage" db={db} value={bq} onChange={setBq} profile={profile} />}
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">🚪 Besoins du client <Badge boutique={boutique} /></div>
