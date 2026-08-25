@@ -118,6 +118,11 @@ export function DialogHost() {
 // dès que PrintHost le réaffecte ci-dessous, les imports le voient aussitôt
 // à jour — aucun setter séparé n'est nécessaire ici).
 export let printApi = null;
+// ⚠ Le format de page était figé sur A4 (demande Timo, 25/08/2026 : rouleaux
+// d'étiquettes 80×40 mm). Une étiquette envoyée sur une page A4 sort dans un
+// coin de la feuille et gaspille le rouleau : chaque document peut désormais
+// imposer le sien.
+export const PAGE_A4 = "size: A4; margin: 12mm;";
 // Impression par DOCUMENT DÉDIÉ : le HTML du document est écrit dans une
 // iframe invisible qui possède sa propre page, en flux normal. C'est la seule
 // méthode où la pagination (sauts de page du DUPLICATA compris) est fiable à
@@ -130,7 +135,7 @@ export let printApi = null;
 // fichier suggéré à l'impression/enregistrement PDF — identique pour TOUS
 // les documents. Avec cette balise, chaque document propose son propre nom
 // (numéro de reçu, de devis, de contrat...).
-function imprimerDocumentDedie(html, titre = "Document") {
+function imprimerDocumentDedie(html, titre = "Document", page = PAGE_A4) {
   const cadre = document.createElement("iframe");
   cadre.setAttribute("aria-hidden", "true");
   cadre.style.cssText = "position:absolute;width:0;height:0;border:0;overflow:hidden";
@@ -138,7 +143,7 @@ function imprimerDocumentDedie(html, titre = "Document") {
   const d = cadre.contentDocument;
   d.open();
   d.write(`<!doctype html><html><head><meta charset="utf-8"><title>${String(titre).replace(/[<>&]/g, "")}</title><style>
-    @page { size: A4; margin: 12mm; }
+    @page { ${page} }
     body { margin: 0; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .saut-page { break-before: page !important; page-break-before: always !important; }
@@ -169,7 +174,8 @@ function imprimerDocumentDedie(html, titre = "Document") {
 export function PrintHost() {
   const [html, setHtml] = useState(null);
   const [titreDoc, setTitreDoc] = useState("Document");
-  printApi = { open: (h, titre) => { setTitreDoc(titre || "Document"); setHtml(h); } };
+  const [page, setPage] = useState(PAGE_A4);
+  printApi = { open: (h, titre, formatPage) => { setTitreDoc(titre || "Document"); setPage(formatPage || PAGE_A4); setHtml(h); } };
   if (!html) return null;
   return createPortal(
     <div className="portail-impression fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
@@ -193,12 +199,12 @@ export function PrintHost() {
         }
         #zone-impression .saut-page { break-before: page !important; page-break-before: always !important; }
       }
-      @page { size: A4; margin: 12mm; }`}</style>
+      @page { ${page} }`}</style>
       <div className="cadre-apercu bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[92vh]">
         <div className="barre-apercu flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
           <div className="font-bold text-slate-900 text-sm">Aperçu avant impression</div>
           <div className="flex gap-2">
-            <button onClick={() => imprimerDocumentDedie(html, titreDoc)} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
+            <button onClick={() => imprimerDocumentDedie(html, titreDoc, page)} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
             <button onClick={() => setHtml(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
           </div>
         </div>

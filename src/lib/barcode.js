@@ -45,7 +45,7 @@ export function encoderCode128B(texte) {
 
 // Fabrique un SVG scannable à partir d'un motif de largeurs (chaîne de
 // chiffres, chaque chiffre = largeur d'une barre/espace en modules).
-export function genererSVGCode128(texte, { largeurModule = 2, hauteur = 70 } = {}) {
+export function genererSVGCode128(texte, { largeurModule = 2, hauteur = 70, styleCss = null, etirerEnHauteur = false } = {}) {
   const motif = encoderCode128B(texte);
   if (!motif) return null;
   let x = 0, barre = true; // Code128 commence toujours par une barre
@@ -60,5 +60,14 @@ export function genererSVGCode128(texte, { largeurModule = 2, hauteur = 70 } = {
   // s'adapter proportionnellement à un conteneur en taille physique réelle
   // (mm), pour une impression à dimension garantie plutôt que dépendante
   // des réglages d'échelle du navigateur.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${x}" height="${hauteur}" viewBox="0 0 ${x} ${hauteur}" style="width:100%;height:auto;display:block">${rects.join("")}</svg>`;
+  // ⚠ « etirerEnHauteur » (étiquettes à taille imposée, 25/08/2026).
+  // Sans lui, le dessin garde ses proportions : un code LONG s'étire en
+  // largeur, donc s'écrase en hauteur. Mesuré : 13 mm de haut pour 8
+  // caractères, mais 6,3 mm pour 20 — sous le seuil de lecture fiable.
+  // Un code-barres ne porte AUCUNE information dans sa hauteur : l'étirer
+  // verticalement est sans risque, et c'est ce qui permet d'imposer une
+  // hauteur constante quelle que soit la longueur du code.
+  const ratio = etirerEnHauteur ? ' preserveAspectRatio="none"' : "";
+  const style = styleCss || "width:100%;height:auto;display:block";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${x}" height="${hauteur}" viewBox="0 0 ${x} ${hauteur}"${ratio} style="${style}">${rects.join("")}</svg>`;
 }

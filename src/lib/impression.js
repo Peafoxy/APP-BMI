@@ -826,35 +826,46 @@ export function recuWhatsApp(v, bq = {}) {
 // le lecteur n'arrive pas à scanner). Passe par le MÊME aperçu et
 // le même mécanisme d'impression que les autres documents.
 export function imprimerEtiquetteProduit(p) {
-  const svg = genererSVGCode128(p.code, { largeurModule: 2, hauteur: 60 });
-  if (!svg) return false; // code invalide (caractères non ASCII) : on n'imprime rien de cassé
-  // ⚠ DEMANDE TIMO (25/08/2026) : NOM DE LA BOUTIQUE EN HAUT, NOM DE
-  // L'ARTICLE EN BAS — le code-barres, le code en clair et le prix entre les
-  // deux. L'étiquette se lit donc « d'où elle vient » d'abord, « ce que
-  // c'est » en dernier, juste au-dessus de l'endroit où le doigt la tient. Un même article existe dans plusieurs boutiques, souvent au
-  // même prix : sans ce repère, une étiquette imprimée ici et posée là-bas ne
-  // se distingue plus, et personne ne peut dire d'où sort un carton
-  // d'étiquettes préparé la veille. En petit et en gris : c'est un repère,
-  // il ne doit pas voler la vedette au nom de l'article.
+  // ⚠ FORMAT : ROULEAUX D'ÉTIQUETTES 80 × 40 mm (choix de Timo, 25/08/2026).
+  // Tout est fixé en MILLIMÈTRES RÉELS : l'étiquette sort à la taille de la
+  // vignette prédécoupée, quel que soit le réglage d'échelle du navigateur.
   //
-  // Espacement resserré (demande Timo) : le nom, le code-barres, le code en
-  // clair et le prix se suivent directement, sans grand vide entre eux.
-  // line-height:0 sur le conteneur du SVG retire l'espace « fantôme » que
-  // les navigateurs ajoutent sous une image en ligne (réservé pour la
-  // descente des lettres — invisible ici, mais il compte dans la mise en
-  // page). Ce n'est qu'une mise en page à moi, pas un format imposé.
-  // Largeur fixée en MILLIMÈTRES RÉELS (pas en pixels) : garantit une
-  // impression à taille physique constante, quel que soit le réglage
-  // d'échelle du navigateur — 60mm est la largeur minimale fiable pour
-  // qu'un lecteur de code-barres standard scanne sans difficulté.
+  // ⚠ ET LE FORMAT DE PAGE AVEC. Sans lui, le navigateur imprimait sur une
+  // page A4 : l'étiquette partait dans un coin de la feuille et le rouleau
+  // se dévidait pour rien.
+  //
+  // ⚠ HAUTEUR DU CODE-BARRES IMPOSÉE (14 mm), et c'est un correctif, pas un
+  // réglage. Avant, le dessin gardait ses proportions : un code LONG
+  // s'étirait en largeur et s'écrasait donc en hauteur. Mesuré sur l'ancien
+  // format : 13 mm de haut pour un code de 8 caractères, mais 6,3 mm pour un
+  // code de 20 — avec des barres de 0,21 mm, sous le seuil de lecture fiable
+  // (0,25 mm de barre fine, 10 mm de hauteur). Une étiquette sur trois aurait
+  // refusé de se lire. La hauteur ne dépend plus de la longueur du code.
+  const svg = genererSVGCode128(p.code, {
+    largeurModule: 2, hauteur: 60,
+    styleCss: "width:100%;height:14mm;display:block",
+    etirerEnHauteur: true,
+  });
+  if (!svg) return false; // code invalide (caractères non ASCII) : on n'imprime rien de cassé
+  //
+  // ⚠ DEMANDE TIMO : NOM DE LA BOUTIQUE EN HAUT, NOM DE L'ARTICLE EN BAS —
+  // le code-barres, le code en clair et le prix entre les deux. L'étiquette
+  // se lit donc « d'où elle vient » d'abord, « ce que c'est » en dernier.
+  // Pourquoi ce repère compte : un même article existe dans plusieurs
+  // boutiques, souvent au même prix. Sans le nom, une étiquette imprimée ici
+  // et posée là-bas ne se distingue plus, et personne ne peut dire d'où sort
+  // un carton d'étiquettes préparé la veille.
+  //
+  // ⚠ Le nom de l'article est limité à DEUX lignes : au-delà il déborderait
+  // de la vignette, et c'est le code-barres qui serait rogné.
   const html = `
-    <div style="width:60mm;padding:3mm;border:0.3mm solid #94a3b8;border-radius:2mm;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1">
-      ${p.boutique ? `<div style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:#475569;margin-bottom:1px;word-break:break-word">${esc(p.boutique)}</div>` : ""}
-      <div style="display:flex;justify-content:center;line-height:0">${svg}</div>
-      <div style="font-family:monospace;font-size:12px;letter-spacing:1px;margin-top:1px">${esc(p.code)}</div>
-      ${p.prix_vente ? `<div style="font-weight:700;font-size:14px;margin-top:1px">${fmt(p.prix_vente)}</div>` : ""}
-      <div style="font-weight:700;font-size:13px;margin-top:1px;word-break:break-word">${esc(p.nom)}</div>
+    <div style="width:80mm;height:40mm;padding:2mm;border:0.3mm solid #94a3b8;border-radius:1.5mm;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1.1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.6mm">
+      ${p.boutique ? `<div style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:#475569;word-break:break-word">${esc(p.boutique)}</div>` : ""}
+      <div>${svg}</div>
+      <div style="font-family:monospace;font-size:12px;letter-spacing:1px">${esc(p.code)}</div>
+      ${p.prix_vente ? `<div style="font-weight:700;font-size:15px">${fmt(p.prix_vente)}</div>` : ""}
+      <div style="font-weight:700;font-size:12px;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.nom)}</div>
     </div>`;
-  if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim());
+  if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim(), "size: 80mm 40mm; margin: 0;");
   return true;
 }

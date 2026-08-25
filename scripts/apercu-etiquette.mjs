@@ -30,7 +30,7 @@ const bouchonUI = join("node_modules", ".cache", `bmi-ui-bouchon-${process.pid}.
 // (calculs.js y prend aussi ses boîtes de dialogue), sinon la construction
 // échoue au lieu de s'exécuter.
 writeFileSync(bouchonUI, [
-  "export const printApi = { open: (h) => { globalThis.__etiquette = h; } };",
+  "export const printApi = { open: (h, t, page) => { globalThis.__etiquette = h; globalThis.__page = page; } };",
   "export const uAlert = () => {};",
   "export const uConfirm = async () => true;",
   "export const uPrompt = async () => null;",
@@ -51,30 +51,60 @@ await build({
 const M = await import(pathToFileURL(sortie).href);
 unlinkSync(sortie); unlinkSync(bouchonUI);
 
-const article = {
-  nom: "COFFRET ETANCHE IP65 12 MODULES", code: "BMI0000123456",
-  prix_vente: 12000, boutique: "BMI APESSITO",
-};
-if (!M.imprimerEtiquetteProduit(article)) { console.log("❌ l'étiquette n'a pas pu être générée"); process.exit(1); }
-const capture = globalThis.__etiquette || "";
+// ⚠ Trois longueurs de code : c'est ce qui a revele le defaut. Le dessin
+// gardait ses proportions, donc un code long s'ecrasait en hauteur — 6,3 mm
+// pour 20 caracteres, sous le seuil de lecture fiable.
+const CODES = ["12345678", "ARTMG9K2P4X7", "BMI-COFFRET-IP65-12M"];
+const MM = 96 / 25.4;
+// Les repères du métier, pour un code-barres lu sans effort.
+const BARRE_MINI = 0.25;   // mm — largeur de la barre la plus fine
+const HAUTEUR_MINI = 10;   // mm
 
 let ko = 0;
 const test = (nom, ok) => { console.log(`  ${ok ? "✓" : "✗"} ${nom}`); if (!ok) ko++; };
-const posBoutique = capture.indexOf(article.boutique);
-const posNom = capture.indexOf(article.nom);
-const posCode = capture.indexOf("<svg");
-test("le nom de la boutique est présent", posBoutique > -1);
-test("★ la boutique est AU-DESSUS du code-barres", posBoutique < posCode);
-test("★ le nom de l'article est EN BAS, sous le code-barres", posNom > posCode);
-test("le code en clair et le prix sont là", capture.includes(article.code) && capture.includes("12"));
 
-const page = `<!doctype html><meta charset=utf-8><body style="margin:0;padding:16px;background:#e2e8f0;display:flex;gap:16px">${capture}${capture.replace(article.boutique, "BMI DEMAKPOE")}</body>`;
-const fichier = join("node_modules", ".cache", "apercu-etiquette.html");
-writeFileSync(fichier, page);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
-const p = await nav.newPage({ viewport: { width: 620, height: 320 } });
-await p.goto(pathToFileURL(fichier).href);
-await p.screenshot({ path: "apercu-etiquette.png" });
+const mesures = [];
+let apercu = "";
+for (const code of CODES) {
+  const article = { nom: "COFFRET ETANCHE IP65 12 MODULES", code, prix_vente: 12000, boutique: "BMI APESSITO" };
+  if (!M.imprimerEtiquetteProduit(article)) { console.log(`❌ étiquette impossible pour « ${code} »`); process.exit(1); }
+  const capture = globalThis.__etiquette || "";
+  if (!apercu) apercu = capture;
+  const modules = Number(capture.match(/<svg[^>]*width="(\d+)"/)[1]) / 2;
+  const f = join("node_modules", ".cache", "mesure-etiquette.html");
+  writeFileSync(f, `<!doctype html><meta charset=utf-8><body style="margin:0">${capture}</body>`);
+  const page = await nav.newPage({ viewport: { width: 900, height: 400 } });
+  await page.goto(pathToFileURL(f).href);
+  const d = await page.evaluate((mm) => {
+    const et = document.body.firstElementChild.getBoundingClientRect();
+    const sv = document.querySelector("svg").getBoundingClientRect();
+    return { l: et.width / mm, h: et.height / mm, cl: sv.width / mm, ch: sv.height / mm };
+  }, MM);
+  await page.close();
+  mesures.push({ code, modules, ...d });
+  console.log(`  · « ${code} » (${code.length} car.) → étiquette ${d.l.toFixed(1)}×${d.h.toFixed(1)} mm · code-barres ${d.cl.toFixed(1)}×${d.ch.toFixed(1)} mm · barre fine ${(d.cl / modules).toFixed(3)} mm`);
+}
+
+const proche = (v, cible) => Math.abs(v - cible) < 0.4;
+test("★ l'étiquette fait exactement 80 × 40 mm, quel que soit le code",
+  mesures.every((m) => proche(m.l, 80) && proche(m.h, 40)));
+test("★ la hauteur du code-barres ne dépend PLUS de la longueur du code",
+  mesures.every((m) => proche(m.ch, mesures[0].ch)));
+test(`la barre la plus fine reste au-dessus de ${BARRE_MINI} mm, même sur le code le plus long`,
+  mesures.every((m) => m.cl / m.modules >= BARRE_MINI));
+test(`le code-barres reste plus haut que ${HAUTEUR_MINI} mm`, mesures.every((m) => m.ch >= HAUTEUR_MINI));
+test("le format de page suit l'étiquette (sinon le rouleau sort sur une page A4)",
+  globalThis.__page === "size: 80mm 40mm; margin: 0;");
+const posB = apercu.indexOf("BMI APESSITO"), posN = apercu.indexOf("COFFRET"), posC = apercu.indexOf("<svg");
+test("★ la boutique est en HAUT, le nom de l'article en BAS", posB < posC && posN > posC);
+
+const page = `<!doctype html><meta charset=utf-8><body style="margin:0;padding:16px;background:#e2e8f0;display:flex;flex-direction:column;gap:10px">${apercu}${apercu.replace("BMI APESSITO", "BMI DEMAKPOE")}</body>`;
+const f2 = join("node_modules", ".cache", "apercu.html");
+writeFileSync(f2, page);
+const p2 = await nav.newPage({ viewport: { width: 360, height: 360 } });
+await p2.goto(pathToFileURL(f2).href);
+await p2.screenshot({ path: "apercu-etiquette.png" });
 await nav.close();
 console.log(`\n${ko === 0 ? "✅" : "❌"}  Aperçu enregistré dans apercu-etiquette.png\n`);
 process.exit(ko === 0 ? 0 : 1);
