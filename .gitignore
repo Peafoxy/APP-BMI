@@ -6,3 +6,4 @@ dist-electron
 *.log
 .DS_Store
 release
+apercu-etiquette.png

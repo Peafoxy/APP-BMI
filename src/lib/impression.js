@@ -828,6 +828,15 @@ export function recuWhatsApp(v, bq = {}) {
 export function imprimerEtiquetteProduit(p) {
   const svg = genererSVGCode128(p.code, { largeurModule: 2, hauteur: 60 });
   if (!svg) return false; // code invalide (caractères non ASCII) : on n'imprime rien de cassé
+  // ⚠ DEMANDE TIMO (25/08/2026) : NOM DE LA BOUTIQUE EN HAUT, NOM DE
+  // L'ARTICLE EN BAS — le code-barres, le code en clair et le prix entre les
+  // deux. L'étiquette se lit donc « d'où elle vient » d'abord, « ce que
+  // c'est » en dernier, juste au-dessus de l'endroit où le doigt la tient. Un même article existe dans plusieurs boutiques, souvent au
+  // même prix : sans ce repère, une étiquette imprimée ici et posée là-bas ne
+  // se distingue plus, et personne ne peut dire d'où sort un carton
+  // d'étiquettes préparé la veille. En petit et en gris : c'est un repère,
+  // il ne doit pas voler la vedette au nom de l'article.
+  //
   // Espacement resserré (demande Timo) : le nom, le code-barres, le code en
   // clair et le prix se suivent directement, sans grand vide entre eux.
   // line-height:0 sur le conteneur du SVG retire l'espace « fantôme » que
@@ -840,10 +849,11 @@ export function imprimerEtiquetteProduit(p) {
   // qu'un lecteur de code-barres standard scanne sans difficulté.
   const html = `
     <div style="width:60mm;padding:3mm;border:0.3mm solid #94a3b8;border-radius:2mm;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1">
-      <div style="font-weight:700;font-size:13px;margin-bottom:1px;word-break:break-word">${esc(p.nom)}</div>
+      ${p.boutique ? `<div style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:#475569;margin-bottom:1px;word-break:break-word">${esc(p.boutique)}</div>` : ""}
       <div style="display:flex;justify-content:center;line-height:0">${svg}</div>
       <div style="font-family:monospace;font-size:12px;letter-spacing:1px;margin-top:1px">${esc(p.code)}</div>
       ${p.prix_vente ? `<div style="font-weight:700;font-size:14px;margin-top:1px">${fmt(p.prix_vente)}</div>` : ""}
+      <div style="font-weight:700;font-size:13px;margin-top:1px;word-break:break-word">${esc(p.nom)}</div>
     </div>`;
   if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim());
   return true;
