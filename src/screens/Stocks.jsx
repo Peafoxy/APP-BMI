@@ -812,20 +812,18 @@ export function Stocks({ db, save, profile }) {
             {/* PRÉSÉLECTION (demande Timo) : l'article existe ailleurs ? On le
                 propose au lieu de poser une question. Un clic reprend toute
                 la fiche — le geste est plus court qu'une saisie complète. */}
+            {/* ⚠ AFFICHAGE REVU À LA DEMANDE DE TIMO (25/08/2026) : une
+                simple liste de noms, une ligne par article, sans titre
+                explicatif, sans nom de boutique et sans ligne mise en
+                avant. Ma première version tenait sur deux lignes par
+                article et prenait tout l'écran d'un téléphone pour trois
+                propositions. */}
             {suggestions.length > 0 && (
-              <div className="mt-1 rounded-lg border border-sky-300 bg-sky-50 overflow-hidden">
-                <div className="px-2 py-1 text-[11px] font-bold text-sky-900 bg-sky-100">
-                  Déjà enregistré ailleurs — cliquez pour reprendre la fiche
-                </div>
-                {suggestions.map(({ article: a, boutiques }) => (
+              <div className="mt-1 rounded-lg border border-sky-300 bg-white overflow-hidden max-h-48 overflow-y-auto">
+                {suggestions.map(({ article: a }) => (
                   <button key={a.id} type="button" onClick={() => reprendreArticle(a)}
-                    className="w-full text-left px-2 py-1.5 text-xs hover:bg-sky-100 border-t border-sky-200">
-                    <div className="font-bold text-slate-800">{a.nom}</div>
-                    <div className="text-slate-500">
-                      {boutiques.join(", ")}
-                      {a.prix_vente ? ` · vente ${fmt(a.prix_vente)}` : ""}
-                      {a.categorie ? ` · ${a.categorie}` : ""}
-                    </div>
+                    className="w-full text-left px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-sky-100 border-b border-slate-100 last:border-b-0">
+                    {a.nom}
                   </button>
                 ))}
               </div>

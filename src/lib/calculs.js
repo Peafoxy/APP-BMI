@@ -896,11 +896,28 @@ export const trouverArticle = (liste, nom) => {
 export const articlesSimilairesAilleurs = (db, profile, boutique, nom, limite = 6) => {
   const cherche = normNom(nom);
   if (cherche.length < 2) return [];
-  // ⚠ Cloisonnement : on ne propose QUE des boutiques visibles par ce compte.
-  // La version rejetée ne filtrait pas — la capture de Timo montrait une
-  // boutique de FORMATION citée en exemple pour une vraie boutique. Un compte
-  // d'entraînement aurait ainsi vu les vrais prix d'achat de l'entreprise.
-  const visibles = new Set(boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom));
+  // ⚠ DEUX FILTRES, ET LES DEUX SONT NÉCESSAIRES.
+  //
+  // 1. VISIBILITÉ : on ne propose que des boutiques que ce compte a le droit
+  //    de voir. Sans ça, un compte d'entraînement verrait les vrais prix
+  //    d'achat de l'entreprise.
+  //
+  // 2. MÊME ESPACE QUE LA BOUTIQUE VISÉE — corrigé le 25/08/2026 sur capture
+  //    de Timo. L'administrateur principal, lui, voit LES DEUX espaces
+  //    (dérogation « tous ») : ma première version lui proposait donc des
+  //    articles d'ENTRAÎNEMENT, avec leurs prix fictifs (« vente 2 500 F »),
+  //    pendant qu'il créait un article dans une VRAIE boutique. Un clic et
+  //    un prix d'école entrait dans le stock réel.
+  //    La règle qui compte n'est donc pas « ce que le compte peut voir »
+  //    mais « où l'article va être créé » : on ne propose que des articles
+  //    du même espace que la boutique visée.
+  const cible = (db.boutiques || []).find((b) => b.nom === boutique);
+  if (!cible) return [];
+  const visibles = new Set(
+    boutiquesVisibles(db, profile, db.boutiques || [])
+      .filter((b) => !!b.formation === !!cible.formation)
+      .map((b) => b.nom)
+  );
   const dejaIci = new Set(
     (db.produits || []).filter((y) => y.boutique === boutique).map((y) => normNom(y.nom))
   );

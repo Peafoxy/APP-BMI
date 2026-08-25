@@ -2090,8 +2090,8 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
   // ⚠ Deux articles distincts portent « COFFRET » : l'admin principal voit
   // les deux espaces, il reçoit donc les deux. Ce n'est pas une fuite, c'est
   // la dérogation « tous » — vérifiée à part plus bas.
-  test("plusieurs articles différents donnent plusieurs propositions",
-    chez(P.admin, "APESSITO", "COFFRET").length === 2);
+  test("un article d'un autre espace n'est plus compté dans les propositions",
+    chez(P.admin, "APESSITO", "COFFRET").length === 1);
   test("…avec la liste des boutiques qui le détiennent déjà",
     chez(P.admin, "APESSITO", "COFFRET")[0].boutiques.join(",") === "HEDZRANAWOE,DEPOT");
   test("…et la fiche à reprendre (fournisseur, prix)",
@@ -2112,8 +2112,20 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
     chez(formLibre, "APESSITO FORMATION", "COFFRET").length === 0);
   test("★ et un compte réel ne se voit jamais proposer un article d'entraînement",
     chez(P.admin2, "APESSITO", "COFFRET ECOLE").length === 0);
-  test("l'admin principal, lui, traverse les deux espaces (dérogation « tous »)",
-    chez(P.admin, "APESSITO", "COFFRET ECOLE").length === 1);
+  // ⚠ CORRIGÉ LE 25/08/2026 SUR CAPTURE DE TIMO. L'admin principal voit les
+  // deux espaces — ma première version lui proposait donc des articles
+  // d'ENTRAÎNEMENT, prix fictifs compris, pendant qu'il créait dans une VRAIE
+  // boutique. Un clic et un prix d'école entrait dans le stock réel.
+  // Ce qui décide, ce n'est pas ce que le compte peut voir, c'est OÙ
+  // l'article va être créé.
+  test("★ même l'admin principal ne se voit pas proposer un article d'entraînement pour une VRAIE boutique",
+    chez(P.admin, "APESSITO", "COFFRET ECOLE").length === 0);
+  test("★ …et l'inverse : pas d'article réel proposé pour une boutique d'entraînement",
+    chez(P.admin, "APESSITO FORMATION", "COFFRET ETANCHE").length === 0);
+  test("dans son espace d'entraînement, il retrouve bien ses articles d'entraînement",
+    chez(P.admin, "DEPOT FORMATION", "COFFRET ECOLE").length === 1);
+  test("une boutique inconnue ne propose rien plutôt que n'importe quoi",
+    chez(P.admin, "BOUTIQUE QUI N EXISTE PAS", "COFFRET").length === 0);
 
   test("une base sans articles ne fait pas planter la proposition",
     C.articlesSimilairesAilleurs({ boutiques: [], users: [], produits: [] }, P.admin, "X", "COFFRET").length === 0);
