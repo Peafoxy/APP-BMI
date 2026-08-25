@@ -362,9 +362,43 @@ export function Stocks({ db, save, profile }) {
     uAlert("Article corrigé.");
   };
 
-  const ajouter = () => {
+  // ⚠ DEMANDE TIMO (25/08/2026) : « j'ai enregistré le stock d'une autre
+  // boutique dans une autre... c'est trop facile de se tromper ».
+  // C'est vrai, et l'écran n'y aidait pas : la boutique n'était qu'un ONGLET
+  // choisi plus haut, parfois hors de l'écran au moment de remplir le
+  // formulaire. Rien ne la rappelait au moment de cliquer.
+  //
+  // Trois renforts, dont deux ne coûtent aucun clic supplémentaire :
+  //   1. le bouton PORTE le nom de la boutique (« Ajouter à BMI APESSITO ») ;
+  //   2. le titre du formulaire aussi ;
+  //   3. et surtout : si l'article existe DÉJÀ dans une autre boutique et
+  //      PAS dans celle-ci, on demande confirmation en nommant les deux.
+  //      C'est exactement la situation de l'erreur signalée — on saisit le
+  //      stock d'un magasin en étant resté sur l'onglet d'un autre.
+  // Aucun avertissement quand l'article est vraiment nouveau : pas de
+  // friction inutile sur le cas normal.
+  const memeNom = (a, b) => String(a || "").trim().replace(/\s+/g, " ").toLowerCase()
+    === String(b || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+  const boutiquesQuiOntDeja = (nom) => [...new Set(
+    db.produits.filter((x) => x.boutique !== bq && memeNom(x.nom, nom)).map((x) => x.boutique)
+  )];
+
+  const confirmerLaBoutique = async (nom) => {
+    const dejaAilleurs = boutiquesQuiOntDeja(nom);
+    if (!dejaAilleurs.length) return true;                       // article vraiment nouveau
+    if (db.produits.some((x) => x.boutique === bq && memeNom(x.nom, nom))) return true; // déjà ici aussi
+    return await uConfirm(
+      `⚠ Vérifiez la boutique.\n\n« ${nom} » existe déjà dans : ${dejaAilleurs.join(", ")}.\n` +
+      `Il n'existe PAS dans ${bq}.\n\n` +
+      `Vous êtes en train de le créer dans ${bq}. Est-ce bien la bonne boutique ?`
+    );
+  };
+
+  const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom d'article."); return; }
+    if (!await confirmerLaBoutique(f.nom)) return;
     save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "", garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
     setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
     uAlert("Article ajouté !");
@@ -393,7 +427,7 @@ export function Stocks({ db, save, profile }) {
 
   const importerArticles = async () => {
     const texte = await uPrompt(
-      "Collez les articles (un par ligne) :\nFormat : Nom, Catégorie, Initial, Seuil, PrixAchat, PrixVente\nExemple :\nPanneau Solaire 150W, Panneaux, 10, 3, 45000, 65000"
+      `Importation dans ${bq}.\n\nCollez les articles (un par ligne) :\nFormat : Nom, Catégorie, Initial, Seuil, PrixAchat, PrixVente\nExemple :\nPanneau Solaire 150W, Panneaux, 10, 3, 45000, 65000`
     );
     if (!texte) return;
 
@@ -425,7 +459,16 @@ export function Stocks({ db, save, profile }) {
       return;
     }
 
-    if (await uConfirm(`Importer ${nouveaux.length} articles ?${erreurs.length ? `\n${erreurs.length} erreurs ignorées.` : ""}`)) {
+    // ⚠ Le même garde-fou que pour la création à l'unité, mais compté : si
+    // la majorité des articles collés existent déjà DANS UNE AUTRE boutique
+    // et pas ici, c'est le signe d'un onglet resté sur le mauvais magasin.
+    const dejaAilleurs = nouveaux.filter((n) =>
+      boutiquesQuiOntDeja(n.nom).length && !db.produits.some((x) => x.boutique === bq && memeNom(x.nom, n.nom))
+    );
+    const alerte = dejaAilleurs.length
+      ? `\n\n⚠ VÉRIFIEZ LA BOUTIQUE : ${dejaAilleurs.length} de ces articles existent déjà dans ${[...new Set(dejaAilleurs.flatMap((n) => boutiquesQuiOntDeja(n.nom)))].join(", ")}, et pas dans ${bq}.`
+      : "";
+    if (await uConfirm(`Importer ${nouveaux.length} articles dans ${bq} ?${erreurs.length ? `\n${erreurs.length} erreurs ignorées.` : ""}${alerte}`)) {
       save({ ...db, produits: [...db.produits, ...nouveaux] }, `Import de ${nouveaux.length} articles — ${bq}`);
       uAlert(`${nouveaux.length} articles importés avec succès !`);
     }
@@ -749,7 +792,7 @@ export function Stocks({ db, save, profile }) {
         <div className="font-bold mb-3 flex items-center gap-2">
           {enEdition
             ? <>✏️ Correction de « {articleCorrige?.nom} » <Badge boutique={articleCorrige?.boutique || bq} /></>
-            : <>Nouvel article <Badge boutique={bq} /></>}
+            : <>Nouvel article dans <span className="uppercase">{bq}</span> <Badge boutique={bq} /></>}
         </div>
         {argentVerrouille && (
           <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
@@ -858,7 +901,7 @@ export function Stocks({ db, save, profile }) {
             </>
           ) : (
             <>
-              <button onClick={ajouter} className={btnDark}>Ajouter</button>
+              <button onClick={ajouter} className={btnDark}>Ajouter à {bq}</button>
               <button onClick={importerArticles} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importation rapide</button>
             </>
           )}
