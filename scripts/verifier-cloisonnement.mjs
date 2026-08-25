@@ -2098,8 +2098,19 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
     chez(P.admin, "APESSITO FORMATION", "BATTERIE").length === 0);
   test("…et la fiche à reprendre (fournisseur, prix)",
     chez(P.admin, "APESSITO", "COFFRET")[0].article.fournisseur === "SOLARIS");
-  test("une recherche trop courte ne propose rien (pas de bruit à la 1re lettre)",
-    chez(P.admin, "APESSITO", "C").length === 0);
+  // ⚠ DEMANDE TIMO : la proposition doit sortir DÈS LA PREMIÈRE LETTRE.
+  // Taper « C » et ne rien voir donne l'impression que ça ne marche pas.
+  test("★ la première lettre suffit à faire apparaître la proposition",
+    chez(P.admin, "APESSITO", "C").length > 0);
+  test("★ …et ce sont les noms qui COMMENCENT par cette lettre qui remontent",
+    chez(P.admin, "APESSITO", "C")[0].article.nom.startsWith("COFFRET"));
+  test("un champ vide ne propose toujours rien",
+    chez(P.admin, "APESSITO", "").length === 0 && chez(P.admin, "APESSITO", "   ").length === 0);
+  // Le classement doit être stable : sinon la liste saute d'une frappe à
+  // l'autre et on clique sur la mauvaise ligne.
+  test("à rang égal, l'ordre est alphabétique (la liste ne saute pas)",
+    JSON.stringify(chez(P.admin, "APESSITO", "COFFRET").map((x) => x.article.nom))
+    === JSON.stringify(chez(P.admin, "APESSITO", "COFFRET").map((x) => x.article.nom).sort()));
   // ⚠ CORRIGÉ SUR DEMANDE DE TIMO : « dans la même boutique, les articles ne
   // sont pas proposés ». Je les écartais volontairement — et c'était une
   // erreur : voir un article DÉJÀ présent ici est justement ce qui évite de

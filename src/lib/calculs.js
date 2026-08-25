@@ -902,7 +902,12 @@ export const trouverArticle = (liste, nom) => {
 // Renvoie [{ article, boutiques }] — une entrée par nom d'article distinct.
 export const articlesSimilaires = (db, profile, boutique, nom, limite = 6) => {
   const cherche = normNom(nom);
-  if (cherche.length < 2) return [];
+  // ⚠ DÈS LA PREMIÈRE LETTRE (demande Timo, 25/08/2026). J'avais mis le seuil
+  // à deux lettres pour éviter le bruit — mais taper « C » et ne rien voir
+  // donne l'impression que la proposition ne marche pas. Le bruit est réglé
+  // autrement : par le CLASSEMENT ci-dessous, qui fait remonter les noms qui
+  // COMMENCENT par ce qu'on tape, et par la limite de la liste.
+  if (!cherche) return [];
   // ⚠ DEUX FILTRES, ET LES DEUX SONT NÉCESSAIRES.
   //
   // 1. VISIBILITÉ : on ne propose que des boutiques que ce compte a le droit
@@ -936,7 +941,25 @@ export const articlesSimilaires = (db, profile, boutique, nom, limite = 6) => {
     if (x.boutique === boutique) e.article = x;
     e.boutiques.push(x.boutique);
   }
-  return [...parNom.values()].slice(0, limite);
+  // ⚠ Le classement fait tout l'intérêt de la première lettre : « C » doit
+  // proposer COFFRET et CABLE, pas le premier article qui contient un « c »
+  // au milieu d'un mot. Trois rangs :
+  //   0 — le nom commence par ce qu'on tape ;
+  //   1 — un MOT du nom commence par ce qu'on tape (ex. « 12M » dans
+  //       « COFFRET APPARENT 12M ») ;
+  //   2 — le reste.
+  // À rang égal, ordre alphabétique : la liste ne saute pas d'une frappe à
+  // l'autre, ce qui compte quand on clique vite.
+  const rang = (a) => {
+    const n = normNom(a.nom);
+    if (n.startsWith(cherche)) return 0;
+    if (n.split(" ").some((mot) => mot.startsWith(cherche))) return 1;
+    return 2;
+  };
+  return [...parNom.values()]
+    .sort((x, y) => rang(x.article) - rang(y.article)
+      || normNom(x.article.nom).localeCompare(normNom(y.article.nom)))
+    .slice(0, limite);
 };
 
 // ============ RÉSERVATIONS PRÉPAYÉES ============
