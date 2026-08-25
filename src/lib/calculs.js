@@ -879,6 +879,44 @@ export const trouverArticle = (liste, nom) => {
     || null;
 };
 
+// ⚠ DEMANDE TIMO (25/08/2026) — LA PRÉSÉLECTION D'UN ARTICLE DÉJÀ CONNU.
+//
+// Premier essai rejeté par lui : une question à l'ajout, « cet article existe
+// déjà dans une autre boutique, est-ce bien la bonne ? ». Ses boutiques
+// VENDENT LES MÊMES ÉQUIPEMENTS : l'article déjà présent ailleurs est donc le
+// cas NORMAL, pas l'anomalie. Une alerte qui se déclenche sur le cas normal
+// n'apprend rien, et habitue à cliquer OK sans lire.
+//
+// Sa proposition, retenue : « lorsqu'on tape le nom de l'article, s'il est
+// déjà enregistré ailleurs, proposer la présélection ». On ne pose plus de
+// question, on rend service.
+//
+// Renvoie [{ article, boutiques }] — une entrée par nom d'article distinct,
+// avec la liste des boutiques qui le détiennent déjà.
+export const articlesSimilairesAilleurs = (db, profile, boutique, nom, limite = 6) => {
+  const cherche = normNom(nom);
+  if (cherche.length < 2) return [];
+  // ⚠ Cloisonnement : on ne propose QUE des boutiques visibles par ce compte.
+  // La version rejetée ne filtrait pas — la capture de Timo montrait une
+  // boutique de FORMATION citée en exemple pour une vraie boutique. Un compte
+  // d'entraînement aurait ainsi vu les vrais prix d'achat de l'entreprise.
+  const visibles = new Set(boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom));
+  const dejaIci = new Set(
+    (db.produits || []).filter((y) => y.boutique === boutique).map((y) => normNom(y.nom))
+  );
+  const parNom = new Map();
+  for (const x of db.produits || []) {
+    if (x.boutique === boutique || !visibles.has(x.boutique)) continue;
+    const n = normNom(x.nom);
+    if (!n.includes(cherche)) continue;
+    // Déjà présent dans CETTE boutique : il n'y a rien à reprendre.
+    if (dejaIci.has(n)) continue;
+    if (!parNom.has(n)) parNom.set(n, { article: x, boutiques: [] });
+    parNom.get(n).boutiques.push(x.boutique);
+  }
+  return [...parNom.values()].slice(0, limite);
+};
+
 // ============ RÉSERVATIONS PRÉPAYÉES ============
 // Le client paie par tranches AVANT d'emporter. L'argent encaissé est une AVANCE
 // (compte 4191), pas un chiffre d'affaires : il ne devient CA qu'à la livraison.

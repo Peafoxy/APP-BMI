@@ -2067,5 +2067,57 @@ titre("La boutique choisie survit au rechargement de la page — une mémoire PA
     C.boutiqueParDefaut(db, P.admin, { ecran: "ventes" }) === "APESSITO");
 }
 
+titre("La présélection d'un article déjà enregistré ailleurs (demande Timo, 25/08/2026)");
+{
+  // ⚠ CE QUE CE BLOC PROTÈGE. La première version posait une QUESTION à
+  // l'ajout (« cet article existe déjà ailleurs, est-ce la bonne
+  // boutique ? »). Timo l'a rejetée : ses boutiques vendent les mêmes
+  // équipements, donc l'alerte se déclenchait sur le cas NORMAL. Elle est
+  // remplacée par un service : on propose la fiche existante, un clic
+  // reprend tout. Et surtout, cette version-là filtre par espace — la
+  // capture montrait une boutique de FORMATION citée à un compte réel.
+  const db = base();
+  db.produits = [
+    { id: "p1", boutique: "HEDZRANAWOE", nom: "COFFRET ETANCHE IP65", prix_vente: 12000, fournisseur: "SOLARIS" },
+    { id: "p2", boutique: "DEPOT", nom: "COFFRET ETANCHE IP65", prix_vente: 12000 },
+    { id: "p3", boutique: "APESSITO FORMATION", nom: "COFFRET ECOLE IP65", prix_vente: 7 },
+    { id: "p4", boutique: "APESSITO", nom: "BATTERIE GEL 12V200AH", prix_vente: 140000 },
+  ];
+  const chez = (profile, bq, nom) => C.articlesSimilairesAilleurs(db, profile, bq, nom);
+
+  test("on propose l'article enregistré dans une autre boutique",
+    chez(P.admin, "APESSITO", "COFFRET ETANCHE").length === 1);
+  // ⚠ Deux articles distincts portent « COFFRET » : l'admin principal voit
+  // les deux espaces, il reçoit donc les deux. Ce n'est pas une fuite, c'est
+  // la dérogation « tous » — vérifiée à part plus bas.
+  test("plusieurs articles différents donnent plusieurs propositions",
+    chez(P.admin, "APESSITO", "COFFRET").length === 2);
+  test("…avec la liste des boutiques qui le détiennent déjà",
+    chez(P.admin, "APESSITO", "COFFRET")[0].boutiques.join(",") === "HEDZRANAWOE,DEPOT");
+  test("…et la fiche à reprendre (fournisseur, prix)",
+    chez(P.admin, "APESSITO", "COFFRET")[0].article.fournisseur === "SOLARIS");
+  test("une recherche trop courte ne propose rien (pas de bruit à la 1re lettre)",
+    chez(P.admin, "APESSITO", "C").length === 0);
+  test("un article DÉJÀ présent dans cette boutique n'est pas proposé",
+    chez(P.admin, "APESSITO", "BATTERIE").length === 0);
+  test("les accents et la casse n'empêchent pas de retrouver l'article",
+    chez(P.admin, "APESSITO", "coffret étanche").length === 1);
+
+  // ⚠ LE POINT LE PLUS IMPORTANT — c'est le défaut visible sur la capture.
+  const formLibre = { id: "u_form_libre", role: "vendeur" };
+  db.users.push({ id: "u_form_libre", nom: "STAGIAIRE LIBRE", role: "vendeur", formation: true });
+  test("★ un compte de FORMATION ne se voit jamais proposer un article réel",
+    chez(formLibre, "APESSITO FORMATION", "COFFRET").every((x) => x.article.boutique === "APESSITO FORMATION"));
+  test("★ …donc jamais les vrais prix de l'entreprise",
+    chez(formLibre, "APESSITO FORMATION", "COFFRET").length === 0);
+  test("★ et un compte réel ne se voit jamais proposer un article d'entraînement",
+    chez(P.admin2, "APESSITO", "COFFRET ECOLE").length === 0);
+  test("l'admin principal, lui, traverse les deux espaces (dérogation « tous »)",
+    chez(P.admin, "APESSITO", "COFFRET ECOLE").length === 1);
+
+  test("une base sans articles ne fait pas planter la proposition",
+    C.articlesSimilairesAilleurs({ boutiques: [], users: [], produits: [] }, P.admin, "X", "COFFRET").length === 0);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

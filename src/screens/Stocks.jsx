@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilairesAilleurs } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -367,43 +367,53 @@ export function Stocks({ db, save, profile }) {
     uAlert("Article corrigé.");
   };
 
-  // ⚠ DEMANDE TIMO (25/08/2026) : « j'ai enregistré le stock d'une autre
-  // boutique dans une autre... c'est trop facile de se tromper ».
-  // C'est vrai, et l'écran n'y aidait pas : la boutique n'était qu'un ONGLET
-  // choisi plus haut, parfois hors de l'écran au moment de remplir le
-  // formulaire. Rien ne la rappelait au moment de cliquer.
+  // ⚠ DEMANDE TIMO (25/08/2026), PUIS CORRIGÉE PAR LUI LE MÊME JOUR.
   //
-  // Trois renforts, dont deux ne coûtent aucun clic supplémentaire :
-  //   1. le bouton PORTE le nom de la boutique (« Ajouter à BMI APESSITO ») ;
-  //   2. le titre du formulaire aussi ;
-  //   3. et surtout : si l'article existe DÉJÀ dans une autre boutique et
-  //      PAS dans celle-ci, on demande confirmation en nommant les deux.
-  //      C'est exactement la situation de l'erreur signalée — on saisit le
-  //      stock d'un magasin en étant resté sur l'onglet d'un autre.
-  // Aucun avertissement quand l'article est vraiment nouveau : pas de
-  // friction inutile sur le cas normal.
-  const memeNom = (a, b) => String(a || "").trim().replace(/\s+/g, " ").toLowerCase()
-    === String(b || "").trim().replace(/\s+/g, " ").toLowerCase();
+  // Premier essai (2.100.88) : une question à l'ajout, « cet article existe
+  // déjà dans une autre boutique, est-ce bien la bonne ? ». Timo l'a rejetée,
+  // et il a raison : ses boutiques VENDENT LES MÊMES ÉQUIPEMENTS. L'article
+  // déjà présent ailleurs est donc le cas NORMAL, pas l'anomalie. Une alerte
+  // qui se déclenche sur le cas normal n'apprend rien — pire, elle habitue à
+  // cliquer OK sans lire, ce qui détruit la valeur de toutes les autres.
+  //
+  // Sa proposition, retenue : « lorsqu'on tape le nom de l'article, s'il est
+  // déjà enregistré ailleurs, proposer la présélection de l'article ». On ne
+  // pose plus de question, on RÉPOND : la fiche existante est proposée, et un
+  // clic remplit tout — fournisseur, domaine, catégorie, prix, garanties.
+  // Le geste devient plus rapide qu'avant, et les noms comme les prix restent
+  // cohérents d'une boutique à l'autre.
+  const [suggestionsMasquees, setSuggestionsMasquees] = useState(false);
 
-  const boutiquesQuiOntDeja = (nom) => [...new Set(
-    db.produits.filter((x) => x.boutique !== bq && memeNom(x.nom, nom)).map((x) => x.boutique)
-  )];
+  const suggestions = (enEdition || suggestionsMasquees)
+    ? []
+    : articlesSimilairesAilleurs(db, profile, bq, f.nom);
 
-  const confirmerLaBoutique = async (nom) => {
-    const dejaAilleurs = boutiquesQuiOntDeja(nom);
-    if (!dejaAilleurs.length) return true;                       // article vraiment nouveau
-    if (db.produits.some((x) => x.boutique === bq && memeNom(x.nom, nom))) return true; // déjà ici aussi
-    return await uConfirm(
-      `⚠ Vérifiez la boutique.\n\n« ${nom} » existe déjà dans : ${dejaAilleurs.join(", ")}.\n` +
-      `Il n'existe PAS dans ${bq}.\n\n` +
-      `Vous êtes en train de le créer dans ${bq}. Est-ce bien la bonne boutique ?`
-    );
+  // Un clic = toute la fiche reprise, SAUF la quantité initiale : elle est
+  // propre à chaque boutique et reste à saisir.
+  const reprendreArticle = (a) => {
+    setF({
+      ...f,
+      nom: a.nom,
+      domaine: a.domaine || "",
+      categorie: a.categorie || "",
+      fournisseur: a.fournisseur || "",
+      seuil: a.seuil ?? "",
+      prix_achat: a.prix_achat ?? "",
+      prix_vente: a.prix_vente ?? "",
+      code: a.code || "",
+      tension: a.tension ?? "",
+      garantie_boutique: a.garantie_boutique || "",
+      garantie_fabricant: a.garantie_fabricant || "",
+      conditions_garantie: a.conditions_garantie || "",
+      fiche_technique: a.fiche_technique || "",
+      notes: a.notes || "",
+    });
+    setSuggestionsMasquees(true);
   };
 
   const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom d'article."); return; }
-    if (!await confirmerLaBoutique(f.nom)) return;
     save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "", garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
     setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
     uAlert("Article ajouté !");
@@ -464,16 +474,7 @@ export function Stocks({ db, save, profile }) {
       return;
     }
 
-    // ⚠ Le même garde-fou que pour la création à l'unité, mais compté : si
-    // la majorité des articles collés existent déjà DANS UNE AUTRE boutique
-    // et pas ici, c'est le signe d'un onglet resté sur le mauvais magasin.
-    const dejaAilleurs = nouveaux.filter((n) =>
-      boutiquesQuiOntDeja(n.nom).length && !db.produits.some((x) => x.boutique === bq && memeNom(x.nom, n.nom))
-    );
-    const alerte = dejaAilleurs.length
-      ? `\n\n⚠ VÉRIFIEZ LA BOUTIQUE : ${dejaAilleurs.length} de ces articles existent déjà dans ${[...new Set(dejaAilleurs.flatMap((n) => boutiquesQuiOntDeja(n.nom)))].join(", ")}, et pas dans ${bq}.`
-      : "";
-    if (await uConfirm(`Importer ${nouveaux.length} articles dans ${bq} ?${erreurs.length ? `\n${erreurs.length} erreurs ignorées.` : ""}${alerte}`)) {
+    if (await uConfirm(`Importer ${nouveaux.length} articles dans ${bq} ?${erreurs.length ? `\n${erreurs.length} erreurs ignorées.` : ""}`)) {
       save({ ...db, produits: [...db.produits, ...nouveaux] }, `Import de ${nouveaux.length} articles — ${bq}`);
       uAlert(`${nouveaux.length} articles importés avec succès !`);
     }
@@ -805,7 +806,31 @@ export function Stocks({ db, save, profile }) {
           </div>
         )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-8 gap-3">
-          <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
+          <Field label="Nom">
+            <input className={inputCls} value={f.nom}
+              onChange={(e) => { setSuggestionsMasquees(false); setF({ ...f, nom: e.target.value }); }} />
+            {/* PRÉSÉLECTION (demande Timo) : l'article existe ailleurs ? On le
+                propose au lieu de poser une question. Un clic reprend toute
+                la fiche — le geste est plus court qu'une saisie complète. */}
+            {suggestions.length > 0 && (
+              <div className="mt-1 rounded-lg border border-sky-300 bg-sky-50 overflow-hidden">
+                <div className="px-2 py-1 text-[11px] font-bold text-sky-900 bg-sky-100">
+                  Déjà enregistré ailleurs — cliquez pour reprendre la fiche
+                </div>
+                {suggestions.map(({ article: a, boutiques }) => (
+                  <button key={a.id} type="button" onClick={() => reprendreArticle(a)}
+                    className="w-full text-left px-2 py-1.5 text-xs hover:bg-sky-100 border-t border-sky-200">
+                    <div className="font-bold text-slate-800">{a.nom}</div>
+                    <div className="text-slate-500">
+                      {boutiques.join(", ")}
+                      {a.prix_vente ? ` · vente ${fmt(a.prix_vente)}` : ""}
+                      {a.categorie ? ` · ${a.categorie}` : ""}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Field>
           <Field label="Fournisseur">
             <select className={inputCls} value={f.fournisseur} onChange={(e) => setF({ ...f, fournisseur: e.target.value })}>
               <option value="">— Aucun —</option>
