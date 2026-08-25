@@ -825,8 +825,29 @@ export function recuWhatsApp(v, bq = {}) {
 // bibliothèque externe) et le code en clair en dessous (au cas où
 // le lecteur n'arrive pas à scanner). Passe par le MÊME aperçu et
 // le même mécanisme d'impression que les autres documents.
+// ============ CE QU'UNE ÉTIQUETTE PEUT PORTER ============
+// ⚠ Constaté en passant du 80 mm au 60 mm de large (Timo, 25/08/2026) : la
+// LARGEUR de l'étiquette decide de la finesse des barres, donc de la capacité
+// du scanner à les lire. Le code s'étale sur toute la largeur disponible ;
+// plus il a de caractères, plus chaque barre est fine.
+//
+// Repère du métier : la barre la plus fine doit faire au moins 0,25 mm. En
+// dessous, un lecteur ordinaire commence à refuser, surtout sur du papier
+// ordinaire ou une impression un peu pâle.
+//
+// Code128 occupe 11 modules par caractère, plus 35 modules fixes
+// (départ + contrôle + arrêt). D'où le calcul ci-dessous, vérifié au banc.
+export const LARGEUR_CODE_BARRES_MM = 57.1; // mesuré sur l'étiquette 60 mm
+export const BARRE_LA_PLUS_FINE_MM = 0.25;
+export const modulesCode128 = (code) => 11 * String(code || "").length + 35;
+export const largeurBarreMm = (code) => LARGEUR_CODE_BARRES_MM / modulesCode128(code);
+// Le nombre de caractères au-delà duquel l'étiquette devient douteuse.
+export const LONGUEUR_MAX_CODE = Math.floor(
+  (LARGEUR_CODE_BARRES_MM / BARRE_LA_PLUS_FINE_MM - 35) / 11
+);
+
 export function imprimerEtiquetteProduit(p) {
-  // ⚠ FORMAT : ROULEAUX D'ÉTIQUETTES 80 × 30 mm (choix de Timo, 25/08/2026).
+  // ⚠ FORMAT : ROULEAUX D'ÉTIQUETTES 60 × 30 mm (choix de Timo, 25/08/2026).
   // Tout est fixé en MILLIMÈTRES RÉELS : l'étiquette sort à la taille de la
   // vignette prédécoupée, quel que soit le réglage d'échelle du navigateur.
   //
@@ -865,13 +886,13 @@ export function imprimerEtiquetteProduit(p) {
   // haut, chaque dixième de millimètre compte — les tailles ci-dessous ont
   // été MESURÉES, pas estimées (voir npm run apercu-etiquette).
   const html = `
-    <div style="width:80mm;height:30mm;padding:1.2mm;border:0.3mm solid #94a3b8;border-radius:1.5mm;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1.05;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.3mm">
+    <div style="width:60mm;height:30mm;padding:1.2mm;border:0.3mm solid #94a3b8;border-radius:1.5mm;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1.05;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.3mm">
       ${p.boutique ? `<div style="font-size:9px;font-weight:700;letter-spacing:0.4px;color:#475569;word-break:break-word">${esc(p.boutique)}</div>` : ""}
       <div>${svg}</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:0.8px">${esc(p.code)}</div>
       ${p.prix_vente ? `<div style="font-weight:700;font-size:13px">${fmt(p.prix_vente)}</div>` : ""}
       <div style="font-weight:700;font-size:10px;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.nom)}</div>
     </div>`;
-  if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim(), "size: 80mm 30mm; margin: 0;");
+  if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim(), "size: 60mm 30mm; margin: 0;");
   return true;
 }

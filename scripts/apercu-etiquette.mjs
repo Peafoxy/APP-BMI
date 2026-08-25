@@ -54,7 +54,7 @@ unlinkSync(sortie); unlinkSync(bouchonUI);
 // ⚠ Trois longueurs de code : c'est ce qui a revele le defaut. Le dessin
 // gardait ses proportions, donc un code long s'ecrasait en hauteur — 6,3 mm
 // pour 20 caracteres, sous le seuil de lecture fiable.
-const CODES = ["12345678", "ARTMG9K2P4X7", "BMI-COFFRET-IP65-12M"];
+const CODES = ["12345678", "ARTMG9K2P4X7", "BMICOFFRETIP6512"];
 // ⚠ Le nom le plus long qu'on ait vu dans le stock, et un pire cas invente :
 // c'est LUI qui pousse le code-barres hors de la vignette quand la hauteur
 // est juste. On le mesure au lieu de l'esperer.
@@ -96,12 +96,20 @@ for (const [i, code] of CODES.entries()) {
 }
 
 const proche = (v, cible) => Math.abs(v - cible) < 0.4;
-test("★ l'étiquette fait exactement 80 × 30 mm, quel que soit le code",
-  mesures.every((m) => proche(m.l, 80) && proche(m.h, 30)));
+test("★ l'étiquette fait exactement 60 × 30 mm, quel que soit le code",
+  mesures.every((m) => proche(m.l, 60) && proche(m.h, 30)));
 test("★ la hauteur du code-barres ne dépend PLUS de la longueur du code",
   mesures.every((m) => proche(m.ch, mesures[0].ch)));
-test(`la barre la plus fine reste au-dessus de ${BARRE_MINI} mm, même sur le code le plus long`,
+test(`la barre la plus fine reste au-dessus de ${BARRE_MINI} mm sur les codes supportés`,
   mesures.every((m) => m.cl / m.modules >= BARRE_MINI));
+// ⚠ Au-delà de LONGUEUR_MAX_CODE, l'étiquette de 60 mm ne peut plus porter
+// le code proprement. L'application doit le DIRE avant d'imprimer, au lieu de
+// laisser dévider un rouleau qu'on découvrira illisible au premier scan.
+test(`la limite annoncée est cohérente avec la mesure (${M.LONGUEUR_MAX_CODE} caractères)`,
+  M.largeurBarreMm("X".repeat(M.LONGUEUR_MAX_CODE)) >= BARRE_MINI
+  && M.largeurBarreMm("X".repeat(M.LONGUEUR_MAX_CODE + 1)) < BARRE_MINI);
+test("le calcul de largeur de barre colle à ce qui est réellement imprimé",
+  mesures.every((m) => Math.abs(M.largeurBarreMm(m.code) - m.cl / m.modules) < 0.02));
 test(`le code-barres reste plus haut que ${HAUTEUR_MINI} mm`, mesures.every((m) => m.ch >= HAUTEUR_MINI));
 // ⚠ SUR 30 mm DE HAUT, C'EST LE PIÈGE PRINCIPAL : si le contenu déborde, ce
 // n'est pas le nom qui est rogné mais le CODE-BARRES, et l'étiquette devient
@@ -110,7 +118,7 @@ test("★ rien ne déborde de la vignette (sinon c'est le code-barres qui est ro
   mesures.every((m) => m.deborde <= 0.2));
 mesures.forEach((m) => { if (m.deborde > 0.2) console.log(`     ↳ « ${m.code} » déborde de ${m.deborde.toFixed(1)} mm`); });
 test("le format de page suit l'étiquette (sinon le rouleau sort sur une page A4)",
-  globalThis.__page === "size: 80mm 30mm; margin: 0;");
+  globalThis.__page === "size: 60mm 30mm; margin: 0;");
 const posB = apercu.indexOf("BMI APESSITO"), posN = apercu.indexOf("COFFRET"), posC = apercu.indexOf("<svg");
 test("★ la boutique est en HAUT, le nom de l'article en BAS", posB < posC && posN > posC);
 

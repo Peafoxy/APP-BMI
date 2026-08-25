@@ -7,7 +7,7 @@
 import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
-import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
+import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
@@ -561,6 +561,23 @@ export function Stocks({ db, save, profile }) {
     if (!code) {
       code = ("ART" + p.id).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
       save({ ...db, produits: db.produits.map((x) => (x.id === p.id ? { ...x, code } : x)) }, `Code-barres généré pour « ${p.nom} » : ${code} — ${bq}`);
+    }
+    // ⚠ GARDE-FOU AJOUTÉ AVEC LE FORMAT 60 mm (25/08/2026). La largeur de
+    // l'étiquette décide de la finesse des barres : le code s'étale sur toute
+    // la largeur, donc plus il a de caractères, plus chaque barre est fine.
+    // Mesuré : 0,342 mm à 12 caractères (bon), 0,224 mm à 20 (le scanner
+    // commence à refuser). Rien dans l'écran ne le disait — on imprimait un
+    // rouleau entier avant de s'en apercevoir au premier scan.
+    const barre = largeurBarreMm(code);
+    if (barre < BARRE_LA_PLUS_FINE_MM) {
+      const ok = await uConfirm(
+        `⚠ Ce code fait ${code.length} caractères.\n\n` +
+        `Sur une étiquette de 60 mm, ses barres ne feront que ${barre.toFixed(2)} mm — en dessous de ${BARRE_LA_PLUS_FINE_MM} mm, ` +
+        `un lecteur ordinaire commence à refuser, surtout sur papier ordinaire.\n\n` +
+        `Un code de ${LONGUEUR_MAX_CODE} caractères ou moins se lit sans difficulté. ` +
+        `Vous pouvez le raccourcir avec le bouton « Code ».\n\nImprimer quand même ?`
+      );
+      if (!ok) return;
     }
     if (!imprimerEtiquetteProduit({ ...p, code })) uAlert("Impossible de générer ce code-barres (caractères non pris en charge).");
   };
