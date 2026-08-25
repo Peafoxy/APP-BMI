@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilairesAilleurs } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -386,7 +386,12 @@ export function Stocks({ db, save, profile }) {
 
   const suggestions = (enEdition || suggestionsMasquees)
     ? []
-    : articlesSimilairesAilleurs(db, profile, bq, f.nom);
+    : articlesSimilaires(db, profile, bq, f.nom);
+
+  // ⚠ Un article DÉJÀ dans cette boutique ne se recopie pas : le recréer
+  // couperait son stock en deux fiches. Le clic ouvre alors sa correction —
+  // c'est le seul geste qui ait un sens, et c'est le même formulaire.
+  const choisirSuggestion = (a) => (a.boutique === bq ? corriger(a) : reprendreArticle(a));
 
   // Un clic = toute la fiche reprise, SAUF la quantité initiale : elle est
   // propre à chaque boutique et reste à saisir.
@@ -807,27 +812,31 @@ export function Stocks({ db, save, profile }) {
         )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-8 gap-3">
           <Field label="Nom">
+            {/* `relative` : c'est ce qui permet à la liste ci-dessous de se
+                poser PAR-DESSUS le formulaire sans le déformer. */}
+            <div className="relative">
             <input className={inputCls} value={f.nom}
               onChange={(e) => { setSuggestionsMasquees(false); setF({ ...f, nom: e.target.value }); }} />
             {/* PRÉSÉLECTION (demande Timo) : l'article existe ailleurs ? On le
                 propose au lieu de poser une question. Un clic reprend toute
                 la fiche — le geste est plus court qu'une saisie complète. */}
-            {/* ⚠ AFFICHAGE REVU À LA DEMANDE DE TIMO (25/08/2026) : une
-                simple liste de noms, une ligne par article, sans titre
-                explicatif, sans nom de boutique et sans ligne mise en
-                avant. Ma première version tenait sur deux lignes par
-                article et prenait tout l'écran d'un téléphone pour trois
-                propositions. */}
+            {/* ⚠ AFFICHAGE REVU DEUX FOIS À LA DEMANDE DE TIMO (25/08/2026) :
+                une simple liste de noms, UN PAR LIGNE et jamais coupé en
+                plusieurs lignes, sans titre, sans nom de boutique, sans
+                cadre à défiler. La colonne « Nom » est étroite : la liste
+                FLOTTE donc au-dessus du formulaire et prend la largeur qu'il
+                lui faut, au lieu de replier chaque nom sur trois lignes. */}
             {suggestions.length > 0 && (
-              <div className="mt-1 rounded-lg border border-sky-300 bg-white overflow-hidden max-h-48 overflow-y-auto">
+              <div className="absolute z-20 left-0 top-full mt-1 min-w-full w-max max-w-[80vw] rounded-lg border border-sky-300 bg-white shadow-lg">
                 {suggestions.map(({ article: a }) => (
-                  <button key={a.id} type="button" onClick={() => reprendreArticle(a)}
-                    className="w-full text-left px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-sky-100 border-b border-slate-100 last:border-b-0">
+                  <button key={a.id} type="button" onClick={() => choisirSuggestion(a)}
+                    className="block w-full text-left px-2 py-1 text-xs font-semibold text-slate-700 whitespace-nowrap hover:bg-sky-100 border-b border-slate-100 last:border-b-0">
                     {a.nom}
                   </button>
                 ))}
               </div>
             )}
+            </div>
           </Field>
           <Field label="Fournisseur">
             <select className={inputCls} value={f.fournisseur} onChange={(e) => setF({ ...f, fournisseur: e.target.value })}>

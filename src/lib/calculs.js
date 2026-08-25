@@ -891,9 +891,16 @@ export const trouverArticle = (liste, nom) => {
 // déjà enregistré ailleurs, proposer la présélection ». On ne pose plus de
 // question, on rend service.
 //
-// Renvoie [{ article, boutiques }] — une entrée par nom d'article distinct,
-// avec la liste des boutiques qui le détiennent déjà.
-export const articlesSimilairesAilleurs = (db, profile, boutique, nom, limite = 6) => {
+// ⚠ CORRIGÉ LE MÊME JOUR : « dans la même boutique, les articles ne sont pas
+// proposés ». C'était volontaire de ma part — et c'était une erreur. Voir un
+// article DÉJÀ présent ici est justement ce qui évite de le créer deux fois,
+// et donc de couper son stock en deux fiches. La proposition couvre
+// désormais tout le catalogue de l'espace, boutique en cours comprise ;
+// l'écran choisit quoi faire du clic (reprendre la fiche, ou ouvrir la
+// correction si l'article est déjà ici).
+//
+// Renvoie [{ article, boutiques }] — une entrée par nom d'article distinct.
+export const articlesSimilaires = (db, profile, boutique, nom, limite = 6) => {
   const cherche = normNom(nom);
   if (cherche.length < 2) return [];
   // ⚠ DEUX FILTRES, ET LES DEUX SONT NÉCESSAIRES.
@@ -902,15 +909,13 @@ export const articlesSimilairesAilleurs = (db, profile, boutique, nom, limite = 
   //    de voir. Sans ça, un compte d'entraînement verrait les vrais prix
   //    d'achat de l'entreprise.
   //
-  // 2. MÊME ESPACE QUE LA BOUTIQUE VISÉE — corrigé le 25/08/2026 sur capture
-  //    de Timo. L'administrateur principal, lui, voit LES DEUX espaces
-  //    (dérogation « tous ») : ma première version lui proposait donc des
-  //    articles d'ENTRAÎNEMENT, avec leurs prix fictifs (« vente 2 500 F »),
-  //    pendant qu'il créait un article dans une VRAIE boutique. Un clic et
-  //    un prix d'école entrait dans le stock réel.
-  //    La règle qui compte n'est donc pas « ce que le compte peut voir »
-  //    mais « où l'article va être créé » : on ne propose que des articles
-  //    du même espace que la boutique visée.
+  // 2. MÊME ESPACE QUE LA BOUTIQUE VISÉE. L'administrateur principal, lui,
+  //    voit LES DEUX espaces (dérogation « tous ») : ma première version lui
+  //    proposait donc des articles d'ENTRAÎNEMENT, avec leurs prix fictifs
+  //    (« vente 2 500 F »), pendant qu'il créait un article dans une VRAIE
+  //    boutique. Un clic et un prix d'école entrait dans le stock réel.
+  //    La règle qui compte n'est pas « ce que le compte peut voir » mais
+  //    « où l'article va être créé ».
   const cible = (db.boutiques || []).find((b) => b.nom === boutique);
   if (!cible) return [];
   const visibles = new Set(
@@ -918,18 +923,18 @@ export const articlesSimilairesAilleurs = (db, profile, boutique, nom, limite = 
       .filter((b) => !!b.formation === !!cible.formation)
       .map((b) => b.nom)
   );
-  const dejaIci = new Set(
-    (db.produits || []).filter((y) => y.boutique === boutique).map((y) => normNom(y.nom))
-  );
   const parNom = new Map();
   for (const x of db.produits || []) {
-    if (x.boutique === boutique || !visibles.has(x.boutique)) continue;
+    if (!visibles.has(x.boutique)) continue;
     const n = normNom(x.nom);
     if (!n.includes(cherche)) continue;
-    // Déjà présent dans CETTE boutique : il n'y a rien à reprendre.
-    if (dejaIci.has(n)) continue;
+    // ⚠ La fiche retenue pour un même nom est celle de la boutique EN COURS
+    // quand elle existe : c'est elle qu'il faut corriger plutôt que
+    // recopier, et c'est elle qui porte les bons prix pour ce point de vente.
     if (!parNom.has(n)) parNom.set(n, { article: x, boutiques: [] });
-    parNom.get(n).boutiques.push(x.boutique);
+    const e = parNom.get(n);
+    if (x.boutique === boutique) e.article = x;
+    e.boutiques.push(x.boutique);
   }
   return [...parNom.values()].slice(0, limite);
 };

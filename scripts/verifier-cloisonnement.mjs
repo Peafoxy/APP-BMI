@@ -2083,7 +2083,7 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
     { id: "p3", boutique: "APESSITO FORMATION", nom: "COFFRET ECOLE IP65", prix_vente: 7 },
     { id: "p4", boutique: "APESSITO", nom: "BATTERIE GEL 12V200AH", prix_vente: 140000 },
   ];
-  const chez = (profile, bq, nom) => C.articlesSimilairesAilleurs(db, profile, bq, nom);
+  const chez = (profile, bq, nom) => C.articlesSimilaires(db, profile, bq, nom);
 
   test("on propose l'article enregistré dans une autre boutique",
     chez(P.admin, "APESSITO", "COFFRET ETANCHE").length === 1);
@@ -2094,12 +2094,24 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
     chez(P.admin, "APESSITO", "COFFRET").length === 1);
   test("…avec la liste des boutiques qui le détiennent déjà",
     chez(P.admin, "APESSITO", "COFFRET")[0].boutiques.join(",") === "HEDZRANAWOE,DEPOT");
+  test("★ et l'inverse : pas d'article réel proposé dans l'espace d'entraînement",
+    chez(P.admin, "APESSITO FORMATION", "BATTERIE").length === 0);
   test("…et la fiche à reprendre (fournisseur, prix)",
     chez(P.admin, "APESSITO", "COFFRET")[0].article.fournisseur === "SOLARIS");
   test("une recherche trop courte ne propose rien (pas de bruit à la 1re lettre)",
     chez(P.admin, "APESSITO", "C").length === 0);
-  test("un article DÉJÀ présent dans cette boutique n'est pas proposé",
-    chez(P.admin, "APESSITO", "BATTERIE").length === 0);
+  // ⚠ CORRIGÉ SUR DEMANDE DE TIMO : « dans la même boutique, les articles ne
+  // sont pas proposés ». Je les écartais volontairement — et c'était une
+  // erreur : voir un article DÉJÀ présent ici est justement ce qui évite de
+  // le créer deux fois, et donc de couper son stock en deux fiches.
+  test("★ un article de la boutique EN COURS est proposé lui aussi",
+    chez(P.admin, "APESSITO", "BATTERIE").length === 1);
+  test("★ …et c'est bien SA fiche à lui qui est renvoyée, pas celle d'ailleurs",
+    chez(P.admin, "APESSITO", "BATTERIE")[0].article.boutique === "APESSITO");
+  test("un même nom présent ici ET ailleurs ne fait qu'une seule proposition",
+    chez(P.admin, "HEDZRANAWOE", "COFFRET ETANCHE").length === 1);
+  test("…et c'est la fiche d'ICI qui prime (c'est elle qu'on corrigera)",
+    chez(P.admin, "HEDZRANAWOE", "COFFRET ETANCHE")[0].article.boutique === "HEDZRANAWOE");
   test("les accents et la casse n'empêchent pas de retrouver l'article",
     chez(P.admin, "APESSITO", "coffret étanche").length === 1);
 
@@ -2108,8 +2120,13 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
   db.users.push({ id: "u_form_libre", nom: "STAGIAIRE LIBRE", role: "vendeur", formation: true });
   test("★ un compte de FORMATION ne se voit jamais proposer un article réel",
     chez(formLibre, "APESSITO FORMATION", "COFFRET").every((x) => x.article.boutique === "APESSITO FORMATION"));
+  // ⚠ Depuis que la boutique EN COURS est incluse, ce compte voit bien SON
+  // article d'entraînement — c'est voulu. Ce qu'on vérifie ici, c'est
+  // qu'aucune boutique RÉELLE n'apparaît dans ce qui lui est proposé.
   test("★ …donc jamais les vrais prix de l'entreprise",
-    chez(formLibre, "APESSITO FORMATION", "COFFRET").length === 0);
+    chez(formLibre, "APESSITO FORMATION", "COFFRET").length > 0
+    && chez(formLibre, "APESSITO FORMATION", "COFFRET").every((x) =>
+      x.boutiques.every((n) => db.boutiques.find((b) => b.nom === n)?.formation === true)));
   test("★ et un compte réel ne se voit jamais proposer un article d'entraînement",
     chez(P.admin2, "APESSITO", "COFFRET ECOLE").length === 0);
   // ⚠ CORRIGÉ LE 25/08/2026 SUR CAPTURE DE TIMO. L'admin principal voit les
@@ -2128,7 +2145,7 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
     chez(P.admin, "BOUTIQUE QUI N EXISTE PAS", "COFFRET").length === 0);
 
   test("une base sans articles ne fait pas planter la proposition",
-    C.articlesSimilairesAilleurs({ boutiques: [], users: [], produits: [] }, P.admin, "X", "COFFRET").length === 0);
+    C.articlesSimilaires({ boutiques: [], users: [], produits: [] }, P.admin, "X", "COFFRET").length === 0);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
