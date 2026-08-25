@@ -14,7 +14,12 @@ import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement
 
 // ============ STOCKS ============
 export function Stocks({ db, save, profile }) {
-  const premiere = boutiqueParDefaut(db, profile);
+  // ⚠ Cet écran travaille aussi dans les MAGASINS (dépôts) — son sélecteur
+  // les affiche (avecDepots). La boutique retrouvée après un rechargement
+  // doit donc pouvoir en être un, sinon un magasinier repartirait chaque
+  // fois sur la première boutique de vente. TERRAIN reste exclu : cette
+  // boutique virtuelle ne détient jamais de stock.
+  const premiere = boutiqueParDefaut(db, profile, (db.boutiques || []).filter((b) => !b.terrain));
   // Un employé rattaché à un site (vendeur, gérant, magasinier) est VERROUILLÉ dessus :
   // il ne voit et ne modifie que le stock de sa boutique ou de son magasin.
   const [bqSel, setBqSel] = useState(profile.boutique || premiere);

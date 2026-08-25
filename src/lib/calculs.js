@@ -142,8 +142,53 @@ export const boutiquesVisibles = (db, profile, liste) => {
 // d'onglets étant alors vide, rien ne signalait l'erreur, mais l'écran
 // écrivait bel et bien dans la boutique de repli. On renvoie "" : chaque
 // écran affiche alors <AucuneBoutique/> au lieu d'un formulaire piégé.
-export const boutiqueParDefaut = (db, profile) =>
-  boutiquesVisibles(db, profile, boutiquesVente(db))[0]?.nom || "";
+//
+// ⚠ DEMANDE TIMO (25/08/2026) : « NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE
+// SÉRIE D'ACTUALISATIONS DE LA PAGE ».
+//
+// Ce qui se passait : le choix de la boutique ne vivait QUE dans la mémoire
+// vive de la page. Au moindre rechargement — F5, le bouton « Nouvelle
+// version — recharger », un téléphone qui met l'application en veille, le
+// redémarrage de l'application Windows — ce choix disparaissait et les
+// écrans repartaient sur LA PREMIÈRE BOUTIQUE DE LA LISTE, en silence.
+// L'utilisateur n'avait pas changé de boutique : l'application l'avait
+// déplacé. C'est la cause du stock d'un magasin saisi dans un autre, et le
+// même défaut touchait Ventes, Caisse, Dépenses et Dettes.
+//
+// La boutique choisie est donc mémorisée sur l'appareil, PAR COMPTE (deux
+// personnes sur le même téléphone n'héritent pas de l'onglet l'une de
+// l'autre), et retrouvée au rechargement.
+const CLE_BOUTIQUE = "bmi_boutique";
+
+// ⚠ Le stockage du navigateur n'existe pas partout où ce fichier est chargé
+// (bancs d'essai sous Node, rendu hors navigateur). Toute lecture et toute
+// écriture sont donc protégées : au pire on ne mémorise rien, on ne casse
+// jamais rien.
+export const boutiqueMemorisee = (profile) => {
+  if (!profile?.id) return "";
+  try { return localStorage.getItem(`${CLE_BOUTIQUE}:${profile.id}`) || ""; }
+  catch { return ""; }
+};
+
+export const memoriserBoutique = (profile, nom) => {
+  if (!profile?.id || !nom) return;
+  try { localStorage.setItem(`${CLE_BOUTIQUE}:${profile.id}`, String(nom)); }
+  catch { /* navigation privée, stockage plein : sans conséquence */ }
+};
+
+// `permises` : la liste dans laquelle la boutique doit se trouver. Par
+// défaut les boutiques de vente — mais l'écran Stocks travaille AUSSI dans
+// les magasins (dépôts), et doit donc pouvoir retrouver le sien.
+export const boutiqueParDefaut = (db, profile, permises = null) => {
+  const visibles = boutiquesVisibles(db, profile, permises || boutiquesVente(db));
+  // ⚠ La boutique mémorisée ne court-circuite JAMAIS le cloisonnement ni la
+  // liste autorisée : elle n'est retenue que si elle est encore visible pour
+  // ce compte. Une boutique supprimée, ou une vraie boutique mémorisée avant
+  // qu'un compte ne passe en formation, est simplement ignorée.
+  const memo = boutiqueMemorisee(profile);
+  if (memo && visibles.some((b) => b.nom === memo)) return memo;
+  return visibles[0]?.nom || "";
+};
 
 // La boutique réellement retenue par un écran, à partir de celle que
 // l'utilisateur a choisie (`choisie`, un état React).
