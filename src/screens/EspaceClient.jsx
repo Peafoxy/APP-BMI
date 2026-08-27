@@ -7,6 +7,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
+import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
@@ -218,6 +219,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // contrat : signé — pas d'étape "en attente" séparée, il est créé au
   // moment même de la signature.
   const [contratOuvert, setContratOuvert] = useState(null); // devis en cours de lecture/signature
+  // ⚠ DEMANDE TIMO (25/08/2026) : le client dit COMMENT il va solder, et il le
+  // dit À LA SIGNATURE DU CONTRAT — pas à la réception. Il s'engage au départ.
+  // L'administrateur SEUL acceptera ou rejettera ensuite.
+  const [plan, setPlan] = useState({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
   const [dessinEnCours, setDessinEnCours] = useState(false);
   const canvasRef = useRef(null);
   const aSigneRef = useRef(false);
@@ -282,6 +287,23 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
   const signerEtValider = async (d) => {
     if (!aSigneRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
+    // ⚠ Le choix est OBLIGATOIRE dès qu'un solde restera dû après l'acompte.
+    // Sans cela, un chantier partirait sans le moindre engagement écrit du
+    // client sur la façon dont il compte payer le reste.
+    const solde = soldeApresAcompte(d);
+    let planSigne = null;
+    if (solde > 0) {
+      const souci = critiquePlan(plan, solde);
+      if (souci) { uAlert(souci); return; }
+      planSigne = {
+        type: plan.type,
+        montant_mensuel: plan.type === "mensuel" ? Number(plan.montant_mensuel) : null,
+        premiere_echeance: plan.type === "mensuel" ? plan.premiere_echeance : null,
+        solde_engage: solde,
+        propose_le: today(),
+        statut: PLAN_EN_ATTENTE,
+      };
+    }
     const signatureDataUrl = canvasRef.current.toDataURL("image/png");
     const numeroContrat = `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
     // ⚠ Le contrat ne se ferme QUE si la validation est allée au bout
@@ -289,8 +311,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
     // finaliserValidation, dont la confirmation peut encore être refusée —
     // le client qui répondait « Annuler » perdait alors sa signature, le
     // canevas ayant été démonté, et devait tout recommencer.
-    const valide = await finaliserValidation(d, { contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today() });
-    if (valide) setContratOuvert(null);
+    const valide = await finaliserValidation(d, {
+      contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today(),
+      ...(planSigne ? { plan_reglement: planSigne } : {}),
+    });
+    if (valide) { setContratOuvert(null); setPlan({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() }); }
   };
 
   // ⚠ Demande Timo : signer le PV de réception (ou son avenant) DIRECTEMENT
@@ -753,6 +778,59 @@ export function EspaceClient({ db, profile, save, setTab }) {
                       );
                     })()}
 
+                    {/* ⚠ OÙ EN EST SON PAIEMENT (demande Timo). Jusqu'ici le
+                        client ne trouvait NULLE PART combien il lui restait
+                        ni quand verser : il devait appeler la boutique.
+                        ⚠ On ne lit QUE la dette qui porte l'identifiant de ce
+                        devis : sans ce filtre, on afficherait au client le
+                        solde d'un autre. */}
+                    {(() => {
+                      const pl = d.plan_reglement;
+                      const solde = soldeApresAcompte(d);
+                      if (!pl && solde <= 0) return null;
+                      const maDette = (db.dettes || []).find((x) => x.devis_id === d.id);
+                      const verse = Number(maDette?.paye || 0);
+                      const reste = Math.max(0, solde - verse);
+                      const suivante = pl ? prochaineEcheance(pl, solde, verse) : null;
+                      const enRetard = suivante && suivante.date < today();
+                      return (
+                        <div className="mt-4 rounded-xl border-2 border-sky-300 bg-sky-50 p-3">
+                          <div className="font-bold text-sky-900">💰 Où en est votre paiement</div>
+                          <div className="text-sm text-slate-700 mt-1 space-y-0.5">
+                            <div>Montant total : <b>{fmt(d.total)} F</b></div>
+                            {solde !== Number(d.total) && <div>Acompte prévu avant travaux : {fmt(Number(d.total) - solde)} F</div>}
+                            {verse > 0 && <div>Déjà versé sur le solde : {fmt(verse)} F</div>}
+                            <div className="text-base font-bold text-sky-900">Reste à payer : {fmt(reste)} F</div>
+                          </div>
+                          {(maDette?.paiements || []).length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-sky-200 text-xs text-slate-600">
+                              {maDette.paiements.map((v, i) => (
+                                <div key={i}>• {dFR(v.date)} — {fmt(v.montant)} F</div>
+                              ))}
+                            </div>
+                          )}
+                          {pl && (
+                            <div className="mt-2 pt-2 border-t border-sky-200 text-sm">
+                              <div className="text-xs font-bold text-slate-500 uppercase">Votre engagement</div>
+                              <div className="text-slate-700">{resumePlan(pl, solde)}</div>
+                              {pl.statut === PLAN_EN_ATTENTE && <div className="mt-1 text-xs font-bold text-amber-700">⏳ En attente de l'accord de BMI TOGO</div>}
+                              {pl.statut === PLAN_REJETE && (
+                                <div className="mt-1 text-xs font-bold text-red-700">
+                                  ❌ Refusé par BMI TOGO{pl.motif_rejet ? ` : ${pl.motif_rejet}` : ""}. Rapprochez-vous de votre commercial pour convenir d'un autre échéancier.
+                                </div>
+                              )}
+                              {pl.statut === PLAN_ACCEPTE && reste > 0 && suivante && (
+                                <div className={`mt-1 text-sm font-bold ${enRetard ? "text-red-700" : "text-green-800"}`}>
+                                  {enRetard ? "⚠ Versement en retard" : "Prochain versement"} : {fmt(suivante.montant)} F le {dFR(suivante.date)}
+                                </div>
+                              )}
+                              {pl.statut === PLAN_ACCEPTE && reste === 0 && <div className="mt-1 text-sm font-bold text-green-800">✅ Soldé — merci !</div>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {d.statut === "paye" && (
                       <div className="mt-4 rounded-xl border-2 border-green-300 bg-green-50 p-3">
                         <div className="font-bold text-green-800">✅ Payé — installation programmée</div>
@@ -952,6 +1030,49 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p className="text-xs text-slate-500">Paiement prévu à la boutique <b>{boutique}</b>.</p>
                 </>)}
               </div>
+              {/* ⚠ COMMENT LE CLIENT VA SOLDER (demande Timo, 25/08/2026).
+                  N'apparaît QUE s'il restera quelque chose à payer après
+                  l'acompte : pas de question inutile à un client qui paie
+                  tout d'avance. Le calcul s'affiche pendant qu'il tape — il
+                  voit tout de suite qu'à 10 000 F/mois il en a pour trois
+                  ans, et l'administrateur verra exactement le même chiffre. */}
+              {(() => {
+                const solde = soldeApresAcompte(d);
+                if (solde <= 0) return null;
+                const lignes = plan.type === "mensuel" ? echeancier({ ...plan, montant_mensuel: Number(plan.montant_mensuel || 0) }, solde) : [];
+                return (
+                  <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+                    <div className="font-bold text-amber-900 text-sm">Comment allez-vous régler le solde de {fmt(solde)} F ?</div>
+                    <label className="flex items-start gap-2 mt-2 text-sm text-slate-700 cursor-pointer">
+                      <input type="radio" name="plan" className="mt-1" checked={plan.type === "solde_signature"}
+                        onChange={() => setPlan({ ...plan, type: "solde_signature" })} />
+                      <span>Je verse <b>la totalité</b> à la signature du procès-verbal de réception (ou dans les 3 jours qui suivent)</span>
+                    </label>
+                    <label className="flex items-start gap-2 mt-2 text-sm text-slate-700 cursor-pointer">
+                      <input type="radio" name="plan" className="mt-1" checked={plan.type === "mensuel"}
+                        onChange={() => setPlan({ ...plan, type: "mensuel" })} />
+                      <span>Je verse <b>chaque fin de mois</b></span>
+                    </label>
+                    {plan.type === "mensuel" && (
+                      <div className="mt-2 pl-6 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <input type="number" inputMode="numeric" className={inputCls + " max-w-[140px]"} placeholder="Montant"
+                            value={plan.montant_mensuel} onChange={(e) => setPlan({ ...plan, montant_mensuel: e.target.value })} />
+                          <span className="text-sm text-slate-600">F, à partir du</span>
+                          <input type="date" className={inputCls + " max-w-[170px]"}
+                            value={plan.premiere_echeance} onChange={(e) => setPlan({ ...plan, premiere_echeance: e.target.value })} />
+                        </div>
+                        {lignes.length > 0 && (
+                          <div className="text-xs font-semibold text-amber-900">
+                            → {lignes.length} versement(s), le dernier de {fmt(lignes[lignes.length - 1].montant)} F le {dFR(lignes[lignes.length - 1].date)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="text-[11px] text-slate-500 mt-2">Votre choix sera soumis à BMI TOGO pour accord.</div>
+                  </div>
+                );
+              })()}
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
               <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
                 onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}

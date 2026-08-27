@@ -4,11 +4,12 @@
 // reprise d'un devis pour modification.
 // ============================================================
 import { useState } from "react";
+import { soldeApresAcompte, resumePlan, engagementDuContrat, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
-import { fmt, dFR } from "../lib/core";
-import { inputCls, usePagination, Pagination } from "../components/ui";
-import { normNom, espaceDuCompte } from "../lib/calculs";
+import { fmt, dFR, today } from "../lib/core";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { normNom, espaceDuCompte, bloquerSiLecture } from "../lib/calculs";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
 export function libelleTypeDevis(d) {
@@ -58,6 +59,36 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     .filter((d) => espace === undefined || !!d.formation === espace)
     .filter((d) => voitTout || d.par_id === profile.id)
     .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
+
+  // ⚠ DEMANDE TIMO (25/08/2026) : « côté administration et commercial, il voit
+  // le montant mentionné par le client... si ça ne correspond pas aux
+  // engagements du client il rejette, si ça correspond il accepte ».
+  // Et à ma question « qui décide ? », sa réponse : L'ADMINISTRATEUR SEUL.
+  // Le commercial VOIT la proposition — c'est utile pour son suivi — mais il
+  // ne peut pas engager l'entreprise sur un échéancier.
+  const peutDeciderDuPlan = profile.role === "admin";
+
+  const deciderPlan = async (d, accepte) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const solde = soldeApresAcompte(d);
+    let motif = "";
+    if (!accepte) {
+      motif = await uPrompt(`Pourquoi refusez-vous ce plan ?\n\nLe client le lira dans son espace et pourra en proposer un autre.`, "Échéancier trop long");
+      if (motif === null) return;
+    } else if (!await uConfirm(`Accepter ce plan de règlement ?\n\n${resumePlan(d.plan_reglement, solde)}\n\nLe client sera engagé sur cet échéancier.`)) return;
+    const decide = {
+      ...d.plan_reglement,
+      statut: accepte ? PLAN_ACCEPTE : PLAN_REJETE,
+      decide_par: profile.nom, decide_le: today(),
+      motif_rejet: accepte ? "" : (motif || "").trim(),
+    };
+    save({
+      ...db,
+      users: db.users.map((u) => (u.id === d.client.id
+        ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, plan_reglement: decide } : x)) }
+        : u)),
+    }, `Plan de règlement ${accepte ? "ACCEPTÉ" : "REFUSÉ"} — devis de ${d.client.nom} (${resumePlan(decide, solde)})${accepte ? "" : ` — motif : ${decide.motif_rejet}`}`);
+  };
 
   const [ouvert, setOuvert] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState("");
@@ -179,6 +210,40 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                 </button>
                 {ouvert === d.id && (
                   <div className="px-4 pb-4 bg-slate-50">
+                    {d.plan_reglement && (() => {
+                      const pl = d.plan_reglement;
+                      const solde = soldeApresAcompte(d);
+                      const couleur = pl.statut === PLAN_ACCEPTE ? "border-green-300 bg-green-50"
+                        : pl.statut === PLAN_REJETE ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50";
+                      return (
+                        <div className={`mb-3 rounded-xl border-2 p-3 ${couleur}`}>
+                          <div className="font-bold text-slate-800 text-sm">
+                            💰 Plan de règlement proposé par le client
+                            {pl.statut === PLAN_EN_ATTENTE && " — en attente"}
+                            {pl.statut === PLAN_ACCEPTE && ` — accepté par ${pl.decide_par || "?"} le ${dFR(pl.decide_le)}`}
+                            {pl.statut === PLAN_REJETE && ` — refusé par ${pl.decide_par || "?"} le ${dFR(pl.decide_le)}`}
+                          </div>
+                          <div className="text-sm text-slate-700 mt-1">Solde concerné : <b>{fmt(solde)} F</b></div>
+                          <div className="text-sm text-slate-800 font-semibold mt-0.5">{resumePlan(pl, solde)}</div>
+                          {/* ⚠ La ligne qui permet de juger en une seconde, au lieu
+                              d'aller relire l'Article 4 du contrat. */}
+                          <div className="text-xs text-slate-500 mt-1">{engagementDuContrat(d)}</div>
+                          {pl.statut === PLAN_REJETE && pl.motif_rejet && (
+                            <div className="text-xs text-red-700 mt-1">Motif : {pl.motif_rejet}</div>
+                          )}
+                          {pl.statut === PLAN_EN_ATTENTE && (
+                            peutDeciderDuPlan ? (
+                              <div className="flex gap-2 mt-2 flex-wrap">
+                                <button onClick={() => deciderPlan(d, true)} className="px-4 py-1.5 rounded-lg bg-green-700 text-white text-xs font-bold hover:bg-green-800">✅ Accepter</button>
+                                <button onClick={() => deciderPlan(d, false)} className="px-4 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">❌ Rejeter</button>
+                              </div>
+                            ) : (
+                              <div className="text-xs font-semibold text-slate-500 mt-2">Seul l'administrateur peut accepter ou rejeter ce plan.</div>
+                            )
+                          )}
+                        </div>
+                      );
+                    })()}
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-xs text-slate-500 uppercase border-b border-slate-200">
