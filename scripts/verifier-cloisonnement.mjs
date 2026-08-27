@@ -2159,5 +2159,49 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
     C.articlesSimilaires({ boutiques: [], users: [], produits: [] }, P.admin, "X", "COFFRET").length === 0);
 }
 
+titre("Aucun mouvement de stock entre le RÉEL et l'ENTRAÎNEMENT (question de Timo, 25/08/2026)");
+{
+  // ⚠ CE QUE CE BLOC PROTÈGE. À la question « transfert entre boutique réel
+  // et formation possible ? », la mesure a répondu OUI — et pour le compte de
+  // Timo lui-même. Le code demandait « quelles boutiques ce compte peut-il
+  // VOIR ? » ; comme l'administrateur principal voit les deux espaces, toutes
+  // lui étaient proposées comme destination. Et le verrou d'écriture rend la
+  // main dès qu'un compte voit les deux espaces.
+  //
+  // Ce qui serait arrivé : 3 batteries sortent du stock RÉEL — donc de la
+  // valeur d'inventaire et des marges — et réapparaissent dans une boutique
+  // d'entraînement. Aucune vente, aucune dépense, aucune trace comptable.
+  const db = base();
+  const toutesSaufTerrain = db.boutiques.filter((b) => !b.terrain);
+  const noms = (liste) => liste.map((b) => b.nom).sort().join(", ");
+
+  test("★ depuis une VRAIE boutique, aucune boutique d'entraînement n'est proposée",
+    C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO")
+      .every((b) => !b.formation));
+  test("★ …y compris pour l'administrateur principal, qui voit pourtant les deux espaces",
+    !noms(C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO")).includes("FORMATION"));
+  test("★ depuis une boutique d'ENTRAÎNEMENT, aucune vraie boutique n'est proposée",
+    C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO FORMATION")
+      .every((b) => !!b.formation));
+  test("les destinations légitimes restent proposées (une défense qui bloque tout ne sert à rien)",
+    noms(C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO")) === "APESSITO, DEPOT, HEDZRANAWOE");
+  test("…et l'entraînement garde les siennes (préparer les exercices reste possible)",
+    noms(C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO FORMATION")) === "APESSITO FORMATION, DEPOT FORMATION");
+  test("une boutique de départ inconnue ne propose rien plutôt que n'importe quoi",
+    C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "BOUTIQUE FANTOME").length === 0);
+
+  // Le deuxième verrou : celui qui refuse le GESTE, pas seulement la liste.
+  test("★ le mouvement réel → entraînement est refusé au moment du geste",
+    !!C.refusMouvementEntreEspaces(db, "APESSITO", "APESSITO FORMATION"));
+  test("★ et le mouvement entraînement → réel aussi",
+    !!C.refusMouvementEntreEspaces(db, "DEPOT FORMATION", "HEDZRANAWOE"));
+  test("un mouvement entre deux vraies boutiques passe",
+    C.refusMouvementEntreEspaces(db, "DEPOT", "APESSITO") === null);
+  test("un mouvement entre deux boutiques d'entraînement passe",
+    C.refusMouvementEntreEspaces(db, "DEPOT FORMATION", "APESSITO FORMATION") === null);
+  test("le message de refus nomme les deux boutiques, pas un jargon",
+    C.refusMouvementEntreEspaces(db, "APESSITO", "APESSITO FORMATION").includes("APESSITO FORMATION"));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

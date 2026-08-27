@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -47,12 +47,16 @@ export function Stocks({ db, save, profile }) {
   // compte. Sans ce filtre, un magasin réel pouvait transférer sa
   // marchandise vers une boutique d'entraînement (et l'inverse) — le stock
   // physique ne correspondait alors plus à ce qu'affiche le logiciel.
-  const autres = boutiquesVisibles(db, profile, db.boutiques.filter((b) => !b.terrain)).map((b) => b.nom).filter((n) => n !== bq);
+  // ⚠ MÊME ESPACE QUE LA BOUTIQUE DE DÉPART, pas seulement « visible par ce
+  // compte » : voir boutiquesDuMemeEspace (lib/calculs.js). Sans ça, un
+  // administrateur pouvait transférer du stock RÉEL vers une boutique
+  // d'entraînement — trouvé le 25/08/2026 sur question de Timo.
+  const autres = boutiquesDuMemeEspace(db, profile, db.boutiques.filter((b) => !b.terrain), bq).map((b) => b.nom).filter((n) => n !== bq);
 
   // ---- RAVITAILLEMENT : d'un magasin vers une boutique ----
   const estMagasin = estDepot(db, bq);
   // Même filtre que ci-dessus pour les destinations de RAVITAILLEMENT.
-  const cibles = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom).filter((n) => n !== bq);
+  const cibles = boutiquesDuMemeEspace(db, profile, boutiquesVente(db), bq).map((b) => b.nom).filter((n) => n !== bq);
   const [rav, setRav] = useState({ dest: "", categorie: "", produit_id: "", qte: "" });
   const [bon, setBon] = useState([]); // lignes du bon en préparation
 
@@ -72,6 +76,11 @@ export function Stocks({ db, save, profile }) {
   const validerBon = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!rav.dest) { uAlert("Choisissez la boutique à ravitailler."); return; }
+    // Deuxième verrou, comme pour le transfert : la liste des destinations
+    // n'est qu'un affichage. Une demande de ravitaillement déjà enregistrée
+    // avant ce correctif pourrait encore désigner l'autre espace.
+    const refusRav = refusMouvementEntreEspaces(db, bq, rav.dest);
+    if (refusRav) { uAlert(refusRav); return; }
     if (!bon.length) { uAlert("Ajoutez au moins un article au bon."); return; }
     const total = bon.reduce((s, l) => s + Number(l.qte), 0);
     if (!await uConfirm(`Valider le ravitaillement ?\n\n🏭 ${bq} → 🏪 ${rav.dest}\n${bon.length} article(s), ${total} unité(s) au total.\n\nLe stock sera déduit du magasin et ajouté à la boutique.`)) return;
@@ -518,6 +527,9 @@ export function Stocks({ db, save, profile }) {
       if (!dest) return;
     }
     if (!dest) { uAlert("Aucune autre boutique disponible."); return; }
+    // Deuxième verrou : la liste ci-dessus n'est qu'un affichage.
+    const refus = refusMouvementEntreEspaces(db, bq, dest);
+    if (refus) { uAlert(refus); return; }
     const s = await uPrompt(`Transfert de « ${p.nom} » : ${bq} → ${dest}\nQuantité (disponible : ${dispo}) :`);
     const q = Number(s);
     if (!s || isNaN(q) || q <= 0) return;

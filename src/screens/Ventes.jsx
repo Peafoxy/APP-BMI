@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -382,7 +382,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         // boutique de SON espace. Sans ce filtre, une boutique de formation
         // adressait sa demande à une vraie boutique, qui en la validant
         // sortait de la marchandise RÉELLE de son stock.
-        const autresBoutiques = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom).filter((n) => n !== boutique);
+        const autresBoutiques = boutiquesDuMemeEspace(db, profile, boutiquesVente(db), boutique).map((b) => b.nom).filter((n) => n !== boutique);
         if (!autresBoutiques.length) { uAlert("Aucune autre boutique disponible."); return; }
         // ⚠ Demande Timo : ne pas laisser le vendeur choisir à l'aveugle —
         // montrer directement combien chaque boutique a en stock pour

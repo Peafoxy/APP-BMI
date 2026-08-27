@@ -134,6 +134,48 @@ export const boutiquesVisibles = (db, profile, liste) => {
   return liste.filter((b) => !!b.formation === monEspace);
 };
 
+// ⚠ TROU TROUVÉ LE 25/08/2026, à la question de Timo « transfert entre
+// boutique réel et formation possible ? ». Réponse mesurée : OUI, et pour
+// SON compte.
+//
+// La cause est la même que celle de la présélection d'articles, corrigée le
+// matin même : le code demandait « quelles boutiques ce compte a-t-il le
+// droit de VOIR ? ». Comme l'administrateur principal voit les deux espaces
+// (dérogation « tous »), toutes les boutiques lui étaient proposées comme
+// destination — y compris celles d'entraînement. Et verifierEcritureEspace
+// ne s'y oppose pas : il rend la main dès qu'un compte voit les deux espaces.
+//
+// Conséquence si le geste était fait : 3 batteries sortaient du stock RÉEL
+// (donc de la valeur d'inventaire et des marges) et réapparaissaient dans une
+// boutique d'entraînement. Aucune vente, aucune dépense, aucune trace
+// comptable — de la marchandise qui s'évapore proprement.
+//
+// La bonne question n'est pas « qu'est-ce que ce compte peut voir » mais
+// « OÙ VA LA MARCHANDISE ». Voir les deux espaces permet de travailler dans
+// l'un puis dans l'autre ; jamais de les relier.
+export const boutiquesDuMemeEspace = (db, profile, liste, boutique) => {
+  const visibles = boutiquesVisibles(db, profile, liste);
+  const depart = (db.boutiques || []).find((b) => b.nom === boutique);
+  // Boutique de départ inconnue (écran ouvert pendant la synchronisation) :
+  // on ne propose rien plutôt que n'importe quoi.
+  if (!depart) return [];
+  return visibles.filter((b) => !!b.formation === !!depart.formation);
+};
+
+// Le refus au moment du geste, en plus du filtrage de la liste. Une liste
+// filtrée n'est qu'un AFFICHAGE : on a déjà vu (cloisonnement, lot 2) qu'un
+// affichage ne protège rien dès qu'un autre chemin mène au même endroit.
+// Renvoie un message si le mouvement traverse les deux espaces, sinon null.
+export const refusMouvementEntreEspaces = (db, depart, arrivee) => {
+  const a = (db.boutiques || []).find((b) => b.nom === depart);
+  const z = (db.boutiques || []).find((b) => b.nom === arrivee);
+  if (!a || !z) return null;
+  if (!!a.formation === !!z.formation) return null;
+  const nomEspace = (b) => (b.formation ? "entraînement" : "réel");
+  return `🚫 Mouvement impossible : « ${depart} » est une boutique ${nomEspace(a)} et « ${arrivee} » une boutique ${nomEspace(z)}.\n\n`
+    + `La marchandise réelle et celle d'entraînement ne doivent jamais se mélanger : sinon du stock réel disparaîtrait de votre inventaire sans aucune trace comptable.`;
+};
+
 // La boutique proposée par défaut à l'ouverture d'un écran.
 // ⚠ Ne retombe JAMAIS sur db.boutiques[0] : c'était le repli historique de
 // sept écrans, et il désignait la PREMIÈRE boutique de la base — donc une
