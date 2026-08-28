@@ -241,8 +241,39 @@ export default function App() {
   // l'application et lire des chiffres d'entraînement en les croyant vrais.
   // C'est la seule exception à la règle « ne rien changer après une
   // actualisation » — et elle va dans le sens de la prudence.
+  // ⚠ MÉMORISÉ D'UNE OUVERTURE À L'AUTRE (décision de Timo, 26/08/2026 :
+  // « F5 et nouvelle version ne doivent pas ramener en réel, il ne doit pas
+  // changer »). J'avais fait le choix inverse par prudence ; il a tranché,
+  // et c'est cohérent avec sa règle du 25/08 — l'application ne doit rien
+  // changer toute seule après une actualisation.
+  //
+  // ⚠ PAR COMPTE, jamais par appareil : deux personnes qui se relaient sur
+  // le même ordinateur n'héritent pas du réglage l'une de l'autre. C'est ce
+  // qui garde bouché le trou trouvé juste avant (v2.101.10).
+  //
+  // ⚠ CE QUI REMPLACE LA REMISE À ZÉRO : le bouton du menu reste VIOLET tant
+  // qu'on regarde l'entraînement, et les écrans de synthèse affichent leur
+  // bandeau « 🎓 Chiffres de l'espace FORMATION ». Le réglage est visible en
+  // permanence — c'est ce qui empêche de lire des chiffres d'école en les
+  // croyant vrais.
+  const CLE_REGARDE = "bmi_regarde_formation";
+  const lireEspaceRegarde = (id) => {
+    if (!id) return false;
+    try { return localStorage.getItem(`${CLE_REGARDE}:${id}`) === "1"; } catch { return false; }
+  };
   const [regardeFormation, setRegardeFormationEtat] = useState(false);
-  const basculerEspaceRegarde = (v) => { setRegardeFormation(v); setRegardeFormationEtat(v); };
+  const basculerEspaceRegarde = (v, id = profile?.id) => {
+    setRegardeFormation(v);
+    setRegardeFormationEtat(v);
+    if (!id) return;
+    try { localStorage.setItem(`${CLE_REGARDE}:${id}`, v ? "1" : "0"); } catch { /* navigation privée */ }
+  };
+  // Applique le réglage mémorisé d'un compte sans le réécrire.
+  const restaurerEspaceRegarde = (id) => {
+    const v = lireEspaceRegarde(id);
+    setRegardeFormation(v);
+    setRegardeFormationEtat(v);
+  };
   const peutRegarderLaFormation = db && profile
     && voitLesDeuxEspaces(db, profile) && boutiquesFormation(db).size > 0;
 
@@ -396,6 +427,10 @@ export default function App() {
           }
           if (u && u.actif !== false && Date.now() - ts < DUREE_INACTIVITE) {
             setProfile(u);
+            // ⚠ C'est ICI que se joue la demande : après un F5 ou une
+            // nouvelle version, on remet le compte dans l'espace qu'il
+            // regardait, au lieu de le ramener au réel.
+            restaurerEspaceRegarde(u.id);
             setTab(tabDeDepart(u.role, u.id));
           } else {
             localStorage.removeItem("bmi_session");
@@ -594,7 +629,10 @@ export default function App() {
     const moi = db.users.find((u) => u.id === profile.id);
     const fermer = (message) => {
       setProfile(null);
-      basculerEspaceRegarde(false);
+      // ⚠ On repasse au réel à l'écran, mais SANS effacer la préférence du
+      // compte : c'est le suivant qui ne doit pas hériter, pas celui-ci qui
+      // doit perdre son réglage.
+      restaurerEspaceRegarde(null);
       try { localStorage.removeItem("bmi_session"); } catch {}
       uAlert(message);
     };
@@ -631,7 +669,7 @@ export default function App() {
     const saveLogin = db.users.length > 0 ? save : null;
     return <><DialogHost /><Login db={dbLogin} apparence={apparence} save={saveLogin} onLogin={(u) => {
     setProfile(u);
-    basculerEspaceRegarde(false);   // toute connexion démarre sur le RÉEL
+    restaurerEspaceRegarde(u.id);   // il retrouve l'espace qu'il regardait
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
     (async () => {
       // MIROIR : à chaque connexion avec réseau, retéléchargement complet du
@@ -687,9 +725,10 @@ export default function App() {
     // ligne. Leur exactitude est garantie par le miroir à chaque connexion
     // avec réseau — plus par l'effacement.
     setProfile(null);
-    // ⚠ On repart TOUJOURS du réel : le prochain à se connecter ne doit pas
-    // hériter d'un « je regarde l'entraînement » qu'il n'a pas choisi.
-    basculerEspaceRegarde(false);
+    // ⚠ Le prochain à se connecter ne doit pas hériter de ce réglage : on
+    // revient au réel à l'écran, sans effacer la préférence de celui qui
+    // part — il la retrouvera à sa prochaine connexion.
+    restaurerEspaceRegarde(null);
     try { localStorage.removeItem("bmi_session"); } catch {}
   };
 
