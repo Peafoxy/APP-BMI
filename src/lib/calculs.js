@@ -310,14 +310,37 @@ export const boutiqueDuChantier = (db, c) => {
 // `boutique` : un compte de formation ne voit que SES chiffres, tous les
 // autres (y compris l'admin principal) voient les vrais — c'est bien la
 // vue « CA réel » qui est attendue là.
-export const filtreEspaceAffichage = (db, profile) => {
+// ⚠ FUITE MESURÉE LE 26/08/2026, sur remarque de Timo (« un admin de
+// formation, lui, voit clairement ces écrans »).
+//
+// L'ancienne règle disait : « si le compte est en formation ET qu'il ne voit
+// pas les deux espaces, montre-lui la formation ; sinon, le réel ». Or TOUT
+// compte administrateur voit les deux espaces — c'est le pouvoir
+// act_voir_tout, actif par défaut. Un administrateur placé DANS la formation
+// ne remplissait donc jamais la première condition et tombait dans le
+// « sinon » : il voyait le CHIFFRE D'AFFAIRES, les dépenses, les dettes et
+// les marges RÉELS de l'entreprise. Le vendeur stagiaire, lui, était
+// correctement cloisonné — c'est ce qui rendait le défaut visible.
+//
+// LA RÈGLE CORRIGÉE : L'ESPACE DU COMPTE PRIME SUR SES POUVOIRS. Voir les
+// deux espaces est une dérogation qui n'a de sens que pour quelqu'un qui
+// travaille dans le RÉEL. Un compte placé dans la formation voit la
+// formation, quels que soient ses galons — ils ne le sortent pas de son bac
+// à sable.
+//
+// `voirFormation` : le sélecteur réservé à l'administrateur PRINCIPAL, qui
+// lui permet de consulter volontairement les chiffres d'entraînement. Il
+// n'est jamais actif par défaut — on ne doit pas ouvrir l'application et
+// lire des chiffres fictifs en les croyant vrais.
+export const filtreEspaceAffichage = (db, profile, voirFormation = false) => {
   const f = boutiquesFormation(db);
-  const enFormation = estCompteFormation(db, profile) && !voitLesDeuxEspaces(db, profile);
+  const enFormation = afficheChiffresFormation(db, profile, voirFormation);
   return (x) => (enFormation ? f.has(x?.boutique) : !f.has(x?.boutique));
 };
+
 // Vrai quand l'écran doit afficher les chiffres de l'ESPACE FORMATION.
-export const afficheChiffresFormation = (db, profile) =>
-  estCompteFormation(db, profile) && !voitLesDeuxEspaces(db, profile);
+export const afficheChiffresFormation = (db, profile, voirFormation = false) =>
+  estCompteFormation(db, profile) || (!!voirFormation && voitLesDeuxEspaces(db, profile));
 
 export const chantiersReels = (db) => {
   const f = boutiquesFormation(db);

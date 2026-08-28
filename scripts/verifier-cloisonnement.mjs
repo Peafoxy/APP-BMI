@@ -2247,5 +2247,53 @@ titre("Un numéro déjà connu est retrouvé, quelle que soit son écriture (dem
     C.comptesAvecCeNumero(db, P.admin, "90112233").length === 2);
 }
 
+titre("Un ADMINISTRATEUR placé en formation ne voit pas les vrais chiffres (fuite du 26/08/2026)");
+{
+  // ⚠ CE QUE CE BLOC PROTÈGE. Timo : « un admin de formation, lui, voit
+  // clairement ces écrans ». Mesure faite avant de répondre : son
+  // administrateur de formation voyait le CHIFFRE D'AFFAIRES, les dépenses,
+  // les dettes et les marges RÉELS de l'entreprise.
+  //
+  // La cause : la règle disait « si le compte est en formation ET qu'il ne
+  // voit pas les deux espaces, montre-lui la formation ; sinon, le réel ».
+  // Or TOUT administrateur voit les deux espaces (pouvoir act_voir_tout,
+  // actif par défaut). Un admin placé en formation ne remplissait donc
+  // jamais la première condition et tombait dans le « sinon ». Le vendeur
+  // stagiaire, lui, était correctement cloisonné — c'est ce qui rendait le
+  // défaut visible à l'œil nu.
+  //
+  // LA RÈGLE : l'ESPACE du compte prime sur ses POUVOIRS.
+  const db = base();
+  db.users.push({ id: "u_adm_form", nom: "ADMIN-FORM", role: "admin", formation: true });
+  const adminEnFormation = { id: "u_adm_form", nom: "ADMIN-FORM", role: "admin" };
+  const lignes = [{ boutique: "APESSITO" }, { boutique: "APESSITO FORMATION" }];
+  const vu = (profile, voirFormation) =>
+    lignes.filter(C.filtreEspaceAffichage(db, profile, voirFormation)).map((x) => x.boutique);
+
+  test("★ un ADMINISTRATEUR placé en formation ne voit QUE l'entraînement",
+    JSON.stringify(vu(adminEnFormation)) === JSON.stringify(["APESSITO FORMATION"]));
+  test("★ …et il ne peut pas en sortir, même si le sélecteur était forcé",
+    JSON.stringify(vu(adminEnFormation, true)) === JSON.stringify(["APESSITO FORMATION"]));
+  test("★ …ni voir les chiffres réels d'une quelconque façon",
+    !vu(adminEnFormation).includes("APESSITO") && !vu(adminEnFormation, true).includes("APESSITO"));
+  test("un vendeur stagiaire reste cloisonné comme avant",
+    JSON.stringify(vu(P.stagiaire)) === JSON.stringify(["APESSITO FORMATION"]));
+
+  // Le sélecteur de l'administrateur principal.
+  test("l'administrateur principal voit le RÉEL par défaut",
+    JSON.stringify(vu(P.admin)) === JSON.stringify(["APESSITO"]));
+  // ⚠ Jamais actif au départ : on ne doit pas ouvrir l'application et lire
+  // des chiffres fictifs en les croyant vrais.
+  test("★ …et il ne bascule sur l'entraînement QUE s'il le demande",
+    JSON.stringify(vu(P.admin, true)) === JSON.stringify(["APESSITO FORMATION"]));
+  test("le bandeau « chiffres de formation » suit le même raisonnement",
+    C.afficheChiffresFormation(db, P.admin) === false
+    && C.afficheChiffresFormation(db, P.admin, true) === true
+    && C.afficheChiffresFormation(db, adminEnFormation) === true);
+  // Un compte rattaché à une VRAIE boutique n'a jamais accès au sélecteur.
+  test("un vendeur du réel ne peut pas basculer sur l'entraînement",
+    C.afficheChiffresFormation(db, P.vendeur, true) === false);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
