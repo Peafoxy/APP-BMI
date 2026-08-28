@@ -136,12 +136,46 @@ export function Dashboard({ db, profile }) {
   const totalCommissionsDues = commissionsBase(false) + commissionsEquipe(false) + commissionsApporteurs(false) + commissionsInstallation(false);
   const totalCommissionsPayees = commissionsBase(true) + commissionsEquipe(true) + commissionsApporteurs(true) + commissionsInstallation(true);
 
-  const Stat = ({ label, value, accent }) => (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 border-l-4 border-l-sky-700">
-      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</div>
-      <div className={`text-xl font-bold mt-1 tabular-nums ${accent || "text-slate-900"}`}>{value}</div>
-    </div>
-  );
+  // ⚠ DEMANDE TIMO (26/08/2026) : « avec cet aspect des cases, ça se
+  // reconnaît que c'est un travail d'IA ».
+  //
+  // Ce qui trahissait le gabarit : toutes les cases identiques, un liseré
+  // bleu sur chacune, et surtout LA MÊME COULEUR QUE LE MENU. Or dans cette
+  // application, un bloc bleu plein veut déjà dire « ceci se clique » —
+  // c'est l'onglet actif (sky-700), c'est le bouton Ajouter (sky-800).
+  // L'œil prenait donc les chiffres pour des boutons. Timo l'a vu lui-même :
+  // « apparemment le 1 reprend la couleur de la bande des onglets ».
+  //
+  // Le choix retenu : UNE TEINTE PAR NATURE D'INFORMATION. La couleur cesse
+  // d'être une décoration, elle porte du sens — on repère la case sans lire
+  // son libellé, et le bleu reste réservé à la navigation.
+  //
+  //   entrée   bleu     ce qui rentre (ventes, encaissements)
+  //   sortie   ambre    ce qui sort (dépenses)
+  //   du       rouge    ce qu'on vous doit, ou ce que vous devez
+  //   regle    vert     ce qui est déjà payé, un résultat positif
+  //   attente  orange   ce qui est encaissé mais pas encore acquis
+  //   neutre   ardoise  un simple compteur, sans couleur d'argent
+  const TEINTES = {
+    entree:  { fond: "bg-sky-50 border-sky-200",       titre: "text-sky-800",     valeur: "text-slate-900" },
+    sortie:  { fond: "bg-amber-50 border-amber-200",   titre: "text-amber-800",   valeur: "text-amber-950" },
+    du:      { fond: "bg-red-50 border-red-200",       titre: "text-red-800",     valeur: "text-red-900" },
+    regle:   { fond: "bg-green-50 border-green-200",   titre: "text-green-800",   valeur: "text-green-900" },
+    attente: { fond: "bg-orange-50 border-orange-200", titre: "text-orange-800",  valeur: "text-orange-900" },
+    neutre:  { fond: "bg-slate-100 border-slate-200",  titre: "text-slate-600",   valeur: "text-slate-900" },
+  };
+
+  // `accent` reste accepté pour les cas où la couleur dépend du CHIFFRE et
+  // non de sa nature (un résultat du mois est vert ou rouge selon son signe).
+  const Stat = ({ label, value, nature = "neutre", accent }) => {
+    const t = TEINTES[nature] || TEINTES.neutre;
+    return (
+      <div className={`rounded-xl border shadow-sm p-4 ${t.fond}`}>
+        <div className={`text-xs font-semibold uppercase tracking-wide ${t.titre}`}>{label}</div>
+        <div className={`text-xl font-bold mt-1 tabular-nums ${accent || t.valeur}`}>{value}</div>
+      </div>
+    );
+  };
 
   const moisNoms = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
   const mois6 = [];
@@ -185,16 +219,16 @@ export function Dashboard({ db, profile }) {
         </div>
       )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Total des ventes" value={fmt(totalVentes)} />
-        <Stat label="Total des dépenses" value={fmt(totalDepenses)} />
-        <Stat label="Total des dettes" value={fmt(totalDettes)} accent="text-red-600" />
-        <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} accent="text-red-600" />
-        <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} accent="text-green-700" />
+        <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />
+        <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
+        <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />
+        <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />
+        <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />
         {(totalFraisInstallation + totalFraisTransport) > 0 && (
-          <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} accent="text-amber-600" />
+          <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} nature="entree" />
         )}
-        {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} accent="text-orange-600" />}
-        <Stat label="Clients uniques" value={nbClients} />
+        {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} nature="attente" />}
+        <Stat label="Clients uniques" value={nbClients} nature="neutre" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -238,10 +272,10 @@ export function Dashboard({ db, profile }) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="Ventes du mois" value={fmt(somme(m.v))} />
-        <Stat label="Dépenses du mois" value={fmt(somme(m.d))} />
-        <Stat label="Résultat du mois" value={fmt(resM)} accent={resM >= 0 ? "text-green-700" : "text-red-600"} />
-        <Stat label="Dettes en cours" value={fmt(somme(dettes))} accent="text-red-600" />
+        <Stat label="Ventes du mois" value={fmt(somme(m.v))} nature="entree" />
+        <Stat label="Dépenses du mois" value={fmt(somme(m.d))} nature="sortie" />
+        <Stat label="Résultat du mois" value={fmt(resM)} nature={resM >= 0 ? "regle" : "du"} />
+        <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
