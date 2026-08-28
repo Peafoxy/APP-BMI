@@ -50,6 +50,51 @@ export const Field = ({ label, children }) => (
 );
 
 export const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100";
+// ============ LES CASES DE CHIFFRES — UNE TEINTE PAR NATURE ============
+//
+// ⚠ DEMANDE TIMO (26/08/2026) : « avec cet aspect des cases, ça se reconnaît
+// que c'est un travail d'IA ». Puis, en voyant les maquettes : « apparemment
+// le 1 reprend la couleur de la bande des onglets ». Il avait raison, et le
+// problème dépassait l'esthétique : dans cette application, un bloc bleu
+// plein veut déjà dire « ceci se clique » (onglet actif sky-700, boutons
+// sky-800). L'œil prenait les chiffres pour des boutons.
+//
+// La couleur cesse donc d'être une décoration : elle porte du sens. On
+// repère la case sans lire son libellé, et le bleu reste réservé à la
+// navigation.
+//
+// ⚠ CE COMPOSANT EST PARTAGÉ PAR LES SEPT ÉCRANS. C'est tout l'intérêt :
+// sept copies auraient dérivé, et « bleu » aurait fini par vouloir dire
+// autre chose ici que là.
+export const TEINTES_STAT = {
+  entree:    { fond: "bg-sky-50 border-sky-200",         titre: "text-sky-800",     valeur: "text-slate-900" },
+  sortie:    { fond: "bg-amber-50 border-amber-200",     titre: "text-amber-800",   valeur: "text-amber-950" },
+  du:        { fond: "bg-red-50 border-red-200",         titre: "text-red-800",     valeur: "text-red-900" },
+  regle:     { fond: "bg-green-50 border-green-200",     titre: "text-green-800",   valeur: "text-green-900" },
+  attente:   { fond: "bg-orange-50 border-orange-200",   titre: "text-orange-800",  valeur: "text-orange-900" },
+  neutre:    { fond: "bg-slate-100 border-slate-200",    titre: "text-slate-600",   valeur: "text-slate-900" },
+  // ⚠ Le dimensionnement n'affiche PAS de l'argent mais des résultats de
+  // calcul (puissance, nombre de panneaux, autonomie). Leur donner une
+  // couleur d'argent mentirait sur ce qu'ils sont : ils ont donc leur propre
+  // famille, qui ne ressemble à aucune des six autres.
+  technique: { fond: "bg-violet-50 border-violet-200",   titre: "text-violet-800",  valeur: "text-violet-950" },
+};
+
+// `nature`  : ce que le chiffre EST (voir ci-dessus).
+// `accent`  : à n'utiliser que si la couleur dépend du CHIFFRE et non de sa
+//             nature — un taux de marge sous les 15 %, par exemple.
+// `compact` : version resserrée, pour les grilles denses (CNSS).
+export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact }) => {
+  const t = TEINTES_STAT[nature] || TEINTES_STAT.neutre;
+  const contenu = value !== undefined ? value : valeur;
+  return (
+    <div className={`rounded-xl border shadow-sm ${compact ? "p-3" : "p-4"} ${t.fond}`}>
+      <div className={`text-xs font-semibold uppercase tracking-wide ${t.titre}`}>{label}</div>
+      <div className={`text-xl font-bold mt-1 tabular-nums ${accent || t.valeur}`}>{contenu}</div>
+    </div>
+  );
+};
+
 export const btnDark = "px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 transition-colors shadow-sm";
 
 export const Badge = ({ boutique }) => (

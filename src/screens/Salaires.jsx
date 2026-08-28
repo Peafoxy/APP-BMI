@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
@@ -16,12 +16,9 @@ import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsC
 // Salaire (vue individuelle employé) — auparavant définie deux fois : une
 // fois en fonction locale dans SalairesAdmin, une fois dupliquée en ligne
 // dans la section CNSS de Salaire. Un seul endroit désormais.
-const CarteStat = ({ label, valeur, couleur }) => (
-  <div className={`rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 ${couleur}`}>
-    <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
-    <div className="text-xl font-bold tabular-nums mt-1">{valeur}</div>
-  </div>
-);
+// ⚠ CarteStat a été remplacée par le composant partagé Stat
+// (components/ui.jsx) : la même teinte veut dire la même chose sur les sept
+// écrans. Sa signature accepte `valeur`, donc rien d'autre n'a bougé ici.
 
 // ============ SALAIRES — VUE ADMINISTRATEUR ============
 export function SalairesAdmin({ db, save, profile }) {
@@ -72,11 +69,11 @@ export function SalairesAdmin({ db, save, profile }) {
           </select>
         </Field>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-          <CarteStat label="Masse salariale (net)" valeur={fmt(masse)} couleur="border-l-sky-700" />
-          <CarteStat label="Déjà versé" valeur={fmt(verse)} couleur="border-l-green-600" />
-          <CarteStat label="Reste à verser" valeur={fmt(reste)} couleur="border-l-red-500" />
-          <CarteStat label="À confirmer par l'employé" valeur={fmt(attente)} couleur="border-l-amber-500" />
-          <CarteStat label="Encours crédits BMI" valeur={fmt(encoursCredit)} couleur="border-l-purple-600" />
+          <Stat label="Masse salariale (net)" valeur={fmt(masse)} nature="sortie" />
+          <Stat label="Déjà versé" valeur={fmt(verse)} nature="regle" />
+          <Stat label="Reste à verser" valeur={fmt(reste)} nature="du" />
+          <Stat label="À confirmer par l'employé" valeur={fmt(attente)} nature="attente" />
+          <Stat label="Encours crédits BMI" valeur={fmt(encoursCredit)} nature="du" />
         </div>
       </div>
 
@@ -285,18 +282,11 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
         </Field>
         {pretsPourExport.length > 0 && (
           <div className="grid sm:grid-cols-3 gap-3 mt-3">
-            <div className="rounded-xl p-3 bg-white border border-slate-200 shadow-sm border-l-4 border-l-purple-600">
-              <div className="text-xs font-semibold text-slate-500 uppercase">Part patronale (22,5 %)</div>
-              <div className="text-lg font-bold tabular-nums mt-1">{fmt(repartitionTotale.partPatronale)}</div>
-            </div>
-            <div className="rounded-xl p-3 bg-white border border-slate-200 shadow-sm border-l-4 border-l-red-500">
-              <div className="text-xs font-semibold text-slate-500 uppercase">Part salariale déjà retenue (9 %)</div>
-              <div className="text-lg font-bold tabular-nums mt-1">{fmt(repartitionTotale.partSalariale)}</div>
-            </div>
-            <div className="rounded-xl p-3 bg-purple-50 border border-purple-200 shadow-sm border-l-4 border-l-purple-700">
-              <div className="text-xs font-semibold text-purple-700 uppercase">Total à reverser à la CNSS</div>
-              <div className="text-lg font-bold tabular-nums mt-1 text-purple-800">{fmt(repartitionTotale.total)}</div>
-            </div>
+            <Stat label="Part patronale (22,5 %)" valeur={fmt(repartitionTotale.partPatronale)} nature="sortie" compact />
+            {/* Déjà retenue sur les salaires : l'argent est acquis, il ne
+                sortira pas une deuxième fois de votre caisse. */}
+            <Stat label="Part salariale déjà retenue (9 %)" valeur={fmt(repartitionTotale.partSalariale)} nature="regle" compact />
+            <Stat label="Total à reverser à la CNSS" valeur={fmt(repartitionTotale.total)} nature="du" compact />
           </div>
         )}
         {dejaEnregistreCeMois && <div className="mt-2 text-xs font-semibold text-amber-700">⚠ Un paiement CNSS a déjà été enregistré pour ce mois.</div>}
@@ -470,32 +460,18 @@ export function Salaire({ db, save, profile }) {
           <button onClick={() => imprimerBulletin(moi, mois, db)} className={btnDark}>🖨 Imprimer mon bulletin de paie</button>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Salaire de base</div>
-            <div className="text-xl font-bold tabular-nums mt-1">{base > 0 ? fmt(base) : "—"}</div>
-          </div>
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-green-600">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Primes du mois</div>
-            <div className="text-xl font-bold tabular-nums mt-1 text-green-700">{totalPrimes ? "+" + fmt(totalPrimes) : fmt(0)}</div>
-          </div>
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-orange-500">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Avances perçues</div>
-            <div className="text-xl font-bold tabular-nums mt-1 text-orange-600">{totalAvances ? "−" + fmt(totalAvances) : fmt(0)}</div>
-          </div>
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-red-500">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Retenue crédit BMI</div>
-            <div className="text-xl font-bold tabular-nums mt-1 text-red-600">{p.retenueCredit ? "−" + fmt(p.retenueCredit) : fmt(0)}</div>
-          </div>
+          {/* ⚠ Ici la lecture se fait du point de vue de L'EMPLOYÉ : ce qui
+              s'ajoute à sa paie est une entrée, ce qui lui est retenu est une
+              sortie. C'est l'inverse du point de vue de l'entreprise, et
+              c'est voulu — cet écran est le sien. */}
+          <Stat label="Salaire de base" valeur={base > 0 ? fmt(base) : "—"} nature="entree" />
+          <Stat label="Primes du mois" valeur={totalPrimes ? "+" + fmt(totalPrimes) : fmt(0)} nature="regle" />
+          <Stat label="Avances perçues" valeur={totalAvances ? "−" + fmt(totalAvances) : fmt(0)} nature="attente" />
+          <Stat label="Retenue crédit BMI" valeur={p.retenueCredit ? "−" + fmt(p.retenueCredit) : fmt(0)} nature="du" />
           {moi.cnss_assujetti && (
-            <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-red-500">
-              <div className="text-xs font-semibold text-slate-500 uppercase">Retenue CNSS (9%)</div>
-              <div className="text-xl font-bold tabular-nums mt-1 text-red-600">{p.retenueCNSS ? "−" + fmt(p.retenueCNSS) : fmt(0)}</div>
-            </div>
+            <Stat label="Retenue CNSS (9%)" valeur={p.retenueCNSS ? "−" + fmt(p.retenueCNSS) : fmt(0)} nature="du" />
           )}
-          <div className="rounded-xl p-4 bg-green-50 border border-green-200 shadow-sm border-l-4 border-l-green-700">
-            <div className="text-xs font-semibold text-green-700 uppercase">Net à percevoir</div>
-            <div className="text-xl font-bold tabular-nums mt-1 text-green-800">{fmt(net)}</div>
-          </div>
+          <Stat label="Net à percevoir" valeur={fmt(net)} nature="regle" />
         </div>
       </Panel>
 
@@ -711,9 +687,9 @@ export function Salaire({ db, save, profile }) {
             const c = cotisationsCNSS(remuneration);
             return (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <CarteStat label="Jours travaillés" valeur={String(donneesMois.jours)} couleur="border-l-sky-700" />
-                <CarteStat label="Rémunération déclarée" valeur={fmt(remuneration)} couleur="border-l-sky-700" />
-                <CarteStat label="Cotisation pensions vieillesse (16,5%)" valeur={fmt(c.PV)} couleur="border-l-purple-600" />
+                <Stat label="Jours travaillés" valeur={String(donneesMois.jours)} nature="neutre" compact />
+                <Stat label="Rémunération déclarée" valeur={fmt(remuneration)} nature="sortie" compact />
+                <Stat label="Cotisation pensions vieillesse (16,5%)" valeur={fmt(c.PV)} nature="sortie" compact />
               </div>
             );
           })()}

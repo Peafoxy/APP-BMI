@@ -4,7 +4,7 @@
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires } from "../../lib/solaire";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille } from "./Partages";
@@ -753,22 +753,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       </Panel>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Consommation</div>
-          <div className="text-xl font-bold tabular-nums mt-1">{Math.round(whParJour)} Wh/j</div>
-        </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Panneaux nécessaires</div>
-          <div className="text-xl font-bold tabular-nums mt-1">{wcPanneaux} Wc</div>
-        </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Batterie ({tension}V)</div>
-          <div className="text-xl font-bold tabular-nums mt-1">{ahBatterie} Ah</div>
-        </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Convertisseur{!convertisseurEstHybride ? " / MPPT" : ""}</div>
-          <div className="text-xl font-bold tabular-nums mt-1">{kwConvertisseur.toFixed(2)} kW{!convertisseurEstHybride ? ` · ${aRegulateur} A` : ""}</div>
-        </div>
+        <Stat label={<>Consommation</>} valeur={<>{Math.round(whParJour)} Wh/j</>} nature="technique" />
+        <Stat label={<>Panneaux nécessaires</>} valeur={<>{wcPanneaux} Wc</>} nature="technique" />
+        <Stat label={<>Batterie ({tension}V)</>} valeur={<>{ahBatterie} Ah</>} nature="technique" />
+        <Stat label={<>Convertisseur{!convertisseurEstHybride ? " / MPPT" : ""}</>} valeur={<>{kwConvertisseur.toFixed(2)} kW{!convertisseurEstHybride ? ` · ${aRegulateur} A` : ""}</>} nature="technique" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

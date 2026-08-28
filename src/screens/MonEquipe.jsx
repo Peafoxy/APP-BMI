@@ -8,7 +8,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
@@ -463,18 +463,11 @@ export function MonEquipe({ db, save, profile }) {
           ))}
         </div>
         <div className="grid sm:grid-cols-3 gap-3">
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Commerciaux actifs</div>
-            <div className="text-2xl font-bold tabular-nums mt-1">{equipe.length}</div>
-          </div>
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
-            <div className="text-xs font-semibold text-slate-500 uppercase">CA de l'équipe</div>
-            <div className="text-2xl font-bold tabular-nums mt-1">{fmt(totalCA)}</div>
-          </div>
-          <div className="rounded-xl p-4 bg-green-50 border border-green-200 shadow-sm border-l-4 border-l-green-600">
-            <div className="text-xs font-semibold text-green-700 uppercase">Commissions à payer</div>
-            <div className="text-2xl font-bold tabular-nums mt-1 text-green-800">{fmt(totalDu)}</div>
-          </div>
+          <Stat label="Commerciaux actifs" valeur={equipe.length} nature="neutre" />
+          <Stat label="CA de l'équipe" valeur={fmt(totalCA)} nature="entree" />
+          {/* ⚠ « à payer » : c'est de l'argent que VOUS devez, donc rouge —
+              c'était vert jusqu'ici, ce qui laissait croire à un encaissement. */}
+          <Stat label="Commissions à payer" valeur={fmt(totalDu)} nature="du" />
         </div>
       </Panel>
 

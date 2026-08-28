@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, totalVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
@@ -84,12 +84,6 @@ export function Commerciaux({ db, save, profile }) {
   };
   const medaille = (i) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}ᵉ`);
 
-  const Stat = ({ label, value }) => (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 border-l-4 border-l-sky-700">
-      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</div>
-      <div className="text-xl font-bold mt-1 tabular-nums">{value}</div>
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -128,9 +122,9 @@ export function Commerciaux({ db, save, profile }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Stat label={`CA équipe — ${labelP}`} value={fmt(totalCA)} />
-        <Stat label="Commissions à payer" value={fmt(totalCommissions)} />
-        <Stat label="Ventes réalisées" value={totalVentes} />
+        <Stat label={`CA équipe — ${labelP}`} value={fmt(totalCA)} nature="entree" />
+        <Stat label="Commissions à payer" value={fmt(totalCommissions)} nature="du" />
+        <Stat label="Ventes réalisées" value={totalVentes} nature="neutre" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

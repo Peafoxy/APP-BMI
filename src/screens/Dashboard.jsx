@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useCallback } from "react";
 import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
-import { btnDark, Badge } from "../components/ui";
+import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
@@ -136,47 +136,9 @@ export function Dashboard({ db, profile }) {
   const totalCommissionsDues = commissionsBase(false) + commissionsEquipe(false) + commissionsApporteurs(false) + commissionsInstallation(false);
   const totalCommissionsPayees = commissionsBase(true) + commissionsEquipe(true) + commissionsApporteurs(true) + commissionsInstallation(true);
 
-  // ⚠ DEMANDE TIMO (26/08/2026) : « avec cet aspect des cases, ça se
-  // reconnaît que c'est un travail d'IA ».
-  //
-  // Ce qui trahissait le gabarit : toutes les cases identiques, un liseré
-  // bleu sur chacune, et surtout LA MÊME COULEUR QUE LE MENU. Or dans cette
-  // application, un bloc bleu plein veut déjà dire « ceci se clique » —
-  // c'est l'onglet actif (sky-700), c'est le bouton Ajouter (sky-800).
-  // L'œil prenait donc les chiffres pour des boutons. Timo l'a vu lui-même :
-  // « apparemment le 1 reprend la couleur de la bande des onglets ».
-  //
-  // Le choix retenu : UNE TEINTE PAR NATURE D'INFORMATION. La couleur cesse
-  // d'être une décoration, elle porte du sens — on repère la case sans lire
-  // son libellé, et le bleu reste réservé à la navigation.
-  //
-  //   entrée   bleu     ce qui rentre (ventes, encaissements)
-  //   sortie   ambre    ce qui sort (dépenses)
-  //   du       rouge    ce qu'on vous doit, ou ce que vous devez
-  //   regle    vert     ce qui est déjà payé, un résultat positif
-  //   attente  orange   ce qui est encaissé mais pas encore acquis
-  //   neutre   ardoise  un simple compteur, sans couleur d'argent
-  const TEINTES = {
-    entree:  { fond: "bg-sky-50 border-sky-200",       titre: "text-sky-800",     valeur: "text-slate-900" },
-    sortie:  { fond: "bg-amber-50 border-amber-200",   titre: "text-amber-800",   valeur: "text-amber-950" },
-    du:      { fond: "bg-red-50 border-red-200",       titre: "text-red-800",     valeur: "text-red-900" },
-    regle:   { fond: "bg-green-50 border-green-200",   titre: "text-green-800",   valeur: "text-green-900" },
-    attente: { fond: "bg-orange-50 border-orange-200", titre: "text-orange-800",  valeur: "text-orange-900" },
-    neutre:  { fond: "bg-slate-100 border-slate-200",  titre: "text-slate-600",   valeur: "text-slate-900" },
-  };
-
-  // `accent` reste accepté pour les cas où la couleur dépend du CHIFFRE et
-  // non de sa nature (un résultat du mois est vert ou rouge selon son signe).
-  const Stat = ({ label, value, nature = "neutre", accent }) => {
-    const t = TEINTES[nature] || TEINTES.neutre;
-    return (
-      <div className={`rounded-xl border shadow-sm p-4 ${t.fond}`}>
-        <div className={`text-xs font-semibold uppercase tracking-wide ${t.titre}`}>{label}</div>
-        <div className={`text-xl font-bold mt-1 tabular-nums ${accent || t.valeur}`}>{value}</div>
-      </div>
-    );
-  };
-
+  // ⚠ Le composant et son code couleur vivent dans components/ui.jsx :
+  // les sept écrans le partagent, pour que « bleu » veuille dire la même
+  // chose partout.
   const moisNoms = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
   const mois6 = [];
   const now = new Date();

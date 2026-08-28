@@ -6,7 +6,7 @@
 // ============================================================
 import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -635,19 +635,13 @@ export function Stocks({ db, save, profile }) {
         const moisCourant = today().slice(0, 7);
         const sorties = (db.ajustements || []).filter((a) => a.type === "ravitaillement" && a.boutique === bq && a.qte < 0 && String(a.date).startsWith(moisCourant))
           .reduce((s, a) => s + Math.abs(Number(a.qte)), 0);
-        const Case = ({ label, valeur: v, couleur }) => (
-          <div className={`rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 ${couleur}`}>
-            <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
-            <div className="text-xl font-bold tabular-nums mt-1">{v}</div>
-          </div>
-        );
         return (
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Case label="Articles référencés" valeur={mesArticles.length} couleur="border-l-sky-700" />
-            <Case label="Unités en stock" valeur={unites} couleur="border-l-slate-500" />
-            <Case label="Valeur du stock" valeur={fmt(valeur)} couleur="border-l-green-700" />
-            <Case label="À réapprovisionner" valeur={<span className={alertes ? "text-red-600" : "text-green-700"}>{alertes}</span>} couleur={alertes ? "border-l-red-500" : "border-l-green-600"} />
-            {estMagasin && <Case label="Sorties ce mois" valeur={<span className="text-purple-700">{sorties}</span>} couleur="border-l-purple-600" />}
+            <Stat label="Articles référencés" valeur={mesArticles.length} nature="neutre" />
+            <Stat label="Unités en stock" valeur={unites} nature="neutre" />
+            <Stat label="Valeur du stock" valeur={fmt(valeur)} nature="regle" />
+            <Stat label="À réapprovisionner" valeur={alertes} nature={alertes ? "du" : "regle"} />
+            {estMagasin && <Stat label="Sorties ce mois" valeur={sorties} nature="sortie" />}
           </div>
         );
       })()}

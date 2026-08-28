@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, today, inP } from "../lib/core";
-import { Field, inputCls, btnDark, Badge } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
 import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
@@ -66,12 +66,6 @@ export function Rentabilite({ db, profile }) {
     .sort((x, y) => y.valeur - x.valeur);
   const capitalDormant = dormants.reduce((s, x) => s + x.valeur, 0);
 
-  const Carte = ({ label, valeur, couleur }) => (
-    <div className={`rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 ${couleur}`}>
-      <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
-      <div className="text-xl font-bold tabular-nums mt-1">{valeur}</div>
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -103,10 +97,10 @@ export function Rentabilite({ db, profile }) {
           </Field>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-          <Carte label="Chiffre d'affaires" valeur={fmt(caTotal)} couleur="border-l-sky-700" />
-          <Carte label="Marge brute" valeur={<span className="text-green-700">{fmt(margeTotale)}</span>} couleur="border-l-green-700" />
-          <Carte label="Taux de marge global" valeur={<span className={tauxGlobal < 15 ? "text-red-600" : "text-green-700"}>{tauxGlobal} %</span>} couleur="border-l-emerald-600" />
-          <Carte label="Capital dormant" valeur={<span className="text-orange-600">{fmt(capitalDormant)}</span>} couleur="border-l-orange-500" />
+          <Stat label="Chiffre d'affaires" valeur={fmt(caTotal)} nature="entree" />
+          <Stat label="Marge brute" valeur={fmt(margeTotale)} nature="regle" />
+          <Stat label="Taux de marge global" valeur={`${tauxGlobal} %`} nature={tauxGlobal < 15 ? "du" : "regle"} />
+          <Stat label="Capital dormant" valeur={fmt(capitalDormant)} nature="attente" />
         </div>
       </div>
 

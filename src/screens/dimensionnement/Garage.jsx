@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, memeFamille, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
@@ -442,22 +442,10 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       </Panel>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Poids à motoriser</div>
-          <div className="text-xl font-bold tabular-nums mt-1">{poidsAjuste} kg</div>
-        </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Catégorie de moteur</div>
-          <div className="text-base font-bold mt-1.5">{categorieMoteur(poidsAjuste)}</div>
-        </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Crémaillère</div>
-          <div className="text-xl font-bold tabular-nums mt-1">{estCoulissant ? `${longueurCremaillere} m` : "— (non requise)"}</div>
-        </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold text-slate-500 uppercase">Télécommandes</div>
-          <div className="text-xl font-bold tabular-nums mt-1">× {besoinParRole.telecommande}</div>
-        </div>
+        <Stat label="Poids à motoriser" valeur={<>{poidsAjuste} kg</>} nature="technique" />
+        <Stat label="Catégorie de moteur" valeur={<>{categorieMoteur(poidsAjuste)}</>} nature="technique" />
+        <Stat label="Crémaillère" valeur={<>{estCoulissant ? `${longueurCremaillere} m` : "— (non requise)"}</>} nature="technique" />
+        <Stat label="Télécommandes" valeur={<>× {besoinParRole.telecommande}</>} nature="technique" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
