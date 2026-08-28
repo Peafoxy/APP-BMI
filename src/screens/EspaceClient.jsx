@@ -4,7 +4,8 @@
 // ============================================================
 import { useState, useRef } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
-import { ADRESSE_APP, chiffresTel, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
+import { creerFilleulEnLigne } from "../supabaseClient";
 import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
@@ -38,6 +39,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
   // ---- PARRAINAGE : le client amène un autre client ----
   const [parr, setParr] = useState({ nom: "", tel: "", note: "" });
+  // ⚠ Le parrainage part maintenant sur le réseau : sans ce drapeau, deux
+  // appuis rapides créeraient deux comptes pour la même personne.
+  const [parrainageEnCours, setParrainageEnCours] = useState(false);
 
   // Ses filleuls : les comptes clients qu'il a lui-même amenés.
   const mesFilleuls = (db.users || []).filter((u) => u.parrain_client_id === profile.id);
@@ -52,38 +56,29 @@ export function EspaceClient({ db, profile, save, setTab }) {
     const nom = parr.nom.trim();
     const tel = parr.tel.trim();
     if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom de votre filleul et son numéro."); return; }
-    if ((db.users || []).some((u) => u.tel && chiffresTel(u.tel) === chiffresTel(tel))) {
-      uAlert("Cette personne est déjà connue de BMI Togo. Le parrainage ne s'applique qu'aux nouveaux clients.");
-      return;
-    }
     if (!await uConfirm(
       `Parrainer ${nom.toUpperCase()} ?\n\n` +
       `Un compte lui sera créé, et notre équipe le contactera.\n\n` +
       `Vous toucherez ${tauxParrain(moi, db)} % sur son installation — le jour où il l'aura réceptionnée.`
     )) return;
 
-    // Son compte : mêmes règles d'identifiant automatique. Il porte le lien vers vous.
-    const { user, motDePasse } = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
-    const filleul = { ...user, parrain_client_id: profile.id, parrain_nom: moi.nom_base || profile.nom };
-
-    // Un prospect, pour que l'équipe commerciale le rappelle vraiment.
-    const prospect = {
-      id: uid(), date: today(), commercial: null,
-      nom: nom.toUpperCase(), tel,
-      categorie: (db.categories_prospects || [])[0]?.nom || "Particulier",
-      statut: "Favorable",
-      interet: "Intéressé",
-      note: `🤝 Parrainé par le client ${moi.nom_base || profile.nom}${parr.note.trim() ? " — " + parr.note.trim() : ""}`,
-      parrain_user_id: profile.id,
-      client_user_id: null, // rempli à la création du compte, juste après
-    };
-
-    save({
-      ...db,
-      users: [...db.users, filleul],
-      prospects: [{ ...prospect, client_user_id: filleul.id, ...marqueEspace(db, profile) }, ...(db.prospects || [])],
-      messages: [...messagesNouveauClient(db, filleul, profile), ...(db.messages || [])],
-    }, `🤝 PARRAINAGE : ${nom.toUpperCase()} amené par le client ${profile.nom}`);
+    // ⚠ TOUT LE TRAVAIL PASSE PAR LE SERVEUR DEPUIS LE 25/08/2026.
+    //
+    // Avant, cet écran cherchait lui-même si le téléphone était déjà connu,
+    // fabriquait un identifiant libre et un mot de passe sans conflit, puis
+    // prévenait les administrateurs — quatre contrôles qui exigent de voir
+    // TOUTE la table des comptes. C'est ce qui obligeait à laisser l'annuaire
+    // entier de vos clients descendre sur le téléphone de chacun d'eux.
+    //
+    // Le serveur fait exactement les mêmes contrôles, et ne renvoie ici que
+    // l'identifiant et le mot de passe du filleul — de quoi écrire le
+    // message WhatsApp, rien de plus.
+    setParrainageEnCours(true);
+    const r = await creerFilleulEnLigne({ nom, tel, note: parr.note.trim() });
+    setParrainageEnCours(false);
+    if (r.error) { uAlert(r.error); return; }
+    const user = r.filleul;
+    const motDePasse = r.motDePasse;
 
     // ---- LE MESSAGE WHATSAPP AU FILLEUL ----
     // Exactement comme pour un devis : ses identifiants + le lien vers son espace.
@@ -572,7 +567,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
           <Field label="Nom de votre filleul"><input className={inputCls} placeholder="KOFFI AMA" value={parr.nom} onChange={(e) => setParr({ ...parr, nom: e.target.value })} /></Field>
           <Field label="Son numéro"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={parr.tel} onChange={(e) => setParr({ ...parr, tel: e.target.value })} /></Field>
           <Field label="Son besoin (facultatif)"><input className={inputCls} placeholder="Ex : maison 4 pièces" value={parr.note} onChange={(e) => setParr({ ...parr, note: e.target.value })} /></Field>
-          <button onClick={parrainer} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">🤝 Parrainer</button>
+          <button onClick={parrainer} disabled={parrainageEnCours} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{parrainageEnCours ? "⏳ Création du compte…" : "🤝 Parrainer"}</button>
         </div>
 
         {mesFilleuls.length > 0 && (

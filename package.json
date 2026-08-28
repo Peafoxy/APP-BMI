@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.101.0",
+  "version": "2.101.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -17,7 +17,8 @@
     "verifier-ecran-stocks": "node scripts/verifier-ecran-stocks.mjs",
     "apercu-etiquette": "node scripts/apercu-etiquette.mjs",
     "tester-injection-sql": "bash scripts/tester-injection-sql.sh",
-    "tester-reglement": "node scripts/tester-reglement.mjs"
+    "tester-reglement": "node scripts/tester-reglement.mjs",
+    "tester-parrainage": "node scripts/tester-parrainage.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

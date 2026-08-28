@@ -76,6 +76,38 @@ export async function chercherCompteEnLigne(nom, motDePasse) {
     return { error: `Serveur injoignable : ${e?.message || e}` };
   }
 }
+const URL_CREER_FILLEUL = BASE ? `${BASE}/api/creer-filleul` : "/api/creer-filleul";
+
+// ⚠ Le parrainage passe par le serveur depuis le 25/08/2026 (voir
+// api/creer-filleul.js). Les quatre contrôles qu'il exige — téléphone déjà
+// connu, identifiant libre, mot de passe sans conflit, administrateurs
+// prévenus — demandent de voir TOUTE la table des comptes. Les faire sur le
+// téléphone du client obligeait à lui envoyer l'annuaire entier de vos
+// clients. Ils se font désormais côté serveur.
+//
+// ⚠ Il faut donc du réseau pour parrainer. Ce n'est pas une régression :
+// le parrainage se termine par un message WhatsApp au filleul, qui en
+// demande déjà.
+export async function creerFilleulEnLigne({ nom, tel, note }) {
+  if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
+  if (!navigator.onLine) return { error: "Le parrainage demande une connexion internet. Réessayez une fois en ligne." };
+  try {
+    const { data } = await supabase.auth.getSession();
+    const jeton = data?.session?.access_token;
+    if (!jeton) return { error: "Votre session a expiré. Déconnectez-vous et reconnectez-vous pour parrainer." };
+    const reponse = await fetch(URL_CREER_FILLEUL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jeton, nom, tel, note }),
+    });
+    const corps = await reponse.json().catch(() => ({}));
+    if (!reponse.ok) return { error: corps?.error || `Le serveur a répondu ${reponse.status}.` };
+    return corps;
+  } catch (e) {
+    return { error: `Serveur injoignable : ${e?.message || e}` };
+  }
+}
+
 const URL_ETAT_AUTH = BASE ? `${BASE}/api/etat-auth` : "/api/etat-auth";
 
 // Identifiants de la session en cours, gardés EN MÉMOIRE uniquement (jamais
