@@ -594,6 +594,7 @@ export default function App() {
     const moi = db.users.find((u) => u.id === profile.id);
     const fermer = (message) => {
       setProfile(null);
+      basculerEspaceRegarde(false);
       try { localStorage.removeItem("bmi_session"); } catch {}
       uAlert(message);
     };
@@ -630,6 +631,7 @@ export default function App() {
     const saveLogin = db.users.length > 0 ? save : null;
     return <><DialogHost /><Login db={dbLogin} apparence={apparence} save={saveLogin} onLogin={(u) => {
     setProfile(u);
+    basculerEspaceRegarde(false);   // toute connexion démarre sur le RÉEL
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
     (async () => {
       // MIROIR : à chaque connexion avec réseau, retéléchargement complet du
@@ -685,6 +687,9 @@ export default function App() {
     // ligne. Leur exactitude est garantie par le miroir à chaque connexion
     // avec réseau — plus par l'effacement.
     setProfile(null);
+    // ⚠ On repart TOUJOURS du réel : le prochain à se connecter ne doit pas
+    // hériter d'un « je regarde l'entraînement » qu'il n'a pas choisi.
+    basculerEspaceRegarde(false);
     try { localStorage.removeItem("bmi_session"); } catch {}
   };
 
