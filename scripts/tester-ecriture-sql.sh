@@ -34,7 +34,7 @@ P="psql -h /tmp -p $PORT -U postgres -d bmi -v ON_ERROR_STOP=1 -tA"
 
 echo "▸ Environnement Supabase simulé + politiques réelles"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/test/fixture.sql
-for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql; do
+for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql; do
   psql -h /tmp -p $PORT -U postgres -d bmi -q -f "$f" >/dev/null 2>&1 || echo "   (⚠ $f partiellement rejoué)"
 done
 
@@ -89,6 +89,8 @@ essai "un client invente une vente de toutes pièces" "REFUSE" "$CLIENT" \
 essai "un client supprime une vente (déjà fermé en vague 2)" "REFUSE" "$CLIENT" \
   "with x as (delete from public.ventes where id='zv1' returning 1) select count(*) from x;"
 
+$P -c "insert into public.paie (id, data) values ('zv_kossi','{\"id\":\"zv_kossi\",\"salaire_base\":120000}') on conflict (id) do nothing;" >/dev/null 2>&1 || true
+
 echo
 echo "── CE QU'UN VENDEUR PEUT FAIRE HORS DE L'APPLICATION ──"
 essai "un vendeur se nomme ADMINISTRATEUR PRINCIPAL" "REFUSE" "$VENDEUR" \
@@ -97,6 +99,10 @@ essai "un vendeur s'augmente le salaire de l'administrateur" "REFUSE" "$VENDEUR"
   "with x as (update public.users set data = jsonb_set(data,'{salaire_base}','9000000') where id='za_timo' returning 1) select count(*) from x;"
 essai "un vendeur efface une dette client" "PERMIS" "$VENDEUR" \
   "with x as (update public.dettes set data = jsonb_set(data,'{paye}','800000') where id='zd1' returning 1) select count(*) from x;"
+essai "un vendeur s'augmente SON PROPRE salaire (table paie)" "REFUSE" "$VENDEUR" \
+  "with x as (update public.paie set data = jsonb_set(data,'{salaire_base}','900000') where id='zv_kossi' returning 1) select count(*) from x;"
+essai "un vendeur lit le salaire des autres (table paie)" "REFUSE" "$VENDEUR" \
+  "select count(*) from public.paie where id <> 'zv_kossi';"
 
 echo
 if [ $ko -eq 0 ]; then echo "✅  $ok vérification(s) passée(s), 0 en échec."; exit 0
