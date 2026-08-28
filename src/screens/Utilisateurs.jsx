@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, adminsVoyantLesDeuxEspaces, aDroit } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, adminsVoyantLesDeuxEspaces, aDroit , espaceDuCompte} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -52,7 +52,12 @@ export function Users({ db, save, profile }) {
   // partagée par la liste déroulante, l'avertissement sous la case à cocher
   // et le contrôle final avant création — pour qu'ils ne puissent jamais se
   // contredire.
-  const boutiquesDuFormulaire = db.boutiques.filter((b) => !b.terrain && !!b.formation === !!f.formationCompte);
+  // ⚠ PLUS DE CASE « compte de formation » (demande Timo, 26/08/2026) :
+  // le compte naît dans l'espace que vous REGARDEZ. Une case qu'on oublie de
+  // cocher crée un stagiaire qui vend pour de bon — le risque disparaît avec
+  // la case.
+  const espaceCree = espaceDuCompte(db, profile);
+  const boutiquesDuFormulaire = db.boutiques.filter((b) => !b.terrain && !!b.formation === !!espaceCree);
   const [msg, setMsg] = useState("");
 
   const creer = async () => {
@@ -96,12 +101,12 @@ export function Users({ db, save, profile }) {
     // n'existe créait un compte étiqueté formation mais rattaché à une
     // vraie boutique — qui vendait donc pour de bon (cas DODO / TOTO).
     if (!estMultiBoutique && !boutiquesDuFormulaire.some((b) => b.nom === f.boutique)) {
-      setMsg(f.formationCompte
-        ? "Impossible : aucune boutique de formation n'existe. Créez-en une dans ⚙ Paramètres → Boutiques (case « 🎓 C'est une boutique de formation »), sinon ce compte serait rattaché à une vraie boutique malgré son étiquette."
+      setMsg(espaceCree
+        ? "Impossible : aucune boutique d'entraînement n'existe. Créez-en une dans ⚙ Paramètres → Boutiques (en regardant 🎓 Formation), sinon ce compte serait rattaché à une vraie boutique malgré son étiquette."
         : "Choisissez la boutique de rattachement de ce compte.");
       return;
     }
-    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!f.formationCompte };
+    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!espaceCree };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
     // qu'un point de départ : n'importe quel admin peut toujours redonner
@@ -127,7 +132,7 @@ export function Users({ db, save, profile }) {
       // ⚠ La fiche Commerciaux suit l'espace du COMPTE créé, pas celui de
       // l'administrateur qui le crée : un admin réel crée bien un commercial
       // de formation quand il coche « compte de formation ».
-      next = { ...next, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, actif: true, ...(f.formationCompte ? { formation: true } : {}) }] };
+      next = { ...next, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, actif: true, ...(espaceCree ? { formation: true } : {}) }] };
     }
     save(next, `Création utilisateur ${f.nom} (${f.role})`);
     // Invitation WhatsApp — comme pour un client, mais sans conseil de
@@ -800,7 +805,7 @@ export function Users({ db, save, profile }) {
             <Field label="Boutique">
               <select className={inputCls} value={f.boutique} onChange={(e) => setF({ ...f, boutique: e.target.value })}>
                 {boutiquesDuFormulaire.length === 0
-                  ? <option value="">— aucune boutique {f.formationCompte ? "de formation" : "réelle"} —</option>
+                  ? <option value="">— aucune boutique {espaceCree ? "d'entraînement" : "réelle"} —</option>
                   : boutiquesDuFormulaire.map((b) => <option key={b.nom} value={b.nom}>{b.depot ? "🏭 " : "🏪 "}{b.nom}</option>)}
               </select>
             </Field>
@@ -820,23 +825,17 @@ export function Users({ db, save, profile }) {
               mêlé aux vrais — dans les listes, les relances, les contrats. */}
           {f.role && (
             <div className="mt-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                {/* Cocher change d'espace : la boutique retenue doit suivre,
-                    sinon elle reste sur celle de l'autre espace. */}
-                <input type="checkbox" checked={!!f.formationCompte} onChange={(e) => {
-                  const versFormation = e.target.checked;
-                  const dispo = db.boutiques.filter((b) => !b.terrain && !!b.formation === versFormation);
-                  setF({ ...f, formationCompte: versFormation, boutique: dispo[0]?.nom || "" });
-                }} />
-                🎓 Compte de formation — ne verra que les boutiques de formation, jamais les vraies
-              </label>
-              {/* Prévenir MAINTENANT, pas au moment du clic sur Créer : on
-                  évite de remplir tout le formulaire pour rien. */}
-              {f.formationCompte && SALARIES_BOUTIQUE.includes(f.role) && boutiquesDuFormulaire.length === 0 && (
+              {/* ⚠ Une phrase qui ne se coche pas ne peut pas être oubliée. */}
+              <div className={`text-xs font-semibold rounded-lg px-3 py-2 ${espaceCree ? "bg-violet-50 border border-violet-200 text-violet-800" : "bg-sky-50 border border-sky-200 text-sky-800"}`}>
+                {espaceCree
+                  ? "🎓 Ce compte sera créé dans l'espace D'ENTRAÎNEMENT — il ne verra jamais les vraies boutiques."
+                  : "Ce compte sera créé dans l'espace RÉEL — c'est celui que vous regardez."}
+              </div>
+              {espaceCree && SALARIES_BOUTIQUE.includes(f.role) && boutiquesDuFormulaire.length === 0 && (
                 <div className="mt-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-2.5 text-xs text-amber-900">
-                  <b>Aucune boutique de formation n'existe encore.</b> Créez-en une dans <b>⚙ Paramètres → Boutiques</b>
-                  {" "}(case « 🎓 C'est une boutique de formation ») avant de créer ce compte — sinon il serait rattaché
-                  à une vraie boutique, et travaillerait pour de bon malgré son étiquette.
+                  <b>Aucune boutique d'entraînement n'existe encore.</b> Créez-en une dans <b>⚙ Paramètres → Boutiques</b>
+                  {" "}avant de créer ce compte — sinon il serait rattaché à une vraie boutique, et travaillerait pour
+                  de bon malgré son étiquette.
                 </div>
               )}
             </div>

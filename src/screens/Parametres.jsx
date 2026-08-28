@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -282,14 +282,13 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (db.boutiques.some((b) => b.nom === nom)) { uAlert("Cette boutique existe déjà."); return; }
     // Le serveur refuserait la ligne : on l'arrête ici, avec la raison,
     // plutôt que de la laisser bloquer la file d'attente.
-    const formation = jeVoisLesDeuxEspaces ? !!f.formation : monEspaceFormation;
-    if (!jeVoisLesDeuxEspaces && !!f.formation !== monEspaceFormation) {
-      uAlert(`Votre compte travaille dans l'espace ${monEspaceFormation ? "FORMATION" : "RÉEL"} : vous ne pouvez créer qu'une boutique de cet espace.\n\nDemandez à l'administrateur principal s'il vous en faut une autre.`);
-      return;
-    }
+    // ⚠ PLUS DE CASE À COCHER (demande Timo, 26/08/2026) : la boutique naît
+    // dans l'espace que vous REGARDEZ. Cocher une case en regardant l'autre
+    // espace créait une boutique qui disparaissait aussitôt de la vue.
+    const formation = espaceDuCompte(db, profile);
     save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation, adresse: f.adresse.trim(), tel: f.tel.trim() }] });
-    setF({ nom: "", couleur: "#2563eb", depot: false, formation: jeVoisLesDeuxEspaces ? false : monEspaceFormation, adresse: "", tel: "" });
-    uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom}${f.formation ? " (formation)" : ""} créé(e) !`);
+    setF({ nom: "", couleur: "#2563eb", depot: false, adresse: "", tel: "" });
+    uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom}${formation ? " — espace D'ENTRAÎNEMENT" : ""} créé(e) !`);
   };
 
   const basculerDepot = async (b) => {
@@ -805,16 +804,14 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <input type="checkbox" checked={!!f.depot} onChange={(e) => setF({ ...f, depot: e.target.checked })} />
           🏭 C'est un <b>magasin (dépôt)</b> : on y stocke la marchandise, on n'y vend pas. Il sert à ravitailler les boutiques.
         </label>
-        <label className={`flex items-center gap-2 text-sm font-semibold mt-2 ${jeVoisLesDeuxEspaces ? "text-slate-700" : "text-slate-400"}`}>
-          <input type="checkbox" checked={!!f.formation} disabled={!jeVoisLesDeuxEspaces}
-                 onChange={(e) => setF({ ...f, formation: e.target.checked })} />
-          🎓 C'est une <b>boutique de formation</b> : pour s'entraîner sans risque — ses chiffres n'apparaissent jamais dans le Tableau de bord.
-        </label>
-        {!jeVoisLesDeuxEspaces && (
-          <div className="text-xs text-amber-700 mt-1">
-            Votre compte travaille dans l'espace {monEspaceFormation ? "FORMATION" : "RÉEL"} : toute boutique que vous créez appartient à cet espace. Seul l'administrateur principal peut créer dans l'autre.
-          </div>
-        )}
+        {/* ⚠ Une phrase qui ne se coche pas ne peut pas être oubliée. Elle
+            suit le sélecteur « je regarde » du menu. */}
+        <div className={`mt-2 text-xs font-semibold rounded-lg px-3 py-2 ${espaceDuCompte(db, profile) ? "bg-violet-50 border border-violet-200 text-violet-800" : "bg-sky-50 border border-sky-200 text-sky-800"}`}>
+          {espaceDuCompte(db, profile)
+            ? "🎓 Cette boutique sera créée dans l'espace D'ENTRAÎNEMENT — c'est celui que vous regardez."
+            : "Cette boutique sera créée dans l'espace RÉEL — c'est celui que vous regardez."}
+          {jeVoisLesDeuxEspaces && " Pour créer dans l'autre espace, changez « Je regarde » en haut du menu."}
+        </div>
         <div className="text-xs text-slate-400 mt-2">La localisation et le téléphone pourront toujours être ajoutés ou modifiés plus tard, ci-dessous (« 📍 Infos reçu »).</div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Créer</button>
       </div>

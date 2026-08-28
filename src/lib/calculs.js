@@ -645,7 +645,13 @@ export const espaceDuCompte = (db, profile) =>
 // (écran sans boutique), on retombe sur l'espace du compte, comme avant.
 export const marqueEspace = (db, profile, boutique) => {
   if (boutique) return estBoutiqueFormation(db, boutique) ? { formation: true } : {};
-  return estCompteFormation(db, profile) ? { formation: true } : {};
+  // ⚠ CORRIGÉ LE 26/08/2026 — défaut introduit la veille par le sélecteur
+  // « je regarde ». Cette marque s'appuyait sur QUI VOUS ÊTES ; depuis que
+  // l'administrateur peut regarder l'entraînement, elle doit s'appuyer sur
+  // OÙ VOUS TRAVAILLEZ. Sans ce changement, un client créé en regardant la
+  // formation partait dans les VRAIES données — et disparaissait de l'écran
+  // dans la seconde, puisque l'affichage, lui, suivait déjà le sélecteur.
+  return espaceDuCompte(db, profile) ? { formation: true } : {};
 };
 
 // ⚠ Demande Timo : le PV de réception doit apparaître sur la MÊME fiche

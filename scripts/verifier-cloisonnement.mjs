@@ -2362,5 +2362,49 @@ titre("« Je regarde le réel » / « je regarde l'entraînement » — un seul 
   test("le réglage revient au réel", C.regardeLaFormation() === false);
 }
 
+titre("Ce qu'on crée naît dans l'espace qu'on REGARDE (plus de case à cocher)");
+{
+  // ⚠ DEMANDE TIMO (26/08/2026) : « lors de la création d'un utilisateur ou
+  // boutique ou magasin, plus à cocher... ça prend en même temps l'espace
+  // dans lequel je me trouve ».
+  //
+  // ⚠ ET UN DÉFAUT QUE LE SÉLECTEUR AVAIT CRÉÉ LA VEILLE : marqueEspace
+  // s'appuyait sur QUI VOUS ÊTES. Un client créé en regardant l'entraînement
+  // partait donc dans les VRAIES données — et disparaissait de l'écran dans
+  // la seconde, puisque l'affichage suivait déjà le sélecteur.
+  const db = base();
+  db.users.push({ id: "u_adm_form", nom: "ADMIN-FORM", role: "admin", formation: true });
+  const adminEnFormation = { id: "u_adm_form", nom: "ADMIN-FORM", role: "admin" };
+
+  C.setRegardeFormation(false);
+  test("★ en regardant le réel, ce qu'on crée est RÉEL",
+    JSON.stringify(C.marqueEspace(db, P.admin)) === "{}");
+  C.setRegardeFormation(true);
+  test("★ en regardant l'entraînement, ce qu'on crée est d'ENTRAÎNEMENT",
+    C.marqueEspace(db, P.admin).formation === true);
+  C.setRegardeFormation(false);
+
+  // ⚠ La boutique, quand elle est connue, garde le dernier mot : une vente
+  // enregistrée DANS une boutique d'entraînement est d'entraînement, quel
+  // que soit le réglage de celui qui la saisit.
+  test("la boutique prime toujours sur le réglage",
+    C.marqueEspace(db, P.admin, "APESSITO FORMATION").formation === true
+    && JSON.stringify(C.marqueEspace(db, P.admin, "APESSITO")) === "{}");
+  C.setRegardeFormation(true);
+  test("…dans les deux sens",
+    JSON.stringify(C.marqueEspace(db, P.admin, "APESSITO")) === "{}");
+  C.setRegardeFormation(false);
+
+  // Les comptes cloisonnés ne sont pas concernés par le réglage.
+  test("★ un compte de formation crée toujours dans la formation",
+    C.marqueEspace(db, P.stagiaire).formation === true);
+  test("★ …y compris un ADMINISTRATEUR placé en formation",
+    C.marqueEspace(db, adminEnFormation).formation === true);
+  C.setRegardeFormation(true);
+  test("★ …et un compte du RÉEL ne crée jamais dans l'entraînement",
+    JSON.stringify(C.marqueEspace(db, P.admin2)) === "{}");
+  C.setRegardeFormation(false);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
