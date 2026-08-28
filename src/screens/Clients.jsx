@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
-import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue } from "../lib/calculs";
+import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
@@ -30,7 +30,10 @@ export function CreerClient({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     const nom = f.nom.trim(), tel = f.tel.trim();
     if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom du client et son numéro (au moins 4 chiffres)."); return; }
-    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && chiffresTel(u.tel) === chiffresTel(tel));
+    // ⚠ memeNumero, pas une égalité de chiffres bruts : « +228 90 11 22 33 »
+    // et « 90112233 » sont la MÊME personne (voir lib/identiteClient.js).
+    // Avant ce correctif, un doublon se créait sans que personne ne le voie.
+    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, tel));
     if (existant) { uAlert(`Un compte existe déjà pour ce numéro : ${existant.nom}.\n\nRien n'a été recréé.`); return; }
 
     const identifiant = identifiantClient(db, nom, tel);
@@ -85,7 +88,26 @@ export function CreerClient({ db, save, profile }) {
 
         <div className="grid sm:grid-cols-2 gap-2 items-end mb-3">
           <Field label="Nom du client"><input className={inputCls} placeholder="KOFFI AMA" value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
-          <Field label="Numéro WhatsApp"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+          <Field label="Numéro WhatsApp">
+            <input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} />
+            {/* ⚠ PRÉSÉLECTION (demande Timo) : on ne laisse plus l'utilisateur
+                tout saisir pour lui refuser la création à la fin. Dès que le
+                numéro est reconnu, on montre QUI le porte. */}
+            {(() => {
+              const dejaLa = comptesAvecCeNumero(db, profile, f.tel);
+              if (!dejaLa.length) return null;
+              return (
+                <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50">
+                  {dejaLa.map((u) => (
+                    <button key={u.id} type="button" onClick={() => setF({ ...f, nom: u.nom_base || u.nom, tel: u.tel })}
+                      className="block w-full text-left px-2 py-1 text-xs font-semibold text-amber-900 whitespace-nowrap hover:bg-amber-100 border-b border-amber-200 last:border-b-0">
+                      ⚠ Déjà client : {u.nom_base || u.nom} — {u.tel}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </Field>
         </div>
 
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-3">

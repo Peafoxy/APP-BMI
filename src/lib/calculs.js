@@ -11,6 +11,12 @@ import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today } fro
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
+import { memeNumero, numeroComparable } from "./identiteClient";
+// ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
+// même jour. Un import ne rend pas la fonction disponible aux écrans qui
+// importent depuis calculs.js : il faut le dire explicitement. La première
+// fois, seul le banc l'a vu ; ici c'est la construction qui a refusé.
+export { memeNumero, numeroComparable };
 
 // ============ CALCULS ============
 // ═══════════ LOT D (2.99.45) : INDEX PRÉCALCULÉS ═══════════
@@ -1001,6 +1007,29 @@ export const articlesSimilaires = (db, profile, boutique, nom, limite = 6) => {
   return [...parNom.values()]
     .sort((x, y) => rang(x.article) - rang(y.article)
       || normNom(x.article.nom).localeCompare(normNom(y.article.nom)))
+    .slice(0, limite);
+};
+
+// ⚠ QUI PORTE DÉJÀ CE NUMÉRO ? (demande Timo, 25/08/2026)
+//
+// Le contrôle « ce numéro est-il déjà connu ? » existait dans trois écrans,
+// et les trois comparaient les CHIFFRES BRUTS : « +228 90 11 22 33 » et
+// « 90112233 » n'étaient donc pas reconnus comme la même personne. On créait
+// un doublon sans le savoir — et en parrainage, une deuxième prime était due.
+//
+// Et plutôt que de laisser l'utilisateur tout saisir avant de se voir refuser
+// la création, on PROPOSE : dès qu'il tape le numéro, ceux qui le portent
+// déjà s'affichent. Même principe que la présélection d'articles — on ne pose
+// pas une question, on rend service.
+export const comptesAvecCeNumero = (db, profile, tel, limite = 5) => {
+  const cherche = numeroComparable(tel);
+  if (cherche.length < 4) return [];
+  // ⚠ Cloisonnement : un compte de formation ne doit pas voir les vrais
+  // clients, ni l'inverse — même règle que partout ailleurs.
+  const espace = espaceDuCompte(db, profile);
+  return (db.users || [])
+    .filter((u) => u.tel && memeNumero(u.tel, tel))
+    .filter((u) => espace === undefined || !!u.formation === espace)
     .slice(0, limite);
 };
 

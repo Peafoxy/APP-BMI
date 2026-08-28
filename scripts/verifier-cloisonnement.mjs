@@ -2203,5 +2203,49 @@ titre("Aucun mouvement de stock entre le RÉEL et l'ENTRAÎNEMENT (question de T
     C.refusMouvementEntreEspaces(db, "APESSITO", "APESSITO FORMATION").includes("APESSITO FORMATION"));
 }
 
+titre("Un numéro déjà connu est retrouvé, quelle que soit son écriture (demande Timo, 25/08/2026)");
+{
+  // ⚠ CE QUE CE BLOC PROTÈGE. Trois écrans comparaient les CHIFFRES BRUTS
+  // de deux numéros : « +228 90 11 22 33 » et « 90112233 » n'étaient donc
+  // pas la même personne. On créait un doublon sans le voir — et en
+  // parrainage, une DEUXIÈME PRIME était due pour un filleul déjà client.
+  const db = {
+    ...base(),
+    users: [
+      { id: "u_admin", nom: "TIMO", role: "admin", admin_principal: true },
+      // ⚠ Sans cette ligne, espaceDuCompte ne retrouvait pas ce compte dans
+      // la base d'essai et ne filtrait rien : le test échouait pour une
+      // raison qui n'avait rien à voir avec ce qu'il vérifie.
+      { id: "u_admin2", nom: "ADMIN2", role: "admin", droits_off: ["act_voir_tout"] },
+      { id: "c1", nom: "KOFFI", nom_base: "KOFFI", role: "client", tel: "+228 90 11 22 33" },
+      { id: "c2", nom: "AMA", nom_base: "AMA", role: "client", tel: "91 44 55 66" },
+      { id: "c3", nom: "STAGIAIRE CLI", nom_base: "ESSAI", role: "client", tel: "90112233", formation: true },
+    ],
+  };
+  const trouve = (tel, profile = P.admin2) => C.comptesAvecCeNumero(db, profile, tel);
+
+  test("★ le numéro sans indicatif retrouve la fiche écrite AVEC l'indicatif",
+    trouve("90112233").some((u) => u.id === "c1"));
+  test("★ …et l'écriture avec espaces ou tirets aussi",
+    trouve("90-11-22-33").length > 0 && trouve("90 11 22 33").length > 0);
+  test("★ …et la forme internationale 00228",
+    trouve("0022890112233").some((u) => u.id === "c1"));
+  test("un numéro inconnu ne propose personne", trouve("99999999").length === 0);
+  test("moins de 4 chiffres ne propose rien (pas de bruit pendant la frappe)",
+    trouve("901").length === 0);
+  test("un autre client n'est pas confondu", trouve("91445566")[0].id === "c2");
+
+  // ⚠ Le cloisonnement s'applique ici comme partout : c3 porte le MÊME
+  // numéro que c1, mais dans l'espace d'entraînement.
+  test("★ un compte réel ne se voit pas proposer le client d'entraînement",
+    trouve("90112233").every((u) => !u.formation));
+  const stagiaire = { id: "u_form_num", role: "vendeur" };
+  db.users.push({ id: "u_form_num", nom: "STAGIAIRE", role: "vendeur", formation: true });
+  test("★ …et un compte de formation ne voit pas le vrai client",
+    trouve("90112233", stagiaire).every((u) => !!u.formation));
+  test("l'admin principal, qui voit tout, retrouve les deux",
+    C.comptesAvecCeNumero(db, P.admin, "90112233").length === 2);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -9,7 +9,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, marqueEspace, espaceDuCompte } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 export function Prospects({ db, save, profile, isAdmin }) {
@@ -90,7 +90,9 @@ export function Prospects({ db, save, profile, isAdmin }) {
     if (chiffresTel(p.tel).length < 4) { uAlert("Ce prospect n'a pas de numéro valide : impossible de créer son compte."); return; }
 
     // Déjà un compte pour ce numéro ? On ne recrée pas.
-    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && chiffresTel(u.tel) === chiffresTel(p.tel));
+    // ⚠ Même correctif que dans Clients : « +228 90 11 22 33 » et
+    // « 90112233 » sont la MÊME personne (voir lib/identiteClient.js).
+    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, p.tel));
     if (existant) {
       uAlert(`Un compte client existe déjà pour ce numéro (${existant.nom}).\n\nRien n'a été recréé.`);
       return;
@@ -271,7 +273,24 @@ export function Prospects({ db, save, profile, isAdmin }) {
                   </select>
                 </Field>
                 <Field label="Nom du prospect"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
-                <Field label="Numéro"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+                <Field label="Numéro">
+                  <input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} />
+                  {/* Présélection : ce numéro est-il déjà un client ? */}
+                  {(() => {
+                    const dejaLa = comptesAvecCeNumero(db, profile, f.tel);
+                    if (!dejaLa.length) return null;
+                    return (
+                      <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50">
+                        {dejaLa.map((u) => (
+                          <button key={u.id} type="button" onClick={() => setF({ ...f, nom: u.nom_base || u.nom, tel: u.tel })}
+                            className="block w-full text-left px-2 py-1 text-xs font-semibold text-amber-900 whitespace-nowrap hover:bg-amber-100 border-b border-amber-200 last:border-b-0">
+                            ⚠ Déjà client : {u.nom_base || u.nom} — {u.tel}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </Field>
                 <div className="lg:col-span-2">
                   <Field label="Localisation (quartier, repère)">
                     <div className="flex gap-2">

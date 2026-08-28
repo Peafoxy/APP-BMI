@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -630,7 +630,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // Client : on tente de retrouver un compte existant par téléphone (le plus
     // fiable) pour pré-remplir le destinataire ; sinon le vendeur le choisira
     // ou en créera un, exactement comme pour un devis créé de zéro.
-    const clientTrouve = v.tel ? db.users.find((u) => u.role === "client" && telDigits(u.tel) && telDigits(u.tel) === telDigits(v.tel)) : null;
+    // ⚠ memeNumero : un numéro noté avec l'indicatif ne retrouvait pas son
+    // compte, et le devis repartait sans destinataire.
+    const clientTrouve = v.tel ? db.users.find((u) => u.role === "client" && u.tel && memeNumero(u.tel, v.tel)) : null;
     onTransformerEnDevis({
       depuis_vente: true,
       client: clientTrouve || null,
