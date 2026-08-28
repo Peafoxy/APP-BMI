@@ -268,6 +268,23 @@ export default function App() {
     if (!id) return;
     try { localStorage.setItem(`${CLE_REGARDE}:${id}`, v ? "1" : "0"); } catch { /* navigation privée */ }
   };
+  // ⚠ RÈGLE POSÉE PAR TIMO (26/08/2026) : « à la déconnexion, revenir sur
+  // réel... mais à un chargement de nouvelle version ou de la page, on ne
+  // doit pas changer d'espace ».
+  //
+  // C'est la bonne frontière, et elle est plus juste que celle que j'avais
+  // choisie : ce qui compte n'est pas le rechargement, c'est la FIN DE LA
+  // SESSION. Tant que la même personne travaille, l'application ne décide
+  // rien à sa place — F5 ou nouvelle version ne changent rien. Mais quand
+  // elle s'en va, le réglage meurt avec sa session : personne ne revient le
+  // lendemain dans un espace qu'il a oublié avoir quitté.
+  const terminerEspaceRegarde = () => {
+    const id = profile?.id;
+    if (id) { try { localStorage.setItem(`${CLE_REGARDE}:${id}`, "0"); } catch { /* rien */ } }
+    setRegardeFormation(false);
+    setRegardeFormationEtat(false);
+  };
+
   // Applique le réglage mémorisé d'un compte sans le réécrire.
   const restaurerEspaceRegarde = (id) => {
     const v = lireEspaceRegarde(id);
@@ -629,10 +646,9 @@ export default function App() {
     const moi = db.users.find((u) => u.id === profile.id);
     const fermer = (message) => {
       setProfile(null);
-      // ⚠ On repasse au réel à l'écran, mais SANS effacer la préférence du
-      // compte : c'est le suivant qui ne doit pas hériter, pas celui-ci qui
-      // doit perdre son réglage.
-      restaurerEspaceRegarde(null);
+      // Fin de session : le réglage meurt avec elle (voir
+      // terminerEspaceRegarde).
+      terminerEspaceRegarde();
       try { localStorage.removeItem("bmi_session"); } catch {}
       uAlert(message);
     };
@@ -669,7 +685,11 @@ export default function App() {
     const saveLogin = db.users.length > 0 ? save : null;
     return <><DialogHost /><Login db={dbLogin} apparence={apparence} save={saveLogin} onLogin={(u) => {
     setProfile(u);
-    restaurerEspaceRegarde(u.id);   // il retrouve l'espace qu'il regardait
+    // ⚠ Une connexion démarre TOUJOURS sur le réel, puisque la déconnexion
+    // précédente a remis le réglage à zéro. On relit quand même la valeur
+    // mémorisée plutôt que de forcer « false » : c'est elle qui fait
+    // autorité, et on évite deux vérités contradictoires dans le même code.
+    restaurerEspaceRegarde(u.id);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
     (async () => {
       // MIROIR : à chaque connexion avec réseau, retéléchargement complet du
@@ -725,10 +745,9 @@ export default function App() {
     // ligne. Leur exactitude est garantie par le miroir à chaque connexion
     // avec réseau — plus par l'effacement.
     setProfile(null);
-    // ⚠ Le prochain à se connecter ne doit pas hériter de ce réglage : on
-    // revient au réel à l'écran, sans effacer la préférence de celui qui
-    // part — il la retrouvera à sa prochaine connexion.
-    restaurerEspaceRegarde(null);
+    // Fin de session : le réglage meurt avec elle (voir
+    // terminerEspaceRegarde).
+    terminerEspaceRegarde();
     try { localStorage.removeItem("bmi_session"); } catch {}
   };
 
