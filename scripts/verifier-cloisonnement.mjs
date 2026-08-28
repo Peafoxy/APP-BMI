@@ -2406,5 +2406,36 @@ titre("Ce qu'on crée naît dans l'espace qu'on REGARDE (plus de case à cocher)
   C.setRegardeFormation(false);
 }
 
+titre("Le sélecteur « je regarde » n'appartient qu'à l'administrateur PRINCIPAL");
+{
+  // ⚠ TIMO, 26/08/2026 : « tout ce qu'on construit actuellement, c'est pour
+  // l'admin principal normalement ». Mesure faite avant de le croire sur
+  // parole : ce n'était PAS le cas. La condition posée était « voit les deux
+  // espaces », c'est-à-dire le pouvoir act_voir_tout — ACTIF PAR DÉFAUT sur
+  // tout compte administrateur. Un second administrateur pouvait donc
+  // basculer sur l'entraînement et y créer des données.
+  //
+  // ⚠ Ce banc ne peut pas cliquer sur un bouton : il vérifie la RÈGLE qui
+  // décide de son affichage, et surtout que les autres comptes restent
+  // bloqués sur le réel quoi qu'il arrive.
+  const db = base();
+  const seul = (p) => C.estAdminPrincipal(db, p);
+
+  test("★ l'administrateur PRINCIPAL a le sélecteur", seul(P.admin) === true);
+  test("★ un autre administrateur ne l'a pas", seul(P.admin2) === false);
+  test("un vendeur ne l'a pas", seul(P.vendeur) === false);
+  test("un stagiaire ne l'a pas", seul(P.stagiaire) === false);
+
+  // ⚠ ET SURTOUT : même si le réglage était forcé, un compte qui n'a pas le
+  // bouton ne doit pas se retrouver dans l'entraînement.
+  C.setRegardeFormation(true);
+  const noms = (p) => C.boutiquesVisibles(db, p, db.boutiques.filter((b) => !b.terrain)).map((b) => b.nom);
+  test("★ un autre administrateur reste sur le réel même réglage forcé",
+    noms(P.admin2).length > 0 && noms(P.admin2).every((n) => !n.includes("FORMATION")));
+  test("★ …et ce qu'il crée reste réel",
+    JSON.stringify(C.marqueEspace(db, P.admin2)) === "{}");
+  C.setRegardeFormation(false);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

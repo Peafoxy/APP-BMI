@@ -97,7 +97,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, chantiersAReconcilier, construireIndexDb,
-  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace, setRegardeFormation, voitLesDeuxEspaces, boutiquesFormation
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace, setRegardeFormation, voitLesDeuxEspaces, boutiquesFormation, estAdminPrincipal
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -291,8 +291,22 @@ export default function App() {
     setRegardeFormation(v);
     setRegardeFormationEtat(v);
   };
+  // ⚠ RÉSERVÉ À L'ADMINISTRATEUR PRINCIPAL (Timo, 26/08/2026 : « tout ce
+  // qu'on construit actuellement, c'est pour l'admin principal
+  // normalement »). Mesure faite avant de le croire sur parole : ce n'était
+  // PAS le cas. La condition était « voit les deux espaces » — c'est-à-dire
+  // le pouvoir act_voir_tout, ACTIF PAR DÉFAUT sur tout compte
+  // administrateur. Un second administrateur pouvait donc basculer sur
+  // l'entraînement, le consulter, et y créer des données puisque depuis la
+  // veille ce qu'on crée suit l'espace regardé.
+  //
+  // ⚠ On restreint le BOUTON, pas voitLesDeuxEspaces : cette fonction sert
+  // aussi au verrou d'écriture et à d'autres écrans. La toucher aurait
+  // changé bien plus que ce qui était demandé. Conséquence : un autre
+  // administrateur reste en permanence sur le réel — ce qui est exactement
+  // l'intention.
   const peutRegarderLaFormation = db && profile
-    && voitLesDeuxEspaces(db, profile) && boutiquesFormation(db).size > 0;
+    && estAdminPrincipal(db, profile) && boutiquesFormation(db).size > 0;
 
   const [dossierAuto, setDossierAuto] = useState(null);
   const [dernierAuto, setDernierAuto] = useState(null);
