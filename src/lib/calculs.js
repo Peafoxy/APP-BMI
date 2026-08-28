@@ -102,18 +102,14 @@ export const estCompteFormation = (db, profile) => {
 // la 2.100.24. Ils ne sont pas en panne (voir ci-dessus), mais leur
 // bascule n'a jamais rien produit : l'administrateur doit la refaire pour
 // qu'elle prenne effet.
-// Les administrateurs — autres que le principal — qui traversent encore les
-// deux espaces. ⚠ Le pouvoir « act_voir_tout » est ACCORDÉ par défaut :
-// aDroit() le rend vrai tant qu'il n'est pas explicitement retiré. Il n'est
-// posé dans droits_off qu'à la CRÉATION d'un nouvel admin — tous ceux
-// créés avant ce réglage l'ont donc encore, et le cloisonnement ne
-// s'applique pas à eux. Sur une installation avec plusieurs admins, c'est
-// la porte la plus large qui reste ouverte.
-export const adminsVoyantLesDeuxEspaces = (db) =>
-  (db.users || []).filter((u) =>
-    u.role === "admin" && u.actif !== false
-    && adminPrincipal(db)?.id !== u.id
-    && aDroit(db, u, "act_voir_tout"));
+// ⚠ SUPPRIMÉ EN 2.101.14 : adminsVoyantLesDeuxEspaces(db).
+// Cette fonction listait les administrateurs qui traversaient encore le mur
+// formation / réel, pour que l'administrateur principal puisse les
+// cloisonner un par un. Depuis que voitLesDeuxEspaces() ne répond vrai que
+// pour l'administrateur PRINCIPAL, cette liste est vide par construction :
+// plus personne ne traverse, il n'y a donc plus rien à signaler ni à
+// corriger. Le pouvoir « act_voir_tout » qu'elle interrogeait a disparu de
+// ACTIONS_POUVOIR pour la même raison — il ne commandait plus rien.
 
 export const comptesEspaceIncoherent = (db) =>
   (db.users || []).filter((u) => {
@@ -123,10 +119,23 @@ export const comptesEspaceIncoherent = (db) =>
   });
 
 // Qui a le droit de voir (et de toucher) les DEUX espaces à la fois :
-// l'admin PRINCIPAL toujours, un autre admin seulement si on lui a
-// explicitement laissé le pouvoir "act_voir_tout" (ACTIONS_POUVOIR).
-export const voitLesDeuxEspaces = (db, profile) =>
-  estAdminPrincipal(db, profile) || (profile?.role === "admin" && aDroit(db, profile, "act_voir_tout"));
+// l'administrateur PRINCIPAL, et personne d'autre.
+// ⚠ RÈGLE POSÉE PAR TIMO (26/08/2026), mot pour mot : « je suis le seul
+// admin principal qui peut voir les 2 espaces à la fois. Le reste, soit tu
+// es admin formation, soit admin réel ».
+//
+// Avant, la dérogation était accordée à TOUT compte administrateur, via le
+// pouvoir act_voir_tout — actif par défaut. « Voir tout » voulait donc dire
+// « voir les deux espaces », ce qui n'a jamais été l'intention : ce pouvoir
+// sert à voir toutes les BOUTIQUES de son espace, pas à traverser le mur
+// entre le réel et l'entraînement.
+//
+// Conséquence assumée, et c'est le fond de la demande : un administrateur
+// autre que le principal appartient à UN espace et un seul. Il n'y voit que
+// ses boutiques, n'y crée que ses données, et le verrou d'écriture — qui lui
+// rendait la main jusqu'ici — s'applique désormais à lui comme à tout le
+// monde.
+export const voitLesDeuxEspaces = (db, profile) => estAdminPrincipal(db, profile);
 
 // ⚠ Séparation formation/réel PAR COMPTE (demande Timo, suite au drapeau
 // formation déjà posé sur les boutiques) : un compte marqué formation ne
@@ -613,8 +622,8 @@ export function contratsInstallation(db, { commercial, clientId, payeSeulement, 
 }
 
 // L'espace à passer aux fonctions ci-dessus pour le compte connecté :
-// undefined quand il a le droit de voir les deux (admin principal,
-// act_voir_tout), sinon son propre espace.
+// undefined quand il a le droit de voir les deux (l'administrateur
+// PRINCIPAL, et lui seul), sinon son propre espace.
 // ⚠ Suit le même réglage : en « Réels », un administrateur ne se voit plus
 // proposer les fournisseurs ni les commerciaux d'entraînement. Sans cela,
 // les onglets de boutique seraient propres mais les listes resteraient
@@ -1281,10 +1290,11 @@ export const ACTIONS_POUVOIR = [
   ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
   ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
   ["act_taches", "✅ Assigner des tâches", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
-  // ⚠ Désactivé par défaut pour tout nouvel admin (voir droits_off posé à
-  // la création, Utilisateurs.jsx) — seul l'admin PRINCIPAL peut le
-  // redonner à un autre admin, comme les autres pouvoirs sensibles.
-  ["act_voir_tout", "👁️ Voir les boutiques de formation ET réelles ensemble", (r) => r === "admin"],
+  // ⚠ RETIRÉ EN 2.101.14 : « act_voir_tout » (voir les deux espaces).
+  // Il ne commande plus rien — seul l'administrateur PRINCIPAL traverse le
+  // mur formation / réel, et ce n'est pas un pouvoir qu'on accorde, c'est
+  // ce qu'il EST. Les fiches qui portent encore « act_voir_tout » dans
+  // droits_off ne s'en trouvent pas gênées : un pouvoir inconnu est ignoré.
 ];
 
 export const pouvoirsDuRole = (role) => [
@@ -1352,7 +1362,7 @@ const memeEnregistrement = (a, b) => {
 // trouvée : { table, boutique, espaceBoutique }.
 export function verifierEcritureEspace(prev, next, profile) {
   if (!profile) return null;
-  if (voitLesDeuxEspaces(next, profile)) return null;   // admin principal, ou pouvoir act_voir_tout
+  if (voitLesDeuxEspaces(next, profile)) return null;   // l'administrateur principal, et lui seul
   const monEspace = estCompteFormation(next, profile);
 
   // Une boutique du BON espace, ou une valeur vide/inconnue qu'on laisse

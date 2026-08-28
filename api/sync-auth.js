@@ -154,13 +154,23 @@ export default async function handler(req, res) {
     // refuse est une application cassée.
     //
     // La règle reproduit EXACTEMENT voitLesDeuxEspaces() de lib/calculs.js :
-    // l'administrateur principal (toujours), et tout administrateur qui a
-    // conservé le pouvoir « act_voir_tout ». Un administrateur à qui ce
-    // pouvoir a été retiré redevient cloisonné, drapeau formation compris —
-    // c'est ce que fait déjà l'application.
-    const voitLesDeuxEspaces = champs.role === "admin"
-      && (champs.admin_principal === true
-          || !(Array.isArray(champs.droits_off) ? champs.droits_off : []).includes("act_voir_tout"));
+    // SEUL l'administrateur principal traverse le mur formation / réel.
+    //
+    // ⚠ RESSERRAGE (demandé par Timo, 28/08/2026) : « Je suis le seul admin
+    // principal qui peut voir les 2 espaces à la fois. Le reste, soit tu es
+    // admin formation, soit admin réel. » Avant, tout administrateur qui
+    // avait gardé le pouvoir « act_voir_tout » recevait 'tous'. Or
+    // act_voir_tout n'a jamais voulu dire « traverser le mur entre le réel
+    // et la formation » : il veut dire « voir toutes les boutiques de SON
+    // espace ». Les deux notions avaient été confondues, ce qui donnait à
+    // chaque administrateur secondaire une revendication 'tous' — et donc
+    // des politiques RLS ouvertes sur les deux côtés.
+    //
+    // ⚠ Cette revendication n'est réécrite qu'À LA CONNEXION. Les
+    // administrateurs déjà connectés gardent leur ancien 'tous' jusqu'à
+    // leur prochaine reconnexion : c'est le comportement voulu (aucune
+    // session n'est cassée en cours de route), mais il faut le savoir.
+    const voitLesDeuxEspaces = champs.role === "admin" && champs.admin_principal === true;
     const espace = voitLesDeuxEspaces ? "tous" : (champs.formation ? "formation" : "reel");
 
     // ⚠ FAILLE N° 3 — LE SERVEUR NE CONNAISSAIT QUE « connecté ou pas ».

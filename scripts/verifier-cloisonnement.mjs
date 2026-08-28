@@ -727,25 +727,45 @@ titre("Comptes hérités de la 2.100.24 : la boutique fait foi, personne n'est b
 }
 
 
-titre("Les autres administrateurs ne doivent pas traverser sans qu'on le sache");
+titre("Un seul compte traverse le mur formation / reel : l'administrateur PRINCIPAL");
 {
+  // ⚠ REGLE POSEE PAR TIMO (28/08/2026) : « Je suis le seul admin principal
+  // qui peut voir les 2 espaces a la fois. Le reste, soit tu es admin
+  // formation, soit admin reel. »
+  // Ce bloc disait l'inverse jusqu'a la 2.101.14 : il verifiait qu'un admin
+  // cree avant le reglage traversait ENCORE les deux espaces, et qu'on
+  // l'affichait a l'administrateur principal pour qu'il le cloisonne a la
+  // main. On ne supprime pas ces tests, on les retourne : ce qui etait
+  // tolere et signale doit maintenant etre impossible.
   const db = base();
-  // ADMIN2 porte deja act_voir_tout dans droits_off (cf. base) : il est
-  // cloisonne. On ajoute un admin cree AVANT ce reglage, donc sans rien
-  // dans droits_off — c'est le cas reel d'une installation existante.
   db.users = [...db.users, { id: "u_admin3", nom: "ELIE", role: "admin" }];
   const elie = { id: "u_admin3", role: "admin" };
-  test("un admin créé avant le réglage traverse les deux espaces",
-    C.voitLesDeuxEspaces(db, elie) === true);
-  test("…et il est signalé à l'administrateur principal",
-    C.adminsVoyantLesDeuxEspaces(db).some((u) => u.id === "u_admin3"));
-  test("l'admin principal n'est jamais compté dans cette alerte",
-    !C.adminsVoyantLesDeuxEspaces(db).some((u) => u.id === "u_admin"));
-  test("un admin à qui on a retiré le pouvoir est bien cloisonné", (() => {
+
+  test("l'administrateur principal traverse les deux espaces",
+    C.voitLesDeuxEspaces(db, P.admin) === true);
+  test("un admin cree AVANT le reglage (aucun droit retire) ne traverse plus",
+    C.voitLesDeuxEspaces(db, elie) === false);
+  test("un admin a qui on avait deja retire le pouvoir ne traverse pas non plus", (() => {
     const apres = { ...db, users: db.users.map((u) => (u.id === "u_admin3"
       ? { ...u, droits_off: ["act_voir_tout"] } : u)) };
-    return C.voitLesDeuxEspaces(apres, elie) === false
-      && C.adminsVoyantLesDeuxEspaces(apres).length === 0;
+    return C.voitLesDeuxEspaces(apres, elie) === false;
+  })());
+  test("…et lui redonner act_voir_tout ne rouvre PAS le mur", (() => {
+    // Le pouvoir a disparu de ACTIONS_POUVOIR ; s'il reapparaissait dans une
+    // fiche (base ancienne, import), il ne doit plus rien commander.
+    const apres = { ...db, users: db.users.map((u) => (u.id === "u_admin3"
+      ? { ...u, droits_off: [] } : u)) };
+    return C.voitLesDeuxEspaces(apres, elie) === false;
+  })());
+  test("le pouvoir « act_voir_tout » n'est plus propose a la creation d'un admin",
+    !C.pouvoirsDuRole("admin").some(([id]) => id === "act_voir_tout"));
+  test("un admin qui ne traverse plus est cloisonne EN ECRITURE aussi", (() => {
+    // APESSITO est une boutique reelle : un admin marque formation ne doit
+    // plus pouvoir y ecrire, alors que le pouvoir le lui permettait avant.
+    const dbF = { ...db, users: db.users.map((u) => (u.id === "u_admin3"
+      ? { ...u, formation: true } : u)) };
+    const apres = { ...dbF, ventes: [...dbF.ventes, { id: "vX", boutique: "APESSITO" }] };
+    return C.verifierEcritureEspace(dbF, apres, elie) !== null;
   })());
 }
 
@@ -792,20 +812,19 @@ titre("Les écrans de synthèse ne montrent jamais les vrais chiffres à un comp
     && C.afficheChiffresFormation(db, P.vendeur) === false
     && C.afficheChiffresFormation(db, P.admin) === false);
 
-  // ⚠ Le cas exact de la capture : un ADMIN marqué formation, mais qui
-  // garde le pouvoir « voir les deux espaces » accordé par defaut.
-  // (u_admin2 de la base a DEJA act_voir_tout retire : on ajoute un admin
-  // cree avant ce reglage, comme HEZOU/NOE/RENE sur l'installation reelle.)
+  // ⚠ Le cas exact de la capture : un ADMIN marqué formation (HEZOU/NOE/RENE
+  // sur l'installation reelle), cree avant le reglage et donc sans rien dans
+  // droits_off. Jusqu'a la 2.101.14 il gardait le pouvoir « voir les deux
+  // espaces » et voyait le chiffre d'affaires REEL de l'entreprise ; il
+  // fallait le lui retirer a la main. Le test disait cette tolerance : il
+  // dit maintenant qu'elle n'existe plus.
   const dbAdminForm = { ...db, users: [...db.users, { id: "u_hezou", nom: "HEZOU", role: "admin", formation: true }] };
   const adminForm = { id: "u_hezou", role: "admin" };
-  test("un admin marqué formation qui garde act_voir_tout voit encore tout",
-    C.voitLesDeuxEspaces(dbAdminForm, adminForm) === true);
-  test("…et une fois le pouvoir retiré, son drapeau prend enfin effet", (() => {
-    const apres = { ...dbAdminForm, users: dbAdminForm.users.map((u) => (u.id === "u_hezou"
-      ? { ...u, droits_off: ["act_voir_tout"] } : u)) };
-    return C.afficheChiffresFormation(apres, adminForm) === true
-      && apres.ventes.filter(C.filtreEspaceAffichage(apres, adminForm)).length === 1;
-  })());
+  test("un admin marqué formation ne voit plus que la formation, sans reglage",
+    C.voitLesDeuxEspaces(dbAdminForm, adminForm) === false
+    && C.afficheChiffresFormation(dbAdminForm, adminForm) === true);
+  test("…et les chiffres qu'il lit sont ceux de la formation, pas ceux de l'entreprise",
+    dbAdminForm.ventes.filter(C.filtreEspaceAffichage(dbAdminForm, adminForm)).length === 1);
 }
 
 
@@ -1341,20 +1360,19 @@ titre("L'administrateur qui voit les deux espaces doit le pouvoir AUSSI côté s
 {
   // Reprise EXACTE de la regle posee par api/sync-auth.js.
   const revendication = (champs) => {
-    const voitLesDeux = champs.role === "admin"
-      && (champs.admin_principal === true
-          || !(Array.isArray(champs.droits_off) ? champs.droits_off : []).includes("act_voir_tout"));
+    const voitLesDeux = champs.role === "admin" && champs.admin_principal === true;
     return voitLesDeux ? "tous" : (champs.formation ? "formation" : "reel");
   };
 
   test("l'administrateur principal reçoit « tous » — il peut créer une boutique de formation",
     revendication({ role: "admin", admin_principal: true }) === "tous");
-  test("un autre administrateur qui garde le pouvoir « voir tout » aussi",
-    revendication({ role: "admin" }) === "tous");
-  test("un administrateur à qui on a RETIRÉ ce pouvoir redevient cloisonné",
+  test("un autre administrateur ne reçoit PLUS « tous » (regle du 28/08/2026)",
+    revendication({ role: "admin" }) === "reel");
+  test("le pouvoir « act_voir_tout » ne change plus rien cote serveur non plus",
     revendication({ role: "admin", droits_off: ["act_voir_tout"] }) === "reel");
-  test("…y compris s'il est marqué formation",
-    revendication({ role: "admin", formation: true, droits_off: ["act_voir_tout"] }) === "formation");
+  test("un administrateur marqué formation reçoit « formation », sans reglage a faire",
+    revendication({ role: "admin", formation: true }) === "formation"
+    && revendication({ role: "admin", formation: true, droits_off: ["act_voir_tout"] }) === "formation");
   test("l'administrateur principal reste « tous » même marqué formation (comme dans l'app)",
     revendication({ role: "admin", admin_principal: true, formation: true }) === "tous");
   test("un vendeur réel reste « reel »",
