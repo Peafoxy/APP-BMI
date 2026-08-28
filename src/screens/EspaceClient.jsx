@@ -863,14 +863,25 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
             {/* ---- CHEF D'ÉQUIPE ASSIGNÉ : le client peut lui écrire directement ---- */}
             {(() => {
+              // ⚠ Le nom du chef est DÉJÀ inscrit sur la fiche du chantier
+              // (voir ClientsInstalles : { user_id, nom, chef }). On le lisait
+              // pourtant dans la table des comptes — c'est la seule raison qui
+              // obligeait l'espace client à connaître les employés. Depuis que
+              // cette table lui est fermée (étape 2), la lecture ne renverrait
+              // plus rien et le bloc disparaîtrait EN SILENCE. On prend donc le
+              // nom là où il est, et la table des comptes n'est qu'un secours
+              // pour les vieilles fiches qui ne le portaient pas.
               const chefEntree = (fiche.equipe || []).find((e) => e.chef);
-              const chefUser = chefEntree ? db.users.find((u) => u.id === chefEntree.user_id) : null;
-              if (!chefUser) return null;
+              const nomChef = chefEntree
+                ? (chefEntree.nom && chefEntree.nom !== "?" ? chefEntree.nom
+                  : (db.users.find((u) => u.id === chefEntree.user_id)?.nom || ""))
+                : "";
+              if (!nomChef) return null;
               return (
                 <div className="mt-3 rounded-xl p-3 bg-white border border-slate-200 flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <div className="text-xs font-semibold text-slate-500 uppercase">Chef d'équipe</div>
-                    <div className="text-sm font-bold mt-0.5">👷 {chefUser.nom}</div>
+                    <div className="text-sm font-bold mt-0.5">👷 {nomChef}</div>
                   </div>
                   <button onClick={() => setTab && setTab("messages")} className="px-4 py-1.5 rounded-lg bg-sky-800 text-white font-bold text-xs hover:bg-sky-900 whitespace-nowrap">✉️ Écrire au chef d'équipe</button>
                 </div>
