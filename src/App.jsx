@@ -70,7 +70,7 @@ import { rebaser } from "./lib/rebase";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir } from "./sync";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
-import { LOGO, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
+import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import {
@@ -1067,7 +1067,10 @@ export default function App() {
       {/* ══ Barre latérale professionnelle (grand écran) ══ */}
       <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 text-white h-screen sticky top-0">
         <div className="px-4 py-4 flex items-center gap-3 border-b border-white/10">
-          <img src={LOGO} alt="BMI" className="h-11 w-auto rounded-lg bg-white p-1" />
+          {/* ⚠ Version CLAIRE, posée directement sur le menu — plus de plaque
+              blanche. Le logo est déjà sans fond ; c'était `bg-white` qui lui
+              collait ce carré. Voir LOGO_CLAIR dans lib/constants.js. */}
+          <img src={LOGO_CLAIR} alt="BMI Togo" className="h-11 w-auto" />
           <div>
             <div className="font-bold leading-tight tracking-wide">BMI-GESTION SYSTÈME</div>
             <div className="text-[10px] text-sky-200/70 uppercase tracking-widest">v{VERSION} — Lomé, Togo</div>
@@ -1103,7 +1106,7 @@ export default function App() {
         <header className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <img src={LOGO} alt="BMI Togo" className="h-10 w-auto rounded bg-white p-1 shrink-0" />
+              <img src={LOGO_CLAIR} alt="BMI Togo" className="h-10 w-auto shrink-0" />
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
                 <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
