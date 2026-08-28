@@ -134,9 +134,48 @@ export const voitLesDeuxEspaces = (db, profile) =>
 // vraies. Utilisée par BoutiqueTabs, remplace l'accès direct à db.boutiques
 // dans TOUT sélecteur de boutique — sélecteur de vente, de caisse à débiter,
 // de destination de transfert ou de ravitaillement.
+// ============ « JE REGARDE LE RÉEL » ou « JE REGARDE L'ENTRAÎNEMENT » ============
+//
+// ⚠ DEMANDE TIMO (26/08/2026). Après la correction de la fuite, il a
+// remarqué l'incohérence qui restait : « en gros même les boutiques
+// formation dans stock n'apparaissent pas si je n'ai pas appuyé sur
+// formation ? ». Non — le sélecteur ne commandait que deux écrans de
+// synthèse ; partout ailleurs ses boutiques d'entraînement restaient
+// mélangées aux vraies.
+//
+// Il devient donc UN SEUL RÉGLAGE, en haut de l'application, qui commande
+// TOUS les écrans : onglets de boutique, listes, chiffres. En « Réels »,
+// l'entraînement disparaît complètement ; en « Entraînement », on ne voit
+// que lui.
+//
+// ⚠ IL NE CONCERNE QUE LES COMPTES QUI VOIENT DÉJÀ LES DEUX ESPACES —
+// c'est-à-dire vous. Il ne donne AUCUN droit nouveau : il ne fait que
+// choisir, dans ce qu'un compte a déjà le droit de voir, ce qu'il affiche.
+// Un compte placé en formation n'est pas concerné : il reste en formation.
+//
+// ⚠ JAMAIS ACTIF AU DÉMARRAGE. On ne doit pas ouvrir l'application et lire
+// des chiffres fictifs en les croyant vrais. Le réglage vit le temps de la
+// session et repart toujours sur « Réels ».
+//
+// Même mécanisme que setColors (lib/core.js) : une valeur de module, posée
+// par App.jsx, que tous les écrans consultent sans avoir à se la passer de
+// main en main sur dix niveaux.
+let regardeFormation = false;
+export const setRegardeFormation = (v) => { regardeFormation = !!v; };
+export const regardeLaFormation = () => regardeFormation;
+
 export const boutiquesVisibles = (db, profile, liste) => {
-  if (voitLesDeuxEspaces(db, profile)) return liste;
-  const monEspace = estCompteFormation(db, profile);
+  // ⚠ Un compte qui voit les deux espaces n'affiche plus les deux EN MÊME
+  // TEMPS : il affiche celui qu'il regarde. C'est ce qui débarrasse les
+  // onglets de boutique des boutiques d'entraînement quand on travaille.
+  //
+  // ⚠ MAIS L'ESPACE DU COMPTE PASSE AVANT LE RÉGLAGE. Un administrateur
+  // PLACÉ en formation y reste, même si le réglage dit « réel » — sinon on
+  // rouvrirait exactement la fuite corrigée une heure plus tôt, par une
+  // autre porte. Le banc l'a attrapé à la première exécution.
+  const monEspace = estCompteFormation(db, profile)
+    ? true
+    : (voitLesDeuxEspaces(db, profile) ? regardeFormation : false);
   return liste.filter((b) => !!b.formation === monEspace);
 };
 
@@ -332,14 +371,14 @@ export const boutiqueDuChantier = (db, c) => {
 // lui permet de consulter volontairement les chiffres d'entraînement. Il
 // n'est jamais actif par défaut — on ne doit pas ouvrir l'application et
 // lire des chiffres fictifs en les croyant vrais.
-export const filtreEspaceAffichage = (db, profile, voirFormation = false) => {
+export const filtreEspaceAffichage = (db, profile, voirFormation = regardeFormation) => {
   const f = boutiquesFormation(db);
   const enFormation = afficheChiffresFormation(db, profile, voirFormation);
   return (x) => (enFormation ? f.has(x?.boutique) : !f.has(x?.boutique));
 };
 
 // Vrai quand l'écran doit afficher les chiffres de l'ESPACE FORMATION.
-export const afficheChiffresFormation = (db, profile, voirFormation = false) =>
+export const afficheChiffresFormation = (db, profile, voirFormation = regardeFormation) =>
   estCompteFormation(db, profile) || (!!voirFormation && voitLesDeuxEspaces(db, profile));
 
 export const chantiersReels = (db) => {
@@ -576,8 +615,14 @@ export function contratsInstallation(db, { commercial, clientId, payeSeulement, 
 // L'espace à passer aux fonctions ci-dessus pour le compte connecté :
 // undefined quand il a le droit de voir les deux (admin principal,
 // act_voir_tout), sinon son propre espace.
+// ⚠ Suit le même réglage : en « Réels », un administrateur ne se voit plus
+// proposer les fournisseurs ni les commerciaux d'entraînement. Sans cela,
+// les onglets de boutique seraient propres mais les listes resteraient
+// mélangées — l'incohérence aurait simplement changé d'endroit.
 export const espaceDuCompte = (db, profile) =>
-  voitLesDeuxEspaces(db, profile) ? undefined : estCompteFormation(db, profile);
+  estCompteFormation(db, profile)
+    ? true
+    : (voitLesDeuxEspaces(db, profile) ? regardeFormation : false);
 
 // Marque à poser sur tout enregistrement qui n'appartient à AUCUNE boutique
 // (devis, compte client, prospect) et que le cloisonnement par boutique ne

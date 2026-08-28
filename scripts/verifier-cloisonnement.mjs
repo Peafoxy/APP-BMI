@@ -595,7 +595,15 @@ titre("Les sélecteurs ne montrent que l'espace du compte");
     !noms(P.stagiaire).some((n) => ["APESSITO", "HEDZRANAWOE", "DEPOT"].includes(n)));
   test("le vendeur réel ne voit aucune boutique de formation",
     !noms(P.vendeur).some((n) => n.includes("FORMATION")));
-  test("l'admin principal voit tout", noms(P.admin).length === db.boutiques.length);
+  // ⚠ Ne « voit plus tout » d'un coup depuis le 26/08/2026 : il voit
+  // l'espace qu'il REGARDE. C'est ce que Timo a demandé — ses boutiques
+  // d'entraînement ne doivent plus encombrer les onglets quand il travaille.
+  C.setRegardeFormation(true);
+  test("l'admin principal voit l'entraînement quand il le regarde",
+    noms(P.admin).length > 0 && noms(P.admin).every((n) => n.includes("FORMATION")));
+  C.setRegardeFormation(false);
+  test("…et le réel sinon",
+    noms(P.admin).length > 0 && noms(P.admin).every((n) => !n.includes("FORMATION")));
   test("boutiqueParDefaut ne retombe jamais sur une boutique d'un autre espace",
     C.boutiqueParDefaut(db, P.stagiaire) === "APESSITO FORMATION");
   test("boutiqueParDefaut renvoie \"\" plutôt qu'une vraie boutique quand l'espace est vide", (() => {
@@ -648,8 +656,12 @@ titre("Devis, clients et prospects portent la marque de leur espace");
     C.marqueEspace(db, P.stagiaire).formation === true);
   test("un enregistrement créé par un compte réel ne porte aucune marque",
     C.marqueEspace(db, P.vendeur).formation === undefined);
-  test("espaceDuCompte vaut undefined pour l'admin principal (il voit tout)",
-    C.espaceDuCompte(db, P.admin) === undefined);
+  // ⚠ Ne vaut plus « undefined » (= les deux à la fois) mais l'espace
+  // regardé. C'est ce qui fait suivre fournisseurs, commerciaux et devis.
+  test("espaceDuCompte suit ce que l'admin principal regarde",
+    C.espaceDuCompte(db, P.admin) === false
+    && (C.setRegardeFormation(true), C.espaceDuCompte(db, P.admin) === true)
+    && (C.setRegardeFormation(false), true));
   test("espaceDuCompte vaut true pour un stagiaire", C.espaceDuCompte(db, P.stagiaire) === true);
   test("espaceDuCompte vaut false pour un compte réel", C.espaceDuCompte(db, P.vendeur) === false);
 
@@ -2151,7 +2163,9 @@ titre("La présélection d'un article déjà enregistré ailleurs (demande Timo,
   test("★ …et l'inverse : pas d'article réel proposé pour une boutique d'entraînement",
     chez(P.admin, "APESSITO FORMATION", "COFFRET ETANCHE").length === 0);
   test("dans son espace d'entraînement, il retrouve bien ses articles d'entraînement",
-    chez(P.admin, "DEPOT FORMATION", "COFFRET ECOLE").length === 1);
+    (C.setRegardeFormation(true),
+     chez(P.admin, "DEPOT FORMATION", "COFFRET ECOLE").length === 1));
+  C.setRegardeFormation(false);
   test("une boutique inconnue ne propose rien plutôt que n'importe quoi",
     chez(P.admin, "BOUTIQUE QUI N EXISTE PAS", "COFFRET").length === 0);
 
@@ -2185,8 +2199,13 @@ titre("Aucun mouvement de stock entre le RÉEL et l'ENTRAÎNEMENT (question de T
       .every((b) => !!b.formation));
   test("les destinations légitimes restent proposées (une défense qui bloque tout ne sert à rien)",
     noms(C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO")) === "APESSITO, DEPOT, HEDZRANAWOE");
+  // ⚠ Préparer les exercices reste possible — mais il faut REGARDER
+  // l'entraînement pour cela. C'est cohérent : on ne déplace pas du stock
+  // dans un espace qu'on n'a pas sous les yeux.
+  C.setRegardeFormation(true);
   test("…et l'entraînement garde les siennes (préparer les exercices reste possible)",
     noms(C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "APESSITO FORMATION")) === "APESSITO FORMATION, DEPOT FORMATION");
+  C.setRegardeFormation(false);
   test("une boutique de départ inconnue ne propose rien plutôt que n'importe quoi",
     C.boutiquesDuMemeEspace(db, P.admin, toutesSaufTerrain, "BOUTIQUE FANTOME").length === 0);
 
@@ -2243,8 +2262,11 @@ titre("Un numéro déjà connu est retrouvé, quelle que soit son écriture (dem
   db.users.push({ id: "u_form_num", nom: "STAGIAIRE", role: "vendeur", formation: true });
   test("★ …et un compte de formation ne voit pas le vrai client",
     trouve("90112233", stagiaire).every((u) => !!u.formation));
-  test("l'admin principal, qui voit tout, retrouve les deux",
-    C.comptesAvecCeNumero(db, P.admin, "90112233").length === 2);
+  test("l'admin principal retrouve celui de l'espace qu'il regarde",
+    C.comptesAvecCeNumero(db, P.admin, "90112233").length === 1
+    && (C.setRegardeFormation(true),
+        C.comptesAvecCeNumero(db, P.admin, "90112233").every((u) => u.formation))
+    && (C.setRegardeFormation(false), true));
 }
 
 titre("Un ADMINISTRATEUR placé en formation ne voit pas les vrais chiffres (fuite du 26/08/2026)");
@@ -2293,6 +2315,51 @@ titre("Un ADMINISTRATEUR placé en formation ne voit pas les vrais chiffres (fui
   // Un compte rattaché à une VRAIE boutique n'a jamais accès au sélecteur.
   test("un vendeur du réel ne peut pas basculer sur l'entraînement",
     C.afficheChiffresFormation(db, P.vendeur, true) === false);
+}
+
+titre("« Je regarde le réel » / « je regarde l'entraînement » — un seul réglage pour tout");
+{
+  // ⚠ DEMANDE TIMO (26/08/2026), après la correction de la fuite : « en gros
+  // même les boutiques formation dans stock n'apparaissent pas si je n'ai pas
+  // appuyé sur formation ? ». Non — le sélecteur ne commandait que deux
+  // écrans de synthèse, et ailleurs ses boutiques d'entraînement restaient
+  // mélangées aux vraies. Il devient global.
+  //
+  // ⚠ CE QUI COMPTE ICI : ce réglage ne donne AUCUN droit nouveau. Il choisit
+  // seulement, dans ce qu'un compte a DÉJÀ le droit de voir, ce qu'il
+  // affiche. Les tests ci-dessous le vérifient sur les comptes cloisonnés.
+  const db = base();
+  db.users.push({ id: "u_adm_form", nom: "ADMIN-FORM", role: "admin", formation: true });
+  const adminEnFormation = { id: "u_adm_form", nom: "ADMIN-FORM", role: "admin" };
+  const sansTerrain = db.boutiques.filter((b) => !b.terrain);
+  const onglets = (profile) => C.boutiquesVisibles(db, profile, sansTerrain).map((b) => b.nom).sort().join(", ");
+
+  C.setRegardeFormation(false);
+  test("★ en « réel », l'administrateur principal ne voit AUCUNE boutique d'entraînement",
+    onglets(P.admin) === "APESSITO, DEPOT, HEDZRANAWOE");
+  C.setRegardeFormation(true);
+  test("★ en « entraînement », il ne voit QUE celles-là",
+    onglets(P.admin) === "APESSITO FORMATION, DEPOT FORMATION");
+  test("…et ses fournisseurs et commerciaux suivent le même réglage",
+    C.espaceDuCompte(db, P.admin) === true);
+  C.setRegardeFormation(false);
+  test("…qui repassent au réel avec lui", C.espaceDuCompte(db, P.admin) === false);
+
+  // ⚠ LE POINT LE PLUS IMPORTANT : un compte CLOISONNÉ n'est pas concerné.
+  C.setRegardeFormation(false);
+  test("★ un ADMIN placé en formation reste en formation, réglage sur « réel »",
+    onglets(adminEnFormation) === "APESSITO FORMATION, DEPOT FORMATION");
+  test("★ un vendeur stagiaire aussi", onglets(P.stagiaire) === "APESSITO FORMATION, DEPOT FORMATION");
+  C.setRegardeFormation(true);
+  test("★ et un vendeur du RÉEL ne bascule pas dans l'entraînement",
+    onglets(P.admin2) === "APESSITO, DEPOT, HEDZRANAWOE");
+  test("★ …son espace de compte non plus", C.espaceDuCompte(db, P.admin2) === false);
+
+  // Le réglage ne doit jamais rester actif d'une session à l'autre : c'est
+  // App.jsx qui repart de « réel » à chaque ouverture. On le remet ici pour
+  // ne pas contaminer les vérifications suivantes.
+  C.setRegardeFormation(false);
+  test("le réglage revient au réel", C.regardeLaFormation() === false);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

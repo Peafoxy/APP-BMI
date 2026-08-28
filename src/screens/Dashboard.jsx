@@ -23,13 +23,11 @@ export function Dashboard({ db, profile }) {
   // chiffres de FORMATION à un compte de formation, et les vrais à tous
   // les autres (dont l'admin principal, pour qui c'est bien la vue
   // attendue). Le bandeau ci-dessous le rappelle à l'écran.
-  // ⚠ Consulter volontairement les chiffres d'entraînement — demande de
-  // Timo, une fois la fuite corrigée. Réservé aux comptes qui voient les
-  // deux espaces (l'administrateur principal), et jamais actif au départ.
-  const [voirFormation, setVoirFormation] = useState(false);
-  const peutBasculerEspace = voitLesDeuxEspaces(db, profile) && boutiquesFormation(db).size > 0;
-  const enFormation = afficheChiffresFormation(db, profile, voirFormation);
-  const dansMonEspace = filtreEspaceAffichage(db, profile, voirFormation);
+  // ⚠ Le sélecteur est désormais GLOBAL (voir setRegardeFormation dans
+  // lib/calculs.js) : il vit en haut de l'application et commande TOUS les
+  // écrans. Cet écran se contente de le consulter.
+  const enFormation = afficheChiffresFormation(db, profile);
+  const dansMonEspace = filtreEspaceAffichage(db, profile);
   const NOMS = db.boutiques.filter((b) => !b.terrain && !!b.formation === enFormation).map((b) => b.nom);
   // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
   // NOMS protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
@@ -175,24 +173,6 @@ export function Dashboard({ db, profile }) {
 
   return (
     <div className="space-y-5">
-      {/* ⚠ SÉLECTEUR RÉSERVÉ À QUI VOIT LES DEUX ESPACES (l'administrateur
-          principal). Il n'est JAMAIS actif par défaut : on ne doit pas
-          ouvrir l'application et lire des chiffres fictifs en les croyant
-          vrais. Et il n'apparaît pas s'il n'y a aucune boutique
-          d'entraînement — un bouton qui ne sert à rien est du bruit. */}
-      {peutBasculerEspace && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Chiffres affichés :</span>
-          <button onClick={() => setVoirFormation(false)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold ${!voirFormation ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-            Réels
-          </button>
-          <button onClick={() => setVoirFormation(true)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold ${voirFormation ? "bg-violet-700 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-            🎓 Entraînement
-          </button>
-        </div>
-      )}
       {enFormation && (
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
           <div className="font-bold text-amber-900">🎓 Chiffres de l'espace FORMATION</div>

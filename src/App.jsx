@@ -97,7 +97,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, chantiersAReconcilier, construireIndexDb,
-  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace,
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace, setRegardeFormation, voitLesDeuxEspaces, boutiquesFormation
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -229,6 +229,23 @@ export default function App() {
   const [rechercheOuverte, setRechercheOuverte] = useState(false);
   const dbRef = useRef(null);
   const autoSauvFaite = useRef(false);
+  // ⚠ « JE REGARDE LE RÉEL » ou « JE REGARDE L'ENTRAÎNEMENT » — demande
+  // Timo (26/08/2026). UN SEUL réglage, en haut, qui commande TOUS les
+  // écrans : onglets de boutique, listes, chiffres.
+  //
+  // ⚠ Il ne donne AUCUN droit nouveau. Il ne fait que choisir, dans ce qu'un
+  // compte a DÉJÀ le droit de voir, ce qu'il affiche. Un compte placé en
+  // formation n'est pas concerné : il y reste, quoi qu'il arrive.
+  //
+  // ⚠ Il ne survit PAS à un rechargement : on ne doit jamais ouvrir
+  // l'application et lire des chiffres d'entraînement en les croyant vrais.
+  // C'est la seule exception à la règle « ne rien changer après une
+  // actualisation » — et elle va dans le sens de la prudence.
+  const [regardeFormation, setRegardeFormationEtat] = useState(false);
+  const basculerEspaceRegarde = (v) => { setRegardeFormation(v); setRegardeFormationEtat(v); };
+  const peutRegarderLaFormation = db && profile
+    && voitLesDeuxEspaces(db, profile) && boutiquesFormation(db).size > 0;
+
   const [dossierAuto, setDossierAuto] = useState(null);
   const [dernierAuto, setDernierAuto] = useState(null);
 
@@ -1081,6 +1098,21 @@ export default function App() {
             🔍 Rechercher…
           </button>
         </div>
+        {peutRegarderLaFormation && (
+          <div className="px-4 pt-3">
+            <div className="text-[10px] font-bold text-sky-200/60 uppercase tracking-widest mb-1">Je regarde</div>
+            <div className="flex gap-1">
+              <button onClick={() => basculerEspaceRegarde(false)}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold ${!regardeFormation ? "bg-sky-600 text-white" : "bg-white/10 text-sky-100/70 hover:bg-white/20"}`}>
+                Le réel
+              </button>
+              <button onClick={() => basculerEspaceRegarde(true)}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold ${regardeFormation ? "bg-violet-600 text-white" : "bg-white/10 text-sky-100/70 hover:bg-white/20"}`}>
+                🎓 Formation
+              </button>
+            </div>
+          </div>
+        )}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
           {tabsAutorises.map(([id, label]) => (
             <button key={id} data-tab-id={id} onClick={() => setTab(id)}
@@ -1115,6 +1147,13 @@ export default function App() {
                 </div>
               </div>
             </div>
+            {peutRegarderLaFormation && (
+              <button onClick={() => basculerEspaceRegarde(!regardeFormation)}
+                className={`shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold ${regardeFormation ? "bg-violet-600 text-white" : "bg-white/15 text-sky-100"}`}
+                title="Basculer entre les chiffres réels et ceux de l'entraînement">
+                {regardeFormation ? "🎓 Formation" : "Réel"}
+              </button>
+            )}
             {nonLus > 0 && (
               <button onClick={() => setTab("messages")} className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse" title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}>
                 💬 +{nonLus}
