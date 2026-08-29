@@ -165,10 +165,10 @@ chantier. Les constats, par ordre de gravité.
    le leur interdire tout court, leur espace écrit légitimement une dette à la
    validation d'un devis. Il faut d'abord marquer **à qui** chaque ligne
    appartient.
-   ⚠ L'escalade de privilège, elle, est **déjà fermée** par le déclencheur
-   `interdire_escalade` de `roles-1-vague1.sql` (et `interdire_escalade_paie_trg`
-   pour les salaires). Je l'avais annoncée ouverte : c'était mon banc qui
-   lisait mal, pas la base qui laissait passer.
+   ⚠ L'escalade de privilège, elle, est **fermée, et vérifié sur la vraie base
+   le 29/08/2026** (capture de Timo) : `interdire_escalade` sur `users`,
+   `interdire_escalade_paie_trg` sur `paie`. Je l'avais annoncée ouverte —
+   c'était mon banc qui lisait mal. **Ne pas rouvrir ce sujet.**
 2. **Restaurer une sauvegarde** (`Parametres.jsx:397`) efface sur le serveur
    tout ce qui a été créé depuis. Le garde-fou anti-état-périmé de `save()` ne
    se déclenche pas, faute de `__v` sur un fichier.

@@ -326,19 +326,10 @@ fait de même sur les fiches de paie. Mesuré, cette fois pour de bon :
 **Les constats n° 1 et n° 5 de cet audit tombent.** Le chemin « du nom d'un
 client à l'administration » est déjà coupé à son maillon central.
 
-### ⚠ La seule chose à vérifier
-Ces protections sont dans des scripts. Rien ne dit qu'ils ont été **exécutés**
-sur la vraie base. Une requête à coller dans Supabase → SQL Editor tranche la
-question :
-
-```sql
-select tgname as declencheur, tgrelid::regclass as sur_la_table
-from pg_trigger
-where tgname in ('interdire_escalade', 'interdire_escalade_paie_trg');
-```
-
-Deux lignes attendues. S'il en manque une, c'est le script correspondant
-qu'il faut coller.
+### ✅ VÉRIFIÉ SUR LA VRAIE BASE — 29/08/2026, capture de Timo
+Les deux déclencheurs sont bien en place sur son Supabase :
+`interdire_escalade` sur `users`, `interdire_escalade_paie_trg` sur `paie`.
+**Le sujet est clos. Ne pas le rouvrir.**
 
 ### 🟠 Ce qui reste vraiment ouvert de ce côté — deux trous mesurés
 1. **Un administrateur peut modifier sa propre fiche.** `interdire_escalade`
