@@ -34,7 +34,7 @@ P="psql -h /tmp -p $PORT -U postgres -d bmi -v ON_ERROR_STOP=1 -tA"
 
 echo "▸ Environnement Supabase simulé + politiques réelles"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/test/fixture.sql
-for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql supabase/securite-2-role-inviolable.sql; do
+for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql supabase/securite-2-role-inviolable.sql supabase/client-2-fermer-ecriture.sql; do
   psql -h /tmp -p $PORT -U postgres -d bmi -q -f "$f" >/dev/null 2>&1 || echo "   (⚠ $f partiellement rejoué)"
 done
 
@@ -52,6 +52,8 @@ insert into public.ventes (id, data) values
   ('zv1', '{\"id\":\"v1\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"articles\":[{\"qte\":1,\"pu\":800000}]}');
 insert into public.produits (id, data) values
   ('zp1', '{\"id\":\"p1\",\"boutique\":\"APESSITO\",\"nom\":\"BATTERIE\",\"initial\":10,\"prix_vente\":250000}');
+insert into public.ventes (id, data) values
+  ('zv2', '{\"id\":\"zv2\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"commission_a_la_reception\":true,\"apporteur\":{\"nom\":\"KODJO\",\"montant\":50000,\"a_la_reception\":true}}');
 " >/dev/null
 
 ok=0; ko=0
@@ -112,6 +114,17 @@ essai "un client invente une vente de toutes pièces" "REFUSE" "$CLIENT" \
   "with x as (insert into public.ventes (id,data) values ('zvX','{\"boutique\":\"APESSITO\"}') returning 1) select count(*) from x;"
 essai "un client supprime une vente (déjà fermé en vague 2)" "REFUSE" "$CLIENT" \
   "with x as (delete from public.ventes where id='zv1' returning 1) select count(*) from x;"
+
+echo
+echo "── ET CE QUE SON ESPACE DOIT CONTINUER DE FAIRE ──"
+essai "un client CRÉE la dette de son devis « pose seule »" "PERMIS" "$CLIENT" \
+  "with x as (insert into public.dettes (id,data) values ('zd9','{\"boutique\":\"TERRAIN\",\"client\":\"AMA\",\"montant\":300000,\"paye\":0}') returning 1) select count(*) from x;"
+essai "un client SIGNE son PV : la réception débloque la commission" "PERMIS" "$CLIENT" \
+  "with x as (update public.ventes set data = data || '{\"commission_a_la_reception\":false,\"commission_debloquee_le\":\"2026-08-29\"}' where id='zv2' returning 1) select count(*) from x;"
+essai "…et la part du parrain devient due, elle aussi" "PERMIS" "$CLIENT" \
+  "with x as (update public.ventes set data = jsonb_set(data,'{apporteur,a_la_reception}','false') where id='zv2' returning 1) select count(*) from x;"
+essai "★ mais il ne s'augmente PAS la prime de parrainage au passage" "REFUSE" "$CLIENT" \
+  "with x as (update public.ventes set data = jsonb_set(data,'{apporteur,montant}','900000') where id='zv2' returning 1) select count(*) from x;"
 
 $P -c "insert into public.paie (id, data) values ('zv_kossi','{\"id\":\"zv_kossi\",\"salaire_base\":120000}') on conflict (id) do nothing;" >/dev/null 2>&1 || true
 

@@ -160,12 +160,13 @@ impossible, et le banc doit le dire dans ce sens-là.
 chantier. Les constats, par ordre de gravité.
 
 ### Graves
-1. **Un compte client peut écrire dans `dettes`, `ventes` et `produits`**
-   (mesuré) : effacer sa propre dette, changer le montant d'une vente, un
-   prix, ou inventer une vente. C'est le chantier « vague 2 » : on ne peut pas
-   le leur interdire tout court, leur espace écrit légitimement une dette à la
-   validation d'un devis. Il faut d'abord marquer **à qui** chaque ligne
-   appartient.
+1. ~~Un compte client peut écrire dans `dettes`, `ventes` et `produits`~~ —
+   **SQL écrit et vérifié le 29/08/2026** (`supabase/client-2-fermer-ecriture.sql`),
+   **en attente d'exécution par Timo**. Il ferme les quatre gestes mesurés sans
+   casser son espace : les articles lui sont interdits en entier, il crée
+   encore une dette (devis « pose seule ») mais n'en modifie plus aucune, et
+   d'une vente il ne peut plus changer que les trois champs de la réception —
+   jamais le montant, jamais la prime de son parrain.
    ⚠ L'escalade de privilège, elle, est **fermée, et vérifié sur la vraie base
    le 29/08/2026** (capture de Timo) : `interdire_escalade` sur `users`,
    `interdire_escalade_paie_trg` sur `paie`. Je l'avais annoncée ouverte —
@@ -209,9 +210,13 @@ annoncées grandes ouvertes, et j'ai alerté Timo à tort. On ne lit plus la
 sortie : on regarde si la base a levé une objection.
 
 ### Chantiers plus anciens, toujours ouverts
-- **Vague 2 de la fermeture de l'annuaire client** : `dettes`, `ventes`,
-  `clients_installes` sont encore lisibles par tous les comptes clients.
-  Il faut d'abord poser un champ « propriétaire » sur ces lignes.
+- **Vague 2 — la LECTURE** : `dettes`, `ventes`, `clients_installes` restent
+  lisibles par tous les comptes clients (l'écriture, elle, est traitée par
+  `client-2-fermer-ecriture.sql`). Il faut poser un champ « propriétaire »
+  sur ces lignes pour aller plus loin.
+- Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
+  que la fiche de paie correspondante existe dans la table `paie`, qui fait
+  foi, mais à fermer un jour.
 - Scripts SQL peut-être jamais exécutés :
   `securite-1-audits-et-tombstones.sql`, `avis-supabase-0-etat-des-lieux.sql`,
   `avis-supabase-1-search-path.sql`.

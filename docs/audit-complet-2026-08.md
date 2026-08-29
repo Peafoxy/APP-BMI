@@ -343,7 +343,7 @@ Les deux déclencheurs sont bien en place sur son Supabase :
 
 `supabase/securite-2-role-inviolable.sql` ferme ces deux-là, et rien d'autre.
 
-### 🔴 Ce qui reste ouvert, et qui est réel — l'écriture des comptes clients
+### ✅ SQL ÉCRIT ET VÉRIFIÉ (29/08/2026) — l'écriture des comptes clients
 | Geste | Base |
 |---|---|
 | Un client efface sa propre dette (800 000 F) | ✅ **accepté** |
@@ -351,11 +351,22 @@ Les deux déclencheurs sont bien en place sur son Supabase :
 | Un client change le prix d'un article | ✅ **accepté** |
 | Un client invente une vente de toutes pièces | ✅ **accepté** |
 
-C'est le chantier « **vague 2** » déjà repéré : `dettes`, `ventes`, `produits`
-restent ouverts en écriture aux comptes clients. On ne peut pas simplement les
-leur interdire — leur espace écrit légitimement une dette à la validation d'un
-devis (`EspaceClient.jsx:425`). Il faut d'abord marquer **à qui** chaque ligne
-appartient.
+`supabase/client-2-fermer-ecriture.sql` ferme les quatre, **sans casser son
+espace** — c'était toute la difficulté :
+
+| Table | Ce qu'on ferme | Ce qu'on laisse, et pourquoi |
+|---|---|---|
+| `produits` | tout | son espace n'y touche jamais |
+| `dettes` | la modification | il **crée** encore la dette de son devis « pose seule » (`EspaceClient.jsx:425`) |
+| `ventes` | la création, et toute modification d'argent | il fait bouger **trois champs** en signant son PV : `commission_a_la_reception`, `commission_debloquee_le`, `apporteur.a_la_reception` (`debloquerCommissionsReception`) |
+
+Fermer sans regarder cela aurait cassé la signature du PV : l'opération serait
+partie, le serveur l'aurait refusée, et la commission du commercial serait
+restée bloquée pour toujours — le piège des boutiques de formation (2.100.30).
+
+Le montant de l'apporteur, lui, reste verrouillé : sinon un client
+s'augmenterait la prime de parrainage qu'il va toucher. Mesuré :
+*« il ne s'augmente PAS la prime de parrainage au passage → refusé »*.
 
 Le mot de passe calculable (`identiteClient.js`) reste, lui, un vrai sujet :
 il ne mène plus à l'administration, mais il ouvre l'espace d'un client à qui
