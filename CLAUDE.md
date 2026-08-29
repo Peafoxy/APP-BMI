@@ -51,12 +51,12 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 498 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 506 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 8   : l'écran Stocks
-npm run verifier-ecran-ventes    # 16  : l'argent dans l'écran Ventes
+npm run verifier-ecran-ventes    # 24  : l'argent dans l'écran Ventes
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -170,9 +170,12 @@ chantier. Les constats, par ordre de gravité.
    le 29/08/2026** (capture de Timo) : `interdire_escalade` sur `users`,
    `interdire_escalade_paie_trg` sur `paie`. Je l'avais annoncée ouverte —
    c'était mon banc qui lisait mal. **Ne pas rouvrir ce sujet.**
-2. **Restaurer une sauvegarde** (`Parametres.jsx:397`) efface sur le serveur
-   tout ce qui a été créé depuis. Le garde-fou anti-état-périmé de `save()` ne
-   se déclenche pas, faute de `__v` sur un fichier.
+2. ~~Restaurer une sauvegarde efface tout ce qui a été créé depuis~~ —
+   **corrigé en 2.101.18**. Le geste reste destructeur par nature (le
+   garde-fou anti-état-périmé de `save()` ne peut pas s'appliquer à un
+   fichier, qui n'a pas de `__v`), mais il compte et nomme désormais ce qui
+   serait perdu, exporte l'état actuel avant, exige un code tiré au hasard,
+   et n'appartient qu'à l'administrateur principal.
 3. ~~Refuser une vente à crédit l'enregistre quand même~~ — **corrigé en
    2.101.16**, surveillé par `npm run verifier-ecran-ventes`.
 4. ~~Les frais de pose ne sont jamais mis à la dette~~ — **corrigé en
@@ -182,8 +185,6 @@ chantier. Les constats, par ordre de gravité.
    Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
 
 ### Réels
-- La marge de **Rentabilité** est surévaluée : ni la remise globale ni le
-  rabais ne sont retirés, alors que le Tableau de bord les retire.
 - **« Le statut payé sera aussi annulé »** est faux pour 6 des 10 sortes de
   dépenses automatiques (`annulerLiensDepense`).
 - Un **fournisseur** est toujours payé « en espèces », la **CNSS** toujours

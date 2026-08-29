@@ -2485,5 +2485,37 @@ titre("Personne ne modifie les pouvoirs de SA PROPRE fiche — l'app et la base 
 }
 
 
+titre("Restaurer une sauvegarde : le geste le plus destructeur de l'application");
+{
+  // ⚠ AUDIT DU 29/08/2026. save() remplace l'etat complet, puis
+  // sauvegarderDiff met en file une SUPPRESSION pour chaque ligne absente du
+  // nouveau — localement PUIS sur le serveur, donc sur tous les appareils. Une
+  // sauvegarde etant plus ancienne que la base, tout ce qui a ete cree depuis
+  // disparaissait. L'avertissement disait seulement « les donnees actuelles
+  // seront remplacees », et le fichier n'affichait meme pas sa date.
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  const bloc = par.slice(par.indexOf("const restaurerSauvegarde"), par.indexOf("const restaurerSauvegarde") + 5200);
+
+  test("★ reserve a l'administrateur PRINCIPAL",
+    /if \(!estAdminPrincipal\(db, profile\)\)/.test(bloc));
+  test("★ on COMPTE ce qui serait perdu, ligne par ligne",
+    /const perdus = \[\]/.test(bloc) && /!dansLeFichier\.has\(r\.id\)/.test(bloc));
+  test("★ on annonce que c'est definitif et sur TOUS les appareils",
+    /sur TOUS les appareils/.test(bloc) && /definitif|définitif/.test(bloc));
+  test("★ l'etat actuel est exporte AVANT — sans quoi le geste est sans retour",
+    /telechargerSauvegarde\(db, "avant-restauration"\)/.test(bloc));
+  test("★ un code tire au hasard doit etre recopie (le clic seul ne suffit pas)",
+    /codeConfirmation\(\)/.test(bloc) && /!== code\)/.test(bloc));
+  test("la date de la sauvegarde est affichee, et son age en jours",
+    /derniereDate/.test(bloc) && /il y a \$\{jours\} jour/.test(bloc));
+  test("une sauvegarde qui ne perd rien ne declenche pas tout ce ceremonial",
+    /if \(totalPerdu === 0\)/.test(bloc));
+  // ⚠ La phrase exacte reste citee dans le commentaire qui explique le
+  // defaut : on cherche donc l'ANCIEN APPEL, pas la phrase.
+  test("l'ancienne confirmation, seule et vague, a disparu",
+    !/uConfirm\(`Restaurer cette sauvegarde \?/.test(par));
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

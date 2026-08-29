@@ -3,14 +3,13 @@
 // prix d'achat/vente, tri, totaux par boutique.
 // ============================================================
 import { useState } from "react";
-import { fmt, today, inP } from "../lib/core";
+import { fmt, today, inP, caLigneVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
 import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ RENTABILITÉ PAR PRODUIT ============
 export function Rentabilite({ db, profile }) {
-  const [lp, debut, fin] = periodes()[0] ? [null, null, null] : [null, null, null];
   const [periode, setPeriode] = useState("mois");
   const P = periodes();
   const choix = P.find((p) => p[0].toLowerCase().includes(periode)) || P[0];
@@ -43,14 +42,24 @@ export function Rentabilite({ db, profile }) {
       const achat = p ? Number(p.prix_achat || 0) : 0;
       if (!parProduit[nom]) parProduit[nom] = { nom, categorie: p?.categorie || "—", qte: 0, ca: 0, cout: 0 };
       parProduit[nom].qte += Number(l.qte || 0);
-      parProduit[nom].ca += Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0); // CA net : la remise ligne pèse sur la marge du produit concerné
+      // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : on additionnait ici
+      // « qte × pu − remise_ligne », donc SANS la remise globale de la vente
+      // ni le rabais du commercial. Le Tableau de bord, lui, les retire :
+      // les deux écrans donnaient deux chiffres d'affaires différents pour la
+      // même vente, et la marge affichée ici était plus belle que la vraie.
+      // caLigneVente (lib/core.js) répartit ces réductions au prorata, de
+      // sorte que la somme des lignes redonne exactement caVente(v).
+      parProduit[nom].ca += caLigneVente(v, l);
       parProduit[nom].cout += Number(l.qte || 0) * achat;
     });
   });
 
-  const lignes = Object.values(parProduit).map((x) => ({
-    ...x, marge: x.ca - x.cout, tauxMarge: x.ca > 0 ? Math.round(((x.ca - x.cout) / x.ca) * 1000) / 10 : 0,
-  }));
+  // Les centimes de la répartition au prorata sont arrondis ICI, une seule
+  // fois par produit — jamais ligne à ligne, sinon les arrondis s'accumulent.
+  const lignes = Object.values(parProduit).map((x) => {
+    const ca = Math.round(x.ca);
+    return { ...x, ca, marge: ca - x.cout, tauxMarge: ca > 0 ? Math.round(((ca - x.cout) / ca) * 1000) / 10 : 0 };
+  });
   lignes.sort((x, y) => tri === "marge" ? y.marge - x.marge : tri === "ca" ? y.ca - x.ca : tri === "qte" ? y.qte - x.qte : y.tauxMarge - x.tauxMarge);
 
   const caTotal = lignes.reduce((s, x) => s + x.ca, 0);

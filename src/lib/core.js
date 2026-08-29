@@ -157,6 +157,33 @@ export const caVente = (v) => {
   return Math.round(brutInclus - Number(v.remise || 0) * part - Number(v.rabais || 0) * part);
 };
 
+// ⚠ LE CHIFFRE D'AFFAIRES D'UNE SEULE LIGNE (audit du 29/08/2026).
+//
+// L'écran Rentabilité additionnait « qte × pu − remise_ligne » et s'arrêtait
+// là : ni la remise globale de la vente, ni le rabais du commercial n'étaient
+// retirés. Le Tableau de bord, lui, les retire (caVente ci-dessus). Les deux
+// écrans annonçaient donc deux chiffres d'affaires différents pour la MÊME
+// vente — et la marge de Rentabilité s'en trouvait surévaluée.
+//
+// Sur 1 000 000 F d'articles remisés à 10 % et 700 000 F d'achat :
+//   Tableau de bord → CA 900 000, marge 200 000 (22 %)
+//   Rentabilité     → CA 1 000 000, marge 300 000 (30 %)
+// C'est l'écran sur lequel se décident les prix. Une marge qu'on croit à 30 %
+// alors qu'elle est à 22 % fait vendre trop bas, durablement.
+//
+// La réduction globale est répartie au PRORATA du poids de chaque ligne dans
+// le panier entier — exactement la répartition de partIncluse(), pour que la
+// somme des lignes redonne caVente(v) au franc près.
+export const caLigneVente = (v, ligne) => {
+  if (ligne.hors_boutique) return 0;
+  const net = Number(ligne.qte || 0) * Number(ligne.pu || 0) - Number(ligne.remise_ligne || 0);
+  const brutTotal = lignesVente(v).reduce(
+    (s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0);
+  if (!(brutTotal > 0)) return 0;
+  const reduction = Number(v.remise || 0) + Number(v.rabais || 0);
+  return net - reduction * (net / brutTotal);
+};
+
 // Hachage SHA-256 des mots de passe (plus de stockage en clair)
 // Ancien hachage (conservé UNIQUEMENT pour reconnaître et migrer les comptes
 // pas encore mis à jour) : SHA-256 avec un sel unique partagé par toute

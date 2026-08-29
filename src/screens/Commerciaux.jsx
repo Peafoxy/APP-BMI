@@ -5,7 +5,7 @@
 // ============================================================
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
-import { uid, totalVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
+import { uid, caVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
@@ -58,7 +58,13 @@ export function Commerciaux({ db, save, profile }) {
   // Statistiques d'un commercial sur la période choisie
   const stats = (c) => {
     const vs = ventesDuCommercial(db, c.nom).filter((v) => inP(v.date, debutP, finP));
-    const ca = vs.reduce((s, v) => s + totalVente(v), 0);
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : « chiffre d'affaires » était
+    // calculé avec totalVente (ce que le client a payé), alors que la
+    // commission, elle, se calcule sur caVente (qui exclut les lignes « hors
+    // boutique »). Le commercial lisait donc un CA qui ne correspondait pas à
+    // ce qu'on lui versait — de quoi discuter longtemps sans que personne ait
+    // tort. Les deux partent maintenant de la même base.
+    const ca = vs.reduce((s, v) => s + caVente(v), 0);
     const commission = Math.round((ca * Number(c.taux)) / 100);
     const objectifP = nbMois && c.objectif > 0 ? c.objectif * nbMois : null;
     const pct = objectifP ? Math.round((ca / objectifP) * 100) : null;

@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
-import { resumeArticles, totalVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
+import { resumeArticles, totalVente, caVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
 import { Field, inputCls, Badge, Panel } from "../components/ui";
 import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionEnAttente, commissionPour , ventesDuCommercial, ventesReelles } from "../lib/calculs";
 
@@ -47,13 +47,20 @@ export function MaCommission({ db, profile }) {
   // dans le calcul de la commission due — elle a déjà été comptabilisée.
   const mesVentesTotales = ventesReelles(db).filter((v) => (v.commercial === profile.nom || v.responsable === profile.nom) && inP(v.date, debut, fin));
   const mesVentes = mesVentesTotales.filter((v) => !v.commission_payee);
-  const ca = mesVentes.reduce((s, v) => s + totalVente(v), 0);
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : « chiffre d'affaires » était
+    // calculé avec totalVente (ce que le client a payé), alors que la
+    // commission, elle, se calcule sur caVente (qui exclut les lignes « hors
+    // boutique »). Le commercial lisait donc un CA qui ne correspondait pas à
+    // ce qu'on lui versait — de quoi discuter longtemps sans que personne ait
+    // tort. Les deux partent maintenant de la même base.
+  const ca = mesVentes.reduce((s, v) => s + caVente(v), 0);
   const taux = Number(profile.taux_commission || 0);
   const commission = mesVentes.reduce((s, v) => s + commissionPour(v, profile.nom, taux), 0);
   // Gagné, mais pas encore exigible : le client n'a pas réceptionné l'installation.
   const enAttenteReception = mesVentes.reduce((s, v) => s + commissionEnAttente(v, taux), 0);
   const rabaisAccordes = mesVentesTotales.filter((v) => v.commercial === profile.nom).reduce((s, v) => s + Number(v.rabais || 0), 0);
-  const dejaRegle = mesVentesTotales.filter((v) => v.commission_payee).reduce((s, v) => s + totalVente(v), 0);
+  // Même base que ci-dessus : c'est un chiffre d'affaires, pas un encaissement.
+  const dejaRegle = mesVentesTotales.filter((v) => v.commission_payee).reduce((s, v) => s + caVente(v), 0);
 
   // ---- MON ÉQUIPE (les commerciaux que j'ai recrutés) ----
   const moiLive = db.users.find((u) => u.id === profile.id) || profile;
@@ -112,7 +119,8 @@ export function MaCommission({ db, profile }) {
   );
 
   const parBoutique = {};
-  mesVentes.forEach((v) => { parBoutique[v.boutique] = (parBoutique[v.boutique] || 0) + totalVente(v); });
+  // Idem : la répartition par boutique est une répartition de CA.
+  mesVentes.forEach((v) => { parBoutique[v.boutique] = (parBoutique[v.boutique] || 0) + caVente(v); });
 
   return (
     <div className="space-y-4">

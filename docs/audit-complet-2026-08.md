@@ -194,7 +194,7 @@ reprendre ici.
 
 ## Rentabilité (`src/screens/Rentabilite.jsx`)
 
-### 🟠 La marge affichée est plus belle que la vraie
+### ✅ CORRIGÉ EN 2.101.18 — la marge affichée était plus belle que la vraie
 `Rentabilite.jsx:45`. Le chiffre d'affaires par produit est calculé ainsi :
 
 ```
@@ -247,7 +247,7 @@ quelque chose qu'elle ne fait pas.**
 ---
 ## Paramètres — restauration d'une sauvegarde (`Parametres.jsx:397-419`)
 
-### 🔴 Restaurer une sauvegarde efface, sur le serveur et pour tout le monde, tout ce qui a été fait depuis
+### ✅ CORRIGÉ EN 2.101.18 — restaurer une sauvegarde effaçait, pour tout le monde, tout ce qui avait été fait depuis
 Le bouton « ♻ Restaurer une sauvegarde » appelle `save(donnees, …)` avec le
 contenu du fichier comme **nouvel état complet**.
 

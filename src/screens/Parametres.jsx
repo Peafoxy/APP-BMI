@@ -10,7 +10,7 @@ import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossi
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
-import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe } from "../lib/core";
+import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
@@ -394,7 +394,38 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     uAlert("Sauvegarde téléchargée !\nConservez ce fichier en lieu sûr (clé USB, Google Drive...).");
   };
 
+  // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) — LE GESTE LE PLUS DESTRUCTEUR DE
+  // L'APPLICATION, ET IL N'AVERTISSAIT PRESQUE PAS.
+  //
+  // `save()` remplace l'état complet, puis sauvegarderDiff (db.js) compare
+  // l'avant et l'après et met en file une SUPPRESSION pour chaque ligne
+  // absente du nouveau. Or une sauvegarde est, par définition, plus ancienne
+  // que la base : toutes les ventes, dettes, dépenses et fiches créées depuis
+  // ce jour-là étaient supprimées — localement, puis sur le serveur, donc sur
+  // TOUS les appareils.
+  //
+  // Et le garde-fou anti-écran-périmé de save() — celui qui refuse justement
+  // d'effacer ce qu'il ne sait plus comparer — ne se déclenchait pas : un
+  // fichier ne porte pas de numéro d'état (`__v`). La restauration passait
+  // tout droit.
+  //
+  // L'avertissement disait « ⚠ Les données actuelles seront remplacées ». Il
+  // ne disait ni « sur tous les appareils », ni « définitivement », ni
+  // combien de jours de travail. Le fichier n'affichait même pas sa date.
+  //
+  // Quatre garde-fous, maintenant :
+  //   1. réservé à l'administrateur PRINCIPAL ;
+  //   2. on COMPTE et on NOMME ce qui serait perdu, table par table ;
+  //   3. une copie de l'état actuel est exportée AVANT — sans elle, le geste
+  //      est sans retour ;
+  //   4. il faut recopier un mot pour confirmer, comme pour la
+  //      réinitialisation (le clic seul ne suffit pas à ce niveau de dégât).
   const restaurerSauvegarde = () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!estAdminPrincipal(db, profile)) {
+      uAlert("🔒 Seul l'administrateur PRINCIPAL peut restaurer une sauvegarde.\n\nCe geste peut effacer, sur tous les appareils, tout ce qui a été enregistré depuis la date du fichier.");
+      return;
+    }
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "application/json,.json";
@@ -403,16 +434,73 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       if (!fich) return;
       const lecteur = new FileReader();
       lecteur.onload = async () => {
+        let donnees;
         try {
-          const donnees = JSON.parse(lecteur.result);
-          if (!donnees.ventes || !donnees.boutiques) { uAlert("Ce fichier n'est pas une sauvegarde valide."); return; }
-          if (await uConfirm(`Restaurer cette sauvegarde ?\n${(donnees.ventes || []).length} ventes · ${(donnees.produits || []).length} articles · ${(donnees.dettes || []).length} dettes\n\n⚠ Les données actuelles seront remplacées.`)) {
-            save(donnees, "Restauration d'une sauvegarde de secours");
-            uAlert("Sauvegarde restaurée avec succès !");
-          }
+          donnees = JSON.parse(lecteur.result);
         } catch {
           uAlert("Fichier illisible ou corrompu.");
+          return;
         }
+        if (!donnees.ventes || !donnees.boutiques) { uAlert("Ce fichier n'est pas une sauvegarde valide."); return; }
+
+        // ---- CE QUI SERAIT PERDU, table par table ----
+        // On compare les identifiants, pas les nombres : une ligne modifiée
+        // depuis n'est pas une ligne perdue, une ligne ABSENTE si.
+        const TABLES_SUIVIES = [
+          ["ventes", "vente(s)"], ["dettes", "dette(s)"], ["depenses", "dépense(s)"],
+          ["produits", "article(s)"], ["users", "compte(s)"],
+          ["clients_installes", "chantier(s)"], ["commandes", "commande(s)"],
+          ["prospects", "prospect(s)"], ["clotures", "clôture(s) de caisse"],
+        ];
+        const perdus = [];
+        let totalPerdu = 0;
+        for (const [table, libelle] of TABLES_SUIVIES) {
+          const dansLeFichier = new Set((donnees[table] || []).map((r) => r.id));
+          const n = (db[table] || []).filter((r) => !dansLeFichier.has(r.id)).length;
+          if (n > 0) { perdus.push(`• ${n} ${libelle}`); totalPerdu += n; }
+        }
+
+        // La date du fichier : celle de la vente la plus récente qu'il
+        // contient, à défaut celle du fichier lui-même.
+        const derniereDate = (donnees.ventes || []).reduce((m, v) => (String(v.date || "") > m ? String(v.date) : m), "");
+        const jours = derniereDate
+          ? Math.max(0, Math.round((new Date(today()) - new Date(derniereDate)) / 86400000))
+          : null;
+
+        const entete = derniereDate
+          ? `Sauvegarde du ${dFR(derniereDate)}${jours !== null ? ` — il y a ${jours} jour(s)` : ""}.`
+          : "Sauvegarde sans date lisible.";
+
+        if (totalPerdu === 0) {
+          if (!await uConfirm(`${entete}\n\nElle contient tout ce que la base contient aujourd'hui : rien ne serait perdu.\n\nRestaurer quand même ?`)) return;
+        } else {
+          if (!await uConfirm(
+            `⚠️ ATTENTION — CE GESTE EFFACE DU TRAVAIL.\n\n${entete}\n\n` +
+            `${totalPerdu} enregistrement(s) existent aujourd'hui et ne sont PAS dans ce fichier :\n${perdus.join("\n")}\n\n` +
+            `Ils seront supprimés ici, sur le serveur, et donc sur TOUS les appareils. C'est définitif.\n\n` +
+            `Une copie de l'état ACTUEL va d'abord être téléchargée sur cet appareil.\n\nContinuer ?`
+          )) return;
+
+          // Un code TIRÉ AU HASARD, pas un mot fixe : on ne peut pas le taper
+          // machinalement. Même procédé que la réinitialisation de la base.
+          const code = codeConfirmation();
+          const saisi = await uPrompt(
+            `Dernière étape.\n\nPour confirmer la suppression de ${totalPerdu} enregistrement(s), recopiez ce code :\n\n${code}`,
+            ""
+          );
+          if (saisi === null) return;
+          if (String(saisi).trim().toUpperCase() !== code) { uAlert("Le code ne correspond pas. Rien n'a été touché."); return; }
+        }
+
+        // ---- LE FILET : l'état actuel part sur cet appareil AVANT tout ----
+        try {
+          telechargerSauvegarde(db, "avant-restauration");
+        } catch {
+          if (!await uConfirm("⚠ La copie de sécurité n'a pas pu être téléchargée.\n\nSans elle, ce geste est SANS RETOUR. Continuer quand même ?")) return;
+        }
+
+        save(donnees, `Restauration d'une sauvegarde${derniereDate ? ` du ${dFR(derniereDate)}` : ""}${totalPerdu ? ` — ${totalPerdu} enregistrement(s) supprimé(s)` : ""} (par ${profile.nom})`);
+        uAlert(`✅ Sauvegarde restaurée.${totalPerdu ? `\n\n${totalPerdu} enregistrement(s) ont été supprimés. La copie de l'état précédent est dans vos téléchargements.` : ""}`);
       };
       lecteur.readAsText(fich);
     };

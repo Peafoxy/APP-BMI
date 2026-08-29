@@ -87,5 +87,63 @@ titre("Le reçu de vente et la dette disent le MÊME chiffre");
     /RESTE À PAYER[\s\S]{0,220}?frais_installation[\s\S]{0,160}?avance/.test(impr));
 }
 
+titre("Un seul chiffre d'affaires pour toute l'application");
+{
+  // ⚠ AUDIT DU 29/08/2026 : trois écrans calculaient le « chiffre d'affaires »
+  // de trois façons différentes pour la MÊME vente. Le plus genant était
+  // Rentabilité, qui ne retirait ni la remise globale ni le rabais : la marge
+  // y paraissait meilleure qu'elle n'était, et c'est l'écran sur lequel Timo
+  // décide ses prix.
+  const rent = readFileSync("src/screens/Rentabilite.jsx", "utf8");
+  const macom = readFileSync("src/screens/MaCommission.jsx", "utf8");
+  const comm = readFileSync("src/screens/Commerciaux.jsx", "utf8");
+
+  test("★ Rentabilité additionne caLigneVente, plus « qte × pu »",
+    /parProduit\[nom\]\.ca \+= caLigneVente\(v, l\);/.test(rent)
+    && !/parProduit\[nom\]\.ca \+= Number\(l\.qte/.test(rent));
+  test("★ Ma commission part de caVente, comme la commission elle-même",
+    !/reduce\(\(s, v\) => s \+ totalVente\(v\), 0\)/.test(macom));
+  test("★ Commerciaux aussi",
+    /const ca = vs\.reduce\(\(s, v\) => s \+ caVente\(v\), 0\);/.test(comm));
+
+  // La somme des lignes doit redonner EXACTEMENT le CA de la vente.
+  const lignesVente = (v) => v.articles || [];
+  const caLigne = (v, l) => {
+    if (l.hors_boutique) return 0;
+    const net = Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);
+    const brut = lignesVente(v).reduce((s, x) => s + Number(x.qte || 0) * Number(x.pu || 0) - Number(x.remise_ligne || 0), 0);
+    if (!(brut > 0)) return 0;
+    return net - (Number(v.remise || 0) + Number(v.rabais || 0)) * (net / brut);
+  };
+  const caV = (v) => {
+    const lignes = lignesVente(v);
+    const netL = (l) => Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);
+    const brut = lignes.reduce((s, l) => s + netL(l), 0);
+    const inclus = lignes.reduce((s, l) => (l.hors_boutique ? s : s + netL(l)), 0);
+    const part = brut > 0 ? inclus / brut : 0;
+    if (part === 0) return 0;
+    return Math.round(inclus - Number(v.remise || 0) * part - Number(v.rabais || 0) * part);
+  };
+  const somme = (v) => Math.round(lignesVente(v).reduce((s, l) => s + caLigne(v, l), 0));
+
+  const venteRemisee = { articles: [{ qte: 2, pu: 300000 }, { qte: 1, pu: 400000 }], remise: 100000, rabais: 0 };
+  const venteMixte = { articles: [{ qte: 1, pu: 600000 }, { qte: 1, pu: 400000, hors_boutique: true }], remise: 100000, rabais: 50000 };
+  const venteSimple = { articles: [{ qte: 3, pu: 150000 }], remise: 0, rabais: 0 };
+
+  test("★ le cas de l'audit : 1 000 000 remisés à 10 % font 900 000, pas 1 000 000",
+    somme(venteRemisee) === 900000 && caV(venteRemisee) === 900000);
+  test("★ la somme des lignes redonne le CA de la vente, au franc près",
+    somme(venteRemisee) === caV(venteRemisee)
+    && somme(venteMixte) === caV(venteMixte)
+    && somme(venteSimple) === caV(venteSimple));
+  test("★ une ligne « hors boutique » ne compte pour rien",
+    caLigne(venteMixte, venteMixte.articles[1]) === 0);
+  test("…et la réduction ne retombe QUE sur la part boutique",
+    somme(venteMixte) === 600000 - Math.round(150000 * 0.6));
+  test("sans remise ni rabais, rien ne change par rapport à avant",
+    somme(venteSimple) === 450000);
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
