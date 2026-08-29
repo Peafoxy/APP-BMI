@@ -111,6 +111,24 @@ export const estCompteFormation = (db, profile) => {
 // corriger. Le pouvoir « act_voir_tout » qu'elle interrogeait a disparu de
 // ACTIONS_POUVOIR pour la même raison — il ne commandait plus rien.
 
+// ⚠ RELEVÉ PAR TIMO (29/08/2026, capture des Paramètres) : « nous sommes
+// dans les paramètres du RÉEL… toutes les boutiques et utilisateurs ne sont
+// pas cloisonnés pour chaque espace ». Il voyait DFORMATION et AFORMATION
+// dans la liste des boutiques alors que son sélecteur était sur « réel », et
+// la même chose dans 👥 Utilisateurs.
+//
+// Ces deux écrans lisaient `db.boutiques` et `db.users` BRUTS. Le
+// cloisonnement avait été posé partout où l'on compte de l'argent — pas dans
+// les deux écrans d'administration, qui sont pourtant ceux où l'on se trompe
+// le plus facilement de cible.
+//
+// La règle est la même que partout : la BOUTIQUE d'un compte prime sur son
+// drapeau (estCompteFormation), et l'espace regardé décide.
+export const utilisateursDeLEspace = (db, profile, liste) => {
+  const espace = espaceDuCompte(db, profile);
+  return (liste || db.users || []).filter((u) => estCompteFormation(db, u) === espace);
+};
+
 export const comptesEspaceIncoherent = (db) =>
   (db.users || []).filter((u) => {
     if (!u.boutique || u.role === "client" || u.actif === false) return false;

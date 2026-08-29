@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -65,6 +65,12 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // déjà le bandeau aujourd'hui), donc cette donnée y est visible de la
   // même façon, sans rien changer côté serveur.
   const boutiqueRef = db.boutiques[0] || {};
+  // ⚠ RELEVÉ PAR TIMO (29/08/2026, capture) : « nous sommes dans les
+  // paramètres du RÉEL » — et DFORMATION comme AFORMATION apparaissaient
+  // quand même dans la liste. Cet écran lisait db.boutiques BRUT. C'est
+  // pourtant ici qu'on renomme, qu'on supprime et qu'on bascule
+  // boutique ↔ magasin : se tromper d'espace y est sans retour.
+  const boutiquesDeLEcran = boutiquesVisibles(db, profile, db.boutiques);
   const [accueilTexte, setAccueilTexte] = useState(boutiqueRef.accueil_texte || "");
   const [accueilBadge, setAccueilBadge] = useState(boutiqueRef.accueil_couleur_badge || "#0284c7");
   const [accueilFond, setAccueilFond] = useState(boutiqueRef.accueil_couleur_fond || "#ffffff");
@@ -905,11 +911,11 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Boutiques ({db.boutiques.length})</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Boutiques ({boutiquesDeLEcran.length})</div>
         <table className="w-full text-sm min-w-[480px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Logo", "Coordonnées reçu", "Couleur", "Données", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {db.boutiques.map((b) => (
+            {boutiquesDeLEcran.map((b) => (
               <tr key={b.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-4 py-2"><Badge boutique={b.nom} />
                   <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>

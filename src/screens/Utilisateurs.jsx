@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte} from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -35,7 +35,12 @@ export function Users({ db, save, profile }) {
   // normalement partout ailleurs (Historique, Messages, ventes...) s'il y
   // est actif — rien à voir avec la traçabilité de ses actions, qui reste
   // entière comme partout dans l'app.
-  const utilisateursVisibles = jeSuisAdminPrincipal ? db.users : db.users.filter((x) => adminPrincipal(db)?.id !== x.id);
+  // ⚠ RELEVÉ PAR TIMO (29/08/2026) : cet écran listait TOUS les comptes, les
+  // deux espaces mêlés, même quand le sélecteur « Je regarde » était sur le
+  // réel. C'est l'écran où l'on bloque, où l'on change un salaire, où l'on
+  // supprime — donc celui où se tromper de cible coûte le plus cher.
+  const dansMonEspace = utilisateursDeLEspace(db, profile);
+  const utilisateursVisibles = jeSuisAdminPrincipal ? dansMonEspace : dansMonEspace.filter((x) => adminPrincipal(db)?.id !== x.id);
   const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r).length]));
   const rolesPresents = ROLES_LISTE.filter(([r]) => nbParRole[r] > 0);
   const roleAffiche = nbParRole[roleActif] > 0 ? roleActif : (rolesPresents[0]?.[0] || "admin");

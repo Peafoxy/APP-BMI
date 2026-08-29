@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
-import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -33,7 +33,9 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
   const [f, setF] = useState({ client: "", tel: "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], vendeurCible: "", responsable: "", rabais: "" });
   // Responsables commerciaux actifs, que le commercial peut associer VOLONTAIREMENT
   // à sa commande pour partager la commission.
-  const responsables = db.users.filter((u) => u.role === "resp_commercial" && u.actif !== false);
+  // ⚠ Cloisonnement (29/08/2026) : une vraie commande ne se rattache pas à un
+  // responsable d'entraînement.
+  const responsables = utilisateursDeLEspace(db, profile).filter((u) => u.role === "resp_commercial" && u.actif !== false);
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
   // RÉACTIF à chaque nouveau preRempli — même correctif que Ventes.jsx

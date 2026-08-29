@@ -2745,5 +2745,85 @@ titre("Un article sans prix ne s'importe pas, et ne se vend pas en silence");
 }
 
 
+titre("Les ecrans d'ADMINISTRATION suivent l'espace regarde, eux aussi");
+{
+  // ⚠ RELEVE PAR TIMO (29/08/2026, capture des Parametres) : « nous sommes
+  // dans les parametres du REEL… toutes les boutiques et utilisateurs ne sont
+  // pas cloisonnes pour chaque espace ». Il voyait DFORMATION et AFORMATION
+  // dans la liste des boutiques, selecteur sur « reel ».
+  // Le cloisonnement avait ete pose partout ou l'on compte de l'argent — pas
+  // dans les deux ecrans d'administration, qui sont pourtant ceux ou l'on
+  // bloque un compte, change un salaire, renomme ou supprime une boutique.
+  const dbA = {
+    boutiques: [
+      { id: "b1", nom: "APESSITO" },
+      { id: "b2", nom: "DEMAKPOE" },
+      { id: "b3", nom: "DEPOT MAISON", depot: true },
+      { id: "b4", nom: "AFORMATION", formation: true },
+      { id: "b5", nom: "DFORMATION", formation: true },
+    ],
+    users: [
+      { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true },
+      { id: "u_vend", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" },
+      { id: "u_stag", nom: "AMA", role: "vendeur", boutique: "AFORMATION" },
+      { id: "u_cliR", nom: "CLIENT REEL", role: "client" },
+      { id: "u_cliF", nom: "CLIENT ESSAI", role: "client", formation: true },
+    ],
+  };
+  const timo = { id: "u_timo", role: "admin" };
+
+  C.setRegardeFormation(false);
+  test("★ en REGARDANT LE REEL, les boutiques de formation disparaissent",
+    C.boutiquesVisibles(dbA, timo, dbA.boutiques).map((b) => b.nom).join(",") === "APESSITO,DEMAKPOE,DEPOT MAISON");
+  test("★ …et les comptes de formation aussi",
+    C.utilisateursDeLEspace(dbA, timo).map((u) => u.nom).join(",") === "TIMO,KOSSI,CLIENT REEL");
+
+  C.setRegardeFormation(true);
+  test("★ en REGARDANT LA FORMATION, on ne voit QUE la formation",
+    C.utilisateursDeLEspace(dbA, timo).map((u) => u.nom).join(",") === "AMA,CLIENT ESSAI");
+  test("★ …et les deux boutiques d'entrainement, sans les vraies",
+    C.boutiquesVisibles(dbA, timo, dbA.boutiques).map((b) => b.nom).join(",") === "AFORMATION,DFORMATION");
+  C.setRegardeFormation(false);
+
+  test("★ la BOUTIQUE d'un compte prime sur son drapeau, ici comme partout",
+    C.utilisateursDeLEspace(dbA, timo).every((u) => u.nom !== "AMA"));
+  test("un compte sans drapeau ni boutique est traite comme REEL",
+    C.utilisateursDeLEspace(dbA, timo).some((u) => u.nom === "CLIENT REEL"));
+
+  // Les deux ecrans passent-ils VRAIMENT par ces fonctions ?
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  const uti = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ Parametres affiche la liste filtree, plus db.boutiques brut",
+    /const boutiquesDeLEcran = boutiquesVisibles\(db, profile, db\.boutiques\)/.test(par)
+    && /\{boutiquesDeLEcran\.map\(\(b\) => \(/.test(par)
+    && !/\{db\.boutiques\.map\(\(b\) => \(/.test(par));
+  test("★ le compteur « Boutiques (n) » compte la liste filtree, pas toutes",
+    /Boutiques \(\{boutiquesDeLEcran\.length\}\)/.test(par));
+  test("★ Utilisateurs part de utilisateursDeLEspace",
+    /const dansMonEspace = utilisateursDeLEspace\(db, profile\)/.test(uti)
+    && !/const utilisateursVisibles = jeSuisAdminPrincipal \? db\.users :/.test(uti));
+  test("le controle d'unicite d'un nom de boutique, lui, regarde les DEUX espaces",
+    /db\.boutiques\.some\(\(b\) => b\.nom === nom\)/.test(par));
+
+  // ⚠ En corrigeant les deux ecrans signales, j'ai balaye les autres listes de
+  // PERSONNES. Quatre melangeaient encore les deux espaces, chacune avec un
+  // degat concret a la cle.
+  const listes = [
+    ["ClientsInstalles.jsx", /const comptesClientsLibres = utilisateursDeLEspace\(db, profile\)/,
+     "rattacher un VRAI chantier au compte d'un client d'entrainement"],
+    ["ClientsInstalles.jsx", /const commerciauxActifs = utilisateursDeLEspace\(db, profile\)/,
+     "attribuer un vrai chantier a un commercial d'entrainement"],
+    ["Commandes.jsx", /const responsables = utilisateursDeLEspace\(db, profile\)/,
+     "rattacher une vraie commande a un responsable d'entrainement"],
+    ["Messagerie.jsx", /const equipe = utilisateursDeLEspace\(db, profile\)/,
+     "ecrire a un vrai client depuis un compte d'entrainement"],
+  ];
+  for (const [fichier, motif, degat] of listes) {
+    test(`★ ${fichier} — ${degat} : impossible`,
+      motif.test(readFileSync(`src/screens/${fichier}`, "utf8")));
+  }
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

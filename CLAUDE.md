@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 545 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 559 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -82,6 +82,13 @@ impossible, et le banc doit le dire dans ce sens-là.
 - Il bascule d'un espace à l'autre avec le sélecteur « Je regarde ».
   Ce réglage **survit au F5 et à une nouvelle version**, et **meurt à la
   déconnexion** (retour au réel).
+- **Les écrans d'administration suivent le sélecteur, eux aussi.** Relevé par
+  Timo le 29/08/2026 : ⚙ Paramètres et 👥 Utilisateurs listaient les DEUX
+  espaces mêlés. Le cloisonnement avait été posé partout où l'on compte de
+  l'argent, pas là où l'on bloque un compte ou supprime une boutique. Toute
+  liste de boutiques passe par `boutiquesVisibles`, toute liste de personnes
+  par `utilisateursDeLEspace`. Seul le contrôle d'unicité d'un nom de boutique
+  regarde les deux espaces — sinon le serveur ne saurait plus classer la ligne.
 - **Ce qu'on crée naît dans l'espace qu'on regarde** — plus aucune case
   « formation » à cocher à la création d'un utilisateur, d'une boutique ou
   d'un magasin.

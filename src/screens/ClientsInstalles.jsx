@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -106,7 +106,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const [filtreEntretien, setFiltreEntretien] = useState(false);
 
   // Comptes de rôle "client" pas encore rattachés à une fiche (pour lier un accès à l'app)
-  const comptesClientsLibres = db.users.filter((u) => u.role === "client" && u.actif !== false && !(db.clients_installes || []).some((c) => c.user_id === u.id));
+  // ⚠ Cloisonnement (29/08/2026) : sans ce filtre, on pouvait rattacher un
+  // VRAI chantier au compte d'un client d'entraînement — et l'inverse.
+  const comptesClientsLibres = utilisateursDeLEspace(db, profile).filter((u) => u.role === "client" && u.actif !== false && !(db.clients_installes || []).some((c) => c.user_id === u.id));
 
   // ---- CRÉER UN COMPTE CLIENT SUR PLACE ----
   // Tout employé peut créer un compte CLIENT — et RIEN d'autre. Le rôle est
@@ -803,7 +805,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const entretiensDus = (voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier)).filter((c) => c.date_entretien && c.date_entretien <= today()).length;
 
-  const commerciauxActifs = db.users.filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false);
+  // ⚠ Cloisonnement : un vrai chantier ne s'attribue pas à un commercial
+  // d'entraînement — sa commission serait calculée à son nom.
+  const commerciauxActifs = utilisateursDeLEspace(db, profile).filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false);
 
   // ---- Regroupement par catégorie (demande Timo) : à programmer / en cours
   // / à réceptionner / réserves / réceptionné. Purement un tri + des lignes

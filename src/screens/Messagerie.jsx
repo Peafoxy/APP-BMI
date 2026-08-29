@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
+import { utilisateursDeLEspace } from "../lib/calculs";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
@@ -38,7 +39,10 @@ export function Messagerie({ db, save, profile }) {
   const groupes = db.groupes || [];
 
   // ---- Interlocuteurs 1-à-1 : équipe active (+ clients autorisés au chat libre) ----
-  const equipe = db.users.filter((u) => u.id !== profile.id && u.actif !== false && (u.role !== "client" || u.chat_libre));
+  // ⚠ Cloisonnement (29/08/2026) : la liste des interlocuteurs mêlait les deux
+  // espaces. Un stagiaire pouvait écrire à un vrai client, et un vrai vendeur
+  // recevoir un message d'entraînement au milieu de ses vraies conversations.
+  const equipe = utilisateursDeLEspace(db, profile).filter((u) => u.id !== profile.id && u.actif !== false && (u.role !== "client" || u.chat_libre));
   const contacts = estClient && !chatLibre ? [] : equipe;
 
   // ---- Chef d'équipe assigné à MON installation (visible même sans chat libre) ----
