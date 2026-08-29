@@ -572,7 +572,7 @@ rejoué tous les bancs. Le reste du code est inchangé au caractère près
    comptera en secondes un jour. Remède connu : construire une table de
    correspondance une fois par affichage. Rien d'urgent au volume actuel.
 
-## 📌 Un changement de comportement à faire valider par Timo
+## ✅ TRANCHÉ PAR TIMO LE 29/08/2026 — « l'apporteur externe attend le solde comme le parrain »
 
 **L'apporteur d'affaires EXTERNE attend désormais lui aussi le solde.** La
 règle « la part du parrain attend que le filleul ait soldé » a été branchée

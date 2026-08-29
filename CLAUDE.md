@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 600 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 604 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -170,7 +170,9 @@ impossible, et le banc doit le dire dans ce sens-là.
   **et** le solde de la dette du client. Sa décision du 29/08/2026, après avoir
   remarqué qu'un client pouvait signer son PV en ayant versé 30 % : « un franc
   ne sort pas de la caisse avant d'y être entré ». La **part du parrain** suit
-  la même règle — « c'est lorsque le client (filleul) a soldé sa dette ».
+  la même règle — « c'est lorsque le client (filleul) a soldé sa dette » —
+  et **l'apporteur externe aussi** (« l'apporteur externe attend le solde
+  comme le parrain », tranché le 29/08/2026).
   Le lien `dette.vente_id` est posé à l'encaissement ; les dettes créées avant
   la 2.101.19 ne l'ont pas, leurs ventes gardent l'ancienne règle.
 - Le plan de règlement se choisit **à la signature du contrat**, pas du PV.
@@ -246,9 +248,6 @@ chantier. Les constats, par ordre de gravité.
    Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
 
 ### Réels
-- **L'apporteur externe attend désormais le solde de la dette**, comme le
-  parrain (effet de bord de 2.101.19, jamais tranché par Timo — à lui de
-  confirmer ou défaire).
 
 ### Bancs
 `npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
