@@ -343,7 +343,7 @@ Les deux déclencheurs sont bien en place sur son Supabase :
 
 `supabase/securite-2-role-inviolable.sql` ferme ces deux-là, et rien d'autre.
 
-### ✅ SQL ÉCRIT ET VÉRIFIÉ (29/08/2026) — l'écriture des comptes clients
+### ✅ FERMÉ SUR LA VRAIE BASE (29/08/2026, capture de Timo) — l'écriture des comptes clients
 | Geste | Base |
 |---|---|
 | Un client efface sa propre dette (800 000 F) | ✅ **accepté** |

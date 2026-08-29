@@ -168,12 +168,12 @@ chantier. Les constats, par ordre de gravité.
 
 ### Graves
 1. ~~Un compte client peut écrire dans `dettes`, `ventes` et `produits`~~ —
-   **SQL écrit et vérifié le 29/08/2026** (`supabase/client-2-fermer-ecriture.sql`),
-   **en attente d'exécution par Timo**. Il ferme les quatre gestes mesurés sans
-   casser son espace : les articles lui sont interdits en entier, il crée
-   encore une dette (devis « pose seule ») mais n'en modifie plus aucune, et
-   d'une vente il ne peut plus changer que les trois champs de la réception —
-   jamais le montant, jamais la prime de son parrain.
+   **FERMÉ, et vérifié sur la vraie base le 29/08/2026** (capture de Timo) :
+   `role_client_pas_de_produits`, `role_client_ne_modifie_pas_les_dettes`,
+   `role_client_ne_cree_pas_de_vente` et le déclencheur
+   `client_ventes_reception_seule_trg`. Son espace continue de créer la dette
+   d'un devis « pose seule » et de signer son PV — mais il ne peut plus gonfler
+   la prime de son parrain au passage. **Ne pas rouvrir ce sujet.**
    ⚠ L'escalade de privilège, elle, est **fermée, et vérifié sur la vraie base
    le 29/08/2026** (capture de Timo) : `interdire_escalade` sur `users`,
    `interdire_escalade_paie_trg` sur `paie`. Je l'avais annoncée ouverte —
@@ -206,8 +206,9 @@ chantier. Les constats, par ordre de gravité.
 
 ### Bancs
 `npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
-connecté. **Il est rouge (5 échecs sur 17), et c'est voulu** : il décrit l'état
-voulu, pas l'état actuel. Il passera au vert quand la vague 2 sera faite.
+connecté. **Il ne reste qu'un échec sur 21** — un employé qui écrit
+`salaire_base` dans `users.data`, inerte dès que la fiche de paie existe dans la table `paie`, qui
+fait foi.
 
 ⚠ **Leçon du 29/08/2026 : un banc qui lit mal est pire qu'un banc absent.**
 Celui-ci décidait « accepté / refusé » en lisant la dernière ligne de psql —
