@@ -291,45 +291,84 @@ seulement le bouton), et quatre contrôles de `npm run tester-reglement`
 surveillent la règle.
 
 ---
-## 🔴🔴 LE CHEMIN COMPLET — du nom d'un client à l'administration de BMI
+## ⚠️ CORRECTION DU 29/08/2026 — je me suis trompé sur le point le plus grave
 
-C'est la trouvaille la plus grave de l'audit. Chaque maillon est soit **mesuré**
-par un banc, soit **lu directement** dans le code. Aucun n'est supposé.
+**Ce que j'avais annoncé :** qu'un client pouvait se nommer administrateur
+principal en réécrivant sa propre fiche, et devenir vous à sa reconnexion.
+J'avais écrit « mesuré, pas supposé ».
 
-**1. Le mot de passe d'un client se calcule.** `src/lib/identiteClient.js:24-53`.
-`motDePasseClient(nom, tel)` mélange les chiffres du téléphone et les lettres du
-nom avec un générateur déterministe. **Aucun secret n'entre dans le calcul.**
-Ce code part dans le navigateur : il est public. Qui connaît le nom et le numéro
-d'un client — c'est écrit sur ses reçus et dans les messages WhatsApp — calcule
-son mot de passe. `variante` et `longueur`, les seules variations possibles, sont
-en clair dans la fiche, et valent 0 et 6 sauf collision de noms.
+**C'était faux, et l'erreur venait de mon banc.** Il décidait « écriture
+acceptée » ou « refusée » en lisant la dernière ligne affichée par psql. Or
+psql annonce chaque commande réussie par un « SET » sur cette même sortie :
+quand un garde-fou refusait l'écriture, il ne restait que ces « SET », et mon
+banc les prenait pour un résultat — donc pour une écriture **acceptée**.
+Toutes les portes fermées par un déclencheur étaient annoncées grandes
+ouvertes.
 
-**2. Ce mot de passe ouvre vraiment le compte.** `fabriquerCompteClient`
-(`comptesClients.js:197`) l'enregistre tel quel avec `mdp_auto: true`. Le client
-ne le change presque jamais : il lui est envoyé par WhatsApp et lui sert à
-consulter son devis.
+Le banc ne lit plus la sortie : il regarde si la base a levé une objection,
+seule marque fiable d'un refus. Chaque essai tourne désormais dans sa propre
+transaction, annulée à la fin.
 
-**3. Une fois connecté, le client réécrit sa propre fiche.** *Mesuré par
-`npm run tester-ecriture-sql` :* « un client se nomme ADMINISTRATEUR PRINCIPAL
-→ accepté ». Aucune règle de la base ne l'en empêche.
+### Ce qui protège DÉJÀ, et qui était dans le dépôt depuis le début
+`supabase/roles-1-vague1.sql` installe le déclencheur **`interdire_escalade`**
+sur `public.users`, et il fait exactement le travail. `supabase/paie-1-table.sql`
+fait de même sur les fiches de paie. Mesuré, cette fois pour de bon :
 
-**4. À la reconnexion suivante, il EST administrateur principal.**
-`api/sync-auth.js:99` lit le rôle **dans cette fiche** pour fabriquer le jeton de
-session : `role`, `ecriture`, et `espace: 'tous'`.
+| Geste | Base |
+|---|---|
+| Un client se nomme administrateur principal | ❌ **refusé** |
+| Un employé se nomme administrateur principal | ❌ **refusé** |
+| Un employé s'augmente son propre salaire | ❌ **refusé** |
+| Un employé lit le salaire des autres | ❌ **refusé** |
+| Un client modifie la fiche d'un autre | ❌ refusé |
+| Un client supprime une vente | ❌ refusé |
 
-**5. Il a alors tout.** Les vraies données et celles de formation, les salaires,
-la suppression de n'importe quelle ligne.
+**Les constats n° 1 et n° 5 de cet audit tombent.** Le chemin « du nom d'un
+client à l'administration » est déjà coupé à son maillon central.
 
-### Où couper — un seul maillon suffit, et le 3 est le plus simple
-Le maillon **3** est le plus facile à fermer et il coupe la chaîne net : un
-garde-fou dans la base qui refuse à quiconque de modifier son propre `role`,
-son `admin_principal` ou ses `droits_off`. C'est du SQL à coller, sans toucher
-à l'application.
+### ⚠ La seule chose à vérifier
+Ces protections sont dans des scripts. Rien ne dit qu'ils ont été **exécutés**
+sur la vraie base. Une requête à coller dans Supabase → SQL Editor tranche la
+question :
 
-Le maillon **1** demande, lui, un vrai changement : un mot de passe client tiré
-au hasard, envoyé une fois par WhatsApp, et non plus recalculable. C'est plus
-long, et cela retire à l'administrateur la possibilité de le retrouver — il
-faudra un bouton « réinitialiser » à la place.
+```sql
+select tgname as declencheur, tgrelid::regclass as sur_la_table
+from pg_trigger
+where tgname in ('interdire_escalade', 'interdire_escalade_paie_trg');
+```
+
+Deux lignes attendues. S'il en manque une, c'est le script correspondant
+qu'il faut coller.
+
+### 🟠 Ce qui reste vraiment ouvert de ce côté — deux trous mesurés
+1. **Un administrateur peut modifier sa propre fiche.** `interdire_escalade`
+   laisse passer tout jeton portant le rôle « admin » sans rien vérifier
+   ensuite : un administrateur secondaire peut se donner `admin_principal`.
+   Depuis le 28/08, ce drapeau décide **seul** de qui traverse le mur
+   formation / réel.
+2. **Le champ `actif` n'est surveillé par personne.** Un employé qu'on vient
+   de bloquer garde son jeton de session jusqu'à expiration : il peut, pendant
+   ce temps, se remettre `actif: true`.
+
+`supabase/securite-2-role-inviolable.sql` ferme ces deux-là, et rien d'autre.
+
+### 🔴 Ce qui reste ouvert, et qui est réel — l'écriture des comptes clients
+| Geste | Base |
+|---|---|
+| Un client efface sa propre dette (800 000 F) | ✅ **accepté** |
+| Un client change le montant d'une vente | ✅ **accepté** |
+| Un client change le prix d'un article | ✅ **accepté** |
+| Un client invente une vente de toutes pièces | ✅ **accepté** |
+
+C'est le chantier « **vague 2** » déjà repéré : `dettes`, `ventes`, `produits`
+restent ouverts en écriture aux comptes clients. On ne peut pas simplement les
+leur interdire — leur espace écrit légitimement une dette à la validation d'un
+devis (`EspaceClient.jsx:425`). Il faut d'abord marquer **à qui** chaque ligne
+appartient.
+
+Le mot de passe calculable (`identiteClient.js`) reste, lui, un vrai sujet :
+il ne mène plus à l'administration, mais il ouvre l'espace d'un client à qui
+connaît son nom et son numéro — donc ses devis, ses dettes, sa signature.
 
 ---
 

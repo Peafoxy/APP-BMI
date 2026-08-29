@@ -159,12 +159,16 @@ impossible, et le banc doit le dire dans ce sens-là.
 chantier. Les constats, par ordre de gravité.
 
 ### Graves
-1. **Du nom d'un client à l'administration.** Le mot de passe d'un client se
-   calcule à partir de son nom et de son numéro (`identiteClient.js`) ; une
-   fois connecté, il peut réécrire sa propre fiche en `admin_principal`
-   (mesuré) ; `api/sync-auth.js` lit le rôle dans cette fiche à la connexion
-   suivante. **Couper le maillon du milieu suffit** : un garde-fou SQL qui
-   refuse à quiconque de changer son propre rôle.
+1. **Un compte client peut écrire dans `dettes`, `ventes` et `produits`**
+   (mesuré) : effacer sa propre dette, changer le montant d'une vente, un
+   prix, ou inventer une vente. C'est le chantier « vague 2 » : on ne peut pas
+   le leur interdire tout court, leur espace écrit légitimement une dette à la
+   validation d'un devis. Il faut d'abord marquer **à qui** chaque ligne
+   appartient.
+   ⚠ L'escalade de privilège, elle, est **déjà fermée** par le déclencheur
+   `interdire_escalade` de `roles-1-vague1.sql` (et `interdire_escalade_paie_trg`
+   pour les salaires). Je l'avais annoncée ouverte : c'était mon banc qui
+   lisait mal, pas la base qui laissait passer.
 2. **Restaurer une sauvegarde** (`Parametres.jsx:397`) efface sur le serveur
    tout ce qui a été créé depuis. Le garde-fou anti-état-périmé de `save()` ne
    se déclenche pas, faute de `__v` sur un fichier.
@@ -190,8 +194,15 @@ chantier. Les constats, par ordre de gravité.
 
 ### Bancs
 `npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
-connecté. **Il est rouge (8 échecs sur 12), et c'est voulu** : il décrit l'état
-voulu, pas l'état actuel. Il passera au vert quand les portes seront fermées.
+connecté. **Il est rouge (5 échecs sur 17), et c'est voulu** : il décrit l'état
+voulu, pas l'état actuel. Il passera au vert quand la vague 2 sera faite.
+
+⚠ **Leçon du 29/08/2026 : un banc qui lit mal est pire qu'un banc absent.**
+Celui-ci décidait « accepté / refusé » en lisant la dernière ligne de psql —
+or psql annonce « SET » pour chaque commande réussie, et ces « SET » étaient
+pris pour un résultat. Toutes les portes fermées par un déclencheur étaient
+annoncées grandes ouvertes, et j'ai alerté Timo à tort. On ne lit plus la
+sortie : on regarde si la base a levé une objection.
 
 ### Chantiers plus anciens, toujours ouverts
 - **Vague 2 de la fermeture de l'annuaire client** : `dettes`, `ventes`,
