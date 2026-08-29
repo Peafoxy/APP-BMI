@@ -276,7 +276,7 @@ tout administrateur ayant gardé l'onglet Paramètres peut le faire).
 
 ## Plan de règlement (`TousLesDevis.jsx:69`)
 
-### ❓ « L'administrateur seul » — lequel ?
+### ✅ TRANCHÉ LE 29/08/2026 — « moi seul » (corrigé en 2.101.15)
 `const peutDeciderDuPlan = profile.role === "admin";`
 
 Le commentaire juste au-dessus cite votre réponse : « L'ADMINISTRATEUR SEUL ».
@@ -285,9 +285,10 @@ l'application, les gestes qui engagent l'entreprise sont réservés à
 `estAdminPrincipal` — et vous avez tranché le 28/08 que les autres
 administrateurs ne sont plus des vous en réduction.
 
-Aujourd'hui, n'importe quel administrateur peut engager BMI sur un échéancier
-de paiement. Dites-moi si c'est ce que vous vouliez ; sinon c'est une ligne à
-changer.
+Question reposée à Timo, réponse : **« Moi seul »**. `peutDeciderDuPlan` vaut
+désormais `estAdminPrincipal(db, profile)`, le geste se garde lui-même (et pas
+seulement le bouton), et quatre contrôles de `npm run tester-reglement`
+surveillent la règle.
 
 ---
 ## 🔴🔴 LE CHEMIN COMPLET — du nom d'un client à l'administration de BMI

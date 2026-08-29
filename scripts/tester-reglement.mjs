@@ -8,6 +8,7 @@
 // perdre un versement de vue.
 // ============================================================
 import * as R from "../src/lib/reglement.js";
+import { readFileSync } from "node:fs";
 
 let ok = 0, ko = 0;
 const test = (nom, cond) => { if (cond) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}`); } };
@@ -113,6 +114,25 @@ titre("La prochaine échéance — ce que le client doit voir en premier");
     R.prochaineEcheance(plan, 360000, 360000) === null);
   test("un versement partiel ne fait pas sauter l'échéance en cours",
     R.prochaineEcheance(plan, 360000, 30000).date === "2026-08-31");
+}
+
+titre("Qui accepte un plan de reglement : l'administrateur PRINCIPAL, et lui seul");
+{
+  // ⚠ REGLE POSEE PAR TIMO (29/08/2026), a la relecture de l'audit.
+  // Sa premiere reponse — « l'administrateur seul » — avait ete comprise
+  // comme TOUT compte administrateur. Reposee autrement, sa reponse a ete :
+  // « MOI SEUL ». Accepter un plan engage BMI sur un echeancier ; c'est un
+  // geste du meme rang que changer un mot de passe.
+  const src = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+
+  test("★ la decision est reservee a estAdminPrincipal, pas au role « admin »",
+    /const peutDeciderDuPlan = estAdminPrincipal\(db, profile\);/.test(src));
+  test("★ l'ancienne regle « tout administrateur » a bien disparu",
+    !/const peutDeciderDuPlan = profile\.role === "admin"/.test(src));
+  test("le geste lui-meme se garde, pas seulement le bouton",
+    /deciderPlan = async[\s\S]{0,400}?if \(!peutDeciderDuPlan\)/.test(src));
+  test("le message affiche aux autres dit bien PRINCIPAL",
+    /Seul l'administrateur PRINCIPAL peut accepter ou rejeter ce plan/.test(src));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

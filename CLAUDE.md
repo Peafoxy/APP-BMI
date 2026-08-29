@@ -113,8 +113,9 @@ impossible, et le banc doit le dire dans ce sens-là.
   (`memeNumero`). `+228 90 11 22 33` et `90112233` sont le même client :
   les comparer bruts créait des doublons et une seconde prime de parrainage.
 - Le plan de règlement se choisit **à la signature du contrat**, pas du PV.
-  **L'administrateur principal seul** accepte ou refuse. La date de première
-  échéance est **libre**.
+  **L'administrateur principal seul** accepte ou refuse — sa réponse du
+  29/08/2026, mot pour mot : « moi seul ». La date de première échéance est
+  **libre**.
 - L'appareil d'un client ne doit télécharger **que ses propres données**.
   `lireTout()` récupère tout ce que le serveur laisse passer : **les
   politiques RLS sont la seule barrière**, il n'y a aucun filtre par
@@ -203,7 +204,3 @@ voulu, pas l'état actuel. Il passera au vert quand les portes seront fermées.
   trois comme le relevé précédent le disait).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 
-### Une question sans réponse
-Le plan de règlement est aujourd'hui accepté par **tout administrateur**
-(`TousLesDevis.jsx:69`). Timo avait répondu « l'administrateur seul » — reste à
-savoir s'il voulait dire l'administrateur **principal**, comme partout ailleurs.

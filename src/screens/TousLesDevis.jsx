@@ -9,7 +9,7 @@ import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
 import { fmt, dFR, today } from "../lib/core";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { normNom, espaceDuCompte, bloquerSiLecture } from "../lib/calculs";
+import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal } from "../lib/calculs";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
 export function libelleTypeDevis(d) {
@@ -66,10 +66,19 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // Et à ma question « qui décide ? », sa réponse : L'ADMINISTRATEUR SEUL.
   // Le commercial VOIT la proposition — c'est utile pour son suivi — mais il
   // ne peut pas engager l'entreprise sur un échéancier.
-  const peutDeciderDuPlan = profile.role === "admin";
+  //
+  // ⚠ PRÉCISÉ LE 29/08/2026, à la relecture de l'audit : « l'administrateur
+  // seul » avait été compris comme TOUT compte administrateur. Question posée
+  // à Timo, réponse : « MOI SEUL ». Accepter un plan, c'est engager BMI sur un
+  // échéancier — au même titre que changer un mot de passe ou basculer un
+  // compte d'espace, gestes déjà réservés à l'administrateur PRINCIPAL.
+  const peutDeciderDuPlan = estAdminPrincipal(db, profile);
 
   const deciderPlan = async (d, accepte) => {
     if (bloquerSiLecture(db, profile)) return;
+    // Le bouton est déjà caché aux autres ; on garde aussi le geste, pour que
+    // la règle tienne même si un jour l'affichage change.
+    if (!peutDeciderDuPlan) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut accepter ou rejeter un plan de règlement."); return; }
     const solde = soldeApresAcompte(d);
     let motif = "";
     if (!accepte) {
@@ -238,7 +247,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                                 <button onClick={() => deciderPlan(d, false)} className="px-4 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">❌ Rejeter</button>
                               </div>
                             ) : (
-                              <div className="text-xs font-semibold text-slate-500 mt-2">Seul l'administrateur peut accepter ou rejeter ce plan.</div>
+                              <div className="text-xs font-semibold text-slate-500 mt-2">Seul l'administrateur PRINCIPAL peut accepter ou rejeter ce plan.</div>
                             )
                           )}
                         </div>
