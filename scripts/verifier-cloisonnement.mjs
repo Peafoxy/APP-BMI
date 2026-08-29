@@ -2883,5 +2883,42 @@ titre("Balayage des LISTES DEROULANTES : aucune ne mele les deux espaces");
 }
 
 
+titre("L'espace formation se reconnait a sa couleur");
+{
+  // ⚠ Demande de Timo (29/08/2026) : « changer le bleu de l'application en
+  // violet pour l'espace formation ». Un coup d'oeil suffit alors a savoir ou
+  // l'on est — la protection la plus simple contre l'erreur d'espace, et elle
+  // ne demande de lire aucun libelle.
+  // ⚠ La COULEUR obtenue se verifie dans un vrai navigateur
+  // (npm run verifier-ecran). Ici on verifie le MECANISME : la marque est bien
+  // posee, au bon moment, et retiree quand il faut.
+  const app = readFileSync("src/App.jsx", "utf8");
+  const css = readFileSync("src/index.css", "utf8");
+
+  test("★ la marque suit l'espace REGARDE, pas l'espace du compte seul",
+    /const enFormation = !!\(db && profile && espaceDuCompte\(db, profile\)\)/.test(app));
+  test("★ elle est retiree quand on n'est plus en formation",
+    /else delete racine\.dataset\.espace;/.test(app));
+  test("★ …et a la deconnexion : l'ecran de connexion reste bleu",
+    /return \(\) => \{ delete racine\.dataset\.espace; \};/.test(app));
+  test("★ elle se recalcule quand on bascule le selecteur",
+    /\}, \[db, profile, regardeFormation\]\);/.test(app));
+
+  // ⚠ Le crochet doit etre AVANT les points de sortie d'App.jsx — sinon
+  // l'application ne s'affiche plus du tout (piege des 2.100.76 et 2.100.77).
+  const posMarque = app.indexOf("racine.dataset.espace");
+  const posSortie = app.indexOf("if (!db) return");
+  test("★ le crochet est place AVANT le premier point de sortie d'App.jsx",
+    posMarque > 0 && posSortie > 0 && posMarque < posSortie);
+
+  test("★ la couleur se change par les VARIABLES, pas classe par classe",
+    /html\[data-espace="formation"\]/.test(css) && /--color-sky-800:/.test(css));
+  test("aucune classe d'ecran n'a ete touchee (le bleu reste ecrit tel quel)",
+    /bg-sky-800/.test(readFileSync("src/components/ui.jsx", "utf8")));
+  test("le vert, le rouge et l'ambre ne sont pas redefinis : ils veulent dire quelque chose",
+    !/--color-(green|red|amber|orange)-/.test(css));
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -39,6 +39,38 @@ const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.goto(`http://localhost:${PORT}/`, { waitUntil: "load" });
     await attendre(3000);
     const texte = (await page.innerText("body")).trim();
+
+    // ---- L'ESPACE FORMATION EST-IL VRAIMENT VIOLET ? ----
+    // ⚠ Ce contrôle ne peut PAS se faire en relisant le code : la couleur naît
+    // de variables Tailwind redéfinies dans src/index.css, et seul un vrai
+    // navigateur sait ce qu'elles valent au bout du compte. On pose donc la
+    // marque, et on MESURE la couleur obtenue.
+    const teinte = async () => page.evaluate(() => {
+      const d = document.createElement("div");
+      d.className = "bg-sky-800 text-sky-100 border-sky-300";
+      document.body.appendChild(d);
+      const s = getComputedStyle(d);
+      const r = [s.backgroundColor, s.color, s.borderTopColor].join("|");
+      d.remove();
+      return r;
+    });
+    const enReel = await teinte();
+    await page.evaluate(() => { document.documentElement.dataset.espace = "formation"; });
+    const enFormation = await teinte();
+    await page.evaluate(() => { delete document.documentElement.dataset.espace; });
+    const revenuAuBleu = await teinte();
+
+    if (enReel === enFormation) {
+      console.log("❌  L'espace formation n'est PAS violet : la couleur ne change pas.");
+      console.log(`    réel et formation donnent tous deux : ${enReel}`);
+      code = 1;
+    } else if (revenuAuBleu !== enReel) {
+      console.log("❌  Le bleu ne revient pas quand on quitte la formation.");
+      code = 1;
+    } else {
+      console.log("✅  L'espace formation est bien violet, et le réel reste bleu.");
+    }
+
     await nav.close();
 
     // Le symptôme exact de la panne : une page qui se charge, mais vide.

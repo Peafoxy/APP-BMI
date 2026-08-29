@@ -245,3 +245,55 @@ input, select, textarea { max-width: 100%; }
   .bmi-nebuleuse, .bmi-poussiere, .bmi-astre { animation: none; }
   .bmi-poussiere { opacity: 0.45; }
 }
+
+/* ============================================================
+   L'ESPACE FORMATION EST VIOLET (demande Timo, 29/08/2026)
+   ============================================================
+   « Je voudrais aussi qu'on change le bleu de l'application en
+   violet pour l'espace formation. » Un coup d'œil suffit alors à
+   savoir où l'on est — c'est la protection la plus simple contre
+   l'erreur d'espace, et elle ne demande de lire aucun libellé.
+
+   ⚠ COMMENT, ET POURQUOI PAS AUTREMENT
+   Le bleu est écrit 291 fois dans l'application, sur 34 nuances.
+   Les remplacer une par une, c'est exactement le genre de retouche
+   en masse qui a déjà abîmé deux fichiers ici (voir CLAUDE.md).
+   Tailwind v4 range chaque couleur dans une VARIABLE
+   (`bg-sky-800` vaut `background-color: var(--color-sky-800)`) :
+   il suffit donc de redonner une autre valeur à ces variables
+   quand la marque `data-espace="formation"` est posée sur la page.
+   Aucune ligne d'écran n'est modifiée, et toute nuance de bleu
+   ajoutée plus tard suivra d'elle-même.
+
+   `html[...]` plutôt que `[...]` : la sélection doit être plus
+   forte que le `:root` de Tailwind, sinon rien ne change.
+
+   Les valeurs sont celles de la gamme « violet » de Tailwind,
+   nuance pour nuance : même luminosité, donc même lisibilité et
+   même contraste. Seule la teinte bouge.
+
+   NE CHANGENT PAS : les couleurs de boutique choisies par Timo
+   (elles ne passent pas par ces variables), ni le vert, le rouge,
+   l'orange et l'ambre — ils veulent dire payé, refusé, en attente,
+   et doivent garder le même sens dans les deux espaces.
+   ============================================================ */
+html[data-espace="formation"] {
+  --color-sky-50:  oklch(96.9% .016 293.756);
+  --color-sky-100: oklch(94.3% .029 294.588);
+  --color-sky-200: oklch(89.4% .057 293.283);
+  --color-sky-300: oklch(81.1% .111 293.571);
+  --color-sky-400: oklch(70.2% .183 293.541);
+  --color-sky-600: oklch(54.1% .281 293.009);
+  --color-sky-700: oklch(49.1% .27 292.581);
+  --color-sky-800: oklch(43.2% .232 292.759);
+  --color-sky-900: oklch(38%   .189 293.745);
+  --color-sky-950: oklch(28.3% .141 291.089);
+
+  --color-blue-50:  oklch(96.9% .016 293.756);
+  --color-blue-200: oklch(89.4% .057 293.283);
+  --color-blue-300: oklch(81.1% .111 293.571);
+  --color-blue-600: oklch(54.1% .281 293.009);
+  --color-blue-700: oklch(49.1% .27 292.581);
+  --color-blue-800: oklch(43.2% .232 292.759);
+  --color-blue-900: oklch(38%   .189 293.745);
+}

@@ -633,6 +633,28 @@ export default function App() {
     }
   };
 
+  // ---- L'ESPACE FORMATION EST VIOLET (demande Timo, 29/08/2026) ----
+  // « Un coup d'œil suffit alors à savoir où l'on est. » On pose une marque
+  // sur la page ; tout le reste se joue dans src/index.css, qui redonne une
+  // valeur violette aux variables de couleur de Tailwind. Aucune classe des
+  // 29 écrans n'est touchée — donc aucun risque d'en casser un, et toute
+  // nuance de bleu ajoutée plus tard suivra d'elle-même.
+  //
+  // La marque suit l'espace REGARDÉ : elle bouge avec le sélecteur « Je
+  // regarde » pour l'administrateur principal, et reste posée en permanence
+  // pour un compte d'entraînement, qui ne verra jamais l'application en bleu.
+  // Retirée à la déconnexion : l'écran de connexion reste bleu.
+  //
+  // ⚠ Ce crochet est placé ICI, avant les points de sortie, pour la même
+  // raison que celui décrit juste en dessous.
+  useEffect(() => {
+    const racine = document.documentElement;
+    const enFormation = !!(db && profile && espaceDuCompte(db, profile));
+    if (enFormation) racine.dataset.espace = "formation";
+    else delete racine.dataset.espace;
+    return () => { delete racine.dataset.espace; };
+  }, [db, profile, regardeFormation]);
+
   // ⚠ PLACÉ AVANT TOUT POINT DE SORTIE de ce composant — il y en a DEUX :
   // l'écran de chargement juste en dessous (« if (!db) »), puis l'écran de
   // connexion plus bas. Un `useEffect` déclaré après l'un ou l'autre n'existe

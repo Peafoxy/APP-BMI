@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 570 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 578 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -122,6 +122,12 @@ impossible, et le banc doit le dire dans ce sens-là.
   *cacher* ce qui est encore autorisé. `api/sync-auth.js` et
   `voitLesDeuxEspaces()` de `lib/calculs.js` sont un couple : on ne touche
   jamais l'un sans l'autre. Un contrôle du banc vérifie leur accord.
+- **L'espace formation est VIOLET, le réel est BLEU** (demande du 29/08/2026).
+  La couleur suit l'espace REGARDÉ. Elle se change en redonnant une valeur aux
+  variables `--color-sky-*` et `--color-blue-*` de Tailwind dans
+  `src/index.css`, sous `html[data-espace="formation"]` — **jamais** classe par
+  classe : le bleu est écrit 291 fois. Le vert, le rouge et l'ambre ne changent
+  pas : ils veulent dire payé, refusé, en attente.
 - L'étiquette d'espace n'est réécrite **qu'à la connexion**. Un changement
   de règle ne prend effet qu'à la prochaine reconnexion de chacun — il faut
   le dire à Timo à chaque fois.
