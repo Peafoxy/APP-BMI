@@ -69,8 +69,23 @@ Le 29/08/2026, dix versions ont été écrites, testées et « annoncées
 déployées » alors qu'aucune n'était en ligne. C'est lui qui l'a vu :
 « Version 23 déployé, mais sur téléphone toujours le 13 ».
 On ne dit donc **jamais « déployée »** après un `git push` sur la branche —
-on dit « poussée, en attente de fusion ». Le mot « déployée » ne vaut
-qu'après `git push origin HEAD:main`, et la fusion demande son accord.
+le mot ne vaut qu'après `git push origin HEAD:main`.
+
+**LA FUSION FAIT PARTIE DE L'ENVOI. On ne la demande pas.** Sa remarque du
+29/08/2026 : « depuis qu'on a commencé tu déploies automatiquement et tu
+fusionnes ; maintenant tu attends que j'ordonne la fusion d'abord ». C'était
+vrai, et l'incohérence venait de moi. Le déroulé est donc, à chaque fois et
+sans qu'il ait à le redemander :
+
+```
+les 6 bancs au vert  →  VERSION incrémentée  →  push sur la branche
+                     →  git push origin HEAD:main   ← toujours
+```
+
+On ne s'arrête avant la fusion que dans deux cas : un banc en échec, ou une
+correction dont on lui a annoncé qu'elle changerait ses habitudes et qu'il
+n'a pas encore validée. Dans ces deux cas, on le DIT — on ne se contente pas
+de ne rien faire.
 
 **Le banc est la mémoire du projet.** Un défaut fermé reste fermé parce
 qu'un contrôle le surveille, pas parce qu'on s'en souvient.
