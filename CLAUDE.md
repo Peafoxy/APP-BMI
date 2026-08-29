@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 523 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 545 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -193,12 +193,6 @@ chantier. Les constats, par ordre de gravité.
    Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
 
 ### Réels
-- `fusion.js:45` désigne un champ inexistant : la protection anti-conflit des
-  chantiers ne protège rien.
-- Le téléphone est comparé **brut** à 4 endroits (`Partages.jsx:286`,
-  `Ventes.jsx:570`, `EspaceClient.jsx:476`, `ClientsInstalles.jsx:164`).
-- La tension d'un convertisseur est déduite de ses **VA**, pas de ses watts.
-- Un article importé sans prix est proposé — et vendu — **0 F**.
 
 ### Bancs
 `npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte

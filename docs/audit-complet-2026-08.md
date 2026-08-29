@@ -57,7 +57,7 @@ elle, ce qui est le bon sens.
 de l'écran, commentées, et déjà verrouillées par le banc sur le cas réel du
 18/08/2026. C'est le morceau le mieux tenu de l'application.
 
-### 🟠 Le numéro de téléphone est encore comparé brut à quatre endroits
+### ✅ CORRIGÉ EN 2.101.21 — le numéro de téléphone était encore comparé brut à quatre endroits
 La règle posée par Timo — comparer les **8 derniers chiffres** (`memeNumero`) —
 a été appliquée à Ventes, Clients, Prospects et à la création de filleuls.
 Quatre endroits l'ont manquée :
@@ -69,7 +69,7 @@ Quatre endroits l'ont manquée :
 | `EspaceClient.jsx:476` | le prospect ne reçoit pas le badge « devis validé » : il sort de la file à relancer. |
 | `ClientsInstalles.jsx:164` | le chantier n'est pas relié au compte du client : **il ne voit pas son installation dans son espace.** |
 
-### 🟠 La tension d'un convertisseur est déduite de ses VA, pas de ses watts
+### ✅ CORRIGÉ EN 2.101.21 — la tension d'un convertisseur était déduite de ses VA, pas de ses watts
 `dimensionnement/Solaire.jsx:132-137` et `:275`. La règle donnée par Timo est
 en kW : « 0 à 2,5 kW en 12 V, 2,6 à 4,5 kW en 24 V, 4,6 à 30 kW en 48 V ».
 Mais `tensionInfereeConvertisseur(spec.valeur)` reçoit la valeur **brute** —
@@ -80,7 +80,7 @@ sert pour le dimensionnement. Résultat : un « 5000VA » (4 000 W réels, donc
 classe 24 V) est classé 48 V. Chaque convertisseur étiqueté en VA monte d'un
 cran, et se voit proposé sur le mauvais système.
 
-### 🟠 Un article importé sans prix est proposé — et vendu — à 0 F
+### ✅ CORRIGÉ EN 2.101.21 — un article importé sans prix était proposé, et vendu, à 0 F
 `Stocks.jsx:457-495`. L'importation accepte une ligne dès qu'elle a **trois**
 champs (`parts.length >= 3`) : le prix d'achat et le prix de vente absents
 valent alors 0, sans un mot.
@@ -407,7 +407,7 @@ Le principe est bon : on ne compare plus deux horloges, on additionne les
 ligne sur deux appareils s'additionnent au lieu de s'écraser, et le total est
 plafonné au montant dû.
 
-### 🟠 La protection prévue pour les chantiers ne protège rien
+### ✅ CORRIGÉ EN 2.101.21 — la protection prévue pour les chantiers ne protégeait rien
 `fusion.js:45` — `clients_installes: { listes: ["demande_prime"] }`.
 
 `demande_prime` n'est pas une liste, et n'existe pas à ce niveau : c'est un

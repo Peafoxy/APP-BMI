@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
 import { fmt, telDigits, col, ouvrirWhatsApp } from "../../lib/core";
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
-import { marqueEspace } from "../../lib/calculs";
+import { marqueEspace, memeNumero } from "../../lib/calculs";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
 // convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
@@ -282,8 +282,14 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
     // (affiché à l'admin) ne correspond plus au verrou réellement stocké.
     // On réutilise maintenant le compte EXISTANT s'il porte déjà ce numéro,
     // au lieu d'en fabriquer un nouveau à côté.
-    const chiffresSaisis = chiffresTel(tel);
-    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && chiffresTel(u.tel) === chiffresSaisis);
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : la comparaison se faisait sur les
+    // chiffres BRUTS. Le commentaire juste au-dessus décrit pourtant le défaut
+    // « compte VIVA » comme corrigé — il ne l'était qu'à moitié. Un numéro tapé
+    // avec l'indicatif (« +228 90 11 22 33 ») ne retrouvait pas le compte
+    // enregistré « 90112233 », et un SECOND compte client était créé. Un
+    // doublon, c'est aussi une seconde prime de parrainage.
+    // memeNumero compare les 8 DERNIERS chiffres — la règle posée par Timo.
+    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, tel));
     if (existant) {
       return {
         compte: existant, motDePasse: existant.mdp_auto ? motDePasseConnu(existant) : null,

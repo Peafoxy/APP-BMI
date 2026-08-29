@@ -42,7 +42,19 @@ export const STRATEGIES = {
   dettes: { listes: ["paiements"], additifs: ["paye"] },
   paie: { listes: ["virements", "credits"] },
   users: { listes: ["virements", "credits", "devis"] },
-  clients_installes: { listes: ["demande_prime"] },
+  // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : cette ligne disait
+  // `listes: ["demande_prime"]`. Or `demande_prime` n'est pas une liste et
+  // n'existe pas à ce niveau — c'est un booléen posé sur chaque membre de
+  // `equipe`. unirParId recevait donc `undefined` des deux côtés et ne
+  // produisait rien : la stratégie ne protégeait RIEN.
+  //
+  // Ce que ça coûtait : l'administrateur paie la part du technicien A pendant
+  // que le vendeur paie celle du technicien B, sur le MÊME chantier. Le
+  // tableau `equipe` entier était remplacé par celui du dernier arrivé. Le
+  // « payé » de l'autre disparaissait — alors que sa dépense, elle, avait bien
+  // été créée. La part réapparaissait comme DUE, et primeDejaPayee ne la
+  // voyait plus : elle pouvait être payée une seconde fois.
+  clients_installes: { equipes: ["equipe"] },
 };
 
 const tableau = (v) => (Array.isArray(v) ? v : []);
@@ -64,6 +76,33 @@ export const unirParId = (local, distant) => {
 // base    : l'enregistrement tel qu'il était quand NOUS l'avons modifié
 // local   : notre version
 // distant : celle que porte le serveur maintenant
+// ⚠ L'ÉQUIPE D'UN CHANTIER — fusion membre par membre.
+//
+// unirParId ne convient pas ici : les membres portent `user_id`, pas `id`, et
+// surtout un membre présent des DEUX côtés ne doit pas être « celui du
+// gagnant » mais celui qui porte le PAIEMENT. Un paiement enregistré ne se
+// perd jamais : c'est de l'argent réellement sorti de la caisse.
+export const unirEquipe = (local, distant) => {
+  const a = tableau(local), b = tableau(distant);
+  if (!b.length) return a;
+  const parId = new Map();
+  const ordre = [];
+  const poser = (m) => {
+    const cle = m?.user_id;
+    if (!cle) return;
+    const dejaLa = parId.get(cle);
+    if (!dejaLa) { parId.set(cle, m); ordre.push(cle); return; }
+    // Le membre existe des deux côtés : celui qui est PAYÉ l'emporte.
+    // Si aucun ne l'est, on garde celui qui porte une demande de paiement en
+    // cours — sinon la demande du vendeur s'évaporerait de son écran.
+    if (m.paye && !dejaLa.paye) parId.set(cle, m);
+    else if (!dejaLa.paye && !m.paye && m.demande_prime && !dejaLa.demande_prime) parId.set(cle, m);
+  };
+  a.forEach(poser);
+  b.forEach(poser);
+  return ordre.map((cle) => parId.get(cle));
+};
+
 export function fusionner(table, base, local, distant) {
   const strategie = STRATEGIES[table];
   // Aucune règle pour cette table : notre version l'emporte, comme avant.
@@ -76,6 +115,13 @@ export function fusionner(table, base, local, distant) {
     // On n'écrit le champ que s'il existait quelque part : inventer un
     // tableau vide sur un enregistrement qui n'en avait pas ferait passer
     // une ligne inchangée pour une modification.
+    if (uni.length > 0 || local?.[champ] !== undefined || distant?.[champ] !== undefined) {
+      sortie[champ] = uni;
+    }
+  }
+
+  for (const champ of strategie.equipes || []) {
+    const uni = unirEquipe(local?.[champ], distant?.[champ]);
     if (uni.length > 0 || local?.[champ] !== undefined || distant?.[champ] !== undefined) {
       sortie[champ] = uni;
     }

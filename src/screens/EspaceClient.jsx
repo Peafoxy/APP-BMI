@@ -10,7 +10,7 @@ import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -474,10 +474,13 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
     // Le prospect correspondant porte désormais un badge : les commerciaux voient
     // d'un coup d'œil qui a dit oui mais n'a pas encore payé. C'est LA file à relancer.
+    // ⚠ memeNumero et non les chiffres bruts (audit du 29/08/2026) : sans
+    // cela, le prospect ne recevait pas le badge « devis validé » et sortait
+    // de la file à relancer, alors que c'est LA file la plus utile.
     const monTel = chiffresTel(moi.tel || "");
     const prospectsMaj = (db.prospects || []).map((pr) => {
       const correspond = pr.client_user_id === profile.id
-        || (monTel.length >= 6 && chiffresTel(pr.tel) === monTel);
+        || (monTel.length >= 6 && memeNumero(pr.tel, moi.tel || ""));
       return correspond && !pr.converti
         ? { ...pr, devis_valide: true, devis_total: d.total, devis_boutique: boutique, devis_valide_le: today(), maj_le: today() }
         : pr;

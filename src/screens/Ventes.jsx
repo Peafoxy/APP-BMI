@@ -299,6 +299,17 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const encaisserVente = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
+    // ⚠ DEUXIÈME BARRIÈRE (audit du 29/08/2026). L'importation refuse
+    // désormais un article sans prix, mais ceux déjà en stock, eux, y sont.
+    // Vendre à 0 F peut être voulu (un geste commercial) — jamais par
+    // inadvertance. On le demande donc, et seulement dans ce cas-là : sur une
+    // vente normale, aucune question de plus.
+    const gratuits = panier.filter((l) => !(Number(l.pu) > 0));
+    if (gratuits.length && !await uConfirm(
+      `⚠ ${gratuits.length} article(s) sont à 0 F :\n${gratuits.map((l) => `• ${l.article}`).join("\n")}\n\n`
+      + `Ils seront donnés gratuitement, et sortiront quand même du stock.\n\n`
+      + `Si c'est une erreur, leur prix est probablement manquant en stock — corrigez-le dans 📦 Stocks. Continuer ?`
+    )) return;
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
     // ⚠ Demande Timo : le statut de l'article ne doit JAMAIS être pré-rempli
     // ni deviné — le vendeur doit le choisir explicitement à chaque vente à
@@ -570,10 +581,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
       // Le prospect devient CLIENT : on le clôture, sinon les commerciaux
       // continueraient de relancer quelqu'un qui a déjà payé et été installé.
+      // ⚠ memeNumero et non les chiffres bruts (audit du 29/08/2026) : un
+      // numéro noté avec l'indicatif ne retrouvait pas son prospect, qui
+      // restait donc dans la file à relancer — les commerciaux rappelaient un
+      // client qui avait déjà payé et été installé.
       const telClient = chiffresTel(compteClient?.tel || f.tel || "");
       const prospectsMaj = (db.prospects || []).map((pr) => {
         const correspond = pr.client_user_id === od.client_id
-          || (telClient.length >= 6 && chiffresTel(pr.tel) === telClient);
+          || (telClient.length >= 6 && memeNumero(pr.tel, compteClient?.tel || f.tel || ""));
         return correspond && !pr.converti
           ? { ...pr, converti: true, statut: "Client acquis", date_conversion: today(), vente_id: vente.id }
           : pr;

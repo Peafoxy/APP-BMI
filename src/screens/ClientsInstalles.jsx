@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, espaceDuChantier } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -161,7 +161,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // On cherche un compte "client" déjà existant correspondant à cette vente :
     // d'abord par téléphone (le plus fiable), puis par nom si pas de téléphone.
     const compteTrouve = db.users.find((u) => u.role === "client" && u.actif !== false && (
-      (telVente.length >= 6 && chiffresTel(u.tel) === telVente)
+      // ⚠ memeNumero (audit du 29/08/2026) : avec les chiffres bruts, un
+      // numéro noté avec l'indicatif ne retrouvait pas son compte — et le
+      // client ne voyait jamais son installation dans son espace.
+      (telVente.length >= 6 && memeNumero(u.tel, v.tel))
       || (v.client && (u.nom_complet || u.nom_base || u.nom || "").trim().toLowerCase() === v.client.trim().toLowerCase())
     ));
     setF((p) => ({

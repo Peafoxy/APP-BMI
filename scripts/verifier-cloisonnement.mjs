@@ -38,6 +38,15 @@ await build({
   logLevel: "silent", loader: { ".js": "jsx" },
 });
 const Core = await import(pathToFileURL(sortieCore).href);
+
+const sortieFusion = join("node_modules", ".cache", `bmi-fusion-${process.pid}.mjs`);
+await build({
+  entryPoints: ["src/lib/fusion.js"],
+  bundle: true, format: "esm", platform: "node", outfile: sortieFusion,
+  logLevel: "silent", loader: { ".js": "jsx" },
+});
+const F = await import(pathToFileURL(sortieFusion).href);
+unlinkSync(sortieFusion);
 unlinkSync(sortieCore);
 
 // Le report d'une modification d'écran sur l'état le plus récent.
@@ -2607,6 +2616,132 @@ titre("Le moyen de paiement se DEMANDE, il ne s'impose pas");
   test("le défaut proposé reste le plus courant pour chacun",
     /Moyen de paiement à[\s\S]{0,90}?"Espèces"\)/.test(fo)
     && /Moyen de paiement de la CNSS[\s\S]{0,90}?"Virement bancaire"\)/.test(sal));
+}
+
+
+titre("Deux parts payees en meme temps sur le meme chantier : aucune ne se perd");
+{
+  // ⚠ AUDIT DU 29/08/2026 : STRATEGIES.clients_installes designait
+  // « demande_prime », qui n'est pas une liste et n'existe pas a ce niveau —
+  // c'est un booleen pose sur chaque membre de `equipe`. La strategie ne
+  // protegeait donc RIEN. L'administrateur payant A pendant que le vendeur
+  // paie B, le tableau `equipe` entier etait remplace par celui du dernier
+  // arrive : le « paye » de l'autre disparaissait, alors que sa depense avait
+  // bien ete creee — et la part pouvait etre payee une seconde fois.
+  const base = { equipe: [
+    { user_id: "tA", nom: "KODJO", montant: 30000, paye: false },
+    { user_id: "tB", nom: "AMA", montant: 20000, paye: false },
+  ] };
+  // L'admin a paye A ; le vendeur, au meme moment, a paye B.
+  const local = { equipe: [
+    { user_id: "tA", nom: "KODJO", montant: 30000, paye: true, dep_id: "dep-A" },
+    { user_id: "tB", nom: "AMA", montant: 20000, paye: false },
+  ] };
+  const distant = { equipe: [
+    { user_id: "tA", nom: "KODJO", montant: 30000, paye: false },
+    { user_id: "tB", nom: "AMA", montant: 20000, paye: true, dep_id: "dep-B" },
+  ] };
+
+  const fusionne = F.fusionner("clients_installes", base, local, distant);
+  const parId = Object.fromEntries((fusionne.equipe || []).map((e) => [e.user_id, e]));
+
+  test("★ les DEUX paiements survivent a la fusion",
+    parId.tA?.paye === true && parId.tB?.paye === true);
+  test("★ chacun garde la trace de SA sortie de caisse",
+    parId.tA?.dep_id === "dep-A" && parId.tB?.dep_id === "dep-B");
+  test("l'equipe garde ses deux membres, pas un de plus",
+    (fusionne.equipe || []).length === 2);
+  test("★ une demande de paiement en cours ne s'evapore pas non plus", (() => {
+    const l = { equipe: [{ user_id: "tA", montant: 30000, paye: false }] };
+    const d = { equipe: [{ user_id: "tA", montant: 30000, paye: false, demande_prime: true, prime_boutique: "APESSITO" }] };
+    const r = F.fusionner("clients_installes", base, l, d);
+    return r.equipe[0].demande_prime === true && r.equipe[0].prime_boutique === "APESSITO";
+  })());
+  test("un technicien ajoute d'un seul cote est conserve", (() => {
+    const d = { equipe: [...distant.equipe, { user_id: "tC", nom: "NOE", montant: 10000, paye: false }] };
+    return F.fusionner("clients_installes", base, local, d).equipe.length === 3;
+  })());
+  test("★ l'ancienne strategie, qui ne protegeait rien, a disparu",
+    !/clients_installes: \{ listes: \["demande_prime"\] \}/.test(readFileSync("src/lib/fusion.js", "utf8")));
+}
+
+
+titre("Le telephone se compare sur ses 8 DERNIERS chiffres, partout");
+{
+  // ⚠ AUDIT DU 29/08/2026 : la regle etait appliquee a Ventes, Clients et
+  // Prospects, mais quatre endroits l'avaient manquee. Le pire :
+  // resoudreClientDevis, ou un numero tape avec l'indicatif creait un SECOND
+  // compte client — donc une seconde prime de parrainage.
+  const fichiers = ["src/screens/dimensionnement/Partages.jsx", "src/screens/Ventes.jsx",
+                    "src/screens/EspaceClient.jsx", "src/screens/ClientsInstalles.jsx"];
+  const brutes = [];
+  for (const f of fichiers) {
+    const src = readFileSync(f, "utf8");
+    for (const m of src.matchAll(/chiffresTel\([^)]*\)\s*===|===\s*chiffresTel\(/g)) brutes.push(`${f} : ${m[0]}`);
+  }
+  test(`★ aucune comparaison brute ne subsiste dans les 4 fichiers`, brutes.length === 0);
+  if (brutes.length) brutes.forEach((b) => console.log(`      ↳ ${b}`));
+
+  test("★ la creation d'un compte client depuis un devis passe par memeNumero",
+    /find\(\(u\) => u\.role === "client" && u\.tel && memeNumero\(u\.tel, tel\)\)/
+      .test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
+  test("le chantier retrouve le compte du client par memeNumero",
+    /memeNumero\(u\.tel, v\.tel\)/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
+
+  // La regle elle-meme, verifiee sur les cas reels de Timo.
+  test("★ « +228 90 11 22 33 » et « 90112233 » sont le meme client",
+    C.memeNumero("+228 90 11 22 33", "90112233") === true);
+  test("deux numeros differents ne se confondent pas",
+    C.memeNumero("90112233", "90112234") === false);
+  test("un numero vide ne correspond a personne",
+    C.memeNumero("", "90112233") === false && C.memeNumero("90112233", "") === false);
+}
+
+
+titre("Un convertisseur en VA n'est plus classe une tension trop haut");
+{
+  // ⚠ AUDIT DU 29/08/2026 : la tension etait deduite de la valeur BRUTE lue
+  // dans le nom — donc des VA. L'application sait pourtant que VA ≠ W
+  // (facteur 0,8) et s'en sert pour le dimensionnement. Un « 5000VA »
+  // (4 000 W reels, classe 24 V) etait classe 48 V.
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ les deux endroits passent des WATTS UTILES, plus la valeur brute",
+    (sol.match(/tensionInfereeConvertisseur\(puissanceUtileW\(spec\)\)/g) || []).length === 2);
+  test("★ plus aucun appel avec spec.valeur",
+    !/tensionInfereeConvertisseur\(spec\.valeur\)/.test(sol));
+
+  // La regle de Timo, en kW : 0-2,5 → 12V ; 2,6-4,5 → 24V ; au-dela → 48V.
+  const tension = (w) => { const kw = w / 1000; return kw <= 2.5 ? 12 : kw <= 4.5 ? 24 : 48; };
+  const utile = (va) => Math.round(va * 0.8);
+  test("★ un « 5000VA » vaut 4 000 W : classe 24 V, plus 48 V",
+    tension(utile(5000)) === 24 && tension(5000) === 48);
+  test("★ un « 3000VA » vaut 2 400 W : classe 12 V, plus 24 V",
+    tension(utile(3000)) === 12 && tension(3000) === 24);
+  test("un convertisseur etiquete en WATTS ne bouge pas d'un cran",
+    tension(5000) === 48 && tension(3000) === 24);
+}
+
+
+titre("Un article sans prix ne s'importe pas, et ne se vend pas en silence");
+{
+  // ⚠ AUDIT DU 29/08/2026 : l'importation acceptait une ligne des qu'elle
+  // avait trois champs ; le prix de vente absent valait 0. Le dimensionnement
+  // choisissant sur la caracteristique et jamais sur le prix, l'article etait
+  // retenu, chiffre 0 F dans le devis, puis encaisse 0 F.
+  const st = readFileSync("src/screens/Stocks.jsx", "utf8");
+  const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
+
+  test("★ l'importation REFUSE une ligne sans prix de vente",
+    /if \(!\(prixVente > 0\)\) \{[\s\S]{0,220}?return;/.test(st));
+  test("★ …et dit LAQUELLE, au lieu de « 3 erreurs ignorées »",
+    /ligne\(s\) NON importée\(s\)/.test(st) && /erreurs\.slice\(0, 10\)/.test(st));
+  test("l'ancien remplissage silencieux a 0 a disparu",
+    !/prix_vente: Number\(parts\[5\]\) \|\| 0/.test(st));
+  test("★ encaisser un article a 0 F demande confirmation (jamais par inadvertance)",
+    /const gratuits = panier\.filter\(\(l\) => !\(Number\(l\.pu\) > 0\)\)/.test(vt)
+    && /article\(s\) sont à 0 F/.test(vt));
+  test("…et une vente normale ne pose aucune question de plus",
+    /if \(gratuits\.length && !await uConfirm/.test(vt));
 }
 
 

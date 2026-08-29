@@ -129,6 +129,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // 4,6 à 30kW en 48V. Reste une estimation, jamais aussi fiable qu'une
   // tension explicitement indiquée en stock — juste un meilleur filet que
   // de proposer n'importe quelle puissance sans distinction de tension.
+  // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : cette fonction recevait la valeur
+  // BRUTE lue dans le nom de l'article — donc des VA quand l'article est
+  // étiqueté en VA. Or la règle de Timo est en kW, et l'application sait déjà
+  // que VA ≠ W (puissanceUtileW, facteur 0,8) : elle s'en sert pour le
+  // dimensionnement, mais pas ici. Résultat : un « 5000VA » (4 000 W réels,
+  // donc de classe 24 V) était classé 48 V. Chaque convertisseur étiqueté en
+  // VA montait d'un cran et se voyait proposé sur le mauvais système.
+  // On lui passe désormais des WATTS UTILES, comme partout ailleurs.
   const tensionInfereeConvertisseur = (w) => {
     const kw = w / 1000;
     if (kw <= 2.5) return 12;
@@ -237,7 +245,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       }
     }
     if (role.id === "convertisseur") {
-      const dev = p.tension ? Number(p.tension) : (spec ? tensionInfereeConvertisseur(spec.valeur) : null);
+      const dev = p.tension ? Number(p.tension) : (spec ? tensionInfereeConvertisseur(puissanceUtileW(spec)) : null);
       if (dev !== null && dev !== Number(tension)) {
         return { p, spec, ok: false, proche: true,
           raison: `${dev} V, incompatible avec un système ${tension} V` };
@@ -279,7 +287,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       } else if (role.id === "convertisseur") {
         tensionOk = p.tension
           ? Number(p.tension) === Number(tension)
-          : (!spec || tensionInfereeConvertisseur(spec.valeur) === Number(tension));
+          : (!spec || tensionInfereeConvertisseur(puissanceUtileW(spec)) === Number(tension));
       }
       let typeOk = true;
       if (role.id === "batterie") {

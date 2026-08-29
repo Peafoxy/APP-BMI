@@ -464,31 +464,49 @@ export function Stocks({ db, save, profile }) {
     const nouveaux = [];
     let erreurs = [];
 
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : l'importation acceptait une ligne
+    // dès qu'elle avait TROIS champs. Le prix de vente absent valait alors 0,
+    // sans un mot. Et comme le dimensionnement choisit ses articles sur leur
+    // caractéristique (watts, ampères-heures) et jamais sur leur prix, un
+    // panneau importé sans prix était retenu normalement, chiffré 0 F dans le
+    // devis, puis encaissé 0 F dans Ventes. Rien ne le signalait nulle part.
+    //
+    // Un article sans prix de vente n'est pas une ligne « incomplète » : c'est
+    // une ligne qu'on ne peut pas vendre. On la REFUSE, en disant laquelle et
+    // pourquoi — l'importation continue pour les autres.
     lignes.forEach((ligne, i) => {
       const parts = ligne.split(",").map(s => s.trim());
-      if (parts.length >= 3) {
-        nouveaux.push({
-          id: uid(),
-          boutique: bq,
-          nom: parts[0],
-          categorie: parts[1] || "Autre",
-          initial: Number(parts[2]) || 0,
-          entrees: 0,
-          seuil: Number(parts[3]) || 0,
-          prix_achat: Number(parts[4]) || 0,
-          prix_vente: Number(parts[5]) || 0
-        });
-      } else {
-        erreurs.push(`Ligne ${i+1} : format incorrect`);
+      if (parts.length < 3) { erreurs.push(`Ligne ${i + 1} : format incorrect`); return; }
+      const nom = parts[0];
+      const prixVente = Number(parts[5]);
+      if (!nom) { erreurs.push(`Ligne ${i + 1} : nom manquant`); return; }
+      if (!(prixVente > 0)) {
+        erreurs.push(`Ligne ${i + 1} (${nom}) : prix de vente manquant ou nul — un article sans prix serait vendu 0 F`);
+        return;
       }
+      nouveaux.push({
+        id: uid(),
+        boutique: bq,
+        nom,
+        categorie: parts[1] || "Autre",
+        initial: Number(parts[2]) || 0,
+        entrees: 0,
+        seuil: Number(parts[3]) || 0,
+        prix_achat: Number(parts[4]) || 0,
+        prix_vente: prixVente,
+      });
     });
 
     if (nouveaux.length === 0) {
-      uAlert("Aucun article valide à importer.\n" + erreurs.join("\n"));
+      uAlert("Aucun article valide à importer.\n\n" + erreurs.join("\n"));
       return;
     }
 
-    if (await uConfirm(`Importer ${nouveaux.length} articles dans ${bq} ?${erreurs.length ? `\n${erreurs.length} erreurs ignorées.` : ""}`)) {
+    // Les lignes refusées sont NOMMÉES : « 3 erreurs ignorées » ne dit pas
+    // lesquelles, et on découvrait le manque des semaines plus tard, au moment
+    // de vendre.
+    if (await uConfirm(`Importer ${nouveaux.length} article(s) dans ${bq} ?`
+      + (erreurs.length ? `\n\n⚠ ${erreurs.length} ligne(s) NON importée(s) :\n${erreurs.slice(0, 10).join("\n")}${erreurs.length > 10 ? `\n… et ${erreurs.length - 10} autre(s)` : ""}` : ""))) {
       save({ ...db, produits: [...db.produits, ...nouveaux] }, `Import de ${nouveaux.length} articles — ${bq}`);
       uAlert(`${nouveaux.length} articles importés avec succès !`);
     }
