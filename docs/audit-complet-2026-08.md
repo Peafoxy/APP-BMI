@@ -142,3 +142,93 @@ Le plus grave est l'élévation de rôle : `api/sync-auth.js:99` lit le rôle
 suivante.
 
 ---
+## Salaires, CNSS (`Salaires.jsx`, `lib/cnss.js`, `lib/paie.js`)
+
+**Rien à signaler dans les calculs.** La retenue de crédit est comptabilisée
+proprement (une dépense « Salaires » de `montant + retenue`, une entrée
+« Prêt au personnel » de `−retenue` : la caisse ne bouge que de `montant`, et
+le prêt se rembourse). Le paiement CNSS refuse de partir sur des saisies non
+enregistrées, prévient nommément quand des assujettis sont exclus faute
+d'informations, et signale un second paiement pour le même mois.
+
+### ❓ À vérifier avec un comptable togolais — le plafond de cotisation
+`lib/cnss.js:70` applique **16,5 % de PV sur la rémunération entière**, sans
+plafond. Si la CNSS Togo applique un plafond mensuel sur l'assiette
+vieillesse, BMI **verse plus que son dû** à chaque déclaration. Je ne peux pas
+trancher : ce n'est pas une question de code. Le fichier prévient déjà
+lui-même que le modèle Excel officiel n'a jamais été comparé à l'export.
+
+---
+
+## Commissions (`MonEquipe.jsx`, `lib/calculs.js`)
+
+Le calcul est juste et cohérent : `commissionBrute` reprend **exactement** la
+part de rabais que `caVente` vient de retirer (`rabaisImpute`), et non le
+rabais brut — sur un panier mêlant articles de la boutique et articles « hors
+boutique », les deux diffèrent.
+
+### 🟡 Une commission peut être payée deux fois depuis deux appareils
+`MonEquipe.jsx:329-360`. `payerCommission` ne revérifie pas l'état **après** les
+fenêtres de confirmation. Si une synchronisation ramène entre-temps le
+paiement fait par un autre administrateur, la dépense est créée une seconde
+fois. Un double-clic, lui, est bien protégé (la commission retombe à 0).
+
+`ClientsInstalles.validerPaiementPrime` fait exactement cette seconde
+vérification, avec un commentaire qui explique pourquoi. Il suffirait de la
+reprendre ici.
+
+---
+
+## Rentabilité (`src/screens/Rentabilite.jsx`)
+
+### 🟠 La marge affichée est plus belle que la vraie
+`Rentabilite.jsx:45`. Le chiffre d'affaires par produit est calculé ainsi :
+
+```
+ca += qte × pu − remise_ligne
+```
+
+La **remise globale** de la vente (`v.remise`) et le **rabais commercial**
+(`v.rabais`) ne sont jamais retirés. Or `caVente()` — la fonction utilisée par
+le Tableau de bord et par toutes les commissions — les retire bien.
+
+**Les deux écrans donnent donc deux chiffres différents pour la même vente.**
+
+Exemple : 1 000 000 F d'articles, 10 % de remise, 700 000 F d'achat.
+· Tableau de bord : CA 900 000 F.
+· Rentabilité : CA 1 000 000 F, marge 300 000 F au lieu de 200 000 F —
+**la marge est surévaluée de 50 %.**
+
+C'est l'écran sur lequel se décident les prix. Une marge qu'on croit à 30 %
+alors qu'elle est à 22 % conduit à vendre trop bas, durablement.
+
+---
+## Dépenses (`src/screens/Depenses.jsx`, `lib/calculs.js:691`)
+
+### 🟠 Supprimer une dépense promet d'annuler le paiement lié — et ne le fait que dans la moitié des cas
+Le message affiché dit, mot pour mot :
+
+> ⚠ Cette dépense a été générée automatiquement par un paiement : le statut
+> « payé » correspondant sera aussi annulé (à repayer si besoin).
+
+`annulerLiensDepense` ne traite que 4 des 10 sortes de dépenses automatiques :
+`commission`, `commission_equipe`, `commission_ext`, `installation`.
+
+Les six autres ne sont **pas** annulées, alors que le message l'affirme :
+
+| `auto` | Ce qui reste faux après la suppression |
+|---|---|
+| `virement` | Le virement de salaire reste inscrit sur la fiche de l'employé : il apparaît **payé**, alors que l'argent est revenu en caisse. |
+| `retenue` | La contrepartie de la retenue de crédit disparaît seule : le prêt se retrouve remboursé sans mouvement. |
+| `credit` | Le crédit BMI reste **accordé** et à rembourser, alors que la sortie de caisse a été effacée. |
+| `cnss` | Le paiement CNSS du mois s'efface, et le garde-fou « déjà enregistré ce mois » ne le voit plus. |
+| `avance`, `remboursement` | Idem. |
+
+Il existe pourtant un chemin correct : `Utilisateurs.annulerVirement` retire
+bien les écritures de caisse liées. La suppression depuis l'écran Dépenses le
+contourne.
+
+C'est exactement le cas que Timo a posé en règle : **une alerte qui annonce
+quelque chose qu'elle ne fait pas.**
+
+---
