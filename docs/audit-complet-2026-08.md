@@ -522,3 +522,74 @@ Quatre questions ont par ailleurs été passées sur **100 %** des fichiers, san
 exception : les écritures sans contrôle de droit, l'arithmétique de l'argent,
 les confirmations qui ne bloquent pas la suite, et ce que la base autorise
 réellement.
+
+---
+
+# DEUXIÈME PASSAGE — ré-audit du 29/08/2026, après les douze corrections
+
+Demandé par Timo : « Audit de l'app à nouveau à 100 % ».
+
+**Méthode.** Le premier audit a lu les 22 279 lignes ; depuis, **1 185 lignes
+ont changé** (28 fichiers, v2.101.14 → v2.101.25) — et c'est du code écrit par
+le correcteur lui-même, donc jamais audité par personne. Ce passage a donc :
+relu **ligne à ligne l'intégralité du diff** ; repassé les **quatre balayages
+sur 100 % des fichiers** (écritures sans garde, arithmétique de l'argent,
+confirmations qui ne bloquent pas, ce que la base autorise — mesuré) ; et
+rejoué tous les bancs. Le reste du code est inchangé au caractère près
+(vérifié par le diff), et sa lecture du premier passage reste valable.
+
+## Résultat d'ensemble : aucun défaut d'argent introduit par les corrections
+
+- Les 19 `if (await uConfirm(...))` restants ont tous leur écriture À
+  L'INTÉRIEUR du bloc — la forme sûre.
+- Plus aucune condition `voitLesDeuxEspaces(...) ||` dans un filtre
+  d'affichage (la forme interdite par la règle du 29/08).
+- La répartition de `caLigneVente` redonne exactement `caVente(v)` — démontré
+  algébriquement ET mesuré par le banc.
+- Bonne surprise : `livrer()` (Dettes.jsx, non modifié) posait DÉJÀ
+  `vente_id` sur ses deux chemins. Une réservation livrée avant solde devient
+  une dette liée : la règle « réception ET solde » s'y applique donc
+  correctement, sans qu'on l'ait écrit exprès.
+- Bancs : 589 + 41 + 39 + 23 + 8 + 36 au vert ; banc SQL 20/21 (l'échec
+  restant est le `salaire_base` inerte, connu) ; navigateur : affichage sans
+  erreur, bascule du violet mesurée.
+
+## 🟡 Deux défauts NOUVEAUX, introduits par les corrections
+
+1. **Supprimer un crédit BMI déjà partiellement remboursé casse sa
+   comptabilité** (`annulerLiensDepense`, cas `credit`, 2.101.20). La
+   suppression remet le crédit « en demande » et vide son échéancier — mais
+   **garde les remboursements déjà reçus**. Résultat : un crédit « en
+   attente » qui porte de l'argent encaissé, et des retenues sur salaire déjà
+   faites qui ne se rattachent plus à rien. Le même écran refuse pourtant de
+   supprimer un virement : il faudrait refuser ici aussi dès qu'un
+   remboursement ou une échéance payée existe.
+
+2. **La règle « réception ET solde » ralentit les grands écrans**
+   (`resteDuSurVente`). Chaque vente examinée parcourt TOUTE la table des
+   dettes, jusqu'à trois fois (bloquée ? pourquoi ? combien reste-t-il ?).
+   Sur l'écran 👑 Équipe avec des milliers de ventes et de dettes, cela se
+   comptera en secondes un jour. Remède connu : construire une table de
+   correspondance une fois par affichage. Rien d'urgent au volume actuel.
+
+## 📌 Un changement de comportement à faire valider par Timo
+
+**L'apporteur d'affaires EXTERNE attend désormais lui aussi le solde.** La
+règle « la part du parrain attend que le filleul ait soldé » a été branchée
+sur `v.apporteur` — or ce champ porte AUSSI l'apporteur externe d'une vente à
+crédit ordinaire (le démarcheur qui a amené le client). Avant : sa part était
+due dès l'encaissement. Depuis 2.101.19 : elle attend le solde de la dette.
+C'est cohérent avec « un franc ne sort pas avant d'entrer », mais ce cas
+précis n'a jamais été tranché par Timo. L'écran l'affiche en « attente »,
+rien n'est perdu — à confirmer ou à défaire, une ligne dans les deux cas.
+
+## Les 🟡 du premier audit, jamais corrigés — vérifiés toujours ouverts
+
+Timo n'avait demandé que les défauts d'argent ; ceux-ci restent en l'état,
+constatés inchangés : le rabais négatif (`Ventes.jsx:192`), les orphelins de
+`supprimerVente`, le chef retiré de l'équipe (`repartitionProposee`), la
+commission payable deux fois depuis deux appareils (`payerCommission` ne
+revérifie pas après la confirmation), les cinq fonctions `api/` à l'erreur
+brute, le plafond absent au règlement fournisseur, les techniciens qui lisent
+tous les fils de la Messagerie, la formule Excel dans l'export CSV, et la
+question CNSS pour un comptable.
