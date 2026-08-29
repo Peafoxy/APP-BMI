@@ -97,7 +97,7 @@ import {
   paieMois, libelleMoisFR, periodes,
   NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, chantiersAReconcilier, construireIndexDb,
-  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace, setRegardeFormation, voitLesDeuxEspaces, boutiquesFormation, estAdminPrincipal
+  verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace, setRegardeFormation, lireEspaceRegarde, memoriserEspaceRegarde, voitLesDeuxEspaces, boutiquesFormation, estAdminPrincipal
 } from "./lib/calculs";
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
@@ -256,18 +256,15 @@ export default function App() {
   // bandeau « 🎓 Chiffres de l'espace FORMATION ». Le réglage est visible en
   // permanence — c'est ce qui empêche de lire des chiffres d'école en les
   // croyant vrais.
-  const CLE_REGARDE = "bmi_regarde_formation";
-  const lireEspaceRegarde = (id) => {
-    if (!id) return false;
-    try { return localStorage.getItem(`${CLE_REGARDE}:${id}`) === "1"; } catch { return false; }
-  };
+  // ⚠ La clé et sa lecture vivent dans lib/calculs.js (lireEspaceRegarde,
+  // memoriserEspaceRegarde) : deux écrans l'écrivent maintenant, et deux
+  // copies de la même clé, c'est deux occasions de diverger.
   const [regardeFormation, setRegardeFormationEtat] = useState(false);
-  const basculerEspaceRegarde = (v, id = profile?.id) => {
-    setRegardeFormation(v);
-    setRegardeFormationEtat(v);
-    if (!id) return;
-    try { localStorage.setItem(`${CLE_REGARDE}:${id}`, v ? "1" : "0"); } catch { /* navigation privée */ }
-  };
+  // ⚠ Le basculement lui-même vit maintenant dans lib/calculs.js
+  // (changerEspaceRegarde) : il est appelé depuis ⚙ Paramètres, et il RECHARGE
+  // la page. Deux endroits écrivaient la même clé — deux occasions de
+  // diverger, et une divergence ici ferait travailler quelqu'un dans un espace
+  // en lui en affichant un autre.
   // ⚠ RÈGLE POSÉE PAR TIMO (26/08/2026) : « à la déconnexion, revenir sur
   // réel... mais à un chargement de nouvelle version ou de la page, on ne
   // doit pas changer d'espace ».
@@ -280,7 +277,7 @@ export default function App() {
   // lendemain dans un espace qu'il a oublié avoir quitté.
   const terminerEspaceRegarde = () => {
     const id = profile?.id;
-    if (id) { try { localStorage.setItem(`${CLE_REGARDE}:${id}`, "0"); } catch { /* rien */ } }
+    if (id) memoriserEspaceRegarde(id, false);
     setRegardeFormation(false);
     setRegardeFormationEtat(false);
   };
@@ -1197,18 +1194,16 @@ export default function App() {
             🔍 Rechercher…
           </button>
         </div>
-        {peutRegarderLaFormation && (
+        {/* ⚠ Le sélecteur « Je regarde » est reparti dans ⚙ Paramètres
+            (demande Timo, 29/08/2026 : « ramener le basculement dans les
+            paramètres »). Il ne reste ici qu'un RAPPEL, sans bouton : on doit
+            voir d'un coup d'œil dans quel espace on travaille, mais changer
+            d'espace est un geste rare, qui n'a pas à occuper le menu de tous
+            les écrans. La couleur violette dit déjà l'essentiel. */}
+        {peutRegarderLaFormation && regardeFormation && (
           <div className="px-4 pt-3">
-            <div className="text-[10px] font-bold text-sky-200/60 uppercase tracking-widest mb-1">Je regarde</div>
-            <div className="flex gap-1">
-              <button onClick={() => basculerEspaceRegarde(false)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold ${!regardeFormation ? "bg-sky-600 text-white" : "bg-white/10 text-sky-100/70 hover:bg-white/20"}`}>
-                Le réel
-              </button>
-              <button onClick={() => basculerEspaceRegarde(true)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold ${regardeFormation ? "bg-violet-600 text-white" : "bg-white/10 text-sky-100/70 hover:bg-white/20"}`}>
-                🎓 Formation
-              </button>
+            <div className="rounded-lg bg-violet-600/30 border border-violet-400/40 px-2 py-1.5 text-[11px] font-bold text-violet-100 text-center">
+              🎓 Vous regardez la FORMATION
             </div>
           </div>
         )}
@@ -1246,12 +1241,11 @@ export default function App() {
                 </div>
               </div>
             </div>
-            {peutRegarderLaFormation && (
-              <button onClick={() => basculerEspaceRegarde(!regardeFormation)}
-                className={`shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold ${regardeFormation ? "bg-violet-600 text-white" : "bg-white/15 text-sky-100"}`}
-                title="Basculer entre les chiffres réels et ceux de l'entraînement">
-                {regardeFormation ? "🎓 Formation" : "Réel"}
-              </button>
+            {peutRegarderLaFormation && regardeFormation && (
+              <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-600 text-white"
+                    title="Vous regardez l'espace d'entraînement. Pour en changer : ⚙ Paramètres.">
+                🎓 Formation
+              </span>
             )}
             {nonLus > 0 && (
               <button onClick={() => setTab("messages")} className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse" title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}>

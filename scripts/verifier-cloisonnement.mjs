@@ -2433,6 +2433,56 @@ titre("Ce qu'on crée naît dans l'espace qu'on REGARDE (plus de case à cocher)
   C.setRegardeFormation(false);
 }
 
+titre("Le selecteur « je regarde » vit dans les Parametres, et recharge la page");
+{
+  // ⚠ DEMANDE DE TIMO (29/08/2026) : « je prefere que le basculement actualise
+  // la page en meme temps, que d'attendre 20 secondes… ramener le basculement
+  // dans les parametres ».
+  // Les 20 secondes venaient des ecrans deja visites, qui restent montes en
+  // veille (ongletsVisites, choix fait pour que revenir sur un onglet soit
+  // instantane) : au basculement, ils ne se reconstruisaient qu'au fil des
+  // re-rendus. Le rechargement les remet tous d'aplomb d'un coup.
+  const app = readFileSync("src/App.jsx", "utf8");
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  const cal = readFileSync("src/lib/calculs.js", "utf8");
+
+  test("★ le basculement recharge la page",
+    /export const changerEspaceRegarde[\s\S]{0,400}?window\.location\.reload\(\)/.test(cal));
+  test("★ il memorise le choix AVANT de recharger (sinon il serait perdu)", (() => {
+    const bloc = cal.slice(cal.indexOf("export const changerEspaceRegarde"));
+    return bloc.indexOf("memoriserEspaceRegarde") < bloc.indexOf("window.location.reload");
+  })());
+  test("★ les deux boutons sont dans ⚙ Parametres",
+    /changerEspace\(false\)/.test(par) && /changerEspace\(true\)/.test(par));
+  test("★ …et ont quitte le menu de tous les ecrans",
+    !/basculerEspaceRegarde/.test(app));
+  test("le menu garde un RAPPEL de l'espace regarde, sans bouton",
+    /Vous regardez la FORMATION/.test(app));
+  test("★ la cle du reglage n'est ecrite qu'a UN endroit (plus de copie dans App.jsx)",
+    /export const CLE_REGARDE = "bmi_regarde_formation";/.test(cal)
+    && !/const CLE_REGARDE = "bmi_regarde_formation";/.test(app));
+  test("le basculement demande confirmation : la page va se recharger",
+    /if \(!await uConfirm\(v/.test(par));
+  test("le selecteur reste reserve a l'admin principal, et seulement s'il y a une formation",
+    /const peutRegarderLaFormation = estAdminPrincipal\(db, profile\) && boutiquesFormation\(db\)\.size > 0;/.test(par));
+
+  // La mecanique de memorisation, verifiee pour de bon.
+  const faux = { store: {}, getItem(k) { return this.store[k] ?? null; }, setItem(k, v) { this.store[k] = String(v); } };
+  const vrai = globalThis.localStorage;
+  Object.defineProperty(globalThis, "localStorage", { value: faux, configurable: true });
+  C.memoriserEspaceRegarde("u1", true);
+  test("★ le choix est bien range sous l'identifiant de la personne",
+    C.lireEspaceRegarde("u1") === true && C.lireEspaceRegarde("u2") === false);
+  C.memoriserEspaceRegarde("u1", false);
+  test("…et se defait aussi bien qu'il se fait",
+    C.lireEspaceRegarde("u1") === false);
+  test("sans identifiant, on repart du reel plutot que de deviner",
+    C.lireEspaceRegarde("") === false && C.lireEspaceRegarde(undefined) === false);
+  if (vrai) Object.defineProperty(globalThis, "localStorage", { value: vrai, configurable: true });
+  else delete globalThis.localStorage;
+}
+
+
 titre("Le sélecteur « je regarde » n'appartient qu'à l'administrateur PRINCIPAL");
 {
   // ⚠ TIMO, 26/08/2026 : « tout ce qu'on construit actuellement, c'est pour

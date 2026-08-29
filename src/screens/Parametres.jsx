@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -269,6 +269,18 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // un compte cloisonné ne peut créer une boutique que DANS SON ESPACE, et
   // la case est verrouillée sur la bonne valeur, avec l'explication.
   const jeVoisLesDeuxEspaces = voitLesDeuxEspaces(db, profile);
+  // Le sélecteur n'a de sens que pour qui traverse le mur — l'administrateur
+  // principal — ET seulement s'il existe quelque chose à regarder de l'autre
+  // côté. Sans boutique d'entraînement, le bouton ne mènerait nulle part.
+  const peutRegarderLaFormation = estAdminPrincipal(db, profile) && boutiquesFormation(db).size > 0;
+  const enFormation = espaceDuCompte(db, profile);
+  const changerEspace = async (v) => {
+    if (v === enFormation) return;
+    if (!await uConfirm(v
+      ? "Passer dans l'espace D'ENTRAÎNEMENT ?\n\nL'application devient violette. Tout ce que vous verrez et créerez appartiendra à l'entraînement, jusqu'à ce que vous reveniez au réel.\n\nLa page va se recharger."
+      : "Revenir dans l'espace RÉEL ?\n\nL'application redevient bleue.\n\nLa page va se recharger.")) return;
+    changerEspaceRegarde(profile.id, v);
+  };
   const monEspaceFormation = estCompteFormation(db, profile);
   const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false,
     formation: voitLesDeuxEspaces(db, profile) ? false : estCompteFormation(db, profile),
@@ -875,6 +887,38 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         ))}
       </div>
       <div className="space-y-4" style={{ display: onglet === "boutiques" ? undefined : "none" }}>
+
+      {/* ⚠ LE SÉLECTEUR « JE REGARDE » (demande Timo, 29/08/2026 : « ramener
+          le basculement dans les paramètres »). Il occupait le menu de tous
+          les écrans, alors que changer d'espace est un geste rare. Le menu
+          ne garde qu'un rappel — et la couleur violette dit déjà l'essentiel.
+
+          Le basculement RECHARGE la page : les écrans déjà visités restent
+          montés en veille, et ne se reconstruisaient qu'au fil des re-rendus.
+          D'où les vingt secondes d'attente qu'il a signalées. */}
+      {peutRegarderLaFormation && (
+        <div className={`rounded-xl p-4 border-2 ${enFormation ? "bg-violet-50 border-violet-300" : "bg-sky-50 border-sky-300"}`}>
+          <div className="font-bold mb-1">👁 Je regarde</div>
+          <div className="text-xs text-slate-600 mb-3">
+            Décide de TOUT ce que vous voyez et de tout ce que vous créez : chiffres, boutiques,
+            comptes, listes déroulantes. L'application devient <b>violette</b> dans l'entraînement.
+            Le réglage vous suit d'un écran à l'autre et survit au rechargement ; il revient au réel
+            à votre déconnexion.
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => changerEspace(false)} disabled={!enFormation}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-bold ${!enFormation ? "bg-sky-800 text-white" : "bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+              💼 Le réel{!enFormation ? " ✓" : ""}
+            </button>
+            <button onClick={() => changerEspace(true)} disabled={enFormation}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-bold ${enFormation ? "bg-violet-700 text-white" : "bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+              🎓 L'entraînement{enFormation ? " ✓" : ""}
+            </button>
+          </div>
+          <div className="text-[11px] text-slate-500 mt-2">La page se recharge aussitôt, pour que tous les écrans suivent d'un coup.</div>
+        </div>
+      )}
+
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-3">Ajouter une boutique</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -904,7 +948,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           {espaceDuCompte(db, profile)
             ? "🎓 Cette boutique sera créée dans l'espace D'ENTRAÎNEMENT — c'est celui que vous regardez."
             : "Cette boutique sera créée dans l'espace RÉEL — c'est celui que vous regardez."}
-          {jeVoisLesDeuxEspaces && " Pour créer dans l'autre espace, changez « Je regarde » en haut du menu."}
+          {jeVoisLesDeuxEspaces && " Pour créer dans l'autre espace, changez « 👁 Je regarde » juste au-dessus."}
         </div>
         <div className="text-xs text-slate-400 mt-2">La localisation et le téléphone pourront toujours être ajoutés ou modifiés plus tard, ci-dessous (« 📍 Infos reçu »).</div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Créer</button>

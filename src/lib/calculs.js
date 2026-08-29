@@ -191,6 +191,43 @@ let regardeFormation = false;
 export const setRegardeFormation = (v) => { regardeFormation = !!v; };
 export const regardeLaFormation = () => regardeFormation;
 
+// ---- LE RÉGLAGE, MÉMORISÉ PAR PERSONNE ----
+// ⚠ Posé ICI et non dans App.jsx (29/08/2026) : depuis que le sélecteur vit
+// dans ⚙ Paramètres, DEUX endroits l'écrivent. Deux copies de la même clé,
+// c'est deux occasions de diverger — et une divergence, ici, ferait travailler
+// quelqu'un dans un espace tout en lui en affichant un autre.
+export const CLE_REGARDE = "bmi_regarde_formation";
+
+export const lireEspaceRegarde = (idUtilisateur) => {
+  if (!idUtilisateur) return false;
+  try { return localStorage.getItem(`${CLE_REGARDE}:${idUtilisateur}`) === "1"; }
+  catch { return false; }   // navigation privée : on repart du réel
+};
+
+export const memoriserEspaceRegarde = (idUtilisateur, v) => {
+  if (!idUtilisateur) return;
+  try { localStorage.setItem(`${CLE_REGARDE}:${idUtilisateur}`, v ? "1" : "0"); }
+  catch { /* navigation privée */ }
+};
+
+// ⚠ CHANGER D'ESPACE RECHARGE LA PAGE (demande Timo, 29/08/2026) : « je
+// préfère que le basculement actualise la page en même temps, plutôt que
+// d'attendre 20 secondes ».
+//
+// Pourquoi c'était lent : les écrans déjà visités restent montés en veille
+// (voir `ongletsVisites` dans App.jsx, choix fait pour que revenir sur un
+// onglet soit instantané). Au basculement, ils ne se reconstruisaient qu'au
+// fil des re-rendus — d'où l'impression que l'application traînait.
+//
+// Le rechargement est SANS RISQUE pour les données : tout ce qui n'est pas
+// encore parti au serveur vit dans la file d'attente (IndexedDB, voir
+// db.js), qui survit au rechargement et repart toute seule.
+export const changerEspaceRegarde = (idUtilisateur, v) => {
+  memoriserEspaceRegarde(idUtilisateur, v);
+  setRegardeFormation(v);
+  if (typeof window !== "undefined") window.location.reload();
+};
+
 export const boutiquesVisibles = (db, profile, liste) => {
   // ⚠ Un compte qui voit les deux espaces n'affiche plus les deux EN MÊME
   // TEMPS : il affiche celui qu'il regarde. C'est ce qui débarrasse les

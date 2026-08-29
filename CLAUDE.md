@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 578 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 589 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -104,9 +104,15 @@ impossible, et le banc doit le dire dans ce sens-là.
 - **Seul l'administrateur principal traverse le mur.** Mot pour mot :
   « Je suis le seul admin principal qui peut voir les 2 espaces à la fois.
   Le reste, soit tu es admin formation, soit admin réel. »
-- Il bascule d'un espace à l'autre avec le sélecteur « Je regarde ».
+- Il bascule d'un espace à l'autre avec le sélecteur « 👁 Je regarde », qui
+  vit dans **⚙ Paramètres** — changer d'espace est un geste rare, il n'a pas à
+  occuper le menu de tous les écrans. Le menu n'en garde qu'un rappel.
+  Le basculement **recharge la page** : sans cela les écrans déjà visités
+  restent montés en veille et ne se remettent à jour qu'au fil des re-rendus
+  (les « 20 secondes » qu'il a signalées le 29/08/2026).
   Ce réglage **survit au F5 et à une nouvelle version**, et **meurt à la
-  déconnexion** (retour au réel).
+  déconnexion** (retour au réel). Sa clé n'est écrite qu'à un seul endroit,
+  `lib/calculs.js` — deux copies, ce serait deux occasions de diverger.
 - **Les écrans d'administration suivent le sélecteur, eux aussi.** Relevé par
   Timo le 29/08/2026 : ⚙ Paramètres et 👥 Utilisateurs listaient les DEUX
   espaces mêlés. Le cloisonnement avait été posé partout où l'on compte de
