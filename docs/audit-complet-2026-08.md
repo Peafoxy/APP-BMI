@@ -74,11 +74,18 @@ sert pour le dimensionnement. Résultat : un « 5000VA » (4 000 W réels, donc
 classe 24 V) est classé 48 V. Chaque convertisseur étiqueté en VA monte d'un
 cran, et se voit proposé sur le mauvais système.
 
-### 🟡 Un article sans prix de vente rend tout le devis illisible
-`dimensionnement/Solaire.jsx:449` — `sousTotal: p.prix_vente * c.qte`, sans
-`Number()`. Un article dont le prix est absent (import, saisie incomplète)
-donne `NaN`, qui se propage au total, à la remise, aux frais et au montant de
-l'acompte. Le devis affiche « NaN F » de bout en bout.
+### 🟠 Un article importé sans prix est proposé — et vendu — à 0 F
+`Stocks.jsx:457-495`. L'importation accepte une ligne dès qu'elle a **trois**
+champs (`parts.length >= 3`) : le prix d'achat et le prix de vente absents
+valent alors 0, sans un mot.
+
+Le dimensionnement choisit ensuite ses articles sur leur **caractéristique**
+(watts, ampères-heures), jamais sur leur prix : un panneau importé sans prix
+est donc retenu normalement, chiffré **0 F** dans le devis, puis encaissé
+0 F dans Ventes (`pu: p.prix_vente`). Rien ne le signale nulle part.
+
+L'import ne vérifie pas non plus les doublons : coller deux fois la même liste
+crée deux fois les articles.
 
 ---
 ## Clients installés (`src/screens/ClientsInstalles.jsx`, 1 390 l.)
@@ -230,5 +237,50 @@ contourne.
 
 C'est exactement le cas que Timo a posé en règle : **une alerte qui annonce
 quelque chose qu'elle ne fait pas.**
+
+---
+## Paramètres — restauration d'une sauvegarde (`Parametres.jsx:397-419`)
+
+### 🔴 Restaurer une sauvegarde efface, sur le serveur et pour tout le monde, tout ce qui a été fait depuis
+Le bouton « ♻ Restaurer une sauvegarde » appelle `save(donnees, …)` avec le
+contenu du fichier comme **nouvel état complet**.
+
+`sauvegarderDiff` (`db.js:204-206`) compare l'ancien état au nouveau et met en
+file d'attente une **suppression** pour chaque ligne absente du nouveau. Or une
+sauvegarde est, par définition, plus ancienne que l'état courant : **toutes les
+ventes, dettes, dépenses et fiches créées depuis le jour de la sauvegarde sont
+supprimées**, localement puis sur le serveur, donc sur tous les appareils.
+
+Trois choses aggravent le geste :
+1. Le fichier n'ayant pas de numéro d'état (`__v`), le garde-fou anti-écran-périmé
+   de `save()` — celui qui refuse justement d'effacer ce qu'il ne sait plus
+   comparer — **ne se déclenche pas**. La restauration passe tout droit.
+2. L'avertissement dit « ⚠ Les données actuelles seront remplacées ». Il ne dit
+   ni *sur tous les appareils*, ni *définitivement*, ni *combien de jours de
+   travail*. Le fichier ne porte même pas sa date à l'écran.
+3. Aucune sauvegarde de l'état courant n'est faite avant. Le geste est sans
+   retour.
+
+Ce qu'il faudrait, au minimum : afficher la **date** de la sauvegarde et le
+nombre de jours de travail qui seraient perdus, exporter l'état courant
+d'abord, et réserver le bouton à l'administrateur **principal** (aujourd'hui
+tout administrateur ayant gardé l'onglet Paramètres peut le faire).
+
+---
+
+## Plan de règlement (`TousLesDevis.jsx:69`)
+
+### ❓ « L'administrateur seul » — lequel ?
+`const peutDeciderDuPlan = profile.role === "admin";`
+
+Le commentaire juste au-dessus cite votre réponse : « L'ADMINISTRATEUR SEUL ».
+Le code l'a lue comme **tout compte administrateur**. Or partout ailleurs dans
+l'application, les gestes qui engagent l'entreprise sont réservés à
+`estAdminPrincipal` — et vous avez tranché le 28/08 que les autres
+administrateurs ne sont plus des vous en réduction.
+
+Aujourd'hui, n'importe quel administrateur peut engager BMI sur un échéancier
+de paiement. Dites-moi si c'est ce que vous vouliez ; sinon c'est une ligne à
+changer.
 
 ---
