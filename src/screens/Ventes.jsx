@@ -434,6 +434,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // Crédit(dette) : le client peut ne verser qu'une avance partielle.
       // Tout autre moyen (Espèces, Mobile Money, Virement) : par définition
       // il paie la totalité tout de suite — il n'y a pas de notion d'avance.
+      // ⚠ Pas de frais à ajouter ici, contrairement au bloc crédit plus bas :
+      // ce chemin est fermé aux ventes issues d'un devis (`!origineDevis` dans
+      // les deux conditions qui y mènent), donc fraisInstallDevis vaut 0.
       const avanceRes = f.paiement === "Crédit (dette)" ? Math.max(0, Math.min(total, Number(f.avance) || 0)) : total;
       if (!await uConfirm(`Créer une réservation prépayée pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avanceRes)}\nReste à payer : ${fmt(total - avanceRes)}\n\nLa marchandise ne sortira du stock qu'à la livraison (écran Dettes → Réservations prépayées).`)) return;
       const reservation = {
@@ -492,7 +495,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       frais_installation: fraisInstallDevis,
       frais_transport: fraisTransportDevis,
       paiement: f.paiement,
-      avance: f.paiement === "Crédit (dette)" ? Math.max(0, Math.min(total, Number(f.avance) || 0)) : 0,
+      // ⚠ Le plafond, c'est ce que le client doit RÉELLEMENT — articles ET
+      // frais du devis (voir totalAEncaisser). Plafonner aux seuls articles
+      // rognait l'avance dès qu'une pose était facturée.
+      avance: f.paiement === "Crédit (dette)" ? Math.max(0, Math.min(totalAEncaisser, Number(f.avance) || 0)) : 0,
       commercial: f.commercial || null,
       responsable: f.responsable || null,
       rabais,                                   // rabais RÉELLEMENT appliqué (plafonné à sa commission)
@@ -587,13 +593,42 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       };
     }
     if (f.paiement === "Crédit (dette)") {
-      const avance = Math.max(0, Math.min(total, Number(f.avance) || 0));
-      if (await uConfirm(`Enregistrer cette vente à crédit pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(total - avance)}`)) {
-        // Le moyen de paiement accompagne l'avance : sans lui, la caisse la
-        // comptait en espèces quoi qu'il arrive (point 15 de l'audit).
-        const paiementsInitiaux = avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(f.moyen_avance || PAIEMENTS[0]), par: profile.nom }] : [];
-        next = { ...next, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: panier, montant: total, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+      // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) — CE QUE LE CLIENT DOIT.
+      // La dette était créée avec le seul total des ARTICLES. Or l'écran
+      // venait de demander au vendeur d'encaisser articles + installation +
+      // transport (totalAEncaisser, voir plus haut), et le reçu imprimé dit
+      // exactement la même chose : « TOTAL TTC » puis « RESTE À PAYER ».
+      // Sur un devis de 1 000 000 F de matériel et 150 000 F de pose réglé à
+      // moitié, la dette enregistrée était de 500 000 F : les 150 000 F de
+      // pose n'étaient réclamés nulle part. Le papier remis au client et la
+      // base ne disaient pas la même chose — et c'est la base qui sert à
+      // recouvrer.
+      const duTotal = totalAEncaisser;
+      const avance = Math.max(0, Math.min(duTotal, Number(f.avance) || 0));
+
+      // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) — LE REFUS NE REFUSAIT RIEN.
+      // Cette confirmation n'entourait QUE la création de la dette : le
+      // `save(next, …)` juste en dessous s'exécutait dans tous les cas.
+      // Répondre « non » enregistrait donc la vente quand même — stock sorti,
+      // chiffre d'affaires augmenté — sans aucune trace de la créance, et
+      // sans l'avance dans la clôture de caisse. Le vendeur, lui, croyait
+      // avoir annulé. On sort maintenant sans rien écrire.
+      if (!await uConfirm(`Enregistrer cette vente à crédit pour ${f.client || "ce client"} ?\n\nTotal dû : ${fmt(duTotal)}${duTotal !== total ? ` (dont ${fmt(duTotal - total)} de frais)` : ""}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(duTotal - avance)}`)) {
+        setMsg("Vente annulée : rien n'a été enregistré. Le panier est conservé.");
+        return;
       }
+      // Le moyen de paiement accompagne l'avance : sans lui, la caisse la
+      // comptait en espèces quoi qu'il arrive (point 15 de l'audit).
+      const paiementsInitiaux = avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(f.moyen_avance || PAIEMENTS[0]), par: profile.nom }] : [];
+      // Les frais figurent AUSSI en lignes : sans elles, le reçu de versement
+      // (imprimerRecuVersement) listerait des articles à 1 000 000 F sous un
+      // « montant total dû » de 1 150 000 F, sans rien pour l'expliquer.
+      const lignesDette = [
+        ...panier,
+        ...(fraisInstallDevis > 0 ? [{ produit_id: null, nom: "Frais d'installation", qte: 1, pu: fraisInstallDevis }] : []),
+        ...(fraisTransportDevis > 0 ? [{ produit_id: null, nom: "Transport / livraison", qte: 1, pu: fraisTransportDevis }] : []),
+      ];
+      next = { ...next, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
     save(next, od

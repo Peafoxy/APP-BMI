@@ -15,6 +15,7 @@
     "tester-verrouillage": "node scripts/tester-verrouillage.mjs",
     "verifier-ecran": "vite build && node scripts/verifier-ecran.cjs",
     "verifier-ecran-stocks": "node scripts/verifier-ecran-stocks.mjs",
+    "verifier-ecran-ventes": "node scripts/verifier-ecran-ventes.mjs",
     "apercu-etiquette": "node scripts/apercu-etiquette.mjs",
     "tester-injection-sql": "bash scripts/tester-injection-sql.sh",
     "tester-reglement": "node scripts/tester-reglement.mjs",

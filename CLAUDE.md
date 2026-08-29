@@ -56,6 +56,7 @@ npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 8   : l'écran Stocks
+npm run verifier-ecran-ventes    # 16  : l'argent dans l'écran Ventes
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -172,11 +173,14 @@ chantier. Les constats, par ordre de gravité.
 2. **Restaurer une sauvegarde** (`Parametres.jsx:397`) efface sur le serveur
    tout ce qui a été créé depuis. Le garde-fou anti-état-périmé de `save()` ne
    se déclenche pas, faute de `__v` sur un fichier.
-3. **Refuser une vente à crédit l'enregistre quand même**, sans la dette
-   (`Ventes.jsx:589`).
-4. **Les frais de pose ne sont jamais mis à la dette** (`Ventes.jsx:597`). Le
-   reçu imprimé et la base ne disent pas la même chose.
-5. **Un employé modifie sa propre fiche de paie** (`paie-1-table.sql:191`).
+3. ~~Refuser une vente à crédit l'enregistre quand même~~ — **corrigé en
+   2.101.16**, surveillé par `npm run verifier-ecran-ventes`.
+4. ~~Les frais de pose ne sont jamais mis à la dette~~ — **corrigé en
+   2.101.16** : la dette réclame désormais ce que le reçu annonce.
+5. **Un employé peut se remettre `actif: true`** pendant que dure son jeton de
+   session : le champ n'est surveillé par aucun déclencheur.
+   (`securite-2-role-inviolable.sql` le ferme, avec l'auto-élévation d'un
+   administrateur sur sa propre fiche.)
 
 ### Réels
 - La marge de **Rentabilité** est surévaluée : ni la remise globale ni le

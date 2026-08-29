@@ -11,7 +11,7 @@ Chaque constat porte son emplacement exact. Trois niveaux :
 ---
 ## Ventes (`src/screens/Ventes.jsx`)
 
-### 🔴 Refuser la confirmation d'une vente à crédit enregistre quand même la vente — sans la dette
+### ✅ CORRIGÉ EN 2.101.16 — refuser la confirmation annulait tout sauf la vente
 `Ventes.jsx:589-597`. Le `if (await uConfirm(...))` n'entoure que la création de
 la dette ; le `save(next, ...)` de la ligne 599 s'exécute dans tous les cas.
 
@@ -20,7 +20,7 @@ créance du client n'existe nulle part. Si une avance a été versée, elle
 n'apparaît pas non plus dans la clôture de caisse — le compte du soir est
 court d'autant. Le vendeur, lui, croit avoir annulé.
 
-### 🔴 Les frais d'installation et de transport ne sont jamais mis à la dette
+### ✅ CORRIGÉ EN 2.101.16 — les frais d'installation et de transport n'étaient pas mis à la dette
 `Ventes.jsx:495` et `Ventes.jsx:597` (et `Ventes.jsx:437-451` pour la réservation).
 
 Sur une vente issue d'un devis, l'écran demande au vendeur d'encaisser
