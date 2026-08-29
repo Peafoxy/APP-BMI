@@ -2455,5 +2455,35 @@ titre("Le sélecteur « je regarde » n'appartient qu'à l'administrateur PRINCI
   C.setRegardeFormation(false);
 }
 
+titre("Personne ne modifie les pouvoirs de SA PROPRE fiche — l'app et la base d'accord");
+{
+  // ⚠ Le declencheur refuser_elevation_de_soi_trg (securite-2-role-inviolable.sql)
+  // a ete pose sur la vraie base le 29/08/2026. Il refuse toute modification
+  // de role, admin_principal, droits_off, formation et actif sur sa propre
+  // fiche. L'ecran Utilisateurs doit dire la MEME chose : proposer un geste
+  // que le serveur refusera, c'est le piege des boutiques de formation
+  // (2.100.30), ou l'operation restait bloquee dans la file pour toujours.
+  const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const sql = readFileSync("supabase/securite-2-role-inviolable.sql", "utf8");
+
+  test("★ le bouton « Bloquer » n'apparait plus sur sa propre fiche",
+    /\{!surMaPropreFiche\(u\) && <button onClick=\{\(\) => toggleActif\(u\)\}/.test(u));
+  test("★ le bouton « passer en formation » non plus",
+    /jeSuisAdminPrincipal && !surMaPropreFiche\(u\) &&[\s\S]{0,120}?basculerFormation\(u\)/.test(u));
+  test("★ …et les trois gestes se gardent eux-memes, pas seulement les boutons",
+    (u.match(/refusSurSoi\(u, /g) || []).length >= 3);
+  test("le refus explique POURQUOI, au lieu d'un simple echec",
+    /elle vaut pour tout le monde, vous compris/.test(u));
+
+  // Les champs surveilles par l'app et par la base doivent etre les memes.
+  const champsSql = (sql.match(/surveilles constant text\[\] := array\[([^\]]+)\]/) || [])[1] || "";
+  test("★ la base surveille bien les cinq champs de pouvoir",
+    ["role", "admin_principal", "droits_off", "formation", "actif"]
+      .every((c) => champsSql.includes(`'${c}'`)));
+  test("la voie de secours de l'editeur SQL est preservee (sinon plus aucune reparation possible)",
+    /jetons = '\{\}'::jsonb or coalesce\(jetons ->> 'role', ''\) = 'service_role'/.test(sql));
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

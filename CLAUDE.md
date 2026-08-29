@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 492 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 498 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -177,10 +177,9 @@ chantier. Les constats, par ordre de gravité.
    2.101.16**, surveillé par `npm run verifier-ecran-ventes`.
 4. ~~Les frais de pose ne sont jamais mis à la dette~~ — **corrigé en
    2.101.16** : la dette réclame désormais ce que le reçu annonce.
-5. **Un employé peut se remettre `actif: true`** pendant que dure son jeton de
-   session : le champ n'est surveillé par aucun déclencheur.
-   (`securite-2-role-inviolable.sql` le ferme, avec l'auto-élévation d'un
-   administrateur sur sa propre fiche.)
+5. ~~Un employé peut se remettre `actif: true`~~ — **fermé le 29/08/2026** :
+   `refuser_elevation_de_soi_trg` est posé sur la vraie base (capture de
+   Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
 
 ### Réels
 - La marge de **Rentabilité** est surévaluée : ni la remise globale ni le

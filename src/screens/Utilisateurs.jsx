@@ -150,7 +150,28 @@ export function Users({ db, save, profile }) {
     setTimeout(() => setMsg(""), 3000);
   };
 
+  // ⚠ CE QUE LE SERVEUR REFUSE DÉSORMAIS (déclencheur
+  // refuser_elevation_de_soi_trg, posé sur la base le 29/08/2026) : personne
+  // ne modifie les pouvoirs de SA PROPRE fiche — role, admin_principal,
+  // droits_off, formation, actif. C'était la porte par laquelle un employé
+  // fraîchement bloqué se débloquait lui-même (son jeton de session reste
+  // valable un moment), et par laquelle un administrateur secondaire pouvait
+  // se donner « admin principal » — le drapeau qui décide seul de qui
+  // traverse le mur formation / réel depuis le 28/08.
+  //
+  // L'application doit dire la MÊME chose que le serveur. Proposer un geste
+  // qu'il refusera ensuite, c'est une application cassée : c'est exactement
+  // le piège des boutiques de formation (2.100.30), où l'opération restait
+  // bloquée dans la file d'attente pour toujours.
+  const surMaPropreFiche = (u) => u.id === profile.id;
+  const refusSurSoi = (u, quoi) => {
+    if (!surMaPropreFiche(u)) return false;
+    uAlert(`🔒 Vous ne pouvez pas ${quoi} sur VOTRE PROPRE fiche.\n\nC'est la protection qui empêche n'importe qui de s'attribuer des pouvoirs : elle vaut pour tout le monde, vous compris. Un autre administrateur peut le faire à votre place.`);
+    return true;
+  };
+
   const toggleActif = (u) => {
+    if (refusSurSoi(u, "vous bloquer ou vous débloquer")) return;
     if (u.role === "admin" && db.users.filter((x) => x.role === "admin" && x.actif !== false).length === 1 && u.actif !== false) {
       uAlert("Impossible de bloquer le dernier administrateur actif."); return;
     }
@@ -240,6 +261,7 @@ export function Users({ db, save, profile }) {
   const basculerFormation = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    if (refusSurSoi(u, "changer d'espace de travail")) return;
     const versFormation = !u.formation;
     const cible = boutiqueCibleEspace(u, versFormation);
     if (!cible.ok) {
@@ -359,6 +381,7 @@ export function Users({ db, save, profile }) {
   const cible = pouvoirsPour ? db.users.find((x) => x.id === pouvoirsPour) : null;
 
   const basculerPouvoir = (u, id, label) => {
+    if (refusSurSoi(u, "modifier vos propres pouvoirs")) return;
     const off = u.droits_off || [];
     const actif = !off.includes(id);
     if (u.id === profile.id) { uAlert("Vous ne pouvez pas modifier vos propres pouvoirs."); return; }
@@ -970,7 +993,7 @@ export function Users({ db, save, profile }) {
                   {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className="text-xs font-bold text-pink-700 underline mr-2">🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
-                  {jeSuisAdminPrincipal && (
+                  {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
                     <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
                       {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
                     </button>
@@ -984,7 +1007,7 @@ export function Users({ db, save, profile }) {
                   {SALARIES.includes(u.role) && (u.virements || []).some((v) => v.statut !== "accepte") && <button onClick={() => annulerVirement(u)} className="text-xs font-bold text-amber-700 underline mr-2">Annuler virement</button>}
                   {["commercial", "technicien"].includes(u.role) && <button onClick={() => basculerChef(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.chef_equipe ? "Retirer chef" : "Nommer chef"}</button>}
                   {u.role === "client" && <button onClick={() => basculerChatLibre(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"}</button>}
-                  <button onClick={() => toggleActif(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.actif === false ? "Réactiver" : "Bloquer"}</button>
+                  {!surMaPropreFiche(u) && <button onClick={() => toggleActif(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.actif === false ? "Réactiver" : "Bloquer"}</button>}
                   <button onClick={() => supprimerU(u)} className="text-xs text-red-600 underline">Suppr.</button>
                 </td>
               </tr>
