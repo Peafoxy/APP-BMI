@@ -153,13 +153,57 @@ impossible, et le banc doit le dire dans ce sens-là.
 
 ## 6. Ce qui reste ouvert
 
+**L'audit complet du 29/08/2026 est dans `docs/audit-complet-2026-08.md`**
+(22 279 lignes lues). Rien n'en a été corrigé : c'était un audit, pas un
+chantier. Les constats, par ordre de gravité.
+
+### Graves
+1. **Du nom d'un client à l'administration.** Le mot de passe d'un client se
+   calcule à partir de son nom et de son numéro (`identiteClient.js`) ; une
+   fois connecté, il peut réécrire sa propre fiche en `admin_principal`
+   (mesuré) ; `api/sync-auth.js` lit le rôle dans cette fiche à la connexion
+   suivante. **Couper le maillon du milieu suffit** : un garde-fou SQL qui
+   refuse à quiconque de changer son propre rôle.
+2. **Restaurer une sauvegarde** (`Parametres.jsx:397`) efface sur le serveur
+   tout ce qui a été créé depuis. Le garde-fou anti-état-périmé de `save()` ne
+   se déclenche pas, faute de `__v` sur un fichier.
+3. **Refuser une vente à crédit l'enregistre quand même**, sans la dette
+   (`Ventes.jsx:589`).
+4. **Les frais de pose ne sont jamais mis à la dette** (`Ventes.jsx:597`). Le
+   reçu imprimé et la base ne disent pas la même chose.
+5. **Un employé modifie sa propre fiche de paie** (`paie-1-table.sql:191`).
+
+### Réels
+- La marge de **Rentabilité** est surévaluée : ni la remise globale ni le
+  rabais ne sont retirés, alors que le Tableau de bord les retire.
+- **« Le statut payé sera aussi annulé »** est faux pour 6 des 10 sortes de
+  dépenses automatiques (`annulerLiensDepense`).
+- Un **fournisseur** est toujours payé « en espèces », la **CNSS** toujours
+  « par virement » — sans qu'on demande. Les deux faussent la clôture.
+- `fusion.js:45` désigne un champ inexistant : la protection anti-conflit des
+  chantiers ne protège rien.
+- Le téléphone est comparé **brut** à 4 endroits (`Partages.jsx:286`,
+  `Ventes.jsx:570`, `EspaceClient.jsx:476`, `ClientsInstalles.jsx:164`).
+- La tension d'un convertisseur est déduite de ses **VA**, pas de ses watts.
+- Un article importé sans prix est proposé — et vendu — **0 F**.
+
+### Bancs
+`npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
+connecté. **Il est rouge (8 échecs sur 12), et c'est voulu** : il décrit l'état
+voulu, pas l'état actuel. Il passera au vert quand les portes seront fermées.
+
+### Chantiers plus anciens, toujours ouverts
 - **Vague 2 de la fermeture de l'annuaire client** : `dettes`, `ventes`,
   `clients_installes` sont encore lisibles par tous les comptes clients.
   Il faut d'abord poser un champ « propriétaire » sur ces lignes.
 - Scripts SQL peut-être jamais exécutés :
   `securite-1-audits-et-tombstones.sql`, `avis-supabase-0-etat-des-lieux.sql`,
   `avis-supabase-1-search-path.sql`.
-- Trois fonctions `api/` renvoient encore le message d'erreur interne brut.
-- Un employé connecté peut encore recalculer le mot de passe d'un client.
+- **Cinq** fonctions `api/` renvoient le message d'erreur interne brut (et non
+  trois comme le relevé précédent le disait).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
-- 25 des 29 écrans n'ont jamais été audités.
+
+### Une question sans réponse
+Le plan de règlement est aujourd'hui accepté par **tout administrateur**
+(`TousLesDevis.jsx:69`). Timo avait répondu « l'administrateur seul » — reste à
+savoir s'il voulait dire l'administrateur **principal**, comme partout ailleurs.
