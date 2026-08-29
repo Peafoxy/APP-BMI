@@ -32,6 +32,12 @@ Exemple : devis de 1 000 000 F de matériel + 150 000 F de pose. Le client verse
 500 000 F et prend le reste à crédit. La dette enregistrée est de 500 000 F.
 **Les 150 000 F de pose ne sont réclamés nulle part.**
 
+Le reçu, lui, est juste : `impression.js:123-124` imprime
+`TOTAL TTC = articles + installation + transport`, puis
+`RESTE À PAYER = ce total − avance`. **Le papier remis au client et la dette
+enregistrée dans la base ne disent donc pas la même chose** — et c'est la base
+qui sert à réclamer.
+
 ### 🟡 Le rabais commercial n'est plafonné que vers le haut
 `Ventes.jsx:192` — `Math.min(Number(f.rabais || 0), rabaisMax)`. Un montant
 négatif tapé par erreur passe le `Math.min` et **augmente** le total facturé
@@ -352,3 +358,125 @@ qu'il reste des opérations en attente : une donnée créée hors ligne ne peut 
 être effacée par elle. C'est du travail solide.
 
 ---
+## Fusion des modifications simultanées (`src/lib/fusion.js`)
+
+Le principe est bon : on ne compare plus deux horloges, on additionne les
+écarts par rapport à l'état de départ. Les versements sur une dette faits hors
+ligne sur deux appareils s'additionnent au lieu de s'écraser, et le total est
+plafonné au montant dû.
+
+### 🟠 La protection prévue pour les chantiers ne protège rien
+`fusion.js:45` — `clients_installes: { listes: ["demande_prime"] }`.
+
+`demande_prime` n'est pas une liste, et n'existe pas à ce niveau : c'est un
+**booléen posé sur chaque membre de `equipe[]`**. `unirParId` reçoit donc
+`undefined` des deux côtés, ne produit rien, et la ligne est ignorée. La
+stratégie est un no-op.
+
+Conséquence réelle : si l'administrateur paie la part du technicien A pendant
+que le vendeur paie celle du technicien B **sur le même chantier**, le tableau
+`equipe` entier est remplacé par celui du dernier arrivé. Le `paye: true` de
+l'autre disparaît — alors que sa dépense, elle, a bien été créée. La part
+réapparaît comme **due**, et `primeDejaPayee` ne la voit plus : elle peut être
+payée une seconde fois.
+
+(À noter : `unirParId` s'appuie sur un champ `id`. Les membres d'`equipe`
+portent `user_id`. Corriger la ligne ne suffira donc pas — il faut aussi dire
+sur quelle clé fusionner.)
+
+---
+
+## Le moyen de paiement imposé en dur — deux endroits
+
+Le compte de caisse ne retient que ce qui porte `paiement === "Espèces"`
+(`Caisse.jsx:27`). Deux écritures décident donc du moyen à la place de
+l'utilisateur, et faussent la clôture :
+
+### 🟠 `Fournisseurs.jsx:34` — un fournisseur est toujours payé « en espèces »
+Aucune question n'est posée. Un règlement par virement ou Flooz est quand même
+inscrit en espèces : **le soir, la caisse paraît courte** du montant du
+règlement, sans que rien ne l'explique.
+
+C'est exactement le défaut déjà corrigé pour l'avance d'une vente à crédit
+(« point 15 : la caisse la comptait en espèces quoi qu'il arrive »). Il a
+survécu ici.
+
+### 🟠 `Salaires.jsx:267` — la CNSS est toujours payée « par virement bancaire »
+L'inverse : réglée en espèces, elle n'est pas retirée du compte de caisse, et
+**la caisse paraît longue** du montant des cotisations.
+
+### 🟡 Aucun plafond au règlement d'un fournisseur
+`Fournisseurs.payer` accepte n'importe quel montant, même supérieur au reste dû.
+
+---
+## Le chiffre d'affaires est calculé de trois façons différentes
+
+| Écran | Formule | Ce qui est retiré |
+|---|---|---|
+| Tableau de bord, commissions | `caVente(v)` | remise globale, rabais, lignes hors boutique |
+| Rentabilité (`:45`) | `qte × pu − remise_ligne` | **rien d'autre** |
+| Ma commission (`:50`), Commerciaux (`:61`) | `totalVente(v)` | remise et rabais, mais **pas** les lignes hors boutique |
+
+Les trois écrans peuvent donc afficher trois « chiffres d'affaires » différents
+pour la même vente. Le plus gênant reste Rentabilité (voir plus haut) ; les
+deux autres font qu'un commercial lit un CA qui ne correspond pas à la
+commission qu'on lui verse — de quoi discuter longtemps sans que personne ait
+tort.
+
+---
+
+## Messagerie (`src/screens/Messagerie.jsx:15`)
+
+### 🟡 Tout technicien et tout chef d'équipe lit le fil de TOUS les clients
+```
+if (moi.role === "admin" || moi.role === "technicien"
+    || moi.role === "technicien_bmi" || moi.chef_equipe) return true;
+```
+La restriction existe pourtant juste en dessous pour les commerciaux, qui ne
+voient que les fils des clients dont ils ont le chantier. Les techniciens, eux,
+n'ont aucune limite — alors qu'ils interviennent sur un chantier, pas sur tous.
+
+---
+
+## Export CSV (`src/lib/export.js:9`)
+
+### 🟡 Un nom de client peut devenir une formule Excel
+`esc()` double les guillemets — c'est correct pour le format CSV. Mais une
+cellule qui commence par `=`, `+`, `-` ou `@` est interprétée comme une
+**formule** à l'ouverture dans Excel. Un nom de client saisi ainsi (par
+maladresse ou par malveillance) s'exécute sur le poste qui ouvre l'export.
+Le remède tient en un caractère : préfixer d'une apostrophe toute cellule qui
+commence par l'un de ces quatre signes.
+
+---
+
+## Ce qui a été lu et n'appelle aucune remarque
+
+- `src/lib/solaire.js` — formules du dimensionnement, déjà verrouillées par le banc.
+- `src/lib/cnss.js` — taux sourcés, export DRC conforme au guide, honnêtement caveaté.
+- `src/lib/paie.js` — séparation des fiches de paie, bien pensée et vérifiée.
+- `src/sync.js`, `src/db.js` — fusion à trois, pierres tombales, envoi par lot.
+- `src/lib/rebase.js` — report d'un écran périmé sur l'état courant.
+- `src/lib/barcode.js` — Code 128 B, checksum conforme.
+- `src/lib/impression.js` — reçus, PV, étiquettes : les totaux sont justes et complets.
+- `src/screens/Connexion.jsx` — vérification serveur puis vérification locale, déconnexion après 15 minutes d'inactivité.
+- `src/screens/dimensionnement/Garage.jsx`, `Autre.jsx` — cohérents avec Solaire.
+- `src/screens/Commandes.jsx`, `Ravitaillement.jsx`, `Clients.jsx`, `Prospects.jsx`,
+  `MesTaches.jsx`, `ContratsInstallation.jsx`, `Historique.jsx` — rien à signaler.
+- `src/components/*` — le cloisonnement est respecté jusque dans la recherche globale.
+- Aucun mot de passe, jeton ni clé n'est écrit dans la console ou dans le
+  navigateur (`localStorage` ne contient qu'un identifiant et un horodatage).
+
+---
+
+## Étendue de la lecture
+
+22 279 lignes de `src/` et `api/`. Toute la **logique** a été lue ligne à ligne
+— calculs, écritures, conditions, règles d'accès. Le balisage d'affichage
+(JSX pur : mise en page, classes, tableaux) a été parcouru sans être relu mot à
+mot : il ne décide de rien.
+
+Quatre questions ont par ailleurs été passées sur **100 %** des fichiers, sans
+exception : les écritures sans contrôle de droit, l'arithmétique de l'argent,
+les confirmations qui ne bloquent pas la suite, et ce que la base autorise
+réellement.
