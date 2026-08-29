@@ -189,7 +189,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const apporteurUser = db.users.find((u) => u.nom === f.commercial);
   const tauxCom = Number(apporteurUser?.taux_commission || 0);
   const rabaisMax = Math.round(((brut - remise) * tauxCom) / 100);
-  const rabais = Math.min(Number(f.rabais || 0), rabaisMax);
+  // ⚠ Plafonné dans les DEUX sens (audit du 29/08/2026) : Math.min seul
+  // laissait passer un montant NÉGATIF tapé par erreur — et comme le rabais
+  // se SOUSTRAIT du total, « −50 000 » AUGMENTAIT la facture du client de
+  // 50 000 F. Le champ porte min="0", mais un navigateur n'empêche pas de
+  // taper la valeur.
+  const rabais = Math.max(0, Math.min(Number(f.rabais || 0), rabaisMax));
   const total = brut - remise - rabais;
   // Ce que le vendeur doit RÉELLEMENT demander au client : le total des
   // articles, PLUS les frais d'installation et de transport du devis d'origine
@@ -668,9 +673,37 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setCat("");
   };
 
+  // ⚠ AUDIT DU 29/08/2026 : supprimer une vente laissait derrière elle tout
+  // ce qui s'y rattache — le chantier, la commission déjà payée, la dette et
+  // ses versements. Le chantier restait « à programmer » pour une vente
+  // disparue, et la commission versée ne se rattachait plus à rien.
+  // La règle : on ne supprime pas une vente dont quelque chose dépend — on
+  // DIT quoi, et où aller le défaire d'abord. Une dette liée SANS AUCUN
+  // versement, elle, part avec la vente : elle n'est que la créance de
+  // cette vente, la garder seule n'aurait pas de sens.
   const supprimerVente = async (v) => {
-    if (await uConfirm(`Supprimer la vente ${numeroRecu(v)} (${fmt(totalVente(v))}) du ${dFR(v.date)} ?`)) {
-      save({ ...db, ventes: db.ventes.filter((x) => x.id !== v.id) }, `Suppression vente ${numeroRecu(v)} (${fmt(totalVente(v))}) — ${v.boutique}`);
+    if (bloquerSiLecture(db, profile)) return;
+    const chantier = (db.clients_installes || []).find((c) => c.vente_id === v.id);
+    if (chantier) {
+      uAlert(`🔒 Cette vente a créé le chantier de ${chantier.nom} ${chantier.prenom || ""}.\n\nSupprimer la vente laisserait ce chantier sans origine. Supprimez ou traitez d'abord le chantier (🔧 Clients installés), puis revenez.`);
+      return;
+    }
+    if (v.commission_payee) {
+      uAlert(`🔒 La commission de cette vente a déjà été PAYÉE${v.commercial ? ` à ${v.commercial}` : ""}.\n\nSupprimer la vente ferait disparaître ce qui justifie cette sortie de caisse. Annulez d'abord le règlement de commission (👑 Équipe), puis revenez.`);
+      return;
+    }
+    const dette = (db.dettes || []).find((d) => d.vente_id === v.id);
+    if (dette && Number(dette.paye || 0) > 0) {
+      uAlert(`🔒 Le client a déjà versé ${fmt(dette.paye)} sur la dette de cette vente.\n\nSupprimer la vente ferait disparaître ce que ces versements remboursent. Traitez d'abord la dette (💳 Dettes), puis revenez.`);
+      return;
+    }
+    const noteDette = dette ? `\n\nSa dette liée (${fmt(dette.montant)}, aucun versement) sera supprimée avec elle.` : "";
+    if (await uConfirm(`Supprimer la vente ${numeroRecu(v)} (${fmt(totalVente(v))}) du ${dFR(v.date)} ?${noteDette}`)) {
+      save({
+        ...db,
+        ventes: db.ventes.filter((x) => x.id !== v.id),
+        ...(dette ? { dettes: db.dettes.filter((x) => x.id !== dette.id) } : {}),
+      }, `Suppression vente ${numeroRecu(v)} (${fmt(totalVente(v))}) — ${v.boutique}${dette ? " — dette liée supprimée (aucun versement)" : ""}`);
     }
   };
 

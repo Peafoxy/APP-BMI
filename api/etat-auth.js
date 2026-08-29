@@ -124,6 +124,7 @@ export default async function handler(req, res) {
     const existants = ids.filter((x) => emails.has(`${String(x).toLowerCase()}@bmi.internal`));
     return res.status(200).json({ existants, total: emails.size });
   } catch (e) {
-    return res.status(500).json({ error: `Supabase : ${e?.message || e}` });
+    console.error("etat-auth:", e?.message || e);
+    return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez ; si cela continue, prévenez l'administrateur." });
   }
 }

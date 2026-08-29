@@ -583,13 +583,17 @@ C'est cohérent avec « un franc ne sort pas avant d'entrer », mais ce cas
 précis n'a jamais été tranché par Timo. L'écran l'affiche en « attente »,
 rien n'est perdu — à confirmer ou à défaire, une ligne dans les deux cas.
 
-## Les 🟡 du premier audit, jamais corrigés — vérifiés toujours ouverts
+## ✅ FERMÉS EN 2.101.27 — les sept petits défauts (« Lance les 7 », 29/08/2026)
 
-Timo n'avait demandé que les défauts d'argent ; ceux-ci restent en l'état,
-constatés inchangés : le rabais négatif (`Ventes.jsx:192`), les orphelins de
-`supprimerVente`, le chef retiré de l'équipe (`repartitionProposee`), la
-commission payable deux fois depuis deux appareils (`payerCommission` ne
-revérifie pas après la confirmation), les cinq fonctions `api/` à l'erreur
-brute, le plafond absent au règlement fournisseur, les techniciens qui lisent
-tous les fils de la Messagerie, la formule Excel dans l'export CSV, et la
-question CNSS pour un comptable.
+Le rabais négatif, les orphelins de `supprimerVente` (suppression refusée tant
+qu'un chantier, une commission payée ou un versement en dépendent), le double
+paiement simultané (seconde lecture après les fenêtres, sur les TROIS chemins
+de paiement de 👑 Équipe), les cinq fonctions `api/` à l'erreur brute (le
+détail reste dans les journaux Vercel), le plafond au règlement fournisseur,
+la Messagerie (un technicien ne lit que les fils de SES chantiers, un chef
+d'équipe ceux de ses recrues), et la formule Excel (désamorcée pour le texte,
+jamais pour les nombres). 16 contrôles les gardent (604 → 620).
+
+Restent, hors périmètre : le chef retiré d'une répartition
+(`repartitionProposee`, cas rare et sans perte d'argent directe) et la
+question CNSS, qui est pour un comptable, pas pour du code.

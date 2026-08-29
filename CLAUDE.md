@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 604 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 620 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -273,7 +273,5 @@ sortie : on regarde si la base a levé une objection.
 - Scripts SQL peut-être jamais exécutés :
   `securite-1-audits-et-tombstones.sql`, `avis-supabase-0-etat-des-lieux.sql`,
   `avis-supabase-1-search-path.sql`.
-- **Cinq** fonctions `api/` renvoient le message d'erreur interne brut (et non
-  trois comme le relevé précédent le disait).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 

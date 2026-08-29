@@ -206,6 +206,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("sync-auth erreur finale:", e?.message || e);
-    return res.status(500).json({ error: e.message || "Erreur de synchronisation" });
+    // Le détail est déjà dans console.error juste au-dessus.
+    return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez ; si cela continue, prévenez l'administrateur." });
   }
 }

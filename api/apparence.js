@@ -74,6 +74,9 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "public, max-age=60");
     return res.status(200).json({ apparence });
   } catch (e) {
-    return res.status(500).json({ error: `Erreur serveur : ${e?.message || e}` });
+    // ⚠ Audit du 29/08/2026 : le message interne (noms de tables, contraintes)
+    // partait au navigateur. Il reste dans les journaux Vercel, où il sert.
+    console.error("apparence:", e?.message || e);
+    return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez ; si cela continue, prévenez l'administrateur." });
   }
 }

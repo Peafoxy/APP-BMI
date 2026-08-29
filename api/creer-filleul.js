@@ -189,6 +189,7 @@ export default async function handler(req, res) {
       motDePasse,
     });
   } catch (e) {
-    return res.status(500).json({ error: `Erreur serveur : ${e?.message || e}` });
+    console.error("creer-filleul:", e?.message || e);
+    return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez ; si cela continue, prévenez l'administrateur." });
   }
 }

@@ -217,6 +217,7 @@ export function MonEquipe({ db, save, profile }) {
     const bq = await choisirBoutiqueDebitG(db, c.u, `Commission d'équipe de ${fmt(c.due)} à ${c.u.nom}`, profile);
     if (bq === null) return;
     if (!await uConfirm(`Payer ${fmt(c.due)} de commission d'équipe à ${c.u.nom} ?\n\n${c.tauxEq} % sur les commissions de ses ${c.nbFilleuls} recrue(s).\nSortie de caisse ${bq} : ${fmt(c.due)}`)) return;
+    if (dejaReglees(new Set(c.ventesDues), (v) => v.override_payee)) return;
     const ids = new Set(c.ventesDues);
     const dep = {
       id: uid(), date: today(), boutique: bq, categorie: "Commissions",
@@ -308,6 +309,7 @@ export function MonEquipe({ db, save, profile }) {
     const bq = await choisirBoutiqueDebitG(db, {}, `Commission de ${fmt(a.due)} à l'apporteur ${a.nom}`, profile);
     if (bq === null) return;
     if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n${a.ventes.length} vente(s) concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
+    if (dejaReglees(new Set(a.ventes), (v) => v.apporteur?.payee)) return;
     const ids = new Set(a.ventes);
     const dep = {
       id: uid(), date: today(), boutique: bq, categorie: "Commissions",
@@ -339,6 +341,21 @@ export function MonEquipe({ db, save, profile }) {
     uAlert(`✅ Tâche assignée à ${st.u.nom}.`);
   };
 
+  // ⚠ AUDIT DU 29/08/2026 — LE DOUBLE PAIEMENT SIMULTANÉ. Entre l'ouverture
+  // des questions (moyen, boutique, confirmation) et la validation, une
+  // synchronisation peut ramener le MÊME paiement fait par quelqu'un d'autre
+  // depuis un autre appareil. Sans seconde lecture, la dépense partait une
+  // deuxième fois. Même précaution que validerPaiementPrime (Clients
+  // installés), qui l'avait depuis le début — elle manquait ici.
+  // On refuse EN ENTIER dès qu'une seule vente est déjà réglée : payer un
+  // sous-ensemble avec le montant annoncé pour le tout serait pire.
+  const dejaReglees = (ids, dejaFait) => {
+    const touchees = db.ventes.filter((v) => ids.has(v.id) && dejaFait(v));
+    if (!touchees.length) return false;
+    uAlert(`⚠ ${touchees.length} de ces vente(s) viennent d'être réglées par quelqu'un d'autre (autre appareil).\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois. Rouvrez l'écran : les montants se sont mis à jour.`);
+    return true;
+  };
+
   const payerCommission = async (st) => {
     if (bloquerSiLecture(db, profile)) return;
     if (st.commissionDue === 0) { uAlert("Aucune commission en attente pour " + st.u.nom + " sur cette période."); return; }
@@ -349,6 +366,7 @@ export function MonEquipe({ db, save, profile }) {
     if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} — ${st.idsAPayer.length} vente(s) au taux de ${st.u.taux_commission ?? 0} % (rabais éventuels déduits).\n\nSortie de caisse ${bq} : ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).` +
       (st.nbReception > 0 ? `\n\n⏳ ${st.nbReception} vente(s) attendent la réception de l'installation (${fmt(st.geleReception)}) : elles ne sont PAS payées aujourd'hui.` : "") +
       (st.nbPaiement > 0 ? `\n\n💰 ${st.nbPaiement} vente(s) sont réceptionnées mais le client n'a pas fini de payer — il doit encore ${fmt(st.resteClients)}. Ces ${fmt(st.gelePaiement)} deviendront dus d'eux-mêmes dès que la dette sera soldée.` : ""))) return;
+    if (dejaReglees(new Set(st.idsAPayer), (v) => v.commission_payee)) return;
     // ⚠ On ne tamponne QUE les ventes réellement payées (st.idsAPayer, la même
     // liste que celle qui a servi à calculer le montant). Auparavant on
     // prenait toutes les ventes non payées de la période, y compris celles

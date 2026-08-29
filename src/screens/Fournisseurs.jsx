@@ -21,9 +21,17 @@ export function Fournisseurs({ db, save, profile }) {
 
   const payer = async (fo) => {
     if (bloquerSiLecture(db, profile)) return;
-    const s = await uPrompt(`Montant réglé à ${fo.nom} (F) :`);
+    // ⚠ Audit du 29/08/2026 : aucun plafond — on pouvait régler PLUS que le
+    // reste dû, sans un mot. Même règle que les dettes clients : on refuse,
+    // en disant quoi faire si la dette du fournisseur n'est pas à jour.
+    const resteDu = Math.max(0, Number(fo.doit || 0) - Number(fo.paye || 0));
+    const s = await uPrompt(`Montant réglé à ${fo.nom} (F) — reste dû : ${fmt(resteDu)} :`, String(resteDu || ""));
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
+    if (m > resteDu) {
+      uAlert(`Le montant dépasse le reste dû à ${fo.nom} (${fmt(resteDu)}).\n\nSi vous lui devez plus que ce qui est enregistré, ajoutez d'abord la dette (« + Dette »), puis réglez.`);
+      return;
+    }
     // ⚠ Trouvé en audit général (2.99.65) : un règlement fournisseur ne
     // créait jusqu'ici AUCUNE dépense — invisible dans "Total dépenses",
     // contrairement aux salaires/primes/commissions/CNSS. Corrigé : même

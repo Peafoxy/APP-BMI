@@ -14,10 +14,26 @@ import { utilisateursDeLEspace } from "../lib/calculs";
 //   les chefs d'équipe et le commercial rattaché à sa fiche voient et répondent
 // - Un client autorisé par l'admin (chat_libre) peut aussi discuter en 1-à-1
 export function peutVoirFilClient(moi, clientId, db) {
-  if (moi.role === "admin" || moi.role === "technicien" || moi.role === "technicien_bmi" || moi.chef_equipe) return true;
+  if (moi.role === "admin") return true;
+  const fiche = (db.clients_installes || []).find((c) => c.user_id === clientId);
+  // ⚠ Audit du 29/08/2026 : TOUT technicien et TOUT chef d'équipe lisaient
+  // les fils de TOUS les clients — noms, adresses, litiges. Or un technicien
+  // intervient sur SES chantiers, pas sur tous. La restriction existait déjà
+  // pour les commerciaux ; elle vaut désormais pour chacun selon son rôle
+  // réel : le technicien s'il est dans l'ÉQUIPE du chantier, le commercial
+  // s'il en est l'apporteur, le chef d'équipe si l'apporteur est une de ses
+  // recrues.
+  if (moi.role === "technicien" || moi.role === "technicien_bmi") {
+    return !!fiche && ((fiche.equipe || []).some((e) => e.user_id === moi.id) || fiche.commercial === moi.nom);
+  }
   if (moi.role === "commercial") {
-    const fiche = (db.clients_installes || []).find((c) => c.user_id === clientId);
-    return fiche && fiche.commercial === moi.nom;
+    if (!fiche) return false;
+    if (fiche.commercial === moi.nom) return true;
+    if (moi.chef_equipe) {
+      const recrues = (db.users || []).filter((u) => u.parrain_id === moi.id).map((u) => u.nom);
+      return recrues.includes(fiche.commercial);
+    }
+    return false;
   }
   return moi.id === clientId; // le client lui-même
 }

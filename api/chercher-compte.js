@@ -126,6 +126,7 @@ export default async function handler(req, res) {
     // après la connexion, si le compte y a droit.
     return res.status(200).json({ user: { id: ligne.id, ...champs } });
   } catch (e) {
-    return res.status(500).json({ error: `Erreur serveur : ${e?.message || e}` });
+    console.error("chercher-compte:", e?.message || e);
+    return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez ; si cela continue, prévenez l'administrateur." });
   }
 }

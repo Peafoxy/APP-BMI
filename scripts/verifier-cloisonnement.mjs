@@ -3043,5 +3043,67 @@ titre("L'apporteur EXTERNE attend le solde, comme le parrain — tranche par Tim
 }
 
 
+titre("Les sept petits defauts de l'audit, fermes le 29/08/2026");
+{
+  const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const eq = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+  const fo = readFileSync("src/screens/Fournisseurs.jsx", "utf8");
+  const msg = readFileSync("src/screens/Messagerie.jsx", "utf8");
+
+  // 1. Le rabais negatif — mesure sur la formule exacte du code.
+  const rabaisDe = (saisi, max) => Math.max(0, Math.min(Number(saisi || 0), max));
+  test("★ un rabais NEGATIF ne peut plus augmenter la facture",
+    /const rabais = Math\.max\(0, Math\.min\(Number\(f\.rabais \|\| 0\), rabaisMax\)\)/.test(vt)
+    && rabaisDe("-50000", 20000) === 0 && rabaisDe("15000", 20000) === 15000 && rabaisDe("999999", 20000) === 20000);
+
+  // 2. Supprimer une vente ne laisse plus d'orphelins.
+  test("★ une vente avec CHANTIER ne se supprime plus",
+    /const chantier = \(db\.clients_installes \|\| \[\]\)\.find\(\(c\) => c\.vente_id === v\.id\)/.test(vt));
+  test("★ une vente a la commission deja PAYEE non plus",
+    /if \(v\.commission_payee\) \{[\s\S]{0,300}?Annulez d'abord le règlement/.test(vt));
+  test("★ une vente dont la dette porte des VERSEMENTS non plus",
+    /Number\(dette\.paye \|\| 0\) > 0/.test(vt));
+  test("…mais sa dette liee SANS versement part avec elle",
+    /dettes: db\.dettes\.filter\(\(x\) => x\.id !== dette\.id\)/.test(vt));
+
+  // 3. Le double paiement simultane, sur les TROIS chemins de paiement.
+  test("★ les trois paiements relisent l'etat APRES les fenetres de confirmation",
+    (eq.match(/if \(dejaReglees\(/g) || []).length === 3);
+  test("…et le refus est ENTIER : jamais un sous-ensemble au montant annonce pour le tout",
+    /Rien n'a été enregistré — la caisse n'a pas été débitée deux fois/.test(eq));
+
+  // 4. Les cinq fonctions serveur ne renvoient plus l'erreur brute.
+  const apis = ["apparence", "chercher-compte", "creer-filleul", "etat-auth", "sync-auth"];
+  const fuites = apis.filter((n) => /error: `[^`]*\$\{e[?.]/.test(readFileSync(`api/${n}.js`, "utf8")));
+  test("★ aucune des cinq fonctions api/ ne renvoie e.message au navigateur",
+    fuites.length === 0);
+  if (fuites.length) fuites.forEach((n) => console.log(`      ↳ api/${n}.js fuit encore`));
+  test("…le detail reste dans les journaux serveur (console.error)",
+    apis.every((n) => /console\.error\(/.test(readFileSync(`api/${n}.js`, "utf8"))));
+
+  // 5. Le plafond au reglement fournisseur.
+  test("★ regler PLUS que le reste du a un fournisseur est refuse",
+    /if \(m > resteDu\) \{/.test(fo) && /ajoutez d'abord la dette/.test(fo));
+
+  // 6. La Messagerie : chacun ses chantiers.
+  test("★ un technicien ne lit que les fils de SES chantiers",
+    /\(fiche\.equipe \|\| \[\]\)\.some\(\(e\) => e\.user_id === moi\.id\)/.test(msg)
+    && !/moi\.role === "admin" \|\| moi\.role === "technicien"/.test(msg));
+  test("un chef d'equipe ne lit que les fils de ses RECRUES",
+    /recrues\.includes\(fiche\.commercial\)/.test(msg));
+
+  // 7. La formule Excel — mesuree sur la fonction exacte.
+  const desamorcer = (x) => (typeof x === "string" && /^[=+\-@\t\r]/.test(x) ? `'${x}` : x);
+  test("★ un nom de client commencant par = + - ou @ est desamorce",
+    desamorcer("=1+1") === "'=1+1" && desamorcer("@KOFFI") === "'@KOFFI" && desamorcer("-AMA") === "'-AMA");
+  test("★ …mais un NOMBRE negatif reste un nombre (les montants d'abord)",
+    desamorcer(-50000) === -50000 && desamorcer(120000) === 120000);
+  test("un nom ordinaire ne change pas",
+    desamorcer("KOFFI AMA") === "KOFFI AMA");
+  test("la vraie fonction du code est bien celle-la",
+    /const desamorcer = \(x\) => \(typeof x === "string" && \/\^\[=\+\\-@\\t\\r\]\//.test(readFileSync("src/lib/export.js", "utf8")));
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
