@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 589 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 600 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -246,9 +246,6 @@ chantier. Les constats, par ordre de gravité.
    Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
 
 ### Réels
-- **Supprimer un crédit BMI déjà partiellement remboursé** le remet « en
-  demande » en gardant ses remboursements (ré-audit du 29/08) : à refuser dès
-  qu'un remboursement existe, comme pour les virements.
 - **L'apporteur externe attend désormais le solde de la dette**, comme le
   parrain (effet de bord de 2.101.19, jamais tranché par Timo — à lui de
   confirmer ou défaire).

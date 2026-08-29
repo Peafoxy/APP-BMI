@@ -36,7 +36,7 @@ export function Depenses({ db, save, profile }) {
     // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
     // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser
     // faire un geste incomplet.
-    const refus = refusSuppressionDepense(d);
+    const refus = refusSuppressionDepense(db, d);
     if (refus) { uAlert(refus); return; }
     // L'avertissement ne s'affiche que lorsqu'il est VRAI (voir aLienAAnnuler).
     const avertissement = aLienAAnnuler(d) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
@@ -135,7 +135,7 @@ export function ChezComptable({ db, save, profile }) {
     // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
     // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser
     // faire un geste incomplet.
-    const refus = refusSuppressionDepense(d);
+    const refus = refusSuppressionDepense(db, d);
     if (refus) { uAlert(refus); return; }
     // L'avertissement ne s'affiche que lorsqu'il est VRAI (voir aLienAAnnuler).
     const avertissement = aLienAAnnuler(d) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";

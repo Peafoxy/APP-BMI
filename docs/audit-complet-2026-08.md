@@ -554,7 +554,7 @@ rejoué tous les bancs. Le reste du code est inchangé au caractère près
   restant est le `salaire_base` inerte, connu) ; navigateur : affichage sans
   erreur, bascule du violet mesurée.
 
-## 🟡 Deux défauts NOUVEAUX, introduits par les corrections
+## ✅ CORRIGÉS EN 2.101.26 — deux défauts nouveaux, introduits par les corrections
 
 1. **Supprimer un crédit BMI déjà partiellement remboursé casse sa
    comptabilité** (`annulerLiensDepense`, cas `credit`, 2.101.20). La

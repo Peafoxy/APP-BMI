@@ -2587,14 +2587,30 @@ titre("Supprimer une depense annule VRAIMENT le paiement lie");
 
   // ---- Un virement de salaire ne se supprime PAS depuis cet ecran ----
   test("★ un virement de salaire renvoie vers « Annuler virement »",
-    typeof C.refusSuppressionDepense({ auto: "virement" }) === "string");
+    typeof C.refusSuppressionDepense({}, { auto: "virement" }) === "string");
   test("★ sa retenue de credit jumelle aussi (les deux tombent ensemble)",
-    typeof C.refusSuppressionDepense({ auto: "retenue" }) === "string");
+    typeof C.refusSuppressionDepense({}, { auto: "retenue" }) === "string");
   test("le refus explique OU aller, pas seulement qu'on refuse",
-    /Utilisateurs/.test(C.refusSuppressionDepense({ auto: "virement" })));
+    /Utilisateurs/.test(C.refusSuppressionDepense({}, { auto: "virement" })));
   test("une depense ordinaire, elle, se supprime normalement",
-    C.refusSuppressionDepense({ auto: "commission" }) === null
-    && C.refusSuppressionDepense({}) === null);
+    C.refusSuppressionDepense({}, { auto: "commission" }) === null
+    && C.refusSuppressionDepense({}, {}) === null);
+
+  // ⚠ RE-AUDIT DU 29/08/2026 : supprimer un credit DEJA REMBOURSE en partie
+  // le remettait « en demande » en gardant l'argent recu dessus.
+  const dbCred = { users: [{ id: "u1", credits: [
+    { id: "c_vierge", statut: "approuve", montant_accorde: 300000, remboursements: [] },
+    { id: "c_entame", statut: "approuve", montant_accorde: 300000,
+      remboursements: [{ date: "2026-08-01", montant: 100000, source: "salaire" }] },
+  ] }] };
+  test("★ un credit deja rembourse en partie ne se supprime PLUS",
+    typeof C.refusSuppressionDepense(dbCred, { auto: "credit", user_id: "u1", credit_id: "c_entame" }) === "string");
+  test("★ …et le refus dit COMBIEN a deja ete recu",
+    /100[  ]?000/.test(C.refusSuppressionDepense(dbCred, { auto: "credit", user_id: "u1", credit_id: "c_entame" }).replace(/\u202f|\u00a0/g, " ")));
+  test("★ un credit sans aucun remboursement se supprime encore",
+    C.refusSuppressionDepense(dbCred, { auto: "credit", user_id: "u1", credit_id: "c_vierge" }) === null);
+  test("une retenue sur salaire compte comme un remboursement (meme liste)",
+    /versements ou retenues/.test(C.refusSuppressionDepense(dbCred, { auto: "credit", user_id: "u1", credit_id: "c_entame" })));
 
   // ---- CREDIT BMI : il redevient une simple demande ----
   const dbCredit = { users: [{ id: "u1", credits: [
@@ -2643,7 +2659,7 @@ titre("Supprimer une depense annule VRAIMENT le paiement lie");
 
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("les DEUX ecrans de depenses (boutique et comptable) passent par le refus",
-    (dep.match(/refusSuppressionDepense\(d\)/g) || []).length === 2);
+    (dep.match(/refusSuppressionDepense\(db, d\)/g) || []).length === 2);
 }
 
 
@@ -2967,6 +2983,42 @@ titre("L'espace formation se reconnait a sa couleur");
     /bg-sky-800/.test(readFileSync("src/components/ui.jsx", "utf8")));
   test("le vert, le rouge et l'ambre ne sont pas redefinis : ils veulent dire quelque chose",
     !/--color-(green|red|amber|orange)-/.test(css));
+}
+
+
+titre("L'index vente → dette : le meme resultat que la recherche lente, en une passe");
+{
+  // ⚠ RE-AUDIT DU 29/08/2026 : detteDeVente parcourait toute la table des
+  // dettes a chaque vente, jusqu'a trois fois par vente. L'index se construit
+  // desormais UNE FOIS par etat de la base. Ces controles verifient qu'il
+  // rend EXACTEMENT ce que rendait le `.find`, y compris ses cas limites.
+  const d1 = { id: "d1", vente_id: "v1", montant: 100, paye: 100 };
+  const d2 = { id: "d2", vente_id: "v2", montant: 500, paye: 200 };
+  const d2bis = { id: "d2bis", vente_id: "v2", montant: 999, paye: 0 };
+  const sansLien = { id: "d3", montant: 50, paye: 0 };
+  const dbI = { dettes: [d1, d2, d2bis, sansLien] };
+
+  test("★ chaque vente retrouve SA dette",
+    C.detteDeVente(dbI, { id: "v1" }) === d1);
+  test("★ deux dettes sur la meme vente : la PREMIERE gagne, comme avant",
+    C.detteDeVente(dbI, { id: "v2" }) === d2);
+  test("une vente sans dette liee ne trouve rien",
+    C.detteDeVente(dbI, { id: "v9" }) === undefined);
+  test("une dette sans vente_id n'entre pas dans l'index",
+    [...dbI.dettes.filter((d) => !d.vente_id)].length === 1
+    && C.detteDeVente(dbI, { id: "d3" }) === undefined);
+  test("base vide ou absente : rien ne plante",
+    C.detteDeVente({}, { id: "v1" }) === undefined
+    && C.detteDeVente(null, { id: "v1" }) === undefined
+    && C.detteDeVente(dbI, null) === undefined);
+  test("★ un NOUVEL etat de la base (save) reconstruit l'index", (() => {
+    // Meme contenu mais paye a change : nouveau tableau, nouvelle reponse.
+    const apres = { dettes: [{ ...d2, paye: 500 }] };
+    return C.resteDuSurVente(dbI, { id: "v2" }) === 300
+      && C.resteDuSurVente(apres, { id: "v2" }) === 0;
+  })());
+  test("★ …et le meme etat relu deux fois rend la meme dette (le cache tient)",
+    C.detteDeVente(dbI, { id: "v2" }) === C.detteDeVente(dbI, { id: "v2" }));
 }
 
 

@@ -754,12 +754,30 @@ export function pvDuContrat(db, devisId) {
 // Dépenses contournait ce contrôle : le salaire restait marqué « payé » sur la
 // fiche de l'employé alors que l'argent était revenu en caisse.
 // Renvoie le message à afficher, ou null si la suppression est permise.
-export function refusSuppressionDepense(d) {
+export function refusSuppressionDepense(db, d) {
   if (d.auto === "virement" || d.auto === "retenue") {
     return "🔒 Un virement de salaire ne s'annule pas depuis cet écran.\n\n"
       + "Allez dans 👥 Utilisateurs → la fiche de l'employé → « Annuler virement ». "
       + "Cette porte-là vérifie d'abord qu'il n'a pas déjà confirmé avoir reçu l'argent, "
       + "et retire les deux écritures de caisse ensemble.";
+  }
+  // ⚠ RÉ-AUDIT DU 29/08/2026 : supprimer la sortie de caisse d'un crédit
+  // DÉJÀ PARTIELLEMENT REMBOURSÉ le remettait « en demande »… en gardant les
+  // remboursements reçus. Une demande de crédit qui porte de l'argent
+  // encaissé n'a aucun sens, et plus personne ne sait ce que l'employé doit.
+  // Les retenues sur salaire comptent aussi : appliquerRetenuesCredit les
+  // range dans `remboursements` (source « salaire »), un seul contrôle
+  // couvre donc les deux chemins.
+  if (d.auto === "credit" && d.credit_id) {
+    const credit = ((db?.users || []).find((u) => u.id === d.user_id)?.credits || [])
+      .find((c) => c.id === d.credit_id);
+    if ((credit?.remboursements || []).length > 0) {
+      const recu = credit.remboursements.reduce((s, r) => s + Number(r.montant || 0), 0);
+      return `🔒 Ce crédit a déjà été remboursé en partie : ${fmt(recu)} reçus`
+        + ` (versements ou retenues sur salaire).\n\n`
+        + `Supprimer la sortie de caisse le remettrait « en demande » avec de l'argent déjà encaissé dessus — plus personne ne saurait ce que l'employé doit.\n\n`
+        + `Si ce crédit est une erreur, annulez d'abord ses remboursements (👥 Utilisateurs → Crédits), puis revenez le supprimer.`;
+    }
   }
   return null;
 }
@@ -1008,8 +1026,33 @@ export const commissionBloquee = (v, db) => v.commission_a_la_reception === true
 // 2.101.19 ne le portent pas : leurs ventes restent donc traitées comme
 // avant — payables dès la réception. On ne devine pas les rattachements
 // anciens : deviner, en matière d'argent, est une mauvaise idée.
-export const detteDeVente = (db, v) =>
-  (v && v.id) ? (db?.dettes || []).find((d) => d.vente_id === v.id) : undefined;
+// ⚠ RÉ-AUDIT DU 29/08/2026 — LA VITESSE. La première écriture parcourait
+// TOUTE la table des dettes (`.find`) à chaque vente examinée, jusqu'à trois
+// fois par vente (bloquée ? pourquoi ? combien reste-t-il ?). Sur 👑 Équipe
+// avec des milliers de ventes et de dettes, cela se serait compté en
+// secondes un jour.
+//
+// On construit désormais la table de correspondance vente → dette UNE FOIS
+// par état de la base, et on la retrouve tant que la liste des dettes n'a
+// pas changé. La clé du cache est le TABLEAU `db.dettes` lui-même : chaque
+// save() en fabrique un neuf (jamais de modification en place — c'est la
+// règle de toute l'application), donc un tableau identique garantit des
+// dettes identiques. WeakMap : quand un ancien état est oublié, son index
+// part avec lui, aucune mémoire ne s'accumule.
+//
+// Même règle que le `.find` d'origine : la PREMIÈRE dette portant ce
+// vente_id gagne.
+const indexDettesParVente = new WeakMap();
+export const detteDeVente = (db, v) => {
+  if (!v || !v.id || !Array.isArray(db?.dettes)) return undefined;
+  let index = indexDettesParVente.get(db.dettes);
+  if (!index) {
+    index = new Map();
+    for (const d of db.dettes) if (d.vente_id && !index.has(d.vente_id)) index.set(d.vente_id, d);
+    indexDettesParVente.set(db.dettes, index);
+  }
+  return index.get(v.id);
+};
 
 // Ce que le client doit ENCORE sur cette vente. 0 s'il a soldé, 0 aussi
 // s'il n'y a jamais eu de dette (vente réglée comptant) — l'immense majorité.
