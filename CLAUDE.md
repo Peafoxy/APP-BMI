@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 559 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 570 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -87,7 +87,16 @@ impossible, et le banc doit le dire dans ce sens-là.
   espaces mêlés. Le cloisonnement avait été posé partout où l'on compte de
   l'argent, pas là où l'on bloque un compte ou supprime une boutique. Toute
   liste de boutiques passe par `boutiquesVisibles`, toute liste de personnes
-  par `utilisateursDeLEspace`. Seul le contrôle d'unicité d'un nom de boutique
+  par `utilisateursDeLEspace`. **Les 28 listes déroulantes ont été balayées
+  une par une** (2.101.23).
+- **« Je vois les deux espaces » ne veut jamais dire « je les affiche
+  ensemble ».** C'est l'espace REGARDÉ qui décide, y compris pour
+  l'administrateur principal. Toute condition de la forme
+  `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est un défaut :
+  elle rouvre le mur pour lui seul, silencieusement.
+- La caisse **« Chez le comptable » est réelle et n'a pas de jumelle** : elle
+  n'est proposée que lorsqu'on regarde le réel. Le verrou d'écriture la laisse
+  passer sans vérifier, justement pour cette raison. Seul le contrôle d'unicité d'un nom de boutique
   regarde les deux espaces — sinon le serveur ne saurait plus classer la ligne.
 - **Ce qu'on crée naît dans l'espace qu'on regarde** — plus aucune case
   « formation » à cocher à la création d'un utilisateur, d'une boutique ou

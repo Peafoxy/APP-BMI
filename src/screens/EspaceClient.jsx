@@ -10,7 +10,7 @@ import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -689,7 +689,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
                             <Field label="Boutique où je vais payer">
                               <select className={inputCls} value={bqPaiement[d.id] || ""} onChange={(e) => setBqPaiement({ ...bqPaiement, [d.id]: e.target.value })}>
                                 <option value="">— Choisir la boutique —</option>
-                                {boutiquesVente(db).map((b) => <option key={b.nom} value={b.nom}>{b.nom}</option>)}
+                                {/* ⚠ Cloisonnement (29/08/2026) : la liste n'était pas filtrée —
+                                    un client d'entraînement se voyait proposer les VRAIES
+                                    boutiques, et sa commande partait chez de vrais vendeurs. */}
+                                {boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => <option key={b.nom} value={b.nom}>{b.nom}</option>)}
                               </select>
                             </Field>
                           )}

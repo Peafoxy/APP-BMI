@@ -2825,5 +2825,63 @@ titre("Les ecrans d'ADMINISTRATION suivent l'espace regarde, eux aussi");
 }
 
 
+titre("Balayage des LISTES DEROULANTES : aucune ne mele les deux espaces");
+{
+  // ⚠ Demande de Timo (29/08/2026), apres la correction des Parametres :
+  // « balaye toutes les listes deroulantes aussi ». Les 28 <select> de
+  // l'application ont ete repris un par un. Trois melangeaient encore.
+  const dbB = {
+    boutiques: [
+      { id: "b1", nom: "APESSITO" },
+      { id: "b2", nom: "AFORMATION", formation: true },
+    ],
+    users: [
+      { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true },
+      { id: "u_com", nom: "KODJO", role: "commercial", taux_commission: 5 },
+      { id: "u_comF", nom: "ESSAI", role: "commercial", taux_commission: 5, formation: true },
+    ],
+    commerciaux: [],
+  };
+  const timo = { id: "u_timo", role: "admin" };
+
+  // ---- 1. Les apporteurs proposes a l'encaissement d'une vente ----
+  C.setRegardeFormation(false);
+  test("★ en REEL, la liste des apporteurs ne propose pas les commerciaux d'entrainement",
+    C.apporteursPossibles(dbB, timo).map((a) => a.nom).join(",") === "KODJO");
+  C.setRegardeFormation(true);
+  test("★ en FORMATION, elle ne propose pas les vrais commerciaux",
+    C.apporteursPossibles(dbB, timo).map((a) => a.nom).join(",") === "ESSAI");
+  C.setRegardeFormation(false);
+  test("★ l'ancienne regle (« je vois les deux → je les prends tous ») a disparu",
+    !/const memeEspace = \(u\) => voitLesDeuxEspaces\(db, profile\) \|\|/
+      .test(readFileSync("src/lib/calculs.js", "utf8")));
+
+  // ---- 2. La caisse « Chez le comptable » est REELLE, sans jumelle ----
+  const cal = readFileSync("src/lib/calculs.js", "utf8");
+  test("★ elle n'est plus proposee quand on regarde la formation",
+    /const options = espaceDuCompte\(db, profile\) \? noms : \[\.\.\.noms, NOM_CAISSE_COMPTABLE\]/.test(cal));
+  test("…et le verrou d'ecriture la laisse passer, justement parce qu'elle n'a pas d'equivalent",
+    /Chez le comptable/.test(cal));
+
+  // ---- 3. La boutique ou un client ira payer ----
+  test("★ un client d'entrainement ne se voit plus proposer les VRAIES boutiques",
+    /boutiquesVisibles\(db, profile, boutiquesVente\(db\)\)\.map\(\(b\) => <option/
+      .test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+
+  // ---- Ce qui etait DEJA correct, et qu'on verifie pour que ca le reste ----
+  const dejaBon = [
+    ["lib/calculs.js", /const noms = boutiquesVisibles\(db, profile, boutiquesVente\(db\)\)/, "la caisse a debiter"],
+    ["screens/Stocks.jsx", /const espaceStock = espaceDuCompte\(db, profile\);/, "les fournisseurs"],
+    ["screens/Stocks.jsx", /boutiquesDuMemeEspace\(db, profile, boutiquesVente\(db\), bq\)/, "les boutiques a ravitailler"],
+    ["screens/dimensionnement/Partages.jsx", /comptesClients/, "les clients destinataires d'un devis"],
+    ["screens/ClientsInstalles.jsx", /techniciensDeLEspace\(db, tousLesTechs/, "les techniciens d'un chantier"],
+  ];
+  for (const [fichier, motif, quoi] of dejaBon) {
+    test(`${quoi} (${fichier.split("/").pop()}) reste cloisonne`,
+      motif.test(readFileSync(`src/${fichier}`, "utf8")));
+  }
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

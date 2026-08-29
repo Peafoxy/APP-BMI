@@ -503,11 +503,14 @@ export const NOM_CAISSE_COMPTABLE = "Chez le comptable";
 // alors un trou dans une caisse réelle, et prévenait ses vrais vendeurs.
 export async function choisirBoutiqueDebitG(db, u, titre, profile) {
   const noms = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom);
-  // Le comptable ne tient qu'une seule caisse, réelle : on ne la propose
-  // qu'aux comptes qui travaillent dans l'espace réel.
-  const options = estCompteFormation(db, profile) && !voitLesDeuxEspaces(db, profile)
-    ? noms
-    : [...noms, NOM_CAISSE_COMPTABLE];
+  // Le comptable ne tient qu'une seule caisse, RÉELLE, sans équivalent
+  // d'entraînement. On ne la propose donc que si l'on travaille dans le réel.
+  // ⚠ La condition regardait l'espace du COMPTE (« estCompteFormation »), pas
+  // celui qu'on REGARDE : l'administrateur principal se la voyait proposer
+  // même en formation, et une dépense d'entraînement pouvait débiter la vraie
+  // caisse du comptable — que le verrou de cloisonnement laisse passer,
+  // justement parce qu'elle n'a pas de jumelle (relevé le 29/08/2026).
+  const options = espaceDuCompte(db, profile) ? noms : [...noms, NOM_CAISSE_COMPTABLE];
   if (options.length === 0) {
     uAlert("Aucune caisse disponible pour votre espace de travail.\n\nDemandez à l'administrateur de créer une boutique correspondante avant d'enregistrer ce paiement.");
     return null;
@@ -1328,8 +1331,15 @@ export const aUnTaux = (u) => Number(u.taux_commission || 0) > 0;
 // n'aurait aucun sens, et la vente porterait son nom pour toujours.
 export const apporteursPossibles = (db, profile) => {
   const noms = new Map();
-  const monEspace = estCompteFormation(db, profile);
-  const memeEspace = (u) => voitLesDeuxEspaces(db, profile) || !!u.formation === monEspace;
+  // ⚠ DÉFAUT TROUVÉ EN BALAYANT LES LISTES DÉROULANTES (29/08/2026) : la
+  // condition était « je vois les deux espaces → je les prends TOUS ». Pour
+  // l'administrateur principal, la liste des apporteurs mêlait donc les vrais
+  // commerciaux et ceux d'entraînement, quel que soit l'espace regardé — et
+  // une vraie vente pouvait être attribuée à un commercial de formation, dont
+  // la commission aurait été calculée à son nom.
+  // C'est l'espace REGARDÉ qui décide, comme partout ailleurs.
+  const monEspace = espaceDuCompte(db, profile);
+  const memeEspace = (u) => !!u.formation === monEspace;
   (db.users || []).filter((u) => u.actif !== false && u.role !== "client" && aUnTaux(u) && memeEspace(u))
     .forEach((u) => noms.set(u.nom, { id: u.id, nom: u.nom, taux: Number(u.taux_commission || 0), role: u.role }));
   // Depuis le 19/08/2026 la table `commerciaux` porte SA PROPRE marque
