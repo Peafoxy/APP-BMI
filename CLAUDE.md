@@ -62,6 +62,16 @@ npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
 envoi, sans exception : c'est ce qui déclenche la mise à jour chez lui).
 
+**⚠ POUSSER SUR LA BRANCHE NE DÉPLOIE RIEN.** Vercel envoie `main`, et rien
+d'autre. Tant que la branche n'est pas fusionnée dans `main`, le téléphone de
+Timo reste sur l'ancienne version — quoi qu'on lui ait annoncé.
+Le 29/08/2026, dix versions ont été écrites, testées et « annoncées
+déployées » alors qu'aucune n'était en ligne. C'est lui qui l'a vu :
+« Version 23 déployé, mais sur téléphone toujours le 13 ».
+On ne dit donc **jamais « déployée »** après un `git push` sur la branche —
+on dit « poussée, en attente de fusion ». Le mot « déployée » ne vaut
+qu'après `git push origin HEAD:main`, et la fusion demande son accord.
+
 **Le banc est la mémoire du projet.** Un défaut fermé reste fermé parce
 qu'un contrôle le surveille, pas parce qu'on s'en souvient.
 
