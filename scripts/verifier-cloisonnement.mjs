@@ -3022,5 +3022,26 @@ titre("L'index vente → dette : le meme resultat que la recherche lente, en une
 }
 
 
+titre("L'apporteur EXTERNE attend le solde, comme le parrain — tranche par Timo");
+{
+  // ⚠ REGLE POSEE LE 29/08/2026, mot pour mot : « l'apporteur externe attend
+  // le solde comme le parrain ». Elle s'appliquait deja par construction
+  // (v.apporteur porte les deux personnes) ; la question lui a ete posee, il
+  // a confirme. Ce controle l'empeche de redevenir un accident.
+  const venteExt = { id: "vE", apporteur: { nom: "DEMARCHEUR", montant: 40000, payee: false } };
+  const detteOuverte = { dettes: [{ id: "dE", vente_id: "vE", montant: 800000, paye: 300000 }] };
+  const detteSoldee  = { dettes: [{ id: "dE", vente_id: "vE", montant: 800000, paye: 800000 }] };
+
+  test("★ sa part ATTEND tant que le client n'a pas solde",
+    C.partParrainBloquee(venteExt, detteOuverte) === true);
+  test("★ le client solde : sa part devient due d'elle-meme",
+    C.partParrainBloquee(venteExt, detteSoldee) === false);
+  test("une vente comptant (sans dette liee) ne le fait pas attendre",
+    C.partParrainBloquee(venteExt, { dettes: [] }) === false);
+  test("les ventes d'avant 2.101.19 (dette sans lien) gardent l'ancienne regle",
+    C.partParrainBloquee(venteExt, { dettes: [{ id: "dX", montant: 500000, paye: 0 }] }) === false);
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -1067,6 +1067,14 @@ export const venteSoldee = (db, v) => resteDuSurVente(db, v) === 0;
 // Mot pour mot : « pour le parrain, c'est lorsque le client (filleul) a soldé
 // sa dette ». Le filleul, ici, c'est le client de CETTE vente : c'est donc la
 // dette de cette vente-là qui décide, la même que pour le commercial.
+//
+// ⚠ ET L'APPORTEUR EXTERNE AUSSI — TRANCHÉ PAR TIMO LE 29/08/2026.
+// `v.apporteur` porte deux personnes différentes : le PARRAIN d'un filleul,
+// et l'APPORTEUR D'AFFAIRES externe d'une vente ordinaire (le démarcheur qui
+// amène un client sans être client lui-même). La règle du solde s'était
+// appliquée aux deux par construction ; la question lui a été posée, sa
+// réponse : « l'apporteur externe attend le solde comme le parrain ».
+// Ce n'est donc plus un effet de bord, c'est la règle.
 export const partParrainBloquee = (v, db) => !!(v.apporteur && v.apporteur.a_la_reception)
   || (db !== undefined && !venteSoldee(db, v));
 
