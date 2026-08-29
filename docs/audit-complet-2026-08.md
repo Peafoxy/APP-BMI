@@ -284,3 +284,71 @@ de paiement. Dites-moi si c'est ce que vous vouliez ; sinon c'est une ligne à
 changer.
 
 ---
+## 🔴🔴 LE CHEMIN COMPLET — du nom d'un client à l'administration de BMI
+
+C'est la trouvaille la plus grave de l'audit. Chaque maillon est soit **mesuré**
+par un banc, soit **lu directement** dans le code. Aucun n'est supposé.
+
+**1. Le mot de passe d'un client se calcule.** `src/lib/identiteClient.js:24-53`.
+`motDePasseClient(nom, tel)` mélange les chiffres du téléphone et les lettres du
+nom avec un générateur déterministe. **Aucun secret n'entre dans le calcul.**
+Ce code part dans le navigateur : il est public. Qui connaît le nom et le numéro
+d'un client — c'est écrit sur ses reçus et dans les messages WhatsApp — calcule
+son mot de passe. `variante` et `longueur`, les seules variations possibles, sont
+en clair dans la fiche, et valent 0 et 6 sauf collision de noms.
+
+**2. Ce mot de passe ouvre vraiment le compte.** `fabriquerCompteClient`
+(`comptesClients.js:197`) l'enregistre tel quel avec `mdp_auto: true`. Le client
+ne le change presque jamais : il lui est envoyé par WhatsApp et lui sert à
+consulter son devis.
+
+**3. Une fois connecté, le client réécrit sa propre fiche.** *Mesuré par
+`npm run tester-ecriture-sql` :* « un client se nomme ADMINISTRATEUR PRINCIPAL
+→ accepté ». Aucune règle de la base ne l'en empêche.
+
+**4. À la reconnexion suivante, il EST administrateur principal.**
+`api/sync-auth.js:99` lit le rôle **dans cette fiche** pour fabriquer le jeton de
+session : `role`, `ecriture`, et `espace: 'tous'`.
+
+**5. Il a alors tout.** Les vraies données et celles de formation, les salaires,
+la suppression de n'importe quelle ligne.
+
+### Où couper — un seul maillon suffit, et le 3 est le plus simple
+Le maillon **3** est le plus facile à fermer et il coupe la chaîne net : un
+garde-fou dans la base qui refuse à quiconque de modifier son propre `role`,
+son `admin_principal` ou ses `droits_off`. C'est du SQL à coller, sans toucher
+à l'application.
+
+Le maillon **1** demande, lui, un vrai changement : un mot de passe client tiré
+au hasard, envoyé une fois par WhatsApp, et non plus recalculable. C'est plus
+long, et cela retire à l'administrateur la possibilité de le retrouver — il
+faudra un bouton « réinitialiser » à la place.
+
+---
+
+## Fonctions serveur (`api/`)
+
+### 🟡 Cinq fonctions renvoient le message d'erreur interne brut
+`apparence.js:77`, `chercher-compte.js:129`, `creer-filleul.js:192`,
+`etat-auth.js:127`, `sync-auth.js` (dernière ligne) renvoient
+`e.message` au navigateur. Ces messages nomment les tables, les colonnes et
+parfois la contrainte violée. L'ancien relevé en comptait trois : il y en a cinq.
+
+### 🟡 `api/apparence.js` répond sans aucune authentification
+Elle utilise la clé maîtresse (`service_role`) et lit toute la table
+`boutiques`. Elle ne renvoie qu'une liste blanche de champs d'apparence — c'est
+ce qui la rend acceptable — mais toute nouvelle entrée dans `CHAMPS_APPARENCE`
+deviendrait publique sans que personne ne s'en aperçoive.
+
+---
+
+## Synchronisation (`src/sync.js`, `src/db.js`) — rien à signaler
+
+Fusion à trois (avant / local / distant), pierres tombales pour les
+suppressions, envoi par lot avec repli table par table, numéro de lot pour que
+les écritures d'un même geste arrivent ensemble ou pas du tout.
+`reconcilierMiroir` ne supprime **que localement** et refuse de tourner tant
+qu'il reste des opérations en attente : une donnée créée hors ligne ne peut pas
+être effacée par elle. C'est du travail solide.
+
+---
