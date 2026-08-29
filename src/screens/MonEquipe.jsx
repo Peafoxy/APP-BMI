@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -70,7 +70,7 @@ export function MonEquipe({ db, save, profile }) {
     // Le paiement et l'affichage partagent maintenant LA MÊME liste
     // (idsAPayer) : ils ne peuvent plus diverger.
     const taux = Number(u.taux_commission || 0);
-    const part = repartirCommissions(enAttente, taux);
+    const part = repartirCommissions(enAttente, taux, db);
     const ca = ventes.reduce((s, v) => s + totalVente(v), 0);
     const caAttente = part.exigibles.reduce((s, v) => s + totalVente(v), 0);
     const caRegle = reglees.reduce((s, v) => s + totalVente(v), 0);
@@ -80,6 +80,14 @@ export function MonEquipe({ db, save, profile }) {
       idsAPayer: part.idsAPayer,
       nbGelees: part.gelees.length,
       commissionGelee: part.gele,
+      // Deux raisons de geler, deux lignes à l'écran : « pas encore
+      // réceptionné » et « le client n'a pas fini de payer » n'appellent pas
+      // la même action de la part de Timo.
+      nbReception: part.enReception.length,
+      geleReception: part.geleReception,
+      nbPaiement: part.enPaiement.length,
+      gelePaiement: part.gelePaiement,
+      resteClients: part.resteClients,
       // « Déjà payé » : on RELIT le montant réellement versé (stamped à la
       // seconde du paiement) au lieu de le recalculer. L'ancien calcul
       // (CA × taux) ignorait les rabais offerts par le commercial et les
@@ -161,10 +169,15 @@ export function MonEquipe({ db, save, profile }) {
       const m = Number(v.apporteur.montant || 0);
       g[cle].nb += 1;
       g[cle].ca += totalVente(v);
-      // Une part bloquée (installation non réceptionnée) n'est pas encore exigible.
+      // Une part bloquée n'est pas encore exigible — deux raisons possibles :
+      // l'installation n'est pas réceptionnée, ou le client n'a pas fini de
+      // payer (règle posée par Timo le 29/08/2026 : « pour le parrain, c'est
+      // lorsque le client a soldé sa dette »).
       if (v.apporteur.payee) g[cle].payee += m;
-      else if (v.apporteur.a_la_reception) { g[cle].attente = (g[cle].attente || 0) + m; }
-      else { g[cle].due += m; g[cle].ventes.push(v.id); }
+      else if (partParrainBloquee(v, db)) {
+        g[cle].attente = (g[cle].attente || 0) + m;
+        if (!v.apporteur.a_la_reception) g[cle].attentePaiement = (g[cle].attentePaiement || 0) + m;
+      } else { g[cle].due += m; g[cle].ventes.push(v.id); }
     });
     return Object.values(g).sort((a, b) => b.due - a.due);
   })();
@@ -185,7 +198,7 @@ export function MonEquipe({ db, save, profile }) {
         // « payée » alors que le chef n'avait rien touché. À la réception, sa
         // part se débloquait sur une vente déjà close : perdue.
         const r = repartirCommissionEquipe(
-          ventesDe(fu.nom).filter((v) => inP(v.date, debut, fin)), tu, tauxEq);
+          ventesDe(fu.nom).filter((v) => inP(v.date, debut, fin)), tu, tauxEq, db);
         due += r.due; versees += r.versees; gelee += r.gelee;
         ventesDues.push(...r.idsAPayer);
         Object.assign(partParVente, r.partParVente);
@@ -334,7 +347,8 @@ export function MonEquipe({ db, save, profile }) {
     const bq = await choisirBoutiqueDebitG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile);
     if (bq === null) return;
     if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} — ${st.idsAPayer.length} vente(s) au taux de ${st.u.taux_commission ?? 0} % (rabais éventuels déduits).\n\nSortie de caisse ${bq} : ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).` +
-      (st.nbGelees > 0 ? `\n\n⏳ ${st.nbGelees} vente(s) restent en attente de réception (${fmt(st.commissionGelee)}) : elles ne sont PAS payées aujourd'hui et resteront dues à la réception.` : ""))) return;
+      (st.nbReception > 0 ? `\n\n⏳ ${st.nbReception} vente(s) attendent la réception de l'installation (${fmt(st.geleReception)}) : elles ne sont PAS payées aujourd'hui.` : "") +
+      (st.nbPaiement > 0 ? `\n\n💰 ${st.nbPaiement} vente(s) sont réceptionnées mais le client n'a pas fini de payer — il doit encore ${fmt(st.resteClients)}. Ces ${fmt(st.gelePaiement)} deviendront dus d'eux-mêmes dès que la dette sera soldée.` : ""))) return;
     // ⚠ On ne tamponne QUE les ventes réellement payées (st.idsAPayer, la même
     // liste que celle qui a servi à calculer le montant). Auparavant on
     // prenait toutes les ventes non payées de la période, y compris celles
@@ -351,7 +365,7 @@ export function MonEquipe({ db, save, profile }) {
     save({
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id)
-        ? { ...v, commission_payee: true, commission_dep: dep.id, commission_montant: commissionVente(v, tauxU) }
+        ? { ...v, commission_payee: true, commission_dep: dep.id, commission_montant: commissionVente(v, tauxU, db) }
         : v)),
       depenses: [dep, ...db.depenses],
       messages: [
@@ -489,9 +503,15 @@ export function MonEquipe({ db, save, profile }) {
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>
                 <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}
-                  {st.nbGelees > 0 && (
+                  {st.geleReception > 0 && (
                     <div className="text-xs font-semibold text-amber-600 whitespace-nowrap" title="Ventes issues d'un devis : la commission n'est due qu'à la réception de l'installation par le client.">
-                      ⏳ + {fmt(st.commissionGelee)} à la réception
+                      ⏳ + {fmt(st.geleReception)} à la réception
+                    </div>
+                  )}
+                  {st.gelePaiement > 0 && (
+                    <div className="text-xs font-semibold text-orange-700 whitespace-nowrap"
+                         title={`${st.nbPaiement} vente(s) réceptionnée(s), mais le client n'a pas fini de payer. La commission deviendra due d'elle-même dès que la dette sera soldée.`}>
+                      💰 + {fmt(st.gelePaiement)} — client doit {fmt(st.resteClients)}
                     </div>
                   )}
                 </td>
@@ -585,7 +605,7 @@ export function MonEquipe({ db, save, profile }) {
           🎓 <b>Espace formation.</b> Cet écran ne montre que votre équipe et vos chiffres d'entraînement. Les commerciaux, les commissions et les apporteurs de l'entreprise réelle n'y figurent pas.
         </div>
       )}
-      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. ⏳ = commission en attente de la réception de l'installation. 🔧 = technicien, ⭐ = chef d'équipe{jeVoisTout ? ", 🎓 = compte de formation" : ""}. Le paiement d'un apporteur externe est enregistré en dépense.</div>
+      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. ⏳ = en attente de la réception de l'installation ; 💰 = réceptionnée, mais le client n'a pas fini de payer (règle : un franc ne sort pas de la caisse avant d'y être entré). 🔧 = technicien, ⭐ = chef d'équipe{jeVoisTout ? ", 🎓 = compte de formation" : ""}. Le paiement d'un apporteur externe est enregistré en dépense.</div>
     </div>
   );
 }

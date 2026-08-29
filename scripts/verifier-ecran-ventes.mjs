@@ -145,5 +145,89 @@ titre("Un seul chiffre d'affaires pour toute l'application");
 }
 
 
+titre("Une commission n'est due qu'apres la RECEPTION *et* le SOLDE de la dette");
+{
+  // ⚠ REGLE POSEE PAR TIMO (29/08/2026), apres sa propre question : « un
+  // client qui n'a pas paye la totalite et qui signe le PV debloque les
+  // commissions — comment sont-elles calculees ? »
+  // Sur 1 000 000 F a 5 %, un client versant 300 000 F et signant son PV
+  // rendait exigibles les 50 000 F du commercial, alors qu'il restait
+  // 700 000 F a encaisser. Sa decision : « un franc ne sort pas de la caisse
+  // avant d'y etre entre ».
+  const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const cal = readFileSync("src/lib/calculs.js", "utf8");
+  const eq = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+
+  test("★ la dette nee d'une vente porte desormais le lien vers elle",
+    /dettes: \[\{ id: uid\(\), vente_id: vente\.id,/.test(vt));
+  test("★ une commission est gelee tant que la dette n'est pas soldee",
+    /commissionBloquee = \(v, db\) => v\.commission_a_la_reception === true\s*\n\s*\|\| \(db !== undefined && !venteSoldee\(db, v\)\)/.test(cal));
+  test("★ la part du parrain suit la MEME regle",
+    /partParrainBloquee = \(v, db\)[\s\S]{0,160}?!venteSoldee\(db, v\)/.test(cal));
+
+  // ⚠ Le piege de ce chantier : `db` est facultatif. Un ecran qui l'oublie
+  // n'a pas d'erreur — il applique l'ANCIENNE regle, en silence. On verifie
+  // donc appel par appel.
+  // ⚠ On ne peut PAS decouper ces appels a l'expression reguliere : ils
+  // contiennent eux-memes des parentheses — `Number(u?.taux || 0)` — et le
+  // decoupage naif s'arretait au mauvais endroit, signalant trois oublis qui
+  // n'existaient pas. On compte donc les parentheses pour de bon.
+  const appelComplet = (src, debut) => {
+    let profondeur = 0;
+    for (let i = src.indexOf("(", debut); i < src.length; i++) {
+      if (src[i] === "(") profondeur++;
+      else if (src[i] === ")" && --profondeur === 0) return src.slice(debut, i + 1);
+    }
+    return src.slice(debut, debut + 200);
+  };
+  const appels = [];
+  for (const [nom, src] of [["MonEquipe", eq],
+                            ["MaCommission", readFileSync("src/screens/MaCommission.jsx", "utf8")],
+                            ["Dashboard", readFileSync("src/screens/Dashboard.jsx", "utf8")]]) {
+    for (const m of src.matchAll(/\b(commissionVente|commissionEnAttente|commissionPour|repartirCommissions|repartirCommissionEquipe)\(/g)) {
+      appels.push([nom, appelComplet(src, m.index)]);
+    }
+  }
+  const oublis = appels.filter(([, appel]) => !/,\s*db\s*\)$/.test(appel.replace(/\s+/g, " ")));
+  test(`★ les ${appels.length} appels des ecrans passent tous la base (aucun oubli)`,
+    oublis.length === 0);
+  if (oublis.length) oublis.forEach(([n, a]) => console.log(`      ↳ ${n} : ${a.slice(0, 70)}`));
+
+  test("★ l'ecran DIT laquelle des deux raisons retient la commission",
+    /⏳ \+ \{fmt\(st\.geleReception\)\} à la réception/.test(eq)
+    && /💰 \+ \{fmt\(st\.gelePaiement\)\} — client doit \{fmt\(st\.resteClients\)\}/.test(eq));
+  test("la confirmation de paiement annonce ce qui reste gele, et pourquoi",
+    /attendent la réception de l'installation/.test(eq)
+    && /le client n'a pas fini de payer/.test(eq));
+
+  // ---- Le calcul lui-meme, rejoue a l'identique ----
+  const resteAPayer = (d) => Math.max(0, Number(d.montant || 0) - Number(d.paye || 0));
+  const detteDeVente = (db, v) => (v && v.id) ? (db.dettes || []).find((d) => d.vente_id === v.id) : undefined;
+  const venteSoldee = (db, v) => { const d = detteDeVente(db, v); return (d ? resteAPayer(d) : 0) === 0; };
+  const bloquee = (v, db) => v.commission_a_la_reception === true || (db !== undefined && !venteSoldee(db, v));
+
+  const vComptant = { id: "v1" };
+  const vCredit = { id: "v2" };
+  const vAncienne = { id: "v3" };
+  const base = { dettes: [
+    { id: "d2", vente_id: "v2", montant: 1000000, paye: 300000 },
+    { id: "d3", montant: 500000, paye: 0 },   // dette d'avant : aucun lien
+  ] };
+
+  test("★ le cas de Timo : 300 000 verses sur 1 000 000, PV signe → gelee",
+    bloquee(vCredit, base) === true);
+  test("★ le client solde : la commission devient due d'elle-meme",
+    bloquee({ id: "v2" }, { dettes: [{ id: "d2", vente_id: "v2", montant: 1000000, paye: 1000000 }] }) === false);
+  test("★ une vente reglee comptant n'attend rien (l'immense majorite)",
+    bloquee(vComptant, base) === false);
+  test("une vente non receptionnee reste gelee, meme sans dette",
+    bloquee({ id: "v1", commission_a_la_reception: true }, base) === true);
+  test("★ les ventes d'AVANT gardent l'ancienne regle (dette sans lien)",
+    bloquee(vAncienne, base) === false);
+  test("un versement partiel de plus ne suffit pas",
+    bloquee({ id: "v2" }, { dettes: [{ id: "d2", vente_id: "v2", montant: 1000000, paye: 999999 }] }) === true);
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

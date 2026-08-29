@@ -119,7 +119,7 @@ export function Dashboard({ db, profile }) {
   const commissionsBase = (payee) => ventesReellesDb.filter((v) => Boolean(v.commission_payee) === payee)
     .reduce((s, v) => {
       const u = db.users.find((x) => x.nom === v.commercial);
-      return s + commissionVente(v, Number(u?.taux_commission || 0));
+      return s + commissionVente(v, Number(u?.taux_commission || 0), db);
     }, 0);
   const commissionsEquipe = (payee) => ventesReellesDb.filter((v) => Boolean(v.override_payee) === payee)
     .reduce((s, v) => {
@@ -127,7 +127,7 @@ export function Dashboard({ db, profile }) {
       const chef = vendeur?.parrain_id ? db.users.find((x) => x.id === vendeur.parrain_id) : null;
       if (!chef || !estChefEquipe(db, chef)) return s;
       const tauxEq = Number(chef.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
-      return s + Math.round((commissionVente(v, Number(vendeur.taux_commission || 0)) * tauxEq) / 100);
+      return s + Math.round((commissionVente(v, Number(vendeur.taux_commission || 0), db) * tauxEq) / 100);
     }, 0);
   const commissionsApporteurs = (payee) => ventesReellesDb.filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
     .reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);

@@ -628,7 +628,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         ...(fraisInstallDevis > 0 ? [{ produit_id: null, nom: "Frais d'installation", qte: 1, pu: fraisInstallDevis }] : []),
         ...(fraisTransportDevis > 0 ? [{ produit_id: null, nom: "Transport / livraison", qte: 1, pu: fraisTransportDevis }] : []),
       ];
-      next = { ...next, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+      // ⚠ `vente_id` : le lien qui manquait. Sans lui, rien ne reliait ce que le
+      // client a payé à la vente correspondante — et la commission du commercial
+      // ne pouvait pas attendre le solde de la dette (règle posée par Timo le
+      // 29/08/2026). Les dettes créées avant ne le portent pas : leurs ventes
+      // gardent l'ancienne règle, payables dès la réception.
+      next = { ...next, dettes: [{ id: uid(), vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
     save(next, od

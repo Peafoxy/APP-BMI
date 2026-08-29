@@ -833,7 +833,51 @@ export const estChefEquipe = (db, u) => !!u.chef_equipe || filleulsDe(db, u).len
 // Le verrou est posé ICI, à la source : toutes les vues des commissions passent
 // par cette fonction. Une vente issue d'un devis ne rapporte RIEN tant que le
 // client n'a pas réceptionné l'installation.
-export const commissionBloquee = (v) => v.commission_a_la_reception === true;
+// ⚠ RÈGLE POSÉE PAR TIMO (29/08/2026), après sa question : « un client qui
+// n'a pas payé la totalité et qui signe le PV débloque les commissions —
+// comment sont-elles calculées, vu que le paiement n'est pas fini ? »
+//
+// Constat d'alors : la commission se calculait sur le TOTAL de la vente, et
+// le seul verrou était la réception. Sur une installation de 1 000 000 F à
+// 5 %, un client qui versait 300 000 F et signait son PV rendait exigibles
+// les 50 000 F du commercial — alors qu'il restait 700 000 F à encaisser.
+// BMI avançait la trésorerie, et si le client ne finissait jamais de payer,
+// la commission, elle, était sortie.
+//
+// Sa décision : **réception ET dette soldée**. Un franc ne sort pas de la
+// caisse avant d'y être entré.
+//
+// ⚠ `db` est FACULTATIF, et ce n'est pas une négligence : sans lui, on
+// retrouve exactement le comportement d'avant. Un écran qui oublierait de le
+// passer ne planterait pas — il appliquerait l'ancienne règle, en silence.
+// C'est pour cela qu'un contrôle du banc vérifie, appel par appel, que tous
+// le passent.
+export const commissionBloquee = (v, db) => v.commission_a_la_reception === true
+  || (db !== undefined && !venteSoldee(db, v));
+
+// ---- LA DETTE NÉE D'UNE VENTE À CRÉDIT ----
+// Le lien est posé à l'encaissement (Ventes.jsx). Les dettes créées AVANT la
+// 2.101.19 ne le portent pas : leurs ventes restent donc traitées comme
+// avant — payables dès la réception. On ne devine pas les rattachements
+// anciens : deviner, en matière d'argent, est une mauvaise idée.
+export const detteDeVente = (db, v) =>
+  (v && v.id) ? (db?.dettes || []).find((d) => d.vente_id === v.id) : undefined;
+
+// Ce que le client doit ENCORE sur cette vente. 0 s'il a soldé, 0 aussi
+// s'il n'y a jamais eu de dette (vente réglée comptant) — l'immense majorité.
+export const resteDuSurVente = (db, v) => {
+  const d = detteDeVente(db, v);
+  return d ? resteAPayer(d) : 0;
+};
+
+export const venteSoldee = (db, v) => resteDuSurVente(db, v) === 0;
+
+// ---- LA PART DU PARRAIN, MÊME RÈGLE ----
+// Mot pour mot : « pour le parrain, c'est lorsque le client (filleul) a soldé
+// sa dette ». Le filleul, ici, c'est le client de CETTE vente : c'est donc la
+// dette de cette vente-là qui décide, la même que pour le commercial.
+export const partParrainBloquee = (v, db) => !!(v.apporteur && v.apporteur.a_la_reception)
+  || (db !== undefined && !venteSoldee(db, v));
 
 // ---- Réception d'un chantier : déblocage des commissions + notification ----
 // Utilisé par les TROIS chemins de réception : le client dans son espace,
@@ -901,18 +945,28 @@ export const commissionBrute = (v, taux) => {
   return Math.max(0, Math.round((base * Number(taux || 0)) / 100) - Number(v.rabais || 0));
 };
 
-export const commissionVente = (v, taux) => (commissionBloquee(v) ? 0 : commissionBrute(v, taux));
+export const commissionVente = (v, taux, db) => (commissionBloquee(v, db) ? 0 : commissionBrute(v, taux));
 
-// Ce qui est gagné mais pas encore exigible : en attente de la réception des travaux.
-export const commissionEnAttente = (v, taux) => (commissionBloquee(v) ? commissionBrute(v, taux) : 0);
+// Ce qui est gagné mais pas encore exigible : réception des travaux, PUIS
+// solde de la dette du client.
+export const commissionEnAttente = (v, taux, db) => (commissionBloquee(v, db) ? commissionBrute(v, taux) : 0);
+
+// Pourquoi cette commission est-elle retenue ? L'écran doit le DIRE : « en
+// attente de réception » et « le client doit encore 700 000 F » n'appellent
+// pas la même action de la part de Timo.
+export const motifBlocageCommission = (v, db) => {
+  if (v.commission_a_la_reception === true) return "reception";
+  if (db !== undefined && !venteSoldee(db, v)) return "paiement";
+  return null;
+};
 
 // Commission d'une personne sur une vente : seul le COMMERCIAL supporte le rabais
 // qu'il a lui-même offert. Le responsable associé, lui, n'a pas à le payer.
 //
 // Le blocage « réception » est déjà appliqué par commissionVente ci-dessus.
-export const commissionPour = (v, nom, taux) => (v.commercial === nom
-  ? commissionVente(v, taux)
-  : (commissionBloquee(v) ? 0 : Math.round((caVente(v) * Number(taux || 0)) / 100)));
+export const commissionPour = (v, nom, taux, db) => (v.commercial === nom
+  ? commissionVente(v, taux, db)
+  : (commissionBloquee(v, db) ? 0 : Math.round((caVente(v) * Number(taux || 0)) / 100)));
 
 // ---- CE QUI A DÉJÀ ÉTÉ VERSÉ (et non « ce qu'on aurait versé ») ----
 // La colonne « Déjà payé » de 👑 Mon équipe RECONSTITUAIT le montant à partir
@@ -943,14 +997,22 @@ export const montantVerseEquipe = (v, tauxFilleul, tauxEquipe) =>
 //
 // Le montant affiché et la liste tamponnée sortent maintenant de la MÊME
 // fonction : ils ne peuvent plus diverger.
-export const repartirCommissions = (ventes, taux) => {
+export const repartirCommissions = (ventes, taux, db) => {
   const exigibles = [], gelees = [];
-  for (const v of ventes || []) (commissionBloquee(v) ? gelees : exigibles).push(v);
+  for (const v of ventes || []) (commissionBloquee(v, db) ? gelees : exigibles).push(v);
+  // Deux raisons d'être gelée, deux colonnes à l'écran : on les sépare ICI
+  // plutôt que dans chaque écran, pour qu'elles ne puissent pas diverger.
+  const parMotif = (m) => gelees.filter((v) => motifBlocageCommission(v, db) === m);
+  const enReception = parMotif("reception");
+  const enPaiement = parMotif("paiement");
   return {
-    exigibles, gelees,
+    exigibles, gelees, enReception, enPaiement,
     idsAPayer: exigibles.map((v) => v.id),
-    du: exigibles.reduce((s, v) => s + commissionVente(v, taux), 0),
-    gele: gelees.reduce((s, v) => s + commissionEnAttente(v, taux), 0),
+    du: exigibles.reduce((s, v) => s + commissionVente(v, taux, db), 0),
+    gele: gelees.reduce((s, v) => s + commissionEnAttente(v, taux, db), 0),
+    geleReception: enReception.reduce((s, v) => s + commissionBrute(v, taux), 0),
+    gelePaiement: enPaiement.reduce((s, v) => s + commissionBrute(v, taux), 0),
+    resteClients: enPaiement.reduce((s, v) => s + resteDuSurVente(db, v), 0),
   };
 };
 
@@ -976,14 +1038,14 @@ export const espaceDuChantier = (db, c, profile) => {
   return b ? estBoutiqueFormation(db, b) : estCompteFormation(db, profile);
 };
 
-export const repartirCommissionEquipe = (ventes, tauxFilleul, tauxEquipe) => {
+export const repartirCommissionEquipe = (ventes, tauxFilleul, tauxEquipe, db) => {
   const tx = Number(tauxEquipe || 0);
   let due = 0, versees = 0, gelee = 0;
   const idsAPayer = [], partParVente = {};
   for (const v of ventes || []) {
-    if (commissionBloquee(v)) { gelee += Math.round((commissionEnAttente(v, tauxFilleul) * tx) / 100); continue; }
+    if (commissionBloquee(v, db)) { gelee += Math.round((commissionEnAttente(v, tauxFilleul, db) * tx) / 100); continue; }
     if (v.override_payee) { versees += montantVerseEquipe(v, tauxFilleul, tauxEquipe); continue; }
-    const part = Math.round((commissionVente(v, tauxFilleul) * tx) / 100);
+    const part = Math.round((commissionVente(v, tauxFilleul, db) * tx) / 100);
     due += part;
     partParVente[v.id] = part;
     idsAPayer.push(v.id);

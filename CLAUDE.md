@@ -56,7 +56,7 @@ npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 8   : l'écran Stocks
-npm run verifier-ecran-ventes    # 24  : l'argent dans l'écran Ventes
+npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -113,6 +113,13 @@ impossible, et le banc doit le dire dans ce sens-là.
 - Un numéro de téléphone se compare sur ses **8 derniers chiffres**
   (`memeNumero`). `+228 90 11 22 33` et `90112233` sont le même client :
   les comparer bruts créait des doublons et une seconde prime de parrainage.
+- **Une commission n'est due qu'après DEUX choses** : la réception des travaux
+  **et** le solde de la dette du client. Sa décision du 29/08/2026, après avoir
+  remarqué qu'un client pouvait signer son PV en ayant versé 30 % : « un franc
+  ne sort pas de la caisse avant d'y être entré ». La **part du parrain** suit
+  la même règle — « c'est lorsque le client (filleul) a soldé sa dette ».
+  Le lien `dette.vente_id` est posé à l'encaissement ; les dettes créées avant
+  la 2.101.19 ne l'ont pas, leurs ventes gardent l'ancienne règle.
 - Le plan de règlement se choisit **à la signature du contrat**, pas du PV.
   **L'administrateur principal seul** accepte ou refuse — sa réponse du
   29/08/2026, mot pour mot : « moi seul ». La date de première échéance est

@@ -10,7 +10,7 @@ import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
 import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -48,8 +48,12 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
   // Ses gains : les ventes où il figure comme apporteur.
   const mesVentesParrain = (db.ventes || []).filter((v) => v.apporteur && v.apporteur.parrain_user_id === profile.id);
-  const gainsDus = mesVentesParrain.filter((v) => !v.apporteur.payee && !v.apporteur.a_la_reception).reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
-  const gainsEnAttente = mesVentesParrain.filter((v) => v.apporteur.a_la_reception).reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
+  // ⚠ Une part de parrainage attend DEUX choses (règle Timo, 29/08/2026) :
+  // que l'installation du filleul soit réceptionnée, ET que le filleul ait
+  // soldé sa dette. Le parrain voit donc « en attente » tant que l'un des
+  // deux manque — il n'a pas à connaître le détail des dettes d'autrui.
+  const gainsDus = mesVentesParrain.filter((v) => !v.apporteur.payee && !partParrainBloquee(v, db)).reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
+  const gainsEnAttente = mesVentesParrain.filter((v) => !v.apporteur.payee && partParrainBloquee(v, db)).reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
   const gainsPayes = mesVentesParrain.filter((v) => v.apporteur.payee).reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
 
   const parrainer = async () => {

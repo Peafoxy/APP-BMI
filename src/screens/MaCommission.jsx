@@ -55,9 +55,9 @@ export function MaCommission({ db, profile }) {
     // tort. Les deux partent maintenant de la même base.
   const ca = mesVentes.reduce((s, v) => s + caVente(v), 0);
   const taux = Number(profile.taux_commission || 0);
-  const commission = mesVentes.reduce((s, v) => s + commissionPour(v, profile.nom, taux), 0);
+  const commission = mesVentes.reduce((s, v) => s + commissionPour(v, profile.nom, taux, db), 0);
   // Gagné, mais pas encore exigible : le client n'a pas réceptionné l'installation.
-  const enAttenteReception = mesVentes.reduce((s, v) => s + commissionEnAttente(v, taux), 0);
+  const enAttenteReception = mesVentes.reduce((s, v) => s + commissionEnAttente(v, taux, db), 0);
   const rabaisAccordes = mesVentesTotales.filter((v) => v.commercial === profile.nom).reduce((s, v) => s + Number(v.rabais || 0), 0);
   // Même base que ci-dessus : c'est un chiffre d'affaires, pas un encaissement.
   const dejaRegle = mesVentesTotales.filter((v) => v.commission_payee).reduce((s, v) => s + caVente(v), 0);
@@ -70,9 +70,9 @@ export function MaCommission({ db, profile }) {
   const detailEquipe = monEquipe.map((u) => {
     const ventesU = ventesDuCommercial(db, u.nom).filter((v) => inP(v.date, debut, fin));
     const tu = Number(u.taux_commission || 0);
-    const comDue = ventesU.filter((v) => !v.commission_payee).reduce((s, v) => s + commissionVente(v, tu), 0);
-    const comTotale = ventesU.reduce((s, v) => s + commissionVente(v, tu), 0);
-    const monOverride = ventesU.filter((v) => !v.override_payee).reduce((s, v) => s + Math.round((commissionVente(v, tu) * tauxEquipe) / 100), 0);
+    const comDue = ventesU.filter((v) => !v.commission_payee).reduce((s, v) => s + commissionVente(v, tu, db), 0);
+    const comTotale = ventesU.reduce((s, v) => s + commissionVente(v, tu, db), 0);
+    const monOverride = ventesU.filter((v) => !v.override_payee).reduce((s, v) => s + Math.round((commissionVente(v, tu, db) * tauxEquipe) / 100), 0);
     return { u, nbVentes: ventesU.length, comDue, comTotale, monOverride };
   });
   const commissionEquipe = detailEquipe.reduce((s, x) => s + x.monOverride, 0);
