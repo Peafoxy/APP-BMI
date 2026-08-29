@@ -8,7 +8,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { CATEGORIES, PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
-import { bloquerSiLecture, annulerLiensDepense, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DÉPENSES ============
@@ -33,7 +33,13 @@ export function Depenses({ db, save, profile }) {
 
   const supprimerDepense = async (d) => {
     if (bloquerSiLecture(db, profile)) return;
-    const avertissement = d.auto ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
+    // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
+    // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser
+    // faire un geste incomplet.
+    const refus = refusSuppressionDepense(d);
+    if (refus) { uAlert(refus); return; }
+    // L'avertissement ne s'affiche que lorsqu'il est VRAI (voir aLienAAnnuler).
+    const avertissement = aLienAAnnuler(d) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
     if (await uConfirm(`Supprimer la dépense de ${fmt(d.montant)} (${d.categorie}) du ${dFR(d.date)} ?${avertissement}`)) {
       save({ ...db, ...annulerLiensDepense(db, d), depenses: db.depenses.filter((x) => x.id !== d.id) }, `Suppression dépense ${fmt(d.montant)} (${d.categorie}) — ${d.boutique}`);
     }
@@ -126,7 +132,13 @@ export function ChezComptable({ db, save, profile }) {
 
   const supprimerDepense = async (d) => {
     if (bloquerSiLecture(db, profile)) return;
-    const avertissement = d.auto ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
+    // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
+    // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser
+    // faire un geste incomplet.
+    const refus = refusSuppressionDepense(d);
+    if (refus) { uAlert(refus); return; }
+    // L'avertissement ne s'affiche que lorsqu'il est VRAI (voir aLienAAnnuler).
+    const avertissement = aLienAAnnuler(d) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
     if (await uConfirm(`Supprimer la dépense de ${fmt(d.montant)} (${d.categorie}) du ${dFR(d.date)} ?${avertissement}`)) {
       save({ ...db, ...annulerLiensDepense(db, d), depenses: db.depenses.filter((x) => x.id !== d.id) }, `Suppression dépense ${fmt(d.montant)} (${d.categorie}) — Chez le comptable`);
     }

@@ -3,7 +3,7 @@
 // dettes fournisseur liées aux ravitaillements.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today } from "../lib/core";
+import { uid, fmt, today, normPaiement } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte } from "../lib/calculs";
 
@@ -29,9 +29,19 @@ export function Fournisseurs({ db, save, profile }) {
     // contrairement aux salaires/primes/commissions/CNSS. Corrigé : même
     // sélecteur de boutique que pour les autres sorties de caisse (CNSS,
     // virement de salaire), catégorie "Achat marchandises" (déjà existante).
+    // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : le moyen de paiement était écrit
+    // « Espèces » EN DUR, sans qu'on demande. Or la clôture de caisse ne
+    // compte que ce qui porte « Espèces » : un règlement fait par virement ou
+    // par Flooz était quand même retiré des espèces, et la caisse paraissait
+    // courte du montant du règlement, sans que rien ne l'explique.
+    // Exactement le défaut déjà corrigé pour l'avance d'une vente à crédit
+    // (« point 15 : la caisse la comptait en espèces quoi qu'il arrive ») —
+    // il avait survécu ici.
+    const moyen = await uPrompt(`Moyen de paiement à ${fo.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Paiement de ${fmt(m)} à ${fo.nom}`, profile);
     if (bq === null) return;
-    const dep = { id: uid(), date: today(), boutique: bq, categorie: "Achat marchandises", description: `Règlement fournisseur ${fo.nom}`, montant: m, paiement: "Espèces", par: profile.nom };
+    const dep = { id: uid(), date: today(), boutique: bq, categorie: "Achat marchandises", description: `Règlement fournisseur ${fo.nom}`, montant: m, paiement: normPaiement(moyen), par: profile.nom };
     save({ ...db, fournisseurs: db.fournisseurs.map((x) => (x.id === fo.id ? { ...x, paye: Number(x.paye) + m } : x)), depenses: [dep, ...db.depenses] }, `Paiement fournisseur ${fo.nom} (${fmt(m)}) — ${bq}`);
     uAlert(`Paiement de ${fmt(m)} enregistré ! (dépense créée — sortie de caisse : ${bq})`);
   };

@@ -2517,5 +2517,98 @@ titre("Restaurer une sauvegarde : le geste le plus destructeur de l'application"
 }
 
 
+titre("Supprimer une depense annule VRAIMENT le paiement lie");
+{
+  // ⚠ AUDIT DU 29/08/2026. Le message promettait « le statut payé
+  // correspondant sera aussi annulé ». C'etait vrai pour 4 sortes de depenses
+  // sur 10. Pour les six autres, l'application annoncait ce qu'elle ne
+  // faisait pas : un credit restait accorde alors que la sortie de caisse
+  // avait disparu, une avance restait deduite du salaire alors que l'argent
+  // etait revenu en caisse.
+
+  // ---- Un virement de salaire ne se supprime PAS depuis cet ecran ----
+  test("★ un virement de salaire renvoie vers « Annuler virement »",
+    typeof C.refusSuppressionDepense({ auto: "virement" }) === "string");
+  test("★ sa retenue de credit jumelle aussi (les deux tombent ensemble)",
+    typeof C.refusSuppressionDepense({ auto: "retenue" }) === "string");
+  test("le refus explique OU aller, pas seulement qu'on refuse",
+    /Utilisateurs/.test(C.refusSuppressionDepense({ auto: "virement" })));
+  test("une depense ordinaire, elle, se supprime normalement",
+    C.refusSuppressionDepense({ auto: "commission" }) === null
+    && C.refusSuppressionDepense({}) === null);
+
+  // ---- CREDIT BMI : il redevient une simple demande ----
+  const dbCredit = { users: [{ id: "u1", credits: [
+    { id: "c1", statut: "approuve", montant_accorde: 300000, echeances: [{ mois: "2026-09", montant: 100000 }] },
+  ] }] };
+  const apresCredit = C.annulerLiensDepense(dbCredit,
+    { id: "dep1", auto: "credit", user_id: "u1", credit_id: "c1", montant: 300000, date: "2026-08-29" });
+  test("★ le credit annule redevient « en attente », sans echeances",
+    apresCredit.users[0].credits[0].statut === "en_attente"
+    && apresCredit.users[0].credits[0].echeances.length === 0);
+
+  // ---- AVANCE SUR SALAIRE : elle ne doit plus etre deduite ----
+  const dbAvance = { users: [{ id: "u1", avances: [
+    { mois: "2026-08", montant: 50000, date: "2026-08-29" },
+    { mois: "2026-08", montant: 50000, date: "2026-08-29" },
+    { mois: "2026-07", montant: 20000, date: "2026-07-15" },
+  ] }] };
+  const apresAvance = C.annulerLiensDepense(dbAvance,
+    { auto: "avance", user_id: "u1", montant: 50000, date: "2026-08-29" });
+  test("★ l'avance disparait de la fiche : elle n'est plus retenue sur le salaire",
+    apresAvance.users[0].avances.length === 2);
+  test("★ …et UNE SEULE, meme si deux avances identiques le meme jour",
+    apresAvance.users[0].avances.filter((a) => a.montant === 50000).length === 1);
+
+  // ---- REMBOURSEMENT : le versement n'a jamais eu lieu ----
+  const dbRemb = { users: [{ id: "u1", credits: [
+    { id: "c1", statut: "solde", montant_accorde: 300000, date_solde: "2026-08-29",
+      remboursements: [{ date: "2026-07-01", montant: 200000 }, { date: "2026-08-29", montant: 100000 }] },
+  ] }] };
+  const apresRemb = C.annulerLiensDepense(dbRemb,
+    { auto: "remboursement", user_id: "u1", credit_id: "c1", montant: -100000, date: "2026-08-29" });
+  const c1 = apresRemb.users[0].credits[0];
+  test("★ le remboursement annule est retire du credit",
+    c1.remboursements.length === 1 && c1.remboursements[0].montant === 200000);
+  test("★ …et le credit n'est plus « solde » : il reste 100 000 F a rembourser",
+    c1.statut === "approuve" && !c1.date_solde);
+
+  // ---- CNSS : rien a annuler, donc rien a promettre ----
+  test("★ l'avertissement ne s'affiche PLUS pour la CNSS (rien a annuler)",
+    C.aLienAAnnuler({ auto: "cnss" }) === false);
+  test("…ni pour une depense saisie a la main",
+    C.aLienAAnnuler({}) === false);
+  test("mais bien pour les sept sortes qui ont un lien",
+    ["commission", "commission_equipe", "commission_ext", "installation",
+     "credit", "remboursement", "avance"].every((a) => C.aLienAAnnuler({ auto: a })));
+
+  const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("les DEUX ecrans de depenses (boutique et comptable) passent par le refus",
+    (dep.match(/refusSuppressionDepense\(d\)/g) || []).length === 2);
+}
+
+
+titre("Le moyen de paiement se DEMANDE, il ne s'impose pas");
+{
+  // ⚠ AUDIT DU 29/08/2026. La cloture de caisse ne compte que ce qui porte
+  // « Especes » (Caisse.jsx). Deux ecritures decidaient du moyen a la place de
+  // l'utilisateur, et faussaient donc la cloture — dans les deux sens.
+  const fo = readFileSync("src/screens/Fournisseurs.jsx", "utf8");
+  const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
+
+  test("★ un fournisseur n'est plus payé « en espèces » sans qu'on demande",
+    !/description: `Règlement fournisseur \$\{fo\.nom\}`, montant: m, paiement: "Espèces"/.test(fo)
+    && /Moyen de paiement à \$\{fo\.nom\}/.test(fo));
+  test("★ la CNSS non plus « par virement » sans qu'on demande",
+    !/paiement: "Virement bancaire", par: profile\.nom, auto: "cnss"/.test(sal)
+    && /Moyen de paiement de la CNSS/.test(sal));
+  test("les deux passent la réponse par normPaiement (mêmes libellés partout)",
+    /paiement: normPaiement\(moyen\)/.test(fo) && /paiement: normPaiement\(moyen\)/.test(sal));
+  test("le défaut proposé reste le plus courant pour chacun",
+    /Moyen de paiement à[\s\S]{0,90}?"Espèces"\)/.test(fo)
+    && /Moyen de paiement de la CNSS[\s\S]{0,90}?"Virement bancaire"\)/.test(sal));
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

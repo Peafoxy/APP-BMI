@@ -688,6 +688,32 @@ export function pvDuContrat(db, devisId) {
 // (commission, prime d'installation…), il faut aussi redonner leur statut
 // « non payé » aux ventes / chantiers liés — sinon la commission reste
 // bloquée en "payée" pour toujours, sans qu'aucune trace de paiement ne subsiste.
+// ⚠ CERTAINES DÉPENSES NE DOIVENT PAS ÊTRE SUPPRIMÉES D'ICI (audit du
+// 29/08/2026). Un virement de salaire s'annule depuis 👥 Utilisateurs
+// (« Annuler virement »), qui vérifie d'abord que l'employé n'a PAS confirmé
+// l'avoir reçu, et qui retire proprement les DEUX écritures — le versement et
+// la retenue de crédit qui l'accompagne. Supprimer la dépense depuis l'écran
+// Dépenses contournait ce contrôle : le salaire restait marqué « payé » sur la
+// fiche de l'employé alors que l'argent était revenu en caisse.
+// Renvoie le message à afficher, ou null si la suppression est permise.
+export function refusSuppressionDepense(d) {
+  if (d.auto === "virement" || d.auto === "retenue") {
+    return "🔒 Un virement de salaire ne s'annule pas depuis cet écran.\n\n"
+      + "Allez dans 👥 Utilisateurs → la fiche de l'employé → « Annuler virement ». "
+      + "Cette porte-là vérifie d'abord qu'il n'a pas déjà confirmé avoir reçu l'argent, "
+      + "et retire les deux écritures de caisse ensemble.";
+  }
+  return null;
+}
+
+// ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026). Le message affiché à la suppression
+// promettait : « le statut payé correspondant sera aussi annulé ». C'était
+// vrai pour 4 sortes de dépenses sur 10. Pour les six autres, l'application
+// annonçait quelque chose qu'elle ne faisait pas — un crédit restait accordé
+// alors que la sortie de caisse avait disparu, une avance restait déduite du
+// salaire alors que l'argent était revenu.
+// Les six sont traitées ci-dessous. `virement` et `retenue`, elles, sont
+// refusées en amont (voir refusSuppressionDepense).
 export function annulerLiensDepense(db, d) {
   if (d.auto === "commission") {
     return { ventes: (db.ventes || []).map((v) => (v.commission_dep === d.id ? { ...v, commission_payee: false, commission_dep: null } : v)) };
@@ -701,8 +727,72 @@ export function annulerLiensDepense(db, d) {
   if (d.auto === "installation") {
     return { clients_installes: (db.clients_installes || []).map((c) => ({ ...c, equipe: (c.equipe || []).map((e) => (e.dep_id === d.id ? { ...e, paye: false, date_paiement: null, dep_id: null } : e)) })) };
   }
+
+  // ---- CRÉDIT BMI ACCORDÉ : il redevient une simple demande ----
+  // Sans cela, l'employé restait débiteur d'un crédit dont l'argent n'était
+  // jamais sorti, et ses échéances continuaient d'être retenues sur salaire.
+  if (d.auto === "credit" && d.credit_id) {
+    return { users: (db.users || []).map((u) => (u.id === d.user_id
+      ? { ...u, credits: (u.credits || []).map((c) => (c.id === d.credit_id
+          ? { ...c, statut: "en_attente", montant_accorde: undefined, echeances: [],
+              date_decision: undefined, decide_par: undefined, boutique: undefined }
+          : c)) }
+      : u)) };
+  }
+
+  // ---- REMBOURSEMENT DE CRÉDIT : le versement n'a jamais eu lieu ----
+  // Les remboursements n'ont pas d'identifiant : on retire CELUI qui
+  // correspond à cette écriture — même jour, même montant (la dépense le
+  // porte en négatif, l'argent rentrant en caisse). `unefois` garantit qu'on
+  // n'en enlève qu'un, même si l'employé a remboursé deux fois la même somme
+  // le même jour.
+  if (d.auto === "remboursement" && d.credit_id) {
+    const cible = Math.abs(Number(d.montant || 0));
+    return { users: (db.users || []).map((u) => {
+      if (u.id !== d.user_id) return u;
+      return { ...u, credits: (u.credits || []).map((c) => {
+        if (c.id !== d.credit_id) return c;
+        let unefois = false;
+        const restants = (c.remboursements || []).filter((r) => {
+          if (!unefois && r.date === d.date && Number(r.montant || 0) === cible) { unefois = true; return false; }
+          return true;
+        });
+        const encoreDu = Number(c.montant_accorde || 0) - restants.reduce((s, r) => s + Number(r.montant || 0), 0);
+        return { ...c, remboursements: restants,
+                 statut: encoreDu > 0 && c.statut === "solde" ? "approuve" : c.statut,
+                 date_solde: encoreDu > 0 ? undefined : c.date_solde };
+      }) };
+    }) };
+  }
+
+  // ---- AVANCE SUR SALAIRE : elle ne doit plus être déduite du salaire ----
+  // Même principe : pas d'identifiant sur le mouvement, on retire celui du
+  // même jour et du même montant, une seule fois.
+  if (d.auto === "avance") {
+    const cible = Number(d.montant || 0);
+    return { users: (db.users || []).map((u) => {
+      if (u.id !== d.user_id) return u;
+      let unefois = false;
+      return { ...u, avances: (u.avances || []).filter((a) => {
+        if (!unefois && a.date === d.date && Number(a.montant || 0) === cible) { unefois = true; return false; }
+        return true;
+      }) };
+    }) };
+  }
+
+  // ---- COTISATIONS CNSS : rien à annuler ailleurs ----
+  // Le paiement CNSS ne pose aucun « statut payé » sur une autre fiche : la
+  // dépense EST la trace. La supprimer suffit — et l'écran ne doit donc pas
+  // promettre une annulation qui n'a pas lieu d'être (voir aLienAAnnuler).
   return {};
 }
+
+// L'avertissement « le statut payé sera aussi annulé » ne doit s'afficher que
+// lorsque c'est VRAI. Une case qui ne fait rien, une alerte qui annonce ce
+// qu'elle ne fait pas : même défaut, même règle.
+export const aLienAAnnuler = (d) =>
+  ["commission", "commission_equipe", "commission_ext", "installation",
+   "credit", "remboursement", "avance"].includes(d.auto);
 
 // Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
 export async function envoyerVirementG(db, save, profile, u, moisImpose) {

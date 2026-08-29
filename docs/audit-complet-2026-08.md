@@ -218,7 +218,7 @@ alors qu'elle est à 22 % conduit à vendre trop bas, durablement.
 ---
 ## Dépenses (`src/screens/Depenses.jsx`, `lib/calculs.js:691`)
 
-### 🟠 Supprimer une dépense promet d'annuler le paiement lié — et ne le fait que dans la moitié des cas
+### ✅ CORRIGÉ EN 2.101.20 — supprimer une dépense promettait d'annuler le paiement lié, et ne le faisait que dans la moitié des cas
 Le message affiché dit, mot pour mot :
 
 > ⚠ Cette dépense a été générée automatiquement par un paiement : le statut
@@ -434,7 +434,7 @@ Le compte de caisse ne retient que ce qui porte `paiement === "Espèces"`
 (`Caisse.jsx:27`). Deux écritures décident donc du moyen à la place de
 l'utilisateur, et faussent la clôture :
 
-### 🟠 `Fournisseurs.jsx:34` — un fournisseur est toujours payé « en espèces »
+### ✅ CORRIGÉ EN 2.101.20 — `Fournisseurs.jsx` : un fournisseur était toujours payé « en espèces »
 Aucune question n'est posée. Un règlement par virement ou Flooz est quand même
 inscrit en espèces : **le soir, la caisse paraît courte** du montant du
 règlement, sans que rien ne l'explique.
@@ -443,7 +443,7 @@ C'est exactement le défaut déjà corrigé pour l'avance d'une vente à crédit
 (« point 15 : la caisse la comptait en espèces quoi qu'il arrive »). Il a
 survécu ici.
 
-### 🟠 `Salaires.jsx:267` — la CNSS est toujours payée « par virement bancaire »
+### ✅ CORRIGÉ EN 2.101.20 — `Salaires.jsx` : la CNSS était toujours payée « par virement bancaire »
 L'inverse : réglée en espèces, elle n'est pas retirée du compte de caisse, et
 **la caisse paraît longue** du montant des cotisations.
 

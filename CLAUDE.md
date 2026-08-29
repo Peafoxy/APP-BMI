@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 506 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 523 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -193,10 +193,6 @@ chantier. Les constats, par ordre de gravité.
    Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
 
 ### Réels
-- **« Le statut payé sera aussi annulé »** est faux pour 6 des 10 sortes de
-  dépenses automatiques (`annulerLiensDepense`).
-- Un **fournisseur** est toujours payé « en espèces », la **CNSS** toujours
-  « par virement » — sans qu'on demande. Les deux faussent la clôture.
 - `fusion.js:45` désigne un champ inexistant : la protection anti-conflit des
   chantiers ne protège rien.
 - Le téléphone est comparé **brut** à 4 endroits (`Partages.jsx:286`,
