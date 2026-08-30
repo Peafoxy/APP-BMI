@@ -406,7 +406,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
       const caisseTerrain = enFormation ? NOM_BOUTIQUE_TERRAIN_FORMATION : NOM_BOUTIQUE_TERRAIN;
       const dbT = assurerBoutiqueTerrain(db, enFormation);
       const dette = {
-        id: uid(), numero: prochainNumeroDette(dbT, caisseTerrain), date: today(),
+        // ⚠ Vague 2, étape 1 : c'est le client LUI-MÊME qui crée cette dette —
+        // le propriétaire est certain, aucun rapprochement à faire.
+        id: uid(), client_user_id: profile.id, numero: prochainNumeroDette(dbT, caisseTerrain), date: today(),
         boutique: caisseTerrain, client: moi.nom_base || profile.nom, tel: moi.tel || "",
         motif: `Prestation de pose${infosContrat?.contrat_numero ? ` — contrat ${infosContrat.contrat_numero}` : ""}`,
         montant: d.total, paye: 0, paiements: [], par: profile.nom,

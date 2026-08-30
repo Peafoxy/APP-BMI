@@ -11,7 +11,10 @@ import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today } fro
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { memeNumero, numeroComparable } from "./identiteClient";
+// ⚠ chiffresTel est IMPORTÉ ET réexporté — le piège « export { x } from »
+// (voir CLAUDE.md) a été touché une TROISIÈME fois ici, le 29/08/2026 :
+// compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
+import { chiffresTel, memeNumero, numeroComparable } from "./identiteClient";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -1020,6 +1023,34 @@ export const estChefEquipe = (db, u) => !!u.chef_equipe || filleulsDe(db, u).len
 // le passent.
 export const commissionBloquee = (v, db) => v.commission_a_la_reception === true
   || (db !== undefined && !venteSoldee(db, v));
+
+// ---- À QUEL COMPTE CLIENT APPARTIENT CETTE LIGNE ? ----
+// ⚠ VAGUE 2, ÉTAPE 1 (demande Timo, 29/08/2026 : « Lance 1 »). Une dette ou
+// une vente ne portait qu'un NOM et un TÉLÉPHONE — du texte. Le serveur ne
+// connaît un client que par son identifiant de compte : sans cette marque,
+// impossible de lui dire un jour « ne montre à chacun que SES lignes ».
+// Cette étape POSE la marque à la création, et ne ferme rien : rien ne
+// change pour personne. (Étape 2 : rapprocher l'existant. Étape 3 : le SQL
+// de fermeture, que Timo collera.)
+//
+// Le téléphone d'abord (memeNumero, les 8 derniers chiffres — le plus
+// fiable) ; à défaut le nom EXACT, comme le fait déjà la fiche
+// d'installation (chargerDepuisVente). Beaucoup de clients de passage n'ont
+// pas de compte : null est alors la bonne réponse, pas une erreur.
+export const compteClientPour = (db, tel, nomTexte) => {
+  const clients = (db?.users || []).filter((u) => u.role === "client" && u.actif !== false);
+  if (tel && chiffresTel(tel).length >= 6) {
+    const parTel = clients.find((u) => u.tel && memeNumero(u.tel, tel));
+    if (parTel) return parTel.id;
+  }
+  const nom = String(nomTexte || "").trim().toLowerCase();
+  if (nom) {
+    const parNom = clients.find((u) =>
+      (u.nom_complet || u.nom_base || u.nom || "").trim().toLowerCase() === nom);
+    if (parNom) return parNom.id;
+  }
+  return null;
+};
 
 // ---- LA DETTE NÉE D'UNE VENTE À CRÉDIT ----
 // Le lien est posé à l'encaissement (Ventes.jsx). Les dettes créées AVANT la

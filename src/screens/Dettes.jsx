@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, pro
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DETTES ============
@@ -37,7 +37,10 @@ export function Dettes({ db, save, profile }) {
       id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5),
       montant: acompte, paiement: normPaiement(f.moyen), par: profile.nom,
     }] : [];
-    save({ ...db, dettes: [{ id: uid(), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: acompte, paiements, par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}${acompte > 0 ? ` — acompte ${fmt(acompte)} (${normPaiement(f.moyen)})` : ""}`);
+    // ⚠ Vague 2, étape 1 : la ligne porte le COMPTE du client quand il en a
+    // un (client_user_id, même nom de champ que sur les prospects) — c'est ce
+    // qui permettra un jour de ne montrer à chacun que SES dettes.
+    save({ ...db, dettes: [{ id: uid(), client_user_id: compteClientPour(db, f.tel, f.client), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: acompte, paiements, par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}${acompte > 0 ? ` — acompte ${fmt(acompte)} (${normPaiement(f.moyen)})` : ""}`);
     setF({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
     uAlert("Dette enregistrée avec succès !");
   };
@@ -87,7 +90,7 @@ export function Dettes({ db, save, profile }) {
     if (avance > totalRes) { uAlert("L'avance dépasse le total de la réservation."); return; }
     if (!await uConfirm(`Créer la réservation de ${res.client.trim()} ?\n\nTotal : ${fmt(totalRes)}\nAvance versée : ${fmt(avance)}\nReste à payer : ${fmt(totalRes - avance)}\n\nLa marchandise ne sortira du stock qu'à la livraison.`)) return;
     const r = {
-      id: uid(), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique, client: res.client.trim(), tel: res.tel.trim(),
+      id: uid(), client_user_id: compteClientPour(db, res.tel, res.client), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique, client: res.client.trim(), tel: res.tel.trim(),
       motif: `Réservation — ${panierRes.length} article(s)`,
       articles: panierRes, montant: totalRes, paye: avance,
       paiements: avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(res.moyen), par: profile.nom }] : [],
@@ -125,7 +128,7 @@ export function Dettes({ db, save, profile }) {
       // 2.99.44 (Lot C) : cette vente n'avait AUCUN numéro (le reçu affichait
       // un numéro de secours dérivé de l'id) — elle entre maintenant dans la
       // même numérotation séquentielle que les ventes normales.
-      id: uid(), numero: prochainNumeroVente(db, r.boutique),
+      id: uid(), client_user_id: r.client_user_id ?? compteClientPour(db, r.tel, r.client), numero: prochainNumeroVente(db, r.boutique),
       date: today(), heure: new Date().toTimeString().slice(0, 5), boutique: r.boutique, client: r.client, tel: r.tel,
       // ⚠ VRAI BUG trouvé par Timo (préexistant, pas introduit par les
       // réservations créées depuis Ventes.jsx) : les articles d'une
@@ -158,7 +161,7 @@ export function Dettes({ db, save, profile }) {
         // une DETTE CLASSIQUE toute neuve — historique de versements et
         // montant/payé intégralement conservés, seul le classement change.
         ? [
-            { id: uid(), numero: r.numero || prochainNumeroDette(db, r.boutique), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id, date_livraison: today() },
+            { id: uid(), client_user_id: r.client_user_id ?? compteClientPour(db, r.tel, r.client), numero: r.numero || prochainNumeroDette(db, r.boutique), date: today(), boutique: r.boutique, client: r.client, tel: r.tel, motif: "Vente livrée avant solde (ex-réservation)", articles: r.articles || [], montant: r.montant, paye: r.paye, paiements: r.paiements || [], par: r.par || profile.nom, vente_id: vente.id, date_livraison: today() },
             ...db.dettes.filter((x) => x.id !== r.id),
           ]
         : db.dettes.map((x) => (x.id === r.id ? { ...x, statut: "livree", date_livraison: today(), vente_id: vente.id } : x)),

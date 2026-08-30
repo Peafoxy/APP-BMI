@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -456,7 +456,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       const avanceRes = f.paiement === "Crédit (dette)" ? Math.max(0, Math.min(total, Number(f.avance) || 0)) : total;
       if (!await uConfirm(`Créer une réservation prépayée pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avanceRes)}\nReste à payer : ${fmt(total - avanceRes)}\n\nLa marchandise ne sortira du stock qu'à la livraison (écran Dettes → Réservations prépayées).`)) return;
       const reservation = {
-        id: uid(), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique,
+        id: uid(), client_user_id: compteClientPour(db, f.tel, f.client), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique,
         client: f.client || "Client non renseigné", tel: f.tel,
         motif: `Réservation — ${resumeArticles({ articles: panier })}`,
         articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
@@ -493,8 +493,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // au lieu de « nombre de ventes + 1 » qui doublonnait après une
     // suppression ou entre deux appareils hors ligne.
     const numero = prochainNumeroVente(db, boutique);
+    // ⚠ Vague 2, étape 1 : le compte du client, résolu UNE fois pour la
+    // vente ET la dette. Le devis d'origine fait foi quand il existe — il
+    // porte déjà l'identifiant exact ; sinon, le téléphone puis le nom.
+    const clientCompteId = origineDevis?.client_id || compteClientPour(db, f.tel, f.client);
     const vente = {
       id: uid(),
+      client_user_id: clientCompteId,
       numero,
       date: today(),
       heure: new Date().toTimeString().slice(0, 5),
@@ -653,7 +658,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // ne pouvait pas attendre le solde de la dette (règle posée par Timo le
       // 29/08/2026). Les dettes créées avant ne le portent pas : leurs ventes
       // gardent l'ancienne règle, payables dès la réception.
-      next = { ...next, dettes: [{ id: uid(), vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
     save(next, od

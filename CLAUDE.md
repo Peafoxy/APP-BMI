@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 620 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 632 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -265,8 +265,12 @@ sortie : on regarde si la base a levé une objection.
 ### Chantiers plus anciens, toujours ouverts
 - **Vague 2 — la LECTURE** : `dettes`, `ventes`, `clients_installes` restent
   lisibles par tous les comptes clients (l'écriture, elle, est traitée par
-  `client-2-fermer-ecriture.sql`). Il faut poser un champ « propriétaire »
-  sur ces lignes pour aller plus loin.
+  `client-2-fermer-ecriture.sql`).
+  **Étape 1 FAITE (2.101.28)** : toute dette et toute vente naissent avec leur
+  propriétaire (`client_user_id`, résolu par `compteClientPour` — téléphone
+  d'abord, nom exact en repli, null pour un client de passage). Les chantiers
+  portaient déjà `user_id`. **Étape 2 à faire** : rapprocher l'existant (SQL).
+  **Étape 3** : la fermeture de lecture, que Timo collera.
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.

@@ -3105,5 +3105,53 @@ titre("Les sept petits defauts de l'audit, fermes le 29/08/2026");
 }
 
 
+titre("Vague 2, etape 1 : chaque dette et chaque vente naissent avec leur PROPRIETAIRE");
+{
+  // ⚠ DEMANDE TIMO (29/08/2026, « Lance 1 »). Une dette ne portait qu'un nom
+  // et un telephone — du texte. Sans identifiant de compte sur la ligne, le
+  // serveur ne pourra jamais dire « ne montre a chacun que SES dettes ».
+  // Cette etape POSE la marque a la creation et ne ferme rien.
+
+  // ---- Le rapprochement lui-meme, mesure ----
+  const dbC = { users: [
+    { id: "u_ama", nom: "AMA", nom_base: "KOFFI AMA", role: "client", tel: "+228 90 11 22 33" },
+    { id: "u_noe", nom: "NOE", nom_base: "NOE", role: "client", tel: "91 44 55 66" },
+    { id: "u_parti", nom: "PARTI", role: "client", tel: "90 77 88 99", actif: false },
+    { id: "u_vend", nom: "KOSSI", role: "vendeur", tel: "90 11 22 33" },
+  ] };
+  test("★ le telephone retrouve le compte, indicatif ou pas (regle des 8 chiffres)",
+    C.compteClientPour(dbC, "90112233", "") === "u_ama"
+    && C.compteClientPour(dbC, "+228 91 44 55 66", "") === "u_noe");
+  test("★ a defaut de telephone, le nom EXACT (comme la fiche d'installation)",
+    C.compteClientPour(dbC, "", "koffi ama") === "u_ama");
+  test("★ un client de passage sans compte : null, et c'est la bonne reponse",
+    C.compteClientPour(dbC, "99 00 00 00", "INCONNU") === null);
+  test("un compte bloque n'est jamais rattache",
+    C.compteClientPour(dbC, "90 77 88 99", "") === null);
+  test("un EMPLOYE au meme numero n'est jamais pris pour le client",
+    C.compteClientPour({ users: [dbC.users[3]] }, "90112233", "") === null);
+  test("un nom approchant ne suffit pas (exact seulement — pas de devinette)",
+    C.compteClientPour(dbC, "", "KOFFI") === null);
+
+  // ---- Les lieux de naissance portent tous la marque ----
+  const dettesJsx = readFileSync("src/screens/Dettes.jsx", "utf8");
+  const ventesJsx = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const espaceJsx = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+  test("★ les 4 naissances de Dettes.jsx (manuelle, reservation, livraison x2)",
+    (dettesJsx.match(/client_user_id:/g) || []).length === 4);
+  test("★ les 3 naissances de Ventes.jsx (vente, reservation, dette credit)",
+    (ventesJsx.match(/client_user_id:/g) || []).length === 3);
+  test("★ la dette « pose seule » appartient au client qui la cree, sans devinette",
+    /client_user_id: profile\.id, numero: prochainNumeroDette\(dbT/.test(espaceJsx));
+  test("la vente et sa dette de credit partagent LA MEME resolution (jamais deux reponses)",
+    /const clientCompteId = origineDevis\?\.client_id \|\| compteClientPour\(db, f\.tel, f\.client\)/.test(ventesJsx)
+    && /client_user_id: clientCompteId, vente_id: vente\.id/.test(ventesJsx));
+  test("le devis d'origine fait foi quand il existe (l'identifiant exact bat le rapprochement)",
+    /origineDevis\?\.client_id \|\|/.test(ventesJsx));
+  test("les chantiers portaient deja leur proprietaire (user_id) — rien de casse",
+    /user_id: f\.user_id \|\| null/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
+}
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

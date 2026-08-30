@@ -158,8 +158,10 @@ titre("Une commission n'est due qu'apres la RECEPTION *et* le SOLDE de la dette"
   const cal = readFileSync("src/lib/calculs.js", "utf8");
   const eq = readFileSync("src/screens/MonEquipe.jsx", "utf8");
 
+  // (motif assoupli le 29/08 : la marque de proprietaire client_user_id
+  //  s'est inseree entre id et vente_id — le lien, lui, n'a pas bouge)
   test("★ la dette nee d'une vente porte desormais le lien vers elle",
-    /dettes: \[\{ id: uid\(\), vente_id: vente\.id,/.test(vt));
+    /dettes: \[\{ id: uid\(\),[^}]{0,80}vente_id: vente\.id,/.test(vt));
   test("★ une commission est gelee tant que la dette n'est pas soldee",
     /commissionBloquee = \(v, db\) => v\.commission_a_la_reception === true\s*\n\s*\|\| \(db !== undefined && !venteSoldee\(db, v\)\)/.test(cal));
   test("★ la part du parrain suit la MEME regle",
