@@ -269,8 +269,16 @@ sortie : on regarde si la base a levé une objection.
   **Étape 1 FAITE (2.101.28)** : toute dette et toute vente naissent avec leur
   propriétaire (`client_user_id`, résolu par `compteClientPour` — téléphone
   d'abord, nom exact en repli, null pour un client de passage). Les chantiers
-  portaient déjà `user_id`. **Étape 2 à faire** : rapprocher l'existant (SQL).
-  **Étape 3** : la fermeture de lecture, que Timo collera.
+  portaient déjà `user_id`.
+  **Étape 2 ÉCRITE ET TESTÉE (2.101.29)** : `client-3-rapprocher-proprietaires.sql`
+  rapproche l'existant (téléphone 8 chiffres, puis nom exact, seulement si UN
+  seul compte correspond ; jamais les comptes bloqués ni les non-clients ;
+  lignes déjà marquées intouchées ; horodatage désactivé pendant l'écriture ;
+  ⚠ les chantiers écrivent `user_id: ""` — la chaîne vide compte comme « pas
+  marqué »). Vérifié par `npm run tester-rapprochement` (19 contrôles sur base
+  jetable, rejouable). **En attente : Timo doit le coller dans Supabase.**
+  **Étape 3** : la fermeture de lecture, que Timo collera — après quelques
+  jours d'usage de l'étape 2.
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.
