@@ -281,6 +281,12 @@ annoncées grandes ouvertes, et j'ai alerté Timo à tort. On ne lit plus la
 sortie : on regarde si la base a levé une objection.
 
 ### Chantiers plus anciens, toujours ouverts
+- **Mot de passe des comptes clients, calculable à partir du nom et du
+  numéro** : un plan complet (hasard à la création, « renvoyer » = nouveau
+  mot de passe, messages PV/devis sans mot de passe pour les comptes
+  existants) a été décrit à Timo le 31/08/2026. Sa réponse : « on laisse
+  d'abord » — mis en attente, ni validé ni refusé. **Ne pas construire
+  sans son feu vert** ; le jour venu, lui rappeler le plan tel quel.
 - **Vague 2 — la LECTURE** : `dettes`, `ventes`, `clients_installes` restent
   lisibles par tous les comptes clients (l'écriture, elle, est traitée par
   `client-2-fermer-ecriture.sql`).
