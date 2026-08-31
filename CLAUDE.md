@@ -302,9 +302,11 @@ sortie : on regarde si la base a levé une objection.
   dette de ses FILLEULS quand il est parrain (sinon « part due » s'affiche
   à tort), et la vente rattachée à son chantier (celle du PV). Vérifié par
   `npm run tester-client-lecture` (23 contrôles sur base jetable).
-  **En attente : Timo doit le coller dans Supabase.** Ce même collage
-  répare AUSSI le déclencheur `client_ventes_reception_seule_trg` (voir
-  ci-dessous).
+  **COLLÉE par Timo le 31/08/2026** (« les 3 lignes son restrictive/select ») —
+  le correctif du déclencheur `client_ventes_reception_seule_trg` est parti
+  dans le même collage. **La vague 2 est terminée.** Reste la preuve d'usage :
+  à la première vraie vente à crédit d'un client à compte, vérifier que sa
+  dette s'affiche sur SON téléphone.
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.
