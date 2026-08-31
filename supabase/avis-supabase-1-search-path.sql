@@ -44,14 +44,14 @@ alter function public.tombstone_sur_truncate()      set search_path = public;
 -- ══════════════════════════════════════════════════════════════════
 -- VÉRIFICATION — à lancer juste après
 -- ══════════════════════════════════════════════════════════════════
--- Doit renvoyer 7 lignes, toutes avec « chemin_fige = true ».
+-- Liste TOUTES les fonctions de la base (y compris celles posées depuis
+-- l'écriture de ce script : escalade paie, rôle inviolable, garde-fou du
+-- PV, écriture groupée…). TOUTES doivent afficher « chemin_fige = true ».
+-- Si l'une affiche false, envoyez-moi la capture.
 select p.proname as fonction,
        (p.proconfig is not null
         and exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%')) as chemin_fige
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('espace_ligne', 'horodatage_serveur',
-                    'tombstone_sur_suppression', 'tombstone_sur_truncate',
-                    'espace_de_boutique', 'espace_de_ligne', 'interdire_escalade')
 order by p.proname;

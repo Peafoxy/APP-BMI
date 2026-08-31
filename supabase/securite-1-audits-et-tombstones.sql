@@ -70,7 +70,12 @@ alter table public.audits add column if not exists espace text;
 drop trigger if exists espace_ligne_trg on public.audits;
 create trigger espace_ligne_trg before insert or update on public.audits
   for each row execute function public.espace_ligne();
+-- ⚠ Horodatage suspendu pendant le marquage (leçon de la vague 2, étape 2) :
+-- sans cela, toutes les lignes du journal verraient leur « updated_at »
+-- remonter, et chaque appareil retéléchargerait la table entière.
+alter table public.audits disable trigger horodatage_serveur_trg;
 update public.audits set espace = public.espace_de_ligne('audits', data);
+alter table public.audits enable trigger horodatage_serveur_trg;
 create index if not exists audits_espace on public.audits (espace);
 
 do $$
@@ -108,11 +113,16 @@ revoke all on public.tombstones from anon;
 -- ══════════════════════════════════════════════════════════════════
 -- VÉRIFICATION — à lancer juste après
 -- ══════════════════════════════════════════════════════════════════
--- tables_cloisonnees doit valoir 14 (13 + le journal).
+-- journal_cloisonne doit valoir TRUE (le journal a rejoint les autres).
 -- anonyme_touche_les_faire_part doit valoir FALSE.
+-- (Le nombre exact de tables cloisonnées dépend des scripts déjà passés :
+-- c'est la présence du journal dans la liste qui compte.)
 select
   (select count(*) from pg_policies
     where schemaname = 'public' and policyname = 'espace_cloisonnement') as tables_cloisonnees,
+  exists (select 1 from pg_policies
+    where schemaname = 'public' and policyname = 'espace_cloisonnement'
+      and tablename = 'audits') as journal_cloisonne,
   has_table_privilege('anon', 'public.tombstones', 'select')
     or has_table_privilege('anon', 'public.tombstones', 'insert') as anonyme_touche_les_faire_part,
   (select count(*) from public.audits where espace = 'formation') as lignes_de_formation,
