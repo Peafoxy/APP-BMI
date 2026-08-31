@@ -242,6 +242,11 @@ chantier. Les constats, par ordre de gravité.
    `client_ventes_reception_seule_trg`. Son espace continue de créer la dette
    d'un devis « pose seule » et de signer son PV — mais il ne peut plus gonfler
    la prime de son parrain au passage. **Ne pas rouvrir ce sujet.**
+   ⚠ Sauf ceci : le déclencheur plantait sur une vente **sans** apporteur
+   (« cannot delete from scalar ») — toute signature de PV sans parrain était
+   refusée par le serveur. Trouvé le 31/08/2026 par le banc de l'étape 3 (le
+   banc d'écriture ne testait que des ventes AVEC apporteur). Corrigé dans le
+   fichier `client-2` et posé sur la vraie base via le collage de `client-4`.
    ⚠ L'escalade de privilège, elle, est **fermée, et vérifié sur la vraie base
    le 29/08/2026** (capture de Timo) : `interdire_escalade` sur `users`,
    `interdire_escalade_paie_trg` sur `paie`. Je l'avais annoncée ouverte —
@@ -264,7 +269,7 @@ chantier. Les constats, par ordre de gravité.
 
 ### Bancs
 `npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
-connecté. **Il ne reste qu'un échec sur 21** — un employé qui écrit
+connecté. **Il ne reste qu'un échec sur 22** — un employé qui écrit
 `salaire_base` dans `users.data`, inerte dès que la fiche de paie existe dans la table `paie`, qui
 fait foi.
 
@@ -289,9 +294,17 @@ sortie : on regarde si la base a levé une objection.
   lignes déjà marquées intouchées ; horodatage désactivé pendant l'écriture ;
   ⚠ les chantiers écrivent `user_id: ""` — la chaîne vide compte comme « pas
   marqué »). Vérifié par `npm run tester-rapprochement` (19 contrôles sur base
-  jetable, rejouable). **En attente : Timo doit le coller dans Supabase.**
-  **Étape 3** : la fermeture de lecture, que Timo collera — après quelques
-  jours d'usage de l'étape 2.
+  jetable, rejouable). **COLLÉE par Timo le 31/08/2026** — résultat : base
+  quasi vide (0 dette, 0 vente, 1 chantier déjà marqué), rien à reprendre.
+  **Étape 3 ÉCRITE ET TESTÉE (2.101.32)** : `client-4-fermer-lecture.sql`
+  ferme la lecture (un client ne lit que SES lignes). Trois exceptions
+  mesurées, chacune parce qu'un écran en a besoin : les chantiers/ventes/
+  dette de ses FILLEULS quand il est parrain (sinon « part due » s'affiche
+  à tort), et la vente rattachée à son chantier (celle du PV). Vérifié par
+  `npm run tester-client-lecture` (23 contrôles sur base jetable).
+  **En attente : Timo doit le coller dans Supabase.** Ce même collage
+  répare AUSSI le déclencheur `client_ventes_reception_seule_trg` (voir
+  ci-dessous).
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.

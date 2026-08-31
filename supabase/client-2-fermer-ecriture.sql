@@ -99,10 +99,23 @@ begin
 
   -- On met de côté les trois champs autorisés, puis on exige que TOUT le
   -- reste soit rigoureusement identique.
+  --
+  -- ⚠ CORRECTIF DU 31/08/2026, trouvé par npm run tester-client-lecture :
+  -- quand la vente n'a PAS d'apporteur (le cas le plus courant),
+  -- « 'null'::jsonb - 'a_la_reception' » lève « cannot delete from
+  -- scalar » — et TOUTE signature de PV sur une vente sans parrain était
+  -- refusée par le serveur. On ne retire la clé que si `apporteur` est
+  -- bien un objet.
   avant := (old.data - 'commission_a_la_reception' - 'commission_debloquee_le')
-           || jsonb_build_object('apporteur', coalesce(old.data -> 'apporteur', 'null'::jsonb) - 'a_la_reception');
+           || jsonb_build_object('apporteur',
+                case when jsonb_typeof(old.data -> 'apporteur') = 'object'
+                     then (old.data -> 'apporteur') - 'a_la_reception'
+                     else coalesce(old.data -> 'apporteur', 'null'::jsonb) end);
   apres := (new.data - 'commission_a_la_reception' - 'commission_debloquee_le')
-           || jsonb_build_object('apporteur', coalesce(new.data -> 'apporteur', 'null'::jsonb) - 'a_la_reception');
+           || jsonb_build_object('apporteur',
+                case when jsonb_typeof(new.data -> 'apporteur') = 'object'
+                     then (new.data -> 'apporteur') - 'a_la_reception'
+                     else coalesce(new.data -> 'apporteur', 'null'::jsonb) end);
 
   if avant is distinct from apres then
     raise exception

@@ -22,7 +22,8 @@
     "tester-parrainage": "node scripts/tester-parrainage.mjs",
     "tester-client-annuaire-sql": "bash scripts/tester-client-annuaire-sql.sh",
     "tester-ecriture-sql": "bash scripts/tester-ecriture-sql.sh",
-    "tester-rapprochement": "bash scripts/tester-rapprochement.sh"
+    "tester-rapprochement": "bash scripts/tester-rapprochement.sh",
+    "tester-client-lecture": "bash scripts/tester-client-lecture-sql.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

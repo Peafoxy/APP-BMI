@@ -53,7 +53,8 @@ insert into public.ventes (id, data) values
 insert into public.produits (id, data) values
   ('zp1', '{\"id\":\"p1\",\"boutique\":\"APESSITO\",\"nom\":\"BATTERIE\",\"initial\":10,\"prix_vente\":250000}');
 insert into public.ventes (id, data) values
-  ('zv2', '{\"id\":\"zv2\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"commission_a_la_reception\":true,\"apporteur\":{\"nom\":\"KODJO\",\"montant\":50000,\"a_la_reception\":true}}');
+  ('zv2', '{\"id\":\"zv2\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"commission_a_la_reception\":true,\"apporteur\":{\"nom\":\"KODJO\",\"montant\":50000,\"a_la_reception\":true}}'),
+  ('zv3', '{\"id\":\"zv3\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"commission_a_la_reception\":true}');
 " >/dev/null
 
 ok=0; ko=0
@@ -125,6 +126,11 @@ essai "…et la part du parrain devient due, elle aussi" "PERMIS" "$CLIENT" \
   "with x as (update public.ventes set data = jsonb_set(data,'{apporteur,a_la_reception}','false') where id='zv2' returning 1) select count(*) from x;"
 essai "★ mais il ne s'augmente PAS la prime de parrainage au passage" "REFUSE" "$CLIENT" \
   "with x as (update public.ventes set data = jsonb_set(data,'{apporteur,montant}','900000') where id='zv2' returning 1) select count(*) from x;"
+# ⚠ Défaut du 31/08/2026 (trouvé par tester-client-lecture) : le garde-fou
+# plantait sur une vente SANS apporteur — le cas le plus courant — et le
+# serveur refusait la signature du PV. Ce contrôle le garde fermé.
+essai "un client signe son PV même sur une vente SANS apporteur" "PERMIS" "$CLIENT" \
+  "with x as (update public.ventes set data = data || '{\"commission_a_la_reception\":false,\"commission_debloquee_le\":\"2026-08-31\"}' where id='zv3' returning 1) select count(*) from x;"
 
 $P -c "insert into public.paie (id, data) values ('zv_kossi','{\"id\":\"zv_kossi\",\"salaire_base\":120000}') on conflict (id) do nothing;" >/dev/null 2>&1 || true
 
