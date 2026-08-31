@@ -184,6 +184,14 @@ impossible, et le banc doit le dire dans ce sens-là.
   politiques RLS sont la seule barrière**, il n'y a aucun filtre par
   utilisateur côté application.
 
+### Apparence
+- **Le tableau de bord reste tel qu'il est** (cases à fond pastel, une
+  teinte par nature ; sélecteur de période entre les deux rangées de
+  cartes ; statut « En ligne » aussi dans la barre du haut). Un habillage
+  « cartes blanches à liseré, sections titrées » a été proposé, montré et
+  **refusé** par Timo (2.101.30, annulé en .31 : « je préfère le précédent
+  tableau de bord »). Ne pas le reproposer.
+
 ### Étiquettes
 - Format **60 × 30 mm**, nom de la boutique **en haut**, nom de l'article
   **en bas**, code-barres de hauteur fixe (11 mm).
