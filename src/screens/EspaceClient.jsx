@@ -193,13 +193,22 @@ export function EspaceClient({ db, profile, save, setTab }) {
       commentaire: (n.commentaire || "").trim(),
     };
 
+    // ⚠ La note se range dans la fiche du CLIENT (la sienne), plus dans celle
+    // de l'employé noté. Depuis la fermeture de l'annuaire (client-1), un
+    // client ne peut plus écrire dans la fiche d'un autre compte : le serveur
+    // refusait la note, et ce refus bloquait tout son lot d'écritures
+    // (même mécanique que le badge prospect — vécu par Timo, 31/08/2026).
+    // L'écran Utilisateurs agrège les deux emplacements : evaluationsDe()
+    // dans lib/calculs.js additionne l'ancien (fiche employé) et le nouveau.
     save({
       ...db,
-      users: db.users.map((u) => (u.id === d.par_id
-        ? { ...u, evaluations: [evaluation, ...(u.evaluations || [])] }
-        : u.id === profile.id
-          ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, note_donnee: true } : x)) }
-          : u)),
+      users: db.users.map((u) => (u.id === profile.id
+        ? {
+            ...u,
+            evaluations_donnees: [{ ...evaluation, par_id: d.par_id, par_nom: d.par }, ...(u.evaluations_donnees || [])],
+            devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, note_donnee: true } : x)),
+          }
+        : u)),
     }, `⭐ ${d.par} noté ${moyenneNote(evaluation).toFixed(1)}/5 par le client ${profile.nom}`);
 
     setNotes({ ...notes, [d.id]: {} });
@@ -476,13 +485,16 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
     // Le prospect correspondant porte désormais un badge : les commerciaux voient
     // d'un coup d'œil qui a dit oui mais n'a pas encore payé. C'est LA file à relancer.
-    // ⚠ memeNumero et non les chiffres bruts (audit du 29/08/2026) : sans
-    // cela, le prospect ne recevait pas le badge « devis validé » et sortait
-    // de la file à relancer, alors que c'est LA file la plus utile.
-    const monTel = chiffresTel(moi.tel || "");
+    // ⚠ SEULES les fiches déjà MARQUÉES à son nom (client_user_id). Vécu par
+    // Timo avec le compte ESSO (31/08/2026) : depuis la fermeture de
+    // l'annuaire (client-1), le serveur refuse qu'un client touche une fiche
+    // prospect sans son étiquette — et comme les écritures d'une validation
+    // partent ensemble (tout ou rien), UNE fiche refusée bloquait TOUTE la
+    // validation, silencieusement. Le rapprochement par téléphone est
+    // désormais fait EN AMONT, à l'envoi du devis, par l'employé qui
+    // l'envoie (Partages.jsx) — lui a le droit d'écrire ces fiches.
     const prospectsMaj = (db.prospects || []).map((pr) => {
-      const correspond = pr.client_user_id === profile.id
-        || (monTel.length >= 6 && memeNumero(pr.tel, moi.tel || ""));
+      const correspond = pr.client_user_id === profile.id;
       return correspond && !pr.converti
         ? { ...pr, devis_valide: true, devis_total: d.total, devis_boutique: boutique, devis_valide_le: today(), maj_le: today() }
         : pr;

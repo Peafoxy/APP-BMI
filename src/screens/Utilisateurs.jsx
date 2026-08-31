@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -929,16 +929,20 @@ export function Users({ db, save, profile }) {
                     </div>
                   )}
                   {u.parrain_id && <div className="text-xs font-normal text-slate-400">Recruté par {(db.users.find((x) => x.id === u.parrain_id) || {}).nom || "?"}</div>}
-                  {/* Les avis des clients : ils ne servent que s'ils remontent jusqu'ici. */}
-                  {noteMoyenne(u) !== null && (
+                  {/* Les avis des clients : ils ne servent que s'ils remontent jusqu'ici.
+                      ⚠ evaluationsDe() agrège les DEUX emplacements — l'ancien
+                      (fiche de l'employé) et le nouveau (fiche du client qui a
+                      noté, seule qu'il ait le droit d'écrire depuis la
+                      fermeture de l'annuaire). Voir lib/calculs.js. */}
+                  {noteMoyenne(db, u) !== null && (
                     <button onClick={() => setAvisOuvert(avisOuvert === u.id ? null : u.id)} className="text-xs font-bold text-amber-600 hover:underline">
-                      {etoiles(noteMoyenne(u))} {noteMoyenne(u).toFixed(1)}/5 ({(u.evaluations || []).length} avis)
+                      {etoiles(noteMoyenne(db, u))} {noteMoyenne(db, u).toFixed(1)}/5 ({evaluationsDe(db, u).length} avis)
                     </button>
                   )}
                   {avisOuvert === u.id && (
                     <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50 p-2 space-y-2">
                       {CRITERES_NOTE.map((c) => {
-                        const evs = u.evaluations || [];
+                        const evs = evaluationsDe(db, u);
                         const moy = evs.length ? evs.reduce((sm, e) => sm + Number(e[c.id] || 0), 0) / evs.length : 0;
                         return (
                           <div key={c.id} className="flex items-center justify-between text-xs">
@@ -947,7 +951,7 @@ export function Users({ db, save, profile }) {
                           </div>
                         );
                       })}
-                      {(u.evaluations || []).filter((e) => e.commentaire).slice(0, 5).map((e) => (
+                      {evaluationsDe(db, u).filter((e) => e.commentaire).slice(0, 5).map((e) => (
                         <div key={e.id} className="text-xs bg-white rounded border border-slate-200 p-2">
                           <div className="text-slate-700">« {e.commentaire} »</div>
                           <div className="text-[10px] text-slate-400 mt-0.5">{e.client_nom} · {dFR(e.date)} · {moyenneNote(e).toFixed(1)}/5</div>

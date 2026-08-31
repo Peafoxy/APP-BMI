@@ -965,9 +965,23 @@ export const moyenneNote = (e) => {
   const n = CRITERES_NOTE.map((c) => Number(e[c.id] || 0)).filter((x) => x > 0);
   return n.length ? n.reduce((a, b) => a + b, 0) / n.length : 0;
 };
-// Moyenne d'un employé sur toutes ses évaluations.
-export const noteMoyenne = (u) => {
-  const evs = u.evaluations || [];
+// Toutes les évaluations reçues par un employé. Deux emplacements :
+//   • u.evaluations — l'ancien : la note était écrite dans la fiche de
+//     l'employé noté, PAR le client. Depuis la fermeture de l'annuaire
+//     (client-1), le serveur refuse cette écriture — et ce refus bloquait
+//     tout le lot d'écritures du client (vécu par Timo, 31/08/2026) ;
+//   • evaluations_donnees dans la fiche de chaque CLIENT (par_id désigne
+//     l'employé noté) — le nouvel emplacement, que le client a le droit
+//     d'écrire puisque c'est SA fiche. Les notes déjà données restent
+//     comptées : on additionne les deux.
+export const evaluationsDe = (db, u) => [
+  ...(u.evaluations || []),
+  ...(db?.users || []).flatMap((c) => (c.evaluations_donnees || []).filter((e) => e.par_id === u.id)),
+];
+
+// Moyenne d'un employé sur toutes ses évaluations (les deux emplacements).
+export const noteMoyenne = (db, u) => {
+  const evs = evaluationsDe(db, u);
   if (!evs.length) return null;
   return evs.reduce((s, e) => s + moyenneNote(e), 0) / evs.length;
 };

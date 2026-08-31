@@ -313,6 +313,20 @@ sortie : on regarde si la base a levé une objection.
   dans le même collage. **La vague 2 est terminée.** Reste la preuve d'usage :
   à la première vraie vente à crédit d'un client à compte, vérifier que sa
   dette s'affiche sur SON téléphone.
+  ⚠ **PREMIÈRE VRAIE VALIDATION DE DEVIS (compte ESSO, 31/08/2026) : refusée
+  en silence.** Deux gestes de l'espace client écrivaient dans des lignes que
+  client-1 ne laisse plus toucher : le badge « devis validé » sur une fiche
+  prospect SANS étiquette, et la note du commercial DANS SA fiche à lui. Une
+  écriture refusée = tout le lot coincé (tout ou rien), et le chemin groupé
+  ne remontait AUCUN message à l'écran. Corrigé en 2.101.34 : le refus d'un
+  lot s'affiche désormais avec le motif du serveur ; la fiche prospect est
+  marquée à l'ENVOI du devis par l'employé (Partages.jsx) et le client ne
+  touche plus que les fiches marquées ; la note se range dans la fiche du
+  CLIENT (`evaluations_donnees`, agrégée par `evaluationsDe()` avec l'ancien
+  emplacement). `client-5-marquer-prospects.sql` rattrape l'existant
+  (horodatage NON suspendu, exprès : les appareils doivent retélécharger).
+  Banc : `npm run tester-espace-client` (11 contrôles — rejoue les gestes
+  complets via appliquer_lot, ce que personne ne faisait).
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.

@@ -262,6 +262,27 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
   );
 }
 
+// ⚠ Marque la fiche prospect de ce client avec son compte (client_user_id),
+// si elle ne l'est pas déjà. C'est l'EMPLOYÉ qui envoie le devis qui pose la
+// marque — lui a le droit d'écrire les fiches prospect. Sans elle, le client
+// ne peut plus recevoir son badge « devis validé » : depuis la fermeture de
+// l'annuaire, le serveur refuse qu'un client touche une fiche sans son
+// étiquette, et ce refus bloquait TOUTE sa validation (vécu par Timo avec le
+// compte ESSO, 31/08/2026). Une fiche déjà marquée pour un AUTRE compte
+// n'est jamais réécrite.
+function marquerProspectsDuCompte(base, compteId, telRef) {
+  const chiffres = chiffresTel(telRef || "");
+  if (chiffres.length < 6) return base;
+  let change = false;
+  const prospects = (base.prospects || []).map((pr) => {
+    if (pr.client_user_id || pr.converti) return pr;
+    if (!memeNumero(pr.tel, telRef)) return pr;
+    change = true;
+    return { ...pr, client_user_id: compteId };
+  });
+  return change ? { ...base, prospects } : base;
+}
+
 // Résout le compte client destinataire : crée un compte à la volée (nom + tel) ou
 // récupère un compte existant. Retourne null (une alerte a déjà été affichée) en
 // cas de saisie invalide, sinon { compte, motDePasse, dbApres }.
@@ -293,7 +314,7 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
     if (existant) {
       return {
         compte: existant, motDePasse: existant.mdp_auto ? motDePasseConnu(existant) : null,
-        dbApres: db,
+        dbApres: marquerProspectsDuCompte(db, existant.id, existant.tel || tel),
       };
     }
     // Le compte client hérite de l'espace de celui qui le crée (voir
@@ -302,12 +323,14 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
     const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile, boutique));
     return {
       compte: fab.user, motDePasse: fab.motDePasse,
-      dbApres: { ...db, users: [...db.users, fab.user], messages: [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
+      dbApres: marquerProspectsDuCompte(
+        { ...db, users: [...db.users, fab.user], messages: [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
+        fab.user.id, tel),
     };
   }
   const compte = db.users.find((u) => u.id === clientDevis);
   if (!compte) { uAlert("Choisissez le client à qui envoyer ce devis."); return null; }
-  return { compte, motDePasse: motDePasseConnu(compte), dbApres: db };
+  return { compte, motDePasse: motDePasseConnu(compte), dbApres: marquerProspectsDuCompte(db, compte.id, compte.tel) };
 }
 
 // Enregistre le devis dans la fiche du client puis ouvre WhatsApp avec ses

@@ -352,6 +352,19 @@ export async function synchroniser(options = {}) {
               // Refus réel : le lot ENTIER reste en attente. Rien n'est passé
               // à moitié — c'est précisément ce qu'on cherchait.
               for (const op of groupe) bloques.add(`${op.table}:${op.id}`);
+              // ⚠ LE REFUS DOIT SE VOIR (vécu par Timo avec le compte ESSO,
+              // 31/08/2026) : ce chemin ne remplissait PAS derniereErreur —
+              // l'écran affichait « 3 à envoyer » sans un mot d'explication,
+              // pendant que le serveur refusait toutes les 20 secondes. Un
+              // refus silencieux est le pire des refus : on met le motif du
+              // serveur sous les yeux de celui qui pourra le corriger.
+              const contenuRefuseLot = e?.code === "42501" || /new row violates row-level security/i.test(msg);
+              derniereErreur = contenuRefuseLot
+                ? `⛔ Le serveur REFUSE un groupe d'écritures (${groupe.map((o) => o.table).join(" + ")}) — se reconnecter n'y changera rien.\n\n`
+                  + `Une règle de sécurité du serveur refuse l'un de ces enregistrements, et comme ils partent ensemble (tout ou rien), les autres attendent avec lui. `
+                  + `Rien n'est perdu : tout reste sur cet appareil.\n\n`
+                  + `Prévenez l'administrateur principal en lui montrant ce message :\n${msg.slice(0, 200)}`
+                : `Envoi groupé (${groupe.map((o) => o.table).join(" + ")}) : ${msg.slice(0, 200)}`;
               console.warn("Lot refusé en entier (aucune écriture partielle) :", msg.slice(0, 120));
             }
           }
@@ -480,11 +493,16 @@ export async function synchroniser(options = {}) {
           if (refusRLS && !contenuRefuse) {
             Object.assign(etatAuth, { ok: false, raison: "Écriture refusée par le serveur — session à rétablir" });
           }
+          // ⚠ Le texte accusait uniquement le cloisonnement réel/formation —
+          // or d'autres règles refusent aussi (fiche prospect sans étiquette,
+          // fiche d'un autre compte…). On dit ce qu'on SAIT — une règle a
+          // refusé — et on montre le motif exact du serveur, seul indice
+          // fiable pour corriger (leçon ESSO, 31/08/2026).
           derniereErreur = contenuRefuse
             ? `⛔ Le serveur REFUSE cet enregistrement (${op.table}) — se reconnecter n'y changera rien.\n\n`
-              + `Cet enregistrement appartient à un espace de travail (réel / formation) auquel votre compte n'a pas accès. `
-              + `Il reste sur cet appareil, rien n'est perdu, mais il ne partira pas tant que la situation n'aura pas été corrigée.\n\n`
-              + `Prévenez l'administrateur principal en lui montrant ce message.`
+              + `Une règle de sécurité du serveur refuse cette écriture. `
+              + `L'enregistrement reste sur cet appareil, rien n'est perdu, mais il ne partira pas tant que la situation n'aura pas été corrigée.\n\n`
+              + `Prévenez l'administrateur principal en lui montrant ce message :\n${msg.slice(0, 200)}`
             : refusRLS
               ? `⚠ ${etatAuth.ok ? `Écriture refusée par Supabase (${op.table}) : ${msg}` : `Session sécurisée expirée — déconnectez-vous puis reconnectez-vous : les opérations en attente partiront automatiquement après.`}`
               : `Envoi (${op.table}) : ${msg}`;
