@@ -182,34 +182,64 @@ export function Dashboard({ db, profile }) {
           </div>
         </div>
       )}
-      {/* ⚠ Réorganisation du 31/08/2026 (validée par Timo : « commence par
-          le tableau de bord ») : l'écran se lit désormais en sections
-          titrées — depuis le début, ce mois-ci, puis les analyses. Aucun
-          chiffre, aucun filtre d'espace n'a bougé : seul l'habillage. */}
-      <div>
-        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Depuis le début</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />
-          <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
-          <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />
-          <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />
-          <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />
-          {(totalFraisInstallation + totalFraisTransport) > 0 && (
-            <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} nature="entree" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />
+        <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
+        <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />
+        <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />
+        <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />
+        {(totalFraisInstallation + totalFraisTransport) > 0 && (
+          <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} nature="entree" />
+        )}
+        {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} nature="attente" />}
+        <Stat label="Clients uniques" value={nbClients} nature="neutre" />
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="font-bold text-slate-800">Période :</div>
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white"
+            value={periodeIndex}
+            onChange={(e) => setPeriodeIndex(e.target.value === "custom" ? "custom" : Number(e.target.value))}
+          >
+            {periodes().map(([label], i) => (
+              <option key={i} value={i}>{label}</option>
+            ))}
+            <option value="custom">Personnalisée</option>
+          </select>
+
+          {periodeIndex === "custom" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                value={customDebut}
+                onChange={(e) => setCustomDebut(e.target.value)}
+              />
+              <span className="text-slate-400">→</span>
+              <input
+                type="date"
+                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                value={customFin}
+                onChange={(e) => setCustomFin(e.target.value)}
+              />
+            </div>
           )}
-          {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} nature="attente" />}
-          <Stat label="Clients uniques" value={nbClients} nature="neutre" />
+
+          {periodeIndex === "custom" && (
+            <div className="ml-auto text-sm font-semibold">
+              Résultat : <span className={resCustom >= 0 ? "text-green-700" : "text-red-600"}>{fmt(resCustom)}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div>
-        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Ce mois-ci</div>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          <Stat label="Ventes du mois" value={fmt(somme(m.v))} nature="entree" />
-          <Stat label="Dépenses du mois" value={fmt(somme(m.d))} nature="sortie" />
-          <Stat label="Résultat du mois" value={fmt(resM)} nature={resM >= 0 ? "regle" : "du"} />
-          <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Stat label="Ventes du mois" value={fmt(somme(m.v))} nature="entree" />
+        <Stat label="Dépenses du mois" value={fmt(somme(m.d))} nature="sortie" />
+        <Stat label="Résultat du mois" value={fmt(resM)} nature={resM >= 0 ? "regle" : "du"} />
+        <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -234,50 +264,6 @@ export function Dashboard({ db, profile }) {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ⚠ Le sélecteur de période ne commande QUE ce qui suit : le Top 5,
-          la répartition des paiements, la ligne « Personnalisée » de la
-          synthèse et le journal comptable. Les cartes du haut, elles, ne
-          bougent pas avec lui — il flottait pourtant entre deux rangées de
-          cartes qu'il ne commandait pas. Descendu ici le 31/08/2026, à la
-          tête de ce qu'il commande vraiment. */}
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Analyse par période</div>
-        <select
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white"
-          value={periodeIndex}
-          onChange={(e) => setPeriodeIndex(e.target.value === "custom" ? "custom" : Number(e.target.value))}
-        >
-          {periodes().map(([label], i) => (
-            <option key={i} value={i}>{label}</option>
-          ))}
-          <option value="custom">Personnalisée</option>
-        </select>
-
-        {periodeIndex === "custom" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-              value={customDebut}
-              onChange={(e) => setCustomDebut(e.target.value)}
-            />
-            <span className="text-slate-400">→</span>
-            <input
-              type="date"
-              className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-              value={customFin}
-              onChange={(e) => setCustomFin(e.target.value)}
-            />
-          </div>
-        )}
-
-        {periodeIndex === "custom" && (
-          <div className="ml-auto text-sm font-semibold">
-            Résultat : <span className={resCustom >= 0 ? "text-green-700" : "text-red-600"}>{fmt(resCustom)}</span>
-          </div>
-        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
