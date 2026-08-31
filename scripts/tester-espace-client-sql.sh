@@ -64,13 +64,19 @@ lot() { # lot <description> <ACCEPTE|REFUSE> <json>
 
 echo
 echo "── LES GESTES DE L'ESPACE CLIENT, TELS QUE L'APPLICATION LES ENVOIE ──"
-lot "★ valider un devis (commande + badge prospect MARQUÉ + sa fiche)" "ACCEPTE" '[
- {"table":"commandes","id":"cm1","data":{"id":"cm1","boutique":"APESSITO","client":"ESSO","tel":"90554433","articles":[{"article":"PANNEAU","qte":2,"pu":125000}],"statut":"en_attente","origine_devis":{"client_id":"ca_esso","devis_id":"dv1"}}},
+lot "★ valider un devis — LE LOT EXACT D'ESSO : users + audits + commandes" "ACCEPTE" '[
+ {"table":"users","id":"ca_esso","data":{"id":"ca_esso","nom":"ESSO","nom_base":"ESSO","role":"client","tel":"90554433","devis":[{"id":"dv1","total":500000,"par_id":"tech1","statut":"valide","contrat_statut":"signe"}]}},
+ {"table":"audits","id":"au1","data":{"id":"au1","date":"2026-08-31","user":"ESSO","action":"Devis 500 000 F VALIDE par le client ESSO"}},
+ {"table":"commandes","id":"cm1","data":{"id":"cm1","boutique":"APESSITO","client":"ESSO","tel":"90554433","articles":[{"article":"PANNEAU","qte":2,"pu":125000}],"statut":"en_attente","origine_devis":{"client_id":"ca_esso","devis_id":"dv1"}}}]'
+lot "★ …même lot avec le badge prospect MARQUÉ (4 écritures)" "ACCEPTE" '[
+ {"table":"commandes","id":"cm5","data":{"id":"cm5","boutique":"APESSITO","client":"ESSO","statut":"en_attente"}},
  {"table":"prospects","id":"pr_marque","data":{"id":"pr_marque","nom":"ESSO","tel":"90554433","client_user_id":"ca_esso","devis_valide":true,"devis_total":500000}},
- {"table":"users","id":"ca_esso","data":{"id":"ca_esso","nom":"ESSO","nom_base":"ESSO","role":"client","tel":"90554433","devis":[{"id":"dv1","total":500000,"par_id":"tech1","statut":"valide","contrat_statut":"signe"}]}}]'
-lot "★ valider un devis « pose seule » (dette + chantier + sa fiche)" "ACCEPTE" '[
+ {"table":"audits","id":"au2","data":{"id":"au2","date":"2026-08-31","user":"ESSO","user_id":"ca_esso","action":"Devis VALIDE"}},
+ {"table":"users","id":"ca_esso","data":{"id":"ca_esso","nom":"ESSO","nom_base":"ESSO","role":"client","tel":"90554433","devis":[{"id":"dv1","total":500000,"par_id":"tech1","statut":"valide"}]}}]'
+lot "★ valider un devis « pose seule » (dette + chantier + journal + sa fiche)" "ACCEPTE" '[
  {"table":"dettes","id":"dt9","data":{"id":"dt9","client_user_id":"ca_esso","boutique":"TERRAIN","client":"ESSO","tel":"90554433","montant":300000,"paye":0}},
  {"table":"clients_installes","id":"ch9","data":{"id":"ch9","nom":"ESSO","tel":"90554433","user_id":"ca_esso","vente_id":null,"devis_id":"dv1","pose_seule":true,"dette_id":"dt9","statut":"en_cours"}},
+ {"table":"audits","id":"au3","data":{"id":"au3","date":"2026-08-31","user":"ESSO","user_id":"ca_esso","action":"Devis pose seule VALIDE"}},
  {"table":"users","id":"ca_esso","data":{"id":"ca_esso","nom":"ESSO","nom_base":"ESSO","role":"client","tel":"90554433","devis":[{"id":"dv1","total":500000,"par_id":"tech1","statut":"valide"}]}}]'
 lot "★ noter l'employé — NOUVEL emplacement (la note dans SA fiche)" "ACCEPTE" '[
  {"table":"users","id":"ca_esso","data":{"id":"ca_esso","nom":"ESSO","nom_base":"ESSO","role":"client","tel":"90554433","evaluations_donnees":[{"id":"ev1","par_id":"tech1","par_nom":"TECHNICIEN","client_id":"ca_esso","habillement":5,"maitrise":4,"respect":5}],"devis":[{"id":"dv1","total":500000,"par_id":"tech1","statut":"valide","note_donnee":true}]}},
@@ -84,6 +90,9 @@ lot "toucher une fiche prospect SANS étiquette (raison du marquage en amont)" "
 lot "écrire dans la fiche d'un employé (l'ANCIEN emplacement des notes)" "REFUSE" '[
  {"table":"users","id":"tech1","data":{"id":"tech1","nom":"TECHNICIEN","role":"technicien","evaluations":[{"id":"ev2","habillement":5}]}},
  {"table":"users","id":"ca_esso","data":{"id":"ca_esso","nom":"ESSO","role":"client","tel":"90554433"}}]'
+lot "écrire une ligne de journal au nom de QUELQU'UN D'AUTRE" "REFUSE" '[
+ {"table":"audits","id":"au9","data":{"id":"au9","date":"2026-08-31","user":"TECHNICIEN","user_id":"tech1","action":"fausse ligne"}},
+ {"table":"messages","id":"ms9","data":{"id":"ms9","de_id":"ca_esso","a_id":"tech1","texte":"x"}}]'
 
 echo
 echo "── LE RATTRAPAGE client-5 MARQUE LES FICHES SANS DEVINER ──"

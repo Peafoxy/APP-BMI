@@ -325,8 +325,18 @@ sortie : on regarde si la base a levé une objection.
   CLIENT (`evaluations_donnees`, agrégée par `evaluationsDe()` avec l'ancien
   emplacement). `client-5-marquer-prospects.sql` rattrape l'existant
   (horodatage NON suspendu, exprès : les appareils doivent retélécharger).
-  Banc : `npm run tester-espace-client` (11 contrôles — rejoue les gestes
+  Banc : `npm run tester-espace-client` (13 contrôles — rejoue les gestes
   complets via appliquer_lot, ce que personne ne faisait).
+  Le message rendu visible a nommé le VRAI coupable du blocage d'ESSO : le
+  **journal** (`audits`). Chaque geste écrit sa ligne de journal, et
+  `role_client_pas_de_journal` (client-1) refusait celle du client — lot
+  users + audits + commandes coincé. Corrigé en 2.101.36 : les lignes de
+  journal portent `user_id`, et la règle laisse un client voir/écrire SES
+  lignes (les anciennes, sans user_id, passent par le nom vérifié dans SA
+  fiche). Et le « la page refuse de quitter » : les boîtes de dialogue
+  (uConfirm/uAlert) étaient à z-50 comme les grandes fenêtres d'écran,
+  qui passaient DEVANT — la question « Valider ? » s'ouvrait derrière le
+  contrat, incliquable. DialogHost est à z-[70] désormais.
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.

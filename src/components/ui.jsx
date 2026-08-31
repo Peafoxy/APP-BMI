@@ -132,8 +132,15 @@ export function DialogHost() {
   };
   if (!d) return null;
   const close = (result) => { d.resolve(result); setD(null); };
+  // ⚠ z-[70], PAS z-50 (vécu par Timo, 31/08/2026, signature du contrat) :
+  // les grandes fenêtres des écrans (contrat, PV…) sont à z-50 et arrivent
+  // APRÈS dans la page — à profondeur égale, elles passaient DEVANT. La
+  // question « Valider ce devis ? » s'ouvrait donc DERRIÈRE la fenêtre du
+  // contrat : invisible, incliquable, et la validation attendait sans fin
+  // (« la page refuse de quitter »). Une boîte de dialogue doit TOUJOURS
+  // être au-dessus de tout (l'aperçu d'impression est à z-[60]).
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
         <div className="text-sm text-slate-800 whitespace-pre-line font-medium">{d.m}</div>
         {d.type === "prompt" && (

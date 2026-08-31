@@ -103,11 +103,24 @@ begin
     pas_client, moi, moi
   );
 
-  -- ── audits et categories_prospects : jamais lus par un client ─────
+  -- ── audits : un client ne lit que SES lignes de journal ──────────
+  -- ⚠ CORRECTIF DU 31/08/2026 (compte ESSO) : la première version fermait
+  -- le journal ENTIÈREMENT aux clients — or chaque geste d'un client ÉCRIT
+  -- sa ligne de journal (« Devis validé par… »), et l'écriture groupée
+  -- vérifie aussi la visibilité en lecture : la ligne était refusée, et
+  -- TOUT le lot de la validation restait coincé sur son téléphone.
+  -- Il voit donc ses propres lignes : celles signées de son identifiant
+  -- (user_id, posé par l'app depuis la 2.101.36), et celles à son nom
+  -- (les lignes déjà en attente sur les appareils, d'avant cette version —
+  -- le nom se vérifie dans SA fiche, la seule qu'il puisse lire).
   execute format('drop policy if exists "role_client_pas_de_journal" on public.audits;');
   execute format(
     'create policy "role_client_pas_de_journal" on public.audits '
-    'as restrictive for select to authenticated using (%s);', pas_client
+    'as restrictive for select to authenticated '
+    'using (%s or data ->> ''user_id'' = %s '
+    '  or exists (select 1 from public.users u '
+    '             where u.id = %s and u.data ->> ''nom'' = audits.data ->> ''user''));',
+    pas_client, moi, moi
   );
   execute format('drop policy if exists "role_client_pas_de_categories" on public.categories_prospects;');
   execute format(

@@ -596,7 +596,13 @@ export default function App() {
       // vrais montants dans leur libellé (point 13 de l'audit du 20/08/2026).
       // Il porte désormais sa marque, comme les prospects, et le serveur le
       // cloisonne (supabase/securite-1-audits-et-tombstones.sql).
-      ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", action, ...marqueEspace(next, profile) }, ...(next.audits || [])] }
+      // ⚠ user_id (31/08/2026, compte ESSO) : le serveur interdit le journal
+      // aux comptes clients (role_client_pas_de_journal) — mais chaque geste
+      // d'un client ÉCRIT sa ligne de journal, et ce refus bloquait tout son
+      // lot d'écritures (validation de devis comprise). La règle serveur
+      // laisse désormais passer les lignes dont l'auteur est le compte
+      // lui-même : il faut donc signer chaque ligne de son identifiant.
+      ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", user_id: profile?.id || null, action, ...marqueEspace(next, profile) }, ...(next.audits || [])] }
       : next;
     setDb(final);
     setSaveStatus("saving");
