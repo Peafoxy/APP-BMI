@@ -316,12 +316,12 @@ sortie : on regarde si la base a levé une objection.
 - Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.
-- Scripts SQL peut-être jamais exécutés :
-  `avis-supabase-1-search-path.sql` (script 3) — donné à Timo le
-  31/08/2026, pas encore collé. L'état des lieux (`avis-supabase-0`) et
-  `securite-1-audits-et-tombstones.sql` (script 2), eux, ont été COLLÉS
-  le 31/08/2026 : journal cloisonné (14 tables, 93 lignes réelles /
-  2 formation), tombstones fermées aux anonymes.
+- Les trois scripts d'hygiène (`avis-supabase-0`, `securite-1-audits-
+  et-tombstones`, `avis-supabase-1-search-path`) ont TOUS été collés par
+  Timo le 31/08/2026 : journal cloisonné (14 tables, 93 lignes réelles /
+  2 formation), tombstones fermées aux anonymes, chemin de recherche figé
+  sur TOUTES les fonctions (site vitrine compris). Plus rien en attente
+  côté hygiène serveur.
 - **La base Supabase héberge TROIS projets** (vu sur l'état des lieux du
   31/08/2026) : BMI-Gestion, le site vitrine bmitogo.com (galerie, kits,
   realisations, temoignages, contenu_site, produit_*, commandes_en_ligne,
