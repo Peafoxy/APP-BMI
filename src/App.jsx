@@ -1282,7 +1282,10 @@ export default function App() {
           <div className="text-lg font-bold text-slate-800">{titreOnglet}</div>
           <div className="flex items-center gap-4">
             {saveStatus === "error" && <span className="text-xs text-red-600 font-semibold">⚠ Erreur locale</span>}
-            <BadgeSync />
+            {/* ⚠ « En ligne / version / nom » n'est plus répété ici (relevé par
+                Timo, 31/08/2026) : la barre latérale, toujours visible sur
+                ordinateur, l'affiche déjà en bas. Seule l'ERREUR LOCALE garde
+                sa place — elle, n'apparaît nulle part ailleurs. */}
             <span className="text-xs text-slate-400">{dFR(today())}</span>
           </div>
         </div>

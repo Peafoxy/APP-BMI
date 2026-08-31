@@ -63,21 +63,27 @@ export const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 tex
 // repère la case sans lire son libellé, et le bleu reste réservé à la
 // navigation.
 //
+// ⚠ HABILLAGE REVU LE 31/08/2026 (validé par Timo : « commence par le
+// tableau de bord ») : les fonds pastel pleins faisaient « feuille de
+// calcul coloriée ». La teinte par nature RESTE — elle est simplement
+// portée par le liseré gauche et le libellé, sur fond blanc, et le
+// chiffre passe en grand : c'est lui qu'on vient lire.
+//
 // ⚠ CE COMPOSANT EST PARTAGÉ PAR LES SEPT ÉCRANS. C'est tout l'intérêt :
 // sept copies auraient dérivé, et « bleu » aurait fini par vouloir dire
 // autre chose ici que là.
 export const TEINTES_STAT = {
-  entree:    { fond: "bg-sky-50 border-sky-200",         titre: "text-sky-800",     valeur: "text-slate-900" },
-  sortie:    { fond: "bg-amber-50 border-amber-200",     titre: "text-amber-800",   valeur: "text-amber-950" },
-  du:        { fond: "bg-red-50 border-red-200",         titre: "text-red-800",     valeur: "text-red-900" },
-  regle:     { fond: "bg-green-50 border-green-200",     titre: "text-green-800",   valeur: "text-green-900" },
-  attente:   { fond: "bg-orange-50 border-orange-200",   titre: "text-orange-800",  valeur: "text-orange-900" },
-  neutre:    { fond: "bg-slate-100 border-slate-200",    titre: "text-slate-600",   valeur: "text-slate-900" },
+  entree:    { bord: "border-l-sky-600",    titre: "text-sky-800" },
+  sortie:    { bord: "border-l-amber-500",  titre: "text-amber-700" },
+  du:        { bord: "border-l-red-500",    titre: "text-red-700" },
+  regle:     { bord: "border-l-green-600",  titre: "text-green-700" },
+  attente:   { bord: "border-l-orange-500", titre: "text-orange-700" },
+  neutre:    { bord: "border-l-slate-300",  titre: "text-slate-500" },
   // ⚠ Le dimensionnement n'affiche PAS de l'argent mais des résultats de
   // calcul (puissance, nombre de panneaux, autonomie). Leur donner une
   // couleur d'argent mentirait sur ce qu'ils sont : ils ont donc leur propre
   // famille, qui ne ressemble à aucune des six autres.
-  technique: { fond: "bg-violet-50 border-violet-200",   titre: "text-violet-800",  valeur: "text-violet-950" },
+  technique: { bord: "border-l-violet-500", titre: "text-violet-700" },
 };
 
 // `nature`  : ce que le chiffre EST (voir ci-dessus).
@@ -88,9 +94,9 @@ export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact 
   const t = TEINTES_STAT[nature] || TEINTES_STAT.neutre;
   const contenu = value !== undefined ? value : valeur;
   return (
-    <div className={`rounded-xl border shadow-sm ${compact ? "p-3" : "p-4"} ${t.fond}`}>
-      <div className={`text-xs font-semibold uppercase tracking-wide ${t.titre}`}>{label}</div>
-      <div className={`text-xl font-bold mt-1 tabular-nums ${accent || t.valeur}`}>{contenu}</div>
+    <div className={`rounded-xl border border-slate-200 border-l-4 bg-white shadow-sm ${compact ? "p-3" : "px-4 py-3.5"} ${t.bord}`}>
+      <div className={`text-[11px] font-semibold uppercase tracking-wide ${t.titre}`}>{label}</div>
+      <div className={`${compact ? "text-xl" : "text-2xl"} font-extrabold mt-1 tabular-nums ${accent || "text-slate-900"}`}>{contenu}</div>
     </div>
   );
 };
