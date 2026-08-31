@@ -212,6 +212,11 @@ impossible, et le banc doit le dire dans ce sens-là.
 - **Un pouvoir, un bouton ou une alerte qui ne commande plus rien doit être
   retiré**, pas laissé en place. Une case à cocher qui ne fait rien fait
   croire à Timo qu'il a réglé quelque chose.
+- **`public/version.json` est réécrit par le build et DOIT partir avec
+  chaque envoi.** C'est lui qui signale aux appareils qu'une mise à jour
+  existe. Oublié deux fois (2.101.29 et .30) parce que le commit listait
+  les fichiers un par un : après `npm run build`, vérifier `git status`
+  avant de commettre.
 
 ---
 
