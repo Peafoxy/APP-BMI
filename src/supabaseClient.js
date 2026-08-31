@@ -29,18 +29,30 @@ const URL_APPARENCE = BASE ? `${BASE}/api/apparence` : "/api/apparence";
 
 // L'apparence de l'écran de connexion, servie SANS connexion — mais sans
 // publier pour autant la table des boutiques (adresses, téléphones, réglages
-// internes). Voir api/apparence.js. Renvoie null en cas d'échec : l'écran
-// garde alors son habillage par défaut, ce qui n'empêche personne de se
-// connecter.
+// internes). Voir api/apparence.js.
+//
+// ⚠ MÉMOIRE LOCALE (relevé par Timo, 31/08/2026) : sur le téléphone d'un
+// client, la base locale est PURGÉE à chaque déconnexion — l'écran de
+// connexion n'a donc plus de fiche boutique et dépend entièrement de cet
+// appel. S'il échoue à cet instant (réseau lent, hors ligne), l'écran
+// retombait sur l'habillage par défaut. La dernière apparence reçue est
+// désormais gardée en réserve sur l'appareil et sert de repli : l'habillage
+// reste celui que l'administrateur a réglé, même sans réseau au lancement.
 export async function chargerApparence() {
-  if (!supabaseConfigure || !navigator.onLine) return null;
+  const CLE = "bmi_apparence";
+  const reserve = () => {
+    try { return JSON.parse(localStorage.getItem(CLE)) || null; } catch { return null; }
+  };
+  if (!supabaseConfigure || !navigator.onLine) return reserve();
   try {
     const reponse = await fetch(URL_APPARENCE, { method: "GET" });
-    if (!reponse.ok) return null;
+    if (!reponse.ok) return reserve();
     const corps = await reponse.json().catch(() => ({}));
-    return corps?.apparence || null;
+    const apparence = corps?.apparence || null;
+    if (apparence) { try { localStorage.setItem(CLE, JSON.stringify(apparence)); } catch { /* stockage plein : le repli est un confort */ } }
+    return apparence || reserve();
   } catch {
-    return null;
+    return reserve();
   }
 }
 

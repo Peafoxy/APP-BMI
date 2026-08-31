@@ -3152,6 +3152,23 @@ titre("Vague 2, etape 1 : chaque dette et chaque vente naissent avec leur PROPRI
     /user_id: f\.user_id \|\| null/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
 }
 
+titre("L'apparence de l'accueil arrive sur les appareils SANS fiche boutique");
+{
+  // ⚠ Relevé par Timo (31/08/2026) : image, bulles et étoiles réglées dans
+  // Paramètres n'apparaissaient pas sur le téléphone des clients. Leur base
+  // locale est purgée à chaque déconnexion : l'écran de connexion dépend
+  // alors entièrement du petit serveur d'apparence — qui ne publiait pas
+  // trois des réglages, et n'avait aucun repli hors ligne.
+  const api = readFileSync("api/apparence.js", "utf8");
+  for (const champ of ["accueil_etoiles", "accueil_couleur_bulles", "accueil_image_etendue"]) {
+    test(`★ le serveur d'apparence publie ${champ}`, api.includes(`"${champ}"`));
+  }
+  test("★ l'écran de connexion FUSIONNE fiche locale et apparence serveur (champ par champ)",
+    /\.\.\.\(apparence \|\| \{\}\), \.\.\.\(db\.boutiques\[0\] \|\| \{\}\)/.test(readFileSync("src/screens/Connexion.jsx", "utf8")));
+  test("★ la dernière apparence reçue est gardée en réserve sur l'appareil (bmi_apparence)",
+    /bmi_apparence/.test(readFileSync("src/supabaseClient.js", "utf8")));
+}
+
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

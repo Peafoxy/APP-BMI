@@ -96,10 +96,13 @@ export function Login({ db, apparence, onLogin, save }) {
   // Personnalisation de l'écran de connexion (fêtes, etc.), réglée dans
   // Paramètres par l'admin principal — stockée sur les boutiques (déjà
   // lisibles ici avant toute connexion), donc disponible directement.
-  // La fiche boutique locale fait foi dès qu'elle existe. Sur un appareil
-  // neuf elle n'est pas encore là : le serveur nous a alors donné la seule
-  // apparence, sans le reste des informations de la boutique.
-  const b0 = db.boutiques[0] || apparence || {};
+  // ⚠ FUSION champ par champ, et non « l'un OU l'autre » (relevé par Timo,
+  // 31/08/2026) : la fiche boutique locale fait foi pour chaque réglage
+  // qu'elle porte, et l'apparence servie par le serveur COMBLE ce qui
+  // manque. Avant, une fiche boutique présente mais incomplète (créée après
+  // le réglage, ou reçue partiellement) écartait TOUTE l'apparence serveur —
+  // et le téléphone d'un client, purgé à chaque déconnexion, perdait tout.
+  const b0 = { ...(apparence || {}), ...(db.boutiques[0] || {}) };
   const accueilTexte = b0.accueil_texte || "BIENVENUE SUR NOTRE SYSTÈME";
   const accueilBadge = b0.accueil_couleur_badge || db.boutiques.find((b) => b.nom === "DEMAKPOE")?.couleur || "#0284c7";
   const accueilFond = b0.accueil_couleur_fond || "#ffffff";

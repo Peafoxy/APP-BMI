@@ -40,6 +40,14 @@ const CHAMPS_APPARENCE = [
   "accueil_image_ajustement",
   "accueil_image_position",
   "accueil_messages",
+  // ⚠ Relevé par Timo (31/08/2026) : ces trois réglages existaient dans
+  // l'écran de connexion mais manquaient ICI — sur un téléphone sans fiche
+  // boutique locale (celui d'un client, purgé à chaque déconnexion), les
+  // étoiles, la couleur des bulles et le mode « image entière » ne
+  // s'affichaient donc jamais. Purement décoratifs : rien de sensible.
+  "accueil_etoiles",
+  "accueil_couleur_bulles",
+  "accueil_image_etendue",
 ];
 
 export default async function handler(req, res) {
