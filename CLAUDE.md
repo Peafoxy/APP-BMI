@@ -317,7 +317,21 @@ sortie : on regarde si la base a levé une objection.
   que la fiche de paie correspondante existe dans la table `paie`, qui fait
   foi, mais à fermer un jour.
 - Scripts SQL peut-être jamais exécutés :
-  `securite-1-audits-et-tombstones.sql`, `avis-supabase-0-etat-des-lieux.sql`,
-  `avis-supabase-1-search-path.sql`.
+  `securite-1-audits-et-tombstones.sql` (script 2) et
+  `avis-supabase-1-search-path.sql` (script 3) — donnés à Timo le
+  31/08/2026, pas encore collés. L'état des lieux (`avis-supabase-0`),
+  lui, a été collé.
+- **La base Supabase héberge TROIS projets** (vu sur l'état des lieux du
+  31/08/2026) : BMI-Gestion, le site vitrine bmitogo.com (galerie, kits,
+  realisations, temoignages, contenu_site, produit_*, commandes_en_ligne,
+  demandes_devis, messages_contact — leurs règles « lecture publique » et
+  « depot public » sont VOULUES, ne pas les fermer), et un projet WIFI
+  (~18 tables `wifi_*`, RLS actif sans aucune règle : verrouillées ;
+  demander à Timo si cette app tourne encore avant d'y toucher).
+  ⚠ Les règles `acces_authentifie_*` affichent le profil {public} mais
+  exigent `auth.role() = 'authenticated'` : pas des portes.
+  Les deux SEULES vraies portes publiques trouvées (`groupes_all`,
+  `proformas_all`, condition true, toutes actions) ont été fermées par
+  Timo le 31/08/2026 (drop policy).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 
