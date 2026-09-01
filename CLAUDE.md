@@ -348,7 +348,8 @@ sortie : on regarde si la base a levé une objection.
   users + audits + commandes coincé. Corrigé en 2.101.36 : les lignes de
   journal portent `user_id`, et la règle laisse un client voir/écrire SES
   lignes (les anciennes, sans user_id, passent par le nom vérifié dans SA
-  fiche). Et le « la page refuse de quitter » : les boîtes de dialogue
+  fiche). **RÉGLÉ ET CLOS le 31/08/2026 — Timo a collé le SQL, l'histoire
+  ESSO est terminée. Ne plus la lui rappeler.** Et le « la page refuse de quitter » : les boîtes de dialogue
   (uConfirm/uAlert) étaient à z-50 comme les grandes fenêtres d'écran,
   qui passaient DEVANT — la question « Valider ? » s'ouvrait derrière le
   contrat, incliquable. DialogHost est à z-[70] désormais.
