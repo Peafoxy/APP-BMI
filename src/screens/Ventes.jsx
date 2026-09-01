@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -712,6 +712,47 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }
   };
 
+  // ---- 🔁 RETOUR / ÉCHANGE SOUS GARANTIE ----
+  // Demande Timo (31/08/2026). Réservé aux administrateurs (« tout admin »,
+  // sa réponse). Toute la logique est dans construireRetour (lib/calculs.js),
+  // pure et surveillée par le banc : sortie du remplacement par AJUSTEMENT
+  // (jamais une vente — donc ni CA ni commission), défectueux au stock SAV,
+  // frais éventuels (déplacement, main-d'œuvre, décote) par une DETTE du
+  // montant saisi, jamais du prix de l'article.
+  const [retour, setRetour] = useState(null); // { vente, produit_id, qte, motif, facture, montant, detail }
+  const ouvrirRetour = (v) => {
+    const lignesStock = lignesVente(v).filter((l) => !l.hors_boutique && l.produit_id);
+    if (!lignesStock.length) { uAlert("Cette vente ne porte aucun article de stock à échanger."); return; }
+    setRetour({ vente: v, produit_id: lignesStock[0].produit_id, qte: "1", motif: "", facture: false, montant: "", detail: "" });
+  };
+  const confirmerRetour = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    const r = retour;
+    if (r.facture && !(Number(r.montant) > 0)) { uAlert("Indiquez le montant facturé, ou repassez sur « Gratuit »."); return; }
+    const resultat = construireRetour(db, r.vente, {
+      produit_id: r.produit_id, qte: Number(r.qte), motif: r.motif,
+      montantFacture: r.facture ? Number(r.montant || 0) : 0, detailFacture: r.detail,
+    }, profile);
+    if (resultat.erreur) { uAlert(resultat.erreur); return; }
+    const { ajustements, dette, ref, produit } = resultat;
+    const n = Number(r.qte);
+    if (!(await uConfirm(
+      `Échanger ${n} × « ${produit.nom} » (reçu ${numeroRecu(r.vente)}) ?\n\n` +
+      `• Le défectueux entre au SAV — jamais remis en vente\n` +
+      `• ${n} remplacement(s) sortent du stock de ${r.vente.boutique}\n` +
+      (dette
+        ? `• Frais facturés au client : ${fmt(dette.montant)} (${(r.detail || "frais d'échange").trim()}) — une dette est créée à son nom`
+        : `• GRATUIT — coût de garantie pour l'entreprise : ${fmt(n * ajustements[0].prix_achat)}`)
+    ))) return;
+    save({
+      ...db,
+      ajustements: [...ajustements, ...(db.ajustements || [])],
+      ...(dette ? { dettes: [dette, ...(db.dettes || [])] } : {}),
+    }, `🔁 Retour ${ref} : ${n} × ${produit.nom} échangé(s) sous garantie (reçu ${numeroRecu(r.vente)}${r.vente.client ? `, ${r.vente.client}` : ""})${dette ? ` — frais facturés ${fmt(dette.montant)}` : " — gratuit"}`);
+    setRetour(null);
+    uAlert(`✅ Retour ${ref} enregistré.\n\nLe défectueux attend son sort dans 📦 Stocks → 🔧 Défectueux / SAV (renvoi au fournisseur ou rebut).${dette ? `\n\nLes frais (${fmt(dette.montant)}) sont dans 💳 Dettes, au nom du client.` : ""}`);
+  };
+
   // ⚠ Demande Timo : reprendre une vente déjà encaissée pour en faire un devis
   // (libre, comme « Autre ») — le client peut ainsi demander d'ajouter des
   // équipements + une installation, avec le même parcours qu'un devis normal
@@ -1027,6 +1068,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     <button onClick={() => transformerEnDevis(v)} className="text-xs font-bold text-purple-700 underline mr-2" title="Reprendre cette vente pour en faire un devis d'installation">📋 Devis</button>
                   )}
                   {profile.role === "admin" && (
+                    <button onClick={() => ouvrirRetour(v)} className="text-xs font-bold text-amber-700 underline mr-2" title="Échange sous garantie : sortie de stock SANS vente ni facturation (ou frais partiels)">🔁 Retour</button>
+                  )}
+                  {profile.role === "admin" && (
                     <button onClick={() => supprimerVente(v)} className="text-xs text-red-600 underline">Suppr.</button>
                   )}
                 </td>
@@ -1037,6 +1081,52 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         )}
         </div>
       </div>
+
+      {retour && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="font-bold text-slate-900">🔁 Retour / échange sous garantie</div>
+            <div className="text-xs text-slate-500">
+              Reçu {numeroRecu(retour.vente)} — {retour.vente.client || "client de passage"} — {retour.vente.boutique}.
+              La sortie de remplacement n'est <b>ni une vente, ni du chiffre d'affaires, ni une commission</b> :
+              c'est un échange, tracé comme tel.
+            </div>
+            <Field label="Article concerné">
+              <select className={inputCls} value={retour.produit_id} onChange={(e) => setRetour({ ...retour, produit_id: e.target.value })}>
+                {lignesVente(retour.vente).filter((l) => !l.hors_boutique && l.produit_id).map((l) => (
+                  <option key={l.produit_id} value={l.produit_id}>{l.article} (acheté ×{l.qte})</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Quantité à échanger">
+              <input type="number" min="1" className={inputCls} value={retour.qte} onChange={(e) => setRetour({ ...retour, qte: e.target.value })} />
+            </Field>
+            <Field label="Panne constatée (motif)">
+              <input className={inputCls} placeholder="Ex : ne charge plus au bout de 2 mois" value={retour.motif} onChange={(e) => setRetour({ ...retour, motif: e.target.value })} />
+            </Field>
+            <Field label="Facturation">
+              <select className={inputCls} value={retour.facture ? "facture" : "gratuit"} onChange={(e) => setRetour({ ...retour, facture: e.target.value === "facture" })}>
+                <option value="gratuit">Gratuit — pris sous garantie</option>
+                <option value="facture">Frais facturés (déplacement, main-d'œuvre, décote…)</option>
+              </select>
+            </Field>
+            {retour.facture && (
+              <>
+                <Field label="Montant facturé (F CFA) — les frais SEULEMENT, jamais le prix de l'article">
+                  <input type="number" min="0" className={inputCls} value={retour.montant} onChange={(e) => setRetour({ ...retour, montant: e.target.value })} />
+                </Field>
+                <Field label="Détail des frais">
+                  <input className={inputCls} placeholder="Ex : déplacement technicien + main-d'œuvre" value={retour.detail} onChange={(e) => setRetour({ ...retour, detail: e.target.value })} />
+                </Field>
+              </>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setRetour(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
+              <button onClick={confirmerRetour} className={btnDark}>Enregistrer le retour</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -1026,6 +1026,42 @@ export function Stocks({ db, save, profile }) {
           <div className="mt-3 flex gap-2 flex-wrap">
             <button onClick={validerInventaire} className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800">✅ Valider l'inventaire</button>
             <button onClick={() => setInv(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- 🔧 DÉFECTUEUX / SAV (demande Timo, 31/08/2026) ----
+          Les articles rendus en panne lors d'un échange sous garantie
+          (🔁 Retour, écran Ventes). Ils ne sont JAMAIS dans le stock
+          vendable : ils attendent ici leur sort — renvoi au fournisseur
+          (garantie fabricant) ou rebut, les deux existent chez Timo. */}
+      {profile.role === "admin" && retoursEnSav(db).filter((a) => a.boutique === bq).length > 0 && (
+        <div className="rounded-xl p-4 bg-white border-2 border-amber-300">
+          <div className="font-bold text-amber-800 mb-1">🔧 Défectueux / SAV — {bq}</div>
+          <div className="text-xs text-slate-500 mb-3">Articles rendus en panne lors d'un échange sous garantie. Ils ne sont pas dans le stock vendable. Indiquez leur sort :</div>
+          <div className="space-y-2">
+            {retoursEnSav(db).filter((a) => a.boutique === bq).map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <div>
+                  <div className="font-semibold">{a.qte_sav || 1} × {a.article || "?"} <span className="text-xs font-normal text-slate-500">({a.ref} · {dFR(a.date)})</span></div>
+                  <div className="text-xs text-slate-600">{a.motif}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={async () => {
+                    if (bloquerSiLecture(db, profile)) return;
+                    if (!await uConfirm(`Marquer ${a.qte_sav || 1} × ${a.article} comme RENVOYÉ(S) AU FOURNISSEUR (garantie fabricant) ?`)) return;
+                    save({ ...db, ajustements: db.ajustements.map((x) => (x.id === a.id ? { ...x, statut: "renvoye_fournisseur", traite_le: today(), traite_par: profile.nom } : x)) },
+                      `🔧 SAV ${a.ref} : ${a.qte_sav || 1} × ${a.article} renvoyé(s) au fournisseur (garantie fabricant)`);
+                  }} className="px-3 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">📦 Renvoyé au fournisseur</button>
+                  <button onClick={async () => {
+                    if (bloquerSiLecture(db, profile)) return;
+                    if (!await uConfirm(`Mettre ${a.qte_sav || 1} × ${a.article} au REBUT (irrécupérable) ?`)) return;
+                    save({ ...db, ajustements: db.ajustements.map((x) => (x.id === a.id ? { ...x, statut: "rebut", traite_le: today(), traite_par: profile.nom } : x)) },
+                      `🔧 SAV ${a.ref} : ${a.qte_sav || 1} × ${a.article} mis au rebut`);
+                  }} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">🗑 Rebut</button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -184,6 +184,21 @@ impossible, et le banc doit le dire dans ce sens-là.
   politiques RLS sont la seule barrière**, il n'y a aucun filtre par
   utilisateur côté application.
 
+### Retours / SAV (échange sous garantie — 2.101.37)
+- **Un échange n'est JAMAIS une vente** : la sortie de l'article de
+  remplacement est un ajustement négatif (`echange_garantie`) — aucun CA,
+  aucune commission, aucun reçu. Toute la logique est dans
+  `construireRetour()` (lib/calculs.js), pure, surveillée par le banc.
+- Le défectueux rendu entre dans un **stock SAV à part** (`retour_defectueux`,
+  qte: 0, compte dans `qte_sav`) — jamais dans le stock vendable. Son sort :
+  « renvoyé au fournisseur » OU « rebut » — les deux, tranché par Timo.
+- Les frais éventuels (déplacement, main-d'œuvre, décote selon l'âge — ses
+  trois cas) passent par une **dette du montant SAISI**, jamais déduit du
+  prix de l'article.
+- Le geste est réservé à **tout admin** (« tout admin », 31/08/2026), bouton
+  🔁 Retour sur chaque vente. Le coût des garanties s'affiche en Rentabilité
+  (prix d'achat photographié au moment de l'échange).
+
 ### Apparence
 - **Le tableau de bord reste tel qu'il est** (cases à fond pastel, une
   teinte par nature ; sélecteur de période entre les deux rangées de

@@ -3152,6 +3152,59 @@ titre("Vague 2, etape 1 : chaque dette et chaque vente naissent avec leur PROPRI
     /user_id: f\.user_id \|\| null/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
 }
 
+titre("Retour sous garantie : un échange n'est JAMAIS une vente");
+{
+  // Demande Timo (31/08/2026) : sortir un article de remplacement sans
+  // facturer (ou en facturant SEULEMENT des frais), en sachant que c'est un
+  // retour. Tout passe par construireRetour (lib/calculs.js) — on MESURE.
+  const dbR = {
+    produits: [{ id: "p1", nom: "BATTERIE", boutique: "APESSITO", initial: 5, entrees: 0, prix_achat: 180000, prix_vente: 250000 }],
+    ventes: [{ id: "v1", boutique: "APESSITO", client: "AMA", tel: "90112233", date: "2026-08-01",
+      articles: [{ produit_id: "p1", article: "BATTERIE", qte: 2, pu: 250000 }] }],
+    ajustements: [], dettes: [], boutiques: [{ id: "b1", nom: "APESSITO" }],
+    users: [{ id: "u9", role: "client", tel: "90112233", nom: "AMA" }],
+  };
+  const vente = dbR.ventes[0];
+  const profil = { nom: "TIMO" };
+  const caAvant = Core.caVente(vente);
+
+  const gratuit = C.construireRetour(dbR, vente, { produit_id: "p1", qte: 1, motif: "ne charge plus", montantFacture: 0 }, profil);
+  test("★ un retour GRATUIT ne crée ni vente ni dette", !gratuit.erreur && gratuit.dette === null);
+  test("★ la sortie de remplacement est un ajustement négatif — pas une vente",
+    gratuit.ajustements[0].qte === -1 && gratuit.ajustements[0].type === "echange_garantie");
+  const dbApres = { ...dbR, ajustements: gratuit.ajustements };
+  test("★ le stock vendable baisse d'exactement 1 (5 − 2 vendus − 1 échangé = 2)",
+    C.stockActuel(dbApres, dbR.produits[0]) === 2);
+  test("★ le défectueux n'entre JAMAIS au stock vendable (qte 0, compté à part)",
+    gratuit.ajustements[1].qte === 0 && gratuit.ajustements[1].qte_sav === 1
+    && gratuit.ajustements[1].statut === "en_sav");
+  test("★ le CA de la vente d'origine n'a pas bougé d'un franc",
+    Core.caVente(vente) === caAvant);
+  test("le coût de garantie = prix d'achat photographié au moment de l'échange",
+    gratuit.ajustements[0].prix_achat === 180000 && C.coutGarantie(dbApres) === 180000);
+  test("le défectueux attend son sort dans la liste SAV",
+    C.retoursEnSav(dbApres).length === 1);
+
+  const facture = C.construireRetour(dbR, vente,
+    { produit_id: "p1", qte: 1, motif: "panne", montantFacture: 15000, detailFacture: "déplacement technicien" }, profil);
+  test("★ les frais facturés = le montant SAISI (15 000), jamais le prix de l'article",
+    facture.dette && facture.dette.montant === 15000);
+  test("★ la dette des frais appartient au compte du client (étape 1 respectée)",
+    facture.dette.client_user_id === "u9");
+  test("les écritures d'un même retour partagent la même référence RET-",
+    gratuit.ajustements[0].ref === gratuit.ajustements[1].ref && /^RET-/.test(gratuit.ref));
+
+  test("échanger PLUS que la quantité achetée : refusé",
+    !!C.construireRetour(dbR, vente, { produit_id: "p1", qte: 3, motif: "x" }, profil).erreur);
+  test("stock de remplacement insuffisant : refusé avec explication",
+    !!C.construireRetour({ ...dbR, produits: [{ ...dbR.produits[0], initial: 2 }] }, vente,
+      { produit_id: "p1", qte: 1, motif: "x" }, profil).erreur);
+  test("article absent de la vente : refusé",
+    !!C.construireRetour(dbR, vente, { produit_id: "autre", qte: 1, motif: "x" }, profil).erreur);
+  test("motif obligatoire (la panne doit être nommée)",
+    !!C.construireRetour(dbR, vente, { produit_id: "p1", qte: 1, motif: "  " }, profil).erreur);
+}
+
 titre("L'apparence de l'accueil arrive sur les appareils SANS fiche boutique");
 {
   // ⚠ Relevé par Timo (31/08/2026) : image, bulles et étoiles réglées dans

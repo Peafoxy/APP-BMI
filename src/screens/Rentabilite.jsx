@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { fmt, today, inP, caLigneVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
-import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation } from "../lib/calculs";
+import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ RENTABILITÉ PAR PRODUIT ============
@@ -71,6 +71,12 @@ export function Rentabilite({ db, profile }) {
   // stock des boutiques d'entraînement gonflait donc le « capital dormant »
   // et polluait la liste des invendus, alors même que le tableau des ventes
   // juste au-dessus excluait bien la formation.
+  // Ce que les échanges sous garantie ont coûté sur la période (🔁 Retour,
+  // écran Ventes) : les remplacements sortis du stock SANS être vendus,
+  // valorisés au prix d'achat photographié au moment de l'échange. Un
+  // modèle qui revient trop souvent se verra ici. (Demande Timo, 31/08/2026.)
+  const coutSav = coutGarantie(db, a, b, dansMonEspace);
+
   const vendus = new Set(Object.keys(parProduit));
   const dormants = (db.produits || []).filter(dansMonEspace)
     .filter((p) => !vendus.has(p.nom) && stockActuel(db, p) > 0)
@@ -113,6 +119,7 @@ export function Rentabilite({ db, profile }) {
           <Stat label="Marge brute" valeur={fmt(margeTotale)} nature="regle" />
           <Stat label="Taux de marge global" valeur={`${tauxGlobal} %`} nature={tauxGlobal < 15 ? "du" : "regle"} />
           <Stat label="Capital dormant" valeur={fmt(capitalDormant)} nature="attente" />
+          {coutSav > 0 && <Stat label="Coût des échanges garantie (SAV)" valeur={fmt(coutSav)} nature="sortie" />}
         </div>
       </div>
 

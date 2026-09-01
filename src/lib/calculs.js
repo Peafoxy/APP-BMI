@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today } from "./core";
+import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette } from "./core";
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
@@ -485,6 +485,92 @@ export const stockAjuste = (db, pid) =>
 export const stockActuel = (db, p) =>
   Number(p.initial || 0) + Number(p.entrees || 0)
   - stockVendu(db, p.id) + stockAjuste(db, p.id);
+
+// ============ RETOURS SOUS GARANTIE — ÉCHANGE D'UN ARTICLE DÉFECTUEUX ============
+// Demande Timo (31/08/2026) : « comment faire pour que le système puisse
+// sortir le produit sans être facturé, ou partiellement facturé — mais
+// savoir que c'est suite à un retour, pas une vente classique ».
+//
+// TOUT PASSE PAR LES AJUSTEMENTS, JAMAIS PAR UNE VENTE :
+//   • la sortie de l'article de remplacement est un ajustement NÉGATIF
+//     (le stock vendable baisse) — donc AUCUN chiffre d'affaires, AUCUNE
+//     commission, aucun reçu de vente ;
+//   • l'article défectueux rendu entre dans un « stock SAV » à part —
+//     un ajustement de quantité NULLE (qte: 0, le compte est dans
+//     qte_sav) : il n'entre JAMAIS dans le stock vendable, personne ne
+//     peut revendre un article en panne. De là, il finit « renvoyé au
+//     fournisseur » (garantie fabricant) ou « au rebut » — les deux,
+//     a tranché Timo ;
+//   • si des frais sont facturés (déplacement du technicien,
+//     main-d'œuvre, décote selon l'âge — ses trois cas), une DETTE
+//     classique est créée pour CE montant-là et rien d'autre : elle suit
+//     le circuit éprouvé des dettes (versements, échéancier, caisse).
+//     Le montant est celui SAISI — jamais déduit du prix de l'article.
+//
+// Le tout est relié par une même référence (RET-…) et à la vente
+// d'origine (vente_id) : on saura toujours que cette sortie est un
+// retour. Le coût réel des garanties se mesure avec coutGarantie().
+export const TYPE_ECHANGE_GARANTIE = "echange_garantie";
+export const TYPE_RETOUR_DEFECTUEUX = "retour_defectueux";
+
+// Construit les écritures d'un retour. Renvoie { erreur } si le geste est
+// impossible, sinon { ajustements: [sortie, sav], dette|null, ref }.
+// Fonction PURE : elle ne modifie rien, l'écran fait le save().
+export const construireRetour = (db, vente, choix, profile) => {
+  const { produit_id, qte, motif, montantFacture, detailFacture } = choix || {};
+  const ligne = lignesVente(vente).find((l) => l.produit_id === produit_id && !l.hors_boutique);
+  if (!ligne) return { erreur: "Cet article ne figure pas sur cette vente." };
+  const n = Math.floor(Number(qte || 0));
+  if (!(n >= 1 && n <= Number(ligne.qte || 0))) {
+    return { erreur: `Quantité invalide : cette vente porte ${ligne.qte} exemplaire(s) de cet article.` };
+  }
+  if (!String(motif || "").trim()) return { erreur: "Indiquez le motif du retour (la panne constatée)." };
+  const produit = (db.produits || []).find((p) => p.id === produit_id);
+  if (!produit) return { erreur: "L'article n'existe plus dans le stock — impossible de préparer l'échange." };
+  if (stockActuel(db, produit) < n) {
+    return { erreur: `Stock insuffisant pour l'échange : il reste ${stockActuel(db, produit)} « ${produit.nom} » à ${produit.boutique}. Ravitaillez d'abord.` };
+  }
+  // ⚠ Le montant facturé est celui que l'administrateur SAISIT (déplacement,
+  // main-d'œuvre, décote) — jamais calculé depuis le prix de l'article.
+  const montant = Math.max(0, Math.round(Number(montantFacture || 0)));
+  const ref = "RET-" + uid().slice(0, 8).toUpperCase();
+  const sortie = {
+    id: uid(), date: today(), produit_id, boutique: vente.boutique, qte: -n,
+    type: TYPE_ECHANGE_GARANTIE, ref, vente_id: vente.id,
+    motif: `Échange garantie (${ref}) — ${String(motif).trim()}`,
+    par: profile?.nom || "?", autorise_par: profile?.nom || "?",
+    // Le prix d'achat est photographié AU MOMENT de l'échange : c'est lui
+    // qui mesure le coût de la garantie, même si le prix change ensuite.
+    prix_achat: Number(produit.prix_achat || 0),
+  };
+  const sav = {
+    id: uid(), date: today(), produit_id, boutique: vente.boutique,
+    qte: 0, qte_sav: n, article: produit.nom,
+    type: TYPE_RETOUR_DEFECTUEUX, statut: "en_sav", ref, vente_id: vente.id,
+    motif: `Défectueux rendu — ${String(motif).trim()}`,
+    par: profile?.nom || "?",
+  };
+  const dette = montant > 0 ? {
+    id: uid(),
+    client_user_id: compteClientPour(db, vente.tel, vente.client),
+    numero: prochainNumeroDette(db, vente.boutique), date: today(),
+    boutique: vente.boutique, client: vente.client || "", tel: vente.tel || "",
+    motif: `SAV ${ref} — ${String(detailFacture || "frais d'échange").trim()}`,
+    montant, paye: 0, paiements: [], par: profile?.nom || "?", retour_ref: ref,
+  } : null;
+  return { ajustements: [sortie, sav], dette, ref, produit };
+};
+
+// Les articles défectueux encore en attente de sort (renvoi ou rebut).
+export const retoursEnSav = (db) => (db.ajustements || [])
+  .filter((a) => a.type === TYPE_RETOUR_DEFECTUEUX && (a.statut || "en_sav") === "en_sav");
+
+// Ce que les échanges sous garantie ont coûté (au prix d'achat photographié),
+// sur une période. `filtre` = le filtre d'espace de l'écran appelant.
+export const coutGarantie = (db, a, b, filtre = () => true) => (db.ajustements || [])
+  .filter((x) => x.type === TYPE_ECHANGE_GARANTIE && filtre(x))
+  .filter((x) => !a || !b || (x.date >= a && x.date <= b))
+  .reduce((s, x) => s + (-Number(x.qte || 0)) * Number(x.prix_achat || 0), 0);
 
 // ============ PAIE : calcul du net d'un mois + virements ============
 // Un « virement » est un versement de salaire envoyé par l'administrateur.
