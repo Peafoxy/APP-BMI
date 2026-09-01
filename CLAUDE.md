@@ -359,4 +359,11 @@ sortie : on regarde si la base a levé une objection.
   `proformas_all`, condition true, toutes actions) ont été fermées par
   Timo le 31/08/2026 (drop policy).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
+- **Corbeille pour les fiches supprimées** (chantiers d'abord) : une fiche
+  supprimée serait mise de côté 30 jours, restaurable par l'admin
+  principal, au lieu d'être effacée partout par le faire-part. Plan décrit
+  à Timo le 31/08/2026 — « on met ça entre parenthèses ». Ne pas
+  construire sans son feu vert. En attendant, la récupération passe par :
+  le fichier de sauvegarde horaire, un appareil resté hors ligne (ouvrir
+  AVANT de le reconnecter), puis ressaisie manuelle.
 
