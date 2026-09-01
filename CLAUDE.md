@@ -374,6 +374,18 @@ sortie : on regarde si la base a levé une objection.
   `proformas_all`, condition true, toutes actions) ont été fermées par
   Timo le 31/08/2026 (drop policy).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
+- **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
+  CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
+  Le déroulé validé : bouton 🛡, l'admin choisit son nom + tape SON mot de
+  passe (vérifiable hors ligne, pas de code partagé), l'interface passe en
+  droits admin pour UN SEUL geste puis le mode se referme tout seul
+  (« tout doit être pour un seul geste et le mode se referme » — mot pour
+  mot) ; journal aux deux noms (« supprimé par TIMO (superviseur) —
+  appareil de KOSSI ») ; exclusions : 👥 Utilisateurs, 💰 Salaires/paie,
+  💾 Restauration (le serveur exige la vraie session admin pour ceux-là).
+  ⚠ Piège identifié à l'avance : en mode superviseur, `ecrivain` de
+  sauvegarderDiff doit RESTER celui du vendeur (admin: false), sinon la
+  séparation de paie fabriquerait des fiches vides refusées par le serveur.
 - **Corbeille pour les fiches supprimées** (chantiers d'abord) : une fiche
   supprimée serait mise de côté 30 jours, restaurable par l'admin
   principal, au lieu d'être effacée partout par le faire-part. Plan décrit
