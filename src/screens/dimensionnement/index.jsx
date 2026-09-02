@@ -21,12 +21,27 @@ import { DimensionnementAutre } from "./Autre";
 //     métier à partir de son seul nom.
 export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
   const domaines = domainesDefinis(db);
-  const [mode, setMode] = useState(domaines[0]?.id || "solaire");
+  // ⚠ Le VOLET choisi survit au F5 et aux nouvelles versions (relevé par
+  // Timo, 02/09/2026 : les champs survivaient — mais le F5 ramenait sur
+  // Solaire, donc sur une autre boutique que celle du travail en cours).
+  // Mémorisé PAR COMPTE, comme le dernier onglet de l'application. Un
+  // volet mémorisé qui n'existe plus (domaine supprimé) est ignoré.
+  const cleVolet = `bmi_dim_volet:${profile.id}`;
+  const [mode, setMode] = useState(() => {
+    try {
+      const memorise = localStorage.getItem(cleVolet);
+      if (memorise && domaines.some((d) => d.id === memorise)) return memorise;
+    } catch { /* stockage indisponible : on repart du premier volet */ }
+    return domaines[0]?.id || "solaire";
+  });
+  useEffect(() => {
+    try { localStorage.setItem(cleVolet, mode); } catch { /* sans gravité */ }
+  }, [cleVolet, mode]);
   // Un domaine supprimé depuis les Paramètres ne doit pas laisser l'écran vide.
   const actif = domaines.find((d) => d.id === mode) || domaines[0] || null;
   // Ces volets contiennent chacun de longs formulaires : basculer de l'un à
   // l'autre ne doit pas effacer ce qui n'est pas encore enregistré.
-  const [visite, setVisite] = useState({ [domaines[0]?.id || "solaire"]: true });
+  const [visite, setVisite] = useState(() => ({ [mode]: true }));
   useEffect(() => { setVisite((v) => (v[mode] ? v : { ...v, [mode]: true })); }, [mode]);
 
   // Bascule automatiquement sur le bon outil dès qu'un devis à reprendre
