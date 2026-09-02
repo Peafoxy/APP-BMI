@@ -8,17 +8,34 @@ import { uAlert } from "../components/ui";
 
 let leafletChargement = null;
 function chargerLeaflet() {
-  if (window.L) return Promise.resolve(window.L);
+  if (window.L && window.__leafletCssOk) return Promise.resolve(window.L);
   if (leafletChargement) return leafletChargement;
   leafletChargement = new Promise((resolve, reject) => {
+    // ⚠ La feuille de style d'abord, et SURVEILLÉE (relevé par Timo,
+    // 01/09/2026 : carte toute blanche). Avant, son échec était muet : le
+    // script se chargeait, la carte « fonctionnait » (les clics posaient
+    // bien la position) mais ne DESSINAIT rien — sans elle, les tuiles
+    // n'ont ni taille ni position. Une carte invisible qui marche est le
+    // pire des symptômes : maintenant, si un des deux fichiers manque,
+    // l'écran le dit clairement.
     const lien = document.createElement("link");
     lien.rel = "stylesheet";
     lien.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-    document.head.appendChild(lien);
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error("Impossible de charger la carte (vérifiez la connexion internet)."));
+    let cssOk = false, jsOk = false;
+    const fini = () => {
+      if (cssOk && jsOk) { window.__leafletCssOk = true; resolve(window.L); }
+    };
+    const echec = (quoi) => {
+      leafletChargement = null; // on pourra réessayer à la prochaine ouverture
+      reject(new Error(`Impossible de charger ${quoi} de la carte. Vérifiez la connexion internet, puis rouvrez cette fenêtre.`));
+    };
+    lien.onload = () => { cssOk = true; fini(); };
+    lien.onerror = () => echec("l'habillage");
+    script.onload = () => { jsOk = true; fini(); };
+    script.onerror = () => echec("le moteur");
+    document.head.appendChild(lien);
     document.head.appendChild(script);
   });
   return leafletChargement;
@@ -41,16 +58,35 @@ export function CarteChoixPosition({ lat, lng, onChoisir }) {
         if (annule || !conteneurRef.current || mapRef.current) return;
         const depart = lat && lng ? [lat, lng] : LOME;
         const map = L.map(conteneurRef.current).setView(depart, lat && lng ? 15 : 12);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        // ⚠ Adresse SANS le préfixe {s} : OpenStreetMap a déprécié les
+        // sous-domaines a/b/c — sur certains réseaux ils ne répondent plus,
+        // et la carte restait blanche.
+        const tuiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap",
           maxZoom: 19,
         }).addTo(map);
+        // Si les tuiles elles-mêmes ne viennent pas (réseau qui les bloque),
+        // on le DIT au lieu de laisser un rectangle blanc.
+        let tuilesEnEchec = 0;
+        tuiles.on("tileerror", () => {
+          tuilesEnEchec += 1;
+          if (tuilesEnEchec === 6) setErreur("Le fond de carte ne se charge pas sur ce réseau. Vous pouvez quand même utiliser « 📍 Ma position actuelle » : la position sera bien enregistrée.");
+        });
+        tuiles.on("tileload", () => { tuilesEnEchec = 0; setErreur(""); });
         const marqueur = L.marker(depart, { draggable: true }).addTo(map);
         marqueur.on("dragend", () => { const p = marqueur.getLatLng(); onChoisir(p.lat, p.lng); });
         map.on("click", (e) => { marqueur.setLatLng(e.latlng); onChoisir(e.latlng.lat, e.latlng.lng); });
         mapRef.current = map;
         marqueurRef.current = marqueur;
         setPret(true);
+        // ⚠ La fenêtre qui contient la carte s'ouvre avec une animation : si
+        // Leaflet mesure le cadre PENDANT l'ouverture (taille nulle), il ne
+        // dessine aucune tuile et reste blanc. On lui fait reprendre ses
+        // mesures une fois la fenêtre posée — trois rappels espacés, pour
+        // couvrir les téléphones lents.
+        [100, 500, 1500].forEach((delai) => setTimeout(() => {
+          if (mapRef.current) mapRef.current.invalidateSize();
+        }, delai));
       })
       .catch((e) => setErreur(e.message));
     return () => {
@@ -79,7 +115,7 @@ export function CarteChoixPosition({ lat, lng, onChoisir }) {
   return (
     <div className="rounded-lg border border-slate-300 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200">
-        <span className="text-xs text-slate-500">Cliquez sur la carte, ou faites glisser le repère, pour indiquer la maison du prospect.</span>
+        <span className="text-xs text-slate-500">Cliquez sur la carte, ou faites glisser le repère, pour marquer l'emplacement exact.</span>
         <button type="button" onClick={maPosition} className="text-xs font-bold text-sky-800 underline whitespace-nowrap ml-2">📍 Ma position actuelle</button>
       </div>
       {erreur && <div className="p-3 text-sm text-red-600">{erreur}</div>}
