@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 
@@ -397,10 +397,21 @@ export function Stocks({ db, save, profile }) {
     ? []
     : articlesSimilaires(db, profile, bq, f.nom);
 
-  // ⚠ Un article DÉJÀ dans cette boutique ne se recopie pas : le recréer
-  // couperait son stock en deux fiches. Le clic ouvre alors sa correction —
-  // c'est le seul geste qui ait un sens, et c'est le même formulaire.
-  const choisirSuggestion = (a) => (a.boutique === bq ? corriger(a) : reprendreArticle(a));
+  // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « si j'ai présélectionné et j'ai
+  // modifié, il devrait AJOUTER — on ne corrige que si on a cliqué
+  // ✏️ Corriger sur la fiche ». Ma première version ouvrait la correction
+  // quand l'article existait déjà dans la boutique en cours ; il s'en
+  // servait en fait comme MODÈLE (préremplir, changer le nom, créer une
+  // variante) et l'enregistrement corrigeait la fiche d'origine à son insu.
+  // Le clic remplit donc TOUJOURS le formulaire d'ajout, d'où qu'il vienne.
+  // La fiche en double (même nom, même boutique — le stock coupé en deux)
+  // reste impossible : c'est « Ajouter » qui la refuse, en expliquant.
+  const choisirSuggestion = (a) => reprendreArticle(a);
+
+  // L'article que le nom tapé désigne DÉJÀ dans cette boutique, s'il existe.
+  const dejaDansCetteBoutique = !enEdition && f.nom
+    ? (db.produits || []).find((p) => p.boutique === bq && normNom(p.nom) === normNom(f.nom))
+    : null;
 
   // Un clic = toute la fiche reprise, SAUF la quantité initiale : elle est
   // propre à chaque boutique et reste à saisir.
@@ -428,6 +439,14 @@ export function Stocks({ db, save, profile }) {
   const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom d'article."); return; }
+    // ⚠ Jamais deux fiches pour le même article dans la même boutique : le
+    // stock serait coupé en deux et les quantités ne voudraient plus rien
+    // dire. Pour modifier la fiche existante : ✏️ Corriger. Pour une
+    // variante : un nom différent.
+    if (dejaDansCetteBoutique) {
+      uAlert(`« ${dejaDansCetteBoutique.nom} » existe déjà dans ${bq}.\n\nPour modifier sa fiche, utilisez ✏️ Corriger dans la liste ci-dessous. Pour créer un article différent, changez son nom.`);
+      return;
+    }
     save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "", garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
     setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
     uAlert("Article ajouté !");
@@ -876,6 +895,11 @@ export function Stocks({ db, save, profile }) {
                   </button>
                 ))}
               </div>
+            )}
+            {/* Pas une question qui bloque : une simple ligne qui prévient
+                AVANT le clic sur Ajouter (qui, lui, refusera le doublon). */}
+            {dejaDansCetteBoutique && (
+              <div className="mt-1 text-xs font-semibold text-amber-700">⚠ Existe déjà dans {bq} — pour le modifier : ✏️ Corriger sur sa fiche.</div>
             )}
             </div>
           </Field>

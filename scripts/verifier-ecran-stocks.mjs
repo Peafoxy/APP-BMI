@@ -18,7 +18,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
-import { unlinkSync, mkdirSync } from "node:fs";
+import { unlinkSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { JSDOM } from "jsdom";
 
@@ -105,6 +105,22 @@ test("…et aucun article réel ne lui est proposé",
 // L'article d'une AUTRE boutique n'est jamais listé dans le stock affiché.
 test("le stock affiché ne montre que les articles de la boutique en cours",
   html.includes("BATTERIE GEL 12V200AH") && !html.includes("COFFRET ETANCHE IP65"));
+
+// ⚠ RELEVÉ PAR TIMO (02/09/2026) : présélectionner puis modifier doit
+// AJOUTER — la correction n'existe que par le bouton ✏️ Corriger de la
+// fiche. L'ancienne version ouvrait la correction quand l'article existait
+// déjà dans la boutique en cours : il s'en servait comme MODÈLE et
+// l'enregistrement corrigeait la fiche d'origine à son insu. Le vrai
+// danger — la fiche en double qui coupe le stock en deux — est refusé au
+// moment d'Ajouter, avec explication.
+const src = readFileSync("src/screens/Stocks.jsx", "utf8");
+test("★ cliquer une présélection remplit TOUJOURS le formulaire d'ajout (jamais la correction)",
+  /const choisirSuggestion = \(a\) => reprendreArticle\(a\);/.test(src)
+  && !/choisirSuggestion = \(a\) =>.*corriger/.test(src));
+test("★ « Ajouter » refuse un doublon (même nom, même boutique) en expliquant",
+  /if \(dejaDansCetteBoutique\)/.test(src) && src.includes("existe déjà dans"));
+test("une ligne prévient AVANT le clic, sans fenêtre qui bloque",
+  src.includes("Existe déjà dans {bq}"));
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
