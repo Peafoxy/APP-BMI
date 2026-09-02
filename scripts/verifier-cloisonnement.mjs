@@ -3228,6 +3228,29 @@ titre("Le brouillon du dimensionnement survit au F5 — UNE règle, TROIS volets
   }
 }
 
+titre("Le dimensionnement a UNE seule boutique, partagée par les trois volets");
+{
+  // Choix de Timo (02/09/2026) : « moi-même je change la boutique à ma
+  // guise ». Avant, chaque volet mémorisait SA boutique — changer de volet
+  // faisait « changer » la boutique sans qu'on ait rien touché. Le choix
+  // vit dans le conteneur (index.jsx) et descend en props ; la mémoire est
+  // l'écran « dimensionnement », partout.
+  const conteneur = readFileSync("src/screens/dimensionnement/index.jsx", "utf8");
+  test("★ le conteneur porte le choix (un seul état bq/setBq)",
+    /const \[bq, setBq\] = useState\(/.test(conteneur)
+    && /ecran: "dimensionnement"/.test(conteneur)
+    && /bq, setBq \};/.test(conteneur));
+  for (const fichier of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
+    const src = readFileSync(`src/screens/dimensionnement/${fichier}`, "utf8");
+    test(`★ ${fichier} reçoit la boutique en props — aucun état local`,
+      /,\s*bq,\s*setBq\s*\}\)/.test(src)
+      && !/\[bq, setBq\] = useState/.test(src));
+    test(`${fichier} lit et mémorise sous l'écran « dimensionnement » (plus de mémoire par volet)`,
+      src.includes(`boutiqueRetenue(db, profile, bq, { ecran: "dimensionnement" })`)
+      && !/dim-solaire|dim-garage|dim-autre/.test(src));
+  }
+}
+
 titre("La carte de position s'affiche (le cadre Leaflet n'appartient qu'à Leaflet)");
 {
   // ⚠ Mesuré le 02/09/2026 après TROIS correctifs à côté : quand le cadre

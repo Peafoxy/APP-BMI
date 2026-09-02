@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
+import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
@@ -40,15 +40,15 @@ function correspondancesBesoin(nomBesoin, produits) {
 // dans la catégorie on n'a que les mêmes produits ? ». Depuis que chaque
 // domaine a son onglet, cette étape n'ajoutait qu'un clic et masquait une
 // partie du stock.
-export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, domaine }) {
-  const premiere = boutiqueParDefaut(db, profile, { ecran: "dim-autre" });
-  const [bq, setBq] = useState(profile.boutique || premiere);
+export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, domaine, bq, setBq }) {
+  // ⚠ bq/setBq viennent du conteneur (index.jsx) : UNE seule boutique pour
+  // tous les volets du dimensionnement, mémorisée sous « dimensionnement ».
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
-  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dim-autre" });
+  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dimensionnement" });
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
 
   // ⚠ Demande Timo (18/08/2026) : « dans Autre, au lieu de faire sélectionner
@@ -337,7 +337,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs ecran="dim-autre" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="dimensionnement" db={db} value={bq} onChange={setBq} profile={profile} />}
 
       {/* Le sélecteur de catégorie a disparu : l'onglet porte déjà le domaine.
           On se contente de signaler quand le stock n'est pas encore rattaché. */}

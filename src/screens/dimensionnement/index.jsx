@@ -4,7 +4,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { fmt } from "../../lib/core";
-import { domainesDefinis } from "../../lib/calculs";
+import { domainesDefinis, boutiqueParDefaut } from "../../lib/calculs";
 import { DimensionnementSolaire } from "./Solaire";
 import { DimensionnementGarage } from "./Garage";
 import { DimensionnementAutre } from "./Autre";
@@ -37,6 +37,13 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
   useEffect(() => {
     try { localStorage.setItem(cleVolet, mode); } catch { /* sans gravité */ }
   }, [cleVolet, mode]);
+  // ⚠ UNE SEULE boutique pour TOUT le dimensionnement (choix de Timo,
+  // 02/09/2026 : « moi-même je change la boutique à ma guise »). Avant,
+  // chaque volet gardait la sienne — passer de Garage à Vidéosurveillance
+  // faisait « changer » la boutique sans qu'on ait rien touché. Le choix
+  // vit donc ici, dans le conteneur, et les volets le reçoivent en props ;
+  // il est mémorisé sous l'écran « dimensionnement » (par compte).
+  const [bq, setBq] = useState(profile.boutique || boutiqueParDefaut(db, profile, { ecran: "dimensionnement" }));
   // Un domaine supprimé depuis les Paramètres ne doit pas laisser l'écran vide.
   const actif = domaines.find((d) => d.id === mode) || domaines[0] || null;
   // Ces volets contiennent chacun de longs formulaires : basculer de l'un à
@@ -65,7 +72,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
 
   const rendre = (d) => {
     const commun = { db, profile, save, onConvertirEnVente,
-      devisAReprendre: pourCeDomaine(d.id), onDevisRepriseConsomme };
+      devisAReprendre: pourCeDomaine(d.id), onDevisRepriseConsomme, bq, setBq };
     if (d.calcul === "solaire") return <DimensionnementSolaire {...commun} />;
     if (d.calcul === "garage") return <DimensionnementGarage {...commun} />;
     return <DimensionnementAutre {...commun} domaine={d} />;
