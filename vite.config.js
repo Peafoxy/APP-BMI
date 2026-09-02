@@ -53,7 +53,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
-        maximumFileSizeToCacheInBytes: 5000000
+        maximumFileSizeToCacheInBytes: 5000000,
+        // ⚠ Les images du fond de carte (tuiles OpenStreetMap) sont gardées
+        // en réserve après leur premier affichage : les endroits déjà vus
+        // (Lomé, les quartiers habituels) s'affichent même sans réseau, et
+        // on ne redemande pas cent fois les mêmes images au serveur.
+        runtimeCaching: [{
+          urlPattern: /^https:\/\/tile\.openstreetmap\.org\//,
+          handler: "CacheFirst",
+          options: {
+            cacheName: "tuiles-carte",
+            expiration: { maxEntries: 600, maxAgeSeconds: 60 * 24 * 3600 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        }],
       }
     })
   ]

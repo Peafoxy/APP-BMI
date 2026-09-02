@@ -1,45 +1,32 @@
 // ============================================================
 // components/Carte.jsx — Carte OpenStreetMap/Leaflet pour choisir
-// une position (prospects, clients installés, espace client).
-// Leaflet est chargé à la demande depuis le CDN, une seule fois.
+// une position (prospects, clients installés, boutiques).
+//
+// ⚠ LEAFLET EST EMBARQUÉ DANS L'APPLICATION (2.101.38, après la carte
+// blanche relevée par Timo le 01/09/2026). Avant, le moteur et son
+// habillage se chargeaient depuis un serveur extérieur à CHAQUE
+// utilisation : si l'un des deux ne venait pas — réseau mobile
+// capricieux, serveur bloqué — la carte restait blanche, parfois en
+// silence (les clics enregistraient la position, mais rien ne se
+// dessinait). Embarqué, il est installé avec l'application, disponible
+// même hors ligne. La SEULE chose qui vienne encore du réseau : les
+// images du fond de carte (les « tuiles » OpenStreetMap) — et
+// celles déjà vues sont gardées en réserve par l'application
+// (vite.config.js), donc les endroits habituels s'affichent hors ligne.
 // ============================================================
 import { useState, useEffect, useRef } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+// ⚠ Piège connu de Leaflet en application empaquetée : sans ces trois
+// lignes, l'icône du repère 📍 cherche ses images à une adresse qui
+// n'existe plus après l'empaquetage, et le repère devient invisible.
+import marqueurIcone2x from "leaflet/dist/images/marker-icon-2x.png";
+import marqueurIcone from "leaflet/dist/images/marker-icon.png";
+import marqueurOmbre from "leaflet/dist/images/marker-shadow.png";
 import { uAlert } from "../components/ui";
 
-let leafletChargement = null;
-function chargerLeaflet() {
-  if (window.L && window.__leafletCssOk) return Promise.resolve(window.L);
-  if (leafletChargement) return leafletChargement;
-  leafletChargement = new Promise((resolve, reject) => {
-    // ⚠ La feuille de style d'abord, et SURVEILLÉE (relevé par Timo,
-    // 01/09/2026 : carte toute blanche). Avant, son échec était muet : le
-    // script se chargeait, la carte « fonctionnait » (les clics posaient
-    // bien la position) mais ne DESSINAIT rien — sans elle, les tuiles
-    // n'ont ni taille ni position. Une carte invisible qui marche est le
-    // pire des symptômes : maintenant, si un des deux fichiers manque,
-    // l'écran le dit clairement.
-    const lien = document.createElement("link");
-    lien.rel = "stylesheet";
-    lien.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-    let cssOk = false, jsOk = false;
-    const fini = () => {
-      if (cssOk && jsOk) { window.__leafletCssOk = true; resolve(window.L); }
-    };
-    const echec = (quoi) => {
-      leafletChargement = null; // on pourra réessayer à la prochaine ouverture
-      reject(new Error(`Impossible de charger ${quoi} de la carte. Vérifiez la connexion internet, puis rouvrez cette fenêtre.`));
-    };
-    lien.onload = () => { cssOk = true; fini(); };
-    lien.onerror = () => echec("l'habillage");
-    script.onload = () => { jsOk = true; fini(); };
-    script.onerror = () => echec("le moteur");
-    document.head.appendChild(lien);
-    document.head.appendChild(script);
-  });
-  return leafletChargement;
-}
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({ iconUrl: marqueurIcone, iconRetinaUrl: marqueurIcone2x, shadowUrl: marqueurOmbre });
 
 // Centre par défaut : Lomé, Togo
 const LOME = [6.1319, 1.2228];
@@ -53,7 +40,7 @@ export function CarteChoixPosition({ lat, lng, onChoisir }) {
 
   useEffect(() => {
     let annule = false;
-    chargerLeaflet()
+    Promise.resolve(L)
       .then((L) => {
         if (annule || !conteneurRef.current || mapRef.current) return;
         const depart = lat && lng ? [lat, lng] : LOME;
