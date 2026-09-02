@@ -10,6 +10,7 @@ import { LOGO } from "../lib/constants";
 import { fmt, dFR, today } from "../lib/core";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal } from "../lib/calculs";
+import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
 export function libelleTypeDevis(d) {
@@ -157,6 +158,18 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       statut: (STATUT_DEVIS[d.statut || "propose"] || STATUT_DEVIS.propose)[0].replace(/^\S+\s/, ""),
       par: d.par,
       lignes: d.lignes || [],
+      // La charge dimensionnée (appareils, mesures de porte, demande) part
+      // avec le devis : le PDF la rend au-dessus de la table des prix. Les
+      // identifiants techniques du garage (« portail_coulissant »,
+      // « moyenne ») sont réécrits ICI en libellés lisibles — le module PDF
+      // n'a accès ni aux écrans ni à db.
+      besoins: d.besoins ? {
+        ...d.besoins,
+        ...(d.besoins.type_ouvrant ? {
+          type_ouvrant: TYPES_PORTAIL.find((t) => t.id === d.besoins.type_ouvrant)?.label || d.besoins.type_ouvrant,
+          frequence: LABEL_FREQUENCE[d.besoins.frequence] || d.besoins.frequence,
+        } : {}),
+      } : null,
       total: d.total,
       formation: estFormation,
     }, LOGO);

@@ -47,7 +47,9 @@ const PRIX_PORTE_M2 = {
 // Marge de sécurité appliquée au poids selon la fréquence d'usage quotidienne :
 // un usage intensif use le moteur plus vite, on dimensionne donc plus large.
 const FACTEUR_FREQUENCE = { faible: 1.1, moyenne: 1.25, intensive: 1.5 };
-const LABEL_FREQUENCE = { faible: "Faible (< 10 cycles/j)", moyenne: "Moyenne (10 à 30 cycles/j)", intensive: "Intensive (> 30 cycles/j)" };
+// Exporté : le PDF du devis (via TousLesDevis) réécrit les identifiants
+// en libellés lisibles — une seule liste, pas de copie qui divergerait.
+export const LABEL_FREQUENCE = { faible: "Faible (< 10 cycles/j)", moyenne: "Moyenne (10 à 30 cycles/j)", intensive: "Intensive (> 30 cycles/j)" };
 
 function categorieMoteur(poidsKg) {
   if (poidsKg <= 0) return "—";

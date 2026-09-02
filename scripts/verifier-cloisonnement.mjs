@@ -3228,6 +3228,50 @@ titre("Le brouillon du dimensionnement survit au F5 — UNE règle, TROIS volets
   }
 }
 
+titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
+{
+  // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
+  // comme nom le nom du client » et « les équipements et la charge
+  // dimensionnée devraient aussi apparaître sur le devis en PDF ». Le
+  // devis GARDE ces données (besoins) — le PDF ne les imprimait pas, et
+  // le fichier ne portait que le numéro.
+  const sortiePdf = join("node_modules", ".cache", `bmi-pdf-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/pdf.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortiePdf, logLevel: "silent", loader: { ".js": "jsx" } });
+  const Pdf = await import(pathToFileURL(sortiePdf).href);
+  unlinkSync(sortiePdf);
+  const socle = { numero: "TEST1234", date: "01/09/2026", client: "KOFFI AGBEKO",
+    lignes: [{ categorie: "Panneaux solaires", article: "PANNEAU 550W", qte: 2, pu: 100000, total: 200000 }],
+    total: 200000 };
+  const formes = [
+    ["solaire", { ...socle, besoins: { wh_jour: 2400, puissance_simultanee: 800, autonomie: 1,
+      tension: 24, type_batterie: "lifepo4",
+      appareils: [{ nom: "Téléviseur", puissance: 100, heures: 5, qte: 1 }] } }],
+    ["garage", { ...socle, besoins: { type_ouvrant: "Portail coulissant", largeur: 4, hauteur: 2,
+      surface_porte: 8, poids: 400, poids_ajuste: 500, vantaux: 1,
+      frequence: "Moyenne (10 à 30 cycles/j)", telecommandes: 2 } }],
+    ["autre", { ...socle, besoins: { articles_demandes: [{ nom: "Caméra dôme", qte: 3 }] } }],
+    ["ancien devis (sans besoins ni catégorie)", { ...socle,
+      lignes: [{ article: "PANNEAU 550W", qte: 2, pu: 100000, total: 200000 }], besoins: null }],
+  ];
+  for (const [nomForme, d] of formes) {
+    let doc = null;
+    try { doc = Pdf.genererDevis(d, null, true); } catch { /* le test le dira */ }
+    test(`★ le devis « ${nomForme} » se fabrique sans planter`, !!doc && doc.internal.getNumberOfPages() >= 1);
+  }
+  const srcPdf = readFileSync("src/pdf.js", "utf8");
+  test("★ le fichier téléchargé porte le NOM DU CLIENT (et garde le numéro)",
+    /doc\.save\(`Devis\$\{nomClient.*\$\{d\.numero\}\.pdf`\)/.test(srcPdf));
+  test("★ la charge solaire est rendue (appareils + résumé du calcul)",
+    srcPdf.includes("Appareil à alimenter") && srcPdf.includes("Besoin estimé"));
+  test("les mesures du garage et la demande « autre » sont rendues",
+    srcPdf.includes("type_ouvrant") && srcPdf.includes("articles_demandes"));
+  test("la colonne Équipement (catégorie) accompagne les articles",
+    srcPdf.includes(`"Équipement", "Article"`));
+  test("★ TousLesDevis TRANSMET les besoins au PDF (sinon rien ne s'imprime)",
+    /besoins: d\.besoins/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+}
+
 titre("Le dimensionnement a UNE seule boutique, partagée par les trois volets");
 {
   // Choix de Timo (02/09/2026) : « moi-même je change la boutique à ma
