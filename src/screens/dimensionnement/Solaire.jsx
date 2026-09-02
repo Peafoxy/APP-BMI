@@ -3,11 +3,11 @@
 // convertisseur avec marges de sécurité, équipements hors stock.
 // ============================================================
 import { useState, useEffect, useRef } from "react";
-import { uid, fmt, today, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
+import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires } from "../../lib/solaire";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet } from "./Partages";
 
 
 
@@ -75,12 +75,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
   const besoinsRepris = devisAReprendre?.devis?.besoins;
   const lignesReprises = devisAReprendre?.devis?.lignes || [];
-  // Brouillon persistant (survit à une actualisation de page) — seulement
-  // s'il n'y a PAS de devis repris (qui a toujours priorité, cas plus rare
-  // et plus intentionnel). Effacé automatiquement une fois le devis
-  // réellement enregistré ou envoyé — voir plus bas.
-  const cleBrouillon = `bmi_brouillon_dim_solaire:${profile.id}`;
-  const brouillon = !besoinsRepris ? brouillonLire(cleBrouillon) : null;
+  // Brouillon persistant (survit à une actualisation de page et à une
+  // nouvelle version) — la règle vit dans Partages.jsx, UN SEUL endroit
+  // pour les trois volets (demande Timo, 02/09/2026).
+  const brouillon = lireBrouillonVolet("solaire", profile, !!besoinsRepris);
   const [appareils, setAppareils] = useState(() =>
     besoinsRepris?.appareils?.length
       ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) }))
@@ -99,13 +97,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     return v === "plomb" ? "gel" : v;
   });
 
-  // Écrit le brouillon à chaque changement — survit à une actualisation de
-  // page. Effacé uniquement une fois le devis réellement enregistré ou
-  // envoyé (voir convertir() et l'envoi WhatsApp plus bas), jamais avant.
-  useEffect(() => {
-    brouillonEcrire(cleBrouillon, { appareils, autonomie, soleil, tension, typeBatterie });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appareils, autonomie, soleil, tension, typeBatterie]);
+  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
+  // devis réellement envoyé ou converti (voir plus bas), jamais avant.
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie });
 
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
@@ -681,7 +675,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
-    brouillonEffacer(cleBrouillon);
+    effacerBrouillonVolet("solaire", profile);
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -693,7 +687,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
     ];
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
-    brouillonEffacer(cleBrouillon);
+    effacerBrouillonVolet("solaire", profile);
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 

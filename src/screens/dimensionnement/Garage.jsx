@@ -8,7 +8,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, memeFamille, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, memeFamille, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -73,14 +73,18 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
   const besoinsRepris = devisAReprendre?.devis?.besoins;
   const lignesReprises = devisAReprendre?.devis?.lignes || [];
-  const [type, setType] = useState(besoinsRepris?.type_ouvrant || "portail_coulissant");
-  const [largeur, setLargeur] = useState(besoinsRepris?.largeur ? String(besoinsRepris.largeur) : "");
-  const [hauteur, setHauteur] = useState(besoinsRepris?.hauteur ? String(besoinsRepris.hauteur) : "");
-  const [poids, setPoids] = useState(besoinsRepris?.poids ? String(besoinsRepris.poids) : "");
-  const [vantaux, setVantaux] = useState(besoinsRepris?.vantaux ? String(besoinsRepris.vantaux) : "1");
-  const [frequence, setFrequence] = useState(besoinsRepris?.frequence || "moyenne");
-  const [telecosSouhaitees, setTelecosSouhaitees] = useState(besoinsRepris?.telecommandes != null ? String(besoinsRepris.telecommandes) : "2");
-  const [alimentationProche, setAlimentationProche] = useState(besoinsRepris?.alimentation_proche != null ? besoinsRepris.alimentation_proche : true);
+  // Brouillon persistant (survit au F5 et à une nouvelle version) — même
+  // règle que Solaire, qui vit en UN SEUL endroit : Partages.jsx (demande
+  // Timo, 02/09/2026 : seul Solaire gardait ses données).
+  const brouillon = lireBrouillonVolet("garage", profile, !!besoinsRepris);
+  const [type, setType] = useState(besoinsRepris?.type_ouvrant || brouillon?.type || "portail_coulissant");
+  const [largeur, setLargeur] = useState(besoinsRepris?.largeur ? String(besoinsRepris.largeur) : (brouillon?.largeur ?? ""));
+  const [hauteur, setHauteur] = useState(besoinsRepris?.hauteur ? String(besoinsRepris.hauteur) : (brouillon?.hauteur ?? ""));
+  const [poids, setPoids] = useState(besoinsRepris?.poids ? String(besoinsRepris.poids) : (brouillon?.poids ?? ""));
+  const [vantaux, setVantaux] = useState(besoinsRepris?.vantaux ? String(besoinsRepris.vantaux) : (brouillon?.vantaux ?? "1"));
+  const [frequence, setFrequence] = useState(besoinsRepris?.frequence || brouillon?.frequence || "moyenne");
+  const [telecosSouhaitees, setTelecosSouhaitees] = useState(besoinsRepris?.telecommandes != null ? String(besoinsRepris.telecommandes) : (brouillon?.telecosSouhaitees ?? "2"));
+  const [alimentationProche, setAlimentationProche] = useState(besoinsRepris?.alimentation_proche != null ? besoinsRepris.alimentation_proche : (brouillon?.alimentationProche ?? true));
 
   const estCoulissant = type === "portail_coulissant";
   const estBattant = type === "portail_battant";
@@ -90,12 +94,16 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const longueurCremaillere = estCoulissant && Number(largeur) > 0 ? Math.ceil(Number(largeur) + 1) : 0; // +1 m de marge
 
   // ---- Porte / portail : calculée automatiquement au m² (largeur × hauteur), prix modifiable ----
-  const [prixM2Porte, setPrixM2Porte] = useState(besoinsRepris?.prix_m2_porte || PRIX_PORTE_M2[type] || 0);
+  const [prixM2Porte, setPrixM2Porte] = useState(besoinsRepris?.prix_m2_porte || brouillon?.prixM2Porte || PRIX_PORTE_M2[type] || 0);
   const premierRenduPorte = useRef(true);
   useEffect(() => {
     if (premierRenduPorte.current) { premierRenduPorte.current = false; return; } // ne pas écraser la reprise au montage
     setPrixM2Porte(PRIX_PORTE_M2[type] || 0);
   }, [type]);
+
+  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
+  // devis réellement envoyé ou converti, jamais avant.
+  useEcrireBrouillonVolet("garage", profile, { type, largeur, hauteur, poids, vantaux, frequence, telecosSouhaitees, alimentationProche, prixM2Porte });
   const surfacePorte = Math.round(Number(largeur || 0) * Number(hauteur || 0) * 100) / 100;
   const sousTotalPorte = Math.round(surfacePorte * Number(prixM2Porte || 0));
 
@@ -389,6 +397,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+    effacerBrouillonVolet("garage", profile);
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -396,6 +405,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const convertir = () => {
     const panier = construirePanier();
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    effacerBrouillonVolet("garage", profile);
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 

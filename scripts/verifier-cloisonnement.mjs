@@ -3205,6 +3205,29 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
     !!C.construireRetour(dbR, vente, { produit_id: "p1", qte: 1, motif: "  " }, profil).erreur);
 }
 
+titre("Le brouillon du dimensionnement survit au F5 — UNE règle, TROIS volets");
+{
+  // Demande Timo (02/09/2026) : « tous les écrans doivent garder les
+  // données après un F5 ou une nouvelle version » — seul Solaire le
+  // faisait, avec sa propre copie de la règle. Elle vit désormais dans
+  // Partages.jsx, et chaque volet s'y branche : lire au montage, écrire à
+  // chaque changement, effacer à l'envoi ET à la conversion en vente.
+  const partages = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★ la règle vit dans Partages.jsx (un seul endroit)",
+    /export function useEcrireBrouillonVolet/.test(partages)
+    && /export const lireBrouillonVolet/.test(partages)
+    && /export const effacerBrouillonVolet/.test(partages));
+  for (const [fichier, volet] of [["Solaire.jsx", "solaire"], ["Garage.jsx", "garage"], ["Autre.jsx", "autre"]]) {
+    const src = readFileSync(`src/screens/dimensionnement/${fichier}`, "utf8");
+    test(`★ ${fichier} lit, écrit et efface SON brouillon via la règle commune`,
+      src.includes(`lireBrouillonVolet("${volet}"`)
+      && src.includes(`useEcrireBrouillonVolet("${volet}"`)
+      && (src.match(new RegExp(`effacerBrouillonVolet\\("${volet}"`, "g")) || []).length >= 2);
+    test(`${fichier} n'a AUCUNE copie privée de la règle (pas de brouillonEcrire direct)`,
+      !/brouillonEcrire\(|brouillonLire\(|brouillonEffacer\(/.test(src));
+  }
+}
+
 titre("La carte de position s'affiche (le cadre Leaflet n'appartient qu'à Leaflet)");
 {
   // ⚠ Mesuré le 02/09/2026 après TROIS correctifs à côté : quand le cadre

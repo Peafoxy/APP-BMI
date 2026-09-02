@@ -7,7 +7,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, boutiqueParDefaut, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
-import { BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises } from "./Partages";
+import { BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet } from "./Partages";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ RECHERCHE DE CORRESPONDANCE (Autre dimensionnement) ============
@@ -101,7 +101,11 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     });
     return { choix, verrous, besoinsInit };
   })();
-  const [besoins, setBesoins] = useState(() => initialSelection?.besoinsInit || [{ id: uid(), nom: "", qte: "1" }]);
+  // Brouillon persistant (survit au F5 et à une nouvelle version) — même
+  // règle que Solaire et Garage, qui vit en UN SEUL endroit : Partages.jsx
+  // (demande Timo, 02/09/2026 : seul Solaire gardait ses données).
+  const brouillon = lireBrouillonVolet("autre", profile, !!devisAReprendre);
+  const [besoins, setBesoins] = useState(() => initialSelection?.besoinsInit || brouillon?.besoins || [{ id: uid(), nom: "", qte: "1" }]);
 
   const meilleurChoixBesoin = (besoin) => {
     if (!besoin || !besoin.nom || !besoin.nom.trim()) return null;
@@ -203,11 +207,15 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation: fraisInstallationPct, pctTransport, setPctTransport, fraisTransport, totalDevis: totalDevisNormal } = useTotauxDevis(totalArticles);
   // ⚠ "Pose seule" (2.99.98, même mécanisme que Solaire.jsx) — montant de
   // main d'œuvre FIXE, saisi au cas par cas, jamais un pourcentage.
-  const [poseSeule, setPoseSeule] = useState(false);
-  const [montantPoseFixe, setMontantPoseFixe] = useState("");
+  const [poseSeule, setPoseSeule] = useState(brouillon?.poseSeule ?? false);
+  const [montantPoseFixe, setMontantPoseFixe] = useState(brouillon?.montantPoseFixe ?? "");
   const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
   const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+
+  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
+  // devis réellement envoyé ou converti, jamais avant.
+  useEcrireBrouillonVolet("autre", profile, { besoins, poseSeule, montantPoseFixe });
 
   // ⚠ Reprendre un devis rejeté restituait les appareils et les équipements,
   // mais PERDAIT en silence tout ce qui avait été négocié : remise, %
@@ -311,6 +319,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+    effacerBrouillonVolet("autre", profile);
     uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
   };
 
@@ -318,6 +327,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const convertir = () => {
     const panier = construirePanier();
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    effacerBrouillonVolet("autre", profile);
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 

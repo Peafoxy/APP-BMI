@@ -3,9 +3,33 @@
 // noms d'articles, autres équipements, totaux du devis (remise,
 // installation, transport), envoi du devis au client via WhatsApp.
 // ============================================================
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
-import { fmt, telDigits, col, ouvrirWhatsApp } from "../../lib/core";
+import { fmt, telDigits, col, ouvrirWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
+
+// ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
+// Demande Timo (02/09/2026) : « tous les écrans du dimensionnement doivent
+// garder les données après un F5 ou une nouvelle version » — seul Solaire
+// le faisait, avec sa propre copie de la règle. Elle vit désormais ICI,
+// et les trois volets s'y branchent : une seule règle, trois clients.
+//   • lireBrouillonVolet   : à l'ouverture de l'écran (un devis repris a
+//     toujours priorité — cas plus rare et plus intentionnel) ;
+//   • useEcrireBrouillonVolet : réécrit le brouillon à chaque changement ;
+//   • effacerBrouillonVolet   : quand le devis est réellement parti
+//     (envoyé au client, ou converti en vente) — jamais avant.
+// Le brouillon est PAR COMPTE (deux personnes sur le même appareil ne se
+// mélangent pas) et PAR VOLET (le solaire n'écrase pas le portail).
+export const cleBrouillonVolet = (volet, profile) => `bmi_brouillon_dim_${volet}:${profile.id}`;
+export const lireBrouillonVolet = (volet, profile, devisReprisPrioritaire) =>
+  devisReprisPrioritaire ? null : brouillonLire(cleBrouillonVolet(volet, profile));
+export function useEcrireBrouillonVolet(volet, profile, etat) {
+  const texte = JSON.stringify(etat);
+  useEffect(() => {
+    brouillonEcrire(cleBrouillonVolet(volet, profile), JSON.parse(texte));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volet, profile.id, texte]);
+}
+export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
 import { marqueEspace, memeNumero } from "../../lib/calculs";
 
