@@ -382,6 +382,34 @@ sortie : on regarde si la base a levé une objection.
   Les deux SEULES vraies portes publiques trouvées (`groupes_all`,
   `proformas_all`, condition true, toutes actions) ont été fermées par
   Timo le 31/08/2026 (drop policy).
+- **WhatsApp depuis le numéro BMI (envoi automatique)** — CADRÉ le
+  02/09/2026, PAS ENCORE CONSTRUIT. Demande Timo : « que ce soit le numéro
+  BMI qui envoie le message et non le numéro personnel de chaque employé ».
+  Aujourd'hui l'app ouvre `wa.me` : c'est le compte WhatsApp de l'APPAREIL
+  qui envoie, l'app ne choisit pas l'expéditeur. Trois voies expliquées :
+  (1) lier le numéro BMI sur les appareils de travail (4 appareils, manuel,
+  gratuit) ; (2) canal API Meta sur un numéro DÉDIÉ « machine » — refusé
+  parce que **les clients appellent sur WhatsApp** et un numéro API ne
+  reçoit pas d'appel ; (3) **« coexistence »** : le MÊME numéro reste sur
+  l'app WhatsApp Business du téléphone (appels, discussions, réponses des
+  clients) ET est relié au canal d'envoi automatique — ouvert dans tous les
+  pays depuis mai 2026. **Timo a choisi (3)** ; le numéro BMI est déjà sur
+  WhatsApp Business (confirmé par lui). Le raccordement passe par un
+  partenaire Meta (inscription « Embedded Signup », réservée aux partenaires
+  — pas en direct chez Meta pour une petite entreprise) : 360dialog, YCloud…
+  à choisir par Timo, frais mensuels du partenaire + conversations
+  facturées par Meta. Côté app, à construire quand il dira « vas-y » :
+  `api/whatsapp.js` (clé Meta en variable Vercel côté serveur, JAMAIS
+  `VITE_`, appel réservé aux sessions connectées), remplacement des ouvertures
+  `wa.me` (devis, comptes clients, PV, parrainage, relances) par l'envoi
+  serveur avec **repli sur l'ouverture WhatsApp actuelle** si le serveur
+  refuse (un message n'est jamais perdu en silence — règle du 18/08/2026),
+  **journal des envois** visible (envoyé / livré / lu / échec + motif),
+  file d'attente hors ligne, et **verrou formation : un compte
+  d'entraînement n'envoie JAMAIS un vrai WhatsApp** (envoi simulé, inscrit
+  comme tel). Pas de boîte de réception à construire : avec la coexistence
+  les réponses arrivent sur le téléphone. Messages types (devis prêt,
+  identifiants, lien PV, rappel) à écrire pour validation Meta.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
