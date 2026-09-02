@@ -106,8 +106,20 @@ export function CarteChoixPosition({ lat, lng, onChoisir }) {
         <button type="button" onClick={maPosition} className="text-xs font-bold text-sky-800 underline whitespace-nowrap ml-2">📍 Ma position actuelle</button>
       </div>
       {erreur && <div className="p-3 text-sm text-red-600">{erreur}</div>}
-      <div ref={conteneurRef} style={{ height: 260 }} className={pret ? "" : "flex items-center justify-center bg-slate-50 text-slate-400 text-sm"}>
-        {!pret && !erreur && "Chargement de la carte…"}
+      {/* ⚠ LE CADRE DE LA CARTE NE DOIT JAMAIS AVOIR D'ENFANT REACT.
+          C'était LA cause de la carte blanche (mesurée le 02/09/2026,
+          après trois correctifs à côté) : le texte « Chargement… » et le
+          dessin de Leaflet partageaient le même cadre. Quand un cadre n'a
+          qu'un texte comme enfant, React prend un raccourci : au moment de
+          retirer ce texte, il VIDE le cadre entier — carte comprise, à
+          l'instant même où elle venait de se dessiner. La carte «
+          marchait » (position enregistrée) mais n'affichait jamais rien.
+          Le texte vit désormais dans un cadre FRÈRE, posé par-dessus. */}
+      <div style={{ height: 260, position: "relative" }} className="bg-slate-50">
+        <div ref={conteneurRef} style={{ position: "absolute", inset: 0 }} />
+        {!pret && !erreur && (
+          <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm pointer-events-none">Chargement de la carte…</div>
+        )}
       </div>
       {lat && lng && <div className="px-3 py-1.5 text-xs text-slate-500 bg-slate-50 border-t border-slate-200">Position choisie : {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}</div>}
     </div>

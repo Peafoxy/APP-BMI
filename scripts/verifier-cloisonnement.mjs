@@ -3205,6 +3205,23 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
     !!C.construireRetour(dbR, vente, { produit_id: "p1", qte: 1, motif: "  " }, profil).erreur);
 }
 
+titre("La carte de position s'affiche (le cadre Leaflet n'appartient qu'à Leaflet)");
+{
+  // ⚠ Mesuré le 02/09/2026 après TROIS correctifs à côté : quand le cadre
+  // de la carte n'a qu'un texte React comme enfant (« Chargement… »),
+  // React prend un raccourci au retrait de ce texte et VIDE le cadre
+  // entier — le dessin de Leaflet avec. La carte restait blanche partout,
+  // tout en enregistrant les positions. Règle : le div de la carte est
+  // AUTO-FERMÉ (aucun enfant React, jamais), le texte vit dans un frère.
+  const carte = readFileSync("src/components/Carte.jsx", "utf8");
+  test("★ le cadre confié à Leaflet est auto-fermé — aucun enfant React",
+    /<div ref=\{conteneurRef\}[^>]*\/>/.test(carte));
+  test("★ le moteur de la carte est embarqué (plus de chargement CDN)",
+    /from "leaflet"/.test(carte) && !/cdnjs\.cloudflare\.com/.test(carte));
+  test("l'icône du repère est rattachée aux images empaquetées",
+    /L\.Icon\.Default\.mergeOptions/.test(carte));
+}
+
 titre("L'apparence de l'accueil arrive sur les appareils SANS fiche boutique");
 {
   // ⚠ Relevé par Timo (31/08/2026) : image, bulles et étoiles réglées dans
