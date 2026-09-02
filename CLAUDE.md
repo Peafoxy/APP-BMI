@@ -228,6 +228,14 @@ impossible, et le banc doit le dire dans ce sens-là.
 - **`src/lib/identiteClient.js` ne doit rien importer.** Il est lu par le
   navigateur *et* par Node (les fonctions `api/`), et Node ne sait pas
   résoudre les imports sans extension de Vite.
+- **Un cadre confié à une bibliothèque extérieure (Leaflet…) ne doit JAMAIS
+  avoir d'enfant React.** Quand un div n'a qu'un texte React comme enfant,
+  React prend un raccourci (textContent) : au retrait du texte, il vide le
+  div ENTIER — le dessin de la bibliothèque avec. C'était LA cause de la
+  carte blanche (02/09/2026), trouvée par mesure (« CARTE-EFFACEE » /
+  « CARTE-SURVIT ») après trois correctifs plausibles mais à côté. Règle :
+  div auto-fermé pour la bibliothèque, textes dans un cadre frère. Trois
+  contrôles du banc la verrouillent.
 - **Une expression régulière trop large casse le JSX en silence.** Deux
   fichiers ont été abîmés ainsi. Après toute retouche en masse :
   `npm run build`, et `git checkout --` sans hésiter si c'est parti de
