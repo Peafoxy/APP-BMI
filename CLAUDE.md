@@ -410,6 +410,19 @@ sortie : on regarde si la base a levé une objection.
   comme tel). Pas de boîte de réception à construire : avec la coexistence
   les réponses arrivent sur le téléphone. Messages types (devis prêt,
   identifiants, lien PV, rappel) à écrire pour validation Meta.
+  **ÉTAT AU 03/09/2026 — MIS EN PAUSE PAR TIMO (« on laisse ça pour le
+  moment »).** Fait : le portefeuille Meta Business « BMI Togo » existe,
+  Timo en est administrateur (accès total). La vérification d'entreprise
+  n'est PAS proposée tant qu'aucun compte WhatsApp n'est relié — c'est
+  normal, et elle n'est plus obligatoire pour envoyer (limite ~250 clients
+  distincts / jour sans elle). ⚠ « Meta Verified » (badge bleu payant) n'a
+  RIEN à voir — Timo s'était retrouvé sur sa liste d'attente. Bloqué : la
+  création du compte YCloud (formule gratuite choisie) s'arrête à la
+  vérification du numéro de contact — le code n'arrive ni par WhatsApp ni
+  par SMS. Pistes non épuisées : leur discussion en direct (validation
+  manuelle), réessayer un autre jour, ou 360dialog (49 €/mois). Côté app,
+  rien n'a été construit. **Ne pas relancer Timo ; reprendre quand il le
+  demandera**, au point exact ci-dessus.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
