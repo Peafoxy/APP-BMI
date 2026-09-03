@@ -11,7 +11,7 @@ import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BA
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
-import { COLONNES_IMPORT, EXEMPLE_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
+import { COLONNES_IMPORT, EXEMPLE_IMPORT, MODES_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, analyserEntrees, resumeEntrees, appliquerEntrees, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
 
 // ============ STOCKS ============
 export function Stocks({ db, save, profile }) {
@@ -509,11 +509,39 @@ export function Stocks({ db, save, profile }) {
     await finaliserImport(lignesDepuisTexte(texte), "le texte collé");
   };
 
+  // ⚠ Mode « Entrées de stock » (Timo, 03/09/2026) : la marchandise reçue
+  // pour des articles EXISTANTS — Nom, Quantité reçue, Prix d'achat
+  // (facultatif). Même geste que le bouton « Entrée » d'une fiche, en une
+  // fois pour tout le ravitaillement. Le journal garde une ligne PAR article.
+  const finaliserEntrees = async (lignes, origine) => {
+    const { enregistrements, colonnesInconnues } = enregistrementsDepuisLignes(lignes, MODES_IMPORT.entrees);
+    if (!enregistrements.length) { uAlert(`Rien à enregistrer : ${origine} ne contient aucune ligne.`); return; }
+    const resultat = analyserEntrees(db, bq, enregistrements);
+    if (colonnesInconnues.length) resultat.avertissements.unshift(`Colonne(s) non reconnue(s), ignorée(s) : ${colonnesInconnues.join(", ")}`);
+    if (resultat.entrees.length === 0) {
+      uAlert("Aucune entrée valide.\n\n" + resultat.erreurs.join("\n"));
+      return;
+    }
+    if (!await uConfirm(resumeEntrees(bq, resultat))) return;
+    const journal = resultat.entrees.map((x) => `Entrée stock +${x.qte} « ${x.nom} »${x.prix_achat ? ` (prix d'achat → ${x.prix_achat})` : ""} — ${bq} (${origine})`).join(" ; ");
+    save({ ...db, produits: appliquerEntrees(db.produits, resultat.entrees) }, journal);
+    uAlert(`✅ ${resultat.entrees.length} entrée(s) de stock enregistrée(s) dans ${bq}.`);
+  };
+
+  const LIBELLES_MODE = ["📦 Nouveaux articles (créer des fiches)", "➕ Entrées de stock (marchandise reçue pour des articles existants)"];
+  const choisirMode = async (question) => {
+    const choix = await uChoix(question, LIBELLES_MODE);
+    if (!choix) return null;
+    return choix === LIBELLES_MODE[1] ? MODES_IMPORT.entrees : MODES_IMPORT.articles;
+  };
+
   const importerFichier = async (e) => {
     const fichier = e.target.files?.[0];
     e.target.value = ""; // permet de rechoisir le même fichier après correction
     if (!fichier) return;
     if (bloquerSiLecture(db, profile)) return;
+    const mode = await choisirMode(`Que contient « ${fichier.name} » ?`);
+    if (!mode) return;
     let lu;
     try { lu = await lireFichierTableur(fichier); }
     catch { uAlert("Ce fichier n'a pas pu être lu. Il doit être un fichier Excel (.xlsx) ou CSV."); return; }
@@ -521,9 +549,16 @@ export function Stocks({ db, save, profile }) {
     // on le DIT si le fichier en a plusieurs — sinon on importerait la
     // feuille d'une autre boutique sans s'en rendre compte.
     if (lu.nbFeuilles > 1) {
-      if (!await uConfirm(`Ce fichier a ${lu.nbFeuilles} feuilles. Seule la première, « ${lu.feuille} », sera lue — et importée dans ${bq}.\n\nContinuer ?`)) return;
+      if (!await uConfirm(`Ce fichier a ${lu.nbFeuilles} feuilles. Seule la première, « ${lu.feuille} », sera lue — pour ${bq}.\n\nContinuer ?`)) return;
     }
-    await finaliserImport(lu.lignes, `fichier ${fichier.name}`);
+    if (mode === MODES_IMPORT.entrees) await finaliserEntrees(lu.lignes, `fichier ${fichier.name}`);
+    else await finaliserImport(lu.lignes, `fichier ${fichier.name}`);
+  };
+
+  const telechargerModele = async () => {
+    const mode = await choisirMode("Quel modèle Excel voulez-vous ?");
+    if (!mode) return;
+    await telechargerModeleImport(bq, mode);
   };
 
   const reappro = async (p) => {
@@ -1001,7 +1036,7 @@ export function Stocks({ db, save, profile }) {
               <button onClick={ajouter} className={btnDark}>Ajouter à {bq}</button>
               <button onClick={() => fichierImportRef.current?.click()} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importer un fichier Excel</button>
               <input ref={fichierImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={importerFichier} />
-              <button onClick={() => telechargerModeleImport(bq)} className="px-4 py-2 rounded-lg border border-blue-300 text-blue-800 text-sm font-semibold hover:bg-blue-50">📄 Modèle Excel</button>
+              <button onClick={telechargerModele} className="px-4 py-2 rounded-lg border border-blue-300 text-blue-800 text-sm font-semibold hover:bg-blue-50">📄 Modèle Excel</button>
               <button onClick={importerArticles} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">📋 Coller du texte</button>
             </>
           )}

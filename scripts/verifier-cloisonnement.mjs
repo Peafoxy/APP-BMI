@@ -3338,6 +3338,33 @@ titre("Importation d'articles : Excel ou texte collé, fournisseur et domaine co
     && Imp.analyserImport(dbI, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes([["Z", "ECOLE-FOURN", "", "", 1, 0, 1, 2]]).enregistrements).nouveaux[0].fournisseur === "");
   test("le récapitulatif nomme les lignes refusées ET les réserves",
     Imp.resumeImport("BMI DEMAKPOE", r2).includes("réserve") && Imp.resumeImport("BMI DEMAKPOE", r3).includes("NON importée"));
+  // ---- Mode « Entrées de stock » (marchandise reçue) ----
+  const dbE = { ...dbI, produits: [
+    { id: "p1", boutique: "BMI DEMAKPOE", nom: "COFFRET ETANCHE IP65", prix_vente: 12000, prix_achat: 8000, entrees: 2 },
+    { id: "p2", boutique: "BMI DEMAKPOE", nom: "Panneau 550W", prix_vente: 90000, prix_achat: 60000, entrees: 0 },
+    { id: "p9", boutique: "ECOLE", nom: "Panneau 550W", prix_vente: 1, prix_achat: 1, entrees: 0 },
+  ] };
+  test("★ le modèle Entrées a trois colonnes : Nom, Quantité reçue, Prix d'achat (facultatif)",
+    Imp.COLONNES_ENTREES.join("|") === "Nom|Quantité reçue|Prix d'achat");
+  const eT = Imp.enregistrementsDepuisLignes([["Quantité reçue", "NOM", "prix d'achat"], [5, "coffret etanche ip65", 8500], [3, "Panneau 550W", ""]], Imp.MODES_IMPORT.entrees);
+  const rE = Imp.analyserEntrees(dbE, "BMI DEMAKPOE", eT.enregistrements);
+  test("★ une entrée se rapproche d'un article EXISTANT par son nom (casse libre), colonnes reconnues par leur titre",
+    eT.avecTitres && rE.entrees.length === 2 && rE.entrees[0].produit_id === "p1" && rE.entrees[0].qte === 5 && rE.entrees[1].qte === 3 && rE.erreurs.length === 0);
+  test("★ prix d'achat renseigné → fiche mise à jour ET annoncé ; vide → prix inchangé",
+    rE.entrees[0].prix_achat === 8500 && rE.entrees[1].prix_achat === null && rE.avertissements.some((a) => a.includes("8000 → 8500")));
+  const apres = Imp.appliquerEntrees(dbE.produits, rE.entrees);
+  test("★ les quantités s'AJOUTENT aux entrées (2 + 5 = 7), rien d'autre ne bouge — l'article homonyme de FORMATION n'est pas touché",
+    apres.find((p) => p.id === "p1").entrees === 7 && apres.find((p) => p.id === "p1").prix_achat === 8500
+    && apres.find((p) => p.id === "p2").entrees === 3 && apres.find((p) => p.id === "p2").prix_achat === 60000
+    && apres.find((p) => p.id === "p9").entrees === 0);
+  const rE2 = Imp.analyserEntrees(dbE, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes(Imp.lignesDepuisTexte("Inconnu XYZ, 4\nPanneau 550W, 0\nPanneau 550W, 2\nPanneau 550W, 1"), Imp.MODES_IMPORT.entrees).enregistrements);
+  test("★ nom introuvable → REFUSÉ (on ne crée pas d'article en mode Entrées) ; quantité nulle → refusée ; doublon → seconde ligne refusée",
+    rE2.erreurs.some((e) => e.includes("Inconnu XYZ") && e.includes("aucun article"))
+    && rE2.erreurs.some((e) => e.includes("quantité reçue manquante"))
+    && rE2.entrees.length === 1 && rE2.entrees[0].qte === 2 && rE2.erreurs.some((e) => e.includes("en double")));
+  test("l'écran demande le MODE avant de lire le fichier, et le journal garde une ligne par article",
+    /choisirMode\(`Que contient/.test(readFileSync("src/screens/Stocks.jsx", "utf8"))
+    && /Entrée stock \+\$\{x\.qte\}/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
   test("★ la règle vit dans lib/importStock.js — l'écran Stocks ne découpe plus lui-même les lignes",
     !/parts\[5\]|split\(","\)/.test(readFileSync("src/screens/Stocks.jsx", "utf8"))
     && /from "\.\.\/lib\/importStock"/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
