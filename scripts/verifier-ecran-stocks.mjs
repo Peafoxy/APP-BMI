@@ -82,7 +82,8 @@ test("l'écran se rend sans erreur", html.length > 500);
 // Les repères posés après l'erreur du stock saisi dans la mauvaise boutique.
 test("le titre du formulaire NOMME la boutique", html.includes("Nouvel article dans"));
 test("le bouton d'ajout NOMME la boutique", html.includes("Ajouter à") && html.includes("BMI APESSITO"));
-test("l'importation rapide est là", html.includes("Importation rapide"));
+test("l'importation Excel est là (fichier, modèle, texte collé)",
+  html.includes("Importer un fichier Excel") && html.includes("Modèle Excel") && html.includes("Coller du texte"));
 test("le bouton de correction d'un article est là", html.includes("Corriger"));
 // ⚠ L'admin PRINCIPAL voit volontairement les deux espaces (dérogation
 // « tous ») : c'est un compte de FORMATION qui prouve le cloisonnement.

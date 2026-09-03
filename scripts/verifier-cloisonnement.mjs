@@ -81,6 +81,15 @@ await build({ entryPoints: ["src/lib/cnss.js"], bundle: true, format: "esm", pla
   alias: { xlsx: "./" + bouchonXlsx } });
 const Cnss = await import(pathToFileURL(sortieCnss).href);
 unlinkSync(sortieCnss);
+
+// L'importation d'articles en stock (fichier Excel / texte collé) — la
+// règle est pure, seule la lecture du fichier touche xlsx (bouchonnée).
+const sortieImp = join("node_modules", ".cache", `bmi-imp-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/importStock.js"], bundle: true, format: "esm", platform: "node",
+  outfile: sortieImp, logLevel: "silent", loader: { ".js": "jsx" },
+  alias: { xlsx: "./" + bouchonXlsx } });
+const Imp = await import(pathToFileURL(sortieImp).href);
+unlinkSync(sortieImp);
 unlinkSync(bouchonXlsx);
 
 // Le socle partage du Dimensionnement (trois volets) : conditions
@@ -2796,11 +2805,14 @@ titre("Un article sans prix ne s'importe pas, et ne se vend pas en silence");
   // retenu, chiffre 0 F dans le devis, puis encaisse 0 F.
   const st = readFileSync("src/screens/Stocks.jsx", "utf8");
   const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
+  // Depuis 2.101.46, la règle d'importation vit dans lib/importStock.js
+  // (Excel + texte collé) : c'est là qu'on la surveille désormais.
+  const im = readFileSync("src/lib/importStock.js", "utf8");
 
   test("★ l'importation REFUSE une ligne sans prix de vente",
-    /if \(!\(prixVente > 0\)\) \{[\s\S]{0,220}?return;/.test(st));
+    /if \(!\(prixVente > 0\)\) \{[\s\S]{0,220}?continue;/.test(im));
   test("★ …et dit LAQUELLE, au lieu de « 3 erreurs ignorées »",
-    /ligne\(s\) NON importée\(s\)/.test(st) && /erreurs\.slice\(0, 10\)/.test(st));
+    /ligne\(s\) NON importée\(s\)/.test(im) && /lignes\.slice\(0, 10\)/.test(im));
   test("l'ancien remplissage silencieux a 0 a disparu",
     !/prix_vente: Number\(parts\[5\]\) \|\| 0/.test(st));
   test("★ encaisser un article a 0 F demande confirmation (jamais par inadvertance)",
@@ -3270,6 +3282,65 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     srcPdf.includes(`"Équipement", "Article"`));
   test("★ TousLesDevis TRANSMET les besoins au PDF (sinon rien ne s'imprime)",
     /besoins: d\.besoins/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+}
+
+titre("Importation d'articles : Excel ou texte collé, fournisseur et domaine compris");
+{
+  // Demande Timo (03/09/2026) : « Importation rapide n'intègre pas le
+  // domaine ? Ni fournisseur » puis « importer un fichier Excel — une
+  // feuille par boutique ». Ordre des colonnes = celui du formulaire.
+  const dbI = {
+    boutiques: [{ id: "b1", nom: "BMI DEMAKPOE" }, { id: "b3", nom: "ECOLE", formation: true }],
+    fournisseurs: [{ id: "f1", nom: "SOLARIS" }, { id: "f2", nom: "ECOLE-FOURN", formation: true }],
+    produits: [{ id: "p1", boutique: "BMI DEMAKPOE", nom: "COFFRET ETANCHE IP65", prix_vente: 12000 }],
+  };
+  test("★ l'ordre des colonnes est celui de Timo : Nom, Fournisseur, Domaine, Catégorie, Initial, Seuil, Prix d'achat, Prix de vente",
+    Imp.COLONNES_IMPORT.join("|") === "Nom|Fournisseur|Domaine|Catégorie|Initial|Seuil|Prix d'achat|Prix de vente");
+
+  // Fichier avec titres, dans le DÉSORDRE, accents/majuscules libres.
+  const avecTitres = Imp.enregistrementsDepuisLignes([
+    ["PRIX DE VENTE", "nom", "Fournisseur", "domaine", "Prix d'achat", "Initial"],
+    [65000, "Panneau 150W", "solaris", "Solaire", 45000, 10],
+  ]);
+  test("★ les colonnes sont reconnues par leur TITRE, quel que soit l'ordre",
+    avecTitres.avecTitres && avecTitres.enregistrements[0].nom === "Panneau 150W"
+    && avecTitres.enregistrements[0].prix_vente === 65000 && avecTitres.enregistrements[0].initial === 10);
+  const r1 = Imp.analyserImport(dbI, "BMI DEMAKPOE", avecTitres.enregistrements);
+  test("★ fournisseur reconnu sans tenir compte de la casse → nom EXACT de la fiche ; domaine par son nom → identifiant",
+    r1.nouveaux.length === 1 && r1.nouveaux[0].fournisseur === "SOLARIS" && r1.nouveaux[0].domaine === "solaire"
+    && r1.erreurs.length === 0 && r1.avertissements.length === 0);
+
+  // Texte collé sans titres : ordre fixe, tabulations (copier-coller Excel).
+  const colle = Imp.lignesDepuisTexte("Batterie 200Ah\tINCONNU\tPlomberie\tBatteries\t4\t1\t90000\t140000\nCable 6mm, , , Câbles, 100, 10, 500, 800");
+  const r2 = Imp.analyserImport(dbI, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes(colle).enregistrements);
+  test("★ le texte collé accepte tabulations (Excel) ET virgules, sans ligne de titres",
+    r2.nouveaux.length === 2 && r2.nouveaux[0].nom === "Batterie 200Ah" && r2.nouveaux[1].categorie === "Câbles");
+  test("★ fournisseur ou domaine INCONNU : l'article passe SANS, et c'est DIT (pas de fiche créée par faute de frappe)",
+    r2.nouveaux[0].fournisseur === "" && r2.nouveaux[0].domaine === ""
+    && r2.avertissements.some((a) => a.includes("INCONNU")) && r2.avertissements.some((a) => a.includes("Plomberie")));
+
+  // Garde-fous.
+  const r3 = Imp.analyserImport(dbI, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes(Imp.lignesDepuisTexte(
+    "Regulateur 60A, , , , 2, 1, 30000, \n"        // sans prix de vente
+    + "coffret etanche ip65, , , , 1, 0, 8000, 12000\n" // déjà en stock (casse différente)
+    + "Onduleur 3kVA, , , , 1, 0, 200000, 300000\nOnduleur 3kVA, , , , 1, 0, 200000, 300000")).enregistrements);
+  test("★ sans prix de vente : REFUSÉ (il serait vendu 0 F) — et nommé",
+    r3.erreurs.some((e) => e.includes("Regulateur 60A") && e.includes("prix de vente")));
+  test("★ un nom déjà présent dans la boutique : REFUSÉ (pas deux fiches pour le même article)",
+    r3.erreurs.some((e) => e.includes("existe déjà")) && !r3.nouveaux.some((n) => n.nom.toLowerCase() === "coffret etanche ip65"));
+  test("un nom en double dans le fichier : la seconde ligne est refusée",
+    r3.nouveaux.filter((n) => n.nom === "Onduleur 3kVA").length === 1 && r3.erreurs.some((e) => e.includes("en double")));
+
+  // Cloisonnement : les fournisseurs admis sont ceux de l'ESPACE DE LA BOUTIQUE.
+  const r4 = Imp.analyserImport(dbI, "ECOLE", Imp.enregistrementsDepuisLignes([["X", "SOLARIS", "", "", 1, 0, 1, 2], ["Y", "ECOLE-FOURN", "", "", 1, 0, 1, 2]]).enregistrements);
+  test("★ cloisonnement : un vrai fournisseur n'est pas rattaché à un article de FORMATION (et l'inverse)",
+    r4.nouveaux[0].fournisseur === "" && r4.nouveaux[1].fournisseur === "ECOLE-FOURN"
+    && Imp.analyserImport(dbI, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes([["Z", "ECOLE-FOURN", "", "", 1, 0, 1, 2]]).enregistrements).nouveaux[0].fournisseur === "");
+  test("le récapitulatif nomme les lignes refusées ET les réserves",
+    Imp.resumeImport("BMI DEMAKPOE", r2).includes("réserve") && Imp.resumeImport("BMI DEMAKPOE", r3).includes("NON importée"));
+  test("★ la règle vit dans lib/importStock.js — l'écran Stocks ne découpe plus lui-même les lignes",
+    !/parts\[5\]|split\(","\)/.test(readFileSync("src/screens/Stocks.jsx", "utf8"))
+    && /from "\.\.\/lib\/importStock"/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
 }
 
 titre("Le dimensionnement a UNE seule boutique, partagée par les trois volets");

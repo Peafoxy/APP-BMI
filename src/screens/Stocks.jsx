@@ -11,6 +11,7 @@ import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BA
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
+import { COLONNES_IMPORT, EXEMPLE_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
 
 // ============ STOCKS ============
 export function Stocks({ db, save, profile }) {
@@ -473,62 +474,56 @@ export function Stocks({ db, save, profile }) {
       exact ? `Fournisseur de « ${p.nom} » : ${exact}` : `Fournisseur retiré de « ${p.nom} »`);
   };
 
-  const importerArticles = async () => {
-    const texte = await uPrompt(
-      `Importation dans ${bq}.\n\nCollez les articles (un par ligne) :\nFormat : Nom, Catégorie, Initial, Seuil, PrixAchat, PrixVente\nExemple :\nPanneau Solaire 150W, Panneaux, 10, 3, 45000, 65000`
-    );
-    if (!texte) return;
+  // ---- IMPORTATION D'ARTICLES (fichier Excel ou texte collé) ----
+  // ⚠ Demande Timo (03/09/2026) : le domaine et le fournisseur manquaient à
+  // l'importation, et il voulait pouvoir importer un fichier Excel — « une
+  // feuille par boutique ». Toute la règle (colonnes, garde-fous, récap) vit
+  // dans lib/importStock.js, PURE, rejouée par le banc. Ici : la fenêtre, le
+  // choix du fichier, la confirmation, l'enregistrement.
+  const fichierImportRef = useRef(null);
 
-    const lignes = texte.split("\n").filter(l => l.trim());
-    const nouveaux = [];
-    let erreurs = [];
-
-    // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : l'importation acceptait une ligne
-    // dès qu'elle avait TROIS champs. Le prix de vente absent valait alors 0,
-    // sans un mot. Et comme le dimensionnement choisit ses articles sur leur
-    // caractéristique (watts, ampères-heures) et jamais sur leur prix, un
-    // panneau importé sans prix était retenu normalement, chiffré 0 F dans le
-    // devis, puis encaissé 0 F dans Ventes. Rien ne le signalait nulle part.
-    //
-    // Un article sans prix de vente n'est pas une ligne « incomplète » : c'est
-    // une ligne qu'on ne peut pas vendre. On la REFUSE, en disant laquelle et
-    // pourquoi — l'importation continue pour les autres.
-    lignes.forEach((ligne, i) => {
-      const parts = ligne.split(",").map(s => s.trim());
-      if (parts.length < 3) { erreurs.push(`Ligne ${i + 1} : format incorrect`); return; }
-      const nom = parts[0];
-      const prixVente = Number(parts[5]);
-      if (!nom) { erreurs.push(`Ligne ${i + 1} : nom manquant`); return; }
-      if (!(prixVente > 0)) {
-        erreurs.push(`Ligne ${i + 1} (${nom}) : prix de vente manquant ou nul — un article sans prix serait vendu 0 F`);
-        return;
-      }
-      nouveaux.push({
-        id: uid(),
-        boutique: bq,
-        nom,
-        categorie: parts[1] || "Autre",
-        initial: Number(parts[2]) || 0,
-        entrees: 0,
-        seuil: Number(parts[3]) || 0,
-        prix_achat: Number(parts[4]) || 0,
-        prix_vente: prixVente,
-      });
-    });
-
-    if (nouveaux.length === 0) {
-      uAlert("Aucun article valide à importer.\n\n" + erreurs.join("\n"));
+  const finaliserImport = async (lignes, origine) => {
+    const { enregistrements, colonnesInconnues } = enregistrementsDepuisLignes(lignes);
+    if (!enregistrements.length) { uAlert(`Rien à importer : ${origine} ne contient aucune ligne d'article.`); return; }
+    const resultat = analyserImport(db, bq, enregistrements);
+    if (colonnesInconnues.length) resultat.avertissements.unshift(`Colonne(s) non reconnue(s), ignorée(s) : ${colonnesInconnues.join(", ")}`);
+    if (resultat.nouveaux.length === 0) {
+      uAlert("Aucun article valide à importer.\n\n" + resultat.erreurs.join("\n"));
       return;
     }
-
     // Les lignes refusées sont NOMMÉES : « 3 erreurs ignorées » ne dit pas
     // lesquelles, et on découvrait le manque des semaines plus tard, au moment
     // de vendre.
-    if (await uConfirm(`Importer ${nouveaux.length} article(s) dans ${bq} ?`
-      + (erreurs.length ? `\n\n⚠ ${erreurs.length} ligne(s) NON importée(s) :\n${erreurs.slice(0, 10).join("\n")}${erreurs.length > 10 ? `\n… et ${erreurs.length - 10} autre(s)` : ""}` : ""))) {
-      save({ ...db, produits: [...db.produits, ...nouveaux] }, `Import de ${nouveaux.length} articles — ${bq}`);
-      uAlert(`${nouveaux.length} articles importés avec succès !`);
+    if (!await uConfirm(resumeImport(bq, resultat))) return;
+    const nouveaux = resultat.nouveaux.map((n) => ({ id: uid(), ...n }));
+    save({ ...db, produits: [...db.produits, ...nouveaux] }, `Import de ${nouveaux.length} articles — ${bq}${origine ? ` (${origine})` : ""}`);
+    uAlert(`✅ ${nouveaux.length} article(s) importé(s) dans ${bq}.${resultat.avertissements.length ? `\n\n${resultat.avertissements.length} réserve(s) — voir le récapitulatif précédent.` : ""}`);
+  };
+
+  const importerArticles = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    const texte = await uPrompt(
+      `Importation dans ${bq}.\n\nCollez les articles (un par ligne), dans cet ordre :\n${COLONNES_IMPORT.join(", ")}\n\nExemple :\n${EXEMPLE_IMPORT.join(", ")}\n\n(Un copier-coller depuis Excel marche aussi. Laissez vide entre deux virgules ce que vous ne connaissez pas.)`
+    );
+    if (!texte) return;
+    await finaliserImport(lignesDepuisTexte(texte), "le texte collé");
+  };
+
+  const importerFichier = async (e) => {
+    const fichier = e.target.files?.[0];
+    e.target.value = ""; // permet de rechoisir le même fichier après correction
+    if (!fichier) return;
+    if (bloquerSiLecture(db, profile)) return;
+    let lu;
+    try { lu = await lireFichierTableur(fichier); }
+    catch { uAlert("Ce fichier n'a pas pu être lu. Il doit être un fichier Excel (.xlsx) ou CSV."); return; }
+    // ⚠ « Une feuille par boutique » : on ne lit que la première feuille, et
+    // on le DIT si le fichier en a plusieurs — sinon on importerait la
+    // feuille d'une autre boutique sans s'en rendre compte.
+    if (lu.nbFeuilles > 1) {
+      if (!await uConfirm(`Ce fichier a ${lu.nbFeuilles} feuilles. Seule la première, « ${lu.feuille} », sera lue — et importée dans ${bq}.\n\nContinuer ?`)) return;
     }
+    await finaliserImport(lu.lignes, `fichier ${fichier.name}`);
   };
 
   const reappro = async (p) => {
@@ -1004,7 +999,10 @@ export function Stocks({ db, save, profile }) {
           ) : (
             <>
               <button onClick={ajouter} className={btnDark}>Ajouter à {bq}</button>
-              <button onClick={importerArticles} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importation rapide</button>
+              <button onClick={() => fichierImportRef.current?.click()} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importer un fichier Excel</button>
+              <input ref={fichierImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={importerFichier} />
+              <button onClick={() => telechargerModeleImport(bq)} className="px-4 py-2 rounded-lg border border-blue-300 text-blue-800 text-sm font-semibold hover:bg-blue-50">📄 Modèle Excel</button>
+              <button onClick={importerArticles} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">📋 Coller du texte</button>
             </>
           )}
         </div>
