@@ -416,13 +416,16 @@ sortie : on regarde si la base a levé une objection.
   n'est PAS proposée tant qu'aucun compte WhatsApp n'est relié — c'est
   normal, et elle n'est plus obligatoire pour envoyer (limite ~250 clients
   distincts / jour sans elle). ⚠ « Meta Verified » (badge bleu payant) n'a
-  RIEN à voir — Timo s'était retrouvé sur sa liste d'attente. Bloqué : la
-  création du compte YCloud (formule gratuite choisie) s'arrête à la
-  vérification du numéro de contact — le code n'arrive ni par WhatsApp ni
-  par SMS. Pistes non épuisées : leur discussion en direct (validation
-  manuelle), réessayer un autre jour, ou 360dialog (49 €/mois). Côté app,
-  rien n'a été construit. **Ne pas relancer Timo ; reprendre quand il le
-  demandera**, au point exact ci-dessus.
+  RIEN à voir — Timo s'était retrouvé sur sa liste d'attente.
+  **Compte YCloud CRÉÉ (formule Free)** le 03/09/2026, après un code de
+  vérification arrivé tardivement. Le raccordement « Coexistence » est
+  ENGAGÉ : fenêtre Meta → portefeuille BMI Togo → « Associer une
+  application WhatsApp Business » → Suivant → **code QR à scanner** — arrêté
+  là parce que Timo n'avait pas le téléphone BMI (seul l'appareil principal
+  du numéro peut scanner). À reprendre depuis YCloud → WhatsApp accounts →
+  Coexistence → Get started, téléphone BMI en main (WhatsApp Business à
+  jour, internet). Côté app, rien n'a été construit. **Ne pas relancer
+  Timo ; reprendre quand il le demandera**, au point exact ci-dessus.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
