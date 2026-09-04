@@ -454,6 +454,11 @@ sortie : on regarde si la base a levé une objection.
   **COLLÉ par Timo le 04/09/2026** (capture : 3 / true / true) — le trou
   des faire-part est FERMÉ sur la vraie base. Suite : ses réponses aux ❓
   de l'inventaire, puis étape 1 (étiquette « principal » + filet de lot).
+  **Réponses de Timo aux ❓ (04/09/2026)** — point 5 : « limiter et
+  verrouiller » = plafonner la remise libre sur un devis côté serveur
+  (au-delà du seuil : admin seul — **seuil à lui demander**) ET verrouiller
+  cadeaux, photos, date d'entretien, tâches (admin / pouvoir) côté serveur,
+  contre mon avis « laisser » — sa décision. Points 1 à 4 : en attente.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
