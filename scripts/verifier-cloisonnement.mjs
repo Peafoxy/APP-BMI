@@ -82,6 +82,13 @@ await build({ entryPoints: ["src/lib/cnss.js"], bundle: true, format: "esm", pla
 const Cnss = await import(pathToFileURL(sortieCnss).href);
 unlinkSync(sortieCnss);
 
+// La validation d'un devis (espace client ET signature en boutique).
+const sortieVal = join("node_modules", ".cache", `bmi-val-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/validationDevis.js"], bundle: true, format: "esm", platform: "node",
+  outfile: sortieVal, logLevel: "silent", loader: { ".js": "jsx" } });
+const Val = await import(pathToFileURL(sortieVal).href);
+unlinkSync(sortieVal);
+
 // L'importation d'articles en stock (fichier Excel / texte collé) — la
 // règle est pure, seule la lecture du fichier touche xlsx (bouchonnée).
 const sortieImp = join("node_modules", ".cache", `bmi-imp-${process.pid}.mjs`);
@@ -3153,8 +3160,12 @@ titre("Vague 2, etape 1 : chaque dette et chaque vente naissent avec leur PROPRI
     (dettesJsx.match(/client_user_id:/g) || []).length === 4);
   test("★ les 3 naissances de Ventes.jsx (vente, reservation, dette credit)",
     (ventesJsx.match(/client_user_id:/g) || []).length === 3);
+  // Depuis 2.101.48 la dette « pose seule » naît dans lib/validationDevis.js
+  // (même règle pour l'espace client et la signature en boutique) : c'est
+  // là qu'on la surveille, et l'écran client n'en fabrique plus lui-même.
   test("★ la dette « pose seule » appartient au client qui la cree, sans devinette",
-    /client_user_id: profile\.id, numero: prochainNumeroDette\(dbT/.test(espaceJsx));
+    /client_user_id: client\.id, numero: prochainNumeroDette\(dbT/.test(readFileSync("src/lib/validationDevis.js", "utf8"))
+    && !/prochainNumeroDette\(/.test(espaceJsx));
   test("la vente et sa dette de credit partagent LA MEME resolution (jamais deux reponses)",
     /const clientCompteId = origineDevis\?\.client_id \|\| compteClientPour\(db, f\.tel, f\.client\)/.test(ventesJsx)
     && /client_user_id: clientCompteId, vente_id: vente\.id/.test(ventesJsx));
@@ -3238,6 +3249,78 @@ titre("Le brouillon du dimensionnement survit au F5 — UNE règle, TROIS volets
     test(`${fichier} n'a AUCUNE copie privée de la règle (pas de brouillonEcrire direct)`,
       !/brouillonEcrire\(|brouillonLire\(|brouillonEffacer\(/.test(src));
   }
+}
+
+titre("Signature du contrat en boutique — UNE règle de validation, deux écrans");
+{
+  // Demande Timo (04/09/2026) : « un client qui ne passe pas par l'app et
+  // veut signer le contrat ». Le vendeur le fait signer sur son appareil
+  // (✍️ Faire signer ici) ou sur papier (🖨 Imprimer / 📝 Signé sur papier).
+  // La validation qui en découle est LA MÊME que depuis l'espace client :
+  // lib/validationDevis.js, rejouée ici.
+  const dbV = {
+    boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", adresse: "Lomé, Démakpoé", tel: "90000000" }, { id: "b3", nom: "ECOLE", formation: true }],
+    users: [
+      { id: "c1", role: "client", nom: "KOFFI", nom_base: "KOFFI AGBEKO", tel: "+228 91 11 22 33", devis: [
+        { id: "dv1", statut: "propose", total: 100000, montant_acompte: 30000, pct_acompte: 30, par: "KOSSI", par_id: "u5", par_role: "commercial", boutique: "BMI DEMAKPOE",
+          panier: [{ produit_id: "p1", article: "PANNEAU 550W", qte: 1, pu: 100000 }], lignes: [{ article: "PANNEAU 550W", qte: 1, pu: 100000, total: 100000 }] },
+        { id: "dv2", statut: "propose", total: 20000, pose_seule: true, par: "KOSSI", par_id: "u5", par_role: "commercial", boutique: "BMI DEMAKPOE",
+          panier: [{ produit_id: null, article: "Frais de pose", qte: 1, pu: 20000, categorie: "Installation" }], lignes: [{ article: "Frais de pose", qte: 1, pu: 20000, total: 20000 }] },
+        { id: "dv3", statut: "valide", total: 5000, par: "KOSSI", par_id: "u5", par_role: "commercial", boutique: "BMI DEMAKPOE", panier: [], lignes: [] },
+      ] },
+      { id: "c2", role: "client", nom: "STAGIAIRE-CLIENT", formation: true, devis: [
+        { id: "dv9", statut: "propose", total: 7000, pose_seule: true, formation: true, par: "ECOLIER", par_id: "u9", par_role: "vendeur", boutique: "ECOLE", panier: [], lignes: [] },
+      ] },
+    ],
+    prospects: [{ id: "pr1", client_user_id: "c1", converti: false }, { id: "pr2", client_user_id: "zz", converti: false }],
+    commandes: [], dettes: [], clients_installes: [], ventes: [], ajustements: [],
+  };
+  const r1 = Val.validerDevis(dbV, { clientId: "c1", devisId: "dv1", boutique: "BMI DEMAKPOE",
+    infosContrat: { contrat_numero: "CTR-2026-TEST", contrat_signature: "data:image/png;base64,x", contrat_date_signature: "2026-09-04", contrat_signe_en_boutique: "BMI DEMAKPOE", contrat_signe_devant: "KOSSI" },
+    acteur: { nom: "KOSSI" }, mention: " — signé en boutique BMI DEMAKPOE devant KOSSI" });
+  const dv1 = r1.db?.users.find((u) => u.id === "c1").devis.find((x) => x.id === "dv1");
+  test("★ un devis signé en boutique devient une commande à encaisser (origine_devis, en_attente, commissionné au commercial)",
+    !r1.erreur && r1.db.commandes.length === 1 && r1.db.commandes[0].statut === "en_attente"
+    && r1.db.commandes[0].origine_devis.devis_id === "dv1" && r1.db.commandes[0].commercial === "KOSSI" && r1.db.commandes[0].boutique === "BMI DEMAKPOE");
+  test("★ le devis passe « validé », porte la boutique de paiement, le contrat, la mention « signé en boutique devant … »",
+    dv1.statut === "valide" && dv1.boutique_paiement === "BMI DEMAKPOE" && dv1.boutique_adresse === "Lomé, Démakpoé" && dv1.commande_id === r1.db.commandes[0].id
+    && dv1.contrat_numero === "CTR-2026-TEST" && dv1.contrat_signe_devant === "KOSSI" && r1.journal.includes("signé en boutique") && r1.journal.includes("VALIDÉ par KOSSI"));
+  test("le prospect DU client prend le badge « devis validé », pas celui d'un autre",
+    r1.db.prospects[0].devis_valide === true && !r1.db.prospects[1].devis_valide);
+  test("★ sans boutique de paiement, ou boutique inconnue : refusé (rien n'est écrit)",
+    !!Val.validerDevis(dbV, { clientId: "c1", devisId: "dv1", acteur: { nom: "KOSSI" } }).erreur
+    && !!Val.validerDevis(dbV, { clientId: "c1", devisId: "dv1", boutique: "NULLE PART", acteur: { nom: "KOSSI" } }).erreur);
+  test("★ un devis déjà validé ne se revalide pas (pas de deuxième commande)",
+    !!Val.validerDevis(dbV, { clientId: "c1", devisId: "dv3", boutique: "BMI DEMAKPOE", acteur: { nom: "KOSSI" } }).erreur);
+  const r2 = Val.validerDevis(dbV, { clientId: "c1", devisId: "dv2", infosContrat: { contrat_numero: "CTR-P", contrat_papier: true, contrat_papier_boutique: "BMI DEMAKPOE", contrat_papier_par: "KOSSI" }, acteur: { nom: "KOSSI" }, mention: " — signé sur papier" });
+  const dv2 = r2.db?.users.find((u) => u.id === "c1").devis.find((x) => x.id === "dv2");
+  test("★ pose seule signée sur papier : chantier + dette TERRAIN créés tout de suite, au nom du CLIENT (client_user_id)",
+    !r2.erreur && r2.db.commandes.length === 0 && r2.db.dettes.length === 1 && r2.db.dettes[0].boutique === C.NOM_BOUTIQUE_TERRAIN
+    && r2.db.dettes[0].client_user_id === "c1" && r2.db.dettes[0].montant === 20000 && r2.db.dettes[0].motif.includes("CTR-P")
+    && r2.db.clients_installes.length === 1 && r2.db.clients_installes[0].pose_seule === true && r2.db.clients_installes[0].devis_id === "dv2"
+    && dv2.statut === "valide" && dv2.contrat_papier === true && r2.journal.includes("pose seule") && r2.journal.includes("signé sur papier"));
+  const r3 = Val.validerDevis(dbV, { clientId: "c2", devisId: "dv9", acteur: { nom: "ECOLIER" } });
+  test("★ cloisonnement : la pose seule d'un client de FORMATION va dans la caisse TERRAIN d'entraînement, jamais la réelle",
+    !r3.erreur && r3.db.dettes[0].boutique === C.NOM_BOUTIQUE_TERRAIN_FORMATION);
+  // Le même chemin depuis l'espace client (acteur = le client) garde son journal.
+  const r4 = Val.validerDevis(dbV, { clientId: "c1", devisId: "dv1", boutique: "BMI DEMAKPOE", acteur: { nom: "KOFFI", estClient: true } });
+  test("depuis son espace, le journal dit « VALIDÉ par le client … »", r4.journal.includes("VALIDÉ par le client KOFFI"));
+
+  const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+  const tl = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  test("★ l'espace client passe par la MÊME règle (plus de commande ni de chantier fabriqués sur place)",
+    (ec.match(/validerDevis\(/g) || []).length >= 2 && !/commandes: \[commande, \.\.\./.test(ec) && !/clients_installes: \[chantier/.test(ec));
+  test("★ le vendeur de la boutique de PAIEMENT voit les devis à encaisser chez lui (décision Timo 04/09/2026)",
+    /\(d\.boutique_paiement \|\| d\.boutique\) === profile\.boutique/.test(tl));
+  test("★ les trois gestes sont là, réservés aux employés, sur un devis encore proposé",
+    tl.includes("Faire signer ici") && tl.includes("Imprimer pour signature papier") && tl.includes("Signé sur papier")
+    && /const estEmploye = profile\.role !== "client"/.test(tl) && /peutFaireSigner = \(d\) => estEmploye && \(d\.statut \|\| "propose"\) === "propose"/.test(tl));
+  test("le contrat affiché au vendeur est CELUI de l'impression (une seule source de texte)",
+    /htmlContratInstallation\(apercu, db\)/.test(tl) && /export function htmlContratInstallation/.test(readFileSync("src/lib/impression.js", "utf8")));
+  test("★ un contrat signé sur papier est un contrat (liste, impression) — et le dit",
+    /d\.contrat_signature \|\| d\.contrat_papier/.test(readFileSync("src/lib/calculs.js", "utf8"))
+    && readFileSync("src/lib/impression.js", "utf8").includes("Signé sur papier — original archivé")
+    && readFileSync("src/screens/ContratsInstallation.jsx", "utf8").includes("Signé sur papier"));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

@@ -6,12 +6,13 @@ import { useState, useRef } from "react";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
 import { creerFilleulEnLigne } from "../supabaseClient";
-import { PAIEMENTS, TYPES_INSTALLATION } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, prochainNumeroDette, ouvrirWhatsApp } from "../lib/core";
+import { PAIEMENTS } from "../lib/constants";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, ouvrirWhatsApp } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
+import { validerDevis } from "../lib/validationDevis";
 
 // ============ ESPACE CLIENT (rôle client) ============
 export function EspaceClient({ db, profile, save, setTab }) {
@@ -393,56 +394,19 @@ export function EspaceClient({ db, profile, save, setTab }) {
     return true;
   };
 
+  // ⚠ La règle de validation (commande / chantier + dette « pose seule »,
+  // badge prospect, infos de la boutique de paiement) vit dans
+  // lib/validationDevis.js — la même sert au vendeur qui fait signer en
+  // boutique (TousLesDevis). Ici : les questions et les messages au client.
   const finaliserValidation = async (d, infosContrat) => {
-    // ⚠ "Pose seule" (demande Timo) : le client a déjà le matériel, il n'y a
-    // rien à payer avant travaux — pas de boutique à choisir, pas de
-    // commande en attente. Le chantier se crée DIRECTEMENT à la signature ;
-    // le règlement (technicien sur le terrain le plus souvent, boutique en
-    // de rares cas) se fait ensuite, comme une dette classique — plusieurs
-    // versements possibles, dans une caisse dédiée « TERRAIN », séparée des
-    // boutiques physiques.
     if (d.pose_seule) {
       if (!await uConfirm(
         `Valider ce devis de ${fmt(d.total)} (pose seule — matériel déjà en votre possession) ?\n\n` +
         `Nos équipes vous contacteront pour programmer l'intervention. Le règlement se fait au technicien à la fin des travaux (ou en boutique si besoin).`
       )) return false;
-      // ⚠ Un client de FORMATION s'entraîne dans la caisse TERRAIN
-      // d'entraînement — jamais dans la réelle. Sans cette distinction, le
-      // verrou de cloisonnement (puis le serveur) refusaient la validation :
-      // l'app proposait un geste qu'elle interdisait ensuite (relevé lors
-      // de la revue Espace client, lot 2).
-      const enFormation = estCompteFormation(db, profile);
-      const caisseTerrain = enFormation ? NOM_BOUTIQUE_TERRAIN_FORMATION : NOM_BOUTIQUE_TERRAIN;
-      const dbT = assurerBoutiqueTerrain(db, enFormation);
-      const dette = {
-        // ⚠ Vague 2, étape 1 : c'est le client LUI-MÊME qui crée cette dette —
-        // le propriétaire est certain, aucun rapprochement à faire.
-        id: uid(), client_user_id: profile.id, numero: prochainNumeroDette(dbT, caisseTerrain), date: today(),
-        boutique: caisseTerrain, client: moi.nom_base || profile.nom, tel: moi.tel || "",
-        motif: `Prestation de pose${infosContrat?.contrat_numero ? ` — contrat ${infosContrat.contrat_numero}` : ""}`,
-        montant: d.total, paye: 0, paiements: [], par: profile.nom,
-      };
-      const chantier = {
-        id: uid(), date: today(),
-        nom: moi.nom_base || moi.nom || profile.nom, prenom: "", tel: moi.tel || "",
-        user_id: profile.id,
-        type_installation: TYPES_INSTALLATION[0],
-        date_installation: "", date_entretien: "", localisation: "", lat: null, lng: null,
-        vente_id: null, devis_id: d.id, pose_seule: true, dette_id: dette.id,
-        garantie_mois: 24, equipe: [],
-        materiel: (d.lignes || d.panier || []).map((l) => ({ nom: l.article, qte: l.qte, serie: "" })),
-        frais_installation: d.total,
-        statut: "en_cours",
-        adresse_contrat: "",
-      };
-      save({
-        ...dbT,
-        dettes: [dette, ...(dbT.dettes || [])],
-        clients_installes: [chantier, ...(dbT.clients_installes || [])],
-        users: dbT.users.map((u) => (u.id === profile.id
-          ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, statut: "valide", valide_le: today(), ...infosContrat } : x)) }
-          : u)),
-      }, `Devis pose seule ${fmt(d.total)} VALIDÉ par ${profile.nom} — chantier créé directement, sans passage en boutique`);
+      const r = validerDevis(db, { clientId: profile.id, devisId: d.id, infosContrat, acteur: { nom: profile.nom, estClient: true } });
+      if (r.erreur) { uAlert(r.erreur); return false; }
+      save(r.db, r.journal);
       uAlert("✅ Contrat signé. Votre chantier est créé — nos équipes vous contacteront pour programmer l'intervention.");
       return true;
     }
@@ -458,59 +422,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
       `Le vendeur y sera prévenu de votre venue.\n\n` +
       `L'installation sera programmée après votre paiement.`
     )) return false;
-
-    // La commande part chez les vendeurs — exactement comme une commande commerciale.
-    const commande = {
-      id: uid(),
-      date: today(),
-      // SEULS un commercial ou un technicien (commission) sont commissionnés.
-      // Un devis fait par un salarié (technicien BMI, admin, vendeur) ne génère
-      // AUCUNE commission : le champ reste vide.
-      commercial: (d.par_role === "commercial" || d.par_role === "technicien") ? d.par : null,
-      responsable: null,
-      rabais: 0,
-      boutique,
-      vendeur_cible: null,
-      articles: d.panier || [],
-      client: moi.nom_base || profile.nom,
-      tel: moi.tel || "",
-      remise: d.remise || 0,
-      remise_pct: d.pct_remise || 0,
-      paiement: PAIEMENTS[0],
-      statut: "en_attente",
-      // Le lien avec le devis : c'est ce qui permettra de créer la fiche
-      // d'installation au moment de l'encaissement.
-      origine_devis: { client_id: profile.id, devis_id: d.id, par_id: d.par_id, par_role: d.par_role },
-    };
-
-    // Le prospect correspondant porte désormais un badge : les commerciaux voient
-    // d'un coup d'œil qui a dit oui mais n'a pas encore payé. C'est LA file à relancer.
-    // ⚠ SEULES les fiches déjà MARQUÉES à son nom (client_user_id). Vécu par
-    // Timo avec le compte ESSO (31/08/2026) : depuis la fermeture de
-    // l'annuaire (client-1), le serveur refuse qu'un client touche une fiche
-    // prospect sans son étiquette — et comme les écritures d'une validation
-    // partent ensemble (tout ou rien), UNE fiche refusée bloquait TOUTE la
-    // validation, silencieusement. Le rapprochement par téléphone est
-    // désormais fait EN AMONT, à l'envoi du devis, par l'employé qui
-    // l'envoie (Partages.jsx) — lui a le droit d'écrire ces fiches.
-    const prospectsMaj = (db.prospects || []).map((pr) => {
-      const correspond = pr.client_user_id === profile.id;
-      return correspond && !pr.converti
-        ? { ...pr, devis_valide: true, devis_total: d.total, devis_boutique: boutique, devis_valide_le: today(), maj_le: today() }
-        : pr;
-    });
-
-    save({
-      ...db,
-      commandes: [commande, ...(db.commandes || [])],
-      prospects: prospectsMaj,
-      users: db.users.map((u) => (u.id === profile.id
-        ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
-            ? { ...x, statut: "valide", boutique_paiement: boutique, boutique_adresse: infosBoutique?.adresse || "", boutique_tel: infosBoutique?.tel || "", boutique_lat: infosBoutique?.lat || null, boutique_lng: infosBoutique?.lng || null, valide_le: today(), commande_id: commande.id, ...infosContrat }
-            : x)) }
-        : u)),
-    }, `Devis ${fmt(d.total)} VALIDÉ par le client ${profile.nom} — paiement prévu à ${boutique}`);
-
+    const r = validerDevis(db, { clientId: profile.id, devisId: d.id, boutique, infosContrat, acteur: { nom: profile.nom, estClient: true } });
+    if (r.erreur) { uAlert(r.erreur); return false; }
+    save(r.db, r.journal);
     uAlert(`✅ Merci ! Votre devis est validé.\n\nPassez à la boutique ${boutique} pour régler.${localisation}${lienCarte}${telBoutique}\nLe vendeur vous attend.\n\nDès votre paiement, nous programmerons votre installation.`);
     return true;
   };

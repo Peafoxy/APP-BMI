@@ -180,6 +180,8 @@ export function ContratsInstallation({ db, save, profile }) {
                   {d.contrat_numero || "—"}
                   {!isClient && <span className="text-slate-400 font-normal"> · {client.nom}</span>}
                   {d.statut !== "paye" && <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">⏳ En attente de paiement</span>}
+                  {d.contrat_papier && <span className="ml-2 text-[10px] font-bold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5" title={`Original archivé à ${d.contrat_papier_boutique || "—"}`}>📝 Signé sur papier</span>}
+                  {d.contrat_signe_en_boutique && <span className="ml-2 text-[10px] font-bold text-sky-800 bg-sky-100 rounded-full px-2 py-0.5">🏪 Signé en boutique</span>}
                 </div>
                 <div className="text-xs text-slate-500">
                   {d.type_devis === "garage" ? "Motorisation portail/garage" : d.type_devis === "autre" ? (d.besoins?.categorie || "Devis") : "Installation solaire"}

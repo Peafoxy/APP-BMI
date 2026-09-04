@@ -460,7 +460,10 @@ export function imprimerPV(c, db) {
 // les autres documents, mêmes 8 articles que ceux lus/signés dans
 // EspaceClient.jsx — permet au client de retélécharger son contrat depuis
 // son espace, à tout moment après signature (demande Timo). ============
-export function imprimerContratInstallation(d, db) {
+// Le texte du contrat, tel qu'il s'imprime — aussi affiché à l'écran du
+// vendeur quand le client signe en boutique (TousLesDevis), pour ne pas
+// avoir une TROISIÈME copie du contrat.
+export function htmlContratInstallation(d, db) {
   const client = (db.users || []).find((u) => (u.devis || []).some((x) => x.id === d.id));
   // Cachet BMI Togo (2.99.29) : un seul cachet pour toute l'entreprise, quel
   // que soit l'initiateur — stocké sur chaque boutique (broadcast), comme
@@ -589,7 +592,7 @@ export function imprimerContratInstallation(d, db) {
     <div class="art"><b>Article 21 — Paiement, défaut de paiement et suspension des prestations.</b> Le Client s'engage à effectuer les paiements conformément aux échéances prévues à l'Article 3 et au devis accepté. En cas de non-paiement total ou partiel d'une somme arrivée à échéance, BMI TOGO pourra adresser au Client une mise en demeure de payer. À défaut de régularisation dans le délai indiqué dans la mise en demeure, BMI TOGO pourra, conformément aux dispositions légales applicables : a) suspendre les travaux, la livraison, la mise en service ou toute autre prestation restant à exécuter ; b) suspendre toute intervention ou prestation non encore exécutée ; c) demander le paiement des sommes échues et de toute somme devenue exigible ; d) résilier le contrat en cas de manquement suffisamment grave du Client ; e) réclamer, lorsque les conditions légales sont réunies, la réparation des préjudices et frais résultant du défaut de paiement. Les prestations déjà exécutées, les équipements déjà fournis ou commandés ainsi que les frais effectivement engagés par BMI TOGO restent dus par le Client, sous réserve des dispositions légales applicables. La réception de l'installation ne constitue pas une renonciation de BMI TOGO au paiement du solde restant dû : lorsque le prix n'a pas été intégralement payé, la signature du procès-verbal de réception ne vaut pas quittance du prix total. En cas de défaut de paiement, BMI TOGO conserve l'ensemble des droits et recours prévus par la législation applicable.</div>
     `}
 
-    <div class="art">Fait à Lomé, le ${dFR(d.contrat_date_signature)}. Paiement prévu à la boutique ${esc(d.boutique_paiement || "—")}.</div>
+    <div class="art">Fait à Lomé, le ${dFR(d.contrat_date_signature)}. Paiement prévu à la boutique ${esc(d.boutique_paiement || "—")}.${d.contrat_signe_en_boutique ? ` Signé en boutique ${esc(d.contrat_signe_en_boutique)}, devant ${esc(d.contrat_signe_devant || "—")}.` : ""}${d.contrat_papier ? ` Signé sur papier — original archivé à la boutique ${esc(d.contrat_papier_boutique || "—")} (reçu par ${esc(d.contrat_papier_par || "—")}).` : ""}</div>
 
     <div class="sig3-row">
       <div class="sig3-col">
@@ -603,14 +606,19 @@ export function imprimerContratInstallation(d, db) {
       </div>
       <div class="sig3-col">
         <div class="sig3-head">LE CLIENT</div>
-        ${d.contrat_signature ? `<img class="signature" src="${d.contrat_signature}" alt="Signature" />` : "<br><br>"}
+        ${d.contrat_signature ? `<img class="signature" src="${d.contrat_signature}" alt="Signature" />`
+          : d.contrat_papier ? `<div style="font-size:10px;color:#555;padding:8px 0">Signé sur papier<br>le ${dFR(d.contrat_date_signature)}</div>` : "<br><br>"}
         <div class="ligne">${esc(client?.nom || "Nom du client")}</div>
       </div>
     </div>
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
   </div>`;
-  if (printApi) printApi.open(html, `Contrat ${d.contrat_numero || ""}`.trim());
+  return html;
+}
+
+export function imprimerContratInstallation(d, db) {
+  if (printApi) printApi.open(htmlContratInstallation(d, db), `Contrat ${d.contrat_numero || ""}`.trim());
 }
 
 // ============ BON DE RAVITAILLEMENT ============

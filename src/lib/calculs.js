@@ -762,7 +762,9 @@ export function contratsInstallation(db, { commercial, clientId, payeSeulement, 
     if (clientId && u.id !== clientId) continue;
     for (const d of u.devis || []) {
       if (espace !== undefined && !!d.formation !== espace) continue;
-      if (d.contrat_signature && (!commercial || d.par === commercial) && (!payeSeulement || d.statut === "paye")) out.push({ client: u, devis: d });
+      // Un contrat existe s'il est signé à l'écran (image) OU sur papier
+      // (contrat_papier, original archivé à la boutique — 04/09/2026).
+      if ((d.contrat_signature || d.contrat_papier) && (!commercial || d.par === commercial) && (!payeSeulement || d.statut === "paye")) out.push({ client: u, devis: d });
     }
   }
   return out.sort((a, b) => (b.devis.contrat_date_signature || "").localeCompare(a.devis.contrat_date_signature || ""));
