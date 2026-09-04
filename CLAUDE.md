@@ -492,8 +492,10 @@ sortie : on regarde si la base a levé une objection.
   refusé côté serveur AVANT, trouvé par le banc), banc
   `npm run tester-argent` (57 contrôles). ⚠ Extension décidée par moi et
   signalée à Timo : le plafond de 3 % vaut aussi pour ventes / proformas /
-  commandes (même argent). **SQL donné à Timo — à coller SEULEMENT quand
-  tous les appareils sont en ≥ 2.101.53** ; résultat attendu : 11 / true.
+  commandes (même argent). **COLLÉ par Timo le 04/09/2026** (capture :
+  11 / true) — les verrous de l'argent sont EN PLACE sur la vraie base.
+  Suite : étape 3 (les comptes), puis 4 (devis / chantiers), puis les ❓
+  tranchés (cadeaux, photos, entretien, tâches, propriétaire).
   Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
