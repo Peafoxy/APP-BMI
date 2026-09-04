@@ -31,7 +31,7 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
-import { marqueEspace, memeNumero } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../../lib/calculs";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
 // convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
@@ -367,6 +367,13 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
   // point de contrôle ici, puisque cette fonction est déjà partagée par
   // les 3 volets du dimensionnement (Solaire/Garage/Autre).
+  // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
+  // seul. Vérifié ici (les trois volets passent par cette fonction) — et le
+  // serveur appliquera la même règle (vague 3, étape 2).
+  if (remiseExigeAdmin(devis?.pct_remise) && profile.role !== "admin") {
+    uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez la remise à ${PLAFOND_REMISE_PCT} % au plus, ou faites établir ce devis par l'administrateur.`);
+    return false;
+  }
   if (!profile.signature_personnelle) {
     uAlert("Avant d'envoyer un devis, vous devez d'abord enregistrer votre signature — rendez-vous dans l'onglet « 📄 Contrats » pour le faire, une seule fois.");
     return false;

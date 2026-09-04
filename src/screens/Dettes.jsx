@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, pro
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DETTES ============
@@ -187,6 +187,7 @@ export function Dettes({ db, save, profile }) {
   };
 
   const supprimerDette = async (d) => {
+    if (refuserSaufAdmin(profile, "Supprimer une dette")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Supprimer la dette de ${d.client} (${fmt(d.montant)}) ?`)) {
       save({ ...db, dettes: db.dettes.filter((x) => x.id !== d.id) }, `Suppression dette ${d.client} (${fmt(d.montant)}) — ${d.boutique}`);

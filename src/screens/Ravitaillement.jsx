@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
 import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace } from "../lib/calculs";
+import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
 // Utilisé à deux endroits : dans l'onglet 📦 Stocks (gérant, admin) et comme
@@ -156,6 +156,7 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
   // — la correspondance par nom est donc fiable, pas besoin de la sophistication
   // d'association manuelle utilisée côté magasin pour le ravitaillement.
   const servirDemandeTransfert = async (demande) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Servir une demande de transfert")) return;
     if (bloquerSiLecture(db, profile)) return;
     const manquants = demande.lignes.filter((l) => {
       const p = db.produits.find((x) => x.boutique === bq && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
@@ -185,6 +186,7 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
   };
 
   const refuserDemandeTransfert = async (demande) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Refuser une demande de transfert")) return;
     if (bloquerSiLecture(db, profile)) return;
     const motif = await uPrompt(`Motif du refus (visible par ${demande.demandeur}) :`, "Rupture de stock");
     if (motif === null) return;

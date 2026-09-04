@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 import { COLONNES_IMPORT, EXEMPLE_IMPORT, MODES_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, analyserEntrees, resumeEntrees, appliquerEntrees, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
@@ -75,6 +75,7 @@ export function Stocks({ db, save, profile }) {
   };
 
   const validerBon = async () => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Servir un bon de ravitaillement")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!rav.dest) { uAlert("Choisissez la boutique à ravitailler."); return; }
     // Deuxième verrou, comme pour le transfert : la liste des destinations
@@ -163,6 +164,7 @@ export function Stocks({ db, save, profile }) {
   };
 
   const refuserDemande = async (dm) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Refuser une demande de ravitaillement")) return;
     if (bloquerSiLecture(db, profile)) return;
     const motif = await uPrompt(`Motif du refus (visible par ${dm.boutique}) :`, "Rupture de stock");
     if (motif === null) return;
@@ -179,6 +181,7 @@ export function Stocks({ db, save, profile }) {
   const [inv, setInv] = useState(null); // null = fermé, sinon { comptes: { [id]: "12" } }
 
   const ouvrirInventaire = () => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Faire l'inventaire")) return;
     if (bloquerSiLecture(db, profile)) return;
     const liste0 = db.produits.filter((p) => p.boutique === bq);
     if (!liste0.length) { uAlert("Aucun article à inventorier sur ce site."); return; }
@@ -199,6 +202,7 @@ export function Stocks({ db, save, profile }) {
   };
 
   const validerInventaire = async () => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Valider l'inventaire")) return;
     if (bloquerSiLecture(db, profile)) return;
     const lignes = ecartsInventaire();
     if (!lignes.length) { uAlert("Saisissez au moins une quantité comptée."); return; }
@@ -562,6 +566,7 @@ export function Stocks({ db, save, profile }) {
   };
 
   const reappro = async (p) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Enregistrer une entrée de stock")) return;
     const s = await uPrompt(`Quantité reçue pour « ${p.nom} » :`);
     const q = Number(s);
     if (!s || isNaN(q) || q <= 0) return;
@@ -570,6 +575,7 @@ export function Stocks({ db, save, profile }) {
   };
 
   const ajuster = async (p) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Ajuster le stock")) return;
     const s = await uPrompt(`Ajustement d'inventaire pour « ${p.nom} »\nQuantité (+ pour ajouter, − pour retirer, ex : -2) :`);
     const q = Number(s);
     if (!s || isNaN(q) || q === 0) return;
@@ -579,6 +585,7 @@ export function Stocks({ db, save, profile }) {
   };
 
   const transferer = async (p) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Transférer du stock")) return;
     const dispo = stockActuel(db, p);
     let dest = autres[0];
     if (autres.length > 1) {
@@ -1106,12 +1113,14 @@ export function Stocks({ db, save, profile }) {
                 <div className="flex gap-2">
                   <button onClick={async () => {
                     if (bloquerSiLecture(db, profile)) return;
+                    if (refuserSaufAdmin(profile, "Statuer sur un article défectueux")) return;
                     if (!await uConfirm(`Marquer ${a.qte_sav || 1} × ${a.article} comme RENVOYÉ(S) AU FOURNISSEUR (garantie fabricant) ?`)) return;
                     save({ ...db, ajustements: db.ajustements.map((x) => (x.id === a.id ? { ...x, statut: "renvoye_fournisseur", traite_le: today(), traite_par: profile.nom } : x)) },
                       `🔧 SAV ${a.ref} : ${a.qte_sav || 1} × ${a.article} renvoyé(s) au fournisseur (garantie fabricant)`);
                   }} className="px-3 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">📦 Renvoyé au fournisseur</button>
                   <button onClick={async () => {
                     if (bloquerSiLecture(db, profile)) return;
+                    if (refuserSaufAdmin(profile, "Statuer sur un article défectueux")) return;
                     if (!await uConfirm(`Mettre ${a.qte_sav || 1} × ${a.article} au REBUT (irrécupérable) ?`)) return;
                     save({ ...db, ajustements: db.ajustements.map((x) => (x.id === a.id ? { ...x, statut: "rebut", traite_le: today(), traite_par: profile.nom } : x)) },
                       `🔧 SAV ${a.ref} : ${a.qte_sav || 1} × ${a.article} mis au rebut`);

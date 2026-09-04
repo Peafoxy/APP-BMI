@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -687,6 +687,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // versement, elle, part avec la vente : elle n'est que la créance de
   // cette vente, la garder seule n'aurait pas de sens.
   const supprimerVente = async (v) => {
+    if (refuserSaufAdmin(profile, "Supprimer une vente")) return;
     if (bloquerSiLecture(db, profile)) return;
     const chantier = (db.clients_installes || []).find((c) => c.vente_id === v.id);
     if (chantier) {
@@ -721,11 +722,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // montant saisi, jamais du prix de l'article.
   const [retour, setRetour] = useState(null); // { vente, produit_id, qte, motif, facture, montant, detail }
   const ouvrirRetour = (v) => {
+    if (refuserSaufAdmin(profile, "Enregistrer un retour sous garantie")) return;
     const lignesStock = lignesVente(v).filter((l) => !l.hors_boutique && l.produit_id);
     if (!lignesStock.length) { uAlert("Cette vente ne porte aucun article de stock à échanger."); return; }
     setRetour({ vente: v, produit_id: lignesStock[0].produit_id, qte: "1", motif: "", facture: false, montant: "", detail: "" });
   };
   const confirmerRetour = async () => {
+    if (refuserSaufAdmin(profile, "Enregistrer un retour sous garantie")) return;
     if (bloquerSiLecture(db, profile)) return;
     const r = retour;
     if (r.facture && !(Number(r.montant) > 0)) { uAlert("Indiquez le montant facturé, ou repassez sur « Gratuit »."); return; }

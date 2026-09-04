@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, caVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
-import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte } from "../lib/calculs";
+import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
@@ -32,6 +32,7 @@ export function Commerciaux({ db, save, profile }) {
   })();
 
   const ajouter = () => {
+    if (refuserSaufAdmin(profile, "Créer un agent commercial")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
     save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, taux: Number(f.taux || 0), objectif: Number(f.objectif || 0), actif: true, ...marqueEspace(db, profile) }] });
@@ -40,6 +41,7 @@ export function Commerciaux({ db, save, profile }) {
   };
 
   const modifier = async (c) => {
+    if (refuserSaufAdmin(profile, "Modifier un agent commercial")) return;
     if (bloquerSiLecture(db, profile)) return;
     const taux = await uPrompt(`Taux de commission de ${c.nom} (%) :`, c.taux);
     if (taux === null) return;
@@ -48,9 +50,10 @@ export function Commerciaux({ db, save, profile }) {
     save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, taux: Number(taux || 0), objectif: Number(objectif || 0) } : x)) });
   };
 
-  const toggleActif = (c) => { if (bloquerSiLecture(db, profile)) return; save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, actif: x.actif === false } : x)) }); };
+  const toggleActif = (c) => { if (bloquerSiLecture(db, profile) || refuserSaufAdmin(profile, "Activer ou désactiver un agent commercial")) return; save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, actif: x.actif === false } : x)) }); };
 
   const supprimer = async (c) => {
+    if (refuserSaufAdmin(profile, "Supprimer un agent commercial")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Supprimer le commercial « ${c.nom} » ?`)) save({ ...db, commerciaux: db.commerciaux.filter((x) => x.id !== c.id) });
   };

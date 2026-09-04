@@ -5,13 +5,14 @@
 import { useState } from "react";
 import { uid, fmt, today, normPaiement } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte } from "../lib/calculs";
+import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS } from "../lib/calculs";
 
 // ============ FOURNISSEURS ============
 export function Fournisseurs({ db, save, profile }) {
   const [f, setF] = useState({ nom: "", tel: "", adresse: "", site_web: "", produits: "", doit: "", paye: "" });
 
   const ajouter = () => {
+    if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Créer un fournisseur")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
     save({ ...db, fournisseurs: [...db.fournisseurs, { id: uid(), nom: f.nom, tel: f.tel, adresse: f.adresse, site_web: f.site_web, produits: f.produits, doit: Number(f.doit || 0), paye: Number(f.paye || 0), ...marqueEspace(db, profile) }] });
@@ -20,6 +21,7 @@ export function Fournisseurs({ db, save, profile }) {
   };
 
   const payer = async (fo) => {
+    if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Régler un fournisseur")) return;
     if (bloquerSiLecture(db, profile)) return;
     // ⚠ Audit du 29/08/2026 : aucun plafond — on pouvait régler PLUS que le
     // reste dû, sans un mot. Même règle que les dettes clients : on refuse,
@@ -55,6 +57,7 @@ export function Fournisseurs({ db, save, profile }) {
   };
 
   const nouvelleDette = async (fo) => {
+    if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Enregistrer une dette fournisseur")) return;
     if (bloquerSiLecture(db, profile)) return;
     const s = await uPrompt(`Nouvelle commande à crédit chez ${fo.nom} — montant (F) :`);
     const m = Number(s);
@@ -64,6 +67,7 @@ export function Fournisseurs({ db, save, profile }) {
   };
 
   const supprimer = async (fo) => {
+    if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Supprimer un fournisseur")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Supprimer le fournisseur « ${fo.nom} » ?`)) save({ ...db, fournisseurs: db.fournisseurs.filter((x) => x.id !== fo.id) });
   };

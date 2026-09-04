@@ -1721,6 +1721,26 @@ export const bloquerSiLecture = (db, profile) => {
   return true;
 };
 
+// ============ VAGUE 3 — LES GESTES RÉSERVÉS À UN RÔLE, VÉRIFIÉS DANS LE GESTE ============
+// Décisions Timo du 04/09/2026 (docs/inventaire-verrous-employes-2026-09.md).
+// Règle : un geste réservé à un rôle le revérifie ICI, dans le geste, pas
+// seulement à l'affichage — le serveur appliquera les mêmes règles (vague 3,
+// étapes 2 et suivantes), et l'application ne doit jamais proposer un geste
+// que le serveur refuserait.
+export const ROLES_STOCK = ["magasinier", "gerant", "admin"];        // entrées, ajustements, transferts, inventaire, bons
+export const ROLES_CAISSE = ["gerant", "admin"];                     // clôturer la caisse
+export const ROLES_FOURNISSEURS = ["gerant", "admin"];               // régler, endetter, supprimer un fournisseur
+export const PLAFOND_REMISE_PCT = 3;                                  // au-delà : admin seul
+const LIBELLE_ROLE_COURT = { admin: "l'administrateur", gerant: "le gérant", magasinier: "le magasinier",
+  vendeur: "le vendeur", commercial: "le commercial", technicien: "le technicien", resp_commercial: "le responsable commercial", comptable: "le comptable" };
+export const refuserSaufRoles = (profile, roles, geste) => {
+  if (roles.includes(profile?.role)) return false;
+  uAlert(`🔒 ${geste} : réservé à ${roles.map((r) => LIBELLE_ROLE_COURT[r] || r).join(", ")}.`);
+  return true;
+};
+export const refuserSaufAdmin = (profile, geste) => refuserSaufRoles(profile, ["admin"], geste);
+export const remiseExigeAdmin = (pct) => Number(pct || 0) > PLAFOND_REMISE_PCT;
+
 // ============ VERROU DE CLOISONNEMENT FORMATION / RÉEL ============
 // ⚠ Le filtrage des sélecteurs (boutiquesVisibles) empêche de CHOISIR une
 // boutique de l'autre espace ; il n'empêche pas d'y ÉCRIRE. Chaque écran

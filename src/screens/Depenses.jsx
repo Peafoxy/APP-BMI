@@ -8,7 +8,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { CATEGORIES, PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
-import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ DÉPENSES ============
@@ -32,6 +32,7 @@ export function Depenses({ db, save, profile }) {
   };
 
   const supprimerDepense = async (d) => {
+    if (refuserSaufAdmin(profile, "Supprimer une dépense")) return;
     if (bloquerSiLecture(db, profile)) return;
     // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
     // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser
@@ -122,6 +123,7 @@ export function ChezComptable({ db, save, profile }) {
       { pointageComptable: true });
   };
   const annulerRemis = async (dep) => {
+    if (refuserSaufAdmin(profile, "Annuler un pointage du comptable")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!await uConfirm(`Annuler le pointage « remis » de ${fmt(Math.abs(dep.montant))} (${dep.description || dep.categorie}) ?`)) return;
     save({ ...db, depenses: db.depenses.map((x) => (x.id === dep.id ? { ...x, decaisse_le: null, decaisse_par: null } : x)) },
@@ -131,6 +133,7 @@ export function ChezComptable({ db, save, profile }) {
   const total = liste.reduce((s, x) => s + Number(x.montant), 0);
 
   const supprimerDepense = async (d) => {
+    if (refuserSaufAdmin(profile, "Supprimer une dépense")) return;
     if (bloquerSiLecture(db, profile)) return;
     // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
     // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser

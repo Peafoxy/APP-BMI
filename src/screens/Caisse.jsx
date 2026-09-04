@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
-import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ CAISSE ============
@@ -46,6 +46,7 @@ export function Caisse({ db, save, profile }) {
   const ecart = compte === "" ? null : Number(compte) - theorique;
 
   const cloturer = async () => {
+    if (refuserSaufRoles(profile, ROLES_CAISSE, "Clôturer la caisse")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nThéorique : ${fmt(theorique)}\nCompté : ${fmt(Number(compte))}\nÉcart : ${fmt(Number(compte) - theorique)}`)) return;

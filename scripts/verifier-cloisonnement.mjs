@@ -3404,6 +3404,34 @@ titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser 
     /Geste REFUSÉ par le serveur abandonné par \$\{profile\.nom\}/.test(readFileSync("src/App.jsx", "utf8")));
 }
 
+titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son rôle DANS le geste");
+{
+  // Décisions Timo du 04/09/2026. Le bouton caché ne suffit pas (inventaire
+  // du 04/09) : le geste lui-même refuse — comme le fera le serveur.
+  test("★ les aides existent, avec les rôles tranchés (stock : magasinier+gérant+admin ; caisse et fournisseurs : gérant+admin ; remise : 3 %)",
+    C.ROLES_STOCK.join() === "magasinier,gerant,admin" && C.ROLES_CAISSE.join() === "gerant,admin"
+    && C.ROLES_FOURNISSEURS.join() === "gerant,admin" && C.PLAFOND_REMISE_PCT === 3
+    && C.remiseExigeAdmin(3.5) && !C.remiseExigeAdmin(3) && !C.remiseExigeAdmin("") );
+  const attendus = [
+    ["src/screens/Ventes.jsx", ["Supprimer une vente", "Enregistrer un retour sous garantie", "Enregistrer un retour sous garantie"]],
+    ["src/screens/Dettes.jsx", ["Supprimer une dette"]],
+    ["src/screens/Depenses.jsx", ["Supprimer une dépense", "Supprimer une dépense", "Annuler un pointage du comptable"]],
+    ["src/screens/Stocks.jsx", ["Servir un bon de ravitaillement", "Refuser une demande de ravitaillement", "Faire l'inventaire", "Valider l'inventaire",
+      "Enregistrer une entrée de stock", "Ajuster le stock", "Transférer du stock", "Statuer sur un article défectueux", "Statuer sur un article défectueux"]],
+    ["src/screens/Caisse.jsx", ["Clôturer la caisse"]],
+    ["src/screens/Commerciaux.jsx", ["Créer un agent commercial", "Modifier un agent commercial", "Activer ou désactiver un agent commercial", "Supprimer un agent commercial"]],
+    ["src/screens/Fournisseurs.jsx", ["Créer un fournisseur", "Régler un fournisseur", "Enregistrer une dette fournisseur", "Supprimer un fournisseur"]],
+    ["src/screens/Ravitaillement.jsx", ["Servir une demande de transfert", "Refuser une demande de transfert"]],
+  ];
+  for (const [fichier, gestes] of attendus) {
+    const src = readFileSync(fichier, "utf8");
+    const manquants = gestes.filter((g, i) => (src.match(new RegExp(`refuserSauf(?:Admin|Roles)\\(profile, (?:ROLES_[A-Z]+, )?"${g.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\)`, "g")) || []).length < gestes.filter((x) => x === g).length);
+    test(`★ ${fichier.split("/").pop()} : ${gestes.length} geste(s) revérifient leur rôle`, manquants.length === 0);
+  }
+  test("★ la remise au-delà de 3 % est refusée à l'envoi du devis pour tout autre que l'administrateur (les 3 volets)",
+    /if \(remiseExigeAdmin\(devis\?\.pct_remise\) && profile\.role !== "admin"\)/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
