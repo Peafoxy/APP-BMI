@@ -458,7 +458,17 @@ sortie : on regarde si la base a levé une objection.
   verrouiller » = plafonner la remise libre sur un devis côté serveur
   (au-delà du seuil : admin seul — **seuil à lui demander**) ET verrouiller
   cadeaux, photos, date d'entretien, tâches (admin / pouvoir) côté serveur,
-  contre mon avis « laisser » — sa décision. Points 1 à 4 : en attente.
+  contre mon avis « laisser » — sa décision. **Plafond de remise : 3 %**
+  (au-delà : admin seul). Point 1 (clôturer la caisse) : **admin + gérant**.
+  Point 3 (pouvoirs + boutique dans l'étiquette) : **oui**. Point 2
+  (entrées / ajustements / transferts de stock) : sa réponse « admin
+  principal » — conséquence signalée (le magasinier ne pourrait plus servir
+  un bon, le gérant recevoir de la marchandise, le vendeur servir un
+  transfert), **en attente de sa confirmation**. Point 4 (gestes « admin ou
+  son commercial ») : sa réponse « admin » — conséquence signalée (le
+  technicien chef de chantier ne pourrait plus marquer les travaux
+  terminés, le commercial archiver son prospect), **en attente de sa
+  confirmation**.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
