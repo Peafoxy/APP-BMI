@@ -443,6 +443,16 @@ sortie : on regarde si la base a levé une objection.
   Règle d'application à poser en même temps : tout geste réservé à un rôle
   le revérifie DANS le geste, pas seulement à l'affichage. **Ne rien
   construire avant que Timo ait coché l'inventaire.**
+  **Étape 0 ÉCRITE ET TESTÉE le 04/09/2026** (Timo : « Ok ») :
+  `supabase/securite-3-faire-part.sql` — un client n'écrit jamais de
+  faire-part (3 règles restrictives), déclencheur `faire_part_sincere_trg`
+  (BEFORE INSERT/UPDATE, security definer) : refuse un faire-part sur une
+  ligne qui existe encore, une table inconnue, et réserve les marqueurs
+  globaux (`*`, `__TRUNCATE__`) au rôle admin ; jeton vide / service_role
+  passent (éditeur SQL, TRUNCATE). Banc `npm run tester-faire-part`
+  (14 contrôles, dont 2 qui prouvent le trou AVANT le verrou). SQL donné à
+  Timo dans le message — **en attente de son collage** ; résultat attendu
+  de la vérification : 3 / true / true.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
