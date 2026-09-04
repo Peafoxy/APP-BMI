@@ -439,6 +439,13 @@ sortie : on regarde si la base a levé une objection.
   ⚠ Piège identifié à l'avance : en mode superviseur, `ecrivain` de
   sauvegarderDiff doit RESTER celui du vendeur (admin: false), sinon la
   séparation de paie fabriquerait des fiches vides refusées par le serveur.
+  **À ouvrir avec lui, le jour venu :** la **signature du contrat en
+  boutique** (📋 Tous les devis → ✍️ Faire signer ici / 🖨 Imprimer pour
+  signature papier / 📝 Signé sur papier, 2.101.48) est réservée à
+  l'administrateur principal — décision Timo du 04/09/2026 : « laisser
+  cette possibilité à l'administrateur principal seul ; quand on mettra en
+  place le code superviseur, on pourra ouvrir ce geste aux vendeurs pour un
+  seul geste ». `peutSignerEnBoutique` dans TousLesDevis.jsx.
 - **Corbeille pour les fiches supprimées** (chantiers d'abord) : une fiche
   supprimée serait mise de côté 30 jours, restaurable par l'admin
   principal, au lieu d'être effacée partout par le faire-part. Plan décrit

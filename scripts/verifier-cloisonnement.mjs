@@ -3312,9 +3312,12 @@ titre("Signature du contrat en boutique — UNE règle de validation, deux écra
     (ec.match(/validerDevis\(/g) || []).length >= 2 && !/commandes: \[commande, \.\.\./.test(ec) && !/clients_installes: \[chantier/.test(ec));
   test("★ le vendeur de la boutique de PAIEMENT voit les devis à encaisser chez lui (décision Timo 04/09/2026)",
     /\(d\.boutique_paiement \|\| d\.boutique\) === profile\.boutique/.test(tl));
-  test("★ les trois gestes sont là, réservés aux employés, sur un devis encore proposé",
+  test("★ les trois gestes sont là, réservés à l'ADMINISTRATEUR PRINCIPAL (décision Timo 04/09/2026), sur un devis encore proposé",
     tl.includes("Faire signer ici") && tl.includes("Imprimer pour signature papier") && tl.includes("Signé sur papier")
-    && /const estEmploye = profile\.role !== "client"/.test(tl) && /peutFaireSigner = \(d\) => estEmploye && \(d\.statut \|\| "propose"\) === "propose"/.test(tl));
+    && /const peutSignerEnBoutique = estAdminPrincipal\(db, profile\)/.test(tl)
+    && /peutFaireSigner = \(d\) => peutSignerEnBoutique && \(d\.statut \|\| "propose"\) === "propose"/.test(tl));
+  test("★ …et les trois GESTES refusent aussi (le bouton caché ne suffit pas)",
+    (tl.match(/refuserSiPasAdminPrincipal\(\)/g) || []).length >= 3);
   test("le contrat affiché au vendeur est CELUI de l'impression (une seule source de texte)",
     /htmlContratInstallation\(apercu, db\)/.test(tl) && /export function htmlContratInstallation/.test(readFileSync("src/lib/impression.js", "utf8")));
   test("★ un contrat signé sur papier est un contrat (liste, impression) — et le dit",

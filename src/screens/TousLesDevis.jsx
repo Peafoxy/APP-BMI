@@ -161,8 +161,17 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   //      avec un numéro attribué tout de suite (le papier et l'application
   //      portent le même) ; puis 📝 Signé sur papier — date, boutique,
   //      vendeur, original archivé à la boutique.
-  const estEmploye = profile.role !== "client";
-  const peutFaireSigner = (d) => estEmploye && (d.statut || "propose") === "propose";
+  // ⚠ Décision Timo (04/09/2026) : « laisser cette possibilité à
+  // l'administrateur principal seul — avec le temps, quand on mettra en
+  // place le code superviseur, on pourra ouvrir ce geste aux vendeurs pour
+  // un seul geste ». Le bouton est caché aux autres ET le geste refuse.
+  const peutSignerEnBoutique = estAdminPrincipal(db, profile);
+  const peutFaireSigner = (d) => peutSignerEnBoutique && (d.statut || "propose") === "propose";
+  const refuserSiPasAdminPrincipal = () => {
+    if (peutSignerEnBoutique) return false;
+    uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire signer un contrat en boutique, pour l'instant.");
+    return true;
+  };
   const [signature, setSignature] = useState(null); // { devis, mode: "ecran" | "papier", boutique }
   const [plan, setPlan] = useState({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
   const canvasRef = useRef(null);
@@ -172,7 +181,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const lieuSignature = profile.boutique || signature?.boutique || "";
 
   const ouvrirSignature = (d, mode) => {
-    if (bloquerSiLecture(db, profile)) return;
+    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
     aSigneRef.current = false;
     setPlan({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
     setSignature({ devis: d, mode, boutique: d.boutique_paiement || profile.boutique || d.boutique || "" });
@@ -181,7 +190,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // Le numéro de contrat est attribué à l'IMPRESSION et enregistré sur le
   // devis : le papier signé et l'application portent le même numéro.
   const imprimerPourPapier = (d) => {
-    if (bloquerSiLecture(db, profile)) return;
+    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
     const numero = d.contrat_numero || numeroContrat();
     if (!d.contrat_numero) {
       save({ ...db, users: db.users.map((u) => (u.id === d.client?.id
@@ -220,7 +229,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const confirmerSignature = async () => {
     if (!signature) return;
     const { devis: d, mode, boutique } = signature;
-    if (bloquerSiLecture(db, profile)) return;
+    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
     // Le plan de règlement, comme dans l'espace client : seulement s'il
     // restera un solde après l'acompte.
     const solde = soldeApresAcompte(d);
