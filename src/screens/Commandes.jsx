@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
-import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue } from "../lib/calculs";
+import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -113,6 +113,8 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     if (bloquerSiLecture(db, profile)) return;
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
+    // Décision Timo (04/09/2026) : au-delà de 3 %, l'administrateur seul.
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
     setMsg("");
     const dest = f.vendeurCible || "un vendeur disponible";
     if (!await uConfirm(`Envoyer cette commande (${panier.length} article(s), ${fmt(total)}) à ${boutique} pour ${dest} ?`)) return;

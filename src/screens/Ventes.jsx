@@ -12,7 +12,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 
@@ -263,6 +263,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const proformaWhatsApp = () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
     const pf = construireProforma();
     enregistrerProforma(pf);
     const lignes = [
@@ -295,6 +296,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const proformaPDF = () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
     const pf = construireProforma();
     enregistrerProforma(pf);
     imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation);
@@ -316,6 +318,17 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       + `Si c'est une erreur, leur prix est probablement manquant en stock — corrigez-le dans 📦 Stocks. Continuer ?`
     )) return;
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
+    // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
+    // seul — sauf si la remise est CELLE de la commande encaissée (devis
+    // validé), déjà contrôlée en amont. Le serveur applique la même règle.
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") {
+      const cmd = origineCommande ? (db.commandes || []).find((c) => c.id === origineCommande) : null;
+      if (!cmd || Number(cmd.remise_pct || 0) !== remisePct) {
+        setMsg(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`);
+        uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus, ou faites encaisser par l'administrateur.`);
+        return;
+      }
+    }
     // ⚠ Demande Timo : le statut de l'article ne doit JAMAIS être pré-rempli
     // ni deviné — le vendeur doit le choisir explicitement à chaque vente à
     // crédit, sinon l'encaissement est bloqué (évite qu'une vente parte par

@@ -57,6 +57,8 @@ npm run tester-reglement         # 35  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 8   : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
+npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
+npm run tester-argent            # 57  : les règles de rôle sur l'argent (serveur)
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -477,7 +479,22 @@ sortie : on regarde si la base a levé une objection.
   attendait derrière sur les mêmes enregistrements, remet l'appareil à
   l'état d'avant (base / effacement des créations), redemande au serveur
   les lignes supprimées localement, journal au nom de l'admin. Aucun SQL
-  pour cette étape ; **SQL de vérification du drapeau donné à Timo**.
+  pour cette étape ; drapeau vérifié par Timo (TIMO = true).
+  **Étape 2 CONSTRUITE (2.101.52 application, 2.101.53 alignements) :**
+  chaque geste d'argent revérifie son rôle DANS le geste
+  (`refuserSaufAdmin` / `refuserSaufRoles` / `ROLES_STOCK` / `ROLES_CAISSE`
+  / `ROLES_FOURNISSEURS` / `PLAFOND_REMISE_PCT` dans lib/calculs.js) ; la
+  remise > 3 % est refusée aux non-admins sur devis, vente (sauf remise de
+  la commande encaissée), proforma, commande ; l'entrée Excel ignore le
+  prix d'achat pour les non-admins. **SQL serveur écrit et testé** :
+  `supabase/securite-4-argent.sql` (11 déclencheurs + exception du pointage
+  comptable sur `role_lecture_seule_maj` de depenses — le comptable était
+  refusé côté serveur AVANT, trouvé par le banc), banc
+  `npm run tester-argent` (57 contrôles). ⚠ Extension décidée par moi et
+  signalée à Timo : le plafond de 3 % vaut aussi pour ventes / proformas /
+  commandes (même argent). **SQL donné à Timo — à coller SEULEMENT quand
+  tous les appareils sont en ≥ 2.101.53** ; résultat attendu : 11 / true.
+  Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».

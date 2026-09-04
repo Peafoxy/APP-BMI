@@ -522,6 +522,14 @@ export function Stocks({ db, save, profile }) {
     if (!enregistrements.length) { uAlert(`Rien à enregistrer : ${origine} ne contient aucune ligne.`); return; }
     const resultat = analyserEntrees(db, bq, enregistrements);
     if (colonnesInconnues.length) resultat.avertissements.unshift(`Colonne(s) non reconnue(s), ignorée(s) : ${colonnesInconnues.join(", ")}`);
+    // ⚠ Corriger un prix d'achat est réservé à l'administrateur (décision
+    // Timo, 04/09/2026 ; le serveur le refuse aussi). Pour les autres, la
+    // colonne « Prix d'achat » du fichier est ignorée — et on le dit.
+    if (profile.role !== "admin" && resultat.entrees.some((x) => x.prix_achat)) {
+      resultat.entrees = resultat.entrees.map((x) => ({ ...x, prix_achat: null }));
+      resultat.avertissements = resultat.avertissements.filter((a) => !/prix d'achat \d/.test(a));
+      resultat.avertissements.unshift("Colonne « Prix d'achat » ignorée : corriger un prix est réservé à l'administrateur.");
+    }
     if (resultat.entrees.length === 0) {
       uAlert("Aucune entrée valide.\n\n" + resultat.erreurs.join("\n"));
       return;

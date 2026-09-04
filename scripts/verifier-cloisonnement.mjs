@@ -3430,6 +3430,16 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
   }
   test("★ la remise au-delà de 3 % est refusée à l'envoi du devis pour tout autre que l'administrateur (les 3 volets)",
     /if \(remiseExigeAdmin\(devis\?\.pct_remise\) && profile\.role !== "admin"\)/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
+  const ventesSrc = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ …et à l'encaissement d'une vente (sauf remise venant de la commande encaissée), sur les proformas et les commandes",
+    /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(ventesSrc) && /Number\(cmd\.remise_pct \|\| 0\) !== remisePct/.test(ventesSrc)
+    && (ventesSrc.match(/remiseExigeAdmin\(remisePct\)/g) || []).length === 3
+    && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
+  test("l'entrée de stock par fichier ignore la colonne Prix d'achat pour tout autre que l'administrateur",
+    /profile\.role !== "admin" && resultat\.entrees\.some\(\(x\) => x\.prix_achat\)/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
+  test("★ le SQL des verrous serveur existe, avec ses 11 déclencheurs et l'exception du pointage comptable",
+    (readFileSync("supabase/securite-4-argent.sql", "utf8").match(/create trigger \w+_regles_\w+_trg/g) || []).length === 11
+    && readFileSync("supabase/securite-4-argent.sql", "utf8").includes("or public.role_jeton() = 'comptable'"));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
