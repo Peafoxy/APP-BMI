@@ -450,9 +450,10 @@ sortie : on regarde si la base a levé une objection.
   ligne qui existe encore, une table inconnue, et réserve les marqueurs
   globaux (`*`, `__TRUNCATE__`) au rôle admin ; jeton vide / service_role
   passent (éditeur SQL, TRUNCATE). Banc `npm run tester-faire-part`
-  (14 contrôles, dont 2 qui prouvent le trou AVANT le verrou). SQL donné à
-  Timo dans le message — **en attente de son collage** ; résultat attendu
-  de la vérification : 3 / true / true.
+  (14 contrôles, dont 2 qui prouvent le trou AVANT le verrou).
+  **COLLÉ par Timo le 04/09/2026** (capture : 3 / true / true) — le trou
+  des faire-part est FERMÉ sur la vraie base. Suite : ses réponses aux ❓
+  de l'inventaire, puis étape 1 (étiquette « principal » + filet de lot).
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
