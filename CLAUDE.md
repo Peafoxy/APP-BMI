@@ -426,6 +426,23 @@ sortie : on regarde si la base a levé une objection.
   Coexistence → Get started, téléphone BMI en main (WhatsApp Business à
   jour, internet). Côté app, rien n'a été construit. **Ne pas relancer
   Timo ; reprendre quand il le demandera**, au point exact ci-dessus.
+- **VAGUE 3 — verrouiller côté serveur les règles entre EMPLOYÉS** :
+  demandée par Timo le 04/09/2026 (« tout devrait normalement être
+  verrouillé »). **Inventaire livré** :
+  `docs/inventaire-verrous-employes-2026-09.md` (à cocher par lui, ligne
+  par ligne). Constat : le serveur ne distingue que client / admin /
+  lecture seule et le mur d'espace ; vendeur, gérant, magasinier,
+  commercial, technicien sont identiques pour lui, admin secondaire =
+  admin principal (l'étiquette « principal » n'est PAS dans le jeton), et
+  aucune notion de boutique. Ordre proposé : (0) **URGENT** fermer les
+  faire-part de suppression `tombstones` — ouverts à TOUT compte connecté,
+  clients compris : un faux marqueur `*` vide la base locale ET la file
+  d'attente de tous les appareils ; (1) étiquette « admin principal » +
+  filet « retirer d'un lot le geste refusé » ; (2) argent ; (3) comptes ;
+  (4) devis/chantiers (lecture dans la fiche client — délicat) ; (5) les ❓.
+  Règle d'application à poser en même temps : tout geste réservé à un rôle
+  le revérifie DANS le geste, pas seulement à l'affichage. **Ne rien
+  construire avant que Timo ait coché l'inventaire.**
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
