@@ -89,6 +89,13 @@ await build({ entryPoints: ["src/lib/validationDevis.js"], bundle: true, format:
 const Val = await import(pathToFileURL(sortieVal).href);
 unlinkSync(sortieVal);
 
+// Le filet d'abandon d'un geste refusé par le serveur (vague 3, étape 1).
+const sortieAb = join("node_modules", ".cache", `bmi-ab-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/abandonLot.js"], bundle: true, format: "esm", platform: "node",
+  outfile: sortieAb, logLevel: "silent" });
+const Ab = await import(pathToFileURL(sortieAb).href);
+unlinkSync(sortieAb);
+
 // L'importation d'articles en stock (fichier Excel / texte collé) — la
 // règle est pure, seule la lecture du fichier touche xlsx (bouchonnée).
 const sortieImp = join("node_modules", ".cache", `bmi-imp-${process.pid}.mjs`);
@@ -1398,6 +1405,18 @@ titre("L'administrateur qui voit les deux espaces doit le pouvoir AUSSI côté s
   test("un administrateur marqué formation reçoit « formation », sans reglage a faire",
     revendication({ role: "admin", formation: true }) === "formation"
     && revendication({ role: "admin", formation: true, droits_off: ["act_voir_tout"] }) === "formation");
+
+  // Vague 3, étape 1 (04/09/2026) : trois revendications de plus, pour que
+  // le serveur distingue enfin les employés entre eux.
+  const auth = readFileSync("api/sync-auth.js", "utf8");
+  test("★ l'étiquette porte « principal » (drapeau admin_principal sur un admin ACTIF — pas de repli « premier admin » côté serveur)",
+    /const principal = role === "admin" && champs\.admin_principal === true && champs\.actif !== false;/.test(auth));
+  test("★ l'étiquette porte la boutique de rattachement et les pouvoirs retirés",
+    /const boutique = String\(champs\.boutique \|\| ""\);/.test(auth) && /const pouvoirsOff = droitsOff\.filter/.test(auth));
+  test("★ …posées à la CRÉATION comme à la MISE À JOUR du compte de session",
+    (auth.match(/espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff/g) || []).length === 2);
+  test("l'application prévient l'administrateur principal dont la fiche n'a pas le drapeau",
+    /chef\.admin_principal !== true/.test(readFileSync("src/App.jsx", "utf8")));
   test("l'administrateur principal reste « tous » même marqué formation (comme dans l'app)",
     revendication({ role: "admin", admin_principal: true, formation: true }) === "tous");
   test("un vendeur réel reste « reel »",
@@ -3347,6 +3366,42 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
     (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 2 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
+}
+
+titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser à moitié");
+{
+  // Vague 3, étape 1. La file d'attente : un geste refusé (lot 7 : users +
+  // commandes), une modification FAITE ENSUITE sur la même commande (lot 9),
+  // un geste sans rapport (lot 8), et une suppression locale refusée.
+  const ops = [
+    { seq: 1, lot: 7, table: "users", op: "upsert", id: "c1", data: { id: "c1", v: 2 }, base: { id: "c1", v: 1 } },
+    { seq: 2, lot: 7, table: "commandes", op: "upsert", id: "cm1", data: { id: "cm1", statut: "en_attente" }, base: null },
+    { seq: 3, lot: 8, table: "ventes", op: "upsert", id: "v9", data: { id: "v9" }, base: null },
+    { seq: 4, lot: 9, table: "commandes", op: "upsert", id: "cm1", data: { id: "cm1", statut: "validee" }, base: { id: "cm1", statut: "en_attente" } },
+    { seq: 5, lot: 10, table: "dettes", op: "delete", id: "d1" },
+  ];
+  const plan = Ab.planAbandon(ops, { lot: 7, cles: ["users:c1", "commandes:cm1"] });
+  test("★ le geste refusé ET ce qui attendait derrière lui sur les mêmes enregistrements sont retirés — le reste de la file reste",
+    plan.seqs.join(",") === "1,2,4");
+  test("★ l'appareil revient à l'état d'AVANT : la ligne modifiée reprend sa version d'origine, la ligne CRÉÉE par le geste est effacée",
+    plan.restaurations.some((r) => r.table === "users" && r.id === "c1" && r.base?.v === 1)
+    && plan.restaurations.some((r) => r.table === "commandes" && r.id === "cm1" && r.base === null)
+    && plan.restaurations.length === 2);
+  const plan2 = Ab.planAbandon(ops, { lot: 10, cles: ["dettes:d1"] });
+  test("★ une suppression locale refusée : la ligne sera redemandée au serveur (l'appareil n'en a plus la copie)",
+    plan2.seqs.join(",") === "5" && plan2.aRetelecharger.join(",") === "dettes" && plan2.restaurations.length === 0);
+  test("le récapitulatif nomme le motif du serveur et compte ce qui attendait derrière",
+    Ab.resumeAbandon({ tables: ["users", "commandes"], motif: "règle X" }, plan).includes("règle X")
+    && Ab.resumeAbandon({ tables: ["users", "commandes"], motif: "règle X" }, plan).includes("3 opération(s)"));
+  const sy = readFileSync("src/sync.js", "utf8");
+  test("★ sync.js signale le geste refusé (lot ET envoi isolé) et sait l'abandonner en appliquant le plan",
+    (sy.match(/refusEnCours = \{/g) || []).length === 2 && /export async function abandonnerGesteRefuse/.test(sy)
+    && /planAbandon\(ops, refus\)/.test(sy) && /refus: refusEnCours/.test(sy));
+  test("★ le bouton d'abandon est réservé à l'administrateur PRINCIPAL, dans l'affichage ET dans le geste",
+    /sync\.refus && estAdminPrincipal\(db, profile\) &&/.test(readFileSync("src/App.jsx", "utf8"))
+    && /if \(!refus \|\| !estAdminPrincipal\(db, profile\)\) return;/.test(readFileSync("src/App.jsx", "utf8")));
+  test("l'abandon laisse une trace dans le journal, au nom de celui qui l'a décidé",
+    /Geste REFUSÉ par le serveur abandonné par \$\{profile\.nom\}/.test(readFileSync("src/App.jsx", "utf8")));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

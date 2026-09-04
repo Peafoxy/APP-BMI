@@ -190,16 +190,31 @@ export default async function handler(req, res) {
     const ecriture = champs.admin_principal === true
       || (role !== "comptable" && !droitsOff.includes("act_ecriture"));
 
+    // ⚠ VAGUE 3, ÉTAPE 1 (04/09/2026) — trois revendications de plus, pour
+    // que le serveur puisse enfin distinguer les EMPLOYÉS entre eux :
+    //   • principal    : l'administrateur PRINCIPAL (drapeau admin_principal
+    //                    sur un compte admin actif). ⚠ Le serveur ne reproduit
+    //                    PAS le repli de l'application (« à défaut, le premier
+    //                    admin ») : sans drapeau, personne n'est principal
+    //                    côté serveur — l'application prévient l'intéressé ;
+    //   • boutique     : la boutique de rattachement (règles « vendeur de
+    //                    la boutique X ») ;
+    //   • pouvoirs_off : les pouvoirs retirés (règles « pouvoir act_… »).
+    // Comme l'espace, tout ceci n'est réécrit qu'À LA CONNEXION.
+    const principal = role === "admin" && champs.admin_principal === true && champs.actif !== false;
+    const boutique = String(champs.boutique || "");
+    const pouvoirsOff = droitsOff.filter((x) => typeof x === "string").slice(0, 40);
+
     if (existant) {
       const { error } = await admin.auth.admin.updateUserById(existant.id, {
         password: String(motDePasse),
-        app_metadata: { ...(existant.app_metadata || {}), espace, role, ecriture },
+        app_metadata: { ...(existant.app_metadata || {}), espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff },
       });
       if (error) { console.error("sync-auth updateUserById:", JSON.stringify(error)); throw error; }
     } else {
       const { error } = await admin.auth.admin.createUser({
         email, password: String(motDePasse), email_confirm: true,
-        app_metadata: { espace, role, ecriture },
+        app_metadata: { espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff },
       });
       if (error) { console.error("sync-auth createUser:", JSON.stringify(error)); throw error; }
     }

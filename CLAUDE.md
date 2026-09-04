@@ -460,15 +460,24 @@ sortie : on regarde si la base a levé une objection.
   cadeaux, photos, date d'entretien, tâches (admin / pouvoir) côté serveur,
   contre mon avis « laisser » — sa décision. **Plafond de remise : 3 %**
   (au-delà : admin seul). Point 1 (clôturer la caisse) : **admin + gérant**.
-  Point 3 (pouvoirs + boutique dans l'étiquette) : **oui**. Point 2
-  (entrées / ajustements / transferts de stock) : sa réponse « admin
-  principal » — conséquence signalée (le magasinier ne pourrait plus servir
-  un bon, le gérant recevoir de la marchandise, le vendeur servir un
-  transfert), **en attente de sa confirmation**. Point 4 (gestes « admin ou
-  son commercial ») : sa réponse « admin » — conséquence signalée (le
-  technicien chef de chantier ne pourrait plus marquer les travaux
-  terminés, le commercial archiver son prospect), **en attente de sa
-  confirmation**.
+  Point 3 (pouvoirs + boutique dans l'étiquette) : **oui**. Point 2 (entrées / ajustements / transferts de stock) :
+  **magasinier + gérant + admin** (tranché après signalement des
+  conséquences d'« admin principal seul »). Point 4 (gestes « admin ou son
+  commercial ») : **« laisser comme tel »** = la règle d'aujourd'hui,
+  appliquée par le serveur avec la notion de propriétaire. **Tous les ❓
+  sont tranchés ; les ✅ validés par défaut.**
+  **Étape 1 CONSTRUITE (2.101.51, 04/09/2026)** : (a) l'étiquette de
+  connexion porte `principal` (drapeau admin_principal sur un admin actif —
+  le serveur NE reproduit PAS le repli « premier admin » de l'application ;
+  App.jsx prévient l'intéressé si sa fiche n'a pas le drapeau, seul un SQL
+  peut le poser), `boutique` et `pouvoirs_off` ; effet à la reconnexion ;
+  (b) **le filet** : `lib/abandonLot.js` (pur) + `abandonnerGesteRefuse` dans
+  sync.js + bouton « 🗑 Abandonner ce geste refusé » dans la bannière rouge
+  (admin principal seul) — retire de la file le geste refusé ET ce qui
+  attendait derrière sur les mêmes enregistrements, remet l'appareil à
+  l'état d'avant (base / effacement des créations), redemande au serveur
+  les lignes supprimées localement, journal au nom de l'admin. Aucun SQL
+  pour cette étape ; **SQL de vérification du drapeau donné à Timo**.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».

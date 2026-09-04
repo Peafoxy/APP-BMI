@@ -67,12 +67,15 @@ import {
 import { TABLES, initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
 import { rebaser } from "./lib/rebase";
-import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir } from "./sync";
+import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir, abandonnerGesteRefuse } from "./sync";
+import { planAbandon, resumeAbandon } from "./lib/abandonLot";
+import { idb } from "./db";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
+import { adminPrincipal } from "./lib/calculs";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
   uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
@@ -886,6 +889,20 @@ export default function App() {
   const ongletAutorise = tabsAutorises.some(([id]) => id === tab);
   const titreOnglet = (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
 
+  const abandonnerLeRefus = async () => {
+    const refus = sync.refus;
+    if (!refus || !estAdminPrincipal(db, profile)) return;
+    const ops = await idb.outbox.orderBy("seq").toArray();
+    const plan = planAbandon(ops, refus);
+    if (!plan.seqs.length) { uAlert("Rien à abandonner : la file d'attente ne contient plus ce geste."); return; }
+    if (!await uConfirm(resumeAbandon(refus, plan))) return;
+    await abandonnerGesteRefuse(refus);
+    const dbApres = await chargerEtReparer();
+    setDb(dbApres);
+    save(dbApres, `Geste REFUSÉ par le serveur abandonné par ${profile.nom} (${refus.tables.join(" + ")}) — motif : ${refus.motif}`);
+    synchroniser({ urgent: true });
+  };
+
   const BadgeSync = ({ sombre }) => (
     <span className="inline-flex flex-col shrink-0">
       <span className="inline-flex items-center gap-1.5">
@@ -945,8 +962,28 @@ export default function App() {
       {sync.enLigne && sync.enAttente > 0 && sync.erreur && (
         <div className="mb-4 rounded-lg border-2 border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
           ⚠ <b>{sync.enAttente} opération(s) n'arrivent pas à partir vers le serveur.</b>
-          <div className="text-xs mt-1">{sync.erreur}</div>
+          <div className="text-xs mt-1 whitespace-pre-line">{sync.erreur}</div>
+          {/* ⚠ LE FILET (vague 3, étape 1) : quand une RÈGLE du serveur refuse
+              un geste, réessayer ne sert à rien et tout ce qui attend derrière
+              sur les mêmes enregistrements reste coincé. L'administrateur
+              principal — et lui seul — peut abandonner ce geste : la file se
+              libère, l'appareil revient à l'état d'avant, rien n'est
+              enregistré à moitié. */}
+          {sync.refus && estAdminPrincipal(db, profile) && (
+            <button onClick={abandonnerLeRefus} className="mt-2 px-3 py-1.5 rounded-lg bg-red-700 text-white text-xs font-bold hover:bg-red-800">🗑 Abandonner ce geste refusé (administrateur principal)</button>
+          )}
           <div className="text-xs mt-1 text-red-700">L'application réessaie toutes les 20 secondes. Si le compteur ne descend pas d'ici une minute : déconnectez-vous puis reconnectez-vous — le bouton de déconnexion vous guidera, et vos opérations partiront automatiquement après. Rien n'est perdu : elles sont enregistrées sur cet appareil.</div>
+        </div>
+      )}
+      {/* ⚠ Vague 3 : le serveur ne connaît l'administrateur principal que par
+          le DRAPEAU admin_principal (api/sync-auth.js). L'application, elle,
+          se replie sur le premier admin quand personne ne le porte. Si les
+          deux divergent, le principal se verrait refuser ses gestes réservés
+          dès les prochains verrous : on le prévient, et seul un SQL peut
+          poser le drapeau (le serveur refuse qu'on se l'attribue soi-même). */}
+      {isAdmin && (() => { const chef = adminPrincipal(db); return chef && chef.id === profile.id && chef.admin_principal !== true; })() && (
+        <div className="mb-4 rounded-lg border-2 border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          ⚠ <b>Votre fiche ne porte pas le drapeau « administrateur principal ».</b> L'application vous reconnaît comme tel, mais le serveur ne le saura pas à votre prochaine connexion. Demandez le SQL qui pose ce drapeau sur votre compte ({profile.id}).
         </div>
       )}
       {isAdmin && rappelSauvegarde && (

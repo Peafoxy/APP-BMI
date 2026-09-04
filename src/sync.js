@@ -1,4 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
+import { planAbandon } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth } from "./supabaseClient";
@@ -27,6 +28,12 @@ const verrouSync = creerVerrou();
 // Un voyant qui ment est pire que pas de voyant.
 let serveurJoignable = true;
 
+// Le dernier geste REFUSÉ par une règle du serveur (vague 3, étape 1) :
+// { lot, tables, motif, cles }. Montré à l'écran ; l'administrateur
+// principal peut l'abandonner (abandonnerGesteRefuse) pour libérer le reste
+// de la file. Remis à null à chaque cycle d'envoi qui n'en rencontre pas.
+let refusEnCours = null;
+
 async function notifier(rafraichir = false, erreur = "") {
   if (!rappel) return;
   rappel({
@@ -35,7 +42,32 @@ async function notifier(rafraichir = false, erreur = "") {
     enAttente: await compterEnAttente(),
     rafraichir,
     erreur,
+    refus: refusEnCours,
   });
+}
+
+// ⚠ LE FILET (vague 3, étape 1). Retire de la file le geste refusé ET ce qui
+// attendait derrière lui sur les mêmes enregistrements, remet la copie
+// locale à l'état d'avant, et demande au serveur de rendre ce qu'une
+// suppression locale n'avait pas gardé. Le calcul est dans lib/abandonLot.js
+// (pur, rejoué par le banc) ; ici on l'applique. Réservé à l'administrateur
+// principal par l'écran (App.jsx) — c'est lui qui décide qu'un geste refusé
+// ne doit pas être enregistré.
+export async function abandonnerGesteRefuse(refus) {
+  const ops = await idb.outbox.orderBy("seq").toArray();
+  const plan = planAbandon(ops, refus);
+  await idb.transaction("rw", [...TABLES.map((t) => idb.table(t)), idb.outbox, idb.meta], async () => {
+    for (const seq of plan.seqs) await idb.outbox.delete(seq);
+    for (const r of plan.restaurations) {
+      if (r.base) await idb.table(r.table).put(r.base);
+      else await idb.table(r.table).delete(r.id);
+    }
+    for (const t of plan.aRetelecharger) {
+      await idb.meta.put({ cle: `derniere_sync:${t}`, valeur: "1970-01-01T00:00:00Z" });
+    }
+  });
+  refusEnCours = null;
+  return plan;
 }
 
 // Les écouteurs sont mémorisés pour être RETIRÉS à l'arrêt. Sans cela, ils
@@ -228,6 +260,7 @@ export async function synchroniser(options = {}) {
     try {
       const ops = await idb.outbox.orderBy("seq").toArray();
       const bloques = new Set();
+      refusEnCours = null; // ce cycle dira s'il y en a encore un
 
       // ── AVANT D'ÉCRIRE, ON REGARDE CE QU'IL Y A EN FACE ──
       // Deux dangers, tous deux invisibles :
@@ -359,6 +392,10 @@ export async function synchroniser(options = {}) {
               // refus silencieux est le pire des refus : on met le motif du
               // serveur sous les yeux de celui qui pourra le corriger.
               const contenuRefuseLot = e?.code === "42501" || /new row violates row-level security/i.test(msg);
+              if (contenuRefuseLot) {
+                refusEnCours = { lot: groupe[0].lot || null, tables: [...new Set(groupe.map((o) => o.table))],
+                  motif: msg.slice(0, 200), cles: groupe.map((o) => `${o.table}:${o.id}`) };
+              }
               derniereErreur = contenuRefuseLot
                 ? `⛔ Le serveur REFUSE un groupe d'écritures (${groupe.map((o) => o.table).join(" + ")}) — se reconnecter n'y changera rien.\n\n`
                   + `Une règle de sécurité du serveur refuse l'un de ces enregistrements, et comme ils partent ensemble (tout ou rien), les autres attendent avec lui. `
@@ -498,6 +535,9 @@ export async function synchroniser(options = {}) {
           // fiche d'un autre compte…). On dit ce qu'on SAIT — une règle a
           // refusé — et on montre le motif exact du serveur, seul indice
           // fiable pour corriger (leçon ESSO, 31/08/2026).
+          if (contenuRefuse) {
+            refusEnCours = { lot: op.lot || null, tables: [op.table], motif: msg.slice(0, 200), cles: [cle] };
+          }
           derniereErreur = contenuRefuse
             ? `⛔ Le serveur REFUSE cet enregistrement (${op.table}) — se reconnecter n'y changera rien.\n\n`
               + `Une règle de sécurité du serveur refuse cette écriture. `
