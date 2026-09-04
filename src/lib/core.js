@@ -388,6 +388,19 @@ export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(
 export const today = () => new Date().toISOString().slice(0, 10);
 export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
 
+// ============ LE NOM DES DOCUMENTS (impression et téléchargement) ============
+// ⚠ UNE SEULE RÈGLE (demande Timo, 04/09/2026 : « que le nom du client fasse
+// partie du nom du fichier — normalement c'est une seule règle qui gère
+// cet aspect ») : « Type - Client - Numéro ». Le titre sert à la fenêtre
+// d'impression (elle propose ce nom pour « Enregistrer en PDF ») et au
+// fichier PDF téléchargé. Les caractères interdits dans un nom de fichier
+// sont retirés ; un morceau vide est simplement omis.
+const propreFichier = (s) => String(s ?? "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();
+export const nomDocument = (type, { client, numero } = {}) =>
+  [propreFichier(type), propreFichier(client), propreFichier(numero)]
+    .filter((x) => x && x !== "—").join(" - ");
+export const fichierPdf = (type, infos) => `${nomDocument(type, infos)}.pdf`;
+
 export const telDigits = (t) => {
   if (!t) return "";
   let num = String(t).replace(/[^0-9]/g, "");

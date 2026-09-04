@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits } from "./core";
+import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits, nomDocument } from "./core";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
@@ -142,7 +142,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
     : html;
-  if (printApi) printApi.open(sortie, `Reçu ${v.numero || ""}`.trim());
+  if (printApi) printApi.open(sortie, nomDocument("Reçu", { client: v.client, numero: v.numero }));
 }
 
 // ============ PROFORMA (aperçu avant impression, pas de téléchargement direct) ============
@@ -271,7 +271,7 @@ export function imprimerRecuVersement(d, bq = {}) {
       `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
     : html;
-  if (printApi) printApi.open(sortie, `Reçu ${d.numero || ""}`.trim());
+  if (printApi) printApi.open(sortie, nomDocument("Reçu", { client: d.client, numero: d.numero }));
 }
 
 export function imprimerProforma(p, logo, estFormation = false) {
@@ -331,7 +331,7 @@ export function imprimerProforma(p, logo, estFormation = false) {
       Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.${p.validite ? ` Offre valable ${esc(p.validite)}.` : ""}
     </div>
   </div>`;
-  if (printApi) printApi.open(html, `Proforma ${p.numero || ""}`.trim());
+  if (printApi) printApi.open(html, nomDocument("Proforma", { client: p.client, numero: p.numero }));
 }
 
 // ============ CONTRAT DE RÉCEPTION DE PRESTATION ============
@@ -451,7 +451,7 @@ export function imprimerPV(c, db) {
 
     <div class="mentions">Document généré automatiquement — BMI-Gestion-Boutiques.</div>
   </div>`;
-  if (printApi) printApi.open(html, `${avenant ? "Avenant" : "PV"} ${c.contrat_numero || ""}`.trim());
+  if (printApi) printApi.open(html, nomDocument(avenant ? "Avenant" : "PV", { client: `${c.nom || ""} ${c.prenom || ""}`, numero: c.contrat_numero }));
 }
 
 // ============ CONTRAT D'INSTALLATION (avant travaux, lu+signé à la
@@ -618,7 +618,8 @@ export function htmlContratInstallation(d, db) {
 }
 
 export function imprimerContratInstallation(d, db) {
-  if (printApi) printApi.open(htmlContratInstallation(d, db), `Contrat ${d.contrat_numero || ""}`.trim());
+  const client = (db.users || []).find((u) => (u.devis || []).some((x) => x.id === d.id));
+  if (printApi) printApi.open(htmlContratInstallation(d, db), nomDocument("Contrat", { client: client?.nom_base || client?.nom, numero: d.contrat_numero }));
 }
 
 // ============ BON DE RAVITAILLEMENT ============
@@ -676,7 +677,7 @@ export function imprimerBonRavitaillement(bon, db) {
       <td><div class="ligne">Le réceptionnaire (boutique)</div></td>
     </tr></table>
   </div>`;
-  if (printApi) printApi.open(html, `Bon ${bon.numero || ""}`.trim());
+  if (printApi) printApi.open(html, nomDocument("Bon", { client: bon.destination, numero: bon.numero }));
 }
 
 // ============ BULLETIN DE PAIE ============
@@ -782,7 +783,7 @@ export function imprimerBulletin(u, mois, db) {
 
     <div class="pied">Document généré par BMI-Gestions Boutiques — à conserver.</div>
   </div>`;
-  if (printApi) printApi.open(html, `Bulletin ${u.nom || ""} ${mois || ""}`.trim());
+  if (printApi) printApi.open(html, nomDocument("Bulletin", { client: u.nom, numero: mois }));
 }
 
 export function recuWhatsApp(v, bq = {}) {
@@ -901,6 +902,6 @@ export function imprimerEtiquetteProduit(p) {
       ${p.prix_vente ? `<div style="font-weight:700;font-size:13px">${fmt(p.prix_vente)}</div>` : ""}
       <div style="font-weight:700;font-size:10px;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.nom)}</div>
     </div>`;
-  if (printApi) printApi.open(html, `Étiquette ${p.nom || ""}`.trim(), "size: 60mm 30mm; margin: 0;");
+  if (printApi) printApi.open(html, nomDocument("Étiquette", { client: p.nom }), "size: 60mm 30mm; margin: 0;");
   return true;
 }

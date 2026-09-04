@@ -407,7 +407,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       {(d.statut === "modification" || d.statut === "rejete") && onModifierDevis && (
                         <button onClick={() => onModifierDevis(d, d.client)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
                       )}
-                      <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 PDF (télécharger / imprimer)</button>
+                      <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
                     </div>
                     {peutFaireSigner(d) && (
                       <div className="mt-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">

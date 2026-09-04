@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { fichierPdf } from "./lib/core";
 
 // Formatage des montants pour le PDF. On N'UTILISE PAS toLocaleString("fr-FR")
 // car jsPDF n'affiche pas correctement son espace insécable (il apparaît comme
@@ -168,7 +169,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
   doc.text("BMI-Gestions Boutiques", largeur / 2, hauteur - 8, { align: "center" });
 
   if (retournerDoc) return doc;
-  doc.save(`Proforma_${p.numero}.pdf`);
+  doc.save(fichierPdf("Proforma", { client: p.client, numero: p.numero }));
 }
 
 // ============ DEVIS (dimensionnement solaire / garage / autre) ============
@@ -330,9 +331,7 @@ export function genererDevis(d, logo, retournerDoc = false) {
 
   if (retournerDoc) return doc;
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : le fichier doit porter le NOM DU
-  // CLIENT — « Devis_KOFFI AGBEKO_3F2A91C0.pdf » se retrouve dans un
-  // dossier de téléchargements, « Devis_3F2A91C0.pdf » non. Le numéro
-  // reste : deux devis du même client ne s'écrasent pas.
-  const nomClient = String(d.client || "").replace(/[\\/:*?"<>|]/g, "").trim();
-  doc.save(`Devis${nomClient && nomClient !== "—" ? `_${nomClient}` : ""}_${d.numero}.pdf`);
+  // CLIENT. La règle du nom vit dans lib/core.js (nomDocument) — la même
+  // pour tout ce qui s'imprime ou se télécharge.
+  doc.save(fichierPdf("Devis", { client: d.client, numero: d.numero }));
 }

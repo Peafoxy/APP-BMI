@@ -3323,6 +3323,29 @@ titre("Signature du contrat en boutique — UNE règle de validation, deux écra
     && readFileSync("src/screens/ContratsInstallation.jsx", "utf8").includes("Signé sur papier"));
 }
 
+titre("Le nom des documents : UNE règle — Type - Client - Numéro");
+{
+  // Demande Timo (04/09/2026) : « que le nom du client fasse partie du nom
+  // du fichier — normalement c'est une seule règle qui gère cet aspect ».
+  test("★ nomDocument assemble Type - Client - Numéro", Core.nomDocument("Contrat", { client: "KOFFI AGBEKO", numero: "CTR-2026-AB12" }) === "Contrat - KOFFI AGBEKO - CTR-2026-AB12");
+  test("un morceau vide (ou « — ») est omis, sans tiret orphelin",
+    Core.nomDocument("Reçu", { client: "", numero: "V-12" }) === "Reçu - V-12" && Core.nomDocument("Devis", { client: "—", numero: "X" }) === "Devis - X");
+  test("les caractères interdits dans un nom de fichier sont retirés",
+    Core.nomDocument("Devis", { client: 'A/B:C*D?"E<F>G|H', numero: "1" }) === "Devis - ABCDEFGH - 1" && Core.fichierPdf("Devis", { client: "K", numero: "1" }) === "Devis - K - 1.pdf");
+  const imp = readFileSync("src/lib/impression.js", "utf8");
+  test("★ TOUS les documents imprimés passent par la règle (aucun titre fabriqué à la main)",
+    (imp.match(/printApi\.open\(/g) || []).length === (imp.match(/printApi\.open\((?:sortie|html|htmlContratInstallation\(d, db\)), nomDocument\(/g) || []).length
+    && (imp.match(/printApi\.open\(/g) || []).length >= 8);
+  test("★ le contrat, le PV, le reçu et le proforma portent le nom du client",
+    /nomDocument\("Contrat", \{ client: client\?\.nom_base \|\| client\?\.nom/.test(imp) && /nomDocument\(avenant \? "Avenant" : "PV", \{ client:/.test(imp)
+    && /nomDocument\("Reçu", \{ client: v\.client/.test(imp) && /nomDocument\("Proforma", \{ client: p\.client/.test(imp));
+  const pdf = readFileSync("src/pdf.js", "utf8");
+  test("les PDF téléchargés (devis, proforma) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 2 && !/doc\.save\(`/.test(pdf));
+  test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
+    readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
@@ -3355,8 +3378,8 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     test(`★ le devis « ${nomForme} » se fabrique sans planter`, !!doc && doc.internal.getNumberOfPages() >= 1);
   }
   const srcPdf = readFileSync("src/pdf.js", "utf8");
-  test("★ le fichier téléchargé porte le NOM DU CLIENT (et garde le numéro)",
-    /doc\.save\(`Devis\$\{nomClient.*\$\{d\.numero\}\.pdf`\)/.test(srcPdf));
+  test("★ le fichier téléchargé porte le NOM DU CLIENT (et garde le numéro) — par la règle unique",
+    /doc\.save\(fichierPdf\("Devis", \{ client: d\.client, numero: d\.numero \}\)\)/.test(srcPdf));
   test("★ la charge solaire est rendue (appareils + résumé du calcul)",
     srcPdf.includes("Appareil à alimenter") && srcPdf.includes("Besoin estimé"));
   test("les mesures du garage et la demande « autre » sont rendues",
