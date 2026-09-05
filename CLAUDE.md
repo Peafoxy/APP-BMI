@@ -593,7 +593,8 @@ sortie : on regarde si la base a levé une objection.
   la fonction de securite-6 : poser `supprime_le` = admin ou son commercial,
   jamais un client ; le retirer = admin principal). Banc : 15 contrôles dans
   verifier-cloisonnement + 10 dans tester-devis-chantiers.
-  **SQL PAS ENCORE COLLÉ** (à coller quand tous les appareils sont en 2.101.56).
+  **COLLÉ par Timo le 05/09/2026** (capture : true) — la corbeille des
+  chantiers est complète, application et serveur.
   Suite possible, une famille à la fois : prospects, articles, ventes
   (`TABLES_CORBEILLE` + `LIBELLES_CORBEILLE` + `nomDeLaFiche`).
 - **Mots de passe des comptes clients** : le 05/09/2026, Timo a demandé
