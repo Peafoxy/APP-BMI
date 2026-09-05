@@ -548,7 +548,9 @@ sortie : on regarde si la base a levé une objection.
   Banc `npm run tester-devis-chantiers` (69 contrôles) ; tester-ecriture-sql
   et tester-espace-client chargent désormais securite-4/5/6 (les gestes
   complets de l'espace client passent les trois verrous).
-  **PAS ENCORE COLLÉ** : à coller quand tous les appareils sont en 2.101.55.
+  **COLLÉ par Timo le 05/09/2026** (capture : 6 / true) — **la vague 3 est
+  TERMINÉE** : argent, comptes, devis / chantiers / prospects / boutiques /
+  groupes sont verrouillés côté serveur, tous les ❓ de l'inventaire traités.
   Suite : les ❓ restants — tâches et photos sont faits ; cadeaux, date
   d'entretien, propriétaire aussi (étape 4). Il reste : cloisonnement par
   boutique (reporté), mode superviseur (en attente de Timo).
