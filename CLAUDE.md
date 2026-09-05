@@ -130,6 +130,17 @@ impossible, et le banc doit le dire dans ce sens-là.
   l'administrateur principal. Toute condition de la forme
   `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est un défaut :
   elle rouvre le mur pour lui seul, silencieusement.
+- **Toute liste de PERSONNES passe par `utilisateursDeLEspace`** — relevé par
+  Timo le 05/09/2026 : « dans Salaires aussi les employés formation
+  apparaissent ». ⚠ La table des comptes n'est PAS cloisonnée par le serveur
+  (un appareil neuf doit retrouver son compte pour se connecter) : le filtre
+  de l'application est la SEULE barrière, pour tous les rôles, pas seulement
+  pour l'admin principal. Le balayage de 2.101.23 portait sur les boutiques ;
+  les listes de gens ont été balayées en 2.101.62 : Salaires, Prospects
+  (réassigner), Messagerie (fils clients, membres, candidats), Paramètres
+  (transfert du rôle), Mon équipe (chefs), Utilisateurs (parrain), et le
+  message « nouveau client » aux admins. Le banc compte les lectures brutes
+  restantes fichier par fichier : une de plus fait tomber le contrôle.
 - **Toute liste affichée passe par `filtreEspaceAffichage`** (ou par la
   boutique regardée). Relevé le 05/09/2026 sur la question de Timo « les
   ventes et les proformas sont-ils cloisonnés ? » : les ventes oui (par

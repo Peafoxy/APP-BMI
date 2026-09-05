@@ -88,7 +88,7 @@ export function Messagerie({ db, save, profile }) {
     : [];
 
   // ---- Fils clients visibles par moi ----
-  const clientsAvecFil = db.users.filter((u) => u.role === "client" && u.actif !== false && peutVoirFilClient(profile, u.id, db));
+  const clientsAvecFil = utilisateursDeLEspace(db, profile).filter((u) => u.role === "client" && u.actif !== false && peutVoirFilClient(profile, u.id, db));
 
   // ---- Groupes visibles par moi : l'admin voit tout, les autres seulement ceux dont ils sont membres ----
   const mesGroupes = groupes.filter((g) => isAdmin || (g.membres || []).includes(profile.id));
@@ -293,7 +293,7 @@ export function Messagerie({ db, save, profile }) {
                       client ne montre que son fil de support — un client
                       ajouté ici ne pouvait JAMAIS ouvrir le groupe, mais les
                       messages du groupe se retrouvaient sur son appareil. */}
-                  {db.users.filter((u) => u.actif !== false && u.role !== "client").map((u) => {
+                  {utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && u.role !== "client").map((u) => {
                     const dedans = (groupeOuvert.membres || []).includes(u.id);
                     return (
                       <label key={u.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs cursor-pointer ${dedans ? "bg-sky-50 border-sky-200" : "bg-white border-slate-200"} ${u.id === profile.id ? "opacity-60" : ""}`}>
@@ -338,7 +338,7 @@ function CreationGroupeModal({ db, profile, onFermer, onCreer }) {
   const [choisis, setChoisis] = useState([]);
   // ⚠ Jamais de compte CLIENT dans un groupe — même règle que la gestion
   // des membres d'un groupe existant (voir le commentaire là-bas).
-  const candidats = db.users.filter((u) => u.id !== profile.id && u.actif !== false && u.role !== "client");
+  const candidats = utilisateursDeLEspace(db, profile).filter((u) => u.id !== profile.id && u.actif !== false && u.role !== "client");
 
   const basculer = (id) => setChoisis((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
 

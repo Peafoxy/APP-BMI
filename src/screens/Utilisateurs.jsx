@@ -454,7 +454,8 @@ export function Users({ db, save, profile }) {
   const changerParrain = async (u) => {
     if (refuserSaufAdmin(profile, "Changer le parrain d'un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const parrains = db.users.filter((x) => x.actif !== false && ["commercial", "technicien"].includes(x.role) && x.id !== u.id);
+    // Un parrain de l'espace du compte concerné, jamais de l'autre.
+    const parrains = utilisateursDeLEspace(db, u).filter((x) => x.actif !== false && ["commercial", "technicien"].includes(x.role) && x.id !== u.id);
     if (!parrains.length) { uAlert("Aucun commercial disponible comme parrain."); return; }
     const actuel = db.users.find((x) => x.id === u.parrain_id);
     const noms = parrains.map((x) => x.nom);

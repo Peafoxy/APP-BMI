@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR, normPaiement } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture } from "../lib/calculs";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
 import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC, memeSaisieCNSS } from "../lib/cnss";
@@ -31,7 +31,10 @@ export function SalairesAdmin({ db, save, profile }) {
     options.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
   }
 
-  const employes = db.users.filter((u) => SALARIES.includes(u.role) && u.actif !== false);
+  // ⚠ RELEVÉ PAR TIMO (05/09/2026) : « dans Salaires aussi les employés
+  // formation apparaissent ». La liste lisait db.users brut. Toute liste de
+  // personnes passe par utilisateursDeLEspace — c'est l'espace REGARDÉ qui décide.
+  const employes = utilisateursDeLEspace(db, profile).filter((u) => SALARIES.includes(u.role) && u.actif !== false);
   const lignes = employes.map((u) => ({ u, p: paieMois(u, mois), credit: creditsEnCours(u).reduce((s, c) => s + resteCredit(c), 0) }));
 
   const masse = lignes.reduce((s, l) => s + l.p.net, 0);

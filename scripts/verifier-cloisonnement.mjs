@@ -3649,6 +3649,43 @@ titre("Les proformas émis suivent l'espace regardé, comme les ventes");
     !/const proformasListe = db\.proformas \|\| \[\];/.test(v));
 }
 
+titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prospects, Messagerie, Paramètres, Mon équipe)");
+{
+  // ⚠ RELEVÉ PAR TIMO (05/09/2026) : « dans Salaires aussi les employés
+  // formation apparaissent ». La table des comptes n'est PAS cloisonnée par
+  // le serveur (un appareil neuf doit retrouver son compte) : le filtre de
+  // l'application est la seule barrière, pour tous les rôles. Le balayage des
+  // 28 listes de boutiques (2.101.23) n'avait pas balayé les listes de gens.
+  const lit = (f) => readFileSync(f, "utf8");
+  test("★ Salaires : la liste des employés suit l'espace regardé",
+    /const employes = utilisateursDeLEspace\(db, profile\)\.filter\(/.test(lit("src/screens/Salaires.jsx")));
+  test("★ Prospects : réassigner ne propose que les commerciaux de l'espace",
+    /const equipe = utilisateursDeLEspace\(db, profile\)\.filter\(/.test(lit("src/screens/Prospects.jsx")));
+  const msg = lit("src/screens/Messagerie.jsx");
+  test("★ Messagerie : fils clients, membres d'un groupe, candidats d'un nouveau groupe — les trois",
+    (msg.match(/utilisateursDeLEspace\(db, profile\)\.filter\(/g) || []).length >= 4);
+  test("★ Paramètres : le transfert du rôle principal ne propose que les admins de l'espace",
+    /\{utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => u\.role === "admin"/.test(lit("src/screens/Parametres.jsx")));
+  test("★ Mon équipe : les chefs d'équipe commissionnés sont ceux de l'espace",
+    /const chefs = db\.users\.filter\(\(u\) => u\.actif !== false && memeEspace\(u\)/.test(lit("src/screens/MonEquipe.jsx")));
+  test("★ Utilisateurs : le parrain proposé est de l'espace du compte concerné",
+    /const parrains = utilisateursDeLEspace\(db, u\)\.filter\(/.test(lit("src/screens/Utilisateurs.jsx")));
+  test("★ le message « nouveau client » ne réveille que les admins de son espace (et le principal)",
+    /u\.admin_principal === true \|\| !!u\.formation === !!user\.formation/.test(lit("src/lib/comptesClients.js")));
+  // Garde-fou : toute NOUVELLE lecture brute de db.users dans un écran fait
+  // tomber ce contrôle — on décide alors (espace, ou exception justifiée).
+  // Utilisateurs : dernier admin actif ×2, bascule en masse (traverse exprès), suppression,
+  // restreindre les admins, mots de passe en clair. MonEquipe : deux listes, toutes deux
+  // filtrées par memeEspace. Parametres : sécurité (comptes auth), réinitialisation formation ×2.
+  const permis = { "Utilisateurs.jsx": 6, "Commandes.jsx": 1, "Clients.jsx": 1, "EspaceClient.jsx": 1, "Parametres.jsx": 3,
+    "ClientsInstalles.jsx": 1, "Messagerie.jsx": 1, "MonEquipe.jsx": 2, "Salaires.jsx": 0, "Prospects.jsx": 0 };
+  const brut = /(?:db\.users|\(db\.users \|\| \[\]\))\.filter\(/g;
+  for (const [f, n] of Object.entries(permis)) {
+    const trouve = (lit(`src/screens/${f}`).match(brut) || []).length;
+    test(`${f} : ${n} lecture(s) brute(s) de db.users, pas une de plus (trouvé ${trouve})`, trouve === n);
+  }
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

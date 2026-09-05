@@ -185,7 +185,7 @@ export function MonEquipe({ db, save, profile }) {
   const totalExtDu = apporteursExt.reduce((s, a) => s + a.due, 0);
 
   // ---- COMMISSIONS D'ÉQUIPE (les chefs touchent un % sur leurs filleuls) ----
-  const chefs = db.users.filter((u) => u.actif !== false && estChefEquipe(db, u) && filleulsDe(db, u).length > 0)
+  const chefs = db.users.filter((u) => u.actif !== false && memeEspace(u) && estChefEquipe(db, u) && filleulsDe(db, u).length > 0)
     .map((u) => {
       const tauxEq = Number(u.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
       let due = 0, versees = 0, gelee = 0, ventesDues = [];

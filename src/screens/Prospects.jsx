@@ -9,7 +9,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 export function Prospects({ db, save, profile, isAdmin }) {
@@ -158,7 +158,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   // Réassigner un prospect à un autre commercial/technicien (admin ou chef d'équipe)
   const reassigner = async (p) => {
     if (refuserSaufReaffectation(db, profile, "Réassigner un prospect")) return;
-    const equipe = db.users.filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false).map((u) => u.nom);
+    const equipe = utilisateursDeLEspace(db, profile).filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false).map((u) => u.nom);
     if (equipe.length === 0) { uAlert("Aucun commercial actif."); return; }
     const choix = await uPrompt(`Réassigner « ${p.nom} » à quel commercial ?\n(${equipe.join(" / ")})`, p.commercial || equipe[0]);
     if (!choix) return;

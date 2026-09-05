@@ -220,7 +220,10 @@ export async function fabriquerCompteClient(db, nom, tel, parQui, marque = {}) {
 // sur le terrain, dimensionnement, parrainage...). Un seul appel à ajouter
 // dans le tableau « messages » de chaque save() qui crée un compte client.
 export function messagesNouveauClient(db, user, parQui) {
-  const admins = db.users.filter((u) => u.role === "admin" && u.actif !== false && u.id !== parQui?.id);
+  // Les administrateurs de l'ESPACE du nouveau client (un client d'entraînement
+  // ne dérange pas les admins réels) — et l'administrateur principal, toujours.
+  const admins = db.users.filter((u) => u.role === "admin" && u.actif !== false && u.id !== parQui?.id
+    && (u.admin_principal === true || !!u.formation === !!user.formation));
   const base = { id: uid(), date: today(), ts: new Date().toISOString(), lu_par: [] };
   return admins.map((admin) => ({
     ...base,
