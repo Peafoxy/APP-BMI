@@ -13,6 +13,7 @@ import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compr
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -345,9 +346,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       receptionne ? `⚠ Ce chantier est RÉCEPTIONNÉ${c.contrat_numero ? ` et un PV existe (${c.contrat_numero})` : ""} : c'est une pièce du dossier client.` : "",
       enAttente ? `⚠ ${enAttente} demande(s) de paiement de prime en attente chez un vendeur seront annulées.` : "",
     ].filter(Boolean).join("\n");
-    if (!await uConfirm(`Supprimer la fiche de « ${c.prenom || ""} ${c.nom} » ?${avertissements ? `\n\n${avertissements}` : ""}\n\nCette suppression est définitive.`)) return;
-    save({ ...db, clients_installes: db.clients_installes.filter((x) => x.id !== c.id) },
-      `Suppression fiche client installé « ${c.nom} »${receptionne ? " (chantier RÉCEPTIONNÉ)" : ""} par ${profile.nom}`);
+    // ⚠ CORBEILLE (2.101.56, demande Timo) : la fiche n'est plus effacée
+    // partout d'un coup. Elle est mise de côté ${DUREE_CORBEILLE_JOURS} jours,
+    // visible et restaurable par l'administrateur principal (⚙ Paramètres →
+    // 🗑 Corbeille), puis effacée pour de bon.
+    if (!await uConfirm(`Supprimer la fiche de « ${c.prenom || ""} ${c.nom} » ?${avertissements ? `\n\n${avertissements}` : ""}\n\nElle sera mise à la corbeille ${DUREE_CORBEILLE_JOURS} jours : l'administrateur principal pourra la restaurer pendant ce délai. Ensuite, elle sera effacée définitivement.`)) return;
+    save(mettreALaCorbeille(db, "clients_installes", c.id, profile),
+      `🗑 Fiche client installé « ${c.nom} » mise à la corbeille${receptionne ? " (chantier RÉCEPTIONNÉ)" : ""} par ${profile.nom}`);
   };
 
   // ---- FRAIS D'INSTALLATION ----

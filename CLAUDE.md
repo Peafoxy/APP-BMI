@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 767 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 782 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -60,7 +60,7 @@ npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 57  : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 54  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 69  : devis, chantiers, prospects, boutiques, groupes (serveur)
+npm run tester-devis-chantiers   # 79  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -576,11 +576,32 @@ sortie : on regarde si la base a levé une objection.
   cette possibilité à l'administrateur principal seul ; quand on mettra en
   place le code superviseur, on pourra ouvrir ce geste aux vendeurs pour un
   seul geste ». `peutSignerEnBoutique` dans TousLesDevis.jsx.
-- **Corbeille pour les fiches supprimées** (chantiers d'abord) : une fiche
-  supprimée serait mise de côté 30 jours, restaurable par l'admin
-  principal, au lieu d'être effacée partout par le faire-part. Plan décrit
-  à Timo le 31/08/2026 — « on met ça entre parenthèses ». Ne pas
-  construire sans son feu vert. En attendant, la récupération passe par :
-  le fichier de sauvegarde horaire, un appareil resté hors ligne (ouvrir
-  AVANT de le reconnecter), puis ressaisie manuelle.
+- **Corbeille pour les fiches supprimées** — **CONSTRUITE pour les chantiers
+  (2.101.56, 05/09/2026, Timo : « lance la corbeille »).** `lib/corbeille.js`
+  (pur) : la fiche supprimée reste dans sa table, marquée `supprime_le` /
+  `supprime_par` ; `separerCorbeille` au chargement (chargerTout) la range
+  dans `db.corbeille_clients_installes`, `fusionnerCorbeille` à l'écriture
+  (sauvegarderDiff) la remet dans sa table — aucun écran ne la voit, aucun
+  faire-part ne part (même principe que la paie). Le report d'état périmé
+  (rebaser) traite `CLES_CORBEILLE` comme des tables ; la sauvegarde de
+  secours emporte la corbeille et la restauration la re-sépare. ⚙ Paramètres
+  → onglet 🗑 Corbeille (admin principal seul) : ♻ Restaurer (fiche telle
+  qu'au moment de la suppression) / Supprimer définitivement. **Purge
+  automatique à 30 jours** (`DUREE_CORBEILLE_JOURS`) au démarrage, sur
+  l'appareil de l'admin principal (effet dans App.jsx, AVANT le premier
+  point de sortie). Serveur : `supabase/securite-7-corbeille.sql` (remplace
+  la fonction de securite-6 : poser `supprime_le` = admin ou son commercial,
+  jamais un client ; le retirer = admin principal). Banc : 15 contrôles dans
+  verifier-cloisonnement + 10 dans tester-devis-chantiers.
+  **SQL PAS ENCORE COLLÉ** (à coller quand tous les appareils sont en 2.101.56).
+  Suite possible, une famille à la fois : prospects, articles, ventes
+  (`TABLES_CORBEILLE` + `LIBELLES_CORBEILLE` + `nomDeLaFiche`).
+- **Mots de passe des comptes clients** : le 05/09/2026, Timo a demandé
+  l'explication, puis posé la question « même l'admin principal ne pourra
+  plus voir ? ». Trois voies lui ont été proposées : (1) personne ne voit,
+  « Renvoyer » fabrique un nouveau mot de passe (conseillée) ; (2) pareil,
+  mais l'admin principal voit le dernier mot de passe envoyé tant que le
+  client ne l'a pas changé ; (3) on laisse comme aujourd'hui. **Pas encore
+  tranché** — il a préféré lancer la corbeille d'abord. Ne pas construire
+  sans sa réponse.
 

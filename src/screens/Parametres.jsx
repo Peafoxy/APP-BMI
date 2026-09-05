@@ -14,6 +14,7 @@ import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, d
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
+import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ PARAMÈTRES ============
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
@@ -54,6 +55,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     }, `👑 Rôle d'administrateur principal transféré de ${profile.nom} à ${u.nom}`);
     setNouveauPrincipal("");
     uAlert(`✅ ${u.nom} est désormais l'administrateur principal.`);
+  };
+
+  // ---- 🗑 CORBEILLE (demande Timo, 05/09/2026) ----
+  // Les fiches supprimées attendent ici 30 jours ; l'administrateur principal
+  // seul les voit, les restaure ou les efface pour de bon (lib/corbeille.js).
+  const jeSuisPrincipal = estAdminPrincipal(db, profile);
+  const corbeille = contenuCorbeille(db);
+  const restaurerFiche = async (x) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Restaurer une fiche de la corbeille")) return;
+    if (!await uConfirm(`Restaurer ${x.libelle.toLowerCase()} « ${nomDeLaFiche(x.table, x.fiche)} » ?\n\nLa fiche revient exactement telle qu'elle était au moment de sa suppression, sur tous les appareils.`)) return;
+    save(restaurerDeLaCorbeille(db, x.table, x.fiche.id), `♻ ${x.libelle} « ${nomDeLaFiche(x.table, x.fiche)} » restauré(e) de la corbeille par ${profile.nom}`);
+  };
+  const effacerFiche = async (x) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Supprimer définitivement une fiche")) return;
+    if (!await uConfirm(`Supprimer DÉFINITIVEMENT ${x.libelle.toLowerCase()} « ${nomDeLaFiche(x.table, x.fiche)} » ?\n\nCette fois, aucun retour possible.`)) return;
+    save(supprimerDefinitivement(db, x.table, x.fiche.id), `Suppression définitive : ${x.libelle} « ${nomDeLaFiche(x.table, x.fiche)} » (corbeille) par ${profile.nom}`);
   };
 
   // ---- PERSONNALISATION DE L'ÉCRAN DE CONNEXION (fêtes, etc.) ----
@@ -531,7 +550,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           if (!await uConfirm("⚠ La copie de sécurité n'a pas pu être téléchargée.\n\nSans elle, ce geste est SANS RETOUR. Continuer quand même ?")) return;
         }
 
-        save(donnees, `Restauration d'une sauvegarde${derniereDate ? ` du ${dFR(derniereDate)}` : ""}${totalPerdu ? ` — ${totalPerdu} enregistrement(s) supprimé(s)` : ""} (par ${profile.nom})`);
+        // Une sauvegarde emporte la corbeille : on la remet de côté avant d'afficher.
+        save(separerCorbeille(donnees), `Restauration d'une sauvegarde${derniereDate ? ` du ${dFR(derniereDate)}` : ""}${totalPerdu ? ` — ${totalPerdu} enregistrement(s) supprimé(s)` : ""} (par ${profile.nom})`);
         uAlert(`✅ Sauvegarde restaurée.${totalPerdu ? `\n\n${totalPerdu} enregistrement(s) ont été supprimés. La copie de l'état précédent est dans vos téléchargements.` : ""}`);
       };
       lecteur.readAsText(fich);
@@ -900,7 +920,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           🔐 Sécurité est volontairement en dernier : les gestes lourds ne
           doivent pas être sur le chemin de tous les jours. */}
       <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
-        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"], ["securite", "🔐 Sécurité"]].map(([id, label]) => (
+        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"],
+          ...(jeSuisPrincipal ? [["corbeille", `🗑 Corbeille${corbeille.length ? ` (${corbeille.length})` : ""}`]] : []),
+          ["securite", "🔐 Sécurité"]].map(([id, label]) => (
           <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
         ))}
       </div>
@@ -1140,6 +1162,32 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       </div>
 
       </div>
+      <div className="space-y-4" style={{ display: onglet === "corbeille" ? undefined : "none" }}>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <div className="font-bold mb-1">🗑 Corbeille</div>
+          <div className="text-xs text-slate-500 mb-3">
+            Une fiche supprimée attend ici {DUREE_CORBEILLE_JOURS} jours avant d'être effacée pour de bon. Vous seul la voyez.
+            Restaurer la remet exactement comme elle était au moment de sa suppression — ce qui s'est passé entre-temps ailleurs n'y figure pas.
+          </div>
+          {corbeille.length === 0 ? (
+            <div className="text-sm text-slate-500">La corbeille est vide.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {corbeille.map((x) => (
+                <div key={`${x.table}:${x.fiche.id}`} className="py-2 flex flex-wrap items-center gap-2 text-sm">
+                  <div className="flex-1 min-w-[12rem]">
+                    <span className="font-bold">{x.libelle} — {nomDeLaFiche(x.table, x.fiche)}</span>
+                    <div className="text-xs text-slate-500">Supprimé le {dFR(String(x.fiche.supprime_le || "").slice(0, 10))} par {x.fiche.supprime_par || "?"} · {x.restants > 0 ? `effacement dans ${x.restants} jour(s)` : "effacement imminent"}</div>
+                  </div>
+                  <button onClick={() => restaurerFiche(x)} className="px-3 py-1 rounded-lg bg-green-700 text-white text-xs font-bold hover:bg-green-800">♻ Restaurer</button>
+                  <button onClick={() => effacerFiche(x)} className="px-3 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Supprimer définitivement</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="space-y-4" style={{ display: onglet === "donnees" ? undefined : "none" }}>
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
         <div className="font-bold mb-1">💾 Sauvegarde de secours</div>

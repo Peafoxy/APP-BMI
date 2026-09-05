@@ -3557,6 +3557,65 @@ titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n
     Fus.fusionner("ventes", undefined, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
 }
 
+titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurable par l'administrateur principal");
+{
+  // Demande Timo (« lance la corbeille », 05/09/2026). Supprimer un chantier
+  // ne l'efface plus partout d'un coup : la fiche est MARQUÉE, séparée au
+  // chargement et refusionnée à l'écriture (comme la paie), et l'admin
+  // principal la restaure ou l'efface depuis ⚙ Paramètres → 🗑.
+  const sortieCorb = join("node_modules", ".cache", `bmi-corb-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/corbeille.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieCorb, logLevel: "silent", loader: { ".js": "jsx" } });
+  const Corb = await import(pathToFileURL(sortieCorb).href);
+  unlinkSync(sortieCorb);
+  test("★ le module est pur (aucune importation) et garde 30 jours",
+    !/^import /m.test(readFileSync("src/lib/corbeille.js", "utf8")) && Corb.DUREE_CORBEILLE_JOURS === 30);
+  const c1 = { id: "c1", nom: "AMA", prenom: "K.", commercial: "COM", statut: "en_cours" };
+  const c2 = { id: "c2", nom: "KOFFI", statut: "termine" };
+  const db0 = { clients_installes: [c1, c2], ventes: [] };
+  const apres = Corb.mettreALaCorbeille(db0, "clients_installes", "c1", { nom: "COM" }, "2026-09-05T10:00:00Z");
+  test("★ mettre à la corbeille RETIRE la fiche de sa table et la range marquée (supprime_le / supprime_par)",
+    apres.clients_installes.length === 1 && apres.corbeille_clients_installes.length === 1
+    && apres.corbeille_clients_installes[0].supprime_le === "2026-09-05T10:00:00Z" && apres.corbeille_clients_installes[0].supprime_par === "COM");
+  const fusion = Corb.fusionnerCorbeille(apres);
+  test("★ à l'écriture, la fiche RETOURNE dans sa table (aucun faire-part de suppression ne part)",
+    fusion.clients_installes.length === 2 && fusion.corbeille_clients_installes === undefined
+    && fusion.clients_installes.some((r) => r.id === "c1" && r.supprime_le));
+  const recharge = Corb.separerCorbeille(fusion);
+  test("★ au chargement, la fiche marquée est de nouveau séparée : aucun écran ne la voit",
+    recharge.clients_installes.length === 1 && recharge.corbeille_clients_installes.length === 1);
+  test("séparer une table sans fiche marquée garde le MÊME tableau (les écrans comparent par identité)",
+    Corb.separerCorbeille(db0).clients_installes === db0.clients_installes);
+  const restaure = Corb.restaurerDeLaCorbeille(apres, "clients_installes", "c1");
+  test("★ restaurer rend la fiche telle qu'elle était, sans la marque",
+    restaure.clients_installes.length === 2 && restaure.corbeille_clients_installes.length === 0
+    && JSON.stringify(restaure.clients_installes.find((r) => r.id === "c1")) === JSON.stringify(c1));
+  test("★ à 30 jours la fiche est à purger, à 29 elle ne l'est pas",
+    Corb.aPurger(apres, "2026-10-05T10:00:00Z").length === 1 && Corb.aPurger(apres, "2026-10-04T09:00:00Z").length === 0
+    && Corb.joursRestants(apres.corbeille_clients_installes[0], "2026-09-06T10:00:00Z") === 29);
+  test("★ la purge efface pour de bon (la fiche ne revient dans aucune table)",
+    Corb.purgerCorbeille(apres, "2026-10-06T00:00:00Z").corbeille_clients_installes.length === 0
+    && Corb.fusionnerCorbeille(Corb.purgerCorbeille(apres, "2026-10-06T00:00:00Z")).clients_installes.length === 1);
+  const dbjs = readFileSync("src/db.js", "utf8");
+  test("★ db.js sépare au chargement (chargerTout) et refusionne à l'écriture (sauvegarderDiff), les deux",
+    /return separerCorbeille\(db\);/.test(dbjs) && /prev = fusionnerCorbeille\(prev\);\s*next = fusionnerCorbeille\(next\);/.test(dbjs));
+  const app = readFileSync("src/App.jsx", "utf8");
+  test("★ le report d'un état périmé traite les clés de corbeille comme des tables",
+    /rebaser\(base, next, dbRef\.current, \[\.\.\.TABLES, \.\.\.CLES_CORBEILLE\]\)/.test(app));
+  test("★ la purge automatique tourne sur l'appareil de l'administrateur principal, avant tout point de sortie",
+    app.indexOf("aPurger(db)") > 0 && app.indexOf("aPurger(db)") < app.indexOf("if (!db) return"));
+  test("★ le geste Suppr. d'un chantier passe par la corbeille (plus de filter direct)",
+    /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ ⚙ Paramètres a l'onglet 🗑 Corbeille pour l'admin principal seul, avec Restaurer et Supprimer définitivement (gestes gardés)",
+    /jeSuisPrincipal \? \[\["corbeille"/.test(par) && /refuserSaufAdminPrincipal\(db, profile, "Restaurer une fiche de la corbeille"\)/.test(par)
+    && /refuserSaufAdminPrincipal\(db, profile, "Supprimer définitivement une fiche"\)/.test(par));
+  test("★ la sauvegarde de secours emporte la corbeille", /fusionnerCorbeille\(db\)/.test(readFileSync("src/lib/sauvegarde.js", "utf8")));
+  test("★ le serveur : mettre à la corbeille = admin ou son commercial (jamais un client), restaurer = principal",
+    /supprime_le/.test(readFileSync("supabase/securite-7-corbeille.sql", "utf8"))
+    && readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8").includes("securite-7-corbeille.sql"));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

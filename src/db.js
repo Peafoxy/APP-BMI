@@ -1,5 +1,6 @@
 import Dexie from "dexie";
 import { fusionnerPaie, separerPaie } from "./lib/paie";
+import { separerCorbeille, fusionnerCorbeille } from "./lib/corbeille";
 
 // Tables synchronisées avec Supabase
 const TABLES_V1 = [
@@ -121,7 +122,9 @@ export async function chargerTout() {
   // sur les fiches employés : les écrans continuent de lire `u.salaire_base`
   // ou `u.virements` sans rien savoir de la séparation (voir lib/paie.js).
   db.users = fusionnerPaie(db.users, db.paie);
-  return db;
+  // Les fiches mises à la corbeille quittent leur table : aucun écran, aucun
+  // chiffre ne les voit (voir lib/corbeille.js).
+  return separerCorbeille(db);
 }
 
 // ⚠ ÉTAPE 2 de la fermeture du « trou n° 1 » : range en local LA fiche
@@ -166,6 +169,11 @@ export async function sauvegarderDiff(prev, next, ecrivain = {}) {
   // paie AVANT de comparer, pour que chaque champ reparte dans SA table.
   // Les deux états sont traités de la même façon, sinon la comparaison
   // verrait des différences qui n'existent pas.
+  // Symétrique de la corbeille faite au chargement : les fiches mises de côté
+  // retournent dans leur table AVANT la comparaison — sinon elles passeraient
+  // pour supprimées, et un faire-part partirait à tous les appareils.
+  prev = fusionnerCorbeille(prev);
+  next = fusionnerCorbeille(next);
   const avantSep = separerPaie(prev?.users, ecrivain);
   const apresSep = separerPaie(next?.users, ecrivain);
   prev = { ...prev, users: avantSep.users, paie: avantSep.paie };

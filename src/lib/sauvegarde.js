@@ -4,11 +4,13 @@
 // ============================================================
 import { today } from "./core";
 import { marquerSauvegardeAuto, TABLES } from "../db";
+import { fusionnerCorbeille } from "./corbeille";
 
 // Le fichier de sauvegarde ne contient QUE les vraies tables — jamais les
 // champs techniques du db en mémoire (ex. __index du lot D, qui contient des
 // Map non sérialisables et se reconstruit tout seul au chargement).
-const donneesTables = (db) => Object.fromEntries(TABLES.map((t) => [t, db[t] || []]));
+// La corbeille part avec la sauvegarde : une fiche mise de côté n'est pas perdue.
+const donneesTables = (db) => { const d = fusionnerCorbeille(db); return Object.fromEntries(TABLES.map((t) => [t, d[t] || []])); };
 
 export function telechargerSauvegarde(db, suffixe = "") {
   const blob = new Blob([JSON.stringify(donneesTables(db), null, 1)], { type: "application/json" });

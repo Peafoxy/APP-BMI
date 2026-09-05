@@ -76,6 +76,7 @@ import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BO
 } from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal } from "./lib/calculs";
+import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
   uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
@@ -566,7 +567,9 @@ export default function App() {
     if (next && next.__v != null && dbRef.current && next.__v !== dbRef.current.__v) {
       const base = etatsServis.current.get(next.__v);
       if (base) {
-        next = rebaser(base, next, dbRef.current, TABLES);
+        // Les clés de corbeille se reportent comme des tables : sinon une fiche
+        // mise à la corbeille sur un état périmé serait perdue au report.
+        next = rebaser(base, next, dbRef.current, [...TABLES, ...CLES_CORBEILLE]);
       } else {
         // État trop ancien pour être retrouvé : on refuse plutôt que de
         // risquer d'effacer ce qu'on ne sait plus comparer.
@@ -653,6 +656,19 @@ export default function App() {
   //
   // ⚠ Ce crochet est placé ICI, avant les points de sortie, pour la même
   // raison que celui décrit juste en dessous.
+  // ⚠ LA CORBEILLE SE VIDE TOUTE SEULE APRÈS 30 JOURS — sur l'appareil de
+  // l'administrateur principal seulement (le serveur réserve la suppression
+  // définitive d'un chantier à l'administrateur ou au commercial rattaché ;
+  // c'est lui qui a la corbeille sous les yeux). Placé AVANT tout point de
+  // sortie du composant, comme les autres crochets.
+  useEffect(() => {
+    if (!db || !profile || adminPrincipal(db)?.id !== profile.id) return;
+    const perimes = aPurger(db);
+    if (!perimes.length) return;
+    save(purgerCorbeille(db), `🗑 Corbeille vidée automatiquement : ${perimes.length} fiche(s) de plus de 30 jours (${perimes.map((x) => `${x.libelle} ${nomDeLaFiche(x.table, x.fiche)}`).join(", ")})`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db?.__v, profile?.id]);
+
   useEffect(() => {
     const racine = document.documentElement;
     const enFormation = !!(db && profile && espaceDuCompte(db, profile));

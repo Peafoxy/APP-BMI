@@ -36,6 +36,8 @@ for f in supabase/securite-4-argent.sql supabase/securite-5-comptes.sql; do
 done
 echo "▸ Pose des verrous : supabase/securite-6-devis-chantiers.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-6-devis-chantiers.sql >/dev/null 2>&1
+echo "▸ Pose du verrou de la corbeille : supabase/securite-7-corbeille.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-7-corbeille.sql >/dev/null 2>&1
 
 $P -c "
 insert into public.users (id, data) values
@@ -153,6 +155,21 @@ essai "un commercial FORCE la réception sans signature" "REFUSE" "$COM2" "$(MAJ
 essai "l'admin force la réception sans signature" "PERMIS" "$CALEB" "$(MAJ clients_installes "data || '{\"statut\":\"receptionne\",\"contrat_force_par\":\"CALEB\"}'" zch2)"
 essai "un technicien envoie un avenant" "REFUSE" "$TECH" "$(MAJ clients_installes "data || '{\"avenant_jeton\":\"a1\",\"avenant_statut\":\"attente_signature\"}'" zch2)"
 essai "le client signe SON PV (règles client inchangées)" "PERMIS" "$CLIENT" "$(MAJ clients_installes "data || '{\"statut\":\"receptionne\",\"contrat_statut\":\"signe\",\"contrat_signature\":\"data:...\"}'" zch1)"
+
+echo
+echo "── LA CORBEILLE : mettre à la corbeille = admin ou son commercial ; restaurer = admin principal ──"
+CORB="data || '{\"supprime_le\":\"2026-09-05T10:00:00Z\",\"supprime_par\":\"X\"}'"
+essai "un vendeur met un chantier à la corbeille" "REFUSE" "$VENDEUR" "$(MAJ clients_installes "$CORB" zch1)"
+essai "un commercial met le chantier d'un AUTRE à la corbeille" "REFUSE" "$COM2" "$(MAJ clients_installes "$CORB" zch1)"
+essai "le client met SON chantier à la corbeille" "REFUSE" "$CLIENT" "$(MAJ clients_installes "$CORB" zch1)"
+essai "le commercial rattaché met son chantier à la corbeille" "PERMIS" "$COM" "$(MAJ clients_installes "$CORB" zch1)"
+essai "un admin secondaire met un chantier à la corbeille" "PERMIS" "$CALEB" "$(MAJ clients_installes "$CORB" zch1)"
+$P -c "update public.clients_installes set data = data || '{\"supprime_le\":\"2026-09-01T10:00:00Z\",\"supprime_par\":\"COM\"}' where id='zch2';" >/dev/null
+essai "un admin secondaire RESTAURE une fiche de la corbeille" "REFUSE" "$CALEB" "$(MAJ clients_installes "data - 'supprime_le' - 'supprime_par'" zch2)"
+essai "le commercial rattaché restaure sa fiche" "REFUSE" "$COM2" "$(MAJ clients_installes "data - 'supprime_le' - 'supprime_par'" zch2)"
+essai "l'admin principal restaure une fiche" "PERMIS" "$PRINCIPAL" "$(MAJ clients_installes "data - 'supprime_le' - 'supprime_par'" zch2)"
+essai "l'admin principal efface pour de bon une fiche de la corbeille (purge)" "PERMIS" "$PRINCIPAL" "$(SUPPR clients_installes zch2)"
+essai "une fiche à la corbeille réécrite à l'identique par un vendeur (synchronisation)" "PERMIS" "$VENDEUR" "$(MAJ clients_installes "data" zch2)"
 
 echo
 echo "── LES PROSPECTS : admin ou son commercial ; réassigner = admin / resp. com / chef avec le pouvoir ──"
