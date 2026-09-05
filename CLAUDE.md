@@ -129,6 +129,13 @@ impossible, et le banc doit le dire dans ce sens-là.
   l'administrateur principal. Toute condition de la forme
   `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est un défaut :
   elle rouvre le mur pour lui seul, silencieusement.
+- **Toute liste affichée passe par `filtreEspaceAffichage`** (ou par la
+  boutique regardée). Relevé le 05/09/2026 sur la question de Timo « les
+  ventes et les proformas sont-ils cloisonnés ? » : les ventes oui (par
+  boutique), le serveur oui (politiques espace sur les deux tables), mais la
+  liste « Proformas émis » de l'écran Ventes lisait `db.proformas` brut —
+  l'administrateur principal voyait les deux espaces mêlés. Corrigé en
+  2.101.59, contrôle au banc.
 - La caisse **« Chez le comptable » est réelle et n'a pas de jumelle** : elle
   n'est proposée que lorsqu'on regarde le réel. Le verrou d'écriture la laisse
   passer sans vérifier, justement pour cette raison. Seul le contrôle d'unicité d'un nom de boutique

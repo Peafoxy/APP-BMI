@@ -3636,6 +3636,19 @@ titre("La zone de signature : UNE seule, pour le personnel comme pour les client
     ecrans.every((f) => !/positionCanvas = |aSigneRef|canvasRef|canvasPvRef/.test(readFileSync(f, "utf8"))));
 }
 
+titre("Les proformas émis suivent l'espace regardé, comme les ventes");
+{
+  // Question de Timo (05/09/2026) : « les ventes et les proformas sont-ils
+  // cloisonnés ? ». Les ventes l'étaient (liste par boutique) ; la liste des
+  // proformas lisait db.proformas brut — l'administrateur principal voyait
+  // les deux espaces mêlés. Retourné en 2.101.59.
+  const v = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ la liste des proformas passe par filtreEspaceAffichage",
+    /const proformasListe = \(db\.proformas \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\)/.test(v));
+  test("★ …et plus aucune lecture brute de db.proformas dans l'écran Ventes",
+    !/const proformasListe = db\.proformas \|\| \[\];/.test(v));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

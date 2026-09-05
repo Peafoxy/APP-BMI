@@ -809,7 +809,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [periodeIndex, setPeriodeIndex] = useState(null);
   const [filtrePaiement, setFiltrePaiement] = useState("");
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
-  const proformasListe = db.proformas || [];
+  // ⚠ RELEVÉ LE 05/09/2026 (question de Timo : « les ventes et les proformas
+  // sont-ils cloisonnés ? ») : cette liste lisait db.proformas BRUT. Le
+  // serveur ne livre à un compte cloisonné que son espace — mais
+  // l'administrateur principal reçoit les deux, et voyait donc les
+  // proformas d'entraînement mêlées aux vraies. C'est l'espace REGARDÉ qui
+  // décide, comme partout (filtreEspaceAffichage).
+  const proformasListe = (db.proformas || []).filter(filtreEspaceAffichage(db, profile));
   const qListe = normNom(rechercheListe);
   // Ordre DÉCROISSANT : les ventes et proformas les plus récentes d'abord
   // (ventes : date + heure ; proformas : date + horodatage précis).
