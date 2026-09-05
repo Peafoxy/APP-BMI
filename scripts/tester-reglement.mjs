@@ -129,8 +129,11 @@ titre("Qui accepte un plan de reglement : l'administrateur PRINCIPAL, et lui seu
     /const peutDeciderDuPlan = estAdminPrincipal\(db, profile\);/.test(src));
   test("★ l'ancienne regle « tout administrateur » a bien disparu",
     !/const peutDeciderDuPlan = profile\.role === "admin"/.test(src));
+  // 2.101.55 : le geste passe par l'aide partagée refuserSaufAdminPrincipal
+  // (même règle que le mot de passe ou la bascule d'espace), plus par une
+  // condition écrite à la main.
   test("le geste lui-meme se garde, pas seulement le bouton",
-    /deciderPlan = async[\s\S]{0,400}?if \(!peutDeciderDuPlan\)/.test(src));
+    /deciderPlan = async[\s\S]{0,400}?refuserSaufAdminPrincipal\(db, profile, "Accepter ou rejeter un plan de règlement"\)/.test(src));
   test("le message affiche aux autres dit bien PRINCIPAL",
     /Seul l'administrateur PRINCIPAL peut accepter ou rejeter ce plan/.test(src));
 }

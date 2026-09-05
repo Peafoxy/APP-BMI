@@ -35,7 +35,7 @@ echo "▸ Environnement Supabase simulé + TOUTES les politiques réelles"
 $Q -q -f supabase/test/fixture.sql
 $Q -q -c "create table if not exists public.tombstones (id text primary key, table_name text, record_id text, deleted_at timestamptz);
 grant all on public.tombstones to authenticated, service_role;" >/dev/null
-for f in supabase/tombstones-automatiques.sql supabase/espace-1-colonne.sql supabase/espace-3-politiques.sql supabase/espace-3-VAGUE-2.sql supabase/espace-4-admin-voit-tout.sql supabase/espace-5-fournisseurs-commerciaux.sql supabase/espace-6-correctif-tous.sql supabase/lot-1-ecriture-groupee.sql supabase/roles-1-vague1.sql supabase/roles-1b-correctif-upsert.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql supabase/securite-2-role-inviolable.sql supabase/client-2-fermer-ecriture.sql supabase/client-4-fermer-lecture.sql supabase/securite-1-audits-et-tombstones.sql; do
+for f in supabase/tombstones-automatiques.sql supabase/espace-1-colonne.sql supabase/espace-3-politiques.sql supabase/espace-3-VAGUE-2.sql supabase/espace-4-admin-voit-tout.sql supabase/espace-5-fournisseurs-commerciaux.sql supabase/espace-6-correctif-tous.sql supabase/lot-1-ecriture-groupee.sql supabase/roles-1-vague1.sql supabase/roles-1b-correctif-upsert.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql supabase/securite-2-role-inviolable.sql supabase/client-2-fermer-ecriture.sql supabase/client-4-fermer-lecture.sql supabase/securite-1-audits-et-tombstones.sql supabase/securite-4-argent.sql supabase/securite-5-comptes.sql supabase/securite-6-devis-chantiers.sql; do
   $Q -q -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 || echo "   (⚠ $f partiellement rejoué)"
 done
 

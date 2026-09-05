@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 756 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 767 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -60,6 +60,7 @@ npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 57  : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 54  : les règles de rôle sur les comptes (serveur)
+npm run tester-devis-chantiers   # 69  : devis, chantiers, prospects, boutiques, groupes (serveur)
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -519,10 +520,40 @@ sortie : on regarde si la base a levé une objection.
   `npm run tester-comptes` (54 contrôles, les deux ordres du transfert).
   **COLLÉ par Timo le 05/09/2026** (capture : 3 / true / true) — les verrous
   des comptes sont EN PLACE sur la vraie base.
-  Suite : étape 4 (devis / chantiers), puis les ❓ tranchés (cadeaux, photos,
-  entretien, tâches, propriétaire).
+  **Étape 4 CONSTRUITE (2.101.55, 05/09/2026 — Timo : « Lance ») :** devis,
+  chantiers, prospects, boutiques, groupes. Application : `refuserSaufAdmin`
+  ×14 dans ClientsInstalles (photo, cadeau, PV, réception forcée, avenant,
+  frais, prime, compte lié, entretien, adresse / garantie / délai),
+  `refuserSaufProprietaire` (admin ou son commercial : supprimer un chantier ;
+  contacter / archiver / réactiver / relancer / convertir / supprimer un
+  prospect), `refuserSaufRoles(ROLES_PROGRAMMATION)` (programmer = admin +
+  resp. commercial), `peutTerminer` dans le geste (admin ou chef de CE
+  chantier), `refuserSaufReaffectation` (admin / resp. com / chef d'équipe
+  avec le pouvoir « Réaffecter »), Messagerie (groupes = admin), Paramètres
+  (boutiques = admin ; accueil, cachet, suppression avec données =
+  principal), Tous les devis (plan de règlement et signature en boutique via
+  `refuserSaufAdminPrincipal`). **SQL serveur écrit et testé** :
+  `supabase/securite-6-devis-chantiers.sql` — 6 déclencheurs :
+  `users_regles_devis_trg` (« validé » posé par un employé et plan accepté /
+  rejeté → principal ; le client sur SA fiche passe),
+  `clients_installes_regles_roles_trg` (l'équipe est lue en trois :
+  structure → admin + resp. com ; argent → admin via `equipe_argent_change`,
+  membre par membre ; paiement → tout employé, le vendeur désigné paie),
+  `prospects_regles_roles_trg` (propriétaire = `nom_jeton()`, réassigner =
+  `est_chef_equipe()` + `a_pouvoir('act_reaffecter')`), catégories et
+  groupes → admin, `boutiques_regles_roles_trg` (tout sauf `demandes` et
+  `updated_at` → admin ; `accueil_*` / `cachet*` → principal ; la caisse
+  TERRAIN se crée librement — un devis « pose seule » d'un client la crée).
+  Les comptes CLIENTS ne sont pas concernés (leurs règles restent).
+  Banc `npm run tester-devis-chantiers` (69 contrôles) ; tester-ecriture-sql
+  et tester-espace-client chargent désormais securite-4/5/6 (les gestes
+  complets de l'espace client passent les trois verrous).
+  **PAS ENCORE COLLÉ** : à coller quand tous les appareils sont en 2.101.55.
+  Suite : les ❓ restants — tâches et photos sont faits ; cadeaux, date
+  d'entretien, propriétaire aussi (étape 4). Il reste : cloisonnement par
+  boutique (reporté), mode superviseur (en attente de Timo).
   Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent +
-  tester-comptes.
+  tester-comptes + tester-devis-chantiers.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».

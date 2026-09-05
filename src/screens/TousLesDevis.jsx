@@ -9,7 +9,7 @@ import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
 import { fmt, dFR, today } from "../lib/core";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
-import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles } from "../lib/calculs";
+import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis, numeroContrat } from "../lib/validationDevis";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
@@ -87,7 +87,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     if (bloquerSiLecture(db, profile)) return;
     // Le bouton est déjà caché aux autres ; on garde aussi le geste, pour que
     // la règle tienne même si un jour l'affichage change.
-    if (!peutDeciderDuPlan) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut accepter ou rejeter un plan de règlement."); return; }
+    if (refuserSaufAdminPrincipal(db, profile, "Accepter ou rejeter un plan de règlement")) return;
     const solde = soldeApresAcompte(d);
     let motif = "";
     if (!accepte) {
@@ -168,9 +168,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const peutSignerEnBoutique = estAdminPrincipal(db, profile);
   const peutFaireSigner = (d) => peutSignerEnBoutique && (d.statut || "propose") === "propose";
   const refuserSiPasAdminPrincipal = () => {
-    if (peutSignerEnBoutique) return false;
-    uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire signer un contrat en boutique, pour l'instant.");
-    return true;
+    return refuserSaufAdminPrincipal(db, profile, "Faire signer un contrat en boutique (pour l'instant)");
   };
   const [signature, setSignature] = useState(null); // { devis, mode: "ecran" | "papier", boutique }
   const [plan, setPlan] = useState({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });

@@ -1760,6 +1760,26 @@ export const refuserSaufAdminPrincipal = (db, profile, geste) => {
   uAlert(`🔒 ${geste} : réservé à l'administrateur PRINCIPAL.`);
   return true;
 };
+// ---- Vague 3, étape 4 : DEVIS ET CHANTIERS (validée par Timo le 05/09/2026) ----
+// « Admin ou son commercial » (décision « laisser comme tel ») : le
+// propriétaire d'une fiche est le commercial dont le nom y est inscrit.
+export const ROLES_PROGRAMMATION = ["admin", "resp_commercial"];
+export const estProprietaireOuAdmin = (profile, nomProprietaire) =>
+  profile?.role === "admin" || (!!nomProprietaire && nomProprietaire === profile?.nom);
+export const refuserSaufProprietaire = (profile, nomProprietaire, geste) => {
+  if (estProprietaireOuAdmin(profile, nomProprietaire)) return false;
+  uAlert(`🔒 ${geste} : réservé à l'administrateur ou au commercial rattaché${nomProprietaire ? ` (${nomProprietaire})` : ""}.`);
+  return true;
+};
+// Réaffecter un prospect : admin, responsable commercial ou chef d'équipe,
+// avec le pouvoir « Réaffecter les prospects » encore en place.
+export const peutReaffecter = (db, profile) =>
+  (profile?.role === "admin" || profile?.role === "resp_commercial" || !!profile?.chef_equipe) && aDroit(db, profile, "act_reaffecter");
+export const refuserSaufReaffectation = (db, profile, geste) => {
+  if (peutReaffecter(db, profile)) return false;
+  uAlert(`🔒 ${geste} : réservé à l'administrateur, au responsable commercial ou à un chef d'équipe ayant le pouvoir « Réaffecter les prospects ».`);
+  return true;
+};
 export const refuserSaufTaches = (db, profile, geste) => {
   if (ROLES_TACHES.includes(profile?.role) && aDroit(db, profile, "act_taches")) return false;
   uAlert(`🔒 ${geste} : réservé aux comptes qui ont le pouvoir « Assigner des tâches » (administrateur, responsable commercial, commercial, technicien).`);

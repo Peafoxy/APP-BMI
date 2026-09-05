@@ -3484,6 +3484,59 @@ titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie s
     && readFileSync("package.json", "utf8").includes('"tester-comptes"'));
 }
 
+titre("Vague 3, étape 4 (devis, chantiers, prospects, boutiques, groupes) : le rôle se revérifie dans le geste, le serveur dit la même chose");
+{
+  // Validé par Timo le 05/09/2026 (« Lance »). Admin principal : plan de
+  // règlement, signature en boutique. Admin : la fiche d'un chantier, PV,
+  // réception forcée, avenant, frais, cadeau, photos, catégories, boutiques,
+  // groupes. Admin + resp. commercial : programmer. Admin ou son commercial :
+  // supprimer un chantier, contacter / archiver / supprimer un prospect.
+  test("★ les aides existent (ROLES_PROGRAMMATION, propriétaire, réaffectation)",
+    C.ROLES_PROGRAMMATION.join() === "admin,resp_commercial" && typeof C.refuserSaufProprietaire === "function" && typeof C.refuserSaufReaffectation === "function");
+  test("★ « admin ou son commercial » : l'admin passe, le commercial inscrit passe, un autre non",
+    C.estProprietaireOuAdmin({ role: "admin", nom: "TIMO" }, "COM") && C.estProprietaireOuAdmin({ role: "commercial", nom: "COM" }, "COM")
+    && !C.estProprietaireOuAdmin({ role: "commercial", nom: "COM2" }, "COM") && !C.estProprietaireOuAdmin({ role: "vendeur", nom: "K" }, ""));
+  const dbR = { users: [] };
+  test("★ réaffecter un prospect : admin, resp. commercial ou chef d'équipe — avec le pouvoir",
+    C.peutReaffecter(dbR, { role: "resp_commercial" }) && C.peutReaffecter(dbR, { role: "commercial", chef_equipe: true })
+    && !C.peutReaffecter(dbR, { role: "commercial" }) && !C.peutReaffecter(dbR, { role: "commercial", chef_equipe: true, droits_off: ["act_reaffecter"] }));
+  const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  const gestesCI = ["Supprimer une photo de chantier", "Offrir un cadeau", "Marquer un cadeau comme retiré", "Envoyer le lien de signature du PV",
+    "Forcer la réception sans signature", "Envoyer un avenant de levée de réserves", "Répartir les frais d'installation", "Répartir les frais d'installation",
+    "Demander le paiement d'une prime d'installation", "Lier un compte client à un chantier", "Modifier la date d'entretien",
+    "Corriger la fiche d'un chantier", "Corriger la fiche d'un chantier", "Corriger la fiche d'un chantier"];
+  test(`★ Chantiers : ${gestesCI.length} gestes réservés à l'administrateur le revérifient dans le geste`,
+    gestesCI.every((g) => (ci.match(new RegExp(`refuserSaufAdmin\\(profile, "${g.replace(/[()]/g, "\\$&")}"\\)`, "g")) || []).length >= gestesCI.filter((x) => x === g).length));
+  test("★ Chantiers : supprimer = admin ou son commercial ; programmer = admin + resp. commercial ; terminé = admin ou chef de CE chantier",
+    /refuserSaufProprietaire\(profile, c\.commercial, "Supprimer une fiche chantier"\)/.test(ci)
+    && /refuserSaufRoles\(profile, ROLES_PROGRAMMATION, "Programmer une installation"\)/.test(ci)
+    && /if \(!peutTerminer\(c, profile, isAdmin\)\) \{ uAlert/.test(ci));
+  const pr = readFileSync("src/screens/Prospects.jsx", "utf8");
+  test("★ Prospects : supprimer, contacter, archiver, réactiver, relancer, convertir = admin ou son commercial ; réassigner = pouvoir",
+    ["Supprimer un prospect", "Noter un contact avec un prospect", "Archiver un prospect", "Réactiver un prospect", "Relancer un prospect", "Convertir un prospect en client"]
+      .every((g) => pr.includes(`refuserSaufProprietaire(profile, p.commercial, "${g}")`))
+    && pr.includes('refuserSaufReaffectation(db, profile, "Réassigner un prospect")')
+    && (pr.match(/refuserSaufAdmin\(profile, "Gérer les catégories de prospects"\)/g) || []).length === 2);
+  test("★ Groupes de discussion : créer, supprimer, membres = admin dans le geste",
+    (readFileSync("src/screens/Messagerie.jsx", "utf8").match(/refuserSaufAdmin\(profile, "/g) || []).length === 3);
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ Paramètres : les gestes sur les boutiques revérifient l'administrateur ; accueil, cachet et suppression avec données = principal",
+    (par.match(/refuserSaufAdmin\(profile, "/g) || []).length >= 14
+    && ["Supprimer une boutique avec toutes ses données", "Personnaliser l'écran de connexion", "Changer le cachet de l'entreprise"]
+      .every((g) => par.includes(`refuserSaufAdminPrincipal(db, profile, "${g}")`)));
+  const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  test("★ Tous les devis : plan de règlement et signature en boutique passent par refuserSaufAdminPrincipal",
+    tld.includes('refuserSaufAdminPrincipal(db, profile, "Accepter ou rejeter un plan de règlement")')
+    && tld.includes('refuserSaufAdminPrincipal(db, profile, "Faire signer un contrat en boutique (pour l\'instant)")'));
+  const sql = readFileSync("supabase/securite-6-devis-chantiers.sql", "utf8");
+  test("★ le SQL serveur existe : 6 déclencheurs, lecture de l'équipe en trois (structure / argent / paiement), caisse TERRAIN et demandes laissées libres",
+    (sql.match(/create trigger \w+_trg/g) || []).length === 6 && /equipe_argent_change/.test(sql) && /'structure'/.test(sql)
+    && /'terrain'/.test(sql) && /- 'demandes' - 'updated_at'/.test(sql));
+  test("★ le banc tester-devis-chantiers existe et rejoue le quotidien (photo ajoutée, prime payée, devis encaissé, PV signé par le client)",
+    ["AJOUTE une photo", "PAIE la prime demandée", "statut → payé", "signe SON PV", "caisse TERRAIN"].every((t) => readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8").includes(t))
+    && readFileSync("package.json", "utf8").includes('"tester-devis-chantiers"'));
+}
+
 titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n'a pas touché");
 {
   // Sans cela, un commercial qui assigne une tâche renverrait aussi le taux

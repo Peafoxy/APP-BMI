@@ -9,7 +9,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 export function Prospects({ db, save, profile, isAdmin }) {
@@ -25,12 +25,14 @@ export function Prospects({ db, save, profile, isAdmin }) {
 
   // ---- Gestion des catégories (Admin uniquement) ----
   const ajouterCategorie = () => {
+    if (refuserSaufAdmin(profile, "Gérer les catégories de prospects")) return;
     if (!nouvelleCat.trim()) return;
     if (db.categories_prospects.some((c) => c.nom.toLowerCase() === nouvelleCat.trim().toLowerCase())) { uAlert("Cette catégorie existe déjà."); return; }
     save({ ...db, categories_prospects: [...db.categories_prospects, { id: uid(), nom: nouvelleCat.trim(), actif: true }] }, `Nouvelle catégorie de prospect : ${nouvelleCat.trim()}`);
     setNouvelleCat("");
   };
   const supprimerCategorie = async (c) => {
+    if (refuserSaufAdmin(profile, "Gérer les catégories de prospects")) return;
     if (await uConfirm(`Supprimer la catégorie « ${c.nom} » ? Les prospects déjà enregistrés avec cette catégorie la garderont en texte.`)) {
       save({ ...db, categories_prospects: db.categories_prospects.filter((x) => x.id !== c.id) }, `Suppression catégorie de prospect : ${c.nom}`);
     }
@@ -52,6 +54,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   };
 
   const supprimer = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Supprimer un prospect")) return;
     if (await uConfirm(`Supprimer le prospect « ${p.nom} » ?`)) {
       save({ ...db, prospects: db.prospects.filter((x) => x.id !== p.id) }, `Suppression prospect « ${p.nom} »`);
     }
@@ -62,6 +65,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   // appelle un prospect ne laisse aucune trace, et le prospect finirait par
   // paraître mort alors qu'il est activement suivi.
   const contacte = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Noter un contact avec un prospect")) return;
     const note = await uPrompt(
       `Vous venez de contacter « ${p.nom} » ?\n\nCe que ça a donné (facultatif) :`,
       ""
@@ -86,6 +90,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   // Convertir un prospect en client — SEULEMENT quand il a dit oui. Crée le
   // compte (règle d'identifiants automatique) et envoie ses accès par WhatsApp.
   const convertirEnClient = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Convertir un prospect en client")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (chiffresTel(p.tel).length < 4) { uAlert("Ce prospect n'a pas de numéro valide : impossible de créer son compte."); return; }
 
@@ -122,6 +127,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   };
 
   const archiver = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Archiver un prospect")) return;
     const motif = await uPrompt(
       `Archiver « ${p.nom} » ? (${joursSansActivite(p)} jours sans activité)\n\n` +
       `Il sort de la liste active mais N'EST PAS supprimé : vous pourrez le recontacter lors d'une campagne.\n\n` +
@@ -139,6 +145,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   };
 
   const reactiver = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Réactiver un prospect")) return;
     if (!await uConfirm(`Remettre « ${p.nom} » dans la liste active ?`)) return;
     save({
       ...db,
@@ -150,6 +157,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
 
   // Réassigner un prospect à un autre commercial/technicien (admin ou chef d'équipe)
   const reassigner = async (p) => {
+    if (refuserSaufReaffectation(db, profile, "Réassigner un prospect")) return;
     const equipe = db.users.filter((u) => ["commercial", "technicien"].includes(u.role) && u.actif !== false).map((u) => u.nom);
     if (equipe.length === 0) { uAlert("Aucun commercial actif."); return; }
     const choix = await uPrompt(`Réassigner « ${p.nom} » à quel commercial ?\n(${equipe.join(" / ")})`, p.commercial || equipe[0]);
@@ -170,6 +178,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
   // activité, sort le prospect de l'état « dormant » si besoin) — sans
   // aucune boîte de dialogue qui ralentirait le geste.
   const relancerWhatsApp = (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Relancer un prospect")) return;
     envoyerRelanceProspectWhatsApp(p.nom, p.tel);
     const historique = [{ date: today(), par: profile.nom, note: "Relance WhatsApp envoyée" }, ...(p.contacts || [])];
     save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? toucher({ ...x, contacts: historique }) : x)) }, `Relance WhatsApp envoyée à ${p.nom}`);

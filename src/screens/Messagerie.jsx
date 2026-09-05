@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
-import { utilisateursDeLEspace } from "../lib/calculs";
+import { utilisateursDeLEspace, refuserSaufAdmin } from "../lib/calculs";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
@@ -130,6 +130,7 @@ export function Messagerie({ db, save, profile }) {
 
   // ---- Gestion des groupes (admin uniquement) ----
   const creerGroupe = (nom, membresChoisis) => {
+    if (refuserSaufAdmin(profile, "Créer un groupe de discussion")) return;
     const n = nom.trim();
     if (!n) return;
     const g = { id: uid(), nom: n, membres: [...new Set([profile.id, ...membresChoisis])], createur_id: profile.id, createur_nom: profile.nom, date: today(), ts: new Date().toISOString() };
@@ -139,6 +140,7 @@ export function Messagerie({ db, save, profile }) {
   };
 
   const supprimerGroupe = async (g) => {
+    if (refuserSaufAdmin(profile, "Supprimer un groupe de discussion")) return;
     if (!(await uConfirm(`Supprimer le groupe « ${g.nom} » ?\n\nTous les messages échangés dans ce groupe seront définitivement effacés. Cette action est irréversible.`))) return;
     save({
       ...db,
@@ -149,6 +151,7 @@ export function Messagerie({ db, save, profile }) {
   };
 
   const basculerMembre = (g, userId) => {
+    if (refuserSaufAdmin(profile, "Modifier les membres d'un groupe")) return;
     const membres = (g.membres || []).includes(userId) ? g.membres.filter((id) => id !== userId) : [...(g.membres || []), userId];
     save({ ...db, groupes: groupes.map((x) => (x.id === g.id ? { ...x, membres } : x)) });
   };

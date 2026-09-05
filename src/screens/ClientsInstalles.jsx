@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -216,6 +216,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const supprimerPhoto = async (c, photoId) => {
+    if (refuserSaufAdmin(profile, "Supprimer une photo de chantier")) return;
     if (!await uConfirm("Supprimer cette photo ?")) return;
     save({
       ...db,
@@ -227,7 +228,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // Le client est prévenu DANS SON ESPACE, et par un message. Il vient le chercher
   // en boutique — c'est aussi une occasion de le revoir.
   const offrirCadeau = async (c) => {
-    if (!isAdmin) return;
+    if (refuserSaufAdmin(profile, "Offrir un cadeau")) return;
     if (c.cadeau && !c.cadeau.retire) {
       if (!await uConfirm(`Un cadeau est déjà en attente pour ${c.prenom} ${c.nom}.\n\nLe remplacer ?`)) return;
     }
@@ -268,7 +269,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const marquerRetire = async (c) => {
-    if (!isAdmin) return;
+    if (refuserSaufAdmin(profile, "Marquer un cadeau comme retiré")) return;
     if (!await uConfirm(`Confirmer que ${c.prenom} ${c.nom} a bien récupéré son cadeau ?`)) return;
     save({
       ...db,
@@ -323,7 +324,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const supprimer = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin && c.commercial !== profile.nom) { uAlert("Seul l'administrateur ou le commercial rattaché peut supprimer cette fiche."); return; }
+    if (refuserSaufProprietaire(profile, c.commercial, "Supprimer une fiche chantier")) return;
     // ⚠ Supprimer un chantier dont des primes ont été PAYÉES laisse en caisse
     // des dépenses qui ne se rattachent plus à rien : impossible de savoir à
     // quoi correspond la sortie d'argent, ni de l'annuler proprement.
@@ -397,7 +398,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const enregistrerProgrammation = (c) => {
-    if (!peutProgrammer) return;
+    if (refuserSaufRoles(profile, ROLES_PROGRAMMATION, "Programmer une installation")) return;
     const p = progDe(c);
     if (!p.date) { uAlert("Choisissez la date d'installation."); return; }
     if (p.equipe.length === 0) { uAlert("Affectez au moins un technicien."); return; }
@@ -487,6 +488,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // manuel ci-dessous, jamais à cet envoi automatique.
   const marquerTermine = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
+    if (!peutTerminer(c, profile, isAdmin)) { uAlert("🔒 Marquer les travaux terminés : réservé à l'administrateur ou au chef de CE chantier."); return; }
     if (!await uConfirm(
       `Déclarer l'installation de ${c.nom} ${c.prenom} TERMINÉE ?\n\n` +
       `Le lien de signature du PV sera envoyé automatiquement au client par WhatsApp, juste après.`
@@ -517,7 +519,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // RENVOI manuel — l'envoi initial est automatique (voir marquerTermine).
   const envoyerPourSignature = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin) { uAlert("Seul l'administrateur envoie le lien de signature."); return; }
+    if (refuserSaufAdmin(profile, "Envoyer le lien de signature du PV")) return;
     if (!c.adresse_contrat) { uAlert("Merci de renseigner l'« Adresse formelle (pour le PV) » sur la fiche de ce chantier avant d'envoyer le lien de signature."); return; }
     if (!c.tel) { uAlert("Aucun numéro de téléphone enregistré pour ce client."); return; }
     const { jeton, numero, texte } = genererEtEnvoyerLienPv(c);
@@ -586,7 +588,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // ensuite (pas juste un message qui disparait). Demande Timo.
   const forcerReceptionSansSignature = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin) return;
+    if (refuserSaufAdmin(profile, "Forcer la réception sans signature")) return;
     if (!await uConfirm(
       `⚠ Vous êtes sur le point de marquer ce chantier « Réceptionné » SANS SIGNATURE du client.\n\n` +
       `Aucun PV n'existera pour cette installation. Cette exception doit rester rare.\n\n` +
@@ -609,7 +611,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // "receptionne" définitif. Demande Timo.
   const envoyerAvenant = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin) return;
+    if (refuserSaufAdmin(profile, "Envoyer un avenant de levée de réserves")) return;
     if (!await uConfirm(`Les réserves de ${c.nom} ${c.prenom} ont-elles bien été corrigées ?\n\nUn nouveau lien de signature (avenant de levée de réserves, référençant le PV ${c.contrat_numero || "initial"}) sera envoyé au client.`)) return;
     const jeton = genererJetonSignature();
     const lien = `https://bmitogo.com/avenant/${jeton}`;
@@ -624,7 +626,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const ouvrirRepartition = (c) => {
-    if (!isAdmin) { uAlert("Seul l'administrateur répartit les frais d'installation."); return; }
+    if (refuserSaufAdmin(profile, "Répartir les frais d'installation")) return;
     const equipe = (c.equipe || []).map((e) => e.user_id);
     setChantier(c.id);
     setRep({
@@ -649,6 +651,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const fraisRep = Number(rep.frais || 0);
 
   const validerRepartition = async (c) => {
+    if (refuserSaufAdmin(profile, "Répartir les frais d'installation")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!fraisRep || fraisRep <= 0) { uAlert("Saisissez les frais d'installation facturés au client."); return; }
     if (!rep.equipe.length) { uAlert("Cochez au moins un technicien présent sur le chantier."); return; }
@@ -727,7 +730,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // nouvelle table Supabase à créer pour ce chantier.
   const demanderPaiementPrime = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin) { uAlert("Seul l'administrateur déclenche une demande de paiement de prime."); return; }
+    if (refuserSaufAdmin(profile, "Demander le paiement d'une prime d'installation")) return;
     if (!(Number(e.montant) > 0)) { uAlert("Cette part est de 0 F : rien à payer. Refaites la répartition avec le bon pourcentage."); return; }
     const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`, profile);
     if (bq === null) return;
@@ -756,6 +759,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const modifierEntretien = async (c) => {
+    if (refuserSaufAdmin(profile, "Modifier la date d'entretien")) return;
     const d = await uPrompt(`Prochaine date d'entretien pour ${c.prenom || ""} ${c.nom} (AAAA-MM-JJ) :`, c.date_entretien || today());
     if (!d) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) { uAlert("Format attendu : AAAA-MM-JJ (ex : 2026-09-15)."); return; }
@@ -763,7 +767,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   const lierCompte = async (c) => {
-    if (!isAdmin) return;
+    if (refuserSaufAdmin(profile, "Lier un compte client à un chantier")) return;
     if (comptesClientsLibres.length === 0) { uAlert("Aucun compte « Client » disponible. Créez d'abord un compte avec le rôle Client dans Utilisateurs."); return; }
     const noms = comptesClientsLibres.map((u) => u.nom);
     const choix = await uPrompt(`Lier cette fiche à quel compte client ?\n(${noms.join(" / ")})`, noms[0]);
@@ -999,6 +1003,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     <input className={inputCls} defaultValue={c.adresse_contrat || ""} placeholder="Ex : 12 Rue des Palmiers, Bè, Lomé"
                       onBlur={(e) => {
                         if (e.target.value === (c.adresse_contrat || "")) return;
+                        if (refuserSaufAdmin(profile, "Corriger la fiche d'un chantier")) return;
                         save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, adresse_contrat: e.target.value } : x)) }, `Adresse (contrat) mise à jour — ${c.nom} ${c.prenom || ""}`);
                       }} />
                   </div>
@@ -1008,7 +1013,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     onBlur={(e) => {
                       const val = Number(e.target.value || 0);
                       if (val === Number(c.garantie_mois || 0)) return;
-                      save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, garantie_mois: val } : x)) }, `Garantie mise à jour — ${c.nom} ${c.prenom || ""} (${val} mois)`);
+                      if (refuserSaufAdmin(profile, "Corriger la fiche d'un chantier")) return;
+                        save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, garantie_mois: val } : x)) }, `Garantie mise à jour — ${c.nom} ${c.prenom || ""} (${val} mois)`);
                     }} />
                 </Field>
                 {c.contrat_reserve_texte && (
@@ -1016,6 +1022,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     <input type="date" className={inputCls} defaultValue={c.reserves_delai || ""}
                       onBlur={(e) => {
                         if (e.target.value === (c.reserves_delai || "")) return;
+                        if (refuserSaufAdmin(profile, "Corriger la fiche d'un chantier")) return;
                         save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, reserves_delai: e.target.value } : x)) }, `Délai de levée des réserves fixé — ${c.nom} ${c.prenom || ""} (${e.target.value})`);
                       }} />
                   </Field>
