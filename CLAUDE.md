@@ -51,6 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
+npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
 npm run verifier-cloisonnement   # 787 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
@@ -265,6 +266,15 @@ impossible, et le banc doit le dire dans ce sens-là.
   « CARTE-SURVIT ») après trois correctifs plausibles mais à côté. Règle :
   div auto-fermé pour la bibliothèque, textes dans un cadre frère. Trois
   contrôles du banc la verrouillent.
+- **Le build ne vérifie PAS les noms : une fonction utilisée sans être
+  importée passe `npm run build` et donne un ÉCRAN BLANC au premier
+  affichage.** C'est arrivé en 2.101.59 (filtreEspaceAffichage dans
+  Ventes.jsx, importé nulle part) — Timo l'a vu avant le banc. Réparé en .60,
+  et `npm run verifier-imports` (ESLint, règle no-undef seule) fait désormais
+  partie de chaque envoi ; il a trouvé au passage un second oubli dormant
+  (uPrompt dans Salaires.jsx, paiement CNSS), réparé en .61. ⚠ Quand un
+  script ajoute une ligne qui utilise un nom, il ajoute l'import dans le MÊME
+  geste — et on vérifie, on ne suppose pas.
 - **Une expression régulière trop large casse le JSX en silence.** Deux
   fichiers ont été abîmés ainsi. Après toute retouche en masse :
   `npm run build`, et `git checkout --` sans hésiter si c'est parti de

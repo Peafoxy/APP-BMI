@@ -26,6 +26,7 @@
     "tester-argent": "bash scripts/tester-argent-sql.sh",
     "tester-comptes": "bash scripts/tester-comptes-sql.sh",
     "tester-devis-chantiers": "bash scripts/tester-devis-chantiers-sql.sh",
+    "verifier-imports": "bash scripts/verifier-imports.sh",
     "tester-rapprochement": "bash scripts/tester-rapprochement.sh",
     "tester-client-lecture": "bash scripts/tester-client-lecture-sql.sh",
     "tester-espace-client": "bash scripts/tester-espace-client-sql.sh"

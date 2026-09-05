@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR, normPaiement } from "../lib/core";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
