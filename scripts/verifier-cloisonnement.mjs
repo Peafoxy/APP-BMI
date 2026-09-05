@@ -15,6 +15,7 @@
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
 import { unlinkSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 
 // lib/calculs.js importe les boîtes de dialogue (JSX + React) : on bundle
@@ -3614,6 +3615,25 @@ titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurabl
   test("★ le serveur : mettre à la corbeille = admin ou son commercial (jamais un client), restaurer = principal",
     /supprime_le/.test(readFileSync("supabase/securite-7-corbeille.sql", "utf8"))
     && readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8").includes("securite-7-corbeille.sql"));
+}
+
+titre("La zone de signature : UNE seule, pour le personnel comme pour les clients (440 × 220)");
+{
+  // Demande Timo (05/09/2026) : « est-ce une seule règle qui gère cet aspect
+  // dans toute l'app ? » — non, quatre copies. Désormais components/
+  // ZoneSignature.jsx, et rien d'autre ne dessine une signature.
+  const zone = readFileSync("src/components/ZoneSignature.jsx", "utf8");
+  test("★ le cadre fait 440 × 220 (demande Timo)", /LARGEUR_SIGNATURE = 440/.test(zone) && /HAUTEUR_SIGNATURE = 220/.test(zone));
+  test("★ la position du trait exclut la bordure (clientWidth / clientLeft) — la version corrigée est la seule qui subsiste",
+    /canvas\.clientWidth/.test(zone) && /canvas\.clientLeft/.test(zone) && /clientLeft/.test(zone));
+  const ecrans = ["src/screens/ContratsInstallation.jsx", "src/screens/TousLesDevis.jsx", "src/screens/EspaceClient.jsx"];
+  const usages = ecrans.reduce((n, f) => n + (readFileSync(f, "utf8").match(/<ZoneSignature ref=\{\w+\} \/>/g) || []).length, 0);
+  test("★ les quatre emplacements (signature personnelle, contrat en boutique, contrat client, PV) utilisent la zone commune", usages === 4);
+  const horsZone = execSync("grep -rl '<canvas' src --include=*.jsx", { encoding: "utf8" }).trim().split("\n").filter(Boolean)
+    .filter((f) => !f.endsWith("components/ZoneSignature.jsx"));
+  test("★ aucun autre écran ne dessine un canevas de signature", horsZone.length === 0);
+  test("★ plus aucune copie locale du dessin (positionCanvas, aSigneRef, canvasRef) dans les écrans",
+    ecrans.every((f) => !/positionCanvas = |aSigneRef|canvasRef|canvasPvRef/.test(readFileSync(f, "utf8"))));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

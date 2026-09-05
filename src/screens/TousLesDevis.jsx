@@ -4,6 +4,7 @@
 // reprise d'un devis pour modification.
 // ============================================================
 import { useState, useRef } from "react";
+import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
@@ -172,15 +173,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   };
   const [signature, setSignature] = useState(null); // { devis, mode: "ecran" | "papier", boutique }
   const [plan, setPlan] = useState({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
-  const canvasRef = useRef(null);
-  const aSigneRef = useRef(false);
-  const [dessinEnCours, setDessinEnCours] = useState(false);
+  const signatureRef = useRef(null); // LA zone de signature commune (components/ZoneSignature.jsx)
   const boutiquesPaiement = boutiquesVisibles(db, profile, boutiquesVente(db));
   const lieuSignature = profile.boutique || signature?.boutique || "";
 
   const ouvrirSignature = (d, mode) => {
     if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
-    aSigneRef.current = false;
     setPlan({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
     setSignature({ devis: d, mode, boutique: d.boutique_paiement || profile.boutique || d.boutique || "" });
   };
@@ -199,30 +197,6 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       boutique_paiement: d.boutique_paiement || d.boutique || "" }, db);
   };
 
-  const positionCanvas = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    const point = e.touches ? e.touches[0] : e;
-    return { x: (point.clientX - rect.left) * (canvas.width / rect.width), y: (point.clientY - rect.top) * (canvas.height / rect.height) };
-  };
-  const debuterTrait = (e) => {
-    e.preventDefault(); setDessinEnCours(true); aSigneRef.current = true;
-    const ctx = canvasRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasRef.current);
-    ctx.beginPath(); ctx.moveTo(x, y);
-  };
-  const continuerTrait = (e) => {
-    if (!dessinEnCours) return;
-    e.preventDefault();
-    const ctx = canvasRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasRef.current);
-    ctx.lineTo(x, y); ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.stroke();
-  };
-  const terminerTrait = () => setDessinEnCours(false);
-  const effacerSignature = () => {
-    const ctx = canvasRef.current.getContext("2d");
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    aSigneRef.current = false;
-  };
 
   const confirmerSignature = async () => {
     if (!signature) return;
@@ -245,9 +219,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     const numero = d.contrat_numero || numeroContrat();
     let infosContrat, mention;
     if (mode === "ecran") {
-      if (!aSigneRef.current) { uAlert("Le client doit signer dans le cadre prévu."); return; }
+      if (!signatureRef.current?.aSigne()) { uAlert("Le client doit signer dans le cadre prévu."); return; }
       if (!await uConfirm(`Enregistrer la signature de ${d.client?.nom_base || d.client?.nom} pour le devis de ${fmt(d.total)} ?\n\nContrat ${numero}, signé en boutique ${lieuSignature || "—"} devant ${profile.nom}.${d.pose_seule ? "" : `\nPaiement prévu à ${boutique}.`}`)) return;
-      infosContrat = { contrat_numero: numero, contrat_signature: canvasRef.current.toDataURL("image/png"), contrat_date_signature: today(),
+      infosContrat = { contrat_numero: numero, contrat_signature: signatureRef.current.image(), contrat_date_signature: today(),
         contrat_signe_en_boutique: lieuSignature, contrat_signe_devant: profile.nom };
       mention = ` — signé en boutique ${lieuSignature || "—"} devant ${profile.nom}`;
     } else {
@@ -493,9 +467,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
               {signature.mode === "ecran" ? (
                 <>
                   <div className="text-xs font-semibold text-slate-600 mt-3 mb-1">Signature du client (avec le doigt) :</div>
-                  <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
-                    onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}
-                    onTouchStart={debuterTrait} onTouchMove={continuerTrait} onTouchEnd={terminerTrait} />
+                  <ZoneSignature ref={signatureRef} />
                 </>
               ) : (
                 <div className="mt-3 text-sm text-slate-700 rounded-lg border border-slate-200 p-3">
@@ -504,7 +476,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                 </div>
               )}
               <div className="flex gap-2 mt-3 flex-wrap">
-                {signature.mode === "ecran" && <button onClick={effacerSignature} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>}
+                {signature.mode === "ecran" && <button onClick={() => signatureRef.current?.effacer()} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>}
                 <button onClick={confirmerSignature} className="flex-1 px-4 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800">{signature.mode === "ecran" ? "✍️ Enregistrer la signature et valider" : "📝 Confirmer la signature papier et valider"}</button>
                 <button onClick={() => setSignature(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
               </div>

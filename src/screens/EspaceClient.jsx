@@ -3,6 +3,7 @@
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
 import { useState, useRef } from "react";
+import { ZoneSignature } from "../components/ZoneSignature";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
 import { creerFilleulEnLigne } from "../supabaseClient";
@@ -232,9 +233,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // dit À LA SIGNATURE DU CONTRAT — pas à la réception. Il s'engage au départ.
   // L'administrateur SEUL acceptera ou rejettera ensuite.
   const [plan, setPlan] = useState({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
-  const [dessinEnCours, setDessinEnCours] = useState(false);
-  const canvasRef = useRef(null);
-  const aSigneRef = useRef(false);
+  const signatureRef = useRef(null); // LA zone de signature commune (components/ZoneSignature.jsx)
 
   const ouvrirContrat = (d) => {
     if (!d.pose_seule) {
@@ -242,60 +241,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
       if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
     }
     setContratOuvert(d.id);
-    aSigneRef.current = false;
   };
 
-  const positionCanvas = (e, canvas) => {
-    // Le canevas a une résolution interne fixe (440×120) mais s'affiche à
-    // une largeur variable selon l'écran (className w-full) — sans cette
-    // mise à l'échelle, la position dessinée ne correspondait pas à celle
-    // du doigt dès que la taille affichée différait de la résolution
-    // interne (systématique sur mobile). Signalé par Timo.
-    // ⚠ Bug trouvé plus tard (signalé par Timo, décalage constaté au clavier-souris
-    // dans un navigateur) : getBoundingClientRect() inclut la bordure CSS
-    // (border-2, 2px) alors que le TRAIT dessiné se cale sur le bord
-    // intérieur (la zone de contenu du canevas, sans la bordure). L'échelle
-    // ET le décalage devaient donc utiliser clientWidth/clientHeight (zone
-    // de contenu réelle, bordure exclue) et clientLeft/clientTop (épaisseur
-    // de la bordure), pas le rectangle englobant seul.
-    const rect = canvas.getBoundingClientRect();
-    const point = e.touches ? e.touches[0] : e;
-    const echelleX = canvas.width / canvas.clientWidth;
-    const echelleY = canvas.height / canvas.clientHeight;
-    return {
-      x: (point.clientX - rect.left - canvas.clientLeft) * echelleX,
-      y: (point.clientY - rect.top - canvas.clientTop) * echelleY,
-    };
-  };
-  const debuterTrait = (e) => {
-    e.preventDefault();
-    setDessinEnCours(true);
-    aSigneRef.current = true;
-    const ctx = canvasRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasRef.current);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-  const continuerTrait = (e) => {
-    if (!dessinEnCours) return;
-    e.preventDefault();
-    const ctx = canvasRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasRef.current);
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = "#1e293b";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.stroke();
-  };
-  const terminerTrait = () => setDessinEnCours(false);
-  const effacerSignature = () => {
-    const ctx = canvasRef.current.getContext("2d");
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    aSigneRef.current = false;
-  };
 
   const signerEtValider = async (d) => {
-    if (!aSigneRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
+    if (!signatureRef.current?.aSigne()) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return; }
     // ⚠ Le choix est OBLIGATOIRE dès qu'un solde restera dû après l'acompte.
     // Sans cela, un chantier partirait sans le moindre engagement écrit du
     // client sur la façon dont il compte payer le reste.
@@ -313,7 +263,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
         statut: PLAN_EN_ATTENTE,
       };
     }
-    const signatureDataUrl = canvasRef.current.toDataURL("image/png");
+    const signatureDataUrl = signatureRef.current.image();
     const numeroContrat = `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
     // ⚠ Le contrat ne se ferme QUE si la validation est allée au bout
     // (défaut trouvé lors de la revue, lot 2) : on fermait AVANT d'appeler
@@ -329,56 +279,28 @@ export function EspaceClient({ db, profile, save, setTab }) {
 
   // ⚠ Demande Timo : signer le PV de réception (ou son avenant) DIRECTEMENT
   // dans l'app, EN PLUS du lien WhatsApp/bmitogo.com existant — le client
-  // choisit. Repose sur le même canevas tactile que le contrat d'installation
-  // ci-dessus (positionCanvas déjà générique), mais avec son propre état :
-  // un client pourrait en théorie avoir un devis à signer ET un chantier en
-  // attente de PV en même temps, les deux ne doivent jamais se mélanger.
-  const [dessinPvEnCours, setDessinPvEnCours] = useState(false);
-  const canvasPvRef = useRef(null);
-  const aSignePvRef = useRef(false);
+  // choisit. Même zone de signature commune (components/ZoneSignature.jsx)
+  // que le contrat ci-dessus, mais avec sa propre référence : un client
+  // pourrait en théorie avoir un devis à signer ET un chantier en attente de
+  // PV en même temps, les deux ne doivent jamais se mélanger.
+  const signaturePvRef = useRef(null);
   // ⚠ Demande Timo : le client ne doit plus voir la zone de signature
   // directement — il doit d'abord LIRE le PV en entier, comme pour le
   // contrat d'installation ci-dessus. "pvLectureOuverte" distingue le cas
   // normal de l'avenant (même principe que "estAvenant" dans signerPv).
   const [pvLectureOuverte, setPvLectureOuverte] = useState(null); // null | "normal" | "avenant"
-  const debuterTraitPv = (e) => {
-    e.preventDefault();
-    setDessinPvEnCours(true);
-    aSignePvRef.current = true;
-    const ctx = canvasPvRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasPvRef.current);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-  const continuerTraitPv = (e) => {
-    if (!dessinPvEnCours) return;
-    e.preventDefault();
-    const ctx = canvasPvRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasPvRef.current);
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = "#1e293b";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.stroke();
-  };
-  const terminerTraitPv = () => setDessinPvEnCours(false);
-  const effacerSignaturePv = () => {
-    const ctx = canvasPvRef.current.getContext("2d");
-    ctx.clearRect(0, 0, canvasPvRef.current.width, canvasPvRef.current.height);
-    aSignePvRef.current = false;
-  };
   // estAvenant distingue les 2 cas : PV normal (fin de chantier) vs avenant
   // (réserves corrigées) — mêmes champs que ceux déjà écrits par la page
   // externe (voir imprimerPV, lib/impression.js), donc le document généré
   // ensuite est rigoureusement identique, peu importe où le client a signé.
   const signerPv = async (estAvenant) => {
-    if (!aSignePvRef.current) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return false; }
-    const signatureDataUrl = canvasPvRef.current.toDataURL("image/png");
+    if (!signaturePvRef.current?.aSigne()) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return false; }
+    const signatureDataUrl = signaturePvRef.current.image();
     const maintenant = new Date().toISOString();
     const champs = estAvenant
       ? { avenant_signature: signatureDataUrl, avenant_statut: "signe", avenant_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
       : { contrat_signature: signatureDataUrl, contrat_statut: "signe", contrat_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom };
-    aSignePvRef.current = false;
+    signaturePvRef.current?.effacer();
     // ⚠ debloquerCommissionsReception était importée ici… et jamais appelée
     // (défaut trouvé lors de la revue, 18/08/2026) : signer le PV marquait le
     // chantier réceptionné SANS débloquer la commission du commercial ni la
@@ -850,7 +772,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 </div>
                 {fiche.contrat_statut === "attente_signature" && (
                   <div className="mt-3 rounded-lg border border-amber-200 bg-white p-3">
-                    <button onClick={() => { setPvLectureOuverte("normal"); aSignePvRef.current = false; }} className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">📄 Lire et signer le PV directement ici</button>
+                    <button onClick={() => { setPvLectureOuverte("normal"); }} className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">📄 Lire et signer le PV directement ici</button>
                   </div>
                 )}
               </div>
@@ -872,7 +794,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <div className="text-xs text-slate-500 mt-2">Signalé le {dFR(fiche.reserves_le)}. Nos équipes ont été prévenues et vous recontacteront.</div>
                 {fiche.avenant_statut === "attente_signature" && (
                   <div className="mt-3 rounded-lg border border-red-200 bg-white p-3">
-                    <button onClick={() => { setPvLectureOuverte("avenant"); aSignePvRef.current = false; }} className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">📄 Lire et signer l'avenant directement ici</button>
+                    <button onClick={() => { setPvLectureOuverte("avenant"); }} className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">📄 Lire et signer l'avenant directement ici</button>
                   </div>
                 )}
               </div>
@@ -1018,11 +940,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 );
               })()}
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
-              <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
-                onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}
-                onTouchStart={debuterTrait} onTouchMove={continuerTrait} onTouchEnd={terminerTrait} />
+              <ZoneSignature ref={signatureRef} />
               <div className="flex gap-2 mt-3 flex-wrap">
-                <button onClick={effacerSignature} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+                <button onClick={() => signatureRef.current?.effacer()} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
                 <button onClick={() => signerEtValider(d)} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer et valider</button>
                 <button onClick={() => setContratOuvert(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
               </div>
@@ -1065,11 +985,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p className="text-xs text-slate-500">Fait à Lomé, le {dFR(today())}.</p>
               </div>
               <div className="text-xs font-semibold text-slate-600 mb-1">Votre signature :</div>
-              <canvas ref={canvasPvRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
-                onMouseDown={debuterTraitPv} onMouseMove={continuerTraitPv} onMouseUp={terminerTraitPv} onMouseLeave={terminerTraitPv}
-                onTouchStart={debuterTraitPv} onTouchMove={continuerTraitPv} onTouchEnd={terminerTraitPv} />
+              <ZoneSignature ref={signaturePvRef} />
               <div className="flex gap-2 mt-3 flex-wrap">
-                <button onClick={effacerSignaturePv} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+                <button onClick={() => signaturePvRef.current?.effacer()} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
                 <button onClick={async () => { const ok = await signerPv(estAvenant); if (ok) setPvLectureOuverte(null); }} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Signer {estAvenant ? "l'avenant" : "la réception"}</button>
                 <button onClick={() => setPvLectureOuverte(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
               </div>

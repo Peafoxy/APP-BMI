@@ -5,6 +5,7 @@
 // client ne voit que les siens (onglet "📄 Mes contrats").
 // ============================================================
 import { useState, useRef } from "react";
+import { ZoneSignature } from "../components/ZoneSignature";
 import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert } from "../components/ui";
 import { contratsInstallation, pvDuContrat, bloquerSiLecture, resteAPayer, espaceDuCompte } from "../lib/calculs";
@@ -37,52 +38,14 @@ export function ContratsInstallation({ db, save, profile }) {
 
   // ---- SIGNATURE PERSONNELLE — enregistrée UNE FOIS, réutilisée
   // automatiquement sur tous les contrats futurs de la personne (demande
-  // Timo). Même technique de capture que la signature client dans
-  // EspaceClient.jsx, avec la même mise à l'échelle du canevas (2.99.26) —
-  // recopiée ici plutôt que retouchée là-bas, pour ne jamais risquer de
-  // régresser ce qui vient d'être confirmé fonctionnel sur téléphone.
+  // Timo). La zone de signature est LA zone commune à toute l'application
+  // (components/ZoneSignature.jsx) — plus de copie locale du dessin.
   const [captureOuverte, setCaptureOuverte] = useState(false);
-  const canvasRef = useRef(null);
-  const aSigneRef = useRef(false);
-  const [dessinEnCours, setDessinEnCours] = useState(false);
-
-  const positionCanvas = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    const point = e.touches ? e.touches[0] : e;
-    const echelleX = canvas.width / rect.width;
-    const echelleY = canvas.height / rect.height;
-    return { x: (point.clientX - rect.left) * echelleX, y: (point.clientY - rect.top) * echelleY };
-  };
-  const debuterTrait = (e) => {
-    e.preventDefault();
-    setDessinEnCours(true);
-    aSigneRef.current = true;
-    const ctx = canvasRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasRef.current);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-  const continuerTrait = (e) => {
-    if (!dessinEnCours) return;
-    e.preventDefault();
-    const ctx = canvasRef.current.getContext("2d");
-    const { x, y } = positionCanvas(e, canvasRef.current);
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = "#1e293b";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.stroke();
-  };
-  const terminerTrait = () => setDessinEnCours(false);
-  const effacerSignature = () => {
-    const ctx = canvasRef.current.getContext("2d");
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    aSigneRef.current = false;
-  };
+  const signatureRef = useRef(null);
   const enregistrerSignature = () => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!aSigneRef.current) { uAlert("Signez d'abord dans le cadre prévu."); return; }
-    const dataUrl = canvasRef.current.toDataURL("image/png");
+    if (!signatureRef.current?.aSigne()) { uAlert("Signez d'abord dans le cadre prévu."); return; }
+    const dataUrl = signatureRef.current.image();
     save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, signature_personnelle: dataUrl } : u)) }, `Signature personnelle enregistrée — ${profile.nom}`);
     setCaptureOuverte(false);
     uAlert("✅ Signature enregistrée — elle sera utilisée automatiquement sur vos futurs contrats.");
@@ -205,11 +168,9 @@ export function ContratsInstallation({ db, save, profile }) {
           <div className="bg-white rounded-xl max-w-md w-full p-5">
             <div className="font-bold text-lg text-sky-900 mb-1">Ma signature</div>
             <div className="text-xs text-slate-500 mb-3">Elle apparaîtra sur tous vos contrats, à côté du cachet de BMI Togo.</div>
-            <canvas ref={canvasRef} width={440} height={160} className="w-full border-2 border-slate-300 rounded-lg touch-none bg-slate-50"
-              onMouseDown={debuterTrait} onMouseMove={continuerTrait} onMouseUp={terminerTrait} onMouseLeave={terminerTrait}
-              onTouchStart={debuterTrait} onTouchMove={continuerTrait} onTouchEnd={terminerTrait} />
+            <ZoneSignature ref={signatureRef} />
             <div className="flex gap-2 mt-3 flex-wrap">
-              <button onClick={effacerSignature} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
+              <button onClick={() => signatureRef.current?.effacer()} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Effacer</button>
               <button onClick={enregistrerSignature} className="flex-1 px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Enregistrer</button>
               <button onClick={() => setCaptureOuverte(false)} className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
             </div>

@@ -51,7 +51,7 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 782 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 787 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -210,6 +210,16 @@ impossible, et le banc doit le dire dans ce sens-là.
   « cartes blanches à liseré, sections titrées » a été proposé, montré et
   **refusé** par Timo (2.101.30, annulé en .31 : « je préfère le précédent
   tableau de bord »). Ne pas le reproposer.
+
+### Signature
+- **UNE seule zone de signature** pour toute l'application :
+  `components/ZoneSignature.jsx` (cadre **440 × 220**, demande Timo du
+  05/09/2026). Elle sert aux quatre emplacements : signature personnelle
+  d'un employé (📄 Contrats), signature du client sur le contrat en boutique
+  (📋 Tous les devis), sur le contrat depuis son téléphone et sur le PV
+  (Espace client). Aucun écran ne dessine plus de canevas lui-même — le banc
+  l'interdit. La position du trait exclut la bordure (clientWidth /
+  clientLeft) : c'est la version corrigée après deux signalements de Timo.
 
 ### Étiquettes
 - Format **60 × 30 mm**, nom de la boutique **en haut**, nom de l'article
