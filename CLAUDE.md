@@ -365,8 +365,8 @@ sortie : on regarde si la base a levé une objection.
   qui passaient DEVANT — la question « Valider ? » s'ouvrait derrière le
   contrat, incliquable. DialogHost est à z-[70] désormais.
 - ~~Un employé peut encore écrire `salaire_base` dans `users.data`~~ — fermé
-  par `securite-5-comptes.sql` (vague 3, étape 3), effectif sur la vraie base
-  dès que Timo l'aura collé.
+  par `securite-5-comptes.sql` (vague 3, étape 3), collé par Timo le
+  05/09/2026.
 - Les trois scripts d'hygiène (`avis-supabase-0`, `securite-1-audits-
   et-tombstones`, `avis-supabase-1-search-path`) ont TOUS été collés par
   Timo le 31/08/2026 : journal cloisonné (14 tables, 93 lignes réelles /
@@ -517,7 +517,8 @@ sortie : on regarde si la base a levé une objection.
   d'un champ qu'on n'a PAS touché (sinon assigner une tâche aurait « changé »
   le taux que l'admin venait de modifier → refus serveur). Banc
   `npm run tester-comptes` (54 contrôles, les deux ordres du transfert).
-  **PAS ENCORE COLLÉ** : à coller quand tous les appareils sont en 2.101.54.
+  **COLLÉ par Timo le 05/09/2026** (capture : 3 / true / true) — les verrous
+  des comptes sont EN PLACE sur la vraie base.
   Suite : étape 4 (devis / chantiers), puis les ❓ tranchés (cadeaux, photos,
   entretien, tâches, propriétaire).
   Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent +
