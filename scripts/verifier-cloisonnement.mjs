@@ -3617,13 +3617,13 @@ titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurabl
     && readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8").includes("securite-7-corbeille.sql"));
 }
 
-titre("La zone de signature : UNE seule, pour le personnel comme pour les clients (440 × 220)");
+titre("La zone de signature : UNE seule, pour le personnel comme pour les clients (440 × 300)");
 {
   // Demande Timo (05/09/2026) : « est-ce une seule règle qui gère cet aspect
   // dans toute l'app ? » — non, quatre copies. Désormais components/
   // ZoneSignature.jsx, et rien d'autre ne dessine une signature.
   const zone = readFileSync("src/components/ZoneSignature.jsx", "utf8");
-  test("★ le cadre fait 440 × 220 (demande Timo)", /LARGEUR_SIGNATURE = 440/.test(zone) && /HAUTEUR_SIGNATURE = 220/.test(zone));
+  test("★ le cadre fait 440 × 300 (demande Timo)", /LARGEUR_SIGNATURE = 440/.test(zone) && /HAUTEUR_SIGNATURE = 300/.test(zone));
   test("★ la position du trait exclut la bordure (clientWidth / clientLeft) — la version corrigée est la seule qui subsiste",
     /canvas\.clientWidth/.test(zone) && /canvas\.clientLeft/.test(zone) && /clientLeft/.test(zone));
   const ecrans = ["src/screens/ContratsInstallation.jsx", "src/screens/TousLesDevis.jsx", "src/screens/EspaceClient.jsx"];

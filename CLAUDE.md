@@ -213,8 +213,8 @@ impossible, et le banc doit le dire dans ce sens-là.
 
 ### Signature
 - **UNE seule zone de signature** pour toute l'application :
-  `components/ZoneSignature.jsx` (cadre **440 × 220**, demande Timo du
-  05/09/2026). Elle sert aux quatre emplacements : signature personnelle
+  `components/ZoneSignature.jsx` (cadre **440 × 300**, demande Timo du
+  05/09/2026 — d'abord 440 × 220, puis 300 le même jour). Elle sert aux quatre emplacements : signature personnelle
   d'un employé (📄 Contrats), signature du client sur le contrat en boutique
   (📋 Tous les devis), sur le contrat depuis son téléphone et sur le PV
   (Espace client). Aucun écran ne dessine plus de canevas lui-même — le banc

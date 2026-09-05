@@ -18,12 +18,12 @@
 //   signatureRef.current.image()    → l'image PNG (data URL)
 //   signatureRef.current.effacer()  → repart d'un cadre vide
 //
-// Cadre 440 × 220 (demande Timo : « augmenter le cadre à 440×220 »).
+// Cadre 440 × 300 (demande Timo : 440×220 le 05/09/2026, puis « 440×300 » le même jour).
 // ============================================================
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 
 export const LARGEUR_SIGNATURE = 440;
-export const HAUTEUR_SIGNATURE = 220;
+export const HAUTEUR_SIGNATURE = 300;
 const COULEUR_TRAIT = "#1e293b";
 const EPAISSEUR_TRAIT = 2;
 
