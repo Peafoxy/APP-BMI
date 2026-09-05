@@ -221,6 +221,14 @@ impossible, et le banc doit le dire dans ce sens-là.
   l'interdit. La position du trait exclut la bordure (clientWidth /
   clientLeft) : c'est la version corrigée après deux signalements de Timo.
 
+### Doublons
+- **Le relevé des doublons du 05/09/2026 est dans `docs/doublons-2026-09.md`**
+  (demande Timo : « répertorier les fonctions identiques qui ne dépendent
+  pas d'une seule règle »). 12 vraies règles écrites plusieurs fois (A1–A12),
+  5 gestes répétés à la main (B1–B5), ordre conseillé en fin de document.
+  ⚠ Déjà divergent : `Ventes.jsx` ouvre WhatsApp avec un texte NON encodé.
+  **Rien n'est unifié tant que Timo ne dit pas lequel** — on explique avant.
+
 ### Étiquettes
 - Format **60 × 30 mm**, nom de la boutique **en haut**, nom de l'article
   **en bas**, code-barres de hauteur fixe (11 mm).
