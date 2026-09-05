@@ -141,6 +141,11 @@ impossible, et le banc doit le dire dans ce sens-là.
   (transfert du rôle), Mon équipe (chefs), Utilisateurs (parrain), et le
   message « nouveau client » aux admins. Le banc compte les lectures brutes
   restantes fichier par fichier : une de plus fait tomber le contrôle.
+  **Impact argent vérifié sur la vraie base le 05/09/2026** (lecture seule
+  collée par Timo : dépenses d'une caisse réelle au nom d'un compte de
+  formation — virement, retenue, avance, crédit, remboursement, commission,
+  commission d'équipe, prime d'installation) : **0 ligne**. Rien n'est sorti.
+  Ne pas rouvrir ce sujet.
 - **Toute liste affichée passe par `filtreEspaceAffichage`** (ou par la
   boutique regardée). Relevé le 05/09/2026 sur la question de Timo « les
   ventes et les proformas sont-ils cloisonnés ? » : les ventes oui (par
