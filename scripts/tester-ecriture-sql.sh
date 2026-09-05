@@ -34,7 +34,7 @@ P="psql -h /tmp -p $PORT -U postgres -d bmi -v ON_ERROR_STOP=1 -tA"
 
 echo "▸ Environnement Supabase simulé + politiques réelles"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/test/fixture.sql
-for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql supabase/securite-2-role-inviolable.sql supabase/client-2-fermer-ecriture.sql; do
+for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql supabase/client-1-fermer-annuaire.sql supabase/paie-1-table.sql supabase/securite-2-role-inviolable.sql supabase/client-2-fermer-ecriture.sql supabase/securite-4-argent.sql supabase/securite-5-comptes.sql; do
   psql -h /tmp -p $PORT -U postgres -d bmi -q -f "$f" >/dev/null 2>&1 || echo "   (⚠ $f partiellement rejoué)"
 done
 

@@ -51,14 +51,15 @@ de suite après. »
 
 ```
 npm run build                    # refuse de passer si le JSX est cassé
-npm run verifier-cloisonnement   # 632 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 756 contrôles : la séparation formation / réel
 npm run tester-verrouillage      # 41  : le blocage des connexions
-npm run tester-reglement         # 35  : les échéanciers client
+npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run verifier-ecran-stocks    # 8   : l'écran Stocks
+npm run verifier-ecran-stocks    # 11  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 57  : les règles de rôle sur l'argent (serveur)
+npm run tester-comptes           # 54  : les règles de rôle sur les comptes (serveur)
 ```
 
 Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
@@ -294,9 +295,9 @@ chantier. Les constats, par ordre de gravité.
 
 ### Bancs
 `npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
-connecté. **Il ne reste qu'un échec sur 22** — un employé qui écrit
-`salaire_base` dans `users.data`, inerte dès que la fiche de paie existe dans la table `paie`, qui
-fait foi.
+connecté. **22 sur 22 depuis la 2.101.54** : le dernier trou (un employé qui
+écrivait `salaire_base` dans `users.data`) est fermé par
+`securite-5-comptes.sql`, que le banc charge désormais.
 
 ⚠ **Leçon du 29/08/2026 : un banc qui lit mal est pire qu'un banc absent.**
 Celui-ci décidait « accepté / refusé » en lisant la dernière ligne de psql —
@@ -363,9 +364,9 @@ sortie : on regarde si la base a levé une objection.
   (uConfirm/uAlert) étaient à z-50 comme les grandes fenêtres d'écran,
   qui passaient DEVANT — la question « Valider ? » s'ouvrait derrière le
   contrat, incliquable. DialogHost est à z-[70] désormais.
-- Un employé peut encore écrire `salaire_base` dans `users.data` — inerte dès
-  que la fiche de paie correspondante existe dans la table `paie`, qui fait
-  foi, mais à fermer un jour.
+- ~~Un employé peut encore écrire `salaire_base` dans `users.data`~~ — fermé
+  par `securite-5-comptes.sql` (vague 3, étape 3), effectif sur la vraie base
+  dès que Timo l'aura collé.
 - Les trois scripts d'hygiène (`avis-supabase-0`, `securite-1-audits-
   et-tombstones`, `avis-supabase-1-search-path`) ont TOUS été collés par
   Timo le 31/08/2026 : journal cloisonné (14 tables, 93 lignes réelles /
@@ -494,9 +495,33 @@ sortie : on regarde si la base a levé une objection.
   signalée à Timo : le plafond de 3 % vaut aussi pour ventes / proformas /
   commandes (même argent). **COLLÉ par Timo le 04/09/2026** (capture :
   11 / true) — les verrous de l'argent sont EN PLACE sur la vraie base.
-  Suite : étape 3 (les comptes), puis 4 (devis / chantiers), puis les ❓
-  tranchés (cadeaux, photos, entretien, tâches, propriétaire).
-  Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent.
+  **Étape 3 CONSTRUITE (2.101.54, 05/09/2026 — Timo : « Lance ») :** les
+  gestes sur les comptes revérifient leur rôle dans le geste
+  (`refuserSaufAdmin` ×19 dans Utilisateurs.jsx, `refuserSaufAdminPrincipal`
+  pour mot de passe / bascule d'espace / transfert du rôle, `refuserSaufTaches`
+  + `ROLES_TACHES` dans Mon équipe, virement de salaire dans calculs.js).
+  **SQL serveur écrit et testé** : `supabase/securite-5-comptes.sql` —
+  déclencheur `users_regles_comptes_trg` (supprimer / bloquer / champs de
+  gestion d'un employé → admin ; mot de passe d'un autre, transfert du rôle
+  principal, réel ↔ formation → admin principal ; tâches d'un autre →
+  pouvoir « tâches » via l'étiquette `pouvoirs_off` ; fiches CLIENTS non
+  touchées sauf mot de passe / blocage / suppression / chat libre).
+  `est_admin_principal()` reconnaît le principal par l'étiquette OU le
+  drapeau de sa fiche (un appareil à vieille étiquette n'est pas coincé) OU,
+  le temps d'un transfert, la transaction en cours (`bmi.transfert_principal`).
+  ⚠ Trouvé par le banc : `refuser_elevation_de_soi` refusait au principal
+  de rendre SON drapeau — **le transfert du rôle principal était refusé par
+  le serveur depuis le 29/08/2026**, sans que personne l'ait tenté ;
+  securite-5 recrée la fonction avec cette seule exception.
+  ⚠ `lib/fusion.js` : la fusion à l'envoi ne renvoie plus une vieille copie
+  d'un champ qu'on n'a PAS touché (sinon assigner une tâche aurait « changé »
+  le taux que l'admin venait de modifier → refus serveur). Banc
+  `npm run tester-comptes` (54 contrôles, les deux ordres du transfert).
+  **PAS ENCORE COLLÉ** : à coller quand tous les appareils sont en 2.101.54.
+  Suite : étape 4 (devis / chantiers), puis les ❓ tranchés (cadeaux, photos,
+  entretien, tâches, propriétaire).
+  Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent +
+  tester-comptes.
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
 - **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
   CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».

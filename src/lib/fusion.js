@@ -103,12 +103,37 @@ export const unirEquipe = (local, distant) => {
   return ordre.map((cle) => parId.get(cle));
 };
 
+// Les champs ORDINAIRES (tout ce qui n'est pas une liste, une équipe ou un
+// cumul) : notre version l'emporte — SAUF si nous n'y avons pas touché.
+//
+// ⚠ Vague 3, étape 3 (05/09/2026). Depuis que le serveur compare l'ancienne
+// et la nouvelle valeur de chaque champ sensible (prix d'un article, taux
+// d'un employé, mot de passe, rattachement…), renvoyer une vieille copie
+// d'un champ qu'on n'a PAS modifié devient un vrai problème : un commercial
+// qui assigne une tâche à un membre de son équipe renverrait aussi le taux
+// de commission tel qu'il l'avait en main — et si l'administrateur venait
+// de le changer, le serveur verrait le commercial « changer un taux » et
+// refuserait la tâche. Quand on connaît la base commune, on sait ce que NOUS
+// avons changé : pour tout le reste, c'est la version du serveur qui reste.
+const memeValeur = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+
 export function fusionner(table, base, local, distant) {
-  const strategie = STRATEGIES[table];
-  // Aucune règle pour cette table : notre version l'emporte, comme avant.
-  if (!strategie || !distant) return local;
+  const strategie = STRATEGIES[table] || {};
+  // Pas de version distante : rien à fusionner.
+  if (!distant) return local;
 
   const sortie = { ...local };
+
+  if (base && typeof base === "object") {
+    const speciaux = new Set([...(strategie.listes || []), ...(strategie.equipes || []), ...(strategie.additifs || [])]);
+    for (const champ of new Set([...Object.keys(base), ...Object.keys(distant)])) {
+      if (speciaux.has(champ) || champ === "id") continue;
+      // Nous n'avons pas touché ce champ, mais eux si : leur valeur reste.
+      if (memeValeur(local?.[champ], base[champ]) && !memeValeur(distant[champ], base[champ])) {
+        if (distant[champ] === undefined) delete sortie[champ]; else sortie[champ] = distant[champ];
+      }
+    }
+  }
 
   for (const champ of strategie.listes || []) {
     const uni = unirParId(local?.[champ], distant?.[champ]);

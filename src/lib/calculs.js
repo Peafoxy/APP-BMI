@@ -963,6 +963,7 @@ export const aLienAAnnuler = (d) =>
 
 // Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
 export async function envoyerVirementG(db, save, profile, u, moisImpose) {
+  if (refuserSaufAdmin(profile, "Envoyer un virement de salaire")) return;
   const mois = moisImpose || await uPrompt(`Mois du virement pour ${u.nom} (AAAA-MM) :`, today().slice(0, 7));
   if (!mois) return;
   if (!/^\d{4}-\d{2}$/.test(String(mois).trim())) { uAlert("Format attendu : AAAA-MM (ex : 2026-07)."); return; }
@@ -1740,6 +1741,30 @@ export const refuserSaufRoles = (profile, roles, geste) => {
 };
 export const refuserSaufAdmin = (profile, geste) => refuserSaufRoles(profile, ["admin"], geste);
 export const remiseExigeAdmin = (pct) => Number(pct || 0) > PLAFOND_REMISE_PCT;
+
+// ---- Vague 3, étape 3 : LES COMPTES (validée par Timo le 05/09/2026) ----
+// Trois niveaux, que le serveur applique lui aussi (securite-5-comptes.sql) :
+//   • admin seul : bloquer / réactiver, supprimer un compte, et les « champs
+//     de gestion » de la fiche d'un employé (rattachement, taux, identité,
+//     paie…) ;
+//   • admin PRINCIPAL seul : mot de passe d'un autre compte, transfert du
+//     rôle principal, bascule réel ↔ formation ;
+//   • le pouvoir « tâches » : assigner, valider ou rouvrir la tâche d'un
+//     autre — admin, responsable commercial, commercial, technicien, sauf
+//     si ce pouvoir leur a été retiré.
+// Chacun garde SA propre fiche pour le quotidien : signature, disponibilité,
+// ses tâches, sa demande de crédit, la confirmation de son virement.
+export const ROLES_TACHES = ["admin", "resp_commercial", "commercial", "technicien"];
+export const refuserSaufAdminPrincipal = (db, profile, geste) => {
+  if (estAdminPrincipal(db, profile)) return false;
+  uAlert(`🔒 ${geste} : réservé à l'administrateur PRINCIPAL.`);
+  return true;
+};
+export const refuserSaufTaches = (db, profile, geste) => {
+  if (ROLES_TACHES.includes(profile?.role) && aDroit(db, profile, "act_taches")) return false;
+  uAlert(`🔒 ${geste} : réservé aux comptes qui ont le pouvoir « Assigner des tâches » (administrateur, responsable commercial, commercial, technicien).`);
+  return true;
+};
 
 // ============ VERROU DE CLOISONNEMENT FORMATION / RÉEL ============
 // ⚠ Le filtrage des sélecteurs (boutiquesVisibles) empêche de CHOISIR une

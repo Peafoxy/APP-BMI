@@ -3442,6 +3442,68 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
     && readFileSync("supabase/securite-4-argent.sql", "utf8").includes("or public.role_jeton() = 'comptable'"));
 }
 
+titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie son rôle, et le serveur dit la même chose");
+{
+  // Validé par Timo le 05/09/2026 (« Lance »). Admin seul : bloquer,
+  // supprimer, champs de gestion d'un employé ; admin PRINCIPAL seul : mot de
+  // passe d'un autre, transfert du rôle, bascule réel ↔ formation ; pouvoir
+  // « tâches » pour les tâches des autres. Chacun garde sa propre fiche.
+  test("★ les aides existent (ROLES_TACHES = admin, resp. commercial, commercial, technicien)",
+    C.ROLES_TACHES.join() === "admin,resp_commercial,commercial,technicien"
+    && typeof C.refuserSaufAdminPrincipal === "function" && typeof C.refuserSaufTaches === "function");
+  const dbT = { users: [{ id: "a", role: "admin", admin_principal: true, actif: true }, { id: "c", role: "commercial" }, { id: "v", role: "vendeur" }, { id: "x", role: "commercial", droits_off: ["act_taches"] }] };
+  test("★ refuserSaufAdminPrincipal ne laisse passer que le porteur du drapeau",
+    C.refuserSaufAdminPrincipal(dbT, { id: "a", role: "admin" }, "t") === false && C.refuserSaufAdminPrincipal(dbT, { id: "c", role: "commercial" }, "t") === true);
+  test("★ refuserSaufTaches suit le rôle ET le pouvoir retiré",
+    C.refuserSaufTaches(dbT, dbT.users[1], "t") === false && C.refuserSaufTaches(dbT, dbT.users[2], "t") === true && C.refuserSaufTaches(dbT, dbT.users[3], "t") === true);
+  const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const gestesAdmin = ["Bloquer ou réactiver un compte", "Supprimer un compte", "Changer la boutique d'un compte", "Autoriser le chat libre à un client",
+    "Nommer ou retirer un chef d'équipe", "Modifier les pouvoirs d'un compte", "Changer le parrain d'un compte", "Fixer la commission d'équipe",
+    "Fixer le taux de commission", "Modifier l'identité d'un employé", "Modifier l'anniversaire d'un employé", "Fixer le taux d'avancement",
+    "Modifier un salaire", "Enregistrer une prime ou une avance", "Annuler un virement", "Accorder un crédit", "Refuser un crédit",
+    "Enregistrer un remboursement de crédit", "Créer un compte employé"];
+  test(`★ Utilisateurs.jsx : ${gestesAdmin.length} gestes réservés à l'administrateur le revérifient dans le geste`,
+    gestesAdmin.every((g) => u.includes(`refuserSaufAdmin(profile, "${g}")`)));
+  const gestesPrincipal = ["Changer le mot de passe d'un compte", "Changer l'espace d'un compte (réel ↔ formation)", "Consulter un mot de passe", "Convertir les mots de passe restés en clair"];
+  test("★ Utilisateurs.jsx : les 4 gestes de l'administrateur PRINCIPAL passent par refuserSaufAdminPrincipal",
+    gestesPrincipal.every((g) => u.includes(`refuserSaufAdminPrincipal(db, profile, "${g}")`)) && !/if \(!jeSuisAdminPrincipal\) \{ uAlert/.test(u));
+  test("★ le transfert du rôle principal (Paramètres) explique son refus au lieu de se taire",
+    /refuserSaufAdminPrincipal\(db, profile, "Transférer le rôle d'administrateur principal"\)/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
+  const eq = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+  test("★ Mon équipe : assigner, valider et rouvrir une tâche revérifient le pouvoir « tâches »",
+    ["Assigner une tâche", "Valider une tâche", "Rouvrir une tâche"].every((g) => eq.includes(`refuserSaufTaches(db, profile, "${g}")`)));
+  test("★ envoyer un virement de salaire est réservé à l'administrateur dans le geste lui-même",
+    /refuserSaufAdmin\(profile, "Envoyer un virement de salaire"\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
+  const sql = readFileSync("supabase/securite-5-comptes.sql", "utf8");
+  test("★ le SQL serveur existe : déclencheur users_regles_comptes, principal reconnu par l'étiquette OU la fiche, pouvoir tâches",
+    /create trigger users_regles_comptes_trg/.test(sql) && /function public\.est_admin_principal\(\)/.test(sql)
+    && /bmi\.transfert_principal/.test(sql) && /function public\.a_pouvoir_taches\(\)/.test(sql));
+  test("★ …et ferme le dernier trou de tester-ecriture-sql (salaire dans users.data)", /'salaire_base'/.test(sql));
+  test("★ le banc tester-comptes rejoue les deux ordres du transfert du rôle principal",
+    (readFileSync("scripts/tester-comptes-sql.sh", "utf8").match(/le principal transfère son rôle/g) || []).length >= 3
+    && readFileSync("package.json", "utf8").includes('"tester-comptes"'));
+}
+
+titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n'a pas touché");
+{
+  // Sans cela, un commercial qui assigne une tâche renverrait aussi le taux
+  // de commission tel qu'il l'avait en main ; si l'administrateur venait de
+  // le changer, le serveur verrait le commercial « changer un taux ».
+  const base = { id: "t", nom: "TECH", taux_commission: 3, taches: [] };
+  const local = { ...base, taches: [{ id: "t1", titre: "Visite" }] };           // nous : une tâche
+  const distant = { ...base, taux_commission: 7, pwd_hash2: "nouveau" };        // eux : le taux et le mot de passe
+  const f = Fus.fusionner("users", base, local, distant);
+  test("★ le champ changé par l'autre garde SA valeur (taux 3 → 7 conservé)", f.taux_commission === 7);
+  test("★ un champ ajouté par l'autre est conservé (nouveau mot de passe)", f.pwd_hash2 === "nouveau");
+  test("★ notre modification est conservée (la tâche)", f.taches.length === 1);
+  test("un champ que NOUS avons changé garde NOTRE valeur, même si l'autre l'a changé aussi",
+    Fus.fusionner("ventes", { id: "v", x: 1 }, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
+  test("un champ retiré par l'autre disparaît si nous n'y avons pas touché",
+    Fus.fusionner("users", { id: "u", pwd: "clair", a: 1 }, { id: "u", pwd: "clair", a: 2 }, { id: "u", a: 1 }).pwd === undefined);
+  test("sans base connue, rien ne change : notre version l'emporte",
+    Fus.fusionner("ventes", undefined, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

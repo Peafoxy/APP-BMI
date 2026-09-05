@@ -12,7 +12,7 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte} from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 
 // ============ PARAMÈTRES ============
@@ -41,7 +41,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
   const transfererPrincipal = async () => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!estAdminPrincipal(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Transférer le rôle d'administrateur principal")) return;
     const u = db.users.find((x) => x.id === nouveauPrincipal);
     if (!u) { uAlert("Choisissez un administrateur."); return; }
     if (!await uConfirm(

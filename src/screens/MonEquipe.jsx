@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -327,6 +327,8 @@ export function MonEquipe({ db, save, profile }) {
 
   // Assigner une tâche à un agent (stockée dans sa fiche : visible dans son onglet ✅ Mes tâches)
   const assignerTache = async (st) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufTaches(db, profile, "Assigner une tâche")) return;
     const titre = await uPrompt(`Tâche à assigner à ${st.u.nom} :`, "");
     if (titre === null) return;
     if (!titre.trim()) { uAlert("Le titre de la tâche est obligatoire."); return; }
@@ -405,12 +407,16 @@ export function MonEquipe({ db, save, profile }) {
   const [membreTaches, setMembreTaches] = useState(null); // fiche dont on affiche l'historique des tâches
 
   const validerTache = async (tv) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufTaches(db, profile, "Valider une tâche")) return;
     if (!await uConfirm(`Valider la tâche « ${tv.titre} » de ${tv.membre.nom} ?${tv.photo ? "" : "\n\n⚠ Aucune photo de preuve n'a été jointe."}`)) return;
     save({ ...db, users: db.users.map((x) => (x.id === tv.membre.id ? { ...x, taches: (x.taches || []).map((y) => (y.id === tv.id ? { ...y, statut: "validee", valide_par: profile.nom, date_validation: today() } : y)) } : x)) },
       `Tâche de ${tv.membre.nom} validée par ${profile.nom} : ${tv.titre}`);
   };
 
   const rouvrirTache = async (tv) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufTaches(db, profile, "Rouvrir une tâche")) return;
     const motif = await uPrompt(`Motif de la réouverture (visible par ${tv.membre.nom}) :`, "");
     if (motif === null) return;
     if (!motif.trim()) { uAlert("Le motif est obligatoire : le membre doit savoir quoi corriger."); return; }

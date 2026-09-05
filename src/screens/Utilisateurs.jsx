@@ -9,7 +9,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 export function Users({ db, save, profile }) {
@@ -98,6 +98,7 @@ export function Users({ db, save, profile }) {
       return;
     }
 
+    if (refuserSaufAdmin(profile, "Créer un compte employé")) return;
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
     // ⚠ Dernier verrou : un compte rattaché à une boutique ne peut pas être
@@ -176,6 +177,7 @@ export function Users({ db, save, profile }) {
   };
 
   const toggleActif = (u) => {
+    if (refuserSaufAdmin(profile, "Bloquer ou réactiver un compte")) return;
     if (refusSurSoi(u, "vous bloquer ou vous débloquer")) return;
     if (u.role === "admin" && db.users.filter((x) => x.role === "admin" && x.actif !== false).length === 1 && u.actif !== false) {
       uAlert("Impossible de bloquer le dernier administrateur actif."); return;
@@ -195,7 +197,7 @@ export function Users({ db, save, profile }) {
 
   const changerPwd = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut changer un mot de passe."); return; }
+    if (refuserSaufAdminPrincipal(db, profile, "Changer le mot de passe d'un compte")) return;
     const p = await uPrompt(`Nouveau mot de passe pour ${u.nom} (6 caractères minimum, exigé par la sécurisation Supabase) :`);
     if (!p || p.length < 6) { if (p !== null) uAlert("Mot de passe trop court (6 caractères minimum)."); return; }
     const nouveauxChamps = await definirMotDePasse(p);
@@ -265,7 +267,7 @@ export function Users({ db, save, profile }) {
 
   const basculerFormation = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    if (refuserSaufAdminPrincipal(db, profile, "Changer l'espace d'un compte (réel ↔ formation)")) return;
     if (refusSurSoi(u, "changer d'espace de travail")) return;
     const versFormation = !u.formation;
     const cible = boutiqueCibleEspace(u, versFormation);
@@ -297,7 +299,7 @@ export function Users({ db, save, profile }) {
   // que ce correctif supprime.
   const basculerFormationEnMasse = async () => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut faire ce changement."); return; }
+    if (refuserSaufAdminPrincipal(db, profile, "Changer l'espace d'un compte (réel ↔ formation)")) return;
     // Les clients étaient exclus : ils ne pouvaient jamais basculer. Ils font
     // pourtant partie de l'espace au même titre que les autres — un client
     // d'entraînement n'a rien à faire dans les vraies listes.
@@ -324,7 +326,7 @@ export function Users({ db, save, profile }) {
   };
 
   const voirPwd = (u) => {
-    if (!jeSuisAdminPrincipal) { uAlert("🔒 Seul l'administrateur PRINCIPAL peut consulter un mot de passe."); return; }
+    if (refuserSaufAdminPrincipal(db, profile, "Consulter un mot de passe")) return;
     // ⚠ Plus aucun mot de passe n'est stocké en clair (voir plus haut).
     // Seuls restent consultables les mots de passe CLIENT auto-générés,
     // qui se recalculent à partir du nom et du téléphone — ils ne sont donc
@@ -340,6 +342,7 @@ export function Users({ db, save, profile }) {
   };
 
   const supprimerU = async (u) => {
+    if (refuserSaufAdmin(profile, "Supprimer un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (profile && u.id === profile.id) { uAlert("Vous ne pouvez pas supprimer le compte avec lequel vous êtes connecté."); return; }
     // Même protection que pour le blocage : ne jamais supprimer le porteur
@@ -356,6 +359,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerBoutique = async (u) => {
+    if (refuserSaufAdmin(profile, "Changer la boutique d'un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
     // ⚠ TERRAIN (boutique virtuelle) n'est jamais un rattachement valide
     // pour un employé — même bug que Stocks/Caisse/Dashboard.
@@ -372,10 +376,12 @@ export function Users({ db, save, profile }) {
   };
 
   const basculerChatLibre = (u) => {
+    if (refuserSaufAdmin(profile, "Autoriser le chat libre à un client")) return;
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, chat_libre: !x.chat_libre } : x)) }, `${u.chat_libre ? "Retrait" : "Autorisation"} du chat libre pour ${u.nom}`);
   };
 
   const basculerChef = (u) => {
+    if (refuserSaufAdmin(profile, "Nommer ou retirer un chef d'équipe")) return;
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, chef_equipe: !x.chef_equipe } : x)) }, `${u.chef_equipe ? "Retrait" : "Nomination"} chef d'équipe : ${u.nom}`);
   };
 
@@ -386,6 +392,7 @@ export function Users({ db, save, profile }) {
   const cible = pouvoirsPour ? db.users.find((x) => x.id === pouvoirsPour) : null;
 
   const basculerPouvoir = (u, id, label) => {
+    if (refuserSaufAdmin(profile, "Modifier les pouvoirs d'un compte")) return;
     if (refusSurSoi(u, "modifier vos propres pouvoirs")) return;
     const off = u.droits_off || [];
     const actif = !off.includes(id);
@@ -406,6 +413,7 @@ export function Users({ db, save, profile }) {
   };
 
   const toutRetablir = async (u) => {
+    if (refuserSaufAdmin(profile, "Modifier les pouvoirs d'un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!(u.droits_off || []).length) { uAlert("Ce compte a déjà tous ses pouvoirs."); return; }
     if (await uConfirm(`Rétablir TOUS les pouvoirs de ${u.nom} ?`)) {
@@ -424,6 +432,7 @@ export function Users({ db, save, profile }) {
   // autres appartiennent à un espace et un seul, sans rien à régler.
   // Ce bouton ne s'occupe donc plus que des deux onglets sensibles.
   const restreindreAdminsExistants = async () => {
+    if (refuserSaufAdmin(profile, "Modifier les pouvoirs d'un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
     const admins = db.users.filter((u) => u.role === "admin" && adminPrincipal(db)?.id !== u.id);
     if (!admins.length) { uAlert("Il n'y a aucun autre administrateur."); return; }
@@ -443,6 +452,7 @@ export function Users({ db, save, profile }) {
   // ---- PARRAINAGE : quel commercial a recruté cet utilisateur ----
   // À 5 filleuls, le parrain devient automatiquement chef d'équipe.
   const changerParrain = async (u) => {
+    if (refuserSaufAdmin(profile, "Changer le parrain d'un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
     const parrains = db.users.filter((x) => x.actif !== false && ["commercial", "technicien"].includes(x.role) && x.id !== u.id);
     if (!parrains.length) { uAlert("Aucun commercial disponible comme parrain."); return; }
@@ -467,6 +477,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerTauxEquipe = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer la commission d'équipe")) return;
     if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Commission d'équipe de ${u.nom} (%) — pourcentage qu'il touche sur les commissions de ses filleuls :`, String(u.taux_equipe ?? TAUX_EQUIPE_DEFAUT));
     if (v === null) return;
@@ -477,6 +488,7 @@ export function Users({ db, save, profile }) {
 
   // ---- TAUX DE COMMISSION (tout rôle : celui qui amène un client est commissionné) ----
   const changerTauxCommission = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer le taux de commission")) return;
     if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Taux de commission de ${u.nom} (%) — appliqué à toute vente qui lui est attribuée.\n0 = aucune commission.`, String(u.taux_commission ?? 0));
     if (v === null) return;
@@ -503,7 +515,7 @@ export function Users({ db, save, profile }) {
 
   const convertirMotsDePasseEnClair = async () => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!jeSuisAdminPrincipal) { uAlert("🔒 Réservé à l'administrateur PRINCIPAL."); return; }
+    if (refuserSaufAdminPrincipal(db, profile, "Convertir les mots de passe restés en clair")) return;
     if (comptesEnClair.length === 0) { uAlert("✅ Aucun mot de passe en clair : rien à convertir."); return; }
     if (!await uConfirm(
       `Convertir ${comptesEnClair.length} mot(s) de passe encore enregistré(s) en clair ?\n\n` +
@@ -535,6 +547,7 @@ export function Users({ db, save, profile }) {
   // Renseignée après la création du compte. C'est cette identité qui figure
   // sur le bulletin de paie (le « nom » du compte ne sert qu'à la connexion).
   const changerIdentite = async (u) => {
+    if (refuserSaufAdmin(profile, "Modifier l'identité d'un employé")) return;
     if (bloquerSiLecture(db, profile)) return;
     const nc = await uPrompt(`Nom et prénom(s) officiels de ${u.nom} (tels qu'ils apparaîtront sur le bulletin de paie) :`, u.nom_complet || u.nom || "");
     if (nc === null) return;
@@ -555,6 +568,7 @@ export function Users({ db, save, profile }) {
   // protégée `paie`) précisément parce que l'écran de connexion doit pouvoir
   // le lire — ce qui reste sans danger, un jour et un mois ne trahissent rien.
   const changerAnniversaire = async (u) => {
+    if (refuserSaufAdmin(profile, "Modifier l'anniversaire d'un employé")) return;
     if (bloquerSiLecture(db, profile)) return;
     const actuel = u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "";
     const v = await uPrompt(
@@ -584,6 +598,7 @@ export function Users({ db, save, profile }) {
   };
 
   const changerTauxAvancement = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer le taux d'avancement")) return;
     if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Taux d'avancement annuel de ${u.nom} (en %) :`, String(u.taux_avancement || ""));
     if (v === null) return;
@@ -596,6 +611,7 @@ export function Users({ db, save, profile }) {
   // est défini pour l'employé, le nouveau montant est pré-calculé
   // automatiquement (ancien × (1 + taux %)) — l'admin peut toujours l'ajuster.
   const changerSalaire = async (u) => {
+    if (refuserSaufAdmin(profile, "Modifier un salaire")) return;
     if (bloquerSiLecture(db, profile)) return;
     const ancien0 = Number(u.salaire_base || 0);
     const taux0 = Number(u.taux_avancement || 0);
@@ -621,6 +637,7 @@ export function Users({ db, save, profile }) {
   // Enregistre une prime ou une avance sur salaire pour un mois donné.
   // L'avance est déduite du net à percevoir du mois concerné.
   const ajouterMouvementSalaire = async (u, type) => {
+    if (refuserSaufAdmin(profile, "Enregistrer une prime ou une avance")) return;
     if (bloquerSiLecture(db, profile)) return;
     const libelle = type === "prime" ? "prime" : "avance sur salaire";
     const mois = await uPrompt(`Mois de la ${libelle} pour ${u.nom} (AAAA-MM) :`, today().slice(0, 7));
@@ -660,6 +677,7 @@ export function Users({ db, save, profile }) {
   const envoyerVirement = (u) => envoyerVirementG(db, save, profile, u);
 
   const annulerVirement = async (u) => {
+    if (refuserSaufAdmin(profile, "Annuler un virement")) return;
     if (bloquerSiLecture(db, profile)) return;
     const attente = (u.virements || []).filter((v) => v.statut !== "accepte");
     if (!attente.length) { uAlert("Aucun virement en attente pour cet employé."); return; }
@@ -680,6 +698,7 @@ export function Users({ db, save, profile }) {
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((c) => (c.id === credit.id ? credit : c)) } : x)) }, label);
 
   const approuverCredit = async (u, c) => {
+    if (refuserSaufAdmin(profile, "Accorder un crédit")) return;
     if (bloquerSiLecture(db, profile)) return;
     const v = await uPrompt(`Montant accordé à ${u.nom} (demandé : ${fmt(c.montant_demande)}) :`, String(c.montant_demande));
     if (v === null) return;
@@ -725,6 +744,7 @@ export function Users({ db, save, profile }) {
   };
 
   const refuserCredit = async (u, c) => {
+    if (refuserSaufAdmin(profile, "Refuser un crédit")) return;
     if (bloquerSiLecture(db, profile)) return;
     const motif = await uPrompt(`Motif du refus (visible par ${u.nom}) :`, "");
     if (motif === null) return;
@@ -734,6 +754,7 @@ export function Users({ db, save, profile }) {
   };
 
   const rembourserCredit = async (u, c) => {
+    if (refuserSaufAdmin(profile, "Enregistrer un remboursement de crédit")) return;
     if (bloquerSiLecture(db, profile)) return;
     const reste = resteCredit(c);
     const v = await uPrompt(`Versement de remboursement de ${u.nom} (reste dû : ${fmt(reste)}) :`, String(reste));
