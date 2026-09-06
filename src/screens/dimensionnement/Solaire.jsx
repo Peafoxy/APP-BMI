@@ -33,6 +33,10 @@ const ROLES_EQUIPEMENT = [
   { id: "regulateur", label: "Régulateur MPPT", mots: ["régulateur", "regulateur", "mppt", "chargeur solaire", "controller"], unites: ["a"] },
 ];
 
+// Réglages par défaut du volet solaire (demande Timo, 06/09/2026).
+export const SOLEIL_DEFAUT = "5";
+export const TENSION_DEFAUT = "48";
+
 export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, bq, setBq }) {
   // ⚠ bq/setBq viennent du conteneur (index.jsx) : UNE seule boutique pour
   // tous les volets du dimensionnement, mémorisée sous « dimensionnement ».
@@ -87,8 +91,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
   );
   const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : (brouillon?.autonomie ?? "1"));
-  const [soleil, setSoleil] = useState(() => brouillon?.soleil ?? "3");
-  const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : (brouillon?.tension ?? "24"));
+  // Valeurs par défaut demandées par Timo (06/09/2026) : 5 h de soleil, 48 V.
+  const [soleil, setSoleil] = useState(() => brouillon?.soleil ?? SOLEIL_DEFAUT);
+  const [tension, setTension] = useState(() => besoinsRepris?.tension ? String(besoinsRepris.tension) : (brouillon?.tension ?? TENSION_DEFAUT));
   const [typeBatterie, setTypeBatterie] = useState(() => {
     // "plomb" retiré du choix (demande Timo) — un ancien devis repris ou un
     // brouillon qui l'aurait encore enregistré ne doit jamais coincer le
@@ -257,6 +262,19 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     // Personne n'a le bon mot-clé : on signale ceux dont la caractéristique
     // correspond quand même (une batterie en Ah nommée « ACCU », par exemple).
     return vus.filter((x) => !x.ok && x.spec && role.unites.includes(x.spec.unite)).slice(0, 3);
+  };
+  // ⚠ Demande Timo (06/09/2026, capture DEMAKPOE en 24 V) : la liste article
+  // par article prenait tout l'écran. UNE seule ligne grise : quand tous les
+  // écartés le sont pour la même tension, on le dit en une phrase ; sinon
+  // juste le nombre. Le détail reste dans ecartes() pour le banc.
+  const ligneEcartes = (role) => {
+    const liste = ecartes(role);
+    if (!liste.length) return "";
+    const tensions = [...new Set(liste.map((x) => (x.raison.match(/^(\d+) V, incompatible/) || [])[1]).filter(Boolean))];
+    if (tensions.length === 1 && liste.every((x) => /incompatible avec un système/.test(x.raison))) {
+      return `Stock en ${tensions[0]} V, système réglé en ${tension} V (${liste.length} article${liste.length > 1 ? "s" : ""}).`;
+    }
+    return `${liste.length} article${liste.length > 1 ? "s" : ""} en stock écarté${liste.length > 1 ? "s" : ""} (nom illisible ou caractéristiques différentes).`;
   };
 
   const candidats = (role) => produitsBoutique
@@ -837,17 +855,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                         {options.length === 0 ? (
                           <div className="text-xs">
                             <span className="text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
-                            {/* On dit POURQUOI : c'est ce qui rend le vendeur autonome. */}
-                            {ecartes(l.role).length > 0 && (
-                              <div className="mt-1 text-slate-500 max-w-md">
-                                {ecartes(l.role).length} article(s) écarté(s) :
-                                <ul className="list-disc ml-4 mt-0.5">
-                                  {ecartes(l.role).slice(0, 4).map((x) => (
-                                    <li key={x.p.id}><b>{x.p.nom}</b> — {x.raison}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                            {/* On dit POURQUOI, en UNE ligne (demande Timo, 06/09/2026). */}
+                            {ligneEcartes(l.role) && <div className="mt-1 text-slate-500 max-w-md">{ligneEcartes(l.role)}</div>}
                           </div>
                         ) : (
                           <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.role.id, e.target.value)}>

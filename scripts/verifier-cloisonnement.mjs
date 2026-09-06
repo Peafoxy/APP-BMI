@@ -3686,6 +3686,24 @@ titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prosp
   }
 }
 
+titre("Dimensionnement solaire : 5 h de soleil et 48 V par défaut, et les articles écartés tiennent en UNE ligne");
+{
+  // Demande Timo (06/09/2026, capture DEMAKPOE) : la liste des articles
+  // écartés (48 V pour un système 24 V, article par article) prenait tout
+  // l'écran. Une seule ligne grise ; et le stock étant en 48 V, le système
+  // démarre en 48 V, avec 5 h de soleil.
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ SOLEIL_DEFAUT = 5 h et TENSION_DEFAUT = 48 V, utilisés par l'écran",
+    /export const SOLEIL_DEFAUT = "5";/.test(sol) && /export const TENSION_DEFAUT = "48";/.test(sol)
+    && /brouillon\?\.soleil \?\? SOLEIL_DEFAUT/.test(sol) && /brouillon\?\.tension \?\? TENSION_DEFAUT/.test(sol));
+  test("★ les écartés tiennent en une ligne (ligneEcartes), plus de liste article par article",
+    /const ligneEcartes = \(role\) =>/.test(sol) && !/article\(s\) écarté\(s\) :/.test(sol) && !/<li key=\{x\.p\.id\}>/.test(sol));
+  test("★ la ligne nomme la tension du stock ET celle du système quand c'est la seule cause",
+    /Stock en \$\{tensions\[0\]\} V, système réglé en \$\{tension\} V/.test(sol));
+  test("un devis repris garde SA tension (le défaut ne l'écrase pas)",
+    /besoinsRepris\?\.tension \? String\(besoinsRepris\.tension\) : \(brouillon\?\.tension \?\? TENSION_DEFAUT\)/.test(sol));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
