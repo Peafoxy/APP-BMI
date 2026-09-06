@@ -1,36 +1,35 @@
 # BMI-Gestion — ce qui a déjà été tranché
 
-Ce fichier est lu automatiquement au début de chaque session. Il existe pour
-une raison précise : **Timo ne doit pas avoir à réexpliquer ce qu'il a déjà
-décidé.** Tout ce qui est écrit ici a été tranché par lui, ou appris à la
-dure sur ce dépôt.
+Ce fichier est lu au début de chaque session. Il existe pour une raison :
+**Timo ne doit pas avoir à réexpliquer ce qu'il a déjà décidé.** Tout ce qui
+est ici a été tranché par lui, ou appris à la dure sur ce dépôt. Une règle
+ne se contourne pas et ne se « réinterprète » pas : si elle gêne, on le dit
+à Timo et on attend sa réponse.
 
-Une règle ici ne se contourne pas et ne se « réinterprète » pas. Si elle
-gêne, on le dit à Timo et on attend sa réponse.
+Ce fichier ne garde que les RÈGLES et les PIÈGES. L'état des chantiers et
+les histoires sont dans `docs/etat-*.md` (voir § 6) — on les lit quand le
+sujet revient, pas avant.
 
 ---
 
 ## 1. À qui on parle
 
-Timo dirige BMI Togo (vente de matériel solaire, Lomé). Il **n'est pas
-développeur**. Il connaît son métier mieux que quiconque et repère les
-défauts que les tests ne voient pas — plusieurs corrections importantes sont
-parties d'une de ses captures d'écran.
+Timo dirige BMI Togo (matériel solaire, Lomé). Il **n'est pas développeur**,
+connaît son métier mieux que quiconque et repère les défauts que les tests
+ne voient pas : plusieurs corrections importantes sont parties d'une de ses
+captures d'écran.
 
-- **On lui écrit en français**, toujours, y compris les phrases courtes
-  entre deux actions.
-- **Pas de jargon.** « La base refuse la ligne » et non « violation RLS ».
-  Quand un mot technique est inévitable, on l'explique en passant.
-- **On explique AVANT de construire.** Il l'a demandé mot pour mot :
-  « tu veux implémenter quoi ? dis-moi d'abord ». On décrit ce qu'on va
-  faire, il valide, on construit.
+- **On lui écrit en français**, toujours, sans jargon (« la base refuse la
+  ligne », pas « violation RLS »). Un mot technique inévitable s'explique
+  en passant.
+- **On explique AVANT de construire.** Mot pour mot : « tu veux implémenter
+  quoi ? dis-moi d'abord ». On décrit, il valide, on construit.
 - **On ne le rassure pas à tort.** Un test qui ne teste rien est pire qu'un
-  test absent : il rassure sans protéger. Si quelque chose n'est pas
-  vérifié, on le dit.
-
-**Seule exception accordée par lui :** « Si je casse quelque chose, je
-répare immédiatement sans attendre votre feu vert — mais je vous le dis tout
-de suite après. »
+  test absent. Si quelque chose n'est pas vérifié, on le dit.
+- **Seule exception accordée** : « Si je casse quelque chose, je répare
+  immédiatement sans attendre votre feu vert — mais je vous le dis tout de
+  suite après. » Un défaut qui viole une règle déjà tranchée par lui (par
+  exemple un mélange formation / réel) se répare de même, et on le lui dit.
 
 ---
 
@@ -38,10 +37,10 @@ de suite après. »
 
 | Interdit | Pourquoi |
 |---|---|
-| **Exécuter du SQL sur sa base Supabase** | On l'écrit, on l'explique, **il le colle lui-même**. Le SQL se met **directement dans le message**, jamais « voir tel fichier ». |
-| **Demander ou accepter un `.env`, une clé `service_role`** | Elle ne doit exister que comme variable d'environnement Vercel, côté serveur. |
-| **Préfixer une clé secrète par `VITE_`** | Vite l'embarque dans le paquet envoyé au navigateur : la clé devient publique. |
-| **`npm run dist`** | Déploiement **web uniquement**. La partie Electron n'est plus utilisée. |
+| **Exécuter du SQL sur sa base Supabase** — même si un outil le permet | On l'écrit, on l'explique, **il le colle lui-même**. Le SQL se met **dans le message**, jamais « voir tel fichier ». |
+| **Demander ou accepter un `.env`, une clé `service_role`** | Elle n'existe que comme variable Vercel, côté serveur. |
+| **Préfixer une clé secrète par `VITE_`** | Vite l'embarque dans le paquet envoyé au navigateur. |
+| **`npm run dist`** | Déploiement web uniquement ; Electron n'est plus utilisé. |
 | **Pousser sur une autre branche** que celle demandée | — |
 | **Mettre un nom de modèle d'IA** dans un commit, un commentaire, une PR | — |
 
@@ -52,7 +51,7 @@ de suite après. »
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 787 contrôles : la séparation formation / réel
+npm run verifier-cloisonnement   # 806 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -64,596 +63,191 @@ npm run tester-comptes           # 54  : les règles de rôle sur les comptes (s
 npm run tester-devis-chantiers   # 79  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
-Puis on incrémente `VERSION` dans `src/lib/constants.js` (une version par
-envoi, sans exception : c'est ce qui déclenche la mise à jour chez lui).
+Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
+envoi, sans exception : c'est ce qui déclenche la mise à jour chez lui), et
+`public/version.json`, réécrit par le build, part avec le commit (`git add -A`,
+puis `git status` avant de commettre — oublié deux fois).
 
-**⚠ POUSSER SUR LA BRANCHE NE DÉPLOIE RIEN.** Vercel envoie `main`, et rien
-d'autre. Tant que la branche n'est pas fusionnée dans `main`, le téléphone de
-Timo reste sur l'ancienne version — quoi qu'on lui ait annoncé.
-Le 29/08/2026, dix versions ont été écrites, testées et « annoncées
-déployées » alors qu'aucune n'était en ligne. C'est lui qui l'a vu :
-« Version 23 déployé, mais sur téléphone toujours le 13 ».
-On ne dit donc **jamais « déployée »** après un `git push` sur la branche —
-le mot ne vaut qu'après `git push origin HEAD:main`.
-
-**LA FUSION FAIT PARTIE DE L'ENVOI. On ne la demande pas.** Sa remarque du
-29/08/2026 : « depuis qu'on a commencé tu déploies automatiquement et tu
-fusionnes ; maintenant tu attends que j'ordonne la fusion d'abord ». C'était
-vrai, et l'incohérence venait de moi. Le déroulé est donc, à chaque fois et
-sans qu'il ait à le redemander :
+**⚠ Pousser sur la branche ne déploie rien.** Vercel envoie `main`, rien
+d'autre. On ne dit **jamais « déployée »** avant `git push origin HEAD:main`
+(le 29/08/2026, dix versions « annoncées » n'étaient pas en ligne ; c'est
+Timo qui l'a vu). **La fusion fait partie de l'envoi, on ne la demande pas** :
 
 ```
-les 6 bancs au vert  →  VERSION incrémentée  →  push sur la branche
-                     →  git push origin HEAD:main   ← toujours
+tous les bancs au vert  →  VERSION incrémentée  →  push sur la branche
+                        →  git push origin HEAD:main   ← toujours
 ```
 
-On ne s'arrête avant la fusion que dans deux cas : un banc en échec, ou une
-correction dont on lui a annoncé qu'elle changerait ses habitudes et qu'il
-n'a pas encore validée. Dans ces deux cas, on le DIT — on ne se contente pas
-de ne rien faire.
+On ne s'arrête avant la fusion que si un banc échoue, ou si la correction
+change ses habitudes et qu'il ne l'a pas encore validée — et on le DIT.
 
-**Le banc est la mémoire du projet.** Un défaut fermé reste fermé parce
-qu'un contrôle le surveille, pas parce qu'on s'en souvient.
-
-Quand un contrôle décrit un comportement qui n'a plus cours, **on le
-retourne, on ne le supprime pas** : ce qui était toléré doit devenir
-impossible, et le banc doit le dire dans ce sens-là.
+**Le banc est la mémoire du projet.** Un défaut fermé reste fermé parce qu'un
+contrôle le surveille. Quand un contrôle décrit un comportement qui n'a plus
+cours, **on le retourne, on ne le supprime pas**. Tout SQL serveur a son banc
+sur base jetable (`scripts/tester-*-sql.sh`) : on regarde si la base a levé
+une objection, jamais ce que psql affiche (leçon du 29/08/2026 : un banc qui
+lit mal est pire qu'un banc absent).
 
 ---
 
 ## 4. Les règles métier qu'il a posées
 
 ### Formation / réel — le mur
-- Une boutique, un compte, une donnée appartiennent à **un espace et un
-  seul** : le réel, ou l'entraînement.
-- **Seul l'administrateur principal traverse le mur.** Mot pour mot :
-  « Je suis le seul admin principal qui peut voir les 2 espaces à la fois.
-  Le reste, soit tu es admin formation, soit admin réel. »
-- Il bascule d'un espace à l'autre avec le sélecteur « 👁 Je regarde », qui
-  vit dans **⚙ Paramètres** — changer d'espace est un geste rare, il n'a pas à
-  occuper le menu de tous les écrans. Le menu n'en garde qu'un rappel.
-  Le basculement **recharge la page** : sans cela les écrans déjà visités
-  restent montés en veille et ne se remettent à jour qu'au fil des re-rendus
-  (les « 20 secondes » qu'il a signalées le 29/08/2026).
-  Ce réglage **survit au F5 et à une nouvelle version**, et **meurt à la
-  déconnexion** (retour au réel). Sa clé n'est écrite qu'à un seul endroit,
-  `lib/calculs.js` — deux copies, ce serait deux occasions de diverger.
-- **Les écrans d'administration suivent le sélecteur, eux aussi.** Relevé par
-  Timo le 29/08/2026 : ⚙ Paramètres et 👥 Utilisateurs listaient les DEUX
-  espaces mêlés. Le cloisonnement avait été posé partout où l'on compte de
-  l'argent, pas là où l'on bloque un compte ou supprime une boutique. Toute
-  liste de boutiques passe par `boutiquesVisibles`, toute liste de personnes
-  par `utilisateursDeLEspace`. **Les 28 listes déroulantes ont été balayées
-  une par une** (2.101.23).
+- Une boutique, un compte, une donnée appartiennent à **un espace et un seul**.
+- **Seul l'administrateur principal traverse le mur** (« je suis le seul
+  admin principal qui peut voir les 2 espaces à la fois »). Il bascule avec
+  « 👁 Je regarde » dans ⚙ Paramètres ; le basculement recharge la page,
+  survit au F5, meurt à la déconnexion. Sa clé n'est écrite qu'à un endroit,
+  `lib/calculs.js`.
 - **« Je vois les deux espaces » ne veut jamais dire « je les affiche
-  ensemble ».** C'est l'espace REGARDÉ qui décide, y compris pour
-  l'administrateur principal. Toute condition de la forme
-  `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est un défaut :
-  elle rouvre le mur pour lui seul, silencieusement.
-- **Toute liste de PERSONNES passe par `utilisateursDeLEspace`** — relevé par
-  Timo le 05/09/2026 : « dans Salaires aussi les employés formation
-  apparaissent ». ⚠ La table des comptes n'est PAS cloisonnée par le serveur
-  (un appareil neuf doit retrouver son compte pour se connecter) : le filtre
-  de l'application est la SEULE barrière, pour tous les rôles, pas seulement
-  pour l'admin principal. Le balayage de 2.101.23 portait sur les boutiques ;
-  les listes de gens ont été balayées en 2.101.62 : Salaires, Prospects
-  (réassigner), Messagerie (fils clients, membres, candidats), Paramètres
-  (transfert du rôle), Mon équipe (chefs), Utilisateurs (parrain), et le
-  message « nouveau client » aux admins. Le banc compte les lectures brutes
-  restantes fichier par fichier : une de plus fait tomber le contrôle.
-  **Impact argent vérifié sur la vraie base le 05/09/2026** (lecture seule
-  collée par Timo : dépenses d'une caisse réelle au nom d'un compte de
-  formation — virement, retenue, avance, crédit, remboursement, commission,
-  commission d'équipe, prime d'installation) : **0 ligne**. Rien n'est sorti.
-  Ne pas rouvrir ce sujet.
-- **Toute liste affichée passe par `filtreEspaceAffichage`** (ou par la
-  boutique regardée). Relevé le 05/09/2026 sur la question de Timo « les
-  ventes et les proformas sont-ils cloisonnés ? » : les ventes oui (par
-  boutique), le serveur oui (politiques espace sur les deux tables), mais la
-  liste « Proformas émis » de l'écran Ventes lisait `db.proformas` brut —
-  l'administrateur principal voyait les deux espaces mêlés. Corrigé en
-  2.101.59, contrôle au banc.
-- La caisse **« Chez le comptable » est réelle et n'a pas de jumelle** : elle
-  n'est proposée que lorsqu'on regarde le réel. Le verrou d'écriture la laisse
-  passer sans vérifier, justement pour cette raison. Seul le contrôle d'unicité d'un nom de boutique
-  regarde les deux espaces — sinon le serveur ne saurait plus classer la ligne.
-- **Ce qu'on crée naît dans l'espace qu'on regarde** — plus aucune case
-  « formation » à cocher à la création d'un utilisateur, d'une boutique ou
-  d'un magasin.
-- **L'espace du compte prime sur le réglage.** Un administrateur placé dans
-  la formation ne voit jamais les chiffres réels, quel que soit son réglage.
-  (C'est la fuite mesurée le 26/08/2026 : il voyait le chiffre d'affaires,
-  les dettes et les marges de la vraie entreprise.)
+  ensemble ».** C'est l'espace REGARDÉ qui décide, pour lui aussi. Toute
+  condition `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est
+  un défaut.
+- **Toute liste passe par un filtre d'espace** : boutiques →
+  `boutiquesVisibles` ; personnes → `utilisateursDeLEspace` ; lignes
+  (ventes, proformas…) → `filtreEspaceAffichage` ou la boutique regardée.
+  ⚠ La table des comptes n'est PAS cloisonnée par le serveur (un appareil
+  neuf doit retrouver son compte) : pour les personnes, le filtre de
+  l'application est la SEULE barrière, pour tous les rôles. Le banc compte
+  les lectures brutes de `db.users` fichier par fichier ; une de plus fait
+  tomber le contrôle. Trois défauts de ce genre ont été trouvés par Timo
+  (Paramètres/Utilisateurs le 29/08, proformas et Salaires le 05/09) —
+  l'impact argent du dernier a été vérifié sur la vraie base : 0 ligne.
+- **L'espace du compte prime sur le réglage** : un admin placé dans la
+  formation ne voit jamais les chiffres réels. **Ce qu'on crée naît dans
+  l'espace qu'on regarde** (plus de case « formation » à cocher).
+- La caisse **« Chez le comptable » est réelle et n'a pas de jumelle** ; la
+  caisse TERRAIN, elle, a sa jumelle de formation. Seul le contrôle
+  d'unicité d'un nom de boutique regarde les deux espaces.
 - La dérogation `'tous'` doit apparaître dans **chaque** politique
   `espace_cloisonnement` côté Supabase.
-- **L'application et le serveur doivent dire la même chose.** Si seule
-  l'application se restreint, la base reste ouverte et l'écran ne fait que
-  *cacher* ce qui est encore autorisé. `api/sync-auth.js` et
-  `voitLesDeuxEspaces()` de `lib/calculs.js` sont un couple : on ne touche
-  jamais l'un sans l'autre. Un contrôle du banc vérifie leur accord.
-- **L'espace formation est VIOLET, le réel est BLEU** (demande du 29/08/2026).
-  La couleur suit l'espace REGARDÉ. Elle se change en redonnant une valeur aux
-  variables `--color-sky-*` et `--color-blue-*` de Tailwind dans
-  `src/index.css`, sous `html[data-espace="formation"]` — **jamais** classe par
-  classe : le bleu est écrit 291 fois. Le vert, le rouge et l'ambre ne changent
-  pas : ils veulent dire payé, refusé, en attente.
-- L'étiquette d'espace n'est réécrite **qu'à la connexion**. Un changement
-  de règle ne prend effet qu'à la prochaine reconnexion de chacun — il faut
-  le dire à Timo à chaque fois.
+- **L'application et le serveur doivent dire la même chose.** `api/sync-auth.js`
+  et `voitLesDeuxEspaces()` sont un couple : on ne touche jamais l'un sans
+  l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
+  rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
+  `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
+  applique la même règle par déclencheur (`supabase/securite-3` à `-7`).
+- **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
+  les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
+  classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
+- L'étiquette de connexion (espace, rôle, principal, boutique, pouvoirs
+  retirés) n'est réécrite **qu'à la connexion** : tout changement de règle
+  prend effet à la prochaine reconnexion de chacun — à dire à Timo.
+
+### Les rôles (décisions du 04/09/2026, appliquées côté serveur)
+- Admin seul : supprimer vente / dette / dépense / article / compte ; prix
+  d'achat, prix de vente, quantité initiale ; retours sous garantie ; agents
+  commerciaux ; bloquer un compte et les champs de gestion d'un employé ;
+  la fiche d'un chantier (adresse, garantie, délai, entretien, cadeau,
+  photo supprimée, compte lié, frais, primes, lien PV, réception forcée,
+  avenant) ; catégories de prospects, boutiques, groupes.
+- Admin PRINCIPAL seul (« moi seul ») : mot de passe d'un autre compte,
+  transfert du rôle, bascule réel ↔ formation, plan de règlement, signature
+  du contrat en boutique, écran de connexion, cachet, suppression d'une
+  boutique avec ses données, restauration d'une sauvegarde, corbeille.
+- Magasinier + gérant + admin : articles, entrées, ajustements, transferts,
+  inventaire, bons. Gérant + admin : clôture de caisse, fournisseurs.
+  Admin + resp. commercial : programmer une installation. Admin ou chef de
+  CE chantier : marquer terminé. Admin ou son commercial (« laisser comme
+  tel ») : supprimer un chantier, gestes sur un prospect. Réassigner un
+  prospect : admin / resp. com / chef d'équipe avec le pouvoir.
+- **Remise au-delà de 3 %** : admin seul (devis, vente, proforma, commande).
+- Le comptable est en lecture seule, sauf SON geste : pointer un décaissement.
 
 ### Boutique de travail
-- « **NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE SÉRIE D'ACTUALISATIONS DE LA
-  PAGE.** » La boutique choisie est mémorisée **par écran**
-  (`bmi_boutique:<id>:<écran>`), pas globalement.
-- Enregistrer un stock dans la mauvaise boutique était trop facile : on
-  aide par **présélection**, jamais par une question de confirmation. Ses
-  boutiques vendent le même matériel — une alerte se déclencherait sur le
-  cas normal et on apprendrait à l'ignorer.
+- « **NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE SÉRIE D'ACTUALISATIONS.** » La
+  boutique est mémorisée **par écran** (`bmi_boutique:<id>:<écran>`) ; le
+  dimensionnement en a une seule pour ses trois volets.
+- On aide par **présélection**, jamais par une question de confirmation (ses
+  boutiques vendent le même matériel : l'alerte partirait sur le cas normal).
 
-### Clients
-- Un numéro de téléphone se compare sur ses **8 derniers chiffres**
-  (`memeNumero`). `+228 90 11 22 33` et `90112233` sont le même client :
-  les comparer bruts créait des doublons et une seconde prime de parrainage.
-- **Une commission n'est due qu'après DEUX choses** : la réception des travaux
-  **et** le solde de la dette du client. Sa décision du 29/08/2026, après avoir
-  remarqué qu'un client pouvait signer son PV en ayant versé 30 % : « un franc
-  ne sort pas de la caisse avant d'y être entré ». La **part du parrain** suit
-  la même règle — « c'est lorsque le client (filleul) a soldé sa dette » —
-  et **l'apporteur externe aussi** (« l'apporteur externe attend le solde
-  comme le parrain », tranché le 29/08/2026).
-  Le lien `dette.vente_id` est posé à l'encaissement ; les dettes créées avant
-  la 2.101.19 ne l'ont pas, leurs ventes gardent l'ancienne règle.
-- Le plan de règlement se choisit **à la signature du contrat**, pas du PV.
-  **L'administrateur principal seul** accepte ou refuse — sa réponse du
-  29/08/2026, mot pour mot : « moi seul ». La date de première échéance est
-  **libre**.
-- L'appareil d'un client ne doit télécharger **que ses propres données**.
-  `lireTout()` récupère tout ce que le serveur laisse passer : **les
-  politiques RLS sont la seule barrière**, il n'y a aucun filtre par
-  utilisateur côté application.
+### Clients, devis, chantiers
+- Un téléphone se compare sur ses **8 derniers chiffres** (`memeNumero`).
+- **Une commission n'est due qu'après DEUX choses** : réception des travaux
+  **et** solde de la dette (« un franc ne sort pas de la caisse avant d'y
+  être entré »). Part du parrain et apporteur externe : même règle.
+- Le plan de règlement se choisit **à la signature du contrat**, pas du PV ;
+  date de première échéance **libre**.
+- L'appareil d'un client ne télécharge que ses données : les politiques RLS
+  sont la seule barrière, aucun filtre côté application.
+- Un devis ne touche pas le stock ; l'encaissement, oui (« ça reste ainsi »).
+- Signature en boutique : admin principal seul, jusqu'au mode superviseur.
+- **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
+  → « Type - Client - Numéro ». **Zone de signature : UNE**
+  (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.
+- **Corbeille** : supprimer un chantier le met de côté 30 jours, restaurable
+  par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
+  ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
+  refusionnée à l'écriture, comme la paie).
 
-### Retours / SAV (échange sous garantie — 2.101.37)
-- **Un échange n'est JAMAIS une vente** : la sortie de l'article de
-  remplacement est un ajustement négatif (`echange_garantie`) — aucun CA,
-  aucune commission, aucun reçu. Toute la logique est dans
-  `construireRetour()` (lib/calculs.js), pure, surveillée par le banc.
-- Le défectueux rendu entre dans un **stock SAV à part** (`retour_defectueux`,
-  qte: 0, compte dans `qte_sav`) — jamais dans le stock vendable. Son sort :
-  « renvoyé au fournisseur » OU « rebut » — les deux, tranché par Timo.
-- Les frais éventuels (déplacement, main-d'œuvre, décote selon l'âge — ses
-  trois cas) passent par une **dette du montant SAISI**, jamais déduit du
-  prix de l'article.
-- Le geste est réservé à **tout admin** (« tout admin », 31/08/2026), bouton
-  🔁 Retour sur chaque vente. Le coût des garanties s'affiche en Rentabilité
-  (prix d'achat photographié au moment de l'échange).
+### Retours / SAV
+- **Un échange n'est JAMAIS une vente** : ajustement négatif
+  (`echange_garantie`), aucun CA, aucune commission ; logique dans
+  `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
+  (« renvoyé au fournisseur » ou « rebut »). Les frais passent par une
+  **dette du montant saisi**. Geste réservé à tout admin.
 
-### Apparence
-- **Le tableau de bord reste tel qu'il est** (cases à fond pastel, une
-  teinte par nature ; sélecteur de période entre les deux rangées de
-  cartes ; statut « En ligne » aussi dans la barre du haut). Un habillage
-  « cartes blanches à liseré, sections titrées » a été proposé, montré et
-  **refusé** par Timo (2.101.30, annulé en .31 : « je préfère le précédent
-  tableau de bord »). Ne pas le reproposer.
+### Stocks
+- Présélectionner un article remplit le formulaire d'ajout ; la correction
+  ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
+  colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix
+  d'achat, prix de vente ; deux modes (nouveaux articles / entrées).
 
-### Signature
-- **UNE seule zone de signature** pour toute l'application :
-  `components/ZoneSignature.jsx` (cadre **440 × 300**, demande Timo du
-  05/09/2026 — d'abord 440 × 220, puis 300 le même jour). Elle sert aux quatre emplacements : signature personnelle
-  d'un employé (📄 Contrats), signature du client sur le contrat en boutique
-  (📋 Tous les devis), sur le contrat depuis son téléphone et sur le PV
-  (Espace client). Aucun écran ne dessine plus de canevas lui-même — le banc
-  l'interdit. La position du trait exclut la bordure (clientWidth /
-  clientLeft) : c'est la version corrigée après deux signalements de Timo.
-
-### Doublons
-- **Le relevé des doublons du 05/09/2026 est dans `docs/doublons-2026-09.md`**
-  (demande Timo : « répertorier les fonctions identiques qui ne dépendent
-  pas d'une seule règle »). 12 vraies règles écrites plusieurs fois (A1–A12),
-  5 gestes répétés à la main (B1–B5), ordre conseillé en fin de document.
-  ⚠ Déjà divergent : `Ventes.jsx` ouvre WhatsApp avec un texte NON encodé.
-  **Rien n'est unifié tant que Timo ne dit pas lequel** — on explique avant.
-
-### Étiquettes
-- Format **60 × 30 mm**, nom de la boutique **en haut**, nom de l'article
-  **en bas**, code-barres de hauteur fixe (11 mm).
-- Une barre fine ne descend jamais sous 0,25 mm, sinon aucune douchette ne
-  lit. D'où `LONGUEUR_MAX_CODE = 17` caractères.
+### Apparence et étiquettes
+- **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
+  deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
+  reproposer.
+- Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
+  11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 
 ---
 
 ## 5. Les pièges rencontrés — ne pas y retomber
 
-- **`export { x } from "y"` ne crée PAS de variable locale.** Le module
-  réexporte `x` mais ne peut pas s'en servir. Il faut **importer ET
-  réexporter**. Ce piège a été touché deux fois.
-- **Aucun hook React après un `return` anticipé.** `App.jsx` contient
-  `if (!db) return <LoadingSpinner/>` vers la ligne 622 : tout `useState`
-  ou `useEffect` placé après plante l'application.
+- **Le build ne vérifie PAS les noms** : une fonction utilisée sans import
+  passe le build et donne un ÉCRAN BLANC (2.101.59). `verifier-imports`
+  fait partie de chaque envoi ; un script qui ajoute une ligne ajoute
+  l'import dans le MÊME geste, et on vérifie.
+- **`export { x } from "y"` ne crée PAS de variable locale** : importer ET
+  réexporter. Touché deux fois.
+- **Aucun hook React après un `return` anticipé** dans `App.jsx`
+  (`if (!db) return …`) : écran blanc. Touché deux fois.
 - **Supabase donne les droits par défaut à `anon` sur toute nouvelle table
   ET toute nouvelle fonction.** `revoke from public` ne suffit pas.
-- **`src/lib/identiteClient.js` ne doit rien importer.** Il est lu par le
-  navigateur *et* par Node (les fonctions `api/`), et Node ne sait pas
-  résoudre les imports sans extension de Vite.
-- **Un cadre confié à une bibliothèque extérieure (Leaflet…) ne doit JAMAIS
-  avoir d'enfant React.** Quand un div n'a qu'un texte React comme enfant,
-  React prend un raccourci (textContent) : au retrait du texte, il vide le
-  div ENTIER — le dessin de la bibliothèque avec. C'était LA cause de la
-  carte blanche (02/09/2026), trouvée par mesure (« CARTE-EFFACEE » /
-  « CARTE-SURVIT ») après trois correctifs plausibles mais à côté. Règle :
-  div auto-fermé pour la bibliothèque, textes dans un cadre frère. Trois
-  contrôles du banc la verrouillent.
-- **Le build ne vérifie PAS les noms : une fonction utilisée sans être
-  importée passe `npm run build` et donne un ÉCRAN BLANC au premier
-  affichage.** C'est arrivé en 2.101.59 (filtreEspaceAffichage dans
-  Ventes.jsx, importé nulle part) — Timo l'a vu avant le banc. Réparé en .60,
-  et `npm run verifier-imports` (ESLint, règle no-undef seule) fait désormais
-  partie de chaque envoi ; il a trouvé au passage un second oubli dormant
-  (uPrompt dans Salaires.jsx, paiement CNSS), réparé en .61. ⚠ Quand un
-  script ajoute une ligne qui utilise un nom, il ajoute l'import dans le MÊME
-  geste — et on vérifie, on ne suppose pas.
-- **Une expression régulière trop large casse le JSX en silence.** Deux
-  fichiers ont été abîmés ainsi. Après toute retouche en masse :
-  `npm run build`, et `git checkout --` sans hésiter si c'est parti de
-  travers.
-- **Un pouvoir, un bouton ou une alerte qui ne commande plus rien doit être
-  retiré**, pas laissé en place. Une case à cocher qui ne fait rien fait
-  croire à Timo qu'il a réglé quelque chose.
-- **`public/version.json` est réécrit par le build et DOIT partir avec
-  chaque envoi.** C'est lui qui signale aux appareils qu'une mise à jour
-  existe. Oublié deux fois (2.101.29 et .30) parce que le commit listait
-  les fichiers un par un : après `npm run build`, vérifier `git status`
-  avant de commettre.
+- **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
+- **Un cadre confié à une bibliothèque extérieure (Leaflet) n'a JAMAIS
+  d'enfant React** : div auto-fermé, textes dans un frère (carte blanche
+  du 02/09, trouvée par mesure après trois correctifs à côté).
+- **Une expression régulière trop large casse le JSX en silence** : après
+  toute retouche en masse, `npm run build`, et `git checkout --` sans hésiter.
+- **Un pouvoir, un bouton, une alerte qui ne commande plus rien se retire**,
+  jamais laissé en place.
+- **Une écriture refusée par le serveur coince tout le lot** (tout ou rien)
+  et doit afficher son motif ; le filet « Abandonner ce geste refusé »
+  (admin principal) retire le geste de la file.
+- **Le banc mesure, il ne présume pas** : bundler le module (esbuild) et
+  exercer la vraie fonction plutôt que lire le code ; un contrôle qui rassure
+  sans protéger est pire qu'absent.
 
 ---
 
-## 6. Ce qui reste ouvert
+## 6. Ce qui reste ouvert — voir `docs/`
 
-**L'audit complet du 29/08/2026 est dans `docs/audit-complet-2026-08.md`**
-(22 279 lignes lues). Rien n'en a été corrigé : c'était un audit, pas un
-chantier. Les constats, par ordre de gravité.
+Un fichier par sujet, à lire **quand le sujet revient**. Chacun dit où l'on
+s'est arrêté, mot pour mot.
 
-### Graves
-1. ~~Un compte client peut écrire dans `dettes`, `ventes` et `produits`~~ —
-   **FERMÉ, et vérifié sur la vraie base le 29/08/2026** (capture de Timo) :
-   `role_client_pas_de_produits`, `role_client_ne_modifie_pas_les_dettes`,
-   `role_client_ne_cree_pas_de_vente` et le déclencheur
-   `client_ventes_reception_seule_trg`. Son espace continue de créer la dette
-   d'un devis « pose seule » et de signer son PV — mais il ne peut plus gonfler
-   la prime de son parrain au passage. **Ne pas rouvrir ce sujet.**
-   ⚠ Sauf ceci : le déclencheur plantait sur une vente **sans** apporteur
-   (« cannot delete from scalar ») — toute signature de PV sans parrain était
-   refusée par le serveur. Trouvé le 31/08/2026 par le banc de l'étape 3 (le
-   banc d'écriture ne testait que des ventes AVEC apporteur). Corrigé dans le
-   fichier `client-2` et posé sur la vraie base via le collage de `client-4`.
-   ⚠ L'escalade de privilège, elle, est **fermée, et vérifié sur la vraie base
-   le 29/08/2026** (capture de Timo) : `interdire_escalade` sur `users`,
-   `interdire_escalade_paie_trg` sur `paie`. Je l'avais annoncée ouverte —
-   c'était mon banc qui lisait mal. **Ne pas rouvrir ce sujet.**
-2. ~~Restaurer une sauvegarde efface tout ce qui a été créé depuis~~ —
-   **corrigé en 2.101.18**. Le geste reste destructeur par nature (le
-   garde-fou anti-état-périmé de `save()` ne peut pas s'appliquer à un
-   fichier, qui n'a pas de `__v`), mais il compte et nomme désormais ce qui
-   serait perdu, exporte l'état actuel avant, exige un code tiré au hasard,
-   et n'appartient qu'à l'administrateur principal.
-3. ~~Refuser une vente à crédit l'enregistre quand même~~ — **corrigé en
-   2.101.16**, surveillé par `npm run verifier-ecran-ventes`.
-4. ~~Les frais de pose ne sont jamais mis à la dette~~ — **corrigé en
-   2.101.16** : la dette réclame désormais ce que le reçu annonce.
-5. ~~Un employé peut se remettre `actif: true`~~ — **fermé le 29/08/2026** :
-   `refuser_elevation_de_soi_trg` est posé sur la vraie base (capture de
-   Timo), et l'écran Utilisateurs a été mis d'accord avec lui en 2.101.17.
+| Sujet | État | Fichier |
+|---|---|---|
+| Chantiers en attente du feu vert de Timo : **mots de passe clients** (3 voies proposées, pas tranché), **mode superviseur** (cadré, « pas pour le moment »), **corbeille** (faite pour les chantiers ; prospects / articles / ventes possibles) | À sa demande | `docs/etat-chantiers-en-attente.md` |
+| **WhatsApp depuis le numéro BMI** (coexistence, YCloud créé, arrêté au QR) | En pause, ne pas relancer | `docs/etat-whatsapp-numero-bmi.md` |
+| **Doublons** : 12 règles écrites plusieurs fois ; point 1 (trois volets du dimensionnement) expliqué, attend « lance » | À sa demande | `docs/doublons-2026-09.md` |
+| Vague 3 — verrous serveur entre employés | Terminée, tout collé | `docs/etat-vague-3-verrous-serveur.md` |
+| Vague 2 — lecture des comptes clients (histoire ESSO close) | Terminée, tout collé | `docs/etat-vague-2-lecture-client.md` |
+| Suites de l'audit du 29/08 (graves fermés, hygiène, 3 projets sur la base) | Fermé, ne pas rouvrir | `docs/etat-audit-2026-08.md` |
+| Inventaire des verrous (cases cochées par Timo) | Référence | `docs/inventaire-verrous-employes-2026-09.md` |
+| Audit complet du 29/08 (22 279 lignes lues) | Référence | `docs/audit-complet-2026-08.md` |
+| L'ancien CLAUDE.md complet (659 lignes), tel qu'il était avant le rangement du 06/09 — pour retrouver un détail condensé ici | Référence | `docs/CLAUDE-avant-rangement-2026-09-05.md` |
+| Cloisonnement **par boutique** (au-delà de l'espace) | Reporté | — |
 
-### Réels
-
-### Bancs
-`npm run tester-ecriture-sql` mesure ce que la base laisse écrire à un compte
-connecté. **22 sur 22 depuis la 2.101.54** : le dernier trou (un employé qui
-écrivait `salaire_base` dans `users.data`) est fermé par
-`securite-5-comptes.sql`, que le banc charge désormais.
-
-⚠ **Leçon du 29/08/2026 : un banc qui lit mal est pire qu'un banc absent.**
-Celui-ci décidait « accepté / refusé » en lisant la dernière ligne de psql —
-or psql annonce « SET » pour chaque commande réussie, et ces « SET » étaient
-pris pour un résultat. Toutes les portes fermées par un déclencheur étaient
-annoncées grandes ouvertes, et j'ai alerté Timo à tort. On ne lit plus la
-sortie : on regarde si la base a levé une objection.
-
-### Chantiers plus anciens, toujours ouverts
-- **Mot de passe des comptes clients, calculable à partir du nom et du
-  numéro** : un plan complet (hasard à la création, « renvoyer » = nouveau
-  mot de passe, messages PV/devis sans mot de passe pour les comptes
-  existants) a été décrit à Timo le 31/08/2026. Sa réponse : « on laisse
-  d'abord » — mis en attente, ni validé ni refusé. **Ne pas construire
-  sans son feu vert** ; le jour venu, lui rappeler le plan tel quel.
-- **Vague 2 — la LECTURE** : `dettes`, `ventes`, `clients_installes` restent
-  lisibles par tous les comptes clients (l'écriture, elle, est traitée par
-  `client-2-fermer-ecriture.sql`).
-  **Étape 1 FAITE (2.101.28)** : toute dette et toute vente naissent avec leur
-  propriétaire (`client_user_id`, résolu par `compteClientPour` — téléphone
-  d'abord, nom exact en repli, null pour un client de passage). Les chantiers
-  portaient déjà `user_id`.
-  **Étape 2 ÉCRITE ET TESTÉE (2.101.29)** : `client-3-rapprocher-proprietaires.sql`
-  rapproche l'existant (téléphone 8 chiffres, puis nom exact, seulement si UN
-  seul compte correspond ; jamais les comptes bloqués ni les non-clients ;
-  lignes déjà marquées intouchées ; horodatage désactivé pendant l'écriture ;
-  ⚠ les chantiers écrivent `user_id: ""` — la chaîne vide compte comme « pas
-  marqué »). Vérifié par `npm run tester-rapprochement` (19 contrôles sur base
-  jetable, rejouable). **COLLÉE par Timo le 31/08/2026** — résultat : base
-  quasi vide (0 dette, 0 vente, 1 chantier déjà marqué), rien à reprendre.
-  **Étape 3 ÉCRITE ET TESTÉE (2.101.32)** : `client-4-fermer-lecture.sql`
-  ferme la lecture (un client ne lit que SES lignes). Trois exceptions
-  mesurées, chacune parce qu'un écran en a besoin : les chantiers/ventes/
-  dette de ses FILLEULS quand il est parrain (sinon « part due » s'affiche
-  à tort), et la vente rattachée à son chantier (celle du PV). Vérifié par
-  `npm run tester-client-lecture` (23 contrôles sur base jetable).
-  **COLLÉE par Timo le 31/08/2026** (« les 3 lignes son restrictive/select ») —
-  le correctif du déclencheur `client_ventes_reception_seule_trg` est parti
-  dans le même collage. **La vague 2 est terminée.** Reste la preuve d'usage :
-  à la première vraie vente à crédit d'un client à compte, vérifier que sa
-  dette s'affiche sur SON téléphone.
-  ⚠ **PREMIÈRE VRAIE VALIDATION DE DEVIS (compte ESSO, 31/08/2026) : refusée
-  en silence.** Deux gestes de l'espace client écrivaient dans des lignes que
-  client-1 ne laisse plus toucher : le badge « devis validé » sur une fiche
-  prospect SANS étiquette, et la note du commercial DANS SA fiche à lui. Une
-  écriture refusée = tout le lot coincé (tout ou rien), et le chemin groupé
-  ne remontait AUCUN message à l'écran. Corrigé en 2.101.34 : le refus d'un
-  lot s'affiche désormais avec le motif du serveur ; la fiche prospect est
-  marquée à l'ENVOI du devis par l'employé (Partages.jsx) et le client ne
-  touche plus que les fiches marquées ; la note se range dans la fiche du
-  CLIENT (`evaluations_donnees`, agrégée par `evaluationsDe()` avec l'ancien
-  emplacement). `client-5-marquer-prospects.sql` rattrape l'existant
-  (horodatage NON suspendu, exprès : les appareils doivent retélécharger).
-  Banc : `npm run tester-espace-client` (13 contrôles — rejoue les gestes
-  complets via appliquer_lot, ce que personne ne faisait).
-  Le message rendu visible a nommé le VRAI coupable du blocage d'ESSO : le
-  **journal** (`audits`). Chaque geste écrit sa ligne de journal, et
-  `role_client_pas_de_journal` (client-1) refusait celle du client — lot
-  users + audits + commandes coincé. Corrigé en 2.101.36 : les lignes de
-  journal portent `user_id`, et la règle laisse un client voir/écrire SES
-  lignes (les anciennes, sans user_id, passent par le nom vérifié dans SA
-  fiche). **RÉGLÉ ET CLOS le 31/08/2026 — Timo a collé le SQL, l'histoire
-  ESSO est terminée. Ne plus la lui rappeler.** Et le « la page refuse de quitter » : les boîtes de dialogue
-  (uConfirm/uAlert) étaient à z-50 comme les grandes fenêtres d'écran,
-  qui passaient DEVANT — la question « Valider ? » s'ouvrait derrière le
-  contrat, incliquable. DialogHost est à z-[70] désormais.
-- ~~Un employé peut encore écrire `salaire_base` dans `users.data`~~ — fermé
-  par `securite-5-comptes.sql` (vague 3, étape 3), collé par Timo le
-  05/09/2026.
-- Les trois scripts d'hygiène (`avis-supabase-0`, `securite-1-audits-
-  et-tombstones`, `avis-supabase-1-search-path`) ont TOUS été collés par
-  Timo le 31/08/2026 : journal cloisonné (14 tables, 93 lignes réelles /
-  2 formation), tombstones fermées aux anonymes, chemin de recherche figé
-  sur TOUTES les fonctions (site vitrine compris). Plus rien en attente
-  côté hygiène serveur.
-- **La base Supabase héberge TROIS projets** (vu sur l'état des lieux du
-  31/08/2026) : BMI-Gestion, le site vitrine bmitogo.com (galerie, kits,
-  realisations, temoignages, contenu_site, produit_*, commandes_en_ligne,
-  demandes_devis, messages_contact — leurs règles « lecture publique » et
-  « depot public » sont VOULUES, ne pas les fermer), et un projet WIFI
-  (~18 tables `wifi_*`, RLS actif sans aucune règle : verrouillées ;
-  demander à Timo si cette app tourne encore avant d'y toucher).
-  ⚠ Les règles `acces_authentifie_*` affichent le profil {public} mais
-  exigent `auth.role() = 'authenticated'` : pas des portes.
-  Les deux SEULES vraies portes publiques trouvées (`groupes_all`,
-  `proformas_all`, condition true, toutes actions) ont été fermées par
-  Timo le 31/08/2026 (drop policy).
-- **WhatsApp depuis le numéro BMI (envoi automatique)** — CADRÉ le
-  02/09/2026, PAS ENCORE CONSTRUIT. Demande Timo : « que ce soit le numéro
-  BMI qui envoie le message et non le numéro personnel de chaque employé ».
-  Aujourd'hui l'app ouvre `wa.me` : c'est le compte WhatsApp de l'APPAREIL
-  qui envoie, l'app ne choisit pas l'expéditeur. Trois voies expliquées :
-  (1) lier le numéro BMI sur les appareils de travail (4 appareils, manuel,
-  gratuit) ; (2) canal API Meta sur un numéro DÉDIÉ « machine » — refusé
-  parce que **les clients appellent sur WhatsApp** et un numéro API ne
-  reçoit pas d'appel ; (3) **« coexistence »** : le MÊME numéro reste sur
-  l'app WhatsApp Business du téléphone (appels, discussions, réponses des
-  clients) ET est relié au canal d'envoi automatique — ouvert dans tous les
-  pays depuis mai 2026. **Timo a choisi (3)** ; le numéro BMI est déjà sur
-  WhatsApp Business (confirmé par lui). Le raccordement passe par un
-  partenaire Meta (inscription « Embedded Signup », réservée aux partenaires
-  — pas en direct chez Meta pour une petite entreprise) : 360dialog, YCloud…
-  à choisir par Timo, frais mensuels du partenaire + conversations
-  facturées par Meta. Côté app, à construire quand il dira « vas-y » :
-  `api/whatsapp.js` (clé Meta en variable Vercel côté serveur, JAMAIS
-  `VITE_`, appel réservé aux sessions connectées), remplacement des ouvertures
-  `wa.me` (devis, comptes clients, PV, parrainage, relances) par l'envoi
-  serveur avec **repli sur l'ouverture WhatsApp actuelle** si le serveur
-  refuse (un message n'est jamais perdu en silence — règle du 18/08/2026),
-  **journal des envois** visible (envoyé / livré / lu / échec + motif),
-  file d'attente hors ligne, et **verrou formation : un compte
-  d'entraînement n'envoie JAMAIS un vrai WhatsApp** (envoi simulé, inscrit
-  comme tel). Pas de boîte de réception à construire : avec la coexistence
-  les réponses arrivent sur le téléphone. Messages types (devis prêt,
-  identifiants, lien PV, rappel) à écrire pour validation Meta.
-  **ÉTAT AU 03/09/2026 — MIS EN PAUSE PAR TIMO (« on laisse ça pour le
-  moment »).** Fait : le portefeuille Meta Business « BMI Togo » existe,
-  Timo en est administrateur (accès total). La vérification d'entreprise
-  n'est PAS proposée tant qu'aucun compte WhatsApp n'est relié — c'est
-  normal, et elle n'est plus obligatoire pour envoyer (limite ~250 clients
-  distincts / jour sans elle). ⚠ « Meta Verified » (badge bleu payant) n'a
-  RIEN à voir — Timo s'était retrouvé sur sa liste d'attente.
-  **Compte YCloud CRÉÉ (formule Free)** le 03/09/2026, après un code de
-  vérification arrivé tardivement. Le raccordement « Coexistence » est
-  ENGAGÉ : fenêtre Meta → portefeuille BMI Togo → « Associer une
-  application WhatsApp Business » → Suivant → **code QR à scanner** — arrêté
-  là parce que Timo n'avait pas le téléphone BMI (seul l'appareil principal
-  du numéro peut scanner). À reprendre depuis YCloud → WhatsApp accounts →
-  Coexistence → Get started, téléphone BMI en main (WhatsApp Business à
-  jour, internet). Côté app, rien n'a été construit. **Ne pas relancer
-  Timo ; reprendre quand il le demandera**, au point exact ci-dessus.
-- **VAGUE 3 — verrouiller côté serveur les règles entre EMPLOYÉS** :
-  demandée par Timo le 04/09/2026 (« tout devrait normalement être
-  verrouillé »). **Inventaire livré** :
-  `docs/inventaire-verrous-employes-2026-09.md` (à cocher par lui, ligne
-  par ligne). Constat : le serveur ne distingue que client / admin /
-  lecture seule et le mur d'espace ; vendeur, gérant, magasinier,
-  commercial, technicien sont identiques pour lui, admin secondaire =
-  admin principal (l'étiquette « principal » n'est PAS dans le jeton), et
-  aucune notion de boutique. Ordre proposé : (0) **URGENT** fermer les
-  faire-part de suppression `tombstones` — ouverts à TOUT compte connecté,
-  clients compris : un faux marqueur `*` vide la base locale ET la file
-  d'attente de tous les appareils ; (1) étiquette « admin principal » +
-  filet « retirer d'un lot le geste refusé » ; (2) argent ; (3) comptes ;
-  (4) devis/chantiers (lecture dans la fiche client — délicat) ; (5) les ❓.
-  Règle d'application à poser en même temps : tout geste réservé à un rôle
-  le revérifie DANS le geste, pas seulement à l'affichage. **Ne rien
-  construire avant que Timo ait coché l'inventaire.**
-  **Étape 0 ÉCRITE ET TESTÉE le 04/09/2026** (Timo : « Ok ») :
-  `supabase/securite-3-faire-part.sql` — un client n'écrit jamais de
-  faire-part (3 règles restrictives), déclencheur `faire_part_sincere_trg`
-  (BEFORE INSERT/UPDATE, security definer) : refuse un faire-part sur une
-  ligne qui existe encore, une table inconnue, et réserve les marqueurs
-  globaux (`*`, `__TRUNCATE__`) au rôle admin ; jeton vide / service_role
-  passent (éditeur SQL, TRUNCATE). Banc `npm run tester-faire-part`
-  (14 contrôles, dont 2 qui prouvent le trou AVANT le verrou).
-  **COLLÉ par Timo le 04/09/2026** (capture : 3 / true / true) — le trou
-  des faire-part est FERMÉ sur la vraie base. Suite : ses réponses aux ❓
-  de l'inventaire, puis étape 1 (étiquette « principal » + filet de lot).
-  **Réponses de Timo aux ❓ (04/09/2026)** — point 5 : « limiter et
-  verrouiller » = plafonner la remise libre sur un devis côté serveur
-  (au-delà du seuil : admin seul — **seuil à lui demander**) ET verrouiller
-  cadeaux, photos, date d'entretien, tâches (admin / pouvoir) côté serveur,
-  contre mon avis « laisser » — sa décision. **Plafond de remise : 3 %**
-  (au-delà : admin seul). Point 1 (clôturer la caisse) : **admin + gérant**.
-  Point 3 (pouvoirs + boutique dans l'étiquette) : **oui**. Point 2 (entrées / ajustements / transferts de stock) :
-  **magasinier + gérant + admin** (tranché après signalement des
-  conséquences d'« admin principal seul »). Point 4 (gestes « admin ou son
-  commercial ») : **« laisser comme tel »** = la règle d'aujourd'hui,
-  appliquée par le serveur avec la notion de propriétaire. **Tous les ❓
-  sont tranchés ; les ✅ validés par défaut.**
-  **Étape 1 CONSTRUITE (2.101.51, 04/09/2026)** : (a) l'étiquette de
-  connexion porte `principal` (drapeau admin_principal sur un admin actif —
-  le serveur NE reproduit PAS le repli « premier admin » de l'application ;
-  App.jsx prévient l'intéressé si sa fiche n'a pas le drapeau, seul un SQL
-  peut le poser), `boutique` et `pouvoirs_off` ; effet à la reconnexion ;
-  (b) **le filet** : `lib/abandonLot.js` (pur) + `abandonnerGesteRefuse` dans
-  sync.js + bouton « 🗑 Abandonner ce geste refusé » dans la bannière rouge
-  (admin principal seul) — retire de la file le geste refusé ET ce qui
-  attendait derrière sur les mêmes enregistrements, remet l'appareil à
-  l'état d'avant (base / effacement des créations), redemande au serveur
-  les lignes supprimées localement, journal au nom de l'admin. Aucun SQL
-  pour cette étape ; drapeau vérifié par Timo (TIMO = true).
-  **Étape 2 CONSTRUITE (2.101.52 application, 2.101.53 alignements) :**
-  chaque geste d'argent revérifie son rôle DANS le geste
-  (`refuserSaufAdmin` / `refuserSaufRoles` / `ROLES_STOCK` / `ROLES_CAISSE`
-  / `ROLES_FOURNISSEURS` / `PLAFOND_REMISE_PCT` dans lib/calculs.js) ; la
-  remise > 3 % est refusée aux non-admins sur devis, vente (sauf remise de
-  la commande encaissée), proforma, commande ; l'entrée Excel ignore le
-  prix d'achat pour les non-admins. **SQL serveur écrit et testé** :
-  `supabase/securite-4-argent.sql` (11 déclencheurs + exception du pointage
-  comptable sur `role_lecture_seule_maj` de depenses — le comptable était
-  refusé côté serveur AVANT, trouvé par le banc), banc
-  `npm run tester-argent` (57 contrôles). ⚠ Extension décidée par moi et
-  signalée à Timo : le plafond de 3 % vaut aussi pour ventes / proformas /
-  commandes (même argent). **COLLÉ par Timo le 04/09/2026** (capture :
-  11 / true) — les verrous de l'argent sont EN PLACE sur la vraie base.
-  **Étape 3 CONSTRUITE (2.101.54, 05/09/2026 — Timo : « Lance ») :** les
-  gestes sur les comptes revérifient leur rôle dans le geste
-  (`refuserSaufAdmin` ×19 dans Utilisateurs.jsx, `refuserSaufAdminPrincipal`
-  pour mot de passe / bascule d'espace / transfert du rôle, `refuserSaufTaches`
-  + `ROLES_TACHES` dans Mon équipe, virement de salaire dans calculs.js).
-  **SQL serveur écrit et testé** : `supabase/securite-5-comptes.sql` —
-  déclencheur `users_regles_comptes_trg` (supprimer / bloquer / champs de
-  gestion d'un employé → admin ; mot de passe d'un autre, transfert du rôle
-  principal, réel ↔ formation → admin principal ; tâches d'un autre →
-  pouvoir « tâches » via l'étiquette `pouvoirs_off` ; fiches CLIENTS non
-  touchées sauf mot de passe / blocage / suppression / chat libre).
-  `est_admin_principal()` reconnaît le principal par l'étiquette OU le
-  drapeau de sa fiche (un appareil à vieille étiquette n'est pas coincé) OU,
-  le temps d'un transfert, la transaction en cours (`bmi.transfert_principal`).
-  ⚠ Trouvé par le banc : `refuser_elevation_de_soi` refusait au principal
-  de rendre SON drapeau — **le transfert du rôle principal était refusé par
-  le serveur depuis le 29/08/2026**, sans que personne l'ait tenté ;
-  securite-5 recrée la fonction avec cette seule exception.
-  ⚠ `lib/fusion.js` : la fusion à l'envoi ne renvoie plus une vieille copie
-  d'un champ qu'on n'a PAS touché (sinon assigner une tâche aurait « changé »
-  le taux que l'admin venait de modifier → refus serveur). Banc
-  `npm run tester-comptes` (54 contrôles, les deux ordres du transfert).
-  **COLLÉ par Timo le 05/09/2026** (capture : 3 / true / true) — les verrous
-  des comptes sont EN PLACE sur la vraie base.
-  **Étape 4 CONSTRUITE (2.101.55, 05/09/2026 — Timo : « Lance ») :** devis,
-  chantiers, prospects, boutiques, groupes. Application : `refuserSaufAdmin`
-  ×14 dans ClientsInstalles (photo, cadeau, PV, réception forcée, avenant,
-  frais, prime, compte lié, entretien, adresse / garantie / délai),
-  `refuserSaufProprietaire` (admin ou son commercial : supprimer un chantier ;
-  contacter / archiver / réactiver / relancer / convertir / supprimer un
-  prospect), `refuserSaufRoles(ROLES_PROGRAMMATION)` (programmer = admin +
-  resp. commercial), `peutTerminer` dans le geste (admin ou chef de CE
-  chantier), `refuserSaufReaffectation` (admin / resp. com / chef d'équipe
-  avec le pouvoir « Réaffecter »), Messagerie (groupes = admin), Paramètres
-  (boutiques = admin ; accueil, cachet, suppression avec données =
-  principal), Tous les devis (plan de règlement et signature en boutique via
-  `refuserSaufAdminPrincipal`). **SQL serveur écrit et testé** :
-  `supabase/securite-6-devis-chantiers.sql` — 6 déclencheurs :
-  `users_regles_devis_trg` (« validé » posé par un employé et plan accepté /
-  rejeté → principal ; le client sur SA fiche passe),
-  `clients_installes_regles_roles_trg` (l'équipe est lue en trois :
-  structure → admin + resp. com ; argent → admin via `equipe_argent_change`,
-  membre par membre ; paiement → tout employé, le vendeur désigné paie),
-  `prospects_regles_roles_trg` (propriétaire = `nom_jeton()`, réassigner =
-  `est_chef_equipe()` + `a_pouvoir('act_reaffecter')`), catégories et
-  groupes → admin, `boutiques_regles_roles_trg` (tout sauf `demandes` et
-  `updated_at` → admin ; `accueil_*` / `cachet*` → principal ; la caisse
-  TERRAIN se crée librement — un devis « pose seule » d'un client la crée).
-  Les comptes CLIENTS ne sont pas concernés (leurs règles restent).
-  Banc `npm run tester-devis-chantiers` (69 contrôles) ; tester-ecriture-sql
-  et tester-espace-client chargent désormais securite-4/5/6 (les gestes
-  complets de l'espace client passent les trois verrous).
-  **COLLÉ par Timo le 05/09/2026** (capture : 6 / true) — **la vague 3 est
-  TERMINÉE** : argent, comptes, devis / chantiers / prospects / boutiques /
-  groupes sont verrouillés côté serveur, tous les ❓ de l'inventaire traités.
-  Suite : les ❓ restants — tâches et photos sont faits ; cadeaux, date
-  d'entretien, propriétaire aussi (étape 4). Il reste : cloisonnement par
-  boutique (reporté), mode superviseur (en attente de Timo).
-  Bancs à lancer désormais : les 6 + tester-faire-part + tester-argent +
-  tester-comptes + tester-devis-chantiers.
-- Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
-- **Mode superviseur** (code admin sur l'appareil d'un vendeur) : plan
-  CADRÉ avec Timo le 31/08/2026 mais « ne pas construire pour le moment ».
-  Le déroulé validé : bouton 🛡, l'admin choisit son nom + tape SON mot de
-  passe (vérifiable hors ligne, pas de code partagé), l'interface passe en
-  droits admin pour UN SEUL geste puis le mode se referme tout seul
-  (« tout doit être pour un seul geste et le mode se referme » — mot pour
-  mot) ; journal aux deux noms (« supprimé par TIMO (superviseur) —
-  appareil de KOSSI ») ; exclusions : 👥 Utilisateurs, 💰 Salaires/paie,
-  💾 Restauration (le serveur exige la vraie session admin pour ceux-là).
-  ⚠ Piège identifié à l'avance : en mode superviseur, `ecrivain` de
-  sauvegarderDiff doit RESTER celui du vendeur (admin: false), sinon la
-  séparation de paie fabriquerait des fiches vides refusées par le serveur.
-  **À ouvrir avec lui, le jour venu :** la **signature du contrat en
-  boutique** (📋 Tous les devis → ✍️ Faire signer ici / 🖨 Imprimer pour
-  signature papier / 📝 Signé sur papier, 2.101.48) est réservée à
-  l'administrateur principal — décision Timo du 04/09/2026 : « laisser
-  cette possibilité à l'administrateur principal seul ; quand on mettra en
-  place le code superviseur, on pourra ouvrir ce geste aux vendeurs pour un
-  seul geste ». `peutSignerEnBoutique` dans TousLesDevis.jsx.
-- **Corbeille pour les fiches supprimées** — **CONSTRUITE pour les chantiers
-  (2.101.56, 05/09/2026, Timo : « lance la corbeille »).** `lib/corbeille.js`
-  (pur) : la fiche supprimée reste dans sa table, marquée `supprime_le` /
-  `supprime_par` ; `separerCorbeille` au chargement (chargerTout) la range
-  dans `db.corbeille_clients_installes`, `fusionnerCorbeille` à l'écriture
-  (sauvegarderDiff) la remet dans sa table — aucun écran ne la voit, aucun
-  faire-part ne part (même principe que la paie). Le report d'état périmé
-  (rebaser) traite `CLES_CORBEILLE` comme des tables ; la sauvegarde de
-  secours emporte la corbeille et la restauration la re-sépare. ⚙ Paramètres
-  → onglet 🗑 Corbeille (admin principal seul) : ♻ Restaurer (fiche telle
-  qu'au moment de la suppression) / Supprimer définitivement. **Purge
-  automatique à 30 jours** (`DUREE_CORBEILLE_JOURS`) au démarrage, sur
-  l'appareil de l'admin principal (effet dans App.jsx, AVANT le premier
-  point de sortie). Serveur : `supabase/securite-7-corbeille.sql` (remplace
-  la fonction de securite-6 : poser `supprime_le` = admin ou son commercial,
-  jamais un client ; le retirer = admin principal). Banc : 15 contrôles dans
-  verifier-cloisonnement + 10 dans tester-devis-chantiers.
-  **COLLÉ par Timo le 05/09/2026** (capture : true) — la corbeille des
-  chantiers est complète, application et serveur.
-  Suite possible, une famille à la fois : prospects, articles, ventes
-  (`TABLES_CORBEILLE` + `LIBELLES_CORBEILLE` + `nomDeLaFiche`).
-- **Mots de passe des comptes clients** : le 05/09/2026, Timo a demandé
-  l'explication, puis posé la question « même l'admin principal ne pourra
-  plus voir ? ». Trois voies lui ont été proposées : (1) personne ne voit,
-  « Renvoyer » fabrique un nouveau mot de passe (conseillée) ; (2) pareil,
-  mais l'admin principal voit le dernier mot de passe envoyé tant que le
-  client ne l'a pas changé ; (3) on laisse comme aujourd'hui. **Pas encore
-  tranché** — il a préféré lancer la corbeille d'abord. Ne pas construire
-  sans sa réponse.
-
+Quand un chantier avance, on met à jour SON fichier dans `docs/`, et ce
+tableau seulement si l'état change.
