@@ -8,7 +8,8 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, contientLeMot, memeFamille, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, contientLeMot, memeFamille, BlocEnvoiDevisClient, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
+import { construireDevis, panierAutres } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -259,87 +260,45 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : "");
 
   // ---- Autres équipements : coffret de commande, câblage… ----
-  const [autres, setAutres] = useState(() =>
-    lignesReprises.filter((l) => l.categorie === "Autres équipements")
-      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique }))
-  );
-  const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
-  const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
-  const retirerAutre = (id) => setAutres(autres.filter((a) => a.id !== id));
-  const totalAutres = autres.reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
+  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises);
 
   const totalKitSolaire = kitSolaire ? Number(prixKitSolaire || 0) : 0;
   const totalBatterieSecours = batterieSecours ? Number(prixBatterieSecours || 0) : 0;
   const totalArticles = totalRoles + totalAutres + totalKitSolaire + totalBatterieSecours + sousTotalPorte;
-  const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation: fraisInstallationPct, pctTransport, setPctTransport, fraisTransport, totalDevis: totalDevisNormal } = useTotauxDevis(totalArticles);
-  // ⚠ "Pose seule" (2.99.98, même mécanisme que Solaire.jsx) — montant de
-  // main d'œuvre FIXE, saisi au cas par cas, jamais un pourcentage.
-  const [poseSeule, setPoseSeule] = useState(false);
-  const [montantPoseFixe, setMontantPoseFixe] = useState("");
-  const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
-  const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
-  const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+  // La fin du devis (remise, installation ou pose seule, transport, acompte,
+  // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
+  const r = useReglagesDevis(totalArticles, {}, devisAReprendre);
+  const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
-  // ⚠ Reprendre un devis rejeté restituait les appareils et les équipements,
-  // mais PERDAIT en silence tout ce qui avait été négocié : remise, %
-  // d'installation, transport, acompte, délai, et jusqu'à la case « pose
-  // seule » avec son montant fixe. Le devis renvoyé au client n'était donc
-  // plus celui qu'on avait convenu avec lui. Tout était pourtant enregistré :
-  // il ne manquait que cette relecture. Placé APRÈS les déclarations
-  // ci-dessus, seul endroit où les commandes existent toutes.
-  useEffect(() => {
-    appliquerConditionsReprises(devisAReprendre?.devis, {
-      setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devisAReprendre]);
-  const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
+  // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
+  // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
+  // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
+  // métier de ce volet, ses besoins et la première ligne du message.
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "garage", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente });
+  const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
-  const construirePanier = () => [
+  // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
+  const panierMetier = () => [
     ...(sousTotalPorte > 0 ? [{ produit_id: null, article: `Porte — ${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""} (${surfacePorte} m²)`, qte: surfacePorte, pu: prixM2Porte }] : []),
     ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
     ...(kitSolaire && totalKitSolaire > 0 ? [{ produit_id: null, article: "Kit solaire autonome (motorisation)", qte: 1, pu: totalKitSolaire }] : []),
     ...(batterieSecours && totalBatterieSecours > 0 ? [{ produit_id: null, article: "Batterie de secours (externe)", qte: 1, pu: totalBatterieSecours }] : []),
-    ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
+  ];
+  const lignesMetier = () => [
+        ...(sousTotalPorte > 0 ? [{ categorie: "Porte", article: `Porte — ${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""} (${surfacePorte} m²)`, qte: surfacePorte, pu: prixM2Porte, total: sousTotalPorte }] : []),
+        ...lignesDevis.filter((l) => l.produit).map((l) => ({
+          categorie: l.role.label, article: l.produit.nom, qte: l.qte,
+          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
+        })),
+        ...(kitSolaire && totalKitSolaire > 0 ? [{ categorie: "Alimentation", article: "Kit solaire autonome (motorisation)", qte: 1, pu: totalKitSolaire, total: totalKitSolaire }] : []),
+        ...(batterieSecours && totalBatterieSecours > 0 ? [{ categorie: "Alimentation", article: "Batterie de secours (externe)", qte: 1, pu: totalBatterieSecours, total: totalBatterieSecours }] : []),
   ];
 
-  // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
-  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");
-  const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
-  // ⚠ Cloisonnement : on ne propose que les clients de SON espace.
-  // Sans ce filtre, un compte de formation adressait ses devis d'essai a
-  // de VRAIS clients — qui les recevaient par WhatsApp, dans leur vrai
-  // espace client, et ne pouvaient plus receptionner le chantier ensuite.
-  // ⚠ La BOUTIQUE de travail décide, pas le compte : l'administrateur qui
-  // établit un devis depuis une boutique de formation doit se voir proposer
-  // les clients de formation, et eux seuls. Sans cela il adressait ses
-  // devis d'entraînement à de VRAIS clients.
-  const espaceDevis = boutique ? estBoutiqueFormation(db, boutique) : espaceDuCompte(db, profile);
-  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
-    && (espaceDevis === undefined || !!u.formation === espaceDevis));
-
-  const envoyerDevisWhatsApp = async () => {
-    if (bloquerSiLecture(db, profile)) return;
-    if (totalDevis <= 0) { uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
-
-    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
-    if (!resolu) return;
-    const { compte, motDePasse, dbApres } = resolu;
-
-    const panier = construirePanier();
-
-    const devis = {
-      id: uid(),
-      date: today(),
-      heure: new Date().toTimeString().slice(0, 5),
-      par: profile.nom,
-      par_id: profile.id,
-      par_role: profile.role,
-      statut: "propose",
-      panier,
-      boutique,
-      type_devis: "garage",
+  const envoyerDevisWhatsApp = () => envoi.envoyer({
+    totalDevis,
+    messageVide: "Le devis est vide : choisissez d'abord les équipements.",
+    construire: () => construireDevis({
+      profile, boutique, typeDevis: "garage", complement: {},
       besoins: {
         type_ouvrant: type,
         largeur: Number(largeur || 0),
@@ -353,63 +312,15 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
         telecommandes: Number(telecosSouhaitees || 0),
         alimentation_proche: alimentationProche,
       },
-      lignes: [
-        ...(sousTotalPorte > 0 ? [{ categorie: "Porte", article: `Porte — ${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""} (${surfacePorte} m²)`, qte: surfacePorte, pu: prixM2Porte, total: sousTotalPorte }] : []),
-        ...lignesDevis.filter((l) => l.produit).map((l) => ({
-          categorie: l.role.label, article: l.produit.nom, qte: l.qte,
-          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
-        })),
-        ...(kitSolaire && totalKitSolaire > 0 ? [{ categorie: "Alimentation", article: "Kit solaire autonome (motorisation)", qte: 1, pu: totalKitSolaire, total: totalKitSolaire }] : []),
-        ...(batterieSecours && totalBatterieSecours > 0 ? [{ categorie: "Alimentation", article: "Batterie de secours (externe)", qte: 1, pu: totalBatterieSecours, total: totalBatterieSecours }] : []),
-        ...autres.filter((a) => a.nom).map((a) => ({
-          categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
-          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
-        })),
-        ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: poseSeule ? "Frais de pose (matériel du client)" : `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
-        ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
-        ...(remise > 0 ? [{ categorie: "Remise", article: `Remise (${pctRemise} %)`, qte: 1, pu: -remise, total: -remise }] : []),
-      ],
-      total: totalDevis,
-      pose_seule: poseSeule,
-      frais_installation: fraisInstallation,
-      pct_installation: poseSeule ? null : Number(pctInstall || 0),
-      frais_transport: fraisTransport,
-      pct_transport: Number(pctTransport || 0),
-      remise,
-      pct_remise: Number(pctRemise || 0),
-      pct_acompte: Number(pctAcompte || 100),
-      montant_acompte: montantAcompte,
-      delai_installation: delaiInstallation.trim(),
-    };
+      panierMetier: panierMetier(), lignesMetier: lignesMetier(), autres, reglages: r,
+    }),
+    ligneEntete: [
+      `🚪 Motorisation de portail/garage — *${fmt(totalDevis)}*`,
+      `${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""}${Number(largeur) > 0 ? ` · ${largeur} m` : ""}${Number(poids) > 0 ? ` · ${poids} kg` : ""}`,
+    ],
+  });
 
-    // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
-    // annonçait ensuite « ✅ Devis envoyé » et effaçait le brouillon,
-    // alors que rien n'était parti. Elle disait exactement le contraire
-    // de la vérité. On respecte maintenant la réponse.
-    const envoye = await envoyerDevisEtOuvrirWhatsApp({
-      dbApres, compte, motDePasse, devis, save, profile, nouvClient,
-      ligneEntete: [
-        `🚪 Motorisation de portail/garage — *${fmt(totalDevis)}*`,
-        `${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""}${Number(largeur) > 0 ? ` · ${largeur} m` : ""}${Number(poids) > 0 ? ` · ${poids} kg` : ""}`,
-      ],
-      idAReprendre: devisAReprendre?.devis?.id,
-    });
-    if (!envoye) return;
-
-    setClientDevis("");
-    setNouvClient({ nom: "", tel: "" });
-    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
-    effacerBrouillonVolet("garage", profile);
-    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
-  };
-
-
-  const convertir = () => {
-    const panier = construirePanier();
-    if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
-    effacerBrouillonVolet("garage", profile);
-    onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
-  };
+  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -556,32 +467,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
           placeholder="Ex : Coffret de commande"
         />
 
-        <div className="px-4 py-3 border-t border-slate-200">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <input type="checkbox" checked={poseSeule} onChange={(e) => setPoseSeule(e.target.checked)} />
-            Pose seule (matériel déjà acheté par le client — BMI ne facture que la main d'œuvre)
-          </label>
-          {poseSeule && (
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <span className="text-slate-500">Montant de la main d'œuvre (F CFA, fixé pour ce chantier)</span>
-              <input type="number" min="0" value={montantPoseFixe} onChange={(e) => setMontantPoseFixe(e.target.value)} className="w-32 rounded border border-slate-300 px-2 py-1 text-right" />
-            </div>
-          )}
-        </div>
-
-        <BlocTotauxDevis
-          totalArticles={totalArticles}
-          pctRemise={pctRemise} setPctRemise={setPctRemise} remise={remise}
-          pctInstall={pctInstall} setPctInstall={setPctInstall} fraisInstallation={fraisInstallation}
-          masquerInstallationPct={poseSeule}
-          pctTransport={pctTransport} setPctTransport={setPctTransport} fraisTransport={fraisTransport}
-          totalDevis={totalDevis} onConvertir={convertir}
-        />
-        <BlocConditionsPaiement
-          pctAcompte={pctAcompte} setPctAcompte={setPctAcompte}
-          delaiInstallation={delaiInstallation} setDelaiInstallation={setDelaiInstallation}
-          montantAcompte={montantAcompte} totalDevis={totalDevis}
-        />
+        <BlocsFinDevis r={r} onConvertir={convertir} />
       </div>
 
       {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}

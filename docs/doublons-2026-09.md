@@ -15,8 +15,8 @@ La zone de signature (2.101.57) n'y figure plus : déjà unifiée.
 |---|---|---|---|
 | A1 | **Le numéro de contrat** `CTR-année-xxxxxxxx` | `lib/validationDevis.js` (numeroContrat) ET recopié à la main dans `EspaceClient.jsx` (signature du contrat par le client) | Deux formats de numéro selon qui signe (boutique ou téléphone). |
 | A2 | **Le plan de règlement signé** (type, mensualité, première échéance, solde engagé, statut « en attente ») | `EspaceClient.jsx` (contrat client) et `TousLesDevis.jsx` (contrat en boutique) — 15 lignes identiques | Un plan accepté en boutique et un plan accepté par téléphone ne porteraient plus les mêmes champs. |
-| A3 | **Construire les lignes d'un devis** (articles, autres équipements, frais d'installation ou pose seule, transport, remise) et **l'envoyer** dans l'espace client | Les trois volets du dimensionnement : `Solaire.jsx`, `Garage.jsx`, `Autre.jsx` — le plus gros doublon : blocs de 46, 29, 28, 26, 22, 20, 19 lignes | Une correction de calcul (remise, transport, pose seule) faite dans un volet et pas dans les deux autres : trois devis différents pour la même règle. |
-| A4 | **La case « Pose seule »** et son montant de main-d'œuvre fixe | Les trois volets (46 lignes identiques) | Idem. |
+| A3 ✅ 2.101.64 | **Construire les lignes d'un devis** (articles, autres équipements, frais d'installation ou pose seule, transport, remise) et **l'envoyer** dans l'espace client | Les trois volets du dimensionnement : `Solaire.jsx`, `Garage.jsx`, `Autre.jsx` — le plus gros doublon : blocs de 46, 29, 28, 26, 22, 20, 19 lignes | Une correction de calcul (remise, transport, pose seule) faite dans un volet et pas dans les deux autres : trois devis différents pour la même règle. |
+| A4 ✅ 2.101.64 | **La case « Pose seule »** et son montant de main-d'œuvre fixe | Les trois volets (46 lignes identiques) | Idem. |
 | A5 | **Le prochain numéro de reçu** (préfixe boutique + année + compteur sur 4 chiffres) | `lib/core.js` : une version pour les ventes, une copie pour les dettes | Un changement de format des reçus oublierait les dettes. |
 | A6 | **« Est-ce le même enregistrement ? »** (comparaison de deux fiches) | `lib/calculs.js` (memeEnregistrement) et `lib/rebase.js` (memeContenu), identiques | Deux façons de décider si une fiche a changé → une modification vue par l'un et pas par l'autre. |
 | A7 | **Le lecteur de code-barres** et **ajouter au panier** | `Ventes.jsx` et `Commandes.jsx` | Un code lu correctement à la vente mais pas à la commande, ou l'inverse. |
@@ -55,3 +55,8 @@ règles : les unifier coûterait plus qu'il ne rapporte.
 3. **A1 + A2 + A12** (numéros et plan de règlement) — un seul fichier
    « contrat » pour les deux chemins de signature.
 4. **A5, A6, A7, A8, A9, A11**, puis **B1 à B5**.
+
+
+## Fait
+
+- **A3 + A4 (07/09/2026, 2.101.64)** : `screens/dimensionnement/devisCommun.js` (pur : autres équipements, totaux, lignes de frais, champs, `construireDevis`) + dans `Partages.jsx` : `useAutresEquipements`, `useReglagesDevis`, `BlocPoseSeule`, `BlocsFinDevis`, `useEnvoiDevis`. Les trois volets ne gardent que leur métier. Le banc fabrique le même devis avec l'ancienne écriture (recopiée) et la nouvelle : identiques, ordre des clés compris.

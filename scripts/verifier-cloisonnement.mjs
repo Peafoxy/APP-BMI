@@ -3262,10 +3262,13 @@ titre("Le brouillon du dimensionnement survit au F5 — UNE règle, TROIS volets
     && /export const effacerBrouillonVolet/.test(partages));
   for (const [fichier, volet] of [["Solaire.jsx", "solaire"], ["Garage.jsx", "garage"], ["Autre.jsx", "autre"]]) {
     const src = readFileSync(`src/screens/dimensionnement/${fichier}`, "utf8");
+    // 2.101.64 : l'effacement (envoi ET conversion) vit dans useEnvoiDevis,
+    // à qui chaque volet donne son nom — deux effacements dans Partages.jsx.
     test(`★ ${fichier} lit, écrit et efface SON brouillon via la règle commune`,
       src.includes(`lireBrouillonVolet("${volet}"`)
       && src.includes(`useEcrireBrouillonVolet("${volet}"`)
-      && (src.match(new RegExp(`effacerBrouillonVolet\\("${volet}"`, "g")) || []).length >= 2);
+      && src.includes(`volet: "${volet}"`)
+      && (partages.match(/effacerBrouillonVolet\(volet, profile\)/g) || []).length === 2);
     test(`${fichier} n'a AUCUNE copie privée de la règle (pas de brouillonEcrire direct)`,
       !/brouillonEcrire\(|brouillonLire\(|brouillonEffacer\(/.test(src));
   }
@@ -3702,6 +3705,77 @@ titre("Dimensionnement solaire : 5 h de soleil et 48 V par défaut, et les artic
     /Stock en \$\{tensions\[0\]\} V, système réglé en \$\{tension\} V/.test(sol));
   test("un devis repris garde SA tension (le défaut ne l'écrase pas)",
     /besoinsRepris\?\.tension \? String\(besoinsRepris\.tension\) : \(brouillon\?\.tension \?\? TENSION_DEFAUT\)/.test(sol));
+}
+
+titre("Les trois volets du dimensionnement finissent leur devis par UNE seule règle (devisCommun.js)");
+{
+  // Point A3/A4 du relevé des doublons (Timo : « Lance », 07/09/2026). On
+  // fabrique ici le même devis avec l'ANCIENNE écriture (recopiée mot pour
+  // mot des trois volets d'avant la 2.101.64) et avec la règle commune, et
+  // on compare champ par champ.
+  const sortieDC = join("node_modules", ".cache", `bmi-dc-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieDC, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DC = await import(pathToFileURL(sortieDC).href);
+  unlinkSync(sortieDC);
+  const trie = (o) => JSON.stringify(o, (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map((c) => [c, v[c]])) : v);
+  const profile = { nom: "KOSSI", id: "u_k", role: "vendeur" };
+  const horodatage = { id: "dv1", date: "2026-09-07", heure: "10:00" };
+  // ---- L'ANCIENNE ÉCRITURE, telle qu'elle était dans Solaire.jsx ----
+  const ancien = ({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte, delaiInstallation, autres, lignesMetier, panierMetier, besoins, boutique, type_devis, complement }) => {
+    const remise = Math.round((totalArticles * Number(pctRemise || 0)) / 100);
+    const fraisInstallationPct = Math.round((totalArticles * Number(pctInstall || 0)) / 100);
+    const fraisTransport = Math.round((totalArticles * Number(pctTransport || 0)) / 100);
+    const totalDevisNormal = totalArticles - remise + fraisInstallationPct + fraisTransport;
+    const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
+    const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
+    const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
+    const panier = [...panierMetier,
+      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique }))];
+    return { id: "dv1", date: "2026-09-07", heure: "10:00", par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose", panier, boutique,
+      ...(type_devis ? { type_devis } : {}), ...(complement || {}), besoins,
+      lignes: [...lignesMetier,
+        ...autres.filter((a) => a.nom).map((a) => ({ categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1), pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique })),
+        ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: poseSeule ? "Frais de pose (matériel du client)" : `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
+        ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
+        ...(remise > 0 ? [{ categorie: "Remise", article: `Remise (${pctRemise} %)`, qte: 1, pu: -remise, total: -remise }] : []),
+      ],
+      total: totalDevis, pose_seule: poseSeule, frais_installation: fraisInstallation, pct_installation: poseSeule ? null : Number(pctInstall || 0),
+      frais_transport: fraisTransport, pct_transport: Number(pctTransport || 0), remise, pct_remise: Number(pctRemise || 0),
+      pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim() };
+  };
+  const nouveau = (c) => {
+    const reglages = { ...c, ...DC.calculerTotaux(c) };
+    return DC.construireDevis({ profile, boutique: c.boutique, typeDevis: c.type_devis, complement: c.complement || {}, besoins: c.besoins,
+      panierMetier: c.panierMetier, lignesMetier: c.lignesMetier, autres: c.autres, reglages, horodatage });
+  };
+  const autres = [{ id: "a1", nom: "Câble 6mm²", prix: "15000", qte: "2", hors_boutique: false }, { id: "a2", nom: " ", prix: "", qte: "1" }, { id: "a3", nom: "Coffret", prix: "", qte: "1" }];
+  const cas = [
+    ["solaire, remise 3 %, installation 10 %, transport 5 %, acompte 50 %", { totalArticles: 1250000, pctRemise: "3", pctInstall: "10", pctTransport: "5", poseSeule: false, montantPoseFixe: "", pctAcompte: "50", delaiInstallation: " 15 jours ", autres,
+      lignesMetier: [{ categorie: "Panneaux", article: "PANNEAU 550W", qte: 4, pu: 100000, total: 400000, hors_boutique: false }, { categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: 9, pu: 5500, total: 49500 }],
+      panierMetier: [{ produit_id: "p1", article: "PANNEAU 550W", qte: 4, pu: 100000, hors_boutique: false }], besoins: { wh_jour: 2400, tension: 48 }, boutique: "APESSITO" }],
+    ["garage, pose seule 80 000 F, sans remise ni transport", { totalArticles: 900000, pctRemise: "0", pctInstall: "10", pctTransport: "0", poseSeule: true, montantPoseFixe: "80000", pctAcompte: "100", delaiInstallation: "", autres: [],
+      lignesMetier: [{ categorie: "Porte", article: "Porte — Coulissant (8 m²)", qte: 8, pu: 100000, total: 800000 }, { categorie: "Alimentation", article: "Kit solaire autonome (motorisation)", qte: 1, pu: 100000, total: 100000 }],
+      panierMetier: [{ produit_id: null, article: "Porte — Coulissant (8 m²)", qte: 8, pu: 100000 }], besoins: { type_ouvrant: "coulissant", largeur: 4 }, boutique: "APESSITO", type_devis: "garage" }],
+    ["autre, remise 2,5 %, installation 0 %, acompte vide (→ 100)", { totalArticles: 60000, pctRemise: "2.5", pctInstall: "0", pctTransport: "0", poseSeule: false, montantPoseFixe: "", pctAcompte: "", delaiInstallation: "", autres,
+      lignesMetier: [{ categorie: "Caméras", article: "CAMERA DOME", qte: 3, pu: 10000, total: 30000, hors_boutique: false }],
+      panierMetier: [{ produit_id: "p9", article: "CAMERA DOME", qte: 3, pu: 10000, hors_boutique: false }], besoins: { categorie: "Caméras", articles_demandes: [] }, boutique: "DEMAKPOE", type_devis: "autre", complement: { domaine: "securite" } }],
+    ["devis vide (rien n'est facturé, aucune ligne de frais)", { totalArticles: 0, pctRemise: "0", pctInstall: "10", pctTransport: "0", poseSeule: false, montantPoseFixe: "", pctAcompte: "100", delaiInstallation: "", autres: [],
+      lignesMetier: [], panierMetier: [], besoins: {}, boutique: "APESSITO" }],
+  ];
+  for (const [nom, c] of cas) {
+    test(`★ même devis, ancienne et nouvelle écriture — ${nom}`, trie(ancien(c)) === trie(nouveau(c)));
+    test(`  …et le même ORDRE de clés et de lignes — ${nom}`, JSON.stringify(ancien(c)) === JSON.stringify(nouveau(c)));
+  }
+  for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
+    const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
+    test(`★ ${f} passe par construireDevis, useReglagesDevis, useAutresEquipements, useEnvoiDevis et BlocsFinDevis`,
+      /construireDevis\(\{/.test(src) && /useReglagesDevis\(totalArticles/.test(src) && /useAutresEquipements\(lignesReprises\)/.test(src)
+      && /useEnvoiDevis\(\{/.test(src) && /<BlocsFinDevis r=\{r\} onConvertir=\{convertir\} \/>/.test(src));
+    test(`★ ${f} n'a plus AUCUNE copie de la fin du devis (pose seule, frais, champs, autres équipements)`,
+      !/Pose seule \(matériel/.test(src) && !/pct_installation:/.test(src) && !/categorie: "Autres équipements"/.test(src)
+      && !/categorie: "Installation"/.test(src) && !/const ajouterAutre/.test(src) && !/resoudreClientDevis\(/.test(src) && !/effacerBrouillonVolet\(/.test(src));
+  }
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

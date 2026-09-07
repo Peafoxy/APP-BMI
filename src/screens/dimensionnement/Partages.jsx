@@ -31,7 +31,8 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, estBoutiqueFormation } from "../../lib/calculs";
+import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux } from "./devisCommun";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
 // convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
@@ -191,18 +192,134 @@ export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise
   );
 }
 
-// Calcule remise/installation/transport/total à partir du montant des articles.
-// Toujours la même règle : la remise ne porte QUE sur les articles ; installation
-// et transport restent calculés sur le montant plein (non réduit par la remise).
-export function useTotauxDevis(totalArticles) {
+// ---- Les « autres équipements » : même état, mêmes gestes dans les trois volets ----
+export function useAutresEquipements(lignesReprises) {
+  const [autres, setAutres] = useState(() => reprisesAutres(lignesReprises));
+  return {
+    autres,
+    ajouterAutre: () => setAutres([...autres, nouvelAutre()]),
+    majAutre: (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a))),
+    retirerAutre: (id) => setAutres(autres.filter((a) => a.id !== id)),
+    // Reprise d'un autre devis pendant que l'écran est ouvert.
+    reprendreAutres: (lignes) => setAutres(reprisesAutres(lignes)),
+    totalAutres: totalAutres(autres),
+  };
+}
+
+// ---- Les réglages de fin de devis : remise, installation (ou pose seule à
+// montant fixe), transport, acompte, délai — et les totaux qui en découlent
+// (devisCommun.js). Un devis repris rétablit tout ce qui avait été négocié
+// (appliquerConditionsReprises) : sans cela le devis renvoyé au client
+// n'était plus celui convenu avec lui.
+export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre) {
   const [pctRemise, setPctRemise] = useState("0");
-  const remise = Math.round((totalArticles * Number(pctRemise || 0)) / 100);
   const [pctInstall, setPctInstall] = useState("10");
-  const fraisInstallation = Math.round((totalArticles * Number(pctInstall || 0)) / 100);
   const [pctTransport, setPctTransport] = useState("0");
-  const fraisTransport = Math.round((totalArticles * Number(pctTransport || 0)) / 100);
-  const totalDevis = totalArticles - remise + fraisInstallation + fraisTransport;
-  return { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, pctTransport, setPctTransport, fraisTransport, totalDevis };
+  // ⚠ "Pose seule" (demande Timo) : le client a déjà acheté son matériel
+  // ailleurs, BMI ne facture QUE la main d'œuvre — jamais un pourcentage du
+  // matériel, un MONTANT FIXE saisi pour chaque chantier.
+  const [poseSeule, setPoseSeule] = useState(initial.poseSeule ?? false);
+  const [montantPoseFixe, setMontantPoseFixe] = useState(initial.montantPoseFixe ?? "");
+  const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+  useEffect(() => {
+    appliquerConditionsReprises(devisAReprendre?.devis, {
+      setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
+  const totaux = calculerTotaux({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte });
+  return {
+    totalArticles, pctRemise, setPctRemise, pctInstall, setPctInstall, pctTransport, setPctTransport,
+    poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
+    pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
+  };
+}
+
+// ---- La case « Pose seule » et son montant ----
+export function BlocPoseSeule({ r }) {
+  return (
+    <div className="px-4 py-3 border-t border-slate-200">
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input type="checkbox" checked={r.poseSeule} onChange={(e) => r.setPoseSeule(e.target.checked)} />
+        Pose seule (matériel déjà acheté par le client — BMI ne facture que la main d'œuvre)
+      </label>
+      {r.poseSeule && (
+        <div className="mt-2 flex items-center gap-2 text-sm">
+          <span className="text-slate-500">Montant de la main d'œuvre (F CFA, fixé pour ce chantier)</span>
+          <input type="number" min="0" value={r.montantPoseFixe} onChange={(e) => r.setMontantPoseFixe(e.target.value)} className="w-32 rounded border border-slate-300 px-2 py-1 text-right" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- La fin du devis, telle qu'elle s'affiche dans les trois volets ----
+export function BlocsFinDevis({ r, onConvertir }) {
+  return (
+    <>
+      <BlocPoseSeule r={r} />
+      <BlocTotauxDevis
+        totalArticles={r.totalArticles}
+        pctRemise={r.pctRemise} setPctRemise={r.setPctRemise} remise={r.remise}
+        pctInstall={r.pctInstall} setPctInstall={r.setPctInstall} fraisInstallation={r.fraisInstallation}
+        masquerInstallationPct={r.poseSeule}
+        pctTransport={r.pctTransport} setPctTransport={r.setPctTransport} fraisTransport={r.fraisTransport}
+        totalDevis={r.totalDevis} onConvertir={onConvertir}
+      />
+      <BlocConditionsPaiement
+        pctAcompte={r.pctAcompte} setPctAcompte={r.setPctAcompte}
+        delaiInstallation={r.delaiInstallation} setDelaiInstallation={r.setDelaiInstallation}
+        montantAcompte={r.montantAcompte} totalDevis={r.totalDevis}
+      />
+    </>
+  );
+}
+
+// ---- L'envoi au client et la conversion en vente, communs aux trois volets.
+// Le volet ne fournit que ce qui lui est propre : le devis construit, la
+// première ligne du message WhatsApp, le message « devis vide ».
+export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente }) {
+  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");   // compte client existant
+  const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
+  // ⚠ Cloisonnement : on ne propose que les clients de SON espace. Sans ce
+  // filtre, un compte de formation adressait ses devis d'essai à de VRAIS
+  // clients. La BOUTIQUE de travail décide, pas le compte : l'administrateur
+  // qui établit un devis depuis une boutique de formation doit se voir
+  // proposer les clients de formation, et eux seuls.
+  const espaceDevis = boutique ? estBoutiqueFormation(db, boutique) : espaceDuCompte(db, profile);
+  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
+    && (espaceDevis === undefined || !!u.formation === espaceDevis));
+
+  const envoyer = async ({ totalDevis, messageVide, construire, ligneEntete }) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (totalDevis <= 0) { uAlert(messageVide); return; }
+    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
+    if (!resolu) return;
+    const { compte, motDePasse, dbApres } = resolu;
+    const devis = construire();
+    // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
+    // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
+    // n'était parti. On respecte la réponse.
+    const envoye = await envoyerDevisEtOuvrirWhatsApp({
+      dbApres, compte, motDePasse, devis, save, profile, nouvClient,
+      ligneEntete, idAReprendre: devisAReprendre?.devis?.id,
+    });
+    if (!envoye) return;
+    setClientDevis("");
+    setNouvClient({ nom: "", tel: "" });
+    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+    effacerBrouillonVolet(volet, profile);
+    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
+  };
+
+  const convertir = (panier, pctRemise) => {
+    if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    effacerBrouillonVolet(volet, profile);
+    onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
+  };
+
+  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir };
 }
 
 // ---- Conditions de paiement — % d'acompte et délai d'installation propres

@@ -7,7 +7,8 @@ import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires } from "../../lib/solaire";
-import { specDepuisNom, BlocAutresEquipements, BlocTotauxDevis, useTotauxDevis, BlocEnvoiDevisClient, envoyerDevisEtOuvrirWhatsApp, resoudreClientDevis , useConditionsPaiement, BlocConditionsPaiement, appliquerConditionsReprises, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
+import { construireDevis, panierAutres } from "./devisCommun";
 
 
 
@@ -563,85 +564,40 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const sousTotalRails = railsQte * PRIX_RAIL;
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
-  const [autres, setAutres] = useState(() =>
-    lignesReprises.filter((l) => l.categorie === "Autres équipements")
-      .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique }))
-  );
-  const ajouterAutre = () => setAutres([...autres, { id: uid(), nom: "", prix: "", qte: "1" }]);
-  const majAutre = (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
-  const retirerAutre = (id) => setAutres(autres.filter((a) => a.id !== id));
-  const totalAutres = autres.reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
+  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises);
 
   const totalArticles = totalRoles + sousTotalRails + totalAutres;
-  const { pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation: fraisInstallationPct, pctTransport, setPctTransport, fraisTransport, totalDevis: totalDevisNormal } = useTotauxDevis(totalArticles);
-  // ⚠ "Pose seule" (demande Timo) : le client a déjà acheté son matériel
-  // ailleurs, BMI ne facture QUE la main d'œuvre — jamais un pourcentage
-  // du matériel (puisque BMI ne l'a pas vendu), un MONTANT FIXE saisi au
-  // cas par cas pour chaque chantier. Le panier reste utilisable
-  // normalement à côté (petits accessoires que BMI fournirait quand même).
-  const [poseSeule, setPoseSeule] = useState(false);
-  const [montantPoseFixe, setMontantPoseFixe] = useState("");
-  const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
-  const totalDevis = poseSeule ? (totalArticles - remise + fraisInstallation + fraisTransport) : totalDevisNormal;
-  const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
-
-  // ⚠ Reprendre un devis rejeté restituait les appareils et les équipements,
-  // mais PERDAIT en silence tout ce qui avait été négocié : remise, %
-  // d'installation, transport, acompte, délai, et jusqu'à la case « pose
-  // seule » avec son montant fixe. Le devis renvoyé au client n'était donc
-  // plus celui qu'on avait convenu avec lui. Tout était pourtant enregistré :
-  // il ne manquait que cette relecture. Placé APRÈS les déclarations
-  // ci-dessus, seul endroit où les commandes existent toutes.
-  useEffect(() => {
-    appliquerConditionsReprises(devisAReprendre?.devis, {
-      setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devisAReprendre]);
-  const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
+  // La fin du devis (remise, installation ou pose seule, transport, acompte,
+  // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
+  const r = useReglagesDevis(totalArticles, {}, devisAReprendre);
+  const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
-  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");   // compte client existant
-  const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
-  // ⚠ Cloisonnement : on ne propose que les clients de SON espace.
-  // Sans ce filtre, un compte de formation adressait ses devis d'essai a
-  // de VRAIS clients — qui les recevaient par WhatsApp, dans leur vrai
-  // espace client, et ne pouvaient plus receptionner le chantier ensuite.
-  // ⚠ La BOUTIQUE de travail décide, pas le compte : l'administrateur qui
-  // établit un devis depuis une boutique de formation doit se voir proposer
-  // les clients de formation, et eux seuls. Sans cela il adressait ses
-  // devis d'entraînement à de VRAIS clients.
-  const espaceDevis = boutique ? estBoutiqueFormation(db, boutique) : espaceDuCompte(db, profile);
-  const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
-    && (espaceDevis === undefined || !!u.formation === espaceDevis));
+  // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
+  // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
+  // métier de ce volet, ses besoins et la première ligne du message.
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "solaire", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente });
+  const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
-  const envoyerDevisWhatsApp = async () => {
-    if (bloquerSiLecture(db, profile)) return;
-    if (totalDevis <= 0) { uAlert("Le devis est vide : choisissez d'abord les équipements."); return; }
-
-    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
-    if (!resolu) return;
-    const { compte, motDePasse, dbApres } = resolu;
-
-    // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
-    const panier = [
+  // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
+  const panierMetier = () => [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
       ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL }] : []),
-      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
-    ];
+  
+  ];
+  const lignesMetier = () => [
+        ...lignesDevis.filter((l) => l.produit).map((l) => ({
+          categorie: l.role.label, article: l.produit.nom, qte: l.qte,
+          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
+        })),
+        ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
+  ];
 
-    // Le devis, rangé DANS la fiche du client : aucune migration de base.
-    const devis = {
-      id: uid(),
-      date: today(),
-      heure: new Date().toTimeString().slice(0, 5),
-      par: profile.nom,
-      par_id: profile.id,
-      par_role: profile.role,           // décide si une commission sera due
-      statut: "propose",                // propose → valide → paye
-      panier,                           // ce que le vendeur encaissera
-      boutique,
+  const envoyerDevisWhatsApp = () => envoi.envoyer({
+    totalDevis,
+    messageVide: "Le devis est vide : choisissez d'abord les équipements.",
+    construire: () => construireDevis({
+      profile, boutique, typeDevis: undefined, complement: {},
       besoins: {
         wh_jour: whParJour,
         puissance_simultanee: puissanceSimultanee,
@@ -652,62 +608,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: Number(a.qte || 1),
         })),
       },
-      lignes: [
-        ...lignesDevis.filter((l) => l.produit).map((l) => ({
-          categorie: l.role.label, article: l.produit.nom, qte: l.qte,
-          pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
-        })),
-        ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
-        ...autres.filter((a) => a.nom).map((a) => ({
-          categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
-          pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
-        })),
-        ...(fraisInstallation > 0 ? [{ categorie: "Installation", article: poseSeule ? "Frais de pose (matériel du client)" : `Frais d'installation (${pctInstall} %)`, qte: 1, pu: fraisInstallation, total: fraisInstallation }] : []),
-        ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
-        ...(remise > 0 ? [{ categorie: "Remise", article: `Remise (${pctRemise} %)`, qte: 1, pu: -remise, total: -remise }] : []),
-      ],
-      total: totalDevis,
-      pose_seule: poseSeule,
-      frais_installation: fraisInstallation,
-      pct_installation: poseSeule ? null : Number(pctInstall || 0),
-      frais_transport: fraisTransport,
-      pct_transport: Number(pctTransport || 0),
-      remise,
-      pct_remise: Number(pctRemise || 0),
-      pct_acompte: Number(pctAcompte || 100),
-      montant_acompte: montantAcompte,
-      delai_installation: delaiInstallation.trim(),
-    };
+      panierMetier: panierMetier(), lignesMetier: lignesMetier(), autres, reglages: r,
+    }),
+    ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
+  });
 
-    // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
-    // annonçait ensuite « ✅ Devis envoyé » et effaçait le brouillon,
-    // alors que rien n'était parti. Elle disait exactement le contraire
-    // de la vérité. On respecte maintenant la réponse.
-    const envoye = await envoyerDevisEtOuvrirWhatsApp({
-      dbApres, compte, motDePasse, devis, save, profile, nouvClient,
-      ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
-      idAReprendre: devisAReprendre?.devis?.id,
-    });
-    if (!envoye) return;
-
-    setClientDevis("");
-    setNouvClient({ nom: "", tel: "" });
-    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
-    effacerBrouillonVolet("solaire", profile);
-    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
-  };
-
-
-  const convertir = () => {
-    const panier = [
-      ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
-      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL }] : []),
-      ...autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({ produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique })),
-    ];
-    if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
-    effacerBrouillonVolet("solaire", profile);
-    onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
-  };
+  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté. Le
   // mode LIBRE reste ouvert (il ne touche à aucun stock ni à aucune
@@ -922,32 +828,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           placeholder="Ex : Câble 6mm² (rouleau)"
         />
 
-        <div className="px-4 py-3 border-t border-slate-200">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <input type="checkbox" checked={poseSeule} onChange={(e) => setPoseSeule(e.target.checked)} />
-            Pose seule (matériel déjà acheté par le client — BMI ne facture que la main d'œuvre)
-          </label>
-          {poseSeule && (
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <span className="text-slate-500">Montant de la main d'œuvre (F CFA, fixé pour ce chantier)</span>
-              <input type="number" min="0" value={montantPoseFixe} onChange={(e) => setMontantPoseFixe(e.target.value)} className="w-32 rounded border border-slate-300 px-2 py-1 text-right" />
-            </div>
-          )}
-        </div>
-
-        <BlocTotauxDevis
-          totalArticles={totalArticles}
-          pctRemise={pctRemise} setPctRemise={setPctRemise} remise={remise}
-          pctInstall={pctInstall} setPctInstall={setPctInstall} fraisInstallation={fraisInstallation}
-          masquerInstallationPct={poseSeule}
-          pctTransport={pctTransport} setPctTransport={setPctTransport} fraisTransport={fraisTransport}
-          totalDevis={totalDevis} onConvertir={convertir}
-        />
-        <BlocConditionsPaiement
-          pctAcompte={pctAcompte} setPctAcompte={setPctAcompte}
-          delaiInstallation={delaiInstallation} setDelaiInstallation={setDelaiInstallation}
-          montantAcompte={montantAcompte} totalDevis={totalDevis}
-        />
+        <BlocsFinDevis r={r} onConvertir={convertir} />
       </div>
 
       {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}
