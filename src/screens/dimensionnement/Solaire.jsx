@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
-import { besoinsSolaires } from "../../lib/solaire";
+import { besoinsSolaires, supportsPourRails, etriersPourPanneaux } from "../../lib/solaire";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 
@@ -562,11 +562,22 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRailsQte(nombrePanneaux > 0 ? Math.ceil(nombrePanneaux * 2.2) : 0);
   }, [nombrePanneaux]);
   const sousTotalRails = railsQte * PRIX_RAIL;
+  // ⚠ Règle Timo (07/09/2026) : la sortie du rail s'accompagne de celle des
+  // SUPPORTS DE RAIL (rails × 2, arrondi au nombre pair suivant) et des
+  // ÉTRIERS ((panneaux × 2) + 8). Les deux lignes n'existent que s'il y a des
+  // rails au devis ET que l'article est en stock (sinon rien ne pourrait
+  // être soustrait) ; leur prix est celui de l'article en stock.
+  const articleSupportsStock = produitsBoutique.find((p) => /support/i.test(p.nom) || /support/i.test(p.categorie || ""));
+  const articleEtriersStock = produitsBoutique.find((p) => /[ée]trier/i.test(p.nom) || /[ée]trier/i.test(p.categorie || ""));
+  const supportsQte = railsQte > 0 && articleSupportsStock ? supportsPourRails(railsQte) : 0;
+  const etriersQte = railsQte > 0 && articleEtriersStock ? etriersPourPanneaux(nombrePanneaux) : 0;
+  const sousTotalSupports = supportsQte * Number(articleSupportsStock?.prix_vente || 0);
+  const sousTotalEtriers = etriersQte * Number(articleEtriersStock?.prix_vente || 0);
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
   const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises);
 
-  const totalArticles = totalRoles + sousTotalRails + totalAutres;
+  const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
   const r = useReglagesDevis(totalArticles, {}, devisAReprendre);
@@ -583,6 +594,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const panierMetier = () => [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
       ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...(supportsQte > 0 ? [{ produit_id: articleSupportsStock.id, article: articleSupportsStock.nom, qte: supportsQte, pu: Number(articleSupportsStock.prix_vente || 0) }] : []),
+      ...(etriersQte > 0 ? [{ produit_id: articleEtriersStock.id, article: articleEtriersStock.nom, qte: etriersQte, pu: Number(articleEtriersStock.prix_vente || 0) }] : []),
   
   ];
   const lignesMetier = () => [
@@ -591,6 +604,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
         })),
         ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
+        ...(supportsQte > 0 ? [{ categorie: "Supports de rail", article: articleSupportsStock.nom, qte: supportsQte, pu: Number(articleSupportsStock.prix_vente || 0), total: sousTotalSupports }] : []),
+        ...(etriersQte > 0 ? [{ categorie: "Étriers", article: articleEtriersStock.nom, qte: etriersQte, pu: Number(articleEtriersStock.prix_vente || 0), total: sousTotalEtriers }] : []),
   ];
 
   const envoyerDevisWhatsApp = () => envoi.envoyer({
@@ -819,6 +834,23 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalRails)}</td>
               <td className="px-3 py-2"></td>
             </tr>
+            {/* Supports de rail et étriers : suivent les rails et les panneaux (règle Timo, 07/09/2026) */}
+            {railsQte > 0 && [
+              ["Supports de rail", articleSupportsStock, supportsQte, sousTotalSupports, `${railsQte} rails × 2 → nombre pair suivant = ${supportsPourRails(railsQte)}`],
+              ["Étriers", articleEtriersStock, etriersQte, sousTotalEtriers, `(${nombrePanneaux} panneaux × 2) + 8 = ${etriersPourPanneaux(nombrePanneaux)}`],
+            ].map(([libelle, article, qte, sousTotal, calcul]) => (
+              <tr key={libelle} className="border-t border-slate-100 bg-amber-50/40">
+                <td className="px-3 py-2 font-semibold whitespace-nowrap">{libelle}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">
+                  {article ? <>{article.nom} — {calcul}</> : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
+                </td>
+                <td className="px-3 py-2 text-slate-400">—</td>
+                <td className="px-3 py-2 tabular-nums">{article ? qte : "—"}</td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">{article ? fmt(Number(article.prix_vente || 0)) : "—"}</td>
+                <td className="px-3 py-2 tabular-nums font-bold">{article ? fmt(sousTotal) : "—"}</td>
+                <td className="px-3 py-2"></td>
+              </tr>
+            ))}
           </tbody>
         </table>
 

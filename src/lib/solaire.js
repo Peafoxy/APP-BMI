@@ -100,3 +100,10 @@ export function besoinsSolaires(appareils, { autonomie, soleil, tension, typeBat
     aRegulateur: aRegulateur(wc, tensionCalcul),
   };
 }
+
+// ---- Supports de rail et étriers (règle Timo, 07/09/2026) ----
+// Supports : nombre de rails × 2, puis le nombre PAIR qui suit — même sans
+// virgule ; s'il est déjà pair, rien à faire. Étriers : (panneaux × 2) + 8.
+export const pairSuivant = (x) => { const n = Math.ceil(Number(x) || 0); return n % 2 === 0 ? n : n + 1; };
+export const supportsPourRails = (rails) => (Number(rails) > 0 ? pairSuivant(Number(rails) * 2) : 0);
+export const etriersPourPanneaux = (panneaux) => Number(panneaux || 0) * 2 + 8;

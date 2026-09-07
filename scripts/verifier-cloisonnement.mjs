@@ -3778,6 +3778,26 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
   }
 }
 
+titre("Solaire : les supports de rail et les étriers suivent les rails (règle Timo du 07/09/2026)");
+{
+  // « Support rail : nombre de rails × 2 — toujours le nombre pair qui suit,
+  // sauf s'il est déjà pair. Étrier : (nombre de panneaux × 2) + 8. »
+  test("★ supports : 9 rails → 18 ; 8,8 → 18 (17,6 → pair suivant) ; 7 → 14 ; 0 → 0",
+    Sol.supportsPourRails(9) === 18 && Sol.supportsPourRails(8.8) === 18 && Sol.supportsPourRails(7) === 14 && Sol.supportsPourRails(0) === 0);
+  test("★ un nombre déjà pair ne bouge pas ; un impair passe au pair suivant",
+    Sol.pairSuivant(18) === 18 && Sol.pairSuivant(17) === 18 && Sol.pairSuivant(17.2) === 18);
+  test("★ étriers : 4 panneaux → 16 ; 10 → 28 ; 0 → 8", Sol.etriersPourPanneaux(4) === 16 && Sol.etriersPourPanneaux(10) === 28 && Sol.etriersPourPanneaux(0) === 8);
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ les deux lignes n'existent qu'avec des rails ET l'article en stock, liées à lui (produit_id) pour la sortie de stock",
+    /const supportsQte = railsQte > 0 && articleSupportsStock \? supportsPourRails\(railsQte\) : 0;/.test(sol)
+    && /const etriersQte = railsQte > 0 && articleEtriersStock \? etriersPourPanneaux\(nombrePanneaux\) : 0;/.test(sol)
+    && /produit_id: articleSupportsStock\.id/.test(sol) && /produit_id: articleEtriersStock\.id/.test(sol));
+  test("★ elles comptent dans le total des articles et dans les lignes du devis",
+    /totalRoles \+ sousTotalRails \+ sousTotalSupports \+ sousTotalEtriers \+ totalAutres/.test(sol)
+    && /categorie: "Supports de rail"/.test(sol) && /categorie: "Étriers"/.test(sol));
+  test("sans article en stock, l'écran le dit au lieu de se taire", /non ajouté au devis/.test(sol));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
