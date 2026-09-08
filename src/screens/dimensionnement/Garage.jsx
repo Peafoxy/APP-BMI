@@ -209,7 +209,6 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     if (besoinsRepris?.alimentation_proche != null) setAlimentationProche(besoinsRepris.alimentation_proche);
     if (besoinsRepris?.prix_m2_porte) setPrixM2Porte(besoinsRepris.prix_m2_porte);
     premierRenduPorte.current = true; // même piège que les rails de Solaire.jsx : réarmer à chaque reprise
-    setClientDevis(devisAReprendre?.client?.id || "");
     if (initialSelectionGarage) {
       setChoix(initialSelectionGarage.choix || {});
       setVerrous(initialSelectionGarage.verrous || {});
@@ -294,7 +293,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
         ...(batterieSecours && totalBatterieSecours > 0 ? [{ categorie: "Alimentation", article: "Batterie de secours (externe)", qte: 1, pu: totalBatterieSecours, total: totalBatterieSecours }] : []),
   ];
 
-  const envoyerDevisWhatsApp = () => envoi.envoyer({
+  const argumentsEnvoi = () => ({
     totalDevis,
     messageVide: "Le devis est vide : choisissez d'abord les équipements.",
     construire: () => construireDevis({
@@ -319,6 +318,8 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       `${TYPES_PORTAIL.find((t) => t.id === type)?.label || ""}${Number(largeur) > 0 ? ` · ${largeur} m` : ""}${Number(poids) > 0 ? ` · ${poids} kg` : ""}`,
     ],
   });
+  const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
+  const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
   const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
 
@@ -474,7 +475,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
       <BlocEnvoiDevisClient
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
-        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp}
+        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon}
       />
 
 

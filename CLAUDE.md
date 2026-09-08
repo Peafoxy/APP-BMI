@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 830 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 848 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -176,6 +176,12 @@ lit mal est pire qu'un banc absent).
   (panneaux × 2) + 8** (règle Timo du 07/09/2026), lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
+- **📝 Brouillons de devis** (08/09/2026) : bouton « Enregistrer un brouillon »
+  à côté de l'envoi WhatsApp, allumé dès que le client est choisi, **sans
+  aucune question** (« je ne veux pas un déroulé »). Le brouillon vit dans la
+  fiche de l'employé (`brouillons_devis`, liste pour la fusion), onglet
+  « Mes brouillons » dans Dimensionnement ; envoyé ou converti, il disparaît.
+  Un brouillon repris s'AJOUTE chez le client à l'envoi (jamais `idAReprendre`).
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.

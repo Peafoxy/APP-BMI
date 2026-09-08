@@ -134,7 +134,6 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       setBesoinsManuels(initialSelection.verrous || {});
     }
     reprendreAutres(lignesReprises);
-    setClientDevis(devisAReprendre?.client?.id || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
 
@@ -223,7 +222,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
         })),
   ];
 
-  const envoyerDevisWhatsApp = () => envoi.envoyer({
+  const argumentsEnvoi = () => ({
     totalDevis,
     messageVide: "Le devis est vide : décrivez d'abord les besoins du client.",
     construire: () => construireDevis({
@@ -236,6 +235,8 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     }),
     ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
   });
+  const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
+  const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
   const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
 
@@ -328,7 +329,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       <BlocEnvoiDevisClient
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
-        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp}
+        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon}
       />
 
 

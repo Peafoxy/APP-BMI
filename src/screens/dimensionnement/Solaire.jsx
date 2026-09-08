@@ -415,7 +415,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     if (besoinsRepris?.autonomie) setAutonomie(String(besoinsRepris.autonomie));
     if (besoinsRepris?.tension) setTension(String(besoinsRepris.tension));
     if (besoinsRepris?.type_batterie) setTypeBatterie(besoinsRepris.type_batterie === "plomb" ? "gel" : besoinsRepris.type_batterie);
-    setClientDevis(devisAReprendre?.client?.id || "");
     if (initialSelectionSolaire) {
       setChoix(initialSelectionSolaire.choix || {});
       setRolesManuels(initialSelectionSolaire.verrous || {});
@@ -608,7 +607,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         ...(etriersQte > 0 ? [{ categorie: "Étriers", article: articleEtriersStock.nom, qte: etriersQte, pu: Number(articleEtriersStock.prix_vente || 0), total: sousTotalEtriers }] : []),
   ];
 
-  const envoyerDevisWhatsApp = () => envoi.envoyer({
+  const argumentsEnvoi = () => ({
     totalDevis,
     messageVide: "Le devis est vide : choisissez d'abord les équipements.",
     construire: () => construireDevis({
@@ -627,6 +626,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     }),
     ligneEntete: [`☀️ Installation solaire — *${fmt(totalDevis)}*`, `Besoin estimé : ${Math.round(whParJour)} Wh/jour`],
   });
+  const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
+  const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
   const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
 
@@ -867,7 +868,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       <BlocEnvoiDevisClient
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
-        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp}
+        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon}
       />
 
 

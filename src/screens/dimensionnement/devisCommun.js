@@ -86,3 +86,19 @@ export function construireDevis({ profile, boutique, typeDevis, complement = {},
     ...champsReglages(reglages),
   };
 }
+
+// ---- Les brouillons de devis (📝 Mes brouillons, demande Timo 08/09/2026) ----
+// Rangés dans la fiche de leur auteur : personnels, synchronisés, sans SQL.
+export const brouillonsDe = (u) => (Array.isArray(u?.brouillons_devis) ? u.brouillons_devis : []);
+export const ajouterBrouillon = (db, profileId, brouillon) => ({
+  ...db,
+  users: (db.users || []).map((u) => (u.id === profileId
+    ? { ...u, brouillons_devis: [brouillon, ...brouillonsDe(u).filter((b) => b.id !== brouillon.id)] }
+    : u)),
+});
+export const retirerBrouillon = (db, profileId, id) => ({
+  ...db,
+  users: (db.users || []).map((u) => (u.id === profileId && brouillonsDe(u).some((b) => b.id === id)
+    ? { ...u, brouillons_devis: brouillonsDe(u).filter((b) => b.id !== id) }
+    : u)),
+});

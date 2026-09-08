@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
-import { fmt, telDigits, col, ouvrirWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer } from "../../lib/core";
+import { fmt, telDigits, col, ouvrirWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
 // Demande Timo (02/09/2026) : « tous les écrans du dimensionnement doivent
@@ -32,7 +32,7 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, estBoutiqueFormation } from "../../lib/calculs";
-import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon } from "./devisCommun";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
 // convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
@@ -280,8 +280,23 @@ export function BlocsFinDevis({ r, onConvertir }) {
 // Le volet ne fournit que ce qui lui est propre : le devis construit, la
 // première ligne du message WhatsApp, le message « devis vide ».
 export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente }) {
-  const [clientDevis, setClientDevis] = useState(() => devisAReprendre?.client?.id || "");   // compte client existant
-  const [nouvClient, setNouvClient] = useState({ nom: "", tel: "" });
+  // Le client repris : un compte (id), ou seulement un nom + numéro (brouillon
+  // d'un client sans compte encore). Réappliqué à chaque nouvelle reprise —
+  // avant, chaque volet le refaisait dans son propre effet.
+  const clientRepris = (r) => (r?.client?.id ? r.client.id : (r?.client?.nom ? "__nouveau__" : ""));
+  const nouvClientRepris = (r) => (r?.client && !r.client.id ? { nom: r.client.nom || "", tel: r.client.tel || "" } : { nom: "", tel: "" });
+  const [clientDevis, setClientDevis] = useState(() => clientRepris(devisAReprendre));
+  const [nouvClient, setNouvClient] = useState(() => nouvClientRepris(devisAReprendre));
+  useEffect(() => {
+    if (!devisAReprendre) return;
+    setClientDevis(clientRepris(devisAReprendre));
+    setNouvClient(nouvClientRepris(devisAReprendre));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
+  // Un brouillon repris n'est PAS un devis déjà dans la fiche du client : à
+  // l'envoi on l'AJOUTE (idAReprendre vide), et on retire le brouillon.
+  const brouillonRepris = devisAReprendre?.brouillon_id || null;
+  const idAReprendre = brouillonRepris ? undefined : devisAReprendre?.devis?.id;
   // ⚠ Cloisonnement : on ne propose que les clients de SON espace. Sans ce
   // filtre, un compte de formation adressait ses devis d'essai à de VRAIS
   // clients. La BOUTIQUE de travail décide, pas le compte : l'administrateur
@@ -302,8 +317,8 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
     // n'était parti. On respecte la réponse.
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
-      dbApres, compte, motDePasse, devis, save, profile, nouvClient,
-      ligneEntete, idAReprendre: devisAReprendre?.devis?.id,
+      dbApres: brouillonRepris ? retirerBrouillon(dbApres, profile.id, brouillonRepris) : dbApres,
+      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre,
     });
     if (!envoye) return;
     setClientDevis("");
@@ -316,10 +331,33 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   const convertir = (panier, pctRemise) => {
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
     effacerBrouillonVolet(volet, profile);
+    if (brouillonRepris) save(retirerBrouillon(db, profile.id, brouillonRepris), `📝 Brouillon de devis converti en vente par ${profile.nom}`);
     onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
   };
 
-  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir };
+  // 📝 Enregistrer un brouillon (demande Timo, 08/09/2026) : le devis tel
+  // qu'il est, avec le client choisi — compte existant, ou nom + numéro
+  // (aucun compte créé, aucun WhatsApp). Rangé dans MA fiche.
+  const enregistrerBrouillon = ({ totalDevis, messageVide, construire }) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (totalDevis <= 0) { uAlert(messageVide); return; }
+    let client;
+    if (clientDevis === "__nouveau__") {
+      const nom = nouvClient.nom.trim(), tel = nouvClient.tel.trim();
+      if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom et le numéro du client."); return; }
+      client = { nom, tel };
+    } else {
+      const compte = comptesClients.find((u) => u.id === clientDevis);
+      if (!compte) { uAlert("Choisissez d'abord le client."); return; }
+      client = { id: compte.id, nom: compte.nom_base || compte.nom, tel: compte.tel || "" };
+    }
+    const devis = construire();
+    const brouillon = { id: brouillonRepris || uid(), volet, client, devis, date: today(), ts: new Date().toISOString() };
+    save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${client.nom} (${fmt(devis.total)}) par ${profile.nom}`);
+    uAlert(`📝 Brouillon enregistré pour ${client.nom}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, ou supprimer.`);
+  };
+
+  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir, enregistrerBrouillon };
 }
 
 // ---- Conditions de paiement — % d'acompte et délai d'installation propres
@@ -353,7 +391,7 @@ export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstall
 }
 
 // ---- Bloc « Envoyer le devis au client » : sélection/création du compte + bouton WhatsApp ----
-export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, profile }) {
+export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, profile }) {
   // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
   // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
   const sansSignature = profile && !profile.signature_personnelle;
@@ -396,9 +434,18 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         </div>
       )}
 
-      <button onClick={onEnvoyer} disabled={!clientDevis} className={`mt-3 px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-green-600 text-white hover:bg-green-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
-        📲 Envoyer par WhatsApp
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={onEnvoyer} disabled={!clientDevis} className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-green-600 text-white hover:bg-green-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
+          📲 Envoyer par WhatsApp
+        </button>
+        {/* 📝 Brouillon (demande Timo, 08/09/2026) : même condition que l'envoi —
+            le client est choisi — et aucune autre question. Rien ne part. */}
+        {onBrouillon && (
+          <button onClick={onBrouillon} disabled={!clientDevis} className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
+            📝 Enregistrer un brouillon
+          </button>
+        )}
+      </div>
     </div>
   );
 }

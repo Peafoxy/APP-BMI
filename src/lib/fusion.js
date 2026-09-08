@@ -41,7 +41,7 @@
 export const STRATEGIES = {
   dettes: { listes: ["paiements"], additifs: ["paye"] },
   paie: { listes: ["virements", "credits"] },
-  users: { listes: ["virements", "credits", "devis"] },
+  users: { listes: ["virements", "credits", "devis", "brouillons_devis"] },
   // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : cette ligne disait
   // `listes: ["demande_prime"]`. Or `demande_prime` n'est pas une liste et
   // n'existe pas à ce niveau — c'est un booléen posé sur chaque membre de

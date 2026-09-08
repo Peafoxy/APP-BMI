@@ -8,6 +8,8 @@ import { domainesDefinis, boutiqueParDefaut } from "../../lib/calculs";
 import { DimensionnementSolaire } from "./Solaire";
 import { DimensionnementGarage } from "./Garage";
 import { DimensionnementAutre } from "./Autre";
+import { MesBrouillons } from "./Brouillons";
+import { brouillonsDe } from "./devisCommun";
 
 // ⚠ Demande Timo (18/08/2026) : « dès qu'un domaine est créé dans les
 // paramètres, il apparaît dans le dimensionnement — c'est mieux que d'écrire
@@ -19,8 +21,14 @@ import { DimensionnementAutre } from "./Autre";
 //   • "libre" — aucun calcul : les familles du domaine, les articles, le
 //     devis. Personne ne peut inventer les règles de dimensionnement d'un
 //     métier à partir de son seul nom.
-export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme }) {
+export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAReprendre: devisAReprendreProp, onDevisRepriseConsomme: onDevisRepriseConsommeProp }) {
   const domaines = domainesDefinis(db);
+  // 📝 Mes brouillons (demande Timo, 08/09/2026) : un brouillon repris ici
+  // suit le même chemin qu'un devis repris depuis « Tous les devis ».
+  const [brouillonRepris, setBrouillonRepris] = useState(null);
+  const devisAReprendre = devisAReprendreProp || brouillonRepris;
+  const onDevisRepriseConsomme = () => { setBrouillonRepris(null); if (onDevisRepriseConsommeProp) onDevisRepriseConsommeProp(); };
+  const nbBrouillons = brouillonsDe((db.users || []).find((u) => u.id === profile.id)).length;
   // ⚠ Le VOLET choisi survit au F5 et aux nouvelles versions (relevé par
   // Timo, 02/09/2026 : les champs survivaient — mais le F5 ramenait sur
   // Solaire, donc sur une autre boutique que celle du travail en cours).
@@ -30,7 +38,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
   const [mode, setMode] = useState(() => {
     try {
       const memorise = localStorage.getItem(cleVolet);
-      if (memorise && domaines.some((d) => d.id === memorise)) return memorise;
+      if (memorise && (memorise === "brouillons" || domaines.some((d) => d.id === memorise))) return memorise;
     } catch { /* stockage indisponible : on repart du premier volet */ }
     return domaines[0]?.id || "solaire";
   });
@@ -87,7 +95,15 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
             {d.icone} {d.nom}
           </button>
         ))}
+        <button onClick={() => setMode("brouillons")}
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${mode === "brouillons" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+          📝 Mes brouillons{nbBrouillons ? ` (${nbBrouillons})` : ""}
+        </button>
       </div>
+      {mode === "brouillons" && (
+        <MesBrouillons db={db} profile={profile} save={save} domaines={domaines}
+          onReprendre={(b) => { setBrouillonRepris({ devis: b.devis, client: b.client, brouillon_id: b.id }); }} />
+      )}
       {domaines.length === 0 && (
         <div className="rounded-xl p-4 bg-amber-50 border-2 border-amber-300 text-sm text-amber-900">
           Aucun domaine n'est défini. Rendez-vous dans <b>⚙ Paramètres → Domaines de produits</b> pour en créer un.
@@ -96,7 +112,9 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
       {devisAReprendre && (
         <div className="rounded-xl p-3 bg-amber-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm text-amber-900">
-            {devisAReprendre.depuis_vente ? (
+            {devisAReprendre.brouillon_id ? (
+              <b>📝 Reprise du brouillon de {devisAReprendre.client?.nom} ({fmt(devisAReprendre.devis.total)}) — modifiez, puis « Envoyer par WhatsApp » ou « Enregistrer un brouillon » pour le garder.</b>
+            ) : devisAReprendre.depuis_vente ? (
               <b>📋 Devis créé depuis la vente {devisAReprendre.devis.vente_numero} — ajoutez ce qu'il faut, puis envoyez-le au client{devisAReprendre.client ? ` (${devisAReprendre.client.nom_base || devisAReprendre.client.nom})` : ""}.</b>
             ) : (
               <>

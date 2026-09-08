@@ -3798,6 +3798,69 @@ titre("Solaire : les supports de rail et les étriers suivent les rails (règle 
   test("sans article en stock, l'écran le dit au lieu de se taire", /non ajouté au devis/.test(sol));
 }
 
+titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé plus tard (demande Timo, 08/09/2026)");
+{
+  // « Ajouter carrément un bouton "enregistrer un brouillon" à côté de
+  // envoyer WhatsApp, sélectionnable après avoir choisi le client. » Le
+  // brouillon vit dans la fiche de l'employé (champ brouillons_devis) : rien
+  // côté serveur, pas de SQL, et la fusion trois voies le traite comme une
+  // liste (comme ses devis). On exerce la vraie règle, puis on lit le code.
+  const sortieDC = join("node_modules", ".cache", `bmi-dc-brouillons-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieDC, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DC = await import(pathToFileURL(sortieDC).href);
+  unlinkSync(sortieDC);
+  const db0 = { users: [{ id: "u_k", nom: "KOSSI", role: "vendeur" }, { id: "u_a", nom: "AMA", role: "vendeur", brouillons_devis: [{ id: "bA", client: { nom: "X" }, devis: { total: 1 } }] }] };
+  const b1 = { id: "b1", volet: "solaire", client: { nom: "ESSO", tel: "90000000" }, devis: { total: 250000 }, date: "2026-09-08" };
+  const b2 = { id: "b2", volet: "garage", client: { id: "c9", nom: "AFI" }, devis: { total: 90000 }, date: "2026-09-08" };
+  test("★ une fiche sans brouillon en a zéro (pas de plantage sur un champ absent ou faux)",
+    DC.brouillonsDe(db0.users[0]).length === 0 && DC.brouillonsDe(undefined).length === 0 && DC.brouillonsDe({ brouillons_devis: "x" }).length === 0);
+  const db1 = DC.ajouterBrouillon(db0, "u_k", b1);
+  const db2 = DC.ajouterBrouillon(db1, "u_k", b2);
+  test("★ enregistrer range le brouillon dans MA fiche, le plus récent en tête",
+    DC.brouillonsDe(db2.users[0]).map((b) => b.id).join(",") === "b2,b1");
+  test("★ …et ne touche PAS la fiche d'un autre employé", JSON.stringify(db2.users[1]) === JSON.stringify(db0.users[1]));
+  test("★ ré-enregistrer un brouillon repris (même id) le REMPLACE au lieu de le doubler",
+    DC.brouillonsDe(DC.ajouterBrouillon(db2, "u_k", { ...b1, devis: { total: 300000 } }).users[0]).length === 2
+    && DC.brouillonsDe(DC.ajouterBrouillon(db2, "u_k", { ...b1, devis: { total: 300000 } }).users[0])[0].devis.total === 300000);
+  const db3 = DC.retirerBrouillon(db2, "u_k", "b1");
+  test("★ retirer (envoyé, converti ou supprimé) ne laisse que les autres", DC.brouillonsDe(db3.users[0]).map((b) => b.id).join(",") === "b2");
+  test("★ retirer un brouillon absent ne réécrit AUCUNE fiche (pas de faux changement à synchroniser)",
+    DC.retirerBrouillon(db2, "u_k", "inconnu").users[0] === db2.users[0] && DC.retirerBrouillon(db2, "u_a", "b1").users[1] === db2.users[1]);
+  test("★ les objets d'origine ne sont pas modifiés en place", DC.brouillonsDe(db0.users[0]).length === 0 && DC.brouillonsDe(db2.users[0]).length === 2);
+
+  const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★ le bouton « 📝 Enregistrer un brouillon » est à côté de l'envoi WhatsApp et ne s'allume qu'une fois le client choisi (aucune question posée)",
+    /<button onClick=\{onBrouillon\} disabled=\{!clientDevis\}/.test(part) && /📝 Enregistrer un brouillon/.test(part)
+    && !/uPrompt\([^)]*brouillon/i.test(part));
+  test("★ enregistrer exige le client (compte, ou nom + numéro), refuse un devis vide et un compte en lecture seule",
+    /const enregistrerBrouillon = \(\{ totalDevis, messageVide, construire \}\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(totalDevis <= 0\)/.test(part)
+    && /uAlert\("Indiquez le nom et le numéro du client\."\)/.test(part) && /uAlert\("Choisissez d'abord le client\."\)/.test(part));
+  test("★ un brouillon repris n'est PAS un devis déjà chez le client : à l'envoi on l'AJOUTE, et le brouillon disparaît",
+    /const idAReprendre = brouillonRepris \? undefined : devisAReprendre\?\.devis\?\.id;/.test(part)
+    && /dbApres: brouillonRepris \? retirerBrouillon\(dbApres, profile\.id, brouillonRepris\) : dbApres,/.test(part));
+  test("★ convertir un brouillon en vente le retire aussi", /if \(brouillonRepris\) save\(retirerBrouillon\(db, profile\.id, brouillonRepris\)/.test(part));
+  test("★ le client d'une reprise (devis ou brouillon) est réappliqué par la règle commune, plus par chaque volet",
+    /setClientDevis\(clientRepris\(devisAReprendre\)\);\s*setNouvClient\(nouvClientRepris\(devisAReprendre\)\);/.test(part));
+  for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
+    const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
+    test(`★ ${f} : les deux boutons partent des MÊMES arguments (argumentsEnvoi), onBrouillon branché, plus de setClientDevis(devisAReprendre…)`,
+      /const envoyerDevisWhatsApp = \(\) => envoi\.envoyer\(argumentsEnvoi\(\)\);/.test(src)
+      && /const enregistrerBrouillon = \(\) => envoi\.enregistrerBrouillon\(argumentsEnvoi\(\)\);/.test(src)
+      && /onBrouillon=\{enregistrerBrouillon\}/.test(src) && !/setClientDevis\(devisAReprendre/.test(src));
+  }
+  const idx = readFileSync("src/screens/dimensionnement/index.jsx", "utf8");
+  test("★ l'onglet « 📝 Mes brouillons » est dans Dimensionnement, et Reprendre rouvre le volet avec brouillon_id",
+    /📝 Mes brouillons\{nbBrouillons/.test(idx) && /setBrouillonRepris\(\{ devis: b\.devis, client: b\.client, brouillon_id: b\.id \}\)/.test(idx)
+    && /const devisAReprendre = devisAReprendreProp \|\| brouillonRepris;/.test(idx));
+  const br = readFileSync("src/screens/dimensionnement/Brouillons.jsx", "utf8");
+  test("★ la liste ne montre que MES brouillons (fiche de profile.id), et Envoyer suit le chemin WhatsApp commun puis retire le brouillon",
+    /brouillonsDe\(moi\)/.test(br) && /find\(\(u\) => u\.id === profile\.id\)/.test(br) && /resoudreClientDevis\(db, clientDevis, nouvClient, profile, b\.devis\?\.boutique\)/.test(br)
+    && /dbApres: retirerBrouillon\(dbApres, profile\.id, b\.id\)/.test(br) && /await uConfirm\(`Supprimer le brouillon/.test(br));
+  test("★ la fusion trois voies traite brouillons_devis comme une liste de la fiche (deux appareils ne s'écrasent pas)",
+    /users: \{ listes: \["virements", "credits", "devis", "brouillons_devis"\] \}/.test(readFileSync("src/lib/fusion.js", "utf8")));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
