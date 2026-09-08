@@ -3772,7 +3772,7 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
   for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
     const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
     test(`★ ${f} passe par construireDevis, useReglagesDevis, useAutresEquipements, useEnvoiDevis et BlocsFinDevis`,
-      /construireDevis\(\{/.test(src) && /useReglagesDevis\(totalArticles/.test(src) && /useAutresEquipements\(lignesReprises, produitsBoutique\)/.test(src)
+      /construireDevis\(\{/.test(src) && /useReglagesDevis\(totalArticles/.test(src) && /useAutresEquipements\(lignesReprises, produitsBoutique, brouillon\?\.autres\)/.test(src)
       && /useEnvoiDevis\(\{/.test(src) && /<BlocsFinDevis r=\{r\} onConvertir=\{convertir\} \/>/.test(src));
     test(`★ ${f} n'a plus AUCUNE copie de la fin du devis (pose seule, frais, champs, autres équipements)`,
       !/Pose seule \(matériel/.test(src) && !/pct_installation:/.test(src) && !/categorie: "Autres équipements"/.test(src)
@@ -3835,7 +3835,7 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
   test("★ chaque ligne (supports, étriers) a sa case de quantité, et dit le calculé quand on s'en écarte",
     /onChange=\{\(e\) => corrigerFixation\(cle, base, e\.target\.value\)\}/.test(sol) && /calculé : \{calcule\}/.test(sol) && /retiré du devis/.test(sol));
   test("★ le brouillon du volet garde les équipements, leurs quantités, les rails et les corrections de fixation (F5)",
-    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle \}\)/.test(sol));
+    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, autres \}\)/.test(sol));
   test("★ après un F5, le premier calcul automatique n'écrase pas ce qui vient du brouillon ; les suivants recalculent",
     /const sauterPremierCalcul = useRef\(!!choixDuBrouillon\);/.test(sol) && /if \(sauterPremierCalcul\.current\) \{ sauterPremierCalcul\.current = false; return; \}/.test(sol));
   test("★ un devis repris passe TOUJOURS avant le brouillon, et un brouillon du mode Libre n'est pas restitué",
@@ -3972,8 +3972,38 @@ titre("Autres équipements : d'abord le stock de la boutique — prix pré-rempl
   for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
     const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
     test(`★ ${f} donne au bloc et au crochet le stock de la boutique REGARDÉE (produitsBoutique), jamais db.produits en entier`,
-      /useAutresEquipements\(lignesReprises, produitsBoutique\)/.test(src) && /db=\{db\} produits=\{produitsBoutique\}/.test(src)
+      /useAutresEquipements\(lignesReprises, produitsBoutique, brouillon\?\.autres\)/.test(src) && /db=\{db\} produits=\{produitsBoutique\}/.test(src)
       && !/produits=\{db\.produits\}/.test(src));
+  }
+}
+
+titre("Portail et Autre : équipements, quantités et autres équipements survivent au F5 (Timo, 08/09/2026)");
+{
+  // « Fais pareil pour les quantités dans le portail et autre. Quand on
+  // ajoute un équipement, après F5 ou nouvelle mise à jour, il disparaît. »
+  const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★ le crochet commun des autres équipements repart du brouillon du volet quand aucun devis n'est repris",
+    /export function useAutresEquipements\(lignesReprises, produitsBoutique = \[\], autresDuBrouillon = null\)/.test(part)
+    && /lignesReprises\?\.length \? reprisesAutres\(lignesReprises\) : \(Array\.isArray\(autresDuBrouillon\) \? autresDuBrouillon : \[\]\)/.test(part));
+  const gar = readFileSync("src/screens/dimensionnement/Garage.jsx", "utf8");
+  test("★ Portail : le brouillon garde équipements, verrous, HB, kit solaire, batterie de secours et autres équipements",
+    /useEcrireBrouillonVolet\("garage", profile, \{ type, largeur, hauteur, poids, vantaux, frequence, telecosSouhaitees, alimentationProche, prixM2Porte,\s*choix, verrous, rolesHB, kitSolaire, prixKitSolaire, batterieSecours, prixBatterieSecours, autres \}\)/.test(gar));
+  test("★ Portail : au montage, la sélection repart du brouillon (un devis repris prime) et le premier calcul ne l'écrase pas",
+    /const selectionDuBrouillon = !initialSelectionGarage && brouillon\?\.choix \? \{ choix: brouillon\.choix, verrous: brouillon\.verrous \|\| \{\}, hb: brouillon\.rolesHB \|\| \{\} \} : null;/.test(gar)
+    && /useSelectionAvecVerrou\(meilleurChoix, initialSelectionGarage \|\| selectionDuBrouillon\)/.test(gar)
+    && /if \(sauterPremierCalcul\.current\) \{ sauterPremierCalcul\.current = false; return; \}\s*recalculerNonVerrouilles\(ROLES_EQUIPEMENT_GARAGE\);/.test(gar));
+  test("★ Portail : kit solaire et batterie de secours reviennent aussi (cochés et prix)",
+    /useState\(ligneKitSolaire \? true : !!brouillon\?\.kitSolaire\)/.test(gar) && /useState\(ligneBatterieSecours \? true : !!brouillon\?\.batterieSecours\)/.test(gar));
+  const aut = readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8");
+  test("★ Autre : le brouillon garde les articles choisis, leurs verrous et les autres équipements",
+    /useEcrireBrouillonVolet\("autre", profile, \{ besoins, poseSeule, montantPoseFixe, choix, verrous: besoinsManuels, autres \}\)/.test(aut));
+  test("★ Autre : au montage, la sélection repart du brouillon (un devis repris prime) et le premier calcul ne l'écrase pas",
+    /const selectionDuBrouillon = !initialSelection && brouillon\?\.choix \? \{ choix: brouillon\.choix, verrous: brouillon\.verrous \|\| \{\} \} : null;/.test(aut)
+    && /useSelectionAvecVerrou\(meilleurChoixBesoin, initialSelection \|\| selectionDuBrouillon\)/.test(aut)
+    && /if \(sauterPremierCalcul\.current\) \{ sauterPremierCalcul\.current = false; return; \}\s*recalculerNonVerrouilles\(besoins\);/.test(aut));
+  for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
+    test(`★ ${f} passe ses autres équipements du brouillon au crochet commun et les écrit dans le brouillon`,
+      /useAutresEquipements\(lignesReprises, produitsBoutique, brouillon\?\.autres\)/.test(readFileSync(`src/screens/dimensionnement/${f}`, "utf8")));
   }
 }
 

@@ -206,8 +206,11 @@ export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise
 }
 
 // ---- Les « autres équipements » : même état, mêmes gestes dans les trois volets ----
-export function useAutresEquipements(lignesReprises, produitsBoutique = []) {
-  const [autres, setAutres] = useState(() => reprisesAutres(lignesReprises));
+// Après un F5 ou une mise à jour, les lignes ajoutées reviennent (Timo,
+// 08/09/2026 : « quand on ajoute un équipement, après F5 il disparaît ») :
+// chaque volet passe ce qu'il a dans SON brouillon. Un devis repris prime.
+export function useAutresEquipements(lignesReprises, produitsBoutique = [], autresDuBrouillon = null) {
+  const [autres, setAutres] = useState(() => (lignesReprises?.length ? reprisesAutres(lignesReprises) : (Array.isArray(autresDuBrouillon) ? autresDuBrouillon : [])));
   return {
     autres,
     ajouterAutre: () => setAutres([...autres, nouvelAutre()]),

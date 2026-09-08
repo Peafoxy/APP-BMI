@@ -613,12 +613,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const sousTotalSupports = supportsQte * Number(articleSupportsStock?.prix_vente || 0);
   const sousTotalEtriers = etriersQte * Number(articleEtriersStock?.prix_vente || 0);
 
-  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
-  // devis réellement envoyé ou converti (voir plus bas), jamais avant.
-  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle });
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique);
+  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+
+  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
+  // devis réellement envoyé ou converti (voir plus bas), jamais avant.
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, autres });
 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,

@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 877 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 886 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -183,7 +183,10 @@ lit mal est pire qu'un banc absent).
   revenir : **UN lien « Annuler (revenir à la sélection automatique) »**
   (`LienAuto`, Solaire.jsx) sur toute ligne qui s'écarte du calcul —
   article, quantité, rails, supports, étriers. Pas de bouton global
-  (« prendre la règle existante »).
+  (« prendre la règle existante »). **Portail et Autre font pareil** :
+  leur brouillon garde choix, verrous, HB, options et **autres
+  équipements** (les trois volets) ; un devis repris prime toujours, et le
+  premier calcul au montage saute (`sauterPremierCalcul`).
 - **Autres équipements** (08/09/2026) : le champ Article propose d'abord le
   stock de la boutique regardée ; un nom qui y correspond LIE la ligne
   (prix du stock pré-rempli, `produit_id`, sortie de stock à l'encaissement,

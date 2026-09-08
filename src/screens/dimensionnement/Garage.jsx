@@ -104,9 +104,6 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     setPrixM2Porte(PRIX_PORTE_M2[type] || 0);
   }, [type]);
 
-  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
-  // devis réellement envoyé ou converti, jamais avant.
-  useEcrireBrouillonVolet("garage", profile, { type, largeur, hauteur, poids, vantaux, frequence, telecosSouhaitees, alimentationProche, prixM2Porte });
   const surfacePorte = Math.round(Number(largeur || 0) * Number(hauteur || 0) * 100) / 100;
   const sousTotalPorte = Math.round(surfacePorte * Number(prixM2Porte || 0));
 
@@ -182,13 +179,19 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
     return { choix, verrous, hb };
   })();
 
-  const [rolesHB, setRolesHB] = useState(() => initialSelectionGarage?.hb || {});
+  // Après un F5 : les équipements et quantités tels qu'ils étaient (même
+  // règle que Solaire, demande Timo 08/09/2026). Un devis repris prime.
+  const selectionDuBrouillon = !initialSelectionGarage && brouillon?.choix ? { choix: brouillon.choix, verrous: brouillon.verrous || {}, hb: brouillon.rolesHB || {} } : null;
+  const [rolesHB, setRolesHB] = useState(() => initialSelectionGarage?.hb || selectionDuBrouillon?.hb || {});
+  // Le premier calcul automatique (au montage) ne doit pas écraser ce qui
+  // vient d'être restitué du brouillon ; les suivants recalculent comme avant.
+  const sauterPremierCalcul = useRef(!!selectionDuBrouillon);
 
   const {
     choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel,
     verrous, setVerrous, recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte,
     ouvrirManuel: ouvrirManuelBase, validerManuel, annulerManuel,
-  } = useSelectionAvecVerrou(meilleurChoix, initialSelectionGarage);
+  } = useSelectionAvecVerrou(meilleurChoix, initialSelectionGarage || selectionDuBrouillon);
 
   // RÉACTIF à chaque NOUVELLE reprise de devis — même piège que
   // Ventes.jsx/Commandes.jsx (2.99.13) et Solaire.jsx : depuis que cet écran
@@ -218,6 +221,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   }, [devisAReprendre]);
 
   useEffect(() => {
+    if (sauterPremierCalcul.current) { sauterPremierCalcul.current = false; return; }
     recalculerNonVerrouilles(ROLES_EQUIPEMENT_GARAGE);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, largeur, poids, frequence, telecosSouhaitees, boutique, db.produits]);
@@ -250,16 +254,23 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
 
   // ---- Kit solaire autonome (si pas d'électricité à proximité) ----
   const ligneKitSolaire = lignesReprises.find((l) => l.article === "Kit solaire autonome (motorisation)");
-  const [kitSolaire, setKitSolaire] = useState(!!ligneKitSolaire);
-  const [prixKitSolaire, setPrixKitSolaire] = useState(ligneKitSolaire ? String(ligneKitSolaire.pu) : "");
+  const [kitSolaire, setKitSolaire] = useState(ligneKitSolaire ? true : !!brouillon?.kitSolaire);
+  const [prixKitSolaire, setPrixKitSolaire] = useState(ligneKitSolaire ? String(ligneKitSolaire.pu) : (brouillon?.prixKitSolaire ?? ""));
 
   // ---- Batterie de secours (externe) : en option, cochée par le client ----
   const ligneBatterieSecours = lignesReprises.find((l) => l.article === "Batterie de secours (externe)");
-  const [batterieSecours, setBatterieSecours] = useState(!!ligneBatterieSecours);
-  const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : "");
+  const [batterieSecours, setBatterieSecours] = useState(ligneBatterieSecours ? true : !!brouillon?.batterieSecours);
+  const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : (brouillon?.prixBatterieSecours ?? ""));
 
   // ---- Autres équipements : coffret de commande, câblage… ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique);
+  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+
+  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
+  // devis réellement envoyé ou converti, jamais avant. Depuis le 08/09/2026,
+  // il garde aussi les équipements, leurs quantités, les options et les
+  // autres équipements : un F5 ne remet plus rien au calcul.
+  useEcrireBrouillonVolet("garage", profile, { type, largeur, hauteur, poids, vantaux, frequence, telecosSouhaitees, alimentationProche, prixM2Porte,
+    choix, verrous, rolesHB, kitSolaire, prixKitSolaire, batterieSecours, prixBatterieSecours, autres });
 
   const totalKitSolaire = kitSolaire ? Number(prixKitSolaire || 0) : 0;
   const totalBatterieSecours = batterieSecours ? Number(prixBatterieSecours || 0) : 0;

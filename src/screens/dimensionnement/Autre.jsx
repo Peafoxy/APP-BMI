@@ -2,7 +2,7 @@
 // screens/dimensionnement/Autre.jsx — Volet Autre : catégories libres, correspondance besoin ↔ produits
 // du stock par similarité de nom.
 // ============================================================
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
@@ -107,6 +107,11 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // (demande Timo, 02/09/2026 : seul Solaire gardait ses données).
   const brouillon = lireBrouillonVolet("autre", profile, !!devisAReprendre);
   const [besoins, setBesoins] = useState(() => initialSelection?.besoinsInit || brouillon?.besoins || [{ id: uid(), nom: "", qte: "1" }]);
+  // Après un F5 : les articles choisis et leurs quantités tels qu'ils
+  // étaient (même règle que Solaire, demande Timo 08/09/2026). Un devis
+  // repris prime.
+  const selectionDuBrouillon = !initialSelection && brouillon?.choix ? { choix: brouillon.choix, verrous: brouillon.verrous || {} } : null;
+  const sauterPremierCalcul = useRef(!!selectionDuBrouillon);
 
   const meilleurChoixBesoin = (besoin) => {
     if (!besoin || !besoin.nom || !besoin.nom.trim()) return null;
@@ -119,7 +124,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     choix, setChoix, manuelOuvert, brouillonManuel, setBrouillonManuel, verrous: besoinsManuels, setVerrous: setBesoinsManuels,
     recalculerNonVerrouilles, changerProduit: changerProduitBase, changerQte: changerQteChoix,
     ouvrirManuel: ouvrirManuelBase, validerManuel, annulerManuel,
-  } = useSelectionAvecVerrou(meilleurChoixBesoin, initialSelection);
+  } = useSelectionAvecVerrou(meilleurChoixBesoin, initialSelection || selectionDuBrouillon);
 
   // RÉACTIF à chaque NOUVELLE reprise de devis — même piège que
   // Ventes.jsx/Commandes.jsx (2.99.13), Solaire.jsx et Garage.jsx : cet
@@ -144,6 +149,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
 
   // Recalcule les besoins non verrouillés quand la catégorie ou le stock changent.
   useEffect(() => {
+    if (sauterPremierCalcul.current) { sauterPremierCalcul.current = false; return; }
     recalculerNonVerrouilles(besoins);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorieChoisie, boutique, db.produits, domaine?.id]);
@@ -193,7 +199,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const totalRoles = lignesDevis.reduce((s, l) => s + l.sousTotal, 0);
 
   // ---- Autres équipements : hors de la catégorie choisie ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique);
+  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
 
   const totalArticles = totalRoles + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -202,7 +208,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti, jamais avant.
-  useEcrireBrouillonVolet("autre", profile, { besoins, poseSeule, montantPoseFixe });
+  useEcrireBrouillonVolet("autre", profile, { besoins, poseSeule, montantPoseFixe, choix, verrous: besoinsManuels, autres });
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
