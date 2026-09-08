@@ -5,7 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, telDigits, totalVente } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, totalVente, envoyerWhatsApp } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -191,7 +191,7 @@ export function Clients({ db, profile }) {
   const contacter = (c) => {
     const num = telDigits(c.tel);
     if (!num) { uAlert("Aucun numéro enregistré pour ce client."); return; }
-    window.open(`https://wa.me/${num}`, "_blank");
+    envoyerWhatsApp(num, "");
   };
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —

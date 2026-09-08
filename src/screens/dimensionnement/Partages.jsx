@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
-import { fmt, telDigits, col, ouvrirWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
+import { fmt, telDigits, col, envoyerWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
 // Demande Timo (02/09/2026) : « tous les écrans du dimensionnement doivent
@@ -591,11 +591,9 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  const num = telDigits(compte.tel || nouvClient.tel);
-  const txt = encodeURIComponent(lignesMsg.join("\n"));
   // Si le navigateur bloque l'ouverture, on le DIT et on propose un bouton :
   // sans cela, le devis partait enregistré mais le client n'était jamais
   // prévenu, et personne ne le savait.
-  await ouvrirWhatsApp(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, uConfirm);
+  await envoyerWhatsApp(compte.tel || nouvClient.tel, lignesMsg.join("\n"), uConfirm);
   return true;
 }

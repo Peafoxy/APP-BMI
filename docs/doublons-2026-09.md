@@ -22,7 +22,7 @@ La zone de signature (2.101.57) n'y figure plus : déjà unifiée.
 | A7 | **Le lecteur de code-barres** et **ajouter au panier** | `Ventes.jsx` et `Commandes.jsx` | Un code lu correctement à la vente mais pas à la commande, ou l'inverse. |
 | A8 | **Marquer un prospect « client acquis »** quand il paie | `Ventes.jsx` (encaissement) et `Prospects.jsx` (convertir) | Les deux chemins écrivent des champs différents (l'un pose vente_id, l'autre client_user_id) : un prospect converti n'a pas la même fiche selon le chemin. |
 | A9 | **L'entête du PDF** (logo, société, coordonnées) | `pdf.js` : devis et proforma, 29 lignes identiques ; plus trois blocs de 8 lignes (pied, totaux) | Un changement d'adresse ou de logo fait sur le devis et pas sur la proforma. |
-| A10 | **Envoyer un message WhatsApp** (numéro nettoyé, texte encodé, ouverture) | 4 fonctions de `lib/comptesClients.js` avec la même fin, + 8 écrans qui ouvrent `wa.me` eux-mêmes (`Dettes`, `Ventes`, `Clients`, `ClientsInstalles` ×3, `Partages`, `EspaceClient`) | ⚠ Déjà divergent : `Ventes.jsx` ouvre le texte **sans l'encoder** (un « & » ou un « # » dans le message le coupe). Et le jour du WhatsApp depuis le numéro BMI, il faudra remplacer 12 endroits au lieu d'un. |
+| A10 ✅ 2.101.76 | **Envoyer un message WhatsApp** (numéro nettoyé, texte encodé, ouverture) | 4 fonctions de `lib/comptesClients.js` avec la même fin, + 8 écrans qui ouvrent `wa.me` eux-mêmes (`Dettes`, `Ventes`, `Clients`, `ClientsInstalles` ×3, `Partages`, `EspaceClient`) | ⚠ Déjà divergent : `Ventes.jsx` ouvre le texte **sans l'encoder** (un « & » ou un « # » dans le message le coupe). Et le jour du WhatsApp depuis le numéro BMI, il faudra remplacer 12 endroits au lieu d'un. |
 | A11 | **Le lien PV** (jeton, numéro, champs `contrat_*`) | `ClientsInstalles.jsx` : « Marquer terminé » et « Envoyer pour signature » écrivent les mêmes 4 champs séparément (la fabrication du lien, elle, est déjà commune) | Un champ ajouté au lien PV dans un geste et pas dans l'autre. |
 | A12 | **Le numéro de PV** `PV-année-xxxxxx` | `ClientsInstalles.jsx` seulement — mais le numéro de contrat (A1) suit une autre règle dans un autre fichier | Deux familles de numéros sans règle commune. |
 
@@ -60,3 +60,14 @@ règles : les unifier coûterait plus qu'il ne rapporte.
 ## Fait
 
 - **A3 + A4 (07/09/2026, 2.101.64)** : `screens/dimensionnement/devisCommun.js` (pur : autres équipements, totaux, lignes de frais, champs, `construireDevis`) + dans `Partages.jsx` : `useAutresEquipements`, `useReglagesDevis`, `BlocPoseSeule`, `BlocsFinDevis`, `useEnvoiDevis`. Les trois volets ne gardent que leur métier. Le banc fabrique le même devis avec l'ancienne écriture (recopiée) et la nouvelle : identiques, ordre des clés compris.
+
+- **A10 — 2.101.76 (08/09/2026, Timo : « lance les doublons WhatsApp »).**
+  `lib/core.js` : `lienWhatsApp(tel, texte)` (numéro nettoyé par telDigits,
+  texte encodé, sans numéro → choix du contact, sans texte → pas de
+  `?text=`) et `envoyerWhatsApp(tel, texte, uConfirm?)` qui passe par le
+  filet anti-blocage `ouvrirWhatsApp`. Les 14 ouvertures (4 messages de
+  comptesClients, reçu WhatsApp d'impression.js, relance de dette, proforma,
+  contact client, devis, filleul, 3 liens PV/avenant, lien Commerciaux)
+  passent par là ; `wa.me` n'est plus écrit qu'à UN endroit, le banc
+  l'interdit ailleurs (17 contrôles). Le texte de la proforma de Ventes.jsx
+  était en fait déjà encodé : le relevé se trompait sur ce point.

@@ -9,7 +9,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP } from "../lib/core";
+import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, remiseExigeAdmin, PLAFOND_REMISE_PCT, filtreEspaceAffichage } from "../lib/calculs";
@@ -279,14 +279,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       `BMI TOGO — Les bâtiments modernes et intelligents`,
     ];
     const num = telDigits(pf.tel);
-    const txt = encodeURIComponent(lignes.join("\n"));
     // On ouvre WhatsApp EN PREMIER et de façon strictement synchrone (avant
     // tout traitement du PDF) : dès qu'un await s'intercale avant window.open,
     // le navigateur considère que ce n'est plus une action directe de l'utilisateur
     // et bloque l'ouverture silencieusement — c'était la cause du souci.
     // Le numéro du client (déjà saisi sur la commande) est utilisé directement :
     // la discussion s'ouvre sur SON contact, pas sur un choix générique.
-    window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+    envoyerWhatsApp(pf.tel, lignes.join("\n"));
     // Le PDF est généré et téléchargé juste après, prêt à être joint au message.
     genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation }, LOGO);
     setMsg(num

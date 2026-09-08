@@ -8,7 +8,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
 import { creerFilleulEnLigne } from "../supabaseClient";
 import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, ouvrirWhatsApp } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, envoyerWhatsApp } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, estCompteFormation, marqueEspace } from "../lib/calculs";
@@ -103,13 +103,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
       `Notre équipe vous contactera très vite. À bientôt !`,
       `BMI TOGO — Les bâtiments modernes et intelligents`,
     ];
-    const num = telDigits(tel);
-    const texteWA = encodeURIComponent(lignesMsg.join("\n"));
     // ⚠ Même protection que l'envoi de devis (2.100.44) : cette ouverture
     // arrive APRÈS une fenêtre de confirmation, donc le navigateur peut la
     // bloquer. Sans le bouton de secours, le filleul avait un compte sans le
     // savoir — et personne n'était prévenu.
-    await ouvrirWhatsApp(num ? `https://wa.me/${num}?text=${texteWA}` : `https://wa.me/?text=${texteWA}`, uConfirm);
+    await envoyerWhatsApp(tel, lignesMsg.join("\n"), uConfirm);
 
     setParr({ nom: "", tel: "", note: "" });
     uAlert(`✅ Merci ! WhatsApp s'ouvre pour prévenir ${nom.toUpperCase()} — avec ses identifiants et le lien.\n\nVotre commission de ${tauxParrain(moi, db)} % vous sera versée dès qu'il aura réceptionné son installation.`);

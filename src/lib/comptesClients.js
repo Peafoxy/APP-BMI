@@ -6,7 +6,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { telDigits, uid, definirMotDePasse, hacherFort, today } from "./core";
+import { telDigits, uid, definirMotDePasse, hacherFort, today, envoyerWhatsApp } from "./core";
 
 // Adresse publique de l'application, envoyée au client par WhatsApp.
 export const ADRESSE_APP = "https://gestion.bmitogo.com";
@@ -119,9 +119,7 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  const num = telDigits(tel);
-  const txt = encodeURIComponent(lignes.join("\n"));
-  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+  envoyerWhatsApp(tel, lignes.join("\n"));
 }
 
 // Libellés lisibles des rôles employés — pour le message d'invitation
@@ -151,9 +149,7 @@ export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motD
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  const num = telDigits(tel);
-  const txt = encodeURIComponent(lignes.join("\n"));
-  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+  envoyerWhatsApp(tel, lignes.join("\n"));
 }
 
 // Simple accusé de prise de contact envoyé à un nouveau prospect — pas
@@ -166,9 +162,7 @@ export function envoyerAccueilProspectWhatsApp(nomAffiche, tel) {
     ``,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  const num = telDigits(tel);
-  const txt = encodeURIComponent(lignes.join("\n"));
-  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+  envoyerWhatsApp(tel, lignes.join("\n"));
 }
 
 // Relance WhatsApp d'un prospect — UN CLIC : le message est déjà prêt, il
@@ -183,9 +177,7 @@ export function envoyerRelanceProspectWhatsApp(nomAffiche, tel) {
     ``,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  const num = telDigits(tel);
-  const txt = encodeURIComponent(lignes.join("\n"));
-  window.open(num ? `https://wa.me/${num}?text=${txt}` : `https://wa.me/?text=${txt}`, "_blank");
+  envoyerWhatsApp(tel, lignes.join("\n"));
 }
 
 // ⚠ `marque` porte le cloisonnement formation / réel : { formation: true }

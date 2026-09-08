@@ -5,7 +5,7 @@
 // ============================================================
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
-import { uid, caVente, fmt, today, dFR, telDigits, inP } from "../lib/core";
+import { uid, caVente, fmt, today, dFR, telDigits, inP, lienWhatsApp } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
@@ -154,7 +154,7 @@ export function Commerciaux({ db, save, profile }) {
               return (
                 <tr key={c.id} className="border-t border-slate-100 hover:bg-sky-50">
                   <td className="px-3 py-2 font-bold">{medaille(i)}</td>
-                  <td className="px-3 py-2 font-semibold">{c.nom}{c.tel && <a href={`https://wa.me/${telDigits(c.tel)}`} target="_blank" rel="noreferrer" className="ml-2 text-xs text-green-700 underline">WhatsApp</a>}</td>
+                  <td className="px-3 py-2 font-semibold">{c.nom}{c.tel && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" className="ml-2 text-xs text-green-700 underline">WhatsApp</a>}</td>
                   <td className="px-3 py-2">{c.zone || "—"}</td>
                   <td className="px-3 py-2 tabular-nums">{s.nb}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(s.ca)}</td>

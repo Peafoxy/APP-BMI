@@ -479,6 +479,23 @@ export function compresserPhoto(fichier, maxLargeur = 1000, qualite = 0.55) {
 // prévenu alors qu'il n'avait rien reçu.
 // window.open renvoie null quand il est bloqué. On le détecte, et on propose
 // un bouton — un clic direct n'est JAMAIS bloqué, la fenêtre s'ouvre.
+// ⚠ UNE SEULE règle pour fabriquer le lien WhatsApp (point A10 du relevé
+// des doublons, Timo : « lance les doublons WhatsApp », 08/09/2026) : le
+// numéro nettoyé (telDigits), le texte encodé, et sans numéro on ouvre
+// WhatsApp pour choisir le contact. Avant, douze endroits refaisaient ce
+// lien chacun à leur façon.
+export const lienWhatsApp = (tel, texte) => {
+  const num = telDigits(tel);
+  const txt = String(texte ?? "").trim() ? `?text=${encodeURIComponent(String(texte))}` : "";
+  return `https://wa.me/${num || ""}${txt}`;
+};
+// L'envoi : fabrique le lien, ouvre WhatsApp, et si le navigateur bloque
+// l'ouverture (voir ouvrirWhatsApp), le DIT et propose un bouton dès qu'on
+// lui passe de quoi poser la question (uConfirm). L'ouverture se fait de
+// façon synchrone, avant tout await : un clic reste un clic.
+export function envoyerWhatsApp(tel, texte, demanderConfirmation) {
+  return ouvrirWhatsApp(lienWhatsApp(tel, texte), demanderConfirmation);
+}
 export async function ouvrirWhatsApp(url, demanderConfirmation) {
   let fenetre = null;
   try { fenetre = window.open(url, "_blank"); } catch { fenetre = null; }

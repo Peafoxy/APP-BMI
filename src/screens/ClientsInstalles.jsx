@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -513,7 +513,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, ...champs, contrat_jeton: jeton, contrat_jeton_le: new Date().toISOString(), contrat_numero: numero, contrat_statut: "attente_signature" }
         : x)),
     }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom} — lien de signature envoyé automatiquement (${numero})`);
-    window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
+    envoyerWhatsApp(c.tel, texte);
     uAlert("✅ Travaux déclarés terminés. Le lien de signature vient de s'ouvrir dans WhatsApp.");
   };
 
@@ -535,7 +535,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, contrat_jeton: jeton, contrat_jeton_le: new Date().toISOString(), contrat_numero: numero, contrat_statut: "attente_signature" }
         : x)),
     }, `Lien de signature du PV envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
-    window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
+    envoyerWhatsApp(c.tel, texte);
   };
 
   // ⚠ « Pose seule » (demande Timo) : le règlement de la main d'œuvre se
@@ -628,7 +628,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, avenant_jeton: jeton, avenant_jeton_le: new Date().toISOString(), avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
         : x)),
     }, `Avenant de levée de réserves envoyé — ${c.nom} ${c.prenom} (par ${profile.nom})`);
-    window.open(`https://wa.me/${telDigits(c.tel)}?text=${encodeURIComponent(texte)}`, "_blank");
+    envoyerWhatsApp(c.tel, texte);
   };
 
   const ouvrirRepartition = (c) => {

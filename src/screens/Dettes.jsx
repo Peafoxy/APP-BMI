@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, envoyerWhatsApp } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
@@ -182,8 +182,7 @@ export function Dettes({ db, save, profile }) {
   const relancer = (d) => {
     const reste = Math.max(0, d.montant - d.paye);
     const txt = `Bonjour ${d.client}, nous vous rappelons gentiment votre solde de ${fmt(reste)} chez ${d.boutique}${d.motif ? ` (${d.motif})` : ""}. Merci de passer régulariser quand vous pouvez. Bonne journée !`;
-    const num = telDigits(d.tel);
-    window.open(num ? `https://wa.me/${num}?text=${encodeURIComponent(txt)}` : `https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
+    envoyerWhatsApp(d.tel, txt);
   };
 
   const supprimerDette = async (d) => {

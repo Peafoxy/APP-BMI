@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits, nomDocument } from "./core";
+import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits, nomDocument, envoyerWhatsApp } from "./core";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
@@ -822,9 +822,7 @@ export function recuWhatsApp(v, bq = {}) {
     `------------------------`,
     bq.message || "Merci de votre confiance !",
   ].filter(Boolean);
-  const txt = lignes.join("\n");
-  const num = telDigits(v.tel);
-  window.open(num ? `https://wa.me/${num}?text=${encodeURIComponent(txt)}` : `https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
+  envoyerWhatsApp(v.tel, lignes.join("\n"));
 }
 
 // ============ ÉTIQUETTE PRODUIT (code-barres) ============

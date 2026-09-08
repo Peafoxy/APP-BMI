@@ -4052,6 +4052,41 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
   ]) test(`★ ${f} passe par le champ commun`, motif.test(readFileSync(f, "utf8")));
 }
 
+titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lance les doublons WhatsApp », 08/09/2026)");
+{
+  // Douze endroits fabriquaient le lien wa.me chacun à leur façon (numéro
+  // nettoyé ou non, texte encodé ou non, avec ou sans le filet contre le
+  // blocage du navigateur). Une seule règle dans lib/core.js, exercée ici.
+  test("★ lienWhatsApp : numéro nettoyé (zéro de tête retiré, indicatif 228 ajouté à un numéro à 8 chiffres) et texte encodé (accents, &, retours à la ligne)",
+    Core.lienWhatsApp("+228 90 12 34 56", "Bonjour & à bientôt\nBMI") === "https://wa.me/22890123456?text=Bonjour%20%26%20%C3%A0%20bient%C3%B4t%0ABMI"
+    && Core.lienWhatsApp("090123456", "x") === "https://wa.me/22890123456?text=x");
+  test("★ sans numéro, WhatsApp s'ouvre pour choisir le contact, le texte prêt", Core.lienWhatsApp("", "Bonjour") === "https://wa.me/?text=Bonjour" && Core.lienWhatsApp(null, "Bonjour") === "https://wa.me/?text=Bonjour");
+  test("★ sans texte, la discussion s'ouvre simplement sur le contact (pas de « ?text= » vide)",
+    Core.lienWhatsApp("90123456", "") === "https://wa.me/22890123456" && Core.lienWhatsApp("90123456", "   ") === "https://wa.me/22890123456");
+  test("★ envoyerWhatsApp passe par le filet anti-blocage (ouvrirWhatsApp) : hors navigateur, il répond « pas ouvert » sans planter",
+    (await Core.envoyerWhatsApp("90123456", "x")) === false);
+  const core = readFileSync("src/lib/core.js", "utf8");
+  test("★ le lien wa.me n'est écrit qu'à UN endroit de toute l'application (lib/core.js), et ouvrirWhatsApp n'est appelé que par envoyerWhatsApp",
+    execSync("grep -rl 'wa\\.me' src || true").toString().trim() === "src/lib/core.js"
+    && (core.match(/wa\.me/g) || []).length === 1
+    && execSync("grep -rl 'ouvrirWhatsApp(' src || true").toString().trim() === "src/lib/core.js");
+  test("★ plus aucun écran n'ouvre WhatsApp lui-même (window.open vers wa.me) ni n'encode un message à la main pour cela",
+    execSync("grep -rln 'window.open(.*wa\\.me\\|https://wa' src || true").toString().trim() === "src/lib/core.js");
+  for (const [f, fn] of [
+    ["src/lib/comptesClients.js", "envoyerWhatsApp"], ["src/lib/impression.js", "envoyerWhatsApp"], ["src/screens/Dettes.jsx", "envoyerWhatsApp"],
+    ["src/screens/Ventes.jsx", "envoyerWhatsApp"], ["src/screens/Clients.jsx", "envoyerWhatsApp"], ["src/screens/dimensionnement/Partages.jsx", "envoyerWhatsApp"],
+    ["src/screens/EspaceClient.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
+  ]) {
+    const src = readFileSync(f, "utf8");
+    test(`★ ${f} passe par ${fn} de lib/core.js`, new RegExp(`import \\{[^}]*\\b${fn}\\b[^}]*\\} from "(\\.\\./)*(\\./)?(lib/)?core"`).test(src) && src.includes(`${fn}(`));
+  }
+  test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
+    (readFileSync("src/lib/comptesClients.js", "utf8").match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length === 4);
+  test("★ devis (Partages) et filleul (EspaceClient) gardent le bouton de secours si le navigateur bloque (uConfirm transmis)",
+    /await envoyerWhatsApp\(compte\.tel \|\| nouvClient\.tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8"))
+    && /await envoyerWhatsApp\(tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
