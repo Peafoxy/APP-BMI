@@ -12,7 +12,8 @@ import { fmt, dFR, today } from "../lib/core";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
-import { validerDevis, numeroContrat } from "../lib/validationDevis";
+import { validerDevis } from "../lib/validationDevis";
+import { numeroContrat, planReglementSigne } from "../lib/contrat";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
@@ -205,17 +206,11 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     // Le plan de règlement, comme dans l'espace client : seulement s'il
     // restera un solde après l'acompte.
     const solde = soldeApresAcompte(d);
-    let planSigne = null;
     if (solde > 0) {
       const souci = critiquePlan(plan, solde);
       if (souci) { uAlert(souci); return; }
-      planSigne = {
-        type: plan.type,
-        montant_mensuel: plan.type === "mensuel" ? Number(plan.montant_mensuel) : null,
-        premiere_echeance: plan.type === "mensuel" ? plan.premiere_echeance : null,
-        solde_engage: solde, propose_le: today(), statut: PLAN_EN_ATTENTE,
-      };
     }
+    const planSigne = planReglementSigne(plan, solde);
     const numero = d.contrat_numero || numeroContrat();
     let infosContrat, mention;
     if (mode === "ecran") {

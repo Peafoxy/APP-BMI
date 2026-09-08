@@ -13,8 +13,8 @@ La zone de signature (2.101.57) n'y figure plus : déjà unifiée.
 
 | # | La règle | Écrite où | Risque si l'une change sans l'autre |
 |---|---|---|---|
-| A1 | **Le numéro de contrat** `CTR-année-xxxxxxxx` | `lib/validationDevis.js` (numeroContrat) ET recopié à la main dans `EspaceClient.jsx` (signature du contrat par le client) | Deux formats de numéro selon qui signe (boutique ou téléphone). |
-| A2 | **Le plan de règlement signé** (type, mensualité, première échéance, solde engagé, statut « en attente ») | `EspaceClient.jsx` (contrat client) et `TousLesDevis.jsx` (contrat en boutique) — 15 lignes identiques | Un plan accepté en boutique et un plan accepté par téléphone ne porteraient plus les mêmes champs. |
+| A1 ✅ 2.101.77 | **Le numéro de contrat** `CTR-année-xxxxxxxx` | `lib/validationDevis.js` (numeroContrat) ET recopié à la main dans `EspaceClient.jsx` (signature du contrat par le client) | Deux formats de numéro selon qui signe (boutique ou téléphone). |
+| A2 ✅ 2.101.77 | **Le plan de règlement signé** (type, mensualité, première échéance, solde engagé, statut « en attente ») | `EspaceClient.jsx` (contrat client) et `TousLesDevis.jsx` (contrat en boutique) — 15 lignes identiques | Un plan accepté en boutique et un plan accepté par téléphone ne porteraient plus les mêmes champs. |
 | A3 ✅ 2.101.64 | **Construire les lignes d'un devis** (articles, autres équipements, frais d'installation ou pose seule, transport, remise) et **l'envoyer** dans l'espace client | Les trois volets du dimensionnement : `Solaire.jsx`, `Garage.jsx`, `Autre.jsx` — le plus gros doublon : blocs de 46, 29, 28, 26, 22, 20, 19 lignes | Une correction de calcul (remise, transport, pose seule) faite dans un volet et pas dans les deux autres : trois devis différents pour la même règle. |
 | A4 ✅ 2.101.64 | **La case « Pose seule »** et son montant de main-d'œuvre fixe | Les trois volets (46 lignes identiques) | Idem. |
 | A5 | **Le prochain numéro de reçu** (préfixe boutique + année + compteur sur 4 chiffres) | `lib/core.js` : une version pour les ventes, une copie pour les dettes | Un changement de format des reçus oublierait les dettes. |
@@ -23,8 +23,8 @@ La zone de signature (2.101.57) n'y figure plus : déjà unifiée.
 | A8 | **Marquer un prospect « client acquis »** quand il paie | `Ventes.jsx` (encaissement) et `Prospects.jsx` (convertir) | Les deux chemins écrivent des champs différents (l'un pose vente_id, l'autre client_user_id) : un prospect converti n'a pas la même fiche selon le chemin. |
 | A9 | **L'entête du PDF** (logo, société, coordonnées) | `pdf.js` : devis et proforma, 29 lignes identiques ; plus trois blocs de 8 lignes (pied, totaux) | Un changement d'adresse ou de logo fait sur le devis et pas sur la proforma. |
 | A10 ✅ 2.101.76 | **Envoyer un message WhatsApp** (numéro nettoyé, texte encodé, ouverture) | 4 fonctions de `lib/comptesClients.js` avec la même fin, + 8 écrans qui ouvrent `wa.me` eux-mêmes (`Dettes`, `Ventes`, `Clients`, `ClientsInstalles` ×3, `Partages`, `EspaceClient`) | ⚠ Déjà divergent : `Ventes.jsx` ouvre le texte **sans l'encoder** (un « & » ou un « # » dans le message le coupe). Et le jour du WhatsApp depuis le numéro BMI, il faudra remplacer 12 endroits au lieu d'un. |
-| A11 | **Le lien PV** (jeton, numéro, champs `contrat_*`) | `ClientsInstalles.jsx` : « Marquer terminé » et « Envoyer pour signature » écrivent les mêmes 4 champs séparément (la fabrication du lien, elle, est déjà commune) | Un champ ajouté au lien PV dans un geste et pas dans l'autre. |
-| A12 | **Le numéro de PV** `PV-année-xxxxxx` | `ClientsInstalles.jsx` seulement — mais le numéro de contrat (A1) suit une autre règle dans un autre fichier | Deux familles de numéros sans règle commune. |
+| A11 ✅ 2.101.77 | **Le lien PV** (jeton, numéro, champs `contrat_*`) | `ClientsInstalles.jsx` : « Marquer terminé » et « Envoyer pour signature » écrivent les mêmes 4 champs séparément (la fabrication du lien, elle, est déjà commune) | Un champ ajouté au lien PV dans un geste et pas dans l'autre. |
+| A12 ✅ 2.101.77 | **Le numéro de PV** `PV-année-xxxxxx` | `ClientsInstalles.jsx` seulement — mais le numéro de contrat (A1) suit une autre règle dans un autre fichier | Deux familles de numéros sans règle commune. |
 
 ## B. Les répétitions de geste — même question posée partout, à la main
 
@@ -71,3 +71,12 @@ règles : les unifier coûterait plus qu'il ne rapporte.
   passent par là ; `wa.me` n'est plus écrit qu'à UN endroit, le banc
   l'interdit ailleurs (17 contrôles). Le texte de la proforma de Ventes.jsx
   était en fait déjà encodé : le relevé se trompait sur ce point.
+
+
+- **A1 + A2 + A11 + A12 — 2.101.77 (08/09/2026, Timo : « lance tout »).**
+  `lib/contrat.js` (pur) : `numeroContrat()`, `numeroPv(chantier)`,
+  `planReglementSigne(plan, solde)`, `champsLienPv(jeton, numero)`.
+  EspaceClient (signature sur le téléphone) et TousLesDevis (signature en
+  boutique) fabriquent le même numéro et le même plan par la même règle ;
+  ClientsInstalles écrit les champs du lien PV par la même fonction pour
+  « Marquer terminé » et « Envoyer pour signature ». Banc : 9 contrôles.

@@ -13,8 +13,6 @@ import { uid, today, fmt, prochainNumeroDette } from "./core";
 import { PAIEMENTS, TYPES_INSTALLATION } from "./constants";
 import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation } from "./calculs";
 
-export const numeroContrat = () => `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
-
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
 export const trouverDevis = (db, clientId, devisId) => {
   const client = (db.users || []).find((u) => u.id === clientId) || null;

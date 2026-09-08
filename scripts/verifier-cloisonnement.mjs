@@ -4087,6 +4087,41 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     && /await envoyerWhatsApp\(tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
 }
 
+titre("Contrat et PV : UN fichier (lib/contrat.js) — numéros, plan de règlement signé, champs du lien PV (doublons A1, A2, A11, A12)");
+{
+  // Timo : « lance tout » (08/09/2026). Avant : deux fabriques du numéro de
+  // contrat (téléphone du client / boutique), quinze lignes de plan signé
+  // recopiées, un numéro de PV à part, les quatre champs du lien PV écrits
+  // deux fois. On exerce la règle, puis on vérifie qu'elle n'a plus de copie.
+  const sortieCtr = join("node_modules", ".cache", `bmi-ctr-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/contrat.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCtr, logLevel: "silent", loader: { ".js": "jsx" } });
+  const Ctr = await import(pathToFileURL(sortieCtr).href);
+  unlinkSync(sortieCtr);
+  const annee = new Date().getFullYear();
+  test("★ numéro de contrat : CTR-année-8 caractères majuscules, différent à chaque appel",
+    new RegExp(`^CTR-${annee}-[A-Z0-9]{8}$`).test(Ctr.numeroContrat()) && Ctr.numeroContrat() !== Ctr.numeroContrat());
+  test("★ numéro de PV : PV-année-6 caractères de l'identifiant du chantier (stable pour un renvoi)",
+    Ctr.numeroPv({ id: "abcdef123456" }) === `PV-${annee}-ABCDEF` && Ctr.numeroPv({ id: "abcdef123456" }) === Ctr.numeroPv({ id: "abcdef123456" }));
+  const mensuel = Ctr.planReglementSigne({ type: "mensuel", montant_mensuel: "60000", premiere_echeance: "2026-10-31" }, 250000);
+  test("★ plan signé (mensuel) : type, mensualité en nombre, première échéance, solde engagé, date, statut en attente",
+    JSON.stringify(mensuel) === JSON.stringify({ type: "mensuel", montant_mensuel: 60000, premiere_echeance: "2026-10-31", solde_engage: 250000, propose_le: new Date().toISOString().slice(0, 10), statut: "en_attente" }));
+  test("★ plan signé (totalité au PV) : pas de mensualité ni de date ; sans solde après l'acompte : aucun plan",
+    Ctr.planReglementSigne({ type: "totalite" }, 100).montant_mensuel === null && Ctr.planReglementSigne({ type: "totalite" }, 100).premiere_echeance === null
+    && Ctr.planReglementSigne({ type: "mensuel", montant_mensuel: "1" }, 0) === null);
+  const lien = Ctr.champsLienPv("jeton-x", "PV-2026-ABCDEF");
+  test("★ champs du lien PV : jeton, horodatage, numéro, statut « attente_signature » — et rien d'autre",
+    lien.contrat_jeton === "jeton-x" && /^\d{4}-\d{2}-\d{2}T/.test(lien.contrat_jeton_le) && lien.contrat_numero === "PV-2026-ABCDEF" && lien.contrat_statut === "attente_signature" && Object.keys(lien).length === 4);
+  test("★ plus aucune copie ailleurs : CTR-, PV- et solde_engage: n'existent que dans lib/contrat.js",
+    execSync("grep -rl 'CTR-\\${\\|PV-\\${\\|solde_engage:' src || true").toString().trim() === "src/lib/contrat.js");
+  test("★ signature sur le téléphone du client (EspaceClient) et en boutique (TousLesDevis) passent par numeroContrat et planReglementSigne du fichier commun",
+    ["src/screens/EspaceClient.jsx", "src/screens/TousLesDevis.jsx"].every((f) => { const src = readFileSync(f, "utf8");
+      return /import \{ numeroContrat, planReglementSigne \} from "\.\.\/lib\/contrat";/.test(src) && /const planSigne = planReglementSigne\(plan, solde\);/.test(src) && !/planSigne = \{/.test(src); }));
+  test("★ « Marquer terminé » et « Envoyer pour signature » écrivent les champs du lien PV par champsLienPv, et le numéro par numeroPv",
+    (readFileSync("src/screens/ClientsInstalles.jsx", "utf8").match(/\.\.\.champsLienPv\(jeton, numero\)/g) || []).length === 2
+    && /const numero = numeroPv\(c\);/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
+  test("le contrôle du plan (critiquePlan) reste fait AVANT, dans les deux chemins", ["src/screens/EspaceClient.jsx", "src/screens/TousLesDevis.jsx"].every((f) => /const souci = critiquePlan\(plan, solde\);/.test(readFileSync(f, "utf8"))));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

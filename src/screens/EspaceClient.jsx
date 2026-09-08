@@ -14,6 +14,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../comp
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
+import { numeroContrat, planReglementSigne } from "../lib/contrat";
 
 // ============ ESPACE CLIENT (rôle client) ============
 export function EspaceClient({ db, profile, save, setTab }) {
@@ -248,28 +249,20 @@ export function EspaceClient({ db, profile, save, setTab }) {
     // Sans cela, un chantier partirait sans le moindre engagement écrit du
     // client sur la façon dont il compte payer le reste.
     const solde = soldeApresAcompte(d);
-    let planSigne = null;
     if (solde > 0) {
       const souci = critiquePlan(plan, solde);
       if (souci) { uAlert(souci); return; }
-      planSigne = {
-        type: plan.type,
-        montant_mensuel: plan.type === "mensuel" ? Number(plan.montant_mensuel) : null,
-        premiere_echeance: plan.type === "mensuel" ? plan.premiere_echeance : null,
-        solde_engage: solde,
-        propose_le: today(),
-        statut: PLAN_EN_ATTENTE,
-      };
     }
+    const planSigne = planReglementSigne(plan, solde);
     const signatureDataUrl = signatureRef.current.image();
-    const numeroContrat = `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
+    const numero = numeroContrat();
     // ⚠ Le contrat ne se ferme QUE si la validation est allée au bout
     // (défaut trouvé lors de la revue, lot 2) : on fermait AVANT d'appeler
     // finaliserValidation, dont la confirmation peut encore être refusée —
     // le client qui répondait « Annuler » perdait alors sa signature, le
     // canevas ayant été démonté, et devait tout recommencer.
     const valide = await finaliserValidation(d, {
-      contrat_numero: numeroContrat, contrat_signature: signatureDataUrl, contrat_date_signature: today(),
+      contrat_numero: numero, contrat_signature: signatureDataUrl, contrat_date_signature: today(),
       ...(planSigne ? { plan_reglement: planSigne } : {}),
     });
     if (valide) { setContratOuvert(null); setPlan({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() }); }

@@ -12,6 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
+import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
@@ -479,7 +480,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const genererEtEnvoyerLienPv = (c) => {
     const jeton = genererJetonSignature();
-    const numero = `PV-${today().slice(0, 4)}-${c.id.slice(0, 6).toUpperCase()}`;
+    const numero = numeroPv(c);
     const lien = `https://bmitogo.com/signature/${jeton}`;
     return { jeton, numero, texte: construireMessagePv(c, lien) };
   };
@@ -510,7 +511,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, ...champs, contrat_jeton: jeton, contrat_jeton_le: new Date().toISOString(), contrat_numero: numero, contrat_statut: "attente_signature" }
+        ? { ...x, ...champs, ...champsLienPv(jeton, numero) }
         : x)),
     }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom} — lien de signature envoyé automatiquement (${numero})`);
     envoyerWhatsApp(c.tel, texte);
@@ -532,7 +533,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, contrat_jeton: jeton, contrat_jeton_le: new Date().toISOString(), contrat_numero: numero, contrat_statut: "attente_signature" }
+        ? { ...x, ...champsLienPv(jeton, numero) }
         : x)),
     }, `Lien de signature du PV envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
     envoyerWhatsApp(c.tel, texte);
