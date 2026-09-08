@@ -58,9 +58,9 @@ npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 11  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 57  : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 66  : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 54  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 79  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -126,7 +126,7 @@ lit mal est pire qu'un banc absent).
   l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
   rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
   `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
-  applique la même règle par déclencheur (`supabase/securite-3` à `-7`).
+  applique la même règle par déclencheur (`supabase/securite-3` à `-8`).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
@@ -266,6 +266,16 @@ lit mal est pire qu'un banc absent).
   réexporter. Touché deux fois.
 - **Aucun hook React après un `return` anticipé** dans `App.jsx`
   (`if (!db) return …`) : écran blanc. Touché deux fois.
+- **Un UPSERT n'est pas une création — et PostgreSQL déclenche AVANT INSERT
+  même quand la ligne existe.** L'application n'écrit QUE par upsert : toute
+  règle « créer = réservé à… » dans une branche INSERT doit d'abord relire
+  la ligne (`select data into avant … where id = new.id`) et, si elle
+  existe, appliquer les règles de MISE À JOUR. Touché TROIS fois : comptes
+  (18/08, roles-1b), puis boutiques / dépenses / ventes / proformas (08/09,
+  securite-8 — « demande de ravitaillement ne passe pas », capture Timo).
+  Une politique RLS d'INSERT a le même piège (pointage du comptable). **Le
+  banc SQL teste chaque règle par UPSERT (`UPS`), pas seulement par UPDATE**
+  — le banc par UPDATE seul rassurait sans protéger.
 - **Supabase donne les droits par défaut à `anon` sur toute nouvelle table
   ET toute nouvelle fonction.** `revoke from public` ne suffit pas.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).

@@ -33,6 +33,8 @@ for f in supabase/roles-1-vague1.sql supabase/roles-2-vague2.sql; do
 done
 echo "▸ Pose des verrous : supabase/securite-4-argent.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-4-argent.sql >/dev/null
+echo "▸ Correctif upsert : supabase/securite-8-correctif-upsert.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-8-correctif-upsert.sql >/dev/null 2>&1
 
 $P -c "
 insert into public.users (id, data) values
@@ -84,6 +86,8 @@ ADMIN=$(jeton za_timo admin true true)
 MAJ() { echo "with x as (update public.$1 set data = $2 where id='$3' returning 1) select count(*) from x;"; }
 SUPPR() { echo "with x as (delete from public.$1 where id='$2' returning 1) select count(*) from x;"; }
 INS() { echo "with x as (insert into public.$1 (id, data) values ('$2', '$3') returning 1) select count(*) from x;"; }
+# L'écriture telle que l'application la fait VRAIMENT : un upsert.
+UPS() { echo "with x as (insert into public.$1 (id, data) values ('$2', '$3') on conflict (id) do update set data = excluded.data returning 1) select count(*) from x;"; }
 
 echo
 echo "── SUPPRIMER UNE VENTE, UNE DETTE, UNE DÉPENSE : admin seul ──"
@@ -167,6 +171,20 @@ essai "un vendeur encaisse cette commande en GONFLANT la remise à 8 %" "REFUSE"
   "$(INS ventes zv8 '{"id":"zv8","boutique":"APESSITO","remise_pct":8,"commande_id":"zcmA"}')"
 essai "un vendeur émet un proforma à 5 %" "REFUSE" "$VENDEUR" "$(INS proformas zpf1 '{"id":"zpf1","remise_pct":5}')"
 essai "un vendeur émet un proforma à 3 %" "PERMIS" "$VENDEUR" "$(INS proformas zpf1 '{"id":"zpf1","remise_pct":3}')"
+
+echo
+echo "── L'UPSERT N'EST PAS UNE CRÉATION (securite-8, capture Timo du 08/09/2026) ──"
+$P -c "insert into public.ventes (id, data) values ('zv5', '{\"id\":\"zv5\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"remise_pct\":5}');
+insert into public.proformas (id, data) values ('zpf5', '{\"id\":\"zpf5\",\"remise_pct\":5}') on conflict (id) do nothing;" >/dev/null
+essai "★ le comptable pointe un décaissement PAR UPSERT (comme l'application)" "PERMIS" "$COMPTABLE" "$(UPS depenses zx1 '{"id":"zx1","boutique":"APESSITO","montant":10000,"libelle":"Carburant","decaisse_le":"2026-09-08","decaisse_par":"MARIE"}')"
+essai "★ le comptable modifie le montant par upsert" "REFUSE" "$COMPTABLE" "$(UPS depenses zx1 '{"id":"zx1","boutique":"APESSITO","montant":99,"libelle":"Carburant","decaisse_le":"2026-09-08","decaisse_par":"MARIE"}')"
+essai "★ le comptable crée une dépense par upsert (ligne vraiment nouvelle)" "REFUSE" "$COMPTABLE" "$(UPS depenses zx9 '{"id":"zx9","boutique":"APESSITO","montant":1}')"
+essai "★ un vendeur annule un pointage par upsert" "REFUSE" "$VENDEUR" "$(UPS depenses zx2 '{"id":"zx2","boutique":"Chez le comptable","montant":20000,"libelle":"Remis"}')"
+essai "★ un vendeur touche une vente à 5 % accordée par l'admin, SANS changer la remise, par upsert" "PERMIS" "$VENDEUR" "$(UPS ventes zv5 '{"id":"zv5","boutique":"APESSITO","client":"AMA","remise_pct":5,"note":"livrée"}')"
+essai "★ un vendeur porte la remise de 0 à 5 % par upsert" "REFUSE" "$VENDEUR" "$(UPS ventes zv1 '{"id":"zv1","boutique":"APESSITO","client":"AMA","remise_pct":5}')"
+essai "★ un vendeur crée une vente à 5 % par upsert (ligne vraiment nouvelle)" "REFUSE" "$VENDEUR" "$(UPS ventes zv8 '{"id":"zv8","boutique":"APESSITO","remise_pct":5}')"
+essai "★ un vendeur touche un proforma à 5 % sans changer la remise, par upsert" "PERMIS" "$VENDEUR" "$(UPS proformas zpf5 '{"id":"zpf5","remise_pct":5,"note":"x"}')"
+essai "★ un vendeur crée un proforma à 5 % par upsert (ligne vraiment nouvelle)" "REFUSE" "$VENDEUR" "$(UPS proformas zpf8 '{"id":"zpf8","remise_pct":5}')"
 
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"

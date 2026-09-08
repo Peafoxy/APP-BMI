@@ -38,6 +38,8 @@ echo "▸ Pose des verrous : supabase/securite-6-devis-chantiers.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-6-devis-chantiers.sql >/dev/null 2>&1
 echo "▸ Pose du verrou de la corbeille : supabase/securite-7-corbeille.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-7-corbeille.sql >/dev/null 2>&1
+echo "▸ Correctif upsert : supabase/securite-8-correctif-upsert.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-8-correctif-upsert.sql >/dev/null 2>&1
 
 $P -c "
 insert into public.users (id, data) values
@@ -94,6 +96,8 @@ MAJ() { echo "with x as (update public.$1 set data = $2 where id='$3' returning 
 SUPPR() { echo "with x as (delete from public.$1 where id='$2' returning 1) select count(*) from x;"; }
 INS() { echo "with x as (insert into public.$1 (id, data) values ('$2', '$3') returning 1) select count(*) from x;"; }
 SET() { echo "jsonb_set(data,'{$1}','$2')"; }
+# L'écriture telle que l'application la fait VRAIMENT : un upsert.
+UPS() { echo "with x as (insert into public.$1 (id, data) values ('$2', '$3') on conflict (id) do update set data = excluded.data returning 1) select count(*) from x;"; }
 
 echo
 echo "── LES DEVIS DANS LA FICHE CLIENT : « validé » et plan de règlement → admin PRINCIPAL ──"
@@ -202,6 +206,13 @@ essai "un admin secondaire change le taux de parrainage" "PERMIS" "$CALEB" "$(MA
 essai "un admin secondaire personnalise l'écran de connexion" "REFUSE" "$CALEB" "$(MAJ boutiques "$(SET accueil_texte '"Bonne fête"')" b1)"
 essai "l'admin principal personnalise l'écran de connexion" "PERMIS" "$PRINCIPAL" "$(MAJ boutiques "$(SET accueil_texte '"Bonne fête"')" b1)"
 essai "un vendeur crée une boutique" "REFUSE" "$VENDEUR" "$(INS boutiques b9 '{"id":"b9","nom":"NOUVELLE"}')"
+# ⚠ Capture Timo du 08/09/2026 (securite-8) : l'application écrit par UPSERT,
+# et le contrôle de création refusait la demande de ravitaillement d'un vendeur.
+essai "★ un vendeur dépose une demande de ravitaillement PAR UPSERT (comme l'application) — capture du 08/09" "PERMIS" "$VENDEUR" "$(UPS boutiques b1 '{"nom":"APESSITO","demandes":[{"id":"dm1","qte":20,"article":"Panneau 370W"}]}')"
+essai "★ un gérant renomme sa boutique par upsert" "REFUSE" "$GERANT" "$(UPS boutiques b1 '{"nom":"AUTRE","demandes":[]}')"
+essai "★ un vendeur crée une boutique par upsert (ligne vraiment nouvelle)" "REFUSE" "$VENDEUR" "$(UPS boutiques b8 '{"id":"b8","nom":"NOUVELLE"}')"
+essai "★ un admin secondaire personnalise l'écran de connexion par upsert" "REFUSE" "$CALEB" "$(UPS boutiques b1 '{"nom":"APESSITO","accueil_texte":"Bonne fête"}')"
+essai "★ l'admin principal, lui, le peut par upsert" "PERMIS" "$PRINCIPAL" "$(UPS boutiques b1 '{"nom":"APESSITO","accueil_texte":"Bonne fête"}')"
 essai "un client crée la caisse TERRAIN (devis « pose seule »)" "PERMIS" "$CLIENT" "$(INS boutiques b_terrain '{"id":"b_terrain","nom":"TERRAIN","terrain":true,"actif":true}')"
 essai "un gérant supprime une boutique" "REFUSE" "$GERANT" "$(SUPPR boutiques b2)"
 essai "l'admin supprime une boutique" "PERMIS" "$CALEB" "$(SUPPR boutiques b2)"

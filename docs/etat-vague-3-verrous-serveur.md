@@ -130,3 +130,21 @@ Déplacé de CLAUDE.md le 06/09/2026, mot pour mot. Tous les SQL sont collés su
   tester-comptes + tester-devis-chantiers.
 
 - Cloisonnement **par boutique** (au-delà de l'espace) : reporté.
+
+## Correctif du 08/09/2026 — securite-8 (l'upsert pris pour une création)
+
+Capture Timo : « Demande de ravitaillement ne passe pas » — « Le serveur
+REFUSE cet enregistrement (boutiques) — Créer une boutique : réservé à
+l'administrateur (vous : vendeur) ». Même piège que roles-1b (18/08) :
+l'application écrit par UPSERT et PostgreSQL déclenche AVANT INSERT même
+quand la ligne existe. Quatre règles de la vague 3 le portaient encore :
+boutiques (demande de ravitaillement), dépenses (pointage du comptable,
+bloqué aussi par la politique RLS d'insertion), ventes et proformas (une
+remise > 3 % accordée par l'admin refusait ensuite toute écriture d'un
+vendeur sur la ligne). `supabase/securite-8-correctif-upsert.sql` relit la
+ligne existante et applique les règles de mise à jour ; la politique
+d'insertion des dépenses laisse passer le comptable sur une ligne existante
+(`depense_existe`, security definer). Bancs : `UPS()` dans
+tester-devis-chantiers (84) et tester-argent (66) — 4 cas tombent sans le
+correctif, tous passent avec. **À COLLER par Timo** ; les opérations
+bloquées repartent seules dans la minute.
