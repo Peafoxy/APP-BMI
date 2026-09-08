@@ -34,10 +34,10 @@ copie peut dévier d'un mot.
 | # | Quoi | Combien |
 |---|---|---|
 | B1 ✅ 2.101.80 | **La question « Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) »** | 13 endroits, 5 formulations différentes (« Moyen de paiement », « Moyen de remise des fonds », « Moyen de paiement reçu »…). Un moyen ajouté un jour (carte, chèque) devra être écrit 13 fois. |
-| B2 | **Fabriquer un message** (id, date, heure, de qui, à qui, texte, lu par) | 10 endroits dans 5 fichiers. |
-| B3 | **Fabriquer une dépense automatique** (salaire, prêt au personnel, commission) | 8 endroits dans 3 fichiers — dont Utilisateurs.jsx qui refait ce que `envoyerVirementG` fait déjà dans `calculs.js`. |
+| B2 ✅ 2.101.81 | **Fabriquer un message** (id, date, heure, de qui, à qui, texte, lu par) | 10 endroits dans 5 fichiers. |
+| B3 ✅ 2.101.81 | **Fabriquer une dépense automatique** (salaire, prêt au personnel, commission) | 8 endroits dans 3 fichiers — dont Utilisateurs.jsx qui refait ce que `envoyerVirementG` fait déjà dans `calculs.js`. |
 | B4 ✅ 2.101.80 | **Le contrôle « AAAA-MM »** d'un mois saisi | plusieurs endroits, message d'erreur différent. |
-| B5 | **Le tableau des dépenses** affiché deux fois dans `Depenses.jsx` (dépenses / chez le comptable), 19 lignes identiques | Une colonne ajoutée à l'un et pas à l'autre. |
+| B5 ✅ 2.101.81 | **Le tableau des dépenses** affiché deux fois dans `Depenses.jsx` (dépenses / chez le comptable), 19 lignes identiques | Une colonne ajoutée à l'un et pas à l'autre. |
 
 ## C. Ressemblances sans risque (à ne pas toucher)
 
@@ -103,3 +103,12 @@ règles : les unifier coûterait plus qu'il ne rapporte.
   appels) ; `demanderMois` / `demanderDate` (`estMoisValide`, `estDateValide`)
   pour les 3 mois et 3 dates saisis — la relance d'un prospect, jamais
   contrôlée avant, l'est maintenant. Banc : 8.
+
+
+- **B2 + B3 + B5 — 2.101.81.** `nouveauMessage(de, champs)` et `SYSTEME`
+  (core.js) : 14 fabrications de message ; `nouvelleDepense(profile, {…})`
+  (core.js) : 10 dépenses automatiques (salaire, retenue, avance, crédit,
+  remboursement, trois commissions, prime, CNSS) ; `TableauDepenses` dans
+  Depenses.jsx affiché deux fois. Banc : 10.
+
+**Le relevé est clos** : A1–A12 et B1–B5 sont tous unifiés (2.101.64 → 2.101.81).

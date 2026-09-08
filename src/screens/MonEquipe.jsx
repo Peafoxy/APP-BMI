@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
-import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
+import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
@@ -144,8 +144,8 @@ export function MonEquipe({ db, save, profile }) {
     // Sans ce message, ce mot restait vrai à ses yeux alors que le règlement
     // venait d'être défait — et les caisses recréditées n'en savaient rien.
     const avis = [
-      { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: st.u.id, lu_par: [profile.id],
-        texte: `↩ Le règlement de votre commission a été ANNULÉ par ${profile.nom} : ${fmt(st.commissionReglee)} redeviennent « à payer ». ${st.nbReglees} vente(s) concernée(s). Rapprochez-vous de la direction si cela vous surprend.` },
+      nouveauMessage(profile, { a_id: st.u.id,
+        texte: `↩ Le règlement de votre commission a été ANNULÉ par ${profile.nom} : ${fmt(st.commissionReglee)} redeviennent « à payer ». ${st.nbReglees} vente(s) concernée(s). Rapprochez-vous de la direction si cela vous surprend.` }),
       ...depsSupprimees.flatMap((d) => messagesNotifSortieCaisse(db, profile, d.boutique, st.u.nom, Number(d.montant || 0), "Règlement de commission ANNULÉ —", "entree")),
     ];
     save({
@@ -219,11 +219,11 @@ export function MonEquipe({ db, save, profile }) {
     if (!await uConfirm(`Payer ${fmt(c.due)} de commission d'équipe à ${c.u.nom} ?\n\n${c.tauxEq} % sur les commissions de ses ${c.nbFilleuls} recrue(s).\nSortie de caisse ${bq} : ${fmt(c.due)}`)) return;
     if (dejaReglees(new Set(c.ventesDues), (v) => v.override_payee)) return;
     const ids = new Set(c.ventesDues);
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Commissions",
+    const dep = nouvelleDepense(profile, {
+      boutique: bq, categorie: "Commissions",
       description: `Commission d'équipe — ${c.u.nom} (${c.tauxEq} % sur ${c.nbFilleuls} recrue(s))`,
-      montant: c.due, paiement: normPaiement(moyen), par: profile.nom, auto: "commission_equipe", user_id: c.u.id,
-    };
+      montant: c.due, moyen, auto: "commission_equipe", user_id: c.u.id,
+    });
     save({
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id)
@@ -233,8 +233,8 @@ export function MonEquipe({ db, save, profile }) {
         : v)),
       depenses: [dep, ...db.depenses],
       messages: [
-        { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: c.u.id, lu_par: [profile.id],
-          texte: `💰 Votre commission d'équipe vous a été payée : ${fmt(c.due)} (${normPaiement(moyen)}) — ${c.tauxEq} % sur les commissions de vos ${c.nbFilleuls} recrue(s). Retrouvez le détail dans « Ma commission ».` },
+        nouveauMessage(profile, { a_id: c.u.id,
+          texte: `💰 Votre commission d'équipe vous a été payée : ${fmt(c.due)} (${normPaiement(moyen)}) — ${c.tauxEq} % sur les commissions de vos ${c.nbFilleuls} recrue(s). Retrouvez le détail dans « Ma commission ».` }),
         ...messagesNotifPaiementCommission(db, profile, bq, c.u.nom, c.due),
         ...(db.messages || []),
       ],
@@ -311,11 +311,11 @@ export function MonEquipe({ db, save, profile }) {
     if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n${a.ventes.length} vente(s) concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
     if (dejaReglees(new Set(a.ventes), (v) => v.apporteur?.payee)) return;
     const ids = new Set(a.ventes);
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Commissions",
+    const dep = nouvelleDepense(profile, {
+      boutique: bq, categorie: "Commissions",
       description: `Commission apporteur externe — ${a.nom}${a.tel ? ` (${a.tel})` : ""}`,
-      montant: a.due, paiement: normPaiement(moyen), par: profile.nom, auto: "commission_ext"
-    };
+      montant: a.due, moyen, auto: "commission_ext",
+    });
     save({
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : v)),
@@ -376,11 +376,11 @@ export function MonEquipe({ db, save, profile }) {
     // était perdue pour toujours une fois l'installation réceptionnée.
     const ids = new Set(st.idsAPayer);
     const tauxU = Number(st.u.taux_commission || 0);
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Commissions",
+    const dep = nouvelleDepense(profile, {
+      boutique: bq, categorie: "Commissions",
       description: `Commission — ${st.u.nom} (${ids.size} vente(s))`,
-      montant: st.commissionDue, paiement: normPaiement(moyen), par: profile.nom, auto: "commission", user_id: st.u.id
-    };
+      montant: st.commissionDue, moyen, auto: "commission", user_id: st.u.id,
+    });
     save({
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id)
@@ -390,8 +390,8 @@ export function MonEquipe({ db, save, profile }) {
       messages: [
         // Le bénéficiaire est prévenu DIRECTEMENT — sans ce message, le
         // paiement n'apparaissait que dans la caisse, jamais chez lui.
-        { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, a_id: st.u.id, lu_par: [profile.id],
-          texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s) de la période. Retrouvez le détail dans « Ma commission ».` },
+        nouveauMessage(profile, { a_id: st.u.id,
+          texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s) de la période. Retrouvez le détail dans « Ma commission ».` }),
         ...messagesNotifPaiementCommission(db, profile, bq, st.u.nom, st.commissionDue),
         ...(db.messages || []),
       ],

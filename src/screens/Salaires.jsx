@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
-import { uid, fmt, today, dFR, normPaiement } from "../lib/core";
+import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
@@ -270,11 +270,11 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
     const bq = await choisirBoutiqueDebitG(db, {}, `Paiement CNSS de ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`, profile);
     if (bq === null) return;
     if (!await uConfirm(`Confirmer le paiement CNSS de ${libelleMoisFR(mois)} ?\n\nCouvre ${pretsPourExport.length} employé(s) sur ${nbAssujettis} assujetti(s).\n\nPart patronale (22,5 %) : ${fmt(repartitionTotale.partPatronale)}\nPart salariale déjà retenue (9 %) : ${fmt(repartitionTotale.partSalariale)}\nTOTAL à reverser à la CNSS : ${fmt(repartitionTotale.total)}\n\nSortie de caisse ${bq} : ${fmt(repartitionTotale.total)}.`)) return;
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Cotisations CNSS",
+    const dep = nouvelleDepense(profile, {
+      boutique: bq, categorie: "Cotisations CNSS",
       description: `Cotisations CNSS ${libelleMoisFR(mois)} — ${pretsPourExport.length} employé(s) (dont part patronale ${fmt(repartitionTotale.partPatronale)} et part salariale déjà retenue ${fmt(repartitionTotale.partSalariale)})`,
-      montant: repartitionTotale.total, paiement: normPaiement(moyen), par: profile.nom, auto: "cnss", mois,
-    };
+      montant: repartitionTotale.total, moyen, auto: "cnss", mois,
+    });
     save({ ...db, depenses: [dep, ...db.depenses] }, `Paiement CNSS ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`);
     uAlert(`✅ Paiement CNSS de ${fmt(repartitionTotale.total)} enregistré en dépense — sortie de caisse : ${bq}.`);
   };

@@ -384,6 +384,41 @@ export const memeContenu = (a, b) => {
   if (!a || !b) return false;
   try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
 };
+// ---- Fabriquer un message (point B2 du relevé des doublons, 08/09/2026) ----
+// Dix endroits recopiaient id, date, heure, de qui, « lu par ». UNE
+// fabrique : `de` est la personne qui écrit (profile) — ou SYSTEME pour un
+// message que l'application envoie d'elle-même —, `champs` ce qui reste
+// (a_id, ou canal + client_id / groupe_id, texte, devis_id…). L'auteur a
+// déjà lu son propre message ; le système, lui, ne lit rien.
+export const SYSTEME = { id: "bmi-systeme", nom: "BMI TOGO", systeme: true };
+export const nouveauMessage = (de, champs = {}) => ({
+  id: uid(),
+  date: today(),
+  ts: new Date().toISOString(),
+  de_id: de?.id ?? null,
+  de_nom: de?.nom || "Système",
+  lu_par: de?.id && !de.systeme ? [de.id] : [],
+  ...champs,
+});
+
+// ---- Fabriquer une dépense automatique (point B3, 08/09/2026) ----
+// Salaire, avance, crédit, remboursement, commissions, prime, CNSS : huit
+// endroits écrivaient la même fiche. `moyen` est la réponse brute à la
+// question du moyen de paiement (normalisée ici) ; `auto` dit d'où vient
+// la dépense (voir aLienAAnnuler dans calculs.js) ; le reste (user_id,
+// credit_id, mois…) s'ajoute tel quel.
+export const nouvelleDepense = (profile, { boutique, categorie, description, montant, moyen, auto, ...reste }) => ({
+  id: uid(),
+  date: today(),
+  boutique,
+  categorie,
+  description,
+  montant,
+  paiement: normPaiement(moyen),
+  par: profile.nom,
+  ...(auto ? { auto } : {}),
+  ...reste,
+});
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
 export const today = () => new Date().toISOString().slice(0, 10);
 export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");

@@ -11,6 +11,35 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, usePagination
 import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
+// ============ LE TABLEAU DES DÉPENSES — écrit UNE fois (point B5 du relevé
+// des doublons, 08/09/2026) pour les dépenses d'une boutique et pour
+// « Chez le comptable » : une colonne ajoutée l'est aux deux.
+function TableauDepenses({ liste, listePage, profile, onSupprimer, vide }) {
+  return (
+    <table className="w-full text-sm min-w-[680px]">
+      <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+      <tbody>
+        {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{vide}</td></tr>}
+        {listePage.map((x) => (
+          <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
+            <td className="px-3 py-2">{dFR(x.date)}</td>
+            <td className="px-3 py-2 font-semibold">{x.categorie}</td>
+            <td className="px-3 py-2">{x.description || "—"}</td>
+            <td className="px-3 py-2 tabular-nums font-bold">{fmt(x.montant)}</td>
+            <td className="px-3 py-2">{x.paiement}</td>
+            <td className="px-3 py-2">{x.par}</td>
+            <td className="px-3 py-2">
+              {profile.role === "admin" && (
+                <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ============ DÉPENSES ============
 export function Depenses({ db, save, profile }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "depenses" });
@@ -73,27 +102,7 @@ export function Depenses({ db, save, profile }) {
           <span>Dépenses — {boutique}</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}</span>
         </div>
-        <table className="w-full text-sm min-w-[680px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune dépense enregistrée.</td></tr>}
-            {listePage.map((x) => (
-              <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2">{dFR(x.date)}</td>
-                <td className="px-3 py-2 font-semibold">{x.categorie}</td>
-                <td className="px-3 py-2">{x.description || "—"}</td>
-                <td className="px-3 py-2 tabular-nums font-bold">{fmt(x.montant)}</td>
-                <td className="px-3 py-2">{x.paiement}</td>
-                <td className="px-3 py-2">{x.par}</td>
-                <td className="px-3 py-2">
-                  {profile.role === "admin" && (
-                    <button onClick={() => supprimerDepense(x)} className="text-xs text-red-600 underline">Suppr.</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide="Aucune dépense enregistrée." />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>
@@ -195,27 +204,7 @@ export function ChezComptable({ db, save, profile }) {
           <span>Chez le comptable</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)} · Total : {fmt(total)}</span>
         </div>
-        <table className="w-full text-sm min-w-[680px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune sortie de caisse « Chez le comptable » pour l'instant.</td></tr>}
-            {listePage.map((x) => (
-              <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2">{dFR(x.date)}</td>
-                <td className="px-3 py-2 font-semibold">{x.categorie}</td>
-                <td className="px-3 py-2">{x.description || "—"}</td>
-                <td className="px-3 py-2 tabular-nums font-bold">{fmt(x.montant)}</td>
-                <td className="px-3 py-2">{x.paiement}</td>
-                <td className="px-3 py-2">{x.par}</td>
-                <td className="px-3 py-2">
-                  {profile.role === "admin" && (
-                    <button onClick={() => supprimerDepense(x)} className="text-xs text-red-600 underline">Suppr.</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
         <Pagination page={pageCC} setPage={setPageCC} totalPages={totalPagesCC} />
       </div>
     </div>

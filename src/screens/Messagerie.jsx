@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { Clients } from "../screens/Clients";
-import { uid, today, dFR, col } from "../lib/core";
+import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
 import { utilisateursDeLEspace, refuserSaufAdmin } from "../lib/calculs";
 
@@ -122,7 +122,7 @@ export function Messagerie({ db, save, profile }) {
   const envoyer = () => {
     const t = texte.trim();
     if (!t || !conv) return;
-    const base = { id: uid(), date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, texte: t, lu_par: [profile.id] };
+    const base = nouveauMessage(profile, { texte: t });
     const m = conv.type === "client" ? { ...base, canal: "support", client_id: conv.id } : conv.type === "groupe" ? { ...base, canal: "groupe", groupe_id: conv.id } : { ...base, a_id: conv.id };
     save({ ...db, messages: [m, ...messages] });
     setTexte("");

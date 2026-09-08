@@ -6,7 +6,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { telDigits, uid, definirMotDePasse, hacherFort, today, envoyerWhatsApp } from "./core";
+import { telDigits, uid, definirMotDePasse, hacherFort, today, envoyerWhatsApp, nouveauMessage } from "./core";
 
 // Adresse publique de l'application, envoyée au client par WhatsApp.
 export const ADRESSE_APP = "https://gestion.bmitogo.com";
@@ -216,12 +216,7 @@ export function messagesNouveauClient(db, user, parQui) {
   // ne dérange pas les admins réels) — et l'administrateur principal, toujours.
   const admins = db.users.filter((u) => u.role === "admin" && u.actif !== false && u.id !== parQui?.id
     && (u.admin_principal === true || !!u.formation === !!user.formation));
-  const base = { id: uid(), date: today(), ts: new Date().toISOString(), lu_par: [] };
-  return admins.map((admin) => ({
-    ...base,
-    id: uid(),
-    de_id: parQui?.id || null,
-    de_nom: parQui?.nom || "Système",
+  return admins.map((admin) => nouveauMessage(parQui, {
     a_id: admin.id,
     texte: `🙋 Nouveau client créé par ${parQui?.nom || "quelqu'un"} : ${user.nom_base || user.nom}${user.tel ? ` (${user.tel})` : ""}.`,
   }));

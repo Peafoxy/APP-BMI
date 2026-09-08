@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu } from "./core";
+import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
@@ -652,12 +652,11 @@ export async function choisirBoutiqueDebitG(db, u, titre, profile) {
 // d'où l'argent est sorti — pour que la caisse concernée (boutique ou
 // comptable) sache que cette sortie est passée, et à qui.
 export function messagesNotifSortieCaisse(db, profile, destination, nomBeneficiaire, montant, libelle = "Commission payée à", sens = "sortie") {
-  const base = { date: today(), ts: new Date().toISOString(), de_id: profile.id, de_nom: profile.nom, lu_par: [profile.id] };
   const texte = `💰 ${libelle} ${nomBeneficiaire} : ${fmt(montant)} — ${sens === "entree" ? "entrée de caisse" : "sortie de caisse"} : ${destination}.`;
   const destinataires = destination === "Chez le comptable"
     ? db.users.filter((u) => u.role === "comptable" && u.actif !== false)
     : db.users.filter((u) => (u.role === "vendeur" || u.role === "gerant") && u.boutique === destination && u.actif !== false);
-  return destinataires.map((u) => ({ ...base, id: uid(), a_id: u.id, texte }));
+  return destinataires.map((u) => nouveauMessage(profile, { a_id: u.id, texte }));
 }
 // Ancien nom conservé par compatibilité (les 3 flux de commission l'utilisaient déjà).
 export const messagesNotifPaiementCommission = messagesNotifSortieCaisse;
@@ -688,11 +687,11 @@ export function primeDejaPayee(db, c, e) {
 
 export function construirePaiementPrime(db, profile, c, e, moyen) {
   const bq = e.prime_boutique;
-  const dep = {
-    id: uid(), date: today(), boutique: bq, categorie: "Prime d'installation",
+  const dep = nouvelleDepense(profile, {
+    boutique: bq, categorie: "Prime d'installation",
     description: `Installation ${c.nom} — ${e.nom}${e.chef ? " (chef de chantier)" : ""} · ${e.pct} %`,
-    montant: e.montant, paiement: normPaiement(moyen), par: profile.nom, auto: "installation", user_id: e.user_id,
-  };
+    montant: e.montant, moyen, auto: "installation", user_id: e.user_id,
+  });
   return {
     ...db,
     clients_installes: db.clients_installes.map((x) => (x.id === c.id
@@ -700,11 +699,10 @@ export function construirePaiementPrime(db, profile, c, e, moyen) {
       : x)),
     depenses: [dep, ...db.depenses],
     messages: [
-      ...(e.user_id ? [{
-        id: uid(), date: today(), ts: new Date().toISOString(),
-        de_id: profile.id, de_nom: profile.nom, a_id: e.user_id, lu_par: [profile.id],
+      ...(e.user_id ? [nouveauMessage(profile, {
+        a_id: e.user_id,
         texte: `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « 💰 Primes reçues ».`,
-      }] : []),
+      })] : []),
       ...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"),
     ],
   };
@@ -991,18 +989,17 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     id: uid(), mois: m, montant, moyen: String(moyen).trim(), ref: String(ref).trim(), boutique: bq,
     statut: "envoye", date_envoi: today(), par: profile.nom
   };
-  const paie = normPaiement(moyen);
-  const deps = [{
-    id: uid(), date: today(), boutique: bq, categorie: "Salaires",
+  const deps = [nouvelleDepense(profile, {
+    boutique: bq, categorie: "Salaires",
     description: `Salaire ${libelleMoisFR(m)} — ${u.nom}`,
-    montant: montant + retenue, paiement: paie, par: profile.nom, auto: "virement", user_id: u.id
-  }];
+    montant: montant + retenue, moyen, auto: "virement", user_id: u.id,
+  })];
   if (retenue > 0) {
-    deps.push({
-      id: uid(), date: today(), boutique: bq, categorie: "Prêt au personnel",
+    deps.push(nouvelleDepense(profile, {
+      boutique: bq, categorie: "Prêt au personnel",
       description: `Remboursement crédit BMI retenu sur salaire ${libelleMoisFR(m)} — ${u.nom}`,
-      montant: -retenue, paiement: paie, par: profile.nom, auto: "retenue", user_id: u.id
-    });
+      montant: -retenue, moyen, auto: "retenue", user_id: u.id,
+    }));
   }
   save({
     ...db,
@@ -1230,12 +1227,10 @@ export const debloquerCommissionsReception = (db, vente_id, contexte) => {
   let messages = db.messages || [];
   const app = vente.apporteur;
   if (app && app.parrain_user_id && app.a_la_reception && Number(app.montant || 0) > 0) {
-    messages = [{
-      id: uid(), date: today(), ts: new Date().toISOString(),
-      de_id: "bmi-systeme", de_nom: "BMI TOGO",
-      canal: "support", client_id: app.parrain_user_id, lu_par: [],
+    messages = [nouveauMessage(SYSTEME, {
+      canal: "support", client_id: app.parrain_user_id,
       texte: `🎉 Bonne nouvelle ! L'installation de votre filleul${app.nom ? ` ${app.nom}` : ""} a été réceptionnée${contexte ? ` (${contexte})` : ""}. Votre commission de parrainage de ${fmt(app.montant)} F est maintenant due : elle vous sera versée par BMI TOGO. Merci de votre confiance !`,
-    }, ...messages];
+    }), ...messages];
   }
   return { ventes: majVentes, messages };
 };

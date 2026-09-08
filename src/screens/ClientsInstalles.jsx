@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
@@ -252,13 +252,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     };
 
     // Le message : il le verra même s'il ne regarde pas sa fiche.
-    const message = c.user_id ? {
-      id: uid(), date: today(), ts: new Date().toISOString(),
-      de_id: profile.id, de_nom: profile.nom,
+    const message = c.user_id ? nouveauMessage(profile, {
       canal: "support", client_id: c.user_id,
       texte: `🎁 Bonne nouvelle ! BMI Togo vous offre : ${quoi.trim()}.\n\nPassez le récupérer à la boutique ${boutique}. À très bientôt !`,
-      lu_par: [profile.id],
-    } : null;
+    }) : null;
 
     save({
       ...db,
@@ -423,32 +420,20 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const dateAvant = c.date_installation || "";
     const dateAChange = dateAvant !== p.date;
     const nouveauxMembres = equipe.filter((e) => !idsAvant.has(e.user_id) || dateAChange);
-    const messagesNotif = nouveauxMembres.map((e) => ({
-      id: uid(),
-      date: today(),
-      ts: new Date().toISOString(),
-      de_id: profile.id,
-      de_nom: profile.nom,
+    const messagesNotif = nouveauxMembres.map((e) => nouveauMessage(profile, {
       a_id: e.user_id,
-      lu_par: [profile.id],
       texte: `📅 Vous avez été affecté${e.chef ? " comme chef d'équipe ⭐" : ""} à l'installation de ${c.prenom} ${c.nom} le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`,
     }));
 
     // Le CLIENT aussi doit savoir — surtout s'il avait émis des réserves et
     // attend un passage de rattrapage. Sans ce message, il n'avait aucun moyen
     // de savoir qu'une date (nouvelle ou changée) venait d'être fixée.
-    const messageClient = (c.user_id && dateAChange) ? [{
-      id: uid(),
-      date: today(),
-      ts: new Date().toISOString(),
-      de_id: profile.id,
-      de_nom: profile.nom,
+    const messageClient = (c.user_id && dateAChange) ? [nouveauMessage(profile, {
       a_id: c.user_id,
-      lu_par: [profile.id],
       texte: dateAvant
         ? `📅 La date de votre installation a été mise à jour : ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`
         : `📅 Votre installation est programmée le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`,
-    }] : [];
+    })] : [];
 
     save({
       ...db,
@@ -710,9 +695,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // Prévenir les vendeurs dont la demande disparaît de leur écran.
     const avis = annulees.flatMap((e) => (db.users || [])
       .filter((u) => u.actif !== false && u.boutique === e.prime_boutique && ["vendeur", "gerant"].includes(u.role))
-      .map((u) => ({
-        id: uid(), date: today(), ts: new Date().toISOString(),
-        de_id: profile.id, de_nom: profile.nom, a_id: u.id, lu_par: [profile.id],
+      .map((u) => nouveauMessage(profile, {
+        a_id: u.id,
         texte: `↩ La demande de prime de ${e.nom} (${fmt(e.montant)}, chantier ${c.nom} ${c.prenom || ""}) a été annulée : la répartition des frais vient d'être refaite par ${profile.nom}. Ne la payez pas — une nouvelle demande vous sera envoyée si besoin.`,
       })));
 

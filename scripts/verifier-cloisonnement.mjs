@@ -2718,8 +2718,10 @@ titre("Le moyen de paiement se DEMANDE, il ne s'impose pas");
   test("★ la CNSS non plus « par virement » sans qu'on demande",
     !/paiement: "Virement bancaire", par: profile\.nom, auto: "cnss"/.test(sal)
     && /demanderMoyenPaiement\("de la CNSS"/.test(sal));
+  // Depuis 2.101.81 la CNSS passe par nouvelleDepense (core.js), qui
+  // normalise le moyen elle-même ; le fournisseur le normalise encore en place.
   test("les deux passent la réponse par normPaiement (mêmes libellés partout)",
-    /paiement: normPaiement\(moyen\)/.test(fo) && /paiement: normPaiement\(moyen\)/.test(sal));
+    /paiement: normPaiement\(moyen\)/.test(fo) && /nouvelleDepense\(profile, \{[\s\S]{0,400}?moyen, auto: "cnss"/.test(sal));
   test("le défaut proposé reste le plus courant pour chacun (Espèces par défaut pour le fournisseur, virement pour la CNSS)",
     /demanderMoyenPaiement\(`à \$\{fo\.nom\}`\)/.test(fo) && /export const demanderMoyenPaiement = \(complement = "", defaut = "Espèces"/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /demanderMoyenPaiement\("de la CNSS", "Virement bancaire"\)/.test(sal));
@@ -4254,6 +4256,38 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
     && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("de la CNSS", "Virement bancaire"\)/.test(readFileSync("src/screens/Salaires.jsx", "utf8")));
   test("la relance d'un prospect (jamais contrôlée avant) passe par demanderDate, facultative", /demanderDate\(`Nouvelle date de relance pour \$\{p\.nom\}`, p\.relance \|\| "", true\)/.test(readFileSync("src/screens/Prospects.jsx", "utf8")));
+}
+
+titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automatique, le tableau des dépenses — UNE fois (Timo : « lance tout », 08/09/2026)");
+{
+  const moi = { id: "u1", nom: "KOSSI" };
+  const m = Core.nouveauMessage(moi, { a_id: "u2", texte: "Bonjour" });
+  test("★ nouveauMessage : id, date, heure, de qui (id + nom), déjà lu par l'auteur, puis les champs donnés",
+    typeof m.id === "string" && m.date === new Date().toISOString().slice(0, 10) && /^\d{4}-\d{2}-\d{2}T/.test(m.ts)
+    && m.de_id === "u1" && m.de_nom === "KOSSI" && JSON.stringify(m.lu_par) === '["u1"]' && m.a_id === "u2" && m.texte === "Bonjour");
+  test("★ un message du SYSTÈME (BMI TOGO) n'est lu par personne ; un auteur inconnu devient « Système » sans lecteur",
+    JSON.stringify(Core.nouveauMessage(Core.SYSTEME, { texte: "x" }).lu_par) === "[]" && Core.nouveauMessage(Core.SYSTEME, {}).de_nom === "BMI TOGO"
+    && Core.nouveauMessage(null, {}).de_nom === "Système" && Core.nouveauMessage(undefined, {}).de_id === null && JSON.stringify(Core.nouveauMessage(null, {}).lu_par) === "[]");
+  test("★ deux messages fabriqués à la suite ont deux identifiants", Core.nouveauMessage(moi, {}).id !== Core.nouveauMessage(moi, {}).id);
+  const d = Core.nouvelleDepense(moi, { boutique: "APESSITO", categorie: "Commissions", description: "Commission — AMA", montant: 25000, moyen: "flooz", auto: "commission", user_id: "u9" });
+  test("★ nouvelleDepense : id, date, boutique, catégorie, description, montant, moyen NORMALISÉ, par, auto, puis le reste (user_id…)",
+    typeof d.id === "string" && d.date === new Date().toISOString().slice(0, 10) && d.boutique === "APESSITO" && d.categorie === "Commissions"
+    && d.montant === 25000 && d.paiement === "Mobile Money (Flooz)" && d.par === "KOSSI" && d.auto === "commission" && d.user_id === "u9");
+  test("★ sans « auto », la clé n'est pas écrite (une dépense saisie à la main n'a pas de lien à annuler) ; un montant négatif (remboursement) passe tel quel",
+    !("auto" in Core.nouvelleDepense(moi, { boutique: "A", categorie: "C", description: "D", montant: 1, moyen: "Espèces" }))
+    && Core.nouvelleDepense(moi, { boutique: "A", categorie: "C", description: "D", montant: -500, moyen: "virement", auto: "remboursement" }).montant === -500);
+  test("★ la normalisation du moyen est stable (normaliser deux fois = une fois)", ["flooz", "Mixx", "banque", "esp"].every((x) => Core.normPaiement(Core.normPaiement(x)) === Core.normPaiement(x)));
+  test("★ plus aucune fiche de message recopiée : « lu_par: [profile.id] » et « de_nom: profile.nom » n'existent plus hors core.js",
+    execSync("grep -rln 'lu_par: \\[profile.id\\]\\|de_nom: profile.nom' src || true").toString().trim() === "");
+  test("★ plus aucune fiche de dépense automatique recopiée : « par: profile.nom, auto: » n'existe plus dans les écrans",
+    execSync("grep -rln 'par: profile.nom, auto:' src || true").toString().trim() === "");
+  test("★ nouveauMessage sert aux 14 fabrications, nouvelleDepense aux 10 dépenses automatiques",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "14"
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "10");
+  const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
+    (dep.match(/<thead>/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
+    && /vide="Aucune dépense enregistrée\." \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

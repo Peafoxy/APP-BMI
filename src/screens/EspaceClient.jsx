@@ -8,7 +8,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
 import { creerFilleulEnLigne } from "../supabaseClient";
 import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, envoyerWhatsApp } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, envoyerWhatsApp, nouveauMessage } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, estCompteFormation, marqueEspace } from "../lib/calculs";
@@ -125,14 +125,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     if (motif === null) return;
     if (!motif.trim()) { uAlert("Merci d'indiquer la raison du rejet."); return; }
 
-    const message = {
-      id: uid(), date: today(), ts: new Date().toISOString(),
-      de_id: profile.id, de_nom: profile.nom,
-      a_id: d.par_id,
-      devis_id: d.id,
-      texte: `❌ DEVIS REJETÉ (${fmt(d.total)}) — motif : ${motif.trim()}`,
-      lu_par: [profile.id],
-    };
+    const message = nouveauMessage(profile, { a_id: d.par_id, devis_id: d.id, texte: `❌ DEVIS REJETÉ (${fmt(d.total)}) — motif : ${motif.trim()}` });
 
     save({
       ...db,
@@ -155,14 +148,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     if (quoi === null) return;
     if (!quoi.trim()) { uAlert("Décrivez ce que vous souhaitez changer."); return; }
 
-    const message = {
-      id: uid(), date: today(), ts: new Date().toISOString(),
-      de_id: profile.id, de_nom: profile.nom,
-      a_id: d.par_id,
-      devis_id: d.id,
-      texte: `✏️ MODIFICATION DEMANDÉE sur le devis de ${fmt(d.total)} : ${quoi.trim()}`,
-      lu_par: [profile.id],
-    };
+    const message = nouveauMessage(profile, { a_id: d.par_id, devis_id: d.id, texte: `✏️ MODIFICATION DEMANDÉE sur le devis de ${fmt(d.total)} : ${quoi.trim()}` });
 
     save({
       ...db,

@@ -7,7 +7,7 @@ import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
-import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
+import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
@@ -660,11 +660,11 @@ export function Users({ db, save, profile }) {
       if (bq === null) return;
       const moyen = await demanderMoyenPaiement();
       if (moyen === null) return;
-      const dep = {
-        id: uid(), date: today(), boutique: bq, categorie: "Salaires",
+      const dep = nouvelleDepense(profile, {
+        boutique: bq, categorie: "Salaires",
         description: `Avance sur salaire ${libelleMoisFR(mois.trim())} — ${u.nom}`,
-        montant, paiement: normPaiement(moyen), par: profile.nom, auto: "avance", user_id: u.id
-      };
+        montant, moyen, auto: "avance", user_id: u.id,
+      });
       next = { ...next, depenses: [dep, ...next.depenses], messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Avance versée à"), ...(db.messages || [])] };
     }
 
@@ -728,11 +728,11 @@ export function Users({ db, save, profile }) {
       : "Remboursement libre (versements enregistrés par l'administration).";
     if (!await uConfirm(`Accorder un crédit de ${fmt(montant)} à ${u.nom} ?\n\n${resume}\n\nSortie de caisse ${bq || ""} : ${fmt(montant)} (compte « Prêt au personnel »).`)) return;
     const credit = { ...c, statut: "approuve", montant_accorde: montant, mensualites, echeances, commentaire: note.trim(), date_decision: today(), decide_par: profile.nom, boutique: bq };
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Prêt au personnel",
+    const dep = nouvelleDepense(profile, {
+      boutique: bq, categorie: "Prêt au personnel",
       description: `Crédit BMI accordé à ${u.nom}${c.motif ? " — " + c.motif : ""}`,
-      montant, paiement: normPaiement(moyen), par: profile.nom, auto: "credit", user_id: u.id, credit_id: c.id
-    };
+      montant, moyen, auto: "credit", user_id: u.id, credit_id: c.id,
+    });
     save({
       ...db,
       users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? credit : y)) } : x)),
@@ -769,11 +769,11 @@ export function Users({ db, save, profile }) {
     const solde = Number(c.montant_accorde || 0) - remboursements.reduce((s, r) => s + Number(r.montant || 0), 0) <= 0;
     const credit = { ...c, remboursements, statut: solde ? "solde" : c.statut, date_solde: solde ? today() : c.date_solde };
     // Montant négatif : l'argent RENTRE dans la caisse
-    const dep = {
-      id: uid(), date: today(), boutique: bq, categorie: "Prêt au personnel",
+    const dep = nouvelleDepense(profile, {
+      boutique: bq, categorie: "Prêt au personnel",
       description: `Remboursement crédit BMI — ${u.nom}`,
-      montant: -montant, paiement: normPaiement(note), par: profile.nom, auto: "remboursement", user_id: u.id, credit_id: c.id
-    };
+      montant: -montant, moyen: note, auto: "remboursement", user_id: u.id, credit_id: c.id,
+    });
     save({
       ...db,
       users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? credit : y)) } : x)),
