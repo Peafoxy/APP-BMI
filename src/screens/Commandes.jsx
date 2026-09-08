@@ -6,6 +6,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
+import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
@@ -72,13 +73,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     if (p) setCat(p.categorie || "Autre");
   };
 
-  const mettreAuPanier = (p, q, pu) => {
-    setPanier((pan) => {
-      const i = pan.findIndex((l) => l.produit_id === p.id && Number(l.pu) === Number(pu));
-      if (i >= 0) { const cp = [...pan]; cp[i] = { ...cp[i], qte: Number(cp[i].qte) + q }; return cp; }
-      return [...pan, { produit_id: p.id, article: p.nom, qte: q, pu: Number(pu) }];
-    });
-  };
+  const mettreAuPanier = (p, q, pu) => setPanier((pan) => ajouterAuPanierCommun(pan, p, q, pu));
 
   const ajouterAuPanier = () => {
     const p = produits.find((x) => x.id === sel.produit_id);
@@ -95,7 +90,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     const c = code.trim();
     setCode("");
     if (!c) return;
-    const p = produits.find((x) => String(x.code || "").trim() === c);
+    const p = articleParCode(produits, c);
     if (!p) { setMsg(`Aucun article avec le code « ${c} » dans ${boutique}.`); return; }
     if (dispoRestant(p) < 1) { setMsg(`Stock épuisé pour « ${p.nom} ».`); return; }
     setMsg("");

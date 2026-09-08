@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette } from "./core";
+import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu } from "./core";
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
@@ -1818,11 +1818,7 @@ export const TABLES_PAR_MARQUE = ["fournisseurs", "commerciaux"];
 // d'abord (l'app met à jour par recopie immuable : une ligne inchangée
 // garde son objet), repli sur le contenu pour rester juste si un écran
 // recopie tout de même ses lignes. Même principe que sauvegarderDiff.
-const memeEnregistrement = (a, b) => {
-  if (Object.is(a, b)) return true;
-  if (!a || !b) return false;
-  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
-};
+const memeEnregistrement = memeContenu;
 
 // Renvoie null si l'écriture est légitime, sinon la première infraction
 // trouvée : { table, boutique, espaceBoutique }.

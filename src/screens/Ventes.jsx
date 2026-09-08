@@ -10,6 +10,7 @@ import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, remiseExigeAdmin, PLAFOND_REMISE_PCT, filtreEspaceAffichage } from "../lib/calculs";
@@ -140,13 +141,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setSel({ ...sel, remP: txt, remF: base > 0 && txt !== "" ? String(Math.round((base * p_) / 100)) : "" });
   };
 
-  const mettreAuPanier = (p, q, pu, remiseLigne = 0) => {
-    setPanier((pan) => {
-      const i = pan.findIndex((l) => l.produit_id === p.id && Number(l.pu) === Number(pu));
-      if (i >= 0) { const cp = [...pan]; cp[i] = { ...cp[i], qte: Number(cp[i].qte) + q, remise_ligne: Number(cp[i].remise_ligne || 0) + Number(remiseLigne || 0) }; return cp; }
-      return [...pan, { produit_id: p.id, article: p.nom, qte: q, pu: Number(pu), remise_ligne: Number(remiseLigne || 0) }];
-    });
-  };
+  const mettreAuPanier = (p, q, pu, remiseLigne = 0) => setPanier((pan) => ajouterAuPanierCommun(pan, p, q, pu, remiseLigne));
 
   const ajouterAuPanier = () => {
     const p = produits.find((x) => x.id === sel.produit_id);
@@ -171,7 +166,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const c = code.trim();
     setCode("");
     if (!c) return;
-    const p = produits.find((x) => String(x.code || "").trim() === c);
+    const p = articleParCode(produits, c);
     if (!p) { setMsg(`Aucun article avec le code « ${c} » dans ${boutique}. Assignez les codes dans l'onglet Stocks.`); return; }
     if (dispoRestant(p) < 1) { setMsg(`⚠ Stock épuisé pour « ${p.nom} » — ajouté quand même, l'encaissement proposera une réservation si besoin.`); }
     else { setMsg(""); }

@@ -17,9 +17,9 @@ La zone de signature (2.101.57) n'y figure plus : déjà unifiée.
 | A2 ✅ 2.101.77 | **Le plan de règlement signé** (type, mensualité, première échéance, solde engagé, statut « en attente ») | `EspaceClient.jsx` (contrat client) et `TousLesDevis.jsx` (contrat en boutique) — 15 lignes identiques | Un plan accepté en boutique et un plan accepté par téléphone ne porteraient plus les mêmes champs. |
 | A3 ✅ 2.101.64 | **Construire les lignes d'un devis** (articles, autres équipements, frais d'installation ou pose seule, transport, remise) et **l'envoyer** dans l'espace client | Les trois volets du dimensionnement : `Solaire.jsx`, `Garage.jsx`, `Autre.jsx` — le plus gros doublon : blocs de 46, 29, 28, 26, 22, 20, 19 lignes | Une correction de calcul (remise, transport, pose seule) faite dans un volet et pas dans les deux autres : trois devis différents pour la même règle. |
 | A4 ✅ 2.101.64 | **La case « Pose seule »** et son montant de main-d'œuvre fixe | Les trois volets (46 lignes identiques) | Idem. |
-| A5 | **Le prochain numéro de reçu** (préfixe boutique + année + compteur sur 4 chiffres) | `lib/core.js` : une version pour les ventes, une copie pour les dettes | Un changement de format des reçus oublierait les dettes. |
-| A6 | **« Est-ce le même enregistrement ? »** (comparaison de deux fiches) | `lib/calculs.js` (memeEnregistrement) et `lib/rebase.js` (memeContenu), identiques | Deux façons de décider si une fiche a changé → une modification vue par l'un et pas par l'autre. |
-| A7 | **Le lecteur de code-barres** et **ajouter au panier** | `Ventes.jsx` et `Commandes.jsx` | Un code lu correctement à la vente mais pas à la commande, ou l'inverse. |
+| A5 ✅ 2.101.78 | **Le prochain numéro de reçu** (préfixe boutique + année + compteur sur 4 chiffres) | `lib/core.js` : une version pour les ventes, une copie pour les dettes | Un changement de format des reçus oublierait les dettes. |
+| A6 ✅ 2.101.78 | **« Est-ce le même enregistrement ? »** (comparaison de deux fiches) | `lib/calculs.js` (memeEnregistrement) et `lib/rebase.js` (memeContenu), identiques | Deux façons de décider si une fiche a changé → une modification vue par l'un et pas par l'autre. |
+| A7 ✅ 2.101.78 | **Le lecteur de code-barres** et **ajouter au panier** | `Ventes.jsx` et `Commandes.jsx` | Un code lu correctement à la vente mais pas à la commande, ou l'inverse. |
 | A8 | **Marquer un prospect « client acquis »** quand il paie | `Ventes.jsx` (encaissement) et `Prospects.jsx` (convertir) | Les deux chemins écrivent des champs différents (l'un pose vente_id, l'autre client_user_id) : un prospect converti n'a pas la même fiche selon le chemin. |
 | A9 | **L'entête du PDF** (logo, société, coordonnées) | `pdf.js` : devis et proforma, 29 lignes identiques ; plus trois blocs de 8 lignes (pied, totaux) | Un changement d'adresse ou de logo fait sur le devis et pas sur la proforma. |
 | A10 ✅ 2.101.76 | **Envoyer un message WhatsApp** (numéro nettoyé, texte encodé, ouverture) | 4 fonctions de `lib/comptesClients.js` avec la même fin, + 8 écrans qui ouvrent `wa.me` eux-mêmes (`Dettes`, `Ventes`, `Clients`, `ClientsInstalles` ×3, `Partages`, `EspaceClient`) | ⚠ Déjà divergent : `Ventes.jsx` ouvre le texte **sans l'encoder** (un « & » ou un « # » dans le message le coupe). Et le jour du WhatsApp depuis le numéro BMI, il faudra remplacer 12 endroits au lieu d'un. |
@@ -80,3 +80,11 @@ règles : les unifier coûterait plus qu'il ne rapporte.
   boutique) fabriquent le même numéro et le même plan par la même règle ;
   ClientsInstalles écrit les champs du lien PV par la même fonction pour
   « Marquer terminé » et « Envoyer pour signature ». Banc : 9 contrôles.
+
+
+- **A5 + A6 + A7 — 2.101.78.** `prochainNumeroDeSerie(lignes, prefixe)`
+  (core.js) sert aux ventes et aux dettes ; `memeContenu` (core.js) sert au
+  contrôle d'espace (calculs.js) et au report d'état périmé (rebase.js) ;
+  `lib/panier.js` (`articleParCode`, `mettreAuPanier`) sert à Ventes et à
+  Commandes — la différence « rupture : vente permise, commande bloquée »
+  reste dans chaque écran, c'est une décision, pas un doublon. Banc : 12.

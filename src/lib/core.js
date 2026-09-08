@@ -291,13 +291,15 @@ const serieDe = (db, boutique, annee, suffixe = "") =>
 // finale que le numéro n'existe pas encore. Le cas n°1 disparaît totalement ;
 // le cas n°2 devient rare et, s'il survient quand même, il est réparé
 // automatiquement à la synchronisation (voir repararNumerosVentes).
-export const prochainNumeroVente = (db, boutique, date = today()) => {
-  const annee = String(date).slice(0, 4);
-  const prefixe = serieDe(db, boutique, annee);
+// LA règle du prochain numéro d'une série (point A5 du relevé des doublons,
+// 08/09/2026) : (plus grand numéro déjà attribué dans la série) + 1, puis on
+// avance tant que le numéro existe déjà. Ventes et dettes l'appellent avec
+// leur propre liste et leur propre préfixe.
+export const prochainNumeroDeSerie = (lignes, prefixe) => {
   const pris = new Set();
   let maxSeq = 0;
-  for (const v of db.ventes || []) {
-    const n = String(v.numero || "");
+  for (const l of lignes || []) {
+    const n = String(l.numero || "");
     if (!n.startsWith(prefixe)) continue;
     pris.add(n);
     const seq = parseInt(n.slice(prefixe.length), 10);
@@ -307,6 +309,8 @@ export const prochainNumeroVente = (db, boutique, date = today()) => {
   while (pris.has(prefixe + String(seq).padStart(4, "0"))) seq += 1;
   return prefixe + String(seq).padStart(4, "0");
 };
+export const prochainNumeroVente = (db, boutique, date = today()) =>
+  prochainNumeroDeSerie(db.ventes, serieDe(db, boutique, String(date).slice(0, 4)));
 
 // Répare les collisions de numéros (deux ventes portant le même numéro,
 // typiquement après une période hors ligne sur deux appareils).
@@ -363,27 +367,23 @@ export function repararNumerosVentes(db) {
 // mais pour les dettes/réservations, qui ont leur PROPRE numérotation :
 // préfixe "-DET-" pour ne jamais se confondre visuellement avec un numéro
 // de vente sur un même reçu (une réservation n'est pas encore une vente).
-export const prochainNumeroDette = (db, boutique, date = today()) => {
-  const annee = String(date).slice(0, 4);
-  const prefixe = serieDe(db, boutique, annee, "DET-");
-  const pris = new Set();
-  let maxSeq = 0;
-  for (const d of db.dettes || []) {
-    const n = String(d.numero || "");
-    if (!n.startsWith(prefixe)) continue;
-    pris.add(n);
-    const seq = parseInt(n.slice(prefixe.length), 10);
-    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
-  }
-  let seq = maxSeq + 1;
-  while (pris.has(prefixe + String(seq).padStart(4, "0"))) seq += 1;
-  return prefixe + String(seq).padStart(4, "0");
-};
+export const prochainNumeroDette = (db, boutique, date = today()) =>
+  prochainNumeroDeSerie(db.dettes, serieDe(db, boutique, String(date).slice(0, 4), "DET-"));
 // Secours pour une dette/réservation créée AVANT ce numéro (legacy) — même
 // principe que numeroRecu() ci-dessus.
 export const numeroRecuDette = (d) => d.numero || `${prefixeBoutique(d.boutique)}-DET-${String(d.date).slice(0, 4)}-${String(d.id).slice(0, 4).toUpperCase()}`;
 
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
+// Deux enregistrements sont-ils identiques ? Par référence d'abord (l'app
+// met à jour par recopie immuable : une ligne inchangée garde son objet),
+// repli sur le contenu. UNE règle (point A6 du relevé des doublons,
+// 08/09/2026) pour le contrôle d'espace (calculs.js) et le report d'état
+// périmé (rebase.js), qui en avaient chacun une copie.
+export const memeContenu = (a, b) => {
+  if (Object.is(a, b)) return true;
+  if (!a || !b) return false;
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+};
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
 export const today = () => new Date().toISOString().slice(0, 10);
 export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");

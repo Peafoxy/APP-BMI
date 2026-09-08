@@ -4122,6 +4122,59 @@ titre("Contrat et PV : UN fichier (lib/contrat.js) — numéros, plan de règlem
   test("le contrôle du plan (critiquePlan) reste fait AVANT, dans les deux chemins", ["src/screens/EspaceClient.jsx", "src/screens/TousLesDevis.jsx"].every((f) => /const souci = critiquePlan\(plan, solde\);/.test(readFileSync(f, "utf8"))));
 }
 
+titre("Doublons A5, A6, A7 : numéro de série, même fiche, code-barres et panier — UNE règle chacun (Timo : « lance tout », 08/09/2026)");
+{
+  // A5 — le prochain numéro d'une série : ventes et dettes appelaient deux
+  // copies du même algorithme.
+  const serie = [{ numero: "AP-2026-0001" }, { numero: "AP-2026-0003" }, { numero: "AP-2025-0009" }, { numero: "" }, {}];
+  test("★ prochainNumeroDeSerie : (plus grand de la série) + 1, sur 4 chiffres, sans toucher aux autres années ni aux lignes sans numéro",
+    Core.prochainNumeroDeSerie(serie, "AP-2026-") === "AP-2026-0004" && Core.prochainNumeroDeSerie(serie, "AP-2025-") === "AP-2025-0010" && Core.prochainNumeroDeSerie([], "AP-2026-") === "AP-2026-0001");
+  test("★ …et avance tant que le numéro existe déjà (trou dans la série)",
+    Core.prochainNumeroDeSerie([{ numero: "AP-2026-0002" }, { numero: "AP-2026-0003" }, { numero: "AP-2026-0004" }], "AP-2026-") === "AP-2026-0005");
+  const core = readFileSync("src/lib/core.js", "utf8");
+  test("★ ventes ET dettes passent par prochainNumeroDeSerie (plus deux copies de la boucle)",
+    /export const prochainNumeroVente = \(db, boutique, date = today\(\)\) =>\s*prochainNumeroDeSerie\(db\.ventes, serieDe\(db, boutique, String\(date\)\.slice\(0, 4\)\)\);/.test(core)
+    && /export const prochainNumeroDette = \(db, boutique, date = today\(\)\) =>\s*prochainNumeroDeSerie\(db\.dettes, serieDe\(db, boutique, String\(date\)\.slice\(0, 4\), "DET-"\)\);/.test(core)
+    && (core.match(/while \(pris\.has\(prefixe \+ String\(seq\)\.padStart\(4, "0"\)\)\) seq \+= 1;/g) || []).length === 2 /* la règle + la réparation des collisions */);
+  // A6 — « même fiche ? » : le contrôle d'espace et le report d'état périmé
+  // avaient chacun leur copie.
+  const o = { a: 1, b: [1, 2] };
+  test("★ memeContenu : même objet → oui ; même contenu recopié → oui ; contenu différent, null ou absent → non",
+    Core.memeContenu(o, o) && Core.memeContenu(o, { a: 1, b: [1, 2] }) && !Core.memeContenu(o, { a: 1, b: [1, 3] }) && !Core.memeContenu(o, null) && !Core.memeContenu(undefined, o));
+  test("★ calculs.js et rebase.js utilisent memeContenu de core.js, sans copie locale",
+    /const memeEnregistrement = memeContenu;/.test(readFileSync("src/lib/calculs.js", "utf8")) && /import \{ memeContenu \} from "\.\/core";/.test(readFileSync("src/lib/rebase.js", "utf8"))
+    && execSync("grep -rl 'JSON.stringify(a) === JSON.stringify(b)' src || true").toString().trim() === "src/lib/core.js");
+  // A7 — code-barres et panier : Ventes et Commandes avaient chacun leur copie.
+  const sortiePan = join("node_modules", ".cache", `bmi-panier-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/panier.js"], bundle: true, format: "esm", platform: "node", outfile: sortiePan, logLevel: "silent" });
+  const Pan = await import(pathToFileURL(sortiePan).href);
+  unlinkSync(sortiePan);
+  const produits = [{ id: "p1", nom: "Panneau 550W", code: " 6901234 ", prix_vente: 100000 }, { id: "p2", nom: "Batterie", code: "", prix_vente: 200000 }];
+  test("★ articleParCode : le code lu (espaces ignorés) trouve l'article ; code vide, inconnu ou article sans code → null",
+    Pan.articleParCode(produits, "6901234")?.id === "p1" && Pan.articleParCode(produits, " 6901234\n")?.id === "p1" && Pan.articleParCode(produits, "") === null && Pan.articleParCode(produits, "x") === null);
+  const p1 = produits[0];
+  const v1 = Pan.mettreAuPanier([], p1, 2, 100000, 0);
+  const v2 = Pan.mettreAuPanier(v1, p1, 1, 100000, 5000);
+  const v3 = Pan.mettreAuPanier(v2, p1, 1, 90000, 0);
+  test("★ vente : même article au même prix → la quantité et la remise de ligne s'ajoutent ; à un autre prix → nouvelle ligne",
+    JSON.stringify(v2) === JSON.stringify([{ produit_id: "p1", article: "Panneau 550W", qte: 3, pu: 100000, remise_ligne: 5000 }])
+    && v3.length === 2 && v3[1].pu === 90000 && v3[1].remise_ligne === 0);
+  const c1 = Pan.mettreAuPanier(Pan.mettreAuPanier([], p1, 2, 100000), p1, 1, 100000);
+  test("★ commande : même fusion, mais AUCUN champ de remise de ligne écrit (il n'existe que pour les ventes)",
+    JSON.stringify(c1) === JSON.stringify([{ produit_id: "p1", article: "Panneau 550W", qte: 3, pu: 100000 }]) && !("remise_ligne" in c1[0]));
+  test("★ le panier d'origine n'est jamais modifié en place", v1.length === 1 && v1[0].qte === 2);
+  for (const f of ["src/screens/Ventes.jsx", "src/screens/Commandes.jsx"]) {
+    const src = readFileSync(f, "utf8");
+    test(`★ ${f} lit le code-barres et fusionne le panier par lib/panier.js, sans copie locale`,
+      /import \{ articleParCode, mettreAuPanier as ajouterAuPanierCommun \} from "\.\.\/lib\/panier";/.test(src)
+      && /const p = articleParCode\(produits, c\);/.test(src) && /setPanier\(\(pan\) => ajouterAuPanierCommun\(pan, p, q, pu/.test(src)
+      && !/pan\.findIndex\(\(l\) => l\.produit_id === p\.id/.test(src));
+  }
+  test("la DIFFÉRENCE voulue reste dans chaque écran : la rupture n'empêche pas la vente (règle Timo), mais bloque une commande",
+    /ajouté quand même, l'encaissement proposera une réservation/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && /Stock insuffisant : il reste \$\{dispoRestant\(p\)\}/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

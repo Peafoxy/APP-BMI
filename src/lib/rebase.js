@@ -25,11 +25,7 @@
 // reste tel qu'il est aujourd'hui, y compris ce qui vient d'arriver.
 // ============================================================
 
-const memeContenu = (a, b) => {
-  if (Object.is(a, b)) return true;
-  if (!a || !b) return false;
-  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
-};
+import { memeContenu } from "./core";
 
 // base     : l'état que l'écran avait reçu (retrouvé par son numéro de version)
 // modifie  : l'état que l'écran renvoie
