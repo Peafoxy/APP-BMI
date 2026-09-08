@@ -3,7 +3,8 @@
 // noms d'articles, autres équipements, totaux du devis (remise,
 // installation, transport), envoi du devis au client via WhatsApp.
 // ============================================================
-import { useState, useEffect, useId } from "react";
+import { useState, useEffect } from "react";
+import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
 import { fmt, telDigits, col, ouvrirWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
 
@@ -143,21 +144,15 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
   // le prix et lie la ligne (voir lierAutreAuStock). Un nom qui n'y est
   // pas reste une saisie libre, HB cochée d'office. Aucune mention sous le
   // champ (Timo, 08/09/2026 : « supprimer la mention ») : la case HB dit tout.
-  const listeId = useId();
-  const stocks = db ? produits.map((p) => ({ p, stock: stockActuel(db, p) })) : produits.map((p) => ({ p, stock: null }));
+  const propositions = produits.map((p) => ({ cle: p.id, valeur: p.nom, detail: db ? `${stockActuel(db, p)} en stock — ${fmt(p.prix_vente)}` : fmt(p.prix_vente) }));
   return (
     <div className="px-4 py-3 border-t border-slate-200">
       <div className="font-bold text-sm text-slate-700 mb-2">{titre}</div>
-      {produits.length > 0 && (
-        <datalist id={listeId}>
-          {stocks.map(({ p, stock }) => <option key={p.id} value={p.nom}>{stock === null ? fmt(p.prix_vente) : `${stock} en stock — ${fmt(p.prix_vente)}`}</option>)}
-        </datalist>
-      )}
       <div className="space-y-2">
         {autres.map((a) => (
           <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
             <Field label="Article">
-              <input className={inputCls} placeholder={placeholder} value={a.nom} list={produits.length > 0 ? listeId : undefined} onChange={(e) => onModifier(a.id, "nom", e.target.value)} />
+              <ChampSuggestions placeholder={placeholder} valeur={a.nom} suggestions={propositions} onChange={(v) => onModifier(a.id, "nom", v)} />
             </Field>
             <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={a.prix} onChange={(e) => onModifier(a.id, "prix", e.target.value)} /></Field>
             <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>

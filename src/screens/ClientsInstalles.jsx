@@ -12,6 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
+import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
@@ -944,8 +945,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               : "Rattachez une vente pour le remplir automatiquement, ou saisissez-le à la main."}
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            <input className={inputCls} placeholder="Matériel (ex : Panneau 555W)" list="liste-materiel" value={mat.nom} onChange={(e) => setMat({ ...mat, nom: e.target.value })} />
-            <datalist id="liste-materiel">{[...new Set(db.produits.map((p) => p.nom))].map((n) => <option key={n} value={n} />)}</datalist>
+            <ChampSuggestions placeholder="Matériel (ex : Panneau 555W)" valeur={mat.nom} onChange={(v) => setMat({ ...mat, nom: v })}
+              suggestions={[...new Set(db.produits.map((p) => p.nom))].map((n) => ({ valeur: n }))} />
             <input type="number" min="1" className={inputCls} placeholder="Quantité" value={mat.qte} onChange={(e) => setMat({ ...mat, qte: e.target.value })} />
             <input className={inputCls} placeholder="N° de série (facultatif)" value={mat.serie} onChange={(e) => setMat({ ...mat, serie: e.target.value })} />
             <button onClick={ajouterMateriel} className="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-bold hover:bg-slate-900">+ Ajouter</button>

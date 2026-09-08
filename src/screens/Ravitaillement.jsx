@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
 import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { ChampSuggestions } from "../components/ChampSuggestions";
 import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
@@ -82,8 +83,8 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
           </select>
         </Field>
         <Field label="Catégorie (facultatif)">
-          <input className={inputCls} list="liste-cat-demande" value={dem.categorie} onChange={(e) => setDem({ ...dem, categorie: e.target.value })} />
-          <datalist id="liste-cat-demande">{[...new Set(db.produits.map((p) => p.categorie).filter(Boolean))].map((c) => <option key={c} value={c} />)}</datalist>
+          <ChampSuggestions valeur={dem.categorie} onChange={(v) => setDem({ ...dem, categorie: v })}
+            suggestions={[...new Set(db.produits.map((p) => p.categorie).filter(Boolean))].map((c) => ({ valeur: c }))} />
         </Field>
         <Field label="Quantité"><input type="number" min="1" className={inputCls} value={dem.qte} onChange={(e) => setDem({ ...dem, qte: e.target.value })} /></Field>
         <div className="flex items-end">

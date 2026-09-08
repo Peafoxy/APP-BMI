@@ -3963,8 +3963,10 @@ titre("Autres équipements : d'abord le stock de la boutique — prix pré-rempl
   const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   test("★ le NOM passe par la règle du stock dans le crochet commun ; les autres champs se modifient tels quels",
     /champ === "nom" \? lierAutreAuStock\(a, val, produitsBoutique\) : \{ \.\.\.a, \[champ\]: val \}/.test(part));
-  test("★ le champ Article propose les articles du stock (liste déroulante + saisie libre), avec le stock et le prix",
-    /<datalist id=\{listeId\}>/.test(part) && /list=\{produits\.length > 0 \? listeId : undefined\}/.test(part)
+  // Retourné le 08/09/2026 (Timo : « trop rigide… pas sur tout l'écran ») :
+  // plus de liste native, le champ commun ChampSuggestions propose le stock.
+  test("★ le champ Article propose les articles du stock par le champ commun (saisie libre + propositions), avec le stock et le prix",
+    !/<datalist/.test(part) && /suggestions=\{propositions\}/.test(part)
     && /en stock — \$\{fmt\(p\.prix_vente\)\}/.test(part));
   // Retourné le jour même (Timo : « supprimer la mention ») : aucune phrase
   // sous le champ, la case HB suffit.
@@ -4005,6 +4007,43 @@ titre("Portail et Autre : équipements, quantités et autres équipements surviv
     test(`★ ${f} passe ses autres équipements du brouillon au crochet commun et les écrit dans le brouillon`,
       /useAutresEquipements\(lignesReprises, produitsBoutique, brouillon\?\.autres\)/.test(readFileSync(`src/screens/dimensionnement/${f}`, "utf8")));
   }
+}
+
+titre("UN champ à suggestions pour toute l'application : « came » trouve « Caméra », la liste s'ouvre sous la ligne (Timo, 08/09/2026)");
+{
+  // « La proposition est trop rigide : pour caméra, si on tape "came", il ne
+  // propose pas. La présélection doit apparaître à partir de la ligne dans
+  // laquelle on tape, vers le bas, pas sur tout l'écran. Appliquer cette
+  // règle dans toute l'application. » La recherche est pure : on l'exerce.
+  const sortieSug = join("node_modules", ".cache", `bmi-sug-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/suggestions.js"], bundle: true, format: "esm", platform: "node", outfile: sortieSug, logLevel: "silent" });
+  const Sug = await import(pathToFileURL(sortieSug).href);
+  unlinkSync(sortieSug);
+  const liste = [{ valeur: "Caméra extérieure" }, { valeur: "CAMERA DOME 4MP" }, { valeur: "Câble solaire 6mm² noir" }, { valeur: "Câble solaire 4mm² rouge" }, { valeur: "Panneau 550W" }, { valeur: "caméra extérieure" }];
+  test("★ « came » trouve « Caméra extérieure » et « CAMERA DOME » (accents et majuscules ignorés)",
+    Sug.filtrerSuggestions(liste, "came").map((s) => s.valeur).join("|") === "Caméra extérieure|CAMERA DOME 4MP");
+  test("★ « cable 6 » trouve « Câble solaire 6mm² noir » : chaque mot, dans n'importe quel ordre",
+    Sug.filtrerSuggestions(liste, "cable 6").map((s) => s.valeur).join("|") === "Câble solaire 6mm² noir"
+    && Sug.filtrerSuggestions(liste, "6mm cable").map((s) => s.valeur).join("|") === "Câble solaire 6mm² noir");
+  test("★ ce qui COMMENCE par la saisie vient d'abord : « ext » → la caméra extérieure avant rien d'autre ; « panneau » → Panneau 550W",
+    Sug.filtrerSuggestions(liste, "ext")[0].valeur === "Caméra extérieure" && Sug.filtrerSuggestions(liste, "panneau")[0].valeur === "Panneau 550W");
+  test("★ sans doublon (« caméra extérieure » deux fois → une), saisie vide → le début de la liste, au plus 30",
+    Sug.filtrerSuggestions(liste, "").length === 5 && Sug.filtrerSuggestions(Array.from({ length: 80 }, (_, i) => ({ valeur: `Article ${i}` })), "").length === 30);
+  test("★ rien ne correspond → liste vide (la saisie libre reste possible)", Sug.filtrerSuggestions(liste, "onduleur").length === 0);
+  test("★ sansAccents : « Camé » = « came », espaces repliés", Sug.sansAccents("  Camé   RA ") === "came ra" && Sug.correspond("Étrier du milieu", "etrier"));
+  const champ = readFileSync("src/components/ChampSuggestions.jsx", "utf8");
+  test("★ la liste s'ouvre SOUS le champ, à sa largeur, suit le défilement — jamais un voile sur tout l'écran",
+    /top: r\.bottom \+ 2, left: r\.left, width: Math\.max\(r\.width, 220\)/.test(champ) && /addEventListener\("scroll", placer, true\)/.test(champ)
+    && !/inset-0/.test(champ) && !/bg-black/.test(champ) && /filtrerSuggestions\(suggestions, valeur\)/.test(champ));
+  test("★ plus AUCUNE liste native du navigateur (<datalist>) dans l'application",
+    execSync("grep -rl '<datalist' src || true").toString().trim() === "");
+  for (const [f, motif] of [
+    ["src/screens/dimensionnement/Partages.jsx", /<ChampSuggestions placeholder=\{placeholder\} valeur=\{a\.nom\} suggestions=\{propositions\}/],
+    ["src/screens/dimensionnement/Autre.jsx", /<ChampSuggestions className=\{`\$\{inputCls\} w-48`\} placeholder="Ex : Caméra extérieure" valeur=\{l\.besoin\.nom\}/],
+    ["src/screens/Ravitaillement.jsx", /<ChampSuggestions valeur=\{dem\.categorie\}/],
+    ["src/screens/ClientsInstalles.jsx", /<ChampSuggestions placeholder="Matériel \(ex : Panneau 555W\)" valeur=\{mat\.nom\}/],
+    ["src/screens/Stocks.jsx", /<ChampSuggestions valeur=\{f\.categorie\}/],
+  ]) test(`★ ${f} passe par le champ commun`, motif.test(readFileSync(f, "utf8")));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

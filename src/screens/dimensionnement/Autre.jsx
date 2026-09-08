@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
@@ -274,14 +275,9 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
               return (
                 <tr key={l.besoin.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2">
-                    <input
-                      className={`${inputCls} w-48`}
-                      list={`liste-${domaine?.id || "autre"}`}
-                      placeholder="Ex : Caméra extérieure"
-                      value={l.besoin.nom}
-                      onChange={(e) => majBesoinNom(l.besoin.id, e.target.value)}
-                    />
-                    <datalist id={`liste-${domaine?.id || "autre"}`}>{produitsCategorie.map((p) => <option key={p.id} value={p.nom} />)}</datalist>
+                    <ChampSuggestions className={`${inputCls} w-48`} placeholder="Ex : Caméra extérieure" valeur={l.besoin.nom}
+                      suggestions={produitsCategorie.map((p) => ({ cle: p.id, valeur: p.nom, detail: fmt(p.prix_vente) }))}
+                      onChange={(v) => majBesoinNom(l.besoin.id, v)} />
                   </td>
                   <td className="px-3 py-2">
                     {enManuel ? (

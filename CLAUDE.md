@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 886 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 899 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -193,6 +193,12 @@ lit mal est pire qu'un banc absent).
   HB décochée) ; un nom libre reste libre et **coche HB d'office** (règle
   pure `lierAutreAuStock`, devisCommun.js). Jamais `db.produits` en entier.
   **Aucune mention sous le champ** (« supprimer la mention ») : la case HB dit tout.
+- **UN champ à suggestions pour toute l'application** (08/09/2026) :
+  `components/ChampSuggestions.jsx` + règle pure `lib/suggestions.js`.
+  Recherche sans accents ni majuscules, chaque mot tapé dans n'importe quel
+  ordre (« came » → Caméra) ; la liste s'ouvre **sous la ligne**, à sa
+  largeur, jamais un voile sur tout l'écran. **Plus jamais de `<datalist>`**
+  natif (le banc l'interdit).
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

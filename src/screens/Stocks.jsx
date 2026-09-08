@@ -7,6 +7,7 @@
 import { useRef, useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
+import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -965,7 +966,17 @@ export function Stocks({ db, save, profile }) {
             {/* ⚠ Le domaine décide des familles proposées. Le champ reste une
                 saisie libre assistée : les articles déjà en place gardent leur
                 catégorie, rien n'est perdu ni imposé de force. */}
-            <input className={inputCls} list="liste-categories" value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} placeholder={f.domaine ? "Choisissez une famille…" : "Ex : Panneaux..."} />
+            <ChampSuggestions valeur={f.categorie} onChange={(v) => setF({ ...f, categorie: v })} placeholder={f.domaine ? "Choisissez une famille…" : "Ex : Panneaux..."}
+              suggestions={(f.domaine
+                ? [...new Set([
+                    ...famillesDuDomaine(db, f.domaine),
+                    ...db.produits.filter((p) => p.domaine === f.domaine).map((p) => p.categorie).filter(Boolean),
+                  ])]
+                : [...new Set([
+                    ...toutesLesFamilles(db),
+                    ...db.produits.map((p) => p.categorie).filter(Boolean),
+                  ])]
+              ).map((c) => ({ valeur: c }))} />
             {/* ⚠ Relevé par Timo (18/08/2026) : « pourquoi les catégories des
                 autres domaines apparaissent quand on choisit spécifiquement un
                 domaine ? ». C'était ma faute — j'ajoutais SANS CONDITION toutes
@@ -976,18 +987,6 @@ export function Stocks({ db, save, profile }) {
                 Un domaine choisi ne montre donc plus que SES familles, plus les
                 catégories des articles DÉJÀ rangés dans ce domaine (sinon un
                 article existant perdrait la sienne de vue). */}
-            <datalist id="liste-categories">
-              {(f.domaine
-                ? [...new Set([
-                    ...famillesDuDomaine(db, f.domaine),
-                    ...db.produits.filter((p) => p.domaine === f.domaine).map((p) => p.categorie).filter(Boolean),
-                  ])]
-                : [...new Set([
-                    ...toutesLesFamilles(db),
-                    ...db.produits.map((p) => p.categorie).filter(Boolean),
-                  ])]
-              ).map((c) => <option key={c} value={c} />)}
-            </datalist>
           </Field>
           <Field label="Initial"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.initial} onChange={(e) => setF({ ...f, initial: e.target.value })} /></Field>
           <Field label="Seuil"><input type="number" className={inputCls} value={f.seuil} onChange={(e) => setF({ ...f, seuil: e.target.value })} /></Field>
