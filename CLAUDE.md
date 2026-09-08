@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 900 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 901 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -199,7 +199,9 @@ lit mal est pire qu'un banc absent).
   ordre (« came » → Caméra) ; la liste s'ouvre **sous la ligne**, à sa
   largeur (320 px au moins), le **nom en entier** sur plusieurs lignes s'il
   le faut, le détail dessous — jamais coupé par « … » (« risque de choisir
-  un autre câble »). Jamais un voile sur tout l'écran. **Plus jamais de `<datalist>`**
+  un autre câble »). Jamais un voile sur tout l'écran. La **recherche
+  générale** (loupe du menu) suit la même règle et montre **prix et stock**
+  de chaque article. **Plus jamais de `<datalist>`**
   natif (le banc l'interdit).
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement

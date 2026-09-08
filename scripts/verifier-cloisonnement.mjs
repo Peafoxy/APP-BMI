@@ -4038,6 +4038,9 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
   test("★ chaque proposition montre le nom EN ENTIER (jamais coupé par « … »), le détail en dessous, liste d'au moins 320 px",
     /<div className="font-medium break-words">\{s\.valeur\}<\/div>/.test(champ) && !/truncate/.test(champ)
     && /Math\.min\(Math\.max\(r\.width, 320\), Math\.max\(220, window\.innerWidth - r\.left - 8\)\)/.test(champ));
+  const rg = readFileSync("src/components/RechercheGlobale.jsx", "utf8");
+  test("★ la recherche générale (loupe du menu) montre le prix et le stock de chaque article, et cherche avec la même règle",
+    /\{fmt\(p\.prix_vente\)\}/.test(rg) && /\{stockActuel\(db, p\)\} en stock/.test(rg) && /correspond\(`\$\{p\.nom\} \$\{p\.code \|\| ""\}`, q\)/.test(rg));
   test("★ plus AUCUNE liste native du navigateur (<datalist>) dans l'application",
     execSync("grep -rl '<datalist' src || true").toString().trim() === "");
   for (const [f, motif] of [

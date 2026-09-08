@@ -9,7 +9,8 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { totalVente, numeroRecu, fmt, col } from "../lib/core";
 import { Badge } from "../components/ui";
-import { normNom, espaceDuCompte, boutiquesVisibles } from "../lib/calculs";
+import { normNom, espaceDuCompte, boutiquesVisibles, stockActuel } from "../lib/calculs";
+import { correspond } from "../lib/suggestions";
 
 // ============ RECHERCHE GLOBALE ============
 // Cherche en même temps dans les ventes, produits, devis, clients et
@@ -47,9 +48,11 @@ export function rechercherGlobalement(db, profile, texte) {
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 6);
 
+  // Même règle de recherche que les champs à suggestions (lib/suggestions) :
+  // accents et majuscules ignorés, chaque mot tapé dans n'importe quel ordre.
   const produits = (db.produits || [])
     .filter((p) => bonneBoutique(p.boutique))
-    .filter((p) => normNom(`${p.nom} ${p.code || ""}`).includes(q))
+    .filter((p) => correspond(`${p.nom} ${p.code || ""}`, q))
     .slice(0, 6);
 
   const devis = db.users
@@ -140,8 +143,10 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer }) {
               )} />
               <Categorie titre="📦 Produits" tab="stocks" items={resultats.produits} rendu={(p) => (
                 <>
-                  <span className="font-semibold text-sm">{p.nom}</span>
-                  <Badge boutique={p.boutique} />
+                  {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
+                      « le prix n'est pas accompagné »). */}
+                  <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
+                  <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-xs font-bold text-sky-800">{fmt(p.prix_vente)}</span><Badge boutique={p.boutique} /></span>
                 </>
               )} />
               <Categorie titre="📋 Devis" tab="tous_devis" items={resultats.devis} rendu={(d) => (
