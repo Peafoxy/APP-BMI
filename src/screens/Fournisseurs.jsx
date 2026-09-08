@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, normPaiement } from "../lib/core";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS } from "../lib/calculs";
 
 // ============ FOURNISSEURS ============
@@ -47,7 +47,7 @@ export function Fournisseurs({ db, save, profile }) {
     // Exactement le défaut déjà corrigé pour l'avance d'une vente à crédit
     // (« point 15 : la caisse la comptait en espèces quoi qu'il arrive ») —
     // il avait survécu ici.
-    const moyen = await uPrompt(`Moyen de paiement à ${fo.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    const moyen = await demanderMoyenPaiement(`à ${fo.nom}`);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Paiement de ${fmt(m)} à ${fo.nom}`, profile);
     if (bq === null) return;

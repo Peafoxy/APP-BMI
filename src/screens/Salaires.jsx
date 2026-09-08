@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR, normPaiement } from "../lib/core";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { exportCSV } from "../lib/export";
@@ -265,7 +265,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
     // fournisseurs : le moyen était écrit « Virement bancaire » EN DUR. Réglée
     // en espèces, la cotisation n'était donc pas retirée du compte de caisse,
     // et la caisse paraissait LONGUE du montant des cotisations.
-    const moyen = await uPrompt("Moyen de paiement de la CNSS (Espèces / Flooz / Mixx / Virement bancaire) :", "Virement bancaire");
+    const moyen = await demanderMoyenPaiement("de la CNSS", "Virement bancaire");
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Paiement CNSS de ${fmt(repartitionTotale.total)} — ${libelleMoisFR(mois)}`, profile);
     if (bq === null) return;

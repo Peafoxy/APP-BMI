@@ -8,7 +8,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
@@ -212,7 +212,7 @@ export function MonEquipe({ db, save, profile }) {
   const payerCommissionEquipe = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (c.due <= 0) { uAlert("Aucune commission d'équipe en attente pour " + c.u.nom + "."); return; }
-    const moyen = await uPrompt(`Moyen de paiement pour ${c.u.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    const moyen = await demanderMoyenPaiement(`pour ${c.u.nom}`);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, c.u, `Commission d'équipe de ${fmt(c.due)} à ${c.u.nom}`, profile);
     if (bq === null) return;
@@ -304,7 +304,7 @@ export function MonEquipe({ db, save, profile }) {
   const payerApporteur = async (a) => {
     if (bloquerSiLecture(db, profile)) return;
     if (a.due <= 0) { uAlert("Aucune commission en attente pour " + a.nom + "."); return; }
-    const moyen = await uPrompt(`Moyen de paiement pour ${a.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    const moyen = await demanderMoyenPaiement(`pour ${a.nom}`);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Commission de ${fmt(a.due)} à l'apporteur ${a.nom}`, profile);
     if (bq === null) return;
@@ -334,9 +334,8 @@ export function MonEquipe({ db, save, profile }) {
     if (!titre.trim()) { uAlert("Le titre de la tâche est obligatoire."); return; }
     const detail = await uPrompt("Détails (facultatif) :", "");
     if (detail === null) return;
-    const ech = await uPrompt("Échéance (AAAA-MM-JJ, facultatif) :", "");
+    const ech = await demanderDate("Échéance", "", true);
     if (ech === null) return;
-    if (ech.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(ech.trim())) { uAlert("Format attendu : AAAA-MM-JJ (ex : 2026-07-20)."); return; }
     const tache = { id: uid(), titre: titre.trim(), detail: detail.trim(), echeance: ech.trim() || null, statut: "a_faire", par: profile.nom, date: today() };
     save({ ...db, users: db.users.map((x) => (x.id === st.u.id ? { ...x, taches: [...(x.taches || []), tache] } : x)) },
       `Tâche assignée à ${st.u.nom} : ${titre.trim()}`);
@@ -361,7 +360,7 @@ export function MonEquipe({ db, save, profile }) {
   const payerCommission = async (st) => {
     if (bloquerSiLecture(db, profile)) return;
     if (st.commissionDue === 0) { uAlert("Aucune commission en attente pour " + st.u.nom + " sur cette période."); return; }
-    const moyen = await uPrompt(`Moyen de paiement pour ${st.u.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    const moyen = await demanderMoyenPaiement(`pour ${st.u.nom}`);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile);
     if (bq === null) return;

@@ -11,7 +11,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
@@ -572,7 +572,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
     if (m > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
-    const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
+    const moyen = await demanderMoyenPaiement();
     if (moyen === null) return;
     // Le libellé nomme la caisse RÉELLEMENT utilisée : sur le terrain c'est
     // celle de la dette — TERRAIN, sa jumelle d'entraînement « TERRAIN
@@ -754,7 +754,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
-    const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    const moyen = await demanderMoyenPaiement(`pour ${e.nom}`);
     if (moyen === null) return;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`)) return;
     // Deuxième lecture APRÈS les questions : entre l'ouverture de la fenêtre
@@ -767,9 +767,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const modifierEntretien = async (c) => {
     if (refuserSaufAdmin(profile, "Modifier la date d'entretien")) return;
-    const d = await uPrompt(`Prochaine date d'entretien pour ${c.prenom || ""} ${c.nom} (AAAA-MM-JJ) :`, c.date_entretien || today());
+    const d = await demanderDate(`Prochaine date d'entretien pour ${c.prenom || ""} ${c.nom}`, c.date_entretien || today());
     if (!d) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) { uAlert("Format attendu : AAAA-MM-JJ (ex : 2026-09-15)."); return; }
     save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, date_entretien: d.trim() } : x)) }, `Entretien de ${c.nom} programmé le ${dFR(d.trim())}`);
   };
 

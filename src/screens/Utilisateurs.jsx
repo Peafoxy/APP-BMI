@@ -8,7 +8,7 @@ import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
@@ -641,9 +641,8 @@ export function Users({ db, save, profile }) {
     if (refuserSaufAdmin(profile, "Enregistrer une prime ou une avance")) return;
     if (bloquerSiLecture(db, profile)) return;
     const libelle = type === "prime" ? "prime" : "avance sur salaire";
-    const mois = await uPrompt(`Mois de la ${libelle} pour ${u.nom} (AAAA-MM) :`, today().slice(0, 7));
+    const mois = await demanderMois(`Mois de la ${libelle} pour ${u.nom}`, today().slice(0, 7));
     if (!mois) return;
-    if (!/^\d{4}-\d{2}$/.test(mois.trim())) { uAlert("Format attendu : AAAA-MM (ex : 2026-07)."); return; }
     const v = await uPrompt(`Montant de la ${libelle} (F CFA) :`, "");
     if (v === null) return;
     const montant = Number(v);
@@ -659,7 +658,7 @@ export function Users({ db, save, profile }) {
     if (type === "avance") {
       const bq = await choisirBoutiqueDebit(u, `Avance de ${fmt(montant)} à ${u.nom}`);
       if (bq === null) return;
-      const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
+      const moyen = await demanderMoyenPaiement();
       if (moyen === null) return;
       const dep = {
         id: uid(), date: today(), boutique: bq, categorie: "Salaires",
@@ -711,9 +710,8 @@ export function Users({ db, save, profile }) {
       const n = await uPrompt("Nombre de mensualités retenues sur salaire :", String(c.mensualites || 3));
       if (n === null) return;
       mensualites = Math.max(1, Math.min(36, Number(n) || 1));
-      const depart = await uPrompt("Premier mois de retenue (AAAA-MM) :", moisPlus(today().slice(0, 7), 1));
+      const depart = await demanderMois("Premier mois de retenue", moisPlus(today().slice(0, 7), 1));
       if (!depart) return;
-      if (!/^\d{4}-\d{2}$/.test(depart.trim())) { uAlert("Format attendu : AAAA-MM (ex : 2026-08)."); return; }
       const part = Math.round(montant / mensualites);
       for (let i = 0; i < mensualites; i++) {
         echeances.push({ mois: moisPlus(depart.trim(), i), montant: i === mensualites - 1 ? montant - part * (mensualites - 1) : part, paye: false });
@@ -721,7 +719,7 @@ export function Users({ db, save, profile }) {
     }
     const note = await uPrompt("Commentaire (facultatif) :", "");
     if (note === null) return;
-    const moyen = await uPrompt("Moyen de remise des fonds (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
+    const moyen = await demanderMoyenPaiement("", "Espèces", "Moyen de remise des fonds");
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebit(u, `Crédit de ${fmt(montant)} à ${u.nom}`);
     if (bq === null) return;
@@ -763,7 +761,7 @@ export function Users({ db, save, profile }) {
     const montant = Number(v);
     if (!montant || montant <= 0) { uAlert("Montant invalide."); return; }
     if (montant > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
-    const note = await uPrompt("Moyen de paiement reçu (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
+    const note = await demanderMoyenPaiement("", "Espèces", "Moyen de paiement reçu");
     if (note === null) return;
     const bq = await choisirBoutiqueDebit(u, `Remboursement de ${fmt(montant)} par ${u.nom}`);
     if (bq === null) return;

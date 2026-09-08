@@ -9,7 +9,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { prospectAcquis } from "../lib/prospects";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -169,7 +169,9 @@ export function Prospects({ db, save, profile, isAdmin }) {
   };
 
   const modifierRelance = async (p) => {
-    const d = await uPrompt(`Nouvelle date de relance pour ${p.nom} (AAAA-MM-JJ, ou vide pour retirer) :`, p.relance || "");
+    // Vide = retirer la relance ; une date mal écrite est refusée (même
+    // contrôle que partout, components/ui.jsx).
+    const d = await demanderDate(`Nouvelle date de relance pour ${p.nom}`, p.relance || "", true);
     if (d === null) return;
     save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? toucher({ ...x, relance: d.trim() }) : x)) }, `Relance mise à jour pour ${p.nom}`);
   };

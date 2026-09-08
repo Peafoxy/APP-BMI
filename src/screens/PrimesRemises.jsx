@@ -5,7 +5,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { bloquerSiLecture, primesEnAttente, construirePaiementPrime, primeDejaPayee } from "../lib/calculs";
 
 export function PrimesRemises({ db, save, profile }) {
@@ -34,7 +34,7 @@ export function PrimesRemises({ db, save, profile }) {
     // et l'application fonctionne hors ligne : sans ce contrôle, la caisse
     // était débitée deux fois pour une seule prime.
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : la caisse n'est pas débitée une seconde fois.`); return; }
-    const moyen = await uPrompt(`Moyen de paiement pour ${e.nom} (Espèces / Flooz / Mixx / Virement bancaire) :`, "Espèces");
+    const moyen = await demanderMoyenPaiement(`pour ${e.nom}`);
     if (moyen === null) return;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ${c.prenom || ""} ?\n\nSortie de caisse ${boutique} : ${fmt(e.montant)}`)) return;
     // Relecture après les questions : une synchronisation a pu arriver entre-temps.

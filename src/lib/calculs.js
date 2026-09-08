@@ -10,7 +10,7 @@
 import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu } from "./core";
 import { SALARIES } from "./constants";
 import { TAUX_CNSS_SALARIE } from "./cnss";
-import { uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
+import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
 // ⚠ chiffresTel est IMPORTÉ ET réexporté — le piège « export { x } from »
 // (voir CLAUDE.md) a été touché une TROISIÈME fois ici, le 29/08/2026 :
 // compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
@@ -964,9 +964,8 @@ export const aLienAAnnuler = (d) =>
 // Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
 export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   if (refuserSaufAdmin(profile, "Envoyer un virement de salaire")) return;
-  const mois = moisImpose || await uPrompt(`Mois du virement pour ${u.nom} (AAAA-MM) :`, today().slice(0, 7));
+  const mois = moisImpose || await demanderMois(`Mois du virement pour ${u.nom}`, today().slice(0, 7));
   if (!mois) return;
-  if (!/^\d{4}-\d{2}$/.test(String(mois).trim())) { uAlert("Format attendu : AAAA-MM (ex : 2026-07)."); return; }
   const m = String(mois).trim();
   const p = paieMois(u, m);
   const suggestion = Math.max(0, p.reste);
@@ -979,7 +978,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   if (v === null) return;
   const montant = Number(v);
   if (!montant || montant <= 0) { uAlert("Montant invalide."); return; }
-  const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Virement bancaire");
+  const moyen = await demanderMoyenPaiement("", "Virement bancaire");
   if (moyen === null) return;
   const ref = await uPrompt("Référence ou note (facultatif) :", "");
   if (ref === null) return;

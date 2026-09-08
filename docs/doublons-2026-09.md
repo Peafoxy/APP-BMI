@@ -33,10 +33,10 @@ copie peut dévier d'un mot.
 
 | # | Quoi | Combien |
 |---|---|---|
-| B1 | **La question « Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) »** | 13 endroits, 5 formulations différentes (« Moyen de paiement », « Moyen de remise des fonds », « Moyen de paiement reçu »…). Un moyen ajouté un jour (carte, chèque) devra être écrit 13 fois. |
+| B1 ✅ 2.101.80 | **La question « Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) »** | 13 endroits, 5 formulations différentes (« Moyen de paiement », « Moyen de remise des fonds », « Moyen de paiement reçu »…). Un moyen ajouté un jour (carte, chèque) devra être écrit 13 fois. |
 | B2 | **Fabriquer un message** (id, date, heure, de qui, à qui, texte, lu par) | 10 endroits dans 5 fichiers. |
 | B3 | **Fabriquer une dépense automatique** (salaire, prêt au personnel, commission) | 8 endroits dans 3 fichiers — dont Utilisateurs.jsx qui refait ce que `envoyerVirementG` fait déjà dans `calculs.js`. |
-| B4 | **Le contrôle « AAAA-MM »** d'un mois saisi | plusieurs endroits, message d'erreur différent. |
+| B4 ✅ 2.101.80 | **Le contrôle « AAAA-MM »** d'un mois saisi | plusieurs endroits, message d'erreur différent. |
 | B5 | **Le tableau des dépenses** affiché deux fois dans `Depenses.jsx` (dépenses / chez le comptable), 19 lignes identiques | Une colonne ajoutée à l'un et pas à l'autre. |
 
 ## C. Ressemblances sans risque (à ne pas toucher)
@@ -96,3 +96,10 @@ règles : les unifier coûterait plus qu'il ne rapporte.
   n'est jamais retiré. `pdf.js` : entête société, bandeau de titre avec sa
   mention de formation, bandeau TOTAL, mentions d'offre et pied de page
   écrits une fois pour le devis et le proforma. Banc : 9.
+
+
+- **B1 + B4 — 2.101.80.** `components/ui.jsx` : `demanderMoyenPaiement(complement,
+  defaut, libelle)` avec la liste `LISTE_MOYENS_SAISIE` écrite une fois (13
+  appels) ; `demanderMois` / `demanderDate` (`estMoisValide`, `estDateValide`)
+  pour les 3 mois et 3 dates saisis — la relance d'un prospect, jamais
+  contrôlée avant, l'est maintenant. Banc : 8.

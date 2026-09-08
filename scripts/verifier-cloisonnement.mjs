@@ -2709,17 +2709,20 @@ titre("Le moyen de paiement se DEMANDE, il ne s'impose pas");
   const fo = readFileSync("src/screens/Fournisseurs.jsx", "utf8");
   const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
 
+  // Depuis 2.101.80 la question passe par demanderMoyenPaiement (ui.jsx) :
+  // le complément « à FOURNISSEUR » / « de la CNSS » et le défaut sont ses
+  // arguments — même vérification, nouvelle écriture.
   test("★ un fournisseur n'est plus payé « en espèces » sans qu'on demande",
     !/description: `Règlement fournisseur \$\{fo\.nom\}`, montant: m, paiement: "Espèces"/.test(fo)
-    && /Moyen de paiement à \$\{fo\.nom\}/.test(fo));
+    && /demanderMoyenPaiement\(`à \$\{fo\.nom\}`\)/.test(fo));
   test("★ la CNSS non plus « par virement » sans qu'on demande",
     !/paiement: "Virement bancaire", par: profile\.nom, auto: "cnss"/.test(sal)
-    && /Moyen de paiement de la CNSS/.test(sal));
+    && /demanderMoyenPaiement\("de la CNSS"/.test(sal));
   test("les deux passent la réponse par normPaiement (mêmes libellés partout)",
     /paiement: normPaiement\(moyen\)/.test(fo) && /paiement: normPaiement\(moyen\)/.test(sal));
-  test("le défaut proposé reste le plus courant pour chacun",
-    /Moyen de paiement à[\s\S]{0,90}?"Espèces"\)/.test(fo)
-    && /Moyen de paiement de la CNSS[\s\S]{0,90}?"Virement bancaire"\)/.test(sal));
+  test("le défaut proposé reste le plus courant pour chacun (Espèces par défaut pour le fournisseur, virement pour la CNSS)",
+    /demanderMoyenPaiement\(`à \$\{fo\.nom\}`\)/.test(fo) && /export const demanderMoyenPaiement = \(complement = "", defaut = "Espèces"/.test(readFileSync("src/components/ui.jsx", "utf8"))
+    && /demanderMoyenPaiement\("de la CNSS", "Virement bancaire"\)/.test(sal));
 }
 
 
@@ -4219,6 +4222,38 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
     && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "un devis"\)/.test(pdf));
   test("le bandeau de formation décale le contenu (42 → 54), comme avant", /if \(!formation\) return 42;/.test(pdf) && /return 54;/.test(pdf));
+}
+
+titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d'un mois / d'une date, écrits UNE fois (Timo : « lance tout », 08/09/2026)");
+{
+  // « Moyen de paiement » était tapé 13 fois avec 5 formulations ; le
+  // contrôle AAAA-MM 3 fois, AAAA-MM-JJ 2 fois (et une date jamais
+  // contrôlée). Tout vit dans components/ui.jsx.
+  const sortieUi = join("node_modules", ".cache", `bmi-ui-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/components/ui.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieUi, logLevel: "silent",
+    loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Ui = await import(pathToFileURL(sortieUi).href);
+  unlinkSync(sortieUi);
+  test("★ estMoisValide : 2026-07 oui ; 2026-13, 2026-7, 07-2026, vide → non", Ui.estMoisValide("2026-07") && Ui.estMoisValide(" 2026-12 ") && !Ui.estMoisValide("2026-13") && !Ui.estMoisValide("2026-7") && !Ui.estMoisValide("07-2026") && !Ui.estMoisValide(""));
+  test("★ estDateValide : 2026-09-15 oui ; 2026-09-32, 2026-09, 15/09/2026 → non", Ui.estDateValide("2026-09-15") && !Ui.estDateValide("2026-09-32") && !Ui.estDateValide("2026-09") && !Ui.estDateValide("15/09/2026"));
+  test("★ hors écran (aucune fenêtre), demanderMois / demanderDate / demanderMoyenPaiement répondent « annulé » sans planter",
+    (await Ui.demanderMois("Mois")) === null && (await Ui.demanderDate("Date")) === null && (await Ui.demanderMoyenPaiement()) === null);
+  const ui = readFileSync("src/components/ui.jsx", "utf8");
+  test("★ la liste des moyens saisis n'est écrite qu'UNE fois, dans ui.jsx, et la question la reprend",
+    /export const LISTE_MOYENS_SAISIE = "Espèces \/ Flooz \/ Mixx \/ Virement bancaire";/.test(ui)
+    && execSync("grep -rl 'Espèces / Flooz / Mixx / Virement bancaire' src || true").toString().trim() === "src/components/ui.jsx");
+  test("★ les 13 questions passent par demanderMoyenPaiement (plus aucun uPrompt « Moyen de … »)",
+    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib | wc -l").toString().trim() === "13"
+    && execSync("grep -rl 'uPrompt(.Moyen de' src || true").toString().trim() === "");
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×3, demanderDate ×3",
+    execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
+    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "3"
+    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "3");
+  test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
+    /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
+    && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
+    && /demanderMoyenPaiement\("de la CNSS", "Virement bancaire"\)/.test(readFileSync("src/screens/Salaires.jsx", "utf8")));
+  test("la relance d'un prospect (jamais contrôlée avant) passe par demanderDate, facultative", /demanderDate\(`Nouvelle date de relance pour \$\{p\.nom\}`, p\.relance \|\| "", true\)/.test(readFileSync("src/screens/Prospects.jsx", "utf8")));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

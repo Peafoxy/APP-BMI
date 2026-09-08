@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, envoyerWhatsApp } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -52,7 +52,7 @@ export function Dettes({ db, save, profile }) {
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
     if (m > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
-    const moyen = await uPrompt("Moyen de paiement (Espèces / Flooz / Mixx / Virement bancaire) :", "Espèces");
+    const moyen = await demanderMoyenPaiement();
     if (moyen === null) return;
     if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${d.client} ?`)) return;
     const paiement = { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: m, paiement: normPaiement(moyen), par: profile.nom };

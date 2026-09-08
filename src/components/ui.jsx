@@ -124,6 +124,36 @@ export const uPrompt = (m, def = "") => (dialogApi ? dialogApi.open("prompt", m,
 // de faute de frappe ni de valeur inventée possible.
 export const uChoix = (m, options) => (dialogApi ? dialogApi.open("choix", m, null, options) : Promise.resolve(null));
 
+// ---- Les questions posées partout, écrites UNE fois (points B1 et B4 du
+// relevé des doublons, Timo : « lance tout », 08/09/2026) ----
+// « Moyen de paiement » était tapé à 13 endroits avec 5 formulations ; un
+// moyen ajouté un jour aurait manqué quelque part. La liste vit ici.
+export const LISTE_MOYENS_SAISIE = "Espèces / Flooz / Mixx / Virement bancaire";
+// complement : « pour KOSSI », « à FOURNISSEUR X », « de la CNSS »… ;
+// defaut : la réponse proposée ; libelle : « Moyen de paiement » sauf cas
+// particulier (« Moyen de remise des fonds », « Moyen de paiement reçu »).
+export const demanderMoyenPaiement = (complement = "", defaut = "Espèces", libelle = "Moyen de paiement") =>
+  uPrompt(`${libelle}${complement ? ` ${complement}` : ""} (${LISTE_MOYENS_SAISIE}) :`, defaut);
+// Un mois « AAAA-MM » ou une date « AAAA-MM-JJ » : la question, le contrôle
+// du format et le message d'erreur, les mêmes partout. Renvoient la valeur
+// nettoyée, "" si facultatif et laissé vide, null si annulé ou refusé.
+export const estMoisValide = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(t ?? "").trim());
+export const estDateValide = (t) => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(String(t ?? "").trim());
+export const demanderMois = async (question, defaut = new Date().toISOString().slice(0, 7)) => {
+  const m = await uPrompt(`${question} (AAAA-MM) :`, defaut);
+  if (m === null || m === undefined || !String(m).trim()) return null;
+  if (!estMoisValide(m)) { uAlert(`Format attendu : AAAA-MM (ex : ${new Date().toISOString().slice(0, 7)}).`); return null; }
+  return String(m).trim();
+};
+export const demanderDate = async (question, defaut = "", facultatif = false) => {
+  const d = await uPrompt(`${question} (AAAA-MM-JJ${facultatif ? ", facultatif" : ""}) :`, defaut);
+  if (d === null || d === undefined) return null;
+  const t = String(d).trim();
+  if (!t) return facultatif ? "" : null;
+  if (!estDateValide(t)) { uAlert(`Format attendu : AAAA-MM-JJ (ex : ${new Date().toISOString().slice(0, 10)}).`); return null; }
+  return t;
+};
+
 export function DialogHost() {
   const [d, setD] = useState(null);
   const [val, setVal] = useState("");
