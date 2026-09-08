@@ -3180,8 +3180,10 @@ titre("Vague 2, etape 1 : chaque dette et chaque vente naissent avec leur PROPRI
   const espaceJsx = readFileSync("src/screens/EspaceClient.jsx", "utf8");
   test("★ les 4 naissances de Dettes.jsx (manuelle, reservation, livraison x2)",
     (dettesJsx.match(/client_user_id:/g) || []).length === 4);
+  // Depuis 2.101.79, Ventes.jsx PASSE aussi client_user_id à prospectAcquis
+  // (lib/prospects.js) : ce n'est pas une naissance, on l'écarte du compte.
   test("★ les 3 naissances de Ventes.jsx (vente, reservation, dette credit)",
-    (ventesJsx.match(/client_user_id:/g) || []).length === 3);
+    (ventesJsx.replace(/prospectAcquis\([^)]*\)/g, "").match(/client_user_id:/g) || []).length === 3);
   // Depuis 2.101.48 la dette « pose seule » naît dans lib/validationDevis.js
   // (même règle pour l'espace client et la signature en boutique) : c'est
   // là qu'on la surveille, et l'écran client n'en fabrique plus lui-même.
@@ -4173,6 +4175,50 @@ titre("Doublons A5, A6, A7 : numéro de série, même fiche, code-barres et pani
   test("la DIFFÉRENCE voulue reste dans chaque écran : la rupture n'empêche pas la vente (règle Timo), mais bloque une commande",
     /ajouté quand même, l'encaissement proposera une réservation/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
     && /Stock insuffisant : il reste \$\{dispoRestant\(p\)\}/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
+}
+
+titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PDF — UNE règle chacun (Timo : « lance tout », 08/09/2026)");
+{
+  // A8 — le prospect acquis : l'encaissement et « Convertir en client »
+  // écrivaient des fiches différentes.
+  const sortiePro = join("node_modules", ".cache", `bmi-prospects-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/prospects.js"], bundle: true, format: "esm", platform: "node", outfile: sortiePro, logLevel: "silent", loader: { ".js": "jsx" } });
+  const Pro = await import(pathToFileURL(sortiePro).href);
+  unlinkSync(sortiePro);
+  const jour = new Date().toISOString().slice(0, 10);
+  const pr = { id: "pr1", nom: "AFI", tel: "90000000", statut: "À relancer", commercial: "KOSSI" };
+  const parVente = Pro.prospectAcquis(pr, { vente_id: "v1", client_user_id: "c1" });
+  const parConversion = Pro.prospectAcquis(pr, { client_user_id: "c1" });
+  test("★ acquis par l'encaissement : converti, statut « Client acquis », date, maj_le, vente ET compte",
+    parVente.converti === true && parVente.statut === "Client acquis" && parVente.date_conversion === jour && parVente.maj_le === jour && parVente.vente_id === "v1" && parVente.client_user_id === "c1");
+  test("★ acquis par « Convertir en client » : les MÊMES champs, sans vente (pas encore encaissé)",
+    parConversion.converti === true && parConversion.statut === "Client acquis" && parConversion.client_user_id === "c1" && !("vente_id" in parConversion) && parConversion.maj_le === jour);
+  test("★ un prospect déjà converti garde sa date de conversion et reçoit la vente qui arrive ensuite",
+    Pro.prospectAcquis({ ...parConversion, date_conversion: "2026-08-01" }, { vente_id: "v2" }).date_conversion === "2026-08-01"
+    && Pro.prospectAcquis({ ...parConversion, date_conversion: "2026-08-01" }, { vente_id: "v2" }).vente_id === "v2"
+    && Pro.prospectAcquis({ ...parConversion, date_conversion: "2026-08-01" }, { vente_id: "v2" }).client_user_id === "c1");
+  test("★ le prospect d'origine n'est pas modifié en place, et rien d'autre ne change (nom, commercial)", !("converti" in pr) && parVente.nom === "AFI" && parVente.commercial === "KOSSI");
+  test("★ Ventes (encaissement) et Prospects (convertir) passent par prospectAcquis, sans copie de la fiche",
+    /prospectAcquis\(pr, \{ vente_id: vente\.id, client_user_id: od\.client_id \|\| compteClient\?\.id \}\)/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && /prospectAcquis\(x, \{ client_user_id: user\.id \}\)/.test(readFileSync("src/screens/Prospects.jsx", "utf8"))
+    && execSync("grep -rl 'statut: \"Client acquis\"' src || true").toString().trim() === ""
+    && /export const STATUT_CLIENT_ACQUIS = "Client acquis";/.test(readFileSync("src/lib/prospects.js", "utf8")));
+  // A9 — devis et proforma : entête, bandeau de titre, bandeau TOTAL,
+  // mentions et pied de page écrits une seule fois.
+  const pdf = readFileSync("src/pdf.js", "utf8");
+  test("★ l'entête société (NIF, RCCM), le bandeau de formation, le bandeau TOTAL et le pied de page ne sont écrits qu'UNE fois dans pdf.js",
+    (pdf.match(/NIF : 1001790098/g) || []).length === 1 && (pdf.match(/RCCM : TG-LFW-01-2022-A10-01523/g) || []).length === 1
+    && (pdf.match(/DOCUMENT DE FORMATION — SANS VALEUR/g) || []).length === 1 && (pdf.match(/doc\.roundedRect\(bandeauX/g) || []).length === 1
+    && (pdf.match(/doc\.text\("BMI-Gestions Boutiques", largeur \/ 2/g) || []).length === 1
+    && (pdf.match(/il constitue une offre de prix et n'a pas de valeur comptable/g) || []).length === 1);
+  test("★ le devis ET le proforma passent par ces briques (enteteSociete, bandeauTitre, bandeauTotal, mentionsOffre, piedDePage)",
+    (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 2 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 2
+    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y, /g) || []).length === 2
+    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 2);
+  test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
+    /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
+    && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "un devis"\)/.test(pdf));
+  test("le bandeau de formation décale le contenu (42 → 54), comme avant", /if \(!formation\) return 42;/.test(pdf) && /return 54;/.test(pdf));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

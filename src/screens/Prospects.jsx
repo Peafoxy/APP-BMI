@@ -8,6 +8,7 @@ import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
+import { prospectAcquis } from "../lib/prospects";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
 
@@ -117,7 +118,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
       ...db,
       users: [...db.users, user],
       prospects: db.prospects.map((x) => (x.id === p.id
-        ? { ...x, converti: true, statut: "Client acquis", client_user_id: user.id, date_conversion: today(), maj_le: today() }
+        ? prospectAcquis(x, { client_user_id: user.id })
         : x)),
       messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])],
     }, `Prospect « ${p.nom} » CONVERTI en client par ${profile.nom}`);

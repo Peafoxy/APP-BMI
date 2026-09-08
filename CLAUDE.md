@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 939 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 948 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -213,6 +213,9 @@ lit mal est pire qu'un banc absent).
   fiche de l'employé (`brouillons_devis`, liste pour la fusion), onglet
   « Mes brouillons » dans Dimensionnement ; envoyé ou converti, il disparaît.
   Un brouillon repris s'AJOUTE chez le client à l'envoi (jamais `idAReprendre`).
+- **Prospect devenu client : UNE fiche** (`prospectAcquis`, lib/prospects.js,
+  08/09/2026) : encaissement et « Convertir » posent les mêmes champs, vente
+  et compte dès qu'on les connaît, jamais retirés.
 - **Contrat et PV : UNE règle** (`lib/contrat.js`, 08/09/2026) : numéro de
   contrat, numéro de PV, plan de règlement signé, champs du lien PV — les
   deux chemins de signature (téléphone du client, boutique) y passent.
@@ -287,7 +290,7 @@ s'est arrêté, mot pour mot.
 |---|---|---|
 | Chantiers en attente du feu vert de Timo : **mots de passe clients** (3 voies proposées, pas tranché), **mode superviseur** (cadré, « pas pour le moment »), **corbeille** (faite pour les chantiers ; prospects / articles / ventes possibles) | À sa demande | `docs/etat-chantiers-en-attente.md` |
 | **WhatsApp depuis le numéro BMI** (coexistence, YCloud créé, arrêté au QR) | En pause, ne pas relancer | `docs/etat-whatsapp-numero-bmi.md` |
-| **Doublons** : 12 règles écrites plusieurs fois ; A3/A4 (trois volets du dimensionnement) unifiés en 2.101.64 (`dimensionnement/devisCommun.js`), A10 (WhatsApp) en 2.101.76 (`lienWhatsApp` / `envoyerWhatsApp`, lib/core.js), A1/A2/A11/A12 (contrat, PV, plan signé) en 2.101.77 (`lib/contrat.js`), A5/A6/A7 (numéro de série, `memeContenu`, `lib/panier.js`) en 2.101.78 ; « lance tout » donné le 08/09 : la suite se fait point par point | À sa demande | `docs/doublons-2026-09.md` |
+| **Doublons** : 12 règles écrites plusieurs fois ; A3/A4 (trois volets du dimensionnement) unifiés en 2.101.64 (`dimensionnement/devisCommun.js`), A10 (WhatsApp) en 2.101.76 (`lienWhatsApp` / `envoyerWhatsApp`, lib/core.js), A1/A2/A11/A12 (contrat, PV, plan signé) en 2.101.77 (`lib/contrat.js`), A5/A6/A7 (numéro de série, `memeContenu`, `lib/panier.js`) en 2.101.78, A8/A9 (`lib/prospects.js`, briques de pdf.js) en 2.101.79 ; « lance tout » donné le 08/09 : la suite se fait point par point | À sa demande | `docs/doublons-2026-09.md` |
 | Vague 3 — verrous serveur entre employés | Terminée, tout collé | `docs/etat-vague-3-verrous-serveur.md` |
 | Vague 2 — lecture des comptes clients (histoire ESSO close) | Terminée, tout collé | `docs/etat-vague-2-lecture-client.md` |
 | Suites de l'audit du 29/08 (graves fermés, hygiène, 3 projets sur la base) | Fermé, ne pas rouvrir | `docs/etat-audit-2026-08.md` |

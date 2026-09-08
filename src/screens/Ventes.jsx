@@ -10,6 +10,7 @@ import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { prospectAcquis } from "../lib/prospects";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
@@ -606,8 +607,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       const prospectsMaj = (db.prospects || []).map((pr) => {
         const correspond = pr.client_user_id === od.client_id
           || (telClient.length >= 6 && memeNumero(pr.tel, compteClient?.tel || f.tel || ""));
+        // Même fiche que « Convertir en client » (lib/prospects.js) : la
+        // vente ET le compte client, quand on les connaît.
         return correspond && !pr.converti
-          ? { ...pr, converti: true, statut: "Client acquis", date_conversion: today(), vente_id: vente.id }
+          ? prospectAcquis(pr, { vente_id: vente.id, client_user_id: od.client_id || compteClient?.id })
           : pr;
       });
 

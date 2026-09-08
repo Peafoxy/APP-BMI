@@ -58,16 +58,15 @@ export function genererPDF(d, logo) {
   doc.save(d.fichier.replace(/\.csv$/i, "") + ".pdf");
 }
 
-// ============ PROFORMA ============
-// Document commercial remis à un client qui demande un prix. Il porte la mention
-// PROFORMA (pas « Reçu ») et n'a AUCUNE valeur comptable : il n'est pas enregistré
-// comme une vente, ne déduit pas le stock. C'est une simple offre de prix.
-export function genererProforma(p, logo, retournerDoc = false) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const largeur = doc.internal.pageSize.getWidth();
-  const hauteur = doc.internal.pageSize.getHeight();
-
-  // En-tête : logo + société
+// ============ LES BRIQUES COMMUNES DU DEVIS ET DU PROFORMA ============
+// Point A9 du relevé des doublons (Timo : « lance tout », 08/09/2026) :
+// l'entête (logo, société, NIF, RCCM), le bandeau de titre avec sa mention
+// de formation, le bandeau TOTAL, les mentions d'offre de prix et le pied
+// de page étaient recopiés dans les deux documents. Un changement d'adresse
+// ou de logo fait sur l'un et pas sur l'autre donnait deux papiers
+// différents pour la même entreprise. UNE écriture, ici.
+const BLEU = [30, 90, 138];
+const enteteSociete = (doc, logo, largeur) => {
   if (logo) {
     try {
       const props = doc.getImageProperties(logo);
@@ -77,32 +76,69 @@ export function genererProforma(p, logo, retournerDoc = false) {
     } catch {}
   }
   doc.setFontSize(16);
-  doc.setTextColor(30, 90, 138);
+  doc.setTextColor(...BLEU);
   doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
   doc.setFontSize(8);
   doc.setTextColor(110, 110, 110);
   doc.text("Lomé, Togo", largeur - 14, 21, { align: "right" });
   doc.text("NIF : 1001790098", largeur - 14, 25, { align: "right" });
   doc.text("RCCM : TG-LFW-01-2022-A10-01523", largeur - 14, 29, { align: "right" });
-
-  // Bandeau PROFORMA — bien visible, pour qu'on ne le confonde pas avec un reçu
-  doc.setFillColor(30, 90, 138);
+};
+// Le bandeau bleu du titre, puis — demande Timo — le bandeau « DOCUMENT DE
+// FORMATION » quand le document vient de l'espace d'entraînement. Renvoie
+// la hauteur où le contenu peut commencer.
+const bandeauTitre = (doc, largeur, titre, formation) => {
+  doc.setFillColor(...BLEU);
   doc.rect(14, 32, largeur - 28, 10, "F");
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
-  doc.text("FACTURE PROFORMA", largeur / 2, 39, { align: "center" });
+  doc.text(titre, largeur / 2, 39, { align: "center" });
+  if (!formation) return 42;
+  doc.setFillColor(180, 83, 9);
+  doc.rect(14, 44, largeur - 28, 8, "F");
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
+  doc.text("DOCUMENT DE FORMATION — SANS VALEUR", largeur / 2, 49.5, { align: "center" });
+  return 54;
+};
+// Bandeau TOTAL : un rectangle plein aligné à droite, texte blanc à
+// l'intérieur — le montant ET « FCFA » tiennent toujours, sans coupure.
+const bandeauTotal = (doc, largeur, y, total) => {
+  const bandeauLargeur = 90;
+  const bandeauX = largeur - 14 - bandeauLargeur;
+  doc.setFillColor(...BLEU);
+  doc.roundedRect(bandeauX, y - 6, bandeauLargeur, 11, 1.5, 1.5, "F");
+  doc.setFontSize(12);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL", bandeauX + 5, y + 1.5);
+  doc.text(`${fmtMontant(total)} FCFA`, largeur - 18, y + 1.5, { align: "right" });
+  return y + 5;
+};
+// Les mentions d'une offre de prix (devis ou proforma) : pas un reçu.
+const mentionsOffre = (doc, y, nature) => {
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Ce document est ${nature} : il constitue une offre de prix et n'a pas de valeur comptable.`, 14, y);
+  doc.text("Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.", 14, y + 4);
+};
+const piedDePage = (doc, largeur, hauteur) => {
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text("BMI-Gestions Boutiques", largeur / 2, hauteur - 8, { align: "center" });
+};
 
-  // ⚠ Bandeau "DOCUMENT DE FORMATION" (demande Timo) — même principe que
-  // genererDevis ci-dessus.
-  let yApresPf = 42;
-  if (p.formation) {
-    doc.setFillColor(180, 83, 9);
-    doc.rect(14, 44, largeur - 28, 8, "F");
-    doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text("DOCUMENT DE FORMATION — SANS VALEUR", largeur / 2, 49.5, { align: "center" });
-    yApresPf = 54;
-  }
+// ============ PROFORMA ============
+// Document commercial remis à un client qui demande un prix. Il porte la mention
+// PROFORMA (pas « Reçu ») et n'a AUCUNE valeur comptable : il n'est pas enregistré
+// comme une vente, ne déduit pas le stock. C'est une simple offre de prix.
+export function genererProforma(p, logo, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+
+  enteteSociete(doc, logo, largeur);
+  // Bandeau PROFORMA — bien visible, pour qu'on ne le confonde pas avec un reçu
+  const yApresPf = bandeauTitre(doc, largeur, "FACTURE PROFORMA", p.formation);
 
   // Infos client + numéro
   doc.setFontSize(9);
@@ -144,29 +180,13 @@ export function genererProforma(p, logo, retournerDoc = false) {
     doc.setTextColor(60, 60, 60);
     y += 7;
   }
-  // Bandeau TOTAL : un rectangle plein aligné à droite, texte blanc à l'intérieur.
-  // Ainsi le montant ET « FCFA » tiennent toujours, sans débordement ni coupure.
-  const bandeauLargeur = 90;
-  const bandeauX = largeur - 14 - bandeauLargeur;
-  doc.setFillColor(30, 90, 138);
-  doc.roundedRect(bandeauX, y - 6, bandeauLargeur, 11, 1.5, 1.5, "F");
-  doc.setFontSize(12);
-  doc.setTextColor(255, 255, 255);
-  doc.text("TOTAL", bandeauX + 5, y + 1.5);
-  doc.text(`${fmtMontant(p.total)} FCFA`, largeur - 18, y + 1.5, { align: "right" });
-  y += 5;
+  y = bandeauTotal(doc, largeur, y, p.total);
 
   // Mentions légales du proforma
   y += 12;
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text("Ce document est une facture proforma : il constitue une offre de prix et n'a pas de valeur comptable.", 14, y);
-  doc.text("Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.", 14, y + 4);
+  mentionsOffre(doc, y, "une facture proforma");
   if (p.validite) doc.text(`Offre valable ${p.validite}.`, 14, y + 8);
-
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text("BMI-Gestions Boutiques", largeur / 2, hauteur - 8, { align: "center" });
+  piedDePage(doc, largeur, hauteur);
 
   if (retournerDoc) return doc;
   doc.save(fichierPdf("Proforma", { client: p.client, numero: p.numero }));
@@ -181,42 +201,10 @@ export function genererDevis(d, logo, retournerDoc = false) {
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 
-  if (logo) {
-    try {
-      const props = doc.getImageProperties(logo);
-      const w = 30;
-      const h = (props.height * w) / props.width;
-      doc.addImage(logo, "JPEG", 14, 10, w, Math.min(h, 18));
-    } catch {}
-  }
-  doc.setFontSize(16);
-  doc.setTextColor(30, 90, 138);
-  doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
-  doc.setFontSize(8);
-  doc.setTextColor(110, 110, 110);
-  doc.text("Lomé, Togo", largeur - 14, 21, { align: "right" });
-  doc.text("NIF : 1001790098", largeur - 14, 25, { align: "right" });
-  doc.text("RCCM : TG-LFW-01-2022-A10-01523", largeur - 14, 29, { align: "right" });
-
-  // Bandeau DEVIS
-  doc.setFillColor(30, 90, 138);
-  doc.rect(14, 32, largeur - 28, 10, "F");
-  doc.setFontSize(13);
-  doc.setTextColor(255, 255, 255);
-  doc.text(`DEVIS — ${d.titre || ""}`.trim(), largeur / 2, 39, { align: "center" });
-
-  // ⚠ Bandeau "DOCUMENT DE FORMATION" (demande Timo) : même principe que
-  // les autres documents (impression.js) — `d.formation` est calculé par
-  // l'appelant (qui a accès à db, ce module ne l'a pas).
-  let yApres = 42;
-  if (d.formation) {
-    doc.setFillColor(180, 83, 9);
-    doc.rect(14, 44, largeur - 28, 8, "F");
-    doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text("DOCUMENT DE FORMATION — SANS VALEUR", largeur / 2, 49.5, { align: "center" });
-    yApres = 54;
-  }
+  enteteSociete(doc, logo, largeur);
+  // Bandeau DEVIS — `d.formation` est calculé par l'appelant (qui a accès à
+  // db, ce module ne l'a pas).
+  const yApres = bandeauTitre(doc, largeur, `DEVIS — ${d.titre || ""}`.trim(), d.formation);
 
   // Infos client + numéro + statut + élaborateur
   doc.setFontSize(9);
@@ -309,25 +297,11 @@ export function genererDevis(d, logo, retournerDoc = false) {
   });
 
   let y = doc.lastAutoTable.finalY + 8;
-  const bandeauLargeur = 90;
-  const bandeauX = largeur - 14 - bandeauLargeur;
-  doc.setFillColor(30, 90, 138);
-  doc.roundedRect(bandeauX, y - 6, bandeauLargeur, 11, 1.5, 1.5, "F");
-  doc.setFontSize(12);
-  doc.setTextColor(255, 255, 255);
-  doc.text("TOTAL", bandeauX + 5, y + 1.5);
-  doc.text(`${fmtMontant(d.total)} FCFA`, largeur - 18, y + 1.5, { align: "right" });
-  y += 5;
+  y = bandeauTotal(doc, largeur, y, d.total);
 
   y += 12;
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text("Ce document est un devis : il constitue une offre de prix et n'a pas de valeur comptable.", 14, y);
-  doc.text("Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.", 14, y + 4);
-
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text("BMI-Gestions Boutiques", largeur / 2, hauteur - 8, { align: "center" });
+  mentionsOffre(doc, y, "un devis");
+  piedDePage(doc, largeur, hauteur);
 
   if (retournerDoc) return doc;
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : le fichier doit porter le NOM DU
