@@ -1309,12 +1309,14 @@ titre("Quantité d'équipement : plus de plafond silencieux à 50");
     Dim.quantiteNecessaire(19000, 550) === 35);
   test("une grosse installation dépasse enfin 50 (elle était tronquée en silence)",
     Dim.quantiteNecessaire(40000, 550) === 73);
-  test("une quantité au-delà du seuil déclenche l'avertissement visible",
-    Dim.quantiteNecessaire(40000, 550) >= Dim.SEUIL_QTE_INHABITUELLE);
-  test("une installation normale ne déclenche AUCUN avertissement",
-    Dim.quantiteNecessaire(5500, 550) === 10 && 10 < Dim.SEUIL_QTE_INHABITUELLE);
-  test("un article mal nommé (« panneau 5W ») produit une quantité énorme… qui sera signalée",
-    Dim.quantiteNecessaire(19000, 5) === 3800 && 3800 >= Dim.SEUIL_QTE_INHABITUELLE);
+  // Retourné le 08/09/2026 (Timo : « éviter que ce message apparaisse encore,
+  // quelle que soit la quantité ») : plus d'avertissement « quantité
+  // inhabituelle », ni de seuil — la quantité est juste, et c'est tout.
+  test("★ plus aucun seuil de « quantité inhabituelle » dans la règle commune", Dim.SEUIL_QTE_INHABITUELLE === undefined);
+  test("★ ni Solaire ni Garage n'affichent plus « quantité inhabituelle »",
+    ["Solaire.jsx", "Garage.jsx"].every((f) => { const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8"); return !/inhabituelle/.test(src) && !/SEUIL_QTE_INHABITUELLE/.test(src); }));
+  test("un article mal nommé (« panneau 5W ») produit toujours la quantité exacte, sans plafond",
+    Dim.quantiteNecessaire(19000, 5) === 3800);
   test("un article sans caractéristique lisible reste à 1 unité, jamais à l'infini",
     Dim.quantiteNecessaire(19000, 0) === 1);
   test("un besoin nul ne descend jamais en dessous de 1",

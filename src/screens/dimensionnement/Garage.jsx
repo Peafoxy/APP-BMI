@@ -8,7 +8,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis } from "../../lib/calculs";
-import { specDepuisNom, BlocAutresEquipements, contientLeMot, memeFamille, BlocEnvoiDevisClient, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, contientLeMot, memeFamille, BlocEnvoiDevisClient, quantiteNecessaire, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
@@ -419,13 +419,6 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
                   <td className="px-3 py-2">
                     <input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit} onChange={(e) => changerQte(l.role.id, e.target.value)} />
-                    {/* Même avertissement que le volet Solaire : le plafond
-                        silencieux à 50 est levé, remplacé par une alerte. */}
-                    {l.qte >= SEUIL_QTE_INHABITUELLE && (
-                      <div className="text-[11px] font-bold text-amber-700 mt-1 max-w-[13rem]">
-                        ⚠ {l.qte} unités — quantité inhabituelle. Vérifiez que la caractéristique inscrite dans le nom de l'article est la bonne.
-                      </div>
-                    )}
                   </td>
                   <td className="px-3 py-2 tabular-nums">{l.produit ? fmt(l.produit.prix_vente) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.sousTotal)}</td>

@@ -176,6 +176,9 @@ lit mal est pire qu'un banc absent).
   (panneaux × 2) + 8** (règle Timo du 07/09/2026), lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
+- **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
+  (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans
+  plafond ni message. Ne pas le remettre.
 - **📝 Brouillons de devis** (08/09/2026) : bouton « Enregistrer un brouillon »
   à côté de l'envoi WhatsApp, allumé dès que le client est choisi, **sans
   aucune question** (« je ne veux pas un déroulé »). Le brouillon vit dans la

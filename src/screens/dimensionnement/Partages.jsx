@@ -54,12 +54,11 @@ export const puissanceUtileW = (spec) => {
 // 50 unités, EN SILENCE. Au-delà (grosse installation), le devis partait
 // sous-dimensionné sans que personne ne soit prévenu.
 // Le plafond servait en réalité de filet contre une caractéristique mal lue
-// dans le nom d'un article : un panneau enregistré « PANNEAU 5W » au lieu de
-// « 550W » produit une quantité absurde. On enlève le plafond — la quantité
-// est désormais toujours juste — et on remplace le filet par un AVERTISSEMENT
-// VISIBLE au-delà de ce seuil : à ce niveau-là, c'est soit une très grosse
-// installation (légitime), soit un article mal nommé (à corriger).
-export const SEUIL_QTE_INHABITUELLE = 60;
+// dans le nom d'un article (« PANNEAU 5W » au lieu de « 550W »). On enlève le
+// plafond — la quantité est désormais toujours juste. L'avertissement
+// « quantité inhabituelle » qui l'avait remplacé a été retiré à son tour
+// (Timo, 08/09/2026 : « quelle que soit la quantité ») : aucun message, la
+// quantité affichée se vérifie à l'œil.
 export const quantiteNecessaire = (besoin, valeurUnitaire) => {
   const u = Number(valeurUnitaire || 0);
   if (!(u > 0)) return 1;

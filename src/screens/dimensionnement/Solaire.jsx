@@ -7,7 +7,7 @@ import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires, supportsPourRails, etriersPourPanneaux } from "../../lib/solaire";
-import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, SEUIL_QTE_INHABITUELLE, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
+import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 
 
@@ -799,15 +799,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                   <td className="px-3 py-2 tabular-nums text-slate-500 whitespace-nowrap">{besoinAffiche}</td>
                   <td className="px-3 py-2">
                     <input type="number" min="0" className={`${inputCls} w-20`} value={l.qte} disabled={!l.produit || enLibre} onChange={(e) => changerQte(l.role.id, e.target.value)} />
-                    {/* Le plafond silencieux à 50 est levé : la quantité est
-                        toujours juste. À la place, un avertissement visible —
-                        soit c'est une très grosse installation, soit l'article
-                        est mal nommé et sa caractéristique a été mal lue. */}
-                    {l.qte >= SEUIL_QTE_INHABITUELLE && (
-                      <div className="text-[11px] font-bold text-amber-700 mt-1 max-w-[13rem]">
-                        ⚠ {l.qte} unités — quantité inhabituelle. Vérifiez que la caractéristique inscrite dans le nom de l'article est la bonne.
-                      </div>
-                    )}
                   </td>
                   <td className="px-3 py-2 tabular-nums">
                     {enLibre ? (
