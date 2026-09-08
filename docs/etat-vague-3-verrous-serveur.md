@@ -146,5 +146,5 @@ ligne existante et applique les règles de mise à jour ; la politique
 d'insertion des dépenses laisse passer le comptable sur une ligne existante
 (`depense_existe`, security definer). Bancs : `UPS()` dans
 tester-devis-chantiers (84) et tester-argent (66) — 4 cas tombent sans le
-correctif, tous passent avec. **À COLLER par Timo** ; les opérations
-bloquées repartent seules dans la minute.
+correctif, tous passent avec. **COLLÉ par Timo le 08/09/2026 à 21 h 41** (capture : `4 | true`) — les
+opérations bloquées repartent seules dans la minute.
