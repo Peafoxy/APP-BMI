@@ -3843,6 +3843,28 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
     && /setFixationManuelle\(fixationDepuisLignes\(lignesReprises\)\);/.test(sol));
 }
 
+titre("Solaire : UN lien « revenir à la sélection automatique », sur chaque ligne qui s'écarte du calcul (Timo, 08/09/2026)");
+{
+  // « Prendre la règle existante : revenir à la sélection automatique. »
+  // Le lien existait pour le formulaire hors stock ; il sert maintenant à
+  // l'article ou la quantité choisis à la main, aux rails, aux supports et
+  // aux étriers — même texte, même composant, et seulement quand il y a
+  // quelque chose à annuler.
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ le texte du lien n'est écrit qu'UNE fois (composant LienAuto), utilisé aux quatre endroits",
+    (sol.match(/Annuler \(revenir à la sélection automatique\)/g) || []).length === 1 && (sol.match(/<LienAuto onClick=/g) || []).length === 4);
+  test("★ équipement : le lien apparaît dès que l'article ou la quantité n'est plus celui du calcul, et relâche le verrou (annulerManuel)",
+    /const ecarte = !enLibre && !enManuel && \(!!rolesManuels\[l\.role\.id\] \|\| \(auto \? \(!c \|\| c\.type !== "stock" \|\| c\.produit_id !== auto\.produit_id \|\| c\.qte !== auto\.qte\) : !!c\)\);/.test(sol)
+    && /\{ecarte && <LienAuto onClick=\{\(\) => annulerManuel\(l\.role\.id\)\} \/>\}/.test(sol));
+  test("★ rails : le lien apparaît quand les mètres saisis diffèrent du calcul (panneaux × 2,2) et y reviennent",
+    /const railsCalcules = \(n\) => \(n > 0 \? Math\.ceil\(n \* 2\.2\) : 0\);/.test(sol)
+    && /\{railsQte !== railsCalcules\(nombrePanneaux\) && <div className="mt-1"><LienAuto onClick=\{\(\) => setRailsQte\(railsCalcules\(nombrePanneaux\)\)\} \/><\/div>\}/.test(sol));
+  test("★ supports / étriers : le lien apparaît quand une correction est active et la retire (retour au calcul)",
+    /const annulerFixation = \(cle\) => setFixationManuelle\(\(f\) => \{ const n = \{ \.\.\.f \}; delete n\[cle\]; return n; \}\);/.test(sol)
+    && /\{fixationManuelle\[cle\]\?\.base === base && <div className="mt-1"><LienAuto onClick=\{\(\) => annulerFixation\(cle\)\} \/><\/div>\}/.test(sol));
+  test("le mode Libre n'a pas ce lien (la quantité s'y déduit toujours de la caractéristique tapée)", /const auto = enLibre \? null : meilleurChoix\(l\.role\);/.test(sol));
+}
+
 titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé plus tard (demande Timo, 08/09/2026)");
 {
   // « Ajouter carrément un bouton "enregistrer un brouillon" à côté de

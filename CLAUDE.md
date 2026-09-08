@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 858 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 863 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -179,7 +179,11 @@ lit mal est pire qu'un banc absent).
   correction est liée à la base qui l'a produite (mètres de rails,
   panneaux) et tombe si la base change. **Le brouillon du volet solaire
   garde équipements, quantités, rails et corrections** : un F5 ne remet
-  rien au calcul (Timo, 08/09/2026 : « les quantités reviennent »).
+  rien au calcul (Timo, 08/09/2026 : « les quantités reviennent »). Pour y
+  revenir : **UN lien « Annuler (revenir à la sélection automatique) »**
+  (`LienAuto`, Solaire.jsx) sur toute ligne qui s'écarte du calcul —
+  article, quantité, rails, supports, étriers. Pas de bouton global
+  (« prendre la règle existante »).
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

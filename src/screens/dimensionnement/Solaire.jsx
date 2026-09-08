@@ -49,6 +49,13 @@ export const fixationDepuisLignes = (lignes) => {
     etriers: { qte: etriers ? Number(etriers.qte) || 0 : 0, base: panneaux ? Number(panneaux.qte) || 0 : 0 },
   };
 };
+// UN seul lien pour revenir au calcul, partout où une ligne s'en écarte
+// (Timo, 08/09/2026 : « prendre la règle existante — revenir à la sélection
+// automatique ») : article ou quantité choisis à la main, rails, supports,
+// étriers. Il n'apparaît que quand il y a quelque chose à annuler.
+const LienAuto = ({ onClick }) => (
+  <button onClick={onClick} className="text-xs text-slate-500 underline whitespace-nowrap">Annuler (revenir à la sélection automatique)</button>
+);
 export const SOLEIL_DEFAUT = "5";
 export const TENSION_DEFAUT = "48";
 
@@ -567,6 +574,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // La CATÉGORIE de la ligne reste « Rails de fixation » : c'est la clé qui
   // permet de retrouver cette ligne quand on reprend un ancien devis.
   const nombrePanneaux = choix.panneau?.qte || 0;
+  const railsCalcules = (n) => (n > 0 ? Math.ceil(n * 2.2) : 0);
   // Si un article "Rails de fixation" existe réellement en stock, on relie
   // la ligne à lui — la VRAIE quantité calculée sera alors déduite du stock
   // à la vente. Le prix, lui, reste TOUJOURS celui calculé ici (5 500 F),
@@ -579,7 +587,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const premierRenduRails = useRef(true);
   useEffect(() => {
     if (premierRenduRails.current) { premierRenduRails.current = false; return; } // ne pas écraser la reprise au montage
-    setRailsQte(nombrePanneaux > 0 ? Math.ceil(nombrePanneaux * 2.2) : 0);
+    setRailsQte(railsCalcules(nombrePanneaux));
   }, [nombrePanneaux]);
   const sousTotalRails = railsQte * PRIX_RAIL;
   // ⚠ Règle Timo (07/09/2026) : la sortie du rail s'accompagne de celle des
@@ -599,6 +607,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     lignesReprises.length ? fixationDepuisLignes(lignesReprises) : (choixDuBrouillon && brouillon.fixationManuelle) || {});
   const qteFixation = (cle, base, calcul) => (fixationManuelle[cle]?.base === base ? Math.max(0, Number(fixationManuelle[cle].qte) || 0) : calcul);
   const corrigerFixation = (cle, base, qte) => setFixationManuelle({ ...fixationManuelle, [cle]: { qte: Math.max(0, Number(qte) || 0), base } });
+  const annulerFixation = (cle) => setFixationManuelle((f) => { const n = { ...f }; delete n[cle]; return n; });
   const supportsQte = railsQte > 0 && articleSupportsStock ? qteFixation("supports", railsQte, supportsPourRails(railsQte)) : 0;
   const etriersQte = railsQte > 0 && articleEtriersStock ? qteFixation("etriers", nombrePanneaux, etriersPourPanneaux(nombrePanneaux)) : 0;
   const sousTotalSupports = supportsQte * Number(articleSupportsStock?.prix_vente || 0);
@@ -767,6 +776,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               const besoinAffiche = l.role.id === "convertisseur" ? `${(besoinParRole[l.role.id] / 1000).toFixed(2)} kW` : `${besoinParRole[l.role.id]}${l.role.id === "regulateur" ? " A" : ""}`;
               const enLibre = !!l.produit?.libre;
               const enManuel = !enLibre && (manuelOuvert[l.role.id] || l.produit?.manuel);
+              // S'écarte du calcul : verrou posé (article choisi à la main), ou
+              // quantité corrigée — la proposition automatique dit autre chose.
+              const auto = enLibre ? null : meilleurChoix(l.role);
+              const c = choix[l.role.id];
+              const ecarte = !enLibre && !enManuel && (!!rolesManuels[l.role.id] || (auto ? (!c || c.type !== "stock" || c.produit_id !== auto.produit_id || c.qte !== auto.qte) : !!c));
               return (
                 <tr key={l.role.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2 font-semibold whitespace-nowrap">{l.role.label}</td>
@@ -805,7 +819,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                         <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuel[l.role.id]?.nom ?? l.produit?.nom ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { qte: "1" }), nom: e.target.value } })} />
                         <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuel[l.role.id]?.prix ?? l.produit?.prix_vente ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { nom: l.produit?.nom || "" }), prix: e.target.value } })} />
                         <button onClick={() => validerManuel(l.role.id)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
-                        <button onClick={() => annulerManuel(l.role.id)} className="text-xs text-slate-500 underline">Annuler (revenir à la sélection automatique)</button>
+                        <LienAuto onClick={() => annulerManuel(l.role.id)} />
                       </div>
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
@@ -828,6 +842,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                           </select>
                         )}
                         <button onClick={() => ouvrirManuel(l.role.id)} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">✏️ Saisir un article hors stock</button>
+                        {ecarte && <LienAuto onClick={() => annulerManuel(l.role.id)} />}
                       </div>
                     )}
                   </td>
@@ -856,6 +871,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                   <input type="number" min="0" className={`${inputCls} w-20`} value={railsQte} onChange={(e) => setRailsQte(Math.max(0, Number(e.target.value) || 0))} />
                   <span className="text-xs font-semibold text-slate-500">m</span>
                 </div>
+                {railsQte !== railsCalcules(nombrePanneaux) && <div className="mt-1"><LienAuto onClick={() => setRailsQte(railsCalcules(nombrePanneaux))} /></div>}
               </td>
               <td className="px-3 py-2 tabular-nums whitespace-nowrap">{fmt(PRIX_RAIL)} <span className="text-xs text-slate-500">/m</span></td>
               <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalRails)}</td>
@@ -877,6 +893,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     <>
                       <input type="number" min="0" className={`${inputCls} w-20`} value={qte} onChange={(e) => corrigerFixation(cle, base, e.target.value)} />
                       {qte !== calcule && <div className="text-[11px] text-slate-500 mt-1">calculé : {calcule}{qte === 0 ? " — retiré du devis" : ""}</div>}
+                      {fixationManuelle[cle]?.base === base && <div className="mt-1"><LienAuto onClick={() => annulerFixation(cle)} /></div>}
                     </>
                   ) : "—"}
                 </td>
