@@ -30,7 +30,11 @@ export function ChampSuggestions({ valeur, onChange, suggestions, placeholder, c
     const r = champ.current?.getBoundingClientRect();
     if (!r) return;
     const dispo = Math.max(120, window.innerHeight - r.bottom - 8);
-    setCadre({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 220), maxHeight: Math.min(240, dispo) });
+    // Assez large pour lire un nom d'article EN ENTIER (Timo, 08/09/2026 :
+    // « le nom n'est pas totalement affiché, risque de choisir un autre
+    // câble ») : au moins 320 px, sans dépasser le bord droit de l'écran.
+    const width = Math.min(Math.max(r.width, 320), Math.max(220, window.innerWidth - r.left - 8));
+    setCadre({ top: r.bottom + 2, left: r.left, width, maxHeight: Math.min(280, dispo) });
   };
   useLayoutEffect(() => { if (ouvert) placer(); }, [ouvert, valeur]);
   useEffect(() => {
@@ -70,9 +74,11 @@ export function ChampSuggestions({ valeur, onChange, suggestions, placeholder, c
           {propositions.map((s, i) => (
             <button key={s.cle || s.valeur} type="button"
               onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(s)}
-              className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 flex items-baseline justify-between gap-2 ${i === actif ? "bg-sky-100" : "hover:bg-sky-50"}`}>
-              <span className="font-medium truncate">{s.valeur}</span>
-              {s.detail && <span className="text-xs text-slate-500 whitespace-nowrap">{s.detail}</span>}
+              className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 ${i === actif ? "bg-sky-100" : "hover:bg-sky-50"}`}>
+              {/* Le nom en entier, sur autant de lignes qu'il faut — jamais
+                  coupé par des « … » ; le détail (stock, prix) en dessous. */}
+              <div className="font-medium break-words">{s.valeur}</div>
+              {s.detail && <div className="text-xs text-slate-500">{s.detail}</div>}
             </button>
           ))}
         </div>,

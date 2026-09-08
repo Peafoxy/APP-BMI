@@ -4033,8 +4033,11 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
   test("★ sansAccents : « Camé » = « came », espaces repliés", Sug.sansAccents("  Camé   RA ") === "came ra" && Sug.correspond("Étrier du milieu", "etrier"));
   const champ = readFileSync("src/components/ChampSuggestions.jsx", "utf8");
   test("★ la liste s'ouvre SOUS le champ, à sa largeur, suit le défilement — jamais un voile sur tout l'écran",
-    /top: r\.bottom \+ 2, left: r\.left, width: Math\.max\(r\.width, 220\)/.test(champ) && /addEventListener\("scroll", placer, true\)/.test(champ)
+    /top: r\.bottom \+ 2, left: r\.left, width, maxHeight/.test(champ) && /addEventListener\("scroll", placer, true\)/.test(champ)
     && !/inset-0/.test(champ) && !/bg-black/.test(champ) && /filtrerSuggestions\(suggestions, valeur\)/.test(champ));
+  test("★ chaque proposition montre le nom EN ENTIER (jamais coupé par « … »), le détail en dessous, liste d'au moins 320 px",
+    /<div className="font-medium break-words">\{s\.valeur\}<\/div>/.test(champ) && !/truncate/.test(champ)
+    && /Math\.min\(Math\.max\(r\.width, 320\), Math\.max\(220, window\.innerWidth - r\.left - 8\)\)/.test(champ));
   test("★ plus AUCUNE liste native du navigateur (<datalist>) dans l'application",
     execSync("grep -rl '<datalist' src || true").toString().trim() === "");
   for (const [f, motif] of [
