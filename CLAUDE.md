@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 876 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 877 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -189,6 +189,7 @@ lit mal est pire qu'un banc absent).
   (prix du stock pré-rempli, `produit_id`, sortie de stock à l'encaissement,
   HB décochée) ; un nom libre reste libre et **coche HB d'office** (règle
   pure `lierAutreAuStock`, devisCommun.js). Jamais `db.produits` en entier.
+  **Aucune mention sous le champ** (« supprimer la mention ») : la case HB dit tout.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

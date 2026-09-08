@@ -3963,9 +3963,12 @@ titre("Autres équipements : d'abord le stock de la boutique — prix pré-rempl
   const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   test("★ le NOM passe par la règle du stock dans le crochet commun ; les autres champs se modifient tels quels",
     /champ === "nom" \? lierAutreAuStock\(a, val, produitsBoutique\) : \{ \.\.\.a, \[champ\]: val \}/.test(part));
-  test("★ le champ Article propose les articles du stock (liste déroulante + saisie libre), avec le stock et le prix, et dit si la ligne sortira du stock",
+  test("★ le champ Article propose les articles du stock (liste déroulante + saisie libre), avec le stock et le prix",
     /<datalist id=\{listeId\}>/.test(part) && /list=\{produits\.length > 0 \? listeId : undefined\}/.test(part)
-    && /en stock — \$\{fmt\(p\.prix_vente\)\}/.test(part) && /sortira du stock à l'encaissement/.test(part) && /Saisie libre — hors stock \(HB\)/.test(part));
+    && /en stock — \$\{fmt\(p\.prix_vente\)\}/.test(part));
+  // Retourné le jour même (Timo : « supprimer la mention ») : aucune phrase
+  // sous le champ, la case HB suffit.
+  test("★ aucune mention « article du stock » / « saisie libre » sous le champ", !/sortira du stock à l'encaissement/.test(part) && !/Saisie libre — hors stock/.test(part));
   for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
     const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
     test(`★ ${f} donne au bloc et au crochet le stock de la boutique REGARDÉE (produitsBoutique), jamais db.produits en entier`,

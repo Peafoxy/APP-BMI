@@ -141,7 +141,8 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
   // Les articles du stock de la boutique regardée sont proposés dans le
   // champ (liste déroulante + saisie libre) ; choisir l'un d'eux pré-remplit
   // le prix et lie la ligne (voir lierAutreAuStock). Un nom qui n'y est
-  // pas reste une saisie libre, HB cochée d'office.
+  // pas reste une saisie libre, HB cochée d'office. Aucune mention sous le
+  // champ (Timo, 08/09/2026 : « supprimer la mention ») : la case HB dit tout.
   const listeId = useId();
   const stocks = db ? produits.map((p) => ({ p, stock: stockActuel(db, p) })) : produits.map((p) => ({ p, stock: null }));
   return (
@@ -157,11 +158,6 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
           <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
             <Field label="Article">
               <input className={inputCls} placeholder={placeholder} value={a.nom} list={produits.length > 0 ? listeId : undefined} onChange={(e) => onModifier(a.id, "nom", e.target.value)} />
-              {a.nom.trim() && (
-                <div className={`text-[11px] mt-0.5 ${a.produit_id ? "text-emerald-700" : "text-slate-500"}`}>
-                  {a.produit_id ? "📦 Article du stock — sortira du stock à l'encaissement" : "Saisie libre — hors stock (HB)"}
-                </div>
-              )}
             </Field>
             <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={a.prix} onChange={(e) => onModifier(a.id, "prix", e.target.value)} /></Field>
             <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
