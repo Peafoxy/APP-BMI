@@ -18,16 +18,31 @@ import { uid, today } from "../../lib/core";
 // ---- Les « autres équipements » (saisie libre) ----
 export const reprisesAutres = (lignesReprises) => (lignesReprises || [])
   .filter((l) => l.categorie === "Autres équipements")
-  .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique }));
+  .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique, produit_id: l.produit_id || null }));
 export const nouvelAutre = () => ({ id: uid(), nom: "", prix: "", qte: "1" });
 export const totalAutres = (autres) => autres.reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
 export const lignesAutres = (autres) => autres.filter((a) => a.nom).map((a) => ({
   categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
   pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
+  ...(a.produit_id ? { produit_id: a.produit_id } : {}),
 }));
 export const panierAutres = (autres) => autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({
-  produit_id: null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique,
+  produit_id: a.produit_id || null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique,
 }));
+
+// Un « autre équipement » se choisit d'abord dans le stock de la boutique
+// (demande Timo, 08/09/2026) : le nom tapé ou choisi qui correspond à un
+// article du stock LIE la ligne à cet article (prix du stock pré-rempli,
+// sortie de stock à l'encaissement, HB décochée). Un nom qui ne correspond
+// à rien reste une saisie libre : aucun article ne sortira du stock, et la
+// case HB (hors boutique) se coche d'elle-même — on peut la décocher après.
+const memeNom = (a, b) => String(a || "").trim().toLowerCase().replace(/\s+/g, " ") === String(b || "").trim().toLowerCase().replace(/\s+/g, " ");
+export const articleDuStock = (nom, produits) => (nom && String(nom).trim() ? (produits || []).find((p) => memeNom(p.nom, nom)) || null : null);
+export const lierAutreAuStock = (autre, nom, produits) => {
+  const p = articleDuStock(nom, produits);
+  if (p) return { ...autre, nom: p.nom, produit_id: p.id, prix: String(Number(p.prix_vente || 0)), hors_boutique: false };
+  return { ...autre, nom, produit_id: null, ...(String(nom || "").trim() ? { hors_boutique: true } : {}) };
+};
 
 // ---- Les totaux : la remise ne porte QUE sur les articles ; installation
 // et transport se calculent sur le montant plein. « Pose seule » remplace

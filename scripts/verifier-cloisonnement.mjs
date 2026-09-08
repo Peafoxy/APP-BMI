@@ -3772,7 +3772,7 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
   for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
     const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
     test(`★ ${f} passe par construireDevis, useReglagesDevis, useAutresEquipements, useEnvoiDevis et BlocsFinDevis`,
-      /construireDevis\(\{/.test(src) && /useReglagesDevis\(totalArticles/.test(src) && /useAutresEquipements\(lignesReprises\)/.test(src)
+      /construireDevis\(\{/.test(src) && /useReglagesDevis\(totalArticles/.test(src) && /useAutresEquipements\(lignesReprises, produitsBoutique\)/.test(src)
       && /useEnvoiDevis\(\{/.test(src) && /<BlocsFinDevis r=\{r\} onConvertir=\{convertir\} \/>/.test(src));
     test(`★ ${f} n'a plus AUCUNE copie de la fin du devis (pose seule, frais, champs, autres équipements)`,
       !/Pose seule \(matériel/.test(src) && !/pct_installation:/.test(src) && !/categorie: "Autres équipements"/.test(src)
@@ -3926,6 +3926,52 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
     && /dbApres: retirerBrouillon\(dbApres, profile\.id, b\.id\)/.test(br) && /await uConfirm\(`Supprimer le brouillon/.test(br));
   test("★ la fusion trois voies traite brouillons_devis comme une liste de la fiche (deux appareils ne s'écrasent pas)",
     /users: \{ listes: \["virements", "credits", "devis", "brouillons_devis"\] \}/.test(readFileSync("src/lib/fusion.js", "utf8")));
+}
+
+titre("Autres équipements : d'abord le stock de la boutique — prix pré-rempli, sortie de stock, HB d'office hors stock (Timo, 08/09/2026)");
+{
+  // « Proposer la présélection des articles en stock ; je choisis et le prix
+  // est pré-rempli ; l'utilisateur modifie juste la quantité. Si l'article
+  // n'est pas dans la liste, il l'ajoute, et la case HB est cochée
+  // automatiquement. » La règle est pure (devisCommun) : on l'exerce.
+  const sortieDC = join("node_modules", ".cache", `bmi-dc-autres-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieDC, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DC = await import(pathToFileURL(sortieDC).href);
+  unlinkSync(sortieDC);
+  const produits = [{ id: "p1", nom: "Câble solaire 6mm² (rouleau)", prix_vente: 45000, boutique: "APESSITO" }, { id: "p2", nom: "Coffret DC 2 entrées", prix_vente: 35000, boutique: "APESSITO" }];
+  const vide = { id: "a1", nom: "", prix: "", qte: "1" };
+  const lie = DC.lierAutreAuStock(vide, "câble solaire 6mm² (rouleau)", produits);
+  test("★ un nom qui correspond à un article du stock (casse et espaces ignorés) LIE la ligne : produit_id, prix du stock, HB décochée",
+    lie.produit_id === "p1" && lie.prix === "45000" && lie.hors_boutique === false && lie.nom === "Câble solaire 6mm² (rouleau)");
+  const libre = DC.lierAutreAuStock(vide, "Disjoncteur 63A", produits);
+  test("★ un nom qui n'est dans aucun article du stock reste une saisie libre : aucun produit_id, HB cochée d'office",
+    libre.produit_id === null && libre.hors_boutique === true && libre.nom === "Disjoncteur 63A");
+  const delie = DC.lierAutreAuStock(lie, "Câble solaire 6mm² (roul", produits);
+  test("★ modifier le nom d'une ligne liée la délie (plus de sortie de stock) et coche HB ; le prix saisi reste",
+    delie.produit_id === null && delie.hors_boutique === true && delie.prix === "45000");
+  test("★ un nom effacé ne coche pas HB tout seul (rien à facturer encore)",
+    DC.lierAutreAuStock({ ...vide, hors_boutique: false }, "", produits).hors_boutique === false && DC.lierAutreAuStock(vide, "  ", produits).produit_id === null);
+  test("★ sans stock (mode Libre), tout est saisie libre", DC.lierAutreAuStock(vide, "Câble solaire 6mm² (rouleau)", []).produit_id === null);
+  const libreChiffre = { ...libre, prix: "12000" };
+  test("★ le panier de vente porte le produit_id de la ligne liée (sortie de stock à l'encaissement), null sinon",
+    DC.panierAutres([lie, libreChiffre])[0].produit_id === "p1" && DC.panierAutres([lie, libreChiffre])[1].produit_id === null);
+  test("★ les lignes du devis portent produit_id seulement quand il existe (un devis libre garde exactement sa forme d'avant)",
+    DC.lignesAutres([lie])[0].produit_id === "p1" && !("produit_id" in DC.lignesAutres([libre])[0]));
+  test("★ reprendre un devis rend le lien au stock de chaque autre équipement",
+    DC.reprisesAutres(DC.lignesAutres([lie, libre]))[0].produit_id === "p1" && DC.reprisesAutres(DC.lignesAutres([lie, libre]))[1].produit_id === null);
+  const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★ le NOM passe par la règle du stock dans le crochet commun ; les autres champs se modifient tels quels",
+    /champ === "nom" \? lierAutreAuStock\(a, val, produitsBoutique\) : \{ \.\.\.a, \[champ\]: val \}/.test(part));
+  test("★ le champ Article propose les articles du stock (liste déroulante + saisie libre), avec le stock et le prix, et dit si la ligne sortira du stock",
+    /<datalist id=\{listeId\}>/.test(part) && /list=\{produits\.length > 0 \? listeId : undefined\}/.test(part)
+    && /en stock — \$\{fmt\(p\.prix_vente\)\}/.test(part) && /sortira du stock à l'encaissement/.test(part) && /Saisie libre — hors stock \(HB\)/.test(part));
+  for (const f of ["Solaire.jsx", "Garage.jsx", "Autre.jsx"]) {
+    const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
+    test(`★ ${f} donne au bloc et au crochet le stock de la boutique REGARDÉE (produitsBoutique), jamais db.produits en entier`,
+      /useAutresEquipements\(lignesReprises, produitsBoutique\)/.test(src) && /db=\{db\} produits=\{produitsBoutique\}/.test(src)
+      && !/produits=\{db\.produits\}/.test(src));
+  }
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

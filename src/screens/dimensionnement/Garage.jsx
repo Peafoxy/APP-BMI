@@ -259,7 +259,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : "");
 
   // ---- Autres équipements : coffret de commande, câblage… ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises);
+  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique);
 
   const totalKitSolaire = kitSolaire ? Number(prixKitSolaire || 0) : 0;
   const totalBatterieSecours = batterieSecours ? Number(prixBatterieSecours || 0) : 0;
@@ -457,7 +457,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
 
         <BlocAutresEquipements
           titre="Autres équipements (coffret de commande, câblage…)"
-          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre}
+          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
           placeholder="Ex : Coffret de commande"
         />
 

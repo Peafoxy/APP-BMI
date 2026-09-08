@@ -3,7 +3,7 @@
 // noms d'articles, autres équipements, totaux du devis (remise,
 // installation, transport), envoi du devis au client via WhatsApp.
 // ============================================================
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
 import { fmt, telDigits, col, ouvrirWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
 
@@ -31,8 +31,8 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, estBoutiqueFormation } from "../../lib/calculs";
-import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon } from "./devisCommun";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, estBoutiqueFormation, stockActuel } from "../../lib/calculs";
+import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock } from "./devisCommun";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
 // convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
@@ -137,14 +137,32 @@ export function specDepuisNom(nom) {
 }
 
 // ---- Bloc « Autres équipements » : lignes libres (nom + prix + quantité) ----
-export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, onRetirer, placeholder }) {
+export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, onRetirer, placeholder, db, produits = [] }) {
+  // Les articles du stock de la boutique regardée sont proposés dans le
+  // champ (liste déroulante + saisie libre) ; choisir l'un d'eux pré-remplit
+  // le prix et lie la ligne (voir lierAutreAuStock). Un nom qui n'y est
+  // pas reste une saisie libre, HB cochée d'office.
+  const listeId = useId();
+  const stocks = db ? produits.map((p) => ({ p, stock: stockActuel(db, p) })) : produits.map((p) => ({ p, stock: null }));
   return (
     <div className="px-4 py-3 border-t border-slate-200">
       <div className="font-bold text-sm text-slate-700 mb-2">{titre}</div>
+      {produits.length > 0 && (
+        <datalist id={listeId}>
+          {stocks.map(({ p, stock }) => <option key={p.id} value={p.nom}>{stock === null ? fmt(p.prix_vente) : `${stock} en stock — ${fmt(p.prix_vente)}`}</option>)}
+        </datalist>
+      )}
       <div className="space-y-2">
         {autres.map((a) => (
           <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
-            <Field label="Article"><input className={inputCls} placeholder={placeholder} value={a.nom} onChange={(e) => onModifier(a.id, "nom", e.target.value)} /></Field>
+            <Field label="Article">
+              <input className={inputCls} placeholder={placeholder} value={a.nom} list={produits.length > 0 ? listeId : undefined} onChange={(e) => onModifier(a.id, "nom", e.target.value)} />
+              {a.nom.trim() && (
+                <div className={`text-[11px] mt-0.5 ${a.produit_id ? "text-emerald-700" : "text-slate-500"}`}>
+                  {a.produit_id ? "📦 Article du stock — sortira du stock à l'encaissement" : "Saisie libre — hors stock (HB)"}
+                </div>
+              )}
+            </Field>
             <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={a.prix} onChange={(e) => onModifier(a.id, "prix", e.target.value)} /></Field>
             <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 pb-2" title="Ne compte ni dans le chiffre d'affaires ni dans les commissions — pour un article que BMI facture sans qu'il vienne de son propre stock.">
@@ -192,12 +210,14 @@ export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise
 }
 
 // ---- Les « autres équipements » : même état, mêmes gestes dans les trois volets ----
-export function useAutresEquipements(lignesReprises) {
+export function useAutresEquipements(lignesReprises, produitsBoutique = []) {
   const [autres, setAutres] = useState(() => reprisesAutres(lignesReprises));
   return {
     autres,
     ajouterAutre: () => setAutres([...autres, nouvelAutre()]),
-    majAutre: (id, champ, val) => setAutres(autres.map((a) => (a.id === id ? { ...a, [champ]: val } : a))),
+    // Le NOM passe par la règle du stock (lien, prix, HB) ; les autres champs
+    // se modifient tels quels.
+    majAutre: (id, champ, val) => setAutres(autres.map((a) => (a.id !== id ? a : champ === "nom" ? lierAutreAuStock(a, val, produitsBoutique) : { ...a, [champ]: val }))),
     retirerAutre: (id) => setAutres(autres.filter((a) => a.id !== id)),
     // Reprise d'un autre devis pendant que l'écran est ouvert.
     reprendreAutres: (lignes) => setAutres(reprisesAutres(lignes)),

@@ -193,7 +193,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const totalRoles = lignesDevis.reduce((s, l) => s + l.sousTotal, 0);
 
   // ---- Autres équipements : hors de la catégorie choisie ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises);
+  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique);
 
   const totalArticles = totalRoles + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -318,7 +318,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
 
         <BlocAutresEquipements
           titre="Autres équipements"
-          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre}
+          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
           placeholder="Ex : Câblage"
         />
 

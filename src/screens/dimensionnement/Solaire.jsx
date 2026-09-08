@@ -618,7 +618,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle });
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises);
+  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique);
 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -907,7 +907,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
         <BlocAutresEquipements
           titre="Autres équipements (câbles, protections AC/DC, accessoires…)"
-          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre}
+          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
           placeholder="Ex : Câble 6mm² (rouleau)"
         />
 
