@@ -35,6 +35,20 @@ const ROLES_EQUIPEMENT = [
 ];
 
 // Réglages par défaut du volet solaire (demande Timo, 06/09/2026).
+// Reprise d'un devis : les supports de rail et les étriers reviennent avec
+// LEURS quantités — y compris 0 (ligne absente alors qu'il y avait des
+// rails) : le devis repris est le devis tel qu'il était.
+export const fixationDepuisLignes = (lignes) => {
+  const rails = lignes.find((l) => l.categorie === "Rails de fixation");
+  if (!rails) return {};
+  const panneaux = lignes.find((l) => l.categorie === ROLES_EQUIPEMENT.find((r) => r.id === "panneau").label);
+  const supports = lignes.find((l) => l.categorie === "Supports de rail");
+  const etriers = lignes.find((l) => l.categorie === "Étriers");
+  return {
+    supports: { qte: supports ? Number(supports.qte) || 0 : 0, base: Number(rails.qte) || 0 },
+    etriers: { qte: etriers ? Number(etriers.qte) || 0 : 0, base: panneaux ? Number(panneaux.qte) || 0 : 0 },
+  };
+};
 export const SOLEIL_DEFAUT = "5";
 export const TENSION_DEFAUT = "48";
 
@@ -102,10 +116,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const v = besoinsRepris?.type_batterie || brouillon?.typeBatterie || "lifepo4";
     return v === "plomb" ? "gel" : v;
   });
-
-  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
-  // devis réellement envoyé ou converti (voir plus bas), jamais avant.
-  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie });
 
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
@@ -391,13 +401,22 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     });
     return { choix, verrous, hb };
   })();
-  const [choix, setChoix] = useState(() => initialSelectionSolaire?.choix || {});
-  const [rolesHB, setRolesHB] = useState(() => initialSelectionSolaire?.hb || {});
+  // Après une actualisation (F5), on repart des équipements et quantités
+  // tels qu'ils étaient (demande Timo, 08/09/2026 : « quand la page est
+  // actualisée, les quantités reviennent »). Un brouillon écrit en mode
+  // Libre (lignes « libre ») n'est pas restitué : ce mode repart à zéro.
+  const choixDuBrouillon = !initialSelectionSolaire && brouillon?.choix && !Object.values(brouillon.choix).some((c) => c?.libre) ? brouillon.choix : null;
+  const [choix, setChoix] = useState(() => initialSelectionSolaire?.choix || choixDuBrouillon || {});
+  const [rolesHB, setRolesHB] = useState(() => initialSelectionSolaire?.hb || (choixDuBrouillon && brouillon.rolesHB) || {});
   const [manuelOuvert, setManuelOuvert] = useState({}); // { roleId: bool } — affiche le mini-formulaire de saisie libre
   const [brouillonManuel, setBrouillonManuel] = useState({}); // { roleId: { nom, prix, qte } }
   // Rôles que le vendeur a choisi de saisir/sélectionner lui-même : la sélection
   // automatique ne doit plus jamais y toucher tant qu'il ne revient pas en arrière.
-  const [rolesManuels, setRolesManuels] = useState(() => initialSelectionSolaire?.verrous || {});
+  const [rolesManuels, setRolesManuels] = useState(() => initialSelectionSolaire?.verrous || (choixDuBrouillon && brouillon.rolesManuels) || {});
+  // Le premier calcul automatique (au montage) ne doit pas écraser ce qui
+  // vient d'être restitué du brouillon ; les suivants (réglage changé)
+  // recalculent comme avant.
+  const sauterPremierCalcul = useRef(!!choixDuBrouillon);
 
   // RÉACTIF à chaque NOUVELLE reprise de devis — pas seulement au tout
   // premier montage. Même piège que Ventes.jsx/Commandes.jsx (2.99.13) :
@@ -429,10 +448,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const ligneRails = lignesReprises.find((l) => l.categorie === "Rails de fixation");
     setRailsQte(ligneRails ? Number(ligneRails.qte) : 0);
     premierRenduRails.current = true;
+    setFixationManuelle(fixationDepuisLignes(lignesReprises));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
 
   useEffect(() => {
+    if (sauterPremierCalcul.current) { sauterPremierCalcul.current = false; return; }
     setChoix((avant) => {
       const nouveauChoix = { ...avant };
       for (const role of ROLES_EQUIPEMENT) {
@@ -554,7 +575,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // aucune vérification de stock, le calcul n'est jamais impacté).
   const articleRailsStock = produitsBoutique.find((p) => /rail/i.test(p.nom) || /rail/i.test(p.categorie || ""));
   const ligneRailsReprise = lignesReprises.find((l) => l.categorie === "Rails de fixation");
-  const [railsQte, setRailsQte] = useState(ligneRailsReprise ? Number(ligneRailsReprise.qte) : 0);
+  const [railsQte, setRailsQte] = useState(ligneRailsReprise ? Number(ligneRailsReprise.qte) : (choixDuBrouillon ? Number(brouillon.railsQte || 0) : 0));
   const premierRenduRails = useRef(true);
   useEffect(() => {
     if (premierRenduRails.current) { premierRenduRails.current = false; return; } // ne pas écraser la reprise au montage
@@ -568,10 +589,24 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // être soustrait) ; leur prix est celui de l'article en stock.
   const articleSupportsStock = produitsBoutique.find((p) => /support/i.test(p.nom) || /support/i.test(p.categorie || ""));
   const articleEtriersStock = produitsBoutique.find((p) => /[ée]trier/i.test(p.nom) || /[ée]trier/i.test(p.categorie || ""));
-  const supportsQte = railsQte > 0 && articleSupportsStock ? supportsPourRails(railsQte) : 0;
-  const etriersQte = railsQte > 0 && articleEtriersStock ? etriersPourPanneaux(nombrePanneaux) : 0;
+  // Chaque ligne a sa case de quantité (demande Timo, 08/09/2026) : la
+  // valeur calculée est proposée, on peut la corriger ou la mettre à 0 pour
+  // s'en passer. Une correction est mémorisée AVEC la base qui l'a produite
+  // (mètres de rails pour les supports, nombre de panneaux pour les
+  // étriers) : si la base change, on revient au calcul — sans effet, sans
+  // garde-fou de premier rendu, et cela survit au F5 par le brouillon.
+  const [fixationManuelle, setFixationManuelle] = useState(() =>
+    lignesReprises.length ? fixationDepuisLignes(lignesReprises) : (choixDuBrouillon && brouillon.fixationManuelle) || {});
+  const qteFixation = (cle, base, calcul) => (fixationManuelle[cle]?.base === base ? Math.max(0, Number(fixationManuelle[cle].qte) || 0) : calcul);
+  const corrigerFixation = (cle, base, qte) => setFixationManuelle({ ...fixationManuelle, [cle]: { qte: Math.max(0, Number(qte) || 0), base } });
+  const supportsQte = railsQte > 0 && articleSupportsStock ? qteFixation("supports", railsQte, supportsPourRails(railsQte)) : 0;
+  const etriersQte = railsQte > 0 && articleEtriersStock ? qteFixation("etriers", nombrePanneaux, etriersPourPanneaux(nombrePanneaux)) : 0;
   const sousTotalSupports = supportsQte * Number(articleSupportsStock?.prix_vente || 0);
   const sousTotalEtriers = etriersQte * Number(articleEtriersStock?.prix_vente || 0);
+
+  // Écrit le brouillon à chaque changement — effacé uniquement une fois le
+  // devis réellement envoyé ou converti (voir plus bas), jamais avant.
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle });
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
   const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises);
@@ -828,16 +863,23 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
             </tr>
             {/* Supports de rail et étriers : suivent les rails et les panneaux (règle Timo, 07/09/2026) */}
             {railsQte > 0 && [
-              ["Supports de rail", articleSupportsStock, supportsQte, sousTotalSupports, `${railsQte} rails × 2 → nombre pair suivant = ${supportsPourRails(railsQte)}`],
-              ["Étriers", articleEtriersStock, etriersQte, sousTotalEtriers, `(${nombrePanneaux} panneaux × 2) + 8 = ${etriersPourPanneaux(nombrePanneaux)}`],
-            ].map(([libelle, article, qte, sousTotal, calcul]) => (
+              ["Supports de rail", articleSupportsStock, supportsQte, sousTotalSupports, `${railsQte} rails × 2 → nombre pair suivant = ${supportsPourRails(railsQte)}`, "supports", railsQte, supportsPourRails(railsQte)],
+              ["Étriers", articleEtriersStock, etriersQte, sousTotalEtriers, `(${nombrePanneaux} panneaux × 2) + 8 = ${etriersPourPanneaux(nombrePanneaux)}`, "etriers", nombrePanneaux, etriersPourPanneaux(nombrePanneaux)],
+            ].map(([libelle, article, qte, sousTotal, calcul, cle, base, calcule]) => (
               <tr key={libelle} className="border-t border-slate-100 bg-amber-50/40">
                 <td className="px-3 py-2 font-semibold whitespace-nowrap">{libelle}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">
                   {article ? <>{article.nom} — {calcul}</> : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
                 </td>
                 <td className="px-3 py-2 text-slate-400">—</td>
-                <td className="px-3 py-2 tabular-nums">{article ? qte : "—"}</td>
+                <td className="px-3 py-2">
+                  {article ? (
+                    <>
+                      <input type="number" min="0" className={`${inputCls} w-20`} value={qte} onChange={(e) => corrigerFixation(cle, base, e.target.value)} />
+                      {qte !== calcule && <div className="text-[11px] text-slate-500 mt-1">calculé : {calcule}{qte === 0 ? " — retiré du devis" : ""}</div>}
+                    </>
+                  ) : "—"}
+                </td>
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap">{article ? fmt(Number(article.prix_vente || 0)) : "—"}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{article ? fmt(sousTotal) : "—"}</td>
                 <td className="px-3 py-2"></td>

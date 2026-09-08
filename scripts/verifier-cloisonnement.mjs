@@ -3791,13 +3791,56 @@ titre("Solaire : les supports de rail et les étriers suivent les rails (règle 
   test("★ étriers : 4 panneaux → 16 ; 10 → 28 ; 0 → 8", Sol.etriersPourPanneaux(4) === 16 && Sol.etriersPourPanneaux(10) === 28 && Sol.etriersPourPanneaux(0) === 8);
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
   test("★ les deux lignes n'existent qu'avec des rails ET l'article en stock, liées à lui (produit_id) pour la sortie de stock",
-    /const supportsQte = railsQte > 0 && articleSupportsStock \? supportsPourRails\(railsQte\) : 0;/.test(sol)
-    && /const etriersQte = railsQte > 0 && articleEtriersStock \? etriersPourPanneaux\(nombrePanneaux\) : 0;/.test(sol)
+    /const supportsQte = railsQte > 0 && articleSupportsStock \? qteFixation\("supports", railsQte, supportsPourRails\(railsQte\)\) : 0;/.test(sol)
+    && /const etriersQte = railsQte > 0 && articleEtriersStock \? qteFixation\("etriers", nombrePanneaux, etriersPourPanneaux\(nombrePanneaux\)\) : 0;/.test(sol)
     && /produit_id: articleSupportsStock\.id/.test(sol) && /produit_id: articleEtriersStock\.id/.test(sol));
   test("★ elles comptent dans le total des articles et dans les lignes du devis",
     /totalRoles \+ sousTotalRails \+ sousTotalSupports \+ sousTotalEtriers \+ totalAutres/.test(sol)
     && /categorie: "Supports de rail"/.test(sol) && /categorie: "Étriers"/.test(sol));
   test("sans article en stock, l'écran le dit au lieu de se taire", /non ajouté au devis/.test(sol));
+}
+
+titre("Solaire : supports et étriers ont leur case de quantité, et tout survit au F5 (demande Timo, 08/09/2026)");
+{
+  // « Je veux bien une case de quantité… mais quand la page est actualisée,
+  // les quantités reviennent. » Une correction est mémorisée avec la base
+  // qui l'a produite ; si la base change, retour au calcul. On exerce la
+  // règle de reprise (fonction pure) et la logique de base, puis on lit le code.
+  const sortieSol = join("node_modules", ".cache", `bmi-solaire-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/Solaire.jsx"], bundle: true, format: "esm", platform: "node",
+    outfile: sortieSol, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const SolEcran = await import(pathToFileURL(sortieSol).href);
+  unlinkSync(sortieSol);
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  const lignes = [
+    { categorie: "Panneaux solaires", article: "PANNEAU 550W", qte: 4 },
+    { categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: 9 },
+    { categorie: "Supports de rail", article: "SUPPORT RAIL", qte: 12 },
+    { categorie: "Étriers", article: "ETRIER", qte: 10 },
+  ];
+  const f = SolEcran.fixationDepuisLignes(lignes);
+  test("★ reprise : supports et étriers reviennent avec LEURS quantités (12 et 10, pas 18 et 16), liées aux rails (9 m) et aux panneaux (4)",
+    f.supports.qte === 12 && f.supports.base === 9 && f.etriers.qte === 10 && f.etriers.base === 4);
+  const sans = SolEcran.fixationDepuisLignes(lignes.filter((l) => l.categorie === "Rails de fixation" || l.categorie === "Panneaux solaires"));
+  test("★ reprise d'un devis à rails SANS supports ni étriers : ils restent à 0 (le devis repris est le devis tel qu'il était)",
+    sans.supports.qte === 0 && sans.etriers.qte === 0 && sans.supports.base === 9);
+  test("★ sans rails, aucune correction mémorisée (le calcul reprend la main)", Object.keys(SolEcran.fixationDepuisLignes([lignes[0]])).length === 0);
+  // La règle « même base → correction, base changée → calcul », telle qu'écrite dans l'écran
+  const qteFixation = (fixationManuelle, cle, base, calcul) => (fixationManuelle[cle]?.base === base ? Math.max(0, Number(fixationManuelle[cle].qte) || 0) : calcul);
+  test("★ une correction ne vaut que pour la base qui l'a produite : 9 m → 12 supports ; 11 m → retour au calcul (22)",
+    qteFixation({ supports: { qte: 12, base: 9 } }, "supports", 9, 18) === 12 && qteFixation({ supports: { qte: 12, base: 9 } }, "supports", 11, 22) === 22);
+  test("★ 0 est une correction valable (ligne retirée du devis), jamais un nombre négatif",
+    qteFixation({ etriers: { qte: 0, base: 4 } }, "etriers", 4, 16) === 0 && qteFixation({ etriers: { qte: -3, base: 4 } }, "etriers", 4, 16) === 0);
+  test("★ l'écran applique exactement cette règle", /const qteFixation = \(cle, base, calcul\) => \(fixationManuelle\[cle\]\?\.base === base \? Math\.max\(0, Number\(fixationManuelle\[cle\]\.qte\) \|\| 0\) : calcul\);/.test(sol));
+  test("★ chaque ligne (supports, étriers) a sa case de quantité, et dit le calculé quand on s'en écarte",
+    /onChange=\{\(e\) => corrigerFixation\(cle, base, e\.target\.value\)\}/.test(sol) && /calculé : \{calcule\}/.test(sol) && /retiré du devis/.test(sol));
+  test("★ le brouillon du volet garde les équipements, leurs quantités, les rails et les corrections de fixation (F5)",
+    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle \}\)/.test(sol));
+  test("★ après un F5, le premier calcul automatique n'écrase pas ce qui vient du brouillon ; les suivants recalculent",
+    /const sauterPremierCalcul = useRef\(!!choixDuBrouillon\);/.test(sol) && /if \(sauterPremierCalcul\.current\) \{ sauterPremierCalcul\.current = false; return; \}/.test(sol));
+  test("★ un devis repris passe TOUJOURS avant le brouillon, et un brouillon du mode Libre n'est pas restitué",
+    /const choixDuBrouillon = !initialSelectionSolaire && brouillon\?\.choix && !Object\.values\(brouillon\.choix\)\.some\(\(c\) => c\?\.libre\) \? brouillon\.choix : null;/.test(sol)
+    && /setFixationManuelle\(fixationDepuisLignes\(lignesReprises\)\);/.test(sol));
 }
 
 titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé plus tard (demande Timo, 08/09/2026)");
