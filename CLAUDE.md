@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 992 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 994 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -271,7 +271,10 @@ lit mal est pire qu'un banc absent).
   **Toutes** (l'écran tel quel) / chaque boutique / TERRAIN / « Chez le
   comptable » (réel seul) — une boutique choisie filtre TOUT l'écran
   (`dansLaBoutique`, `NOMS_VUES`), mémorisée par écran, jamais hors de
-  l'espace regardé.
+  l'espace regardé. **Pas de carte à zéro** : un dépôt ou « Chez le
+  comptable » ne montrent que dépenses (+ stock pour le dépôt) ; TERRAIN
+  pas de stock ; le graphique et la synthèse ignorent les dépôts
+  (`NOMS_GRAPHE`).
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 

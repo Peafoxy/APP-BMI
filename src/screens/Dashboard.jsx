@@ -45,6 +45,18 @@ export function Dashboard({ db, profile }) {
   const dansLaBoutique = (x) => !bqChoisie || x.boutique === bqChoisie;
   // Les colonnes, barres et cartes par boutique : toutes, ou la seule choisie.
   const NOMS_VUES = bqChoisie ? [bqChoisie] : NOMS;
+  // Un dépôt ne vend rien, la caisse du comptable non plus, TERRAIN n'a pas
+  // de stock (Timo, 09/09/2026 : « cacher les cartes à zéro chez le
+  // comptable et pour le magasin »). Le graphique et la synthèse ne
+  // montrent que les boutiques qui vendent ; une pastille choisie ne
+  // montre que ce qui a du sens pour elle.
+  const estDepot = (nom) => !!db.boutiques.find((b) => b.nom === nom && b.depot);
+  const NOMS_GRAPHE = NOMS_VUES.filter((nom) => !estDepot(nom));
+  const depotChoisi = !!bqChoisie && estDepot(bqChoisie);
+  const comptableChoisi = bqChoisie === NOM_CAISSE_COMPTABLE;
+  const terrainChoisi = !!bqChoisie && bqChoisie === terrainVu?.nom;
+  const sansVentes = depotChoisi || comptableChoisi;
+  const sansStock = comptableChoisi || terrainChoisi;
   // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
   // NOMS_VUES protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
   // TOTAUX GLOBAUX de cette page (CA total, frais, nb clients, commissions,
@@ -169,7 +181,7 @@ export function Dashboard({ db, profile }) {
     });
     mois6.push({ nom: moisNoms[d.getMonth()], vals });
   }
-  const maxV = Math.max(1, ...mois6.flatMap((x) => NOMS_VUES.map((b) => x.vals[b])));
+  const maxV = Math.max(1, ...mois6.flatMap((x) => NOMS_GRAPHE.map((b) => x.vals[b])));
 
   // Analyses sur la période sélectionnée
   const [, paG, pbG] = getPeriod();
@@ -207,19 +219,21 @@ export function Dashboard({ db, profile }) {
             className={`px-4 py-1.5 rounded-full text-sm font-bold ${bqChoisie === nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
             style={bqChoisie === nom ? { backgroundColor: col(nom) } : {}}>{nom === NOM_CAISSE_COMPTABLE ? "🧾 " : nom === terrainVu?.nom ? "🏕 " : ""}{nom}</button>
         ))}
-        {bqChoisie && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
+        {bqChoisie && !sansVentes && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
+        {depotChoisi && <span className="text-xs text-slate-500">🏭 Un dépôt ne vend pas : voici ses sorties et son stock.</span>}
+        {comptableChoisi && <span className="text-xs text-slate-500">🧾 La caisse du comptable ne vend pas : voici ses sorties.</span>}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />
+        {!sansVentes && <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />}
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
-        <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />
-        <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />
-        <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />
+        {!sansVentes && <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />}
+        {!sansVentes && <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />}
+        {!sansVentes && <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />}
         {(totalFraisInstallation + totalFraisTransport) > 0 && (
           <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} nature="entree" />
         )}
         {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} nature="attente" />}
-        <Stat label="Clients uniques" value={nbClients} nature="neutre" />
+        {!sansVentes && <Stat label="Clients uniques" value={nbClients} nature="neutre" />}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -263,17 +277,17 @@ export function Dashboard({ db, profile }) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="Ventes du mois" value={fmt(somme(m.v))} nature="entree" />
+        {!sansVentes && <Stat label="Ventes du mois" value={fmt(somme(m.v))} nature="entree" />}
         <Stat label="Dépenses du mois" value={fmt(somme(m.d))} nature="sortie" />
-        <Stat label="Résultat du mois" value={fmt(resM)} nature={resM >= 0 ? "regle" : "du"} />
-        <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />
+        {!sansVentes && <Stat label="Résultat du mois" value={fmt(resM)} nature={resM >= 0 ? "regle" : "du"} />}
+        {!sansVentes && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      {!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="font-bold text-slate-800">Ventes des 6 derniers mois</div>
           <div className="flex gap-3 text-xs font-semibold flex-wrap">
-            {NOMS_VUES.map((b) => (
+            {NOMS_GRAPHE.map((b) => (
               <span key={b} className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: col(b) }}></span>{b}</span>
             ))}
           </div>
@@ -282,18 +296,18 @@ export function Dashboard({ db, profile }) {
           {mois6.map((x) => (
             <div key={x.nom} className="flex-1 flex flex-col items-center gap-1">
               <div className="w-full flex items-end justify-center gap-1 h-32">
-                {NOMS_VUES.map((b) => (
+                {NOMS_GRAPHE.map((b) => (
                   <div key={b} className="rounded-t" title={`${b} : ${fmt(x.vals[b])}`}
-                    style={{ width: `${Math.max(8, 30 / NOMS_VUES.length)}%`, backgroundColor: col(b), height: `${(x.vals[b] / maxV) * 100}%`, minHeight: x.vals[b] ? 3 : 0 }}></div>
+                    style={{ width: `${Math.max(8, 30 / Math.max(1, NOMS_GRAPHE.length))}%`, backgroundColor: col(b), height: `${(x.vals[b] / maxV) * 100}%`, minHeight: x.vals[b] ? 3 : 0 }}></div>
                 ))}
               </div>
               <div className="text-xs font-semibold text-slate-500">{x.nom}</div>
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
-      <div className="grid md:grid-cols-2 gap-3">
+      {!sansVentes && <div className="grid md:grid-cols-2 gap-3">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <div className="font-bold text-slate-800 mb-3">🏆 Top 5 des produits (période sélectionnée)</div>
           {topProduits.length === 0 && <div className="text-sm text-slate-400">Aucune vente sur cette période.</div>}
@@ -322,14 +336,14 @@ export function Dashboard({ db, profile }) {
             ))}
           </div>
         </div>
-      </div>
+      </div>}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+      {!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Synthèse par période</div>
-        <table className="w-full text-sm" style={{ minWidth: 480 + NOMS_VUES.length * 140 }}>
+        <table className="w-full text-sm" style={{ minWidth: 480 + NOMS_GRAPHE.length * 140 }}>
           <thead><tr className="text-xs text-slate-500 uppercase">
             <th className="text-left px-4 py-2">Période</th>
-            {NOMS_VUES.map((b) => <th key={b} className="text-right px-3 py-2">Ventes {b}</th>)}
+            {NOMS_GRAPHE.map((b) => <th key={b} className="text-right px-3 py-2">Ventes {b}</th>)}
             <th className="text-right px-3 py-2">Dépenses</th>
             <th className="text-right px-4 py-2">Résultat</th>
           </tr></thead>
@@ -339,7 +353,7 @@ export function Dashboard({ db, profile }) {
               return (
                 <tr key={r.label} className="border-t border-slate-100 hover:bg-sky-50">
                   <td className="px-4 py-2 font-semibold">{r.label}</td>
-                  {NOMS_VUES.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums" style={{ color: col(b) }}>{fmt(r.v[b])}</td>)}
+                  {NOMS_GRAPHE.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums" style={{ color: col(b) }}>{fmt(r.v[b])}</td>)}
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.d))}</td>
                   <td className={`px-4 py-2 text-right tabular-nums font-bold ${res >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(res)}</td>
                 </tr>
@@ -348,14 +362,14 @@ export function Dashboard({ db, profile }) {
             {periodeIndex === "custom" && (
               <tr className="border-t-2 border-slate-300 bg-slate-50">
                 <td className="px-4 py-2 font-bold">{customRow.label}</td>
-                {NOMS_VUES.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums font-bold" style={{ color: col(b) }}>{fmt(customRow.v[b])}</td>)}
+                {NOMS_GRAPHE.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums font-bold" style={{ color: col(b) }}>{fmt(customRow.v[b])}</td>)}
                 <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.d))}</td>
                 <td className={`px-4 py-2 text-right tabular-nums font-bold ${resCustom >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(resCustom)}</td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="font-bold text-slate-800 mb-2">Exporter les données (Excel / CSV)</div>
@@ -365,33 +379,33 @@ export function Dashboard({ db, profile }) {
             moyen de les distinguer. Ils partent désormais des mêmes listes
             filtrées que les indicateurs affichés au-dessus. */}
         <div className="flex gap-2 flex-wrap">
-          <button className={btnDark} onClick={() => exportCSV("ventes", ["Date", "N° reçu", "Boutique", "Articles", "Client", "Téléphone", "Qté totale", "Remise (%)", "Remise (F)", "Total", "Paiement", "Commercial", "Saisi par"],
-            ventesReellesDb.map((v) => [dFR(v.date), numeroRecu(v), v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>
+          {!sansVentes && <button className={btnDark} onClick={() => exportCSV("ventes", ["Date", "N° reçu", "Boutique", "Articles", "Client", "Téléphone", "Qté totale", "Remise (%)", "Remise (F)", "Total", "Paiement", "Commercial", "Saisi par"],
+            ventesReellesDb.map((v) => [dFR(v.date), numeroRecu(v), v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>}
           <button className={btnDark} onClick={() => exportCSV("depenses", ["Date", "Boutique", "Catégorie", "Description", "Montant", "Paiement", "Saisi par"],
             depensesReellesDb.map((x) => [dFR(x.date), x.boutique, x.categorie, x.description, x.montant, x.paiement, x.par]))}>Dépenses</button>
-          <button className={btnDark} onClick={() => exportCSV("dettes", ["Date", "Nature", "Boutique", "Client", "Téléphone", "Motif", "Montant", "Payé", "Reste", "Saisi par"],
-            dettesReellesDb.map((d) => [dFR(d.date), estReservation(d) ? "Réservation prépayée" : "Dette", d.boutique, d.client, d.tel, d.motif, d.montant, d.paye, Math.max(0, d.montant - d.paye), d.par]))}>Dettes</button>
-          <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
-            produitsReelsDb.map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>
+          {!sansVentes && <button className={btnDark} onClick={() => exportCSV("dettes", ["Date", "Nature", "Boutique", "Client", "Téléphone", "Motif", "Montant", "Payé", "Reste", "Saisi par"],
+            dettesReellesDb.map((d) => [dFR(d.date), estReservation(d) ? "Réservation prépayée" : "Dette", d.boutique, d.client, d.tel, d.motif, d.montant, d.paye, Math.max(0, d.montant - d.paye), d.par]))}>Dettes</button>}
+          {!sansStock && <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
+            produitsReelsDb.map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>}
           <button className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800"
             onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
         </div>
         <div className="text-xs text-slate-400 mt-2">Fichiers CSV compatibles Excel (séparateur point-virgule). Le journal comptable couvre la période sélectionnée plus haut : écritures en partie double (ventes, dépenses, règlements de dettes) avec les comptes SYSCOHADA de base — à remettre à votre comptable, qui peut adapter les codes si besoin.</div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-3">
+      {!sansStock && <div className="grid md:grid-cols-2 gap-3">
         {NOMS_VUES.map((b) => (
           <div key={b} className="bg-white rounded-xl border-2 p-4" style={{ borderColor: col(b) }}>
             <div className="mb-3"><Badge boutique={b} /></div>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><div className="text-xs text-slate-500">Dettes clients</div><div className="font-bold tabular-nums">{fmt(dettes[b])}</div></div>
+              {!estDepot(b) && <div><div className="text-xs text-slate-500">Dettes clients</div><div className="font-bold tabular-nums">{fmt(dettes[b])}</div></div>}
               <div><div className="text-xs text-slate-500">Alertes stock</div><div className={`font-bold ${alertes[b] ? "text-red-600" : ""}`}>{alertes[b]} article(s)</div></div>
               <div><div className="text-xs text-slate-500">Stock (prix d'achat)</div><div className="font-bold tabular-nums">{fmt(valA[b])}</div></div>
               <div><div className="text-xs text-slate-500">Stock (prix de vente)</div><div className="font-bold tabular-nums">{fmt(valV[b])}</div></div>
             </div>
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

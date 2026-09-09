@@ -4398,9 +4398,23 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
   test("★ les sept listes globales (ventes, dépenses, dettes, produits, chantiers, dettes classiques, réservations) passent par l'espace PUIS par la boutique choisie",
     (dash.match(/\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\)/g) || []).length === 6
     && /dansMonEspace\(\{ boutique: boutiqueDuChantier\(db, c\) \}\) && dansLaBoutique\(\{ boutique: boutiqueDuChantier\(db, c\) \}\)/.test(dash));
-  test("★ colonnes, barres et cartes par boutique suivent le choix (NOMS_VUES) ; « Toutes » = la liste d'avant, inchangée",
-    /const NOMS_VUES = bqChoisie \? \[bqChoisie\] : NOMS;/.test(dash) && (dash.match(/\bNOMS_VUES\b/g) || []).length >= 14
+  // Retourné le 09/09/2026 (Timo : « cacher les cartes à zéro chez le
+  // comptable et pour le magasin ») : le graphique et la synthèse ne
+  // montrent que les boutiques qui VENDENT (NOMS_GRAPHE, sans dépôt) ; les
+  // totaux et les cartes du bas gardent tout (NOMS_VUES).
+  test("★ colonnes, barres et cartes par boutique suivent le choix (NOMS_VUES) ; graphique et synthèse sans les dépôts (NOMS_GRAPHE) ; « Toutes » = la liste d'avant",
+    /const NOMS_VUES = bqChoisie \? \[bqChoisie\] : NOMS;/.test(dash) && /const NOMS_GRAPHE = NOMS_VUES\.filter\(\(nom\) => !estDepot\(nom\)\);/.test(dash)
+    && (dash.match(/\bNOMS_VUES\b/g) || []).length >= 8 && (dash.match(/\bNOMS_GRAPHE\b/g) || []).length >= 7
     && !/\bNOMS\.(map|forEach|reduce|length)/.test(dash));
+  test("★ un dépôt ou la caisse du comptable ne montrent aucune carte de vente, dette, commission ou client, ni graphique, top 5, paiements, synthèse ; TERRAIN et le comptable n'ont pas de carte de stock",
+    /const sansVentes = depotChoisi \|\| comptableChoisi;/.test(dash) && /const sansStock = comptableChoisi \|\| terrainChoisi;/.test(dash)
+    && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 7 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
+    && /\{!sansVentes && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">\s*<div [^>]*>Synthèse par période/.test(dash)
+    && /\{!sansStock && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!estDepot\(b\) && <div><div className="text-xs text-slate-500">Dettes clients/.test(dash));
+  test("★ les dépenses restent visibles partout (total et du mois), et les exports suivent : ventes / dettes cachés sans ventes, stocks caché sans stock",
+    /<Stat label="Total des dépenses"/.test(dash) && /<Stat label="Dépenses du mois"/.test(dash) && !/\{!sansVentes && <Stat label="Total des dépenses"/.test(dash)
+    && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("ventes"/.test(dash) && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("dettes"/.test(dash)
+    && /\{!sansStock && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("stocks"/.test(dash));
   test("★ le journal comptable exporté suit aussi la boutique choisie", /lignesJournal\(db, pa, pb\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
   test("la présentation ne change pas : mêmes cartes, même sélecteur de période, le graphique et la synthèse sont là", /<Stat label="Total des ventes"/.test(dash) && /Ventes des 6 derniers mois/.test(dash) && /Synthèse par période/.test(dash));
 }
