@@ -16,7 +16,11 @@ import { createPortal } from "react-dom";
 import { inputCls } from "./ui";
 import { filtrerSuggestions } from "../lib/suggestions";
 
-export function ChampSuggestions({ valeur, onChange, suggestions, placeholder, className, type = "text", autoFocus, disabled }) {
+// onChange : ce qui est TAPÉ (jamais transformé) ; onChoisir : la proposition
+// CLIQUÉE (ou validée par Entrée) — c'est là, et là seulement, qu'un écran
+// peut pré-remplir autre chose (Timo, 09/09/2026 : « à peine j'écris TV, la
+// case se remplit de Téléviseur 32 — ça ne me donne pas la liberté »).
+export function ChampSuggestions({ valeur, onChange, onChoisir, suggestions, placeholder, className, type = "text", autoFocus, disabled }) {
   const [ouvert, setOuvert] = useState(false);
   const [actif, setActif] = useState(-1);
   const [cadre, setCadre] = useState(null);
@@ -52,7 +56,7 @@ export function ChampSuggestions({ valeur, onChange, suggestions, placeholder, c
     };
   }, [ouvert]);
 
-  const choisir = (s) => { onChange(s.valeur); setOuvert(false); setActif(-1); };
+  const choisir = (s) => { onChange(s.valeur); if (onChoisir) onChoisir(s); setOuvert(false); setActif(-1); };
   const auClavier = (e) => {
     if (!ouvert || propositions.length === 0) { if (e.key === "ArrowDown") setOuvert(true); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setActif((i) => Math.min(propositions.length - 1, i + 1)); }

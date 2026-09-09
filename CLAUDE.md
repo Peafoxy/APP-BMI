@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 979 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 981 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -195,8 +195,10 @@ lit mal est pire qu'un banc absent).
   **Aucune mention sous le champ** (« supprimer la mention ») : la case HB dit tout.
 - **Les appareils du volet solaire** (09/09/2026) : catalogue de 60 appareils
   avec puissance typique et **autres noms / abréviations** (`lib/appareils.js`),
-  proposé dans le champ Appareil ; choisir pré-remplit la puissance ; hors
-  liste = saisie libre. **Une faute d'une lettre est tolérée** (mots de 4
+  proposé dans le champ Appareil ; **seul un CLIC sur une proposition
+  pré-remplit** (`onChoisir`), ce qui est tapé n'est jamais transformé
+  (« à peine j'écris TV, la case se remplit » — refusé) ; hors liste =
+  saisie libre. **Une faute d'une lettre est tolérée** (mots de 4
   lettres et plus, `correspondApprox`). Un mot partagé (« poste »,
   « machine ») ouvre la liste, ne choisit jamais. La liste grandit dans
   ⚙ Paramètres → 🔌 Appareils (admin ; écrit `appareils_catalogue` sur les

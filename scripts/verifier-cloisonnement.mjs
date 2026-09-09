@@ -4337,9 +4337,18 @@ titre("Les appareils du volet solaire : catalogue, abréviations, une faute tol�
     ac.length === 1 && ac[0].nom === "Machine à pâte" && ac[0].puissance === 900 && ac[0].devis === 3);
   test("★ idAppareil fabrique un identifiant sûr", App.idAppareil("Four à pain (grand)") === "perso_four_a_pain_grand");
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
-  test("★ le champ Appareil du volet solaire propose le catalogue de l'espace regardé et pré-remplit la puissance au choix",
-    /<ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur=\{a\.nom\} suggestions=\{propositionsAppareils\} onChange=\{\(v\) => choisirAppareil\(a\.id, v\)\} \/>/.test(sol)
-    && /const catalogue = catalogueAppareils\(db, profile\);/.test(sol) && /\{ \.\.\.a, nom: e\.nom, puissance: String\(e\.puissance\) \}/.test(sol));
+  // Retourné le 09/09/2026 (Timo : « à peine j'écris TV, la case se remplit
+  // de Téléviseur 32 ») : ce qui est tapé reste tel quel, seul un CLIC sur
+  // une proposition pré-remplit.
+  test("★ le champ Appareil : ce qu'on tape n'est jamais transformé (onChange = majAppareil), seul le clic sur une proposition pré-remplit (onChoisir)",
+    /<ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur=\{a\.nom\} suggestions=\{propositionsAppareils\} onChange=\{\(v\) => majAppareil\(a\.id, "nom", v\)\} onChoisir=\{\(s\) => choisirAppareil\(a\.id, s\)\} \/>/.test(sol)
+    && /const catalogue = catalogueAppareils\(db, profile\);/.test(sol) && /\{ \.\.\.a, nom: e\.nom, puissance: String\(e\.puissance\) \}/.test(sol)
+    && !/onChange=\{\(v\) => choisirAppareil/.test(sol));
+  test("★ le champ commun distingue TAPER (onChange, jamais transformé) et CHOISIR (onChoisir, au clic ou à Entrée seulement)",
+    /const choisir = \(s\) => \{ onChange\(s\.valeur\); if \(onChoisir\) onChoisir\(s\); setOuvert\(false\); setActif\(-1\); \};/.test(readFileSync("src/components/ChampSuggestions.jsx", "utf8"))
+    && /onChange=\{\(e\) => \{ onChange\(e\.target\.value\); setOuvert\(true\); setActif\(-1\); \}\}/.test(readFileSync("src/components/ChampSuggestions.jsx", "utf8")));
+  test("★ aucun autre écran ne transforme ce qui est tapé dans un champ à suggestions (le nom d'un autre équipement n'est relié qu'à un nom EXACT du stock, sans réécriture partielle)",
+    /return \{ \.\.\.autre, nom, produit_id: null/.test(readFileSync("src/screens/dimensionnement/devisCommun.js", "utf8")));
   const par = readFileSync("src/screens/Parametres.jsx", "utf8");
   test("★ ⚙ Paramètres → 🔌 Appareils : ajouter, corrigér, retirer (admin), écrit sur les boutiques de l'espace regardé seulement ; « à classer » lit les comptes de l'espace",
     /\["appareils", `🔌 Appareils/.test(par) && /refuserSaufAdmin\(profile, "Compléter la liste des appareils"\)/.test(par)
