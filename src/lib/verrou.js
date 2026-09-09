@@ -66,3 +66,16 @@ export const texteClairSur = (hex) => {
   const { r, g, b } = rgbDe(hex || COULEUR_CARTE_VERROU_DEFAUT);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 };
+
+// ---- LA SESSION SÉCURISÉE TOMBÉE (Timo, 09/09/2026) ----
+// « Lecture de « users » impossible : permission denied… » revenait souvent :
+// la demande partait SANS session (jeton perdu après une veille, une coupure
+// au moment du renouvellement, un rechargement de page). Décision Timo :
+// « à la place, verrouiller la session — même fenêtre que celle qui vient
+// par inactivité » ; le mot de passe déverrouille ET rouvre la session.
+// Reconnaît, dans le message d'erreur du serveur, une session absente ou
+// expirée (jamais un contenu refusé par une règle : ça, c'est autre chose).
+export const sessionPerdueSelon = (message) =>
+  /permission denied|jwt expired|invalid jwt|jwt malformed|refresh_token|401|PGRST301|no api key|unauthori[sz]ed/i.test(String(message || ""));
+
+export const MESSAGE_SESSION_PERDUE = "Session sécurisée expirée : entrez votre mot de passe pour la rétablir.";

@@ -128,7 +128,17 @@ const URL_ETAT_AUTH = BASE ? `${BASE}/api/etat-auth` : "/api/etat-auth";
 let identifiants = null;
 
 // Dernier diagnostic connu, lisible par l'interface.
-export const etatAuth = { ok: false, raison: "Session jamais établie" };
+export const etatAuth = { ok: false, raison: "Session jamais établie", sessionPerdue: false };
+
+// La session est tombée (lecture refusée « permission denied », jeton
+// expiré) : le verrou d'écran (App.jsx) le voit et demande le mot de passe,
+// qui rouvre la session (Timo, 09/09/2026).
+export function marquerSessionPerdue(raison) {
+  Object.assign(etatAuth, { ok: false, sessionPerdue: true, raison });
+}
+// Les identifiants sont-ils encore en mémoire ? Sans eux (page rechargée),
+// seule une saisie du mot de passe peut rouvrir la session.
+export const aDesIdentifiants = () => identifiants !== null;
 
 // Établit une VRAIE session Supabase (indispensable une fois la sécurité activée).
 // Renvoie { ok, raison }. Ne bloque jamais la connexion locale.
@@ -167,7 +177,7 @@ export async function synchroniserAuth(id, motDePasse) {
       Object.assign(etatAuth, { ok: false, raison: `Supabase a refusé la session : ${error.message}` });
       return { ...etatAuth };
     }
-    Object.assign(etatAuth, { ok: true, raison: "Session sécurisée active" });
+    Object.assign(etatAuth, { ok: true, sessionPerdue: false, raison: "Session sécurisée active" });
     return { ...etatAuth };
   } catch (e) {
     Object.assign(etatAuth, { ok: false, raison: `Serveur d'authentification injoignable (${e?.message || e})` });
@@ -209,7 +219,7 @@ export async function assurerSession() {
   try {
     const { data } = await supabase.auth.refreshSession();
     if (data?.session) {
-      Object.assign(etatAuth, { ok: true, raison: "Session sécurisée active" });
+      Object.assign(etatAuth, { ok: true, sessionPerdue: false, raison: "Session sécurisée active" });
       return true;
     }
   } catch { /* on continue avec les identifiants s'ils sont connus */ }

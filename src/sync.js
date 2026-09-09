@@ -2,7 +2,8 @@ import { idb, TABLES, compterEnAttente } from "./db";
 import { planAbandon } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
-import { supabase, supabaseConfigure, assurerSession, etatAuth } from "./supabaseClient";
+import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
+import { sessionPerdueSelon, MESSAGE_SESSION_PERDUE } from "./lib/verrou";
 
 // Moteur de synchronisation :
 // - toutes les écritures se font d'abord en LOCAL (instantané, hors ligne)
@@ -43,6 +44,9 @@ async function notifier(rafraichir = false, erreur = "") {
     rafraichir,
     erreur,
     refus: refusEnCours,
+    // La session est tombée et rien en mémoire ne peut la rouvrir : l'écran
+    // se verrouille et demande le mot de passe (Timo, 09/09/2026).
+    sessionPerdue: etatAuth.sessionPerdue === true && !aDesIdentifiants(),
   });
 }
 
@@ -670,8 +674,18 @@ export async function synchroniser(options = {}) {
           await idb.meta.put({ cle, valeur: maxVu });
         } catch (e) {
           echecReseau = true;
-          if (!derniereErreur) derniereErreur = `Lecture de « ${t} » impossible : ${String(e?.message || e)}`;
-          console.warn(`Lecture de "${t}" reportée :`, e?.message || e);
+          const msg = String(e?.message || e);
+          // ⚠ « permission denied for table users » = la demande est partie
+          // SANS session (visiteur anonyme, à qui la lecture est fermée
+          // depuis users-1). Ce n'est pas un problème de droits du compte :
+          // la session est tombée. On le dit en français, et on la marque
+          // MORTE pour que le verrou demande le mot de passe tout de suite
+          // (avant, seule une écriture refusée le faisait).
+          if (sessionPerdueSelon(msg)) {
+            marquerSessionPerdue(MESSAGE_SESSION_PERDUE);
+            if (!derniereErreur) derniereErreur = MESSAGE_SESSION_PERDUE;
+          } else if (!derniereErreur) derniereErreur = `Lecture de « ${t} » impossible : ${msg}`;
+          console.warn(`Lecture de "${t}" reportée :`, msg);
         }
       }
     } catch (e) {

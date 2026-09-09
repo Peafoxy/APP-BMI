@@ -528,13 +528,21 @@ export default function App() {
   // survivre à une actualisation) et note l'état verrouillé.
   const [verrouille, setVerrouille] = useState(false);
   const [erreursVerrou, setErreursVerrou] = useState(0);
+  // Pourquoi c'est verrouillé : "inactivite" (ou clic sur Verrouiller), ou
+  // "session" — la session sécurisée est tombée, le mot de passe la rouvre.
+  const [motifVerrou, setMotifVerrou] = useState("inactivite");
   const ecrireSession = (champs) => {
     try {
       const brut = localStorage.getItem("bmi_session");
       if (brut) localStorage.setItem("bmi_session", JSON.stringify({ ...JSON.parse(brut), ...champs }));
     } catch {}
   };
-  const verrouiller = () => { setVerrouille(true); setErreursVerrou(0); ecrireSession({ verrouille: true }); };
+  const verrouiller = (motif = "inactivite") => { setMotifVerrou(motif); setVerrouille(true); setErreursVerrou(0); ecrireSession({ verrouille: true }); };
+  // ⚠ Décision Timo (09/09/2026) : session tombée = MÊME fenêtre que le
+  // verrou d'inactivité ; le mot de passe la déverrouille ET la rouvre.
+  useEffect(() => {
+    if (profile && sync.sessionPerdue && !verrouille) verrouiller("session");
+  }, [sync.sessionPerdue, profile, verrouille]);
   useEffect(() => {
     if (!profile || verrouille) return;
     let derniereActivite = Date.now();
@@ -554,7 +562,14 @@ export default function App() {
     const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
     const { ok } = await verifierMotDePasse(compte, saisie);
     if (ok) {
-      setVerrouille(false); setErreursVerrou(0);
+      // Session tombée : le même mot de passe la rouvre auprès du serveur.
+      // Sans réseau, on déverrouille quand même — les identifiants sont
+      // maintenant en mémoire, la synchronisation réessaiera toute seule.
+      if (motifVerrou === "session" || etatAuth.sessionPerdue) {
+        try { await synchroniserAuth(compte.id, saisie); } catch { /* réessayé par la synchronisation */ }
+        synchroniser({ urgent: true });
+      }
+      setVerrouille(false); setErreursVerrou(0); setMotifVerrou("inactivite");
       ecrireSession({ verrouille: false, ts: Date.now() });
       return { ok: true };
     }
@@ -1249,7 +1264,7 @@ export default function App() {
 
   return (
     <>
-    {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
+    {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} motif={motifVerrou} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
     {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant : un
         cadre flouté (filter) emprisonne ses enfants en position fixe. */}
     <div className={`min-h-screen bg-slate-100 lg:flex${verrouille ? " blur-lg pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>

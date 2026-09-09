@@ -17,7 +17,7 @@ import { useState, useRef, useEffect } from "react";
 import { inputCls } from "./ui";
 import { decorAccueil, FondAccueil, Bulles } from "../screens/Connexion";
 
-export function EcranVerrou({ profile, db, apparence, onDeverrouiller, onDeconnecter }) {
+export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDeverrouiller, onDeconnecter }) {
   const [saisie, setSaisie] = useState("");
   const [erreur, setErreur] = useState("");
   const [occupe, setOccupe] = useState(false);
@@ -58,7 +58,11 @@ export function EcranVerrou({ profile, db, apparence, onDeverrouiller, onDeconne
               <div className="text-4xl">🔒</div>
               <div className="font-bold text-lg mt-1">Session verrouillée</div>
               <div className={`text-sm mt-1 ${decor.verrouTexteClair ? "text-white/80" : "text-slate-500"}`}>Compte : <b>{profile?.nom}</b></div>
-              <div className={`text-xs mt-1 ${decor.verrouTexteClair ? "text-white/70" : "text-slate-400"}`}>Entrez le mot de passe et reprenez la session.</div>
+              <div className={`text-xs mt-1 ${decor.verrouTexteClair ? "text-white/70" : "text-slate-400"}`}>
+                {motif === "session"
+                  ? "Votre session sécurisée a expiré : entrez le mot de passe pour la rétablir et reprendre."
+                  : "Entrez le mot de passe et reprenez la session."}
+              </div>
             </div>
             <div className="relative">
               <input ref={champ} type={visible ? "text" : "password"} autoComplete="current-password" className={`${inputCls} pr-10`} placeholder="Mot de passe"

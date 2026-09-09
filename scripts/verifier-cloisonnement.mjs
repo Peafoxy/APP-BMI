@@ -4531,12 +4531,12 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     !/DUREE_INACTIVITE/.test(app) && !/deconnexion\(true\); \/\/ purge/.test(app) && /if \(doitVerrouiller\(derniereActivite, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app));
   test("★ la session restaurée après F5 n'a plus de limite de temps, et ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé",
     /if \(u && u\.actif !== false\) \{\n\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
-    && /const verrouiller = \(\) => \{ setVerrouille\(true\); setErreursVerrou\(0\); ecrireSession\(\{ verrouille: true \}\); \};/.test(app));
+    && /const verrouiller = \(motif = "inactivite"\) => \{ setMotifVerrou\(motif\); setVerrouille\(true\); setErreursVerrou\(0\); ecrireSession\(\{ verrouille: true \}\); \};/.test(app));
   test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
     && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+let derniereActivite = Date\.now\(\);/.test(app));
   test("★ le voile est un FRÈRE du cadre flouté (jamais un enfant : un cadre filtré emprisonne le position fixe) ; le cadre derrière est flouté, insensible aux clics, non sélectionnable",
-    /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
+    /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
     && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " blur-lg pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
@@ -4573,6 +4573,26 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ decorAccueil lit ces deux réglages (verrouFond, verrouTexteClair) et la carte du verrou les applique, sans toucher à la carte de connexion",
     /const verrouFond = fondCarteVerrou\(verrouCouleur, b0\.verrou_opacite_carte\);/.test(cnxV) && /verrouTexteClair/.test(cnxV)
     && /style=\{\{ backgroundColor: decor\.verrouFond \}\}/.test(ev) && /decor\.verrouTexteClair \? "text-white" : "text-slate-800"/.test(ev) && !/verrou/.test(cnxV.slice(cnxV.indexOf("export function CarteAccueil"))));
+  // Timo (09/09/2026), capture « Lecture de « users » impossible : permission
+  // denied » : session tombée = même fenêtre de verrou, le mot de passe la
+  // rouvre. Règle pure exercée, branchement contrôlé.
+  test("★ sessionPerdueSelon reconnaît une session absente ou expirée, jamais un contenu refusé par une règle",
+    V.sessionPerdueSelon("permission denied for table users") === true && V.sessionPerdueSelon("JWT expired") === true && V.sessionPerdueSelon("Invalid JWT") === true
+    && V.sessionPerdueSelon("new row violates row-level security policy") === false && V.sessionPerdueSelon("Refusé : personne ne modifie sa propre fiche") === false && V.sessionPerdueSelon("") === false
+    && /entrez votre mot de passe/.test(V.MESSAGE_SESSION_PERDUE));
+  const syncSrc = readFileSync("src/sync.js", "utf8");
+  const sbc = readFileSync("src/supabaseClient.js", "utf8");
+  test("★ une lecture refusée marque la session MORTE (marquerSessionPerdue) avec un message en français, et la synchronisation le signale (sessionPerdue) quand rien en mémoire ne peut la rouvrir",
+    /if \(sessionPerdueSelon\(msg\)\) \{\n\s+marquerSessionPerdue\(MESSAGE_SESSION_PERDUE\);\n\s+if \(!derniereErreur\) derniereErreur = MESSAGE_SESSION_PERDUE;/.test(syncSrc)
+    && /sessionPerdue: etatAuth\.sessionPerdue === true && !aDesIdentifiants\(\),/.test(syncSrc)
+    && /export function marquerSessionPerdue\(raison\)/.test(sbc) && /export const aDesIdentifiants = \(\) => identifiants !== null;/.test(sbc)
+    && (sbc.match(/sessionPerdue: false/g) || []).length >= 3);
+  test("★ App : session tombée → verrouiller(\"session\") ; le bon mot de passe rouvre la session (synchroniserAuth) puis relance la synchronisation, et déverrouille même sans réseau",
+    /if \(profile && sync\.sessionPerdue && !verrouille\) verrouiller\("session"\);/.test(app)
+    && /if \(motifVerrou === "session" \|\| etatAuth\.sessionPerdue\) \{\n\s+try \{ await synchroniserAuth\(compte\.id, saisie\); \} catch \{[^}]*\}\n\s+synchroniser\(\{ urgent: true \}\);\n\s+\}\n\s+setVerrouille\(false\)/.test(app)
+    && /motif=\{motifVerrou\}/.test(app));
+  test("★ la fenêtre dit pourquoi : « Votre session sécurisée a expiré … » quand c'est la session, le texte court sinon",
+    /motif === "session"\s*\? "Votre session sécurisée a expiré : entrez le mot de passe pour la rétablir et reprendre\."/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");
