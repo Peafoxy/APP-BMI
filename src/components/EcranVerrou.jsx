@@ -35,8 +35,11 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     e?.preventDefault?.();
     if (occupe || !saisie) return;
     setOccupe(true);
-    const r = await onDeverrouiller(saisie);
-    setOccupe(false);
+    let r = null;
+    // try/finally : quoi qu'il arrive, le champ redevient saisissable.
+    // Sans cela, une vérification qui échoue laissait « occupe » à vrai et
+    // le champ DÉSACTIVÉ pour toujours (« le mot de passe ne s'écrit pas »).
+    try { r = await onDeverrouiller(saisie); } catch { r = { ok: false }; } finally { setOccupe(false); }
     if (r?.ok) return;
     setSaisie("");
     setErreur(r?.fermer
@@ -51,7 +54,7 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
         {/* La couleur et la transparence de CETTE carte se règlent à part
             (⚙ Paramètres → 🔒 Fenêtre de verrouillage) ; une carte sombre
             passe son texte en clair. */}
-        <form onSubmit={valider} className={`relative z-10 overflow-hidden rounded-2xl shadow-2xl w-full max-w-sm p-6 ${decor.flou} ${decor.verrouTexteClair ? "text-white" : "text-slate-800"}`} style={{ backgroundColor: decor.verrouFond }}>
+        <form onSubmit={valider} className={`relative z-10 overflow-hidden rounded-2xl shadow-2xl w-full max-w-sm p-6 ${decor.verrouTranslucide ? "backdrop-blur-sm" : ""} ${decor.verrouTexteClair ? "text-white" : "text-slate-800"}`} style={{ backgroundColor: decor.verrouFond }}>
           {decor.bulles && <Bulles couleur={decor.couleurBulles} />}
           <div className="relative space-y-4">
             <div className="text-center">

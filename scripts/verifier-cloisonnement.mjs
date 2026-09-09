@@ -4537,9 +4537,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
     && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+derniereActiviteRef\.current = Date\.now\(\);/.test(app));
-  test("★ le voile est un FRÈRE du cadre flouté (jamais un enfant : un cadre filtré emprisonne le position fixe) ; le cadre derrière est flouté, insensible aux clics, non sélectionnable",
+  test("★ le voile est un FRÈRE du cadre de l'application (jamais un enfant) ; le cadre derrière est insensible aux clics et non sélectionnable — et PLUS flouté (Timo, 09/09/2026 : « le mot de passe ne s'écrit pas » — le flou redessinait toute l'application à chaque lettre)",
     /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
-    && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " blur-lg pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app));
+    && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
     /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
@@ -4600,6 +4600,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /export const MARGE_RENOUVELLEMENT_S = 10 \* 60;/.test(sbc) && /if \(expireBientot\(data\?\.session\)\) await supabase\.auth\.refreshSession\(\);/.test(sbc));
   test("★ la fenêtre dit pourquoi : « Votre session sécurisée a expiré … » quand c'est la session, le texte court sinon",
     /motif === "session"\s*\? "Votre session sécurisée a expiré : entrez le mot de passe pour la rétablir et reprendre\."/.test(ev));
+  test("★ le champ redevient toujours saisissable (try/finally sur « occupe ») ; le flou de la carte n'est posé que si elle est translucide",
+    /try \{ r = await onDeverrouiller\(saisie\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupe\(false\); \}/.test(ev)
+    && /\$\{decor\.verrouTranslucide \? "backdrop-blur-sm" : ""\}/.test(ev) && !/decor\.flou/.test(ev) && /const verrouTranslucide = !\/,1\\\)\$\/\.test\(verrouFond\);/.test(cnxV));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");

@@ -1283,9 +1283,12 @@ export default function App() {
   return (
     <>
     {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} motif={motifVerrou} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
-    {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant : un
-        cadre flouté (filter) emprisonne ses enfants en position fixe. */}
-    <div className={`min-h-screen bg-slate-100 lg:flex${verrouille ? " blur-lg pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
+    {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant.
+        Plus de flou (filter) sur ce cadre (Timo, 09/09/2026 : « le mot de
+        passe ne s'écrit pas ») : la fenêtre de verrou couvre tout l'écran
+        avec son fond, le flou ne se voyait pas et coûtait un redessin de
+        toute l'application à chaque lettre tapée sur un PC modeste. */}
+    <div className={`min-h-screen bg-slate-100 lg:flex${verrouille ? " pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
       {syncInitiale && (
         <div className="fixed top-0 inset-x-0 z-[9999] bg-sky-800 text-white text-center text-sm font-semibold py-2 shadow-lg">
           ⏳ Synchronisation avec le serveur — les données arrivent…

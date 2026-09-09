@@ -183,7 +183,10 @@ export function decorAccueil(db, apparence) {
   const verrouCouleur = b0.verrou_couleur_carte || COULEUR_CARTE_VERROU_DEFAUT;
   const verrouFond = fondCarteVerrou(verrouCouleur, b0.verrou_opacite_carte);
   const verrouTexteClair = texteClairSur(verrouCouleur);
-  return { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran, verrouCouleur, verrouFond, verrouTexteClair };
+  // Le flou d'arrière-plan de la carte (coûteux à redessiner) n'a de sens
+  // que si elle laisse voir la photo à travers elle.
+  const verrouTranslucide = !/,1\)$/.test(verrouFond);
+  return { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran, verrouCouleur, verrouFond, verrouTexteClair, verrouTranslucide };
 }
 
 // Le FOND d'accueil seul : dégradé ou image plein écran, voile sombre,

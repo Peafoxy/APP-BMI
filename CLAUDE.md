@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1038 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1039 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -132,14 +132,17 @@ lit mal est pire qu'un banc absent).
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
 - **🔒 Verrou d'inactivité** (09/09/2026) : après **3 min sans geste sur
-  PC, 6 sur téléphone**, l'écran se floute et demande le mot de passe du
-  compte (vérifié sur l'appareil, fiche actuelle) ; 5 erreurs ferment la
+  PC, 6 sur téléphone**, une fenêtre couvre l'écran et demande le mot de
+  passe du compte (vérifié sur l'appareil, fiche actuelle) ; 5 erreurs ferment la
   session ; le verrou survit au F5 (la session rouvre verrouillée, jamais
   déverrouillée seule). **À 30 min sans geste, verrouillée ou non, la
   session se ferme** (`doitDeconnecter`, PC et téléphone ; Timo : « ne pas
   laisser indéfiniment la session verrouillée »), et une session plus
   vieille que ça ne se restaure pas après F5. Règle pure `lib/verrou.js`, fenêtre
-  `components/EcranVerrou.jsx` — un FRÈRE du cadre flouté, jamais un enfant.
+  `components/EcranVerrou.jsx` — un FRÈRE du cadre de l'application, jamais
+  un enfant ; **aucun `filter: blur` sur l'application derrière** (le
+  09/09/2026 : « le mot de passe ne s'écrit pas », redessin de tout l'écran
+  à chaque lettre sur un PC modeste).
   Barre du haut (ordinateur) : un bouton « Verrouiller » **sans cadenas**, à
   la place de « En ligne / version / nom » (la barre latérale les garde) ;
   téléphone : juste un 🔐 sur la ligne du titre. **La fenêtre de verrou
