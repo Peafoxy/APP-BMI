@@ -213,7 +213,7 @@ export function Dashboard({ db, profile }) {
       {/* Une boutique au choix — « Toutes » garde l'écran tel qu'il est. */}
       <div className="flex flex-wrap gap-2 items-center">
         <button onClick={() => choisirBq("")}
-          className={`px-4 py-1.5 rounded-full text-sm font-bold ${!bqChoisie ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>Toutes</button>
+          className={`px-4 py-1.5 rounded-full text-sm font-bold ${!bqChoisie ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>TOUTES</button>
         {PASTILLES.map((nom) => (
           <button key={nom} onClick={() => choisirBq(nom)}
             className={`px-4 py-1.5 rounded-full text-sm font-bold ${bqChoisie === nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}

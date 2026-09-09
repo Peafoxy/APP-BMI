@@ -4402,6 +4402,7 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
   // comptable et pour le magasin ») : le graphique et la synthèse ne
   // montrent que les boutiques qui VENDENT (NOMS_GRAPHE, sans dépôt) ; les
   // totaux et les cartes du bas gardent tout (NOMS_VUES).
+  test("★ la pastille « TOUTES » s'écrit en majuscules, comme les noms de boutiques à côté (capture Timo, 09/09/2026)", />TOUTES<\/button>/.test(dash) && !/>Toutes<\/button>/.test(dash));
   test("★ colonnes, barres et cartes par boutique suivent le choix (NOMS_VUES) ; graphique et synthèse sans les dépôts (NOMS_GRAPHE) ; « Toutes » = la liste d'avant",
     /const NOMS_VUES = bqChoisie \? \[bqChoisie\] : NOMS;/.test(dash) && /const NOMS_GRAPHE = NOMS_VUES\.filter\(\(nom\) => !estDepot\(nom\)\);/.test(dash)
     && (dash.match(/\bNOMS_VUES\b/g) || []).length >= 8 && (dash.match(/\bNOMS_GRAPHE\b/g) || []).length >= 7
