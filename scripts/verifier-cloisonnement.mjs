@@ -4408,7 +4408,7 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
     && !/\bNOMS\.(map|forEach|reduce|length)/.test(dash));
   test("★ un dépôt ou la caisse du comptable ne montrent aucune carte de vente, dette, commission ou client, ni graphique, top 5, paiements, synthèse ; TERRAIN et le comptable n'ont pas de carte de stock",
     /const sansVentes = depotChoisi \|\| comptableChoisi;/.test(dash) && /const sansStock = comptableChoisi \|\| terrainChoisi;/.test(dash)
-    && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 7 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
+    && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 8 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
     && /\{!sansVentes && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">\s*<div [^>]*>Synthèse par période/.test(dash)
     && /\{!sansStock && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!estDepot\(b\) && <div><div className="text-xs text-slate-500">Dettes clients/.test(dash));
   test("★ les dépenses restent visibles partout (total et du mois), et les exports suivent : ventes / dettes cachés sans ventes, stocks caché sans stock",
