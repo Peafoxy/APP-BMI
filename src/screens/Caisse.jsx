@@ -168,6 +168,7 @@ export function Caisse({ db, save, profile }) {
             <div className="flex items-end"><button onClick={verser} className={btnDark}>💸 Verser</button></div>
           </div>
         )}
+        {!ROLES_VERSEMENT.includes(profile.role) && <div className="text-sm text-slate-500">Le versement des fonds est fait par le gérant.</div>}
         <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente.</div>
         {mesVersements.length > 0 && (
           <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-hidden">

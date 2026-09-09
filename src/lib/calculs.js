@@ -1723,7 +1723,7 @@ export const bloquerSiLecture = (db, profile) => {
 // étapes 2 et suivantes), et l'application ne doit jamais proposer un geste
 // que le serveur refuserait.
 export const ROLES_STOCK = ["magasinier", "gerant", "admin"];        // entrées, ajustements, transferts, inventaire, bons
-export const ROLES_CAISSE = ["gerant", "admin"];                     // clôturer la caisse
+export const ROLES_CAISSE = ["vendeur", "gerant", "admin"];          // clôturer la caisse (vendeur aussi — Timo, 09/09/2026)
 export const ROLES_FOURNISSEURS = ["gerant", "admin"];               // régler, endetter, supprimer un fournisseur
 export const PLAFOND_REMISE_PCT = 3;                                  // au-delà : admin seul
 const LIBELLE_ROLE_COURT = { admin: "l'administrateur", gerant: "le gérant", magasinier: "le magasinier",

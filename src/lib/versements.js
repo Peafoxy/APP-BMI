@@ -8,8 +8,8 @@
 //   • validation : BANQUE et Chez le DG → le DG, c'est-à-dire
 //     l'ADMINISTRATEUR PRINCIPAL ; Chez le comptable → le comptable, avec
 //     son pointage « ✅ Encaissé » habituel ;
-//   • vendeur et gérant peuvent verser ; versement libre (pas imposé à la
-//     clôture).
+//   • le gérant (et l'admin) versent — pas le vendeur (décision du même
+//     jour) ; versement libre (pas imposé à la clôture).
 //
 // UNE règle, pure (le banc l'exerce) : un versement est une DÉPENSE de la
 // boutique (catégorie « Versement de fonds », espèces) qui porte le détail
@@ -24,7 +24,9 @@ export const DEST_DG = "Chez le DG";
 export const DEST_BANQUE = "BANQUE";
 export const DEST_COMPTABLE = "Chez le comptable";
 export const DESTINATIONS_VERSEMENT = [DEST_DG, DEST_BANQUE, DEST_COMPTABLE];
-export const ROLES_VERSEMENT = ["vendeur", "gerant", "admin"];
+// ⚠ Timo (09/09/2026) : « on va restreindre le versement au vendeur pour le
+// moment… c'est au gérant de faire le versement ». Serveur : securite-11.
+export const ROLES_VERSEMENT = ["gerant", "admin"];
 // La caisse « Chez le comptable » est RÉELLE et n'a pas de jumelle : un
 // compte de formation ne la voit jamais (règle du mur formation / réel).
 export const destinationsPour = (enFormation) => (enFormation ? DESTINATIONS_VERSEMENT.filter((d) => d !== DEST_COMPTABLE) : DESTINATIONS_VERSEMENT);

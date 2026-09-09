@@ -182,3 +182,12 @@ principal » ; Chez le comptable → le comptable valide (pointage Encaissé).
   (upsert relu). Banc : `scripts/tester-argent-sql.sh` (75, dont 9 nouveaux ;
   sans le script, 4 tombent).
 - **État : collé par Timo le 09/09/2026** (capture : true | true).
+
+## Ajout du 09/09/2026 — securite-11 (versement = gérant ; clôture = vendeur aussi)
+
+Timo : « on va restreindre le versement au vendeur pour le moment… c'est au
+gérant de faire le versement », puis « comment la clôture de la caisse peut
+être impossible à un vendeur ? ». `supabase/securite-11-versement-gerant.sql`
+remplace deux fonctions : créer un « Versement de fonds » → gérant / admin ;
+clôturer la caisse → vendeur / gérant / admin. Banc : tester-argent (79).
+- **État : SQL à coller par Timo** (message du 09/09/2026, version 2.101.117).

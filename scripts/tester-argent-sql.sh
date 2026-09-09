@@ -38,6 +38,8 @@ psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/secur
 echo "▸ Le DG reconnu (est_admin_principal) : supabase/securite-5-comptes.sql, puis le versement des fonds : supabase/securite-10-versements.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-5-comptes.sql >/dev/null 2>&1
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-10-versements.sql >/dev/null 2>&1 || echo "   ❌ securite-10 refusé par la base"
+echo "▸ Le versement au gérant : supabase/securite-11-versement-gerant.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-11-versement-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-11 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -140,7 +142,8 @@ essai "un vendeur supprime un ajustement" "REFUSE" "$VENDEUR" "$(SUPPR ajustemen
 
 echo
 echo "── CAISSE, AGENTS COMMERCIAUX, FOURNISSEURS ──"
-essai "un vendeur clôture la caisse" "REFUSE" "$VENDEUR" "$(INS clotures zcl1 '{"id":"zcl1","boutique":"APESSITO","compte":1000}')"
+essai "★ un vendeur clôture la caisse (securite-11 : Timo, « comment la clôture peut être impossible à un vendeur ? »)" "PERMIS" "$VENDEUR" "$(INS clotures zcl1 '{"id":"zcl1","boutique":"APESSITO","compte":1000}')"
+essai "un magasinier clôture la caisse" "REFUSE" "$MAGASINIER" "$(INS clotures zcl1 '{"id":"zcl1","boutique":"APESSITO","compte":1000}')"
 essai "le gérant clôture la caisse" "PERMIS" "$GERANT" "$(INS clotures zcl1 '{"id":"zcl1","boutique":"APESSITO","compte":1000}')"
 essai "le gérant change le taux d'un agent commercial" "REFUSE" "$GERANT" "$(MAJ commerciaux "jsonb_set(data,'{taux}','50')" zco1)"
 essai "l'admin change le taux d'un agent commercial" "PERMIS" "$ADMIN" "$(MAJ commerciaux "jsonb_set(data,'{taux}','50')" zco1)"
@@ -179,8 +182,11 @@ essai "un vendeur émet un proforma à 3 %" "PERMIS" "$VENDEUR" "$(INS proformas
 echo
 echo "── LE VERSEMENT DES FONDS (securite-10, Timo 09/09/2026) : la validation DG / BANQUE = l'administrateur PRINCIPAL seul ──"
 VERS='{"id":"zvf1","boutique":"APESSITO","categorie":"Versement de fonds","montant":150000,"paiement":"Espèces","par":"KOSSI","versement":{"id":"vf1","destination":"BANQUE","banque":"Ecobank","bordereau":"B-77"}}'
-essai "★ un vendeur enregistre un versement BANQUE (dépense de sa boutique, par upsert)" "PERMIS" "$VENDEUR" "$(UPS depenses zvf1 "$VERS")"
-essai "★ un vendeur enregistre l'entrée miroir chez le comptable (montant négatif)" "PERMIS" "$VENDEUR" "$(UPS depenses zvf2 '{"id":"zvf2","boutique":"Chez le comptable","categorie":"Versement de fonds","montant":-150000,"versement_id":"vf2"}')"
+essai "★ le gérant enregistre un versement BANQUE (dépense de sa boutique, par upsert)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
+essai "★ le gérant enregistre l'entrée miroir chez le comptable (montant négatif)" "PERMIS" "$GERANT" "$(UPS depenses zvf2 '{"id":"zvf2","boutique":"Chez le comptable","categorie":"Versement de fonds","montant":-150000,"versement_id":"vf2"}')"
+essai "★ un vendeur enregistre un versement (securite-11 : le gérant, pas le vendeur)" "REFUSE" "$VENDEUR" "$(UPS depenses zvf1 "$VERS")"
+essai "★ un vendeur enregistre l'entrée miroir chez le comptable" "REFUSE" "$VENDEUR" "$(UPS depenses zvf2 '{"id":"zvf2","boutique":"Chez le comptable","categorie":"Versement de fonds","montant":-150000,"versement_id":"vf2"}')"
+essai "un vendeur enregistre une dépense ordinaire (rien ne change pour lui)" "PERMIS" "$VENDEUR" "$(UPS depenses zvf4 '{"id":"zvf4","boutique":"APESSITO","categorie":"Transport","montant":2000}')"
 essai "★ un vendeur se valide lui-même son versement (versement_valide_le)" "REFUSE" "$VENDEUR" "$(UPS depenses zvf1 "$(echo "$VERS" | sed 's/}}$/},"versement_valide_le":"2026-09-09","versement_valide_par":"KOSSI"}/')")"
 essai "★ …même en créant la dépense déjà validée" "REFUSE" "$VENDEUR" "$(UPS depenses zvf3 '{"id":"zvf3","boutique":"APESSITO","categorie":"Versement de fonds","montant":1,"versement":{"destination":"Chez le DG"},"versement_valide_le":"2026-09-09"}')"
 essai "★ un gérant valide un versement" "REFUSE" "$GERANT" "$(UPS depenses zx1 '{"id":"zx1","boutique":"APESSITO","montant":15000,"versement_valide_le":"2026-09-09","versement_valide_par":"ALI"}')"

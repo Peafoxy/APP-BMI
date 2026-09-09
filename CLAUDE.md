@@ -51,14 +51,14 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1056 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1058 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 11  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 75  : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 79  : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -127,7 +127,7 @@ lit mal est pire qu'un banc absent).
   l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
   rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
   `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
-  applique la même règle par déclencheur (`supabase/securite-3` à `-10`).
+  applique la même règle par déclencheur (`supabase/securite-3` à `-11`).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
@@ -180,7 +180,10 @@ lit mal est pire qu'un banc absent).
   du contrat en boutique, écran de connexion, cachet, suppression d'une
   boutique avec ses données, restauration d'une sauvegarde, corbeille.
 - Magasinier + gérant + admin : articles, entrées, ajustements, transferts,
-  inventaire, bons. Gérant + admin : clôture de caisse, fournisseurs.
+  inventaire, bons. **Vendeur + gérant + admin : clôture de caisse**
+  (09/09/2026, « comment la clôture peut être impossible à un vendeur ? » —
+  le « gérant + admin » du 04/09 était un malentendu ; `securite-11`).
+  Gérant + admin : fournisseurs.
   **Le vendeur n'a pas l'onglet 🔁 Transfert** (09/09/2026 : il ne peut
   pas valider, l'onglet est parti ; le gérant le garde).
   Admin + resp. commercial : programmer une installation. Admin ou chef de
@@ -295,7 +298,8 @@ lit mal est pire qu'un banc absent).
   refusionnée à l'écriture, comme la paie).
 
 ### Versement des fonds (09/09/2026)
-- **« 💸 Verser les fonds » dans 🔒 Caisse** (vendeur, gérant, admin) :
+- **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
+  vendeur**, décision du 09/09/2026 ; serveur `securite-11`) :
   destinations **Chez le DG / BANQUE / Chez le comptable** ; BANQUE exige
   nom de la banque et numéro de bordereau. **Plus de « recette du … au »**
   (deuxième idée de Timo) : l'application attend `fondsAVerser` ; **si le

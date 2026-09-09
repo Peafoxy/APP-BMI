@@ -3422,7 +3422,7 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
   // Décisions Timo du 04/09/2026. Le bouton caché ne suffit pas (inventaire
   // du 04/09) : le geste lui-même refuse — comme le fera le serveur.
   test("★ les aides existent, avec les rôles tranchés (stock : magasinier+gérant+admin ; caisse et fournisseurs : gérant+admin ; remise : 3 %)",
-    C.ROLES_STOCK.join() === "magasinier,gerant,admin" && C.ROLES_CAISSE.join() === "gerant,admin"
+    C.ROLES_STOCK.join() === "magasinier,gerant,admin" && C.ROLES_CAISSE.join() === "vendeur,gerant,admin"
     && C.ROLES_FOURNISSEURS.join() === "gerant,admin" && C.PLAFOND_REMISE_PCT === 3
     && C.remiseExigeAdmin(3.5) && !C.remiseExigeAdmin(3) && !C.remiseExigeAdmin("") );
   const attendus = [
@@ -4645,8 +4645,15 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   const Vs = await import(pathToFileURL(sortieVs).href);
   unlinkSync(sortieVs);
   const moi = { id: "v1", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" };
-  test("★ trois destinations exactement, dans cet ordre ; vendeur, gérant et admin peuvent verser",
-    Vs.DESTINATIONS_VERSEMENT.join("|") === "Chez le DG|BANQUE|Chez le comptable" && Vs.ROLES_VERSEMENT.join("|") === "vendeur|gerant|admin");
+  test("★ trois destinations exactement, dans cet ordre ; le gérant et l'admin versent, PAS le vendeur (Timo, 09/09/2026 : « c'est au gérant de faire le versement ») ; le vendeur lit pourquoi",
+    Vs.DESTINATIONS_VERSEMENT.join("|") === "Chez le DG|BANQUE|Chez le comptable" && Vs.ROLES_VERSEMENT.join("|") === "gerant|admin"
+    && /Le versement des fonds est fait par le gérant\./.test(readFileSync("src/screens/Caisse.jsx", "utf8")));
+  const s11 = readFileSync("supabase/securite-11-versement-gerant.sql", "utf8");
+  test("★ la clôture de caisse est ouverte au VENDEUR (Timo, 09/09/2026 : « comment la clôture peut être impossible à un vendeur ? ») — application (ROLES_CAISSE) et serveur (securite-11), banc SQL retourné",
+    /not in \('vendeur', 'gerant', 'admin'\) then perform public\.refus_role\('Clôturer la caisse'/.test(s11) && /un vendeur clôture la caisse \(securite-11[^"]*" "PERMIS"/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8")));
+  test("★ securite-11 : créer un « Versement de fonds » = gérant ou admin (ligne nouvelle seulement, upsert relu) ; la validation DG reste au principal ; le banc tester-argent rejoue vendeur refusé / gérant permis",
+    /if avant is null and coalesce\(new\.data ->> 'categorie', ''\) = 'Versement de fonds' and r not in \('gerant', 'admin'\) then/.test(s11) && /if not public\.est_admin_principal\(\) then/.test(s11)
+    && /-f supabase\/securite-11-versement-gerant\.sql/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8")) && /un vendeur enregistre un versement \(securite-11 : le gérant, pas le vendeur\)" "REFUSE"/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8")));
   test("★ un versement mal formé est refusé avec son motif : montant nul, destination inconnue, BANQUE sans banque ou sans bordereau",
     /montant/.test(Vs.critiqueVersement({ montant: 0, destination: "BANQUE", banque: "Ecobank", bordereau: "1" })) && /destination/.test(Vs.critiqueVersement({ montant: 100, destination: "Ailleurs" }))
     && /banque/.test(Vs.critiqueVersement({ montant: 100, destination: "BANQUE", banque: "", bordereau: "1" })) && /bordereau/.test(Vs.critiqueVersement({ montant: 100, destination: "BANQUE", banque: "Ecobank", bordereau: " " }))
