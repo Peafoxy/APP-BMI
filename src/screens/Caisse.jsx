@@ -32,7 +32,7 @@ export function Caisse({ db, save, profile }) {
   const [jourChoisi, setJourChoisi] = useState("");
   const t = jourChoisi && (enRetard.includes(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
   // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
-  const { especesVentes, especesReglements, especesDepenses, detailReglements, theorique } = activiteDuJour(db, boutique, t, totalVente);
+  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements, theorique } = activiteDuJour(db, boutique, t, totalVente);
   const dejaCloturee = estCloturee(db, boutique, t);
   const ecart = compte === "" ? null : Number(compte) - theorique;
 
@@ -200,11 +200,13 @@ export function Caisse({ db, save, profile }) {
           <div className="text-sm font-semibold text-green-700">✓ La caisse du {dFR(t)} a déjà été clôturée.</div>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Ventes en espèces</div><div className="font-bold tabular-nums">{fmt(especesVentes)}</div></div>
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Encaissements (dettes / réservations)</div><div className="font-bold tabular-nums text-emerald-700">{fmt(especesReglements)}</div></div>
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Dépenses en espèces</div><div className="font-bold tabular-nums">− {fmt(especesDepenses)}</div></div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Espèces attendues</div><div className="font-bold tabular-nums">{fmt(theorique)}</div></div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Versements de fonds</div><div className="font-bold tabular-nums">− {fmt(versementsDuJour)}</div></div>
+              {/* Ce que le vendeur doit trouver dans le tiroir : le solde en caisse ce soir-là, pas le flux du jour. */}
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Espèces attendues en caisse</div><div className={`font-bold tabular-nums ${theorique < 0 ? "text-red-600" : ""}`}>{fmt(theorique)}</div></div>
               <div className="bg-white rounded-lg p-3 border border-slate-200">
                 <div className="text-xs text-slate-500">Écart</div>
                 <div className={`font-bold tabular-nums ${ecart === null ? "text-slate-400" : ecart === 0 ? "text-green-700" : "text-red-600"}`}>{ecart === null ? "—" : fmt(ecart)}</div>

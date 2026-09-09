@@ -17,7 +17,27 @@
 // d'avant la mise en place ne bloquent personne.
 // ============================================================
 
+import { CATEGORIE_VERSEMENT } from "./versements";
+
 export const DEBUT_REGLE_CLOTURE = "2026-09-09";
+
+// Le SOLDE d'espèces en caisse à la fin d'une journée : tout ce qui est
+// entré en espèces jusqu'à ce jour inclus, moins tout ce qui est sorti
+// (dépenses et versements). C'est ce que le vendeur doit trouver dans le
+// tiroir en clôturant — pas le seul flux de la journée.
+// ⚠ Capture Timo (09/09/2026) : « Espèces attendues −150 900 » — le
+// versement de 202 299 comptait comme une dépense du jour, contre 51 400 de
+// ventes ; il restait en réalité 50 000 en caisse.
+export function soldeEspecesFinDeJour(db, boutique, date, totalVente) {
+  const d0 = String(date);
+  const entrees = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces" && String(v.date) <= d0)
+    .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0)
+    + (db.dettes || []).filter((d) => d.boutique === boutique)
+      .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces" && String(p.date) <= d0).reduce((t, p) => t + Number(p.montant || 0), 0), 0);
+  const sorties = (db.depenses || []).filter((x) => x.boutique === boutique && x.paiement === "Espèces" && String(x.date) <= d0)
+    .reduce((s, x) => s + Number(x.montant || 0), 0);
+  return entrees - sorties;
+}
 
 // Les chiffres de caisse d'une journée, pour une boutique.
 export function activiteDuJour(db, boutique, date, totalVente) {
@@ -25,8 +45,10 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date) === d0);
   const especesVentes = ventesDuJour.filter((v) => v.paiement === "Espèces")
     .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
-  const especesDepenses = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && x.paiement === "Espèces")
-    .reduce((s, x) => s + Number(x.montant || 0), 0);
+  const sortiesDuJour = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && x.paiement === "Espèces");
+  // Les versements de fonds sont montrés À PART des dépenses.
+  const versementsDuJour = sortiesDuJour.filter((x) => x.categorie === CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
+  const especesDepenses = sortiesDuJour.filter((x) => x.categorie !== CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
   const detailReglements = (db.dettes || []).filter((d) => d.boutique === boutique)
     .flatMap((d) => (d.paiements || [])
       .filter((p) => String(p.date) === d0)
@@ -36,8 +58,11 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   return {
     date: d0,
     nbVentes: ventesDuJour.length,
-    especesVentes, especesReglements, especesDepenses, detailReglements,
-    theorique: especesVentes + especesReglements - especesDepenses,
+    especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements,
+    // Le flux de la journée, pour information…
+    fluxDuJour: especesVentes + especesReglements - especesDepenses - versementsDuJour,
+    // …et ce qu'on doit TROUVER dans le tiroir : le solde en caisse ce soir-là.
+    theorique: soldeEspecesFinDeJour(db, boutique, d0, totalVente),
     // Une journée « active » demande une clôture : au moins une vente, ou un
     // encaissement en espèces.
     active: ventesDuJour.length > 0 || especesReglements > 0,

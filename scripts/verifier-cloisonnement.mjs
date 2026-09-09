@@ -4733,9 +4733,17 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     depenses: [{ boutique: "A", date: "2026-09-09", paiement: "Espèces", montant: 50 }],
     clotures: [{ boutique: "A", date: "2026-09-11" }],
   };
-  test("★ activiteDuJour : UNE règle pour les chiffres d'une journée — espèces des ventes, règlements, dépenses, théorique ; une journée est active dès une vente (tout moyen) ou un encaissement espèces",
-    Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).theorique === 250 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).active === true && Cl.activiteDuJour(dbc, "A", "2026-09-10", tv).active === true
+  test("★ activiteDuJour : UNE règle pour les chiffres d'une journée — espèces des ventes, règlements, dépenses ; une journée est active dès une vente (tout moyen) ou un encaissement espèces",
+    Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).fluxDuJour === 250 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).active === true && Cl.activiteDuJour(dbc, "A", "2026-09-10", tv).active === true
     && Cl.activiteDuJour(dbc, "A", "2026-09-10", tv).especesVentes === 0 && Cl.activiteDuJour(dbc, "A", "2026-09-07", tv).active === false);
+  // Capture Timo (09/09/2026) : 51 400 de ventes, un versement de 202 299 le
+  // même jour, 252 299 en caisse avant → il reste 50 000 dans le tiroir.
+  const dbt = { ventes: [{ boutique: "D", date: "2026-09-01", paiement: "Espèces", total: 200899 }, { boutique: "D", date: "2026-09-09", paiement: "Espèces", total: 51400 }], dettes: [], clotures: [],
+    depenses: [{ boutique: "D", date: "2026-09-09", paiement: "Espèces", montant: 202299, categorie: "Versement de fonds", versement: { destination: "Chez le DG" } }, { boutique: "D", date: "2026-09-09", paiement: "Espèces", montant: 1, categorie: "Transport" }] };
+  const jt = Cl.activiteDuJour(dbt, "D", "2026-09-09", tv);
+  test("★ « Espèces attendues » = le SOLDE en caisse à la fin du jour (entrées − sorties jusqu'à ce jour, versements compris), pas le flux du jour ; les versements sont montrés à part des dépenses",
+    jt.theorique === 50000 - 1 + 1 - 1 && jt.versementsDuJour === 202299 && jt.especesDepenses === 1 && jt.fluxDuJour === 51400 - 202299 - 1
+    && Cl.soldeEspecesFinDeJour(dbt, "D", "2026-09-08", tv) === 200899 && Cl.soldeEspecesFinDeJour(dbt, "D", "2026-09-09", tv) === 49999);
   test("★ joursAClôturer : les jours PASSÉS actifs sans clôture, depuis le début de la règle (le 08/09 ne compte pas), le jour même ne compte pas, un jour clôturé ne compte pas",
     Cl.DEBUT_REGLE_CLOTURE === "2026-09-09" && Cl.joursAClôturer(dbc, "A", "2026-09-12", tv).join("|") === "2026-09-09|2026-09-10" && Cl.joursAClôturer(dbc, "A", "2026-09-09", tv).length === 0
     && Cl.joursAClôturer(dbc, "B", "2026-09-12", tv).join("|") === "2026-09-10" && Cl.joursAClôturer(dbc, "C", "2026-09-12", tv).length === 0);
@@ -4747,7 +4755,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && <div/.test(vt));
   const csC = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ Caisse : les chiffres passent par activiteDuJour (plus de calcul local), un jour PASSÉ en retard se choisit et se clôture (le plus ancien d'abord), la clôture en retard est datée du jour clôturé et notée",
-    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
+    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /Espèces attendues en caisse/.test(csC) && /Versements de fonds<\/div><div className="font-bold tabular-nums">− \{fmt\(versementsDuJour\)\}/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
     && /\(enRetard\[0\] \|\| aujourdhui\)/.test(csC) && /date: t, boutique, theorique, compte: Number\(compte\), notes, par: profile\.nom, cloture_le: aujourdhui/.test(csC) && /clôturée en retard/.test(csC));
 }
 
