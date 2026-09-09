@@ -3678,8 +3678,8 @@ titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prosp
     (msg.match(/utilisateursDeLEspace\(db, profile\)\.filter\(/g) || []).length >= 4);
   test("★ Paramètres : le transfert du rôle principal ne propose que les admins de l'espace",
     /\{utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => u\.role === "admin"/.test(lit("src/screens/Parametres.jsx")));
-  test("★ Mon équipe : les chefs d'équipe commissionnés sont ceux de l'espace",
-    /const chefs = db\.users\.filter\(\(u\) => u\.actif !== false && memeEspace\(u\)/.test(lit("src/screens/MonEquipe.jsx")));
+  test("★ Mon équipe : les chefs d'équipe commissionnés sont ceux de l'espace REGARDÉ (utilisateursDeLEspace — retourné le 09/09/2026, plus de memeEspace)",
+    /const chefs = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => u\.actif !== false && estChefEquipe\(db, u\)/.test(lit("src/screens/MonEquipe.jsx")));
   test("★ Utilisateurs : le parrain proposé est de l'espace du compte concerné",
     /const parrains = utilisateursDeLEspace\(db, u\)\.filter\(/.test(lit("src/screens/Utilisateurs.jsx")));
   test("★ le message « nouveau client » ne réveille que les admins de son espace (et le principal)",
@@ -3687,10 +3687,10 @@ titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prosp
   // Garde-fou : toute NOUVELLE lecture brute de db.users dans un écran fait
   // tomber ce contrôle — on décide alors (espace, ou exception justifiée).
   // Utilisateurs : dernier admin actif ×2, bascule en masse (traverse exprès), suppression,
-  // restreindre les admins, mots de passe en clair. MonEquipe : deux listes, toutes deux
-  // filtrées par memeEspace. Parametres : sécurité (comptes auth), réinitialisation formation ×2.
+  // restreindre les admins, mots de passe en clair. MonEquipe : plus aucune (09/09/2026, les deux
+  // listes passent par utilisateursDeLEspace). Parametres : sécurité (comptes auth), réinitialisation formation ×2.
   const permis = { "Utilisateurs.jsx": 6, "Commandes.jsx": 1, "Clients.jsx": 1, "EspaceClient.jsx": 1, "Parametres.jsx": 3,
-    "ClientsInstalles.jsx": 1, "Messagerie.jsx": 1, "MonEquipe.jsx": 2, "Salaires.jsx": 0, "Prospects.jsx": 0 };
+    "ClientsInstalles.jsx": 1, "Messagerie.jsx": 1, "MonEquipe.jsx": 0, "Salaires.jsx": 0, "Prospects.jsx": 0 };
   const brut = /(?:db\.users|\(db\.users \|\| \[\]\))\.filter\(/g;
   for (const [f, n] of Object.entries(permis)) {
     const trouve = (lit(`src/screens/${f}`).match(brut) || []).length;
@@ -4544,6 +4544,30 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");
   test("★ les hooks du verrou sont déclarés AVANT « if (!db) return » (aucun hook après un retour anticipé)", posHooks > 0 && posRetour > posHooks);
+}
+
+titre("👑 Équipe cloisonnée pour l'administrateur principal aussi (relevé Timo, 09/09/2026 : « pas de cloisonnement dans équipe »)");
+{
+  // Le principal voyait réel + formation mélangés (badge 🎓) et les ventes
+  // RÉELLES de chacun même en regardant la formation : la condition
+  // interdite « voitLesDeuxEspaces || … » dans un filtre d'affichage.
+  const eq = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+  test("★ plus de voitLesDeuxEspaces, memeEspace, jeVoisTout ni ventesDuCommercial dans Mon équipe : l'espace regardé décide (espaceDuCompte)",
+    !/voitLesDeuxEspaces\(/.test(eq) && !/memeEspace\(/.test(eq) && !/\bjeVoisTout\b/.test(eq) && !/ventesDuCommercial\(/.test(eq)
+    && /const regardeFormation = espaceDuCompte\(db, profile\) === true;/.test(eq));
+  test("★ les membres commissionnés viennent de utilisateursDeLEspace ; leurs ventes, commandes et prospects sont ceux de l'espace regardé",
+    /const equipe = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => u\.actif !== false && u\.role !== "client" && \(/.test(eq)
+    && /const ventesDeMonEspace = \(db\.ventes \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\);/.test(eq)
+    && /const commandesDeMonEspace = \(db\.commandes \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\);/.test(eq)
+    && /const prospectsDeMonEspace = \(db\.prospects \|\| \[\]\)\.filter\(\(p\) => !!p\.formation === regardeFormation\);/.test(eq)
+    && /const ventesDe = \(nom\) => ventesParNom\.get\(nom\) \|\| \[\];/.test(eq) && !/db\.prospects\.filter/.test(eq) && !/\(db\.commandes \|\| \[\]\)\.filter\(\(c\) => c\.commercial/.test(eq));
+  test("★ le badge 🎓 et la mention « compte de formation » sont partis (une liste = un espace) ; le bandeau formation suit l'espace regardé",
+    !/🎓 formation/.test(eq) && !/🎓 = compte de formation/.test(eq) && /\{regardeFormation && \(\s*<div className="rounded-xl border border-violet-200/.test(eq));
+  // La règle exercée : espaceDuCompte pour le principal suit « 👁 Je regarde ».
+  const db0 = { users: [{ id: "p", role: "admin", admin_principal: true }, { id: "v", role: "vendeur", boutique: "A" }, { id: "f", role: "vendeur", boutique: "AF" }], boutiques: [{ nom: "A" }, { nom: "AF", formation: true }] };
+  const principal = db0.users[0];
+  test("★ utilisateursDeLEspace pour le principal : en réel → le vendeur réel seul ; c'est la même fonction que l'écran appelle",
+    C.utilisateursDeLEspace(db0, principal).map((u) => u.id).join("|") === "p|v" && C.espaceDuCompte(db0, principal) === false);
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

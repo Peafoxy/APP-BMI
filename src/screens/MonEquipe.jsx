@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, ventesDuCommercial, voitLesDeuxEspaces, estCompteFormation, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -23,36 +23,29 @@ export function MonEquipe({ db, save, profile }) {
   };
   const [debut, fin] = bornes();
 
-  // ⚠ CLOISONNEMENT (2.100.36) — cet écran affichait les chiffres RÉELS sans
-  // jamais regarder qui le consulte : un compte de formation qui est chef
-  // d'équipe ou responsable commercial y lisait le vrai chiffre d'affaires de
-  // toute l'équipe, les commissions dues à chacun et vos apporteurs externes
-  // avec leurs téléphones. Il ne pouvait rien ÉCRIRE (le verrou de 2.100.26
-  // refuse ses paiements) : le trou était de visibilité.
-  //
-  // Le choix retenu, pour ne rien casser chez l'administrateur :
-  //   - un compte qui voit les deux espaces (l'admin principal) garde
-  //     EXACTEMENT la même liste qu'avant — personne ne disparaît. Les
-  //     membres de formation sont simplement signalés par un badge 🎓 ;
-  //   - un compte cloisonné, lui, ne voit que les gens de SON espace.
-  const jeVoisTout = voitLesDeuxEspaces(db, profile);
-  const monEspace = estCompteFormation(db, profile);
-  const memeEspace = (u) => jeVoisTout || estCompteFormation(db, u) === monEspace;
-  const enFormation = (u) => estCompteFormation(db, u);
-  // Les ventes de MON espace (pour un compte réel c'est exactement
-  // ventesReelles ; pour un compte de formation, ses ventes d'entraînement).
+  // ⚠ CLOISONNEMENT — RELEVÉ PAR TIMO (09/09/2026 : « pas de cloisonnement
+  // dans équipe »). Depuis 2.100.36, un compte cloisonné ne voyait que les
+  // gens de SON espace, mais l'administrateur principal, lui, gardait TOUTE
+  // la liste (réel + formation mélangés, badge 🎓) et les ventes RÉELLES de
+  // chacun même en regardant la formation. C'était la condition interdite
+  // « voitLesDeuxEspaces || … » dans un filtre d'affichage : « je vois les
+  // deux espaces » ne veut jamais dire « je les affiche ensemble ». C'est
+  // l'ESPACE REGARDÉ qui décide, pour lui aussi (espaceDuCompte) :
+  //   - les personnes → utilisateursDeLEspace ;
+  //   - les ventes, commandes → filtreEspaceAffichage ; prospects → leur marque.
+  const regardeFormation = espaceDuCompte(db, profile) === true;
   const ventesDeMonEspace = (db.ventes || []).filter(filtreEspaceAffichage(db, profile));
-  // ventesDuCommercial() renvoie TOUJOURS les ventes réelles (c'est ce qu'on
-  // veut pour l'administrateur et pour un compte réel). Un compte cloisonné
-  // en formation, lui, doit lire ses ventes d'entraînement — sinon il
-  // continuerait de voir le vrai chiffre d'affaires de chaque commercial.
-  const ventesDe = (nom) => (monEspace && !jeVoisTout
-    ? ventesDeMonEspace.filter((v) => v.commercial === nom)
-    : ventesDuCommercial(db, nom));
+  const commandesDeMonEspace = (db.commandes || []).filter(filtreEspaceAffichage(db, profile));
+  const prospectsDeMonEspace = (db.prospects || []).filter((p) => !!p.formation === regardeFormation);
+  // Les ventes de chaque commercial, dans l'espace regardé, indexées une fois.
+  const ventesParNom = new Map();
+  ventesDeMonEspace.forEach((v) => { if (!ventesParNom.has(v.commercial)) ventesParNom.set(v.commercial, []); ventesParNom.get(v.commercial).push(v); });
+  const ventesDe = (nom) => ventesParNom.get(nom) || [];
 
   // Tous ceux qui peuvent toucher une commission : commerciaux, techniciens,
-  // mais aussi tout autre employé qui a un taux ou des ventes à son nom.
-  const equipe = db.users.filter((u) => u.actif !== false && u.role !== "client" && memeEspace(u) && (
+  // mais aussi tout autre employé qui a un taux ou des ventes à son nom —
+  // dans l'espace regardé seulement.
+  const equipe = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && u.role !== "client" && (
     ["commercial", "technicien", "technicien_bmi"].includes(u.role) ||
     Number(u.taux_commission || 0) > 0 ||
     ventesDe(u.nom).length > 0
@@ -95,8 +88,8 @@ export function MonEquipe({ db, save, profile }) {
       // modifiait le taux. Les paiements antérieurs à 2.100.35 n'ont pas ce
       // montant : on retombe sur la même formule que la commission due.
       commissionReglee: reglees.reduce((s, v) => s + montantVerse(v, taux), 0),
-      prospects: db.prospects.filter((p) => p.commercial === u.nom).length,
-      commandesAttente: (db.commandes || []).filter((c) => c.commercial === u.nom && c.statut === "en_attente").length,
+      prospects: prospectsDeMonEspace.filter((p) => p.commercial === u.nom).length,
+      commandesAttente: commandesDeMonEspace.filter((c) => c.commercial === u.nom && c.statut === "en_attente").length,
     };
   }).sort((a, b) => b.ca - a.ca);
 
@@ -185,7 +178,7 @@ export function MonEquipe({ db, save, profile }) {
   const totalExtDu = apporteursExt.reduce((s, a) => s + a.due, 0);
 
   // ---- COMMISSIONS D'ÉQUIPE (les chefs touchent un % sur leurs filleuls) ----
-  const chefs = db.users.filter((u) => u.actif !== false && memeEspace(u) && estChefEquipe(db, u) && filleulsDe(db, u).length > 0)
+  const chefs = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && estChefEquipe(db, u) && filleulsDe(db, u).length > 0)
     .map((u) => {
       const tauxEq = Number(u.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
       let due = 0, versees = 0, gelee = 0, ventesDues = [];
@@ -516,13 +509,7 @@ export function MonEquipe({ db, save, profile }) {
             {stats.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun commercial actif.</td></tr>}
             {stats.map((st) => (
               <tr key={st.u.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}
-                  {/* Rien ne disparaît pour l'administrateur : les comptes de
-                      formation restent dans la liste, simplement signalés. */}
-                  {jeVoisTout && enFormation(st.u) && (
-                    <div className="text-xs font-bold text-violet-700" title="Compte d'entraînement : ses chiffres réels sont vides par construction.">🎓 formation</div>
-                  )}
-                </td>
+                <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>
                 <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}
@@ -623,12 +610,12 @@ export function MonEquipe({ db, save, profile }) {
         )}
       </div>
 
-      {monEspace && !jeVoisTout && (
+      {regardeFormation && (
         <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
-          🎓 <b>Espace formation.</b> Cet écran ne montre que votre équipe et vos chiffres d'entraînement. Les commerciaux, les commissions et les apporteurs de l'entreprise réelle n'y figurent pas.
+          🎓 <b>Espace formation.</b> Cet écran ne montre que l'équipe et les chiffres d'entraînement. Les commerciaux, les commissions et les apporteurs de l'entreprise réelle n'y figurent pas.
         </div>
       )}
-      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. ⏳ = en attente de la réception de l'installation ; 💰 = réceptionnée, mais le client n'a pas fini de payer (règle : un franc ne sort pas de la caisse avant d'y être entré). 🔧 = technicien, ⭐ = chef d'équipe{jeVoisTout ? ", 🎓 = compte de formation" : ""}. Le paiement d'un apporteur externe est enregistré en dépense.</div>
+      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. ⏳ = en attente de la réception de l'installation ; 💰 = réceptionnée, mais le client n'a pas fini de payer (règle : un franc ne sort pas de la caisse avant d'y être entré). 🔧 = technicien, ⭐ = chef d'équipe. Le paiement d'un apporteur externe est enregistré en dépense.</div>
     </div>
   );
 }

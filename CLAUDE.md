@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1020 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1024 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -102,7 +102,8 @@ lit mal est pire qu'un banc absent).
 - **« Je vois les deux espaces » ne veut jamais dire « je les affiche
   ensemble ».** C'est l'espace REGARDÉ qui décide, pour lui aussi. Toute
   condition `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est
-  un défaut.
+  un défaut (quatrième trouvé par Timo : 👑 Équipe, 09/09/2026 — le
+  principal y voyait réel et formation mélangés, badge 🎓).
 - **Toute liste passe par un filtre d'espace** : boutiques →
   `boutiquesVisibles` ; personnes → `utilisateursDeLEspace` ; lignes
   (ventes, proformas…) → `filtreEspaceAffichage` ou la boutique regardée.
@@ -110,8 +111,8 @@ lit mal est pire qu'un banc absent).
   neuf doit retrouver son compte) : pour les personnes, le filtre de
   l'application est la SEULE barrière, pour tous les rôles. Le banc compte
   les lectures brutes de `db.users` fichier par fichier ; une de plus fait
-  tomber le contrôle. Trois défauts de ce genre ont été trouvés par Timo
-  (Paramètres/Utilisateurs le 29/08, proformas et Salaires le 05/09) —
+  tomber le contrôle. Quatre défauts de ce genre ont été trouvés par Timo
+  (Paramètres/Utilisateurs le 29/08, proformas et Salaires le 05/09, Équipe le 09/09) —
   l'impact argent du dernier a été vérifié sur la vraie base : 0 ligne.
 - **L'espace du compte prime sur le réglage** : un admin placé dans la
   formation ne voit jamais les chiffres réels. **Ce qu'on crée naît dans
