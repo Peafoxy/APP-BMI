@@ -4680,6 +4680,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && Vs.libellePeriode({ du: "2026-09-09", au: "2026-09-09" }) === "recette du 09/09/2026" && Vs.libellePeriode({}) === "" && Vs.libellePeriode({ au: "2026-09-09" }) === "recette jusqu'au 09/09/2026"
     && /précéder/.test(Vs.critiqueVersement({ montant: 1, destination: "Chez le DG", du: "2026-09-09", au: "2026-09-05" })) && Vs.critiqueVersement({ montant: 1, destination: "Chez le DG", du: "2026-09-05", au: "" }) === ""
     && !/placeholder="Ex : recette du jour"/.test(csV) && /<Field label="Recette du"><input type="date"/.test(csV) && /<Field label="au"><input type="date"/.test(csV));
+  const rpc = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 1000, destination: "Chez le comptable", du: "2026-09-05", au: "2026-09-09", note: "semaine" });
+  test("★ l'entrée chez le comptable porte AUSSI la période et la note (« pourquoi chez le comptable une seule date ? »)",
+    /Versement reçu de APESSITO \(par KOSSI\) — recette du 05\/09\/2026 au 09\/09\/2026 · semaine/.test(rpc.entree.description) && rpc.entree.versement_periode.du === "2026-09-05" && rpc.entree.versement_periode.au === "2026-09-09");
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");

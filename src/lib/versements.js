@@ -72,7 +72,11 @@ export function construireVersement(profile, { boutique, montant, destination, b
   const description = `Versement de fonds → ${libelleDestination(versement)}${complement ? ` (${complement})` : ""}`;
   const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: "Espèces", versement });
   const entree = destination === DEST_COMPTABLE
-    ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement reçu de ${boutique} (par ${profile.nom})`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
+    // ⚠ Timo (09/09/2026) : « pourquoi chez le comptable une seule date alors
+    // que le versement couvre plusieurs jours ? » — la période et la note
+    // suivent sur l'entrée miroir aussi ; la date de la ligne reste celle
+    // du versement.
+    ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement reçu de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id, versement_periode: { du: versement.du, au: versement.au } })
     : null;
   return { sortie, entree, versement };
 }
