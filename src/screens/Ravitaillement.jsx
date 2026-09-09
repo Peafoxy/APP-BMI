@@ -144,8 +144,9 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
 // ⚠ Distinct du ravitaillement ci-dessus : une demande de transfert est
 // stockée directement sur la fiche de la boutique CIBLE (pas le dépôt),
 // donc visible par elle seule. Composant PARTAGÉ — utilisé à la fois comme
-// onglet dédié "🔁 Transfert" (vendeur, gérant : validation simple, sans
-// détour par Stocks) et à l'intérieur de l'écran Stocks (admin/magasinier).
+// onglet dédié "🔁 Transfert" (gérant : validation simple, sans détour par
+// Stocks — retiré au vendeur le 09/09/2026, il ne peut pas valider) et à
+// l'intérieur de l'écran Stocks (admin/magasinier).
 export function DemandesTransfertRecues({ db, save, profile, boutique }) {
   const bq = boutique || profile.boutique || "";
   const maBoutique = db.boutiques.find((b) => b.nom === bq);

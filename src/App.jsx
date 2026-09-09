@@ -885,7 +885,11 @@ export default function App() {
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
     // un vendeur doit pouvoir encaisser un chantier "pose seule" payé en
     // boutique (cas rare), ce qui exige d'atteindre cette fiche.
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["transfert", labelTransfert], ["parc", labelParc], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
+    // ⚠ Décision Timo (09/09/2026) : plus d'onglet « 🔁 Transfert » pour le
+    // vendeur — il voyait des demandes qu'il ne peut pas traiter (valider
+    // ou refuser un transfert : magasinier, gérant, admin, règle du 04/09).
+    // Un bouton qui ne commande rien se retire. Le gérant garde l'onglet.
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient

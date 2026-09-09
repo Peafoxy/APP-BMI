@@ -4457,6 +4457,23 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     /⚠️ Sans réponse depuis \{joursSansReponse\(d\)\} j/.test(tld) && /📲 Relancé le \{dFR\(d\.relance_le\)\}/.test(tld) && /validé\{nbARelancer > 1 \? "s" : ""\} non payé/.test(tld));
 }
 
+titre("L'onglet 🔁 Transfert n'est plus au vendeur (Timo, 09/09/2026 : « retire l'onglet au vendeur »)");
+{
+  // Le vendeur voyait les demandes de transfert reçues par sa boutique, mais
+  // Valider / Refuser lui étaient refusés (magasinier, gérant, admin). Un
+  // bouton qui ne commande rien se retire : l'onglet part du menu vendeur,
+  // le gérant le garde, et le geste reste verrouillé aux trois rôles.
+  const app = readFileSync("src/App.jsx", "utf8");
+  const lignesMenus = app.split("\n").filter((l) => /\["ventes", "💰 Ventes"\]/.test(l));
+  const menuVendeur = lignesMenus.find((l) => /\["ravitaillement", labelRavitaillement\]/.test(l) && /\["primes_remises"/.test(l));
+  const menuGerant = lignesMenus.find((l) => /\["fournisseurs", "🚚 Fournisseurs"\]/.test(l) && !/\["dashboard"/.test(l));
+  test("★ le menu du vendeur n'a plus l'onglet « transfert » ; celui du gérant l'a toujours",
+    !!menuVendeur && !/\["transfert", labelTransfert\]/.test(menuVendeur) && !!menuGerant && /\["transfert", labelTransfert\]/.test(menuGerant));
+  const rav = readFileSync("src/screens/Ravitaillement.jsx", "utf8");
+  test("★ valider ou refuser une demande de transfert reste réservé à magasinier, gérant, admin (ROLES_STOCK)",
+    /refuserSaufRoles\(profile, ROLES_STOCK, "Servir une demande de transfert"\)/.test(rav) && /refuserSaufRoles\(profile, ROLES_STOCK, "Refuser une demande de transfert"\)/.test(rav));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

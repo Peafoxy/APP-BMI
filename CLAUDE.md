@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1002 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1004 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -147,6 +147,8 @@ lit mal est pire qu'un banc absent).
   boutique avec ses données, restauration d'une sauvegarde, corbeille.
 - Magasinier + gérant + admin : articles, entrées, ajustements, transferts,
   inventaire, bons. Gérant + admin : clôture de caisse, fournisseurs.
+  **Le vendeur n'a pas l'onglet 🔁 Transfert** (09/09/2026 : il ne peut
+  pas valider, l'onglet est parti ; le gérant le garde).
   Admin + resp. commercial : programmer une installation. Admin ou chef de
   CE chantier : marquer terminé. Admin ou son commercial (« laisser comme
   tel ») : supprimer un chantier, gestes sur un prospect. Réassigner un
