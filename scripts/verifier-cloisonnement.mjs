@@ -4317,6 +4317,13 @@ titre("Les appareils du volet solaire : catalogue, abréviations, une faute tol�
     noms("poste")[0] === "Poste à souder" && !noms("poste").some((n) => n.startsWith("Téléviseur")) && noms("machine").length >= 2);
   test("★ une faute d'une lettre trouve quand même : « climatisseur », « télévison », « refrigerateur », « ventillateur »",
     noms("climatisseur")[0].startsWith("Climatiseur") && noms("télévison")[0].startsWith("Téléviseur") && noms("refrigerateur")[0] === "Réfrigérateur" && noms("ventillateur")[0] === "Ventilateur");
+  // Capture Timo du 09/09/2026 : « tv » faisait sortir le décodeur (dstv) et
+  // la caméra (cctv). Un mot court doit COMMENCER un mot, jamais se cacher
+  // dedans.
+  test("★ « tv » ne propose que les téléviseurs — ni le décodeur (dstv) ni la caméra (cctv) ; un mot court commence un mot, il ne se cache pas dedans",
+    noms("tv").every((n) => n.startsWith("Téléviseur")) && noms("tv").length === 3
+    && Sug.correspond("dstv", "tv") === false && Sug.correspond("tv 32", "tv") === true && Sug.correspond("Câble solaire 6mm² noir", "6mm") === true
+    && Sug.correspond("Coffret HT 12M", "12") === true && Sug.correspond("Caméra extérieure", "came") === true);
   test("★ les mots courts ne tolèrent pas de faute (« tx » ne trouve pas la tv), et rien ne correspond → liste vide, saisie libre",
     !noms("tx").some((n) => n.startsWith("Téléviseur")) && noms("zzzz").length === 0);
   test("★ distance d'édition : climatiseur/climatisseur = 1, tv/tv = 0, four/frigo > 1", Sug.distance("climatiseur", "climatisseur") === 1 && Sug.distance("tv", "tv") === 0 && Sug.distance("four", "frigo") > 1);

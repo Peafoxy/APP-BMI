@@ -9,12 +9,21 @@
 // Sans accents, sans majuscules, espaces repliés : « Camé » = « came ».
 export const sansAccents = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-// Chaque mot tapé doit se retrouver quelque part dans le texte, dans
-// n'importe quel ordre : « cable 6 » trouve « Câble solaire 6mm² ».
+// Les mots d'un texte (lettres et chiffres), pour comparer mot à mot.
+const motsDe = (t) => t.split(/[^a-z0-9]+/).filter(Boolean);
+// Un mot tapé se retrouve-t-il dans le texte ? Un mot COURT (3 lettres ou
+// moins) doit COMMENCER un mot du texte : « tv » vaut « tv », « tv 32 »,
+// jamais le « tv » caché dans « dstv » ou « cctv » (capture Timo,
+// 09/09/2026 : décodeur et caméra sortaient pour « tv »). Un mot plus long
+// peut être n'importe où : « came » trouve « caméra ».
+const motTrouve = (t, motsTexte, m) => (m.length <= 3 ? motsTexte.some((x) => x.startsWith(m)) : t.includes(m));
+// Chaque mot tapé doit se retrouver dans le texte, dans n'importe quel
+// ordre : « cable 6 » trouve « Câble solaire 6mm² ».
 export const correspond = (texte, requete) => {
   const mots = sansAccents(requete).split(" ").filter(Boolean);
   const t = sansAccents(texte);
-  return mots.every((m) => t.includes(m));
+  const motsTexte = motsDe(t);
+  return mots.every((m) => motTrouve(t, motsTexte, m));
 };
 
 // Une faute d'une lettre ne bloque pas (Timo, 09/09/2026 : « climatisseur »,
@@ -41,8 +50,8 @@ export const distance = (a, b) => {
 export const correspondApprox = (texte, requete) => {
   const mots = sansAccents(requete).split(" ").filter(Boolean);
   const t = sansAccents(texte);
-  const motsTexte = t.split(/[^a-z0-9]+/).filter(Boolean);
-  return mots.every((m) => t.includes(m)
+  const motsTexte = motsDe(t);
+  return mots.every((m) => motTrouve(t, motsTexte, m)
     || (m.length >= 4 && motsTexte.some((x) => distance(m, x) <= 1 || (x.length > m.length && distance(m, x.slice(0, m.length)) <= 1))));
 };
 
