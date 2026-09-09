@@ -51,14 +51,14 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1041 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1052 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 11  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 66  : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 75  : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -127,7 +127,7 @@ lit mal est pire qu'un banc absent).
   l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
   rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
   `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
-  applique la même règle par déclencheur (`supabase/securite-3` à `-9`).
+  applique la même règle par déclencheur (`supabase/securite-3` à `-10`).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
@@ -293,6 +293,20 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### Versement des fonds (09/09/2026)
+- **« 💸 Verser les fonds » dans 🔒 Caisse** (vendeur, gérant, admin) :
+  destinations **Chez le DG / BANQUE / Chez le comptable** ; BANQUE exige
+  nom de la banque et numéro de bordereau. Le versement est une dépense
+  espèces de la boutique (catégorie « Versement de fonds », champ
+  `versement`) ; « Chez le comptable » pose en plus une entrée miroir
+  (montant négatif, `versement_id`) dans la caisse du comptable.
+  **Validation : Chez le DG et BANQUE → le DG = administrateur PRINCIPAL**
+  (bloc en haut de 🔒 Caisse) ; **Chez le comptable → le comptable**, par son
+  pointage « ✅ Encaissé ». UNE règle pure : `lib/versements.js`. Versement
+  libre, jamais imposé à la clôture. Un compte de formation n'a jamais
+  « Chez le comptable ». Serveur : `securite-10` (la validation DG = admin
+  principal seul, upsert relu).
 
 ### Retours / SAV
 - **Un échange n'est JAMAIS une vente** : ajustement négatif

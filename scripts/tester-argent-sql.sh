@@ -35,6 +35,9 @@ echo "▸ Pose des verrous : supabase/securite-4-argent.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-4-argent.sql >/dev/null
 echo "▸ Correctif upsert : supabase/securite-8-correctif-upsert.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-8-correctif-upsert.sql >/dev/null 2>&1
+echo "▸ Le DG reconnu (est_admin_principal) : supabase/securite-5-comptes.sql, puis le versement des fonds : supabase/securite-10-versements.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-5-comptes.sql >/dev/null 2>&1
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-10-versements.sql >/dev/null 2>&1 || echo "   ❌ securite-10 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -82,6 +85,7 @@ MAGASINIER=$(jeton zm_paul magasinier true false)
 COMPTABLE=$(jeton zk_marie comptable false false)
 COMMERCIAL=$(jeton zo_com commercial true false)
 ADMIN=$(jeton za_timo admin true true)
+ADMIN2=$(jeton za_caleb admin true false)   # administrateur secondaire : pas le DG
 
 MAJ() { echo "with x as (update public.$1 set data = $2 where id='$3' returning 1) select count(*) from x;"; }
 SUPPR() { echo "with x as (delete from public.$1 where id='$2' returning 1) select count(*) from x;"; }
@@ -171,6 +175,19 @@ essai "un vendeur encaisse cette commande en GONFLANT la remise à 8 %" "REFUSE"
   "$(INS ventes zv8 '{"id":"zv8","boutique":"APESSITO","remise_pct":8,"commande_id":"zcmA"}')"
 essai "un vendeur émet un proforma à 5 %" "REFUSE" "$VENDEUR" "$(INS proformas zpf1 '{"id":"zpf1","remise_pct":5}')"
 essai "un vendeur émet un proforma à 3 %" "PERMIS" "$VENDEUR" "$(INS proformas zpf1 '{"id":"zpf1","remise_pct":3}')"
+
+echo
+echo "── LE VERSEMENT DES FONDS (securite-10, Timo 09/09/2026) : la validation DG / BANQUE = l'administrateur PRINCIPAL seul ──"
+VERS='{"id":"zvf1","boutique":"APESSITO","categorie":"Versement de fonds","montant":150000,"paiement":"Espèces","par":"KOSSI","versement":{"id":"vf1","destination":"BANQUE","banque":"Ecobank","bordereau":"B-77"}}'
+essai "★ un vendeur enregistre un versement BANQUE (dépense de sa boutique, par upsert)" "PERMIS" "$VENDEUR" "$(UPS depenses zvf1 "$VERS")"
+essai "★ un vendeur enregistre l'entrée miroir chez le comptable (montant négatif)" "PERMIS" "$VENDEUR" "$(UPS depenses zvf2 '{"id":"zvf2","boutique":"Chez le comptable","categorie":"Versement de fonds","montant":-150000,"versement_id":"vf2"}')"
+essai "★ un vendeur se valide lui-même son versement (versement_valide_le)" "REFUSE" "$VENDEUR" "$(UPS depenses zvf1 "$(echo "$VERS" | sed 's/}}$/},"versement_valide_le":"2026-09-09","versement_valide_par":"KOSSI"}/')")"
+essai "★ …même en créant la dépense déjà validée" "REFUSE" "$VENDEUR" "$(UPS depenses zvf3 '{"id":"zvf3","boutique":"APESSITO","categorie":"Versement de fonds","montant":1,"versement":{"destination":"Chez le DG"},"versement_valide_le":"2026-09-09"}')"
+essai "★ un gérant valide un versement" "REFUSE" "$GERANT" "$(UPS depenses zx1 '{"id":"zx1","boutique":"APESSITO","montant":15000,"versement_valide_le":"2026-09-09","versement_valide_par":"ALI"}')"
+essai "★ un administrateur SECONDAIRE valide un versement" "REFUSE" "$ADMIN2" "$(MAJ depenses "jsonb_set(data,'{versement_valide_le}','\"2026-09-09\"')" zx1)"
+essai "★ le DG (administrateur principal) valide un versement" "PERMIS" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{versement_valide_le}','\"2026-09-09\"')" zx1)"
+essai "★ …par upsert aussi" "PERMIS" "$ADMIN" "$(UPS depenses zx1 '{"id":"zx1","boutique":"APESSITO","montant":15000,"versement_valide_le":"2026-09-09","versement_valide_par":"TIMO"}')"
+essai "le comptable pointe « Encaissé » l'entrée miroir (son geste habituel)" "PERMIS" "$COMPTABLE" "$(MAJ depenses "jsonb_set(data,'{decaisse_le}','\"2026-09-09\"')" zx1)"
 
 echo
 echo "── L'UPSERT N'EST PAS UNE CRÉATION (securite-8, capture Timo du 08/09/2026) ──"

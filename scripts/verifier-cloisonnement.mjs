@@ -4281,9 +4281,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     execSync("grep -rln 'lu_par: \\[profile.id\\]\\|de_nom: profile.nom' src || true").toString().trim() === "");
   test("★ plus aucune fiche de dépense automatique recopiée : « par: profile.nom, auto: » n'existe plus dans les écrans",
     execSync("grep -rln 'par: profile.nom, auto:' src || true").toString().trim() === "");
-  test("★ nouveauMessage sert aux 14 fabrications, nouvelleDepense aux 10 dépenses automatiques",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "14"
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "10");
+  test("★ nouveauMessage sert aux 15 fabrications, nouvelleDepense aux 12 dépenses automatiques (versements de fonds compris, 09/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "15"
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "12");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
     (dep.match(/<thead>/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
@@ -4636,6 +4636,58 @@ titre("👑 Équipe cloisonnée pour l'administrateur principal aussi (relevé T
   const principal = db0.users[0];
   test("★ utilisateursDeLEspace pour le principal : en réel → le vendeur réel seul ; c'est la même fonction que l'écran appelle",
     C.utilisateursDeLEspace(db0, principal).map((u) => u.id).join("|") === "p|v" && C.espaceDuCompte(db0, principal) === false);
+}
+
+titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG / BANQUE / Chez le comptable, validé par le DG ou le comptable)");
+{
+  const sortieVs = join("node_modules", ".cache", `bmi-versements-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/versements.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVs, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vs = await import(pathToFileURL(sortieVs).href);
+  unlinkSync(sortieVs);
+  const moi = { id: "v1", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" };
+  test("★ trois destinations exactement, dans cet ordre ; vendeur, gérant et admin peuvent verser",
+    Vs.DESTINATIONS_VERSEMENT.join("|") === "Chez le DG|BANQUE|Chez le comptable" && Vs.ROLES_VERSEMENT.join("|") === "vendeur|gerant|admin");
+  test("★ un versement mal formé est refusé avec son motif : montant nul, destination inconnue, BANQUE sans banque ou sans bordereau",
+    /montant/.test(Vs.critiqueVersement({ montant: 0, destination: "BANQUE", banque: "Ecobank", bordereau: "1" })) && /destination/.test(Vs.critiqueVersement({ montant: 100, destination: "Ailleurs" }))
+    && /banque/.test(Vs.critiqueVersement({ montant: 100, destination: "BANQUE", banque: "", bordereau: "1" })) && /bordereau/.test(Vs.critiqueVersement({ montant: 100, destination: "BANQUE", banque: "Ecobank", bordereau: " " }))
+    && Vs.critiqueVersement({ montant: 100, destination: "Chez le DG" }) === "" && Vs.critiqueVersement({ montant: 100, destination: "Chez le comptable" }) === "");
+  const rc = Vs.construireVersement(moi, { boutique: "APESSITO", montant: "150000", destination: "Chez le comptable", note: "recette" });
+  const rb = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 90000, destination: "BANQUE", banque: " Ecobank ", bordereau: "B-77" });
+  const rd = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 50000, destination: "Chez le DG" });
+  test("★ Chez le comptable : une SORTIE (dépense espèces de la boutique, catégorie « Versement de fonds ») et une ENTRÉE miroir chez le comptable (montant négatif), liées par le même identifiant",
+    rc.sortie.boutique === "APESSITO" && rc.sortie.categorie === "Versement de fonds" && rc.sortie.montant === 150000 && rc.sortie.paiement === "Espèces" && rc.sortie.versement.destination === "Chez le comptable"
+    && rc.entree.boutique === "Chez le comptable" && rc.entree.montant === -150000 && rc.entree.versement_id === rc.sortie.versement.id && /Versement reçu de APESSITO \(par KOSSI\)/.test(rc.entree.description) && /\(recette\)/.test(rc.sortie.description));
+  test("★ BANQUE : banque et bordereau nettoyés dans le libellé, AUCUNE entrée chez le comptable ; Chez le DG : idem",
+    rb.entree === null && Vs.libelleDestination(rb.versement) === "BANQUE Ecobank — bordereau B-77" && rd.entree === null && Vs.libelleDestination(rd.versement) === "Chez le DG");
+  const db0 = { depenses: [rc.sortie, { ...rc.entree, decaisse_le: "2026-09-09", decaisse_par: "COMPTA" }, rb.sortie, { ...rd.sortie, versement_valide_le: "2026-09-09", versement_valide_par: "TIMO" }], ventes: [], dettes: [], users: [
+    { id: "c", role: "comptable", actif: true }, { id: "t", role: "admin", admin_principal: true }, { id: "a2", role: "admin" }, { id: "v1", role: "vendeur" }] };
+  test("★ la validation se lit au bon endroit : Chez le comptable = pointage « Encaissé » de l'entrée ; DG / BANQUE = validation du DG sur la sortie ; sinon en attente",
+    Vs.validationVersement(db0, rc.sortie)?.par === "COMPTA" && Vs.validationVersement(db0, rb.sortie) === null && Vs.validationVersement(db0, db0.depenses[3])?.par === "TIMO"
+    && Vs.versementsAValiderParDG(db0, ["APESSITO"]).map((d) => d.id).join("|") === rb.sortie.id && Vs.versementsAValiderParDG(db0, ["AUTRE"]).length === 0);
+  test("★ le message part au comptable pour « Chez le comptable », au DG (admin PRINCIPAL seul) pour BANQUE et Chez le DG",
+    Vs.messagesVersement(db0, moi, rc.sortie).map((m) => m.a_id).join("|") === "c" && Vs.messagesVersement(db0, moi, rb.sortie).map((m) => m.a_id).join("|") === "t" && Vs.messagesVersement(db0, moi, rd.sortie).map((m) => m.a_id).join("|") === "t");
+  const tv = (v) => Number(v.total || 0);
+  const db1 = { depenses: [{ ...rc.sortie, date: "2026-09-05" }], ventes: [{ boutique: "APESSITO", paiement: "Espèces", date: "2026-09-04", total: 1000 }, { boutique: "APESSITO", paiement: "Espèces", date: "2026-09-06", total: 5000 }, { boutique: "APESSITO", paiement: "Mobile money", date: "2026-09-06", total: 7000 }, { boutique: "AUTRE", paiement: "Espèces", date: "2026-09-06", total: 9000 }],
+    dettes: [{ boutique: "APESSITO", paiements: [{ date: "2026-09-07", montant: 300 }, { date: "2026-09-01", montant: 999 }] }] };
+  const f = Vs.fondsAVerser(db1, "APESSITO", tv);
+  test("★ fonds à verser = espèces entrées (ventes + règlements) − espèces sorties (versements compris) depuis le dernier versement ; jamais le mobile money ni une autre boutique",
+    f.depuis === "2026-09-05" && f.ventes === 5000 && f.reglements === 300 && f.depenses === 150000 && f.montant === 5000 + 300 - 150000
+    && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 6000 + 1299);
+  test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
+    Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
+  const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
+  test("★ écran Caisse : les destinations suivent l'espace REGARDÉ (destinationsPour(espaceDuCompte)) et le geste refuse une destination hors liste",
+    /const destinations = destinationsPour\(espaceDuCompte\(db, profile\) === true\);/.test(cs) && /if \(!destinations\.includes\(vers\.destination\)\)/.test(cs) && !/DESTINATIONS_VERSEMENT/.test(cs));
+  const s10 = readFileSync("supabase/securite-10-versements.sql", "utf8");
+  const ta = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ securite-10 : versement_valide_le / _par ne s'écrivent que par l'administrateur PRINCIPAL (upsert relu) ; le banc tester-argent le pose et rejoue vendeur, gérant, admin secondaire (refusés) et DG (permis)",
+    /create trigger depenses_regles_versement_trg\s+before insert or update on public\.depenses/.test(s10) && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s10) && /if not public\.est_admin_principal\(\) then/.test(s10)
+    && /-f supabase\/securite-10-versements\.sql/.test(ta) && /un vendeur se valide lui-même son versement \(versement_valide_le\)" "REFUSE"/.test(ta) && /un administrateur SECONDAIRE valide un versement" "REFUSE"/.test(ta) && /le DG \(administrateur principal\) valide un versement" "PERMIS"/.test(ta));
+  test("★ écran Caisse : le geste revérifie le rôle (ROLES_VERSEMENT) et la lecture seule ; la validation DG revérifie l'administrateur PRINCIPAL ; les boutiques du DG passent par boutiquesVisibles",
+    /if \(refuserSaufRoles\(profile, ROLES_VERSEMENT, "Verser les fonds"\)\) return;\n\s+if \(bloquerSiLecture\(db, profile\)\) return;/.test(cs)
+    && /if \(refuserSaufAdminPrincipal\(db, profile, "Valider un versement de fonds \(DG\)"\)\) return;/.test(cs)
+    && /versementsAValiderParDG\(db, boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\)/.test(cs)
+    && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

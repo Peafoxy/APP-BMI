@@ -6,8 +6,9 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
-import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, ROLES_CAISSE } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, messagesVersement, libelleDestination } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -57,6 +58,44 @@ export function Caisse({ db, save, profile }) {
 
   const liste = db.clotures.filter((c) => c.boutique === boutique);
 
+  // ---- 💸 VERSEMENT DES FONDS (demande Timo, 09/09/2026) ----
+  // Règle et écritures dans lib/versements.js. Vendeur, gérant, admin.
+  // Chez le DG et BANQUE : validés par le DG (administrateur principal) ;
+  // Chez le comptable : pointés « Encaissé » par le comptable.
+  // ⚠ Cloisonnement : « Chez le comptable » (réelle, sans jumelle) n'est
+  // proposée qu'en regardant le réel — jamais à un compte de formation.
+  const destinations = destinationsPour(espaceDuCompte(db, profile) === true);
+  const destinationDefaut = destinations.includes(DEST_COMPTABLE) ? DEST_COMPTABLE : DEST_DG;
+  const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+  const aVerser = fondsAVerser(db, boutique, totalVente);
+  const mesVersements = versementsDe(db, boutique);
+  const verser = async () => {
+    if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!destinations.includes(vers.destination)) { uAlert("Cette destination n'est pas disponible dans l'espace regardé."); return; }
+    const r = construireVersement(profile, { boutique, ...vers });
+    if (r.refus) { uAlert(r.refus); return; }
+    if (!await uConfirm(`Enregistrer le versement de ${fmt(Number(vers.montant))} de ${boutique} → ${libelleDestination(r.versement)} ?\n\nIl restera « en attente » jusqu'à sa validation par ${vers.destination === DEST_COMPTABLE ? "le comptable" : "le DG"}.`)) return;
+    save({
+      ...db,
+      depenses: [r.sortie, ...(r.entree ? [r.entree] : []), ...(db.depenses || [])],
+      messages: [...messagesVersement(db, profile, r.sortie), ...(db.messages || [])],
+    }, `Versement de fonds ${fmt(Number(vers.montant))} : ${boutique} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
+    setVers({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+    uAlert("Versement enregistré — en attente de validation.");
+  };
+  // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
+  // boutiques de l'espace regardé.
+  const jeSuisDG = estAdminPrincipal(db, profile);
+  const aValiderDG = jeSuisDG ? versementsAValiderParDG(db, boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom)) : [];
+  const validerDG = async (d) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Valider un versement de fonds (DG)")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(`Valider la réception de ${fmt(d.montant)} versés par ${d.par} (${d.boutique}) → ${libelleDestination(d.versement)} le ${dFR(d.date)} ?`)) return;
+    save({ ...db, depenses: db.depenses.map((x) => (x.id === d.id ? { ...x, versement_valide_le: today(), versement_valide_par: profile.nom } : x)) },
+      `Versement de fonds VALIDÉ par le DG : ${fmt(d.montant)} de ${d.boutique} → ${libelleDestination(d.versement)}`);
+  };
+
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
@@ -64,6 +103,67 @@ export function Caisse({ db, save, profile }) {
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={setBq} avecTerrain profile={profile} />}
+      {jeSuisDG && aValiderDG.length > 0 && (
+        <div className="bg-white rounded-xl border-2 border-amber-300 shadow-sm p-4">
+          <div className="font-bold text-amber-900 mb-2">💸 Versements à valider par le DG ({aValiderDG.length})</div>
+          <div className="space-y-1">
+            {aValiderDG.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <div><b>{fmt(d.montant)}</b> — {d.boutique} → {libelleDestination(d.versement)}
+                  <div className="text-xs text-slate-500">{dFR(d.date)} · versé par {d.par}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
+                </div>
+                <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <Panel boutique={boutique}>
+        <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces{aVerser.depuis ? `, depuis le ${dFR(aVerser.depuis)}` : ""})</div><div className="font-bold tabular-nums text-lg">{fmt(aVerser.montant)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerser.ventes + aVerser.reglements)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris)</div><div className="font-bold tabular-nums">− {fmt(aVerser.depenses)}</div></div>
+        </div>
+        {ROLES_VERSEMENT.includes(profile.role) && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Field label="Montant versé (F)"><input type="number" inputMode="numeric" className={inputCls} value={vers.montant} onChange={(e) => setVers({ ...vers, montant: e.target.value })} /></Field>
+            <Field label="Destination">
+              <select className={inputCls} value={vers.destination} onChange={(e) => setVers({ ...vers, destination: e.target.value })}>
+                {destinations.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </Field>
+            {vers.destination === DEST_BANQUE && (
+              <>
+                <Field label="Nom de la banque"><input className={inputCls} value={vers.banque} onChange={(e) => setVers({ ...vers, banque: e.target.value })} placeholder="Ex : Ecobank" /></Field>
+                <Field label="N° du bordereau de versement"><input className={inputCls} value={vers.bordereau} onChange={(e) => setVers({ ...vers, bordereau: e.target.value })} /></Field>
+              </>
+            )}
+            <div className={vers.destination === DEST_BANQUE ? "lg:col-span-3" : "lg:col-span-2"}><Field label="Note"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} placeholder="Ex : recette du jour" /></Field></div>
+            <div className="flex items-end"><button onClick={verser} className={btnDark}>💸 Verser</button></div>
+          </div>
+        )}
+        <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente.</div>
+        {mesVersements.length > 0 && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Versements de {boutique}</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Date</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Destination</th><th className="text-left px-3 py-1.5">Par</th><th className="text-left px-3 py-1.5">Validation</th></tr></thead>
+              <tbody>
+                {mesVersements.slice(0, 30).map((d) => { const v = validationVersement(db, d); return (
+                  <tr key={d.id} className="border-t border-slate-100">
+                    <td className="px-3 py-1.5">{dFR(d.date)}</td>
+                    <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(d.montant)}</td>
+                    <td className="px-3 py-1.5">{libelleDestination(d.versement)}{d.versement.note ? <span className="text-slate-400"> · {d.versement.note}</span> : null}</td>
+                    <td className="px-3 py-1.5">{d.par}</td>
+                    <td className="px-3 py-1.5">{v ? <span className="text-xs font-bold text-green-700">✅ validé le {dFR(v.le)} par {v.par}</span> : <span className="text-xs font-bold text-amber-700">⏳ en attente</span>}</td>
+                  </tr>
+                ); })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse du jour <Badge boutique={boutique} /></div>
         {dejaCloturee ? (

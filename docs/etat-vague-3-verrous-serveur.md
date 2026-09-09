@@ -166,3 +166,19 @@ autre (roles-1 ne refusait que les non-admins).
 - Banc : `scripts/tester-comptes-sql.sh` (67, dont 13 nouveaux ; sans le
   script, 5 tombent).
 - **État : collé par Timo le 09/09/2026** (les deux lignes de retrait n'ont pas été collées).
+
+## Ajout du 09/09/2026 — securite-10 (le versement des fonds : validation du DG)
+
+Demande Timo : « le versement des fonds par les vendeurs et gérants » —
+destinations Chez le DG / BANQUE / Chez le comptable ; BANQUE avec banque et
+bordereau ; « toujours à être validé par le DG », « DG, c'est l'admin
+principal » ; Chez le comptable → le comptable valide (pointage Encaissé).
+
+- Écran : 🔒 Caisse, bloc « 💸 Verser les fonds » (vendeur, gérant, admin),
+  fonds à verser, historique ; bloc « Versements à valider par le DG » en
+  haut pour l'administrateur principal. Règle pure `lib/versements.js`.
+- Serveur : `supabase/securite-10-versements.sql` — `versement_valide_le` /
+  `_par` sur `depenses` ne s'écrivent que par l'administrateur principal
+  (upsert relu). Banc : `scripts/tester-argent-sql.sh` (75, dont 9 nouveaux ;
+  sans le script, 4 tombent).
+- **État : SQL à coller par Timo** (message du 09/09/2026, version 2.101.112).
