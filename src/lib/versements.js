@@ -105,20 +105,23 @@ export const versementsDe = (db, boutique) => (db.depenses || [])
   .filter((d) => estVersement(d) && d.boutique === boutique)
   .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
 
-// Ce que la boutique doit encore verser : espèces entrées (ventes, règlements
-// de dettes) moins espèces sorties (dépenses, versements compris), depuis la
-// date du dernier versement — ou depuis toujours s'il n'y en a jamais eu.
+// Ce que la boutique doit encore verser : le SOLDE d'espèces en caisse —
+// tout ce qui est entré (ventes en espèces, règlements de dettes en
+// espèces) moins tout ce qui est sorti (dépenses en espèces, versements
+// compris). Un versement fait baisser ce solde d'autant, rien d'autre.
+// ⚠ Capture Timo (09/09/2026) : la première version repartait de la DATE du
+// dernier versement — elle ne comptait que les entrées de ce jour-là mais
+// retranchait le versement entier : « attendu 252 299, versé 202 299 »
+// donnait −150 900 au lieu des 50 000 restants.
 export function fondsAVerser(db, boutique, totalVente) {
-  const dernier = versementsDe(db, boutique)[0];
-  const depuis = dernier ? String(dernier.date) : "";
-  const dans = (d) => !depuis || String(d) >= depuis;
-  const ventes = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces" && dans(v.date))
+  const ventes = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces")
     .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
   const reglements = (db.dettes || []).filter((d) => d.boutique === boutique)
-    .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces" && dans(p.date)).reduce((t, p) => t + Number(p.montant || 0), 0), 0);
-  const depenses = (db.depenses || []).filter((x) => x.boutique === boutique && x.paiement === "Espèces" && dans(x.date))
+    .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces").reduce((t, p) => t + Number(p.montant || 0), 0), 0);
+  const depenses = (db.depenses || []).filter((x) => x.boutique === boutique && x.paiement === "Espèces")
     .reduce((s, x) => s + Number(x.montant || 0), 0);
-  return { montant: ventes + reglements - depenses, depuis, ventes, reglements, depenses };
+  const dernier = versementsDe(db, boutique)[0];
+  return { montant: ventes + reglements - depenses, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "" };
 }
 
 // Les versements que le DG (administrateur principal) doit valider : DG et

@@ -4674,15 +4674,15 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   test("★ le message part au comptable pour « Chez le comptable », au DG (admin PRINCIPAL seul) pour BANQUE et Chez le DG",
     Vs.messagesVersement(db0, moi, rc.sortie).map((m) => m.a_id).join("|") === "c" && Vs.messagesVersement(db0, moi, rb.sortie).map((m) => m.a_id).join("|") === "t" && Vs.messagesVersement(db0, moi, rd.sortie).map((m) => m.a_id).join("|") === "t");
   const tv = (v) => Number(v.total || 0);
-  const db1 = { depenses: [{ ...rc.sortie, date: "2026-09-05" }], ventes: [{ boutique: "APESSITO", paiement: "Espèces", date: "2026-09-04", total: 1000 }, { boutique: "APESSITO", paiement: "Espèces", date: "2026-09-06", total: 5000 }, { boutique: "APESSITO", paiement: "Mobile money", date: "2026-09-06", total: 7000 }, { boutique: "AUTRE", paiement: "Espèces", date: "2026-09-06", total: 9000 }],
-    dettes: [{ boutique: "APESSITO", paiements: [{ date: "2026-09-07", montant: 300 }, { date: "2026-09-01", montant: 999 }] }] };
+  const db1 = { depenses: [{ ...rc.sortie, date: "2026-09-05", montant: 202299 }, { boutique: "APESSITO", paiement: "Espèces", date: "2026-09-02", montant: 1 }], ventes: [{ boutique: "APESSITO", paiement: "Espèces", date: "2026-09-04", total: 200000 }, { boutique: "APESSITO", paiement: "Espèces", date: "2026-09-06", total: 51400 }, { boutique: "APESSITO", paiement: "Mobile money", date: "2026-09-06", total: 7000 }, { boutique: "AUTRE", paiement: "Espèces", date: "2026-09-06", total: 9000 }],
+    dettes: [{ boutique: "APESSITO", paiements: [{ date: "2026-09-07", montant: 300 }, { date: "2026-09-01", montant: 600 }] }] };
   const f = Vs.fondsAVerser(db1, "APESSITO", tv);
-  test("★ fonds à verser = espèces entrées (ventes + règlements) − espèces sorties (versements compris) depuis le dernier versement ; jamais le mobile money ni une autre boutique",
-    f.depuis === "2026-09-05" && f.ventes === 5000 && f.reglements === 300 && f.depenses === 150000 && f.montant === 5000 + 300 - 150000
-    && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 6000 + 1299);
-  // Timo (09/09/2026, deuxième idée) : plus de « recette du … au … » ; si le
-  // montant diffère de l'attendu, la justification est obligatoire ; chez le
-  // DG et le comptable, « Versement du <date> », jamais un intervalle.
+  // Capture Timo (09/09/2026) : attendu 252 299, versé 202 299 → il doit
+  // rester 50 000, pas −150 900 (l'ancien calcul repartait de la date du
+  // versement).
+  test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",
+    f.ventes === 251400 && f.reglements === 900 && f.depenses === 202300 && f.montant === 50000 && f.dernierVersement === "2026-09-05"
+    && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 252300 && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).dernierVersement === "");
   const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
   const nz = (t) => String(t).replace(/\u202f|\u00a0/g, " "); // les montants formatés portent une espace fine insécable
   test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple",

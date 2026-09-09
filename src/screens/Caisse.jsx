@@ -129,7 +129,7 @@ export function Caisse({ db, save, profile }) {
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces{aVerser.depuis ? `, depuis le ${dFR(aVerser.depuis)}` : ""})</div><div className="font-bold tabular-nums text-lg">{fmt(aVerser.montant)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{aVerser.dernierVersement ? ` — dernier versement le ${dFR(aVerser.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerser.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerser.montant)}</div></div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerser.ventes + aVerser.reglements)}</div></div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris)</div><div className="font-bold tabular-nums">− {fmt(aVerser.depenses)}</div></div>
         </div>
