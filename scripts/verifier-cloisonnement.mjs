@@ -4382,6 +4382,29 @@ titre("Solaire : « 🆕 Nouveau devis » au-delà de 5 appareils, avec confirma
   test("les réglages de la maison (autonomie, ensoleillement, tension, batterie) ne sont PAS touchés", !/setAutonomie\("1"\)|setSoleil\(SOLEIL_DEFAUT\)|setTension\(TENSION_DEFAUT\)/.test(sol.slice(sol.indexOf("const nouveauDevis"), sol.indexOf("const nouveauDevis") + 1500)));
 }
 
+titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERRAIN, Chez le comptable (Timo, 09/09/2026)");
+{
+  // « Peut-on voir les activités d'une seule boutique ? — Lance, avec
+  // TERRAIN et Chez le comptable. » Une boutique choisie filtre TOUT
+  // l'écran ; « Toutes » garde l'écran tel qu'il était ; jamais hors de
+  // l'espace regardé.
+  const dash = readFileSync("src/screens/Dashboard.jsx", "utf8");
+  test("★ les pastilles : les boutiques de l'espace regardé, la caisse TERRAIN de cet espace, et « Chez le comptable » seulement en réel (pas de jumelle de formation)",
+    /const terrainVu = boutiqueTerrain\(db, enFormation\);/.test(dash)
+    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[NOM_CAISSE_COMPTABLE\]\)\];/.test(dash));
+  test("★ le choix est mémorisé par écran (« dashboard ») et jamais retenu s'il n'est plus dans les pastilles de l'espace regardé",
+    /boutiqueMemorisee\(profile, "dashboard"\); return m && m !== TOUTES && PASTILLES\.includes\(m\) \? m : "";/.test(dash)
+    && /memoriserBoutique\(profile, "dashboard", nom \|\| TOUTES\)/.test(dash));
+  test("★ les sept listes globales (ventes, dépenses, dettes, produits, chantiers, dettes classiques, réservations) passent par l'espace PUIS par la boutique choisie",
+    (dash.match(/\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\)/g) || []).length === 6
+    && /dansMonEspace\(\{ boutique: boutiqueDuChantier\(db, c\) \}\) && dansLaBoutique\(\{ boutique: boutiqueDuChantier\(db, c\) \}\)/.test(dash));
+  test("★ colonnes, barres et cartes par boutique suivent le choix (NOMS_VUES) ; « Toutes » = la liste d'avant, inchangée",
+    /const NOMS_VUES = bqChoisie \? \[bqChoisie\] : NOMS;/.test(dash) && (dash.match(/\bNOMS_VUES\b/g) || []).length >= 14
+    && !/\bNOMS\.(map|forEach|reduce|length)/.test(dash));
+  test("★ le journal comptable exporté suit aussi la boutique choisie", /lignesJournal\(db, pa, pb\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
+  test("la présentation ne change pas : mêmes cartes, même sélecteur de période, le graphique et la synthèse sont là", /<Stat label="Total des ventes"/.test(dash) && /Ventes des 6 derniers mois/.test(dash) && /Synthèse par période/.test(dash));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

@@ -10,7 +10,8 @@ import { exportCSV } from "../lib/export";
 import {
   stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
   dettesClassiques, estReservation, periodes, reservations,
-  filtreEspaceAffichage, afficheChiffresFormation, boutiqueDuChantier, voitLesDeuxEspaces, boutiquesFormation } from "../lib/calculs";
+  filtreEspaceAffichage, afficheChiffresFormation, boutiqueDuChantier, voitLesDeuxEspaces, boutiquesFormation,
+  boutiqueTerrain, NOM_CAISSE_COMPTABLE, memoriserBoutique, boutiqueMemorisee } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============
 export function Dashboard({ db, profile }) {
@@ -29,25 +30,40 @@ export function Dashboard({ db, profile }) {
   const enFormation = afficheChiffresFormation(db, profile);
   const dansMonEspace = filtreEspaceAffichage(db, profile);
   const NOMS = db.boutiques.filter((b) => !b.terrain && !!b.formation === enFormation).map((b) => b.nom);
+  // ---- UNE BOUTIQUE AU CHOIX (demande Timo, 09/09/2026 : « peut-on voir les
+  // activités d'une seule boutique ? — lance, avec TERRAIN et Chez le
+  // comptable »). « Toutes » = l'écran tel qu'il était. Une boutique choisie
+  // filtre TOUT : cartes, période, graphique, top 5, paiements, synthèse,
+  // exports, cartes du bas. Mémorisée par écran, jamais hors de l'espace
+  // regardé (TERRAIN suit l'espace ; « Chez le comptable » est réelle,
+  // sans jumelle : absente en formation).
+  const terrainVu = boutiqueTerrain(db, enFormation);
+  const PASTILLES = [...NOMS, ...(terrainVu ? [terrainVu.nom] : []), ...(enFormation ? [] : [NOM_CAISSE_COMPTABLE])];
+  const TOUTES = "__toutes__";
+  const [bqChoisie, setBqChoisie] = useState(() => { const m = boutiqueMemorisee(profile, "dashboard"); return m && m !== TOUTES && PASTILLES.includes(m) ? m : ""; });
+  const choisirBq = (nom) => { setBqChoisie(nom); memoriserBoutique(profile, "dashboard", nom || TOUTES); };
+  const dansLaBoutique = (x) => !bqChoisie || x.boutique === bqChoisie;
+  // Les colonnes, barres et cartes par boutique : toutes, ou la seule choisie.
+  const NOMS_VUES = bqChoisie ? [bqChoisie] : NOMS;
   // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
-  // NOMS protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
+  // NOMS_VUES protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
   // TOTAUX GLOBAUX de cette page (CA total, frais, nb clients, commissions,
   // export du journal comptable) parcouraient db.ventes BRUT, sans jamais
-  // passer par NOMS — trou réel trouvé, une vente de formation aurait
+  // passer par NOMS_VUES — trou réel trouvé, une vente de formation aurait
   // gonflé ces chiffres. Variable UNIQUE réutilisée pour tous ces totaux.
-  const ventesReellesDb = (db.ventes || []).filter(dansMonEspace);
-  const depensesReellesDb = (db.depenses || []).filter(dansMonEspace);
-  const dettesReellesDb = (db.dettes || []).filter(dansMonEspace);
-  const produitsReelsDb = (db.produits || []).filter(dansMonEspace);
-  const chantiersReelsDb = (db.clients_installes || []).filter((c) => dansMonEspace({ boutique: boutiqueDuChantier(db, c) }));
+  const ventesReellesDb = (db.ventes || []).filter(dansMonEspace).filter(dansLaBoutique);
+  const depensesReellesDb = (db.depenses || []).filter(dansMonEspace).filter(dansLaBoutique);
+  const dettesReellesDb = (db.dettes || []).filter(dansMonEspace).filter(dansLaBoutique);
+  const produitsReelsDb = (db.produits || []).filter(dansMonEspace).filter(dansLaBoutique);
+  const chantiersReelsDb = (db.clients_installes || []).filter((c) => dansMonEspace({ boutique: boutiqueDuChantier(db, c) }) && dansLaBoutique({ boutique: boutiqueDuChantier(db, c) }));
   // ⚠ Même exclusion pour les DETTES/réservations (pas seulement les
   // ventes) : filtrée ICI, dans les totaux globaux du Tableau de bord
   // uniquement — les fonctions partagées dettesClassiques()/reservations()
   // restent volontairement INCHANGÉES, elles sont aussi utilisées par
   // l'écran Dettes lui-même, où une boutique de formation doit continuer
   // à voir SES PROPRES dettes normalement quand on la sélectionne.
-  const dettesReellesDashboard = dettesClassiques(db).filter(dansMonEspace);
-  const reservationsReellesDashboard = reservations(db).filter(dansMonEspace);
+  const dettesReellesDashboard = dettesClassiques(db).filter(dansMonEspace).filter(dansLaBoutique);
+  const reservationsReellesDashboard = reservations(db).filter(dansMonEspace).filter(dansLaBoutique);
   const [periodeIndex, setPeriodeIndex] = useState(2);
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");
@@ -61,7 +77,7 @@ export function Dashboard({ db, profile }) {
 
   const rows = periodes().map(([label, a, b]) => {
     const v = {}, d = {};
-    NOMS.forEach((bq) => {
+    NOMS_VUES.forEach((bq) => {
       v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
       d[bq] = db.depenses.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
@@ -71,7 +87,7 @@ export function Dashboard({ db, profile }) {
   const customRow = (() => {
     const [label, a, b] = getPeriod();
     const v = {}, d = {};
-    NOMS.forEach((bq) => {
+    NOMS_VUES.forEach((bq) => {
       v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
       d[bq] = db.depenses.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
@@ -79,7 +95,7 @@ export function Dashboard({ db, profile }) {
   })();
 
   const dettes = {}, alertes = {}, valA = {}, valV = {};
-  NOMS.forEach((b) => {
+  NOMS_VUES.forEach((b) => {
     // Les réservations prépayées ne sont PAS des créances : le client n'a rien reçu.
     dettes[b] = dettesClassiques(db).filter((x) => x.boutique === b).reduce((s, x) => s + Math.max(0, x.montant - x.paye), 0);
     const ps = db.produits.filter((p) => p.boutique === b);
@@ -88,7 +104,7 @@ export function Dashboard({ db, profile }) {
     valV[b] = ps.reduce((s, p) => s + stockActuel(db, p) * Number(p.prix_vente), 0);
   });
 
-  const somme = (obj) => NOMS.reduce((s, b) => s + (obj[b] || 0), 0);
+  const somme = (obj) => NOMS_VUES.reduce((s, b) => s + (obj[b] || 0), 0);
   const m = rows[2];
   const resM = somme(m.v) - somme(m.d);
   const resCustom = somme(customRow.v) - somme(customRow.d);
@@ -148,12 +164,12 @@ export function Dashboard({ db, profile }) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = d.toISOString().slice(0, 7);
     const vals = {};
-    NOMS.forEach((b) => {
+    NOMS_VUES.forEach((b) => {
       vals[b] = db.ventes.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVente(x), 0);
     });
     mois6.push({ nom: moisNoms[d.getMonth()], vals });
   }
-  const maxV = Math.max(1, ...mois6.flatMap((x) => NOMS.map((b) => x.vals[b])));
+  const maxV = Math.max(1, ...mois6.flatMap((x) => NOMS_VUES.map((b) => x.vals[b])));
 
   // Analyses sur la période sélectionnée
   const [, paG, pbG] = getPeriod();
@@ -182,6 +198,17 @@ export function Dashboard({ db, profile }) {
           </div>
         </div>
       )}
+      {/* Une boutique au choix — « Toutes » garde l'écran tel qu'il est. */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <button onClick={() => choisirBq("")}
+          className={`px-4 py-1.5 rounded-full text-sm font-bold ${!bqChoisie ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>Toutes</button>
+        {PASTILLES.map((nom) => (
+          <button key={nom} onClick={() => choisirBq(nom)}
+            className={`px-4 py-1.5 rounded-full text-sm font-bold ${bqChoisie === nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
+            style={bqChoisie === nom ? { backgroundColor: col(nom) } : {}}>{nom === NOM_CAISSE_COMPTABLE ? "🧾 " : nom === terrainVu?.nom ? "🏕 " : ""}{nom}</button>
+        ))}
+        {bqChoisie && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
@@ -246,7 +273,7 @@ export function Dashboard({ db, profile }) {
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="font-bold text-slate-800">Ventes des 6 derniers mois</div>
           <div className="flex gap-3 text-xs font-semibold flex-wrap">
-            {NOMS.map((b) => (
+            {NOMS_VUES.map((b) => (
               <span key={b} className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: col(b) }}></span>{b}</span>
             ))}
           </div>
@@ -255,9 +282,9 @@ export function Dashboard({ db, profile }) {
           {mois6.map((x) => (
             <div key={x.nom} className="flex-1 flex flex-col items-center gap-1">
               <div className="w-full flex items-end justify-center gap-1 h-32">
-                {NOMS.map((b) => (
+                {NOMS_VUES.map((b) => (
                   <div key={b} className="rounded-t" title={`${b} : ${fmt(x.vals[b])}`}
-                    style={{ width: `${Math.max(8, 30 / NOMS.length)}%`, backgroundColor: col(b), height: `${(x.vals[b] / maxV) * 100}%`, minHeight: x.vals[b] ? 3 : 0 }}></div>
+                    style={{ width: `${Math.max(8, 30 / NOMS_VUES.length)}%`, backgroundColor: col(b), height: `${(x.vals[b] / maxV) * 100}%`, minHeight: x.vals[b] ? 3 : 0 }}></div>
                 ))}
               </div>
               <div className="text-xs font-semibold text-slate-500">{x.nom}</div>
@@ -299,10 +326,10 @@ export function Dashboard({ db, profile }) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Synthèse par période</div>
-        <table className="w-full text-sm" style={{ minWidth: 480 + NOMS.length * 140 }}>
+        <table className="w-full text-sm" style={{ minWidth: 480 + NOMS_VUES.length * 140 }}>
           <thead><tr className="text-xs text-slate-500 uppercase">
             <th className="text-left px-4 py-2">Période</th>
-            {NOMS.map((b) => <th key={b} className="text-right px-3 py-2">Ventes {b}</th>)}
+            {NOMS_VUES.map((b) => <th key={b} className="text-right px-3 py-2">Ventes {b}</th>)}
             <th className="text-right px-3 py-2">Dépenses</th>
             <th className="text-right px-4 py-2">Résultat</th>
           </tr></thead>
@@ -312,7 +339,7 @@ export function Dashboard({ db, profile }) {
               return (
                 <tr key={r.label} className="border-t border-slate-100 hover:bg-sky-50">
                   <td className="px-4 py-2 font-semibold">{r.label}</td>
-                  {NOMS.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums" style={{ color: col(b) }}>{fmt(r.v[b])}</td>)}
+                  {NOMS_VUES.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums" style={{ color: col(b) }}>{fmt(r.v[b])}</td>)}
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.d))}</td>
                   <td className={`px-4 py-2 text-right tabular-nums font-bold ${res >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(res)}</td>
                 </tr>
@@ -321,7 +348,7 @@ export function Dashboard({ db, profile }) {
             {periodeIndex === "custom" && (
               <tr className="border-t-2 border-slate-300 bg-slate-50">
                 <td className="px-4 py-2 font-bold">{customRow.label}</td>
-                {NOMS.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums font-bold" style={{ color: col(b) }}>{fmt(customRow.v[b])}</td>)}
+                {NOMS_VUES.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums font-bold" style={{ color: col(b) }}>{fmt(customRow.v[b])}</td>)}
                 <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.d))}</td>
                 <td className={`px-4 py-2 text-right tabular-nums font-bold ${resCustom >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(resCustom)}</td>
               </tr>
@@ -347,13 +374,13 @@ export function Dashboard({ db, profile }) {
           <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
             produitsReelsDb.map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>
           <button className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800"
-            onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
+            onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
         </div>
         <div className="text-xs text-slate-400 mt-2">Fichiers CSV compatibles Excel (séparateur point-virgule). Le journal comptable couvre la période sélectionnée plus haut : écritures en partie double (ventes, dépenses, règlements de dettes) avec les comptes SYSCOHADA de base — à remettre à votre comptable, qui peut adapter les codes si besoin.</div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
-        {NOMS.map((b) => (
+        {NOMS_VUES.map((b) => (
           <div key={b} className="bg-white rounded-xl border-2 p-4" style={{ borderColor: col(b) }}>
             <div className="mb-3"><Badge boutique={b} /></div>
             <div className="grid grid-cols-2 gap-2 text-sm">

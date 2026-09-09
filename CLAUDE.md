@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 986 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 992 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -267,7 +267,11 @@ lit mal est pire qu'un banc absent).
 ### Apparence et étiquettes
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
-  reproposer.
+  reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :
+  **Toutes** (l'écran tel quel) / chaque boutique / TERRAIN / « Chez le
+  comptable » (réel seul) — une boutique choisie filtre TOUT l'écran
+  (`dansLaBoutique`, `NOMS_VUES`), mémorisée par écran, jamais hors de
+  l'espace regardé.
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 
