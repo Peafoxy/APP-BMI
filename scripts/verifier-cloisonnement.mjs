@@ -4540,6 +4540,11 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (jamais en clair), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
     /type="password"/.test(ev) && /backdrop-blur-md/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
+  // Capture Timo (09/09/2026) : « dire simplement entrer le mot de passe et
+  // reprendre la session ; se déconnecter tout court ; supprimer le
+  // descriptif en bas ».
+  test("★ textes courts : « Entrez le mot de passe et reprenez la session. », « Se déconnecter » tout court, aucun descriptif sous le bouton",
+    /Entrez le mot de passe et reprenez la session\./.test(ev) && />\s*Se déconnecter\s*<\/button>/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");

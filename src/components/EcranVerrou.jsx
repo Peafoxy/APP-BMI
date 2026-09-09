@@ -9,7 +9,6 @@
 // ============================================================
 import { useState, useRef, useEffect } from "react";
 import { inputCls } from "./ui";
-import { MAX_ERREURS_VERROU } from "../lib/verrou";
 
 export function EcranVerrou({ profile, onDeverrouiller, onDeconnecter }) {
   const [saisie, setSaisie] = useState("");
@@ -39,7 +38,7 @@ export function EcranVerrou({ profile, onDeverrouiller, onDeconnecter }) {
           <div className="text-4xl">🔒</div>
           <div className="font-bold text-slate-800 text-lg mt-1">Session verrouillée</div>
           <div className="text-sm text-slate-500 mt-1">Compte : <b className="text-slate-700">{profile?.nom}</b></div>
-          <div className="text-xs text-slate-400 mt-1">Rien n'est perdu : entrez votre mot de passe pour reprendre où vous étiez.</div>
+          <div className="text-xs text-slate-400 mt-1">Entrez le mot de passe et reprenez la session.</div>
         </div>
         <input ref={champ} type="password" autoComplete="current-password" className={inputCls} placeholder="Mot de passe"
           value={saisie} onChange={(e) => { setSaisie(e.target.value); setErreur(""); }} disabled={occupe} />
@@ -48,11 +47,8 @@ export function EcranVerrou({ profile, onDeverrouiller, onDeconnecter }) {
           🔓 Déverrouiller
         </button>
         <button type="button" onClick={onDeconnecter} className="w-full px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">
-          Se déconnecter (laisser la place à un autre compte)
+          Se déconnecter
         </button>
-        <div className="text-[11px] text-slate-400 text-center">
-          Les opérations non encore envoyées restent sur cet appareil et partiront à la prochaine connexion. {MAX_ERREURS_VERROU} erreurs de mot de passe ferment la session.
-        </div>
       </form>
     </div>
   );
