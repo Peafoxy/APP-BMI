@@ -148,3 +148,21 @@ d'insertion des dépenses laisse passer le comptable sur une ligne existante
 tester-devis-chantiers (84) et tester-argent (66) — 4 cas tombent sans le
 correctif, tous passent avec. **COLLÉ par Timo le 08/09/2026 à 21 h 41** (capture : `4 | true`) — les
 opérations bloquées repartent seules dans la minute.
+
+## Ajout du 09/09/2026 — securite-9 (changer le rôle d'un compte)
+
+Demande Timo : « L'administrateur principal doit être capable de changer le
+rôle d'un utilisateur sur la fiche utilisateur — d'un vendeur, transformer en
+gérant ou autre. » Avant, le rôle se choisissait à la création et plus jamais
+ensuite ; côté serveur, tout administrateur pouvait changer le rôle d'un
+autre (roles-1 ne refusait que les non-admins).
+
+- Écran : bouton **🎭 Rôle** dans 👥 Utilisateurs (`changerRole`), principal
+  seul, hors clients et hors sa propre fiche ; la boutique suit le rôle ;
+  trace `role_avant` / `role_change_le` ; effet à la prochaine connexion.
+- Serveur : `supabase/securite-9-changer-role.sql` — déclencheur
+  `users_regles_role_trg` (BEFORE UPDATE) : changer le rôle → principal
+  seul ; client ↔ employé → toujours refusé ; la trace suit la même règle.
+- Banc : `scripts/tester-comptes-sql.sh` (67, dont 13 nouveaux ; sans le
+  script, 5 tombent).
+- **État : SQL à coller par Timo** (message du 09/09/2026, version 2.101.93).

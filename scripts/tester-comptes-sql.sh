@@ -34,6 +34,8 @@ done
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-4-argent.sql >/dev/null 2>&1
 echo "▸ Pose des verrous : supabase/securite-5-comptes.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-5-comptes.sql >/dev/null 2>&1
+echo "▸ Pose des verrous : supabase/securite-9-changer-role.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-9-changer-role.sql >/dev/null 2>&1 || echo "   ❌ securite-9 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -81,6 +83,8 @@ VIDE='{}'
 MAJ() { echo "with x as (update public.users set data = $1 where id='$2' returning 1) select count(*) from x;"; }
 SUPPR() { echo "with x as (delete from public.users where id='$1' returning 1) select count(*) from x;"; }
 SET() { echo "jsonb_set(data,'{$1}','$2')"; }
+# UPSERT tel que l'application écrit (créer ou mettre à jour) : la ligne existe, c'est une mise à jour.
+UPS() { echo "with x as (insert into public.users (id, data) values ('$1', (select $2 from public.users where id='$1')) on conflict (id) do update set data = excluded.data returning 1) select count(*) from x;"; }
 
 echo
 echo "── SUPPRIMER UN COMPTE : admin seul ──"
@@ -134,6 +138,22 @@ essai "★ le principal transfère son rôle (celle du nouveau d'abord, puis la 
   "update public.users set data = $(SET admin_principal true) where id='za_caleb'; $(MAJ "$(SET admin_principal false)" za_timo)"
 essai "le principal transfère son rôle en un seul envoi (toutes les fiches réécrites)" "PERMIS" "$PRINCIPAL" \
   "with x as (update public.users set data = jsonb_set(data,'{admin_principal}', to_jsonb(id = 'za_caleb')) where data->>'role' <> 'client' returning 1) select count(*) from x;"
+
+echo
+echo "── CHANGER LE RÔLE D'UN COMPTE (securite-9, Timo 09/09/2026) : le principal seul, jamais un client ──"
+essai "un gérant passe un vendeur gérant" "REFUSE" "$GERANT" "$(MAJ "$(SET role '"gerant"')" zv_kossi)"
+essai "★ un admin secondaire passe un vendeur gérant" "REFUSE" "$CALEB" "$(MAJ "$(SET role '"gerant"')" zv_kossi)"
+essai "★ un admin secondaire nomme un vendeur administrateur" "REFUSE" "$CALEB" "$(MAJ "$(SET role '"admin"')" zv_kossi)"
+essai "★ le principal passe un vendeur gérant (avec la trace du changement)" "PERMIS" "$PRINCIPAL" "$(MAJ "data || '{\"role\":\"gerant\",\"role_avant\":\"vendeur\",\"role_change_le\":\"2026-09-09\"}'" zv_kossi)"
+essai "★ …par UPSERT, comme l'application écrit" "PERMIS" "$PRINCIPAL" "$(UPS zv_kossi "data || '{\"role\":\"gerant\",\"role_avant\":\"vendeur\"}'")"
+essai "★ …même avec une étiquette de connexion d'avant 2.101.51 (la fiche fait foi)" "PERMIS" "$PRINCIPAL_VIEILLE_ETIQUETTE" "$(MAJ "$(SET role '"gerant"')" zv_kossi)"
+essai "le principal passe un commercial responsable commercial (boutique retirée)" "PERMIS" "$PRINCIPAL" "$(MAJ "(data || '{\"role\":\"resp_commercial\"}') - 'boutique'" zo_com)"
+essai "★ le principal transforme un CLIENT en vendeur" "REFUSE" "$PRINCIPAL" "$(MAJ "$(SET role '"vendeur"')" zc_ama)"
+essai "★ le principal transforme un vendeur en client" "REFUSE" "$PRINCIPAL" "$(MAJ "$(SET role '"client"')" zv_kossi)"
+essai "le principal change SON propre rôle (sa fiche reste interdite à tous)" "REFUSE" "$PRINCIPAL" "$(MAJ "$(SET role '"vendeur"')" za_timo)"
+essai "un admin secondaire écrit la trace d'un changement de rôle sans changer le rôle" "REFUSE" "$CALEB" "$(MAJ "$(SET role_avant '"vendeur"')" zv_kossi)"
+essai "un vendeur se nomme gérant (déjà fermé par roles-1)" "REFUSE" "$VENDEUR" "$(MAJ "$(SET role '"gerant"')" zv_kossi)"
+essai "l'éditeur SQL (jeton vide) change un rôle" "PERMIS" "$VIDE" "$(MAJ "$(SET role '"gerant"')" zv_kossi)"
 
 echo
 echo "── BASCULER UN COMPTE RÉEL ↔ FORMATION : le principal seul ──"

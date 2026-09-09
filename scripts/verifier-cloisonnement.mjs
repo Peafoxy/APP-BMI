@@ -4474,6 +4474,36 @@ titre("L'onglet 🔁 Transfert n'est plus au vendeur (Timo, 09/09/2026 : « reti
     /refuserSaufRoles\(profile, ROLES_STOCK, "Servir une demande de transfert"\)/.test(rav) && /refuserSaufRoles\(profile, ROLES_STOCK, "Refuser une demande de transfert"\)/.test(rav));
 }
 
+titre("🎭 Changer le rôle d'un compte : l'administrateur principal seul, jamais un client (Timo, 09/09/2026)");
+{
+  // « L'administrateur principal doit être capable de changer le rôle d'un
+  // utilisateur sur la fiche utilisateur — d'un vendeur, transformer en
+  // gérant ou autre. » Écran (Utilisateurs.jsx) et serveur (securite-9)
+  // disent la même chose ; le banc SQL rejoue les cas (tester-comptes).
+  const us = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ le geste revérifie DANS le geste : lecture seule, administrateur principal, jamais sa propre fiche, jamais un client",
+    /const changerRole = async \(u\) => \{\n    if \(bloquerSiLecture\(db, profile\)\) return;\n    if \(refuserSaufAdminPrincipal\(db, profile, "Changer le rôle d'un compte"\)\) return;\n    if \(refusSurSoi\(u, "changer votre propre rôle"\)\) return;\n    if \(u\.role === "client"\)/.test(us));
+  test("★ le bouton 🎭 Rôle n'est montré qu'au principal, hors clients et hors sa propre fiche",
+    /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <button onClick=\{\(\) => changerRole\(u\)\}/.test(us));
+  test("★ la liste des rôles proposés ne contient jamais « client »",
+    /const ROLES_CHANGEABLES = \["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "admin"\];/.test(us)
+    && !/ROLES_CHANGEABLES = \[[^\]]*"client"/.test(us));
+  test("★ la boutique suit le rôle : demandée (dans l'espace du compte, jamais TERRAIN) pour vendeur / gérant / magasinier, retirée pour les autres ; la trace (role_avant, role_change_le) est écrite",
+    /if \(SALARIES_BOUTIQUE\.includes\(nouveau\)\) \{/.test(us) && /db\.boutiques\.filter\(\(b\) => !b\.terrain && !!b\.formation === espaceDeU\)\.map\(\(b\) => b\.nom\)/.test(us)
+    && /\} else if \(boutique\) \{[\s\S]{0,200}boutique = null;/.test(us)
+    && /\{ \.\.\.x, role: nouveau, boutique, role_avant: u\.role, role_change_le: today\(\) \}/.test(us));
+  test("★ la confirmation prévient : le nouveau rôle prend effet à la PROCHAINE connexion", /prend effet à sa PROCHAINE connexion/.test(us));
+  const sql = readFileSync("supabase/securite-9-changer-role.sql", "utf8");
+  test("★ securite-9 : un déclencheur BEFORE UPDATE sur users, réservé au principal (est_admin_principal), un client ne change jamais de rôle, la trace suit la même règle",
+    /create trigger users_regles_role_trg\s+before update on public\.users/.test(sql) && /if not public\.est_admin_principal\(\) then\s+perform public\.refus_role\('Changer le rôle d''un compte', 'l''administrateur principal'\)/.test(sql)
+    && /if role_avant = 'client' or role_apres = 'client' then/.test(sql) && /role_change_le/.test(sql) && /if public\.jeton_de_service\(\) then return new; end if;/.test(sql));
+  const tc = readFileSync("scripts/tester-comptes-sql.sh", "utf8");
+  test("★ le banc tester-comptes pose securite-9 et rejoue : admin secondaire refusé, principal permis (UPDATE et UPSERT), client refusé dans les deux sens, sa propre fiche refusée",
+    /-f supabase\/securite-9-changer-role\.sql/.test(tc) && /un admin secondaire passe un vendeur gérant" "REFUSE"/.test(tc) && /le principal passe un vendeur gérant \(avec la trace du changement\)" "PERMIS"/.test(tc)
+    && /…par UPSERT, comme l'application écrit" "PERMIS"/.test(tc) && /le principal transforme un CLIENT en vendeur" "REFUSE"/.test(tc) && /le principal transforme un vendeur en client" "REFUSE"/.test(tc)
+    && /le principal change SON propre rôle \(sa fiche reste interdite à tous\)" "REFUSE"/.test(tc));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

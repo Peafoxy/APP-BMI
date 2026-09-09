@@ -5,13 +5,16 @@
 import { useState } from "react";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
+// Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
+const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "admin"];
+
 export function Users({ db, save, profile }) {
   const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
@@ -264,6 +267,49 @@ export function Users({ db, save, profile }) {
   // administrateur à voir la formation ET le réel ensemble. La règle est
   // désormais : lui seul traverse. L'interrupteur ne pouvait donc plus rien
   // changer — le garder aurait promis un réglage qui n'existe plus.
+
+  // ---- 🎭 CHANGER LE RÔLE D'UN EMPLOYÉ (demande Timo, 09/09/2026) ----
+  // « L'administrateur principal doit être capable de changer le rôle d'un
+  // utilisateur sur la fiche utilisateur — d'un vendeur, transformer en
+  // gérant ou autre. » Avant : le rôle se choisissait à la création, et il
+  // fallait supprimer puis recréer le compte (historique, tâches,
+  // signature perdus). Réservé au PRINCIPAL, jamais sur sa propre fiche,
+  // jamais vers ni depuis « client » (un client porte des devis et des
+  // chantiers, et la base ne le laisse voir que ses données). Le serveur
+  // applique la même règle (supabase/securite-9-changer-role.sql).
+  // Ce qui suit le rôle : la boutique (demandée pour vendeur / gérant /
+  // magasinier, retirée pour les rôles qui couvrent toutes les boutiques).
+  // Commission, parrain, salaire, identité restent tels quels.
+  const changerRole = async (u) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Changer le rôle d'un compte")) return;
+    if (refusSurSoi(u, "changer votre propre rôle")) return;
+    if (u.role === "client") { uAlert("Un compte client ne change jamais de rôle. S'il devient employé, créez-lui un compte d'employé."); return; }
+    const libelleDe = (r) => LIBELLE_ROLE_EMPLOYE[r] || r;
+    const choix = await uChoix(`Nouveau rôle de ${u.nom} (actuellement : ${libelleDe(u.role)}) ?`,
+      ROLES_CHANGEABLES.filter((r) => r !== u.role).map(libelleDe));
+    if (!choix) return;
+    const nouveau = ROLES_CHANGEABLES.find((r) => libelleDe(r) === choix);
+    if (!nouveau || nouveau === u.role) return;
+    let boutique = u.boutique || null;
+    let ligneBoutique = "";
+    if (SALARIES_BOUTIQUE.includes(nouveau)) {
+      if (!boutique) {
+        const espaceDeU = !!u.formation;
+        const noms = db.boutiques.filter((b) => !b.terrain && !!b.formation === espaceDeU).map((b) => b.nom);
+        if (!noms.length) { uAlert(`Aucune boutique ${espaceDeU ? "de formation" : "réelle"} n'existe : créez-en une dans ⚙ Paramètres avant de donner ce rôle.`); return; }
+        boutique = await uChoix(`${libelleDe(nouveau)} de quelle boutique ?`, noms);
+        if (!boutique) return;
+        ligneBoutique = `\n\n🏪 Rattaché à la boutique ${boutique}.`;
+      }
+    } else if (boutique) {
+      ligneBoutique = `\n\n🏪 Son rattachement à « ${boutique} » est retiré : ce rôle couvre toutes les boutiques.`;
+      boutique = null;
+    }
+    if (!await uConfirm(`Passer ${u.nom} de ${libelleDe(u.role)} à ${libelleDe(nouveau)} ?${ligneBoutique}${nouveau === "admin" ? "\n\n⚠ Un administrateur voit et modifie tout, sauf ce qui vous est réservé." : ""}\n\n⚠ Le nouveau rôle prend effet à sa PROCHAINE connexion : prévenez-le de se déconnecter puis se reconnecter.`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, role: nouveau, boutique, role_avant: u.role, role_change_le: today() } : x)) },
+      `Rôle de ${u.nom} : ${libelleDe(u.role)} → ${libelleDe(nouveau)}${boutique !== (u.boutique || null) ? ` (boutique : ${boutique || "aucune"})` : ""} — par l'administrateur principal`);
+  };
 
   const basculerFormation = async (u) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -1022,6 +1068,7 @@ export function Users({ db, save, profile }) {
                   {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className="text-xs font-bold text-pink-700 underline mr-2">🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
+                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <button onClick={() => changerRole(u)} className="text-xs font-bold text-purple-700 underline mr-2" title={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"}>🎭 Rôle</button>}
                   {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
                     <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
                       {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
