@@ -23,7 +23,34 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   const [occupe, setOccupe] = useState(false);
   const [visible, setVisible] = useState(false); // 👁 même œil que l'écran de connexion (capture Timo, 09/09/2026)
   const champ = useRef(null);
-  useEffect(() => { champ.current?.focus(); }, []);
+  const [diag, setDiag] = useState("");
+  // ⚠ Timo (09/09/2026, Chrome sur PC) : « le curseur ne clignote pas, le
+  // mot de passe ne s'écrit pas » — non reproduit ici. Deux filets :
+  //   1. le champ reprend le focus à TOUT clic dans la fenêtre et à TOUTE
+  //      touche frappée pendant que le focus est ailleurs (même si un
+  //      élément inattendu s'interpose ou reprend le focus) ;
+  //   2. si, malgré cela, le champ n'a pas le focus, une ligne de
+  //      diagnostic nomme ce qui est au-dessus de lui, pour qu'une capture
+  //      suffise à comprendre.
+  const focaliser = () => { try { champ.current?.focus(); } catch { /* rien */ } };
+  const diagnostiquer = () => {
+    const i = champ.current;
+    if (!i || document.activeElement === i) { setDiag(""); return; }
+    const r = i.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + 20, r.top + r.height / 2);
+    const nom = el ? `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${el.className && typeof el.className === "string" ? "." + el.className.split(" ").slice(0, 3).join(".") : ""}` : "rien";
+    const actif = document.activeElement ? `${document.activeElement.tagName.toLowerCase()}${document.activeElement.id ? "#" + document.activeElement.id : ""}` : "aucun";
+    setDiag(`⚠ Le champ n'a pas le clavier — au-dessus : ${nom} ; focus : ${actif} ; désactivé : ${i.disabled ? "oui" : "non"} ; visible : ${r.width > 0 ? "oui" : "non"}`);
+  };
+  useEffect(() => {
+    focaliser();
+    const t = setTimeout(diagnostiquer, 1500);
+    const clavier = (e) => {
+      if (document.activeElement !== champ.current && !e.ctrlKey && !e.metaKey && !e.altKey) { focaliser(); diagnostiquer(); }
+    };
+    window.addEventListener("keydown", clavier, true);
+    return () => { clearTimeout(t); window.removeEventListener("keydown", clavier, true); };
+  }, []);
   // ⚠ Capture Timo (09/09/2026 : « les bulles sont là mais pas de photo ») :
   // à la connexion, l'image se pose sur la CARTE sauf si « plein écran » est
   // coché. Ici il n'y a pas cette carte : dès qu'une image existe, elle
@@ -49,7 +76,9 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Session verrouillée">
+    <div className="fixed inset-0 z-[10000] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Session verrouillée"
+      onPointerDown={(e) => { if (e.target?.tagName !== "BUTTON" && e.target?.tagName !== "INPUT") focaliser(); }}
+      onClick={() => setTimeout(diagnostiquer, 50)}>
       <FondAccueil decor={decor} className="min-h-full">
         {/* La couleur et la transparence de CETTE carte se règlent à part
             (⚙ Paramètres → 🔒 Fenêtre de verrouillage) ; une carte sombre
@@ -75,6 +104,7 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
               </button>
             </div>
             {erreur && <div className={`text-sm font-semibold text-center ${decor.verrouTexteClair ? "text-red-300" : "text-red-700"}`}>{erreur}</div>}
+            {diag && <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 break-words">{diag}</div>}
             <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
               🔓 Déverrouiller
             </button>

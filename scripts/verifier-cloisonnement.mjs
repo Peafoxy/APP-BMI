@@ -4603,6 +4603,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ le champ redevient toujours saisissable (try/finally sur « occupe ») ; le flou de la carte n'est posé que si elle est translucide",
     /try \{ r = await onDeverrouiller\(saisie\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupe\(false\); \}/.test(ev)
     && /\$\{decor\.verrouTranslucide \? "backdrop-blur-sm" : ""\}/.test(ev) && !/decor\.flou/.test(ev) && /const verrouTranslucide = !\/,1\\\)\$\/\.test\(verrouFond\);/.test(cnxV));
+  test("★ la fenêtre reprend le focus sur le champ à tout clic et à toute touche (filet Timo, 09/09/2026 : « le curseur ne clignote pas ») et nomme ce qui s'interpose si le champ n'a toujours pas le clavier",
+    /window\.addEventListener\("keydown", clavier, true\)/.test(ev) && /onPointerDown=\{\(e\) => \{ if \(e\.target\?\.tagName !== "BUTTON" && e\.target\?\.tagName !== "INPUT"\) focaliser\(\); \}\}/.test(ev)
+    && /document\.elementFromPoint\(r\.left \+ 20, r\.top \+ r\.height \/ 2\)/.test(ev) && /Le champ n'a pas le clavier/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");
