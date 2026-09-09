@@ -4,7 +4,7 @@
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
+import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires, supportsPourRails, etriersPourPanneaux } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
@@ -629,7 +629,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
@@ -646,6 +646,26 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
   const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "solaire", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente });
+
+  // 🆕 Nouveau devis (demande Timo, 09/09/2026) : repartir de zéro d'un
+  // geste au lieu de retirer les appareils ligne par ligne. Proposé
+  // seulement au-delà de 5 appareils (en dessous, on retire à la main).
+  // Une confirmation avant d'effacer, qui rappelle « Enregistrer un
+  // brouillon » pour garder le devis en cours. Les réglages (autonomie,
+  // ensoleillement, tension, batterie) restent : ce sont ceux de la maison.
+  const nouveauDevis = async () => {
+    if (!await uConfirm(
+      `Commencer un NOUVEAU devis ?\n\n` +
+      `Les ${appareils.length} appareils, les équipements choisis, les rails et les autres équipements du devis en cours seront effacés, ainsi que le client choisi.\n\n` +
+      `Pour garder ce devis, annulez et cliquez d'abord « 📝 Enregistrer un brouillon » en bas de la page.`)) return;
+    setAppareils([{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
+    setChoix({}); setRolesManuels({}); setRolesHB({}); setManuelOuvert({}); setBrouillonManuel({});
+    setRailsQte(0); setFixationManuelle({});
+    reprendreAutres([]);
+    envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", tel: "" });
+    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation("");
+    if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+  };
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
   // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
@@ -735,7 +755,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
             </div>
           ))}
         </div>
-        <button onClick={ajouterAppareil} className="mt-2 text-sm font-bold text-sky-800 underline">➕ Ajouter un appareil</button>
+        <div className="mt-2 flex flex-wrap items-center gap-4">
+          <button onClick={ajouterAppareil} className="text-sm font-bold text-sky-800 underline">➕ Ajouter un appareil</button>
+          {appareils.length > 5 && (
+            <button onClick={nouveauDevis} className="text-sm font-bold text-red-700 underline">🆕 Nouveau devis (tout effacer)</button>
+          )}
+        </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
           <Field label="Autonomie souhaitée (jours)"><input type="number" min="1" className={inputCls} value={autonomie} onChange={(e) => setAutonomie(e.target.value)} /></Field>

@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 982 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 986 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -204,6 +204,11 @@ lit mal est pire qu'un banc absent).
   ⚙ Paramètres → 🔌 Appareils (admin ; écrit `appareils_catalogue` sur les
   boutiques de l'espace regardé) ; « à classer » = les inconnus des devis,
   dérivé, jamais écrit par un vendeur.
+- **🆕 Nouveau devis** (solaire, 09/09/2026) : à côté de « Ajouter un
+  appareil », **seulement au-delà de 5 appareils** (en dessous on retire à
+  la main) ; confirmation avant d'effacer, qui rappelle « Enregistrer un
+  brouillon » ; efface appareils, choix, rails, autres équipements, client,
+  conditions — garde autonomie, soleil, tension, batterie.
 - **UN champ à suggestions pour toute l'application** (08/09/2026) :
   `components/ChampSuggestions.jsx` + règle pure `lib/suggestions.js`.
   Recherche sans accents ni majuscules, chaque mot tapé dans n'importe quel

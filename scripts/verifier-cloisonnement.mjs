@@ -4363,6 +4363,25 @@ titre("Les appareils du volet solaire : catalogue, abréviations, une faute tol�
     && /appareilsAClasser\(utilisateursDeLEspace\(db, profile\), catalogueApp\)/.test(par));
 }
 
+titre("Solaire : « 🆕 Nouveau devis » au-delà de 5 appareils, avec confirmation (Timo, 09/09/2026)");
+{
+  // « Un bouton nouveau devis, à côté de ajouter un appareil, seulement si
+  // les lignes dépassent 5 ; avant d'effacer, confirmation — ou annuler et
+  // enregistrer d'abord. »
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ le bouton n'apparaît qu'au-delà de 5 appareils, à côté de « Ajouter un appareil »",
+    /\{appareils\.length > 5 && \(\s*<button onClick=\{nouveauDevis\}[^>]*>🆕 Nouveau devis \(tout effacer\)<\/button>/.test(sol)
+    && /<button onClick=\{ajouterAppareil\}[^>]*>➕ Ajouter un appareil<\/button>\s*\{appareils\.length > 5/.test(sol));
+  test("★ une confirmation AVANT d'effacer, qui rappelle « Enregistrer un brouillon » pour garder le devis en cours",
+    /const nouveauDevis = async \(\) => \{\s*if \(!await uConfirm\(/.test(sol) && /Commencer un NOUVEAU devis \?/.test(sol) && /annulez et cliquez d'abord « 📝 Enregistrer un brouillon »/.test(sol));
+  test("★ tout ce qui fait le devis est effacé : appareils (une ligne vide), choix et verrous, HB, rails et fixation, autres équipements, client, remise / frais / acompte / délai ; une reprise en cours est close",
+    /setAppareils\(\[\{ id: uid\(\), nom: "", puissance: "", heures: "", qte: "1" \}\]\);/.test(sol) && /setChoix\(\{\}\); setRolesManuels\(\{\}\); setRolesHB\(\{\}\);/.test(sol)
+    && /setRailsQte\(0\); setFixationManuelle\(\{\}\);/.test(sol) && /reprendreAutres\(\[\]\);/.test(sol) && /envoi\.setClientDevis\(""\); envoi\.setNouvClient\(\{ nom: "", tel: "" \}\);/.test(sol)
+    && /r\.setPctRemise\("0"\); r\.setPctInstall\("10"\); r\.setPctTransport\("0"\); r\.setPoseSeule\(false\); r\.setMontantPoseFixe\(""\); r\.setPctAcompte\("100"\); r\.setDelaiInstallation\(""\);/.test(sol)
+    && /if \(devisAReprendre && onDevisRepriseConsomme\) onDevisRepriseConsomme\(\);/.test(sol));
+  test("les réglages de la maison (autonomie, ensoleillement, tension, batterie) ne sont PAS touchés", !/setAutonomie\("1"\)|setSoleil\(SOLEIL_DEFAUT\)|setTension\(TENSION_DEFAUT\)/.test(sol.slice(sol.indexOf("const nouveauDevis"), sol.indexOf("const nouveauDevis") + 1500)));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec
