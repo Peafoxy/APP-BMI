@@ -1345,6 +1345,8 @@ export default function App() {
                 💬 +{nonLus}
               </button>
             )}
+            {/* Téléphone (Timo, 09/09/2026) : juste le cadenas, sur la ligne du titre. */}
+            <button onClick={verrouiller} className="shrink-0 px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-base leading-none" aria-label="Verrouiller la session" title="Verrouiller la session maintenant">🔐</button>
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}

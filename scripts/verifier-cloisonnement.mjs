@@ -4547,6 +4547,8 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /Entrez le mot de passe et reprenez la session\./.test(ev) && />\s*Se déconnecter\s*<\/button>/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev));
   test("★ barre du haut (ordinateur) : plus de badge En ligne / version / nom, un bouton « Verrouiller » sans cadenas qui pose le verrou ; la barre latérale garde le badge",
     /<button onClick=\{verrouiller\} className="[^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && (app.match(/<BadgeSync /g) || []).length === 1 && /<BadgeSync sombre \/>/.test(app));
+  test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
+    /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");
