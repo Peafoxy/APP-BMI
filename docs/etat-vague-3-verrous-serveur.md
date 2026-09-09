@@ -165,4 +165,4 @@ autre (roles-1 ne refusait que les non-admins).
   seul ; client ↔ employé → toujours refusé ; la trace suit la même règle.
 - Banc : `scripts/tester-comptes-sql.sh` (67, dont 13 nouveaux ; sans le
   script, 5 tombent).
-- **État : SQL à coller par Timo** (message du 09/09/2026, version 2.101.93).
+- **État : collé par Timo le 09/09/2026** (les deux lignes de retrait n'ont pas été collées).
