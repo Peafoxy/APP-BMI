@@ -181,4 +181,4 @@ principal » ; Chez le comptable → le comptable valide (pointage Encaissé).
   `_par` sur `depenses` ne s'écrivent que par l'administrateur principal
   (upsert relu). Banc : `scripts/tester-argent-sql.sh` (75, dont 9 nouveaux ;
   sans le script, 4 tombent).
-- **État : SQL à coller par Timo** (message du 09/09/2026, version 2.101.112).
+- **État : collé par Timo le 09/09/2026** (capture : true | true).
