@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1028 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1032 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -143,7 +143,11 @@ lit mal est pire qu'un banc absent).
   téléphone : juste un 🔐 sur la ligne du titre. **La fenêtre de verrou
   garde sa petite carte** (pas le logo ni le bandeau de la connexion), posée
   sur **le fond de la connexion, avec ses bulles** : UNE règle,
-  `decorAccueil` / `FondAccueil` / `Bulles` (screens/Connexion.jsx).
+  `decorAccueil` / `FondAccueil` / `Bulles` (screens/Connexion.jsx). **La
+  couleur et la transparence de la carte de verrou se règlent à part**
+  (⚙ Paramètres → 🔒 Fenêtre de verrouillage, `verrou_couleur_carte` /
+  `verrou_opacite_carte`, règles pures dans lib/verrou.js) ; carte sombre →
+  texte clair.
 - L'étiquette de connexion (espace, rôle, principal, boutique, pouvoirs
   retirés) n'est réécrite **qu'à la connexion** : tout changement de règle
   prend effet à la prochaine reconnexion de chacun — à dire à Timo.

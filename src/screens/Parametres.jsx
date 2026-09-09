@@ -174,6 +174,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       accueil_image_ajustement: "", accueil_image_position: "",
       accueil_messages: "", accueil_anniversaires: false, accueil_image_etendue: false,
       accueil_etoiles: false, accueil_couleur_bulles: "",
+      verrou_couleur_carte: "", verrou_opacite_carte: "",
     });
   };
 
@@ -1438,6 +1439,29 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   />
                 </Field>
               )}
+            </div>
+            {/* ⚠ Demande Timo (09/09/2026) : « avoir le réglage des couleurs de
+                la carte de verrouillage à lui seul ». Sa couleur et sa
+                transparence, indépendantes de la carte de connexion ; le fond
+                (photo) et les bulles, eux, restent ceux de la connexion. */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-sm font-bold text-slate-800 mb-2">🔒 Fenêtre de verrouillage</div>
+              <div className="flex flex-wrap gap-4">
+                <Field label="Couleur de la carte">
+                  <input type="color" value={boutiqueRef.verrou_couleur_carte || "#ffffff"} onChange={(e) => enregistrerAccueil({ verrou_couleur_carte: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+                </Field>
+                <Field label="Transparence de la carte">
+                  <select className={inputCls} value={boutiqueRef.verrou_opacite_carte ?? ""} onChange={(e) => enregistrerAccueil({ verrou_opacite_carte: e.target.value })}>
+                    <option value="">Opaque (par défaut)</option>
+                    <option value="85">Léger voile (85 %)</option>
+                    <option value="60">Moyen (60 %)</option>
+                    <option value="30">Fort (30 %)</option>
+                    <option value="15">Presque invisible (15 %)</option>
+                    <option value="0">Totalement transparent</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="text-xs text-slate-500 mt-1">La photo de fond et les bulles de la fenêtre de verrouillage sont celles de l'écran de connexion. Une carte sombre passe son texte en clair d'elle-même.</div>
             </div>
             <div className="text-xs text-slate-500 -mt-1">
               ⭐ Les étoiles habillent le grand espace autour de la carte — surtout visible sur PC, où la fenêtre est large. Elles restent DERRIÈRE la carte : elles ne gênent jamais la saisie.

@@ -4559,6 +4559,19 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /<button onClick=\{verrouiller\} className="[^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && (app.match(/<BadgeSync /g) || []).length === 1 && /<BadgeSync sombre \/>/.test(app));
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
+  // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de
+  // verrouillage à lui seul ». Règles pures exercées, réglage dans Paramètres.
+  test("★ la couleur de la carte de verrouillage : « #rrggbb » + transparence → rgba ; illisible → blanc ; vide → opaque ; bornée 0–100",
+    V.fondCarteVerrou("#0f172a", 60) === "rgba(15,23,42,0.6)" && V.fondCarteVerrou("", "") === "rgba(255,255,255,1)" && V.fondCarteVerrou("bleu", 50) === "rgba(255,255,255,0.5)"
+    && V.fondCarteVerrou("#ffffff", "150") === "rgba(255,255,255,1)" && V.fondCarteVerrou("#000000", "0") === "rgba(0,0,0,0)" && V.COULEUR_CARTE_VERROU_DEFAUT === "#ffffff");
+  test("★ une carte sombre passe son texte en clair (luminance), une claire non", V.texteClairSur("#0f172a") === true && V.texteClairSur("#ffffff") === false && V.texteClairSur("#fde68a") === false && V.texteClairSur("") === false);
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ Paramètres : un bloc « 🔒 Fenêtre de verrouillage » à lui seul (couleur + transparence, verrou_couleur_carte / verrou_opacite_carte), remis à zéro avec l'écran de connexion",
+    /🔒 Fenêtre de verrouillage/.test(par) && /enregistrerAccueil\(\{ verrou_couleur_carte: e\.target\.value \}\)/.test(par) && /enregistrerAccueil\(\{ verrou_opacite_carte: e\.target\.value \}\)/.test(par)
+    && /verrou_couleur_carte: "", verrou_opacite_carte: "",/.test(par));
+  test("★ decorAccueil lit ces deux réglages (verrouFond, verrouTexteClair) et la carte du verrou les applique, sans toucher à la carte de connexion",
+    /const verrouFond = fondCarteVerrou\(verrouCouleur, b0\.verrou_opacite_carte\);/.test(cnxV) && /verrouTexteClair/.test(cnxV)
+    && /style=\{\{ backgroundColor: decor\.verrouFond \}\}/.test(ev) && /decor\.verrouTexteClair \? "text-white" : "text-slate-800"/.test(ev) && !/verrou/.test(cnxV.slice(cnxV.indexOf("export function CarteAccueil"))));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");

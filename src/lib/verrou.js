@@ -37,3 +37,32 @@ export const apresErreur = (erreursAvant) => {
 
 // Libellé lisible du délai, pour l'écran et les messages.
 export const libelleDelai = (userAgent) => `${Math.round(delaiVerrou(userAgent) / 60000)} minutes`;
+
+// ---- LA COULEUR DE LA CARTE DE VERROUILLAGE (Timo, 09/09/2026 : « avoir le
+// réglage des couleurs de la carte de verrouillage à lui seul ») ----
+// Réglée dans ⚙ Paramètres → écran de connexion → 🔒 Fenêtre de
+// verrouillage : une couleur (verrou_couleur_carte) et une transparence
+// (verrou_opacite_carte, 0 à 100). Règles pures, exercées par le banc.
+export const COULEUR_CARTE_VERROU_DEFAUT = "#ffffff";
+
+// « #rrggbb » → { r, g, b } ; une valeur illisible vaut le blanc.
+export const rgbDe = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return { r: 255, g: 255, b: 255 };
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+};
+
+// La couleur de la carte avec sa transparence : « rgba(r,g,b,a) ».
+export const fondCarteVerrou = (hex, opacite) => {
+  const { r, g, b } = rgbDe(hex || COULEUR_CARTE_VERROU_DEFAUT);
+  const o = opacite === undefined || opacite === null || opacite === "" ? 100 : Number(opacite);
+  const a = Math.max(0, Math.min(100, Number.isFinite(o) ? o : 100)) / 100;
+  return `rgba(${r},${g},${b},${a})`;
+};
+
+// Une carte sombre veut un texte clair : luminance perçue sous 0,5.
+export const texteClairSur = (hex) => {
+  const { r, g, b } = rgbDe(hex || COULEUR_CARTE_VERROU_DEFAUT);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
+};

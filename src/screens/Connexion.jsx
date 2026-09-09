@@ -10,6 +10,7 @@ import { Field, inputCls } from "../components/ui";
 import { souhaitsDuJour } from "../lib/calculs";
 import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
 import { enregistrerCompteLocal, oublierCompteLocal } from "../db";
+import { fondCarteVerrou, texteClairSur, COULEUR_CARTE_VERROU_DEFAUT } from "../lib/verrou";
 
 // ============ CONNEXION ============
 export function Login({ db, apparence, onLogin, save }) {
@@ -177,7 +178,12 @@ export function decorAccueil(db, apparence) {
   // à travers eux sans être recadrée deux fois.
   // Éteint par défaut : l'écran de ceux qui ne changent rien ne bouge pas.
   const pleinEcran = accueilImage && b0.accueil_image_etendue === true;
-  return { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran };
+  // La carte de VERROUILLAGE a sa couleur et sa transparence à elle
+  // (Timo, 09/09/2026), réglées au même endroit que l'écran de connexion.
+  const verrouCouleur = b0.verrou_couleur_carte || COULEUR_CARTE_VERROU_DEFAUT;
+  const verrouFond = fondCarteVerrou(verrouCouleur, b0.verrou_opacite_carte);
+  const verrouTexteClair = texteClairSur(verrouCouleur);
+  return { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran, verrouCouleur, verrouFond, verrouTexteClair };
 }
 
 // Le FOND d'accueil seul : dégradé ou image plein écran, voile sombre,

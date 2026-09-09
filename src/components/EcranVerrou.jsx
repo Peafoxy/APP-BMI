@@ -48,14 +48,17 @@ export function EcranVerrou({ profile, db, apparence, onDeverrouiller, onDeconne
   return (
     <div className="fixed inset-0 z-[10000] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Session verrouillée">
       <FondAccueil decor={decor} className="min-h-full">
-        <form onSubmit={valider} className="relative z-10 overflow-hidden bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        {/* La couleur et la transparence de CETTE carte se règlent à part
+            (⚙ Paramètres → 🔒 Fenêtre de verrouillage) ; une carte sombre
+            passe son texte en clair. */}
+        <form onSubmit={valider} className={`relative z-10 overflow-hidden rounded-2xl shadow-2xl w-full max-w-sm p-6 ${decor.flou} ${decor.verrouTexteClair ? "text-white" : "text-slate-800"}`} style={{ backgroundColor: decor.verrouFond }}>
           {decor.bulles && <Bulles couleur={decor.couleurBulles} />}
           <div className="relative space-y-4">
             <div className="text-center">
               <div className="text-4xl">🔒</div>
-              <div className="font-bold text-slate-800 text-lg mt-1">Session verrouillée</div>
-              <div className="text-sm text-slate-500 mt-1">Compte : <b className="text-slate-700">{profile?.nom}</b></div>
-              <div className="text-xs text-slate-400 mt-1">Entrez le mot de passe et reprenez la session.</div>
+              <div className="font-bold text-lg mt-1">Session verrouillée</div>
+              <div className={`text-sm mt-1 ${decor.verrouTexteClair ? "text-white/80" : "text-slate-500"}`}>Compte : <b>{profile?.nom}</b></div>
+              <div className={`text-xs mt-1 ${decor.verrouTexteClair ? "text-white/70" : "text-slate-400"}`}>Entrez le mot de passe et reprenez la session.</div>
             </div>
             <div className="relative">
               <input ref={champ} type={visible ? "text" : "password"} autoComplete="current-password" className={`${inputCls} pr-10`} placeholder="Mot de passe"
@@ -64,11 +67,11 @@ export function EcranVerrou({ profile, db, apparence, onDeverrouiller, onDeconne
                 {visible ? "🙈" : "👁"}
               </button>
             </div>
-            {erreur && <div className="text-sm font-semibold text-red-700 text-center">{erreur}</div>}
+            {erreur && <div className={`text-sm font-semibold text-center ${decor.verrouTexteClair ? "text-red-300" : "text-red-700"}`}>{erreur}</div>}
             <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
               🔓 Déverrouiller
             </button>
-            <button type="button" onClick={onDeconnecter} className="w-full px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">
+            <button type="button" onClick={onDeconnecter} className={`w-full px-4 py-2 rounded-lg border text-xs font-bold ${decor.verrouTexteClair ? "border-white/40 text-white hover:bg-white/10" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
               Se déconnecter
             </button>
           </div>
