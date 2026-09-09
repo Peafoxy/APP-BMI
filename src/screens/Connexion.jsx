@@ -93,6 +93,38 @@ export function Login({ db, apparence, onLogin, save }) {
     setConnexionEnCours(false);
     onLogin(u);
   };
+  const decor = decorAccueil(db, apparence);
+  const { accueilBadge } = decor;
+  const souhaits = souhaitsDuJour(db);
+  return (
+    <CarteAccueil decor={decor} pied={souhaits.length > 0 && <Souhaits messages={souhaits} couleur={accueilBadge} />}>
+      <Field label="Utilisateur">
+        <input className={inputCls} autoCapitalize="words" placeholder="Votre nom" value={nomSaisi} onChange={(e) => { setNomSaisi(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
+      </Field>
+      <Field label="Mot de passe">
+        <div className="relative">
+          <input type={pwdVisible ? "text" : "password"} className={`${inputCls} pr-10`} value={pwd} onChange={(e) => { setPwd(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
+          <button type="button" tabIndex={-1} onClick={() => setPwdVisible((v) => !v)} aria-label={pwdVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={pwdVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">
+            {pwdVisible ? "🙈" : "👁"}
+          </button>
+        </div>
+      </Field>
+      {err && <div className="text-xs text-red-600 font-semibold">{err}</div>}
+      <button onClick={go} disabled={connexionEnCours} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{connexionEnCours ? "Connexion…" : "Se connecter"}</button>
+      <div className="text-center text-[11px] text-slate-400">Version {VERSION}</div>
+    </CarteAccueil>
+  );
+}
+
+// ============ LE DÉCOR D'ACCUEIL : UNE RÈGLE, DEUX ÉCRANS ============
+// Connexion ET fenêtre de verrou (demande Timo, 09/09/2026 : « ajouter le
+// même fond, photo, bulles sur la fenêtre de session verrouillée »). Tout
+// ce que l'administrateur règle dans ⚙ Paramètres → écran de connexion
+// (couleur, image, ajustement, opacité des cadres, bulles, étoiles, plein
+// écran) est lu ICI, une seule fois, et les deux écrans le posent de la
+// même façon (CarteAccueil). Le contenu du cadre du bas change ; le reste
+// est le même, pixel pour pixel.
+export function decorAccueil(db, apparence) {
   // Personnalisation de l'écran de connexion (fêtes, etc.), réglée dans
   // Paramètres par l'admin principal — stockée sur les boutiques (déjà
   // lisibles ici avant toute connexion), donc disponible directement.
@@ -131,9 +163,6 @@ export function Login({ db, apparence, onLogin, save }) {
   // tailles, comme dans l'univers ». Habille le grand aplat bleu qui entoure
   // la carte sur un écran large. Éteint par défaut.
   const etoiles = b0.accueil_etoiles === true;
-  // Anniversaires du jour + messages libres de l'administrateur (voir
-  // souhaitsDuJour dans lib/calculs.js). Tableau vide = aucune animation.
-  const souhaits = souhaitsDuJour(db);
   // ⚠ Même demande : une image de fond était toujours recadrée pour remplir
   // la carte (« cover »), donc souvent amputée de ses bords. On laisse
   // choisir comment elle se pose, et où elle se cale.
@@ -148,9 +177,18 @@ export function Login({ db, apparence, onLogin, save }) {
   // à travers eux sans être recadrée deux fois.
   // Éteint par défaut : l'écran de ceux qui ne changent rien ne bouge pas.
   const pleinEcran = accueilImage && b0.accueil_image_etendue === true;
+  return { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran };
+}
+
+// La carte d'accueil : le fond (dégradé ou image plein écran), les étoiles,
+// la carte avec son image, le cadre du haut (logo, titre, bandeau) et le
+// cadre du bas (`children`). `className` habille le conteneur : plein écran
+// défilant pour la connexion, voile fixe pour le verrou.
+export function CarteAccueil({ decor, children, pied = null, className = "min-h-screen", sousTitre = "Espace de gestion — Lomé, Togo" }) {
+  const { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran } = decor;
   return (
     <div
-      className={`min-h-screen relative flex items-center justify-center p-4${pleinEcran ? "" : " bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"}`}
+      className={`${className} relative flex items-center justify-center p-4${pleinEcran ? "" : " bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"}`}
       style={pleinEcran ? {
         backgroundColor: accueilFond,
         backgroundImage: `url(${accueilImage})`,
@@ -190,26 +228,13 @@ export function Login({ db, apparence, onLogin, save }) {
           <img src={LOGO} alt="BMI Togo" className="mx-auto mb-3 w-40 h-auto" />
           <div className="text-xl font-bold text-slate-900">GESTION SYSTÈME</div>
           <span className="inline-block px-3 py-1 rounded-full text-sm font-bold text-white mt-2" style={{ backgroundColor: accueilBadge }}>{accueilTexte}</span>
-          <div className="text-xs text-slate-400 mt-1">Espace de gestion — Lomé, Togo</div>
+          <div className="text-xs text-slate-400 mt-1">{sousTitre}</div>
           </div>
         </div>
         <div className={`relative overflow-hidden rounded-xl p-3 ${flou}`} style={{ backgroundColor: fondCadre }}>
           {bulles && <Bulles couleur={couleurBulles} />}
           <div className="relative space-y-3">
-          <Field label="Utilisateur">
-            <input className={inputCls} autoCapitalize="words" placeholder="Votre nom" value={nomSaisi} onChange={(e) => { setNomSaisi(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
-          </Field>
-          <Field label="Mot de passe">
-            <div className="relative">
-              <input type={pwdVisible ? "text" : "password"} className={`${inputCls} pr-10`} value={pwd} onChange={(e) => { setPwd(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && go()} />
-              <button type="button" tabIndex={-1} onClick={() => setPwdVisible((v) => !v)} aria-label={pwdVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={pwdVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">
-                {pwdVisible ? "🙈" : "👁"}
-              </button>
-            </div>
-          </Field>
-          {err && <div className="text-xs text-red-600 font-semibold">{err}</div>}
-          <button onClick={go} disabled={connexionEnCours} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{connexionEnCours ? "Connexion…" : "Se connecter"}</button>
-          <div className="text-center text-[11px] text-slate-400">Version {VERSION}</div>
+          {children}
           </div>
         </div>
         {/* ⚠ Placé APRÈS les deux cadres, et donc AU-DESSUS d'eux (demande
@@ -219,7 +244,7 @@ export function Login({ db, apparence, onLogin, save }) {
             traverse maintenant toute la carte, du bas vers le haut.
             `pointer-events: none` (voir index.css) le rend totalement
             inoffensif : il ne s'interpose jamais entre le doigt et un champ. */}
-        {souhaits.length > 0 && <Souhaits messages={souhaits} couleur={accueilBadge} />}
+        {pied}
       </div>
     </div>
   );

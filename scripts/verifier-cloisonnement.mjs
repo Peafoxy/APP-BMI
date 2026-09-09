@@ -4535,16 +4535,25 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
     && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+let derniereActivite = Date\.now\(\);/.test(app));
   test("★ le voile est un FRÈRE du cadre flouté (jamais un enfant : un cadre filtré emprisonne le position fixe) ; le cadre derrière est flouté, insensible aux clics, non sélectionnable",
-    /\{verrouille && <EcranVerrou profile=\{profile\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
+    /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
     && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " blur-lg pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
-    /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /backdrop-blur-md/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
+    /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /compte \$\{profile\?\.nom \|\| ""\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
+  // Demande Timo (09/09/2026) : « le même fond, photo, bulles » — UNE règle,
+  // partagée avec la connexion, jamais recopiée.
+  const cnxV = readFileSync("src/screens/Connexion.jsx", "utf8");
+  test("★ le décor d'accueil est UNE règle (decorAccueil + CarteAccueil, Connexion.jsx) posée par la connexion ET par le verrou ; aucun fond, image, bulle ou étoile recopié dans EcranVerrou",
+    /export function decorAccueil\(db, apparence\)/.test(cnxV) && /export function CarteAccueil\(\{ decor, children, pied = null, className = "min-h-screen"/.test(cnxV)
+    && /<CarteAccueil decor=\{decor\} pied=\{souhaits\.length > 0 && <Souhaits/.test(cnxV) && (cnxV.match(/backgroundImage: `url\(\$\{accueilImage\}\)`/g) || []).length === 2
+    && /const decor = decorAccueil\(db \|\| \{ boutiques: \[\] \}, apparence\);/.test(ev) && /<CarteAccueil decor=\{decor\} className="min-h-full"/.test(ev)
+    && !/backgroundImage/.test(ev) && !/Bulles|Etoiles|bg-gradient/.test(ev));
   // Capture Timo (09/09/2026) : « dire simplement entrer le mot de passe et
   // reprendre la session ; se déconnecter tout court ; supprimer le
   // descriptif en bas ».
   test("★ textes courts : « Entrez le mot de passe et reprenez la session. », « Se déconnecter » tout court, aucun descriptif sous le bouton",
-    /Entrez le mot de passe et reprenez la session\./.test(ev) && />\s*Se déconnecter\s*<\/button>/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev));
+    /Entrez le mot de passe et reprenez la session\./.test(ev) && />\s*Se déconnecter\s*<\/button>/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev)
+    && !/Rien n'est perdu/.test(ev));
   test("★ barre du haut (ordinateur) : plus de badge En ligne / version / nom, un bouton « Verrouiller » sans cadenas qui pose le verrou ; la barre latérale garde le badge",
     /<button onClick=\{verrouiller\} className="[^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && (app.match(/<BadgeSync /g) || []).length === 1 && /<BadgeSync sombre \/>/.test(app));
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",

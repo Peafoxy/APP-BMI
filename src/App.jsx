@@ -1249,7 +1249,7 @@ export default function App() {
 
   return (
     <>
-    {verrouille && <EcranVerrou profile={profile} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
+    {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
     {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant : un
         cadre flouté (filter) emprisonne ses enfants en position fixe. */}
     <div className={`min-h-screen bg-slate-100 lg:flex${verrouille ? " blur-lg pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
