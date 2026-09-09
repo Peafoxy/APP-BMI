@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1025 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1026 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -138,6 +138,8 @@ lit mal est pire qu'un banc absent).
   session rouvre verrouillée, jamais déverrouillée seule) ; une session ne
   meurt que par « Se déconnecter ». Règle pure `lib/verrou.js`, fenêtre
   `components/EcranVerrou.jsx` — un FRÈRE du cadre flouté, jamais un enfant.
+  Barre du haut (ordinateur) : un bouton « Verrouiller » **sans cadenas**, à
+  la place de « En ligne / version / nom » (la barre latérale les garde).
 - L'étiquette de connexion (espace, rôle, principal, boutique, pouvoirs
   retirés) n'est réécrite **qu'à la connexion** : tout changement de règle
   prend effet à la prochaine reconnexion de chacun — à dire à Timo.

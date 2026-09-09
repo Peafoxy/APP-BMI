@@ -1375,7 +1375,10 @@ export default function App() {
           <div className="text-lg font-bold text-slate-800">{titreOnglet}</div>
           <div className="flex items-center gap-4">
             {saveStatus === "error" && <span className="text-xs text-red-600 font-semibold">⚠ Erreur locale</span>}
-            <BadgeSync />
+            {/* ⚠ Capture Timo (09/09/2026) : plus de « En ligne / version / nom »
+                ici (la barre latérale les garde) — un bouton « Verrouiller »,
+                sans cadenas, qui pose le verrou tout de suite. */}
+            <button onClick={verrouiller} className="px-3 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900" title="Verrouiller la session maintenant (mot de passe pour reprendre)">Verrouiller</button>
             <span className="text-xs text-slate-400">{dFR(today())}</span>
           </div>
         </div>
