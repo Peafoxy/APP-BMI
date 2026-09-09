@@ -33,14 +33,20 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   //      diagnostic nomme ce qui est au-dessus de lui, pour qu'une capture
   //      suffise à comprendre.
   const focaliser = () => { try { champ.current?.focus(); } catch { /* rien */ } };
+  // Nom lisible d'un élément : balise, id, texte du bouton ou premières classes.
+  const nomDe = (el) => {
+    if (!el) return "aucun";
+    const texte = el.tagName === "BUTTON" ? ` « ${String(el.textContent || "").trim().slice(0, 24)} »` : "";
+    const cls = el.className && typeof el.className === "string" ? "." + el.className.split(" ").slice(0, 2).join(".") : "";
+    return `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${texte}${cls}`;
+  };
+  const historique = useRef([]); // les derniers déplacements du focus, pour la capture
   const diagnostiquer = () => {
     const i = champ.current;
     if (!i || document.activeElement === i) { setDiag(""); return; }
     const r = i.getBoundingClientRect();
     const el = document.elementFromPoint(r.left + 20, r.top + r.height / 2);
-    const nom = el ? `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${el.className && typeof el.className === "string" ? "." + el.className.split(" ").slice(0, 3).join(".") : ""}` : "rien";
-    const actif = document.activeElement ? `${document.activeElement.tagName.toLowerCase()}${document.activeElement.id ? "#" + document.activeElement.id : ""}` : "aucun";
-    setDiag(`⚠ Le champ n'a pas le clavier — au-dessus : ${nom} ; focus : ${actif} ; désactivé : ${i.disabled ? "oui" : "non"} ; visible : ${r.width > 0 ? "oui" : "non"}`);
+    setDiag(`⚠ Le champ n'a pas le clavier — au-dessus : ${nomDe(el)} ; focus : ${nomDe(document.activeElement)} ; désactivé : ${i.disabled ? "oui" : "non"} ; visible : ${r.width > 0 ? "oui" : "non"} ; derniers focus : ${historique.current.slice(-4).join(" → ") || "aucun"}`);
   };
   useEffect(() => {
     focaliser();
@@ -48,8 +54,10 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     const clavier = (e) => {
       if (document.activeElement !== champ.current && !e.ctrlKey && !e.metaKey && !e.altKey) { focaliser(); diagnostiquer(); }
     };
+    const suivre = (e) => { historique.current.push(nomDe(e.target)); if (historique.current.length > 12) historique.current.shift(); };
     window.addEventListener("keydown", clavier, true);
-    return () => { clearTimeout(t); window.removeEventListener("keydown", clavier, true); };
+    document.addEventListener("focusin", suivre, true);
+    return () => { clearTimeout(t); window.removeEventListener("keydown", clavier, true); document.removeEventListener("focusin", suivre, true); };
   }, []);
   // ⚠ Capture Timo (09/09/2026 : « les bulles sont là mais pas de photo ») :
   // à la connexion, l'image se pose sur la CARTE sauf si « plein écran » est
@@ -98,8 +106,9 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
             </div>
             <div className="relative">
               <input ref={champ} type={visible ? "text" : "password"} autoComplete="current-password" className={`${inputCls} pr-10`} placeholder="Mot de passe"
-                value={saisie} onChange={(e) => { setSaisie(e.target.value); setErreur(""); }} disabled={occupe} />
-              <button type="button" tabIndex={-1} onClick={() => setVisible((v) => !v)} aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">
+                value={saisie} onChange={(e) => { setSaisie(e.target.value); setErreur(""); }} disabled={occupe}
+                onClick={focaliser} onTouchEnd={focaliser} />
+              <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={() => { setVisible((v) => !v); focaliser(); }} aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">
                 {visible ? "🙈" : "👁"}
               </button>
             </div>
