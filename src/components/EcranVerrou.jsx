@@ -24,7 +24,12 @@ export function EcranVerrou({ profile, db, apparence, onDeverrouiller, onDeconne
   const [visible, setVisible] = useState(false); // 👁 même œil que l'écran de connexion (capture Timo, 09/09/2026)
   const champ = useRef(null);
   useEffect(() => { champ.current?.focus(); }, []);
-  const decor = decorAccueil(db || { boutiques: [] }, apparence);
+  // ⚠ Capture Timo (09/09/2026 : « les bulles sont là mais pas de photo ») :
+  // à la connexion, l'image se pose sur la CARTE sauf si « plein écran » est
+  // coché. Ici il n'y a pas cette carte : dès qu'une image existe, elle
+  // couvre tout le fond, quel que soit ce réglage.
+  const decorBase = decorAccueil(db || { boutiques: [] }, apparence);
+  const decor = { ...decorBase, pleinEcran: !!decorBase.accueilImage };
 
   const valider = async (e) => {
     e?.preventDefault?.();

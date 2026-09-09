@@ -4546,7 +4546,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ le fond et les bulles sont UNE règle (decorAccueil + FondAccueil + Bulles, Connexion.jsx) : la connexion pose sa carte dessus, le verrou sa petite fenêtre (sans logo ni bandeau) ; rien recopié dans EcranVerrou",
     /export function decorAccueil\(db, apparence\)/.test(cnxV) && /export function FondAccueil\(\{ decor, children, className = "min-h-screen" \}\)/.test(cnxV) && /export \{ Bulles \};/.test(cnxV)
     && /<CarteAccueil decor=\{decor\} pied=\{souhaits\.length > 0 && <Souhaits/.test(cnxV) && /<FondAccueil decor=\{decor\} className=\{className\}>/.test(cnxV) && (cnxV.match(/backgroundImage: `url\(\$\{accueilImage\}\)`/g) || []).length === 2
-    && /const decor = decorAccueil\(db \|\| \{ boutiques: \[\] \}, apparence\);/.test(ev) && /<FondAccueil decor=\{decor\} className="min-h-full">/.test(ev)
+    && /const decorBase = decorAccueil\(db \|\| \{ boutiques: \[\] \}, apparence\);\n\s+const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(ev) && /<FondAccueil decor=\{decor\} className="min-h-full">/.test(ev)
     && /\{decor\.bulles && <Bulles couleur=\{decor\.couleurBulles\} \/>\}/.test(ev) && !/CarteAccueil/.test(ev) && !/LOGO/.test(ev)
     && !/backgroundImage/.test(ev) && !/Etoiles|bg-gradient/.test(ev));
   // Capture Timo (09/09/2026) : « dire simplement entrer le mot de passe et
