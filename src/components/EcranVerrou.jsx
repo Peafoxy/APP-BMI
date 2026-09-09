@@ -14,6 +14,7 @@ export function EcranVerrou({ profile, onDeverrouiller, onDeconnecter }) {
   const [saisie, setSaisie] = useState("");
   const [erreur, setErreur] = useState("");
   const [occupe, setOccupe] = useState(false);
+  const [visible, setVisible] = useState(false); // 👁 même œil que l'écran de connexion (capture Timo, 09/09/2026)
   const champ = useRef(null);
   useEffect(() => { champ.current?.focus(); }, []);
 
@@ -40,8 +41,13 @@ export function EcranVerrou({ profile, onDeverrouiller, onDeconnecter }) {
           <div className="text-sm text-slate-500 mt-1">Compte : <b className="text-slate-700">{profile?.nom}</b></div>
           <div className="text-xs text-slate-400 mt-1">Entrez le mot de passe et reprenez la session.</div>
         </div>
-        <input ref={champ} type="password" autoComplete="current-password" className={inputCls} placeholder="Mot de passe"
-          value={saisie} onChange={(e) => { setSaisie(e.target.value); setErreur(""); }} disabled={occupe} />
+        <div className="relative">
+          <input ref={champ} type={visible ? "text" : "password"} autoComplete="current-password" className={`${inputCls} pr-10`} placeholder="Mot de passe"
+            value={saisie} onChange={(e) => { setSaisie(e.target.value); setErreur(""); }} disabled={occupe} />
+          <button type="button" tabIndex={-1} onClick={() => setVisible((v) => !v)} aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">
+            {visible ? "🙈" : "👁"}
+          </button>
+        </div>
         {erreur && <div className="text-sm font-semibold text-red-700 text-center">{erreur}</div>}
         <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
           🔓 Déverrouiller
