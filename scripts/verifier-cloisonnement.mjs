@@ -4504,6 +4504,48 @@ titre("🎭 Changer le rôle d'un compte : l'administrateur principal seul, jama
     && /le principal change SON propre rôle \(sa fiche reste interdite à tous\)" "REFUSE"/.test(tc));
 }
 
+titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 09/09/2026 : 3 min PC, 6 min téléphone)");
+{
+  // « Au lieu de déconnecter un compte après un temps d'inactivité, garder
+  // la session ouverte mais, après 3 minutes, activer une fenêtre demandant
+  // le mot de passe et flouter l'arrière… Dès que le mot de passe
+  // correspond à la session en cours, l'application est recouverte. » —
+  // « Sur téléphone, 6 minutes. » La règle est pure : on l'exerce.
+  const sortieVer = join("node_modules", ".cache", `bmi-verrou-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/verrou.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVer, logLevel: "silent" });
+  const V = await import(pathToFileURL(sortieVer).href);
+  unlinkSync(sortieVer);
+  const PC = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120";
+  const TEL = "Mozilla/5.0 (Linux; Android 13; SM-A135F) Mobile Safari/537.36";
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148";
+  test("★ 3 minutes sur PC, 6 sur téléphone (Android et iPhone)",
+    V.delaiVerrou(PC) === 180000 && V.delaiVerrou(TEL) === 360000 && V.delaiVerrou(IPHONE) === 360000 && V.libelleDelai(PC) === "3 minutes" && V.libelleDelai(TEL) === "6 minutes");
+  test("★ on verrouille à partir du délai, jamais avant : 2 min 59 sur PC → non, 3 min → oui ; 5 min 59 sur téléphone → non, 6 min → oui",
+    V.doitVerrouiller(0, 179999, PC) === false && V.doitVerrouiller(0, 180000, PC) === true && V.doitVerrouiller(0, 359999, TEL) === false && V.doitVerrouiller(0, 360000, TEL) === true
+    && V.doitVerrouiller(undefined, 1e12, PC) === false);
+  test("★ 5 erreurs de mot de passe ferment la session ; avant, on dit combien d'essais restent",
+    V.MAX_ERREURS_VERROU === 5 && V.apresErreur(0).restantes === 4 && V.apresErreur(0).fermer === false && V.apresErreur(3).restantes === 1 && V.apresErreur(4).fermer === true && V.apresErreur(4).restantes === 0);
+  const app = readFileSync("src/App.jsx", "utf8");
+  test("★ plus AUCUNE déconnexion automatique par inactivité dans App.jsx (ni DUREE_INACTIVITE, ni deconnexion(true) sur minuterie) ; le verrou passe par doitVerrouiller",
+    !/DUREE_INACTIVITE/.test(app) && !/deconnexion\(true\); \/\/ purge/.test(app) && /if \(doitVerrouiller\(derniereActivite, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app));
+  test("★ la session restaurée après F5 n'a plus de limite de temps, et ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé",
+    /if \(u && u\.actif !== false\) \{\n\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
+    && /const verrouiller = \(\) => \{ setVerrouille\(true\); setErreursVerrou\(0\); ecrireSession\(\{ verrouille: true \}\); \};/.test(app));
+  test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
+    /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
+    && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+let derniereActivite = Date\.now\(\);/.test(app));
+  test("★ le voile est un FRÈRE du cadre flouté (jamais un enfant : un cadre filtré emprisonne le position fixe) ; le cadre derrière est flouté, insensible aux clics, non sélectionnable",
+    /\{verrouille && <EcranVerrou profile=\{profile\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
+    && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " blur-lg pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app));
+  const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
+  test("★ la fenêtre : champ mot de passe (jamais en clair), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
+    /type="password"/.test(ev) && /backdrop-blur-md/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
+  // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
+  const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
+  const posRetour = app.indexOf("if (!db) return <div");
+  test("★ les hooks du verrou sont déclarés AVANT « if (!db) return » (aucun hook après un retour anticipé)", posHooks > 0 && posRetour > posHooks);
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

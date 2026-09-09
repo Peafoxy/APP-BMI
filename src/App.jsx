@@ -77,6 +77,8 @@ import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BO
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal } from "./lib/calculs";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
+import { doitVerrouiller, apresErreur } from "./lib/verrou";
+import { EcranVerrou } from "./components/EcranVerrou";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
   uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
@@ -107,11 +109,12 @@ import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBull
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
 import { exportCSV } from "./lib/export";
 
-// Détecte la plateforme pour adapter la durée avant déconnexion automatique :
-// 5 min sur navigateur Android (usage tactile, souvent posé/repris — plus
-// sensible si l'appareil est partagé ou laissé sans surveillance),
-// 30 min partout ailleurs (application Windows, ou navigateur sur PC).
-const DUREE_INACTIVITE = /Android/i.test(navigator.userAgent || "") ? 5 * 60 * 1000 : 30 * 60 * 1000;
+// ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
+// inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
+// après 3 minutes sans geste sur PC, 6 sur téléphone, l'écran se floute et
+// demande le mot de passe du compte ; la session reste ouverte, rien n'est
+// perdu. Règles dans lib/verrou.js, fenêtre dans components/EcranVerrou.jsx.
+const UA = navigator.userAgent || "";
 
 // Onglet à ouvrir à la connexion (fraîche ou restaurée après actualisation
 // de la page) : on reprend le DERNIER onglet où la personne travaillait,
@@ -443,12 +446,14 @@ export default function App() {
       chargerApparence().then((a) => { if (a) setApparence(a); });
 
       // Restaure la session après un rafraîchissement de page (site web),
-      // à condition qu'elle date de moins de 15 minutes et que le compte
-      // soit toujours actif — sinon, retour normal à l'écran de connexion.
+      // à condition que le compte soit toujours actif. ⚠ Plus de limite de
+      // temps (Timo, 09/09/2026) : une session ne meurt que par « Se
+      // déconnecter ». Si elle était verrouillée, ou si le délai sans geste
+      // est dépassé, elle ROUVRE VERROUILLÉE — jamais déverrouillée seule.
       try {
         const brut = localStorage.getItem("bmi_session");
         if (brut) {
-          const { id, ts } = JSON.parse(brut);
+          const { id, ts, verrouille: etaitVerrouillee } = JSON.parse(brut);
           let u = donnees.users.find((x) => x.id === id);
           // Table users vide (actualisation pendant la fenêtre purge → sync) :
           // on restaure depuis les comptes de secours, comme l'écran de
@@ -457,8 +462,9 @@ export default function App() {
           if (!u && donnees.users.length === 0) {
             u = (await lireComptesSecours()).find((x) => x.id === id);
           }
-          if (u && u.actif !== false && Date.now() - ts < DUREE_INACTIVITE) {
+          if (u && u.actif !== false) {
             setProfile(u);
+            if (etaitVerrouillee || doitVerrouiller(ts, Date.now(), UA)) verrouiller();
             // ⚠ C'est ICI que se joue la demande : après un F5 ou une
             // nouvelle version, on remet le compte dans l'espace qu'il
             // regardait, au lieu de le ramener au réel.
@@ -515,28 +521,48 @@ export default function App() {
     return () => arreterSync();
   }, []);
 
-  // Sécurité : déconnexion automatique après 15 minutes d'inactivité.
-  // La session enregistrée localement est aussi rafraîchie pendant l'activité,
-  // pour survivre à un rafraîchissement de page sans forcer une reconnexion.
+  // ---- LE VERROU D'INACTIVITÉ (Timo, 09/09/2026) ----
+  // Sans geste pendant le délai (lib/verrou.js : 3 min PC, 6 min téléphone),
+  // l'écran se verrouille : flouté, mot de passe du compte demandé. La
+  // session enregistrée localement est rafraîchie à chaque geste (pour
+  // survivre à une actualisation) et note l'état verrouillé.
+  const [verrouille, setVerrouille] = useState(false);
+  const [erreursVerrou, setErreursVerrou] = useState(0);
+  const ecrireSession = (champs) => {
+    try {
+      const brut = localStorage.getItem("bmi_session");
+      if (brut) localStorage.setItem("bmi_session", JSON.stringify({ ...JSON.parse(brut), ...champs }));
+    } catch {}
+  };
+  const verrouiller = () => { setVerrouille(true); setErreursVerrou(0); ecrireSession({ verrouille: true }); };
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || verrouille) return;
     let derniereActivite = Date.now();
-    const activite = () => {
-      derniereActivite = Date.now();
-      try {
-        const brut = localStorage.getItem("bmi_session");
-        if (brut) { const s = JSON.parse(brut); s.ts = Date.now(); localStorage.setItem("bmi_session", JSON.stringify(s)); }
-      } catch {}
-    };
+    const activite = () => { derniereActivite = Date.now(); ecrireSession({ ts: derniereActivite }); };
     const evts = ["mousemove", "keydown", "click", "touchstart"];
     evts.forEach((e) => window.addEventListener(e, activite));
     const minuterie = setInterval(() => {
-      if (Date.now() - derniereActivite > DUREE_INACTIVITE) {
-        deconnexion(true); // purge silencieuse si tout est synchronisé
-      }
-    }, 30000);
+      if (doitVerrouiller(derniereActivite, Date.now(), UA)) verrouiller();
+    }, 10000);
     return () => { evts.forEach((e) => window.removeEventListener(e, activite)); clearInterval(minuterie); };
-  }, [profile]);
+  }, [profile, verrouille]);
+
+  // Le mot de passe est vérifié contre la fiche ACTUELLE du compte (si
+  // l'administrateur l'a changé entre-temps, c'est le nouveau qui ouvre),
+  // sur l'appareil : sans internet aussi.
+  const deverrouiller = async (saisie) => {
+    const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
+    const { ok } = await verifierMotDePasse(compte, saisie);
+    if (ok) {
+      setVerrouille(false); setErreursVerrou(0);
+      ecrireSession({ verrouille: false, ts: Date.now() });
+      return { ok: true };
+    }
+    const r = apresErreur(erreursVerrou);
+    setErreursVerrou(r.erreurs);
+    if (r.fermer) { await deconnexion(true); setVerrouille(false); }
+    return { ok: false, restantes: r.restantes, fermer: r.fermer };
+  };
 
   // Toute modification est écrite d'abord en local (instantané, même sans
   // réseau), puis mise en file pour Supabase.
@@ -1222,7 +1248,11 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-100 lg:flex">
+    <>
+    {verrouille && <EcranVerrou profile={profile} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
+    {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant : un
+        cadre flouté (filter) emprisonne ses enfants en position fixe. */}
+    <div className={`min-h-screen bg-slate-100 lg:flex${verrouille ? " blur-lg pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
       {syncInitiale && (
         <div className="fixed top-0 inset-x-0 z-[9999] bg-sky-800 text-white text-center text-sm font-semibold py-2 shadow-lg">
           ⏳ Synchronisation avec le serveur — les données arrivent…
@@ -1355,6 +1385,7 @@ export default function App() {
         </main>
       </div>
     </div>
+    </>
   );
 }
 
