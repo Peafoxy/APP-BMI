@@ -4656,7 +4656,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   const rd = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 50000, destination: "Chez le DG" });
   test("★ Chez le comptable : une SORTIE (dépense espèces de la boutique, catégorie « Versement de fonds ») et une ENTRÉE miroir chez le comptable (montant négatif), liées par le même identifiant",
     rc.sortie.boutique === "APESSITO" && rc.sortie.categorie === "Versement de fonds" && rc.sortie.montant === 150000 && rc.sortie.paiement === "Espèces" && rc.sortie.versement.destination === "Chez le comptable"
-    && rc.entree.boutique === "Chez le comptable" && rc.entree.montant === -150000 && rc.entree.versement_id === rc.sortie.versement.id && /Versement reçu de APESSITO \(par KOSSI\)/.test(rc.entree.description) && /\(recette\)/.test(rc.sortie.description));
+    && rc.entree.boutique === "Chez le comptable" && rc.entree.montant === -150000 && rc.entree.versement_id === rc.sortie.versement.id && /^Versement du \d\d\/\d\d\/\d{4} reçu de APESSITO \(par KOSSI\) — recette$/.test(rc.entree.description) && /\(recette\)/.test(rc.sortie.description));
   test("★ BANQUE : banque et bordereau nettoyés dans le libellé, AUCUNE entrée chez le comptable ; Chez le DG : idem",
     rb.entree === null && Vs.libelleDestination(rb.versement) === "BANQUE Ecobank — bordereau B-77" && rd.entree === null && Vs.libelleDestination(rd.versement) === "Chez le DG");
   const db0 = { depenses: [rc.sortie, { ...rc.entree, decaisse_le: "2026-09-09", decaisse_par: "COMPTA" }, rb.sortie, { ...rd.sortie, versement_valide_le: "2026-09-09", versement_valide_par: "TIMO" }], ventes: [], dettes: [], users: [
@@ -4673,19 +4673,25 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   test("★ fonds à verser = espèces entrées (ventes + règlements) − espèces sorties (versements compris) depuis le dernier versement ; jamais le mobile money ni une autre boutique",
     f.depuis === "2026-09-05" && f.ventes === 5000 && f.reglements === 300 && f.depenses === 150000 && f.montant === 5000 + 300 - 150000
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 6000 + 1299);
-  const rp = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 1000, destination: "Chez le DG", du: "2026-09-05", au: "2026-09-09" });
+  // Timo (09/09/2026, deuxième idée) : plus de « recette du … au … » ; si le
+  // montant diffère de l'attendu, la justification est obligatoire ; chez le
+  // DG et le comptable, « Versement du <date> », jamais un intervalle.
   const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
-  test("★ « recette du … au … » (Timo) : deux dates facultatives, dans le libellé et la description ; fin avant début refusée ; un seul jour = « recette du » ; la note n'a plus d'exemple",
-    Vs.libellePeriode(rp.versement) === "recette du 05/09/2026 au 09/09/2026" && /\(recette du 05\/09\/2026 au 09\/09\/2026\)/.test(rp.sortie.description)
-    && Vs.libellePeriode({ du: "2026-09-09", au: "2026-09-09" }) === "recette du 09/09/2026" && Vs.libellePeriode({}) === "" && Vs.libellePeriode({ au: "2026-09-09" }) === "recette jusqu'au 09/09/2026"
-    && /précéder/.test(Vs.critiqueVersement({ montant: 1, destination: "Chez le DG", du: "2026-09-09", au: "2026-09-05" })) && Vs.critiqueVersement({ montant: 1, destination: "Chez le DG", du: "2026-09-05", au: "" }) === ""
-    && !/placeholder="Ex : recette du jour"/.test(csV) && /<Field label="Recette du"><input type="date"/.test(csV) && /<Field label="au"><input type="date"/.test(csV));
-  const rpc = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 1000, destination: "Chez le comptable", du: "2026-09-05", au: "2026-09-09", note: "semaine" });
-  test("★ l'entrée chez le comptable porte AUSSI la période et la note (« pourquoi chez le comptable une seule date ? »)",
-    /Versement reçu de APESSITO \(par KOSSI\) — recette du 05\/09\/2026 au 09\/09\/2026 · semaine/.test(rpc.entree.description) && rpc.entree.versement_periode.du === "2026-09-05" && rpc.entree.versement_periode.au === "2026-09-09");
-  test("★ l'encadré du DG est PERMANENT (« sans versement, rien n'apparaît ») : vide, il le dit ; les derniers validés (versementsValidesParDG) s'affichent dessous",
-    /\{jeSuisDG && \(\n\s+<div className=\{`bg-white rounded-xl border-2 shadow-sm p-4/.test(readFileSync("src/screens/Caisse.jsx", "utf8")) && /Aucun versement en attente de votre validation/.test(readFileSync("src/screens/Caisse.jsx", "utf8"))
-    && Vs.versementsValidesParDG(db0, ["APESSITO"]).map((d) => d.id).join("|") === db0.depenses[3].id && Vs.versementsValidesParDG(db0, ["AUTRE"]).length === 0);
+  const nz = (t) => String(t).replace(/\u202f|\u00a0/g, " "); // les montants formatés portent une espace fine insécable
+  test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple",
+    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
+  test("★ montant différent de l'attendu SANS note → refusé avec « Justifiez pourquoi le montant n'est pas X » ; avec note → accepté ; montant égal → aucune note exigée",
+    nz(Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "" })) === "Justifiez pourquoi le montant n'est pas 200 000 F"
+    && Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "fonds de caisse gardé" }) === "" && Vs.critiqueVersement({ montant: 200000, destination: "Chez le DG", attendu: 200000.4, note: "" }) === ""
+    && Vs.montantDifferent("150000", 200000) === true && Vs.montantDifferent(200000, 200000) === false);
+  const re = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 150000, destination: "Chez le comptable", attendu: 200000, note: "fonds de caisse gardé" });
+  test("★ l'écart et la justification sont écrits sur la sortie ET sur l'entrée chez le comptable ; l'entrée dit « Versement du <date> reçu de … » ; l'attendu est gardé",
+    re.versement.attendu === 200000 && nz(Vs.libelleEcart(re.versement)) === "attendu 200 000 F, écart − 50 000 F" && /\(attendu 200 000 F, écart − 50 000 F : fonds de caisse gardé\)/.test(nz(re.sortie.description))
+    && /^Versement du \d\d\/\d\d\/\d{4} reçu de APESSITO \(par KOSSI\) — attendu 200 000 F, écart − 50 000 F : fonds de caisse gardé$/.test(nz(re.entree.description))
+    && Vs.libelleEcart(rc.versement) === "" && Vs.libelleVersementDu({ date: "2026-09-09" }) === "Versement du 09/09/2026");
+  test("★ écran Caisse : la note n'apparaît que si le montant diffère de l'attendu, avec la mention rouge ; l'attendu (fondsAVerser) part avec le versement ; le DG voit « Versement du … »",
+    /\{vers\.montant !== "" && montantDifferent\(vers\.montant, aVerser\.montant\) && \(/.test(csV) && /text-red-600 mb-1">⚠ \{messageJustification\(aVerser\.montant\)\}/.test(csV)
+    && /construireVersement\(profile, \{ boutique, \.\.\.vers, attendu: aVerser\.montant \}\)/.test(csV) && /<b>\{libelleVersementDu\(d\)\}<\/b>/.test(csV) && (csV.match(/<Field label="Note[^"]*">/g) || []).length === 1);
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");

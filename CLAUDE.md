@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1055 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1056 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -297,8 +297,12 @@ lit mal est pire qu'un banc absent).
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (vendeur, gérant, admin) :
   destinations **Chez le DG / BANQUE / Chez le comptable** ; BANQUE exige
-  nom de la banque et numéro de bordereau ; **« Recette du … au … »** en deux
-  dates à choisir, facultatives, et une note **sans exemple**. Le versement est une dépense
+  nom de la banque et numéro de bordereau. **Plus de « recette du … au »**
+  (deuxième idée de Timo) : l'application attend `fondsAVerser` ; **si le
+  montant versé diffère, la Note apparaît avec, en rouge, « Justifiez
+  pourquoi le montant n'est pas X »**, et elle est obligatoire ; montant
+  égal → pas de note. Chez le DG et le comptable : **« Versement du
+  <date> »**, jamais un intervalle ; écart et justification suivent. Le versement est une dépense
   espèces de la boutique (catégorie « Versement de fonds », champ
   `versement`) ; « Chez le comptable » pose en plus une entrée miroir
   (montant négatif, `versement_id`) dans la caisse du comptable.

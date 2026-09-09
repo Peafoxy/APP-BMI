@@ -30,7 +30,13 @@ export const ROLES_VERSEMENT = ["vendeur", "gerant", "admin"];
 export const destinationsPour = (enFormation) => (enFormation ? DESTINATIONS_VERSEMENT.filter((d) => d !== DEST_COMPTABLE) : DESTINATIONS_VERSEMENT);
 
 // Le versement est-il bien formé ? Renvoie le motif du refus, ou "".
-export function critiqueVersement({ montant, destination, banque, bordereau, du, au }) {
+// ⚠ Timo (09/09/2026, deuxième idée) : plus de « recette du … au … ». À la
+// place, l'application ATTEND un montant (fondsAVerser) ; si le montant
+// versé est différent, une justification est obligatoire.
+export const montantDifferent = (montant, attendu) => Math.round(Number(montant) || 0) !== Math.round(Number(attendu) || 0);
+export const messageJustification = (attendu) => `Justifiez pourquoi le montant n'est pas ${fmt(Math.round(Number(attendu) || 0))}`;
+
+export function critiqueVersement({ montant, destination, banque, bordereau, attendu, note }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant versé (supérieur à zéro).";
   if (!DESTINATIONS_VERSEMENT.includes(destination)) return "Choisissez la destination : Chez le DG, BANQUE ou Chez le comptable.";
@@ -38,17 +44,16 @@ export function critiqueVersement({ montant, destination, banque, bordereau, du,
     if (!String(banque || "").trim()) return "Indiquez le nom de la banque.";
     if (!String(bordereau || "").trim()) return "Indiquez le numéro du bordereau de versement.";
   }
-  // La période « recette du … au … » (Timo, 09/09/2026) : facultative, mais
-  // si les deux dates sont là, la fin ne précède pas le début.
-  if (du && au && String(au) < String(du)) return "La date « au » ne peut pas précéder la date « recette du ».";
+  if (attendu !== undefined && attendu !== null && montantDifferent(m, attendu) && !String(note || "").trim()) return messageJustification(attendu);
   return "";
 }
 
-// « recette du 05/09/2026 au 09/09/2026 », « recette du 05/09/2026 »,
-// « recette jusqu'au 09/09/2026 », ou "" sans date.
-export const libellePeriode = (v) => (v?.du && v?.au
-  ? (v.du === v.au ? `recette du ${dFR(v.du)}` : `recette du ${dFR(v.du)} au ${dFR(v.au)}`)
-  : v?.du ? `recette du ${dFR(v.du)}` : v?.au ? `recette jusqu'au ${dFR(v.au)}` : "");
+// « Versement du 09/09/2026 » — chez le DG et le comptable, jamais un intervalle.
+export const libelleVersementDu = (dep) => `Versement du ${dFR(dep?.date)}`;
+// L'écart entre versé et attendu, lisible : « attendu 200 000 F, écart − 50 000 F ».
+export const libelleEcart = (v) => (v && v.attendu !== undefined && v.attendu !== null && montantDifferent(v.montant, v.attendu)
+  ? `attendu ${fmt(Math.round(Number(v.attendu)))}, écart ${Number(v.montant) - Number(v.attendu) >= 0 ? "+" : "−"} ${fmt(Math.abs(Math.round(Number(v.montant) - Number(v.attendu))))}`
+  : "");
 
 // Libellé lisible de la destination, avec la banque et le bordereau.
 export const libelleDestination = (v) => (v?.destination === DEST_BANQUE
@@ -57,26 +62,25 @@ export const libelleDestination = (v) => (v?.destination === DEST_BANQUE
 
 // Construit les écritures : { sortie, entree } — `entree` vaut null sauf
 // pour « Chez le comptable ». Les deux portent le même `versement.id`.
-export function construireVersement(profile, { boutique, montant, destination, banque = "", bordereau = "", note = "", du = "", au = "" }) {
-  const refus = critiqueVersement({ montant, destination, banque, bordereau, du, au });
+export function construireVersement(profile, { boutique, montant, destination, banque = "", bordereau = "", note = "", attendu = null }) {
+  const refus = critiqueVersement({ montant, destination, banque, bordereau, attendu, note });
   if (refus) return { refus };
   const id = uid();
   const versement = {
     id, destination,
     banque: destination === DEST_BANQUE ? String(banque).trim() : "",
     bordereau: destination === DEST_BANQUE ? String(bordereau).trim() : "",
-    du: String(du || "").trim(), au: String(au || "").trim(),
+    montant: Number(montant),
+    attendu: attendu === null || attendu === undefined ? null : Math.round(Number(attendu)),
     note: String(note || "").trim(),
   };
-  const complement = [libellePeriode(versement), versement.note].filter(Boolean).join(" · ");
+  const complement = [libelleEcart(versement), versement.note].filter(Boolean).join(" : ");
   const description = `Versement de fonds → ${libelleDestination(versement)}${complement ? ` (${complement})` : ""}`;
   const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: "Espèces", versement });
   const entree = destination === DEST_COMPTABLE
-    // ⚠ Timo (09/09/2026) : « pourquoi chez le comptable une seule date alors
-    // que le versement couvre plusieurs jours ? » — la période et la note
-    // suivent sur l'entrée miroir aussi ; la date de la ligne reste celle
-    // du versement.
-    ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement reçu de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id, versement_periode: { du: versement.du, au: versement.au } })
+    // Chez le comptable : « Versement du <date> reçu de … », l'écart et la
+    // justification suivent — jamais un intervalle (Timo, 09/09/2026).
+    ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement du ${dFR(new Date().toISOString().slice(0, 10))} reçu de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
     : null;
   return { sortie, entree, versement };
 }

@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libellePeriode } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -66,14 +66,14 @@ export function Caisse({ db, save, profile }) {
   // proposée qu'en regardant le réel — jamais à un compte de formation.
   const destinations = destinationsPour(espaceDuCompte(db, profile) === true);
   const destinationDefaut = destinations.includes(DEST_COMPTABLE) ? DEST_COMPTABLE : DEST_DG;
-  const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", du: "", au: "", note: "" });
+  const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
   const aVerser = fondsAVerser(db, boutique, totalVente);
   const mesVersements = versementsDe(db, boutique);
   const verser = async () => {
     if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!destinations.includes(vers.destination)) { uAlert("Cette destination n'est pas disponible dans l'espace regardé."); return; }
-    const r = construireVersement(profile, { boutique, ...vers });
+    const r = construireVersement(profile, { boutique, ...vers, attendu: aVerser.montant });
     if (r.refus) { uAlert(r.refus); return; }
     if (!await uConfirm(`Enregistrer le versement de ${fmt(Number(vers.montant))} de ${boutique} → ${libelleDestination(r.versement)} ?\n\nIl restera « en attente » jusqu'à sa validation par ${vers.destination === DEST_COMPTABLE ? "le comptable" : "le DG"}.`)) return;
     save({
@@ -81,7 +81,7 @@ export function Caisse({ db, save, profile }) {
       depenses: [r.sortie, ...(r.entree ? [r.entree] : []), ...(db.depenses || [])],
       messages: [...messagesVersement(db, profile, r.sortie), ...(db.messages || [])],
     }, `Versement de fonds ${fmt(Number(vers.montant))} : ${boutique} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
-    setVers({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", du: "", au: "", note: "" });
+    setVers({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
     uAlert("Versement enregistré — en attente de validation.");
   };
   // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
@@ -93,7 +93,7 @@ export function Caisse({ db, save, profile }) {
   const validerDG = async (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Valider un versement de fonds (DG)")) return;
     if (bloquerSiLecture(db, profile)) return;
-    if (!await uConfirm(`Valider la réception de ${fmt(d.montant)} versés par ${d.par} (${d.boutique}) → ${libelleDestination(d.versement)} le ${dFR(d.date)} ?`)) return;
+    if (!await uConfirm(`${libelleVersementDu(d)} : valider la réception de ${fmt(d.montant)} versés par ${d.par} (${d.boutique}) → ${libelleDestination(d.versement)} ?${libelleEcart(d.versement) ? `\n\n⚠ ${libelleEcart(d.versement)}${d.versement.note ? ` — ${d.versement.note}` : ""}` : ""}`)) return;
     save({ ...db, depenses: db.depenses.map((x) => (x.id === d.id ? { ...x, versement_valide_le: today(), versement_valide_par: profile.nom } : x)) },
       `Versement de fonds VALIDÉ par le DG : ${fmt(d.montant)} de ${d.boutique} → ${libelleDestination(d.versement)}`);
   };
@@ -114,8 +114,8 @@ export function Caisse({ db, save, profile }) {
           <div className="space-y-1">
             {aValiderDG.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-                <div><b>{fmt(d.montant)}</b> — {d.boutique} → {libelleDestination(d.versement)}
-                  <div className="text-xs text-slate-500">{dFR(d.date)} · versé par {d.par}{libellePeriode(d.versement) ? ` · ${libellePeriode(d.versement)}` : ""}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
+                <div><b>{libelleVersementDu(d)}</b> — {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}
+                  <div className="text-xs text-slate-500">versé par {d.par}{libelleEcart(d.versement) ? <span className="text-red-600"> · {libelleEcart(d.versement)}</span> : null}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
                 </div>
                 <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
               </div>
@@ -127,7 +127,7 @@ export function Caisse({ db, save, profile }) {
               <div className="max-h-[200px] overflow-y-auto space-y-1">
                 {validesDG.slice(0, 10).map((d) => (
                   <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-                    {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}{libellePeriode(d.versement) ? ` · ${libellePeriode(d.versement)}` : ""}
+                    {libelleVersementDu(d)} — {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}{libelleEcart(d.versement) ? ` · ${libelleEcart(d.versement)}` : ""}
                     <span className="ml-2 text-xs text-green-700">✅ validé le {dFR(d.versement_valide_le)} par {d.versement_valide_par}</span>
                   </div>
                 ))}
@@ -157,10 +157,14 @@ export function Caisse({ db, save, profile }) {
                 <Field label="N° du bordereau de versement"><input className={inputCls} value={vers.bordereau} onChange={(e) => setVers({ ...vers, bordereau: e.target.value })} /></Field>
               </>
             )}
-            {/* Timo (09/09/2026) : « recette du … au … » avec deux dates à choisir, et une note sans exemple. */}
-            <Field label="Recette du"><input type="date" className={inputCls} value={vers.du} onChange={(e) => setVers({ ...vers, du: e.target.value })} /></Field>
-            <Field label="au"><input type="date" className={inputCls} value={vers.au} onChange={(e) => setVers({ ...vers, au: e.target.value })} min={vers.du || undefined} /></Field>
-            <div className={vers.destination === DEST_BANQUE ? "lg:col-span-1" : "lg:col-span-2"}><Field label="Note"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} /></Field></div>
+            {/* Timo (09/09/2026) : la Note n'apparaît que si le montant versé
+                diffère du montant attendu — avec, en rouge, la raison à donner. */}
+            {vers.montant !== "" && montantDifferent(vers.montant, aVerser.montant) && (
+              <div className="sm:col-span-2 lg:col-span-4">
+                <div className="text-sm font-bold text-red-600 mb-1">⚠ {messageJustification(aVerser.montant)}</div>
+                <Field label="Note (justification)"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} /></Field>
+              </div>
+            )}
             <div className="flex items-end"><button onClick={verser} className={btnDark}>💸 Verser</button></div>
           </div>
         )}
@@ -175,7 +179,7 @@ export function Caisse({ db, save, profile }) {
                   <tr key={d.id} className="border-t border-slate-100">
                     <td className="px-3 py-1.5">{dFR(d.date)}</td>
                     <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(d.montant)}</td>
-                    <td className="px-3 py-1.5">{libelleDestination(d.versement)}{libellePeriode(d.versement) ? <span className="text-slate-500"> · {libellePeriode(d.versement)}</span> : null}{d.versement.note ? <span className="text-slate-400"> · {d.versement.note}</span> : null}</td>
+                    <td className="px-3 py-1.5">{libelleDestination(d.versement)}{libelleEcart(d.versement) ? <span className="text-red-600"> · {libelleEcart(d.versement)}</span> : null}{d.versement.note ? <span className="text-slate-400"> · {d.versement.note}</span> : null}</td>
                     <td className="px-3 py-1.5">{d.par}</td>
                     <td className="px-3 py-1.5">{v ? <span className="text-xs font-bold text-green-700">✅ validé le {dFR(v.le)} par {v.par}</span> : <span className="text-xs font-bold text-amber-700">⏳ en attente</span>}</td>
                   </tr>
