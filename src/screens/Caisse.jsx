@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, messagesVersement, libelleDestination } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, messagesVersement, libelleDestination, libellePeriode } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -66,7 +66,7 @@ export function Caisse({ db, save, profile }) {
   // proposée qu'en regardant le réel — jamais à un compte de formation.
   const destinations = destinationsPour(espaceDuCompte(db, profile) === true);
   const destinationDefaut = destinations.includes(DEST_COMPTABLE) ? DEST_COMPTABLE : DEST_DG;
-  const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+  const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", du: "", au: "", note: "" });
   const aVerser = fondsAVerser(db, boutique, totalVente);
   const mesVersements = versementsDe(db, boutique);
   const verser = async () => {
@@ -81,7 +81,7 @@ export function Caisse({ db, save, profile }) {
       depenses: [r.sortie, ...(r.entree ? [r.entree] : []), ...(db.depenses || [])],
       messages: [...messagesVersement(db, profile, r.sortie), ...(db.messages || [])],
     }, `Versement de fonds ${fmt(Number(vers.montant))} : ${boutique} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
-    setVers({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+    setVers({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", du: "", au: "", note: "" });
     uAlert("Versement enregistré — en attente de validation.");
   };
   // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
@@ -110,7 +110,7 @@ export function Caisse({ db, save, profile }) {
             {aValiderDG.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
                 <div><b>{fmt(d.montant)}</b> — {d.boutique} → {libelleDestination(d.versement)}
-                  <div className="text-xs text-slate-500">{dFR(d.date)} · versé par {d.par}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
+                  <div className="text-xs text-slate-500">{dFR(d.date)} · versé par {d.par}{libellePeriode(d.versement) ? ` · ${libellePeriode(d.versement)}` : ""}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
                 </div>
                 <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
               </div>
@@ -139,7 +139,10 @@ export function Caisse({ db, save, profile }) {
                 <Field label="N° du bordereau de versement"><input className={inputCls} value={vers.bordereau} onChange={(e) => setVers({ ...vers, bordereau: e.target.value })} /></Field>
               </>
             )}
-            <div className={vers.destination === DEST_BANQUE ? "lg:col-span-3" : "lg:col-span-2"}><Field label="Note"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} placeholder="Ex : recette du jour" /></Field></div>
+            {/* Timo (09/09/2026) : « recette du … au … » avec deux dates à choisir, et une note sans exemple. */}
+            <Field label="Recette du"><input type="date" className={inputCls} value={vers.du} onChange={(e) => setVers({ ...vers, du: e.target.value })} /></Field>
+            <Field label="au"><input type="date" className={inputCls} value={vers.au} onChange={(e) => setVers({ ...vers, au: e.target.value })} min={vers.du || undefined} /></Field>
+            <div className={vers.destination === DEST_BANQUE ? "lg:col-span-1" : "lg:col-span-2"}><Field label="Note"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} /></Field></div>
             <div className="flex items-end"><button onClick={verser} className={btnDark}>💸 Verser</button></div>
           </div>
         )}
@@ -154,7 +157,7 @@ export function Caisse({ db, save, profile }) {
                   <tr key={d.id} className="border-t border-slate-100">
                     <td className="px-3 py-1.5">{dFR(d.date)}</td>
                     <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(d.montant)}</td>
-                    <td className="px-3 py-1.5">{libelleDestination(d.versement)}{d.versement.note ? <span className="text-slate-400"> · {d.versement.note}</span> : null}</td>
+                    <td className="px-3 py-1.5">{libelleDestination(d.versement)}{libellePeriode(d.versement) ? <span className="text-slate-500"> · {libellePeriode(d.versement)}</span> : null}{d.versement.note ? <span className="text-slate-400"> · {d.versement.note}</span> : null}</td>
                     <td className="px-3 py-1.5">{d.par}</td>
                     <td className="px-3 py-1.5">{v ? <span className="text-xs font-bold text-green-700">✅ validé le {dFR(v.le)} par {v.par}</span> : <span className="text-xs font-bold text-amber-700">⏳ en attente</span>}</td>
                   </tr>

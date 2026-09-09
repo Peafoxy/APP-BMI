@@ -4673,6 +4673,13 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   test("★ fonds à verser = espèces entrées (ventes + règlements) − espèces sorties (versements compris) depuis le dernier versement ; jamais le mobile money ni une autre boutique",
     f.depuis === "2026-09-05" && f.ventes === 5000 && f.reglements === 300 && f.depenses === 150000 && f.montant === 5000 + 300 - 150000
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 6000 + 1299);
+  const rp = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 1000, destination: "Chez le DG", du: "2026-09-05", au: "2026-09-09" });
+  const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
+  test("★ « recette du … au … » (Timo) : deux dates facultatives, dans le libellé et la description ; fin avant début refusée ; un seul jour = « recette du » ; la note n'a plus d'exemple",
+    Vs.libellePeriode(rp.versement) === "recette du 05/09/2026 au 09/09/2026" && /\(recette du 05\/09\/2026 au 09\/09\/2026\)/.test(rp.sortie.description)
+    && Vs.libellePeriode({ du: "2026-09-09", au: "2026-09-09" }) === "recette du 09/09/2026" && Vs.libellePeriode({}) === "" && Vs.libellePeriode({ au: "2026-09-09" }) === "recette jusqu'au 09/09/2026"
+    && /précéder/.test(Vs.critiqueVersement({ montant: 1, destination: "Chez le DG", du: "2026-09-09", au: "2026-09-05" })) && Vs.critiqueVersement({ montant: 1, destination: "Chez le DG", du: "2026-09-05", au: "" }) === ""
+    && !/placeholder="Ex : recette du jour"/.test(csV) && /<Field label="Recette du"><input type="date"/.test(csV) && /<Field label="au"><input type="date"/.test(csV));
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");

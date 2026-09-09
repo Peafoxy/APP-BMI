@@ -17,7 +17,7 @@
 // négatif, convention déjà en place) est posée dans la caisse du comptable,
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
-import { nouvelleDepense, nouveauMessage, uid, fmt } from "./core";
+import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core";
 
 export const CATEGORIE_VERSEMENT = "Versement de fonds";
 export const DEST_DG = "Chez le DG";
@@ -30,7 +30,7 @@ export const ROLES_VERSEMENT = ["vendeur", "gerant", "admin"];
 export const destinationsPour = (enFormation) => (enFormation ? DESTINATIONS_VERSEMENT.filter((d) => d !== DEST_COMPTABLE) : DESTINATIONS_VERSEMENT);
 
 // Le versement est-il bien formé ? Renvoie le motif du refus, ou "".
-export function critiqueVersement({ montant, destination, banque, bordereau }) {
+export function critiqueVersement({ montant, destination, banque, bordereau, du, au }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant versé (supérieur à zéro).";
   if (!DESTINATIONS_VERSEMENT.includes(destination)) return "Choisissez la destination : Chez le DG, BANQUE ou Chez le comptable.";
@@ -38,8 +38,17 @@ export function critiqueVersement({ montant, destination, banque, bordereau }) {
     if (!String(banque || "").trim()) return "Indiquez le nom de la banque.";
     if (!String(bordereau || "").trim()) return "Indiquez le numéro du bordereau de versement.";
   }
+  // La période « recette du … au … » (Timo, 09/09/2026) : facultative, mais
+  // si les deux dates sont là, la fin ne précède pas le début.
+  if (du && au && String(au) < String(du)) return "La date « au » ne peut pas précéder la date « recette du ».";
   return "";
 }
+
+// « recette du 05/09/2026 au 09/09/2026 », « recette du 05/09/2026 »,
+// « recette jusqu'au 09/09/2026 », ou "" sans date.
+export const libellePeriode = (v) => (v?.du && v?.au
+  ? (v.du === v.au ? `recette du ${dFR(v.du)}` : `recette du ${dFR(v.du)} au ${dFR(v.au)}`)
+  : v?.du ? `recette du ${dFR(v.du)}` : v?.au ? `recette jusqu'au ${dFR(v.au)}` : "");
 
 // Libellé lisible de la destination, avec la banque et le bordereau.
 export const libelleDestination = (v) => (v?.destination === DEST_BANQUE
@@ -48,17 +57,19 @@ export const libelleDestination = (v) => (v?.destination === DEST_BANQUE
 
 // Construit les écritures : { sortie, entree } — `entree` vaut null sauf
 // pour « Chez le comptable ». Les deux portent le même `versement.id`.
-export function construireVersement(profile, { boutique, montant, destination, banque = "", bordereau = "", note = "" }) {
-  const refus = critiqueVersement({ montant, destination, banque, bordereau });
+export function construireVersement(profile, { boutique, montant, destination, banque = "", bordereau = "", note = "", du = "", au = "" }) {
+  const refus = critiqueVersement({ montant, destination, banque, bordereau, du, au });
   if (refus) return { refus };
   const id = uid();
   const versement = {
     id, destination,
     banque: destination === DEST_BANQUE ? String(banque).trim() : "",
     bordereau: destination === DEST_BANQUE ? String(bordereau).trim() : "",
+    du: String(du || "").trim(), au: String(au || "").trim(),
     note: String(note || "").trim(),
   };
-  const description = `Versement de fonds → ${libelleDestination(versement)}${versement.note ? ` (${versement.note})` : ""}`;
+  const complement = [libellePeriode(versement), versement.note].filter(Boolean).join(" · ");
+  const description = `Versement de fonds → ${libelleDestination(versement)}${complement ? ` (${complement})` : ""}`;
   const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: "Espèces", versement });
   const entree = destination === DEST_COMPTABLE
     ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement reçu de ${boutique} (par ${profile.nom})`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
