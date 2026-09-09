@@ -4683,6 +4683,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   const rpc = Vs.construireVersement(moi, { boutique: "APESSITO", montant: 1000, destination: "Chez le comptable", du: "2026-09-05", au: "2026-09-09", note: "semaine" });
   test("★ l'entrée chez le comptable porte AUSSI la période et la note (« pourquoi chez le comptable une seule date ? »)",
     /Versement reçu de APESSITO \(par KOSSI\) — recette du 05\/09\/2026 au 09\/09\/2026 · semaine/.test(rpc.entree.description) && rpc.entree.versement_periode.du === "2026-09-05" && rpc.entree.versement_periode.au === "2026-09-09");
+  test("★ l'encadré du DG est PERMANENT (« sans versement, rien n'apparaît ») : vide, il le dit ; les derniers validés (versementsValidesParDG) s'affichent dessous",
+    /\{jeSuisDG && \(\n\s+<div className=\{`bg-white rounded-xl border-2 shadow-sm p-4/.test(readFileSync("src/screens/Caisse.jsx", "utf8")) && /Aucun versement en attente de votre validation/.test(readFileSync("src/screens/Caisse.jsx", "utf8"))
+    && Vs.versementsValidesParDG(db0, ["APESSITO"]).map((d) => d.id).join("|") === db0.depenses[3].id && Vs.versementsValidesParDG(db0, ["AUTRE"]).length === 0);
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
@@ -4696,7 +4699,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   test("★ écran Caisse : le geste revérifie le rôle (ROLES_VERSEMENT) et la lecture seule ; la validation DG revérifie l'administrateur PRINCIPAL ; les boutiques du DG passent par boutiquesVisibles",
     /if \(refuserSaufRoles\(profile, ROLES_VERSEMENT, "Verser les fonds"\)\) return;\n\s+if \(bloquerSiLecture\(db, profile\)\) return;/.test(cs)
     && /if \(refuserSaufAdminPrincipal\(db, profile, "Valider un versement de fonds \(DG\)"\)\) return;/.test(cs)
-    && /versementsAValiderParDG\(db, boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\)/.test(cs)
+    && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }
 

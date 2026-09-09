@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, messagesVersement, libelleDestination, libellePeriode } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libellePeriode } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -87,7 +87,9 @@ export function Caisse({ db, save, profile }) {
   // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
   // boutiques de l'espace regardé.
   const jeSuisDG = estAdminPrincipal(db, profile);
-  const aValiderDG = jeSuisDG ? versementsAValiderParDG(db, boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom)) : [];
+  const nomsDG = jeSuisDG ? boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom) : [];
+  const aValiderDG = jeSuisDG ? versementsAValiderParDG(db, nomsDG) : [];
+  const validesDG = jeSuisDG ? versementsValidesParDG(db, nomsDG) : [];
   const validerDG = async (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Valider un versement de fonds (DG)")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -103,9 +105,12 @@ export function Caisse({ db, save, profile }) {
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={setBq} avecTerrain profile={profile} />}
-      {jeSuisDG && aValiderDG.length > 0 && (
-        <div className="bg-white rounded-xl border-2 border-amber-300 shadow-sm p-4">
-          <div className="font-bold text-amber-900 mb-2">💸 Versements à valider par le DG ({aValiderDG.length})</div>
+      {/* Timo (09/09/2026) : « sans versement, rien n'apparaît » — l'encadré
+          du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
+      {jeSuisDG && (
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`}>
+          <div className={`font-bold mb-2 ${aValiderDG.length > 0 ? "text-amber-900" : "text-slate-800"}`}>💸 Versements à valider par le DG ({aValiderDG.length})</div>
+          {aValiderDG.length === 0 && <div className="text-sm text-slate-400">Aucun versement en attente de votre validation (Chez le DG, BANQUE).</div>}
           <div className="space-y-1">
             {aValiderDG.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
@@ -116,6 +121,19 @@ export function Caisse({ db, save, profile }) {
               </div>
             ))}
           </div>
+          {validesDG.length > 0 && (
+            <div className="mt-3">
+              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Derniers versements validés</div>
+              <div className="max-h-[200px] overflow-y-auto space-y-1">
+                {validesDG.slice(0, 10).map((d) => (
+                  <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
+                    {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}{libellePeriode(d.versement) ? ` · ${libellePeriode(d.versement)}` : ""}
+                    <span className="ml-2 text-xs text-green-700">✅ validé le {dFR(d.versement_valide_le)} par {d.versement_valide_par}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       <Panel boutique={boutique}>

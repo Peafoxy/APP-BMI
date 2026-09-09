@@ -121,6 +121,11 @@ export const versementsAValiderParDG = (db, nomsBoutiques) => (db.depenses || []
   .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && !d.versement_valide_le && nomsBoutiques.includes(d.boutique))
   .sort((a, b) => `${a.date} ${a.heure || ""}`.localeCompare(`${b.date} ${b.heure || ""}`));
 
+// Les versements DG / BANQUE déjà validés, du plus récent au plus ancien.
+export const versementsValidesParDG = (db, nomsBoutiques) => (db.depenses || [])
+  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && !!d.versement_valide_le && nomsBoutiques.includes(d.boutique))
+  .sort((a, b) => `${b.versement_valide_le} ${b.date}`.localeCompare(`${a.versement_valide_le} ${a.date}`));
+
 // Qui prévenir : le comptable pour « Chez le comptable », le DG (admin
 // principal) pour les deux autres. Même fabrique de message que partout.
 export function messagesVersement(db, profile, sortie) {

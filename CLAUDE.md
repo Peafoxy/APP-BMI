@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1054 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1055 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -303,7 +303,7 @@ lit mal est pire qu'un banc absent).
   `versement`) ; « Chez le comptable » pose en plus une entrée miroir
   (montant négatif, `versement_id`) dans la caisse du comptable.
   **Validation : Chez le DG et BANQUE → le DG = administrateur PRINCIPAL**
-  (bloc en haut de 🔒 Caisse) ; **Chez le comptable → le comptable**, par son
+  (bloc **permanent** en haut de 🔒 Caisse, vide il le dit) ; **Chez le comptable → le comptable**, par son
   pointage « ✅ Encaissé ». UNE règle pure : `lib/versements.js`. Versement
   libre, jamais imposé à la clôture. Un compte de formation n'a jamais
   « Chez le comptable ». Serveur : `securite-10` (la validation DG = admin
