@@ -4290,6 +4290,63 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     && /vide="Aucune dépense enregistrée\." \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
 }
 
+titre("Les appareils du volet solaire : catalogue, abréviations, une faute tolérée, liste qui grandit (Timo, 09/09/2026)");
+{
+  // « L'application devrait reconnaître les abréviations des équipements…
+  // ne pas être rigide. » Puis : « élargis d'abord à une cinquantaine ou
+  // plus, puis lance. » On exerce le catalogue et la recherche.
+  const sortieApp = join("node_modules", ".cache", `bmi-appareils-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/appareils.js"], bundle: true, format: "esm", platform: "node", outfile: sortieApp, logLevel: "silent",
+    loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const App = await import(pathToFileURL(sortieApp).href);
+  unlinkSync(sortieApp);
+  const sortieSug2 = join("node_modules", ".cache", `bmi-sug2-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/suggestions.js"], bundle: true, format: "esm", platform: "node", outfile: sortieSug2, logLevel: "silent" });
+  const Sug = await import(pathToFileURL(sortieSug2).href);
+  unlinkSync(sortieSug2);
+  const cat = App.CATALOGUE_APPAREILS;
+  test("★ le catalogue de départ compte 55 appareils ou plus, chacun avec un identifiant unique, un nom unique, une puissance et au moins un autre nom",
+    cat.length >= 55 && new Set(cat.map((a) => a.id)).size === cat.length && new Set(cat.map((a) => Sug.sansAccents(a.nom))).size === cat.length
+    && cat.every((a) => a.puissance > 0 && Array.isArray(a.autres) && a.autres.length >= 1));
+  const props = App.suggestionsAppareils(cat);
+  const noms = (q) => Sug.filtrerSuggestions(props, q).map((s) => s.valeur);
+  test("★ « tv » et « télé » proposent le téléviseur d'abord ; « frigo » le réfrigérateur ; « clim » les quatre climatiseurs, le 1 CV en tête",
+    noms("tv")[0] === 'Téléviseur 32"' && noms("télé")[0] === 'Téléviseur 32"' && noms("frigo")[0] === "Réfrigérateur"
+    && noms("clim").filter((n) => n.startsWith("Climatiseur")).length === 4 && noms("clim")[0] === "Climatiseur 1 CV (9 000 BTU)");
+  test("★ « poste » propose le poste à souder en tête et plus jamais le téléviseur (retiré de ses autres noms) ; « machine » en propose plusieurs — la liste tranche, pas le mot",
+    noms("poste")[0] === "Poste à souder" && !noms("poste").some((n) => n.startsWith("Téléviseur")) && noms("machine").length >= 2);
+  test("★ une faute d'une lettre trouve quand même : « climatisseur », « télévison », « refrigerateur », « ventillateur »",
+    noms("climatisseur")[0].startsWith("Climatiseur") && noms("télévison")[0].startsWith("Téléviseur") && noms("refrigerateur")[0] === "Réfrigérateur" && noms("ventillateur")[0] === "Ventilateur");
+  test("★ les mots courts ne tolèrent pas de faute (« tx » ne trouve pas la tv), et rien ne correspond → liste vide, saisie libre",
+    !noms("tx").some((n) => n.startsWith("Téléviseur")) && noms("zzzz").length === 0);
+  test("★ distance d'édition : climatiseur/climatisseur = 1, tv/tv = 0, four/frigo > 1", Sug.distance("climatiseur", "climatisseur") === 1 && Sug.distance("tv", "tv") === 0 && Sug.distance("four", "frigo") > 1);
+  test("★ choisir « tv » ou « Réfrigérateur » pré-remplit la puissance ; un mot partagé (« portable », « machine ») ne choisit rien tout seul",
+    App.appareilDuCatalogue(cat, "tv")?.id === "tv_32" && App.appareilDuCatalogue(cat, "Réfrigérateur")?.puissance === 150 && App.appareilDuCatalogue(cat, "poste")?.id === "poste_souder"
+    && App.appareilDuCatalogue(cat, "portable") === null && App.appareilDuCatalogue(cat, "machine") === null && App.appareilDuCatalogue(cat, "pc") !== null && App.appareilDuCatalogue(cat, "") === null);
+  const dbA = { boutiques: [{ nom: "APESSITO", appareils_catalogue: [{ id: "frigo", puissance: 180 }, { id: "neon", retire: true }, { id: "perso_four_a_pain", nom: "Four à pain", puissance: 2500, autres: ["boulangerie"] }] }, { nom: "DEMAKPOE" }],
+    users: [{ id: "u1", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" }] };
+  const merge = App.catalogueAppareils(dbA, dbA.users[0]);
+  test("★ la liste de l'espace = départ + corrections (frigo → 180 W), sans les retirés (néon), avec les ajouts (Four à pain)",
+    merge.find((a) => a.id === "frigo")?.puissance === 180 && merge.find((a) => a.id === "frigo")?.nom === "Réfrigérateur" && !merge.some((a) => a.id === "neon")
+    && merge.find((a) => a.id === "perso_four_a_pain")?.autres[0] === "boulangerie" && merge.length === cat.length);
+  test("★ sans profil ni personnalisation, la liste de départ telle quelle", App.catalogueAppareils({ boutiques: [] }, null).length === cat.length);
+  const comptes = [{ devis: [{ besoins: { appareils: [{ nom: "Machine à pâte", puissance: 900 }, { nom: "tv", puissance: 45 }, { nom: "climatisseur", puissance: 1000 }] } },
+    { besoins: { appareils: [{ nom: "machine a pate", puissance: 900 }, { nom: "Machine à pâte", puissance: 700 }] } }] }];
+  const ac = App.appareilsAClasser(comptes, cat);
+  test("★ « à classer » : l'appareil inconnu des devis, une seule fois malgré les écritures, avec la puissance la plus fréquente et le nombre de devis — tv et « climatisseur » (connus) n'y sont pas",
+    ac.length === 1 && ac[0].nom === "Machine à pâte" && ac[0].puissance === 900 && ac[0].devis === 3);
+  test("★ idAppareil fabrique un identifiant sûr", App.idAppareil("Four à pain (grand)") === "perso_four_a_pain_grand");
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ le champ Appareil du volet solaire propose le catalogue de l'espace regardé et pré-remplit la puissance au choix",
+    /<ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur=\{a\.nom\} suggestions=\{propositionsAppareils\} onChange=\{\(v\) => choisirAppareil\(a\.id, v\)\} \/>/.test(sol)
+    && /const catalogue = catalogueAppareils\(db, profile\);/.test(sol) && /\{ \.\.\.a, nom: e\.nom, puissance: String\(e\.puissance\) \}/.test(sol));
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ ⚙ Paramètres → 🔌 Appareils : ajouter, corrigér, retirer (admin), écrit sur les boutiques de l'espace regardé seulement ; « à classer » lit les comptes de l'espace",
+    /\["appareils", `🔌 Appareils/.test(par) && /refuserSaufAdmin\(profile, "Compléter la liste des appareils"\)/.test(par)
+    && /const visibles = new Set\(boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\);/.test(par)
+    && /appareilsAClasser\(utilisateursDeLEspace\(db, profile\), catalogueApp\)/.test(par));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

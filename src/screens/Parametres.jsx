@@ -12,9 +12,10 @@ import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom , espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
 
 // ============ PARAMÈTRES ============
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
@@ -29,6 +30,50 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // ---- SÉCURITÉ SUPABASE : écran de contrôle avant durcissement ----
   const [verifSecu, setVerifSecu] = useState({ statut: "idle", existants: [], total: 0, erreur: "" });
   const [onglet, setOnglet] = useState("boutiques"); // sous-onglet ouvert
+
+  // ---- 🔌 LES APPAREILS DU VOLET SOLAIRE (demande Timo, 09/09/2026) ----
+  // La liste de départ (lib/appareils.js) plus ce qui a été ajouté, corrigé
+  // ou retiré ici ; « à classer » = les appareils tapés dans les devis de
+  // l'espace regardé que la liste ne connaît pas (dérivé, jamais écrit).
+  const catalogueApp = catalogueAppareils(db, profile);
+  const aClasser = appareilsAClasser(utilisateursDeLEspace(db, profile), catalogueApp);
+  const persoApp = (boutiquesVisibles(db, profile, db.boutiques || []).find((x) => Array.isArray(x.appareils_catalogue))?.appareils_catalogue) || [];
+  const ecrireCatalogue = (liste, journal) => {
+    const visibles = new Set(boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom));
+    save({ ...db, boutiques: db.boutiques.map((b) => (visibles.has(b.nom) ? { ...b, appareils_catalogue: liste } : b)) }, journal);
+  };
+  const ajouterAppareilCatalogue = async (prefil = {}) => {
+    if (refuserSaufAdmin(profile, "Compléter la liste des appareils")) return;
+    const nom = await uPrompt("Nom de l'appareil (tel qu'il apparaîtra dans la liste) :", prefil.nom || "");
+    if (!nom || !nom.trim()) return;
+    const p = await uPrompt(`Puissance typique de « ${nom.trim()} » (W) :`, prefil.puissance ? String(prefil.puissance) : "");
+    if (p === null) return;
+    const puissance = Number(p);
+    if (!(puissance > 0)) { uAlert("Indiquez une puissance en watts, supérieure à zéro."); return; }
+    const autres = await uPrompt("Autres noms, abréviations (séparés par des virgules, facultatif) :", "");
+    if (autres === null) return;
+    const id = idAppareil(nom.trim());
+    const entree = { id, nom: nom.trim(), puissance, autres: autres.split(",").map((x) => x.trim()).filter(Boolean) };
+    ecrireCatalogue([...persoApp.filter((x) => x.id !== id), entree], `🔌 Appareil ajouté à la liste : ${entree.nom} (${puissance} W) par ${profile.nom}`);
+  };
+  const corrigerAppareilCatalogue = async (a) => {
+    if (refuserSaufAdmin(profile, "Corriger la liste des appareils")) return;
+    const p = await uPrompt(`Puissance typique de « ${a.nom} » (W) :`, String(a.puissance));
+    if (p === null) return;
+    const puissance = Number(p);
+    if (!(puissance > 0)) { uAlert("Indiquez une puissance en watts, supérieure à zéro."); return; }
+    const autres = await uPrompt("Autres noms, abréviations (séparés par des virgules) :", (a.autres || []).join(", "));
+    if (autres === null) return;
+    const entree = { id: a.id, nom: a.nom, puissance, autres: autres.split(",").map((x) => x.trim()).filter(Boolean) };
+    ecrireCatalogue([...persoApp.filter((x) => x.id !== a.id), entree], `🔌 Appareil corrigé : ${a.nom} → ${puissance} W par ${profile.nom}`);
+  };
+  const retirerAppareilCatalogue = async (a) => {
+    if (refuserSaufAdmin(profile, "Retirer un appareil de la liste")) return;
+    if (!await uConfirm(`Retirer « ${a.nom} » de la liste des appareils proposés ?\n\nLes devis déjà faits ne changent pas.`)) return;
+    const deDepart = CATALOGUE_APPAREILS.some((x) => x.id === a.id);
+    const liste = persoApp.filter((x) => x.id !== a.id);
+    ecrireCatalogue(deDepart ? [...liste, { id: a.id, retire: true }] : liste, `🔌 Appareil retiré de la liste : ${a.nom} par ${profile.nom}`);
+  };
   const utilisateursActifs = db.users.filter((u) => u.actif !== false);
   const verifierSecurite = async () => {
     setVerifSecu({ statut: "chargement", existants: [], total: 0, erreur: "" });
@@ -920,7 +965,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           🔐 Sécurité est volontairement en dernier : les gestes lourds ne
           doivent pas être sur le chemin de tous les jours. */}
       <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
-        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"],
+        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["appareils", `🔌 Appareils${aClasser.length ? ` (${aClasser.length} à classer)` : ""}`], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"],
           ...(jeSuisPrincipal ? [["corbeille", `🗑 Corbeille${corbeille.length ? ` (${corbeille.length})` : ""}`]] : []),
           ["securite", "🔐 Sécurité"]].map(([id, label]) => (
           <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
@@ -1161,6 +1206,54 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
       </div>
 
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "appareils" ? undefined : "none" }}>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <div className="font-bold mb-1">🔌 Appareils proposés dans le volet solaire</div>
+          <div className="text-xs text-slate-500 mb-3">
+            Quand un vendeur tape « tv », « frigo » ou « clim » dans les besoins du client, l'application propose l'appareil et
+            pré-remplit sa puissance typique. Chaque appareil a ses autres noms et abréviations : c'est ce qui permet de le
+            reconnaître quelle que soit la façon de l'écrire. Un appareil hors liste reste possible en saisie libre.
+          </div>
+          <button onClick={() => ajouterAppareilCatalogue()} className={btnDark}>➕ Ajouter un appareil</button>
+          <div className="overflow-x-auto mt-3">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead><tr className="text-xs text-slate-500 uppercase">{["Appareil", "Puissance", "Reconnu aussi sous", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+              <tbody>
+                {catalogueApp.map((a) => (
+                  <tr key={a.id} className="border-t border-slate-100">
+                    <td className="px-3 py-2 font-semibold whitespace-nowrap">{a.nom}</td>
+                    <td className="px-3 py-2 tabular-nums whitespace-nowrap">{a.puissance} W</td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{(a.autres || []).join(", ")}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <button onClick={() => corrigerAppareilCatalogue(a)} className="text-xs text-sky-800 underline mr-3">✏️ Corriger</button>
+                      <button onClick={() => retirerAppareilCatalogue(a)} className="text-xs text-red-600 underline">Retirer</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <div className="font-bold mb-1">🗂 À classer{aClasser.length ? ` (${aClasser.length})` : ""}</div>
+          <div className="text-xs text-slate-500 mb-3">
+            Les appareils tapés dans les devis que la liste ne connaît pas encore, avec la puissance la plus souvent saisie.
+            Ajoutez-les d'un clic : la prochaine fois, ils seront proposés avec leur puissance.
+          </div>
+          {aClasser.length === 0 ? (
+            <div className="text-sm text-slate-500">Rien à classer : tous les appareils des devis sont dans la liste.</div>
+          ) : (
+            <div className="space-y-1">
+              {aClasser.map((x) => (
+                <div key={x.nom} className="flex items-center justify-between gap-2 flex-wrap border-t border-slate-100 py-1.5 text-sm">
+                  <span><b>{x.nom}</b> <span className="text-xs text-slate-500">— {x.puissance ? `${x.puissance} W` : "puissance non saisie"} · {x.devis} devis</span></span>
+                  <button onClick={() => ajouterAppareilCatalogue({ nom: x.nom, puissance: x.puissance })} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-0.5">➕ Ajouter à la liste</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div className="space-y-4" style={{ display: onglet === "corbeille" ? undefined : "none" }}>
         <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">

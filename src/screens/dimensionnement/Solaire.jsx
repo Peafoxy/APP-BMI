@@ -7,6 +7,8 @@ import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
 import { besoinsSolaires, supportsPourRails, etriersPourPanneaux } from "../../lib/solaire";
+import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
+import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 
@@ -125,6 +127,15 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   });
 
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
+  // Le nom passe par le catalogue (lib/appareils.js) : un appareil choisi
+  // dans la liste — ou tapé exactement par un de ses autres noms —
+  // pré-remplit sa puissance typique ; le reste est saisie libre.
+  const catalogue = catalogueAppareils(db, profile);
+  const propositionsAppareils = suggestionsAppareils(catalogue);
+  const choisirAppareil = (id, nom) => {
+    const e = appareilDuCatalogue(catalogue, nom);
+    setAppareils(appareils.map((a) => (a.id === id ? (e ? { ...a, nom: e.nom, puissance: String(e.puissance) } : { ...a, nom }) : a)));
+  };
   const ajouterAppareil = () => setAppareils([...appareils, { id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
   const retirerAppareil = (id) => setAppareils(appareils.filter((a) => a.id !== id));
 
@@ -713,7 +724,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         <div className="space-y-2">
           {appareils.map((a) => (
             <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
-              <Field label="Appareil"><input className={inputCls} placeholder="Ex : Téléviseur" value={a.nom} onChange={(e) => majAppareil(a.id, "nom", e.target.value)} /></Field>
+              <Field label="Appareil"><ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur={a.nom} suggestions={propositionsAppareils} onChange={(v) => choisirAppareil(a.id, v)} /></Field>
               <Field label="Puissance (W)"><input type="number" className={inputCls} value={a.puissance} onChange={(e) => majAppareil(a.id, "puissance", e.target.value)} /></Field>
               <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>
               <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>

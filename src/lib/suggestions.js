@@ -17,9 +17,40 @@ export const correspond = (texte, requete) => {
   return mots.every((m) => t.includes(m));
 };
 
+// Une faute d'une lettre ne bloque pas (Timo, 09/09/2026 : « climatisseur »,
+// « refrigerateur », « télévison » doivent trouver l'appareil). Distance
+// d'édition entre deux mots : lettres changées, ajoutées ou retirées.
+export const distance = (a, b) => {
+  a = String(a); b = String(b);
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+};
+// Chaque mot tapé (4 lettres au moins) se retrouve dans le texte tel quel,
+// ou à UNE faute près d'un mot du texte (ou de son début : « climatis » vaut
+// « climatiseur »). Les mots courts ne tolèrent rien : « tv » reste « tv ».
+export const correspondApprox = (texte, requete) => {
+  const mots = sansAccents(requete).split(" ").filter(Boolean);
+  const t = sansAccents(texte);
+  const motsTexte = t.split(/[^a-z0-9]+/).filter(Boolean);
+  return mots.every((m) => t.includes(m)
+    || (m.length >= 4 && motsTexte.some((x) => distance(m, x) <= 1 || (x.length > m.length && distance(m, x.slice(0, m.length)) <= 1))));
+};
+
 // Les propositions pour ce qui est tapé : celles qui COMMENCENT par la
-// saisie d'abord, puis les autres, sans doublon, au plus `max`. Une saisie
-// vide propose le début de la liste (on voit qu'il y a du choix).
+// saisie d'abord, puis celles qui la contiennent (dans le nom, le détail ou
+// les mots de recherche `mots` — abréviations, autres noms), puis celles
+// qui la trouvent à une faute près ; sans doublon, au plus `max`. Une
+// saisie vide propose le début de la liste (on voit qu'il y a du choix).
 export const filtrerSuggestions = (liste, requete, max = 30) => {
   const q = sansAccents(requete);
   const vues = new Set();
@@ -30,8 +61,11 @@ export const filtrerSuggestions = (liste, requete, max = 30) => {
     vues.add(cle);
     uniques.push(s);
   }
-  const retenues = q ? uniques.filter((s) => correspond(s.valeur, q) || (s.detail && correspond(s.detail, q))) : uniques;
+  if (!q) return uniques.slice(0, max);
+  const exact = (s) => correspond(s.valeur, q) || (s.detail && correspond(s.detail, q)) || (s.mots && correspond(s.mots, q));
+  const retenues = uniques.filter(exact);
   const commence = retenues.filter((s) => sansAccents(s.valeur).startsWith(q));
   const contient = retenues.filter((s) => !sansAccents(s.valeur).startsWith(q));
-  return [...commence, ...contient].slice(0, max);
+  const approx = uniques.filter((s) => !exact(s) && (correspondApprox(s.valeur, q) || (s.mots && correspondApprox(s.mots, q))));
+  return [...commence, ...contient, ...approx].slice(0, max);
 };
