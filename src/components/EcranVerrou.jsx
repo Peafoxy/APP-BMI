@@ -105,7 +105,12 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
               </div>
             </div>
             <div className="relative">
-              <input ref={champ} type={visible ? "text" : "password"} autoComplete="current-password" className={`${inputCls} pr-10`} placeholder="Mot de passe"
+              {/* ⚠ Capture Timo (09/09/2026) : carte SOMBRE → le texte de la
+                  carte est blanc, et le champ (fond blanc) en héritait :
+                  mot de passe et curseur blancs sur blanc, « le mot de passe
+                  ne s'écrit pas ». Le champ impose son texte et son curseur
+                  sombres, quelle que soit la couleur de la carte. */}
+              <input ref={champ} type={visible ? "text" : "password"} autoComplete="current-password" className={`${inputCls} pr-10 text-slate-900 caret-slate-900 placeholder:text-slate-400`} placeholder="Mot de passe"
                 value={saisie} onChange={(e) => { setSaisie(e.target.value); setErreur(""); }} disabled={occupe}
                 onClick={focaliser} onTouchEnd={focaliser} />
               <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={() => { setVisible((v) => !v); focaliser(); }} aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} title={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-slate-600">

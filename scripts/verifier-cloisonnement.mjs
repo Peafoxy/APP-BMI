@@ -4606,6 +4606,8 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ la fenêtre reprend le focus sur le champ à tout clic et à toute touche (filet Timo, 09/09/2026 : « le curseur ne clignote pas ») et nomme ce qui s'interpose si le champ n'a toujours pas le clavier",
     /window\.addEventListener\("keydown", clavier, true\)/.test(ev) && /onPointerDown=\{\(e\) => \{ if \(e\.target\?\.tagName !== "BUTTON" && e\.target\?\.tagName !== "INPUT"\) focaliser\(\); \}\}/.test(ev)
     && /document\.elementFromPoint\(r\.left \+ 20, r\.top \+ r\.height \/ 2\)/.test(ev) && /Le champ n'a pas le clavier/.test(ev));
+  test("★ le champ mot de passe impose texte et curseur SOMBRES (carte sombre → texte de carte blanc → champ blanc sur blanc, capture Timo 09/09/2026 : « le mot de passe ne s'écrit pas »)",
+    /className=\{`\$\{inputCls\} pr-10 text-slate-900 caret-slate-900 placeholder:text-slate-400`\} placeholder="Mot de passe"/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");
