@@ -180,12 +180,12 @@ export function decorAccueil(db, apparence) {
   return { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran };
 }
 
-// La carte d'accueil : le fond (dégradé ou image plein écran), les étoiles,
-// la carte avec son image, le cadre du haut (logo, titre, bandeau) et le
-// cadre du bas (`children`). `className` habille le conteneur : plein écran
-// défilant pour la connexion, voile fixe pour le verrou.
-export function CarteAccueil({ decor, children, pied = null, className = "min-h-screen", sousTitre = "Espace de gestion — Lomé, Togo" }) {
-  const { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, etoiles, tailleImage, positionImage, pleinEcran } = decor;
+// Le FOND d'accueil seul : dégradé ou image plein écran, voile sombre,
+// étoiles. `className` habille le conteneur : plein écran défilant pour la
+// connexion, voile fixe pour le verrou. Ce qu'on pose dessus (`children`)
+// est centré.
+export function FondAccueil({ decor, children, className = "min-h-screen" }) {
+  const { accueilFond, accueilImage, etoiles, tailleImage, positionImage, pleinEcran } = decor;
   return (
     <div
       className={`${className} relative flex items-center justify-center p-4${pleinEcran ? "" : " bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"}`}
@@ -202,6 +202,21 @@ export function CarteAccueil({ decor, children, pied = null, className = "min-h-
           se fondrait dans le décor. */}
       {pleinEcran && <div className="absolute inset-0" style={{ backgroundColor: "rgba(2, 20, 40, 0.45)" }} />}
       {etoiles && <Etoiles />}
+      {children}
+    </div>
+  );
+}
+
+// Les bulles, exportées pour la fenêtre de verrou (même règle, même couleur).
+export { Bulles };
+
+// La carte d'accueil de la CONNEXION : le fond ci-dessus, la carte avec son
+// image, le cadre du haut (logo, titre, bandeau) et le cadre du bas
+// (`children`).
+export function CarteAccueil({ decor, children, pied = null, className = "min-h-screen", sousTitre = "Espace de gestion — Lomé, Togo" }) {
+  const { accueilTexte, accueilBadge, accueilFond, accueilImage, fondCadre, flou, bulles, couleurBulles, tailleImage, positionImage, pleinEcran } = decor;
+  return (
+    <FondAccueil decor={decor} className={className}>
       <div
         className="relative z-10 overflow-hidden rounded-2xl p-6 w-full max-w-sm shadow-xl bg-no-repeat"
         style={{
@@ -246,7 +261,7 @@ export function CarteAccueil({ decor, children, pied = null, className = "min-h-
             inoffensif : il ne s'interpose jamais entre le doigt et un champ. */}
         {pied}
       </div>
-    </div>
+    </FondAccueil>
   );
 }
 

@@ -4539,15 +4539,16 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " blur-lg pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
-    /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /compte \$\{profile\?\.nom \|\| ""\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
+    /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
   // Demande Timo (09/09/2026) : « le même fond, photo, bulles » — UNE règle,
   // partagée avec la connexion, jamais recopiée.
   const cnxV = readFileSync("src/screens/Connexion.jsx", "utf8");
-  test("★ le décor d'accueil est UNE règle (decorAccueil + CarteAccueil, Connexion.jsx) posée par la connexion ET par le verrou ; aucun fond, image, bulle ou étoile recopié dans EcranVerrou",
-    /export function decorAccueil\(db, apparence\)/.test(cnxV) && /export function CarteAccueil\(\{ decor, children, pied = null, className = "min-h-screen"/.test(cnxV)
-    && /<CarteAccueil decor=\{decor\} pied=\{souhaits\.length > 0 && <Souhaits/.test(cnxV) && (cnxV.match(/backgroundImage: `url\(\$\{accueilImage\}\)`/g) || []).length === 2
-    && /const decor = decorAccueil\(db \|\| \{ boutiques: \[\] \}, apparence\);/.test(ev) && /<CarteAccueil decor=\{decor\} className="min-h-full"/.test(ev)
-    && !/backgroundImage/.test(ev) && !/Bulles|Etoiles|bg-gradient/.test(ev));
+  test("★ le fond et les bulles sont UNE règle (decorAccueil + FondAccueil + Bulles, Connexion.jsx) : la connexion pose sa carte dessus, le verrou sa petite fenêtre (sans logo ni bandeau) ; rien recopié dans EcranVerrou",
+    /export function decorAccueil\(db, apparence\)/.test(cnxV) && /export function FondAccueil\(\{ decor, children, className = "min-h-screen" \}\)/.test(cnxV) && /export \{ Bulles \};/.test(cnxV)
+    && /<CarteAccueil decor=\{decor\} pied=\{souhaits\.length > 0 && <Souhaits/.test(cnxV) && /<FondAccueil decor=\{decor\} className=\{className\}>/.test(cnxV) && (cnxV.match(/backgroundImage: `url\(\$\{accueilImage\}\)`/g) || []).length === 2
+    && /const decor = decorAccueil\(db \|\| \{ boutiques: \[\] \}, apparence\);/.test(ev) && /<FondAccueil decor=\{decor\} className="min-h-full">/.test(ev)
+    && /\{decor\.bulles && <Bulles couleur=\{decor\.couleurBulles\} \/>\}/.test(ev) && !/CarteAccueil/.test(ev) && !/LOGO/.test(ev)
+    && !/backgroundImage/.test(ev) && !/Etoiles|bg-gradient/.test(ev));
   // Capture Timo (09/09/2026) : « dire simplement entrer le mot de passe et
   // reprendre la session ; se déconnecter tout court ; supprimer le
   // descriptif en bas ».

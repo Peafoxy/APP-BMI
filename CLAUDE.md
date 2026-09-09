@@ -140,9 +140,10 @@ lit mal est pire qu'un banc absent).
   `components/EcranVerrou.jsx` — un FRÈRE du cadre flouté, jamais un enfant.
   Barre du haut (ordinateur) : un bouton « Verrouiller » **sans cadenas**, à
   la place de « En ligne / version / nom » (la barre latérale les garde) ;
-  téléphone : juste un 🔐 sur la ligne du titre. **La fenêtre de verrou a le
-  décor de la connexion** (fond, photo, cadres, bulles, étoiles) : UNE règle,
-  `decorAccueil` / `CarteAccueil` (screens/Connexion.jsx), jamais recopiée.
+  téléphone : juste un 🔐 sur la ligne du titre. **La fenêtre de verrou
+  garde sa petite carte** (pas le logo ni le bandeau de la connexion), posée
+  sur **le fond de la connexion, avec ses bulles** : UNE règle,
+  `decorAccueil` / `FondAccueil` / `Bulles` (screens/Connexion.jsx).
 - L'étiquette de connexion (espace, rôle, principal, boutique, pouvoirs
   retirés) n'est réécrite **qu'à la connexion** : tout changement de règle
   prend effet à la prochaine reconnexion de chacun — à dire à Timo.
