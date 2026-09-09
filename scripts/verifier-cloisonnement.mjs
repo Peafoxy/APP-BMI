@@ -4716,6 +4716,41 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }
 
+titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");
+{
+  // « S'il y a des ventes un jour et la caisse n'a pas été clôturée, le
+  // lendemain, impossible de vendre tant que la caisse de la veille n'a pas
+  // été clôturée. » Règle pure exercée ; les jours d'avant la mise en place
+  // ne bloquent personne (DEBUT_REGLE_CLOTURE).
+  const sortieCl = join("node_modules", ".cache", `bmi-cloture-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCl, logLevel: "silent" });
+  const Cl = await import(pathToFileURL(sortieCl).href);
+  unlinkSync(sortieCl);
+  const tv = (v) => Number(v.total || 0);
+  const dbc = {
+    ventes: [{ boutique: "A", date: "2026-09-08", paiement: "Espèces", total: 1000 }, { boutique: "A", date: "2026-09-10", paiement: "Mobile money", total: 500 }, { boutique: "A", date: "2026-09-11", paiement: "Espèces", total: 700 }, { boutique: "B", date: "2026-09-10", paiement: "Espèces", total: 900 }, { boutique: "A", date: "2026-09-12", paiement: "Espèces", total: 100 }],
+    dettes: [{ boutique: "A", paiements: [{ date: "2026-09-09", montant: 300 }] }],
+    depenses: [{ boutique: "A", date: "2026-09-09", paiement: "Espèces", montant: 50 }],
+    clotures: [{ boutique: "A", date: "2026-09-11" }],
+  };
+  test("★ activiteDuJour : UNE règle pour les chiffres d'une journée — espèces des ventes, règlements, dépenses, théorique ; une journée est active dès une vente (tout moyen) ou un encaissement espèces",
+    Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).theorique === 250 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).active === true && Cl.activiteDuJour(dbc, "A", "2026-09-10", tv).active === true
+    && Cl.activiteDuJour(dbc, "A", "2026-09-10", tv).especesVentes === 0 && Cl.activiteDuJour(dbc, "A", "2026-09-07", tv).active === false);
+  test("★ joursAClôturer : les jours PASSÉS actifs sans clôture, depuis le début de la règle (le 08/09 ne compte pas), le jour même ne compte pas, un jour clôturé ne compte pas",
+    Cl.DEBUT_REGLE_CLOTURE === "2026-09-09" && Cl.joursAClôturer(dbc, "A", "2026-09-12", tv).join("|") === "2026-09-09|2026-09-10" && Cl.joursAClôturer(dbc, "A", "2026-09-09", tv).length === 0
+    && Cl.joursAClôturer(dbc, "B", "2026-09-12", tv).join("|") === "2026-09-10" && Cl.joursAClôturer(dbc, "C", "2026-09-12", tv).length === 0);
+  test("★ motifBlocageVente : vide quand tout est clôturé, sinon le message nomme la boutique et le ou les jours",
+    Cl.motifBlocageVente({ ...dbc, clotures: [...dbc.clotures, { boutique: "A", date: "2026-09-09" }, { boutique: "A", date: "2026-09-10" }] }, "A", "2026-09-12", tv) === ""
+    && /caisse de B du 2026-09-10 n'a pas été clôturée/.test(Cl.motifBlocageVente(dbc, "B", "2026-09-12", tv)) && /les 09\/09\/2026, 10\/09\/2026/.test(Cl.motifBlocageVente(dbc, "A", "2026-09-12", tv, (x) => x.split("-").reverse().join("/"))));
+  const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ Ventes : encaisser est refusé tant qu'un jour reste à clôturer (message affiché en tête ET au clic)",
+    /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && <div/.test(vt));
+  const csC = readFileSync("src/screens/Caisse.jsx", "utf8");
+  test("★ Caisse : les chiffres passent par activiteDuJour (plus de calcul local), un jour PASSÉ en retard se choisit et se clôture (le plus ancien d'abord), la clôture en retard est datée du jour clôturé et notée",
+    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
+    && /\(enRetard\[0\] \|\| aujourdhui\)/.test(csC) && /date: t, boutique, theorique, compte: Number\(compte\), notes, par: profile\.nom, cloture_le: aujourdhui/.test(csC) && /clôturée en retard/.test(csC));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1058 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1063 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -316,6 +316,17 @@ lit mal est pire qu'un banc absent).
   libre, jamais imposé à la clôture. Un compte de formation n'a jamais
   « Chez le comptable ». Serveur : `securite-10` (la validation DG = admin
   principal seul, upsert relu).
+
+### Clôture de caisse (09/09/2026)
+- **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :
+  « un blocage est mieux »). Une journée PASSÉE avec au moins une vente (tout
+  moyen) ou un encaissement espèces, sans clôture, bloque l'encaissement dans
+  💰 Ventes pour cette boutique, avec le motif en tête d'écran et au clic.
+  L'écran 🔒 Caisse propose alors les jours en retard (le plus ancien
+  d'abord) et permet de clôturer un jour passé (`cloture_le` = jour réel).
+  La règle ne regarde pas avant `DEBUT_REGLE_CLOTURE` (2026-09-09). UNE règle
+  pure, `lib/cloture.js` (`activiteDuJour` sert aussi à l'écran Caisse).
+  Blocage côté application seulement (règle de travail, pas de rôle).
 
 ### Retours / SAV
 - **Un échange n'est JAMAIS une vente** : ajustement négatif

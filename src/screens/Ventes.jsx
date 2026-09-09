@@ -17,6 +17,7 @@ import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } f
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, remiseExigeAdmin, PLAFOND_REMISE_PCT, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
+import { motifBlocageVente } from "../lib/cloture";
 
 // ============ VENTES ============
 // Convertit les articles d'une vente (déjà nets de leur remise de ligne — voir
@@ -298,8 +299,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setMsg(`✅ Proforma ${pf.numero} imprimé (non comptabilisé).`);
   };
 
+  // ⚠ Décision Timo (09/09/2026) : une journée passée avec des ventes et
+  // sans clôture de caisse BLOQUE les ventes de cette boutique (lib/cloture.js).
+  const blocageCloture = motifBlocageVente(db, boutique, today(), totalVente, dFR);
   const encaisserVente = async () => {
     if (bloquerSiLecture(db, profile)) return;
+    if (blocageCloture) { uAlert(blocageCloture); return; }
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     // ⚠ DEUXIÈME BARRIÈRE (audit du 29/08/2026). L'importation refuse
     // désormais un article sans prix, mais ceux déjà en stock, eux, y sont.
@@ -840,6 +845,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={bq} onChange={setBq} profile={profile} />}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
+        {blocageCloture && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}
         {produits.length === 0 ? (
           <div className="text-sm text-slate-600">Aucun article en stock. L'administrateur doit d'abord enregistrer les articles dans Stocks.</div>
         ) : (

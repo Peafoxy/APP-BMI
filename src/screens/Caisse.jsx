@@ -8,6 +8,7 @@ import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { activiteDuJour, joursAClôturer, estCloturee } from "../lib/cloture";
 import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification } from "../lib/versements";
 
 // ============ CAISSE ============
@@ -22,28 +23,17 @@ export function Caisse({ db, save, profile }) {
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "caisse" });
   const [compte, setCompte] = useState("");
   const [notes, setNotes] = useState("");
-  const t = today();
-
-  const especesVentes = db.ventes.filter((v) => v.boutique === boutique && String(v.date) === t && v.paiement === "Espèces")
-    .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
-  const especesDepenses = db.depenses.filter((x) => x.boutique === boutique && String(x.date) === t && x.paiement === "Espèces").reduce((s, x) => s + Number(x.montant), 0);
-  // Les règlements de dettes et les versements sur réservation entrent aussi dans la caisse.
-  // (Ils étaient oubliés : le théorique du jour était donc faux.)
-  const especesReglements = (db.dettes || []).filter((d) => d.boutique === boutique)
-    .reduce((s, d) => s + (d.paiements || [])
-      .filter((p) => String(p.date) === t && (p.paiement || "Espèces") === "Espèces")
-      .reduce((t2, p) => t2 + Number(p.montant || 0), 0), 0);
-  // ⚠ Demande Timo (caisse TERRAIN) : "comment reconnaître que tel paiement
-  // correspond à tel devis de ce client ?" — le total seul ne le dit pas.
-  // Détail ligne par ligne, réutilisant les mêmes données que le calcul
-  // ci-dessus (chaque paiement porte déjà client/motif/heure/par).
-  const detailReglements = (db.dettes || []).filter((d) => d.boutique === boutique)
-    .flatMap((d) => (d.paiements || [])
-      .filter((p) => String(p.date) === t)
-      .map((p) => ({ ...p, client: d.client, motif: d.motif, numero: d.numero, detteId: d.id })))
-    .sort((a, b) => (a.heure || "").localeCompare(b.heure || ""));
-  const theorique = especesVentes + especesReglements - especesDepenses;
-  const dejaCloturee = db.clotures.some((c) => c.boutique === boutique && String(c.date) === t);
+  const aujourdhui = today();
+  // ⚠ Décision Timo (09/09/2026) : une journée avec des ventes et sans
+  // clôture BLOQUE les ventes du lendemain (lib/cloture.js). L'écran doit
+  // donc permettre de clôturer un jour PASSÉ : on choisit le jour, le plus
+  // ancien jour en retard est proposé d'abord.
+  const enRetard = joursAClôturer(db, boutique, aujourdhui, totalVente);
+  const [jourChoisi, setJourChoisi] = useState("");
+  const t = jourChoisi && (enRetard.includes(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
+  // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
+  const { especesVentes, especesReglements, especesDepenses, detailReglements, theorique } = activiteDuJour(db, boutique, t, totalVente);
+  const dejaCloturee = estCloturee(db, boutique, t);
   const ecart = compte === "" ? null : Number(compte) - theorique;
 
   const cloturer = async () => {
@@ -51,9 +41,9 @@ export function Caisse({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nThéorique : ${fmt(theorique)}\nCompté : ${fmt(Number(compte))}\nÉcart : ${fmt(Number(compte) - theorique)}`)) return;
-    save({ ...db, clotures: [{ id: uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom }, ...db.clotures] }, `Clôture caisse ${boutique} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})`);
-    setCompte(""); setNotes("");
-    uAlert("Clôture enregistrée !");
+    save({ ...db, clotures: [{ id: uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui }, ...db.clotures] }, `Clôture caisse ${boutique} du ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui ? " — clôturée en retard" : ""}`);
+    setCompte(""); setNotes(""); setJourChoisi("");
+    uAlert(`Clôture du ${dFR(t)} enregistrée !`);
   };
 
   const liste = db.clotures.filter((c) => c.boutique === boutique);
@@ -191,7 +181,21 @@ export function Caisse({ db, save, profile }) {
         )}
       </Panel>
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse du jour <Badge boutique={boutique} /></div>
+        <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse {t === aujourdhui ? "du jour" : `du ${dFR(t)}`} <Badge boutique={boutique} /></div>
+        {enRetard.length > 0 && (
+          <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
+            <div className="font-bold">🔒 {enRetard.length === 1 ? "Une journée" : `${enRetard.length} journées`} sans clôture : {enRetard.map(dFR).join(", ")}</div>
+            <div className="text-xs mt-1">Les ventes de {boutique} sont bloquées tant que ces journées ne sont pas clôturées. Choisissez le jour, comptez, clôturez.</div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[...enRetard, aujourdhui].map((j) => (
+                <button key={j} onClick={() => { setJourChoisi(j); setCompte(""); }}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border ${t === j ? "bg-red-700 text-white border-red-700" : "bg-white text-red-800 border-red-300 hover:bg-red-100"}`}>
+                  {j === aujourdhui ? "Aujourd'hui" : dFR(j)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {dejaCloturee ? (
           <div className="text-sm font-semibold text-green-700">✓ La caisse du {dFR(t)} a déjà été clôturée.</div>
         ) : (
@@ -208,7 +212,7 @@ export function Caisse({ db, save, profile }) {
             </div>
             {detailReglements.length > 0 && (
               <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-hidden">
-                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Détail des encaissements du jour — qui a payé quoi</div>
+                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Détail des encaissements du {dFR(t)} — qui a payé quoi</div>
                 <table className="w-full text-sm">
                   <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Heure</th><th className="text-left px-3 py-1.5">Client</th><th className="text-left px-3 py-1.5">Motif</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Encaissé par</th></tr></thead>
                   <tbody>
