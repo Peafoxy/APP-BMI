@@ -196,6 +196,13 @@ export async function sessionActive() {
   }
 }
 
+// Le jeton expire-t-il bientôt ? (moins de MARGE_RENOUVELLEMENT_S secondes).
+// On le renouvelle AVANT, pendant qu'il y a du réseau — au lieu d'attendre
+// qu'une lecture échoue (Timo, 09/09/2026 : que la session tombe moins).
+export const MARGE_RENOUVELLEMENT_S = 10 * 60;
+export const expireBientot = (session, maintenantS = Date.now() / 1000) =>
+  !!session && Number.isFinite(Number(session.expires_at)) && Number(session.expires_at) - maintenantS < MARGE_RENOUVELLEMENT_S;
+
 // Garantit une session AVANT d'écrire. Si elle a expiré et que l'on connaît
 // encore les identifiants de la session en cours, on la rétablit.
 // C'est CE point qui manquait : sans lui, chaque écriture était rejetée en
@@ -208,6 +215,13 @@ export async function assurerSession() {
   // Sans cela, la boucle « session crue valide → écriture refusée → session
   // crue valide » ne guérissait jamais.
   if (etatAuth.ok && await sessionActive()) {
+    // Session présente : si son jeton expire bientôt, on le renouvelle tout
+    // de suite (réseau présent) ; un échec ici n'est pas grave, on garde la
+    // session telle quelle et on réessaiera au cycle suivant.
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (expireBientot(data?.session)) await supabase.auth.refreshSession();
+    } catch { /* réessayé au prochain cycle */ }
     return true;
   }
   // Rafraîchissement EXPLICITE : quand une coupure réseau fait échouer le

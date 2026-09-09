@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1037 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1038 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -151,7 +151,10 @@ lit mal est pire qu'un banc absent).
   (« permission denied » à la lecture → `marquerSessionPerdue`, message en
   français, `sync.sessionPerdue`) : le mot de passe déverrouille ET rouvre
   la session (`synchroniserAuth`), sans réseau on déverrouille quand même.
-  Plus jamais « déconnectez-vous et reconnectez-vous ».
+  Plus jamais « déconnectez-vous et reconnectez-vous ». **Jamais de verrou
+  par surprise** : une bande orange « Rétablir » en haut, sinon le verrou
+  d'inactivité s'en charge ; la session est renouvelée au réveil de
+  l'appareil et 10 min avant expiration (`expireBientot`).
 - L'étiquette de connexion (espace, rôle, principal, boutique, pouvoirs
   retirés) n'est réécrite **qu'à la connexion** : tout changement de règle
   prend effet à la prochaine reconnexion de chacun — à dire à Timo.

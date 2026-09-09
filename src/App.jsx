@@ -540,9 +540,12 @@ export default function App() {
   const verrouiller = (motif = "inactivite") => { setMotifVerrou(motif); setVerrouille(true); setErreursVerrou(0); ecrireSession({ verrouille: true }); };
   // ⚠ Décision Timo (09/09/2026) : session tombée = MÊME fenêtre que le
   // verrou d'inactivité ; le mot de passe la déverrouille ET la rouvre.
-  useEffect(() => {
-    if (profile && sync.sessionPerdue && !verrouille) verrouiller("session");
-  }, [sync.sessionPerdue, profile, verrouille]);
+  // Mais JAMAIS par surprise (« comment faire pour que l'utilisateur ne
+  // soit pas surpris brusquement ? ») : pas de verrou immédiat. Une bande
+  // discrète en haut le dit, « Rétablir » ouvre la fenêtre ; sinon le verrou
+  // d'inactivité viendra de lui-même, et le mot de passe rouvrira la
+  // session à ce moment-là (deverrouiller regarde etatAuth.sessionPerdue).
+  const sessionAretablir = !!profile && sync.sessionPerdue === true && !verrouille;
   useEffect(() => {
     if (!profile || verrouille) return;
     let derniereActivite = Date.now();
@@ -1271,6 +1274,12 @@ export default function App() {
       {syncInitiale && (
         <div className="fixed top-0 inset-x-0 z-[9999] bg-sky-800 text-white text-center text-sm font-semibold py-2 shadow-lg">
           ⏳ Synchronisation avec le serveur — les données arrivent…
+        </div>
+      )}
+      {sessionAretablir && (
+        <div className="fixed top-0 inset-x-0 z-[9998] bg-amber-500 text-slate-900 text-center text-sm font-semibold py-2 px-3 shadow-lg flex items-center justify-center gap-3 flex-wrap">
+          <span>⚠ Votre session sécurisée a expiré. Vos saisies restent sur cet appareil.</span>
+          <button onClick={() => verrouiller("session")} className="px-3 py-1 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800">Rétablir</button>
         </div>
       )}
       <DialogHost />

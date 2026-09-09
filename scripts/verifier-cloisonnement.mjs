@@ -4587,10 +4587,15 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /sessionPerdue: etatAuth\.sessionPerdue === true && !aDesIdentifiants\(\),/.test(syncSrc)
     && /export function marquerSessionPerdue\(raison\)/.test(sbc) && /export const aDesIdentifiants = \(\) => identifiants !== null;/.test(sbc)
     && (sbc.match(/sessionPerdue: false/g) || []).length >= 3);
-  test("★ App : session tombée → verrouiller(\"session\") ; le bon mot de passe rouvre la session (synchroniserAuth) puis relance la synchronisation, et déverrouille même sans réseau",
-    /if \(profile && sync\.sessionPerdue && !verrouille\) verrouiller\("session"\);/.test(app)
+  test("★ App : session tombée → JAMAIS de verrou par surprise : une bande en haut avec « Rétablir » (qui ouvre la fenêtre) ; le bon mot de passe rouvre la session (synchroniserAuth) puis relance la synchronisation, et déverrouille même sans réseau",
+    !/if \(profile && sync\.sessionPerdue && !verrouille\) verrouiller\("session"\);/.test(app)
+    && /const sessionAretablir = !!profile && sync\.sessionPerdue === true && !verrouille;/.test(app)
+    && /\{sessionAretablir && \([\s\S]{0,400}Votre session sécurisée a expiré\. Vos saisies restent sur cet appareil\.[\s\S]{0,300}<button onClick=\{\(\) => verrouiller\("session"\)\}[^>]*>Rétablir<\/button>/.test(app)
     && /if \(motifVerrou === "session" \|\| etatAuth\.sessionPerdue\) \{\n\s+try \{ await synchroniserAuth\(compte\.id, saisie\); \} catch \{[^}]*\}\n\s+synchroniser\(\{ urgent: true \}\);\n\s+\}\n\s+setVerrouille\(false\)/.test(app)
     && /motif=\{motifVerrou\}/.test(app));
+  test("★ la session tombe moins : renouvelée au réveil de l'appareil (visibilitychange → synchroniser) et AVANT l'expiration (expireBientot, marge 10 min, dans assurerSession)",
+    /ecouteurReveil = \(\) => \{ if \(document\.visibilityState === "visible"\) synchroniser\(\); \};/.test(syncSrc) && /document\.addEventListener\("visibilitychange", ecouteurReveil\)/.test(syncSrc) && /document\.removeEventListener\("visibilitychange", ecouteurReveil\)/.test(syncSrc)
+    && /export const MARGE_RENOUVELLEMENT_S = 10 \* 60;/.test(sbc) && /if \(expireBientot\(data\?\.session\)\) await supabase\.auth\.refreshSession\(\);/.test(sbc));
   test("★ la fenêtre dit pourquoi : « Votre session sécurisée a expiré … » quand c'est la session, le texte court sinon",
     /motif === "session"\s*\? "Votre session sécurisée a expiré : entrez le mot de passe pour la rétablir et reprendre\."/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).

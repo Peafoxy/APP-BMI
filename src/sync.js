@@ -79,14 +79,21 @@ export async function abandonnerGesteRefuse(refus) {
 // synchronisations simultanées.
 let ecouteurEnLigne = null;
 let ecouteurHorsLigne = null;
+let ecouteurReveil = null;
 
 export function demarrerSync(callback) {
   arreterSync(); // on ne démarre jamais deux fois
   rappel = callback;
   ecouteurEnLigne = () => synchroniser();
   ecouteurHorsLigne = () => notifier(false);
+  // ⚠ Timo (09/09/2026) : pour que la session tombe moins souvent, on la
+  // renouvelle AU RÉVEIL de l'appareil (PC qui sort de veille, onglet qui
+  // redevient visible) — avant qu'une lecture n'échoue. synchroniser()
+  // commence par assurerSession(), qui rafraîchit un jeton près d'expirer.
+  ecouteurReveil = () => { if (document.visibilityState === "visible") synchroniser(); };
   window.addEventListener("online", ecouteurEnLigne);
   window.addEventListener("offline", ecouteurHorsLigne);
+  document.addEventListener("visibilitychange", ecouteurReveil);
   minuterie = setInterval(ecouteurEnLigne, 20000); // toutes les 20 secondes
   ecouteurEnLigne();
 }
@@ -95,9 +102,11 @@ export function arreterSync() {
   if (minuterie) clearInterval(minuterie);
   if (ecouteurEnLigne) window.removeEventListener("online", ecouteurEnLigne);
   if (ecouteurHorsLigne) window.removeEventListener("offline", ecouteurHorsLigne);
+  if (ecouteurReveil) document.removeEventListener("visibilitychange", ecouteurReveil);
   minuterie = null;
   ecouteurEnLigne = null;
   ecouteurHorsLigne = null;
+  ecouteurReveil = null;
   rappel = null;
 }
 
