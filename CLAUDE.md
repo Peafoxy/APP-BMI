@@ -131,12 +131,14 @@ lit mal est pire qu'un banc absent).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
-- **🔒 Verrou d'inactivité, plus de déconnexion automatique** (09/09/2026) :
-  après **3 min sans geste sur PC, 6 sur téléphone**, l'écran se floute et
-  demande le mot de passe du compte (vérifié sur l'appareil, fiche
-  actuelle) ; 5 erreurs ferment la session ; le verrou survit au F5 (la
-  session rouvre verrouillée, jamais déverrouillée seule) ; une session ne
-  meurt que par « Se déconnecter ». Règle pure `lib/verrou.js`, fenêtre
+- **🔒 Verrou d'inactivité** (09/09/2026) : après **3 min sans geste sur
+  PC, 6 sur téléphone**, l'écran se floute et demande le mot de passe du
+  compte (vérifié sur l'appareil, fiche actuelle) ; 5 erreurs ferment la
+  session ; le verrou survit au F5 (la session rouvre verrouillée, jamais
+  déverrouillée seule). **À 30 min sans geste, verrouillée ou non, la
+  session se ferme** (`doitDeconnecter`, PC et téléphone ; Timo : « ne pas
+  laisser indéfiniment la session verrouillée »), et une session plus
+  vieille que ça ne se restaure pas après F5. Règle pure `lib/verrou.js`, fenêtre
   `components/EcranVerrou.jsx` — un FRÈRE du cadre flouté, jamais un enfant.
   Barre du haut (ordinateur) : un bouton « Verrouiller » **sans cadenas**, à
   la place de « En ligne / version / nom » (la barre latérale les garde) ;

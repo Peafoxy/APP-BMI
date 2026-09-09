@@ -77,7 +77,7 @@ import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BO
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal } from "./lib/calculs";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
-import { doitVerrouiller, apresErreur } from "./lib/verrou";
+import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
 import { EcranVerrou } from "./components/EcranVerrou";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
@@ -462,7 +462,9 @@ export default function App() {
           if (!u && donnees.users.length === 0) {
             u = (await lireComptesSecours()).find((x) => x.id === id);
           }
-          if (u && u.actif !== false) {
+          // ⚠ Timo (09/09/2026) : 30 min sans geste = déconnexion, même
+          // verrouillée. Une session plus vieille que ça ne se restaure pas.
+          if (u && u.actif !== false && !doitDeconnecter(ts, Date.now())) {
             setProfile(u);
             if (etaitVerrouillee || doitVerrouiller(ts, Date.now(), UA)) verrouiller();
             // ⚠ C'est ICI que se joue la demande : après un F5 ou une
@@ -546,16 +548,29 @@ export default function App() {
   // d'inactivité viendra de lui-même, et le mot de passe rouvrira la
   // session à ce moment-là (deverrouiller regarde etatAuth.sessionPerdue).
   const sessionAretablir = !!profile && sync.sessionPerdue === true && !verrouille;
+  const derniereActiviteRef = useRef(Date.now());
   useEffect(() => {
     if (!profile || verrouille) return;
-    let derniereActivite = Date.now();
-    const activite = () => { derniereActivite = Date.now(); ecrireSession({ ts: derniereActivite }); };
+    derniereActiviteRef.current = Date.now();
+    const activite = () => { derniereActiviteRef.current = Date.now(); ecrireSession({ ts: derniereActiviteRef.current }); };
     const evts = ["mousemove", "keydown", "click", "touchstart"];
     evts.forEach((e) => window.addEventListener(e, activite));
     const minuterie = setInterval(() => {
-      if (doitVerrouiller(derniereActivite, Date.now(), UA)) verrouiller();
+      if (doitVerrouiller(derniereActiviteRef.current, Date.now(), UA)) verrouiller();
     }, 10000);
     return () => { evts.forEach((e) => window.removeEventListener(e, activite)); clearInterval(minuterie); };
+  }, [profile, verrouille]);
+  // ⚠ Timo (09/09/2026) : « ne pas laisser indéfiniment la session
+  // verrouillée » — 30 minutes sans geste, verrou compris, et la session se
+  // ferme (déconnexion silencieuse : les saisies restent sur l'appareil).
+  useEffect(() => {
+    if (!profile || !verrouille) return;
+    const minuterie = setInterval(() => {
+      if (doitDeconnecter(derniereActiviteRef.current, Date.now())) {
+        deconnexion(true).then(() => { setVerrouille(false); setMotifVerrou("inactivite"); });
+      }
+    }, 30000);
+    return () => clearInterval(minuterie);
   }, [profile, verrouille]);
 
   // Le mot de passe est vérifié contre la fiche ACTUELLE du compte (si

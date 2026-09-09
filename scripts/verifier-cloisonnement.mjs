@@ -4527,14 +4527,16 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ 5 erreurs de mot de passe ferment la session ; avant, on dit combien d'essais restent",
     V.MAX_ERREURS_VERROU === 5 && V.apresErreur(0).restantes === 4 && V.apresErreur(0).fermer === false && V.apresErreur(3).restantes === 1 && V.apresErreur(4).fermer === true && V.apresErreur(4).restantes === 0);
   const app = readFileSync("src/App.jsx", "utf8");
-  test("★ plus AUCUNE déconnexion automatique par inactivité dans App.jsx (ni DUREE_INACTIVITE, ni deconnexion(true) sur minuterie) ; le verrou passe par doitVerrouiller",
-    !/DUREE_INACTIVITE/.test(app) && !/deconnexion\(true\); \/\/ purge/.test(app) && /if \(doitVerrouiller\(derniereActivite, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app));
-  test("★ la session restaurée après F5 n'a plus de limite de temps, et ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé",
-    /if \(u && u\.actif !== false\) \{\n\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
+  test("★ le verrou passe par doitVerrouiller ; l'ancienne déconnexion à 30 / 5 min (DUREE_INACTIVITE) est remplacée par le verrou à 3 / 6 min PUIS la déconnexion à 30 min (doitDeconnecter), verrouillée ou non — Timo : « ne pas laisser indéfiniment la session verrouillée »",
+    !/DUREE_INACTIVITE/.test(app) && /if \(doitVerrouiller\(derniereActiviteRef\.current, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
+    && /if \(!profile \|\| !verrouille\) return;\n\s+const minuterie = setInterval\(\(\) => \{\n\s+if \(doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)\) \{\n\s+deconnexion\(true\)/.test(app)
+    && V.DELAI_DECONNEXION_MS === 1800000 && V.doitDeconnecter(0, 1799999) === false && V.doitDeconnecter(0, 1800000) === true && V.doitDeconnecter(undefined, 1e12) === false);
+  test("★ la session restaurée après F5 ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé, et ne se restaure plus du tout après 30 min sans geste",
+    /if \(u && u\.actif !== false && !doitDeconnecter\(ts, Date\.now\(\)\)\) \{\n\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
     && /const verrouiller = \(motif = "inactivite"\) => \{ setMotifVerrou\(motif\); setVerrouille\(true\); setErreursVerrou\(0\); ecrireSession\(\{ verrouille: true \}\); \};/.test(app));
   test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
-    && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+let derniereActivite = Date\.now\(\);/.test(app));
+    && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+derniereActiviteRef\.current = Date\.now\(\);/.test(app));
   test("★ le voile est un FRÈRE du cadre flouté (jamais un enfant : un cadre filtré emprisonne le position fixe) ; le cadre derrière est flouté, insensible aux clics, non sélectionnable",
     /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
     && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " blur-lg pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app));

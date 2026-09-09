@@ -17,6 +17,13 @@ export const DELAI_VERROU_PC_MS = 3 * 60 * 1000;
 export const DELAI_VERROU_TELEPHONE_MS = 6 * 60 * 1000;
 // Au-delà, la session est fermée pour de bon (la personne se reconnecte).
 export const MAX_ERREURS_VERROU = 5;
+// ⚠ Timo (09/09/2026) : « toujours garder la déconnexion de 30 min
+// d'inactivité — ne pas laisser indéfiniment la session verrouillée ». Le
+// verrou vient à 3 / 6 min ; à 30 min sans geste, verrouillée ou non, la
+// session se ferme (PC et téléphone).
+export const DELAI_DECONNEXION_MS = 30 * 60 * 1000;
+export const doitDeconnecter = (derniereActivite, maintenant) =>
+  Number.isFinite(derniereActivite) && maintenant - derniereActivite >= DELAI_DECONNEXION_MS;
 
 // Téléphone ou tablette : Android, iPhone, iPad, ou tout navigateur qui se
 // déclare « Mobile ». Tout le reste (Windows, Mac, Linux) est un PC.
