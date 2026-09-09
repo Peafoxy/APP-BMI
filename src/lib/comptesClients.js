@@ -6,7 +6,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { telDigits, uid, definirMotDePasse, hacherFort, today, envoyerWhatsApp, nouveauMessage } from "./core";
+import { telDigits, uid, definirMotDePasse, hacherFort, today, dFR, envoyerWhatsApp, nouveauMessage } from "./core";
 
 // Adresse publique de l'application, envoyée au client par WhatsApp.
 export const ADRESSE_APP = "https://gestion.bmitogo.com";
@@ -178,6 +178,61 @@ export function envoyerRelanceProspectWhatsApp(nomAffiche, tel) {
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
   envoyerWhatsApp(tel, lignes.join("\n"));
+}
+
+// ============ RELANCE D'UN DEVIS SANS RÉPONSE (Timo, 09/09/2026) ============
+// « Les clients à qui on a envoyé des devis et qui ne réagissent pas : où les
+// retrouver et les relancer sur WhatsApp ? » — « Lance, seuil 15 jours. Mais
+// les messages devraient être différents dépendemment du statut du devis,
+// s'il est proposé, validé… Payé ne doit plus être relancé. »
+// Règle PURE (le banc l'exerce) : le texte dépend du STATUT du devis.
+//   proposé  → le client n'a pas encore répondu : on lui rappelle le devis,
+//              le montant, et comment le voir dans son espace.
+//   validé   → il a accepté (signé) mais n'a pas encore payé : on lui
+//              rappelle où et quoi régler.
+//   payé, rejeté, modification demandée → AUCUNE relance (null) : payé, c'est
+//              fini ; rejeté, c'est non ; modification, c'est au vendeur de
+//              répondre, pas au client.
+export const STATUTS_DEVIS_RELANCABLES = ["propose", "valide"];
+export const devisRelancable = (devis) => STATUTS_DEVIS_RELANCABLES.includes(devis?.statut || "propose");
+
+export function texteRelanceDevis({ devis, compte, motDePasse, vendeur, formaterMontant }) {
+  if (!devisRelancable(devis)) return null;
+  const statut = devis.statut || "propose";
+  const nom = String(compte?.nom_base || compte?.nom || "").toUpperCase();
+  const montant = formaterMontant ? formaterMontant(devis.total) : `${devis.total} F`;
+  const acces = [
+    `Vous pouvez le consulter dans votre espace client :`,
+    ADRESSE_APP,
+    ``,
+    `👤 Identifiant : *${compte?.nom || ""}*`,
+    motDePasse ? `🔑 Mot de passe : *${motDePasse}*` : `🔑 Mot de passe : celui qui vous a été communiqué`,
+  ];
+  const lignes = statut === "propose"
+    ? [
+        `Bonjour ${nom},`,
+        ``,
+        `Je me permets de revenir vers vous concernant le devis BMI TOGO de ${montant} que nous vous avons envoyé le ${dFR(devis.date)}. Avez-vous pu l'examiner ?`,
+        ``,
+        ...acces,
+        ``,
+        `Vous pouvez y valider le devis, demander une modification, ou me poser vos questions — je reste à votre disposition.`,
+      ]
+    : [
+        `Bonjour ${nom},`,
+        ``,
+        `Merci d'avoir validé votre devis BMI TOGO de ${montant}${devis.contrat_numero ? ` (contrat ${devis.contrat_numero})` : ""}.`,
+        devis.pose_seule
+          ? `Pour programmer votre installation, il ne reste plus qu'à régler le montant convenu.`
+          : `Pour lancer votre installation, il ne reste plus qu'à passer régler à la boutique ${devis.boutique_paiement || devis.boutique || "BMI TOGO"} — le vendeur vous attend.`,
+        ``,
+        `Dès votre paiement, nous programmons l'installation.`,
+      ];
+  return [
+    ...lignes,
+    ``,
+    vendeur ? `${vendeur}, BMI TOGO — Les bâtiments modernes et intelligents` : `BMI TOGO — Les bâtiments modernes et intelligents`,
+  ].join("\n");
 }
 
 // ⚠ `marque` porte le cloisonnement formation / réel : { formation: true }

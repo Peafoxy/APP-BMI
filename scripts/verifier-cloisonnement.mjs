@@ -4419,6 +4419,44 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
   test("la présentation ne change pas : mêmes cartes, même sélecteur de période, le graphique et la synthèse sont là", /<Stat label="Total des ventes"/.test(dash) && /Ventes des 6 derniers mois/.test(dash) && /Synthèse par période/.test(dash));
 }
 
+titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jours, message selon le statut, payé jamais relancé)");
+{
+  // « Les clients à qui on a envoyé des devis et qui ne réagissent pas : où
+  // les retrouver et les relancer sur WhatsApp ? » — « Lance, seuil 15
+  // jours. Mais les messages devraient être différents dépendemment du
+  // statut du devis, s'il est proposé, validé… Payé ne doit plus être
+  // relancé. » La règle du message est pure : on l'exerce (bundle Cli).
+  const compte = { nom: "KOFFI2", nom_base: "Koffi", tel: "90112233" };
+  const base = { id: "d1", date: "2026-08-20", total: 1250000, boutique: "Agoè" };
+  const txt = (extra) => Cli.texteRelanceDevis({ devis: { ...base, ...extra }, compte, motDePasse: "12ab34", vendeur: "Ali", formaterMontant: (n) => `${n} F` });
+  test("★ un devis PROPOSÉ (ou sans statut) reçoit un rappel du devis, avec la date, le montant, l'espace client, l'identifiant et le mot de passe",
+    txt({ statut: "propose" }) === txt({}) && /Bonjour KOFFI,/.test(txt({})) && /devis BMI TOGO de 1250000 F/.test(txt({})) && /envoyé le 20\/08\/2026/.test(txt({}))
+    && /https:\/\/gestion\.bmitogo\.com/.test(txt({})) && /Identifiant : \*KOFFI2\*/.test(txt({})) && /Mot de passe : \*12ab34\*/.test(txt({})) && /valider le devis, demander une modification/.test(txt({})) && /^Ali, BMI TOGO/m.test(txt({})));
+  test("★ un devis VALIDÉ reçoit un AUTRE message : merci d'avoir validé, il reste à régler à la boutique de paiement (contrat rappelé s'il existe) ; pose seule → sans boutique",
+    /Merci d'avoir validé votre devis BMI TOGO de 1250000 F \(contrat CTR-1\)/.test(txt({ statut: "valide", contrat_numero: "CTR-1", boutique_paiement: "Lomé" })) && /régler à la boutique Lomé/.test(txt({ statut: "valide", boutique_paiement: "Lomé" }))
+    && /régler à la boutique Agoè/.test(txt({ statut: "valide" })) && !/Identifiant/.test(txt({ statut: "valide" })) && !/boutique/.test(txt({ statut: "valide", pose_seule: true })) && /régler le montant convenu/.test(txt({ statut: "valide", pose_seule: true }))
+    && txt({ statut: "valide" }) !== txt({ statut: "propose" }));
+  test("★ PAYÉ n'est jamais relancé (null) — ni rejeté, ni modification demandée",
+    txt({ statut: "paye" }) === null && txt({ statut: "rejete" }) === null && txt({ statut: "modification" }) === null
+    && Cli.devisRelancable({ statut: "paye" }) === false && Cli.devisRelancable({ statut: "propose" }) === true && Cli.devisRelancable({}) === true && Cli.devisRelancable({ statut: "valide" }) === true
+    && Cli.STATUTS_DEVIS_RELANCABLES.join("|") === "propose|valide");
+  test("★ sans mot de passe connu, le message renvoie à « celui qui vous a été communiqué » ; sans vendeur, signature BMI TOGO seule",
+    /celui qui vous a été communiqué/.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })) && /^BMI TOGO — Les bâtiments/m.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })));
+  const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  test("★ Tous les devis : seuil 15 jours, comptés depuis la DERNIÈRE relance (relance_le) sinon depuis le devis ; proposé et validé seulement (devisRelancable)",
+    /const SEUIL_RELANCE_JOURS = 15;/.test(tld) && /const joursSansReponse = \(d\) => joursDepuis\(d\.relance_le \|\| d\.date\);/.test(tld)
+    && /const enAttenteDeRelance = \(d\) => devisRelancable\(d\) && joursSansReponse\(d\) >= SEUIL_RELANCE_JOURS;/.test(tld));
+  test("★ le bouton 📲 Relancer sur WhatsApp passe par envoyerWhatsApp (lib/core, jamais wa.me), avec le mot de passe recalculé (motDePasseConnu) et le nom du vendeur ; la date, l'auteur et le nombre de relances sont notés sur le devis",
+    /texteRelanceDevis\(\{ devis: d, compte: d\.client, motDePasse: motDePasseConnu\(d\.client\), vendeur: profile\.nom, formaterMontant: fmt \}\)/.test(tld)
+    && /await envoyerWhatsApp\(d\.client\.tel, texte, uConfirm\)/.test(tld) && !/wa\.me/.test(tld)
+    && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
+    && /\{devisRelancable\(d\) && \(\s*<button onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) && /bloquerSiLecture\(db, profile\)\) return;\n    const texte = texteRelanceDevis/.test(tld));
+  test("★ rien n'est noté si WhatsApp ne s'est pas ouvert ; un client sans téléphone est refusé avec son motif",
+    /const parti = await envoyerWhatsApp[^\n]*\n    if \(!parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
+  test("★ la liste montre « Sans réponse depuis N j » (N depuis la dernière relance) et « 📲 Relancé le … » une fois relancé ; le bandeau parle des proposés ou validés non payés",
+    /⚠️ Sans réponse depuis \{joursSansReponse\(d\)\} j/.test(tld) && /📲 Relancé le \{dFR\(d\.relance_le\)\}/.test(tld) && /validé\{nbARelancer > 1 \? "s" : ""\} non payé/.test(tld));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

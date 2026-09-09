@@ -8,7 +8,8 @@ import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
 import { LOGO } from "../lib/constants";
-import { fmt, dFR, today } from "../lib/core";
+import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
+import { texteRelanceDevis, devisRelancable, motDePasseConnu } from "../lib/comptesClients";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
@@ -41,7 +42,11 @@ function joursDepuis(dateStr) {
   if (Number.isNaN(t)) return 0;
   return Math.floor((Date.now() - t) / 86400000);
 }
+// ⚠ Timo (09/09/2026) : « Lance, seuil 15 jours. » Les jours se comptent
+// depuis la DERNIÈRE relance (relance_le) quand il y en a eu une, sinon
+// depuis la date du devis — un devis relancé hier ne ressort pas.
 const SEUIL_RELANCE_JOURS = 15;
+const joursSansReponse = (d) => joursDepuis(d.relance_le || d.date);
 
 // ⚠ Demande Timo : la liste est classée par STATUT (proposé → validé → payé →
 // modification demandée → rejeté), et à l'intérieur d'un même statut, du plus
@@ -129,8 +134,29 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     }
   };
 
-  const enAttenteDeRelance = (d) => (d.statut || "propose") === "propose" && joursDepuis(d.date) >= SEUIL_RELANCE_JOURS;
+  // ⚠ Timo (09/09/2026) : proposé ET validé (accepté mais pas payé) se
+  // relancent ; « payé ne doit plus être relancé » — ni rejeté, ni
+  // modification demandée (là, c'est au vendeur de répondre). La règle du
+  // message est dans lib/comptesClients.js (texteRelanceDevis).
+  const enAttenteDeRelance = (d) => devisRelancable(d) && joursSansReponse(d) >= SEUIL_RELANCE_JOURS;
   const nbARelancer = tousDevis.filter(enAttenteDeRelance).length;
+
+  // 📲 Relancer : UN clic, le message est déjà écrit selon le statut ; la
+  // date de relance est notée sur le devis (le compteur repart de là).
+  const relancerDevis = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const texte = texteRelanceDevis({ devis: d, compte: d.client, motDePasse: motDePasseConnu(d.client), vendeur: profile.nom, formaterMontant: fmt });
+    if (!texte) { uAlert("Ce devis n'est plus à relancer."); return; }
+    if (!d.client?.tel) { uAlert("Ce client n'a pas de numéro de téléphone enregistré."); return; }
+    const parti = await envoyerWhatsApp(d.client.tel, texte, uConfirm);
+    if (!parti) return;
+    save({
+      ...db,
+      users: db.users.map((u) => (u.id === d.client?.id
+        ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, relance_le: today(), relance_par: profile.nom, nb_relances: (x.nb_relances || 0) + 1 } : x)) }
+        : u)),
+    }, `Devis ${STATUT_DEVIS[d.statut || "propose"][0]} de ${d.client?.nom_base || d.client?.nom} (${fmt(d.total)}) relancé par WhatsApp — ${profile.nom}`);
+  };
 
   // Base pour les compteurs des onglets de statut : tous les AUTRES filtres
   // s'appliquent (recherche, type, relance), mais PAS le statut lui-même —
@@ -284,7 +310,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         </div>
         {nbARelancer > 0 && (
           <button onClick={() => setRelanceSeule((v) => !v)} className={`mb-3 w-full text-left rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${relanceSeule ? "bg-amber-100 border-amber-400 text-amber-900" : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"}`}>
-            ⚠️ {nbARelancer} devis proposé{nbARelancer > 1 ? "s" : ""} depuis plus de {SEUIL_RELANCE_JOURS} jours sans réponse — {relanceSeule ? "voir tous les devis" : "voir uniquement ceux-ci"}
+            ⚠️ {nbARelancer} devis sans réponse depuis plus de {SEUIL_RELANCE_JOURS} jours (proposé{nbARelancer > 1 ? "s" : ""} ou validé{nbARelancer > 1 ? "s" : ""} non payé{nbARelancer > 1 ? "s" : ""}) — {relanceSeule ? "voir tous les devis" : "voir uniquement ceux-ci"}
           </button>
         )}
         <div className="grid sm:grid-cols-2 gap-2">
@@ -316,8 +342,13 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                   )}
                   <span className="font-bold text-sky-800 whitespace-nowrap">{fmt(d.total)}</span>
                   {enAttenteDeRelance(d) && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-300" title="Devis proposé sans réponse depuis longtemps">
-                      ⚠️ En attente depuis {joursDepuis(d.date)} j
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-300" title={d.relance_le ? `Relancé le ${dFR(d.relance_le)}, toujours sans réponse` : "Devis sans réponse depuis longtemps"}>
+                      ⚠️ Sans réponse depuis {joursSansReponse(d)} j
+                    </span>
+                  )}
+                  {d.relance_le && devisRelancable(d) && !enAttenteDeRelance(d) && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-50 text-slate-600 border-slate-300" title={`Relancé par ${d.relance_par || "?"}`}>
+                      📲 Relancé le {dFR(d.relance_le)}
                     </span>
                   )}
                   <BadgeStatutDevis statut={d.statut} />
@@ -379,7 +410,13 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                         ))}
                       </tbody>
                     </table>
-                    <div className="flex justify-end mt-3 gap-2">
+                    <div className="flex justify-end mt-3 gap-2 flex-wrap">
+                      {devisRelancable(d) && (
+                        <button onClick={() => relancerDevis(d)} className="text-xs font-bold text-white bg-green-700 rounded-lg px-3 py-1.5 hover:bg-green-800"
+                          title={(d.statut || "propose") === "valide" ? "Rappeler au client qu'il reste à régler" : "Rappeler le devis au client"}>
+                          📲 Relancer sur WhatsApp{d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""}
+                        </button>
+                      )}
                       {(d.statut === "modification" || d.statut === "rejete") && onModifierDevis && (
                         <button onClick={() => onModifierDevis(d, d.client)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
                       )}

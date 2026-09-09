@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 994 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1002 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -230,6 +230,13 @@ lit mal est pire qu'un banc absent).
   fiche de l'employé (`brouillons_devis`, liste pour la fusion), onglet
   « Mes brouillons » dans Dimensionnement ; envoyé ou converti, il disparaît.
   Un brouillon repris s'AJOUTE chez le client à l'envoi (jamais `idAReprendre`).
+- **📲 Relance des devis sans réponse** (09/09/2026, « Tous les devis ») :
+  seuil **15 jours**, comptés depuis la dernière relance (`relance_le`)
+  sinon depuis le devis. **Proposé et validé (non payé) seulement ; payé
+  ne se relance plus**, ni rejeté, ni modification (là c'est au vendeur de
+  répondre). Le texte dépend du statut — UNE règle pure, `texteRelanceDevis`
+  (lib/comptesClients.js), exercée par le banc ; l'écran passe par
+  `envoyerWhatsApp` et note date, auteur, nombre de relances sur le devis.
 - **Un message, une dépense automatique : UNE fabrique** (`nouveauMessage`,
   `SYSTEME`, `nouvelleDepense`, lib/core.js, 08/09/2026). Les questions
   posées partout aussi (`demanderMoyenPaiement`, `demanderMois`,
