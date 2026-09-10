@@ -144,6 +144,10 @@ test("★ la règle est pure (articlesAReapprovisionner), la demande reçoit le 
 // Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de défilement pour voir le reste ».
 test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent dans un cadre à hauteur fixe qui défile, en-tête collé en haut",
   (src.match(/overflow-x-auto overflow-y-auto max-h-\[360px\]/g) || []).length === 2 && (src.match(/<thead className="sticky top-0 z-10 bg-white">/g) || []).length === 2);
+// Timo (10/09/2026) : « figer le nom de l'article quand on défile de droite à gauche ».
+test("★ à réapprovisionner : la colonne Article reste collée à gauche (en-tête et lignes) pendant le défilement horizontal",
+  /i === 0 \? " sticky left-0 z-20 bg-white/.test(src) && /font-semibold sticky left-0 z-\[5\] bg-white[^"]*">\{p\.nom\}<\/td>/.test(src)
+  && /<td class="[^"]*sticky left-0[^"]*">REGULATEUR MPPT 60A<\/td>/.test(htmlPlat));
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

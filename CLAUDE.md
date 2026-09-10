@@ -55,7 +55,7 @@ npm run verifier-cloisonnement   # 1080 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run verifier-ecran-stocks    # 15  : l'écran Stocks
+npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 102 : les règles de rôle sur l'argent (serveur)
@@ -376,7 +376,9 @@ lit mal est pire qu'un banc absent).
   (lib/calculs.js). L'encadré du magasin « Alertes de stock dans les
   boutiques » n'a plus de limite à 20 lignes. **Les deux listes tiennent
   dans un cadre à hauteur fixe qui défile** (« au plus 8 ou 10 lignes, et
-  une barre de défilement », 10/09/2026), en-tête collé en haut.
+  une barre de défilement », 10/09/2026), en-tête collé en haut, et **la
+  colonne Article collée à gauche** pendant le défilement horizontal
+  (« figer le nom de l'article », 10/09/2026).
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix
