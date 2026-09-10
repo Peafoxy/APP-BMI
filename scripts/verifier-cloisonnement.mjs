@@ -4898,6 +4898,33 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
     && /la liste ne rétrécit jamais\)" "REFUSE"/.test(ta13) && /un gérant crée une dépense « Remboursement client »" "REFUSE"/.test(ta13) && /l'administrateur PRINCIPAL remet l'article au stock \(reprise_client\)" "PERMIS"/.test(ta13));
 }
 
+titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (Timo, 10/09/2026)");
+{
+  const l3 = { article: "BATTERIE", qte: 2, pu: 100000, remise_ligne: 6000 };   // 3 %
+  const l5 = { article: "BATTERIE", qte: 1, pu: 100000, remise_ligne: 5000 };   // 5 %
+  const l0 = { article: "CABLE", qte: 1, pu: 1000 };
+  test("★ règle pure : 3 % sur une ligne passe pour un vendeur, 5 % exige l'admin (nommé dans le message), l'admin est libre ; une remise de 0 ne compte pas",
+    C.critiqueRemises([l3, l0], 0, 0, "vendeur") === "" && /3 % sur un article[^]*BATTERIE[^]*5 %/.test(C.critiqueRemises([l5], 0, 0, "vendeur")) && C.critiqueRemises([l5], 0, 0, "admin") === ""
+    && C.remiseLigneExigeAdmin(l5) && !C.remiseLigneExigeAdmin(l3) && !C.remiseLigneExigeAdmin({ qte: 1, pu: 100, remise_ligne: 0 }) && C.pctRemiseLigne(l5) === 5 && !C.aRemiseSurArticle([l0]) && C.aRemiseSurArticle([l0, l3]));
+  test("★ remise sur un article ET remise générale (en % ou en F) → refusé pour TOUT LE MONDE, l'admin compris ; générale seule ou ligne seule → accepté",
+    C.critiqueRemises([l3], 2, 0, "vendeur") === C.MSG_REMISE_EXCLUSIVE && C.critiqueRemises([l3], 0, 4000, "admin") === C.MSG_REMISE_EXCLUSIVE && C.critiqueRemises([l5], 2, 4000, "admin") === C.MSG_REMISE_EXCLUSIVE
+    && C.critiqueRemises([l0], 2, 2000, "vendeur") === "" && C.critiqueRemises([l3], 0, 0, "gerant") === "" && C.critiqueRemises([], 3, 0, "vendeur") === "");
+  const vr = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran Ventes : la règle est vérifiée à l'ajout au panier, à l'encaissement et sur les deux proformas ; la remise générale est grisée dès qu'un article porte une remise, et les remises de ligne dès qu'une remise générale est saisie",
+    /if \(remL > 0 && Number\(f\.remise \|\| 0\) > 0\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 3
+    && /value=\{f\.remise\}[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && (vr.match(/disabled=\{Number\(f\.remise \|\| 0\) > 0\}/g) || []).length === 2);
+  const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
+  const ta14 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ securite-14 : deux lectures SQL des lignes (a_remise_sur_article, remise_ligne_excessive, retirées à anon), ventes et proformas — 3 % par ligne sauf admin, ligne + générale refusé pour tous, seulement quand lignes ou remise changent (upsert relu) ; la reprise (securite-13) est reprise telle quelle ; le banc rejoue 14 cas",
+    /create or replace function public\.remise_ligne_excessive\(lignes jsonb\)/.test(s14) && /revoke all on function public\.remise_ligne_excessive\(jsonb\) from public, anon;/.test(s14)
+    && /Remise sur un article ET remise générale sur la même vente', 'personne/.test(s14) && /if r <> 'admin' and public\.remise_ligne_excessive\(new\.data -> 'articles'\)/.test(s14)
+    && /\(avant -> 'articles'\) is distinct from \(new\.data -> 'articles'\)/.test(s14) && /Reprendre un article vendu', 'l''administrateur principal'/.test(s14) && /Effacer une reprise/.test(s14)
+    && /Remise sur un article ET remise générale sur le même proforma/.test(s14) && /Remise supérieure à 3 % sur un article \(proforma\)/.test(s14)
+    && /-f supabase\/securite-14-remise-article\.sql/.test(ta14) && /un vendeur vend avec 5 % de remise sur un article[^"]*" "REFUSE"/.test(ta14) && /un vendeur vend avec 3 % sur un article[^"]*" "PERMIS"/.test(ta14)
+    && /l'ADMIN aussi : remise sur un article ET remise générale, jamais[^"]*" "REFUSE"/.test(ta14) && /SANS toucher aux lignes ni à la remise \(par upsert\)" "PERMIS"/.test(ta14) && /un vendeur émet un proforma avec 5 % sur un article" "REFUSE"/.test(ta14));
+}
+
 titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");
 {
   // « S'il y a des ventes un jour et la caisse n'a pas été clôturée, le

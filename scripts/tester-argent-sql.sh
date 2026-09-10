@@ -44,6 +44,8 @@ echo "▸ Le rejet d'un versement : supabase/securite-12-rejet-versement.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-12-rejet-versement.sql >/dev/null 2>&1 || echo "   ❌ securite-12 refusé par la base"
 echo "▸ La reprise d'un article par le client : supabase/securite-13-reprise.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-13-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-13 refusé par la base"
+echo "▸ Les remises par article : supabase/securite-14-remise-article.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-14-remise-article.sql >/dev/null 2>&1 || echo "   ❌ securite-14 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -262,6 +264,28 @@ essai "★ un gérant crée une dépense « Remboursement client »" "REFUSE" "$
 essai "★ un administrateur SECONDAIRE crée une dépense « Remboursement client »" "REFUSE" "$ADMIN2" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
 essai "★ l'administrateur PRINCIPAL crée une dépense « Remboursement client »" "PERMIS" "$ADMIN" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
 essai "le gérant enregistre toujours un versement de fonds (securite-11 repris tel quel)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
+
+echo
+echo "── LES REMISES PAR ARTICLE (securite-14, Timo 10/09/2026) : 3 % max par ligne sauf admin ; jamais ligne + générale ──"
+$P -c "insert into public.ventes (id, data) values
+  ('zrl0', '{\"id\":\"zrl0\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":1,\"pu\":100000,\"remise_ligne\":5000}]}');" >/dev/null
+L5='[{"produit_id":"zp1","article":"BATTERIE","qte":1,"pu":100000,"remise_ligne":5000}]'
+L3='[{"produit_id":"zp1","article":"BATTERIE","qte":2,"pu":100000,"remise_ligne":6000}]'
+L0='[{"produit_id":"zp1","article":"BATTERIE","qte":1,"pu":100000}]'
+essai "★ un vendeur vend avec 5 % de remise sur un article (remise_ligne 5 000 sur 100 000)" "REFUSE" "$VENDEUR" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"articles\":$L5}")"
+essai "★ un gérant vend avec 5 % sur un article" "REFUSE" "$GERANT" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"articles\":$L5}")"
+essai "★ un vendeur vend avec 3 % sur un article (6 000 sur 2 × 100 000)" "PERMIS" "$VENDEUR" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"articles\":$L3}")"
+essai "★ l'admin vend avec 5 % sur un article" "PERMIS" "$ADMIN" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"articles\":$L5}")"
+essai "★ un vendeur cumule 3 % sur un article ET 2 % de remise générale" "REFUSE" "$VENDEUR" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":2,\"remise\":4000,\"articles\":$L3}")"
+essai "★ l'ADMIN aussi : remise sur un article ET remise générale, jamais (l'une ou l'autre)" "REFUSE" "$ADMIN" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":2,\"remise\":4000,\"articles\":$L3}")"
+essai "★ …remise générale en francs seulement (remise 4 000, pct 0) avec une remise de ligne" "REFUSE" "$ADMIN" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"remise\":4000,\"articles\":$L3}")"
+essai "un vendeur vend avec 2 % de remise générale et aucune remise de ligne (le quotidien passe)" "PERMIS" "$VENDEUR" "$(UPS ventes zrl1 "{\"id\":\"zrl1\",\"boutique\":\"APESSITO\",\"remise_pct\":2,\"remise\":2000,\"articles\":$L0}")"
+essai "★ un vendeur touche une vente à 5 % de ligne accordée par l'admin, SANS toucher aux lignes ni à la remise (par upsert)" "PERMIS" "$VENDEUR" "$(UPS ventes zrl0 "{\"id\":\"zrl0\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"articles\":$L5,\"note\":\"livrée\"}")"
+essai "★ un vendeur émet un proforma avec 5 % sur un article" "REFUSE" "$VENDEUR" "$(UPS proformas zpl1 "{\"id\":\"zpl1\",\"remise_pct\":0,\"lignes\":$L5}")"
+essai "★ un vendeur émet un proforma avec 3 % sur un article" "PERMIS" "$VENDEUR" "$(UPS proformas zpl1 "{\"id\":\"zpl1\",\"remise_pct\":0,\"lignes\":$L3}")"
+essai "★ l'admin émet un proforma avec 3 % sur un article ET 2 % de remise générale" "REFUSE" "$ADMIN" "$(UPS proformas zpl1 "{\"id\":\"zpl1\",\"remise_pct\":2,\"remise_montant\":4000,\"lignes\":$L3}")"
+essai "l'admin émet un proforma avec 5 % sur un article" "PERMIS" "$ADMIN" "$(UPS proformas zpl1 "{\"id\":\"zpl1\",\"remise_pct\":0,\"lignes\":$L5}")"
+essai "★ l'ancien verrou tient : un vendeur émet un proforma à 5 % de remise générale" "REFUSE" "$VENDEUR" "$(UPS proformas zpl2 "{\"id\":\"zpl2\",\"remise_pct\":5,\"lignes\":$L0}")"
 
 echo
 echo "── L'UPSERT N'EST PAS UNE CRÉATION (securite-8, capture Timo du 08/09/2026) ──"

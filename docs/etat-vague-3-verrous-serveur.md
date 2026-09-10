@@ -216,3 +216,15 @@ prendre » → « Reprise pour l'administrateur principal seul ».
 principal). Banc : tester-argent (120 ; sans le script, 10 contrôles
 tombent — mesuré).
 - **État : collé par Timo le 10/09/2026** — vérification true | true | true (capture).
+
+## Ajout du 10/09/2026 — securite-14 (les remises par article)
+
+Timo : « même sur la remise sur un article, au-delà de 3 % ça devrait
+refuser » et « si la remise est offerte même sur un article, plus possible
+d'offrir une remise générale ». `supabase/securite-14-remise-article.sql`
+pose deux lectures SQL des lignes (`a_remise_sur_article`,
+`remise_ligne_excessive`, retirées à anon) et remplace `ventes_regles_roles`
+(securite-13, reprise telle quelle) et `proformas_regles_remise`
+(securite-8). Banc : tester-argent (134 ; sans le script, 7 contrôles
+tombent — mesuré).
+- **État : SQL à coller par Timo** (message du 10/09/2026, version 2.101.131).

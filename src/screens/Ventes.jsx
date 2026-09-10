@@ -15,7 +15,7 @@ import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, con
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, filtreEspaceAffichage } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { motifBlocageVente } from "../lib/cloture";
@@ -159,6 +159,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     else { setMsg(""); }
     const remL = Math.max(0, Number(sel.remF || 0));
     if (remL > q * Number(sel.pu)) { setMsg("La remise de la ligne ne peut pas dépasser son montant."); return; }
+    // Timo (10/09/2026) : remise sur un article > 3 % → administrateur seul ;
+    // remise sur un article ET remise générale → jamais (l'une ou l'autre).
+    if (remL > 0 && Number(f.remise || 0) > 0) { uAlert(`🔒 ${MSG_REMISE_EXCLUSIVE}`); return; }
+    if (remL > 0 && profile.role !== "admin" && remiseLigneExigeAdmin({ qte: q, pu: sel.pu, remise_ligne: remL })) { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus.`); return; }
     mettreAuPanier(p, q, sel.pu, remL);
     setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   };
@@ -262,6 +266,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const proformaWhatsApp = () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     const pf = construireProforma();
     enregistrerProforma(pf);
     const lignes = [
@@ -294,6 +299,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const proformaPDF = () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     const pf = construireProforma();
     enregistrerProforma(pf);
     imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation);
@@ -319,6 +325,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       + `Si c'est une erreur, leur prix est probablement manquant en stock — corrigez-le dans 📦 Stocks. Continuer ?`
     )) return;
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
+    // Timo (10/09/2026) : les remises par article suivent la même limite, et
+    // remise sur un article + remise générale = refusé (règle pure, calculs.js).
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
     // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
     // seul — sauf si la remise est CELLE de la commande encaissée (devis
     // validé), déjà contrôlée en amont. Le serveur applique la même règle.
@@ -915,8 +924,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </Field>
               <Field label="Quantité"><input type="number" min="1" className={inputCls} value={sel.qte} onChange={(e) => setSel({ ...sel, qte: e.target.value })} /></Field>
               <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value, remF: "", remP: "" })} /></Field>
-              <Field label="Remise ligne (F)"><input type="number" min="0" className={inputCls} value={sel.remF} onChange={(e) => saisirRemF(e.target.value)} placeholder="0" /></Field>
-              <Field label="Remise ligne (%)"><input type="number" min="0" max="100" step="0.1" className={inputCls} value={sel.remP} onChange={(e) => saisirRemP(e.target.value)} placeholder="0" /></Field>
+              <Field label="Remise ligne (F)"><input type="number" min="0" className={inputCls} value={sel.remF} onChange={(e) => saisirRemF(e.target.value)} placeholder="0" disabled={Number(f.remise || 0) > 0} title={Number(f.remise || 0) > 0 ? "Remise générale déjà saisie : pas de remise par article." : ""} /></Field>
+              <Field label="Remise ligne (%)"><input type="number" min="0" max="100" step="0.1" className={inputCls} value={sel.remP} onChange={(e) => saisirRemP(e.target.value)} placeholder="0" disabled={Number(f.remise || 0) > 0} title={Number(f.remise || 0) > 0 ? "Remise générale déjà saisie : pas de remise par article." : ""} /></Field>
               {/* Demande Timo : le libellé ne va jamais à la ligne dans le bouton. */}
               <div className="flex items-end"><button onClick={ajouterAuPanier} className={`w-full whitespace-nowrap ${btnDark}`}>Ajouter au panier</button></div>
             </div>
@@ -951,7 +960,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   </Field>
                 )
               ) : (
-                <Field label="Remise (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
+                <Field label="Remise (%)">
+                  <input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} disabled={aRemiseSurArticle(panier)} />
+                  {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
+                </Field>
               )}
               {f.commercial && tauxCom > 0 && (
                 <Field label={`Rabais offert par ${f.commercial} (F)`}>

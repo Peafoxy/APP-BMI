@@ -1748,6 +1748,32 @@ export const refuserSaufRoles = (profile, roles, geste) => {
 export const refuserSaufAdmin = (profile, geste) => refuserSaufRoles(profile, ["admin"], geste);
 export const remiseExigeAdmin = (pct) => Number(pct || 0) > PLAFOND_REMISE_PCT;
 
+// ---- LES REMISES PAR ARTICLE (Timo, 10/09/2026) ----
+// « Même sur la remise sur un article, au-delà de 3 % ça devrait refuser »
+// et « si la remise est offerte même sur un article, plus possible d'offrir
+// une remise générale ». Donc :
+//   • une remise de ligne dépasse 3 % du prix de la ligne → administrateur seul ;
+//   • une remise sur au moins un article ET une remise générale → refusé,
+//     pour tout le monde (l'une ou l'autre, jamais les deux).
+// UNE règle pure ; le serveur applique la même (securite-14).
+export const MSG_REMISE_EXCLUSIVE = "Une remise est déjà accordée sur un article : plus de remise générale possible (retirez l'une ou l'autre).";
+export const pctRemiseLigne = (l) => {
+  const base = Number(l.qte || 0) * Number(l.pu || 0);
+  return base > 0 ? (Number(l.remise_ligne || 0) * 100) / base : 0;
+};
+export const remiseLigneExigeAdmin = (l) => Number(l.remise_ligne || 0) > 0 && pctRemiseLigne(l) > PLAFOND_REMISE_PCT + 1e-9;
+export const aRemiseSurArticle = (lignes) => (lignes || []).some((l) => Number(l.remise_ligne || 0) > 0);
+// "" si les remises du panier sont acceptables pour ce rôle, sinon le motif.
+export const critiqueRemises = (lignes, remisePct, remiseF, role) => {
+  const lg = lignes || [];
+  if (aRemiseSurArticle(lg) && (Number(remisePct || 0) > 0 || Number(remiseF || 0) > 0)) return MSG_REMISE_EXCLUSIVE;
+  if (role !== "admin") {
+    const trop = lg.find(remiseLigneExigeAdmin);
+    if (trop) return `🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur (« ${trop.article || "article"} » : ${Math.round(pctRemiseLigne(trop) * 10) / 10} %).`;
+  }
+  return "";
+};
+
 // ---- Vague 3, étape 3 : LES COMPTES (validée par Timo le 05/09/2026) ----
 // Trois niveaux, que le serveur applique lui aussi (securite-5-comptes.sql) :
 //   • admin seul : bloquer / réactiver, supprimer un compte, et les « champs
