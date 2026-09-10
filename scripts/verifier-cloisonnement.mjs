@@ -4702,8 +4702,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
-  test("★ écran Caisse : les destinations suivent l'espace REGARDÉ (destinationsPour(espaceDuCompte)) et le geste refuse une destination hors liste",
-    /const destinations = destinationsPour\(espaceDuCompte\(db, profile\) === true\);/.test(cs) && /if \(!destinations\.includes\(vers\.destination\)\)/.test(cs) && !/DESTINATIONS_VERSEMENT/.test(cs));
+  test("★ écran Caisse : les destinations suivent l'espace REGARDÉ (destinationsPour(espaceDuCompte)), le geste refuse une destination hors liste, et « Chez le DG » est proposé d'office (Timo, 10/09/2026)",
+    /const destinations = destinationsPour\(espaceDuCompte\(db, profile\) === true\);/.test(cs) && /if \(!destinations\.includes\(vers\.destination\)\)/.test(cs) && !/DESTINATIONS_VERSEMENT/.test(cs)
+    && /const destinationDefaut = DEST_DG;/.test(cs) && !/\? DEST_COMPTABLE : DEST_DG/.test(cs));
   const s10 = readFileSync("supabase/securite-10-versements.sql", "utf8");
   const ta = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-10 : versement_valide_le / _par ne s'écrivent que par l'administrateur PRINCIPAL (upsert relu) ; le banc tester-argent le pose et rejoue vendeur, gérant, admin secondaire (refusés) et DG (permis)",

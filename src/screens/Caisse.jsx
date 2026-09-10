@@ -58,7 +58,8 @@ export function Caisse({ db, save, profile }) {
   // ⚠ Cloisonnement : « Chez le comptable » (réelle, sans jumelle) n'est
   // proposée qu'en regardant le réel — jamais à un compte de formation.
   const destinations = destinationsPour(espaceDuCompte(db, profile) === true);
-  const destinationDefaut = destinations.includes(DEST_COMPTABLE) ? DEST_COMPTABLE : DEST_DG;
+  // Timo (10/09/2026) : « Destination de versement reste sur DG par défaut ».
+  const destinationDefaut = DEST_DG;
   const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
   const aVerser = fondsAVerser(db, boutique, totalVente);
   const mesVersements = versementsDe(db, boutique);

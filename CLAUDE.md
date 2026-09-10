@@ -300,7 +300,8 @@ lit mal est pire qu'un banc absent).
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
   vendeur**, décision du 09/09/2026 ; serveur `securite-11`) :
-  destinations **Chez le DG / BANQUE / Chez le comptable** ; BANQUE exige
+  destinations **Chez le DG / BANQUE / Chez le comptable**, **« Chez le
+  DG » proposé d'office** (10/09/2026) ; BANQUE exige
   nom de la banque et numéro de bordereau. **Plus de « recette du … au »**
   (deuxième idée de Timo) : l'application attend `fondsAVerser` ; **si le
   montant versé diffère, la Note apparaît avec, en rouge, « Justifiez
