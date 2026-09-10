@@ -4816,6 +4816,28 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
     && /const totalDepenses = depensesReellesDb\.reduce/.test(dashV));
 }
 
+titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
+{
+  // « Comment avoir la liste de tous les articles à approvisionner ? » — une
+  // règle pure : tous les articles d'une boutique au seuil ou en dessous, du
+  // plus urgent au moins urgent, avec le manque (seuil − reste, au moins 1).
+  const stockR = (db, p) => Number(p.initial || 0) + Number(p.entrees || 0);
+  const dbR = { produits: [
+    { id: "r1", boutique: "A", nom: "ZETA", seuil: 5, initial: 2 },       // manque 3
+    { id: "r2", boutique: "A", nom: "ALPHA", seuil: 5, initial: 2 },      // manque 3, même urgence : ordre alphabétique
+    { id: "r3", boutique: "A", nom: "RUPTURE", seuil: 10, initial: 0 },   // manque 10 : le plus urgent
+    { id: "r4", boutique: "A", nom: "JUSTE", seuil: 3, initial: 3 },      // au seuil : listé, manque 1
+    { id: "r5", boutique: "A", nom: "OK", seuil: 3, initial: 4 },         // au-dessus : absent
+    { id: "r6", boutique: "A", nom: "SANS SEUIL", seuil: 0, initial: 0 }, // 0 / 0 : listé, manque 1
+    { id: "r7", boutique: "B", nom: "AILLEURS", seuil: 10, initial: 0 },  // autre boutique : absent
+  ] };
+  const liste = C.articlesAReapprovisionner(dbR, stockR, "A");
+  test("★ articlesAReapprovisionner : seuil ou en dessous seulement, la boutique demandée seulement, du plus urgent au moins urgent, même urgence → alphabétique",
+    liste.map((x) => x.p.nom).join("|") === "RUPTURE|ALPHA|ZETA|SANS SEUIL|JUSTE" && C.articlesAReapprovisionner(dbR, stockR, "B").length === 1 && C.articlesAReapprovisionner(dbR, stockR, "C").length === 0);
+  test("★ …le manque = seuil − reste, jamais moins de 1 (au seuil, ou seuil 0 et rien en stock)",
+    liste.map((x) => x.manque).join("|") === "10|3|3|1|1" && liste[0].actuel === 0 && liste[0].seuil === 10);
+}
+
 titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");
 {
   // « S'il y a des ventes un jour et la caisse n'a pas été clôturée, le

@@ -1538,6 +1538,18 @@ export const alertesBoutiques = (db, stock, profile) => {
     .sort((a, b) => a.actuel - b.actuel);
 };
 
+// ---- LA LISTE DES ARTICLES À RÉAPPROVISIONNER (Timo, 10/09/2026 :
+// « comment avoir la liste de tous les articles à approvisionner ? ») ----
+// Pour UNE boutique (ou un magasin) : tous les articles au seuil ou en
+// dessous, du plus urgent au moins urgent (le plus loin sous son seuil
+// d'abord, puis le plus petit reste). `manque` = seuil − reste, au moins 1 :
+// c'est la quantité proposée dans la demande de ravitaillement.
+export const articlesAReapprovisionner = (db, stock, boutique) => (db.produits || [])
+  .filter((p) => p.boutique === boutique)
+  .map((p) => { const actuel = stock(db, p); const seuil = Number(p.seuil || 0); return { p, actuel, seuil, manque: Math.max(seuil - actuel, 1) }; })
+  .filter((x) => x.actuel <= x.seuil)
+  .sort((a, b) => (a.actuel - a.seuil) - (b.actuel - b.seuil) || a.actuel - b.actuel || a.p.nom.localeCompare(b.p.nom));
+
 // ============ APPORTEURS D'AFFAIRES ============
 // N'IMPORTE QUEL utilisateur qui amène un client peut être crédité de la vente
 // et toucher sa commission, s'il a un taux de commission défini par l'admin.

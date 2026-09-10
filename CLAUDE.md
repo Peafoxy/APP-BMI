@@ -51,11 +51,11 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1078 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1080 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run verifier-ecran-stocks    # 11  : l'écran Stocks
+npm run verifier-ecran-stocks    # 14  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 102 : les règles de rôle sur l'argent (serveur)
@@ -366,6 +366,15 @@ lit mal est pire qu'un banc absent).
   **dette du montant saisi**. Geste réservé à tout admin.
 
 ### Stocks
+- **⚠ À réapprovisionner** (10/09/2026, « comment avoir la liste de tous les
+  articles à approvisionner ? ») : un encadré dans 📦 Stocks, pour la
+  boutique ou le magasin regardé, avec **TOUS** les articles au seuil ou en
+  dessous, du plus urgent au moins urgent, manque = seuil − reste (au
+  moins 1) ; bouton Exporter ; sur une boutique de vente, « 🚚 Demander ce
+  ravitaillement » pré-remplit la demande au magasin (`panierInitial`),
+  modifiable avant l'envoi. Règle pure `articlesAReapprovisionner`
+  (lib/calculs.js). L'encadré du magasin « Alertes de stock dans les
+  boutiques » n'a plus de limite à 20 lignes.
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix

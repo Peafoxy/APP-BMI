@@ -58,6 +58,11 @@ const db = {
       fournisseur: "SOLARIS", seuil: 2, prix_achat: 8000, prix_vente: 12000, initial: 5, entrees: 0 },
     { id: "p2", boutique: "BMI APESSITO", nom: "BATTERIE GEL 12V200AH", categorie: "Batteries",
       seuil: 1, prix_achat: 90000, prix_vente: 140000, initial: 3, entrees: 0 },
+    // Sous le seuil (Timo, 10/09/2026 : « la liste de tous les articles à approvisionner »)
+    { id: "p3", boutique: "BMI APESSITO", nom: "REGULATEUR MPPT 60A", categorie: "Régulateurs",
+      fournisseur: "SOLARIS", seuil: 5, prix_achat: 40000, prix_vente: 60000, initial: 2, entrees: 0 },
+    { id: "p4", boutique: "BMI DEMAKPOE", nom: "CABLE 6MM", categorie: "Câbles",
+      seuil: 10, prix_achat: 500, prix_vente: 900, initial: 0, entrees: 0 },
   ],
   ventes: [], ajustements: [], depenses: [], dettes: [], commandes: [], proformas: [],
   clients_installes: [], fournisseurs: [], audits: [], messages: [], demandes_ravitaillement: [],
@@ -122,6 +127,20 @@ test("★ « Ajouter » refuse un doublon (même nom, même boutique) en expliqu
   /if \(dejaDansCetteBoutique\)/.test(src) && src.includes("existe déjà dans"));
 test("une ligne prévient AVANT le clic, sans fenêtre qui bloque",
   src.includes("Existe déjà dans {bq}"));
+// Timo (10/09/2026) : « au jour d'aujourd'hui comment avoir la liste de tous
+// les articles à approvisionner ? » — un encadré, TOUS les articles au seuil
+// ou en dessous de la boutique regardée, exportable, demande pré-remplie.
+// (React sépare les morceaux de texte par des commentaires : on les retire avant de lire.)
+const htmlPlat = html.replace(/<!--[^]*?-->/g, "");
+test("★ l'encadré « À réapprovisionner » est rendu avec le compte de la boutique regardée (1 sur BMI APESSITO), l'article, le reste, le seuil et le manque",
+  htmlPlat.includes("À réapprovisionner (1)") && htmlPlat.includes("REGULATEUR MPPT 60A") && /<td[^>]*>2<\/td><td[^>]*>5<\/td><td[^>]*>3<\/td>/.test(htmlPlat));
+test("★ …l'article sous le seuil d'une AUTRE boutique n'y est pas, le bouton Exporter est là, et « Demander ce ravitaillement » n'apparaît que sur une boutique de vente qui a un magasin dans son espace",
+  !htmlPlat.includes("CABLE 6MM") && htmlPlat.includes("📤 Exporter") && !htmlPlat.includes("Demander ce ravitaillement")
+  && /\{!estMagasin && magasinsDe\(db\)\.length > 0 && <button onClick=\{demanderCeRavitaillement\}[^>]*>🚚 Demander ce ravitaillement<\/button>\}/.test(src));
+test("★ la règle est pure (articlesAReapprovisionner), la demande reçoit le panier pré-rempli (panierInitial), l'encadré du magasin n'a plus de limite à 20 lignes",
+  /const aReapprovisionner = articlesAReapprovisionner\(db, stockActuel, bq\);/.test(src) && /panierInitial=\{panierPreRempli\}/.test(src) && !/alertesDesBoutiques\.slice\(0, 20\)/.test(src)
+  && /exportCSV\("a_reapprovisionner", \["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"\]/.test(src)
+  && /\}, \[panierInitial\?\.n\]\);/.test(readFileSync("src/screens/Ravitaillement.jsx", "utf8")));
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

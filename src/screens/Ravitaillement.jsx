@@ -12,12 +12,19 @@ import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiq
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
 // Utilisé à deux endroits : dans l'onglet 📦 Stocks (gérant, admin) et comme
 // onglet 🚚 Ravitaillement à part entière (vendeur, qui n'a pas accès au stock).
-export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues }) {
+export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues, panierInitial }) {
   const bq = boutique || profile.boutique || "";
   const maBoutique = db.boutiques.find((b) => b.nom === bq);
   const mesDemandes = demandesDe(maBoutique || {});
   const [dem, setDem] = useState({ nom: "", categorie: "", qte: "", note: "" });
   const [panierDem, setPanierDem] = useState([]);
+  // Timo (10/09/2026) : « Demander ce ravitaillement » depuis la liste des
+  // articles à réapprovisionner pré-remplit le panier (quantité = le
+  // manque), modifiable avant l'envoi. `n` change à chaque clic.
+  useEffect(() => {
+    if (panierInitial?.lignes?.length) setPanierDem(panierInitial.lignes.map((l) => ({ nom: l.nom, categorie: l.categorie || "", qte: Number(l.qte) })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panierInitial?.n]);
   const magasinsVisibles = new Set(boutiquesDuMemeEspace(db, profile, magasinsDe(db), bq).map((b) => b.nom));
 
   // À l'ouverture de l'onglet dédié, les réponses du magasin sont marquées comme vues

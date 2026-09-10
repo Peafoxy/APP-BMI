@@ -9,8 +9,9 @@ import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { exportCSV } from "../lib/export";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
 import { COLONNES_IMPORT, EXEMPLE_IMPORT, MODES_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, analyserEntrees, resumeEntrees, appliquerEntrees, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
 
@@ -122,6 +123,19 @@ export function Stocks({ db, save, profile }) {
     setAssoc({});
     setRav({ dest: rav.dest, categorie: "", produit_id: "", qte: "" });
   };
+
+  // ---- À RÉAPPROVISIONNER (Timo, 10/09/2026) : TOUS les articles de la
+  // boutique regardée au seuil ou en dessous — règle pure lib/calculs.js.
+  // « Demander ce ravitaillement » pré-remplit la demande au magasin.
+  const aReapprovisionner = articlesAReapprovisionner(db, stockActuel, bq);
+  const [panierPreRempli, setPanierPreRempli] = useState(null);
+  const demandeRef = useRef(null);
+  const demanderCeRavitaillement = () => {
+    setPanierPreRempli({ n: (panierPreRempli?.n || 0) + 1, lignes: aReapprovisionner.map(({ p, manque }) => ({ nom: p.nom, categorie: p.categorie || "", qte: manque })) });
+    setTimeout(() => demandeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+  const exporterAReapprovisionner = () => exportCSV("a_reapprovisionner", ["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"],
+    aReapprovisionner.map(({ p, actuel, seuil, manque }) => [p.boutique, p.nom, p.categorie || "", p.fournisseur || "", actuel, seuil, manque]), bq);
 
   // ---- CÔTÉ MAGASIN : demandes reçues + alertes des boutiques ----
   const demandesRecues = estMagasin ? demandesEnAttente(db, profile) : [];
@@ -729,6 +743,45 @@ export function Stocks({ db, save, profile }) {
         );
       })()}
 
+      {/* Timo (10/09/2026) : « la liste de tous les articles à approvisionner » —
+          TOUS, du plus urgent au moins urgent, exportable, et sur une boutique
+          la demande au magasin se pré-remplit avec le manque. */}
+      <div className={`rounded-xl p-4 bg-white border-2 ${aReapprovisionner.length ? "border-red-200" : "border-slate-200"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <div className={`font-bold ${aReapprovisionner.length ? "text-red-700" : "text-slate-800"}`}>⚠ À réapprovisionner ({aReapprovisionner.length}) <Badge boutique={bq} /></div>
+          {aReapprovisionner.length > 0 && (
+            <div className="flex gap-2">
+              <button onClick={exporterAReapprovisionner} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50">📤 Exporter</button>
+              {!estMagasin && magasinsDe(db).length > 0 && <button onClick={demanderCeRavitaillement} className="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-xs font-bold hover:bg-blue-800">🚚 Demander ce ravitaillement</button>}
+            </div>
+          )}
+        </div>
+        {aReapprovisionner.length === 0
+          ? <div className="text-sm text-slate-400">Aucun article de {bq} n'est au seuil ou en dessous.</div>
+          : (
+            <>
+              <div className="text-xs text-slate-500 mb-3">Du plus urgent au moins urgent. Manque = seuil − reste : c'est la quantité proposée dans la demande, modifiable avant l'envoi.</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                  <tbody>
+                    {aReapprovisionner.map(({ p, actuel, seuil, manque }) => (
+                      <tr key={p.id} className="border-t border-slate-100">
+                        <td className="px-3 py-2 font-semibold">{p.nom}</td>
+                        <td className="px-3 py-2 text-slate-500">{p.categorie || "—"}</td>
+                        <td className="px-3 py-2 text-slate-500">{p.fournisseur || "—"}</td>
+                        <td className={`px-3 py-2 tabular-nums font-bold ${actuel <= 0 ? "text-red-600" : "text-orange-600"}`}>{actuel}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-500">{seuil}</td>
+                        <td className="px-3 py-2 tabular-nums font-bold">{manque}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+      </div>
+
       <DemandesTransfertRecues db={db} save={save} profile={profile} boutique={bq} />
 
       {estMagasin && demandesRecues.length > 0 && (
@@ -763,7 +816,8 @@ export function Stocks({ db, save, profile }) {
             <table className="w-full text-sm min-w-[440px]">
               <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Article", "Reste", "Seuil"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
               <tbody>
-                {alertesDesBoutiques.slice(0, 20).map(({ p, actuel }) => (
+                {/* Plus de limite à 20 lignes (Timo, 10/09/2026) : la liste entière. */}
+                {alertesDesBoutiques.map(({ p, actuel }) => (
                   <tr key={p.id} className="border-t border-slate-100">
                     <td className="px-3 py-2"><Badge boutique={p.boutique} /></td>
                     <td className="px-3 py-2 font-semibold">{p.nom}</td>
@@ -902,7 +956,7 @@ export function Stocks({ db, save, profile }) {
         </div>
       )}
 
-      {!estMagasin && magasinsDe(db).length > 0 && <DemandeRavitaillement db={db} save={save} profile={profile} boutique={bq} />}
+      {!estMagasin && magasinsDe(db).length > 0 && <div ref={demandeRef}><DemandeRavitaillement db={db} save={save} profile={profile} boutique={bq} panierInitial={panierPreRempli} /></div>}
 
       <div ref={formulaireRef}>
       <Panel boutique={enEdition ? articleCorrige?.boutique || bq : bq}>
