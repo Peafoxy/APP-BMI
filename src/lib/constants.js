@@ -63,7 +63,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.124";
+export const VERSION = "2.101.125";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -90,6 +90,15 @@ export const COMPTE_TRESORERIE = (paiement) => {
   if (/Crédit/i.test(paiement)) return ["411", "Clients"];
   return ["571", "Caisse"];
 };
+
+// La catégorie du versement des fonds (lib/versements.js). Écrite ICI pour
+// que core.js (journal comptable) la lise sans boucle d'import.
+// ⚠ Timo (10/09/2026) : « pourquoi il pense que le versement est une
+// dépense ? » — un versement n'est une SORTIE que pour la caisse (fonds à
+// verser, clôture) ; il n'est JAMAIS une charge : le tableau de bord, la
+// synthèse par période, l'export des dépenses et le journal l'ignorent.
+export const CATEGORIE_VERSEMENT = "Versement de fonds";
+export const horsVersements = (liste) => (liste || []).filter((x) => x?.categorie !== CATEGORIE_VERSEMENT);
 
 export const COMPTE_CHARGE = {
   "Loyer": ["622", "Locations et charges locatives"],

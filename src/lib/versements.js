@@ -18,8 +18,11 @@
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core";
+import { CATEGORIE_VERSEMENT, horsVersements } from "./constants";
 
-export const CATEGORIE_VERSEMENT = "Versement de fonds";
+// La catégorie vit dans constants.js (lue aussi par le journal comptable) :
+// importée ET réexportée — jamais `export { x } from` seul (piège connu).
+export { CATEGORIE_VERSEMENT, horsVersements };
 export const DEST_DG = "Chez le DG";
 export const DEST_BANQUE = "BANQUE";
 export const DEST_COMPTABLE = "Chez le comptable";

@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1075 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1078 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -319,6 +319,13 @@ lit mal est pire qu'un banc absent).
   libre, jamais imposé à la clôture. Un compte de formation n'a jamais
   « Chez le comptable ». Serveur : `securite-10` (la validation DG = admin
   principal seul, upsert relu).
+- **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
+  il pense que le versement est une dépense ? » — résultat du jour à
+  −252 299). Il n'est une sortie que pour la caisse (fonds à verser,
+  clôture). Tableau de bord (cartes, graphique, synthèse par période),
+  export « Dépenses » et journal comptable passent par `horsVersements`
+  (`lib/constants.js`, où vit `CATEGORIE_VERSEMENT`, réexportée par
+  lib/versements.js) ; les versements ont leur export « Versements ».
 - **✖ Rejet d'un versement** (10/09/2026, « l'argent doit retourner comme
   jamais versé ») : **qui valide rejette** (DG pour Chez le DG / BANQUE,
   comptable pour Chez le comptable), **en attente seulement**, motif

@@ -4395,8 +4395,8 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
   test("★ le choix est mémorisé par écran (« dashboard ») et jamais retenu s'il n'est plus dans les pastilles de l'espace regardé",
     /boutiqueMemorisee\(profile, "dashboard"\); return m && m !== TOUTES && PASTILLES\.includes\(m\) \? m : "";/.test(dash)
     && /memoriserBoutique\(profile, "dashboard", nom \|\| TOUTES\)/.test(dash));
-  test("★ les sept listes globales (ventes, dépenses, dettes, produits, chantiers, dettes classiques, réservations) passent par l'espace PUIS par la boutique choisie",
-    (dash.match(/\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\)/g) || []).length === 6
+  test("★ les huit listes globales (ventes, dépenses, versements, dettes, produits, chantiers, dettes classiques, réservations) passent par l'espace PUIS par la boutique choisie",
+    (dash.match(/\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\)/g) || []).length === 7
     && /dansMonEspace\(\{ boutique: boutiqueDuChantier\(db, c\) \}\) && dansLaBoutique\(\{ boutique: boutiqueDuChantier\(db, c\) \}\)/.test(dash));
   // Retourné le 09/09/2026 (Timo : « cacher les cartes à zéro chez le
   // comptable et pour le magasin ») : le graphique et la synthèse ne
@@ -4780,6 +4780,40 @@ titre("✖ Rejet d'un versement de fonds (Timo, 10/09/2026 : « l'argent doit re
     && /- 'versement_rejete_le' - 'versement_rejete_par' - 'versement_rejet_motif' - 'montant' - 'description'/.test(s12) && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s12)
     && /-f supabase\/securite-12-rejet-versement\.sql/.test(ta12) && (ta12.match(/^essai "★ [^"]*rejet[^"]*" "(REFUSE|PERMIS)"/gmi) || []).length >= 19
     && /le serveur FORCE le montant à 0[^"]*" "PERMIS"/.test(ta12) && /le comptable rejette un versement « Chez le comptable » en attente[^"]*" "PERMIS"/.test(ta12) && /le DG rejette un versement « Chez le comptable »[^"]*" "REFUSE"/.test(ta12));
+}
+
+titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « pourquoi il pense que le versement est une dépense ? »)");
+{
+  // Capture Timo : 259 300 F de ventes sur la semaine, un versement de
+  // 252 299 F et 1 F de dépense → le tableau de bord disait « dépenses
+  // 252 300 F, résultat 7 000 F ». Un versement change de poche, il n'est
+  // pas perdu : hors dépenses, hors résultat, hors journal, hors export des
+  // dépenses. La caisse seule (fonds à verser, clôture) le déduit.
+  const sortieK = join("node_modules", ".cache", `bmi-constants-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieK, logLevel: "silent" });
+  const K = await import(pathToFileURL(sortieK).href);
+  unlinkSync(sortieK);
+  const sortieVk = join("node_modules", ".cache", `bmi-versements-k-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/versements.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVk, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vk = await import(pathToFileURL(sortieVk).href);
+  unlinkSync(sortieVk);
+  const deps = [{ boutique: "A", montant: 252299, categorie: "Versement de fonds", versement: { destination: "Chez le DG" } }, { boutique: "A", montant: 1, categorie: "Transport" }, { boutique: "Chez le comptable", montant: -252299, categorie: "Versement de fonds", versement_id: "x" }];
+  test("★ la catégorie vit dans constants.js, réexportée par lib/versements.js (importée ET réexportée) ; horsVersements retire la sortie de la boutique ET l'entrée miroir, garde le reste, accepte une liste absente",
+    K.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.horsVersements(deps).length === 1
+    && K.horsVersements(deps).length === 1 && K.horsVersements(deps)[0].montant === 1 && K.horsVersements(undefined).length === 0
+    && /import \{ CATEGORIE_VERSEMENT, horsVersements \} from "\.\/constants";\n[^]*?export \{ CATEGORIE_VERSEMENT, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
+  const dbJ = { ...base(), ventes: [], dettes: [],
+    depenses: [{ id: "j1", boutique: "APESSITO", montant: 252299, date: "2026-09-10", categorie: "Versement de fonds", paiement: "Espèces", versement: { destination: "Chez le DG" } },
+               { id: "j2", boutique: "APESSITO", montant: 1, date: "2026-09-10", categorie: "Transport", paiement: "Espèces" }] };
+  const lignesJ = Core.lignesJournal(dbJ, "2026-09-01", "2026-09-30");
+  test("★ le journal comptable n'écrit pas le versement en charge : la seule dépense du mois y est (1 F), pas les 252 299 F",
+    !JSON.stringify(lignesJ).includes("252299") && JSON.stringify(lignesJ).includes("Transport") && /horsVersements\(db\.depenses\)\.filter\(\(x\) => reel\(x\) && inP\(x\.date, a, b\)\)/.test(readFileSync("src/lib/core.js", "utf8")));
+  const dashV = readFileSync("src/screens/Dashboard.jsx", "utf8");
+  test("★ tableau de bord : cartes (depensesReellesDb), synthèse par période et période libre (d[bq]) passent par horsVersements ; l'export « Dépenses » ne contient plus les versements, qui ont leur export « Versements » (montant d'origine, destination, état)",
+    /const depensesReellesDb = horsVersements\(db\.depenses\)\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\);/.test(dashV)
+    && (dashV.match(/d\[bq\] = horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === bq && inP\(x\.date, a, b\)\)/g) || []).length === 2 && !/d\[bq\] = db\.depenses/.test(dashV)
+    && /exportCSV\("versements", \["Date", "Boutique", "Description", "Montant", "Destination", "Saisi par", "État"\]/.test(dashV) && /x\.versement \? x\.versement\.montant : x\.montant/.test(dashV)
+    && /const totalDepenses = depensesReellesDb\.reduce/.test(dashV));
 }
 
 titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");

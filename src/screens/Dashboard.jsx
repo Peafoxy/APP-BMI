@@ -5,6 +5,7 @@
 // ============================================================
 import { useState, useCallback } from "react";
 import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
+import { horsVersements, CATEGORIE_VERSEMENT } from "../lib/constants";
 import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
@@ -64,7 +65,11 @@ export function Dashboard({ db, profile }) {
   // passer par NOMS_VUES — trou réel trouvé, une vente de formation aurait
   // gonflé ces chiffres. Variable UNIQUE réutilisée pour tous ces totaux.
   const ventesReellesDb = (db.ventes || []).filter(dansMonEspace).filter(dansLaBoutique);
-  const depensesReellesDb = (db.depenses || []).filter(dansMonEspace).filter(dansLaBoutique);
+  // ⚠ Timo (10/09/2026) : « pourquoi il pense que le versement est une
+  // dépense ? » — le versement de fonds n'est une sortie QUE pour la caisse.
+  // Ici (cartes, graphique, synthèse par période, exports), il n'existe pas.
+  const depensesReellesDb = horsVersements(db.depenses).filter(dansMonEspace).filter(dansLaBoutique);
+  const versementsReelsDb = (db.depenses || []).filter((x) => x.categorie === CATEGORIE_VERSEMENT).filter(dansMonEspace).filter(dansLaBoutique);
   const dettesReellesDb = (db.dettes || []).filter(dansMonEspace).filter(dansLaBoutique);
   const produitsReelsDb = (db.produits || []).filter(dansMonEspace).filter(dansLaBoutique);
   const chantiersReelsDb = (db.clients_installes || []).filter((c) => dansMonEspace({ boutique: boutiqueDuChantier(db, c) }) && dansLaBoutique({ boutique: boutiqueDuChantier(db, c) }));
@@ -91,7 +96,7 @@ export function Dashboard({ db, profile }) {
     const v = {}, d = {};
     NOMS_VUES.forEach((bq) => {
       v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
-      d[bq] = db.depenses.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
+      d[bq] = horsVersements(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
     return { label, v, d };
   });
@@ -101,7 +106,7 @@ export function Dashboard({ db, profile }) {
     const v = {}, d = {};
     NOMS_VUES.forEach((bq) => {
       v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
-      d[bq] = db.depenses.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
+      d[bq] = horsVersements(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
     return { label, v, d };
   })();
@@ -383,6 +388,8 @@ export function Dashboard({ db, profile }) {
             ventesReellesDb.map((v) => [dFR(v.date), numeroRecu(v), v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>}
           <button className={btnDark} onClick={() => exportCSV("depenses", ["Date", "Boutique", "Catégorie", "Description", "Montant", "Paiement", "Saisi par"],
             depensesReellesDb.map((x) => [dFR(x.date), x.boutique, x.categorie, x.description, x.montant, x.paiement, x.par]))}>Dépenses</button>
+          {versementsReelsDb.length > 0 && <button className={btnDark} onClick={() => exportCSV("versements", ["Date", "Boutique", "Description", "Montant", "Destination", "Saisi par", "État"],
+            versementsReelsDb.map((x) => [dFR(x.date), x.boutique, x.description, x.versement ? x.versement.montant : x.montant, x.versement?.destination || "", x.par, x.versement_rejete_le ? `rejeté (${x.versement_rejet_motif || ""})` : x.versement_valide_le || x.decaisse_le ? "validé" : "en attente"]))}>Versements</button>}
           {!sansVentes && <button className={btnDark} onClick={() => exportCSV("dettes", ["Date", "Nature", "Boutique", "Client", "Téléphone", "Motif", "Montant", "Payé", "Reste", "Saisi par"],
             dettesReellesDb.map((d) => [dFR(d.date), estReservation(d) ? "Réservation prépayée" : "Dette", d.boutique, d.client, d.tel, d.motif, d.montant, d.paye, Math.max(0, d.montant - d.paye), d.par]))}>Dettes</button>}
           {!sansStock && <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],

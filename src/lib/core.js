@@ -8,7 +8,7 @@
 // modification de logique.
 // ============================================================
 
-import { COMPTE_TRESORERIE, COMPTE_CHARGE } from "./constants";
+import { COMPTE_TRESORERIE, COMPTE_CHARGE, horsVersements } from "./constants";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -58,8 +58,9 @@ export function lignesJournal(db, a, b) {
     pousser(v.date, "VE", piece, "701", "Ventes de marchandises", lib, "", net, v.boutique);
   });
 
-  // Dépenses : débit compte de charge / crédit trésorerie
-  db.depenses.filter((x) => reel(x) && inP(x.date, a, b)).forEach((x) => {
+  // Dépenses : débit compte de charge / crédit trésorerie.
+  // Un versement de fonds n'est pas une charge (Timo, 10/09/2026) : hors journal.
+  horsVersements(db.depenses).filter((x) => reel(x) && inP(x.date, a, b)).forEach((x) => {
     const [cc, ic] = COMPTE_CHARGE[x.categorie] || COMPTE_CHARGE["Autre"];
     const [ct, it] = COMPTE_TRESORERIE(x.paiement || "");
     const piece = "DEP-" + String(x.id).slice(0, 6).toUpperCase();
