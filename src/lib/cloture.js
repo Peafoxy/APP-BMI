@@ -6,9 +6,11 @@
 // vendre tant que la caisse de la veille n'a pas été clôturée. »
 //
 // Règles PURES (le banc les exerce) :
-//   • activiteDuJour : les chiffres d'une journée de caisse (espèces des
-//     ventes, règlements de dettes, dépenses, théorique) — LA règle que
-//     l'écran Caisse affiche, pour n'importe quel jour ;
+//   • activiteDuJour : les chiffres d'une journée de caisse (fonds d'hier
+//     soir, recette du jour, sorties justifiées, montant attendu dans le
+//     tiroir) — LA règle que l'écran Caisse affiche, pour n'importe quel jour ;
+//   • alerteSaisieRecette : le rappel quand on saisit la recette du jour à
+//     la place du contenu du tiroir (écart 1 400, capture Timo 09/09/2026) ;
 //   • joursAClôturer : les jours PASSÉS avec activité (une vente, ou un
 //     encaissement en espèces) et sans clôture, depuis le début de la règle ;
 //   • motifBlocageVente : le message qui interdit d'encaisser tant qu'il en
@@ -55,18 +57,42 @@ export function activiteDuJour(db, boutique, date, totalVente) {
       .map((p) => ({ ...p, client: d.client, motif: d.motif, numero: d.numero, detteId: d.id })))
     .sort((a, b) => (a.heure || "").localeCompare(b.heure || ""));
   const especesReglements = detailReglements.filter((p) => (p.paiement || "Espèces") === "Espèces").reduce((s, p) => s + Number(p.montant || 0), 0);
+  // Timo (09/09/2026) : « Clôture de caisse, c'est journalier : recette du
+  // jour théorique contre montant du tiroir » et « une dépense n'est pas un
+  // manque… il ne devrait pas y avoir d'écart ». Donc la journée se lit en
+  // quatre lignes : ce qu'il y avait hier soir + la recette du jour − les
+  // sorties justifiées (dépenses, versements : déjà déduites, elles ne
+  // créent JAMAIS d'écart) = ce que le tiroir doit contenir.
+  const recetteDuJour = especesVentes + especesReglements;
+  const sortiesJustifiees = especesDepenses + versementsDuJour;
+  const fluxDuJour = recetteDuJour - sortiesJustifiees;
+  const theorique = soldeEspecesFinDeJour(db, boutique, d0, totalVente);
   return {
     date: d0,
     nbVentes: ventesDuJour.length,
     especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements,
+    recetteDuJour, sortiesJustifiees,
     // Le flux de la journée, pour information…
-    fluxDuJour: especesVentes + especesReglements - especesDepenses - versementsDuJour,
+    fluxDuJour,
+    // …le fonds de caisse d'hier soir (le solde avant la journée)…
+    fondsHier: theorique - fluxDuJour,
     // …et ce qu'on doit TROUVER dans le tiroir : le solde en caisse ce soir-là.
-    theorique: soldeEspecesFinDeJour(db, boutique, d0, totalVente),
+    theorique,
     // Une journée « active » demande une clôture : au moins une vente, ou un
     // encaissement en espèces.
     active: ventesDuJour.length > 0 || especesReglements > 0,
   };
+}
+
+// Le piège vu sur la capture de Timo (09/09/2026, écart 1 400) : il avait
+// saisi la RECETTE du jour (51 400) à la place du contenu du tiroir
+// (50 000). Quand le montant saisi est exactement la recette du jour alors
+// que le tiroir doit contenir autre chose, on le dit — avant la clôture.
+export function alerteSaisieRecette(compte, jour, fmt = (x) => String(x)) {
+  if (compte === "" || compte === null || compte === undefined) return "";
+  const c = Number(compte);
+  if (!Number.isFinite(c) || jour.recetteDuJour !== c || jour.theorique === c) return "";
+  return `⚠ ${fmt(c)} est la recette du jour, pas le contenu du tiroir. Le tiroir doit contenir le fonds d'hier soir (${fmt(jour.fondsHier)}) + la recette (${fmt(jour.recetteDuJour)}) − les sorties du jour (${fmt(jour.sortiesJustifiees)}) = ${fmt(jour.theorique)}. Comptez ce qu'il y a réellement dans le tiroir.`;
 }
 
 export const estCloturee = (db, boutique, date) => (db.clotures || []).some((c) => c.boutique === boutique && String(c.date) === String(date));

@@ -4686,7 +4686,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
   const nz = (t) => String(t).replace(/\u202f|\u00a0/g, " "); // les montants formatés portent une espace fine insécable
   test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple",
-    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
+    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du\b(?! jour)|Recette du [^\n]{0,40} au\b|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
   test("★ montant différent de l'attendu SANS note → refusé avec « Justifiez pourquoi le montant n'est pas X » ; avec note → accepté ; montant égal → aucune note exigée",
     nz(Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "" })) === "Justifiez pourquoi le montant n'est pas 200 000 F"
     && Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "fonds de caisse gardé" }) === "" && Vs.critiqueVersement({ montant: 200000, destination: "Chez le DG", attendu: 200000.4, note: "" }) === ""
@@ -4741,7 +4741,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
   const dbt = { ventes: [{ boutique: "D", date: "2026-09-01", paiement: "Espèces", total: 200899 }, { boutique: "D", date: "2026-09-09", paiement: "Espèces", total: 51400 }], dettes: [], clotures: [],
     depenses: [{ boutique: "D", date: "2026-09-09", paiement: "Espèces", montant: 202299, categorie: "Versement de fonds", versement: { destination: "Chez le DG" } }, { boutique: "D", date: "2026-09-09", paiement: "Espèces", montant: 1, categorie: "Transport" }] };
   const jt = Cl.activiteDuJour(dbt, "D", "2026-09-09", tv);
-  test("★ « Espèces attendues » = le SOLDE en caisse à la fin du jour (entrées − sorties jusqu'à ce jour, versements compris), pas le flux du jour ; les versements sont montrés à part des dépenses",
+  test("★ « Montant attendu dans le tiroir » = le SOLDE en caisse à la fin du jour (entrées − sorties jusqu'à ce jour, versements compris), pas le flux du jour ; les versements sont montrés à part des dépenses",
     jt.theorique === 50000 - 1 + 1 - 1 && jt.versementsDuJour === 202299 && jt.especesDepenses === 1 && jt.fluxDuJour === 51400 - 202299 - 1
     && Cl.soldeEspecesFinDeJour(dbt, "D", "2026-09-08", tv) === 200899 && Cl.soldeEspecesFinDeJour(dbt, "D", "2026-09-09", tv) === 49999);
   test("★ joursAClôturer : les jours PASSÉS actifs sans clôture, depuis le début de la règle (le 08/09 ne compte pas), le jour même ne compte pas, un jour clôturé ne compte pas",
@@ -4755,8 +4755,25 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && <div/.test(vt));
   const csC = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ Caisse : les chiffres passent par activiteDuJour (plus de calcul local), un jour PASSÉ en retard se choisit et se clôture (le plus ancien d'abord), la clôture en retard est datée du jour clôturé et notée",
-    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /Espèces attendues en caisse/.test(csC) && /Versements de fonds<\/div><div className="font-bold tabular-nums">− \{fmt\(versementsDuJour\)\}/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
+    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /Montant attendu dans le tiroir/.test(csC) && /versements \{fmt\(versementsDuJour\)\} — ne créent pas d'écart/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
     && /\(enRetard\[0\] \|\| aujourdhui\)/.test(csC) && /date: t, boutique, theorique, compte: Number\(compte\), notes, par: profile\.nom, cloture_le: aujourdhui/.test(csC) && /clôturée en retard/.test(csC));
+  // Timo (09/09/2026) : « Clôture de caisse, c'est journalier : recette du
+  // jour théorique contre montant du tiroir » et « une dépense n'est pas un
+  // manque ou une erreur de caisse… il ne devrait pas y avoir d'écart ».
+  // Sur sa capture : recette 51 400, versement 202 299, tiroir attendu
+  // 50 000 — il avait saisi 51 400 (la recette) et l'écran disait 1 400.
+  test("★ activiteDuJour lit la journée en quatre lignes : fonds d'hier soir + recette du jour − sorties justifiées = attendu dans le tiroir (capture : 200 899 + 51 400 − 202 300 = 49 999)",
+    jt.fondsHier === 200899 && jt.recetteDuJour === 51400 && jt.sortiesJustifiees === 202300 && jt.fondsHier + jt.recetteDuJour - jt.sortiesJustifiees === jt.theorique
+    && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).fondsHier === 1000 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).recetteDuJour === 300 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).sortiesJustifiees === 50);
+  const nzc = (x) => String(x).replace(/[\u202f\u00a0 ]/g, "");
+  test("★ alerteSaisieRecette : saisir la recette du jour à la place du tiroir est signalé (avec le calcul), rien si le montant est autre, rien si recette = tiroir, rien sur champ vide",
+    /est la recette du jour, pas le contenu du tiroir/.test(Cl.alerteSaisieRecette("51400", jt)) && /200899.*51400.*202300.*49999/.test(nzc(Cl.alerteSaisieRecette(51400, jt)))
+    && Cl.alerteSaisieRecette("50000", jt) === "" && Cl.alerteSaisieRecette("", jt) === "" && Cl.alerteSaisieRecette("abc", jt) === ""
+    && Cl.alerteSaisieRecette(300, Cl.activiteDuJour({ ...dbc, ventes: [] }, "A", "2026-09-09", tv)) !== "" && Cl.alerteSaisieRecette(250, Cl.activiteDuJour({ ...dbc, ventes: [] }, "A", "2026-09-09", tv)) === "");
+  test("★ Caisse : le champ dit « Montant du tiroir (tout ce qu'il contient, compté) », l'alerte recette/tiroir s'affiche sous le champ ET dans la confirmation, la confirmation détaille fonds d'hier + recette − sorties, et « ne créent pas d'écart » est écrit sous les sorties",
+    /Montant du tiroir \(tout ce qu'il contient, compté\)/.test(csC) && /const alerteRecette = alerteSaisieRecette\(compte, jour, fmt\);/.test(csC) && /\{alerteRecette && <div/.test(csC)
+    && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC) && /fonds d'hier soir \$\{fmt\(fondsHier\)\} \+ recette du jour \$\{fmt\(recetteDuJour\)\} − sorties justifiées \$\{fmt\(sortiesJustifiees\)\}/.test(csC)
+    && /Fonds de caisse d'hier soir/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

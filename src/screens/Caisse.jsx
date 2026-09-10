@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { activiteDuJour, joursAClôturer, estCloturee } from "../lib/cloture";
+import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette } from "../lib/cloture";
 import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification } from "../lib/versements";
 
 // ============ CAISSE ============
@@ -32,7 +32,10 @@ export function Caisse({ db, save, profile }) {
   const [jourChoisi, setJourChoisi] = useState("");
   const t = jourChoisi && (enRetard.includes(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
   // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
-  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements, theorique } = activiteDuJour(db, boutique, t, totalVente);
+  const jour = activiteDuJour(db, boutique, t, totalVente);
+  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier } = jour;
+  // Le piège de la capture du 09/09/2026 (écart 1 400) : la recette saisie à la place du tiroir.
+  const alerteRecette = alerteSaisieRecette(compte, jour, fmt);
   const dejaCloturee = estCloturee(db, boutique, t);
   const ecart = compte === "" ? null : Number(compte) - theorique;
 
@@ -40,7 +43,7 @@ export function Caisse({ db, save, profile }) {
     if (refuserSaufRoles(profile, ROLES_CAISSE, "Clôturer la caisse")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
-    if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nThéorique : ${fmt(theorique)}\nCompté : ${fmt(Number(compte))}\nÉcart : ${fmt(Number(compte) - theorique)}`)) return;
+    if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nAttendu dans le tiroir : ${fmt(theorique)} (fonds d'hier soir ${fmt(fondsHier)} + recette du jour ${fmt(recetteDuJour)} − sorties justifiées ${fmt(sortiesJustifiees)})\nCompté dans le tiroir : ${fmt(Number(compte))}\nÉcart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
     save({ ...db, clotures: [{ id: uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui }, ...db.clotures] }, `Clôture caisse ${boutique} du ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui ? " — clôturée en retard" : ""}`);
     setCompte(""); setNotes(""); setJourChoisi("");
     uAlert(`Clôture du ${dFR(t)} enregistrée !`);
@@ -200,15 +203,17 @@ export function Caisse({ db, save, profile }) {
           <div className="text-sm font-semibold text-green-700">✓ La caisse du {dFR(t)} a déjà été clôturée.</div>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Ventes en espèces</div><div className="font-bold tabular-nums">{fmt(especesVentes)}</div></div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Encaissements (dettes / réservations)</div><div className="font-bold tabular-nums text-emerald-700">{fmt(especesReglements)}</div></div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Dépenses en espèces</div><div className="font-bold tabular-nums">− {fmt(especesDepenses)}</div></div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Versements de fonds</div><div className="font-bold tabular-nums">− {fmt(versementsDuJour)}</div></div>
-              {/* Ce que le vendeur doit trouver dans le tiroir : le solde en caisse ce soir-là, pas le flux du jour. */}
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Espèces attendues en caisse</div><div className={`font-bold tabular-nums ${theorique < 0 ? "text-red-600" : ""}`}>{fmt(theorique)}</div></div>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+              {/* Timo (09/09/2026) : « clôture de caisse, c'est journalier : recette du jour
+                  théorique contre montant du tiroir ». La journée se lit de gauche à droite :
+                  fonds d'hier soir + recette du jour − sorties justifiées = attendu dans le tiroir.
+                  Les dépenses et les versements sont déjà déduits : ils ne créent JAMAIS d'écart. */}
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Fonds de caisse d'hier soir</div><div className={`font-bold tabular-nums ${fondsHier < 0 ? "text-red-600" : ""}`}>{fmt(fondsHier)}</div></div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Recette du jour (espèces)</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(recetteDuJour)}</div><div className="text-[11px] text-slate-400">ventes {fmt(especesVentes)} · encaissements {fmt(especesReglements)}</div></div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties justifiées du jour</div><div className="font-bold tabular-nums">− {fmt(sortiesJustifiees)}</div><div className="text-[11px] text-slate-400">dépenses {fmt(especesDepenses)} · versements {fmt(versementsDuJour)} — ne créent pas d'écart</div></div>
+              <div className="bg-white rounded-lg p-3 border-2 border-slate-300"><div className="text-xs text-slate-500">Montant attendu dans le tiroir</div><div className={`font-bold tabular-nums ${theorique < 0 ? "text-red-600" : ""}`}>{fmt(theorique)}</div></div>
               <div className="bg-white rounded-lg p-3 border border-slate-200">
-                <div className="text-xs text-slate-500">Écart</div>
+                <div className="text-xs text-slate-500">Écart de caisse (manque ou surplus)</div>
                 <div className={`font-bold tabular-nums ${ecart === null ? "text-slate-400" : ecart === 0 ? "text-green-700" : "text-red-600"}`}>{ecart === null ? "—" : fmt(ecart)}</div>
               </div>
             </div>
@@ -232,9 +237,10 @@ export function Caisse({ db, save, profile }) {
               </div>
             )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <Field label="Espèces comptées (F)"><input type="number" className={inputCls} value={compte} onChange={(e) => setCompte(e.target.value)} /></Field>
+              <Field label="Montant du tiroir (tout ce qu'il contient, compté)"><input type="number" className={inputCls} value={compte} onChange={(e) => setCompte(e.target.value)} /></Field>
               <div className="lg:col-span-2"><Field label="Remarques"><input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex : Monnaie rendue..." /></Field></div>
             </div>
+            {alerteRecette && <div className="mt-2 text-sm font-bold text-red-600">{alerteRecette}</div>}
             <button onClick={cloturer} className={`mt-3 ${btnDark}`}>Clôturer la caisse</button>
           </>
         )}
@@ -243,7 +249,7 @@ export function Caisse({ db, save, profile }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Historique des clôtures — {boutique}</div>
         <table className="w-full text-sm min-w-[640px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Attendu", "Compté", "Écart", "Remarques", "Par"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Attendu dans le tiroir", "Compté", "Écart", "Remarques", "Par"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">Aucune clôture enregistrée.</td></tr>}
             {liste.map((c) => {
