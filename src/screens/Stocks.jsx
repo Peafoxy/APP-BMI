@@ -761,9 +761,11 @@ export function Stocks({ db, save, profile }) {
           : (
             <>
               <div className="text-xs text-slate-500 mb-3">Du plus urgent au moins urgent. Manque = seuil − reste : c'est la quantité proposée dans la demande, modifiable avant l'envoi.</div>
-              <div className="overflow-x-auto">
+              {/* Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de
+                  défilement pour voir le reste » — cadre à hauteur fixe, en-tête collé. */}
+              <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
                 <table className="w-full text-sm min-w-[600px]">
-                  <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
                   <tbody>
                     {aReapprovisionner.map(({ p, actuel, seuil, manque }) => (
                       <tr key={p.id} className="border-t border-slate-100">
@@ -812,9 +814,9 @@ export function Stocks({ db, save, profile }) {
         <div className="rounded-xl p-4 bg-white border-2 border-red-200">
           <div className="font-bold mb-1 text-red-700">⚠ Alertes de stock dans les boutiques ({alertesDesBoutiques.length})</div>
           <div className="text-xs text-slate-500 mb-3">Articles passés sous leur seuil. Anticipez le ravitaillement sans attendre la demande.</div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
             <table className="w-full text-sm min-w-[440px]">
-              <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Article", "Reste", "Seuil"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+              <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Article", "Reste", "Seuil"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
               <tbody>
                 {/* Plus de limite à 20 lignes (Timo, 10/09/2026) : la liste entière. */}
                 {alertesDesBoutiques.map(({ p, actuel }) => (

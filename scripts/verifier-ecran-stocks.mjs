@@ -141,6 +141,9 @@ test("★ la règle est pure (articlesAReapprovisionner), la demande reçoit le 
   /const aReapprovisionner = articlesAReapprovisionner\(db, stockActuel, bq\);/.test(src) && /panierInitial=\{panierPreRempli\}/.test(src) && !/alertesDesBoutiques\.slice\(0, 20\)/.test(src)
   && /exportCSV\("a_reapprovisionner", \["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"\]/.test(src)
   && /\}, \[panierInitial\?\.n\]\);/.test(readFileSync("src/screens/Ravitaillement.jsx", "utf8")));
+// Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de défilement pour voir le reste ».
+test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent dans un cadre à hauteur fixe qui défile, en-tête collé en haut",
+  (src.match(/overflow-x-auto overflow-y-auto max-h-\[360px\]/g) || []).length === 2 && (src.match(/<thead className="sticky top-0 z-10 bg-white">/g) || []).length === 2);
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
