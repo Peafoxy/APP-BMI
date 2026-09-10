@@ -203,4 +203,4 @@ rejet + montant + description quand la ligne devient rejetée) et
 seulement, motif obligatoire, rejet inaltérable, montant forcé à 0, rejeté
 jamais validé ni encaissé, jamais créé rejeté). Banc : tester-argent (102 ;
 sans le script, 16 contrôles tombent — mesuré).
-- **État : SQL à coller par Timo** (message du 10/09/2026, version 2.101.122).
+- **État : collé par Timo le 10/09/2026** — vérification true | true | true (capture).
