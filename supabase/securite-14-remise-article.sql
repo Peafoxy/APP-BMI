@@ -122,5 +122,6 @@ create trigger proformas_regles_remise_trg
 -- VÉRIFICATION — doit afficher : true | true | true
 select
   (select prosrc like '%Remise supérieure à 3 % sur un article%' from pg_proc where proname = 'ventes_regles_roles') as article_vente,
-  (select prosrc like '%l''une ou l''autre%' from pg_proc where proname = 'proformas_regles_remise') as exclusive_proforma,
+  -- ⚠ Pas d'apostrophe dans un motif LIKE : dans prosrc elles sont doublées (« false » à tort chez Timo, 10/09/2026).
+  (select prosrc like '%sur le même proforma%' from pg_proc where proname = 'proformas_regles_remise') as exclusive_proforma,
   exists (select 1 from pg_proc where proname = 'remise_ligne_excessive') as regle_posee;
