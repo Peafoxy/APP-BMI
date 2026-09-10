@@ -377,8 +377,9 @@ lit mal est pire qu'un banc absent).
   boutiques » n'a plus de limite à 20 lignes. **Les deux listes tiennent
   dans un cadre à hauteur fixe qui défile** (« au plus 8 ou 10 lignes, et
   une barre de défilement », 10/09/2026), en-tête collé en haut, et **la
-  colonne Article collée à gauche** pendant le défilement horizontal
-  (« figer le nom de l'article », 10/09/2026).
+  colonne Article collée à gauche pendant le défilement horizontal, sur
+  téléphone exclusivement** (« figer le nom de l'article », 10/09/2026 ;
+  `lg:static`).
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix

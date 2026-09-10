@@ -766,12 +766,13 @@ export function Stocks({ db, save, profile }) {
               <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
                 <table className="w-full text-sm min-w-[600px]">
                   {/* Timo (10/09/2026) : « figer le nom de l'article quand on défile de
-                      droite à gauche » — la première colonne reste collée à gauche. */}
-                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? " sticky left-0 z-20 bg-white shadow-[2px_0_0_0_#e2e8f0]" : ""}`}>{h}</th>)}</tr></thead>
+                      droite à gauche — sur téléphone exclusivement » : la première
+                      colonne reste collée à gauche sous la largeur lg, libre au-dessus. */}
+                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? " sticky left-0 z-20 bg-white shadow-[2px_0_0_0_#e2e8f0] lg:static lg:shadow-none" : ""}`}>{h}</th>)}</tr></thead>
                   <tbody>
                     {aReapprovisionner.map(({ p, actuel, seuil, manque }) => (
                       <tr key={p.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 font-semibold sticky left-0 z-[5] bg-white shadow-[2px_0_0_0_#e2e8f0] max-w-[180px]">{p.nom}</td>
+                        <td className="px-3 py-2 font-semibold sticky left-0 z-[5] bg-white shadow-[2px_0_0_0_#e2e8f0] max-w-[180px] lg:static lg:shadow-none lg:max-w-none">{p.nom}</td>
                         <td className="px-3 py-2 text-slate-500">{p.categorie || "—"}</td>
                         <td className="px-3 py-2 text-slate-500">{p.fournisseur || "—"}</td>
                         <td className={`px-3 py-2 tabular-nums font-bold ${actuel <= 0 ? "text-red-600" : "text-orange-600"}`}>{actuel}</td>
