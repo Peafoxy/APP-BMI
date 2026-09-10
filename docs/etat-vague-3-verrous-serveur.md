@@ -215,4 +215,4 @@ prendre » → « Reprise pour l'administrateur principal seul ».
 `depenses_regles_versement` (securite-12 : créer « Remboursement client » =
 principal). Banc : tester-argent (120 ; sans le script, 10 contrôles
 tombent — mesuré).
-- **État : SQL à coller par Timo** (message du 10/09/2026, version 2.101.130).
+- **État : collé par Timo le 10/09/2026** — vérification true | true | true (capture).
