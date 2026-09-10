@@ -190,4 +190,4 @@ gérant de faire le versement », puis « comment la clôture de la caisse peut
 être impossible à un vendeur ? ». `supabase/securite-11-versement-gerant.sql`
 remplace deux fonctions : créer un « Versement de fonds » → gérant / admin ;
 clôturer la caisse → vendeur / gérant / admin. Banc : tester-argent (79).
-- **État : SQL à coller par Timo** (message du 09/09/2026, version 2.101.117).
+- **État : collé par Timo le 10/09/2026** — vérification true | true | true (capture).
