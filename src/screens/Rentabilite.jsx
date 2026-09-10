@@ -3,7 +3,7 @@
 // prix d'achat/vente, tri, totaux par boutique.
 // ============================================================
 import { useState } from "react";
-import { fmt, today, inP, caLigneVente } from "../lib/core";
+import { fmt, today, inP, caLigneVente, qteReprise } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
 import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
@@ -41,7 +41,9 @@ export function Rentabilite({ db, profile }) {
       const nom = p ? p.nom : (l.article || "?");
       const achat = p ? Number(p.prix_achat || 0) : 0;
       if (!parProduit[nom]) parProduit[nom] = { nom, categorie: p?.categorie || "—", qte: 0, ca: 0, cout: 0 };
-      parProduit[nom].qte += Number(l.qte || 0);
+      // Net des reprises client (Timo, 10/09/2026) : l'article repris n'a été ni vendu ni coûté.
+      const qteNette = Math.max(0, Number(l.qte || 0) - qteReprise(v, l.produit_id));
+      parProduit[nom].qte += qteNette;
       // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : on additionnait ici
       // « qte × pu − remise_ligne », donc SANS la remise globale de la vente
       // ni le rabais du commercial. Le Tableau de bord, lui, les retire :
@@ -50,7 +52,7 @@ export function Rentabilite({ db, profile }) {
       // caLigneVente (lib/core.js) répartit ces réductions au prorata, de
       // sorte que la somme des lignes redonne exactement caVente(v).
       parProduit[nom].ca += caLigneVente(v, l);
-      parProduit[nom].cout += Number(l.qte || 0) * achat;
+      parProduit[nom].cout += qteNette * achat;
     });
   });
 

@@ -42,6 +42,8 @@ echo "▸ Le versement au gérant : supabase/securite-11-versement-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-11-versement-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-11 refusé par la base"
 echo "▸ Le rejet d'un versement : supabase/securite-12-rejet-versement.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-12-rejet-versement.sql >/dev/null 2>&1 || echo "   ❌ securite-12 refusé par la base"
+echo "▸ La reprise d'un article par le client : supabase/securite-13-reprise.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-13-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-13 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -235,6 +237,31 @@ essai "★ le comptable rejette une dépense ordinaire (pas un versement)" "REFU
 essai "★ un gérant crée un versement déjà rejeté" "REFUSE" "$GERANT" "$(UPS depenses zr9 '{"id":"zr9","boutique":"APESSITO","categorie":"Versement de fonds","montant":0,"versement":{"id":"vr9","destination":"Chez le DG","montant":5},"versement_rejete_le":"2026-09-10","versement_rejet_motif":"x"}')"
 essai "le gérant enregistre toujours un versement ordinaire (rien ne change pour lui)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
 essai "le comptable pointe toujours « Encaissé » une entrée miroir en attente" "PERMIS" "$COMPTABLE" "$(MAJ depenses "jsonb_set(data,'{decaisse_le}','\"2026-09-10\"')" zr3m)"
+
+echo
+echo "── LA REPRISE D'UN ARTICLE PAR LE CLIENT (securite-13, Timo 10/09/2026) : l'administrateur PRINCIPAL seul, jamais en arrière ──"
+$P -c "insert into public.ventes (id, data) values
+  ('zvr1', '{\"id\":\"zvr1\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"remise_pct\":0,\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":2,\"pu\":12000}]}'),
+  ('zvr2', '{\"id\":\"zvr2\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"remise_pct\":0,\"reprises\":[{\"ref\":\"REP-1\",\"produit_id\":\"zp1\",\"qte\":1,\"montant\":12000}]}');" >/dev/null
+REPRISE_ZVR1='{"id":"zvr1","boutique":"APESSITO","client":"AMA","remise_pct":0,"articles":[{"produit_id":"zp1","article":"BATTERIE","qte":2,"pu":12000}],"reprises":[{"ref":"REP-2","produit_id":"zp1","qte":1,"montant":12000,"motif":"changé d avis"}]}'
+essai "★ un vendeur note une reprise sur une vente (par upsert, comme l'application)" "REFUSE" "$VENDEUR" "$(UPS ventes zvr1 "$REPRISE_ZVR1")"
+essai "★ un gérant note une reprise" "REFUSE" "$GERANT" "$(UPS ventes zvr1 "$REPRISE_ZVR1")"
+essai "★ un administrateur SECONDAIRE note une reprise" "REFUSE" "$ADMIN2" "$(UPS ventes zvr1 "$REPRISE_ZVR1")"
+essai "★ l'administrateur PRINCIPAL note une reprise" "PERMIS" "$ADMIN" "$(UPS ventes zvr1 "$REPRISE_ZVR1")"
+essai "★ …et il ne peut pas l'effacer ensuite (la liste ne rétrécit jamais)" "REFUSE" "$ADMIN" "$(MAJ ventes "data - 'reprises'" zvr2)"
+essai "★ …ni la vider" "REFUSE" "$ADMIN" "$(MAJ ventes "jsonb_set(data,'{reprises}','[]')" zvr2)"
+essai "★ …mais il peut en ajouter une deuxième" "PERMIS" "$ADMIN" "$(MAJ ventes "jsonb_set(data,'{reprises}',(data->'reprises') || '[{\"ref\":\"REP-3\",\"qte\":1}]'::jsonb)" zvr2)"
+essai "un vendeur touche une vente SANS toucher aux reprises (le quotidien passe)" "PERMIS" "$VENDEUR" "$(UPS ventes zvr2 '{"id":"zvr2","boutique":"APESSITO","client":"AMA","remise_pct":0,"reprises":[{"ref":"REP-1","produit_id":"zp1","qte":1,"montant":12000}],"note":"livrée"}')"
+essai "★ un vendeur remet l'article au stock (ajustement reprise_client)" "REFUSE" "$VENDEUR" "$(INS ajustements zj8 '{"id":"zj8","produit_id":"zp1","qte":1,"type":"reprise_client"}')"
+essai "★ un gérant remet l'article au stock (reprise_client)" "REFUSE" "$GERANT" "$(INS ajustements zj8 '{"id":"zj8","produit_id":"zp1","qte":1,"type":"reprise_client"}')"
+essai "★ un administrateur SECONDAIRE remet l'article au stock (reprise_client)" "REFUSE" "$ADMIN2" "$(INS ajustements zj8 '{"id":"zj8","produit_id":"zp1","qte":1,"type":"reprise_client"}')"
+essai "★ l'administrateur PRINCIPAL remet l'article au stock (reprise_client)" "PERMIS" "$ADMIN" "$(INS ajustements zj8 '{"id":"zj8","produit_id":"zp1","qte":1,"type":"reprise_client"}')"
+essai "le gérant enregistre toujours un transfert (rien ne change pour lui)" "PERMIS" "$GERANT" "$(INS ajustements zj8 '{"id":"zj8","produit_id":"zp1","qte":-1,"type":"transfert"}')"
+essai "★ un vendeur crée une dépense « Remboursement client »" "REFUSE" "$VENDEUR" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
+essai "★ un gérant crée une dépense « Remboursement client »" "REFUSE" "$GERANT" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
+essai "★ un administrateur SECONDAIRE crée une dépense « Remboursement client »" "REFUSE" "$ADMIN2" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
+essai "★ l'administrateur PRINCIPAL crée une dépense « Remboursement client »" "PERMIS" "$ADMIN" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
+essai "le gérant enregistre toujours un versement de fonds (securite-11 repris tel quel)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
 
 echo
 echo "── L'UPSERT N'EST PAS UNE CRÉATION (securite-8, capture Timo du 08/09/2026) ──"

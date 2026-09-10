@@ -4281,9 +4281,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     execSync("grep -rln 'lu_par: \\[profile.id\\]\\|de_nom: profile.nom' src || true").toString().trim() === "");
   test("★ plus aucune fiche de dépense automatique recopiée : « par: profile.nom, auto: » n'existe plus dans les écrans",
     execSync("grep -rln 'par: profile.nom, auto:' src || true").toString().trim() === "");
-  test("★ nouveauMessage sert aux 16 fabrications (rejet d'un versement compris, 10/09/2026), nouvelleDepense aux 12 dépenses automatiques (versements de fonds compris, 09/09/2026)",
+  test("★ nouveauMessage sert aux 16 fabrications (rejet d'un versement compris, 10/09/2026), nouvelleDepense aux 13 dépenses automatiques (versements de fonds et remboursement d'une reprise compris, 10/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16"
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "12");
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "13");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
     (dep.match(/<thead>/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
@@ -4836,6 +4836,66 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     liste.map((x) => x.p.nom).join("|") === "RUPTURE|ALPHA|ZETA|SANS SEUIL|JUSTE" && C.articlesAReapprovisionner(dbR, stockR, "B").length === 1 && C.articlesAReapprovisionner(dbR, stockR, "C").length === 0);
   test("★ …le manque = seuil − reste, jamais moins de 1 (au seuil, ou seuil 0 et rien en stock)",
     liste.map((x) => x.manque).join("|") === "10|3|3|1|1" && liste[0].actuel === 0 && liste[0].seuil === 10);
+}
+
+titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pour l'administrateur principal seul »)");
+{
+  const sortieRp = join("node_modules", ".cache", `bmi-reprises-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/reprises.js"], bundle: true, format: "esm", platform: "node", outfile: sortieRp, logLevel: "silent" });
+  const Rp = await import(pathToFileURL(sortieRp).href);
+  unlinkSync(sortieRp);
+  const timo = { id: "t", nom: "TIMO", role: "admin", admin_principal: true };
+  // Une vente : 2 batteries à 12 000 + 1 câble HB à 1 000, remise globale 1 300 (10 % du panier), rabais 0.
+  const vente = { id: "v1", boutique: "APESSITO", client: "AMA", date: "2026-09-09", paiement: "Espèces", remise: 1300, commercial: "KOSSI",
+    articles: [{ produit_id: "p1", article: "BATTERIE", qte: 2, pu: 12000 }, { produit_id: "p2", article: "CABLE", qte: 1, pu: 1000, hors_boutique: true }] };
+  const dbp = { ventes: [vente], dettes: [], depenses: [], ajustements: [], clients_installes: [], produits: [{ id: "p1", boutique: "APESSITO", nom: "BATTERIE", prix_achat: 8000 }] };
+  test("★ lignes reprenables : les articles du stock seulement (jamais hors boutique), avec le restant après reprises ; montant repris = prix payé net des remises au prorata (1 batterie = 12 000 − 1 300 × 12 000/25 000 = 11 376)",
+    Rp.lignesReprenables(vente).map((l) => `${l.produit_id}:${l.restant}`).join("|") === "p1:2" && Rp.montantReprise(vente, Rp.lignesReprenables(vente)[0], 1) === 11376
+    && Rp.lignesReprenables({ ...vente, reprises: [{ produit_id: "p1", qte: 2, montant: 1 }] }).length === 0 && Rp.MOYENS_REMBOURSEMENT.includes("Crédit (dette)") === false && Rp.moyenParDefaut(vente) === "Espèces" && Rp.moyenParDefaut({ paiement: "Crédit (dette)" }) === "Espèces");
+  test("★ critiqueReprise : refuse hors boutique, quantité au-delà du restant, motif vide, moyen à crédit, vente avec chantier, commission déjà payée ; accepte le cas normal",
+    /ne figure pas|déjà été entièrement/.test(Rp.critiqueReprise(dbp, vente, { produit_id: "p2", qte: 1, motif: "x", moyen: "Espèces" })) && /Quantité invalide/.test(Rp.critiqueReprise(dbp, vente, { produit_id: "p1", qte: 3, motif: "x", moyen: "Espèces" }))
+    && /pourquoi/.test(Rp.critiqueReprise(dbp, vente, { produit_id: "p1", qte: 1, motif: " ", moyen: "Espèces" })) && /rendu/.test(Rp.critiqueReprise(dbp, vente, { produit_id: "p1", qte: 1, motif: "x", moyen: "Crédit (dette)" }))
+    && /chantier/.test(Rp.critiqueReprise({ ...dbp, clients_installes: [{ vente_id: "v1", nom: "AMA" }] }, vente, { produit_id: "p1", qte: 1, motif: "x", moyen: "Espèces" }))
+    && /commission/.test(Rp.critiqueReprise(dbp, { ...vente, commission_payee: true }, { produit_id: "p1", qte: 1, motif: "x", moyen: "Espèces" }))
+    && Rp.critiqueReprise(dbp, vente, { produit_id: "p1", qte: 1, motif: "changé d'avis", moyen: "Espèces" }) === "");
+  const r = Rp.construireReprise(dbp, vente, { produit_id: "p1", qte: 1, motif: " changé d'avis ", moyen: "Espèces" }, timo, "2026-09-10");
+  const db2 = Rp.appliquerReprise(dbp, r);
+  test("★ vente payée : la vente garde ses lignes et son total (reçu intact), porte la reprise ; l'article revient au stock (ajustement +1, reprise_client) ; 11 376 F rendus = une dépense « Remboursement client » du jour, en espèces, liée à la vente",
+    Core.totalVente(r.vente) === Core.totalVente(vente) && r.vente.articles.length === 2 && r.vente.reprises.length === 1 && r.vente.reprises[0].qte === 1 && r.vente.reprises[0].montant === 11376 && r.vente.reprises[0].motif === "changé d'avis"
+    && r.ajustement.qte === 1 && r.ajustement.type === "reprise_client" && r.ajustement.produit_id === "p1" && r.ajustement.boutique === "APESSITO" && r.ajustement.vente_id === "v1"
+    && r.depense.categorie === "Remboursement client" && r.depense.montant === 11376 && r.depense.paiement === "Espèces" && r.depense.boutique === "APESSITO" && r.depense.vente_id === "v1" && r.depense.date === "2026-09-10" && r.dette === null
+    && db2.ventes[0].reprises.length === 1 && db2.ajustements.length === 1 && db2.depenses.length === 1 && C.stockAjuste(db2, "p1") === 1 && /REP-[A-Z0-9]{8}/.test(r.journal));
+  // CA tel que vendu : 24 000 de stock − la part de remise qui lui revient (1 300 × 24 000/25 000 = 1 248) = 22 752 ; une batterie reprise = 11 376.
+  test("★ le chiffre d'affaires et la commission deviennent NETS de la reprise (caVente 22 752 → 11 376 ; commission 10 % : 2 275 → 1 138 ; Rentabilité : caLigneVente et qteReprise), le CA tel que vendu reste lisible (caVenteBrut)",
+    Core.caVente(vente) === 22752 && Core.caVente(r.vente) === 11376 && Core.caVenteBrut(r.vente) === 22752 && Core.montantRepris(r.vente) === 11376 && Core.qteReprise(r.vente, "p1") === 1
+    && Math.round(Core.caLigneVente(r.vente, r.vente.articles[0])) === 11376 && C.commissionBrute(r.vente, 10) === 1138 && C.commissionBrute(vente, 10) === 2275
+    && /const qteNette = Math\.max\(0, Number\(l\.qte \|\| 0\) - qteReprise\(v, l\.produit_id\)\);/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
+  // Vente à crédit : dette 22 700 (montant saisi), le client a versé 15 000 → reprise d'une batterie (11 376) : dette 11 324, 3 676 rendus.
+  const venteC = { ...vente, id: "v2", paiement: "Crédit (dette)" };
+  const dbc = { ...dbp, ventes: [venteC], dettes: [{ id: "d2", vente_id: "v2", boutique: "APESSITO", montant: 22700, paye: 15000, paiements: [{ date: "2026-09-09", montant: 15000 }] }] };
+  const rc = Rp.construireReprise(dbc, venteC, { produit_id: "p1", qte: 1, motif: "x", moyen: "Espèces" }, timo, "2026-09-10");
+  const rc0 = Rp.construireReprise({ ...dbc, dettes: [{ ...dbc.dettes[0], paye: 5000 }] }, venteC, { produit_id: "p1", qte: 1, motif: "x", moyen: "Espèces" }, timo, "2026-09-10");
+  test("★ vente à crédit : la dette diminue de la reprise (22 700 → 11 324), seuls les 3 676 versés au-delà sont rendus ; rien versé en trop → aucune dépense, moyen vide ; les versements passés restent intacts",
+    rc.dette.montant === 11324 && rc.rembourse === 3676 && rc.depense.montant === 3676 && rc.dette.paye === 15000 && rc.dette.paiements.length === 1 && rc.dette.reprises[0].montant === 11376
+    && rc0.dette.montant === 11324 && rc0.rembourse === 0 && rc0.depense === null && rc0.reprise.moyen === "" && Rp.appliquerReprise(dbc, rc).dettes[0].montant === 11324 && Rp.appliquerReprise(dbc, rc).depenses.length === 1);
+  const sortieK2 = join("node_modules", ".cache", `bmi-constants-rp-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieK2, logLevel: "silent" });
+  const K2 = await import(pathToFileURL(sortieK2).href);
+  unlinkSync(sortieK2);
+  test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client");
+  const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
+    /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
+    && /construireReprise\(db, reprise\.vente, \{ produit_id: reprise\.produit_id, qte: Number\(reprise\.qte\), motif: reprise\.motif, moyen: reprise\.moyen \}, profile, today\(\)\)/.test(vs)
+    && /save\(appliquerReprise\(db, r\), r\.journal\);/.test(vs) && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs) && /↩ \{\(v\.reprises \|\| \[\]\)\.reduce/.test(vs));
+  const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");
+  const ta13 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ securite-13 : reprises = principal seul et jamais en arrière (ventes, upsert relu), ajustement reprise_client = principal, dépense « Remboursement client » = principal ; le banc tester-argent le pose et rejoue vendeur / gérant / admin secondaire refusés, principal permis, effacement refusé",
+    /Reprendre un article vendu', 'l''administrateur principal'/.test(s13) && /jsonb_array_length\(new\.data -> 'reprises'\)[^]*?Effacer une reprise/.test(s13) && /if t = 'reprise_client' then\s+if not public\.est_admin_principal\(\)/.test(s13)
+    && /'Remboursement client' and not public\.est_admin_principal\(\)/.test(s13) && /select v\.data into avant from public\.ventes v where v\.id = new\.id;/.test(s13) && /Rejeter un versement déjà validé/.test(s13)
+    && /-f supabase\/securite-13-reprise\.sql/.test(ta13) && /un administrateur SECONDAIRE note une reprise" "REFUSE"/.test(ta13) && /l'administrateur PRINCIPAL note une reprise" "PERMIS"/.test(ta13)
+    && /la liste ne rétrécit jamais\)" "REFUSE"/.test(ta13) && /un gérant crée une dépense « Remboursement client »" "REFUSE"/.test(ta13) && /l'administrateur PRINCIPAL remet l'article au stock \(reprise_client\)" "PERMIS"/.test(ta13));
 }
 
 titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");

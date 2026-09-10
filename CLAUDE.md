@@ -51,14 +51,14 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1080 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1088 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 102 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 120 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -127,7 +127,7 @@ lit mal est pire qu'un banc absent).
   l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
   rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
   `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
-  applique la même règle par déclencheur (`supabase/securite-3` à `-12`).
+  applique la même règle par déclencheur (`supabase/securite-3` à `-13`).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
@@ -359,6 +359,22 @@ lit mal est pire qu'un banc absent).
   capture). Blocage côté application seulement (règle de travail, pas de rôle).
 
 ### Retours / SAV
+- **↩ Reprise d'un article par le client** (10/09/2026, « un article vendu
+  mais sur le champ le client ne veut plus le prendre » → « Reprise pour
+  l'administrateur principal seul ») : bouton dans 💰 Ventes, principal
+  seul. **La vente reste telle qu'encaissée** (reçu, numéro, date, total,
+  caisse du jour intacts) ; la reprise est notée sur la vente (`reprises`,
+  liste qui ne rétrécit jamais) ; **CA et commission deviennent nets**
+  (`caVente` = `caVenteBrut` − `montantRepris`, `caLigneVente` idem,
+  Rentabilité nette en quantité et coût) ; l'article revient au **stock
+  normal** (ajustement `reprise_client`, jamais le SAV) ; l'argent :
+  vente payée → dépense **« Remboursement client »** du jour, au prix
+  payé net des remises au prorata, moyen au choix (jamais à crédit) ;
+  vente à crédit → **la dette diminue**, seul le versé au-delà est rendu.
+  Motif obligatoire ; refusée si chantier créé ou commission payée.
+  « Remboursement client » n'est pas une charge (`CATEGORIES_HORS_CHARGES`,
+  avec le versement). Règle pure `lib/reprises.js` ; serveur `securite-13`
+  (remplace ventes securite-8, ajustements securite-4, dépenses securite-12).
 - **Un échange n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**

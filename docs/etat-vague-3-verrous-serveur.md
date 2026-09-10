@@ -204,3 +204,15 @@ seulement, motif obligatoire, rejet inaltérable, montant forcé à 0, rejeté
 jamais validé ni encaissé, jamais créé rejeté). Banc : tester-argent (102 ;
 sans le script, 16 contrôles tombent — mesuré).
 - **État : collé par Timo le 10/09/2026** — vérification true | true | true (capture).
+
+## Ajout du 10/09/2026 — securite-13 (la reprise d'un article par le client)
+
+Timo : « un article vendu, mais sur le champ le client ne veut plus le
+prendre » → « Reprise pour l'administrateur principal seul ».
+`supabase/securite-13-reprise.sql` remplace `ventes_regles_roles`
+(securite-8 : `reprises` = principal seul, jamais en arrière),
+`ajustements_regles_roles` (securite-4 : `reprise_client` = principal) et
+`depenses_regles_versement` (securite-12 : créer « Remboursement client » =
+principal). Banc : tester-argent (120 ; sans le script, 10 contrôles
+tombent — mesuré).
+- **État : SQL à coller par Timo** (message du 10/09/2026, version 2.101.130).

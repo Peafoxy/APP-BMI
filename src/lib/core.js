@@ -152,11 +152,27 @@ export const rabaisImpute = (v) => Math.round(Number(v.rabais || 0) * partInclus
 // retiré — il était donc compté en trop, et chaque commission dépassait le dû
 // de « taux × rabais ». En le retirant ici, la formule de commission redevient
 // juste sans y toucher : elle rajoute une somme qui a réellement été ôtée.
-export const caVente = (v) => {
+// ---- LA REPRISE D'UN ARTICLE PAR LE CLIENT (Timo, 10/09/2026) ----
+// « Un article vendu, mais sur le champ le client ne veut plus le prendre. »
+// La vente reste telle qu'elle a été encaissée (le reçu, le total payé, la
+// caisse du jour ne bougent pas) ; la reprise est notée SUR la vente
+// (`reprises`), l'article revient au stock (ajustement) et l'argent rendu
+// est une sortie de caisse du jour. Le chiffre d'affaires et la commission,
+// eux, sont NETS des reprises : ci-dessous. Règle complète : lib/reprises.js.
+export const reprisesDe = (v) => (Array.isArray(v?.reprises) ? v.reprises : []);
+export const qteReprise = (v, produit_id) => reprisesDe(v).filter((r) => r.produit_id === produit_id).reduce((s, r) => s + Number(r.qte || 0), 0);
+export const montantRepris = (v, produit_id) => reprisesDe(v)
+  .filter((r) => produit_id === undefined || r.produit_id === produit_id)
+  .reduce((s, r) => s + Number(r.montant || 0), 0);
+
+// Le chiffre d'affaires TEL QUE VENDU (avant toute reprise) — sert à chiffrer
+// une reprise au prix effectivement payé par le client.
+export const caVenteBrut = (v) => {
   const { brutInclus, part } = partIncluse(v);
   if (part === 0) return 0;
   return Math.round(brutInclus - Number(v.remise || 0) * part - Number(v.rabais || 0) * part);
 };
+export const caVente = (v) => Math.max(0, caVenteBrut(v) - montantRepris(v));
 
 // ⚠ LE CHIFFRE D'AFFAIRES D'UNE SEULE LIGNE (audit du 29/08/2026).
 //
@@ -175,7 +191,8 @@ export const caVente = (v) => {
 // La réduction globale est répartie au PRORATA du poids de chaque ligne dans
 // le panier entier — exactement la répartition de partIncluse(), pour que la
 // somme des lignes redonne caVente(v) au franc près.
-export const caLigneVente = (v, ligne) => {
+// Tel que vendu, avant reprise (la reprise se chiffre à partir de là).
+export const caLigneVenteBrut = (v, ligne) => {
   if (ligne.hors_boutique) return 0;
   const net = Number(ligne.qte || 0) * Number(ligne.pu || 0) - Number(ligne.remise_ligne || 0);
   const brutTotal = lignesVente(v).reduce(
@@ -184,6 +201,8 @@ export const caLigneVente = (v, ligne) => {
   const reduction = Number(v.remise || 0) + Number(v.rabais || 0);
   return net - reduction * (net / brutTotal);
 };
+// Net des reprises de CET article (Timo, 10/09/2026) — Rentabilité.
+export const caLigneVente = (v, ligne) => Math.max(0, caLigneVenteBrut(v, ligne) - montantRepris(v, ligne.produit_id));
 
 // Hachage SHA-256 des mots de passe (plus de stockage en clair)
 // Ancien hachage (conservé UNIQUEMENT pour reconnaître et migrer les comptes

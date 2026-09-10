@@ -11,10 +11,11 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
 import { prospectAcquis } from "../lib/prospects";
+import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, remiseExigeAdmin, PLAFOND_REMISE_PCT, filtreEspaceAffichage } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { motifBlocageVente } from "../lib/cloture";
@@ -736,6 +737,45 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // frais éventuels (déplacement, main-d'œuvre, décote) par une DETTE du
   // montant saisi, jamais du prix de l'article.
   const [retour, setRetour] = useState(null); // { vente, produit_id, qte, motif, facture, montant, detail }
+  // ---- ↩ REPRISE D'UN ARTICLE PAR LE CLIENT (Timo, 10/09/2026 : « Reprise
+  // pour l'administrateur principal seul ») — règle pure lib/reprises.js.
+  const [reprise, setReprise] = useState(null); // { vente, produit_id, qte, motif, moyen }
+  const jeSuisPrincipal = estAdminPrincipal(db, profile);
+  const ouvrirReprise = (v) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Reprendre un article vendu")) return;
+    const lignes = lignesReprenables(v);
+    if (!lignes.length) { uAlert("Cette vente ne porte aucun article de stock à reprendre (ou tout a déjà été repris)."); return; }
+    setReprise({ vente: v, produit_id: lignes[0].produit_id, qte: "1", motif: "", moyen: moyenParDefaut(v) });
+  };
+  const apercuReprise = () => {
+    if (!reprise) return null;
+    const ligne = lignesReprenables(reprise.vente).find((l) => l.produit_id === reprise.produit_id);
+    const n = Math.floor(Number(reprise.qte || 0));
+    if (!ligne || !(n >= 1)) return null;
+    const montant = montantReprise(reprise.vente, ligne, Math.min(n, ligne.restant));
+    const dette = (db.dettes || []).find((d) => d.vente_id === reprise.vente.id);
+    if (!dette) return { montant, rembourse: montant, dette: null };
+    const nouveau = Math.max(0, Number(dette.montant || 0) - montant);
+    return { montant, rembourse: Math.max(0, Number(dette.paye || 0) - nouveau), dette, nouveau };
+  };
+  const confirmerReprise = async () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Reprendre un article vendu")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const r = construireReprise(db, reprise.vente, { produit_id: reprise.produit_id, qte: Number(reprise.qte), motif: reprise.motif, moyen: reprise.moyen }, profile, today());
+    if (r.refus) { uAlert(r.refus); return; }
+    const n = r.reprise.qte;
+    if (!(await uConfirm(
+      `Reprendre ${n} × « ${r.reprise.article} » (reçu ${numeroRecu(reprise.vente)}) ?\n\n` +
+      `• L'article revient au stock de ${reprise.vente.boutique}\n` +
+      `• Valeur reprise : ${fmt(r.montant)} (prix payé, remises comprises)\n` +
+      (r.dette
+        ? `• La dette du client passe de ${fmt(r.detteAvant.montant)} à ${fmt(r.dette.montant)}${r.rembourse > 0 ? `\n• ${fmt(r.rembourse)} versés en trop lui sont rendus (${reprise.moyen})` : ""}`
+        : `• ${fmt(r.rembourse)} rendus au client (${reprise.moyen}) — sortie de caisse du jour`) +
+      `\n• Le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits d'autant`
+    ))) return;
+    save(appliquerReprise(db, r), r.journal);
+    setReprise(null);
+  };
   const ouvrirRetour = (v) => {
     if (refuserSaufAdmin(profile, "Enregistrer un retour sous garantie")) return;
     const lignesStock = lignesVente(v).filter((l) => !l.hors_boutique && l.produit_id);
@@ -1077,7 +1117,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}{v.heure ? ` ${v.heure}` : ""}</td>
                 <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision.split("-").pop()}</span>}</td>
-                <td className="px-3 py-2 font-semibold">{resumeArticles(v)}</td>
+                <td className="px-3 py-2 font-semibold">{resumeArticles(v)}{(v.reprises || []).length > 0 && <span className="ml-1 text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {(v.reprises || []).reduce((s, r) => s + Number(r.qte || 0), 0)} repris</span>}</td>
                 <td className="px-3 py-2">{v.client || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{qteVente(v)}</td>
                 <td className="px-3 py-2 tabular-nums text-red-600">{v.remise ? `−${fmt(v.remise)}${v.remise_pct ? ` (${v.remise_pct} %)` : ""}` : "—"}</td>
@@ -1095,6 +1135,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   {profile.role === "admin" && (
                     <button onClick={() => ouvrirRetour(v)} className="text-xs font-bold text-amber-700 underline mr-2" title="Échange sous garantie : sortie de stock SANS vente ni facturation (ou frais partiels)">🔁 Retour</button>
                   )}
+                  {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
+                    <button onClick={() => ouvrirReprise(v)} className="text-xs font-bold text-orange-700 underline mr-2" title="Le client ne prend pas l'article : retour au stock, argent rendu ou dette réduite">↩ Reprise</button>
+                  )}
                   {profile.role === "admin" && (
                     <button onClick={() => supprimerVente(v)} className="text-xs text-red-600 underline">Suppr.</button>
                   )}
@@ -1106,6 +1149,50 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         )}
         </div>
       </div>
+
+      {reprise && (() => { const ap = apercuReprise(); return (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="font-bold text-slate-900">↩ Reprise d'un article par le client</div>
+            <div className="text-xs text-slate-500">
+              Reçu {numeroRecu(reprise.vente)} — {reprise.vente.client || "client de passage"} — {reprise.vente.boutique}.
+              L'article <b>revient au stock</b> ; le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits.
+            </div>
+            <Field label="Article repris">
+              <select className={inputCls} value={reprise.produit_id} onChange={(e) => setReprise({ ...reprise, produit_id: e.target.value, qte: "1" })}>
+                {lignesReprenables(reprise.vente).map((l) => (
+                  <option key={l.produit_id} value={l.produit_id}>{l.article} (reste {l.restant} sur {l.qte})</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Quantité reprise">
+              <input type="number" min="1" className={inputCls} value={reprise.qte} onChange={(e) => setReprise({ ...reprise, qte: e.target.value })} />
+            </Field>
+            <Field label="Motif (obligatoire)">
+              <input className={inputCls} placeholder="Ex : le client a changé d'avis sur place" value={reprise.motif} onChange={(e) => setReprise({ ...reprise, motif: e.target.value })} />
+            </Field>
+            {ap && ap.rembourse > 0 && (
+              <Field label="L'argent est rendu en">
+                <select className={inputCls} value={reprise.moyen} onChange={(e) => setReprise({ ...reprise, moyen: e.target.value })}>
+                  {MOYENS_REMBOURSEMENT.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </Field>
+            )}
+            {ap && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-slate-800">
+                <div>Valeur reprise (prix payé, remises comprises) : <b className="tabular-nums">{fmt(ap.montant)}</b></div>
+                {ap.dette
+                  ? <div>Dette du client : {fmt(ap.dette.montant)} → <b className="tabular-nums">{fmt(ap.nouveau)}</b>{ap.rembourse > 0 ? <span> · <b className="text-red-700">{fmt(ap.rembourse)}</b> versés en trop à rendre</span> : null}</div>
+                  : <div>À rendre au client : <b className="tabular-nums text-red-700">{fmt(ap.rembourse)}</b> — sortie de caisse du jour</div>}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setReprise(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
+              <button onClick={confirmerReprise} className={btnDark}>Enregistrer la reprise</button>
+            </div>
+          </div>
+        </div>
+      ); })()}
 
       {retour && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
