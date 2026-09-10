@@ -51,14 +51,14 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1067 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1075 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 11  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 79  : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 102 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -127,7 +127,7 @@ lit mal est pire qu'un banc absent).
   l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
   rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
   `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
-  applique la même règle par déclencheur (`supabase/securite-3` à `-11`).
+  applique la même règle par déclencheur (`supabase/securite-3` à `-12`).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
@@ -316,6 +316,16 @@ lit mal est pire qu'un banc absent).
   libre, jamais imposé à la clôture. Un compte de formation n'a jamais
   « Chez le comptable ». Serveur : `securite-10` (la validation DG = admin
   principal seul, upsert relu).
+- **✖ Rejet d'un versement** (10/09/2026, « l'argent doit retourner comme
+  jamais versé ») : **qui valide rejette** (DG pour Chez le DG / BANQUE,
+  comptable pour Chez le comptable), **en attente seulement**, motif
+  obligatoire, rejet inaltérable, rejeté jamais validé. « Jamais versé » =
+  la sortie ET l'entrée miroir passent à **0 F** (montant d'origine gardé
+  dans `versement.montant`) : tout ce qui additionne les dépenses l'ignore
+  sans exception à écrire. Le gérant reçoit un message. Règle pure
+  `critiqueRejet` / `rejeterVersement` (lib/versements.js) ; serveur
+  `securite-12` (montant forcé à 0 ; le comptable n'obtient que ce geste en
+  plus de son pointage, porte `rejetVersement` de `save`).
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

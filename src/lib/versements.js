@@ -78,7 +78,8 @@ export function construireVersement(profile, { boutique, montant, destination, b
   };
   const complement = [libelleEcart(versement), versement.note].filter(Boolean).join(" : ");
   const description = `Versement de fonds → ${libelleDestination(versement)}${complement ? ` (${complement})` : ""}`;
-  const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: "Espèces", versement });
+  // `par_id` : pour retrouver l'auteur si le versement est rejeté (message).
+  const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: "Espèces", versement, par_id: profile.id ?? null });
   const entree = destination === DEST_COMPTABLE
     // Chez le comptable : « Versement du <date> reçu de … », l'écart et la
     // justification suivent — jamais un intervalle (Timo, 09/09/2026).
@@ -92,7 +93,7 @@ export const estVersement = (dep) => !!dep?.versement && dep.categorie === CATEG
 // Le versement est-il validé ? Chez le comptable : quand l'entrée miroir est
 // pointée (decaisse_le). DG / BANQUE : quand le DG l'a validé sur la sortie.
 export function validationVersement(db, dep) {
-  if (!estVersement(dep)) return null;
+  if (!estVersement(dep) || estRejete(dep)) return null;
   if (dep.versement.destination === DEST_COMPTABLE) {
     const entree = (db.depenses || []).find((x) => x.versement_id === dep.versement.id);
     return entree?.decaisse_le ? { le: entree.decaisse_le, par: entree.decaisse_par } : null;
@@ -127,13 +128,60 @@ export function fondsAVerser(db, boutique, totalVente) {
 // Les versements que le DG (administrateur principal) doit valider : DG et
 // BANQUE, sans validation, dans les boutiques données.
 export const versementsAValiderParDG = (db, nomsBoutiques) => (db.depenses || [])
-  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && !d.versement_valide_le && nomsBoutiques.includes(d.boutique))
+  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && !d.versement_valide_le && !estRejete(d) && nomsBoutiques.includes(d.boutique))
   .sort((a, b) => `${a.date} ${a.heure || ""}`.localeCompare(`${b.date} ${b.heure || ""}`));
 
-// Les versements DG / BANQUE déjà validés, du plus récent au plus ancien.
+// Les versements DG / BANQUE déjà traités (validés OU rejetés), du plus
+// récent au plus ancien.
 export const versementsValidesParDG = (db, nomsBoutiques) => (db.depenses || [])
-  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && !!d.versement_valide_le && nomsBoutiques.includes(d.boutique))
-  .sort((a, b) => `${b.versement_valide_le} ${b.date}`.localeCompare(`${a.versement_valide_le} ${a.date}`));
+  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && (!!d.versement_valide_le || estRejete(d)) && nomsBoutiques.includes(d.boutique))
+  .sort((a, b) => `${b.versement_valide_le || b.versement_rejete_le} ${b.date}`.localeCompare(`${a.versement_valide_le || a.versement_rejete_le} ${a.date}`));
+
+// ============ LE REJET D'UN VERSEMENT (Timo, 10/09/2026) ============
+// « L'admin ou le comptable doit avoir la possibilité de rejeter une demande
+// de versement » — « l'argent doit retourner comme jamais versé ».
+// Qui rejette = qui valide : le DG (administrateur principal) pour Chez le
+// DG et BANQUE, le comptable pour Chez le comptable. Seulement un versement
+// EN ATTENTE : validé, il ne se rejette plus ; rejeté, il ne se valide plus,
+// et le rejet ne s'annule pas. Un motif est obligatoire.
+// « Jamais versé » : la sortie de la boutique ET l'entrée miroir chez le
+// comptable passent à 0 F — le montant d'origine reste dans `versement`.
+// Ainsi TOUT ce qui additionne les dépenses (fonds à verser, clôture,
+// tableau de bord, écran Dépenses) l'ignore sans qu'on ait à le lui dire.
+// Serveur : securite-12 (mêmes règles, et le montant forcé à 0).
+export const estRejete = (dep) => !!dep?.versement_rejete_le;
+export const rejetVersement = (dep) => (estRejete(dep) ? { le: dep.versement_rejete_le, par: dep.versement_rejete_par, motif: dep.versement_rejet_motif || "" } : null);
+
+// Le rôle qui peut rejeter CE versement : "principal" (le DG) ou "comptable".
+export const juryDuVersement = (dep) => (dep?.versement?.destination === DEST_COMPTABLE ? "comptable" : "principal");
+
+// "" si le rejet est possible, sinon le motif du refus.
+export function critiqueRejet(db, dep, motif, { estPrincipal, role }) {
+  if (!estVersement(dep)) return "Cette ligne n'est pas un versement de fonds.";
+  if (estRejete(dep)) return "Ce versement est déjà rejeté.";
+  if (validationVersement(db, dep)) return "Ce versement est déjà validé : il ne se rejette plus.";
+  if (juryDuVersement(dep) === "comptable" ? role !== "comptable" : !estPrincipal) {
+    return juryDuVersement(dep) === "comptable" ? "Seul le comptable peut rejeter un versement « Chez le comptable »." : "Seul le DG (administrateur principal) peut rejeter un versement Chez le DG ou BANQUE.";
+  }
+  if (!String(motif || "").trim()) return "Indiquez pourquoi ce versement est rejeté.";
+  return "";
+}
+
+// Les écritures du rejet : la liste des dépenses corrigée, et le message au
+// gérant qui avait versé. Ne vérifie pas le droit : critiqueRejet d'abord.
+export function rejeterVersement(db, profile, dep, motif, aujourdhui) {
+  const m = String(motif || "").trim();
+  const marque = { montant: 0, versement_rejete_le: aujourdhui, versement_rejete_par: profile.nom, versement_rejet_motif: m };
+  const depenses = (db.depenses || []).map((x) => {
+    if (x.id === dep.id) return { ...x, ...marque, description: `✖ REJETÉ (${m}) — ${x.description || ""}`.trim() };
+    if (x.versement_id && x.versement_id === dep.versement.id) return { ...x, ...marque, description: `✖ REJETÉ (${m}) — ${x.description || ""}`.trim() };
+    return x;
+  });
+  const auteur = (db.users || []).find((u) => (dep.par_id && u.id === dep.par_id) || (!dep.par_id && u.nom === dep.par));
+  const texte = `✖ ${libelleVersementDu(dep)} REJETÉ : ${fmt(dep.versement.montant)} de ${dep.boutique} → ${libelleDestination(dep.versement)}, rejeté par ${profile.nom}. Motif : ${m}. L'argent est considéré comme toujours en caisse à ${dep.boutique} : refaites le versement.`;
+  const messages = auteur ? [nouveauMessage(profile, { a_id: auteur.id, texte })] : [];
+  return { depenses, messages, journal: `Versement de fonds REJETÉ par ${profile.nom} : ${fmt(dep.versement.montant)} de ${dep.boutique} → ${libelleDestination(dep.versement)} — ${m}` };
+}
 
 // Qui prévenir : le comptable pour « Chez le comptable », le DG (admin
 // principal) pour les deux autres. Même fabrique de message que partout.

@@ -4281,8 +4281,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     execSync("grep -rln 'lu_par: \\[profile.id\\]\\|de_nom: profile.nom' src || true").toString().trim() === "");
   test("★ plus aucune fiche de dépense automatique recopiée : « par: profile.nom, auto: » n'existe plus dans les écrans",
     execSync("grep -rln 'par: profile.nom, auto:' src || true").toString().trim() === "");
-  test("★ nouveauMessage sert aux 15 fabrications, nouvelleDepense aux 12 dépenses automatiques (versements de fonds compris, 09/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "15"
+  test("★ nouveauMessage sert aux 16 fabrications (rejet d'un versement compris, 10/09/2026), nouvelleDepense aux 12 dépenses automatiques (versements de fonds compris, 09/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "12");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
@@ -4714,6 +4714,67 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && /if \(refuserSaufAdminPrincipal\(db, profile, "Valider un versement de fonds \(DG\)"\)\) return;/.test(cs)
     && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
+}
+
+titre("✖ Rejet d'un versement de fonds (Timo, 10/09/2026 : « l'argent doit retourner comme jamais versé »)");
+{
+  const sortieVr = join("node_modules", ".cache", `bmi-rejet-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/versements.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVr, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vr = await import(pathToFileURL(sortieVr).href);
+  unlinkSync(sortieVr);
+  const ali = { id: "g1", nom: "ALI", role: "gerant", boutique: "APESSITO" };
+  const timo = { id: "t", nom: "TIMO", role: "admin", admin_principal: true };
+  const marie = { id: "c", nom: "MARIE", role: "comptable" };
+  const dg = Vr.construireVersement(ali, { boutique: "APESSITO", montant: 50000, destination: "Chez le DG" });
+  const cpt = Vr.construireVersement(ali, { boutique: "APESSITO", montant: 70000, destination: "Chez le comptable" });
+  const bq = Vr.construireVersement(ali, { boutique: "APESSITO", montant: 90000, destination: "BANQUE", banque: "Ecobank", bordereau: "B-1" });
+  const dbr = { users: [ali, timo, marie], ventes: [], dettes: [], depenses: [dg.sortie, cpt.sortie, cpt.entree, { ...bq.sortie, versement_valide_le: "2026-09-09", versement_valide_par: "TIMO" }, { boutique: "APESSITO", paiement: "Espèces", montant: 1000, categorie: "Transport", date: "2026-09-09" }] };
+  test("★ la sortie porte l'auteur (par_id) pour le prévenir ; qui valide rejette : DG et BANQUE → le principal, Chez le comptable → le comptable",
+    dg.sortie.par_id === "g1" && Vr.juryDuVersement(dg.sortie) === "principal" && Vr.juryDuVersement(bq.sortie) === "principal" && Vr.juryDuVersement(cpt.sortie) === "comptable");
+  test("★ critiqueRejet : refuse un vendeur / gérant / admin secondaire / comptable sur un versement DG, le DG sur un versement Chez le comptable, un versement validé, un motif vide ; accepte le DG (DG, BANQUE) et le comptable (chez lui)",
+    /Seul le DG/.test(Vr.critiqueRejet(dbr, dg.sortie, "x", { estPrincipal: false, role: "gerant" })) && /Seul le DG/.test(Vr.critiqueRejet(dbr, dg.sortie, "x", { estPrincipal: false, role: "comptable" }))
+    && /Seul le comptable/.test(Vr.critiqueRejet(dbr, cpt.sortie, "x", { estPrincipal: true, role: "admin" })) && /déjà validé/.test(Vr.critiqueRejet(dbr, dbr.depenses[3], "x", { estPrincipal: true, role: "admin" }))
+    && /pourquoi/.test(Vr.critiqueRejet(dbr, dg.sortie, "  ", { estPrincipal: true, role: "admin" })) && Vr.critiqueRejet(dbr, dg.sortie, "jamais reçu", { estPrincipal: true, role: "admin" }) === ""
+    && Vr.critiqueRejet(dbr, cpt.sortie, "jamais reçu", { estPrincipal: false, role: "comptable" }) === "" && /pas un versement/.test(Vr.critiqueRejet(dbr, dbr.depenses[4], "x", { estPrincipal: true, role: "admin" })));
+  const tv = (v) => Number(v.total || 0);
+  const avant = Vr.fondsAVerser(dbr, "APESSITO", tv).montant;
+  const r = Vr.rejeterVersement(dbr, timo, dg.sortie, " jamais reçu ", "2026-09-10");
+  const db2 = { ...dbr, depenses: r.depenses };
+  const rej = db2.depenses.find((d) => d.id === dg.sortie.id);
+  test("★ rejeterVersement : montant 0 (« jamais versé » — les fonds à verser remontent d'autant), les trois champs du rejet, motif nettoyé, description marquée, le montant d'origine gardé dans versement.montant",
+    rej.montant === 0 && rej.versement_rejete_le === "2026-09-10" && rej.versement_rejete_par === "TIMO" && rej.versement_rejet_motif === "jamais reçu" && /^✖ REJETÉ \(jamais reçu\) — Versement de fonds → Chez le DG$/.test(rej.description)
+    && rej.versement.montant === 50000 && Vr.fondsAVerser(db2, "APESSITO", tv).montant === avant + 50000 && Vr.estRejete(rej) && Vr.rejetVersement(rej).motif === "jamais reçu" && Vr.validationVersement(db2, rej) === null);
+  test("★ …un rejeté ne se valide plus, sort de la file du DG et paraît dans les traités ; le gérant reçoit UN message (par_id) qui dit rejeté, le motif, et « toujours en caisse »",
+    Vr.versementsAValiderParDG(db2, ["APESSITO"]).map((d) => d.id).join("|") === "" && Vr.versementsValidesParDG(db2, ["APESSITO"]).map((d) => d.id).includes(dg.sortie.id)
+    && r.messages.length === 1 && r.messages[0].a_id === "g1" && /REJETÉ/.test(r.messages[0].texte) && /Motif : jamais reçu/.test(r.messages[0].texte) && /toujours en caisse à APESSITO/.test(r.messages[0].texte) && /REJETÉ par TIMO/.test(r.journal));
+  const rc = Vr.rejeterVersement(dbr, marie, cpt.sortie, "montant jamais reçu", "2026-09-10");
+  const miroir = rc.depenses.find((d) => d.versement_id === cpt.versement.id);
+  const autres = rc.depenses.filter((d) => d.id !== cpt.sortie.id && d.versement_id !== cpt.versement.id);
+  test("★ Chez le comptable : la sortie ET l'entrée miroir passent à 0 et portent le rejet ; les autres lignes ne bougent pas ; un versement sans par_id retrouve son auteur par le nom",
+    miroir.montant === 0 && miroir.versement_rejete_le === "2026-09-10" && /^✖ REJETÉ \(montant jamais reçu\) — Versement du/.test(miroir.description) && rc.depenses.find((d) => d.id === cpt.sortie.id).montant === 0
+    && autres.every((d, i) => d === dbr.depenses.filter((x) => x.id !== cpt.sortie.id && x.versement_id !== cpt.versement.id)[i])
+    && Vr.rejeterVersement(dbr, timo, { ...dg.sortie, par_id: undefined }, "x", "2026-09-10").messages[0].a_id === "g1");
+  const csR = readFileSync("src/screens/Caisse.jsx", "utf8");
+  const dpR = readFileSync("src/screens/Depenses.jsx", "utf8");
+  const appR = readFileSync("src/App.jsx", "utf8");
+  test("★ écran Caisse : « ✖ Rejeter » à côté de « ✅ Valider » chez le DG, motif demandé (uPrompt), critiqueRejet puis rejeterVersement, le principal revérifié ; l'historique montre le montant d'origine barré et « rejeté le … par … — motif »",
+    /rejeterDG\(d\)\}[^>]*>✖ Rejeter<\/button>/.test(csR) && /refuserSaufAdminPrincipal\(db, profile, "Rejeter un versement de fonds \(DG\)"\)/.test(csR) && /const motif = await uPrompt\(/.test(csR)
+    && /critiqueRejet\(db, d, motif, \{ estPrincipal: true, role: profile\.role \}\)/.test(csR) && /rejeterVersement\(db, profile, d, motif, today\(\)\)/.test(csR)
+    && /line-through/.test(csR) && /\{fmt\(d\.versement\.montant\)\}/.test(csR) && /✖ rejeté le \{dFR\(rj\.le\)\} par \{rj\.par\} — \{rj\.motif\}/.test(csR) && /Derniers versements traités/.test(csR));
+  test("★ Chez le comptable : « ✖ Rejeter » sur les entrées miroir (versement_id) en attente seulement, motif demandé, la sortie d'origine retrouvée, save par la porte rejetVersement ; un miroir rejeté quitte la file « à remettre »",
+    /\{x\.versement_id && <button onClick=\{\(\) => rejeterVersementComptable\(x\)\}/.test(dpR) && /critiqueRejet\(db, sortie, motif, \{ estPrincipal: false, role: profile\.role \}\)/.test(dpR)
+    && /save\(\{ \.\.\.db, depenses: r\.depenses, messages: \[\.\.\.r\.messages, \.\.\.\(db\.messages \|\| \[\]\)\] \}, r\.journal, \{ rejetVersement: true \}\);/.test(dpR)
+    && /const aRemettre = liste\.filter\(\(x\) => !x\.decaisse_le && !estRejete\(x\)\);/.test(dpR)
+    && /const pointageAutorise = \(options\.pointageComptable === true \|\| options\.rejetVersement === true\) && profile\?\.role === "comptable";/.test(appR));
+  const s12 = readFileSync("supabase/securite-12-rejet-versement.sql", "utf8");
+  const ta12 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ securite-12 : qui valide rejette (principal / comptable), en attente seulement, motif obligatoire, rejet inaltérable, montant FORCÉ à 0, rejeté jamais validé ni encaissé, comptable limité aux champs du rejet ; le banc tester-argent le pose et rejoue 23 cas",
+    /if destination = 'Chez le comptable' then\s+if r <> 'comptable' then perform public\.refus_role/.test(s12) && /if not public\.est_admin_principal\(\) then perform public\.refus_role\('Rejeter un versement \(Chez le DG, BANQUE\)'/.test(s12)
+    && /Rejeter un versement déjà validé/.test(s12) && /Rejeter un versement déjà encaissé/.test(s12) && /Rejeter un versement sans motif/.test(s12) && /Annuler ou modifier le rejet d''un versement/.test(s12)
+    && /new\.data := jsonb_set\(new\.data, '\{montant\}', '0'::jsonb, true\);/.test(s12) && /Valider un versement rejeté/.test(s12) && /Encaisser un versement rejeté/.test(s12) && /Créer un versement déjà rejeté/.test(s12)
+    && /- 'versement_rejete_le' - 'versement_rejete_par' - 'versement_rejet_motif' - 'montant' - 'description'/.test(s12) && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s12)
+    && /-f supabase\/securite-12-rejet-versement\.sql/.test(ta12) && (ta12.match(/^essai "★ [^"]*rejet[^"]*" "(REFUSE|PERMIS)"/gmi) || []).length >= 19
+    && /le serveur FORCE le montant à 0[^"]*" "PERMIS"/.test(ta12) && /le comptable rejette un versement « Chez le comptable » en attente[^"]*" "PERMIS"/.test(ta12) && /le DG rejette un versement « Chez le comptable »[^"]*" "REFUSE"/.test(ta12));
 }
 
 titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");

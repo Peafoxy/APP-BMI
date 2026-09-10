@@ -191,3 +191,16 @@ gérant de faire le versement », puis « comment la clôture de la caisse peut
 remplace deux fonctions : créer un « Versement de fonds » → gérant / admin ;
 clôturer la caisse → vendeur / gérant / admin. Banc : tester-argent (79).
 - **État : collé par Timo le 10/09/2026** — vérification true | true | true (capture).
+
+## Ajout du 10/09/2026 — securite-12 (le rejet d'un versement de fonds)
+
+Timo : « l'admin ou le comptable doit avoir la possibilité de rejeter une
+demande de versement », puis « je valide, l'argent doit retourner comme
+jamais versé ». `supabase/securite-12-rejet-versement.sql` remplace
+`depenses_regles_roles` (securite-8 : le comptable peut écrire les champs du
+rejet + montant + description quand la ligne devient rejetée) et
+`depenses_regles_versement` (securite-11 : qui valide rejette, en attente
+seulement, motif obligatoire, rejet inaltérable, montant forcé à 0, rejeté
+jamais validé ni encaissé, jamais créé rejeté). Banc : tester-argent (102 ;
+sans le script, 16 contrôles tombent — mesuré).
+- **État : SQL à coller par Timo** (message du 10/09/2026, version 2.101.122).

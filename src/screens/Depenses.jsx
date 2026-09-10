@@ -6,8 +6,9 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
+import { critiqueRejet, rejeterVersement, estRejete, estVersement } from "../lib/versements";
 import { CATEGORIES, PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
@@ -123,8 +124,24 @@ export function ChezComptable({ db, save, profile }) {
   // mélanger entre le déjà-payé et le pas-encore-payé. C'est la SEULE
   // écriture autorisée à son compte (porte pointageComptable de save).
   const estComptable = profile.role === "comptable";
-  const aRemettre = liste.filter((x) => !x.decaisse_le);
+  // Un versement rejeté (Timo, 10/09/2026) ne se pointe plus : il sort de la file.
+  const aRemettre = liste.filter((x) => !x.decaisse_le && !estRejete(x));
   const dejaRemis = liste.filter((x) => x.decaisse_le);
+  // Timo (10/09/2026) : le comptable peut REJETER un versement « Chez le
+  // comptable » en attente, avec un motif ; l'argent redevient « jamais
+  // versé » (la sortie de la boutique et l'entrée miroir passent à 0 F).
+  // Règle et écritures dans lib/versements.js ; serveur : securite-12.
+  const sortieDe = (entree) => (db.depenses || []).find((d) => estVersement(d) && d.versement.id === entree.versement_id);
+  const rejeterVersementComptable = async (entree) => {
+    const sortie = sortieDe(entree);
+    if (!sortie) { uAlert("Le versement d'origine est introuvable."); return; }
+    const motif = await uPrompt(`Rejeter le versement de ${fmt(Math.abs(entree.montant))} reçu de ${sortie.boutique} (par ${sortie.par}) ?\n\nIndiquez le motif — obligatoire. L'argent sera considéré comme toujours en caisse à ${sortie.boutique}, et ${sortie.par} en sera prévenu.`, "");
+    if (motif === null) return;
+    const refus = critiqueRejet(db, sortie, motif, { estPrincipal: false, role: profile.role });
+    if (refus) { uAlert(refus); return; }
+    const r = rejeterVersement(db, profile, sortie, motif, today());
+    save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal, { rejetVersement: true });
+  };
   const marquerRemis = async (dep) => {
     if (!await uConfirm(`Marquer ${dep.montant < 0 ? "l'encaissement" : "la remise"} comme faite ?\n\n${dep.description || dep.categorie} — ${fmt(Math.abs(dep.montant))}\n\nCela confirme que l'argent a réellement ${dep.montant < 0 ? "été encaissé" : "été remis au bénéficiaire"}.`)) return;
     save({ ...db, depenses: db.depenses.map((x) => (x.id === dep.id ? { ...x, decaisse_le: today(), decaisse_par: profile.nom } : x)) },
@@ -172,7 +189,12 @@ export function ChezComptable({ db, save, profile }) {
                 <b>{fmt(Math.abs(x.montant))}</b> — {x.description || x.categorie}
                 <div className="text-xs text-slate-500">{dFR(x.date)} · enregistré par {x.par}{x.montant < 0 ? " · 💵 entrée de caisse" : ""}</div>
               </div>
-              {estComptable && <button onClick={() => marquerRemis(x)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ {x.montant < 0 ? "Encaissé" : "Remis"}</button>}
+              {estComptable && (
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => marquerRemis(x)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ {x.montant < 0 ? "Encaissé" : "Remis"}</button>
+                  {x.versement_id && <button onClick={() => rejeterVersementComptable(x)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✖ Rejeter</button>}
+                </div>
+              )}
             </div>
           ))}
         </div>

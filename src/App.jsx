@@ -612,7 +612,10 @@ export default function App() {
     // (options.pointageComptable, posé uniquement par le panneau « Chez le
     // comptable ») — il marque « remis / pas encore remis » les sorties de SA
     // caisse, sans autre pouvoir d'écriture.
-    const pointageAutorise = options.pointageComptable === true && profile?.role === "comptable";
+    // …et, depuis le 10/09/2026, le REJET d'un versement « Chez le comptable »
+    // (options.rejetVersement, posé par le même panneau) — le serveur
+    // (securite-12) revérifie que c'est bien un versement chez lui, en attente.
+    const pointageAutorise = (options.pointageComptable === true || options.rejetVersement === true) && profile?.role === "comptable";
     if (profile && !peutEcrire(dbRef.current, profile) && !pointageAutorise) {
       if (action) uAlert("🔒 Votre compte est en lecture seule : vous pouvez consulter et exporter, mais pas modifier ni supprimer.");
       return;

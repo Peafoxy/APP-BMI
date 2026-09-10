@@ -5,11 +5,11 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -90,6 +90,18 @@ export function Caisse({ db, save, profile }) {
     save({ ...db, depenses: db.depenses.map((x) => (x.id === d.id ? { ...x, versement_valide_le: today(), versement_valide_par: profile.nom } : x)) },
       `Versement de fonds VALIDÉ par le DG : ${fmt(d.montant)} de ${d.boutique} → ${libelleDestination(d.versement)}`);
   };
+  // Timo (10/09/2026) : le DG peut REJETER un versement en attente, avec un
+  // motif ; « l'argent doit retourner comme jamais versé » (lib/versements.js).
+  const rejeterDG = async (d) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Rejeter un versement de fonds (DG)")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const motif = await uPrompt(`Rejeter ${libelleVersementDu(d).toLowerCase()} de ${fmt(d.montant)} (${d.boutique} → ${libelleDestination(d.versement)}) ?\n\nIndiquez le motif — obligatoire. L'argent sera considéré comme toujours en caisse à ${d.boutique}, et ${d.par} en sera prévenu.`, "");
+    if (motif === null) return;
+    const refus = critiqueRejet(db, d, motif, { estPrincipal: true, role: profile.role });
+    if (refus) { uAlert(refus); return; }
+    const r = rejeterVersement(db, profile, d, motif, today());
+    save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+  };
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -110,18 +122,23 @@ export function Caisse({ db, save, profile }) {
                 <div><b>{libelleVersementDu(d)}</b> — {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}
                   <div className="text-xs text-slate-500">versé par {d.par}{libelleEcart(d.versement) ? <span className="text-red-600"> · {libelleEcart(d.versement)}</span> : null}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
                 </div>
-                <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
+                  <button onClick={() => rejeterDG(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✖ Rejeter</button>
+                </div>
               </div>
             ))}
           </div>
           {validesDG.length > 0 && (
             <div className="mt-3">
-              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Derniers versements validés</div>
+              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Derniers versements traités</div>
               <div className="max-h-[200px] overflow-y-auto space-y-1">
                 {validesDG.slice(0, 10).map((d) => (
                   <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-                    {libelleVersementDu(d)} — {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}{libelleEcart(d.versement) ? ` · ${libelleEcart(d.versement)}` : ""}
-                    <span className="ml-2 text-xs text-green-700">✅ validé le {dFR(d.versement_valide_le)} par {d.versement_valide_par}</span>
+                    {libelleVersementDu(d)} — {fmt(d.versement.montant)} — {d.boutique} → {libelleDestination(d.versement)}{libelleEcart(d.versement) ? ` · ${libelleEcart(d.versement)}` : ""}
+                    {rejetVersement(d)
+                      ? <span className="ml-2 text-xs text-red-700">✖ rejeté le {dFR(d.versement_rejete_le)} par {d.versement_rejete_par} — {d.versement_rejet_motif}</span>
+                      : <span className="ml-2 text-xs text-green-700">✅ validé le {dFR(d.versement_valide_le)} par {d.versement_valide_par}</span>}
                   </div>
                 ))}
               </div>
@@ -162,20 +179,20 @@ export function Caisse({ db, save, profile }) {
           </div>
         )}
         {!ROLES_VERSEMENT.includes(profile.role) && <div className="text-sm text-slate-500">Le versement des fonds est fait par le gérant.</div>}
-        <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente.</div>
+        <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente. Un versement rejeté compte comme jamais versé : l'argent reste dans la caisse de la boutique.</div>
         {mesVersements.length > 0 && (
           <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-hidden">
             <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Versements de {boutique}</div>
             <table className="w-full text-sm">
               <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Date</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Destination</th><th className="text-left px-3 py-1.5">Par</th><th className="text-left px-3 py-1.5">Validation</th></tr></thead>
               <tbody>
-                {mesVersements.slice(0, 30).map((d) => { const v = validationVersement(db, d); return (
-                  <tr key={d.id} className="border-t border-slate-100">
+                {mesVersements.slice(0, 30).map((d) => { const v = validationVersement(db, d); const rj = rejetVersement(d); return (
+                  <tr key={d.id} className={`border-t border-slate-100${rj ? " bg-red-50 text-red-800" : ""}`}>
                     <td className="px-3 py-1.5">{dFR(d.date)}</td>
-                    <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(d.montant)}</td>
+                    <td className={`px-3 py-1.5 tabular-nums font-bold${rj ? " line-through" : ""}`}>{fmt(d.versement.montant)}</td>
                     <td className="px-3 py-1.5">{libelleDestination(d.versement)}{libelleEcart(d.versement) ? <span className="text-red-600"> · {libelleEcart(d.versement)}</span> : null}{d.versement.note ? <span className="text-slate-400"> · {d.versement.note}</span> : null}</td>
                     <td className="px-3 py-1.5">{d.par}</td>
-                    <td className="px-3 py-1.5">{v ? <span className="text-xs font-bold text-green-700">✅ validé le {dFR(v.le)} par {v.par}</span> : <span className="text-xs font-bold text-amber-700">⏳ en attente</span>}</td>
+                    <td className="px-3 py-1.5">{rj ? <span className="text-xs font-bold text-red-700">✖ rejeté le {dFR(rj.le)} par {rj.par} — {rj.motif}</span> : v ? <span className="text-xs font-bold text-green-700">✅ validé le {dFR(v.le)} par {v.par}</span> : <span className="text-xs font-bold text-amber-700">⏳ en attente</span>}</td>
                   </tr>
                 ); })}
               </tbody>

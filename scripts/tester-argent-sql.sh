@@ -40,6 +40,8 @@ psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/secur
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-10-versements.sql >/dev/null 2>&1 || echo "   ❌ securite-10 refusé par la base"
 echo "▸ Le versement au gérant : supabase/securite-11-versement-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-11-versement-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-11 refusé par la base"
+echo "▸ Le rejet d'un versement : supabase/securite-12-rejet-versement.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-12-rejet-versement.sql >/dev/null 2>&1 || echo "   ❌ securite-12 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -194,6 +196,45 @@ essai "★ un administrateur SECONDAIRE valide un versement" "REFUSE" "$ADMIN2" 
 essai "★ le DG (administrateur principal) valide un versement" "PERMIS" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{versement_valide_le}','\"2026-09-09\"')" zx1)"
 essai "★ …par upsert aussi" "PERMIS" "$ADMIN" "$(UPS depenses zx1 '{"id":"zx1","boutique":"APESSITO","montant":15000,"versement_valide_le":"2026-09-09","versement_valide_par":"TIMO"}')"
 essai "le comptable pointe « Encaissé » l'entrée miroir (son geste habituel)" "PERMIS" "$COMPTABLE" "$(MAJ depenses "jsonb_set(data,'{decaisse_le}','\"2026-09-09\"')" zx1)"
+
+echo
+echo "── LE REJET D'UN VERSEMENT (securite-12, Timo 10/09/2026) : qui valide rejette, en attente seulement, l'argent « jamais versé » ──"
+$P -c "insert into public.depenses (id, data) values
+  ('zr1',  '{\"id\":\"zr1\",\"boutique\":\"APESSITO\",\"categorie\":\"Versement de fonds\",\"montant\":50000,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"description\":\"Versement de fonds → Chez le DG\",\"versement\":{\"id\":\"vr1\",\"destination\":\"Chez le DG\",\"montant\":50000}}'),
+  ('zr2',  '{\"id\":\"zr2\",\"boutique\":\"APESSITO\",\"categorie\":\"Versement de fonds\",\"montant\":90000,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"versement\":{\"id\":\"vr2\",\"destination\":\"BANQUE\",\"banque\":\"Ecobank\",\"bordereau\":\"B-1\",\"montant\":90000},\"versement_valide_le\":\"2026-09-09\",\"versement_valide_par\":\"TIMO\"}'),
+  ('zr3',  '{\"id\":\"zr3\",\"boutique\":\"APESSITO\",\"categorie\":\"Versement de fonds\",\"montant\":70000,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"description\":\"Versement de fonds → Chez le comptable\",\"versement\":{\"id\":\"vr3\",\"destination\":\"Chez le comptable\",\"montant\":70000}}'),
+  ('zr3m', '{\"id\":\"zr3m\",\"boutique\":\"Chez le comptable\",\"categorie\":\"Versement de fonds\",\"montant\":-70000,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"description\":\"Versement du 10/09/2026 reçu de APESSITO\",\"versement_id\":\"vr3\"}'),
+  ('zr4',  '{\"id\":\"zr4\",\"boutique\":\"APESSITO\",\"categorie\":\"Versement de fonds\",\"montant\":0,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"versement\":{\"id\":\"vr4\",\"destination\":\"Chez le DG\",\"montant\":30000},\"versement_rejete_le\":\"2026-09-09\",\"versement_rejete_par\":\"TIMO\",\"versement_rejet_motif\":\"jamais reçu\"}'),
+  ('zr4m', '{\"id\":\"zr4m\",\"boutique\":\"Chez le comptable\",\"categorie\":\"Versement de fonds\",\"montant\":0,\"paiement\":\"Espèces\",\"versement_id\":\"vr6\",\"versement_rejete_le\":\"2026-09-09\",\"versement_rejete_par\":\"MARIE\",\"versement_rejet_motif\":\"jamais reçu\"}'),
+  ('zr5',  '{\"id\":\"zr5\",\"boutique\":\"APESSITO\",\"categorie\":\"Versement de fonds\",\"montant\":20000,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"versement\":{\"id\":\"vr5\",\"destination\":\"Chez le comptable\",\"montant\":20000}}'),
+  ('zr5m', '{\"id\":\"zr5m\",\"boutique\":\"Chez le comptable\",\"categorie\":\"Versement de fonds\",\"montant\":-20000,\"paiement\":\"Espèces\",\"versement_id\":\"vr5\",\"decaisse_le\":\"2026-09-09\",\"decaisse_par\":\"MARIE\"}');" >/dev/null
+# Le rejet tel que l'application l'écrit : montant 0, les trois champs, la description — par UPSERT.
+REJET_ZR1='{"id":"zr1","boutique":"APESSITO","categorie":"Versement de fonds","montant":0,"paiement":"Espèces","par":"ALI","description":"✖ REJETÉ (jamais reçu) — Versement de fonds → Chez le DG","versement":{"id":"vr1","destination":"Chez le DG","montant":50000},"versement_rejete_le":"2026-09-10","versement_rejete_par":"X","versement_rejet_motif":"jamais reçu"}'
+REJET_ZR3='{"id":"zr3","boutique":"APESSITO","categorie":"Versement de fonds","montant":0,"paiement":"Espèces","par":"ALI","description":"✖ REJETÉ (jamais reçu) — Versement de fonds → Chez le comptable","versement":{"id":"vr3","destination":"Chez le comptable","montant":70000},"versement_rejete_le":"2026-09-10","versement_rejete_par":"MARIE","versement_rejet_motif":"jamais reçu"}'
+REJET_ZR3M='{"id":"zr3m","boutique":"Chez le comptable","categorie":"Versement de fonds","montant":0,"paiement":"Espèces","par":"ALI","description":"✖ REJETÉ (jamais reçu) — Versement du 10/09/2026 reçu de APESSITO","versement_id":"vr3","versement_rejete_le":"2026-09-10","versement_rejete_par":"MARIE","versement_rejet_motif":"jamais reçu"}'
+essai "★ un vendeur rejette un versement Chez le DG" "REFUSE" "$VENDEUR" "$(UPS depenses zr1 "$REJET_ZR1")"
+essai "★ un gérant rejette un versement Chez le DG" "REFUSE" "$GERANT" "$(UPS depenses zr1 "$REJET_ZR1")"
+essai "★ un administrateur SECONDAIRE rejette un versement Chez le DG" "REFUSE" "$ADMIN2" "$(UPS depenses zr1 "$REJET_ZR1")"
+essai "★ le comptable rejette un versement Chez le DG (pas le sien)" "REFUSE" "$COMPTABLE" "$(UPS depenses zr1 "$REJET_ZR1")"
+essai "★ le DG rejette un versement Chez le DG en attente, avec motif (par upsert, comme l'application)" "PERMIS" "$ADMIN" "$(UPS depenses zr1 "$REJET_ZR1")"
+essai "★ …et le serveur FORCE le montant à 0 même si l'application envoyait encore 50 000 (« jamais versé »)" "PERMIS" "$ADMIN" "with x as (update public.depenses set data = jsonb_set(jsonb_set(data,'{versement_rejete_le}','\"2026-09-10\"'),'{versement_rejet_motif}','\"jamais reçu\"') where id='zr1' returning (data->>'montant')::numeric m) select count(*) from x where m = 0;"
+essai "★ le DG rejette SANS motif" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{versement_rejete_le}','\"2026-09-10\"')" zr1)"
+essai "★ le DG rejette un versement DÉJÀ VALIDÉ" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{versement_rejete_le}','\"2026-09-10\"'),'{versement_rejet_motif}','\"x\"')" zr2)"
+essai "★ le DG annule un rejet (retire versement_rejete_le)" "REFUSE" "$ADMIN" "$(MAJ depenses "data - 'versement_rejete_le'" zr4)"
+essai "★ le DG change le motif d'un rejet" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{versement_rejet_motif}','\"autre\"')" zr4)"
+essai "★ le DG valide un versement rejeté" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{versement_valide_le}','\"2026-09-10\"')" zr4)"
+essai "★ on remet un montant sur un versement rejeté → le serveur le ramène à 0" "PERMIS" "$ADMIN" "with x as (update public.depenses set data = jsonb_set(data,'{montant}','30000') where id='zr4' returning (data->>'montant')::numeric m) select count(*) from x where m = 0;"
+essai "★ le comptable rejette un versement « Chez le comptable » en attente — la sortie de la boutique (par upsert)" "PERMIS" "$COMPTABLE" "$(UPS depenses zr3 "$REJET_ZR3")"
+essai "★ …et l'entrée miroir chez lui (par upsert)" "PERMIS" "$COMPTABLE" "$(UPS depenses zr3m "$REJET_ZR3M")"
+essai "★ le DG rejette un versement « Chez le comptable » (c'est au comptable)" "REFUSE" "$ADMIN" "$(UPS depenses zr3 "$REJET_ZR3")"
+essai "★ un gérant rejette un versement « Chez le comptable »" "REFUSE" "$GERANT" "$(UPS depenses zr3 "$REJET_ZR3")"
+essai "★ le comptable rejette un versement dont l'entrée miroir est DÉJÀ pointée « Encaissé »" "REFUSE" "$COMPTABLE" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{versement_rejete_le}','\"2026-09-10\"'),'{versement_rejet_motif}','\"x\"')" zr5)"
+essai "★ le comptable pointe « Encaissé » une entrée miroir REJETÉE" "REFUSE" "$COMPTABLE" "$(MAJ depenses "jsonb_set(data,'{decaisse_le}','\"2026-09-10\"')" zr4m)"
+essai "★ le comptable profite du rejet pour changer la boutique de la dépense" "REFUSE" "$COMPTABLE" "$(UPS depenses zr3 "$(echo "$REJET_ZR3" | sed 's/"boutique":"APESSITO"/"boutique":"DEPOT"/')")"
+essai "★ le comptable rejette une dépense ordinaire (pas un versement)" "REFUSE" "$COMPTABLE" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{versement_rejete_le}','\"2026-09-10\"'),'{versement_rejet_motif}','\"x\"')" zx1)"
+essai "★ un gérant crée un versement déjà rejeté" "REFUSE" "$GERANT" "$(UPS depenses zr9 '{"id":"zr9","boutique":"APESSITO","categorie":"Versement de fonds","montant":0,"versement":{"id":"vr9","destination":"Chez le DG","montant":5},"versement_rejete_le":"2026-09-10","versement_rejet_motif":"x"}')"
+essai "le gérant enregistre toujours un versement ordinaire (rien ne change pour lui)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
+essai "le comptable pointe toujours « Encaissé » une entrée miroir en attente" "PERMIS" "$COMPTABLE" "$(MAJ depenses "jsonb_set(data,'{decaisse_le}','\"2026-09-10\"')" zr3m)"
 
 echo
 echo "── L'UPSERT N'EST PAS UNE CRÉATION (securite-8, capture Timo du 08/09/2026) ──"
