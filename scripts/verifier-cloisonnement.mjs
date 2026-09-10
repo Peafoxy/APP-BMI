@@ -4710,10 +4710,14 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   test("★ securite-10 : versement_valide_le / _par ne s'écrivent que par l'administrateur PRINCIPAL (upsert relu) ; le banc tester-argent le pose et rejoue vendeur, gérant, admin secondaire (refusés) et DG (permis)",
     /create trigger depenses_regles_versement_trg\s+before insert or update on public\.depenses/.test(s10) && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s10) && /if not public\.est_admin_principal\(\) then/.test(s10)
     && /-f supabase\/securite-10-versements\.sql/.test(ta) && /un vendeur se valide lui-même son versement \(versement_valide_le\)" "REFUSE"/.test(ta) && /un administrateur SECONDAIRE valide un versement" "REFUSE"/.test(ta) && /le DG \(administrateur principal\) valide un versement" "PERMIS"/.test(ta));
-  test("★ écran Caisse : le geste revérifie le rôle (ROLES_VERSEMENT) et la lecture seule ; la validation DG revérifie l'administrateur PRINCIPAL ; les boutiques du DG passent par boutiquesVisibles",
+  test("★ écran Caisse : le geste revérifie le rôle (ROLES_VERSEMENT) et la lecture seule ; la validation DG revérifie l'administrateur PRINCIPAL ; le DG ne voit que la boutique REGARDÉE (Timo, 10/09/2026), prise parmi boutiquesVisibles",
     /if \(refuserSaufRoles\(profile, ROLES_VERSEMENT, "Verser les fonds"\)\) return;\n\s+if \(bloquerSiLecture\(db, profile\)\) return;/.test(cs)
     && /if \(refuserSaufAdminPrincipal\(db, profile, "Valider un versement de fonds \(DG\)"\)\) return;/.test(cs)
-    && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
+    && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\.filter\(\(n\) => n === boutique\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
+    && /Versements à valider par le DG \(\{aValiderDG\.length\}\) <Badge boutique=\{boutique\} \/>/.test(cs)
+    // Captures Timo (10/09/2026) : montant en gras chez le DG ; les tableaux de la caisse défilent de droite à gauche sur téléphone.
+    && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{boutique\}<\/div>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
+    && /bg-white overflow-x-auto">\s*<div[^>]*>Détail des encaissements/.test(cs) && !/bg-white overflow-hidden/.test(cs)
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }
 

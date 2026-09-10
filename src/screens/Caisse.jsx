@@ -81,7 +81,9 @@ export function Caisse({ db, save, profile }) {
   // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
   // boutiques de l'espace regardé.
   const jeSuisDG = estAdminPrincipal(db, profile);
-  const nomsDG = jeSuisDG ? boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom) : [];
+  // Timo (10/09/2026) : « si je suis dans Demakpoe, je vois les versements de
+  // Demakpoe seul » — la boutique REGARDÉE, prise parmi celles de l'espace.
+  const nomsDG = jeSuisDG ? boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom).filter((n) => n === boutique) : [];
   const aValiderDG = jeSuisDG ? versementsAValiderParDG(db, nomsDG) : [];
   const validesDG = jeSuisDG ? versementsValidesParDG(db, nomsDG) : [];
   const validerDG = async (d) => {
@@ -115,12 +117,12 @@ export function Caisse({ db, save, profile }) {
           du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
       {jeSuisDG && (
         <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`}>
-          <div className={`font-bold mb-2 ${aValiderDG.length > 0 ? "text-amber-900" : "text-slate-800"}`}>💸 Versements à valider par le DG ({aValiderDG.length})</div>
+          <div className={`font-bold mb-2 ${aValiderDG.length > 0 ? "text-amber-900" : "text-slate-800"}`}>💸 Versements à valider par le DG ({aValiderDG.length}) <Badge boutique={boutique} /></div>
           {aValiderDG.length === 0 && <div className="text-sm text-slate-400">Aucun versement en attente de votre validation (Chez le DG, BANQUE).</div>}
           <div className="space-y-1">
             {aValiderDG.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-                <div><b>{libelleVersementDu(d)}</b> — {fmt(d.montant)} — {d.boutique} → {libelleDestination(d.versement)}
+                <div><b>{libelleVersementDu(d)}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.boutique} → {libelleDestination(d.versement)}
                   <div className="text-xs text-slate-500">versé par {d.par}{libelleEcart(d.versement) ? <span className="text-red-600"> · {libelleEcart(d.versement)}</span> : null}{d.versement.note ? ` · ${d.versement.note}` : ""}</div>
                 </div>
                 <div className="flex gap-1 shrink-0">
@@ -136,7 +138,7 @@ export function Caisse({ db, save, profile }) {
               <div className="max-h-[200px] overflow-y-auto space-y-1">
                 {validesDG.slice(0, 10).map((d) => (
                   <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-                    {libelleVersementDu(d)} — {fmt(d.versement.montant)} — {d.boutique} → {libelleDestination(d.versement)}{libelleEcart(d.versement) ? ` · ${libelleEcart(d.versement)}` : ""}
+                    {libelleVersementDu(d)} — <b className={`text-base tabular-nums ${rejetVersement(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(d.versement.montant)}</b> — {d.boutique} → {libelleDestination(d.versement)}{libelleEcart(d.versement) ? ` · ${libelleEcart(d.versement)}` : ""}
                     {rejetVersement(d)
                       ? <span className="ml-2 text-xs text-red-700">✖ rejeté le {dFR(d.versement_rejete_le)} par {d.versement_rejete_par} — {d.versement_rejet_motif}</span>
                       : <span className="ml-2 text-xs text-green-700">✅ validé le {dFR(d.versement_valide_le)} par {d.versement_valide_par}</span>}
@@ -182,9 +184,10 @@ export function Caisse({ db, save, profile }) {
         {!ROLES_VERSEMENT.includes(profile.role) && <div className="text-sm text-slate-500">Le versement des fonds est fait par le gérant.</div>}
         <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente. Un versement rejeté compte comme jamais versé : l'argent reste dans la caisse de la boutique.</div>
         {mesVersements.length > 0 && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-hidden">
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
+            {/* Timo (10/09/2026) : « je n'arrive pas à défiler de droite à gauche » — le cadre défile, le tableau garde sa largeur. */}
             <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Versements de {boutique}</div>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Date</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Destination</th><th className="text-left px-3 py-1.5">Par</th><th className="text-left px-3 py-1.5">Validation</th></tr></thead>
               <tbody>
                 {mesVersements.slice(0, 30).map((d) => { const v = validationVersement(db, d); const rj = rejetVersement(d); return (
@@ -236,9 +239,9 @@ export function Caisse({ db, save, profile }) {
               </div>
             </div>
             {detailReglements.length > 0 && (
-              <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-hidden">
+              <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
                 <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Détail des encaissements du {dFR(t)} — qui a payé quoi</div>
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[560px]">
                   <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Heure</th><th className="text-left px-3 py-1.5">Client</th><th className="text-left px-3 py-1.5">Motif</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Encaissé par</th></tr></thead>
                   <tbody>
                     {detailReglements.map((p) => (
