@@ -4412,11 +4412,15 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
     && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 8 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
     && /\{!sansVentes && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">\s*<div [^>]*>Synthèse par période/.test(dash)
     && /\{!sansStock && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!estDepot\(b\) && <div><div className="text-xs text-slate-500">Dettes clients/.test(dash));
-  test("★ les dépenses restent visibles partout (total et du mois), et les exports suivent : ventes / dettes cachés sans ventes, stocks caché sans stock",
-    /<Stat label="Total des dépenses"/.test(dash) && /<Stat label="Dépenses du mois"/.test(dash) && !/\{!sansVentes && <Stat label="Total des dépenses"/.test(dash)
+  test("★ les dépenses restent visibles partout (total et période choisie — « Dépenses du mois » retourné le 10/09/2026), et les exports suivent : ventes / dettes cachés sans ventes, stocks caché sans stock",
+    /<Stat label="Total des dépenses"/.test(dash) && /<Stat label=\{`Dépenses — \$\{customRow\.label\}`\}/.test(dash) && !/\{!sansVentes && <Stat label=\{`Dépenses — /.test(dash) && !/\{!sansVentes && <Stat label="Total des dépenses"/.test(dash)
     && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("ventes"/.test(dash) && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("dettes"/.test(dash)
     && /\{!sansStock && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("stocks"/.test(dash));
   test("★ le journal comptable exporté suit aussi la boutique choisie", /lignesJournal\(db, pa, pb\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
+  // Capture Timo (10/09/2026) : « Période : Aujourd'hui » choisi, les cartes disaient encore « Ventes du mois ».
+  test("★ les cartes Ventes / Dépenses / Résultat sous le sélecteur suivent la PÉRIODE CHOISIE (customRow), nommée sur la carte — plus jamais figées sur le mois",
+    /label=\{`Ventes — \$\{customRow\.label\}`\} value=\{fmt\(somme\(customRow\.v\)\)\}/.test(dash) && /label=\{`Dépenses — \$\{customRow\.label\}`\} value=\{fmt\(somme\(customRow\.d\)\)\}/.test(dash)
+    && /label=\{`Résultat — \$\{customRow\.label\}`\} value=\{fmt\(resCustom\)\}/.test(dash) && !/Ventes du mois|const m = rows\[2\]/.test(dash));
   test("la présentation ne change pas : mêmes cartes, même sélecteur de période, le graphique et la synthèse sont là", /<Stat label="Total des ventes"/.test(dash) && /Ventes des 6 derniers mois/.test(dash) && /Synthèse par période/.test(dash));
 }
 

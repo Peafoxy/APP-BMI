@@ -122,8 +122,6 @@ export function Dashboard({ db, profile }) {
   });
 
   const somme = (obj) => NOMS_VUES.reduce((s, b) => s + (obj[b] || 0), 0);
-  const m = rows[2];
-  const resM = somme(m.v) - somme(m.d);
   const resCustom = somme(customRow.v) - somme(customRow.d);
 
   const totalVentes = ventesReellesDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
@@ -281,10 +279,13 @@ export function Dashboard({ db, profile }) {
         </div>
       </div>
 
+      {/* Capture Timo (10/09/2026) : « même quand je sélectionne Aujourd'hui, on
+          ne voit pas les ventes d'aujourd'hui » — ces cartes affichaient toujours
+          le mois. Elles suivent maintenant la période choisie, nommée dessus. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {!sansVentes && <Stat label="Ventes du mois" value={fmt(somme(m.v))} nature="entree" />}
-        <Stat label="Dépenses du mois" value={fmt(somme(m.d))} nature="sortie" />
-        {!sansVentes && <Stat label="Résultat du mois" value={fmt(resM)} nature={resM >= 0 ? "regle" : "du"} />}
+        {!sansVentes && <Stat label={`Ventes — ${customRow.label}`} value={fmt(somme(customRow.v))} nature="entree" />}
+        <Stat label={`Dépenses — ${customRow.label}`} value={fmt(somme(customRow.d))} nature="sortie" />
+        {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} nature={resCustom >= 0 ? "regle" : "du"} />}
         {!sansVentes && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
       </div>
 
