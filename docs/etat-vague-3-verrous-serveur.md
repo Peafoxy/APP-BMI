@@ -227,4 +227,4 @@ pose deux lectures SQL des lignes (`a_remise_sur_article`,
 (securite-13, reprise telle quelle) et `proformas_regles_remise`
 (securite-8). Banc : tester-argent (134 ; sans le script, 7 contrôles
 tombent — mesuré).
-- **État : SQL à coller par Timo** (message du 10/09/2026, version 2.101.131).
+- **État : collé par Timo le 10/09/2026** — vérification true | true | true (la première requête disait « false » à tort sur le proforma : apostrophe dans le motif LIKE, corrigée).
