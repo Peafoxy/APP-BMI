@@ -269,7 +269,11 @@ lit mal est pire qu'un banc absent).
   « besoin du client / article proposé… je ne comprends pas » puis « je propose
   que le besoin du client soit une catégorie et article proposé déroule les
   articles de la catégorie choisie… tout court. Ceci pour tous les devis sans
-  calcul »). Deux listes déroulantes, **aucune recherche par ressemblance** :
+  calcul »). ⚠ **Les colonnes gardent les MOTS DU MÉTIER** : « Besoin du
+  client » et « Article proposé », jamais « Catégorie » et « Article »
+  (11/09/2026 : « besoin du client reste toujours besoin et non catégorie ») —
+  la liste déroulante est notre façon de faire, le vendeur choisit un BESOIN.
+  Deux listes déroulantes, **aucune recherche par ressemblance** :
   `categoriesDuStock` (catégories du stock du domaine regardé) puis
   `articlesDeCategorie`. La première catégorie propose son premier article, le
   vendeur déroule. « ✏️ Saisir un article hors stock » reste. **Chaque ligne

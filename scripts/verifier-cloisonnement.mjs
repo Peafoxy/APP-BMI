@@ -4078,7 +4078,12 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
       && /\{categoriesDuStock\.map\(\(c\) => <option key=\{c\} value=\{c\}>\{c\}<\/option>\)\}/.test(au)
       && /\{articles\.map\(\(p\) => <option key=\{p\.id\} value=\{p\.id\}>\{p\.nom\}<\/option>\)\}/.test(au)
       && !/ChampSuggestions/.test(au) && !/correspondancesBesoin\(/.test(au)
-      && !/Décrivez le besoin à gauche/.test(au));
+      && !/Décrivez le besoin à gauche/.test(au)
+      // ⚠ Timo (11/09/2026) : les COLONNES gardent les mots du métier —
+      // « Besoin du client » et « Article proposé », jamais « Catégorie » et
+      // « Article ». La liste déroulante est notre façon de faire ; le
+      // vendeur, lui, choisit un BESOIN.
+      && /\["Besoin du client", "Article proposé", "Quantité"/.test(au));
     test("★ chaque ligne porte SA catégorie de stock (elle titrera son groupe dans le PDF) et le devis ne fabrique plus de bloc « Votre demande » qui ne ferait que répéter ces catégories",
       /categorie: l\.besoin\.categorie \|\| categorieChoisie, article: l\.produit\.nom/.test(au)
       && /besoins: \{ categorie: categorieChoisie \},/.test(au)

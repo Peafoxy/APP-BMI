@@ -231,7 +231,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
 
   const argumentsEnvoi = () => ({
     totalDevis,
-    messageVide: "Le devis est vide : choisissez une catégorie, puis un article.",
+    messageVide: "Le devis est vide : choisissez un besoin, puis l'article proposé.",
     construire: () => construireDevis({
       profile, boutique, typeDevis: "autre", complement: { domaine: domaine?.id || "autre" },
       // ⚠ Plus de bloc « Votre demande » inventé : le besoin n'est plus une
@@ -269,7 +269,11 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock {domaine ? `domaine ${domaine.nom}` : "de la boutique"} — {boutique})</div>
         <table className="w-full text-sm min-w-[820px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Quantité", "Prix unit.", "Sous-total", "HB", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          {/* ⚠ Timo (11/09/2026) : « Besoin du client reste toujours besoin et non
+              catégorie, et article proposé reste toujours article proposé et non
+              article ». Ce sont les MOTS du métier : la colonne dit ce que le
+              client veut, pas comment l'application s'y prend. */}
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Besoin du client", "Article proposé", "Quantité", "Prix unit.", "Sous-total", "HB", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {lignesDevis.map((l) => {
               const articles = articlesDeCategorie(l.besoin.categorie);
@@ -278,7 +282,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                 <tr key={l.besoin.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2">
                     <select className={`${inputCls} w-48`} value={l.besoin.categorie || ""} onChange={(e) => majBesoinCategorie(l.besoin.id, e.target.value)}>
-                      <option value="">— Choisir une catégorie —</option>
+                      <option value="">— Choisir le besoin —</option>
                       {categoriesDuStock.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </td>
@@ -293,9 +297,9 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
                         {!l.besoin.categorie ? (
-                          <span className="text-xs text-slate-400">Choisissez une catégorie à gauche…</span>
+                          <span className="text-xs text-slate-400">Choisissez le besoin à gauche…</span>
                         ) : articles.length === 0 ? (
-                          <span className="text-xs text-orange-600">Aucun article dans cette catégorie chez {boutique}</span>
+                          <span className="text-xs text-orange-600">Aucun article pour ce besoin chez {boutique}</span>
                         ) : (
                           <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.besoin.id, e.target.value)}>
                             <option value="">— Aucun —</option>
