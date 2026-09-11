@@ -215,7 +215,11 @@ export const devisRelancable = (devis) => STATUTS_DEVIS_RELANCABLES.includes(dev
 export const STATUTS_DEVIS_MODIFIABLES = ["propose", "modification", "rejete"];
 export const ROLES_MODIFIENT_TOUT_DEVIS = ["admin", "resp_commercial"];
 
-export const devisModifiable = (devis) => STATUTS_DEVIS_MODIFIABLES.includes(devis?.statut || "propose");
+// ⚠ Et aussi : un devis VALIDÉ dont le client a ACCEPTÉ la demande de
+// modification (11/09/2026, lib/modifDevis.js) — c'est le client qui a ouvert
+// la porte, pas nous.
+export const devisModifiable = (devis) => STATUTS_DEVIS_MODIFIABLES.includes(devis?.statut || "propose")
+  || (devis?.statut === "valide" && devis?.demande_bmi?.statut === "acceptee");
 
 export const peutModifierDevis = (devis, profile) => devisModifiable(devis)
   && (ROLES_MODIFIENT_TOUT_DEVIS.includes(profile?.role) || (!!devis?.par_id && devis.par_id === profile?.id));

@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, envoyerWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
+import { marquerDevisCorrige } from "../../lib/modifDevis";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
 // Demande Timo (02/09/2026) : « tous les écrans du dimensionnement doivent
@@ -574,7 +575,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     users: dbApres.users.map((u) => (u.id === compte.id
       ? { ...u, devis: idAReprendre
           ? u.devis.map((x) => (x.id === idAReprendre
-              ? { ...marquerModification(x, devisMarque, profile, today()), id: idAReprendre }
+              ? { ...marquerDevisCorrige(x, marquerModification(x, devisMarque, profile, today()), today()), id: idAReprendre }
               : x))
           : [devisMarque, ...(u.devis || [])] }
       : u)),

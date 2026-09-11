@@ -123,6 +123,13 @@ await build({ entryPoints: ["src/lib/comptesClients.js"], bundle: true, format: 
   external: ["react", "react-dom"] });
 const Cli = await import(pathToFileURL(sortieCli).href);
 unlinkSync(sortieCli);
+// La modification d'un devis DÉJÀ SIGNÉ (11/09/2026) : règles pures, exercées.
+const sortieMod = join("node_modules", ".cache", `bmi-modif-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/modifDevis.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieMod, logLevel: "silent", loader: { ".js": "jsx" },
+  external: ["react", "react-dom"] });
+const Mod = await import(pathToFileURL(sortieMod).href);
+unlinkSync(sortieMod);
 
 // Les calculs du dimensionnement solaire.
 const sortieSol = join("node_modules", ".cache", `bmi-sol-${process.pid}.mjs`);
@@ -4284,8 +4291,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     execSync("grep -rln 'lu_par: \\[profile.id\\]\\|de_nom: profile.nom' src || true").toString().trim() === "");
   test("★ plus aucune fiche de dépense automatique recopiée : « par: profile.nom, auto: » n'existe plus dans les écrans",
     execSync("grep -rln 'par: profile.nom, auto:' src || true").toString().trim() === "");
-  test("★ nouveauMessage sert aux 16 fabrications (rejet d'un versement compris, 10/09/2026), nouvelleDepense aux 13 dépenses automatiques (versements de fonds et remboursement d'une reprise compris, 10/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16"
+  test("★ nouveauMessage sert aux 20 fabrications (les quatre messages de la demande de modification d'un devis signé, 11/09/2026), nouvelleDepense aux 13 dépenses automatiques (versements de fonds et remboursement d'une reprise compris, 10/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "20"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "13");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
@@ -4485,6 +4492,90 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     && /const refus = motifRefusModification\(d, profile\);\n    if \(refus\) \{ uAlert\(refus\); return; \}/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
     && /✏️ Modifié le \{dFR\(d\.modifie_le\)\} par \{d\.modifie_par/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
     && /marquerModification\(x, devisMarque, profile, today\(\)\)/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
+  // ⚠ LE PARCOURS COMPLET, joué de bout en bout sur une base d'essai (Timo,
+  // 11/09/2026 : « s'il a déjà signé, impossible de modifier… l'utilisateur va
+  // faire une demande auprès du client… le client valide avant que le devis ne
+  // soit modifiable » ; A — il re-signe ; B — un refus rejette ; C — le plan
+  // de règlement redevient à valider).
+  {
+    const clientM = { id: "c1", nom: "KOFFI2", nom_base: "Koffi", role: "client", tel: "90112233",
+      devis: [{ id: "d1", date: "2026-09-01", total: 1000000, statut: "valide", par: "ALI", par_id: "u1",
+        contrat_numero: "CTR-1", contrat_signature: "SIG-1", contrat_date_signature: "2026-09-02",
+        plan_reglement: { type: "mensuel", montant_mensuel: 100000, statut: "accepte", decide_par: "TIMO" } }] };
+    const dbM = { users: [clientM], messages: [], dettes: [], clients_installes: [] };
+    const devisM = clientM.devis[0];
+    const ali = { id: "u1", nom: "ALI", role: "vendeur" };
+    const autre = { id: "u2", nom: "KODJO", role: "vendeur" };
+    test("★ un devis SIGNÉ ne se modifie pas : on le DEMANDE au client, motif obligatoire, et seulement l'auteur / l'admin / le resp. commercial",
+      Mod.peutDemanderModif(dbM, devisM, ali) === true
+      && Mod.peutDemanderModif(dbM, devisM, { id: "u3", nom: "TIMO", role: "admin" }) === true
+      && Mod.peutDemanderModif(dbM, devisM, autre) === false
+      && Mod.peutDemanderModif(dbM, { ...devisM, statut: "paye" }, ali) === false
+      && /vente est encaissée/.test(Mod.motifRefusDemandeModif(dbM, { ...devisM, statut: "paye" }, ali))
+      && !!Mod.poserDemandeModif(dbM, clientM, devisM, ali, "   ").erreur);
+    const apresDemande = Mod.poserDemandeModif(dbM, clientM, devisM, ali, "Le prix du convertisseur a changé");
+    const dev1 = apresDemande.db.users[0].devis[0];
+    test("★ la demande part avec son motif, le client en est averti par message, et le devis N'EST PAS encore modifiable tant qu'il n'a pas répondu",
+      dev1.demande_bmi.statut === "attente" && dev1.demande_bmi.motif === "Le prix du convertisseur a changé"
+      && dev1.demande_bmi.par === "ALI" && apresDemande.db.messages.length === 1
+      && Cli.devisModifiable(dev1) === false
+      && /déjà partie/.test(Mod.motifRefusDemandeModif(apresDemande.db, dev1, ali)));
+    const refusClient = Mod.repondreDemandeModif(apresDemande.db, clientM, dev1, false);
+    test("★ le client REFUSE la demande : son devis reste signé tel quel — même montant, même signature, toujours validé",
+      refusClient.db.users[0].devis[0].statut === "valide"
+      && refusClient.db.users[0].devis[0].contrat_signature === "SIG-1"
+      && refusClient.db.users[0].devis[0].total === 1000000
+      && Cli.devisModifiable(refusClient.db.users[0].devis[0]) === false);
+    const okClient = Mod.repondreDemandeModif(apresDemande.db, clientM, dev1, true);
+    const dev2 = okClient.db.users[0].devis[0];
+    test("★ le client ACCEPTE : LE DEVIS S'OUVRE (c'est lui qui ouvre la porte, pas nous) et l'auteur en est averti",
+      dev2.demande_bmi.statut === "acceptee" && Cli.devisModifiable(dev2) === true
+      && okClient.db.messages.some((m) => /ACCEPTE/.test(m.texte)));
+    const corrige = Mod.marquerDevisCorrige(dev2, { ...dev2, total: 1200000 }, "2026-09-11");
+    test("★ le devis corrigé n'est PAS « proposé » (Timo) : il attend l'accord du client, la signature d'avant ne vaut plus mais reste dans l'historique, et le tour est compté",
+      corrige.statut === "corrige" && corrige.cycles_modif === 1 && corrige.contrat_signature === ""
+      && corrige.historique_modif.length === 1 && corrige.historique_modif[0].total_avant === 1000000
+      && corrige.historique_modif[0].total_apres === 1200000 && corrige.historique_modif[0].contrat_signature === "SIG-1"
+      && corrige.contrat_numero === "CTR-1");
+    const dbCorrige = { ...okClient.db, users: [{ ...clientM, devis: [corrige] }] };
+    const accepte = Mod.accepterDevisCorrige(dbCorrige, "c1", "d1", { signature: "SIG-2", date: "2026-09-12", acteur: { nom: "Koffi" } });
+    const devFinal = accepte.db.users[0].devis[0];
+    test("★ le client ACCEPTE le devis corrigé : il RE-SIGNE, le contrat GARDE son numéro, et le plan de règlement REDEVIENT À VALIDER (décisions A et C de Timo)",
+      devFinal.statut === "valide" && devFinal.contrat_signature === "SIG-2" && devFinal.contrat_date_signature === "2026-09-12"
+      && devFinal.contrat_numero === "CTR-1" && devFinal.plan_reglement.statut === "en_attente"
+      && devFinal.plan_reglement.decide_par === "" && devFinal.demande_bmi === null
+      && !!Mod.accepterDevisCorrige(dbCorrige, "c1", "d1", {}).erreur);
+    const refuse = Mod.refuserDevisCorrige(dbCorrige, "c1", "d1", { motif: "trop cher maintenant", date: "2026-09-12" });
+    test("★ le client REFUSE le devis corrigé : le devis est REJETÉ, l'affaire s'arrête (décision B de Timo) — et un refus sans motif n'est pas reçu",
+      refuse.db.users[0].devis[0].statut === "rejete" && refuse.db.users[0].devis[0].motif_rejet === "trop cher maintenant"
+      && !!Mod.refuserDevisCorrige(dbCorrige, "c1", "d1", { motif: "  " }).erreur);
+    test("★ après 3 aller-retour le devis n'est plus modifiable (« il devient caduc ») : il faut en établir un nouveau",
+      Mod.MAX_CYCLES_MODIF === 3
+      && Mod.peutDemanderModif(dbM, { ...devisM, cycles_modif: 2 }, ali) === true
+      && Mod.peutDemanderModif(dbM, { ...devisM, cycles_modif: 3 }, ali) === false
+      && /3 aller-retour/.test(Mod.motifRefusDemandeModif(dbM, { ...devisM, cycles_modif: 3 }, ali)));
+    const dbChantier = { ...dbM, clients_installes: [{ id: "ch1", devis_id: "d1", statut: "receptionne" }] };
+    const dbVerse = { ...dbM, clients_installes: [{ id: "ch2", devis_id: "d1", dette_id: "de1", pose_seule: true }],
+      dettes: [{ id: "de1", montant: 1000000, paiements: [{ montant: 300000 }] }] };
+    test("★ deux portes fermées : un chantier RÉCEPTIONNÉ (travaux livrés) et un devis sur lequel le client a DÉJÀ VERSÉ ne se modifient plus — le motif le dit",
+      Mod.peutDemanderModif(dbChantier, devisM, ali) === false && /réceptionné/.test(Mod.motifRefusDemandeModif(dbChantier, devisM, ali))
+      && Mod.peutDemanderModif(dbVerse, devisM, ali) === false && /déjà versé/.test(Mod.motifRefusDemandeModif(dbVerse, devisM, ali)));
+    const dbPose = { ...dbM, clients_installes: [{ id: "ch3", devis_id: "d1", dette_id: "de2", pose_seule: true, frais_installation: 1000000 }],
+      dettes: [{ id: "de2", montant: 1000000, paiements: [] }], users: [{ ...clientM, devis: [corrige] }] };
+    const poseOk = Mod.accepterDevisCorrige(dbPose, "c1", "d1", { signature: "SIG-2" });
+    test("★ pose seule : la dette et les frais du chantier SUIVENT le nouveau montant — jamais une dette qui contredit son devis, jamais un chantier en double",
+      poseOk.db.dettes[0].montant === 1200000 && poseOk.db.clients_installes[0].frais_installation === 1200000
+      && poseOk.db.clients_installes.length === 1);
+    const tldM = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    const ecM = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+    test("★ les deux écrans passent par les règles pures, et le geste du vendeur se revérifie DANS le geste ; le client re-signe par accepterDevisCorrige, jamais par validerDevis (qui créerait un second chantier)",
+      /peutDemanderModif\(db, d, profile\) && \(/.test(tldM)
+      && /const refus = motifRefusDemandeModif\(db, d, profile\);/.test(tldM)
+      && /poserDemandeModif\(db, d\.client, d, profile, motif, today\(\)\)/.test(tldM)
+      && /repondreDemandeModif\(db, moi, d, accepte, today\(\)\)/.test(ecM)
+      && /if \(devisCorrige\(d\)\) \{\n      const r = accepterDevisCorrige\(/.test(ecM)
+      && /refuserDevisCorrige\(db, profile\.id, d\.id/.test(ecM));
+  }
   test("★ sans mot de passe connu, le message renvoie à « celui qui vous a été communiqué » ; sans vendeur, signature BMI TOGO seule",
     /celui qui vous a été communiqué/.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })) && /^BMI TOGO — Les bâtiments/m.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })));
   const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");

@@ -10,6 +10,7 @@ import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
+import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
@@ -28,6 +29,7 @@ const STATUT_DEVIS = {
   propose: ["⏳ Proposé", "bg-amber-100 text-amber-800 border-amber-300"],
   valide: ["✅ Validé", "bg-sky-100 text-sky-800 border-sky-300"],
   paye: ["💰 Payé", "bg-green-100 text-green-800 border-green-300"],
+  corrige: ["🔄 Corrigé — en attente de l'accord du client", "bg-indigo-100 text-indigo-800 border-indigo-300"],
   modification: ["✏️ Modification demandée", "bg-purple-100 text-purple-800 border-purple-300"],
   rejete: ["❌ Rejeté", "bg-red-100 text-red-800 border-red-300"],
 };
@@ -51,7 +53,7 @@ const joursSansReponse = (d) => joursDepuis(d.relance_le || d.date);
 // ⚠ Demande Timo : la liste est classée par STATUT (proposé → validé → payé →
 // modification demandée → rejeté), et à l'intérieur d'un même statut, du plus
 // récent au plus ancien (ordre déjà en place avant ce classement).
-const ORDRE_STATUT_DEVIS = { propose: 0, valide: 1, paye: 2, modification: 3, rejete: 4 };
+const ORDRE_STATUT_DEVIS = { propose: 0, valide: 1, paye: 2, corrige: 3, modification: 4, rejete: 5 };
 const NB_DEVIS_AFFICHES = 7;
 
 export function TousLesDevis({ db, save, profile, onModifierDevis }) {
@@ -261,6 +263,23 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       : `✅ Contrat ${numero} enregistré. Le devis est validé : encaissez-le dans 💰 Ventes (commande en attente à ${boutique}).`);
   };
 
+  // ⚠ Timo (11/09/2026) : un devis SIGNÉ ne se modifie pas tout seul — on le
+  // DEMANDE au client, et c'est lui qui ouvre la porte.
+  const demanderModifAuClient = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = motifRefusDemandeModif(db, d, profile);
+    if (refus) { uAlert(refus); return; }
+    const motif = await uPrompt(
+      `Pourquoi faut-il modifier ce devis de ${fmt(d.total)} ?\n\n${d.client?.nom_base || d.client?.nom} l'a déjà signé : il verra ce motif et devra accepter avant que vous puissiez le corriger.`,
+      ""
+    );
+    if (motif === null) return;
+    const r = poserDemandeModif(db, d.client, d, profile, motif, today());
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
+    uAlert(`✅ Demande envoyée à ${d.client?.nom_base || d.client?.nom}.\n\nVous pourrez corriger le devis dès qu'il aura accepté.`);
+  };
+
   // ⚠ Le bouton ne suffit pas : tout geste réservé se revérifie DANS le geste.
   const modifierDevis = (d) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -367,6 +386,22 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       📲 Relancé le {dFR(d.relance_le)}
                     </span>
                   )}
+                  {demandeModifEnCours(d) && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
+                      title={`Motif : ${d.demande_bmi.motif}`}>
+                      ⏳ Modification demandée au client
+                    </span>
+                  )}
+                  {demandeModifAcceptee(d) && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-green-50 text-green-800 border-green-300">
+                      ✅ Le client a accepté — à corriger
+                    </span>
+                  )}
+                  {cyclesModif(d) > 0 && (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${cyclesModif(d) >= MAX_CYCLES_MODIF ? "bg-red-50 text-red-800 border-red-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}>
+                      🔁 {cyclesModif(d)}/{MAX_CYCLES_MODIF} aller-retour{cyclesModif(d) > 1 ? "s" : ""}
+                    </span>
+                  )}
                   {d.modifie_le && (
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
                       title={`Devis corrigé par ${d.modifie_par || "?"}${d.nb_modifications > 1 ? ` — ${d.nb_modifications} corrections` : ""}`}>
@@ -441,6 +476,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       )}
                       {peutModifierDevis(d, profile) && onModifierDevis && (
                         <button onClick={() => modifierDevis(d)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
+                      )}
+                      {peutDemanderModif(db, d, profile) && (
+                        <button onClick={() => demanderModifAuClient(d)} className="text-xs font-bold text-amber-800 border border-amber-400 bg-white rounded-lg px-3 py-1.5 hover:bg-amber-50"
+                          title="Ce devis est signé : le client doit accepter avant toute correction">✏️ Demander une modification au client</button>
                       )}
                       <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
                     </div>

@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1129 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1140 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -292,15 +292,33 @@ lit mal est pire qu'un banc absent).
   un devis entier). **Qui** (option « b » choisie par Timo) : **celui qui l'a
   établi, l'admin, le resp. commercial** — pas le vendeur de la boutique de
   paiement, qui le voit pourtant. **✅ Validé et 💰 Payé restent fermés à
-  tous** (contrat signé, argent encaissé) ; pour eux Timo veut une **demande
-  de modification que LE CLIENT valide** avant que le devis ne s'ouvre — à
-  construire, deux questions en attente (voir `docs/etat-chantiers-en-attente.md`).
-  Le devis repris **REMPLACE** l'ancien (même id, `idAReprendre`), jamais un
+  tous** en direct (contrat signé, argent encaissé). Le devis repris **REMPLACE** l'ancien (même id, `idAReprendre`), jamais un
   doublon chez le client. **Toute correction laisse sa TRACE** (« personne ne
   baisse un prix en silence ») : `modifie_le`, `modifie_par`,
   `nb_modifications` posés par `marquerModification`, badge sur la ligne.
   Règles pures `peutModifierDevis` / `motifRefusModification` /
   `marquerModification` (lib/comptesClients.js), revérifiées DANS le geste.
+- **✏️ Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte** (11/09/2026,
+  « s'il a déjà signé, impossible de modifier… l'utilisateur va faire une
+  demande de modification auprès du client… le client valide la demande avant
+  que le devis ne soit modifiable ») — **`lib/modifDevis.js`**, règles pures.
+  **✅ Validé SEUL** (« Validé seul » ; 💰 payé jamais : c'est la vente qu'on
+  corrige, par une reprise). Le parcours : « Demander une modification »
+  (motif obligatoire, auteur / admin / resp. com) → **⏳ en attente** du
+  client, le devis n'est PAS encore modifiable → le client **accepte**
+  (`devisModifiable` s'ouvre) ou **refuse** (le devis reste signé tel quel,
+  rien ne bouge) → le vendeur corrige et renvoie → **🔄 Corrigé**, jamais
+  « proposé » (Timo) → le client **accepte et RE-SIGNE** (décision A : même
+  numéro de contrat, ancienne signature archivée dans `historique_modif`,
+  **plan de règlement remis à valider** — décision C) **ou refuse et le devis
+  est REJETÉ** (décision B, l'affaire s'arrête). **3 aller-retour au plus**
+  (`MAX_CYCLES_MODIF`, `cycles_modif`) : au-delà, « il devient caduc », on
+  établit un nouveau devis. **Deux portes fermées d'office** : chantier
+  **réceptionné** (travaux livrés) et **argent déjà versé** sur ce devis. Pose
+  seule : la dette et les frais du chantier SUIVENT le nouveau montant, jamais
+  un second chantier (`accepterDevisCorrige`, pas `validerDevis`). ⚠ Ne pas
+  confondre `demande_bmi` (BMI demande au client) et `demande_modif` (le
+  client demande à BMI, champ ancien).
 - **📲 Relance des devis sans réponse** (09/09/2026, « Tous les devis ») :
   seuil **15 jours**, comptés depuis la dernière relance (`relance_le`)
   sinon depuis le devis. **Proposé et validé (non payé) seulement ; payé

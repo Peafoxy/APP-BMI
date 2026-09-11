@@ -14,6 +14,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../comp
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, estCompteFormation, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
+import { demandeModifEnCours, devisCorrige, repondreDemandeModif, accepterDevisCorrige, refuserDevisCorrige } from "../lib/modifDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 
 // ============ ESPACE CLIENT (rôle client) ============
@@ -162,6 +163,34 @@ export function EspaceClient({ db, profile, save, setTab }) {
     uAlert(`Votre demande est transmise à ${d.par}. Il vous préparera un nouveau devis.`);
   };
 
+  // ---- BMI DEMANDE À MODIFIER UN DEVIS DÉJÀ SIGNÉ ----
+  // Timo (11/09/2026) : « le client valide la demande avant que le devis ne
+  // soit modifiable ». Un refus ne casse rien : le devis reste signé tel quel.
+  const repondreDemandeBMI = async (d, accepte) => {
+    const ok = await uConfirm(accepte
+      ? `Vous acceptez que BMI modifie votre devis de ${fmt(d.total)} ?\n\nMotif : « ${d.demande_bmi.motif} »\n\nVous recevrez le devis corrigé et vous pourrez alors l'accepter ou le refuser.`
+      : `Vous refusez la modification ?\n\nVotre devis de ${fmt(d.total)} restera exactement tel que vous l'avez signé.`);
+    if (!ok) return;
+    const r = repondreDemandeModif(db, moi, d, accepte, today());
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
+    uAlert(accepte ? "✅ C'est noté. Vous recevrez le devis corrigé." : "C'est noté : votre devis reste tel qu'il est.");
+  };
+
+  // ---- LE CLIENT REFUSE LE DEVIS CORRIGÉ ----
+  // Décision Timo (B) : le devis est REJETÉ, l'affaire s'arrête là.
+  const refuserCorrige = async (d) => {
+    const motif = await uPrompt(
+      `Pourquoi refusez-vous ce devis corrigé de ${fmt(d.total)} ?\n\n⚠ En refusant, le devis est rejeté : il faudra en établir un nouveau.`,
+      ""
+    );
+    if (motif === null) return;
+    const r = refuserDevisCorrige(db, profile.id, d.id, { motif, date: today(), acteur: { nom: profile.nom } });
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
+    uAlert("Votre réponse est transmise. Le devis est rejeté.");
+  };
+
   // ---- LE CLIENT NOTE CELUI QUI EST VENU CHEZ LUI ----
   const [notes, setNotes] = useState({});
 
@@ -223,7 +252,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
   const ouvrirContrat = (d) => {
     if (!d.pose_seule) {
       const boutique = bqPaiement[d.id];
-      if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
+      if (!boutique && !devisCorrige(d)) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
     }
     setContratOuvert(d.id);
   };
@@ -241,6 +270,19 @@ export function EspaceClient({ db, profile, save, setTab }) {
     }
     const planSigne = planReglementSigne(plan, solde);
     const signatureDataUrl = signatureRef.current.image();
+    // ⚠ Un devis CORRIGÉ n'est pas une première validation : le contrat existe
+    // déjà, le chantier aussi. Le client RE-SIGNE (décision A de Timo), le
+    // numéro de contrat ne change pas, et le plan de règlement repart « à
+    // valider » (décision C). Aucun chantier, aucune dette en double.
+    if (devisCorrige(d)) {
+      const r = accepterDevisCorrige(db, profile.id, d.id, { signature: signatureDataUrl, plan: planSigne, date: today(), acteur: { nom: profile.nom } });
+      if (r.erreur) { uAlert(r.erreur); return; }
+      save(r.db, r.journal);
+      setContratOuvert(null);
+      setPlan({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
+      uAlert(`✅ Merci. Votre accord est enregistré et le devis de ${fmt(d.total)} est de nouveau signé.`);
+      return;
+    }
     const numero = numeroContrat();
     // ⚠ Le contrat ne se ferme QUE si la validation est allée au bout
     // (défaut trouvé lors de la revue, lot 2) : on fermait AVANT d'appeler
@@ -529,6 +571,44 @@ export function EspaceClient({ db, profile, save, setTab }) {
                         <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-sky-200">
                           <button onClick={() => demanderModification(d)} className="px-4 py-2 rounded-lg border-2 border-amber-400 text-amber-700 font-bold text-sm hover:bg-amber-50">✏️ Demander une modification</button>
                           <button onClick={() => rejeterDevis(d)} className="px-4 py-2 rounded-lg border-2 border-red-400 text-red-700 font-bold text-sm hover:bg-red-50">❌ Rejeter ce devis</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {demandeModifEnCours(d) && (
+                      <div className="mt-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
+                        <div className="font-bold text-amber-900">✏️ BMI souhaite modifier votre devis</div>
+                        <div className="text-sm text-slate-700 mt-1">« {d.demande_bmi.motif} »</div>
+                        <div className="text-xs text-slate-500 mt-1">Demandé le {dFR(d.demande_bmi.le)} par {d.demande_bmi.par}.</div>
+                        <div className="text-xs text-slate-600 mt-2">
+                          Tant que vous n'avez pas accepté, <b>votre devis reste exactement tel que vous l'avez signé</b>.
+                          Si vous acceptez, vous recevrez le devis corrigé et vous pourrez encore l'accepter ou le refuser.
+                        </div>
+                        <div className="flex gap-2 flex-wrap mt-3">
+                          <button onClick={() => repondreDemandeBMI(d, true)} className="px-4 py-2 rounded-lg bg-amber-700 text-white font-bold text-sm hover:bg-amber-800">✅ J'accepte la modification</button>
+                          <button onClick={() => repondreDemandeBMI(d, false)} className="px-4 py-2 rounded-lg border-2 border-slate-400 text-slate-700 font-bold text-sm hover:bg-slate-50">❌ Je refuse</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {devisCorrige(d) && (
+                      <div className="mt-4 rounded-xl border-2 border-indigo-300 bg-indigo-50 p-3">
+                        <div className="font-bold text-indigo-900 mb-1">🔄 Votre devis a été corrigé — votre accord est demandé</div>
+                        {d.historique_modif?.length > 0 && (() => {
+                          const h = d.historique_modif[d.historique_modif.length - 1];
+                          return (
+                            <div className="text-sm text-slate-700 mt-1">
+                              Motif : « {h.motif} » — montant <b>{fmt(h.total_avant)}</b> → <b className="text-indigo-900">{fmt(h.total_apres)}</b>
+                            </div>
+                          );
+                        })()}
+                        <div className="text-xs text-slate-600 mt-2">
+                          Relisez le détail ci-dessus. <b>Si vous acceptez, vous re-signez le contrat</b> (il garde son numéro).
+                          Si vous refusez, le devis est rejeté et il faudra en établir un nouveau.
+                        </div>
+                        <div className="flex gap-2 flex-wrap mt-3">
+                          <button onClick={() => ouvrirContrat(d)} className="px-5 py-2 rounded-lg bg-indigo-800 text-white font-bold text-sm hover:bg-indigo-900">✅ J'accepte et je re-signe</button>
+                          <button onClick={() => refuserCorrige(d)} className="px-4 py-2 rounded-lg border-2 border-red-400 text-red-700 font-bold text-sm hover:bg-red-50">❌ Je refuse</button>
                         </div>
                       </div>
                     )}
