@@ -212,6 +212,10 @@ const kWh = (wh) => `${(Number(wh || 0) / 1000).toFixed(1).replace(".", ",")} kW
 const kW = (w) => (Number(w || 0) >= 1000 ? `${(Number(w) / 1000).toFixed(1).replace(".", ",")} kW` : `${fmtMontant(w)} W`);
 const nb = (x) => String(Number(x || 0)).replace(".", ",");
 const LIBELLE_BATTERIE = { lifepo4: "Lithium LiFePO4", gel: "Gel", plomb: "Plomb" };
+// Un titre de colonne PORTE l'alignement de sa colonne : `columnStyles` ne
+// descend pas jusqu'aux en-têtes (mesuré le 11/09/2026 — « Total » commençait
+// à 163 mm alors que ses montants finissaient à 195).
+const enTete = (texte, halign = "left") => ({ content: texte, styles: { halign } });
 // Une nouvelle page si le bloc suivant ne tient pas.
 const placePour = (doc, y, hauteur, besoin) => { if (y + besoin > hauteur - 20) { doc.addPage(); return 20; } return y; };
 const titreBloc = (doc, y, texte) => {
@@ -265,9 +269,14 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
   y = titreBloc(doc, y, "Vos appareils");
   const totalW = b.appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
   autoTable(doc, {
-    head: [["Appareil à alimenter", "Puissance (W)", "Qté", "Heures / jour"]],
+    // ⚠ Capture Timo (11/09/2026) : « la puissance (W) n'est pas centrée sous
+    // la ligne… même souci dans équipement proposé ». Les VALEURS étaient bien
+    // à droite / au centre, mais les EN-TÊTES étaient restés à gauche : une
+    // colonne ne transmet pas son alignement à son titre. On le dit donc sur
+    // chaque cellule de titre — et sur le pied, qui l'ignorait aussi.
+    head: [[enTete("Appareil à alimenter"), enTete("Puissance (W)", "right"), enTete("Qté", "center"), enTete("Heures / jour", "center")]],
     body: b.appareils.map((a) => [String(a.nom), fmtMontant(a.puissance), String(a.qte || 1), String(a.heures || 0)]),
-    foot: [["Puissance totale installée", `${fmtMontant(totalW)} W`, "", ""]],
+    foot: [["Puissance totale installée", { content: `${fmtMontant(totalW)} W`, styles: { halign: "right" } }, "", ""]],
     startY: y,
     styles: { fontSize: 7.5, cellPadding: 1, textColor: GRIS_TEXTE },
     headStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
@@ -306,7 +315,7 @@ function besoinAutre(doc, d, largeur, hauteur, y) {
   const b = d.besoins;
   y = titreBloc(doc, y, "Votre demande");
   autoTable(doc, {
-    head: [["Ce que vous avez demandé", "Qté"]],
+    head: [[enTete("Ce que vous avez demandé"), enTete("Qté", "center")]],
     body: b.articles_demandes.map((a) => [String(a.nom), String(a.qte || 1)]),
     startY: y,
     styles: { fontSize: 8, cellPadding: 1.2, textColor: GRIS_TEXTE },
@@ -349,7 +358,7 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
     for (const l of d.lignes) body.push(ligneEquipement(l));
   }
   autoTable(doc, {
-    head: [["Désignation", "Qté", "Prix unitaire", "Total"]],
+    head: [[enTete("Désignation"), enTete("Qté", "center"), enTete("Prix unitaire", "right"), enTete("Total", "right")]],
     body,
     startY: y,
     styles: { fontSize: 8.5, cellPadding: 1.3 },

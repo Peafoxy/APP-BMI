@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1127 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1129 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -362,7 +362,13 @@ lit mal est pire qu'un banc absent).
   la dernière ligne du tableau (capture Timo, 11/09/2026 — « Frais
   d'installation » écrasé). `blocEquipement` rend donc `finalY + 6 + 3`, et
   le banc MESURE cet écart (≥ 3 mm) — le contrôle de chevauchement des
-  TEXTES ne voyait rien, le bandeau étant un rectangle plein. **Seul le bloc du
+  TEXTES ne voyait rien, le bandeau étant un rectangle plein. ⚠ **Un titre de
+  colonne ne reçoit PAS `columnStyles`** : il reste à gauche pendant que ses
+  valeurs sont à droite (capture Timo, 11/09/2026 — « la puissance (W) n'est
+  pas centrée sous la ligne… même souci dans équipement proposé »). Chaque
+  titre porte donc son alignement (`enTete(texte, halign)`), le pied aussi, et
+  le banc MESURE bord à bord que le titre d'une colonne de montants finit là
+  où finissent ses montants. **Seul le bloc du
   besoin change** (`blocBesoin` choisit d'après la forme des besoins) :
   solaire → « Votre besoin » en trois cases (kWh/jour, kW simultanés,
   autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail → le

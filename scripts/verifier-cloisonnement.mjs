@@ -5297,6 +5297,44 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     const derniere = L.filter((o) => tot && o.y < tot.y - 6).pop();
     return tot && derniere ? tot.y - 7.5 - derniere.y : -1;
   };
+  // ⚠ Capture Timo (11/09/2026) : « la puissance (W) n'est pas centrée sous la
+  // ligne… même souci dans équipement proposé ». Les valeurs étaient à droite,
+  // les EN-TÊTES restés à gauche : une colonne ne transmet pas son alignement
+  // à son titre. Le banc MESURE les bords : le titre d'une colonne de montants
+  // FINIT là où finissent ses montants, à 1,5 mm près.
+  const boites = (doc) => {
+    let x = null, yy = null, taille = 10;
+    const L = [];
+    for (const l of doc.internal.pages.flat().join("\n").split("\n")) {
+      let m = l.match(/\/F\d+ ([\d.]+) Tf/); if (m) taille = +m[1];
+      m = l.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/) || l.match(/^([\d.]+) ([\d.]+) Td/);
+      if (m) { x = +m[1] / 2.8346; yy = 297 - (+m[2]) / 2.8346; }
+      m = l.match(/\((.*?)\)\s*Tj/);
+      if (m && m[1].trim() && x !== null) { doc.setFontSize(taille); const t = m[1].replace(/\\/g, ""); L.push({ y: yy, x1: x, x2: x + doc.getTextWidth(t), t }); }
+    }
+    return L;
+  };
+  const bSol = boites(Pdf.genererDevis(dSol, null, true));
+  const bord = (t) => bSol.find((o) => o.t === t);
+  const centre = (o) => (o.x1 + o.x2) / 2;
+  test("★ chaque titre de colonne est aligné comme SA colonne : « Total » et « Prix unitaire » finissent avec leurs montants, « Qté » est centré sur ses quantités — mesuré sur le PDF réel, bord à bord",
+    (() => {
+      // Il y a DEUX « Qté » dans un devis solaire (appareils, équipement) :
+      // on prend celui de la ligne de « Désignation », le tableau des prix.
+      const desi = bSol.find((o) => o.t === "Désignation");
+      const qteEquip = bSol.find((o) => o.t === "Qté" && Math.abs(o.y - desi.y) < 1);
+      const quantites = bSol.filter((o) => o.y > desi.y && o.y < desi.y + 30 && Math.abs(centre(o) - centre(qteEquip)) < 4);
+      const montants = bSol.filter((o) => /^[\d ]+ F$/.test(o.t)).map((o) => o.x2).sort((a, b) => b - a)[0];
+      return Math.abs(bord("Total").x2 - montants) < 1.5 && quantites.length >= 2;
+    })());
+  const bAppareils = boites(Pdf.genererDevis(dSol, null, true));
+  test("★ dans « Vos appareils » aussi : « Puissance (W) » finit avec ses puissances, « Qté » et « Heures / jour » sont centrés sur leurs nombres — et le pied « Puissance totale installée » suit sa colonne",
+    (() => {
+      const ph = bAppareils.find((o) => o.t === "Puissance (W)");
+      const val = bAppareils.filter((o) => o.y > ph.y && o.y < ph.y + 20 && Math.abs(o.x2 - ph.x2) < 3);
+      const pied = bAppareils.find((o) => /^[\d ]+ W$/.test(o.t));
+      return !!ph && val.length >= 2 && !!pied && Math.abs(pied.x2 - ph.x2) < 1.5;
+    })());
   test("★ le bandeau TOTAL DU PROJET ne se pose JAMAIS sur la dernière ligne du tableau des prix : au moins 3 mm entre le bas du tableau et le haut du bandeau (le bandeau monte 7,5 mm au-dessus de son libellé — l'oublier, c'est l'écraser)",
     [docSol, Pdf.genererDevis(devisOrdinaire, null, true),
      Pdf.genererDevis({ ...devisOrdinaire, lignes: [{ article: "MOTEUR 600 kg", qte: 1, pu: 500000, total: 500000 }], besoins: null }, null, true)]
