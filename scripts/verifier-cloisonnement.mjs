@@ -5130,16 +5130,20 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     besoins: { type_ouvrant: "Portail coulissant", largeur: 4, hauteur: 2, surface_porte: 8,
       poids: 400, poids_ajuste: 500, vantaux: 2, frequence: "Moyenne (10 à 30 cycles/j)", telecommandes: 2 } };
   const txtPortail = texteDuPdf(Pdf.genererDevis(dPortail, null, true));
-  test("★ devis PORTAIL : « Votre ouvrant » en trois cases — dimensions, poids RETENU, usage en un mot — puis le détail (type, vantaux, surface, poids mesuré, télécommandes)",
-    txtPortail.includes("VOTRE OUVRANT") && txtPortail.includes("4 × 2 m") && txtPortail.includes("500 kg") && txtPortail.includes("Moyenne")
-    && txtPortail.includes("Ouvrant : Portail coulissant") && txtPortail.includes("2 vantaux") && txtPortail.includes("Surface : 8 m²")
-    && txtPortail.includes("Poids mesuré : 400 kg") && txtPortail.includes("Télécommandes : 2"));
+  // Retourné le 11/09/2026 (« votre ouvrant ??? ») : le titre reprend le TYPE
+  // réel du projet, jamais le mot « ouvrant », qui est celui du code.
+  test("★ devis PORTAIL : le bloc porte le TYPE du projet (« VOTRE PORTAIL COULISSANT »), trois cases — dimensions, poids RETENU, usage en un mot — puis le détail (vantaux, surface, poids mesuré, télécommandes)",
+    txtPortail.includes("VOTRE PORTAIL COULISSANT") && !/OUVRANT|Ouvrant :/.test(txtPortail)
+    && txtPortail.includes("4 × 2 m") && txtPortail.includes("500 kg") && txtPortail.includes("Moyenne")
+    && txtPortail.includes("2 vantaux") && txtPortail.includes("Surface : 8 m²")
+    && txtPortail.includes("Poids mesuré : 400 kg") && txtPortail.includes("Télécommandes : 2")
+    && texteDuPdf(Pdf.genererDevis({ ...dPortail, besoins: { ...dPortail.besoins, type_ouvrant: "Rideau métallique" } }, null, true)).includes("VOTRE RIDEAU MÉTALLIQUE"));
   const dAutre = { ...socle, date: "11/09/2026", total: 500000, pct_acompte: 100, montant_acompte: 500000,
     besoins: { articles_demandes: [{ nom: "Caméra dôme", qte: 3 }, { nom: "Enregistreur", qte: 1 }] } };
   const txtAutre = texteDuPdf(Pdf.genererDevis(dAutre, null, true));
   test("★ devis AUTRE : « Votre demande » reprend ce que le client a demandé, tel qu'exprimé, avec ses quantités — aucun bloc de chiffres inventé",
     txtAutre.includes("VOTRE DEMANDE") && txtAutre.includes("Ce que vous avez demandé") && txtAutre.includes("Caméra dôme") && txtAutre.includes("Enregistreur")
-    && !txtAutre.includes("VOTRE BESOIN") && !txtAutre.includes("VOTRE OUVRANT"));
+    && !txtAutre.includes("VOTRE BESOIN") && !txtAutre.includes("VOTRE PORTAIL"));
   test("★ portail et autre ont les MÊMES blocs communs que le solaire (équipement, TOTAL DU PROJET, acompte/solde, validité, bon pour accord)",
     [txtPortail, txtAutre].every((t) => ["ÉQUIPEMENT PROPOSÉ", "TOTAL DU PROJET", "Offre valable 15 jours", "Bon pour accord"].every((m) => t.includes(m)))
     && txtPortail.includes("250 000 FCFA") && txtPortail.includes("Acompte à la commande (50 %)")
@@ -5147,7 +5151,7 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   const txtAncien = texteDuPdf(Pdf.genererDevis({ ...socle, date: "11/09/2026", lignes: [{ article: "MOTEUR", qte: 1, pu: 500000, total: 500000 }], besoins: null }, null, true));
   test("★ un ANCIEN devis (sans besoins ni catégorie) passe par la même charpente, sans bloc de besoin et sans en-tête de groupe inventé",
     txtAncien.includes("ÉQUIPEMENT PROPOSÉ") && txtAncien.includes("TOTAL DU PROJET") && txtAncien.includes("MOTEUR")
-    && !txtAncien.includes("VOTRE BESOIN") && !txtAncien.includes("VOTRE OUVRANT") && !txtAncien.includes("VOTRE DEMANDE")
+    && !txtAncien.includes("VOTRE BESOIN") && !txtAncien.includes("VOTRE PORTAIL") && !txtAncien.includes("VOTRE DEMANDE")
     && !txtAncien.includes("Autres équipements"));
   test("les mesures du garage et la demande « autre » sont rendues",
     srcPdf.includes("type_ouvrant") && srcPdf.includes("articles_demandes"));

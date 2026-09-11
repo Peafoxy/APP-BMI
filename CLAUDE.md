@@ -309,10 +309,13 @@ lit mal est pire qu'un banc absent).
   (`VALIDITE_OFFRE_JOURS` = 15) + bon pour accord**. **Seul le bloc du
   besoin change** (`blocBesoin` choisit d'après la forme des besoins) :
   solaire → « Votre besoin » en trois cases (kWh/jour, kW simultanés,
-  autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail →
-  « Votre ouvrant » (dimensions, poids RETENU, usage en un mot) puis le
-  détail ; autre → « Votre demande », ce que le client a demandé tel
-  qu'exprimé. **On n'invente jamais un bloc vide** : un ancien devis sans
+  autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail → le
+  **TYPE réel du projet** en titre (« VOTRE PORTAIL COULISSANT », « VOTRE
+  RIDEAU MÉTALLIQUE »… — jamais le mot « ouvrant », qui est celui du code :
+  Timo, « votre ouvrant ??? »), dimensions, poids RETENU, usage en un mot,
+  puis le détail ; autre → « Votre demande », ce que le client a demandé
+  tel qu'exprimé. **Le document parle la langue du client, pas celle du
+  code.** **On n'invente jamais un bloc vide** : un ancien devis sans
   besoins commence directement à l'équipement, sans en-tête de groupe
   inventé. Aucune donnée, aucun calcul, aucune règle de rôle ne change :
   **la mise en page seulement**, et les briques communes (entête, bandeau

@@ -281,7 +281,10 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
 function besoinPortail(doc, d, largeur, hauteur, y) {
   const b = d.besoins;
   const retenu = Number(b.poids_ajuste || b.poids || 0);
-  y = titreBloc(doc, y, "Votre ouvrant");
+  // ⚠ Timo (11/09/2026) : « votre ouvrant ??? » — « ouvrant » est le mot du
+  // code, pas celui du client. Le titre reprend le TYPE réel du projet :
+  // « VOTRE PORTAIL COULISSANT », « VOTRE RIDEAU MÉTALLIQUE »…
+  y = titreBloc(doc, y, b.type_ouvrant ? `Votre ${b.type_ouvrant}` : "Votre installation");
   y = grandesCases(doc, y, largeur, [
     [b.largeur && b.hauteur ? `${nb(b.largeur)} × ${nb(b.hauteur)} m` : "—", "Dimensions"],
     [retenu ? `${fmtMontant(retenu)} kg` : "—", "Poids retenu"],
@@ -290,7 +293,6 @@ function besoinPortail(doc, d, largeur, hauteur, y) {
     [String(b.frequence || "—").split("(")[0].trim() || "—", "Usage quotidien"],
   ]);
   y = ligneDetail(doc, y, [
-    b.type_ouvrant ? `Ouvrant : ${b.type_ouvrant}` : "",
     Number(b.vantaux) > 1 ? `${b.vantaux} vantaux` : "",
     b.surface_porte ? `Surface : ${nb(b.surface_porte)} m²` : "",
     b.poids && Number(b.poids) !== retenu ? `Poids mesuré : ${fmtMontant(b.poids)} kg` : "",
