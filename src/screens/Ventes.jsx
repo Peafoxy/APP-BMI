@@ -15,7 +15,7 @@ import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, con
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, filtreEspaceAffichage } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { motifBlocageVente } from "../lib/cloture";
@@ -233,6 +233,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     client: f.client || "",
     tel: f.tel || "",
     lignes: panier.map((l) => ({
+      // ⚠ Timo (11/09/2026) : `produit_id` GARDÉ à l'émission — c'est lui qui
+      // permet de reprendre la proforma au panier plus tard, avec la bonne
+      // sortie de stock. Les proformas émises avant ne l'ont pas : elles sont
+      // retrouvées par leur nom (reprendreProforma, lib/calculs.js).
+      produit_id: l.produit_id || null,
       article: l.article || (produits.find((x) => x.id === l.produit_id)?.nom) || "Article",
       qte: Number(l.qte), pu: Number(l.pu), remise_ligne: Number(l.remise_ligne || 0),
       total: Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0),
@@ -261,6 +266,28 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       sous_total: pf.sous_total, remise_pct: pf.remise_pct, remise_montant: pf.remise_montant,
       total: pf.total, lignes: pf.lignes, par: profile.nom };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
+  };
+
+  // ---- 🛒 REPRENDRE UNE PROFORMA (Timo, 11/09/2026) ----
+  // Le client revient avec son offre de prix : le panier se remplit tout seul.
+  // Règle pure : reprendreProforma (lib/calculs.js). Rien n'est enregistré ici,
+  // le vendeur vérifie puis encaisse normalement.
+  const reprendreLaProforma = async (pf) => {
+    const r = reprendreProforma(db, pf, boutique);
+    if (r.refus) { uAlert(`🔒 ${r.refus}`); return; }
+    if (!r.panier.length) { uAlert(`Aucun article de cette proforma n'a été retrouvé dans le stock de ${boutique}.${r.introuvables.length ? `\n\nIntrouvables : ${r.introuvables.join(", ")}` : ""}`); return; }
+    if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par la proforma ${pf.numero} ?`)) return;
+    setPanier(r.panier);
+    setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, remise: r.remisePct ? String(r.remisePct) : "" });
+    setVueListe("ventes");
+    const avis = [
+      `🛒 Proforma ${pf.numero} reprise : ${r.panier.length} article(s) au panier.`,
+      r.introuvables.length ? `⚠ Introuvable(s) dans ${boutique}, à ajouter à la main : ${r.introuvables.join(", ")}.` : "",
+      r.prixChanges.length ? `⚠ Prix changés depuis : ${r.prixChanges.map((c) => `${c.article} ${fmt(c.propose)} → ${fmt(c.aujourdhui)}`).join(" ; ")}. Le prix de la proforma est gardé.` : "",
+      r.remiseEcartee ? `⚠ Remise générale écartée : une remise est déjà accordée sur un article (l'une ou l'autre).` : "",
+    ].filter(Boolean).join(" ");
+    setMsg(avis);
+    if (typeof window !== "undefined" && window.scrollTo) window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const proformaWhatsApp = () => {
@@ -1114,7 +1141,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <td className="px-3 py-2 font-semibold">{fmt(pf.total)}</td>
                   <td className="px-3 py-2 text-slate-500">{pf.par}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation)} className="text-xs text-sky-700 underline">🖨️ Réimprimer</button>
+                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation)} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
+                    <button onClick={() => reprendreLaProforma(pf)} title="Remettre les articles de cette proforma dans le panier pour encaisser" className="text-xs font-bold text-emerald-700 underline">🛒 Reprendre</button>
                   </td>
                 </tr>
               ))}

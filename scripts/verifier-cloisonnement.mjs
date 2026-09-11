@@ -4931,6 +4931,49 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
     && /l'ADMIN aussi : remise sur un article ET remise générale, jamais[^"]*" "REFUSE"/.test(ta14) && /SANS toucher aux lignes ni à la remise \(par upsert\)" "PERMIS"/.test(ta14) && /un vendeur émet un proforma avec 5 % sur un article" "REFUSE"/.test(ta14));
 }
 
+titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
+{
+  // « Dans les grands logiciels, la proforma se transforme en vente comme un
+  // devis. » Choix de Timo : la garder telle quelle, mais la rendre REPRENABLE.
+  const dbP = { produits: [
+    { id: "p1", boutique: "A", nom: "PANNEAU 550W", prix_vente: 100000 },
+    { id: "p2", boutique: "A", nom: "BATTERIE GEL", prix_vente: 90000 },
+    { id: "p3", boutique: "B", nom: "PANNEAU 550W", prix_vente: 100000 },
+  ] };
+  const pf = { numero: "PRF-1", boutique: "A", client: "AMA", tel: "90", remise_pct: 2,
+    lignes: [
+      { produit_id: "p1", article: "PANNEAU 550W", qte: 2, pu: 100000, remise_ligne: 0 },
+      { produit_id: "p2", article: "BATTERIE GEL", qte: 1, pu: 80000, remise_ligne: 0 },
+      { produit_id: "zz", article: "ARTICLE PARTI", qte: 1, pu: 5000, remise_ligne: 0 },
+    ] };
+  const r = C.reprendreProforma(dbP, pf, "A");
+  test("★ reprendreProforma : le panier est rempli depuis les fiches du stock de la boutique, l'article introuvable est LISTÉ (jamais mis au panier sans sa fiche), la remise générale est reprise",
+    r.refus === "" && r.panier.map((l) => `${l.produit_id}:${l.qte}:${l.pu}`).join("|") === "p1:2:100000|p2:1:80000"
+    && r.introuvables.join("|") === "ARTICLE PARTI" && r.remisePct === 2 && r.remiseEcartee === false);
+  test("★ …un prix qui a changé depuis est SIGNALÉ, et c'est le prix de la proforma qui est gardé (jamais corrigé en douce)",
+    r.prixChanges.map((c) => `${c.article}:${c.propose}:${c.aujourdhui}`).join("|") === "BATTERIE GEL:80000:90000"
+    && r.panier.find((l) => l.produit_id === "p2").pu === 80000);
+  test("★ …une proforma d'une AUTRE boutique est refusée en nommant la bonne (on ne change jamais de boutique tout seul)",
+    /émise à A\./.test(C.reprendreProforma(dbP, pf, "B").refus) && /Choisissez d'abord la boutique A/.test(C.reprendreProforma(dbP, pf, "B").refus)
+    && C.reprendreProforma(dbP, null, "A").refus !== "" && C.reprendreProforma(dbP, { boutique: "A", lignes: [] }, "A").panier.length === 0);
+  // Le 10/09/2026 : remise de ligne ET remise générale ne cohabitent plus.
+  const pfMixte = { ...pf, lignes: [{ produit_id: "p1", article: "PANNEAU 550W", qte: 1, pu: 100000, remise_ligne: 3000 }] };
+  const rm = C.reprendreProforma(dbP, pfMixte, "A");
+  test("★ …une vieille proforma qui cumule remise de ligne et remise générale voit la générale ÉCARTÉE (sinon l'encaissement serait refusé sans que le vendeur comprenne)",
+    rm.remisePct === 0 && rm.remiseEcartee === true && rm.panier[0].remise_ligne === 3000
+    && C.critiqueRemises(rm.panier, rm.remisePct, 0, "admin") === "");
+  // Les proformas émises AVANT 2.101.135 n'ont pas produit_id : on les retrouve par le nom.
+  const rAncien = C.reprendreProforma(dbP, { boutique: "A", lignes: [{ article: "PANNEAU 550W", qte: 1, pu: 100000 }] }, "A");
+  test("★ …une proforma ancienne (sans produit_id) est retrouvée par le NOM de l'article, dans sa boutique seulement",
+    rAncien.panier.length === 1 && rAncien.panier[0].produit_id === "p1"
+    && C.reprendreProforma({ produits: [dbP.produits[2]] }, { boutique: "A", lignes: [{ article: "PANNEAU 550W", qte: 1, pu: 100000 }] }, "A").introuvables.length === 1);
+  const vtP = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran Ventes : la proforma émise GARDE produit_id, le bouton « 🛒 Reprendre » est sur sa ligne, le geste passe par la règle pure, prévient avant d'écraser un panier et n'enregistre rien",
+    /produit_id: l\.produit_id \|\| null,/.test(vtP) && /🛒 Reprendre<\/button>/.test(vtP)
+    && /const r = reprendreProforma\(db, pf, boutique\);/.test(vtP) && /Le panier contient déjà \$\{panier\.length\} article\(s\)/.test(vtP)
+    && !/reprendreLaProforma[^]*?save\(/.test(vtP.slice(vtP.indexOf("const reprendreLaProforma"), vtP.indexOf("const proformaWhatsApp"))));
+}
+
 titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Timo, 09/09/2026)");
 {
   // « S'il y a des ventes un jour et la caisse n'a pas été clôturée, le

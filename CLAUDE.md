@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1100 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1106 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -313,6 +313,21 @@ lit mal est pire qu'un banc absent).
   seulement**, et les briques communes (entête, bandeau de formation,
   bandeau total, mentions, pied de page) restent écrites UNE fois. Le banc
   MESURE le texte réellement écrit dans le PDF, il ne lit pas le code.
+- **🛒 Une proforma se REPREND au panier** (11/09/2026, après « dans les
+  grands logiciels, ça se passe comment ? » — la proforma y est une façon
+  d'imprimer le devis, donc transformable ; Timo a choisi de garder la
+  proforma telle quelle et de la rendre reprenable) : bouton « 🛒 Reprendre »
+  sur sa ligne dans 💰 Ventes. Règle pure `reprendreProforma`
+  (lib/calculs.js) : la proforma émise garde `produit_id` sur chaque ligne,
+  les anciennes sont retrouvées par le NOM dans la boutique ; une proforma
+  d'une AUTRE boutique est refusée en nommant la bonne, **jamais de
+  changement de boutique tout seul** ; un article introuvable est listé au
+  vendeur, jamais mis au panier sans sa fiche ; le prix de la proforma est
+  gardé et l'écart avec le prix du jour est signalé ; une vieille proforma
+  qui cumule remise de ligne et remise générale voit **la générale écartée**
+  (règle du 10/09). Rien n'est enregistré à la reprise : le vendeur vérifie
+  puis encaisse. Pas de bouton direct devis → vente : la validation et le
+  contrat restent le passage obligé.
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.

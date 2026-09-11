@@ -9,6 +9,7 @@
 // ============================================================
 import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { SALARIES } from "./constants";
+import { mettreAuPanier } from "./panier";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
 // ⚠ chiffresTel est IMPORTÉ ET réexporté — le piège « export { x } from »
@@ -1398,6 +1399,48 @@ export const trouverArticle = (liste, nom) => {
     || liste.find((p) => normNom(p.nom).includes(n) || n.includes(normNom(p.nom)))
     || null;
 };
+
+// ---- REPRENDRE UNE PROFORMA DANS LE PANIER D'UNE VENTE ----
+// Timo (11/09/2026), après avoir demandé comment font les grands logiciels :
+// il choisit de garder la proforma telle qu'elle est, mais de la rendre
+// REPRENABLE — « le vendeur ne ressaisit plus le panier au comptoir ».
+// Depuis 2.101.135 chaque ligne émise garde `produit_id` ; les proformas plus
+// anciennes sont retrouvées par leur nom dans la boutique (trouverArticle).
+// Fonction PURE : elle ne modifie rien, l'écran décide quoi en faire.
+//   • une proforma d'une AUTRE boutique n'est jamais reprise ici — le stock
+//     n'est pas le même : on DIT laquelle, on ne change jamais de boutique
+//     tout seul (règle Timo : « ne jamais changer de boutique ») ;
+//   • un article introuvable dans la boutique n'entre pas au panier (la sortie
+//     de stock a besoin de sa fiche) : il est listé au vendeur, qui l'ajoute ;
+//   • le prix repris est celui de la proforma ; un écart avec le prix du jour
+//     est SIGNALÉ, jamais corrigé en douce ;
+//   • remise : depuis le 10/09/2026 une remise de ligne et une remise générale
+//     ne cohabitent plus — une vieille proforma qui a les deux voit sa remise
+//     générale écartée, et l'écran le dit (sinon l'encaissement serait refusé
+//     sans que le vendeur comprenne pourquoi).
+export function reprendreProforma(db, pf, boutique) {
+  if (!pf) return { refus: "Proforma introuvable." };
+  if (pf.boutique && pf.boutique !== boutique) {
+    return { refus: `Cette proforma a été émise à ${pf.boutique}. Choisissez d'abord la boutique ${pf.boutique} pour la reprendre : le stock n'est pas le même.` };
+  }
+  const enStock = (db.produits || []).filter((p) => p.boutique === boutique);
+  let panier = [];
+  const introuvables = [];
+  const prixChanges = [];
+  for (const l of pf.lignes || []) {
+    const p = (l.produit_id ? enStock.find((x) => x.id === l.produit_id) : null) || trouverArticle(enStock, l.article);
+    if (!p) { introuvables.push(String(l.article || "?")); continue; }
+    const pu = Number(l.pu || 0);
+    if (Number(p.prix_vente || 0) !== pu) prixChanges.push({ article: p.nom, propose: pu, aujourdhui: Number(p.prix_vente || 0) });
+    panier = mettreAuPanier(panier, p, Number(l.qte || 0), pu, Number(l.remise_ligne || 0));
+  }
+  const aRemiseLigne = panier.some((l) => Number(l.remise_ligne || 0) > 0);
+  return {
+    refus: "", panier, introuvables, prixChanges,
+    remisePct: aRemiseLigne ? 0 : Number(pf.remise_pct || 0),
+    remiseEcartee: aRemiseLigne && Number(pf.remise_pct || 0) > 0,
+  };
+}
 
 // ⚠ DEMANDE TIMO (25/08/2026) — LA PRÉSÉLECTION D'UN ARTICLE DÉJÀ CONNU.
 //
