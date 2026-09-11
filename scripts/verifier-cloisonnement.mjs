@@ -4218,8 +4218,10 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     && (pdf.match(/il constitue une offre de prix et n'a pas de valeur comptable/g) || []).length === 1);
   test("★ le devis ET le proforma passent par ces briques (enteteSociete, bandeauTitre, bandeauTotal, mentionsOffre, piedDePage)",
     (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 2 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 2
-    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y, /g) || []).length === 2
-    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 2);
+    // Retourné le 11/09/2026 : le devis solaire est un TROISIÈME rendu, et il
+    // passe par les mêmes briques de fin — c'est justement la règle.
+    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 3 && (pdf.match(/mentionsOffre\(doc, y, /g) || []).length === 3
+    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 3);
   test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
     && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "un devis"\)/.test(pdf));
@@ -5035,8 +5037,49 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   const srcPdf = readFileSync("src/pdf.js", "utf8");
   test("★ le fichier téléchargé porte le NOM DU CLIENT (et garde le numéro) — par la règle unique",
     /doc\.save\(fichierPdf\("Devis", \{ client: d\.client, numero: d\.numero \}\)\)/.test(srcPdf));
-  test("★ la charge solaire est rendue (appareils + résumé du calcul)",
-    srcPdf.includes("Appareil à alimenter") && srcPdf.includes("Besoin estimé"));
+  // Retourné le 11/09/2026 : le devis solaire a sa présentation commerciale
+  // (Timo, « ça me convient »). La charge y est toujours, autrement dite.
+  test("★ le devis SOLAIRE passe par la présentation commerciale (devisSolaire), plus par la table technique : un seul aiguillage, et il sort avant le rendu classique",
+    /const estSolaire = !!\(b && Array\.isArray\(b\.appareils\) && b\.appareils\.length > 0\);/.test(srcPdf)
+    && (srcPdf.match(/devisSolaire\(doc, d, largeur, hauteur, yApres\);/g) || []).length === 1
+    && srcPdf.includes("Appareil à alimenter") && srcPdf.includes("Besoin estimé par jour")
+    && (srcPdf.match(/Array\.isArray\(b\.appareils\)/g) || []).length === 1);
+  // ⚠ Le banc MESURE : on relit le texte réellement écrit dans le PDF
+  // (doc.internal.pages), on ne se contente pas de lire pdf.js.
+  // (jsPDF échappe les parenthèses dans le flux : on les rétablit pour lire.)
+  const texteDuPdf = (doc) => JSON.stringify(doc.internal.pages).replace(/\\\\\(/g, "(").replace(/\\\\\)/g, ")");
+  const dSol = { ...socle, date: "11/09/2026", total: 1000000, pct_acompte: 60, montant_acompte: 600000,
+    delai_installation: "3 semaines",
+    lignes: [
+      { categorie: "Panneaux solaires", article: "PANNEAU 550W", qte: 4, pu: 100000, total: 400000 },
+      { categorie: "Batteries", article: "BATTERIE 5 kWh", qte: 2, pu: 350000, total: 700000 },
+      { categorie: "Remise", article: "Remise (3 %)", qte: 1, pu: -100000, total: -100000 },
+    ],
+    besoins: { wh_jour: 8400, puissance_simultanee: 3200, autonomie: 2, tension: 48, type_batterie: "lifepo4",
+      appareils: [{ nom: "Téléviseur", puissance: 100, heures: 5, qte: 2 }, { nom: "Congélateur", puissance: 250, heures: 8, qte: 1 }] } };
+  const docSol = Pdf.genererDevis(dSol, null, true);
+  const txtSol = texteDuPdf(docSol);
+  test("★ devis solaire : le besoin est dit en kWh et kW (jamais en Wh bruts), avec l'autonomie en jours, la tension et la batterie en clair",
+    txtSol.includes("8,4 kWh") && txtSol.includes("3,2 kW") && txtSol.includes("2 jours")
+    && txtSol.includes("Tension du système : 48 V") && txtSol.includes("Lithium LiFePO4") && !txtSol.includes("8400 Wh"));
+  test("★ devis solaire : les cinq blocs dans l'ordre — Votre besoin, Vos appareils (avec la puissance totale installée), Équipement proposé, TOTAL DU PROJET, mentions + validité + bon pour accord",
+    ["VOTRE BESOIN", "VOS APPAREILS", "ÉQUIPEMENT PROPOSÉ", "TOTAL DU PROJET", "Bon pour accord"].every((t) => txtSol.includes(t))
+    && txtSol.indexOf("VOTRE BESOIN") < txtSol.indexOf("VOS APPAREILS") && txtSol.indexOf("VOS APPAREILS") < txtSol.indexOf("ÉQUIPEMENT PROPOSÉ")
+    && txtSol.indexOf("ÉQUIPEMENT PROPOSÉ") < txtSol.indexOf("TOTAL DU PROJET")
+    && txtSol.includes("Puissance totale installée") && txtSol.includes("450 W")
+    && txtSol.includes("Offre valable 15 jours à compter du 11/09/2026"));
+  test("★ devis solaire : acompte et solde calculés et affichés (60 % de 1 000 000 → 600 000 à la commande, 400 000 à l'installation), délai repris ; un acompte de 100 % dit « Paiement intégral »",
+    txtSol.includes("600 000 FCFA") && txtSol.includes("400 000 FCFA") && txtSol.includes("Acompte à la commande (60 %)")
+    && txtSol.includes("Solde à l'installation") && txtSol.includes("Délai d'installation : 3 semaines")
+    && texteDuPdf(Pdf.genererDevis({ ...dSol, pct_acompte: 100, montant_acompte: 1000000 }, null, true)).includes("Paiement intégral à la commande"));
+  test("★ devis solaire : les articles sont groupés par catégorie et la remise reste en négatif ; le bandeau de formation et l'entête société ne changent pas",
+    txtSol.includes("Panneaux solaires") && txtSol.includes("Batteries") && txtSol.includes("-100 000 F")
+    && txtSol.includes("NIF : 1001790098")
+    && texteDuPdf(Pdf.genererDevis({ ...dSol, formation: true }, null, true)).includes("DOCUMENT DE FORMATION"));
+  test("★ le devis PORTAIL et le devis AUTRE gardent le rendu classique (Timo n'a validé que le solaire)",
+    texteDuPdf(Pdf.genererDevis(formes[1][1], null, true)).includes("Ouvrant : Portail coulissant")
+    && !texteDuPdf(Pdf.genererDevis(formes[1][1], null, true)).includes("TOTAL DU PROJET")
+    && !texteDuPdf(Pdf.genererDevis(formes[2][1], null, true)).includes("VOTRE BESOIN"));
   test("les mesures du garage et la demande « autre » sont rendues",
     srcPdf.includes("type_ouvrant") && srcPdf.includes("articles_demandes"));
   test("la colonne Équipement (catégorie) accompagne les articles",

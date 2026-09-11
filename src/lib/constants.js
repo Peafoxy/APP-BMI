@@ -63,7 +63,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.133";
+export const VERSION = "2.101.134";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -104,6 +104,10 @@ export const CATEGORIE_VERSEMENT = "Versement de fonds";
 export const CATEGORIE_REMBOURSEMENT = "Remboursement client";
 export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
+
+// Validité d'une offre de prix (devis) — Timo, 11/09/2026 : 15 jours, comme
+// le seuil de relance des devis sans réponse.
+export const VALIDITE_OFFRE_JOURS = 15;
 
 export const COMPTE_CHARGE = {
   "Loyer": ["622", "Locations et charges locatives"],

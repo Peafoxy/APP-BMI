@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1095 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1100 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -299,6 +299,20 @@ lit mal est pire qu'un banc absent).
 - **WhatsApp : UNE règle** (`lienWhatsApp` / `envoyerWhatsApp`, lib/core.js,
   08/09/2026) : numéro nettoyé, texte encodé, filet anti-blocage. Aucun
   écran n'écrit `wa.me` ni n'ouvre WhatsApp lui-même — le banc l'interdit.
+- **📄 Le devis SOLAIRE a une présentation commerciale** (11/09/2026, après
+  un avis extérieur sur le PDF « administratif » ; Timo : « ça me convient ») :
+  `devisSolaire` dans `src/pdf.js`, cinq blocs dans cet ordre — **Votre
+  besoin** (trois grandes cases : kWh/jour, kW simultanés, autonomie ; jamais
+  de Wh bruts), **Vos appareils** (avec la puissance totale installée),
+  **Équipement proposé** (groupé par catégorie, remise en rouge négatif),
+  **TOTAL DU PROJET** puis acompte et solde (`pct_acompte`,
+  `montant_acompte`, `delai_installation`), **mentions + validité
+  (`VALIDITE_OFFRE_JOURS` = 15) + bon pour accord**. **Portail et Autre
+  gardent le rendu classique** tant que Timo ne l'a pas validé. Aucune
+  donnée, aucun calcul, aucune règle de rôle ne change : **la mise en page
+  seulement**, et les briques communes (entête, bandeau de formation,
+  bandeau total, mentions, pied de page) restent écrites UNE fois. Le banc
+  MESURE le texte réellement écrit dans le PDF, il ne lit pas le code.
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.

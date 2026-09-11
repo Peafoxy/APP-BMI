@@ -290,6 +290,8 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         } : {}),
       } : null,
       total: d.total,
+      // Le bloc financier du devis solaire (Timo, 11/09/2026) : acompte, solde, délai.
+      pct_acompte: d.pct_acompte, montant_acompte: d.montant_acompte, delai_installation: d.delai_installation,
       formation: estFormation,
     }, LOGO);
   };
