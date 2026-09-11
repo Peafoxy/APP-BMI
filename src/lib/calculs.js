@@ -1442,6 +1442,16 @@ export function reprendreProforma(db, pf, boutique) {
   };
 }
 
+// Ce qu'une proforma est DEVENUE : les ventes qui en sont issues, la plus
+// récente d'abord. Timo (11/09/2026) : « une proforma reprise devrait plus
+// être reprenable encore ? » — sa décision : **l'avertissement, pas le
+// blocage**, « avec un nouveau numéro de reçu évidemment car c'est une
+// nouvelle vente » (le numéro est de toute façon recalculé à chaque vente).
+// Un client peut recommander le même matériel : on prévient, il tranche.
+export const ventesDeProforma = (db, pf) => (!pf ? [] : (db.ventes || [])
+  .filter((v) => v.proforma_id && v.proforma_id === pf.id)
+  .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`)));
+
 // ⚠ DEMANDE TIMO (25/08/2026) — LA PRÉSÉLECTION D'UN ARTICLE DÉJÀ CONNU.
 //
 // Premier essai rejeté par lui : une question à l'ajout, « cet article existe

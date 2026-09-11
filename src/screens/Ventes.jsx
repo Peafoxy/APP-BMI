@@ -15,7 +15,7 @@ import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, con
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, filtreEspaceAffichage } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { motifBlocageVente } from "../lib/cloture";
@@ -75,6 +75,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // par un commercial) : permet de retrouver la vente depuis la commande,
   // et donc de savoir si une commande validée a bien été encaissée ou non.
   const [origineCommande, setOrigineCommande] = useState(() => preRempli?.commandeId || null);
+  // La proforma d'où vient ce panier (Timo, 11/09/2026) : la vente la citera,
+  // ce qui permet de savoir ce qu'une proforma est devenue — et de prévenir
+  // avant de la reprendre une seconde fois.
+  const [origineProforma, setOrigineProforma] = useState(null);
   // Le devis d'origine : c'est LUI qui porte les frais d'installation et de
   // transport facturés au client. Sans ça, l'écran d'encaissement ne montrait
   // que le total des articles — le vendeur n'avait alors aucune indication du
@@ -276,8 +280,15 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const r = reprendreProforma(db, pf, boutique);
     if (r.refus) { uAlert(`🔒 ${r.refus}`); return; }
     if (!r.panier.length) { uAlert(`Aucun article de cette proforma n'a été retrouvé dans le stock de ${boutique}.${r.introuvables.length ? `\n\nIntrouvables : ${r.introuvables.join(", ")}` : ""}`); return; }
+    // Déjà encaissée ? On PRÉVIENT, on ne bloque pas : un client peut
+    // recommander le même matériel. Ce sera une vente neuve, avec son numéro.
+    const dejaVendue = ventesDeProforma(db, pf);
+    if (dejaVendue.length && !await uConfirm(
+      `⚠ Cette proforma a déjà été encaissée le ${dFR(dejaVendue[0].date)} — reçu ${numeroRecu(dejaVendue[0])}${dejaVendue.length > 1 ? `\n(et ${dejaVendue.length - 1} autre(s) fois)` : ""}.\n\nLa reprendre quand même ?\n\nCe sera une NOUVELLE vente, avec un nouveau numéro de reçu.`
+    )) return;
     if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par la proforma ${pf.numero} ?`)) return;
     setPanier(r.panier);
+    setOrigineProforma({ id: pf.id, numero: pf.numero });
     setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, remise: r.remisePct ? String(r.remisePct) : "" });
     setVueListe("ventes");
     const avis = [
@@ -576,6 +587,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       apporteur: apporteurExterne(total),
       par: profile.nom,
       commande_id: origineCommande,
+      // D'où vient ce panier, quand il a été repris d'une proforma.
+      ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
     };
 
     let next = { ...db, ventes: [vente, ...db.ventes] };
@@ -724,6 +737,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
     }
     setPanier([]);
+    setOrigineProforma(null);   // consommée : la proforma a donné sa vente
     setTransfertEnAttente(null);
     setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
     setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
@@ -1129,9 +1143,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         <div className="max-h-[480px] overflow-y-auto">
         {vueListe === "proformas" && voitProformas ? (
           <table className="w-full text-sm min-w-[700px]">
-            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N°", "Client", "Articles", "Total", "Émis par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N°", "Client", "Articles", "Total", "Émis par", "Suite", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>
-              {proformasFiltres.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune proforma ne correspond à la recherche." : "Aucune proforma émise pour l'instant."}</td></tr>}
+              {proformasFiltres.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune proforma ne correspond à la recherche." : "Aucune proforma émise pour l'instant."}</td></tr>}
               {proformasFiltres.map((pf) => (
                 <tr key={pf.id} className="border-t border-slate-100 hover:bg-sky-50">
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(pf.date)}</td>
@@ -1140,6 +1154,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <td className="px-3 py-2 text-slate-500">{(pf.lignes || []).length} article(s)</td>
                   <td className="px-3 py-2 font-semibold">{fmt(pf.total)}</td>
                   <td className="px-3 py-2 text-slate-500">{pf.par}</td>
+                  {/* Ce que la proforma est DEVENUE (Timo, 11/09/2026) : combien
+                      de tes offres aboutissent, et le reçu qui en est né. */}
+                  <td className="px-3 py-2 whitespace-nowrap">{(() => {
+                    const vs = ventesDeProforma(db, pf);
+                    return vs.length
+                      ? <span className="text-xs font-bold text-green-700">✅ Encaissée le {dFR(vs[0].date)} — {numeroRecu(vs[0])}{vs.length > 1 ? ` (+${vs.length - 1})` : ""}</span>
+                      : <span className="text-xs font-semibold text-amber-700">⏳ En attente</span>;
+                  })()}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation)} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
                     <button onClick={() => reprendreLaProforma(pf)} title="Remettre les articles de cette proforma dans le panier pour encaisser" className="text-xs font-bold text-emerald-700 underline">🛒 Reprendre</button>

@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1109 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1112 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -336,6 +336,15 @@ lit mal est pire qu'un banc absent).
   (règle du 10/09). Rien n'est enregistré à la reprise : le vendeur vérifie
   puis encaisse. Pas de bouton direct devis → vente : la validation et le
   contrat restent le passage obligé.
+  **Une proforma déjà encaissée se reprend quand même, mais on PRÉVIENT**
+  (11/09/2026 : « l'avertissement, avec un nouveau numéro de reçu
+  évidemment car c'est une nouvelle vente ») : la vente cite sa proforma
+  (`proforma_id`, `proforma_numero`), la liste dit ce que chaque proforma
+  est devenue (« ✅ Encaissée le … — reçu N° » ou « ⏳ En attente »,
+  `ventesDeProforma`), et reprendre une proforma déjà encaissée demande
+  confirmation en nommant la date et le reçu. **Jamais de blocage** : un
+  client peut recommander le même matériel. Le numéro de reçu est de toute
+  façon recalculé à chaque vente (`prochainNumeroVente`).
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.

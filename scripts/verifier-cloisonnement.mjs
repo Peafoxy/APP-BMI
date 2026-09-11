@@ -4968,7 +4968,28 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
   test("★ …une proforma ancienne (sans produit_id) est retrouvée par le NOM de l'article, dans sa boutique seulement",
     rAncien.panier.length === 1 && rAncien.panier[0].produit_id === "p1"
     && C.reprendreProforma({ produits: [dbP.produits[2]] }, { boutique: "A", lignes: [{ article: "PANNEAU 550W", qte: 1, pu: 100000 }] }, "A").introuvables.length === 1);
+  // Timo (11/09/2026) : « une proforma reprise devrait plus être reprenable
+  // encore ? » → « l'avertissement, avec un nouveau numéro de reçu
+  // évidemment car c'est une nouvelle vente ». On prévient, on ne bloque pas.
+  const dbV = { ventes: [
+    { id: "v1", proforma_id: "pf1", date: "2026-09-10", heure: "09:00", boutique: "A", numero: "APE-2026-0001" },
+    { id: "v2", proforma_id: "pf1", date: "2026-09-11", heure: "10:00", boutique: "A", numero: "APE-2026-0002" },
+    { id: "v3", proforma_id: "autre", date: "2026-09-11", boutique: "A", numero: "APE-2026-0003" },
+    { id: "v4", date: "2026-09-11", boutique: "A", numero: "APE-2026-0004" },
+  ] };
+  test("★ ventesDeProforma : les ventes issues de CETTE proforma, la plus récente d'abord ; une vente sans origine ou d'une autre proforma n'y est jamais",
+    C.ventesDeProforma(dbV, { id: "pf1" }).map((v) => v.id).join("|") === "v2|v1"
+    && C.ventesDeProforma(dbV, { id: "jamais" }).length === 0 && C.ventesDeProforma(dbV, null).length === 0);
   const vtP = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran Ventes : reprendre une proforma DÉJÀ encaissée prévient en nommant la date et le reçu, dit que ce sera une nouvelle vente, et laisse le vendeur trancher (jamais de blocage) ; la vente cite sa proforma et l'origine est consommée après l'encaissement",
+    /const dejaVendue = ventesDeProforma\(db, pf\);/.test(vtP) && /déjà été encaissée le \$\{dFR\(dejaVendue\[0\]\.date\)\} — reçu \$\{numeroRecu\(dejaVendue\[0\]\)\}/.test(vtP)
+    && /NOUVELLE vente, avec un nouveau numéro de reçu/.test(vtP) && /La reprendre quand même \?/.test(vtP)
+    && /proforma_id: origineProforma\.id, proforma_numero: origineProforma\.numero/.test(vtP)
+    && /setOrigineProforma\(null\);   \/\/ consommée/.test(vtP)
+    && /const numero = prochainNumeroVente\(db, boutique\);/.test(vtP));
+  test("★ …et la liste dit ce que chaque proforma est DEVENUE : « Encaissée le … — reçu N° » ou « En attente »",
+    /✅ Encaissée le \{dFR\(vs\[0\]\.date\)\} — \{numeroRecu\(vs\[0\]\)\}/.test(vtP) && /⏳ En attente/.test(vtP)
+    && /"Émis par", "Suite", ""/.test(vtP) && /colSpan=\{8\}/.test(vtP));
   test("★ écran Ventes : la proforma émise GARDE produit_id, le bouton « 🛒 Reprendre » est sur sa ligne, le geste passe par la règle pure, prévient avant d'écraser un panier et n'enregistre rien",
     /produit_id: l\.produit_id \|\| null,/.test(vtP) && /🛒 Reprendre<\/button>/.test(vtP)
     && /const r = reprendreProforma\(db, pf, boutique\);/.test(vtP) && /Le panier contient déjà \$\{panier\.length\} article\(s\)/.test(vtP)
