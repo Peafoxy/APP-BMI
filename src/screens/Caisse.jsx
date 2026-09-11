@@ -8,7 +8,7 @@ import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette } from "../lib/cloture";
+import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
 import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
 
 // ============ CAISSE ============
@@ -29,14 +29,19 @@ export function Caisse({ db, save, profile }) {
   // donc permettre de clôturer un jour PASSÉ : on choisit le jour, le plus
   // ancien jour en retard est proposé d'abord.
   const enRetard = joursAClôturer(db, boutique, aujourdhui, totalVente);
+  // ⚠ Timo (11/09/2026, option « b ») : une journée clôturée dont la caisse a
+  // bougé ensuite doit se RECLÔTURER — sinon la clôture ment en silence.
+  const depassees = cloturesDepassees(db, boutique, totalVente);
+  const jourReclôturable = (j) => depassees.some((d) => d.date === j);
   const [jourChoisi, setJourChoisi] = useState("");
-  const t = jourChoisi && (enRetard.includes(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
+  const t = jourChoisi && (enRetard.includes(jourChoisi) || jourReclôturable(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
   // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
   const jour = activiteDuJour(db, boutique, t, totalVente);
   const { especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne } = jour;
   // Le piège de la capture du 09/09/2026 (écart 1 400) : la recette saisie à la place du tiroir.
   const alerteRecette = alerteSaisieRecette(compte, jour, fmt);
   const dejaCloturee = estCloturee(db, boutique, t);
+  const aReclôturer = depassees.find((d) => d.date === t) || null;
   const ecart = compte === "" ? null : Number(compte) - theorique;
 
   const cloturer = async () => {
@@ -44,7 +49,13 @@ export function Caisse({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nAttendu dans le tiroir : ${fmt(theorique)} (fonds d'hier soir ${fmt(fondsHier)} + recette du jour ${fmt(recetteDuJour)} − sorties justifiées ${fmt(sortiesJustifiees)})\nCompté dans le tiroir : ${fmt(Number(compte))}\nÉcart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
-    save({ ...db, clotures: [{ id: uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui }, ...db.clotures] }, `Clôture caisse ${boutique} du ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui ? " — clôturée en retard" : ""}`);
+    // Une reclôture REMPLACE la clôture du jour, sans effacer son histoire :
+    // l'ancienne photo reste dans `precedentes`, qui ne rétrécit jamais.
+    const ancienne = db.clotures.find((c) => c.boutique === boutique && String(c.date) === t);
+    const fiche = { id: ancienne?.id || uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui,
+      ...(ancienne ? { precedentes: [...(ancienne.precedentes || []), { theorique: ancienne.theorique, compte: ancienne.compte, par: ancienne.par, cloture_le: ancienne.cloture_le, notes: ancienne.notes || "" }] } : {}) };
+    save({ ...db, clotures: [fiche, ...db.clotures.filter((c) => !(c.boutique === boutique && String(c.date) === t))] },
+      `${ancienne ? "RECLÔTURE" : "Clôture"} caisse ${boutique} du ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui && !ancienne ? " — clôturée en retard" : ""}`);
     setCompte(""); setNotes(""); setJourChoisi("");
     uAlert(`Clôture du ${dFR(t)} enregistrée !`);
   };
@@ -220,10 +231,35 @@ export function Caisse({ db, save, profile }) {
             </div>
           </div>
         )}
-        {dejaCloturee ? (
+        {depassees.length > 0 && (
+          <div className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
+            <div className="font-bold text-amber-900 text-sm mb-1">
+              ⚠ {depassees.length} journée{depassees.length > 1 ? "s" : ""} clôturée{depassees.length > 1 ? "s" : ""} dont la caisse a bougé ensuite
+            </div>
+            <div className="text-xs text-amber-900 mb-2">
+              Une vente ou une dépense a été enregistrée APRÈS la clôture : le montant compté ce jour-là ne correspond plus.
+              Le solde de la caisse reste juste — c'est la clôture qu'il faut refaire. Clôturez toujours en dernier, à la fermeture.
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {depassees.map((d) => (
+                <button key={d.date} onClick={() => { setJourChoisi(d.date); setCompte(""); }}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border ${t === d.date ? "bg-amber-700 text-white border-amber-700" : "bg-white text-amber-800 border-amber-400 hover:bg-amber-100"}`}>
+                  {d.date === aujourdhui ? "Aujourd'hui" : dFR(d.date)} · {d.bouge > 0 ? "+" : ""}{fmt(d.bouge)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {dejaCloturee && !aReclôturer ? (
           <div className="text-sm font-semibold text-green-700">✓ La caisse du {dFR(t)} a déjà été clôturée.</div>
         ) : (
           <>
+            {aReclôturer && (
+              <div className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="font-bold">🔁 Cette journée est à RECLÔTURER</div>
+                <div className="mt-1">{messageClotureDepassee(aReclôturer, fmt, dFR)}</div>
+              </div>
+            )}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
               {/* Timo (09/09/2026) : « clôture de caisse, c'est journalier : recette du jour
                   théorique contre montant du tiroir ». La journée se lit de gauche à droite :

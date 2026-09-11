@@ -114,6 +114,58 @@ export function alerteSaisieRecette(compte, jour, fmt = (x) => String(x)) {
 }
 
 export const estCloturee = (db, boutique, date) => (db.clotures || []).some((c) => c.boutique === boutique && String(c.date) === String(date));
+// La clôture d'un jour, la plus récente si le jour a été reclôturé.
+export const clotureDe = (db, boutique, date) => (db.clotures || [])
+  .filter((c) => c.boutique === boutique && String(c.date) === String(date))
+  .sort((a, b) => String(b.cloture_le || "").localeCompare(String(a.cloture_le || "")))[0] || null;
+
+// ⚠ Trouvé avec Timo le 11/09/2026, en remontant un « 880 000 » qu'il ne
+// comprenait pas : la clôture du 10/09 disait 410 000, alors que le tiroir
+// contenait 635 000. Une vente de 225 000 avait été encaissée à 17h10, APRÈS
+// la clôture faite plus tôt dans l'après-midi. L'écart affiché était 0 : tout
+// semblait réglé, et personne ne pouvait le savoir.
+//
+// Le SOLDE, lui, reste juste (le fonds d'hier soir est recalculé, jamais lu
+// dans la clôture). C'est la CLÔTURE qui devient une photo périmée.
+//
+// Décision Timo (option « b ») : on ne bloque PAS la vente — refuser un client
+// à 17h10 parce que la caisse a été fermée à 16h serait pire. On DIT la
+// vérité : la clôture est signalée dépassée, avec le montant recalculé, et se
+// reclôture après recomptage.
+export function clotureDepassee(db, boutique, date, totalVente) {
+  const c = clotureDe(db, boutique, date);
+  if (!c) return null;
+  const attenduMaintenant = activiteDuJour(db, boutique, date, totalVente).theorique;
+  const bouge = Math.round(attenduMaintenant) - Math.round(Number(c.theorique || 0));
+  if (bouge === 0) return null;
+  return {
+    cloture: c, date: String(date),
+    attenduALaCloture: Number(c.theorique || 0),
+    attenduMaintenant,
+    compte: Number(c.compte || 0),
+    bouge,
+    ecartMaintenant: Number(c.compte || 0) - attenduMaintenant,
+  };
+}
+
+// Toutes les journées clôturées dont la caisse a bougé ensuite, de la plus
+// récente à la plus ancienne. On ne remonte pas avant DEBUT_REGLE_CLOTURE.
+export function cloturesDepassees(db, boutique, totalVente) {
+  const jours = [...new Set((db.clotures || [])
+    .filter((c) => c.boutique === boutique && String(c.date) >= DEBUT_REGLE_CLOTURE)
+    .map((c) => String(c.date)))];
+  return jours.map((j) => clotureDepassee(db, boutique, j, totalVente)).filter(Boolean)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// Le message montré au vendeur, dans SES mots.
+export function messageClotureDepassee(d, fmt = (x) => String(x), dFR = (x) => x) {
+  if (!d) return "";
+  return `⚠ La caisse du ${dFR(d.date)} a bougé APRÈS la clôture : ${d.bouge > 0 ? "+" : ""}${fmt(d.bouge)}. `
+    + `À la clôture, on attendait ${fmt(d.attenduALaCloture)} et ${d.cloture.par || "le vendeur"} a compté ${fmt(d.compte)}. `
+    + `Aujourd'hui le tiroir devrait contenir ${fmt(d.attenduMaintenant)} pour ce jour-là — écart ${fmt(d.ecartMaintenant)}. `
+    + `Recomptez et reclôturez cette journée.`;
+}
 
 // Les jours PASSÉS (avant `aujourdhui`), actifs, sans clôture, du plus ancien
 // au plus récent — depuis DEBUT_REGLE_CLOTURE.

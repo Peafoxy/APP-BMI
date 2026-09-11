@@ -5257,6 +5257,45 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     && Cl.activiteDuJour(dbv, "V", "2026-09-09", tv).recetteParPersonne.length === 0 && rp.reduce((s, r) => s + r.especes, 0) === Cl.activiteDuJour(dbv, "V", "2026-09-11", tv).recetteDuJour);
   test("★ écran Caisse : le tableau « Recette du … par vendeur » est dans la clôture (UNE clôture, la même caisse), vendeur / ventes / espèces / autres moyens, et rien n'est clôturé par personne",
     /recetteParPersonne\.length > 0 && \(/.test(csC) && /Recette du \{dFR\(t\)\} par vendeur — admin, gérant ou vendeur : la même caisse/.test(csC) && /\{fmt\(r\.especes\)\}/.test(csC) && !/cloture.*par_vendeur|clotures_vendeur/.test(csC));
+  // ⚠ TROUVÉ AVEC TIMO le 11/09/2026, en remontant un « 880 000 » qu'il ne
+  // comprenait pas. Sa boutique : clôture du 10/09 à 410 000, puis une vente
+  // espèces de 225 000 à 17h10 — APRÈS la clôture. Le tiroir contenait donc
+  // 635 000 le soir, l'écart affiché disait 0, et personne ne pouvait le
+  // savoir. Décision (option « b ») : on ne bloque pas la vente, on DIT que la
+  // clôture est dépassée et on la refait. Le banc rejoue SON cas.
+  const dbDep = {
+    ventes: [{ boutique: "D", date: "2026-09-10", paiement: "Espèces", total: 410000 },
+      { boutique: "D", date: "2026-09-10", paiement: "Espèces", total: 225000 },
+      { boutique: "D", date: "2026-09-11", paiement: "Espèces", total: 100000 }],
+    dettes: [{ boutique: "D", client: "SEBASTINO", paiements: [{ date: "2026-09-11", montant: 150000 }] }],
+    depenses: [{ boutique: "D", date: "2026-09-11", paiement: "Espèces", montant: 5000, categorie: "Loyer" }],
+    // La clôture telle qu'elle a été enregistrée, AVANT la vente de 17h10.
+    clotures: [{ id: "c1", boutique: "D", date: "2026-09-10", theorique: 410000, compte: 410000, par: "ANGELE", cloture_le: "2026-09-10" }],
+  };
+  const dep10 = Cl.clotureDepassee(dbDep, "D", "2026-09-10", tv);
+  test("★ une clôture DÉPASSÉE est reconnue : la caisse du 10/09 a bougé de +225 000 après une clôture à 410 000 — l'écran ne dira plus « écart 0 » alors que le tiroir devait contenir 635 000",
+    !!dep10 && dep10.attenduALaCloture === 410000 && dep10.attenduMaintenant === 635000
+    && dep10.bouge === 225000 && dep10.compte === 410000 && dep10.ecartMaintenant === -225000
+    && Cl.clotureDepassee(dbDep, "D", "2026-09-11", tv) === null
+    && Cl.cloturesDepassees(dbDep, "D", tv).map((d) => d.date).join("|") === "2026-09-10");
+  test("★ le SOLDE reste juste malgré la clôture périmée : le fonds d'hier soir est RECALCULÉ, jamais lu dans la clôture — 635 000 + 250 000 − 5 000 = 880 000, le chiffre exact de la capture de Timo",
+    (() => {
+      const j = Cl.activiteDuJour(dbDep, "D", "2026-09-11", tv);
+      return j.fondsHier === 635000 && j.recetteDuJour === 250000 && j.sortiesJustifiees === 5000 && j.theorique === 880000;
+    })());
+  test("★ une clôture dont rien n'a bougé n'est JAMAIS signalée (pas de fausse alerte), et le message parle au vendeur : ce qui a bougé, ce qu'il avait compté, ce qu'il faut trouver",
+    Cl.clotureDepassee({ ...dbDep, clotures: [{ ...dbDep.clotures[0], theorique: 635000 }] }, "D", "2026-09-10", tv) === null
+    && Cl.cloturesDepassees({ ...dbDep, clotures: [] }, "D", tv).length === 0
+    && /a bougé APRÈS la clôture/.test(Cl.messageClotureDepassee(dep10, (x) => String(x)))
+    && /Recomptez et reclôturez/.test(Cl.messageClotureDepassee(dep10, (x) => String(x)))
+    && Cl.messageClotureDepassee(null) === "");
+  test("★ écran Caisse : le bandeau orange des journées à reclôturer, le jour se rechoisit, le formulaire ROUVRE sur une journée dépassée, et une reclôture REMPLACE la fiche du jour sans effacer la précédente",
+    /const depassees = cloturesDepassees\(db, boutique, totalVente\);/.test(csC)
+    && /journée\{depassees\.length > 1 \? "s" : ""\} clôturée/.test(csC)
+    && /\{dejaCloturee && !aReclôturer \? \(/.test(csC)
+    && /messageClotureDepassee\(aReclôturer, fmt, dFR\)/.test(csC)
+    && /precedentes: \[\.\.\.\(ancienne\.precedentes \|\| \[\]\), \{ theorique: ancienne\.theorique, compte: ancienne\.compte/.test(csC)
+    && /db\.clotures\.filter\(\(c\) => !\(c\.boutique === boutique && String\(c\.date\) === t\)\)/.test(csC));
   const nzc = (x) => String(x).replace(/[\u202f\u00a0 ]/g, "");
   test("★ alerteSaisieRecette : saisir la recette du jour à la place du tiroir est signalé (avec le calcul), rien si le montant est autre, rien si recette = tiroir, rien sur champ vide",
     /est la recette du jour, pas le contenu du tiroir/.test(Cl.alerteSaisieRecette("51400", jt)) && /200899.*51400.*202300.*49999/.test(nzc(Cl.alerteSaisieRecette(51400, jt)))

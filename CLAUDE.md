@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1144 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1148 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -547,6 +547,22 @@ lit mal est pire qu'un banc absent).
   encaissées ventes + dettes, autres moyens ; `recetteParPersonne`), une
   lecture, jamais une clôture par personne. Le tiroir par vendeur (option 3)
   n'a pas été demandé : ne pas le construire sans sa demande explicite.
+- **🔁 Une clôture DÉPASSÉE se signale et se refait** (11/09/2026, trouvé en
+  remontant avec Timo un « 880 000 » qu'il ne comprenait pas — clôture du
+  10/09 à 410 000, puis une vente espèces de 225 000 à 17h10, APRÈS la
+  clôture : le tiroir contenait 635 000, l'écart affiché disait 0, personne ne
+  pouvait le savoir). **Le SOLDE reste juste** — le fonds d'hier soir est
+  toujours RECALCULÉ, jamais lu dans la clôture (635 000 + 250 000 − 5 000 =
+  880 000, son chiffre exact). C'est la CLÔTURE qui devient une photo périmée.
+  **Décision Timo (option « b ») : on ne bloque PAS la vente** (refuser un
+  client à 17h10 parce que la caisse a fermé à 16h serait pire) — 🔒 Caisse
+  porte un **bandeau orange** listant les journées dont la caisse a bougé
+  après coup, avec ce qui a bougé, ce qui avait été compté, ce qu'il faut
+  trouver ; le formulaire ROUVRE sur ces journées et la **reclôture REMPLACE**
+  la fiche du jour en gardant l'ancienne dans `precedentes` (liste qui ne
+  rétrécit jamais). Règles pures `clotureDepassee` / `cloturesDepassees` /
+  `messageClotureDepassee` (lib/cloture.js), le banc rejoue SON cas. À dire
+  aux vendeuses : **clôturer en dernier, à la fermeture, jamais avant**.
 
 ### Retours / SAV
 - **↩ Reprise d'un article par le client** (10/09/2026, « un article vendu
