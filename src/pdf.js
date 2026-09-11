@@ -333,8 +333,16 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
       if (!g) { g = { cat, lignes: [] }; groupes.push(g); }
       g.lignes.push(l);
     }
+    // ⚠ Timo (11/09/2026, capture) : « je pense qu'il y a trop de tautologie
+    // dans les équipements proposés » — « Panneaux solaires » au-dessus de
+    // « Panneau 400W », « Batteries » au-dessus de « Batterie lithium »… le
+    // client lisait deux fois la même chose et le tableau faisait le double
+    // de sa hauteur. LA RÈGLE : un en-tête de catégorie n'apparaît que s'il
+    // regroupe AU MOINS 2 lignes. Une catégorie à une seule ligne perd son
+    // titre — le nom de l'article dit déjà tout. Deux modèles de panneaux
+    // dans le même devis, et « Panneaux solaires » revient de lui-même.
     for (const g of groupes) {
-      body.push([{ content: g.cat, colSpan: 4, styles: { fontStyle: "bold", fillColor: [226, 232, 240], textColor: BLEU } }]);
+      if (g.lignes.length >= 2) body.push([{ content: g.cat, colSpan: 4, styles: { fontStyle: "bold", fillColor: [226, 232, 240], textColor: BLEU } }]);
       for (const l of g.lignes) body.push(ligneEquipement(l));
     }
   } else {
@@ -394,20 +402,48 @@ function blocFinancier(doc, d, largeur, hauteur, y) {
   return y;
 }
 
+// Une image posée dans un cadre, à sa proportion, sans jamais déborder ni
+// faire tomber le PDF si la donnée est illisible.
+function imageDansCadre(doc, image, x, y, wMax, hMax) {
+  if (!image) return false;
+  try {
+    const props = doc.getImageProperties(image);
+    const ech = Math.min(wMax / props.width, hMax / props.height);
+    const w = props.width * ech, h = props.height * ech;
+    doc.addImage(image, props.fileType || "PNG", x + (wMax - w) / 2, y + (hMax - h) / 2, w, h);
+    return true;
+  } catch { return false; }
+}
+
+// ⚠ Timo (11/09/2026) : « un devis devrait avoir une signature ? » — le bas
+// du devis ne portait QUE le cadre du client : BMI n'engageait rien. Un devis
+// est pourtant un engagement de la maison (ce prix, ce matériel, ce délai,
+// 15 jours). Le cadre de gauche devient donc « Pour BMI Togo » : le nom de
+// celui qui l'a élaboré, sa signature personnelle si sa fiche en porte une,
+// et LE cachet de l'entreprise — le même que sur les contrats, on n'en crée
+// pas un deuxième. La date libre qui occupait ce cadre est descendue DANS le
+// cadre du client (« la date d'en bas n'est plus importante car en haut déjà
+// il y a une date » : celle du haut est la date du devis, celle d'en bas le
+// jour où le client dit oui — deux dates différentes, une seule à sa place).
 function blocMentions(doc, d, largeur, hauteur, y) {
-  y = placePour(doc, y, hauteur, 40);
+  y = placePour(doc, y, hauteur, 50);
   y += 4;
   mentionsOffre(doc, y, "un devis");
   doc.text(`Offre valable ${VALIDITE_OFFRE_JOURS} jours à compter du ${d.date}.`, 14, y + 8);
   y += 16;
+  const L = 70, H = 30, xD = largeur - 14 - L;
   doc.setDrawColor(...GRIS_TEXTE);
   doc.setLineWidth(0.3);
-  doc.roundedRect(14, y, 70, 22, 1.5, 1.5, "S");
-  doc.roundedRect(largeur - 14 - 70, y, 70, 22, 1.5, 1.5, "S");
+  doc.roundedRect(14, y, L, H, 1.5, 1.5, "S");
+  doc.roundedRect(xD, y, L, H, 1.5, 1.5, "S");
   doc.setFontSize(8);
   doc.setTextColor(...GRIS_TEXTE);
-  doc.text("Date : ____ / ____ / ________", 17, y + 6);
-  doc.text("Bon pour accord — signature du client", largeur - 14 - 67, y + 6);
+  doc.text("Pour BMI Togo", 17, y + 5);
+  if (d.par) doc.text(String(d.par), 17, y + 9.5);
+  imageDansCadre(doc, d.signature, 16, y + 11, 32, 17);
+  imageDansCadre(doc, d.cachet, 50, y + 11, 32, 17);
+  doc.text("Bon pour accord — signature du client", xD + 3, y + 5);
+  doc.text("Date : ____ / ____ / ________", xD + 3, y + H - 3.5);
   piedDePage(doc, largeur, hauteur);
 }
 

@@ -7,7 +7,7 @@ import { useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
-import { LOGO } from "../lib/constants";
+import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu } from "../lib/comptesClients";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
@@ -292,6 +292,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       total: d.total,
       // Le bloc financier du devis solaire (Timo, 11/09/2026) : acompte, solde, délai.
       pct_acompte: d.pct_acompte, montant_acompte: d.montant_acompte, delai_installation: d.delai_installation,
+      // Le devis engage BMI (Timo, 11/09/2026) : sa signature au bas du
+      // document, c'est la signature personnelle de celui qui l'a élaboré —
+      // si sa fiche en porte une — et LE cachet de l'entreprise, le même
+      // que sur les contrats d'installation (⚙ Paramètres, un seul cachet).
+      signature: initiateur?.signature_personnelle || "",
+      cachet: (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT,
       formation: estFormation,
     }, LOGO);
   };

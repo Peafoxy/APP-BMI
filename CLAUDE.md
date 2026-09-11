@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1116 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1119 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -309,10 +309,22 @@ lit mal est pire qu'un banc absent).
   (11/09/2026, après un avis extérieur sur le PDF « administratif » ; Timo :
   « ça me convient », puis « fais le même rendu pour portail et autre ») :
   `devisCommercial` dans `src/pdf.js`. **UNE charpente** — bloc du besoin,
-  **Équipement proposé** (la catégorie TITRE son groupe, remise en rouge
-  négatif), **TOTAL DU PROJET** puis acompte et solde (`pct_acompte`,
+  **Équipement proposé** (**la catégorie ne titre son groupe que s'il compte
+  AU MOINS 2 lignes** — 11/09/2026, « trop de tautologie » : « Panneaux
+  solaires » au-dessus de « Panneau 400W » se lisait deux fois ; deux modèles
+  et le titre revient seul —, remise en rouge négatif), **TOTAL DU PROJET**
+  puis acompte et solde (`pct_acompte`,
   `montant_acompte`, `delai_installation`), **mentions + validité
-  (`VALIDITE_OFFRE_JOURS` = 15) + bon pour accord**. **Seul le bloc du
+  (`VALIDITE_OFFRE_JOURS` = 15) + DEUX cadres de signature**. **Le devis
+  engage BMI** (11/09/2026, « un devis devrait avoir une signature ? » — il
+  n'y avait que celui du client) : cadre gauche **« Pour BMI Togo »** avec le
+  nom de l'élaborateur, sa `signature_personnelle` si sa fiche en porte une,
+  et LE cachet de la maison (`cachet_bmi` / `CACHET_BMI_DEFAUT`, le même que
+  les contrats — jamais un deuxième) ; cadre droit « Bon pour accord » avec
+  **la date libre DEDANS** (« la date d'en bas n'est plus importante car en
+  haut déjà il y a une date » : celle du haut est la date du devis, celle du
+  bas le jour où le client dit oui). Une image illisible ne fait jamais
+  tomber le PDF (`imageDansCadre`). **Seul le bloc du
   besoin change** (`blocBesoin` choisit d'après la forme des besoins) :
   solaire → « Votre besoin » en trois cases (kWh/jour, kW simultanés,
   autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail → le

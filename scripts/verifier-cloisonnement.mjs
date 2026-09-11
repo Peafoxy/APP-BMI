@@ -5137,6 +5137,9 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   // ⚠ Le banc MESURE : on relit le texte réellement écrit dans le PDF
   // (doc.internal.pages), on ne se contente pas de lire pdf.js.
   // (jsPDF échappe les parenthèses dans le flux : on les rétablit pour lire.)
+  // Une vraie image minuscule (1 × 1 px) : le banc pose un « cachet » et une
+  // « signature » réels dans le devis pour MESURER qu'ils sont bien dessinés.
+  const CACHET_ESSAI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const texteDuPdf = (doc) => JSON.stringify(doc.internal.pages).replace(/\\\\\(/g, "(").replace(/\\\\\)/g, ")");
   const dSol = { ...socle, date: "11/09/2026", total: 1000000, pct_acompte: 60, montant_acompte: 600000,
     delai_installation: "3 semaines",
@@ -5162,10 +5165,38 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     txtSol.includes("600 000 FCFA") && txtSol.includes("400 000 FCFA") && txtSol.includes("Acompte à la commande (60 %)")
     && txtSol.includes("Solde à l'installation") && txtSol.includes("Délai d'installation : 3 semaines")
     && texteDuPdf(Pdf.genererDevis({ ...dSol, pct_acompte: 100, montant_acompte: 1000000 }, null, true)).includes("Paiement intégral à la commande"));
-  test("★ devis solaire : les articles sont groupés par catégorie et la remise reste en négatif ; le bandeau de formation et l'entête société ne changent pas",
-    txtSol.includes("Panneaux solaires") && txtSol.includes("Batteries") && txtSol.includes("-100 000 F")
+  // RETOURNÉ le 11/09/2026 (capture Timo : « trop de tautologie dans les
+  // équipements proposés ») : le contrôle exigeait un en-tête par catégorie.
+  // Il exige maintenant le contraire quand l'en-tête ne sert à rien — une
+  // catégorie d'UNE seule ligne n'a plus de titre, le nom de l'article suffit.
+  test("★ devis solaire : plus d'en-tête de catégorie au-dessus d'une ligne unique (fini la tautologie « Panneaux solaires » / « PANNEAU 550W ») ; la remise reste en négatif ; le bandeau de formation et l'entête société ne changent pas",
+    !txtSol.includes("Panneaux solaires") && !txtSol.includes("Batteries")
+    && txtSol.includes("PANNEAU 550W") && txtSol.includes("BATTERIE 5 kWh")
+    && txtSol.includes("-100 000 F")
     && txtSol.includes("NIF : 1001790098")
     && texteDuPdf(Pdf.genererDevis({ ...dSol, formation: true }, null, true)).includes("DOCUMENT DE FORMATION"));
+  // …mais l'en-tête revient DE LUI-MÊME dès qu'il regroupe vraiment : deux
+  // modèles de panneaux dans le même devis, et « Panneaux solaires » les titre.
+  const txtDeuxPanneaux = texteDuPdf(Pdf.genererDevis({ ...dSol, lignes: [
+    { categorie: "Panneaux solaires", article: "PANNEAU 550W", qte: 4, pu: 100000, total: 400000 },
+    { categorie: "Panneaux solaires", article: "PANNEAU 450W", qte: 2, pu: 80000, total: 160000 },
+    { categorie: "Batteries", article: "BATTERIE 5 kWh", qte: 2, pu: 350000, total: 700000 },
+  ] }, null, true));
+  test("★ l'en-tête de catégorie revient quand il regroupe AU MOINS 2 lignes (deux modèles de panneaux), et la catégorie restée seule (Batteries) n'en a toujours pas",
+    txtDeuxPanneaux.includes("Panneaux solaires") && txtDeuxPanneaux.includes("PANNEAU 450W")
+    && !txtDeuxPanneaux.includes("Batteries") && txtDeuxPanneaux.includes("BATTERIE 5 kWh"));
+  // ⚠ Timo, 11/09/2026 : « un devis devrait avoir une signature ? » — oui, et
+  // BMI n'en avait aucune. Le cadre de gauche l'engage désormais.
+  const txtSigne = texteDuPdf(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true));
+  test("★ le devis ENGAGE BMI : cadre « Pour BMI Togo » avec le nom de celui qui l'a élaboré, sa signature et le cachet de la maison posés dedans, en face du « Bon pour accord » du client",
+    txtSigne.includes("Pour BMI Togo") && txtSigne.includes("AKUE Jean") && txtSigne.includes("Bon pour accord")
+    && (JSON.stringify(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true).internal.pages).match(/\/I\d/g) || []).length >= 2);
+  test("★ la date libre est DANS le cadre du client (le jour où il dit oui), plus jamais un cadre à part — la date du devis reste en haut ; un devis sans cachet ni signature se fabrique quand même",
+    txtSol.includes("Date : ____ / ____ / ________") && txtSol.includes("Pour BMI Togo")
+    && txtSol.indexOf("Bon pour accord") < txtSol.indexOf("Date : ____ / ____ / ________")
+    && txtSol.includes("Date : 11/09/2026")
+    && !!Pdf.genererDevis({ ...dSol, cachet: "", signature: "", par: "" }, null, true)
+    && !!Pdf.genererDevis({ ...dSol, cachet: "pas-une-image", signature: "pas-une-image" }, null, true));
   // Retourné le 11/09/2026 : Timo a validé le solaire, puis « fais le même
   // rendu pour portail et autre ». Chaque volet montre ce qu'il a.
   const dPortail = { ...socle, date: "11/09/2026", total: 500000, pct_acompte: 50, montant_acompte: 250000,
@@ -5200,11 +5231,19 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     srcPdf.includes("type_ouvrant") && srcPdf.includes("articles_demandes"));
   // Retourné le 11/09/2026 : la catégorie ne fait plus une colonne, elle
   // TITRE son groupe d'articles. Mesuré sur le PDF rendu, pas lu dans le code.
-  test("★ la catégorie titre son groupe d'articles (Panneaux solaires, Batteries, Motorisation…), et la remise reste une ligne négative",
-    txtSol.includes("Panneaux solaires") && txtSol.includes("Batteries") && txtPortail.includes("Motorisation")
-    && txtSol.includes("-100 000 F") && srcPdf.includes("const avecCategorie = d.lignes.some((l) => l.categorie);"));
-  test("★ TousLesDevis TRANSMET les besoins au PDF (sinon rien ne s'imprime)",
-    /besoins: d\.besoins/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+  // RETOURNÉ le 11/09/2026 (« trop de tautologie ») : la catégorie ne titre
+  // plus un groupe d'UNE ligne — ni dans le solaire, ni dans le portail.
+  test("★ la catégorie ne titre QUE les groupes de 2 lignes et plus : « Motorisation » disparaît au-dessus de son moteur unique, et la remise reste une ligne négative",
+    !txtPortail.includes("Motorisation") && txtPortail.includes("MOTEUR 600 kg")
+    && txtSol.includes("-100 000 F")
+    && srcPdf.includes("const avecCategorie = d.lignes.some((l) => l.categorie);")
+    && srcPdf.includes("if (g.lignes.length >= 2) body.push("));
+  const srcDevisEcran = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  test("★ TousLesDevis TRANSMET les besoins au PDF (sinon rien ne s'imprime), et le cachet de la maison avec la signature de l'élaborateur — UN seul cachet, celui des contrats",
+    /besoins: d\.besoins/.test(srcDevisEcran)
+    && /signature: initiateur\?\.signature_personnelle \|\| ""/.test(srcDevisEcran)
+    && /cachet: \(db\.boutiques \|\| \[\]\)\.find\(\(b\) => b\.cachet_bmi\)\?\.cachet_bmi \|\| CACHET_BMI_DEFAUT/.test(srcDevisEcran)
+    && /import \{ LOGO, CACHET_BMI_DEFAUT \} from "\.\.\/lib\/constants";/.test(srcDevisEcran));
 }
 
 titre("Importation d'articles : Excel ou texte collé, fournisseur et domaine compris");
