@@ -81,7 +81,9 @@ export function Dashboard({ db, profile }) {
   // à voir SES PROPRES dettes normalement quand on la sélectionne.
   const dettesReellesDashboard = dettesClassiques(db).filter(dansMonEspace).filter(dansLaBoutique);
   const reservationsReellesDashboard = reservations(db).filter(dansMonEspace).filter(dansLaBoutique);
-  const [periodeIndex, setPeriodeIndex] = useState(2);
+  // Timo (11/09/2026) : « Période doit rester sur Aujourd'hui par défaut ».
+  // periodes()[0] = Aujourd'hui (c'était « Ce mois », l'index 2).
+  const [periodeIndex, setPeriodeIndex] = useState(0);
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");
 
@@ -89,7 +91,7 @@ export function Dashboard({ db, profile }) {
     if (periodeIndex === "custom") {
       return ["Personnalisée", customDebut || today(), customFin || today()];
     }
-    return periodes()[periodeIndex] || periodes()[2];
+    return periodes()[periodeIndex] || periodes()[0];
   }, [periodeIndex, customDebut, customFin]);
 
   const rows = periodes().map(([label, a, b]) => {

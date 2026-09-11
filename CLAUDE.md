@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1112 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1113 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -476,7 +476,9 @@ lit mal est pire qu'un banc absent).
   (`NOMS_GRAPHE`). **Les cartes Ventes / Dépenses / Résultat sous le
   sélecteur suivent la période choisie**, nommée sur la carte (capture
   Timo, 10/09/2026 : « Aujourd'hui » choisi, elles disaient encore « du
-  mois ») ; « Dettes en cours » ne dépend pas de la période.
+  mois ») ; « Dettes en cours » ne dépend pas de la période. **Le sélecteur
+  démarre sur « Aujourd'hui »** (11/09/2026 : « Période doit rester sur
+  Aujourd'hui par défaut » — c'était « Ce mois »).
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 

@@ -4421,6 +4421,10 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
     && /\{!sansStock && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("stocks"/.test(dash));
   test("★ le journal comptable exporté suit aussi la boutique choisie", /lignesJournal\(db, pa, pb\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
   // Capture Timo (10/09/2026) : « Période : Aujourd'hui » choisi, les cartes disaient encore « Ventes du mois ».
+  // Timo (11/09/2026) : « Période doit rester sur Aujourd'hui par défaut ».
+  test("★ le sélecteur de période démarre sur Aujourd'hui (periodes()[0]), repli compris — plus sur « Ce mois »",
+    /const \[periodeIndex, setPeriodeIndex\] = useState\(0\);/.test(dash) && /periodes\(\)\[periodeIndex\] \|\| periodes\(\)\[0\]/.test(dash)
+    && !/useState\(2\)|periodes\(\)\[2\]/.test(dash) && C.periodes()[0][0] === "Aujourd'hui");
   test("★ les cartes Ventes / Dépenses / Résultat sous le sélecteur suivent la PÉRIODE CHOISIE (customRow), nommée sur la carte — plus jamais figées sur le mois",
     /label=\{`Ventes — \$\{customRow\.label\}`\} value=\{fmt\(somme\(customRow\.v\)\)\}/.test(dash) && /label=\{`Dépenses — \$\{customRow\.label\}`\} value=\{fmt\(somme\(customRow\.d\)\)\}/.test(dash)
     && /label=\{`Résultat — \$\{customRow\.label\}`\} value=\{fmt\(resCustom\)\}/.test(dash) && !/Ventes du mois|const m = rows\[2\]/.test(dash));
