@@ -357,7 +357,12 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
     columnStyles: { 1: { halign: "center", cellWidth: 16 }, 2: { halign: "right", cellWidth: 34 }, 3: { halign: "right", cellWidth: 34 } },
     margin: { left: 14, right: 14 },
   });
-  return doc.lastAutoTable.finalY + 4;
+  // ⚠ Capture Timo (11/09/2026) : le bandeau TOTAL était dessiné PAR-DESSUS
+  // « Frais d'installation ». Le bandeau ne commence pas à ce `y` : il monte
+  // 6 mm PLUS HAUT (bandeauTotal dessine son rectangle de y-6 à y+5). En
+  // resserrant les blancs, j'avais oublié ces 6 mm. Il faut donc rendre
+  // finalY + 6 + l'écart voulu — pas l'écart seul.
+  return doc.lastAutoTable.finalY + 6 + 3;
 }
 // Une remise est une ligne négative : elle se lit en rouge.
 const ligneEquipement = (l) => {

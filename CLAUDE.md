@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1122 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1123 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -340,7 +340,13 @@ lit mal est pire qu'un banc absent).
   ordinaire (6 appareils, 7 lignes, acompte + solde + délai) tient sur UNE
   page ; le banc le mesure, et mesure aussi qu'**aucun texte n'en chevauche un
   autre** (poser les mentions à gauche du total a été tenté et ABANDONNÉ : la
-  première ligne, 108 mm, mordait sur « Acompte à la commande »). **Seul le bloc du
+  première ligne, 108 mm, mordait sur « Acompte à la commande »). ⚠ **Le
+  bandeau TOTAL monte 7,5 mm AU-DESSUS de son libellé** (`bandeauTotal`
+  dessine de `y-6` à `y+5`) : l'oublier en resserrant les blancs le pose SUR
+  la dernière ligne du tableau (capture Timo, 11/09/2026 — « Frais
+  d'installation » écrasé). `blocEquipement` rend donc `finalY + 6 + 3`, et
+  le banc MESURE cet écart (≥ 3 mm) — le contrôle de chevauchement des
+  TEXTES ne voyait rien, le bandeau étant un rectangle plein. **Seul le bloc du
   besoin change** (`blocBesoin` choisit d'après la forme des besoins) :
   solaire → « Votre besoin » en trois cases (kWh/jour, kW simultanés,
   autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail → le

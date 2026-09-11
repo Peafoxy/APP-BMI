@@ -5246,6 +5246,28 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   };
   test("★ aucun texte du devis n'en chevauche un autre — mesuré sur le PDF réel (les mentions ne mordent plus sur la colonne des montants)",
     chevauchements(Pdf.genererDevis(devisOrdinaire, null, true)) === 0 && chevauchements(docSol) === 0);
+  // ⚠ Capture Timo (11/09/2026) : le bandeau TOTAL était posé PAR-DESSUS
+  // « Frais d'installation ». Le contrôle du chevauchement de TEXTES ne l'a
+  // pas vu — le bandeau est un rectangle plein, pas un texte. On mesure donc
+  // le HAUT du bandeau (le rectangle monte 7,5 mm au-dessus de son libellé)
+  // contre la dernière ligne du tableau des prix.
+  const hautDuBandeau = (doc) => {
+    let x = null, yy = null, taille = 10;
+    const L = [];
+    for (const l of doc.internal.pages.flat().join("\n").split("\n")) {
+      let m = l.match(/\/F\d+ ([\d.]+) Tf/); if (m) taille = +m[1];
+      m = l.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/) || l.match(/^([\d.]+) ([\d.]+) Td/);
+      if (m) { x = +m[1] / 2.8346; yy = 297 - (+m[2]) / 2.8346; }
+      m = l.match(/\((.*?)\)\s*Tj/); if (m && m[1].trim() && x !== null) L.push({ y: yy, t: m[1] });
+    }
+    const tot = L.find((o) => o.t.startsWith("TOTAL DU PROJET"));
+    const derniere = L.filter((o) => tot && o.y < tot.y - 6).pop();
+    return tot && derniere ? tot.y - 7.5 - derniere.y : -1;
+  };
+  test("★ le bandeau TOTAL DU PROJET ne se pose JAMAIS sur la dernière ligne du tableau des prix : au moins 3 mm entre le bas du tableau et le haut du bandeau (le bandeau monte 7,5 mm au-dessus de son libellé — l'oublier, c'est l'écraser)",
+    [docSol, Pdf.genererDevis(devisOrdinaire, null, true),
+     Pdf.genererDevis({ ...devisOrdinaire, lignes: [{ article: "MOTEUR 600 kg", qte: 1, pu: 500000, total: 500000 }], besoins: null }, null, true)]
+      .every((doc) => hautDuBandeau(doc) >= 3));
   test("★ la date libre est DANS le cadre du client (le jour où il dit oui), plus jamais un cadre à part — la date du devis reste en haut ; un devis sans cachet ni signature se fabrique quand même",
     txtSol.includes("Date : ____ / ____ / ________") && txtSol.includes("Pour BMI Togo")
     && txtSol.indexOf("Bon pour accord") < txtSol.indexOf("Date : ____ / ____ / ________")
