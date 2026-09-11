@@ -324,7 +324,10 @@ lit mal est pire qu'un banc absent).
   **la date libre DEDANS** (« la date d'en bas n'est plus importante car en
   haut déjà il y a une date » : celle du haut est la date du devis, celle du
   bas le jour où le client dit oui). Une image illisible ne fait jamais
-  tomber le PDF (`imageDansCadre`). **Seul le bloc du
+  tomber le PDF (`imageDansCadre`) ; **le cachet est CARRÉ, c'est la hauteur
+  du cadre qui le bride** (11/09/2026, capture : « le cachet est trop petit,
+  l'agrandir davantage » — cadre monté à 40 mm, cachet dessiné à 26 mm ; le
+  banc MESURE la taille réellement dessinée dans le PDF). **Seul le bloc du
   besoin change** (`blocBesoin` choisit d'après la forme des besoins) :
   solaire → « Votre besoin » en trois cases (kWh/jour, kW simultanés,
   autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail → le

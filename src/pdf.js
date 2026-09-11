@@ -426,12 +426,16 @@ function imageDansCadre(doc, image, x, y, wMax, hMax) {
 // il y a une date » : celle du haut est la date du devis, celle d'en bas le
 // jour où le client dit oui — deux dates différentes, une seule à sa place).
 function blocMentions(doc, d, largeur, hauteur, y) {
-  y = placePour(doc, y, hauteur, 50);
+  y = placePour(doc, y, hauteur, 60);
   y += 4;
   mentionsOffre(doc, y, "un devis");
   doc.text(`Offre valable ${VALIDITE_OFFRE_JOURS} jours à compter du ${d.date}.`, 14, y + 8);
   y += 16;
-  const L = 70, H = 30, xD = largeur - 14 - L;
+  // ⚠ Capture Timo (11/09/2026) : « le cachet est trop petit dans le cadre,
+  // l'agrandir davantage ». Le cachet est une image CARRÉE : c'est la hauteur
+  // du cadre qui le bridait (17 mm), pas sa largeur. Le cadre monte donc à
+  // 40 mm et la bande d'images à 26 mm de haut — le cachet fait 26 mm de côté.
+  const L = 70, H = 40, xD = largeur - 14 - L;
   doc.setDrawColor(...GRIS_TEXTE);
   doc.setLineWidth(0.3);
   doc.roundedRect(14, y, L, H, 1.5, 1.5, "S");
@@ -440,8 +444,8 @@ function blocMentions(doc, d, largeur, hauteur, y) {
   doc.setTextColor(...GRIS_TEXTE);
   doc.text("Pour BMI Togo", 17, y + 5);
   if (d.par) doc.text(String(d.par), 17, y + 9.5);
-  imageDansCadre(doc, d.signature, 16, y + 11, 32, 17);
-  imageDansCadre(doc, d.cachet, 50, y + 11, 32, 17);
+  imageDansCadre(doc, d.signature, 16, y + 12, 30, 24);
+  imageDansCadre(doc, d.cachet, 47, y + 11, 34, 26);
   doc.text("Bon pour accord — signature du client", xD + 3, y + 5);
   doc.text("Date : ____ / ____ / ________", xD + 3, y + H - 3.5);
   piedDePage(doc, largeur, hauteur);

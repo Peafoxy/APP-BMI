@@ -5188,9 +5188,16 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   // ⚠ Timo, 11/09/2026 : « un devis devrait avoir une signature ? » — oui, et
   // BMI n'en avait aucune. Le cadre de gauche l'engage désormais.
   const txtSigne = texteDuPdf(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true));
-  test("★ le devis ENGAGE BMI : cadre « Pour BMI Togo » avec le nom de celui qui l'a élaboré, sa signature et le cachet de la maison posés dedans, en face du « Bon pour accord » du client",
+  // Le banc MESURE la taille à laquelle le cachet est réellement dessiné :
+  // jsPDF écrit « <largeur> 0 0 <hauteur> <x> <y> cm » en POINTS (1 mm = 2,8346 pt).
+  // ⚠ Capture Timo (11/09/2026) : « le cachet est trop petit dans le cadre ».
+  // Il est CARRÉ : c'est la hauteur du cadre qui le bridait à 17 mm.
+  const imagesDuPdf = (doc) => [...doc.internal.pages.flat().join("\n").matchAll(/([\d.]+) 0 0 ([\d.]+) [\d.]+ [\d.]+ cm/g)]
+    .map((m) => ({ l: +m[1] / 2.8346, h: +m[2] / 2.8346 }));
+  const imgSignees = imagesDuPdf(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true));
+  test("★ le devis ENGAGE BMI : cadre « Pour BMI Togo » avec le nom de celui qui l'a élaboré, sa signature et le cachet de la maison posés dedans (cachet carré dessiné à 24 mm au moins, jamais rabougri), en face du « Bon pour accord » du client",
     txtSigne.includes("Pour BMI Togo") && txtSigne.includes("AKUE Jean") && txtSigne.includes("Bon pour accord")
-    && (JSON.stringify(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true).internal.pages).match(/\/I\d/g) || []).length >= 2);
+    && imgSignees.length >= 2 && imgSignees.every((i) => i.h >= 24 && i.l >= 24));
   test("★ la date libre est DANS le cadre du client (le jour où il dit oui), plus jamais un cadre à part — la date du devis reste en haut ; un devis sans cachet ni signature se fabrique quand même",
     txtSol.includes("Date : ____ / ____ / ________") && txtSol.includes("Pour BMI Togo")
     && txtSol.indexOf("Bon pour accord") < txtSol.indexOf("Date : ____ / ____ / ________")
