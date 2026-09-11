@@ -284,7 +284,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // recommander le même matériel. Ce sera une vente neuve, avec son numéro.
     const dejaVendue = ventesDeProforma(db, pf);
     if (dejaVendue.length && !await uConfirm(
-      `⚠ Cette proforma a déjà été encaissée le ${dFR(dejaVendue[0].date)} — reçu ${numeroRecu(dejaVendue[0])}${dejaVendue.length > 1 ? `\n(et ${dejaVendue.length - 1} autre(s) fois)` : ""}.\n\nLa reprendre quand même ?\n\nCe sera une NOUVELLE vente, avec un nouveau numéro de reçu.`
+      `⚠ Cette proforma a déjà été encaissée le ${dFR(dejaVendue[0].date)} — reçu ${numeroRecu(dejaVendue[0])}${dejaVendue.length > 1 ? `\n(et ${dejaVendue.length - 1} autre(s) fois)` : ""}.\n\nVendre de nouveau à partir de cette proforma ?\n\nCe sera une NOUVELLE vente, avec un nouveau numéro de reçu.`
     )) return;
     if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par la proforma ${pf.numero} ?`)) return;
     setPanier(r.panier);
@@ -292,7 +292,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, remise: r.remisePct ? String(r.remisePct) : "" });
     setVueListe("ventes");
     const avis = [
-      `🛒 Proforma ${pf.numero} reprise : ${r.panier.length} article(s) au panier.`,
+      `🛒 Proforma ${pf.numero} : ${r.panier.length} article(s) au panier. Vérifiez, puis encaissez.`,
       r.introuvables.length ? `⚠ Introuvable(s) dans ${boutique}, à ajouter à la main : ${r.introuvables.join(", ")}.` : "",
       r.prixChanges.length ? `⚠ Prix changés depuis : ${r.prixChanges.map((c) => `${c.article} ${fmt(c.propose)} → ${fmt(c.aujourdhui)}`).join(" ; ")}. Le prix de la proforma est gardé.` : "",
       r.remiseEcartee ? `⚠ Remise générale écartée : une remise est déjà accordée sur un article (l'une ou l'autre).` : "",
@@ -1164,7 +1164,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   })()}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation)} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
-                    <button onClick={() => reprendreLaProforma(pf)} title="Remettre les articles de cette proforma dans le panier pour encaisser" className="text-xs font-bold text-emerald-700 underline">🛒 Reprendre</button>
+                    {/* ⚠ Timo (11/09/2026) : « reprise » disait déjà, sur une VENTE,
+                        que le client rend un article — deux sens opposés dans le même
+                        écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement
+                        reste à faire. */}
+                    <button onClick={() => reprendreLaProforma(pf)} title="Mettre les articles de cette proforma dans le panier — l'encaissement reste à faire" className="text-xs font-bold text-emerald-700 underline">🛒 Vendre</button>
                   </td>
                 </tr>
               ))}

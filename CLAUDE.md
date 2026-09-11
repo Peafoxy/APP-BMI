@@ -324,8 +324,13 @@ lit mal est pire qu'un banc absent).
 - **🛒 Une proforma se REPREND au panier** (11/09/2026, après « dans les
   grands logiciels, ça se passe comment ? » — la proforma y est une façon
   d'imprimer le devis, donc transformable ; Timo a choisi de garder la
-  proforma telle quelle et de la rendre reprenable) : bouton « 🛒 Reprendre »
-  sur sa ligne dans 💰 Ventes. Règle pure `reprendreProforma`
+  proforma telle quelle et de la rendre reprenable) : bouton **« 🛒 Vendre »**
+  sur sa ligne dans 💰 Ventes. **« Reprise » ne désigne QUE l'article rendu
+  par le client** (11/09/2026 : « reprise des proforma pour en faire une
+  vente et reprise dans vente pour reprendre un article, ça porte
+  confusion ») : trois gestes voisins, trois mots distincts — « 🛒 Vendre »
+  sur une proforma, « ↩ Reprise » sur une vente, « 🔁 Retour » pour la
+  garantie. Le clic remplit le panier, **l'encaissement reste à faire**. Règle pure `reprendreProforma`
   (lib/calculs.js) : la proforma émise garde `produit_id` sur chaque ligne,
   les anciennes sont retrouvées par le NOM dans la boutique ; une proforma
   d'une AUTRE boutique est refusée en nommant la bonne, **jamais de

@@ -4987,7 +4987,9 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
   const vtP = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran Ventes : reprendre une proforma DÉJÀ encaissée prévient en nommant la date et le reçu, dit que ce sera une nouvelle vente, et laisse le vendeur trancher (jamais de blocage) ; la vente cite sa proforma et l'origine est consommée après l'encaissement",
     /const dejaVendue = ventesDeProforma\(db, pf\);/.test(vtP) && /déjà été encaissée le \$\{dFR\(dejaVendue\[0\]\.date\)\} — reçu \$\{numeroRecu\(dejaVendue\[0\]\)\}/.test(vtP)
-    && /NOUVELLE vente, avec un nouveau numéro de reçu/.test(vtP) && /La reprendre quand même \?/.test(vtP)
+    && /NOUVELLE vente, avec un nouveau numéro de reçu/.test(vtP) && /Vendre de nouveau à partir de cette proforma \?/.test(vtP)
+    // Timo (11/09/2026) : « reprise » ne doit désigner QUE l'article rendu par le client.
+    && !/🛒 Reprendre/.test(vtP) && /↩ Reprise<\/button>/.test(vtP) && /🔁 Retour<\/button>/.test(vtP)
     && /proforma_id: origineProforma\.id, proforma_numero: origineProforma\.numero/.test(vtP)
     && /setOrigineProforma\(null\);   \/\/ consommée/.test(vtP)
     && /const numero = prochainNumeroVente\(db, boutique\);/.test(vtP));
@@ -4995,7 +4997,7 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
     /✅ Encaissée le \{dFR\(vs\[0\]\.date\)\} — \{numeroRecu\(vs\[0\]\)\}/.test(vtP) && /⏳ En attente/.test(vtP)
     && /"Émis par", "Suite", ""/.test(vtP) && /colSpan=\{8\}/.test(vtP));
   test("★ écran Ventes : la proforma émise GARDE produit_id, le bouton « 🛒 Reprendre » est sur sa ligne, le geste passe par la règle pure, prévient avant d'écraser un panier et n'enregistre rien",
-    /produit_id: l\.produit_id \|\| null,/.test(vtP) && /🛒 Reprendre<\/button>/.test(vtP)
+    /produit_id: l\.produit_id \|\| null,/.test(vtP) && /🛒 Vendre<\/button>/.test(vtP)
     && /const r = reprendreProforma\(db, pf, boutique\);/.test(vtP) && /Le panier contient déjà \$\{panier\.length\} article\(s\)/.test(vtP)
     && !/reprendreLaProforma[^]*?save\(/.test(vtP.slice(vtP.indexOf("const reprendreLaProforma"), vtP.indexOf("const proformaWhatsApp"))));
 }
