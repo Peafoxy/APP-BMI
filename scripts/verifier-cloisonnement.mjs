@@ -4218,10 +4218,11 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     && (pdf.match(/il constitue une offre de prix et n'a pas de valeur comptable/g) || []).length === 1);
   test("★ le devis ET le proforma passent par ces briques (enteteSociete, bandeauTitre, bandeauTotal, mentionsOffre, piedDePage)",
     (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 2 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 2
-    // Retourné le 11/09/2026 : le devis solaire est un TROISIÈME rendu, et il
-    // passe par les mêmes briques de fin — c'est justement la règle.
-    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 3 && (pdf.match(/mentionsOffre\(doc, y, /g) || []).length === 3
-    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 3);
+    // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
+    // rendu, puis UNE seule charpente pour les trois volets — on revient donc
+    // à deux passages par brique (le devis, le proforma), sans recopie.
+    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y, /g) || []).length === 2
+    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 2);
   test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
     && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "un devis"\)/.test(pdf));
@@ -5082,10 +5083,13 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     /doc\.save\(fichierPdf\("Devis", \{ client: d\.client, numero: d\.numero \}\)\)/.test(srcPdf));
   // Retourné le 11/09/2026 : le devis solaire a sa présentation commerciale
   // (Timo, « ça me convient »). La charge y est toujours, autrement dite.
-  test("★ le devis SOLAIRE passe par la présentation commerciale (devisSolaire), plus par la table technique : un seul aiguillage, et il sort avant le rendu classique",
-    /const estSolaire = !!\(b && Array\.isArray\(b\.appareils\) && b\.appareils\.length > 0\);/.test(srcPdf)
-    && (srcPdf.match(/devisSolaire\(doc, d, largeur, hauteur, yApres\);/g) || []).length === 1
-    && srcPdf.includes("Appareil à alimenter") && srcPdf.includes("Besoin estimé par jour")
+  // Retourné le 11/09/2026 (« fais le même rendu pour portail et autre ») :
+  // les TROIS volets passent par la même charpente, seul le bloc du besoin change.
+  test("★ UNE charpente commerciale pour tous les devis (devisCommercial), un seul aiguillage vers le bloc du besoin (blocBesoin), et les blocs communs écrits UNE fois",
+    (srcPdf.match(/devisCommercial\(doc, d, largeur, hauteur, yApres\);/g) || []).length === 1
+    && /const blocBesoin = \(b\) => \{/.test(srcPdf)
+    && ["besoinSolaire", "besoinPortail", "besoinAutre"].every((f) => (srcPdf.match(new RegExp(`function ${f}\\(`, "g")) || []).length === 1)
+    && ["blocEquipement", "blocFinancier", "blocMentions"].every((f) => (srcPdf.match(new RegExp(`function ${f}\\(`, "g")) || []).length === 1)
     && (srcPdf.match(/Array\.isArray\(b\.appareils\)/g) || []).length === 1);
   // ⚠ Le banc MESURE : on relit le texte réellement écrit dans le PDF
   // (doc.internal.pages), on ne se contente pas de lire pdf.js.
@@ -5119,14 +5123,39 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     txtSol.includes("Panneaux solaires") && txtSol.includes("Batteries") && txtSol.includes("-100 000 F")
     && txtSol.includes("NIF : 1001790098")
     && texteDuPdf(Pdf.genererDevis({ ...dSol, formation: true }, null, true)).includes("DOCUMENT DE FORMATION"));
-  test("★ le devis PORTAIL et le devis AUTRE gardent le rendu classique (Timo n'a validé que le solaire)",
-    texteDuPdf(Pdf.genererDevis(formes[1][1], null, true)).includes("Ouvrant : Portail coulissant")
-    && !texteDuPdf(Pdf.genererDevis(formes[1][1], null, true)).includes("TOTAL DU PROJET")
-    && !texteDuPdf(Pdf.genererDevis(formes[2][1], null, true)).includes("VOTRE BESOIN"));
+  // Retourné le 11/09/2026 : Timo a validé le solaire, puis « fais le même
+  // rendu pour portail et autre ». Chaque volet montre ce qu'il a.
+  const dPortail = { ...socle, date: "11/09/2026", total: 500000, pct_acompte: 50, montant_acompte: 250000,
+    lignes: [{ categorie: "Motorisation", article: "MOTEUR 600 kg", qte: 1, pu: 500000, total: 500000 }],
+    besoins: { type_ouvrant: "Portail coulissant", largeur: 4, hauteur: 2, surface_porte: 8,
+      poids: 400, poids_ajuste: 500, vantaux: 2, frequence: "Moyenne (10 à 30 cycles/j)", telecommandes: 2 } };
+  const txtPortail = texteDuPdf(Pdf.genererDevis(dPortail, null, true));
+  test("★ devis PORTAIL : « Votre ouvrant » en trois cases — dimensions, poids RETENU, usage en un mot — puis le détail (type, vantaux, surface, poids mesuré, télécommandes)",
+    txtPortail.includes("VOTRE OUVRANT") && txtPortail.includes("4 × 2 m") && txtPortail.includes("500 kg") && txtPortail.includes("Moyenne")
+    && txtPortail.includes("Ouvrant : Portail coulissant") && txtPortail.includes("2 vantaux") && txtPortail.includes("Surface : 8 m²")
+    && txtPortail.includes("Poids mesuré : 400 kg") && txtPortail.includes("Télécommandes : 2"));
+  const dAutre = { ...socle, date: "11/09/2026", total: 500000, pct_acompte: 100, montant_acompte: 500000,
+    besoins: { articles_demandes: [{ nom: "Caméra dôme", qte: 3 }, { nom: "Enregistreur", qte: 1 }] } };
+  const txtAutre = texteDuPdf(Pdf.genererDevis(dAutre, null, true));
+  test("★ devis AUTRE : « Votre demande » reprend ce que le client a demandé, tel qu'exprimé, avec ses quantités — aucun bloc de chiffres inventé",
+    txtAutre.includes("VOTRE DEMANDE") && txtAutre.includes("Ce que vous avez demandé") && txtAutre.includes("Caméra dôme") && txtAutre.includes("Enregistreur")
+    && !txtAutre.includes("VOTRE BESOIN") && !txtAutre.includes("VOTRE OUVRANT"));
+  test("★ portail et autre ont les MÊMES blocs communs que le solaire (équipement, TOTAL DU PROJET, acompte/solde, validité, bon pour accord)",
+    [txtPortail, txtAutre].every((t) => ["ÉQUIPEMENT PROPOSÉ", "TOTAL DU PROJET", "Offre valable 15 jours", "Bon pour accord"].every((m) => t.includes(m)))
+    && txtPortail.includes("250 000 FCFA") && txtPortail.includes("Acompte à la commande (50 %)")
+    && txtAutre.includes("Paiement intégral à la commande"));
+  const txtAncien = texteDuPdf(Pdf.genererDevis({ ...socle, date: "11/09/2026", lignes: [{ article: "MOTEUR", qte: 1, pu: 500000, total: 500000 }], besoins: null }, null, true));
+  test("★ un ANCIEN devis (sans besoins ni catégorie) passe par la même charpente, sans bloc de besoin et sans en-tête de groupe inventé",
+    txtAncien.includes("ÉQUIPEMENT PROPOSÉ") && txtAncien.includes("TOTAL DU PROJET") && txtAncien.includes("MOTEUR")
+    && !txtAncien.includes("VOTRE BESOIN") && !txtAncien.includes("VOTRE OUVRANT") && !txtAncien.includes("VOTRE DEMANDE")
+    && !txtAncien.includes("Autres équipements"));
   test("les mesures du garage et la demande « autre » sont rendues",
     srcPdf.includes("type_ouvrant") && srcPdf.includes("articles_demandes"));
-  test("la colonne Équipement (catégorie) accompagne les articles",
-    srcPdf.includes(`"Équipement", "Article"`));
+  // Retourné le 11/09/2026 : la catégorie ne fait plus une colonne, elle
+  // TITRE son groupe d'articles. Mesuré sur le PDF rendu, pas lu dans le code.
+  test("★ la catégorie titre son groupe d'articles (Panneaux solaires, Batteries, Motorisation…), et la remise reste une ligne négative",
+    txtSol.includes("Panneaux solaires") && txtSol.includes("Batteries") && txtPortail.includes("Motorisation")
+    && txtSol.includes("-100 000 F") && srcPdf.includes("const avecCategorie = d.lignes.some((l) => l.categorie);"));
   test("★ TousLesDevis TRANSMET les besoins au PDF (sinon rien ne s'imprime)",
     /besoins: d\.besoins/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
 }

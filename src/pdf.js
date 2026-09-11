@@ -197,18 +197,20 @@ export function genererProforma(p, logo, retournerDoc = false) {
 // Même présentation que le proforma, avec le statut et l'élaborateur en plus —
 // utile pour la rubrique « Tous les devis » consultée par l'admin et le
 // responsable commercial.
-// ============ LE DEVIS SOLAIRE, PRÉSENTATION COMMERCIALE ============
-// Timo (11/09/2026), après l'avis d'un tiers sur le PDF « administratif » :
-// « ça me convient » — sur UNE page, dans cet ordre : Votre besoin (trois
-// grandes cases), Vos appareils, Équipement proposé (groupé par catégorie),
-// TOTAL DU PROJET avec acompte et solde, mentions + validité + bon pour
-// accord. Les données du devis ne changent pas : seule la mise en page.
-// Portail et Autre gardent le rendu classique tant qu'il n'a pas validé
-// celui-ci. Aucun accès à db ici : tout vient de `d`.
+// ============ LE DEVIS, PRÉSENTATION COMMERCIALE ============
+// Timo (11/09/2026) : le solaire d'abord, puis « fais le même rendu pour
+// portail et autre ». UNE charpente pour les trois volets — Votre besoin,
+// Équipement proposé, TOTAL DU PROJET avec acompte et solde, mentions +
+// validité + bon pour accord. Seul le BLOC DU BESOIN change d'un volet à
+// l'autre : chacun montre ce qu'il a, on n'invente pas un bloc vide. Un
+// ancien devis sans besoins passe par la même charpente, sans ce bloc.
+// Les données du devis ne changent pas : seule la mise en page.
+// Aucun accès à db ici : tout vient de `d`.
 const GRIS_CLAIR = [241, 245, 249];
 const GRIS_TEXTE = [71, 85, 105];
 const kWh = (wh) => `${(Number(wh || 0) / 1000).toFixed(1).replace(".", ",")} kWh`;
 const kW = (w) => (Number(w || 0) >= 1000 ? `${(Number(w) / 1000).toFixed(1).replace(".", ",")} kW` : `${fmtMontant(w)} W`);
+const nb = (x) => String(Number(x || 0)).replace(".", ",");
 const LIBELLE_BATTERIE = { lifepo4: "Lithium LiFePO4", gel: "Gel", plomb: "Plomb" };
 // Une nouvelle page si le bloc suivant ne tient pas.
 const placePour = (doc, y, hauteur, besoin) => { if (y + besoin > hauteur - 20) { doc.addPage(); return 20; } return y; };
@@ -221,35 +223,44 @@ const titreBloc = (doc, y, texte) => {
   doc.line(14, y + 1.5, 14 + doc.getTextWidth(texte.toUpperCase()), y + 1.5);
   return y + 6;
 };
-
-function devisSolaire(doc, d, largeur, hauteur, yDepart) {
-  const b = d.besoins;
-  let y = yDepart + 30;
-
-  // 1. VOTRE BESOIN — trois grandes cases.
-  y = titreBloc(doc, y, "Votre besoin");
-  const cases = [
-    [kWh(b.wh_jour), "Besoin estimé par jour"],
-    [kW(b.puissance_simultanee), "Puissance simultanée"],
-    [`${Number(b.autonomie || 1)} jour${Number(b.autonomie || 1) > 1 ? "s" : ""}`, "Autonomie souhaitée"],
-  ];
-  const lc = (largeur - 28 - 8) / 3;
+// Les trois grandes cases du besoin : un chiffre lisible de loin, son libellé dessous.
+const grandesCases = (doc, y, largeur, cases) => {
+  const lc = (largeur - 28 - 8) / cases.length;
   cases.forEach(([valeur, libelle], i) => {
     const x = 14 + i * (lc + 4);
     doc.setFillColor(...GRIS_CLAIR);
     doc.roundedRect(x, y, lc, 18, 1.5, 1.5, "F");
-    doc.setFontSize(15);
+    doc.setFontSize(String(valeur).length > 12 ? 11 : 15);
     doc.setTextColor(...BLEU);
-    doc.text(valeur, x + lc / 2, y + 9, { align: "center" });
+    doc.text(String(valeur), x + lc / 2, y + 9, { align: "center" });
     doc.setFontSize(7.5);
     doc.setTextColor(...GRIS_TEXTE);
     doc.text(libelle, x + lc / 2, y + 14.5, { align: "center" });
   });
-  y += 22;
-  const detail = [b.tension ? `Tension du système : ${b.tension} V` : "", b.type_batterie ? `Batterie : ${LIBELLE_BATTERIE[b.type_batterie] || b.type_batterie}` : ""].filter(Boolean).join("   •   ");
-  if (detail) { doc.setFontSize(8); doc.setTextColor(...GRIS_TEXTE); doc.text(detail, 14, y); y += 6; }
+  return y + 22;
+};
+const ligneDetail = (doc, y, morceaux) => {
+  const t = morceaux.filter(Boolean).join("   •   ");
+  if (!t) return y;
+  doc.setFontSize(8);
+  doc.setTextColor(...GRIS_TEXTE);
+  doc.text(t, 14, y, { maxWidth: doc.internal.pageSize.getWidth() - 28 });
+  return y + 6;
+};
 
-  // 2. VOS APPAREILS — le tableau, avec le total de puissance.
+// ---- Le bloc du besoin, volet par volet ----
+function besoinSolaire(doc, d, largeur, hauteur, y) {
+  const b = d.besoins;
+  y = titreBloc(doc, y, "Votre besoin");
+  y = grandesCases(doc, y, largeur, [
+    [kWh(b.wh_jour), "Besoin estimé par jour"],
+    [kW(b.puissance_simultanee), "Puissance simultanée"],
+    [`${Number(b.autonomie || 1)} jour${Number(b.autonomie || 1) > 1 ? "s" : ""}`, "Autonomie souhaitée"],
+  ]);
+  y = ligneDetail(doc, y, [
+    b.tension ? `Tension du système : ${b.tension} V` : "",
+    b.type_batterie ? `Batterie : ${LIBELLE_BATTERIE[b.type_batterie] || b.type_batterie}` : "",
+  ]);
   y = placePour(doc, y, hauteur, 30);
   y = titreBloc(doc, y, "Vos appareils");
   const totalW = b.appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
@@ -264,31 +275,68 @@ function devisSolaire(doc, d, largeur, hauteur, yDepart) {
     columnStyles: { 1: { halign: "right" }, 2: { halign: "center" }, 3: { halign: "center" } },
     margin: { left: 14, right: 14 },
   });
-  y = doc.lastAutoTable.finalY + 8;
+  return doc.lastAutoTable.finalY + 8;
+}
 
-  // 3. ÉQUIPEMENT PROPOSÉ — groupé par catégorie, la remise en négatif.
+function besoinPortail(doc, d, largeur, hauteur, y) {
+  const b = d.besoins;
+  const retenu = Number(b.poids_ajuste || b.poids || 0);
+  y = titreBloc(doc, y, "Votre ouvrant");
+  y = grandesCases(doc, y, largeur, [
+    [b.largeur && b.hauteur ? `${nb(b.largeur)} × ${nb(b.hauteur)} m` : "—", "Dimensions"],
+    [retenu ? `${fmtMontant(retenu)} kg` : "—", "Poids retenu"],
+    // La fréquence arrive déjà en clair (« Moyenne (10 à 30 cycles/j) ») :
+    // le mot en grand, le détail dans la ligne dessous.
+    [String(b.frequence || "—").split("(")[0].trim() || "—", "Usage quotidien"],
+  ]);
+  y = ligneDetail(doc, y, [
+    b.type_ouvrant ? `Ouvrant : ${b.type_ouvrant}` : "",
+    Number(b.vantaux) > 1 ? `${b.vantaux} vantaux` : "",
+    b.surface_porte ? `Surface : ${nb(b.surface_porte)} m²` : "",
+    b.poids && Number(b.poids) !== retenu ? `Poids mesuré : ${fmtMontant(b.poids)} kg` : "",
+    b.frequence ? `Usage : ${b.frequence}` : "",
+    b.telecommandes ? `Télécommandes : ${b.telecommandes}` : "",
+  ]);
+  return y + 2;
+}
+
+function besoinAutre(doc, d, largeur, hauteur, y) {
+  const b = d.besoins;
+  y = titreBloc(doc, y, "Votre demande");
+  autoTable(doc, {
+    head: [["Ce que vous avez demandé", "Qté"]],
+    body: b.articles_demandes.map((a) => [String(a.nom), String(a.qte || 1)]),
+    startY: y,
+    styles: { fontSize: 8.5, cellPadding: 1.8, textColor: GRIS_TEXTE },
+    headStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
+    columnStyles: { 1: { halign: "center", cellWidth: 20 } },
+    margin: { left: 14, right: 14 },
+  });
+  return doc.lastAutoTable.finalY + 8;
+}
+
+// ---- Les blocs communs aux trois volets ----
+function blocEquipement(doc, d, largeur, hauteur, y) {
   y = placePour(doc, y, hauteur, 40);
   y = titreBloc(doc, y, "Équipement proposé");
-  const groupes = [];
-  for (const l of d.lignes) {
-    const cat = String(l.categorie || "Autres équipements");
-    let g = groupes.find((x) => x.cat === cat);
-    if (!g) { g = { cat, lignes: [] }; groupes.push(g); }
-    g.lignes.push(l);
-  }
+  // Groupé par catégorie ; un ancien devis qui n'en a aucune reste une
+  // simple liste, sans en-tête de groupe inventé.
+  const avecCategorie = d.lignes.some((l) => l.categorie);
   const body = [];
-  for (const g of groupes) {
-    body.push([{ content: g.cat, colSpan: 4, styles: { fontStyle: "bold", fillColor: [226, 232, 240], textColor: BLEU } }]);
-    for (const l of g.lignes) {
-      const negatif = Number(l.total) < 0;
-      const style = negatif ? { textColor: [185, 28, 28] } : {};
-      body.push([
-        { content: String(l.article), styles: style },
-        { content: String(l.qte), styles: { halign: "center", ...style } },
-        { content: `${fmtMontant(l.pu)} F`, styles: { halign: "right", ...style } },
-        { content: `${fmtMontant(l.total)} F`, styles: { halign: "right", fontStyle: "bold", ...style } },
-      ]);
+  if (avecCategorie) {
+    const groupes = [];
+    for (const l of d.lignes) {
+      const cat = String(l.categorie || "Autres équipements");
+      let g = groupes.find((x) => x.cat === cat);
+      if (!g) { g = { cat, lignes: [] }; groupes.push(g); }
+      g.lignes.push(l);
     }
+    for (const g of groupes) {
+      body.push([{ content: g.cat, colSpan: 4, styles: { fontStyle: "bold", fillColor: [226, 232, 240], textColor: BLEU } }]);
+      for (const l of g.lignes) body.push(ligneEquipement(l));
+    }
+  } else {
+    for (const l of d.lignes) body.push(ligneEquipement(l));
   }
   autoTable(doc, {
     head: [["Désignation", "Qté", "Prix unitaire", "Total"]],
@@ -299,9 +347,20 @@ function devisSolaire(doc, d, largeur, hauteur, yDepart) {
     columnStyles: { 1: { halign: "center", cellWidth: 16 }, 2: { halign: "right", cellWidth: 34 }, 3: { halign: "right", cellWidth: 34 } },
     margin: { left: 14, right: 14 },
   });
-  y = doc.lastAutoTable.finalY + 10;
+  return doc.lastAutoTable.finalY + 10;
+}
+// Une remise est une ligne négative : elle se lit en rouge.
+const ligneEquipement = (l) => {
+  const style = Number(l.total) < 0 ? { textColor: [185, 28, 28] } : {};
+  return [
+    { content: String(l.article), styles: style },
+    { content: String(l.qte), styles: { halign: "center", ...style } },
+    { content: `${fmtMontant(l.pu)} F`, styles: { halign: "right", ...style } },
+    { content: `${fmtMontant(l.total)} F`, styles: { halign: "right", fontStyle: "bold", ...style } },
+  ];
+};
 
-  // 4. TOTAL DU PROJET, acompte, solde, délai.
+function blocFinancier(doc, d, largeur, hauteur, y) {
   y = placePour(doc, y, hauteur, 45);
   y = bandeauTotal(doc, largeur, y, d.total, "TOTAL DU PROJET");
   const total = Number(d.total || 0);
@@ -330,8 +389,10 @@ function devisSolaire(doc, d, largeur, hauteur, yDepart) {
     doc.text(`Délai d'installation : ${d.delai_installation}`, largeur - 18, y, { align: "right" });
     y += 6;
   }
+  return y;
+}
 
-  // 5. Mentions, validité, bon pour accord.
+function blocMentions(doc, d, largeur, hauteur, y) {
   y = placePour(doc, y, hauteur, 40);
   y += 4;
   mentionsOffre(doc, y, "un devis");
@@ -346,6 +407,24 @@ function devisSolaire(doc, d, largeur, hauteur, yDepart) {
   doc.text("Date : ____ / ____ / ________", 17, y + 6);
   doc.text("Bon pour accord — signature du client", largeur - 14 - 67, y + 6);
   piedDePage(doc, largeur, hauteur);
+}
+
+// Le bloc du besoin qui convient à CE devis — null si le devis n'en porte
+// pas (ancien devis) : la charpente commence alors à l'équipement.
+const blocBesoin = (b) => {
+  if (b && Array.isArray(b.appareils) && b.appareils.length > 0) return besoinSolaire;
+  if (b && b.type_ouvrant) return besoinPortail;
+  if (b && Array.isArray(b.articles_demandes) && b.articles_demandes.length > 0) return besoinAutre;
+  return null;
+};
+
+function devisCommercial(doc, d, largeur, hauteur, yDepart) {
+  const rendreBesoin = blocBesoin(d.besoins || null);
+  let y = yDepart + 30;
+  if (rendreBesoin) y = rendreBesoin(doc, d, largeur, hauteur, y);
+  y = blocEquipement(doc, d, largeur, hauteur, y);
+  y = blocFinancier(doc, d, largeur, hauteur, y);
+  blocMentions(doc, d, largeur, hauteur, y);
 }
 
 export function genererDevis(d, logo, retournerDoc = false) {
@@ -372,71 +451,10 @@ export function genererDevis(d, logo, retournerDoc = false) {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « c'est juste les articles qui
   // apparaissent — les équipements et la charge dimensionnée devraient
   // aussi apparaître sur le devis en PDF ». Le devis GARDE ces données
-  // (d.besoins, posé par le dimensionnement) ; le PDF ne les imprimait
-  // pas. On les rend AVANT la table des prix, selon le volet d'origine —
-  // reconnu à la forme des besoins, ce module n'ayant pas accès à db.
-  let yTable = yApres + 30;
-  const b = d.besoins || null;
-  // Solaire : la présentation commerciale (Timo, 11/09/2026), sur ses données.
-  // Portail et Autre gardent le rendu classique. UNE seule sortie de fichier,
-  // tout en bas : le nom du client passe par la règle unique (nomDocument).
-  const estSolaire = !!(b && Array.isArray(b.appareils) && b.appareils.length > 0);
-  if (estSolaire) devisSolaire(doc, d, largeur, hauteur, yApres);
-  if (!estSolaire && b && b.type_ouvrant) {
-    // Garage / portail : les mesures qui ont dimensionné le moteur.
-    doc.setFontSize(8);
-    doc.setTextColor(60, 60, 60);
-    const lignesB = [
-      `Ouvrant : ${b.type_ouvrant}${b.vantaux > 1 ? ` — ${b.vantaux} vantaux` : ""}`,
-      [b.largeur ? `Largeur : ${b.largeur} m` : "", b.hauteur ? `Hauteur : ${b.hauteur} m` : "",
-       b.surface_porte ? `Surface : ${b.surface_porte} m²` : ""].filter(Boolean).join("   •   "),
-      [b.poids ? `Poids : ${fmtMontant(b.poids)} kg${b.poids_ajuste && b.poids_ajuste !== b.poids ? ` (retenu : ${fmtMontant(b.poids_ajuste)} kg)` : ""}` : "",
-       b.frequence ? `Usage : ${b.frequence}` : "",
-       b.telecommandes ? `Télécommandes : ${b.telecommandes}` : ""].filter(Boolean).join("   •   "),
-    ].filter(Boolean);
-    let yB = yTable - 2;
-    for (const t of lignesB) { doc.text(t, 14, yB); yB += 4.5; }
-    yTable = yB + 3;
-  } else if (b && Array.isArray(b.articles_demandes) && b.articles_demandes.length > 0) {
-    // Autre domaine : ce que le client a demandé, tel qu'exprimé.
-    doc.setFontSize(8);
-    doc.setTextColor(60, 60, 60);
-    doc.text(`Demande : ${b.articles_demandes.map((a) => `${a.nom}${Number(a.qte) > 1 ? ` × ${a.qte}` : ""}`).join(", ")}`, 14, yTable - 2, { maxWidth: largeur - 28 });
-    yTable += 4;
-  }
-
-  // ⚠ La colonne « Équipement » (la catégorie de chaque ligne : Panneaux
-  // solaires, Batteries, Installation…) manquait aussi — le PDF ne montrait
-  // que le nom brut des articles. Les anciens devis sans catégorie
-  // affichent une case vide, rien ne casse.
-  const avecCategorie = d.lignes.some((l) => l.categorie);
-  if (!estSolaire) {
-  autoTable(doc, {
-    head: [avecCategorie ? ["Équipement", "Article", "Qté", "Prix unitaire", "Total"] : ["Article", "Qté", "Prix unitaire", "Total"]],
-    body: d.lignes.map((l) => [
-      ...(avecCategorie ? [String(l.categorie || "")] : []),
-      String(l.article),
-      String(l.qte),
-      `${fmtMontant(l.pu)} F`,
-      `${fmtMontant(l.total)} F`,
-    ]),
-    startY: yTable,
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [30, 90, 138], textColor: 255 },
-    alternateRowStyles: { fillColor: [245, 247, 250] },
-    columnStyles: avecCategorie
-      ? { 2: { halign: "center" }, 3: { halign: "right" }, 4: { halign: "right" } }
-      : { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
-  });
-
-  let y = doc.lastAutoTable.finalY + 8;
-  y = bandeauTotal(doc, largeur, y, d.total);
-
-  y += 12;
-  mentionsOffre(doc, y, "un devis");
-  piedDePage(doc, largeur, hauteur);
-  }
+  // (d.besoins, posé par le dimensionnement) ; elles sont rendues AVANT
+  // l'équipement, selon le volet d'origine — reconnu à la forme des
+  // besoins, ce module n'ayant pas accès à db.
+  devisCommercial(doc, d, largeur, hauteur, yApres);
 
   if (retournerDoc) return doc;
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : le fichier doit porter le NOM DU
@@ -444,3 +462,4 @@ export function genererDevis(d, logo, retournerDoc = false) {
   // pour tout ce qui s'imprime ou se télécharge.
   doc.save(fichierPdf("Devis", { client: d.client, numero: d.numero }));
 }
+
