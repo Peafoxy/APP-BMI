@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1123 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1127 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -285,6 +285,22 @@ lit mal est pire qu'un banc absent).
   fiche de l'employé (`brouillons_devis`, liste pour la fusion), onglet
   « Mes brouillons » dans Dimensionnement ; envoyé ou converti, il disparaît.
   Un brouillon repris s'AJOUTE chez le client à l'envoi (jamais `idAReprendre`).
+- **✏️ Corriger un devis déjà envoyé** (11/09/2026, « celui qui a proposé le
+  devis peut avoir la possibilité de modifier le devis ? ») : « Modifier et
+  renvoyer » s'ouvre aussi sur un devis **⏳ Proposé** (avant, il fallait que
+  le client ait réagi ; une faute vue juste après l'envoi obligeait à refaire
+  un devis entier). **Qui** (option « b » choisie par Timo) : **celui qui l'a
+  établi, l'admin, le resp. commercial** — pas le vendeur de la boutique de
+  paiement, qui le voit pourtant. **✅ Validé et 💰 Payé restent fermés à
+  tous** (contrat signé, argent encaissé) ; pour eux Timo veut une **demande
+  de modification que LE CLIENT valide** avant que le devis ne s'ouvre — à
+  construire, deux questions en attente (voir `docs/etat-chantiers-en-attente.md`).
+  Le devis repris **REMPLACE** l'ancien (même id, `idAReprendre`), jamais un
+  doublon chez le client. **Toute correction laisse sa TRACE** (« personne ne
+  baisse un prix en silence ») : `modifie_le`, `modifie_par`,
+  `nb_modifications` posés par `marquerModification`, badge sur la ligne.
+  Règles pures `peutModifierDevis` / `motifRefusModification` /
+  `marquerModification` (lib/comptesClients.js), revérifiées DANS le geste.
 - **📲 Relance des devis sans réponse** (09/09/2026, « Tous les devis ») :
   seuil **15 jours**, comptés depuis la dernière relance (`relance_le`)
   sinon depuis le devis. **Proposé et validé (non payé) seulement ; payé

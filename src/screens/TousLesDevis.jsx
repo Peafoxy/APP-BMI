@@ -9,7 +9,7 @@ import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiqu
 import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
-import { texteRelanceDevis, devisRelancable, motDePasseConnu } from "../lib/comptesClients";
+import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
@@ -261,6 +261,14 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       : `✅ Contrat ${numero} enregistré. Le devis est validé : encaissez-le dans 💰 Ventes (commande en attente à ${boutique}).`);
   };
 
+  // ⚠ Le bouton ne suffit pas : tout geste réservé se revérifie DANS le geste.
+  const modifierDevis = (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = motifRefusModification(d, profile);
+    if (refus) { uAlert(refus); return; }
+    onModifierDevis(d, d.client);
+  };
+
   const telechargerPDF = (d) => {
     // ⚠ Bandeau formation (demande Timo) : le devis n'a pas de champ
     // boutique direct avant vente — même repli que le contrat d'installation
@@ -359,6 +367,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       📲 Relancé le {dFR(d.relance_le)}
                     </span>
                   )}
+                  {d.modifie_le && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
+                      title={`Devis corrigé par ${d.modifie_par || "?"}${d.nb_modifications > 1 ? ` — ${d.nb_modifications} corrections` : ""}`}>
+                      ✏️ Modifié le {dFR(d.modifie_le)} par {d.modifie_par || "?"}{d.nb_modifications > 1 ? ` (${d.nb_modifications}×)` : ""}
+                    </span>
+                  )}
                   <BadgeStatutDevis statut={d.statut} />
                   <span className="text-sm text-slate-400">{ouvert === d.id ? "▾" : "▸"}</span>
                 </button>
@@ -425,8 +439,8 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                           📲 Relancer sur WhatsApp{d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""}
                         </button>
                       )}
-                      {(d.statut === "modification" || d.statut === "rejete") && onModifierDevis && (
-                        <button onClick={() => onModifierDevis(d, d.client)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
+                      {peutModifierDevis(d, profile) && onModifierDevis && (
+                        <button onClick={() => modifierDevis(d)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
                       )}
                       <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
                     </div>

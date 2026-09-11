@@ -196,6 +196,56 @@ export function envoyerRelanceProspectWhatsApp(nomAffiche, tel) {
 export const STATUTS_DEVIS_RELANCABLES = ["propose", "valide"];
 export const devisRelancable = (devis) => STATUTS_DEVIS_RELANCABLES.includes(devis?.statut || "propose");
 
+// ============ CORRIGER UN DEVIS DÉJÀ ENVOYÉ ============
+// ⚠ Timo (11/09/2026) : « celui qui a proposé le devis peut avoir la
+// possibilité de modifier le devis ? ». Jusque-là, « ✏️ Modifier et
+// renvoyer » n'apparaissait QUE si le client avait réagi (modification
+// demandée, rejeté) : une faute vue juste après l'envoi — un prix, un
+// appareil oublié — obligeait à refaire un devis entier, et le client
+// gardait le mauvais dans son espace.
+//
+// Ce qui est ouvert : un devis ⏳ PROPOSÉ se corrige aussi.
+// Ce qui reste fermé : ✅ VALIDÉ et 💰 PAYÉ. Un devis validé est un contrat
+// signé — parfois avec un chantier et un plan de règlement acceptés ; le
+// corriger en silence changerait un engagement pris.
+// Qui (décision Timo du 11/09/2026, option « b ») : CELUI QUI L'A ÉTABLI,
+// l'administrateur, et le responsable commercial. Personne d'autre — pas
+// même le vendeur de la boutique où le client viendra payer, qui voit
+// pourtant le devis dans sa liste.
+export const STATUTS_DEVIS_MODIFIABLES = ["propose", "modification", "rejete"];
+export const ROLES_MODIFIENT_TOUT_DEVIS = ["admin", "resp_commercial"];
+
+export const devisModifiable = (devis) => STATUTS_DEVIS_MODIFIABLES.includes(devis?.statut || "propose");
+
+export const peutModifierDevis = (devis, profile) => devisModifiable(devis)
+  && (ROLES_MODIFIENT_TOUT_DEVIS.includes(profile?.role) || (!!devis?.par_id && devis.par_id === profile?.id));
+
+// "" si le geste est permis ; sinon le motif, en français, dit au vendeur.
+export function motifRefusModification(devis, profile) {
+  if (!devis) return "Devis introuvable.";
+  if (!devisModifiable(devis)) {
+    const statut = devis.statut || "propose";
+    return statut === "paye"
+      ? "🔒 Ce devis est payé : il ne se modifie plus. La vente est encaissée."
+      : "🔒 Ce devis est validé : le contrat est signé, il ne se modifie plus.";
+  }
+  if (!peutModifierDevis(devis, profile))
+    return `🔒 Seul ${devis.par || "celui qui a établi ce devis"}, l'administrateur ou le responsable commercial peut le corriger.`;
+  return "";
+}
+
+// La TRACE d'une correction (Timo, 11/09/2026 : « personne ne peut baisser un
+// prix en silence après que le client a vu le premier devis »). Elle ne
+// rétrécit jamais : on compte les corrections, on garde la dernière date et
+// son auteur.
+export const marquerModification = (ancien, devis, profile, date) => ({
+  ...devis,
+  modifie_le: date,
+  modifie_par: profile?.nom || "",
+  modifie_par_id: profile?.id || "",
+  nb_modifications: Number(ancien?.nb_modifications || 0) + 1,
+});
+
 export function texteRelanceDevis({ devis, compte, motDePasse, vendeur, formaterMontant }) {
   if (!devisRelancable(devis)) return null;
   const statut = devis.statut || "propose";

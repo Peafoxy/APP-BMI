@@ -4452,6 +4452,39 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     txt({ statut: "paye" }) === null && txt({ statut: "rejete" }) === null && txt({ statut: "modification" }) === null
     && Cli.devisRelancable({ statut: "paye" }) === false && Cli.devisRelancable({ statut: "propose" }) === true && Cli.devisRelancable({}) === true && Cli.devisRelancable({ statut: "valide" }) === true
     && Cli.STATUTS_DEVIS_RELANCABLES.join("|") === "propose|valide");
+  // ⚠ Timo (11/09/2026) : « celui qui a proposé le devis peut avoir la
+  // possibilité de modifier le devis ? » → un devis PROPOSÉ se corrige aussi
+  // (une faute vue juste après l'envoi n'oblige plus à refaire un devis
+  // entier), par CELUI QUI L'A ÉTABLI, l'administrateur ou le responsable
+  // commercial (option « b »). Validé et payé restent fermés.
+  const auteur = { id: "u1", nom: "ALI", role: "vendeur" };
+  const autreVendeur = { id: "u2", nom: "KODJO", role: "vendeur" };
+  const admin = { id: "u3", nom: "TIMO", role: "admin" };
+  const respCom = { id: "u4", nom: "AMA", role: "resp_commercial" };
+  const devisDe = (statut) => ({ ...base, statut, par_id: "u1", par: "ALI" });
+  test("★ un devis PROPOSÉ se corrige maintenant (avec modification demandée et rejeté) — par celui qui l'a établi, l'administrateur ou le responsable commercial ; personne d'autre, pas même un autre vendeur qui le voit dans sa liste",
+    ["propose", "modification", "rejete"].every((st) => [auteur, admin, respCom].every((p) => Cli.peutModifierDevis(devisDe(st), p) === true))
+    && ["propose", "modification", "rejete"].every((st) => Cli.peutModifierDevis(devisDe(st), autreVendeur) === false)
+    && Cli.peutModifierDevis({ ...base, par_id: "u1" }, auteur) === true
+    && Cli.STATUTS_DEVIS_MODIFIABLES.join("|") === "propose|modification|rejete");
+  test("★ un devis VALIDÉ ou PAYÉ ne se corrige JAMAIS, pour personne — contrat signé, argent encaissé ; le refus le DIT en français, chacun avec son motif",
+    ["valide", "paye"].every((st) => [auteur, admin, respCom].every((p) => Cli.peutModifierDevis(devisDe(st), p) === false))
+    && /contrat est signé/.test(Cli.motifRefusModification(devisDe("valide"), admin))
+    && /vente est encaissée/.test(Cli.motifRefusModification(devisDe("paye"), admin))
+    && /Seul ALI, l'administrateur ou le responsable commercial/.test(Cli.motifRefusModification(devisDe("propose"), autreVendeur))
+    && Cli.motifRefusModification(devisDe("propose"), auteur) === "");
+  test("★ une correction laisse sa TRACE sur le devis (date, auteur, nombre de corrections) : personne ne baisse un prix en silence après que le client a vu le premier devis ; le compteur ne rétrécit jamais",
+    (() => {
+      const un = Cli.marquerModification({ id: "d1" }, { ...base, total: 900000 }, auteur, "2026-09-11");
+      const deux = Cli.marquerModification(un, { ...base, total: 800000 }, admin, "2026-09-12");
+      return un.modifie_le === "2026-09-11" && un.modifie_par === "ALI" && un.nb_modifications === 1
+        && deux.modifie_par === "TIMO" && deux.modifie_par_id === "u3" && deux.nb_modifications === 2 && deux.total === 800000;
+    })());
+  test("★ l'écran n'ouvre le bouton que par la règle, et le geste se REVÉRIFIE dedans (un bouton caché n'est pas une barrière) ; la trace s'affiche sur la ligne du devis",
+    /\{peutModifierDevis\(d, profile\) && onModifierDevis && \(/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    && /const refus = motifRefusModification\(d, profile\);\n    if \(refus\) \{ uAlert\(refus\); return; \}/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    && /✏️ Modifié le \{dFR\(d\.modifie_le\)\} par \{d\.modifie_par/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    && /marquerModification\(x, devisMarque, profile, today\(\)\)/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
   test("★ sans mot de passe connu, le message renvoie à « celui qui vous a été communiqué » ; sans vendeur, signature BMI TOGO seule",
     /celui qui vous a été communiqué/.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })) && /^BMI TOGO — Les bâtiments/m.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })));
   const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");

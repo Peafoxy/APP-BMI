@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
-import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu } from "../../lib/comptesClients";
+import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, envoyerWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
@@ -565,10 +565,18 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // La boutique du devis fait foi : un devis établi depuis une boutique
   // de formation est un devis de formation, même envoyé par l'administrateur.
   const devisMarque = { ...devis, ...marqueEspace(dbApres, profile, devis.boutique) };
+  // ⚠ Timo (11/09/2026) : « personne ne peut baisser un prix en silence après
+  // que le client a vu le premier devis ». Une correction laisse sa TRACE sur
+  // le devis — date, auteur, nombre de corrections (règle pure
+  // marquerModification) — visible dans 📋 Tous les devis.
   const dbFinal = {
     ...dbApres,
     users: dbApres.users.map((u) => (u.id === compte.id
-      ? { ...u, devis: idAReprendre ? u.devis.map((x) => (x.id === idAReprendre ? { ...devisMarque, id: idAReprendre } : x)) : [devisMarque, ...(u.devis || [])] }
+      ? { ...u, devis: idAReprendre
+          ? u.devis.map((x) => (x.id === idAReprendre
+              ? { ...marquerModification(x, devisMarque, profile, today()), id: idAReprendre }
+              : x))
+          : [devisMarque, ...(u.devis || [])] }
       : u)),
     // Le message de demande de modification / rejet n'a plus lieu d'être : le vendeur vient d'y répondre.
     messages: idAReprendre ? (dbApres.messages || []).filter((m) => m.devis_id !== idAReprendre) : dbApres.messages,
