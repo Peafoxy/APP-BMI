@@ -5195,9 +5195,57 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   const imagesDuPdf = (doc) => [...doc.internal.pages.flat().join("\n").matchAll(/([\d.]+) 0 0 ([\d.]+) [\d.]+ [\d.]+ cm/g)]
     .map((m) => ({ l: +m[1] / 2.8346, h: +m[2] / 2.8346 }));
   const imgSignees = imagesDuPdf(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true));
-  test("★ le devis ENGAGE BMI : cadre « Pour BMI Togo » avec le nom de celui qui l'a élaboré, sa signature et le cachet de la maison posés dedans (cachet carré dessiné à 24 mm au moins, jamais rabougri), en face du « Bon pour accord » du client",
+  // RETOURNÉ le 11/09/2026, deuxième capture : « les cadres des signatures sont
+  // trop trop gros, réduire au max ». Cadre 56 × 28 (au lieu de 70 × 40) et
+  // cachet à 20 mm — plus petit que les 26 mm de l'après-midi, mais toujours
+  // nettement au-dessus des 17 mm qui l'avaient fait réagir. Le contrôle garde
+  // les deux bouts : assez gros pour se voir, assez petit pour tenir.
+  test("★ le devis ENGAGE BMI : cadre « Pour BMI Togo » avec le nom de celui qui l'a élaboré, sa signature et le cachet dedans (cachet entre 19 et 22 mm : ni rabougri, ni un cadre géant), en face du « Bon pour accord » du client",
     txtSigne.includes("Pour BMI Togo") && txtSigne.includes("AKUE Jean") && txtSigne.includes("Bon pour accord")
-    && imgSignees.length >= 2 && imgSignees.every((i) => i.h >= 24 && i.l >= 24));
+    && imgSignees.length >= 2 && imgSignees.every((i) => i.h >= 19 && i.h <= 22 && i.l >= 19 && i.l <= 22));
+  // ⚠ Timo (11/09/2026, deux captures) : « est-ce possible d'avoir les
+  // signatures sur la même page ? ». Deux contrôles, tous deux MESURÉS sur le
+  // PDF réel — un devis ordinaire tient sur UNE page, et quand un gros devis
+  // déborde, le total et les signatures partent ENSEMBLE (le client qui
+  // n'imprime que la première page ne doit jamais avoir le matériel sans le
+  // prix ni la case à signer).
+  const devisOrdinaire = { ...dSol, numero: "ORDINAIRE", delai_installation: "3 semaines",
+    lignes: [...dSol.lignes, { categorie: "Câblage", article: "LOT DE CABLE PV", qte: 1, pu: 200000, total: 200000 },
+      { categorie: "Protection", article: "LOT DE PROTECTION", qte: 1, pu: 350000, total: 350000 },
+      { categorie: "Installation", article: "Frais d'installation (10 %)", qte: 1, pu: 250000, total: 250000 }],
+    besoins: { ...dSol.besoins, appareils: ["CONGELATEUR", "CLIM", "SURPRESSEUR", "VENTILO", "LUMIERE", "TELEVISEUR"]
+      .map((nom, i) => ({ nom, puissance: 100 * (i + 1), qte: i + 1, heures: 6 })) } };
+  test("★ un devis ORDINAIRE (6 appareils, 7 lignes de matériel, acompte + solde + délai) tient sur UNE seule page, signatures comprises",
+    Pdf.genererDevis(devisOrdinaire, null, true).internal.getNumberOfPages() === 1);
+  const docGros = Pdf.genererDevis({ ...devisOrdinaire, numero: "GROS",
+    lignes: [...devisOrdinaire.lignes, ...devisOrdinaire.lignes, ...devisOrdinaire.lignes].map((l, i) => ({ ...l, article: `${l.article} ${i}` })),
+    besoins: { ...devisOrdinaire.besoins, appareils: [...devisOrdinaire.besoins.appareils, ...devisOrdinaire.besoins.appareils] } }, null, true);
+  const derniereGros = docGros.internal.pages[docGros.internal.pages.length - 1].join("\n");
+  test("★ quand un GROS devis déborde, le TOTAL, les mentions et les deux cadres de signature voyagent ENSEMBLE : jamais une page qui ne porte que la signature, jamais un matériel sans son prix",
+    docGros.internal.getNumberOfPages() >= 2
+    && ["TOTAL DU PROJET", "Ce document est un devis", "Pour BMI Togo", "Bon pour accord"].every((t) => derniereGros.includes(t)));
+  // ⚠ Le banc MESURE aussi que rien ne se CHEVAUCHE : poser les mentions dans
+  // le blanc à gauche du total avait été tenté le 11/09/2026, et la première
+  // ligne (108 mm de large) mordait sur « Acompte à la commande (60 %) ».
+  const chevauchements = (doc) => {
+    const lignes = [];
+    let x = null, yy = null, taille = 10;
+    for (const l of doc.internal.pages.flat().join("\n").split("\n")) {
+      let m = l.match(/\/F\d+ ([\d.]+) Tf/); if (m) taille = +m[1];
+      m = l.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/) || l.match(/^([\d.]+) ([\d.]+) Td/);
+      if (m) { x = +m[1] / 2.8346; yy = +m[2] / 2.8346; }
+      m = l.match(/\((.*?)\)\s*Tj/);
+      if (m && m[1].trim() && x !== null) { doc.setFontSize(taille); lignes.push({ y: yy, x1: x, x2: x + doc.getTextWidth(m[1].replace(/\\/g, "")) }); }
+    }
+    let n = 0;
+    for (let i = 0; i < lignes.length; i++) for (let j = i + 1; j < lignes.length; j++) {
+      const a = lignes[i], b = lignes[j];
+      if (Math.abs(a.y - b.y) < 2.5 && a.x1 < b.x2 - 0.5 && b.x1 < a.x2 - 0.5) n++;
+    }
+    return n;
+  };
+  test("★ aucun texte du devis n'en chevauche un autre — mesuré sur le PDF réel (les mentions ne mordent plus sur la colonne des montants)",
+    chevauchements(Pdf.genererDevis(devisOrdinaire, null, true)) === 0 && chevauchements(docSol) === 0);
   test("★ la date libre est DANS le cadre du client (le jour où il dit oui), plus jamais un cadre à part — la date du devis reste en haut ; un devis sans cachet ni signature se fabrique quand même",
     txtSol.includes("Date : ____ / ____ / ________") && txtSol.includes("Pour BMI Togo")
     && txtSol.indexOf("Bon pour accord") < txtSol.indexOf("Date : ____ / ____ / ________")

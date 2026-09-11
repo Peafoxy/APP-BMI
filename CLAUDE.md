@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1119 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1122 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -325,9 +325,22 @@ lit mal est pire qu'un banc absent).
   haut déjà il y a une date » : celle du haut est la date du devis, celle du
   bas le jour où le client dit oui). Une image illisible ne fait jamais
   tomber le PDF (`imageDansCadre`) ; **le cachet est CARRÉ, c'est la hauteur
-  du cadre qui le bride** (11/09/2026, capture : « le cachet est trop petit,
-  l'agrandir davantage » — cadre monté à 40 mm, cachet dessiné à 26 mm ; le
-  banc MESURE la taille réellement dessinée dans le PDF). **Seul le bloc du
+  du cadre qui le bride** (11/09/2026, deux captures dans l'ordre : « le cachet
+  est trop petit, l'agrandir davantage », puis « les cadres des signatures sont
+  trop trop gros, réduire au max ») : **cadre 56 × 28, cachet dessiné à 20 mm**,
+  marges intérieures réduites à presque rien ; le banc MESURE la taille
+  réellement dessinée (entre 19 et 22 mm — ni rabougri, ni cadre géant).
+- **Le bas du devis tient sur la page de l'équipement** (11/09/2026, « est-ce
+  possible d'avoir les signatures sur la même page ? ») : **TOTAL + acompte +
+  mentions + les deux cadres forment UN bloc insécable** (`hauteurBlocFinal`,
+  UN seul `placePour` dans `devisCommercial`) — jamais une page 2 qui ne porte
+  que la signature, jamais du matériel sans son prix. La place vient de l'AIR,
+  pas du contenu : lignes de tableau resserrées (`cellPadding`), identité du
+  haut à 4 mm d'écart, cases du besoin à 15 mm, blancs entre blocs. Un devis
+  ordinaire (6 appareils, 7 lignes, acompte + solde + délai) tient sur UNE
+  page ; le banc le mesure, et mesure aussi qu'**aucun texte n'en chevauche un
+  autre** (poser les mentions à gauche du total a été tenté et ABANDONNÉ : la
+  première ligne, 108 mm, mordait sur « Acompte à la commande »). **Seul le bloc du
   besoin change** (`blocBesoin` choisit d'après la forme des besoins) :
   solaire → « Votre besoin » en trois cases (kWh/jour, kW simultanés,
   autonomie ; **jamais de Wh bruts**) puis « Vos appareils » ; portail → le

@@ -221,7 +221,7 @@ const titreBloc = (doc, y, texte) => {
   doc.setDrawColor(...BLEU);
   doc.setLineWidth(0.4);
   doc.line(14, y + 1.5, 14 + doc.getTextWidth(texte.toUpperCase()), y + 1.5);
-  return y + 6;
+  return y + 5;
 };
 // Les trois grandes cases du besoin : un chiffre lisible de loin, son libellé dessous.
 const grandesCases = (doc, y, largeur, cases) => {
@@ -229,15 +229,15 @@ const grandesCases = (doc, y, largeur, cases) => {
   cases.forEach(([valeur, libelle], i) => {
     const x = 14 + i * (lc + 4);
     doc.setFillColor(...GRIS_CLAIR);
-    doc.roundedRect(x, y, lc, 18, 1.5, 1.5, "F");
+    doc.roundedRect(x, y, lc, 15, 1.5, 1.5, "F");
     doc.setFontSize(String(valeur).length > 12 ? 11 : 15);
     doc.setTextColor(...BLEU);
-    doc.text(String(valeur), x + lc / 2, y + 9, { align: "center" });
+    doc.text(String(valeur), x + lc / 2, y + 7.5, { align: "center" });
     doc.setFontSize(7.5);
     doc.setTextColor(...GRIS_TEXTE);
-    doc.text(libelle, x + lc / 2, y + 14.5, { align: "center" });
+    doc.text(libelle, x + lc / 2, y + 12.5, { align: "center" });
   });
-  return y + 22;
+  return y + 19;
 };
 const ligneDetail = (doc, y, morceaux) => {
   const t = morceaux.filter(Boolean).join("   •   ");
@@ -245,7 +245,7 @@ const ligneDetail = (doc, y, morceaux) => {
   doc.setFontSize(8);
   doc.setTextColor(...GRIS_TEXTE);
   doc.text(t, 14, y, { maxWidth: doc.internal.pageSize.getWidth() - 28 });
-  return y + 6;
+  return y + 5;
 };
 
 // ---- Le bloc du besoin, volet par volet ----
@@ -269,13 +269,13 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
     body: b.appareils.map((a) => [String(a.nom), fmtMontant(a.puissance), String(a.qte || 1), String(a.heures || 0)]),
     foot: [["Puissance totale installée", `${fmtMontant(totalW)} W`, "", ""]],
     startY: y,
-    styles: { fontSize: 8, cellPadding: 1.5, textColor: GRIS_TEXTE },
+    styles: { fontSize: 7.5, cellPadding: 1, textColor: GRIS_TEXTE },
     headStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
     footStyles: { fillColor: [255, 255, 255], textColor: GRIS_TEXTE, fontStyle: "bold" },
     columnStyles: { 1: { halign: "right" }, 2: { halign: "center" }, 3: { halign: "center" } },
     margin: { left: 14, right: 14 },
   });
-  return doc.lastAutoTable.finalY + 8;
+  return doc.lastAutoTable.finalY + 4;
 }
 
 function besoinPortail(doc, d, largeur, hauteur, y) {
@@ -309,7 +309,7 @@ function besoinAutre(doc, d, largeur, hauteur, y) {
     head: [["Ce que vous avez demandé", "Qté"]],
     body: b.articles_demandes.map((a) => [String(a.nom), String(a.qte || 1)]),
     startY: y,
-    styles: { fontSize: 8.5, cellPadding: 1.8, textColor: GRIS_TEXTE },
+    styles: { fontSize: 8, cellPadding: 1.2, textColor: GRIS_TEXTE },
     headStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
     columnStyles: { 1: { halign: "center", cellWidth: 20 } },
     margin: { left: 14, right: 14 },
@@ -352,12 +352,12 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
     head: [["Désignation", "Qté", "Prix unitaire", "Total"]],
     body,
     startY: y,
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: 8.5, cellPadding: 1.3 },
     headStyles: { fillColor: BLEU, textColor: 255 },
     columnStyles: { 1: { halign: "center", cellWidth: 16 }, 2: { halign: "right", cellWidth: 34 }, 3: { halign: "right", cellWidth: 34 } },
     margin: { left: 14, right: 14 },
   });
-  return doc.lastAutoTable.finalY + 10;
+  return doc.lastAutoTable.finalY + 4;
 }
 // Une remise est une ligne négative : elle se lit en rouge.
 const ligneEquipement = (l) => {
@@ -371,12 +371,19 @@ const ligneEquipement = (l) => {
 };
 
 function blocFinancier(doc, d, largeur, hauteur, y) {
-  y = placePour(doc, y, hauteur, 45);
+  // La place a déjà été retenue pour TOUT le bas du devis (hauteurBlocFinal) :
+  // ce bloc ne change plus de page de son côté.
   y = bandeauTotal(doc, largeur, y, d.total, "TOTAL DU PROJET");
   const total = Number(d.total || 0);
   const acompte = Math.max(0, Math.min(total, Math.round(Number(d.montant_acompte ?? (total * Number(d.pct_acompte ?? 100)) / 100))));
   const solde = total - acompte;
-  y += 8;
+  // ⚠ Essayé puis ABANDONNÉ le 11/09/2026 : poser les mentions dans le blanc
+  // à gauche du total. Le banc a mesuré le chevauchement — la première ligne
+  // (108 mm) mordait sur « Acompte à la commande (60 %) », qui commence à
+  // 100 mm. Elles restent donc SOUS la colonne des montants, et les
+  // millimètres cherchés ont été pris ailleurs (blancs entre les blocs,
+  // cases du besoin, cadres de signature).
+  y += 6;
   doc.setFontSize(9.5);
   doc.setTextColor(...GRIS_TEXTE);
   if (solde > 0) {
@@ -426,30 +433,49 @@ function imageDansCadre(doc, image, x, y, wMax, hMax) {
 // il y a une date » : celle du haut est la date du devis, celle d'en bas le
 // jour où le client dit oui — deux dates différentes, une seule à sa place).
 function blocMentions(doc, d, largeur, hauteur, y) {
-  y = placePour(doc, y, hauteur, 60);
-  y += 4;
+  y += 3;
   mentionsOffre(doc, y, "un devis");
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
   doc.text(`Offre valable ${VALIDITE_OFFRE_JOURS} jours à compter du ${d.date}.`, 14, y + 8);
-  y += 16;
-  // ⚠ Capture Timo (11/09/2026) : « le cachet est trop petit dans le cadre,
-  // l'agrandir davantage ». Le cachet est une image CARRÉE : c'est la hauteur
-  // du cadre qui le bridait (17 mm), pas sa largeur. Le cadre monte donc à
-  // 40 mm et la bande d'images à 26 mm de haut — le cachet fait 26 mm de côté.
-  const L = 70, H = 40, xD = largeur - 14 - L;
+  y += 12;
+  // ⚠ Deux captures de Timo le 11/09/2026, dans cet ordre : « le cachet est
+  // trop petit dans le cadre, l'agrandir davantage » (le cachet est CARRÉ :
+  // c'est la HAUTEUR du cadre qui le bridait à 17 mm, pas sa largeur), puis
+  // « les cadres des signatures sont trop trop gros, réduire au max ». Les
+  // deux tiennent ensemble en serrant les marges INTÉRIEURES à presque rien :
+  // cadre 56 × 30 (au lieu de 70 × 40, soit 40 % de surface en moins) et le
+  // cachet dessiné à 22 mm — toujours bien plus gros que les 17 mm du départ.
+  const L = 56, H = 28, xD = largeur - 14 - L;
   doc.setDrawColor(...GRIS_TEXTE);
   doc.setLineWidth(0.3);
   doc.roundedRect(14, y, L, H, 1.5, 1.5, "S");
   doc.roundedRect(xD, y, L, H, 1.5, 1.5, "S");
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(...GRIS_TEXTE);
-  doc.text("Pour BMI Togo", 17, y + 5);
-  if (d.par) doc.text(String(d.par), 17, y + 9.5);
-  imageDansCadre(doc, d.signature, 16, y + 12, 30, 24);
-  imageDansCadre(doc, d.cachet, 47, y + 11, 34, 26);
-  doc.text("Bon pour accord — signature du client", xD + 3, y + 5);
-  doc.text("Date : ____ / ____ / ________", xD + 3, y + H - 3.5);
+  doc.text("Pour BMI Togo", 16.5, y + 4);
+  if (d.par) doc.text(String(d.par), 16.5, y + 7.5);
+  imageDansCadre(doc, d.signature, 15.5, y + 8, 22, 19);
+  imageDansCadre(doc, d.cachet, 38, y + 7, 24, 20);
+  doc.text("Bon pour accord — signature du client", xD + 2.5, y + 4);
+  doc.text("Date : ____ / ____ / ________", xD + 2.5, y + H - 3);
   piedDePage(doc, largeur, hauteur);
 }
+// La hauteur dont le bas du devis a besoin — total, mentions et signatures
+// réunis. ⚠ Timo (11/09/2026) : « est-ce possible d'avoir les signatures sur
+// la même page ? ». La page ne se décide plus TROIS fois (équipement, total,
+// mentions) : le total, les mentions et les deux cadres forment UN bloc
+// insécable. Le client qui n'imprime que la première page n'aura plus jamais
+// le matériel sans le prix ni la signature.
+const hauteurBlocFinal = (d) => {
+  const total = Number(d.total || 0);
+  const acompte = Math.max(0, Math.min(total, Math.round(Number(d.montant_acompte ?? (total * Number(d.pct_acompte ?? 100)) / 100))));
+  // Bandeau TOTAL, puis acompte / solde / délai, puis les trois lignes de
+  // mentions, puis les deux cadres : la hauteur exacte, jamais une réserve
+  // au jugé (c'est elle qui envoyait la signature seule sur une page 2).
+  const montants = 12 + (total - acompte > 0 ? 6 : 0) + (d.delai_installation ? 6 : 0);
+  return montants + 3 + 12 + 28 + 2;
+};
 
 // Le bloc du besoin qui convient à CE devis — null si le devis n'en porte
 // pas (ancien devis) : la charpente commence alors à l'équipement.
@@ -462,9 +488,10 @@ const blocBesoin = (b) => {
 
 function devisCommercial(doc, d, largeur, hauteur, yDepart) {
   const rendreBesoin = blocBesoin(d.besoins || null);
-  let y = yDepart + 30;
+  let y = yDepart + 24;
   if (rendreBesoin) y = rendreBesoin(doc, d, largeur, hauteur, y);
   y = blocEquipement(doc, d, largeur, hauteur, y);
+  y = placePour(doc, y, hauteur, hauteurBlocFinal(d));
   y = blocFinancier(doc, d, largeur, hauteur, y);
   blocMentions(doc, d, largeur, hauteur, y);
 }
@@ -482,13 +509,16 @@ export function genererDevis(d, logo, retournerDoc = false) {
   // Infos client + numéro + statut + élaborateur
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
-  doc.text(`N° ${d.numero}`, 14, yApres + 8);
-  doc.text(`Date : ${d.date}`, 14, yApres + 13);
-  if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, yApres + 18);
-  if (d.par) doc.text(`Élaboré par : ${d.par}`, 14, yApres + 23);
-  doc.text(`Client : ${d.client || "—"}`, largeur - 14, yApres + 8, { align: "right" });
-  if (d.tel) doc.text(`Tél : ${d.tel}`, largeur - 14, yApres + 13, { align: "right" });
-  if (d.statut) doc.text(`Statut : ${d.statut}`, largeur - 14, yApres + 18, { align: "right" });
+  // Resserré le 11/09/2026 (Timo veut la signature sur la même page) : les
+  // quatre lignes d'identité passent de 5 à 4 mm d'écart. Rien n'est retiré,
+  // c'est l'air entre les lignes qui est repris — 6 mm gagnés.
+  doc.text(`N° ${d.numero}`, 14, yApres + 6.5);
+  doc.text(`Date : ${d.date}`, 14, yApres + 10.5);
+  if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, yApres + 14.5);
+  if (d.par) doc.text(`Élaboré par : ${d.par}`, 14, yApres + 18.5);
+  doc.text(`Client : ${d.client || "—"}`, largeur - 14, yApres + 6.5, { align: "right" });
+  if (d.tel) doc.text(`Tél : ${d.tel}`, largeur - 14, yApres + 10.5, { align: "right" });
+  if (d.statut) doc.text(`Statut : ${d.statut}`, largeur - 14, yApres + 14.5, { align: "right" });
 
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « c'est juste les articles qui
   // apparaissent — les équipements et la charge dimensionnée devraient
