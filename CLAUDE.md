@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1113 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1116 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -138,7 +138,13 @@ lit mal est pire qu'un banc absent).
   déverrouillée seule). **À 30 min sans geste, verrouillée ou non, la
   session se ferme** (`doitDeconnecter`, PC et téléphone ; Timo : « ne pas
   laisser indéfiniment la session verrouillée »), et une session plus
-  vieille que ça ne se restaure pas après F5. Règle pure `lib/verrou.js`, fenêtre
+  vieille que ça ne se restaure pas après F5. **La fermeture des 30 min se VOIT
+  tout de suite** (11/09/2026, Timo : « cette page survit toujours et dès que je
+  rentre le mot de passe, c'est maintenant la page d'accueil qui revient ») : on
+  n'attend pas le réseau pour retirer la fenêtre, **un mot de passe ne ressuscite
+  jamais une session expirée** (message « Session expirée : 30 minutes sans
+  activité »), et **un déverrouillage réussi remet le compteur à zéro**.
+  Règle pure `lib/verrou.js`, fenêtre
   `components/EcranVerrou.jsx` — un FRÈRE du cadre de l'application, jamais
   un enfant ; **aucun `filter: blur` sur l'application derrière** (le
   09/09/2026 : « le mot de passe ne s'écrit pas », redessin de tout l'écran

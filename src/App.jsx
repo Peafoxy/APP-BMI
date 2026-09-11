@@ -549,6 +549,13 @@ export default function App() {
   // session à ce moment-là (deverrouiller regarde etatAuth.sessionPerdue).
   const sessionAretablir = !!profile && sync.sessionPerdue === true && !verrouille;
   const derniereActiviteRef = useRef(Date.now());
+  // ⚠ Timo (11/09/2026) : « cette page survit toujours, et dès que je rentre
+  // le mot de passe, la page d'accueil revient ». La fermeture des 30 min
+  // commençait par ATTENDRE la synchronisation : pendant ce temps la fenêtre
+  // restait, un mot de passe correct rouvrait la session… puis la
+  // déconnexion aboutissait et jetait l'utilisateur dehors. Ce drapeau dit
+  // qu'une fermeture est engagée : plus rien ne la rouvre.
+  const fermetureRef = useRef(false);
   useEffect(() => {
     if (!profile || verrouille) return;
     derniereActiviteRef.current = Date.now();
@@ -566,8 +573,13 @@ export default function App() {
   useEffect(() => {
     if (!profile || !verrouille) return;
     const minuterie = setInterval(() => {
-      if (doitDeconnecter(derniereActiviteRef.current, Date.now())) {
-        deconnexion(true).then(() => { setVerrouille(false); setMotifVerrou("inactivite"); });
+      if (doitDeconnecter(derniereActiviteRef.current, Date.now()) && !fermetureRef.current) {
+        fermetureRef.current = true;
+        // La session est finie : on le montre AVANT d'attendre le réseau.
+        // L'envoi des opérations en attente se termine en arrière-plan ;
+        // rien n'est perdu, elles repartent à la prochaine connexion.
+        setVerrouille(false); setMotifVerrou("inactivite"); setProfile(null);
+        deconnexion(true).finally(() => { fermetureRef.current = false; });
       }
     }, 30000);
     return () => clearInterval(minuterie);
@@ -577,6 +589,16 @@ export default function App() {
   // l'administrateur l'a changé entre-temps, c'est le nouveau qui ouvre),
   // sur l'appareil : sans internet aussi.
   const deverrouiller = async (saisie) => {
+    // ⚠ Les 30 minutes sont passées (ou la fermeture est déjà engagée) : le
+    // mot de passe ne rouvre RIEN. On ferme et on dit pourquoi, au lieu de
+    // laisser croire que la session reprend.
+    if (fermetureRef.current || doitDeconnecter(derniereActiviteRef.current, Date.now())) {
+      fermetureRef.current = true;
+      setVerrouille(false); setMotifVerrou("inactivite"); setProfile(null);
+      deconnexion(true).finally(() => { fermetureRef.current = false; });
+      uAlert("⏳ Session expirée : 30 minutes sans activité.\n\nReconnectez-vous pour continuer. Rien n'est perdu.");
+      return { ok: false, expiree: true };
+    }
     const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
     const { ok } = await verifierMotDePasse(compte, saisie);
     if (ok) {
@@ -587,8 +609,11 @@ export default function App() {
         try { await synchroniserAuth(compte.id, saisie); } catch { /* réessayé par la synchronisation */ }
         synchroniser({ urgent: true });
       }
+      // Le compteur des 30 min repart de zéro : sans cela, la minuterie
+      // pouvait refermer la session juste après le déverrouillage.
+      derniereActiviteRef.current = Date.now();
       setVerrouille(false); setErreursVerrou(0); setMotifVerrou("inactivite");
-      ecrireSession({ verrouille: false, ts: Date.now() });
+      ecrireSession({ verrouille: false, ts: derniereActiviteRef.current });
       return { ok: true };
     }
     const r = apresErreur(erreursVerrou);

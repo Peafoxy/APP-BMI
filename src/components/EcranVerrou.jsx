@@ -77,7 +77,11 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     try { r = await onDeverrouiller(saisie); } catch { r = { ok: false }; } finally { setOccupe(false); }
     if (r?.ok) return;
     setSaisie("");
-    setErreur(r?.fermer
+    setErreur(r?.expiree
+      // 30 min sans geste : la session était déjà finie, le mot de passe
+      // n'y peut rien (Timo, 11/09/2026).
+      ? "Session expirée : 30 minutes sans activité. Reconnectez-vous."
+      : r?.fermer
       ? "Trop d'erreurs : la session est fermée."
       : `Mot de passe incorrect${r?.restantes !== undefined ? ` — ${r.restantes} essai${r.restantes > 1 ? "s" : ""} restant${r.restantes > 1 ? "s" : ""}` : ""}.`);
     champ.current?.focus();

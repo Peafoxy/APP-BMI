@@ -4540,7 +4540,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   const app = readFileSync("src/App.jsx", "utf8");
   test("★ le verrou passe par doitVerrouiller ; l'ancienne déconnexion à 30 / 5 min (DUREE_INACTIVITE) est remplacée par le verrou à 3 / 6 min PUIS la déconnexion à 30 min (doitDeconnecter), verrouillée ou non — Timo : « ne pas laisser indéfiniment la session verrouillée »",
     !/DUREE_INACTIVITE/.test(app) && /if \(doitVerrouiller\(derniereActiviteRef\.current, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
-    && /if \(!profile \|\| !verrouille\) return;\n\s+const minuterie = setInterval\(\(\) => \{\n\s+if \(doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)\) \{\n\s+deconnexion\(true\)/.test(app)
+    && /if \(!profile \|\| !verrouille\) return;\n\s+const minuterie = setInterval\(\(\) => \{\n\s+if \(doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\) && !fermetureRef\.current\) \{/.test(app)
     && V.DELAI_DECONNEXION_MS === 1800000 && V.doitDeconnecter(0, 1799999) === false && V.doitDeconnecter(0, 1800000) === true && V.doitDeconnecter(undefined, 1e12) === false);
   test("★ la session restaurée après F5 ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé, et ne se restaure plus du tout après 30 min sans geste",
     /if \(u && u\.actif !== false && !doitDeconnecter\(ts, Date\.now\(\)\)\) \{\n\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
@@ -4548,6 +4548,21 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
     && /if \(r\.fermer\) \{ await deconnexion\(true\); setVerrouille\(false\); \}/.test(app) && /if \(!profile \|\| verrouille\) return;\n\s+derniereActiviteRef\.current = Date\.now\(\);/.test(app));
+  // ⚠ Timo (11/09/2026) : « cette page survit toujours, et dès que je rentre
+  // le mot de passe, la page d'accueil revient ». La fermeture des 30 min
+  // ATTENDAIT la synchronisation avant de retirer la fenêtre : pendant ce
+  // temps un mot de passe correct rouvrait une session déjà finie, puis la
+  // déconnexion aboutissait et jetait l'utilisateur dehors.
+  test("★ la fermeture des 30 min se VOIT tout de suite (verrou retiré et session fermée AVANT d'attendre le réseau), l'envoi se termine en arrière-plan, et un drapeau empêche toute réouverture pendant ce temps",
+    /const fermetureRef = useRef\(false\);/.test(app)
+    && /fermetureRef\.current = true;\n\s+\/\/[^]*?setVerrouille\(false\); setMotifVerrou\("inactivite"\); setProfile\(null\);\n\s+deconnexion\(true\)\.finally\(\(\) => \{ fermetureRef\.current = false; \}\);/.test(app)
+    && !/deconnexion\(true\)\.then\(\(\) => \{ setVerrouille\(false\)/.test(app));
+  test("★ un mot de passe ne ROUVRE JAMAIS une session déjà expirée : deverrouiller le vérifie EN PREMIER (30 min ou fermeture engagée), ferme, et dit pourquoi — la fenêtre affiche « Session expirée », pas « mot de passe incorrect »",
+    /const deverrouiller = async \(saisie\) => \{\n\s+\/\/[^]*?if \(fermetureRef\.current \|\| doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)\) \{/.test(app)
+    && /return \{ ok: false, expiree: true \};/.test(app) && /Session expirée : 30 minutes sans activité/.test(app)
+    && /r\?\.expiree/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
+  test("★ un déverrouillage réussi fait repartir le compteur des 30 min de zéro (sinon la minuterie refermait la session juste après)",
+    /derniereActiviteRef\.current = Date\.now\(\);\n\s+setVerrouille\(false\); setErreursVerrou\(0\); setMotifVerrou\("inactivite"\);\n\s+ecrireSession\(\{ verrouille: false, ts: derniereActiviteRef\.current \}\);/.test(app));
   test("★ le voile est un FRÈRE du cadre de l'application (jamais un enfant) ; le cadre derrière est insensible aux clics et non sélectionnable — et PLUS flouté (Timo, 09/09/2026 : « le mot de passe ne s'écrit pas » — le flou redessinait toute l'application à chaque lettre)",
     /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
     && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
@@ -4604,7 +4619,8 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     !/if \(profile && sync\.sessionPerdue && !verrouille\) verrouiller\("session"\);/.test(app)
     && /const sessionAretablir = !!profile && sync\.sessionPerdue === true && !verrouille;/.test(app)
     && /\{sessionAretablir && \([\s\S]{0,400}Votre session sécurisée a expiré\. Vos saisies restent sur cet appareil\.[\s\S]{0,300}<button onClick=\{\(\) => verrouiller\("session"\)\}[^>]*>Rétablir<\/button>/.test(app)
-    && /if \(motifVerrou === "session" \|\| etatAuth\.sessionPerdue\) \{\n\s+try \{ await synchroniserAuth\(compte\.id, saisie\); \} catch \{[^}]*\}\n\s+synchroniser\(\{ urgent: true \}\);\n\s+\}\n\s+setVerrouille\(false\)/.test(app)
+    // (Depuis le 11/09/2026, le compteur des 30 min repart entre les deux.)
+    && /if \(motifVerrou === "session" \|\| etatAuth\.sessionPerdue\) \{\n\s+try \{ await synchroniserAuth\(compte\.id, saisie\); \} catch \{[^}]*\}\n\s+synchroniser\(\{ urgent: true \}\);\n\s+\}\n[^]*?setVerrouille\(false\)/.test(app)
     && /motif=\{motifVerrou\}/.test(app));
   test("★ la session tombe moins : renouvelée au réveil de l'appareil (visibilitychange → synchroniser) et AVANT l'expiration (expireBientot, marge 10 min, dans assurerSession)",
     /ecouteurReveil = \(\) => \{ if \(document\.visibilityState === "visible"\) synchroniser\(\); \};/.test(syncSrc) && /document\.addEventListener\("visibilitychange", ecouteurReveil\)/.test(syncSrc) && /document\.removeEventListener\("visibilitychange", ecouteurReveil\)/.test(syncSrc)
