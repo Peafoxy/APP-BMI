@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1140 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1141 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -264,6 +264,21 @@ lit mal est pire qu'un banc absent).
   la main) ; confirmation avant d'effacer, qui rappelle « Enregistrer un
   brouillon » ; efface appareils, choix, rails, autres équipements, client,
   conditions — garde autonomie, soleil, tension, batterie.
+- **Les devis SANS CALCUL** (vidéo surveillance, électricité, forage — volet
+  « Autre ») : **catégorie à gauche, ses articles à droite** (11/09/2026, après
+  « besoin du client / article proposé… je ne comprends pas » puis « je propose
+  que le besoin du client soit une catégorie et article proposé déroule les
+  articles de la catégorie choisie… tout court. Ceci pour tous les devis sans
+  calcul »). Deux listes déroulantes, **aucune recherche par ressemblance** :
+  `categoriesDuStock` (catégories du stock du domaine regardé) puis
+  `articlesDeCategorie`. La première catégorie propose son premier article, le
+  vendeur déroule. « ✏️ Saisir un article hors stock » reste. **Chaque ligne
+  porte SA catégorie** — elle titre son groupe dans le PDF dès 2 lignes — et le
+  devis **ne fabrique plus de bloc « Votre demande »** : répéter les catégories
+  au-dessus de l'équipement serait la tautologie retirée le matin même. Une
+  reprise récupère tout ce qui n'est pas « Autres équipements ».
+  `correspondancesBesoin` et le champ à suggestions ont été RETIRÉS de ce
+  volet : une règle qui ne commande plus rien ne reste pas en place.
 - **UN champ à suggestions pour toute l'application** (08/09/2026) :
   `components/ChampSuggestions.jsx` + règle pure `lib/suggestions.js`.
   Recherche sans accents ni majuscules, chaque mot tapé dans n'importe quel

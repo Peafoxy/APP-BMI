@@ -4059,11 +4059,32 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
     execSync("grep -rl '<datalist' src || true").toString().trim() === "");
   for (const [f, motif] of [
     ["src/screens/dimensionnement/Partages.jsx", /<ChampSuggestions placeholder=\{placeholder\} valeur=\{a\.nom\} suggestions=\{propositions\}/],
-    ["src/screens/dimensionnement/Autre.jsx", /<ChampSuggestions className=\{`\$\{inputCls\} w-48`\} placeholder="Ex : Caméra extérieure" valeur=\{l\.besoin\.nom\}/],
     ["src/screens/Ravitaillement.jsx", /<ChampSuggestions valeur=\{dem\.categorie\}/],
     ["src/screens/ClientsInstalles.jsx", /<ChampSuggestions placeholder="Matériel \(ex : Panneau 555W\)" valeur=\{mat\.nom\}/],
     ["src/screens/Stocks.jsx", /<ChampSuggestions valeur=\{f\.categorie\}/],
   ]) test(`★ ${f} passe par le champ commun`, motif.test(readFileSync(f, "utf8")));
+  // RETOURNÉ le 11/09/2026. Le volet « Autre » (vidéo surveillance,
+  // électricité, forage — les devis SANS calcul) n'a plus de champ à
+  // suggestions : Timo n'a pas compris l'écran (« besoin du client / article
+  // proposé… je ne comprends pas ») et a tranché — « le besoin du client
+  // devient une catégorie, et article proposé déroule les articles de la
+  // catégorie choisie… tout court. Ceci pour tous les devis sans calcul. »
+  // Deux listes déroulantes, aucune recherche par ressemblance.
+  {
+    const au = readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8");
+    test("★ volet SANS CALCUL : une liste des CATÉGORIES du stock à gauche, les ARTICLES de cette catégorie à droite — plus de besoin écrit à la main, plus de correspondance approximative, et le champ à suggestions a été retiré (il ne commandait plus rien)",
+      /const categoriesDuStock = \[\.\.\.new Set\(produitsCategorie\.map/.test(au)
+      && /const articlesDeCategorie = \(cat\) => produitsCategorie\.filter/.test(au)
+      && /\{categoriesDuStock\.map\(\(c\) => <option key=\{c\} value=\{c\}>\{c\}<\/option>\)\}/.test(au)
+      && /\{articles\.map\(\(p\) => <option key=\{p\.id\} value=\{p\.id\}>\{p\.nom\}<\/option>\)\}/.test(au)
+      && !/ChampSuggestions/.test(au) && !/correspondancesBesoin\(/.test(au)
+      && !/Décrivez le besoin à gauche/.test(au));
+    test("★ chaque ligne porte SA catégorie de stock (elle titrera son groupe dans le PDF) et le devis ne fabrique plus de bloc « Votre demande » qui ne ferait que répéter ces catégories",
+      /categorie: l\.besoin\.categorie \|\| categorieChoisie, article: l\.produit\.nom/.test(au)
+      && /besoins: \{ categorie: categorieChoisie \},/.test(au)
+      && !/articles_demandes:/.test(au)
+      && /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements"\)/.test(au));
+  }
 }
 
 titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lance les doublons WhatsApp », 08/09/2026)");

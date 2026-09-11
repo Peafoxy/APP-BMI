@@ -6,32 +6,15 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
-import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
-// ============ RECHERCHE DE CORRESPONDANCE (Autre dimensionnement) ============
-// Contrairement au solaire/garage (caractéristique numérique extraite du nom),
-// ici on compare le besoin décrit par le vendeur au nom des articles de la
-// catégorie choisie, par ressemblance textuelle (accents/casse ignorés).
-function correspondancesBesoin(nomBesoin, produits) {
-  const cible = normNom(nomBesoin);
-  if (!cible) return [];
-  const motsCible = cible.split(" ").filter((m) => m.length >= 3);
-  return produits
-    .map((p) => {
-      const nomP = normNom(p.nom);
-      let score = 0;
-      if (nomP === cible) score += 20;
-      else if (nomP.includes(cible) || cible.includes(nomP)) score += 10;
-      for (const mot of motsCible) if (nomP.includes(mot)) score += 1;
-      return { p, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score);
-}
+// ⚠ La recherche par RESSEMBLANCE du besoin écrit (correspondancesBesoin) a
+// été retirée le 11/09/2026 : Timo a demandé deux listes déroulantes —
+// catégorie, puis articles de cette catégorie — et une règle qui ne commande
+// plus rien ne reste pas en place.
 
 // ============ OUTIL DE DIMENSIONNEMENT — VOLET LIBRE (par DOMAINE) ============
 // Le vendeur décrit les besoins du client au fil de l'eau, et l'article
@@ -80,12 +63,25 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const rattachementFait = produitsDuDomaine.length > 0;
   const produitsCategorie = rattachementFait ? produitsDuDomaine : produitsBoutique;
 
+  // ⚠ Timo (11/09/2026) : « je propose que le besoin du client soit une
+  // catégorie, et article proposé déroule les articles de la catégorie
+  // choisie… tout court. Ceci pour tous les devis sans calcul. »
+  // Avant, on écrivait le besoin en toutes lettres et l'application cherchait
+  // l'article qui ressemblait le plus — « je ne comprends pas », et il avait
+  // raison : rien ne disait au vendeur ce qu'il devait taper, ni ce que
+  // l'application allait en faire. Deux listes déroulantes, plus de devinette.
+  const categoriesDuStock = [...new Set(produitsCategorie.map((p) => (p.categorie || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const articlesDeCategorie = (cat) => produitsCategorie.filter((p) => (p.categorie || "").trim() === String(cat || "").trim());
+
   // ---- Besoins du client : liste libre, remplie au fil de l'eau ----
   // Si on reprend un devis (modification/rejet), on repart des lignes RÉELLES du
   // devis d'origine (et non de la simple liste de recherche) : ça restitue aussi
   // les articles qui avaient été saisis directement à la main, sans jamais passer
   // par le champ de recherche — sinon ils disparaissaient purement et simplement.
-  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie === besoinsRepris.categorie) : [];
+  // ⚠ Depuis que chaque ligne porte SA catégorie de stock (11/09/2026), le
+  // volet reprend tout ce qui n'est pas « Autres équipements » — avant, il
+  // filtrait sur le nom du domaine, qui n'est plus sur les lignes.
+  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie !== "Autres équipements") : [];
   // Reconstruit besoins + choix/verrous à partir des mêmes lignes, en tentant de
   // retrouver l'article correspondant en stock — sinon on restitue le prix d'origine tel quel.
   const initialSelection = (() => {
@@ -93,11 +89,12 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     const choix = {}, verrous = {}, besoinsInit = [];
     lignesCategorie.forEach((l) => {
       const id = uid();
-      besoinsInit.push({ id, nom: l.article, qte: String(l.qte), hors_boutique: !!l.hors_boutique });
-      const matches = correspondancesBesoin(l.article, produitsCategorie);
-      const trouve = matches.find((m) => m.p.nom === l.article) || matches[0];
+      // On retrouve l'article par son NOM dans le stock ; sinon c'est une
+      // saisie hors stock, qu'on restitue telle qu'elle avait été écrite.
+      const trouve = produitsCategorie.find((p) => p.nom === l.article) || null;
+      besoinsInit.push({ id, categorie: trouve ? (trouve.categorie || "").trim() : (l.categorie || ""), qte: String(l.qte), hors_boutique: !!l.hors_boutique });
       choix[id] = trouve
-        ? { type: "stock", produit_id: trouve.p.id, qte: Number(l.qte) || 1 }
+        ? { type: "stock", produit_id: trouve.id, qte: Number(l.qte) || 1 }
         : { type: "manuel", nom: l.article, prix: Number(l.pu) || 0, qte: Number(l.qte) || 1 };
       verrous[id] = true;
     });
@@ -107,18 +104,21 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // règle que Solaire et Garage, qui vit en UN SEUL endroit : Partages.jsx
   // (demande Timo, 02/09/2026 : seul Solaire gardait ses données).
   const brouillon = lireBrouillonVolet("autre", profile, !!devisAReprendre);
-  const [besoins, setBesoins] = useState(() => initialSelection?.besoinsInit || brouillon?.besoins || [{ id: uid(), nom: "", qte: "1" }]);
+  const [besoins, setBesoins] = useState(() => initialSelection?.besoinsInit || brouillon?.besoins || [{ id: uid(), categorie: "", qte: "1" }]);
   // Après un F5 : les articles choisis et leurs quantités tels qu'ils
   // étaient (même règle que Solaire, demande Timo 08/09/2026). Un devis
   // repris prime.
   const selectionDuBrouillon = !initialSelection && brouillon?.choix ? { choix: brouillon.choix, verrous: brouillon.verrous || {} } : null;
   const sauterPremierCalcul = useRef(!!selectionDuBrouillon);
 
+  // Une catégorie choisie propose son PREMIER article ; le vendeur déroule
+  // pour en prendre un autre. Aucune correspondance approximative : la liste
+  // est celle de la catégorie, rien d'autre.
   const meilleurChoixBesoin = (besoin) => {
-    if (!besoin || !besoin.nom || !besoin.nom.trim()) return null;
-    const matches = correspondancesBesoin(besoin.nom, produitsCategorie);
-    if (matches.length === 0) return null;
-    return { type: "stock", produit_id: matches[0].p.id, qte: Math.max(1, Number(besoin.qte) || 1) };
+    if (!besoin || !besoin.categorie) return null;
+    const articles = articlesDeCategorie(besoin.categorie);
+    if (articles.length === 0) return null;
+    return { type: "stock", produit_id: articles[0].id, qte: Math.max(1, Number(besoin.qte) || 1) };
   };
 
   const {
@@ -155,10 +155,10 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorieChoisie, boutique, db.produits, domaine?.id]);
 
-  const ajouterBesoin = () => setBesoins([...besoins, { id: uid(), nom: "", qte: "1" }]);
+  const ajouterBesoin = () => setBesoins([...besoins, { id: uid(), categorie: "", qte: "1" }]);
 
-  const majBesoinNom = (id, nom) => {
-    const suivant = besoins.map((b) => (b.id === id ? { ...b, nom } : b));
+  const majBesoinCategorie = (id, categorie) => {
+    const suivant = besoins.map((b) => (b.id === id ? { ...b, categorie } : b));
     setBesoins(suivant);
     if (!besoinsManuels[id]) {
       const c = meilleurChoixBesoin(suivant.find((b) => b.id === id));
@@ -185,7 +185,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
 
   const ouvrirManuel = (besoinId) => {
     const besoin = besoins.find((b) => b.id === besoinId);
-    ouvrirManuelBase(besoinId, { nom: besoin?.nom || "", prix: "", qte: besoin?.qte || "1" });
+    ouvrirManuelBase(besoinId, { nom: "", prix: "", qte: besoin?.qte || "1" });
   };
 
 
@@ -224,20 +224,22 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   ];
   const lignesMetier = () => [
         ...lignesDevis.filter((l) => l.produit).map((l) => ({
-          categorie: categorieChoisie, article: l.produit.nom, qte: l.qte,
+          categorie: l.besoin.categorie || categorieChoisie, article: l.produit.nom, qte: l.qte,
           pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!l.besoin.hors_boutique,
         })),
   ];
 
   const argumentsEnvoi = () => ({
     totalDevis,
-    messageVide: "Le devis est vide : décrivez d'abord les besoins du client.",
+    messageVide: "Le devis est vide : choisissez une catégorie, puis un article.",
     construire: () => construireDevis({
       profile, boutique, typeDevis: "autre", complement: { domaine: domaine?.id || "autre" },
-      besoins: {
-        categorie: categorieChoisie,
-        articles_demandes: besoins.filter((b) => b.nom.trim()).map((b) => ({ nom: b.nom.trim(), qte: Number(b.qte || 1) })),
-      },
+      // ⚠ Plus de bloc « Votre demande » inventé : le besoin n'est plus une
+      // phrase du client mais une CATÉGORIE de stock (Timo, 11/09/2026), et
+      // la catégorie TITRE déjà son groupe dans « Équipement proposé » du
+      // PDF. La répéter au-dessus serait exactement la tautologie qu'il a
+      // fait retirer le matin même. Le devis commence donc à l'équipement.
+      besoins: { categorie: categorieChoisie },
       panierMetier: panierMetier(), lignesMetier: lignesMetier(), autres, reglages: r,
     }),
     ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
@@ -267,17 +269,18 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock {domaine ? `domaine ${domaine.nom}` : "de la boutique"} — {boutique})</div>
         <table className="w-full text-sm min-w-[820px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Besoin du client", "Article proposé", "Quantité", "Prix unit.", "Sous-total", "HB", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Catégorie", "Article", "Quantité", "Prix unit.", "Sous-total", "HB", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {lignesDevis.map((l) => {
-              const matches = correspondancesBesoin(l.besoin.nom, produitsCategorie);
+              const articles = articlesDeCategorie(l.besoin.categorie);
               const enManuel = manuelOuvert[l.besoin.id] || (l.produit?.manuel);
               return (
                 <tr key={l.besoin.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2">
-                    <ChampSuggestions className={`${inputCls} w-48`} placeholder="Ex : Caméra extérieure" valeur={l.besoin.nom}
-                      suggestions={produitsCategorie.map((p) => ({ cle: p.id, valeur: p.nom, detail: fmt(p.prix_vente) }))}
-                      onChange={(v) => majBesoinNom(l.besoin.id, v)} />
+                    <select className={`${inputCls} w-48`} value={l.besoin.categorie || ""} onChange={(e) => majBesoinCategorie(l.besoin.id, e.target.value)}>
+                      <option value="">— Choisir une catégorie —</option>
+                      {categoriesDuStock.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </td>
                   <td className="px-3 py-2">
                     {enManuel ? (
@@ -289,14 +292,14 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                       </div>
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
-                        {!l.besoin.nom.trim() ? (
-                          <span className="text-xs text-slate-400">Décrivez le besoin à gauche…</span>
-                        ) : matches.length === 0 ? (
-                          <span className="text-xs text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
+                        {!l.besoin.categorie ? (
+                          <span className="text-xs text-slate-400">Choisissez une catégorie à gauche…</span>
+                        ) : articles.length === 0 ? (
+                          <span className="text-xs text-orange-600">Aucun article dans cette catégorie chez {boutique}</span>
                         ) : (
                           <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.besoin.id, e.target.value)}>
                             <option value="">— Aucun —</option>
-                            {matches.map(({ p }) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+                            {articles.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
                           </select>
                         )}
                         <button onClick={() => ouvrirManuel(l.besoin.id)} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">✏️ Saisir un article hors stock</button>
