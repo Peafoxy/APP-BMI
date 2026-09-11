@@ -57,6 +57,24 @@ export function activiteDuJour(db, boutique, date, totalVente) {
       .map((p) => ({ ...p, client: d.client, motif: d.motif, numero: d.numero, detteId: d.id })))
     .sort((a, b) => (a.heure || "").localeCompare(b.heure || ""));
   const especesReglements = detailReglements.filter((p) => (p.paiement || "Espèces") === "Espèces").reduce((s, p) => s + Number(p.montant || 0), 0);
+  // Timo (11/09/2026) : « que ce soit l'admin, le gérant ou le vendeur qui a
+  // vendu, c'est la même caisse » — UNE clôture, mais la recette du jour se
+  // lit aussi PAR PERSONNE : ventes (tout moyen), espèces encaissées (ventes
+  // + règlements de dettes), autres moyens. Du plus gros encaisseur au plus petit.
+  const parPersonne = {};
+  const ligneDe = (nom) => (parPersonne[nom] ||= { nom, nbVentes: 0, especes: 0, autresMoyens: 0, encaissements: 0 });
+  ventesDuJour.forEach((v) => {
+    const l = ligneDe(v.par || "?");
+    const montant = totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+    l.nbVentes += 1;
+    if (v.paiement === "Espèces") l.especes += montant; else l.autresMoyens += montant;
+  });
+  detailReglements.forEach((p) => {
+    const l = ligneDe(p.par || "?");
+    if ((p.paiement || "Espèces") === "Espèces") { l.especes += Number(p.montant || 0); l.encaissements += Number(p.montant || 0); }
+    else l.autresMoyens += Number(p.montant || 0);
+  });
+  const recetteParPersonne = Object.values(parPersonne).sort((a, b) => b.especes - a.especes || b.nbVentes - a.nbVentes || a.nom.localeCompare(b.nom));
   // Timo (09/09/2026) : « Clôture de caisse, c'est journalier : recette du
   // jour théorique contre montant du tiroir » et « une dépense n'est pas un
   // manque… il ne devrait pas y avoir d'écart ». Donc la journée se lit en
@@ -71,7 +89,7 @@ export function activiteDuJour(db, boutique, date, totalVente) {
     date: d0,
     nbVentes: ventesDuJour.length,
     especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements,
-    recetteDuJour, sortiesJustifiees,
+    recetteDuJour, sortiesJustifiees, recetteParPersonne,
     // Le flux de la journée, pour information…
     fluxDuJour,
     // …le fonds de caisse d'hier soir (le solde avant la journée)…

@@ -33,7 +33,7 @@ export function Caisse({ db, save, profile }) {
   const t = jourChoisi && (enRetard.includes(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
   // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
   const jour = activiteDuJour(db, boutique, t, totalVente);
-  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier } = jour;
+  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne } = jour;
   // Le piège de la capture du 09/09/2026 (écart 1 400) : la recette saisie à la place du tiroir.
   const alerteRecette = alerteSaisieRecette(compte, jour, fmt);
   const dejaCloturee = estCloturee(db, boutique, t);
@@ -238,6 +238,27 @@ export function Caisse({ db, save, profile }) {
                 <div className={`font-bold tabular-nums ${ecart === null ? "text-slate-400" : ecart === 0 ? "text-green-700" : "text-red-600"}`}>{ecart === null ? "—" : fmt(ecart)}</div>
               </div>
             </div>
+            {/* Timo (11/09/2026) : « 2 est bon pour le moment » — UNE caisse, UNE
+                clôture, et la recette du jour lue par personne (admin, gérant ou
+                vendeur : la même caisse). Règle pure : activiteDuJour.recetteParPersonne. */}
+            {recetteParPersonne.length > 0 && (
+              <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
+                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Recette du {dFR(t)} par vendeur — admin, gérant ou vendeur : la même caisse</div>
+                <table className="w-full text-sm min-w-[520px]">
+                  <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Vendeur</th><th className="text-left px-3 py-1.5">Ventes</th><th className="text-left px-3 py-1.5">Espèces encaissées</th><th className="text-left px-3 py-1.5">Autres moyens</th></tr></thead>
+                  <tbody>
+                    {recetteParPersonne.map((r) => (
+                      <tr key={r.nom} className="border-t border-slate-100">
+                        <td className="px-3 py-1.5 font-semibold">{r.nom}</td>
+                        <td className="px-3 py-1.5 tabular-nums">{r.nbVentes}</td>
+                        <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(r.especes)}{r.encaissements > 0 ? <span className="text-xs text-slate-400 font-normal"> (dont dettes {fmt(r.encaissements)})</span> : null}</td>
+                        <td className="px-3 py-1.5 tabular-nums text-slate-500">{r.autresMoyens > 0 ? fmt(r.autresMoyens) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {detailReglements.length > 0 && (
               <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
                 <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Détail des encaissements du {dFR(t)} — qui a payé quoi</div>

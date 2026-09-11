@@ -4690,7 +4690,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
   const nz = (t) => String(t).replace(/\u202f|\u00a0/g, " "); // les montants formatés portent une espace fine insécable
   test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple",
-    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du\b(?! jour)|Recette du [^\n]{0,40} au\b|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
+    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du [^\n]{0,40} au\b|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
   test("★ montant différent de l'attendu SANS note → refusé avec « Justifiez pourquoi le montant n'est pas X » ; avec note → accepté ; montant égal → aucune note exigée",
     nz(Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "" })) === "Justifiez pourquoi le montant n'est pas 200 000 F"
     && Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "fonds de caisse gardé" }) === "" && Vs.critiqueVersement({ montant: 200000, destination: "Chez le DG", attendu: 200000.4, note: "" }) === ""
@@ -4978,6 +4978,18 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
   test("★ activiteDuJour lit la journée en quatre lignes : fonds d'hier soir + recette du jour − sorties justifiées = attendu dans le tiroir (capture : 200 899 + 51 400 − 202 300 = 49 999)",
     jt.fondsHier === 200899 && jt.recetteDuJour === 51400 && jt.sortiesJustifiees === 202300 && jt.fondsHier + jt.recetteDuJour - jt.sortiesJustifiees === jt.theorique
     && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).fondsHier === 1000 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).recetteDuJour === 300 && Cl.activiteDuJour(dbc, "A", "2026-09-09", tv).sortiesJustifiees === 50);
+  // Timo (11/09/2026) : « 2 est bon pour le moment — que ce soit l'admin, le gérant
+  // ou le vendeur qui a vendu, c'est la même caisse » : UNE clôture, la recette lue par personne.
+  const dbv = { ventes: [
+      { boutique: "V", date: "2026-09-11", paiement: "Espèces", total: 1000, par: "KOSSI" }, { boutique: "V", date: "2026-09-11", paiement: "Espèces", total: 500, par: "AMA" },
+      { boutique: "V", date: "2026-09-11", paiement: "Mobile money", total: 700, par: "AMA" }, { boutique: "V", date: "2026-09-10", paiement: "Espèces", total: 9999, par: "KOSSI" }, { boutique: "W", date: "2026-09-11", paiement: "Espèces", total: 8888, par: "KOSSI" }],
+    dettes: [{ boutique: "V", client: "X", paiements: [{ date: "2026-09-11", montant: 300, par: "TIMO" }, { date: "2026-09-11", montant: 200, par: "AMA", paiement: "Mobile money" }] }], depenses: [], clotures: [] };
+  const rp = Cl.activiteDuJour(dbv, "V", "2026-09-11", tv).recetteParPersonne;
+  test("★ recetteParPersonne : une ligne par personne du jour et de la boutique (admin, gérant, vendeur confondus), ventes comptées tout moyen, espèces = ventes espèces + règlements espèces, autres moyens à part, du plus gros encaisseur au plus petit",
+    rp.map((r) => `${r.nom}:${r.nbVentes}:${r.especes}:${r.autresMoyens}:${r.encaissements}`).join("|") === "KOSSI:1:1000:0:0|AMA:2:500:900:0|TIMO:0:300:0:300"
+    && Cl.activiteDuJour(dbv, "V", "2026-09-09", tv).recetteParPersonne.length === 0 && rp.reduce((s, r) => s + r.especes, 0) === Cl.activiteDuJour(dbv, "V", "2026-09-11", tv).recetteDuJour);
+  test("★ écran Caisse : le tableau « Recette du … par vendeur » est dans la clôture (UNE clôture, la même caisse), vendeur / ventes / espèces / autres moyens, et rien n'est clôturé par personne",
+    /recetteParPersonne\.length > 0 && \(/.test(csC) && /Recette du \{dFR\(t\)\} par vendeur — admin, gérant ou vendeur : la même caisse/.test(csC) && /\{fmt\(r\.especes\)\}/.test(csC) && !/cloture.*par_vendeur|clotures_vendeur/.test(csC));
   const nzc = (x) => String(x).replace(/[\u202f\u00a0 ]/g, "");
   test("★ alerteSaisieRecette : saisir la recette du jour à la place du tiroir est signalé (avec le calcul), rien si le montant est autre, rien si recette = tiroir, rien sur champ vide",
     /est la recette du jour, pas le contenu du tiroir/.test(Cl.alerteSaisieRecette("51400", jt)) && /200899.*51400.*202300.*49999/.test(nzc(Cl.alerteSaisieRecette(51400, jt)))

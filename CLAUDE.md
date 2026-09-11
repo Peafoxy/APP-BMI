@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1093 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1095 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -367,6 +367,12 @@ lit mal est pire qu'un banc absent).
   contient, compté) ». Saisir la recette du jour à la place du tiroir est
   signalé en rouge avec le calcul (`alerteSaisieRecette`, écart 1 400 de sa
   capture). Blocage côté application seulement (règle de travail, pas de rôle).
+  **Plusieurs vendeurs, UNE caisse, UNE clôture** (11/09/2026 : « que ce soit
+  l'admin, le gérant ou le vendeur qui a vendu, c'est la même caisse ») : la
+  clôture montre « Recette du jour par vendeur » (ventes tout moyen, espèces
+  encaissées ventes + dettes, autres moyens ; `recetteParPersonne`), une
+  lecture, jamais une clôture par personne. Le tiroir par vendeur (option 3)
+  n'a pas été demandé : ne pas le construire sans sa demande explicite.
 
 ### Retours / SAV
 - **↩ Reprise d'un article par le client** (10/09/2026, « un article vendu
