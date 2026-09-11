@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1142 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1143 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -402,8 +402,17 @@ lit mal est pire qu'un banc absent).
   haut à 4 mm d'écart, cases du besoin à 15 mm, blancs entre blocs. Un devis
   ordinaire (6 appareils, 7 lignes, acompte + solde + délai) tient sur UNE
   page ; le banc le mesure, et mesure aussi qu'**aucun texte n'en chevauche un
-  autre** (poser les mentions à gauche du total a été tenté et ABANDONNÉ : la
-  première ligne, 108 mm, mordait sur « Acompte à la commande »). ⚠ **Le
+  autre** — PAGE PAR PAGE (une première version mettait les pages à plat et
+  « voyait » l'entête de la page 1 sur le total de la page 2 : un contrôle qui
+  crie à tort finit par ne plus être cru). Poser les mentions à gauche du TOTAL
+  a été tenté et ABANDONNÉ (la première ligne, 108 mm, mordait sur « Acompte à
+  la commande ») — elles sont **à gauche des CADRES DE SIGNATURE**, en colonne
+  de 62 mm (`MENTIONS_LARGEUR`, `phrasesOffre` écrites une fois, cadres réduits
+  à 48 mm) : 12 mm rendus, capture Timo du 11/09/2026 « le problème est
+  revenu », où le bas partait seul sur une page alors qu'il ne manquait que
+  **1 à 13 mm** (mesuré). ⚠ **Un devis à acompte + solde + délai porte 12 mm de
+  plus** et peut encore demander une deuxième page : le banc mesure les huit
+  formes à paiement intégral qui tombaient dans ce trou. ⚠ **Le
   bandeau TOTAL monte 7,5 mm AU-DESSUS de son libellé** (`bandeauTotal`
   dessine de `y-6` à `y+5`) : l'oublier en resserrant les blancs le pose SUR
   la dernière ligne du tableau (capture Timo, 11/09/2026 — « Frais

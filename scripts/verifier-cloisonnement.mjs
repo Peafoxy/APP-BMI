@@ -4267,11 +4267,16 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
-    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y, /g) || []).length === 2
+    && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y[ +0-9.]*, /g) || []).length === 2
     && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 2);
   test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
-    && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "un devis"\)/.test(pdf));
+    && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf)
+    // RETOURNÉ le 11/09/2026 : les mentions du DEVIS sont désormais posées en
+    // colonne étroite à gauche des cadres de signature (MENTIONS_LARGEUR) —
+    // même règle, même texte, une largeur en plus.
+    && /mentionsOffre\(doc, y \+ 3, "un devis", MENTIONS_LARGEUR\)/.test(pdf)
+    && (pdf.match(/il constitue une offre de prix et n'a pas de valeur comptable/g) || []).length === 1);
   test("le bandeau de formation décale le contenu (42 → 54), comme avant", /if \(!formation\) return 42;/.test(pdf) && /return 54;/.test(pdf));
 }
 
@@ -5378,6 +5383,21 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       { categorie: "Installation", article: "Frais d'installation (10 %)", qte: 1, pu: 250000, total: 250000 }],
     besoins: { ...dSol.besoins, appareils: ["CONGELATEUR", "CLIM", "SURPRESSEUR", "VENTILO", "LUMIERE", "TELEVISEUR"]
       .map((nom, i) => ({ nom, puissance: 100 * (i + 1), qte: i + 1, heures: 6 })) } };
+  // ⚠ « Le problème est revenu » (capture Timo, 11/09/2026) : le bas du devis
+  // repartait SEUL sur une page, alors qu'il ne manquait que 1 à 13 mm. Les
+  // mentions sont passées À GAUCHE des cadres (12 mm rendus). Le banc joue
+  // maintenant HUIT formes de devis qui tombaient toutes dans ce trou.
+  test("★ les devis qui débordaient de quelques millimètres tiennent sur UNE page : huit formes mesurées (3 à 12 appareils, 4 à 10 lignes), paiement intégral — plus jamais une page qui ne porte que le total et la signature",
+    [[3, 10], [4, 8], [4, 10], [5, 8], [6, 8], [7, 6], [8, 6], [12, 4]].every(([nApp, nLig]) => {
+      const lignes = Array.from({ length: nLig }, (_, i) => ({
+        categorie: i % 3 === 0 ? "Panneaux solaires" : i % 3 === 1 ? "Batteries" : "Autres équipements",
+        article: `ARTICLE ${i}`, qte: 2, pu: 100000, total: 200000 }));
+      const appareils = Array.from({ length: nApp }, (_, i) => ({ nom: `APP ${i}`, puissance: 100, qte: 1, heures: 5 }));
+      // Paiement intégral, comme la capture de Timo : trois lignes de moins
+      // qu'un devis à acompte + solde + délai, qui reste plus lourd de 12 mm.
+      return Pdf.genererDevis({ ...dSol, pct_acompte: 100, montant_acompte: dSol.total, delai_installation: "", lignes,
+        besoins: { ...dSol.besoins, appareils } }, null, true).internal.getNumberOfPages() === 1;
+    }));
   test("★ un devis ORDINAIRE (6 appareils, 7 lignes de matériel, acompte + solde + délai) tient sur UNE seule page, signatures comprises",
     Pdf.genererDevis(devisOrdinaire, null, true).internal.getNumberOfPages() === 1);
   const docGros = Pdf.genererDevis({ ...devisOrdinaire, numero: "GROS",
@@ -5390,25 +5410,32 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   // ⚠ Le banc MESURE aussi que rien ne se CHEVAUCHE : poser les mentions dans
   // le blanc à gauche du total avait été tenté le 11/09/2026, et la première
   // ligne (108 mm de large) mordait sur « Acompte à la commande (60 %) ».
+  // ⚠ PAGE PAR PAGE. Une première version mettait toutes les pages à plat :
+  // l'entête de la page 1 « chevauchait » alors le total de la page 2, à la
+  // même hauteur mais sur une autre feuille. Un contrôle qui crie à tort finit
+  // par ne plus être cru — il compte maintenant dans CHAQUE page séparément.
   const chevauchements = (doc) => {
-    const lignes = [];
-    let x = null, yy = null, taille = 10;
-    for (const l of doc.internal.pages.flat().join("\n").split("\n")) {
-      let m = l.match(/\/F\d+ ([\d.]+) Tf/); if (m) taille = +m[1];
-      m = l.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/) || l.match(/^([\d.]+) ([\d.]+) Td/);
-      if (m) { x = +m[1] / 2.8346; yy = +m[2] / 2.8346; }
-      m = l.match(/\((.*?)\)\s*Tj/);
-      if (m && m[1].trim() && x !== null) { doc.setFontSize(taille); lignes.push({ y: yy, x1: x, x2: x + doc.getTextWidth(m[1].replace(/\\/g, "")) }); }
-    }
     let n = 0;
-    for (let i = 0; i < lignes.length; i++) for (let j = i + 1; j < lignes.length; j++) {
-      const a = lignes[i], b = lignes[j];
-      if (Math.abs(a.y - b.y) < 2.5 && a.x1 < b.x2 - 0.5 && b.x1 < a.x2 - 0.5) n++;
+    for (let p = 1; p < doc.internal.pages.length; p++) {
+      const lignes = [];
+      let x = null, yy = null, taille = 10;
+      for (const l of doc.internal.pages[p].join("\n").split("\n")) {
+        let m = l.match(/\/F\d+ ([\d.]+) Tf/); if (m) taille = +m[1];
+        m = l.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/) || l.match(/^([\d.]+) ([\d.]+) Td/);
+        if (m) { x = +m[1] / 2.8346; yy = +m[2] / 2.8346; }
+        m = l.match(/\((.*?)\)\s*Tj/);
+        if (m && m[1].trim() && x !== null) { doc.setFontSize(taille); lignes.push({ y: yy, x1: x, x2: x + doc.getTextWidth(m[1].replace(/\\/g, "")) }); }
+      }
+      for (let i = 0; i < lignes.length; i++) for (let j = i + 1; j < lignes.length; j++) {
+        const a = lignes[i], b = lignes[j];
+        if (Math.abs(a.y - b.y) < 2.2 && a.x1 < b.x2 - 0.5 && b.x1 < a.x2 - 0.5) n++;
+      }
     }
     return n;
   };
-  test("★ aucun texte du devis n'en chevauche un autre — mesuré sur le PDF réel (les mentions ne mordent plus sur la colonne des montants)",
-    chevauchements(Pdf.genererDevis(devisOrdinaire, null, true)) === 0 && chevauchements(docSol) === 0);
+  test("★ aucun texte du devis n'en chevauche un autre, page par page — mesuré sur le PDF réel, y compris sur un devis à DEUX pages avec acompte, solde et délai (les mentions serrées à gauche des cadres ne mordent sur rien)",
+    chevauchements(Pdf.genererDevis(devisOrdinaire, null, true)) === 0 && chevauchements(docSol) === 0
+    && chevauchements(docGros) === 0);
   // ⚠ Capture Timo (11/09/2026) : le bandeau TOTAL était posé PAR-DESSUS
   // « Frais d'installation ». Le contrôle du chevauchement de TEXTES ne l'a
   // pas vu — le bandeau est un rectangle plein, pas un texte. On mesure donc

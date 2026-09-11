@@ -116,11 +116,27 @@ const bandeauTotal = (doc, largeur, y, total, libelle = "TOTAL") => {
   return y + 5;
 };
 // Les mentions d'une offre de prix (devis ou proforma) : pas un reçu.
-const mentionsOffre = (doc, y, nature) => {
-  doc.setFontSize(8);
+// Largeur de la colonne des mentions quand elles sont posées À GAUCHE des
+// cadres de signature (devis) : assez étroite pour ne jamais toucher le cadre.
+const MENTIONS_LARGEUR = 62;
+const MENTIONS_INTERLIGNE = 3.2;
+// Les DEUX phrases, écrites une seule fois : le proforma les pose en pleine
+// largeur, le devis en colonne étroite à gauche de ses cadres de signature.
+const phrasesOffre = (nature) => [
+  `Ce document est ${nature} : il constitue une offre de prix et n'a pas de valeur comptable.`,
+  "Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.",
+];
+const mentionsOffre = (doc, y, nature, largeurMax) => {
   doc.setTextColor(120, 120, 120);
-  doc.text(`Ce document est ${nature} : il constitue une offre de prix et n'a pas de valeur comptable.`, 14, y);
-  doc.text("Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.", 14, y + 4);
+  const phrases = phrasesOffre(nature);
+  if (!largeurMax) {
+    doc.setFontSize(8);
+    phrases.forEach((t, i) => doc.text(t, 14, y + i * 4));
+    return;
+  }
+  doc.setFontSize(7);
+  doc.splitTextToSize(phrases.join(" "), largeurMax)
+    .forEach((t, i) => doc.text(t, 14, y + i * MENTIONS_INTERLIGNE));
 };
 const piedDePage = (doc, largeur, hauteur) => {
   doc.setFontSize(8);
@@ -371,7 +387,7 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
   // 6 mm PLUS HAUT (bandeauTotal dessine son rectangle de y-6 à y+5). En
   // resserrant les blancs, j'avais oublié ces 6 mm. Il faut donc rendre
   // finalY + 6 + l'écart voulu — pas l'écart seul.
-  return doc.lastAutoTable.finalY + 6 + 3;
+  return doc.lastAutoTable.finalY + 6 + 2;
 }
 // Une remise est une ligne négative : elle se lit en rouge.
 const ligneEquipement = (l) => {
@@ -448,11 +464,6 @@ function imageDansCadre(doc, image, x, y, wMax, hMax) {
 // jour où le client dit oui — deux dates différentes, une seule à sa place).
 function blocMentions(doc, d, largeur, hauteur, y) {
   y += 3;
-  mentionsOffre(doc, y, "un devis");
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text(`Offre valable ${VALIDITE_OFFRE_JOURS} jours à compter du ${d.date}.`, 14, y + 8);
-  y += 12;
   // ⚠ Deux captures de Timo le 11/09/2026, dans cet ordre : « le cachet est
   // trop petit dans le cadre, l'agrandir davantage » (le cachet est CARRÉ :
   // c'est la HAUTEUR du cadre qui le bridait à 17 mm, pas sa largeur), puis
@@ -460,19 +471,30 @@ function blocMentions(doc, d, largeur, hauteur, y) {
   // deux tiennent ensemble en serrant les marges INTÉRIEURES à presque rien :
   // cadre 56 × 30 (au lieu de 70 × 40, soit 40 % de surface en moins) et le
   // cachet dessiné à 22 mm — toujours bien plus gros que les 17 mm du départ.
-  const L = 56, H = 28, xD = largeur - 14 - L;
+  // ⚠ Capture Timo (11/09/2026, « le problème est revenu ») : le bas du devis
+  // partait SEUL sur une page suivante — il ne manquait pourtant que 1 à 13 mm
+  // (mesuré). Les mentions occupaient 12 mm en pleine largeur AU-DESSUS des
+  // deux cadres, alors que la place à GAUCHE des cadres était blanche. Elles
+  // s'y installent : même texte (mentionsOffre, la règle commune), serrées en
+  // colonne étroite, et les cadres rétrécis d'autant. 15 mm rendus au devis —
+  // de quoi faire tenir sur UNE page tous les devis qui débordaient de peu.
+  const L = 48, H = 28, xG = MENTIONS_LARGEUR + 20, xD = largeur - 14 - L;
   doc.setDrawColor(...GRIS_TEXTE);
   doc.setLineWidth(0.3);
-  doc.roundedRect(14, y, L, H, 1.5, 1.5, "S");
+  doc.roundedRect(xG, y, L, H, 1.5, 1.5, "S");
   doc.roundedRect(xD, y, L, H, 1.5, 1.5, "S");
+  mentionsOffre(doc, y + 3, "un devis", MENTIONS_LARGEUR);
+  doc.setFontSize(7);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Offre valable ${VALIDITE_OFFRE_JOURS} jours à compter du ${d.date}.`, 14, y + 3 + 4 * MENTIONS_INTERLIGNE, { maxWidth: MENTIONS_LARGEUR });
   doc.setFontSize(7.5);
   doc.setTextColor(...GRIS_TEXTE);
-  doc.text("Pour BMI Togo", 16.5, y + 4);
-  if (d.par) doc.text(String(d.par), 16.5, y + 7.5);
-  imageDansCadre(doc, d.signature, 15.5, y + 8, 22, 19);
-  imageDansCadre(doc, d.cachet, 38, y + 7, 24, 20);
-  doc.text("Bon pour accord — signature du client", xD + 2.5, y + 4);
-  doc.text("Date : ____ / ____ / ________", xD + 2.5, y + H - 3);
+  doc.text("Pour BMI Togo", xG + 2.5, y + 4);
+  if (d.par) doc.text(String(d.par), xG + 2.5, y + 7.5);
+  imageDansCadre(doc, d.signature, xG + 1, y + 8, 20, 19);
+  imageDansCadre(doc, d.cachet, xG + 23, y + 7, 23, 20);
+  doc.text("Bon pour accord — signature du client", xD + 2, y + 4);
+  doc.text("Date : ____ / ____ / ________", xD + 2, y + H - 3);
   piedDePage(doc, largeur, hauteur);
 }
 // La hauteur dont le bas du devis a besoin — total, mentions et signatures
@@ -488,7 +510,9 @@ const hauteurBlocFinal = (d) => {
   // mentions, puis les deux cadres : la hauteur exacte, jamais une réserve
   // au jugé (c'est elle qui envoyait la signature seule sur une page 2).
   const montants = 12 + (total - acompte > 0 ? 6 : 0) + (d.delai_installation ? 6 : 0);
-  return montants + 3 + 12 + 28 + 2;
+  // Les mentions tiennent MAINTENANT à gauche des cadres : la hauteur du bas
+  // du devis, c'est le bandeau et les montants, puis la rangée cadres.
+  return montants + 3 + 28 + 1;
 };
 
 // Le bloc du besoin qui convient à CE devis — null si le devis n'en porte
