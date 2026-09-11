@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement } from "../lib/versements";
-import { CATEGORIES, PAIEMENTS } from "../lib/constants";
+import { CATEGORIES, PAIEMENTS, horsVersements } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -76,7 +76,15 @@ export function Depenses({ db, save, profile }) {
     }
   };
 
-  const liste = db.depenses.filter((x) => x.boutique === boutique);
+  // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
+  // considérés comme dépense ? ». Sa règle du 10/09 était claire — « un
+  // versement n'est JAMAIS une dépense » — et le tableau de bord, les exports
+  // et le journal l'appliquaient déjà. Cet écran-ci avait été oublié : la
+  // liste ET le total du mois comptaient encore les versements de fonds (et
+  // les remboursements de reprise). Un versement n'est pas une charge : c'est
+  // de l'argent qui change de poche. Il se lit dans 🔒 Caisse et dans l'export
+  // « Versements ».
+  const liste = horsVersements(db.depenses).filter((x) => x.boutique === boutique);
   const totalMois = liste.filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
@@ -105,6 +113,11 @@ export function Depenses({ db, save, profile }) {
         </div>
         <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide="Aucune dépense enregistrée." />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+        {/* On ne cache pas l'argent : on dit où il est allé. */}
+        <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
+          Les <b>versements de fonds</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
+          Retrouvez-les dans <b>🔒 Caisse</b> et dans l'export « Versements » du tableau de bord.
+        </div>
       </div>
     </div>
   );

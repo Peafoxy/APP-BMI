@@ -4339,6 +4339,16 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "20"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "13");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
+  // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
+  // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
+  // JAMAIS une dépense ») était appliquée au tableau de bord, aux exports et
+  // au journal — mais PAS à l'écran 💰 Dépenses, dont la liste et le total du
+  // mois les comptaient encore. Un écran oublié fait mentir une règle.
+  test("★ l'écran 💰 Dépenses lui-même ne compte NI les versements de fonds NI les remboursements de reprise (liste et « Ce mois »), et dit où les retrouver",
+    /const liste = horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\);/.test(dep)
+    && /import \{ CATEGORIES, PAIEMENTS, horsVersements \} from "\.\.\/lib\/constants";/.test(dep)
+    && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
+    && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep));
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
     (dep.match(/<thead>/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
     && /vide="Aucune dépense enregistrée\." \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
