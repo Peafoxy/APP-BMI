@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
+import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
@@ -61,7 +62,6 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // vide et inutilisable le jour de la mise à jour.
   const produitsDuDomaine = domaine ? produitsBoutique.filter((p) => p.domaine === domaine.id) : [];
   const rattachementFait = produitsDuDomaine.length > 0;
-  const produitsCategorie = rattachementFait ? produitsDuDomaine : produitsBoutique;
 
   // ⚠ Timo (11/09/2026) : « je propose que le besoin du client soit une
   // catégorie, et article proposé déroule les articles de la catégorie
@@ -70,8 +70,39 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // l'article qui ressemblait le plus — « je ne comprends pas », et il avait
   // raison : rien ne disait au vendeur ce qu'il devait taper, ni ce que
   // l'application allait en faire. Deux listes déroulantes, plus de devinette.
-  const categoriesDuStock = [...new Set(produitsCategorie.map((p) => (p.categorie || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const articlesDeCategorie = (cat) => produitsCategorie.filter((p) => (p.categorie || "").trim() === String(cat || "").trim());
+  // ⚠ Le problème que Timo a posé (11/09/2026) : « dans forage, pas de
+  // catégorie des panneaux… cette catégorie se trouve dans le solaire, alors
+  // que pour le forage aussi on utilise les panneaux. Comment résoudre le
+  // problème ? » — un article ne porte QU'UN domaine, et le volet ne montrait
+  // que le sien : les panneaux, batteries, câbles, disjoncteurs étaient
+  // invisibles hors de leur métier. Décision (option « a ») : **le domaine ne
+  // CACHE plus, il RANGE**. Les besoins du domaine ouvert viennent en tête,
+  // tout le reste du stock de la boutique suit en dessous. Rien à réétiqueter,
+  // et plus jamais un article introuvable parce qu'il est rangé ailleurs.
+  const categoriesDe = (liste) => [...new Set(liste.map((p) => (p.categorie || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const categoriesDuDomaine = categoriesDe(produitsDuDomaine);
+  const categoriesAutres = categoriesDe(produitsBoutique).filter((c) => !categoriesDuDomaine.includes(c));
+  const categoriesDuStock = [...categoriesDuDomaine, ...categoriesAutres];
+  // Les articles d'un besoin : ceux du domaine ouvert d'abord, puis les autres
+  // de la boutique qui portent la même catégorie.
+  // ⚠ Timo (11/09/2026) : « dans les lignes du besoin du client et des
+  // articles proposés, on peut aussi, à part dérouler et sélectionner, écrire
+  // et la présélection est proposée. » On reprend donc LE champ commun de
+  // l'application (ChampSuggestions) : cliquer ouvre toute la liste, taper la
+  // filtre, et ce qui est tapé n'est jamais transformé tout seul.
+  const propositionsBesoin = [
+    ...categoriesDuDomaine.map((c) => ({ valeur: c, detail: domaine ? domaine.nom : "" })),
+    ...categoriesAutres.map((c) => ({ valeur: c, detail: `Autre métier — stock de ${boutique}` })),
+  ];
+  const propositionsArticle = (cat) => articlesDeCategorie(cat).map((p) => ({
+    valeur: p.nom, id: p.id, detail: `${fmt(p.prix_vente)} F` + (p.categorie ? ` · ${p.categorie}` : ""),
+  }));
+
+  const articlesDeCategorie = (cat) => {
+    const memeCat = (p) => (p.categorie || "").trim() === String(cat || "").trim();
+    const duDomaine = produitsDuDomaine.filter(memeCat);
+    return [...duDomaine, ...produitsBoutique.filter((p) => memeCat(p) && !duDomaine.includes(p))];
+  };
 
   // ---- Besoins du client : liste libre, remplie au fil de l'eau ----
   // Si on reprend un devis (modification/rejet), on repart des lignes RÉELLES du
@@ -91,7 +122,9 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       const id = uid();
       // On retrouve l'article par son NOM dans le stock ; sinon c'est une
       // saisie hors stock, qu'on restitue telle qu'elle avait été écrite.
-      const trouve = produitsCategorie.find((p) => p.nom === l.article) || null;
+      // Tout le stock de la boutique : depuis que le domaine RANGE au lieu de
+      // CACHER, un devis repris peut contenir un article d'un autre métier.
+      const trouve = produitsBoutique.find((p) => p.nom === l.article) || null;
       besoinsInit.push({ id, categorie: trouve ? (trouve.categorie || "").trim() : (l.categorie || ""), qte: String(l.qte), hors_boutique: !!l.hors_boutique });
       choix[id] = trouve
         ? { type: "stock", produit_id: trouve.id, qte: Number(l.qte) || 1 }
@@ -158,6 +191,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const ajouterBesoin = () => setBesoins([...besoins, { id: uid(), categorie: "", qte: "1" }]);
 
   const majBesoinCategorie = (id, categorie) => {
+    setSaisieArticle((avant) => { const n = { ...avant }; delete n[id]; return n; });
     const suivant = besoins.map((b) => (b.id === id ? { ...b, categorie } : b));
     setBesoins(suivant);
     if (!besoinsManuels[id]) {
@@ -181,6 +215,21 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const retirerBesoin = (id) => {
     setBesoins(besoins.filter((b) => b.id !== id));
     setChoix((avant) => { const n = { ...avant }; delete n[id]; return n; });
+  };
+
+  // Ce qui est TAPÉ dans « Article proposé » : on ne transforme jamais la
+  // frappe ; on ne LIE l'article que s'il porte exactement ce nom (le CLIC sur
+  // une proposition, lui, lie toujours — règle du champ commun).
+  const [saisieArticle, setSaisieArticle] = useState({});
+  const majSaisieArticle = (besoinId, texte) => {
+    setSaisieArticle((avant) => ({ ...avant, [besoinId]: texte }));
+    const besoin = besoins.find((b) => b.id === besoinId);
+    const exact = articlesDeCategorie(besoin?.categorie).find((p) => p.nom === texte);
+    changerProduit(besoinId, exact ? exact.id : "");
+  };
+  const choisirArticle = (besoinId, proposition) => {
+    setSaisieArticle((avant) => ({ ...avant, [besoinId]: proposition.valeur }));
+    changerProduit(besoinId, proposition.id);
   };
 
   const ouvrirManuel = (besoinId) => {
@@ -281,10 +330,9 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
               return (
                 <tr key={l.besoin.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2">
-                    <select className={`${inputCls} w-48`} value={l.besoin.categorie || ""} onChange={(e) => majBesoinCategorie(l.besoin.id, e.target.value)}>
-                      <option value="">— Choisir le besoin —</option>
-                      {categoriesDuStock.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+<ChampSuggestions className={`${inputCls} w-48`} placeholder="Cliquez ou tapez le besoin…"
+                      valeur={l.besoin.categorie || ""} suggestions={propositionsBesoin}
+                      onChange={(v) => majBesoinCategorie(l.besoin.id, v)} />
                   </td>
                   <td className="px-3 py-2">
                     {enManuel ? (
@@ -301,10 +349,11 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                         ) : articles.length === 0 ? (
                           <span className="text-xs text-orange-600">Aucun article pour ce besoin chez {boutique}</span>
                         ) : (
-                          <select className={inputCls} value={l.produit && !l.produit.manuel ? l.produit.id : ""} onChange={(e) => changerProduit(l.besoin.id, e.target.value)}>
-                            <option value="">— Aucun —</option>
-                            {articles.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
-                          </select>
+                          <ChampSuggestions className={`${inputCls} w-56`} placeholder="Cliquez ou tapez l'article…"
+                            valeur={saisieArticle[l.besoin.id] ?? (l.produit && !l.produit.manuel ? l.produit.nom : "")}
+                            suggestions={propositionsArticle(l.besoin.categorie)}
+                            onChange={(v) => majSaisieArticle(l.besoin.id, v)}
+                            onChoisir={(p) => choisirArticle(l.besoin.id, p)} />
                         )}
                         <button onClick={() => ouvrirManuel(l.besoin.id)} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">✏️ Saisir un article hors stock</button>
                       </div>

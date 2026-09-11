@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1141 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1142 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -273,10 +273,20 @@ lit mal est pire qu'un banc absent).
   client » et « Article proposé », jamais « Catégorie » et « Article »
   (11/09/2026 : « besoin du client reste toujours besoin et non catégorie ») —
   la liste déroulante est notre façon de faire, le vendeur choisit un BESOIN.
-  Deux listes déroulantes, **aucune recherche par ressemblance** :
-  `categoriesDuStock` (catégories du stock du domaine regardé) puis
-  `articlesDeCategorie`. La première catégorie propose son premier article, le
-  vendeur déroule. « ✏️ Saisir un article hors stock » reste. **Chaque ligne
+  Les deux colonnes passent par **LE champ commun** `ChampSuggestions`
+  (11/09/2026 : « on peut aussi, à part dérouler et sélectionner, écrire et la
+  présélection est proposée ») : cliquer ouvre toute la liste, taper la filtre,
+  la frappe n'est jamais transformée — un CLIC lie l'article, un nom tapé ne le
+  lie que s'il correspond exactement. **Aucune recherche par ressemblance.**
+  ⚠ **LE DOMAINE RANGE, IL NE CACHE PLUS** (option « a », 11/09/2026 : « dans
+  forage, pas de catégorie des panneaux… alors que pour le forage aussi on
+  utilise les panneaux. Comment résoudre le problème ? ») : les besoins du
+  métier ouvert en tête (`categoriesDuDomaine`), **tout le reste du stock de la
+  boutique en dessous** (`categoriesAutres`, détail « Autre métier ») ; les
+  articles d'un besoin sont ceux du domaine d'abord, puis les autres de la
+  boutique. Rien à réétiqueter, et **plus jamais un article introuvable parce
+  qu'il est rangé dans un autre métier**. Une reprise retrouve l'article dans
+  TOUT le stock. « ✏️ Saisir un article hors stock » reste. **Chaque ligne
   porte SA catégorie** — elle titre son groupe dans le PDF dès 2 lignes — et le
   devis **ne fabrique plus de bloc « Votre demande »** : répéter les catégories
   au-dessus de l'équipement serait la tautologie retirée le matin même. Une

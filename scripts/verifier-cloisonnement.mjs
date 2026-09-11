@@ -4072,18 +4072,31 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
   // Deux listes déroulantes, aucune recherche par ressemblance.
   {
     const au = readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8");
-    test("★ volet SANS CALCUL : une liste des CATÉGORIES du stock à gauche, les ARTICLES de cette catégorie à droite — plus de besoin écrit à la main, plus de correspondance approximative, et le champ à suggestions a été retiré (il ne commandait plus rien)",
-      /const categoriesDuStock = \[\.\.\.new Set\(produitsCategorie\.map/.test(au)
-      && /const articlesDeCategorie = \(cat\) => produitsCategorie\.filter/.test(au)
-      && /\{categoriesDuStock\.map\(\(c\) => <option key=\{c\} value=\{c\}>\{c\}<\/option>\)\}/.test(au)
-      && /\{articles\.map\(\(p\) => <option key=\{p\.id\} value=\{p\.id\}>\{p\.nom\}<\/option>\)\}/.test(au)
-      && !/ChampSuggestions/.test(au) && !/correspondancesBesoin\(/.test(au)
-      && !/Décrivez le besoin à gauche/.test(au)
-      // ⚠ Timo (11/09/2026) : les COLONNES gardent les mots du métier —
-      // « Besoin du client » et « Article proposé », jamais « Catégorie » et
-      // « Article ». La liste déroulante est notre façon de faire ; le
-      // vendeur, lui, choisit un BESOIN.
+    // RETOURNÉ deux fois le 11/09/2026, dans l'ordre où Timo l'a demandé :
+    // d'abord deux listes déroulantes, puis « on peut aussi, à part dérouler
+    // et sélectionner, écrire et la présélection est proposée » — donc LE
+    // champ commun de l'application, qui fait les deux. Les colonnes gardent
+    // les mots du métier (« besoin du client reste toujours besoin »).
+    test("★ volet SANS CALCUL : le besoin et l'article passent par LE champ commun (cliquer ouvre toute la liste, taper la filtre) — plus de besoin écrit sans repère, plus de correspondance approximative, et les colonnes gardent les mots du métier",
+      /<ChampSuggestions className=\{`\$\{inputCls\} w-48`\} placeholder="Cliquez ou tapez le besoin…"/.test(au)
+      && /valeur=\{l\.besoin\.categorie \|\| ""\} suggestions=\{propositionsBesoin\}/.test(au)
+      && /<ChampSuggestions className=\{`\$\{inputCls\} w-56`\} placeholder="Cliquez ou tapez l'article…"/.test(au)
+      && /suggestions=\{propositionsArticle\(l\.besoin\.categorie\)\}/.test(au)
+      && /onChoisir=\{\(p\) => choisirArticle\(l\.besoin\.id, p\)\}/.test(au)
+      && !/correspondancesBesoin\(/.test(au) && !/Décrivez le besoin à gauche/.test(au)
       && /\["Besoin du client", "Article proposé", "Quantité"/.test(au));
+    // ⚠ « Dans forage, pas de catégorie des panneaux… cette catégorie se
+    // trouve dans le solaire, alors que pour le forage aussi on utilise les
+    // panneaux » (11/09/2026). Option « a » : le domaine RANGE, il ne CACHE
+    // plus — les besoins du métier ouvert en tête, tout le reste du stock de
+    // la boutique juste en dessous. Rien à réétiqueter.
+    test("★ le domaine RANGE et ne CACHE plus : les besoins du métier ouvert en tête, puis TOUT le reste du stock de la boutique — un panneau rangé dans « solaire » reste proposé dans un devis de forage",
+      /const categoriesDuDomaine = categoriesDe\(produitsDuDomaine\);/.test(au)
+      && /const categoriesAutres = categoriesDe\(produitsBoutique\)\.filter\(\(c\) => !categoriesDuDomaine\.includes\(c\)\);/.test(au)
+      && /const duDomaine = produitsDuDomaine\.filter\(memeCat\);/.test(au)
+      && /return \[\.\.\.duDomaine, \.\.\.produitsBoutique\.filter\(\(p\) => memeCat\(p\) && !duDomaine\.includes\(p\)\)\];/.test(au)
+      && /detail: `Autre métier — stock de \$\{boutique\}`/.test(au)
+      && !/const produitsCategorie = /.test(au));
     test("★ chaque ligne porte SA catégorie de stock (elle titrera son groupe dans le PDF) et le devis ne fabrique plus de bloc « Votre demande » qui ne ferait que répéter ces catégories",
       /categorie: l\.besoin\.categorie \|\| categorieChoisie, article: l\.produit\.nom/.test(au)
       && /besoins: \{ categorie: categorieChoisie \},/.test(au)
