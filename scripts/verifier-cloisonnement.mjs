@@ -4694,7 +4694,7 @@ titre("🎭 Changer le rôle d'un compte : l'administrateur principal seul, jama
     && /le principal change SON propre rôle \(sa fiche reste interdite à tous\)" "REFUSE"/.test(tc));
 }
 
-titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 09/09/2026 : 3 min PC, 6 min téléphone)");
+titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 09/09/2026 ; délai porté à 10 min le 11/09/2026)");
 {
   // « Au lieu de déconnecter un compte après un temps d'inactivité, garder
   // la session ouverte mais, après 3 minutes, activer une fenêtre demandant
@@ -4708,10 +4708,16 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   const PC = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120";
   const TEL = "Mozilla/5.0 (Linux; Android 13; SM-A135F) Mobile Safari/537.36";
   const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148";
-  test("★ 3 minutes sur PC, 6 sur téléphone (Android et iPhone)",
-    V.delaiVerrou(PC) === 180000 && V.delaiVerrou(TEL) === 360000 && V.delaiVerrou(IPHONE) === 360000 && V.libelleDelai(PC) === "3 minutes" && V.libelleDelai(TEL) === "6 minutes");
-  test("★ on verrouille à partir du délai, jamais avant : 2 min 59 sur PC → non, 3 min → oui ; 5 min 59 sur téléphone → non, 6 min → oui",
-    V.doitVerrouiller(0, 179999, PC) === false && V.doitVerrouiller(0, 180000, PC) === true && V.doitVerrouiller(0, 359999, TEL) === false && V.doitVerrouiller(0, 360000, TEL) === true
+  // RETOURNÉ le 11/09/2026 : « augmenter le temps de verrouillage de 3 à
+  // 10 min ». Le téléphone suit — il était volontairement PLUS tolérant que le
+  // PC (6 contre 3) ; le laisser à 6 l'aurait rendu plus strict.
+  test("★ 10 minutes, PC comme téléphone (Android et iPhone) — le téléphone n'est jamais plus strict que l'ordinateur",
+    V.delaiVerrou(PC) === 600000 && V.delaiVerrou(TEL) === 600000 && V.delaiVerrou(IPHONE) === 600000
+    && V.libelleDelai(PC) === "10 minutes" && V.libelleDelai(TEL) === "10 minutes"
+    && V.DELAI_VERROU_TELEPHONE_MS >= V.DELAI_VERROU_PC_MS);
+  test("★ on verrouille à partir du délai, jamais avant : 9 min 59 → non, 10 min → oui, sur PC comme sur téléphone",
+    V.doitVerrouiller(0, 599999, PC) === false && V.doitVerrouiller(0, 600000, PC) === true
+    && V.doitVerrouiller(0, 599999, TEL) === false && V.doitVerrouiller(0, 600000, TEL) === true
     && V.doitVerrouiller(undefined, 1e12, PC) === false);
   test("★ 5 erreurs de mot de passe ferment la session ; avant, on dit combien d'essais restent",
     V.MAX_ERREURS_VERROU === 5 && V.apresErreur(0).restantes === 4 && V.apresErreur(0).fermer === false && V.apresErreur(3).restantes === 1 && V.apresErreur(4).fermer === true && V.apresErreur(4).restantes === 0);

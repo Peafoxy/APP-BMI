@@ -131,8 +131,11 @@ lit mal est pire qu'un banc absent).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
-- **🔒 Verrou d'inactivité** (09/09/2026) : après **3 min sans geste sur
-  PC, 6 sur téléphone**, une fenêtre couvre l'écran et demande le mot de
+- **🔒 Verrou d'inactivité** (09/09/2026) : après **10 min sans geste, PC
+  comme téléphone** (11/09/2026 : « augmenter le temps de verrouillage de 3 à
+  10 min » — c'était 3 sur PC et 6 sur téléphone ; le téléphone était
+  volontairement PLUS tolérant, le laisser à 6 l'aurait rendu plus strict),
+  une fenêtre couvre l'écran et demande le mot de
   passe du compte (vérifié sur l'appareil, fiche actuelle) ; 5 erreurs ferment la
   session ; le verrou survit au F5 (la session rouvre verrouillée, jamais
   déverrouillée seule). **À 30 min sans geste, verrouillée ou non, la

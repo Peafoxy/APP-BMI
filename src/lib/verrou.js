@@ -2,24 +2,29 @@
 // lib/verrou.js — LE VERROU D'INACTIVITÉ (demande Timo, 09/09/2026)
 //
 // « Au lieu de déconnecter un compte après un temps d'inactivité, garder
-// la session ouverte mais, après 3 minutes, activer une fenêtre demandant
+// la session ouverte mais, après 10 minutes (3 à l'origine), activer une fenêtre demandant
 // d'entrer le mot de passe et flouter l'arrière — évitant de voir
 // l'activité de l'utilisateur par d'autres personnes. Dès que le mot de
 // passe est entré et correspond à la session en cours, l'application est
-// recouverte pour l'utilisateur. » — « Sur téléphone, 6 minutes. »
+// recouverte pour l'utilisateur. » — « Sur téléphone, 6 minutes. » Puis, le
+// 11/09/2026 : « augmenter le temps de verrouillage de 3 à 10 min ».
 //
 // Règles PURES (le banc les exerce) : le délai selon l'appareil, la
 // décision de verrouiller, le nombre d'erreurs tolérées. L'écran est dans
 // components/EcranVerrou.jsx, le branchement dans App.jsx.
 // ============================================================
 
-export const DELAI_VERROU_PC_MS = 3 * 60 * 1000;
-export const DELAI_VERROU_TELEPHONE_MS = 6 * 60 * 1000;
+// ⚠ Timo (11/09/2026) : « augmenter le temps de verrouillage de 3 à 10 min ».
+// Le téléphone suit : il était volontairement PLUS TOLÉRANT que le PC (6 contre
+// 3) — le laisser à 6 l'aurait rendu plus strict, ce qui n'a pas de sens. Les
+// deux passent donc à 10 minutes. La fermeture de session reste à 30 min.
+export const DELAI_VERROU_PC_MS = 10 * 60 * 1000;
+export const DELAI_VERROU_TELEPHONE_MS = 10 * 60 * 1000;
 // Au-delà, la session est fermée pour de bon (la personne se reconnecte).
 export const MAX_ERREURS_VERROU = 5;
 // ⚠ Timo (09/09/2026) : « toujours garder la déconnexion de 30 min
 // d'inactivité — ne pas laisser indéfiniment la session verrouillée ». Le
-// verrou vient à 3 / 6 min ; à 30 min sans geste, verrouillée ou non, la
+// verrou vient à 10 min ; à 30 min sans geste, verrouillée ou non, la
 // session se ferme (PC et téléphone).
 export const DELAI_DECONNEXION_MS = 30 * 60 * 1000;
 export const doitDeconnecter = (derniereActivite, maintenant) =>
