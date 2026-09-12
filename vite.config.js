@@ -43,7 +43,10 @@ export default defineConfig({
       // fermeture COMPLÈTE de l'application — ce que personne ne fait jamais sur
       // téléphone. D'où des appareils bloqués des semaines sur une vieille version.
       registerType: "prompt",
-      includeAssets: ["pwa-192.png", "pwa-512.png"],
+      // 12/09/2026 (Timo, « rien n'a changé ») : Android garde l'icône prise à
+      // l'installation tant que le manifeste ne change pas. Une nouvelle icône
+      // se livre sous un NOUVEAU NOM (-v3, -v4…), jamais en écrasant l'ancien.
+      includeAssets: ["icone-bmi-192-v2.png", "icone-bmi-512-v2.png"],
       manifest: {
         name: "BMI-Gestion Système",
         short_name: "BMI Gestion",
@@ -54,8 +57,8 @@ export default defineConfig({
         theme_color: "#0f172a",
         background_color: "#f1f5f9",
         icons: [
-          { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/pwa-512.png", sizes: "512x512", type: "image/png" }
+          { src: "/icone-bmi-192-v2.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icone-bmi-512-v2.png", sizes: "512x512", type: "image/png", purpose: "any" }
         ]
       },
       workbox: {

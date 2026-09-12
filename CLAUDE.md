@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1199 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1200 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -802,11 +802,14 @@ lit mal est pire qu'un banc absent).
   Aujourd'hui par défaut » — c'était « Ce mois »).
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
-- **Les icônes `public/pwa-192.png` / `pwa-512.png` ont un fond TRANSPARENT**
+- **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**
   (capture Timo, 12/09/2026 : « le logo de lancement est toujours dans un
   carré blanc… il devrait être sans fond ») : Android pose l'icône du
   manifeste telle quelle sur `background_color`. Une nouvelle icône se
-  livre en RGBA, blanc retiré ; le banc lit l'en-tête PNG et le premier pixel.
+  livre en RGBA, blanc retiré, **et sous un NOUVEAU NOM** (-v3, -v4…) : le
+  téléphone garde l'image prise à l'installation tant que le manifeste ne
+  change pas (12/09/2026, « rien n'a changé » après la première correction).
+  Le banc lit l'en-tête PNG, le premier pixel, et le nom cité par le manifeste.
 
 ---
 

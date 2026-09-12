@@ -6171,7 +6171,10 @@ titre("Les icônes de l'application ont un fond transparent (écran de lancement
   // manifeste telle quelle sur background_color : une icône RGB (sans
   // transparence) y laisse son carré blanc. On lit l'en-tête PNG (type de
   // couleur 6 = RGBA) et le premier pixel (alpha 0), mesuré, pas présumé.
-  for (const f of ["public/pwa-192.png", "public/pwa-512.png"]) {
+  // 12/09/2026, « rien n'a changé » : le téléphone gardait l'ancienne image, même nom → renommées -v2 ; le manifeste doit les citer.
+  const vc = readFileSync("vite.config.js", "utf8");
+  test("★ le manifeste cite les icônes sous leur NOUVEAU nom (-v2) et plus les anciennes", /icone-bmi-192-v2\.png/.test(vc) && /icone-bmi-512-v2\.png/.test(vc) && !/pwa-192\.png|pwa-512\.png/.test(vc) && !existsSync("public/pwa-512.png"));
+  for (const f of ["public/icone-bmi-192-v2.png", "public/icone-bmi-512-v2.png"]) {
     const b = readFileSync(f);
     const typeCouleur = b[25];
     const png = execSync(`node -e "const z=require('zlib'),b=require('fs').readFileSync('${f}');let i=8,idat=[];while(i<b.length){const l=b.readUInt32BE(i),t=b.toString('ascii',i+4,i+8);if(t==='IDAT')idat.push(b.subarray(i+8,i+8+l));i+=12+l;}const d=z.inflateSync(Buffer.concat(idat));process.stdout.write(String(d[4]))"`, { encoding: "utf8" });
