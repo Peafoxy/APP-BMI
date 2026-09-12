@@ -875,6 +875,7 @@ s'est arrêté, mot pour mot.
 | Inventaire des verrous (cases cochées par Timo) | Référence | `docs/inventaire-verrous-employes-2026-09.md` |
 | Audit complet du 29/08 (22 279 lignes lues) | Référence | `docs/audit-complet-2026-08.md` |
 | L'ancien CLAUDE.md complet (659 lignes), tel qu'il était avant le rangement du 06/09 — pour retrouver un détail condensé ici | Référence | `docs/CLAUDE-avant-rangement-2026-09-05.md` |
+| **Répétition générale en formation** (44 lignes à cocher, deux téléphones, tiroir et dette sur montants ronds ; écrite le 12/09/2026 à la demande de Timo, PDF remis) : à rejouer avant un GO définitif, puis après tout gros chantier | À faire par Timo | `docs/scenario-test-formation.html` |
 | Cloisonnement **par boutique** (au-delà de l'espace) | Reporté | — |
 
 Quand un chantier avance, on met à jour SON fichier dans `docs/`, et ce

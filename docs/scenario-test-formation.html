@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<title>BMI-Gestion — Répétition générale en formation</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #111; line-height: 1.35; }
+  h1 { font-size: 18pt; margin: 0 0 2mm; color: #1e3a8a; }
+  h2 { font-size: 13pt; margin: 7mm 0 2mm; padding: 1.5mm 3mm; background: #e2e8f0; border-left: 4px solid #1e3a8a; page-break-after: avoid; }
+  p { margin: 1.5mm 0; }
+  .sous { color: #475569; font-size: 9.5pt; }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 3mm; page-break-inside: auto; }
+  th, td { border: 1px solid #cbd5e1; padding: 1.6mm 2mm; vertical-align: top; text-align: left; }
+  th { background: #f1f5f9; font-size: 9.5pt; }
+  tr { page-break-inside: avoid; }
+  td.n { width: 7mm; text-align: center; font-weight: bold; color: #1e3a8a; }
+  td.qui { width: 26mm; font-weight: bold; }
+  td.voir { background: #f8fafc; }
+  td.ok { width: 9mm; text-align: center; font-size: 14pt; }
+  .boite { border: 1px solid #94a3b8; background: #f8fafc; padding: 2.5mm 3.5mm; margin: 2mm 0; }
+  .chiffres { border: 1px solid #1e3a8a; background: #eff6ff; padding: 2.5mm 3.5mm; margin: 2mm 0; }
+  .chiffres b { color: #1e3a8a; }
+  .attention { border-left: 4px solid #b45309; background: #fffbeb; padding: 2mm 3mm; margin: 2mm 0; }
+  ul { margin: 1mm 0 1mm 5mm; padding: 0; } li { margin: 0.6mm 0; }
+  .pied { margin-top: 6mm; font-size: 9pt; color: #64748b; }
+  .signature { margin-top: 8mm; display: flex; gap: 8mm; }
+  .signature div { flex: 1; border: 1px solid #94a3b8; height: 22mm; padding: 2mm; font-size: 9pt; color: #475569; }
+</style></head><body>
+
+<h1>BMI-Gestion — Répétition générale dans l'espace formation</h1>
+<p class="sous">Version de l'application : 2.101.175 ou plus récente · Une heure environ · Rien ne touche au réel, tout s'efface à la fin.</p>
+
+<div class="boite">
+<b>À quoi ça sert.</b> Les contrôles automatiques vérifient chaque règle une par une, sur un ordinateur. Cette liste vérifie ce que <b>vous</b> vivez sur deux téléphones, avec le réseau qui coupe : la vie d'une affaire du premier contact jusqu'à la commission, plus la caisse, le stock, la synchronisation et le verrou. À chaque ligne : ce que vous faites, ce que l'écran doit montrer, une case à cocher. Si ce que vous voyez n'est pas ce qui est écrit, <b>ne corrigez rien</b> : prenez une capture, notez le numéro de la ligne, et continuez si c'est possible.
+</div>
+
+<div class="chiffres">
+<b>Les chiffres du scénario</b> (choisis pour se vérifier de tête) :<br>
+Boutique de formation : <b>1 boutique de vente</b> (nommée ici « BOUTIQUE F »). Stock au départ : <b>Panneau 400 W</b> ×10 à <b>100 000 F</b> · <b>Batterie 200 Ah</b> ×5 à <b>200 000 F</b> · <b>Onduleur 3 kVA</b> ×3 à <b>300 000 F</b>.<br>
+Le devis : 2 panneaux + 1 batterie + 1 onduleur = <b>700 000 F</b>, frais d'installation <b>50 000 F</b>, total <b>750 000 F</b>. Vente à crédit, avance <b>300 000 F</b> en espèces, dette <b>450 000 F</b>. Échéance de <b>150 000 F</b>, puis solde de <b>300 000 F</b>.<br>
+Dépense de <b>8 000 F</b> en espèces (au-dessus du seuil de 5 000 F : validation du DG obligatoire). Versement chez le DG de <b>442 000 F</b>.
+</div>
+
+<h2>0. Avant de commencer (5 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">0.1</td><td class="qui">Timo, PC ou tél. 1</td><td>Connectez-vous avec votre compte principal. Dans <b>⚙ Paramètres</b>, « 👁 Je regarde » → <b>formation</b>.</td><td class="voir">La page se recharge. Tout l'habillage devient <b>violet</b>. Le bandeau dit que vous regardez la formation.</td><td class="ok">☐</td></tr>
+<tr><td class="n">0.2</td><td class="qui">Timo</td><td>Dans <b>⚙ Paramètres</b>, utilisez le bouton qui efface les ventes, dettes et chantiers de formation, pour partir d'une caisse à zéro.</td><td class="voir">La confirmation rappelle que les vraies données ne sont jamais touchées. Après, <b>💰 Ventes</b> en formation est vide.</td><td class="ok">☐</td></tr>
+<tr><td class="n">0.3</td><td class="qui">Timo</td><td>Dans <b>📦 Stocks</b>, boutique F : mettez les trois articles aux quantités et prix du cadre bleu (créez-les s'ils manquent).</td><td class="voir">Panneau 10, Batterie 5, Onduleur 3, avec leurs prix de vente.</td><td class="ok">☐</td></tr>
+<tr><td class="n">0.4</td><td class="qui">Timo</td><td>Dans <b>👥 Utilisateurs</b>, vérifiez qu'il existe un compte <b>vendeur de formation</b> rattaché à la boutique F, et un compte <b>commercial de formation</b> avec un taux de commission (par exemple 5 %). Créez-les au besoin : ils naissent en formation puisque vous la regardez.</td><td class="voir">Les deux comptes portent la pastille « 🎓 Formation ». Le vendeur a la boutique F.</td><td class="ok">☐</td></tr>
+<tr><td class="n">0.5</td><td class="qui">Vendeur, tél. 2</td><td>Sur le second téléphone, connectez le vendeur de formation.</td><td class="voir">Habillage violet, ses onglets seulement (pas de 🔁 Transfert, pas de ⚙ Paramètres).</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>1. Le client, le devis, le contrat (15 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">1.1</td><td class="qui">Vendeur, tél. 2</td><td><b>🙋 Créer un client</b> : nom « TEST REPETITION », un vrai numéro WhatsApp que vous avez sous la main (le vôtre convient).</td><td class="voir">Le compte est créé, l'identifiant et le mot de passe s'affichent, le bouton WhatsApp ouvre le message avec les identifiants.</td><td class="ok">☐</td></tr>
+<tr><td class="n">1.2</td><td class="qui">Vendeur</td><td><b>☀️ Dimensionnement</b>, volet solaire : ajoutez trois appareils (TV, réfrigérateur, quelques lampes), choisissez le client, puis remplacez la sélection automatique par : 2 panneaux, 1 batterie, 1 onduleur, frais d'installation 50 000 F, aucune remise. Commercial : le commercial de formation.</td><td class="voir">Total du projet <b>750 000 F</b>. Le PDF tient sur une page : besoin, équipement, total, mentions, deux cadres de signature (« Pour BMI Togo » avec le cachet, « Bon pour accord »).</td><td class="ok">☐</td></tr>
+<tr><td class="n">1.3</td><td class="qui">Vendeur</td><td>« 📲 Envoyer par WhatsApp ».</td><td class="voir">WhatsApp s'ouvre sur le numéro du client avec le devis. Dans <b>📋 Tous les devis</b>, le devis est <b>⏳ Proposé</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">1.4</td><td class="qui">Vendeur</td><td>Sur ce devis proposé, « Modifier et renvoyer » : changez une seule chose (l'autonomie, ou le libellé d'un appareil), renvoyez.</td><td class="voir">Le devis est <b>remplacé</b> (pas un doublon chez le client) et porte le badge de modification.</td><td class="ok">☐</td></tr>
+<tr><td class="n">1.5</td><td class="qui">Client (tél. 2 ou onglet à part)</td><td>Connectez le client avec ses identifiants. Dans <b>🏠 Mon espace</b>, ouvrez le devis, « ✍️ Signer et valider » : choisissez la <b>boutique F</b> comme boutique de paiement, signez.</td><td class="voir">Le devis passe <b>✅ Validé</b>. Un numéro de contrat apparaît. Le plan de règlement se choisit ici, à la signature.</td><td class="ok">☐</td></tr>
+<tr><td class="n">1.6</td><td class="qui">Timo, tél. 1</td><td>Dans <b>📋 Tous les devis</b> (ou <b>📄 Contrats</b>), retrouvez le contrat signé.</td><td class="voir">Même numéro de contrat, signature du client visible, statut Validé, <b>rien n'est sorti du stock</b> (Panneau toujours 10).</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>2. L'encaissement à crédit (10 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">2.1</td><td class="qui">Vendeur, tél. 2</td><td><b>💰 Ventes</b>, boutique F : le devis validé est proposé à l'encaissement. « 💳 Encaisser la vente », paiement <b>Crédit</b>, avance <b>300 000 F</b> en espèces. Confirmez.</td><td class="voir">Reçu N° 1 de la boutique F, total <b>750 000 F</b>. Dans <b>🧾 Dettes</b> : dette de <b>450 000 F</b> pour TEST REPETITION. Dans <b>📦 Stocks</b> : Panneau <b>8</b>, Batterie <b>4</b>, Onduleur <b>2</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">2.2</td><td class="qui">Vendeur</td><td>Dans la liste des ventes, cliquez la ligne.</td><td class="voir">La ligne se colore fort, les quatre lignes d'articles apparaissent (les deux visibles + « + 2 autres » avant le clic). Un second clic la replie.</td><td class="ok">☐</td></tr>
+<tr><td class="n">2.3</td><td class="qui">Vendeur</td><td>Bouton WhatsApp (logo vert) sur la ligne de la vente.</td><td class="voir">WhatsApp s'ouvre avec le reçu.</td><td class="ok">☐</td></tr>
+<tr><td class="n">2.4</td><td class="qui">Vendeur</td><td><b>🧾 Dettes</b>, dette du client, « + Paiement » : <b>150 000 F</b> en espèces.</td><td class="voir">Reste dû <b>300 000 F</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">2.5</td><td class="qui">Timo, tél. 1</td><td><b>🏠 Clients installés</b> : le chantier de TEST REPETITION existe. <b>🎯 Commerciaux</b> : ligne du commercial de formation.</td><td class="voir">Le chantier est créé par l'encaissement. <b>Aucune commission due</b> pour l'instant (ni réception, ni dette soldée).</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>3. La dépense, le versement, la clôture (15 min)</h2>
+<div class="attention">Cette partie vérifie le tiroir. Faites-la sans autre vente entre-temps, sinon les montants changent.</div>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">3.1</td><td class="qui">Vendeur, tél. 2</td><td><b>📤 Dépenses</b> : « Carburant test », <b>8 000 F</b>, <b>Espèces</b>, payé avec <b>la caisse de la boutique</b>. « Enregistrer la dépense ».</td><td class="voir">La ligne porte <b>⏳ en attente de validation</b>. Le « Ce mois » ne la compte pas encore.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.2</td><td class="qui">Vendeur</td><td><b>🔒 Caisse</b>, boutique F : essayez « Clôturer la caisse ».</td><td class="voir">Message rouge : clôture impossible tant que la dépense de 8 000 F attend le DG. Le bouton est grisé.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.3</td><td class="qui">Timo, tél. 1</td><td><b>📤 Dépenses</b>, encadré « ⏳ Dépenses à valider par le DG », boutique F : « ✅ Valider » la dépense de 8 000 F.</td><td class="voir">La dépense devient validée. Sur le tél. 2, dans la minute, le blocage de la clôture disparaît.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.4</td><td class="qui">Timo</td><td><b>🔒 Caisse</b>, boutique F : lisez « Fonds à verser ».</td><td class="voir">300 000 + 150 000 − 8 000 = <b>442 000 F</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.5</td><td class="qui">Timo (ou un gérant de formation)</td><td>« 💸 Verser les fonds », destination <b>Chez le DG</b> (proposée d'office), montant <b>442 000 F</b>.</td><td class="voir">Pas de note demandée (montant égal). En haut de 🔒 Caisse, le bloc du DG montre ce versement <b>en attente</b>, montant en gras.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.6</td><td class="qui">Timo</td><td>Dans ce bloc, « ✖ Rejeter », motif « test de rejet ».</td><td class="voir">Le versement passe rejeté et son montant tombe à <b>0 F</b> : les fonds à verser reviennent à <b>442 000 F</b>. Le vendeur reçoit un message dans <b>💬 Messages</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.7</td><td class="qui">Timo</td><td>Refaites « 💸 Verser les fonds », 442 000 F, puis « ✅ Valider » dans le bloc du DG.</td><td class="voir">Fonds à verser <b>0 F</b>. Dans <b>📊 Tableau de bord</b>, pastille « 👤 DG », période « Aujourd'hui » : entrée de <b>442 000 F</b>, le versement rejeté n'y figure pas.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.8</td><td class="qui">Vendeur, tél. 2</td><td><b>🔒 Caisse</b>, clôture du jour : lisez les quatre lignes, puis saisissez « Montant du tiroir » = <b>0</b>.</td><td class="voir">Fonds d'hier soir 0 + recette 450 000 − sorties 450 000 (8 000 + 442 000) = attendu <b>0 F</b>. Écart <b>0</b>. « Recette du jour par vendeur » cite le vendeur pour 750 000 F de ventes et 450 000 F d'espèces. « Clôturer la caisse » passe.</td><td class="ok">☐</td></tr>
+<tr><td class="n">3.9</td><td class="qui">Timo, tél. 1</td><td><b>📊 Tableau de bord</b>, boutique F, « Aujourd'hui ».</td><td class="voir">Ventes 750 000, Dépenses <b>8 000</b> (le versement n'est pas une dépense), Dettes en cours 300 000.</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>4. Le chantier, la réception, la commission (10 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">4.1</td><td class="qui">Timo, tél. 1</td><td><b>🏠 Clients installés</b>, chantier de TEST REPETITION : « 📅 Programmer l'installation », date d'aujourd'hui, équipe = le commercial de formation, désigné chef ⭐.</td><td class="voir">Le chantier est programmé, l'équipe apparaît avec son chef.</td><td class="ok">☐</td></tr>
+<tr><td class="n">4.2</td><td class="qui">Timo</td><td>« 🏁 Marquer terminé ».</td><td class="voir">Le chantier passe terminé, en attente de réception.</td><td class="ok">☐</td></tr>
+<tr><td class="n">4.3</td><td class="qui">Client (tél. 2)</td><td>Dans <b>🏠 Mon espace</b> : « 📄 Lire et signer le PV directement ici », signez.</td><td class="voir">Le PV porte un numéro, le chantier est <b>réceptionné</b>. Sur le tél. 1, « 📄 Voir le PV » l'affiche.</td><td class="ok">☐</td></tr>
+<tr><td class="n">4.4</td><td class="qui">Timo</td><td><b>🎯 Commerciaux</b>.</td><td class="voir"><b>Toujours aucune commission due</b> : travaux reçus, mais dette de 300 000 F non soldée.</td><td class="ok">☐</td></tr>
+<tr><td class="n">4.5</td><td class="qui">Vendeur, tél. 2</td><td><b>🧾 Dettes</b>, « + Paiement » : <b>300 000 F</b> en espèces.</td><td class="voir">Dette soldée. Dans <b>🔒 Caisse</b>, un <b>bandeau orange</b> signale que la journée clôturée a bougé après coup (+ 300 000 F dans le tiroir).</td><td class="ok">☐</td></tr>
+<tr><td class="n">4.6</td><td class="qui">Timo, tél. 1</td><td><b>🎯 Commerciaux</b>.</td><td class="voir">La commission du commercial <b>apparaît maintenant</b>, calculée avec son taux sur la vente. Notez le montant : ____________ F.</td><td class="ok">☐</td></tr>
+<tr><td class="n">4.7</td><td class="qui">Vendeur, tél. 2</td><td><b>🔒 Caisse</b> : rouvrez la journée signalée en orange, « Montant du tiroir » = <b>300 000</b>, reclôturez.</td><td class="voir">Écart 0. La nouvelle clôture remplace l'ancienne, l'ancienne reste consultable.</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>5. Reprise d'un article et retour sous garantie (5 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">5.1</td><td class="qui">Vendeur, tél. 2</td><td><b>💰 Ventes</b> : vente simple, <b>1 panneau</b>, <b>100 000 F</b>, espèces, client non renseigné.</td><td class="voir">Reçu N° 2. Panneau <b>7</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">5.2</td><td class="qui">Timo, tél. 1</td><td>Sur cette vente, bouton « ↩ Reprise » (réservé à vous) : 1 panneau, motif « test », remboursement en espèces.</td><td class="voir">La vente reste telle quelle (reçu, total). La ligne montre « ↩ 1 repris ». Panneau <b>8</b>. Dans <b>📤 Dépenses</b>, une ligne « Remboursement client » de 100 000 F, qui n'est <b>pas</b> une charge dans le tableau de bord.</td><td class="ok">☐</td></tr>
+<tr><td class="n">5.3</td><td class="qui">Vendeur</td><td>Vente simple, <b>1 batterie</b>, 200 000 F, espèces.</td><td class="voir">Reçu N° 3. Batterie <b>3</b>.</td><td class="ok">☐</td></tr>
+<tr><td class="n">5.4</td><td class="qui">Timo</td><td>Sur cette vente, « 🔁 Retour » (échange sous garantie), sans frais.</td><td class="voir">Batterie normale <b>2</b>, batterie <b>SAV</b> +1. Aucune nouvelle vente, le chiffre d'affaires ne bouge pas.</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>6. Deux appareils, puis sans réseau (10 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">6.1</td><td class="qui">Vendeur, tél. 2</td><td>Vente simple, 1 panneau, espèces.</td><td class="voir">Sur le <b>tél. 1</b>, sans rien toucher, la vente apparaît dans <b>💰 Ventes</b> en moins d'une minute, Panneau 7 dans 📦 Stocks.</td><td class="ok">☐</td></tr>
+<tr><td class="n">6.2</td><td class="qui">Vendeur, tél. 2</td><td>Coupez données mobiles et Wi-Fi (mode avion). Faites une vente : 1 onduleur, 300 000 F, espèces. Imprimez ou ouvrez le reçu.</td><td class="voir">La vente s'enregistre normalement, avec son numéro de reçu. Un indicateur dit que l'appareil est hors ligne, rien ne bloque.</td><td class="ok">☐</td></tr>
+<tr><td class="n">6.3</td><td class="qui">Timo, tél. 1</td><td>Pendant que le tél. 2 est coupé : vente simple, 1 panneau, espèces.</td><td class="voir">Enregistrée sur le tél. 1 avec son numéro de reçu.</td><td class="ok">☐</td></tr>
+<tr><td class="n">6.4</td><td class="qui">Vendeur, tél. 2</td><td>Remettez le réseau. Attendez une minute, sans toucher.</td><td class="voir">La vente de l'onduleur part toute seule. Sur les <b>deux</b> téléphones, les deux ventes existent, <b>une seule fois chacune</b>, avec deux numéros de reçu <b>différents</b> (si l'un a été renuméroté, la ligne le dit avec l'ancien numéro). Onduleur <b>1</b>, Panneau <b>6</b> partout.</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>7. Le verrou (30 min, pendant lesquelles vous ne faites rien)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">7.1</td><td class="qui">Tél. 2</td><td>Laissez l'application ouverte sans la toucher 10 minutes.</td><td class="voir">La fenêtre « Session verrouillée » couvre l'écran, avec le bouton « Se déconnecter » rempli en rouge pâle.</td><td class="ok">☐</td></tr>
+<tr><td class="n">7.2</td><td class="qui">Tél. 2</td><td>Tapez un mauvais mot de passe, puis le bon.</td><td class="voir">Le mauvais est refusé avec le nombre d'essais restants ; le bon rouvre l'écran là où il était.</td><td class="ok">☐</td></tr>
+<tr><td class="n">7.3</td><td class="qui">Tél. 2</td><td>Ne touchez plus rien pendant 30 minutes.</td><td class="voir">À 10 min le verrou revient ; à 30 min la session se ferme : la page d'accueil de connexion, message « Session expirée : 30 minutes sans activité ». Le mot de passe ne rouvre pas l'ancienne session, il en ouvre une nouvelle.</td><td class="ok">☐</td></tr>
+</table>
+
+<h2>8. Nettoyage (2 min)</h2>
+<table>
+<tr><th>N°</th><th>Qui / où</th><th>Ce que vous faites</th><th>Ce que vous devez voir</th><th>✓</th></tr>
+<tr><td class="n">8.1</td><td class="qui">Timo, tél. 1</td><td><b>⚙ Paramètres</b>, effacez les ventes, dettes et chantiers de formation. Puis « 👁 Je regarde » → <b>réel</b>.</td><td class="voir">L'habillage redevient <b>bleu</b>. Vos chiffres réels sont exactement ceux d'avant la répétition.</td><td class="ok">☐</td></tr>
+</table>
+
+<div class="boite">
+<b>Résultat.</b> Lignes cochées : ______ / 44. Lignes avec un écart (numéros) : ______________________________________. Pour chaque écart, une capture d'écran avec le numéro de la ligne suffit : un défaut trouvé ici est un défaut que les vendeuses auraient trouvé en réel. Une liste entièrement cochée transforme le « GO sous conditions » en un GO fondé sur des faits.
+</div>
+
+<div class="signature">
+<div>Répétition faite le : ______________<br>Par (tél. 1) : ______________</div>
+<div>Vendeur (tél. 2) : ______________<br>Version affichée dans ⚙ Paramètres : ______________</div>
+</div>
+
+<p class="pied">BMI-Gestion · docs/scenario-test-formation.html · 12/09/2026</p>
+</body></html>
