@@ -5488,6 +5488,41 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
       && /securite-15-validation-depenses\.sql/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8")); })());
 }
 
+titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace (Timo, 12/09/2026)");
+{
+  // « Ramener l'onglet caisse juste après vente, librement, dans son espace à
+  // lui seul » ; « pas de ligne "ordre des onglets"… appui long et on déplace,
+  // tout court ». Le rôle décide QUELS onglets, la personne décide de l'ORDRE.
+  // Le geste lui-même est mesuré dans un vrai navigateur par
+  // scripts/verifier-onglets-deplacables.mjs ; ici, la règle pure et les écrans.
+  const sortieOo = join("node_modules", ".cache", `bmi-ordre-onglets-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/ordreOnglets.js"], bundle: true, format: "esm", platform: "node", outfile: sortieOo, logLevel: "silent" });
+  const Oo = await import(pathToFileURL(sortieOo).href);
+  unlinkSync(sortieOo);
+  const role = [["ventes", "V"], ["commandes", "C"], ["depenses", "D"], ["caisse", "K"]];
+  test("★ appliquerOrdre range ce que le rôle donne : « caisse » juste après « ventes » ; un id inconnu est ignoré ; un onglet non cité va à la fin dans l'ordre du rôle ; sans ordre, l'ordre du rôle ; un doublon ne dédouble rien",
+    Oo.appliquerOrdre(role, ["ventes", "caisse"]).map((t) => t[0]).join(",") === "ventes,caisse,commandes,depenses"
+    && Oo.appliquerOrdre(role, ["parametres", "caisse", "ventes", "caisse"]).map((t) => t[0]).join(",") === "caisse,ventes,commandes,depenses"
+    && Oo.appliquerOrdre(role, null) === role && Oo.appliquerOrdre(role, []).length === 4 && Oo.appliquerOrdre(undefined, ["x"]).length === 0);
+  test("★ deplacer / indexDepose / ordreApres / resteImmobile : la mécanique du geste, pure",
+    Oo.deplacer(["a", "b", "c", "d"], 3, 1).join("") === "adbc" && Oo.deplacer(["a", "b"], 5, 0).join("") === "ab" && Oo.deplacer(["a", "b", "c"], 0, 99).join("") === "bca"
+    && Oo.indexDepose(10, [20, 40, 60]) === 0 && Oo.indexDepose(50, [20, 40, 60]) === 2 && Oo.indexDepose(99, [20, 40, 60]) === 3 && Oo.indexDepose(5, []) === 0
+    && Oo.ordreApres(["a", "b"], ["a", "b"]) === null && Oo.ordreApres(["b", "a"], ["a", "b"]).join("") === "ba" && Oo.ordreApres(["a"], undefined).join("") === "a"
+    && Oo.resteImmobile(3, 4) === true && Oo.resteImmobile(6, 6) === false && Oo.DELAI_APPUI_LONG_MS === 500 && Oo.SEUIL_MOUVEMENT_PX === 8);
+  const appOo = readFileSync("src/App.jsx", "utf8");
+  test("★ App.jsx : les deux barres (ordinateur, téléphone) passent par OngletsDeplacables ; l'ordre vient de la fiche (ordre_onglets) APRÈS le filtre des pouvoirs ; l'écriture ne part que si l'ordre change (ordreApres), dans la fiche de la personne seule, sans ligne de réglage",
+    (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
+    && /const tabsAutorises = appliquerOrdre\(tabsPlus2\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
+    && /const ordre = ordreApres\(ids, maFiche\?\.ordre_onglets\);\n\s*if \(!ordre \|\| !maFiche\) return;\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, ordre_onglets: ordre \} : u\)\) \}\);/.test(appOo)
+    && !/Ordre de mes onglets|ordre des onglets/i.test(appOo) && !/tabsAutorises\.map\(\(\[id, label\]\)/.test(appOo));
+  const cmp = readFileSync("src/components/OngletsDeplacables.jsx", "utf8");
+  test("★ le composant : appui long minuté (DELAI_APPUI_LONG_MS), annulé dès que le doigt bouge (resteImmobile), touchmove avalé en NON passif pendant le déplacement seulement, capture du pointeur, le clic qui suit un déplacement est avalé, pas de menu contextuel",
+    /setTimeout\(\(\) => \{[^]*?\}, DELAI_APPUI_LONG_MS\);/.test(cmp) && /if \(!resteImmobile\(e\.clientX - d\.x, e\.clientY - d\.y\)\) \{ annulerMinuteur\(\); depart\.current = null; \}/.test(cmp)
+    && /el\.addEventListener\("touchmove", avaler, \{ passive: false \}\);/.test(cmp) && /if \(depart\.current\?\.actif\) e\.preventDefault\(\);/.test(cmp)
+    && /setPointerCapture\(depart\.current\.pointerId\)/.test(cmp) && /if \(aDeplace\.current\) \{ aDeplace\.current = false; return; \}/.test(cmp) && /onContextMenu=\{\(e\) => e\.preventDefault\(\)\}/.test(cmp)
+    && /"verifier-onglets-deplacables": "node scripts\/verifier-onglets-deplacables\.mjs"/.test(readFileSync("package.json", "utf8")));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

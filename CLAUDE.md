@@ -51,12 +51,13 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1173 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1177 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
+npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
@@ -211,6 +212,31 @@ lit mal est pire qu'un banc absent).
   changent — upsert relu). Le rabais du commercial n'est pas une remise
   (pris sur sa commission, plafonné à elle).
 - Le comptable est en lecture seule, sauf SON geste : pointer un décaissement.
+
+### L'ordre des onglets (12/09/2026)
+- « Un système de déplacement des onglets par la préférence de chaque
+  utilisateur… ramener l'onglet caisse juste après vente, librement, dans son
+  espace à lui seul » — et sur le geste : **« pas de ligne "ordre des
+  onglets"… appui long et on déplace, tout court »**. Pas de fenêtre, pas de
+  flèches, pas de réglage : on tient l'onglet un demi-seconde sans bouger
+  (il vibre et se soulève), on le glisse, on relâche. Un doigt qui part tout
+  de suite fait défiler comme avant ; un clic reste un clic.
+- **Le rôle décide QUELS onglets, la personne décide de l'ORDRE** : règle
+  pure `lib/ordreOnglets.js` (`appliquerOrdre` : un id inconnu est ignoré,
+  un onglet non cité va à la fin dans l'ordre du rôle), appliquée APRÈS le
+  filtre des pouvoirs. L'ordre vit dans **la fiche de la personne**
+  (`ordre_onglets`, comme ses brouillons de devis) : il suit ses appareils
+  et ne change rien pour les autres ; rien à coller dans Supabase (la fiche
+  accepte déjà un champ personnel). L'écriture ne part que si l'ordre change
+  (`ordreApres`), sans ligne de journal.
+- Composant unique `components/OngletsDeplacables.jsx` pour la barre
+  latérale (verticale) et la barre du téléphone (horizontale). Pièges
+  réglés : le `touchmove` est avalé en écouteur NON passif pendant le
+  déplacement seulement (React pose les siens passifs, le doigt ferait
+  défiler la page) ; le clic qui suit un déplacement est avalé ; pas de menu
+  contextuel sur l'appui long. **Le geste est MESURÉ dans un vrai
+  navigateur** (`verifier-onglets-deplacables`, Chromium : souris ET doigt,
+  l'exemple exact de Timo — Caisse juste après Ventes).
 
 ### Boutique de travail
 - « **NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE SÉRIE D'ACTUALISATIONS.** » La

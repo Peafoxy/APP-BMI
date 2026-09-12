@@ -16,6 +16,7 @@
     "verifier-ecran": "vite build && node scripts/verifier-ecran.cjs",
     "verifier-ecran-stocks": "node scripts/verifier-ecran-stocks.mjs",
     "verifier-ecran-ventes": "node scripts/verifier-ecran-ventes.mjs",
+    "verifier-onglets-deplacables": "node scripts/verifier-onglets-deplacables.mjs",
     "apercu-etiquette": "node scripts/apercu-etiquette.mjs",
     "tester-injection-sql": "bash scripts/tester-injection-sql.sh",
     "tester-reglement": "node scripts/tester-reglement.mjs",

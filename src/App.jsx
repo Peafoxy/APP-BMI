@@ -14,6 +14,10 @@ import { BoutiqueTabs } from "./components/SelecteurBoutique";
 import { SelecteurArticle } from "./components/SelecteurArticle";
 import { CarteChoixPosition } from "./components/Carte";
 import { RechercheGlobale } from "./components/RechercheGlobale";
+// Timo (12/09/2026) : « appui long et on déplace, tout court » — l'ordre des
+// onglets est personnel (fiche, `ordre_onglets`), règle pure lib/ordreOnglets.js.
+import { OngletsDeplacables } from "./components/OngletsDeplacables";
+import { appliquerOrdre, ordreApres } from "./lib/ordreOnglets";
 import { Dimensionnement, TYPES_PORTAIL } from "./screens/dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
 import { Prospects } from "./screens/Prospects";
@@ -986,13 +990,21 @@ export default function App() {
   // "Mes contrats" apparaît pour un client SEULEMENT le jour où il a
   // effectivement signé au moins un contrat — pas avant (demande Timo).
   // Même principe que "Ma commission" ci-dessus pour un apporteur.
-  const aUnContratSigne = isClient && (db.users.find((u) => u.id === profile.id)?.devis || []).some((d) => d.contrat_signature);
+  const maFiche = db.users.find((u) => u.id === profile.id);
+  const aUnContratSigne = isClient && (maFiche?.devis || []).some((d) => d.contrat_signature);
   const tabsPlus2 = aUnContratSigne && !tabsPlus.some(([id]) => id === "mes_contrats")
     ? [...tabsPlus, ["mes_contrats", "📄 Mes contrats"]]
     : tabsPlus;
 
   // Pouvoirs retirés par l'administrateur
-  const tabsAutorises = tabsPlus2.filter(([id]) => aDroit(db, profile, id));
+  // …puis l'ordre choisi par la personne (Timo, 12/09/2026) : le rôle décide
+  // QUELS onglets, chacun décide de leur ORDRE, pour lui seul.
+  const tabsAutorises = appliquerOrdre(tabsPlus2.filter(([id]) => aDroit(db, profile, id)), maFiche?.ordre_onglets);
+  const reordonnerOnglets = (ids) => {
+    const ordre = ordreApres(ids, maFiche?.ordre_onglets);
+    if (!ordre || !maFiche) return;
+    save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, ordre_onglets: ordre } : u)) });
+  };
   const ongletAutorise = tabsAutorises.some(([id]) => id === tab);
   const titreOnglet = (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
 
@@ -1370,14 +1382,9 @@ export default function App() {
             </div>
           </div>
         )}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {tabsAutorises.map(([id, label]) => (
-            <button key={id} data-tab-id={id} onClick={() => setTab(id)}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${tab === id ? "bg-sky-700/60 text-white shadow-inner" : "text-sky-100/70 hover:bg-white/10 hover:text-white"}`}>
-              {label}
-            </button>
-          ))}
-        </nav>
+        <OngletsDeplacables tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="vertical"
+          className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5"
+          classeBouton={(id, actif) => `w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${actif ? "bg-sky-700/60 text-white shadow-inner" : "text-sky-100/70 hover:bg-white/10 hover:text-white"}`} />
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
           <BadgeSync sombre />
           {profile.boutique && <div className="text-xs text-sky-100 flex items-center gap-2"><Badge boutique={profile.boutique} /></div>}
@@ -1434,12 +1441,9 @@ export default function App() {
             {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
             <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
-          <nav className="px-4 flex gap-1 overflow-x-auto">
-            {tabsAutorises.map(([id, label]) => (
-              <button key={id} data-tab-id={id} onClick={() => setTab(id)}
-                className={`px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${tab === id ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`}>{label}</button>
-            ))}
-          </nav>
+          <OngletsDeplacables tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal"
+            className="px-4 flex gap-1 overflow-x-auto"
+            classeBouton={(id, actif) => `px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${actif ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`} />
         </header>
 
         {/* ══ Barre supérieure (grand écran) ══ */}
