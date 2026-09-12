@@ -262,7 +262,7 @@ const ventes = [
 function Liste() {
   const [venteDepliee, setVenteDepliee] = useState(null);
   return <table><tbody>{ventes.map((v) => (
-    <tr key={v.id} data-vente={v.id} onClick={() => setVenteDepliee((d) => (d ? null : v.id))}>
+    <tr key={v.id} data-vente={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))}>
       <td><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
       <td onClick={(e) => e.stopPropagation()}><button data-bouton="wa"><IconeWhatsApp /></button></td>
     </tr>))}</tbody></table>;
@@ -287,12 +287,13 @@ createRoot(document.getElementById("r")).render(<Liste />);
   test("…et l'autre vente reste repliée", (await texte("b")) === "1× Lampe 3× Prise + 1 autre ▾");
   await page.click('[data-vente="b"] td:first-child');
   await new Promise((r) => setTimeout(r, 150));
-  test("★ un clic AILLEURS (une autre ligne) replie tout : retour à 2 lignes par défaut", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾" && (await texte("b")) === "1× Lampe 3× Prise + 1 autre ▾");
-  await page.click('[data-vente="a"] td:first-child');
+  // Timo (12/09/2026) : « un seul clic pour sélectionner une autre… je constate
+  // que c'est le second clic qui sélectionne » — un clic sur une AUTRE ligne
+  // la déplie tout de suite et replie la précédente.
+  test("★ UN clic sur une autre ligne la déplie directement et replie la précédente", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾" && (await texte("b")) === "1× Lampe 3× Prise 2× Interrupteur ▴ Replier");
+  await page.click('[data-vente="b"] td:first-child');
   await new Promise((r) => setTimeout(r, 150));
-  await page.click('[data-vente="a"] td:first-child');
-  await new Promise((r) => setTimeout(r, 150));
-  test("★ un second clic sur la MÊME ligne replie aussi", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
+  test("★ un second clic sur la MÊME ligne la replie : retour à 2 lignes par défaut", (await texte("b")) === "1× Lampe 3× Prise + 1 autre ▾" && (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
   await page.click('[data-vente="a"] [data-bouton="wa"]');
   await new Promise((r) => setTimeout(r, 150));
   test("★ cliquer un bouton d'action ne déplie pas la ligne", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");

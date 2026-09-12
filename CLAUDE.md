@@ -755,9 +755,11 @@ lit mal est pire qu'un banc absent).
   capture : « +1 autre ou +3 autres ne s'affiche pas… lorsqu'on clique sur la
   ligne, la suite apparaît, on clique encore, même ligne ou ailleurs, ça
   revient à 2 lignes par défaut ») : le survol (`title`) ne se voit pas
-  partout, donc `venteDepliee` — UNE vente dépliée à la fois, un clic
-  n'importe où sur la liste replie, la cellule des boutons ne déplie pas
-  (`stopPropagation`). **La ligne dépliée se voit fort** (12/09/2026 : « une
+  partout, donc `venteDepliee` — UNE vente dépliée à la fois ; **un clic sur
+  une AUTRE ligne la déplie directement** (12/09/2026 : « un seul clic pour
+  sélectionner une autre… c'est le second clic qui sélectionne » — corrigé),
+  seul un clic sur la ligne ouverte la referme ; la cellule des boutons ne
+  déplie pas (`stopPropagation`). **La ligne dépliée se voit fort** (12/09/2026 : « une
   sélection forte bien visible pour la ligne sélectionnée ») : fond bleu
   soutenu et barre épaisse à gauche, couleur de l'espace (violet en formation). **Le bouton WhatsApp porte le VRAI logo**
   (`IconeWhatsApp`, components/ui.jsx, SVG vert #25D366, écrit une fois) :

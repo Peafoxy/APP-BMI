@@ -5120,7 +5120,7 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
   // l'icône de WhatsApp par le vrai icône WhatsApp ». Le rendu est MESURÉ dans
   // un vrai navigateur par verifier-ecran-ventes ; ici, la forme du geste.
   test("★ Ventes : la suite des articles se voit au CLIC sur la ligne (une seule vente dépliée, un clic n'importe où replie), la cellule des boutons ne déplie pas, et le bouton WhatsApp porte le vrai logo (IconeWhatsApp, écrit une fois dans ui.jsx), plus l'emoji 💬",
-    /const \[venteDepliee, setVenteDepliee\] = useState\(null\);/.test(vs) && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d \? null : v\.id\)\)\}/.test(vs)
+    /const \[venteDepliee, setVenteDepliee\] = useState\(null\);/.test(vs) && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d === v\.id \? null : v\.id\)\)\}/.test(vs) /* 12/09/2026 : « un seul clic pour sélectionner une autre » — une autre ligne se déplie directement */
     && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs)
     // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
     && /venteDepliee === v\.id \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(vs) && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)

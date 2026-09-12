@@ -102,7 +102,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [cat, setCat] = useState("");
   const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   const [panier, setPanier] = useState(() => preRempli?.panier || []);
-  // Une seule vente dépliée à la fois ; un clic n'importe où sur la liste replie.
+  // Une seule vente dépliée à la fois. Timo (12/09/2026) : « un seul clic pour
+  // sélectionner une autre » — cliquer une autre ligne la déplie directement
+  // (et replie la précédente) ; seul un clic sur la ligne ouverte la referme.
   const [venteDepliee, setVenteDepliee] = useState(null);
   // ⚠ Demande Timo, après correction du parcours : une demande de transfert
   // NE VIDE PLUS le panier — le vendeur reclique sur "Encaisser la vente"
@@ -1229,7 +1231,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           <tbody>
             {listeFiltree.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
             {listeFiltree.map((v, i) => (
-              <tr key={v.id} onClick={() => setVenteDepliee((d) => (d ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${venteDepliee === v.id ? "bg-sky-200 shadow-[inset_6px_0_0_0_var(--color-sky-700)]" : `hover:bg-sky-50 ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+              <tr key={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${venteDepliee === v.id ? "bg-sky-200 shadow-[inset_6px_0_0_0_var(--color-sky-700)]" : `hover:bg-sky-50 ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                 <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
                 <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
