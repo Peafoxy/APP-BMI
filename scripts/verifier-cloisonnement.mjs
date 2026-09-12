@@ -5512,7 +5512,8 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
   const appOo = readFileSync("src/App.jsx", "utf8");
   test("★ App.jsx : les deux barres (ordinateur, téléphone) passent par OngletsDeplacables ; l'ordre vient de la fiche (ordre_onglets) APRÈS le filtre des pouvoirs ; l'écriture ne part que si l'ordre change (ordreApres), dans la fiche de la personne seule, sans ligne de réglage",
     (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
-    && /const tabsAutorises = appliquerOrdre\(tabsPlus2\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
+    // (tabsPlus3 depuis 🏦 Chez le DG / BANQUE, réservé au principal — même jour)
+    && /const tabsAutorises = appliquerOrdre\(tabsPlus3\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
     && /const ordre = ordreApres\(ids, maFiche\?\.ordre_onglets\);\n\s*if \(!ordre \|\| !maFiche\) return;\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, ordre_onglets: ordre \} : u\)\) \}\);/.test(appOo)
     && !/Ordre de mes onglets|ordre des onglets/i.test(appOo) && !/tabsAutorises\.map\(\(\[id, label\]\)/.test(appOo));
   const cmp = readFileSync("src/components/OngletsDeplacables.jsx", "utf8");
@@ -5521,6 +5522,54 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     && /el\.addEventListener\("touchmove", avaler, \{ passive: false \}\);/.test(cmp) && /if \(depart\.current\?\.actif\) e\.preventDefault\(\);/.test(cmp)
     && /setPointerCapture\(depart\.current\.pointerId\)/.test(cmp) && /if \(aDeplace\.current\) \{ aDeplace\.current = false; return; \}/.test(cmp) && /onContextMenu=\{\(e\) => e\.preventDefault\(\)\}/.test(cmp)
     && /"verifier-onglets-deplacables": "node scripts\/verifier-onglets-deplacables\.mjs"/.test(readFileSync("package.json", "utf8")));
+}
+
+titre("🏦 Chez le DG / BANQUE : deux caisses lues sur le modèle du comptable (Timo, 12/09/2026)");
+{
+  // « Les dépenses de chez le DG et du comptable sont déduites d'où alors ? »
+  // → « DG et banque sur le même modèle que le comptable ». Rien n'est écrit :
+  // les deux caisses se LISENT (lib/caissesDG.js). Le banc exerce la règle.
+  const sortieCg = join("node_modules", ".cache", `bmi-caisses-dg-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/caissesDG.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCg, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Cg = await import(pathToFileURL(sortieCg).href);
+  unlinkSync(sortieCg);
+  const dbG = { depenses: [
+    // Versements : DG validé 300 000, DG en attente 50 000, DG rejeté, BANQUE validé 200 000, comptable validé (pas ici), DG validé d'une boutique HORS espace
+    { id: "v1", boutique: "APESSITO", categorie: "Versement de fonds", montant: 300000, paiement: "Espèces", date: "2026-09-10", par: "ALI", versement: { id: "a", destination: "Chez le DG" }, versement_valide_le: "2026-09-11", versement_valide_par: "TIMO" },
+    { id: "v2", boutique: "APESSITO", categorie: "Versement de fonds", montant: 50000, paiement: "Espèces", date: "2026-09-12", par: "ALI", versement: { id: "b", destination: "Chez le DG" } },
+    { id: "v3", boutique: "APESSITO", categorie: "Versement de fonds", montant: 0, paiement: "Espèces", date: "2026-09-12", par: "ALI", versement: { id: "c", destination: "Chez le DG", montant: 9 }, versement_rejete_le: "2026-09-12" },
+    { id: "v4", boutique: "APESSITO", categorie: "Versement de fonds", montant: 200000, paiement: "Espèces", date: "2026-09-10", par: "ALI", versement: { id: "d", destination: "BANQUE", banque: "Ecobank", bordereau: "B-1" }, versement_valide_le: "2026-09-11" },
+    { id: "v5", boutique: "APESSITO", categorie: "Versement de fonds", montant: 70000, paiement: "Espèces", date: "2026-09-10", par: "ALI", versement: { id: "e", destination: "Chez le comptable" }, versement_valide_le: "2026-09-11" },
+    { id: "v6", boutique: "FORMATION", categorie: "Versement de fonds", montant: 999, paiement: "Espèces", date: "2026-09-10", par: "X", versement: { id: "f", destination: "Chez le DG" }, versement_valide_le: "2026-09-11" },
+    // Sorties DG : payée avec l'argent du DG et validée (20 000), idem en attente (8 000), idem rejetée, sous le seuil (1 000), avance remboursée par le DG (3 000), avance remboursée en caisse (pas ici)
+    { id: "d1", boutique: "APESSITO", categorie: "Achat marchandises", description: "câble", montant: 20000, paiement: "Espèces", date: "2026-09-12", par: "KOSSI", paye_avec: "dg", validation: { statut: "validee", le: "2026-09-12", par: "TIMO" } },
+    { id: "d2", boutique: "APESSITO", categorie: "Transport", montant: 8000, paiement: "Espèces", date: "2026-09-12", par: "KOSSI", paye_avec: "dg", validation: { statut: "attente" } },
+    { id: "d3", boutique: "APESSITO", categorie: "Transport", montant: 0, paiement: "Espèces", date: "2026-09-12", par: "KOSSI", paye_avec: "dg", validation: { statut: "rejetee", montant: 6000, motif: "x" } },
+    { id: "d4", boutique: "APESSITO", categorie: "Transport", montant: 1000, paiement: "Espèces", date: "2026-09-12", par: "KOSSI", paye_avec: "dg" },
+    { id: "d5", boutique: "APESSITO", categorie: "Transport", description: "taxi", montant: 3000, paiement: "Espèces", date: "2026-09-11", par: "KOSSI", paye_avec: "avance", remboursement: { le: "2026-09-12", par: "TIMO", moyen: "dg" } },
+    { id: "d6", boutique: "APESSITO", categorie: "Transport", montant: 4000, paiement: "Espèces", date: "2026-09-11", par: "KOSSI", paye_avec: "avance", remboursement: { le: "2026-09-12", par: "ALI", moyen: "caisse" } },
+    // Sorties BANQUE : virement validé (150 000), virement en attente, virement sous le seuil (2 500), virement d'une avance perso (pas la banque), espèces (pas la banque)
+    { id: "b1", boutique: "APESSITO", categorie: "Salaires", description: "paie", montant: 150000, paiement: "Virement bancaire", date: "2026-09-12", par: "TIMO", validation: { statut: "validee", le: "2026-09-12", auto: true, par: "TIMO" } },
+    { id: "b2", boutique: "APESSITO", categorie: "Loyer", montant: 90000, paiement: "Virement bancaire", date: "2026-09-12", par: "ALI", paye_avec: "caisse", validation: { statut: "attente" } },
+    { id: "b3", boutique: "APESSITO", categorie: "Communication", montant: 2500, paiement: "Virement bancaire", date: "2026-09-12", par: "ALI" },
+    { id: "b4", boutique: "APESSITO", categorie: "Transport", montant: 7000, paiement: "Virement bancaire", date: "2026-09-12", par: "ALI", paye_avec: "avance", validation: { statut: "validee" } },
+    { id: "b5", boutique: "APESSITO", categorie: "Transport", montant: 500, paiement: "Espèces", date: "2026-09-12", par: "ALI" },
+  ] };
+  const dg = Cg.mouvementsDG(dbG, ["APESSITO"]);
+  test("★ Chez le DG : entrées = les versements « Chez le DG » VALIDÉS de l'espace regardé (300 000 — ni l'attente, ni le rejeté, ni la banque, ni le comptable, ni la boutique hors espace) ; sorties = dépenses payées avec l'argent du DG qui comptent (20 000 + 1 000) et l'avance remboursée par le DG (3 000) ; solde 276 000",
+    dg.totalEntrees === 300000 && dg.entrees.map((m) => m.id).join("|") === "v1" && dg.totalSorties === 24000 && dg.sorties.map((m) => m.id).sort().join("|") === "d1|d4|d5-remb" && dg.solde === 276000
+    && dg.mouvements[0].date >= dg.mouvements[dg.mouvements.length - 1].date && /Avance de frais remboursée à KOSSI/.test(dg.sorties.find((m) => m.id === "d5-remb").libelle) && /validé le 2026-09-11/.test(dg.entrees[0].libelle));
+  const bq = Cg.mouvementsBanque(dbG, ["APESSITO"]);
+  test("★ BANQUE : entrées = les versements BANQUE validés (200 000, banque et bordereau dans le libellé) ; sorties = les virements bancaires qui comptent (150 000 + 2 500 — ni l'attente, ni l'avance perso, ni les espèces, ni un versement) ; solde 47 500",
+    bq.totalEntrees === 200000 && /Ecobank — bordereau B-1/.test(bq.entrees[0].libelle) && bq.totalSorties === 152500 && bq.sorties.map((m) => m.id).sort().join("|") === "b1|b3" && bq.solde === 47500
+    && Cg.mouvementsDG(dbG, []).mouvements.length === 0 && Cg.mouvementsBanque({}, ["APESSITO"]).solde === 0 && Cg.CAISSE_DG === "Chez le DG" && Cg.CAISSE_BANQUE === "BANQUE");
+  const appCg = readFileSync("src/App.jsx", "utf8");
+  const ecrCg = readFileSync("src/screens/CaissesDG.jsx", "utf8");
+  test("★ l'onglet 🏦 Chez le DG / BANQUE : dans la liste de l'admin (App et ONGLETS_ROLE), retiré à tout admin qui n'est pas le PRINCIPAL avant les pouvoirs, l'écran le revérifie et ne lit que les boutiques de l'espace regardé (boutiquesVisibles) ; rien n'est écrit (pas de save)",
+    /\["dg_banque", "🏦 Chez le DG \/ BANQUE"\]/.test(appCg) && /const tabsPlus3 = tabsPlus2\.filter\(\(\[id\]\) => id !== "dg_banque" \|\| estAdminPrincipal\(db, profile\)\);/.test(appCg)
+    && /<M\.CaissesDG db=\{db\} profile=\{profile\} \/>/.test(appCg) && /dg_banque: "🏦 Chez le DG \/ BANQUE"/.test(readFileSync("src/lib/calculs.js", "utf8")) && /"chez_comptable", "dg_banque", "dettes"/.test(readFileSync("src/lib/calculs.js", "utf8"))
+    && /if \(!estAdminPrincipal\(db, profile\)\) return/.test(ecrCg) && /const noms = boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\);/.test(ecrCg) && !/save\(/.test(ecrCg)
+    && /mouvementsDG\(db, noms\)/.test(ecrCg) && /mouvementsBanque\(db, noms\)/.test(ecrCg) && /Les dépenses restent des charges de leur boutique/.test(ecrCg));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
