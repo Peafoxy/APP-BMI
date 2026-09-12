@@ -30,6 +30,7 @@
 // Cloisonnement : on ne lit que les boutiques données (l'espace regardé).
 // ============================================================
 import { DEST_DG, DEST_BANQUE, DEST_COMPTABLE, estVersement, estRejete, libelleDestination } from "./versements";
+import { dFR } from "./core";
 import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse } from "./validationDepenses";
 
 export const CAISSE_DG = DEST_DG;
@@ -47,7 +48,7 @@ const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 
 const entreesVersements = (db, destination, nomsBoutiques) => (db.depenses || [])
   .filter((d) => estVersement(d) && d.versement.destination === destination && !!d.versement_valide_le && !estRejete(d) && nomsBoutiques.includes(d.boutique))
   .map((d) => ({ id: d.id, sens: "entree", date: d.versement_valide_le, montant: Number(d.montant || 0), boutique: d.boutique, par: d.par,
-    libelle: `Versement de ${d.boutique} (par ${d.par}) — validé le ${d.versement_valide_le}${destination === DEST_BANQUE ? ` · ${libelleDestination(d.versement)}` : ""}` }));
+    libelle: `Versement de ${d.boutique} (par ${d.par}) — validé le ${dFR(d.versement_valide_le)}${destination === DEST_BANQUE ? ` · ${libelleDestination(d.versement)}` : ""}` }));
 
 export function mouvementsDG(db, nomsBoutiques) {
   const entrees = entreesVersements(db, DEST_DG, nomsBoutiques);
@@ -78,9 +79,9 @@ export function mouvementsBanque(db, nomsBoutiques) {
 export function mouvementsComptable(db) {
   const lignes = (db.depenses || []).filter((d) => d.boutique === DEST_COMPTABLE && !estRejete(d));
   const entrees = lignes.filter((d) => Number(d.montant || 0) < 0 && d.decaisse_le)
-    .map((d) => ({ id: d.id, sens: "entree", date: d.decaisse_le, montant: -Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || "Versement reçu"} — encaissé le ${d.decaisse_le} par ${d.decaisse_par}` }));
+    .map((d) => ({ id: d.id, sens: "entree", date: d.decaisse_le, montant: -Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || "Versement reçu"} — encaissé le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const sorties = lignes.filter((d) => Number(d.montant || 0) > 0 && d.decaisse_le)
-    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie} — remis le ${d.decaisse_le} par ${d.decaisse_par}` }));
+    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const aEncaisser = lignes.filter((d) => Number(d.montant || 0) < 0 && !d.decaisse_le).reduce((s, d) => s - Number(d.montant), 0);
   const aRemettre = lignes.filter((d) => Number(d.montant || 0) > 0 && !d.decaisse_le).reduce((s, d) => s + Number(d.montant), 0);
   return { ...bilan(entrees, sorties), aEncaisser, aRemettre };

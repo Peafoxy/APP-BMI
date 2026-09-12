@@ -5561,7 +5561,7 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   const dg = Cg.mouvementsDG(dbG, ["APESSITO"]);
   test("★ Chez le DG : entrées = les versements « Chez le DG » VALIDÉS de l'espace regardé (300 000 — ni l'attente, ni le rejeté, ni la banque, ni le comptable, ni la boutique hors espace) ; sorties = dépenses payées avec l'argent du DG qui comptent (20 000 + 1 000) et l'avance remboursée par le DG (3 000) ; solde 276 000",
     dg.totalEntrees === 300000 && dg.entrees.map((m) => m.id).join("|") === "v1" && dg.totalSorties === 24000 && dg.sorties.map((m) => m.id).sort().join("|") === "d1|d4|d5-remb" && dg.solde === 276000
-    && dg.mouvements[0].date >= dg.mouvements[dg.mouvements.length - 1].date && /Avance de frais remboursée à KOSSI/.test(dg.sorties.find((m) => m.id === "d5-remb").libelle) && /validé le 2026-09-11/.test(dg.entrees[0].libelle));
+    && dg.mouvements[0].date >= dg.mouvements[dg.mouvements.length - 1].date && /Avance de frais remboursée à KOSSI/.test(dg.sorties.find((m) => m.id === "d5-remb").libelle) && /validé le 11\/09\/2026/.test(dg.entrees[0].libelle));
   const bq = Cg.mouvementsBanque(dbG, ["APESSITO"]);
   test("★ BANQUE : entrées = les versements BANQUE validés (200 000, banque et bordereau dans le libellé) ; sorties = les virements bancaires qui comptent (150 000 + 2 500 — ni l'attente, ni l'avance perso, ni les espèces, ni un versement) ; solde 47 500",
     bq.totalEntrees === 200000 && /Ecobank — bordereau B-1/.test(bq.entrees[0].libelle) && bq.totalSorties === 152500 && bq.sorties.map((m) => m.id).sort().join("|") === "b1|b3" && bq.solde === 47500
@@ -5578,7 +5578,7 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   const ck = Cg.mouvementsComptable(dbK);
   test("★ Chez le comptable : entrées = les versements qu'il a pointés « Encaissé » (70 000), sorties = ce qu'il a pointé « Remis » (15 000), solde 55 000 ; à encaisser 20 000 et à remettre 40 000 dits à part ; le rejeté et les autres boutiques n'y sont pas",
     ck.totalEntrees === 70000 && ck.totalSorties === 15000 && ck.solde === 55000 && ck.aEncaisser === 20000 && ck.aRemettre === 40000 && ck.mouvements.map((m) => m.id).join("|") === "s1|m1"
-    && /encaissé le 2026-09-11 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable"
+    && /encaissé le 11\/09\/2026 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable"
     // « séparer chacun… avoir les onglets DG, BANQUE et COMPTABLE » : trois pastilles, leurs libellés.
     && Cg.libellePastille("Chez le DG") === "👤 DG" && Cg.libellePastille("BANQUE") === "🏦 BANQUE" && Cg.libellePastille("Chez le comptable") === "🧾 COMPTABLE" && Cg.libellePastille("TERRAIN", "TERRAIN") === "🏕 TERRAIN" && Cg.libellePastille("APESSITO", "TERRAIN") === "APESSITO");
   const appCg = readFileSync("src/App.jsx", "utf8");
