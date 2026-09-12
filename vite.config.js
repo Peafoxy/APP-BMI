@@ -20,6 +20,13 @@ function ecrireVersionJson() {
       const m = src.match(/VERSION\s*=\s*"([^"]+)"/);
       const version = m ? m[1] : "?";
       writeFileSync(resolve(__dirname, "public/version.json"), JSON.stringify({ version }));
+      // 12/09/2026 (avis extérieur relu par Timo : package.json disait 2.101.13
+      // quand l'application était en 2.101.172) : le numéro de package.json
+      // SUIT celui de constants.js, réécrit ici à chaque construction.
+      const pkgPath = resolve(__dirname, "package.json");
+      const pkg = readFileSync(pkgPath, "utf-8");
+      const aligne = pkg.replace(/"version":\s*"[^"]*"/, `"version": "${version}"`);
+      if (aligne !== pkg) writeFileSync(pkgPath, aligne);
     },
   };
 }

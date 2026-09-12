@@ -81,7 +81,7 @@ export async function amorcerSiVide() {
   //  - EN LIGNE : la synchro a déjà eu lieu et n'a rien ramené → serveur vide →
   //    vrai premier lancement. On pose le seed à la date du jour.
   //  - HORS LIGNE : on n'a pas pu vérifier le serveur. On pose quand même le seed
-  //    (sinon l'utilisateur n'a aucun compte pour se connecter), MAIS avec une
+  //    (catégories de prospects ; plus aucun compte depuis 2.101.173), MAIS avec une
   //    date TRÈS ANCIENNE : ainsi, dès le retour du réseau, les vraies données du
   //    serveur (forcément plus récentes) l'emporteront et l'écraseront proprement.
   const enLigne = typeof navigator !== "undefined" && navigator.onLine;

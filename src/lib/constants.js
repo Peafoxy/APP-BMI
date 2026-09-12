@@ -37,10 +37,14 @@ export const SEED = {
   // Données de départ : vides. Créez vos boutiques dans ⚙ Paramètres,
   // vos utilisateurs dans 👥 Utilisateurs, vos articles dans 📦 Stocks.
   boutiques: [],
-  users: [
-    // Compte initial obligatoire — changez ce mot de passe dès la mise en service !
-    { id: "u1", nom: "Administrateur", pwd: "ADMIN2026", role: "admin", boutique: null, actif: true },
-  ],
+  // ⚠ PLUS AUCUN COMPTE DE DÉPART DANS LE CODE (12/09/2026, avis extérieur relu
+  // par Timo : « retirer le admin 2026 »). Un mot de passe fixe dans le paquet
+  // envoyé au navigateur est une mauvaise habitude, et ce compte ne servait
+  // plus : la base de BMI a ses comptes, la connexion demande toujours au
+  // serveur dès qu'il y a du réseau. Pour une NOUVELLE installation sur une base
+  // vide, le premier administrateur se crée côté serveur :
+  // docs/installation-premier-administrateur.md.
+  users: [],
   produits: [],
   ventes: [],
   depenses: [],
@@ -63,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.172";
+export const VERSION = "2.101.173";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];

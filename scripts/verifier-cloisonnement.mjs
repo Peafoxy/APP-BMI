@@ -6144,5 +6144,24 @@ titre("L'apparence de l'accueil arrive sur les appareils SANS fiche boutique");
 }
 
 
+
+titre("Plus aucun compte de départ dans le code ; package.json suit la version");
+{
+  // Avis extérieur relu par Timo (12/09/2026) : « Retirer le admin 2026 et
+  // aligner le package.json ». Un mot de passe fixe dans le paquet envoyé au
+  // navigateur est une mauvaise habitude ; le numéro de package.json était
+  // resté à 2.101.13 pendant que l'application était en 2.101.172.
+  const cst = readFileSync("src/lib/constants.js", "utf8");
+  const tousSrc = execSync("grep -rl 'ADMIN2026' src api scripts supabase vite.config.js --exclude=verifier-cloisonnement.mjs || true", { encoding: "utf8" }).trim();
+  test("★ SEED.users est vide et « ADMIN2026 » n'apparaît plus nulle part (src, api, scripts, supabase)",
+    /users: \[\],/.test(cst) && !/ADMIN2026/.test(cst) && tousSrc === "");
+  const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+  const version = (cst.match(/VERSION\s*=\s*"([^"]+)"/) || [])[1];
+  test(`★ package.json (${pkg.version}) porte la même version que constants.js (${version}), et vite.config.js le réécrit à chaque construction`,
+    pkg.version === version && /"version":\\s\*"\[\^"\]\*"/.test(readFileSync("vite.config.js", "utf8")) && /writeFileSync\(pkgPath, aligne\)/.test(readFileSync("vite.config.js", "utf8")));
+  test("le mode d'emploi d'une installation neuve existe (docs/installation-premier-administrateur.md) et dit de changer le mot de passe tout de suite",
+    existsSync("docs/installation-premier-administrateur.md") && /changer le mot de\s+passe tout de suite/.test(readFileSync("docs/installation-premier-administrateur.md", "utf8")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

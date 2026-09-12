@@ -43,6 +43,7 @@ captures d'écran.
 | **`npm run dist`** | Déploiement web uniquement ; Electron n'est plus utilisé. |
 | **Pousser sur une autre branche** que celle demandée | — |
 | **Mettre un nom de modèle d'IA** dans un commit, un commentaire, une PR | — |
+| **Un compte ou un mot de passe de départ dans le code** | Retiré le 12/09/2026 (« ADMIN2026 », avis extérieur relu par Timo). Une base neuve crée son premier administrateur côté serveur : `docs/installation-premier-administrateur.md`. |
 
 ---
 
@@ -51,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1194 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1197 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -66,7 +67,8 @@ npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques,
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
 envoi, sans exception : c'est ce qui déclenche la mise à jour chez lui), et
-`public/version.json`, réécrit par le build, part avec le commit (`git add -A`,
+`public/version.json` **et `package.json`**, réécrits par le build (12/09/2026 :
+package.json était resté à 2.101.13), partent avec le commit (`git add -A`,
 puis `git status` avant de commettre — oublié deux fois).
 
 **⚠ Pousser sur la branche ne déploie rien.** Vercel envoie `main`, rien
