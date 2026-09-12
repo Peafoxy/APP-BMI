@@ -629,7 +629,11 @@ lit mal est pire qu'un banc absent).
   exercée par le banc (septembre : 250 000 + 300 000 − 45 000 = 505 000).
   Une période passée ignore ce qui suit ; « Depuis le début » = solde de
   début 0. Dates retenues : validation d'un versement, pointage du
-  comptable, date de la dépense.
+  comptable, date de la dépense. **Sous le relevé, rien d'autre** (capture
+  Timo, 12/09/2026 : « Total des dépenses 0 F », un second « Période » et
+  « Dépenses — cette semaine 0 F » répétaient le relevé du comptable) : les
+  trois pastilles n'ont que leur relevé (`caisseChoisie`), COMPTABLE garde
+  ses exports (sorties, journal).
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

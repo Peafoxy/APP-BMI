@@ -69,6 +69,11 @@ export function Dashboard({ db, profile }) {
   const banqueChoisi = bqChoisie === CAISSE_BANQUE;
   // Chez le DG et BANQUE ne sont pas des boutiques : rien d'autre que leur caisse.
   const caisseSeule = dgChoisi || banqueChoisi;
+  // Capture Timo (12/09/2026) : sous le relevé du comptable, « Total des
+  // dépenses 0 F », un second « Période » et « Dépenses — cette semaine 0 F »
+  // répétaient le relevé. Les trois caisses n'ont que leur relevé ; le
+  // comptable garde ses exports (sorties, journal).
+  const caisseChoisie = caisseSeule || comptableChoisi;
   const terrainChoisi = !!bqChoisie && bqChoisie === terrainVu?.nom;
   const sansVentes = depotChoisi || comptableChoisi || caisseSeule;
   const sansStock = comptableChoisi || terrainChoisi || caisseSeule;
@@ -297,7 +302,7 @@ export function Dashboard({ db, profile }) {
         <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} periode={getPeriod()[0]} releve={releve(c, getPeriod()[1], getPeriod()[2])}
           note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />
       ); })()}
-      {!caisseSeule && (<>
+      {!caisseChoisie && (<>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {!sansVentes && <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />}
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
@@ -420,6 +425,9 @@ export function Dashboard({ db, profile }) {
         </table>
       </div>}
 
+      </>)}
+      {/* Les exports restent pour COMPTABLE (ses sorties, le journal) ; DG et BANQUE n'ont que leur relevé. */}
+      {!caisseSeule && (<>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="font-bold text-slate-800 mb-2">Exporter les données (Excel / CSV)</div>
         {/* ⚠ Cloisonnement : ces exports partaient de la base BRUTE — un
