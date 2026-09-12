@@ -5670,6 +5670,27 @@ titre("📦 Le rapport de stocks est classé par boutique, par catégorie et par
     /exportCSV\("stocks", \[[^\]]+\],\n\s*trierPourRapportStocks\(produitsReelsDb, \(p\) => stockActuel\(db, p\)\)\.map/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
 }
 
+titre("👥 La liste des utilisateurs, lisible : quatre boutons ronds + « ⋯ Gérer » (capture Timo, 12/09/2026)");
+{
+  const ul = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ chaque ligne garde ses quatre gestes fréquents en boutons ronds (Pouvoirs, Identité, Mot de passe = principal, Bloquer/Réactiver hors sa propre fiche) et un bouton « ⋯ Gérer » qui ouvre un panneau SOUS la ligne (jamais un voile)",
+    /<button onClick=\{\(\) => setPouvoirsPour\(u\.id\)\} className=\{boutonRond\(/.test(ul) && /<button onClick=\{\(\) => changerIdentite\(u\)\} className=\{boutonRond\(/.test(ul)
+    && /\{jeSuisAdminPrincipal && <button onClick=\{\(\) => changerPwd\(u\)\} className=\{boutonRond\(/.test(ul) && /\{!surMaPropreFiche\(u\) && <button onClick=\{\(\) => toggleActif\(u\)\} className=\{boutonRond\(/.test(ul)
+    && /setGererOuvert\(gererOuvert === u\.id \? null : u\.id\)/.test(ul) && /\{gererOuvert === u\.id && \(\n\s*<tr className="bg-slate-50/.test(ul) && !/fixed inset-0[^\n]*gererOuvert/.test(ul));
+  test("★ le panneau « Gérer » range TOUS les autres gestes par thème (Compte, Paie, Commercial, Client), chacun avec la même garde qu'avant : rôle et formation au principal hors sa fiche, paie aux salariés, commercial hors clients, chat libre aux clients",
+    ["Compte", "Paie", "Commercial", "Client"].every((t) => ul.includes(`uppercase text-slate-500 mb-1">${t}</div>`))
+    && /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <button onClick=\{\(\) => changerRole\(u\)\} className=\{boutonGerer\}/.test(ul)
+    && /\{jeSuisAdminPrincipal && !surMaPropreFiche\(u\) && \(\n\s*<button onClick=\{\(\) => basculerFormation\(u\)\} className=\{boutonGerer\}/.test(ul)
+    && /\{SALARIES\.includes\(u\.role\) && \(\n\s*<div>\n\s*<div className="text-\[11px\] font-bold uppercase text-slate-500 mb-1">Paie/.test(ul)
+    && ["changerBoutique(u)", "changerAnniversaire(u)", "voirPwd(u)", "supprimerU(u)", "changerSalaire(u)", "changerTauxAvancement(u)", 'ajouterMouvementSalaire(u, "prime")', 'ajouterMouvementSalaire(u, "avance")', "envoyerVirement(u)", "annulerVirement(u)", "changerTauxCommission(u)", "changerParrain(u)", "changerTauxEquipe(u)", "basculerChef(u)", "basculerChatLibre(u)"].every((g) => ul.includes(`onClick={() => ${g}}`))
+    && /\{jeSuisAdminPrincipal && <button onClick=\{\(\) => voirPwd\(u\)\}/.test(ul) && /\{SALARIES_BOUTIQUE\.includes\(u\.role\) && <button onClick=\{\(\) => changerBoutique\(u\)\}/.test(ul));
+  test("★ rôle, boutique (« Toutes ») et statut en pastilles (+ 🎓 Formation), identité manquante discrète ; les deux gestes graves (formation en masse, retirer Historique + Paramètres) sont en bas dans « Actions groupées », mêmes gardes, plus de lien souligné au-dessus de la liste",
+    /teinteRole\(u\.role\)/.test(ul) && /border-slate-200">Toutes<\/span>/.test(ul) && /🎓 Formation<\/span>/.test(ul) && /title="Identité non renseignée : bouton 🪪 Identité">⚠ Identité<\/div>/.test(ul)
+    && /Actions groupées/.test(ul) && /\{jeSuisAdminPrincipal && \(\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-1">⚠ Actions groupées/.test(ul)
+    && /\{roleAffiche === "admin" && !enRecherche && \(\n\s*<button onClick=\{restreindreAdminsExistants\}/.test(ul) && !/className="text-xs font-bold text-amber-700 underline">\n\s*🎓 Passer tous les comptes/.test(ul)
+    && ul.indexOf("Actions groupées") > ul.indexOf("</table>"));
+}
+
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
 {
   // ⚠ RELEVÉ PAR TIMO (02/09/2026) : « un devis doit se télécharger avec

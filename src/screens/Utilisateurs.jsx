@@ -2,7 +2,7 @@
 // screens/Utilisateurs.jsx — Gestion des comptes : création par
 // rôle, activation, mots de passe, pouvoirs, demandes de crédit.
 // ============================================================
-import { useState } from "react";
+import React, { useState } from "react";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
@@ -15,6 +15,19 @@ import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, credits
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
 const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "admin"];
 
+// ---- La liste des utilisateurs, lisible (capture Timo, 12/09/2026) ----
+// Un bouton d'action rond (icône seule, libellé au survol), un bouton du
+// panneau « Gérer », et la couleur de la pastille de rôle.
+const boutonRond = (teinte) => `relative inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
+const boutonGerer = "px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100";
+const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border-slate-800"
+  : role === "gerant" ? "bg-sky-100 text-sky-800 border-sky-200"
+  : role === "vendeur" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+  : role === "magasinier" ? "bg-amber-100 text-amber-800 border-amber-200"
+  : role === "comptable" ? "bg-violet-100 text-violet-800 border-violet-200"
+  : role === "client" ? "bg-slate-100 text-slate-600 border-slate-200"
+  : "bg-orange-100 text-orange-800 border-orange-200");
+
 export function Users({ db, save, profile }) {
   const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
@@ -22,6 +35,11 @@ export function Users({ db, save, profile }) {
   // « Utilisateurs ». Décision de Timo.
   const jeSuisAdminPrincipal = estAdminPrincipal(db, profile);
   const [avisOuvert, setAvisOuvert] = useState(null);
+  // Capture Timo (12/09/2026) : jusqu'à vingt gestes soulignés par ligne. Quatre
+  // boutons ronds toujours visibles, le reste dans un panneau « ⋯ Gérer » sous
+  // la ligne (jamais un voile sur l'écran), rangé par thème. Mêmes gestes,
+  // mêmes gardes.
+  const [gererOuvert, setGererOuvert] = useState(null);
   // ---- Liste classée par rôle : un bouton par rôle, ~5 lignes visibles
   // avec défilement, et une recherche par nom qui traverse tous les rôles. ----
   const [roleActif, setRoleActif] = useState("admin");
@@ -951,13 +969,6 @@ export function Users({ db, save, profile }) {
             </button>
           </div>
         )}
-        {jeSuisAdminPrincipal && (
-          <div className="mt-3 pt-3 border-t border-amber-200">
-            <button onClick={basculerFormationEnMasse} className="text-xs font-bold text-amber-700 underline">
-              🎓 Passer tous les comptes actuels en formation d'un coup (sauf vous)
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -971,22 +982,18 @@ export function Users({ db, save, profile }) {
               </button>
             ))}
           </div>
-          {jeSuisAdminPrincipal && roleAffiche === "admin" && !enRecherche && (
-            <button onClick={restreindreAdminsExistants} className="mb-2 text-xs font-bold text-white bg-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-800">
-              🔒 Retirer Historique + Paramètres aux autres admins
-            </button>
-          )}
           <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
             placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={inputCls} />
           {enRecherche && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans tous les rôles</div>}
         </div>
         <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
-        <table className="w-full text-sm min-w-[560px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Nom", "Rôle", "Boutique", "Salaire / Taux", "Statut", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
+        <table className="w-full text-sm min-w-[760px]">
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Nom", "Rôle", "Boutique", "Salaire / Taux", "Statut", "Actions"].map((h) => <th key={h} className={`${h === "Actions" ? "text-right" : "text-left"} px-4 py-2 whitespace-nowrap`}>{h}</th>)}</tr></thead>
           <tbody>
             {listeAffichee.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">{enRecherche ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun compte pour ce rôle."}</td></tr>}
-            {listeAffichee.map((u) => (
-              <tr key={u.id} className="border-t border-slate-100 hover:bg-sky-50">
+            {listeAffichee.map((u, i) => (
+              <React.Fragment key={u.id}>
+              <tr className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
                 <td className="px-4 py-2 font-semibold">{u.nom}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
                   {["commercial", "technicien"].includes(u.role) && filleulsDe(db, u).length > 0 && (
@@ -1027,15 +1034,15 @@ export function Users({ db, save, profile }) {
                   )}
                   {u.piece_num
                     ? <div className="text-xs font-normal text-slate-400">{u.piece_type || "Pièce"} n° {u.piece_num}</div>
-                    : <div className="text-xs font-normal text-orange-500">⚠ Identité non renseignée</div>}
+                    : u.role !== "client" && <div className="text-xs font-normal text-orange-500" title="Identité non renseignée : bouton 🪪 Identité">⚠ Identité</div>}
                 </td>
-                <td className="px-4 py-2">{u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</td>
+                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
                 <td className="px-4 py-2">
                   {u.boutique
                     ? <Badge boutique={u.boutique} />
                     : u.role === "vendeur"
                     ? <span className="text-xs font-semibold text-orange-600">⚠ Boutique supprimée</span>
-                    : "Toutes"}
+                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Toutes</span>}
                 </td>
                 <td className="px-4 py-2">
                   {SALARIES.includes(u.role) ? (
@@ -1058,41 +1065,100 @@ export function Users({ db, save, profile }) {
                     <span className="text-xs text-slate-500">Commission {u.taux_commission ?? 0} %</span>
                   ) : <span className="text-slate-400">—</span>}
                 </td>
-                <td className="px-4 py-2">{u.actif === false ? <span className="text-xs font-bold text-red-600">Bloqué</span> : <span className="text-xs font-bold text-green-700">Actif</span>}</td>
                 <td className="px-4 py-2 whitespace-nowrap">
-                  <button onClick={() => setPouvoirsPour(u.id)} className="text-xs font-bold text-purple-700 underline mr-2">🔐 Pouvoirs{(u.droits_off || []).length ? ` (${(u.droits_off || []).length} retiré${(u.droits_off || []).length > 1 ? "s" : ""})` : ""}</button>
-                  {u.role !== "client" && <button onClick={() => changerTauxCommission(u)} className="text-xs font-bold text-green-700 underline mr-2">💰 Commission {u.taux_commission ?? 0}%</button>}
-                  {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className="text-xs font-bold text-amber-700 underline mr-2">🤝 Parrain</button>}
-                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className="text-xs font-bold text-amber-700 underline mr-2">⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT}%</button>}
-                  <button onClick={() => changerIdentite(u)} className="text-xs font-bold text-sky-800 underline mr-2">🪪 Identité</button>
-                  {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className="text-xs font-bold text-pink-700 underline mr-2">🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
-                  {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className="text-xs font-bold text-purple-700 underline mr-2">👁 Voir</button>}
-                  {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className="text-xs font-bold text-sky-800 underline mr-2">Mot de passe</button>}
-                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <button onClick={() => changerRole(u)} className="text-xs font-bold text-purple-700 underline mr-2" title={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"}>🎭 Rôle</button>}
+                  {u.actif === false ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">Bloqué</span> : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Actif</span>}
+                  {u.formation && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-800 border border-violet-200">🎓 Formation</span>}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-right">
+                  <div className="inline-flex items-center gap-1">
+                    <button onClick={() => setPouvoirsPour(u.id)} className={boutonRond("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title={`🔐 Pouvoirs${(u.droits_off || []).length ? ` (${(u.droits_off || []).length} retiré${(u.droits_off || []).length > 1 ? "s" : ""})` : ""}`} aria-label="Pouvoirs">🔐{(u.droits_off || []).length ? <span className="absolute -top-1 -right-1 text-[10px] font-bold bg-purple-700 text-white rounded-full w-4 h-4 flex items-center justify-center">{(u.droits_off || []).length}</span> : null}</button>
+                    <button onClick={() => changerIdentite(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🪪 Identité (pièce, nom complet)" aria-label="Identité">🪪</button>
+                    {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🔑 Changer le mot de passe" aria-label="Mot de passe">🔑</button>}
+                    {!surMaPropreFiche(u) && <button onClick={() => toggleActif(u)} className={boutonRond(u.actif === false ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100" : "text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title={u.actif === false ? "✅ Réactiver ce compte" : "⛔ Bloquer ce compte"} aria-label={u.actif === false ? "Réactiver" : "Bloquer"}>{u.actif === false ? "✅" : "⛔"}</button>}
+                    <button onClick={() => setGererOuvert(gererOuvert === u.id ? null : u.id)} className={`px-3 h-8 rounded-full border text-xs font-bold ${gererOuvert === u.id ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"}`} title="Tous les gestes sur ce compte">⋯ Gérer</button>
+                  </div>
+                </td>
+              </tr>
+              {gererOuvert === u.id && (
+              <tr className="bg-slate-50 border-t border-slate-100">
+                <td colSpan={6} className="px-4 py-3">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Compte</div>
+                      <div className="flex flex-wrap gap-1.5">
+                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <button onClick={() => changerRole(u)} className={boutonGerer} title={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"}>🎭 Rôle</button>}
                   {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
-                    <button onClick={() => basculerFormation(u)} className={`text-xs font-bold underline mr-2 ${u.formation ? "text-amber-700" : "text-slate-500"}`}>
+                    <button onClick={() => basculerFormation(u)} className={boutonGerer}>
                       {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
                     </button>
                   )}
-                  {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className="text-xs font-bold text-sky-800 underline mr-2">Boutique</button>}
-                  {SALARIES.includes(u.role) && <button onClick={() => changerSalaire(u)} className="text-xs font-bold text-sky-800 underline mr-2">Salaire</button>}
-                  {SALARIES.includes(u.role) && <button onClick={() => changerTauxAvancement(u)} className="text-xs font-bold text-sky-800 underline mr-2">Taux %</button>}
-                  {SALARIES.includes(u.role) && <button onClick={() => ajouterMouvementSalaire(u, "prime")} className="text-xs font-bold text-green-700 underline mr-2">+ Prime</button>}
-                  {SALARIES.includes(u.role) && <button onClick={() => ajouterMouvementSalaire(u, "avance")} className="text-xs font-bold text-orange-600 underline mr-2">− Avance</button>}
-                  {SALARIES.includes(u.role) && <button onClick={() => envoyerVirement(u)} className="text-xs font-bold text-blue-700 underline mr-2">💸 Virement</button>}
-                  {SALARIES.includes(u.role) && (u.virements || []).some((v) => v.statut !== "accepte") && <button onClick={() => annulerVirement(u)} className="text-xs font-bold text-amber-700 underline mr-2">Annuler virement</button>}
-                  {["commercial", "technicien"].includes(u.role) && <button onClick={() => basculerChef(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.chef_equipe ? "Retirer chef" : "Nommer chef"}</button>}
-                  {u.role === "client" && <button onClick={() => basculerChatLibre(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"}</button>}
-                  {!surMaPropreFiche(u) && <button onClick={() => toggleActif(u)} className="text-xs font-bold text-sky-800 underline mr-2">{u.actif === false ? "Réactiver" : "Bloquer"}</button>}
-                  <button onClick={() => supprimerU(u)} className="text-xs text-red-600 underline">Suppr.</button>
+                  {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className={boutonGerer}>🏬 Boutique</button>}
+                  {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className={boutonGerer}>🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
+                  {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className={boutonGerer}>👁 Voir le mot de passe</button>}
+                  <button onClick={() => supprimerU(u)} className={`${boutonGerer} !text-red-700 !border-red-200`}>🗑 Supprimer</button>
+                      </div>
+                    </div>
+                    {SALARIES.includes(u.role) && (
+                    <div>
+                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Paie</div>
+                      <div className="flex flex-wrap gap-1.5">
+                  <button onClick={() => changerSalaire(u)} className={boutonGerer}>💵 Salaire</button>
+                  <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
+                  <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
+                  <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
+                  <button onClick={() => envoyerVirement(u)} className={boutonGerer}>💸 Virement</button>
+                  {(u.virements || []).some((v) => v.statut !== "accepte") && <button onClick={() => annulerVirement(u)} className={`${boutonGerer} !text-amber-700 !border-amber-200`}>Annuler virement</button>}
+                      </div>
+                    </div>
+                    )}
+                    {u.role !== "client" && (
+                    <div>
+                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Commercial</div>
+                      <div className="flex flex-wrap gap-1.5">
+                  <button onClick={() => changerTauxCommission(u)} className={boutonGerer}>💰 Commission {u.taux_commission ?? 0} %</button>
+                  {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className={boutonGerer}>🤝 Parrain</button>}
+                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className={boutonGerer}>⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT} %</button>}
+                  {["commercial", "technicien"].includes(u.role) && <button onClick={() => basculerChef(u)} className={boutonGerer}>{u.chef_equipe ? "Retirer chef" : "Nommer chef"}</button>}
+                      </div>
+                    </div>
+                    )}
+                    {u.role === "client" && (
+                    <div>
+                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Client</div>
+                      <div className="flex flex-wrap gap-1.5">
+                  <button onClick={() => basculerChatLibre(u)} className={boutonGerer}>{u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"}</button>
+                      </div>
+                    </div>
+                    )}
+                  </div>
                 </td>
               </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
         </div>
       </div>
 
+      {/* Les gestes rares et graves, en bas, à part (capture Timo, 12/09/2026 :
+          ils étaient des liens soulignés au-dessus de la liste). Mêmes gardes. */}
+      {jeSuisAdminPrincipal && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="font-bold text-slate-800 mb-1">⚠ Actions groupées</div>
+          <div className="text-xs text-slate-500 mb-2">Des gestes qui touchent plusieurs comptes d'un coup. Chacun demande confirmation.</div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={basculerFormationEnMasse} className="px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100">
+              🎓 Passer tous les comptes actuels en formation d'un coup (sauf vous)
+            </button>
+            {roleAffiche === "admin" && !enRecherche && (
+              <button onClick={restreindreAdminsExistants} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 hover:bg-slate-100">
+                🔒 Retirer Historique + Paramètres aux autres admins
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {cible && (
         <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-3" onClick={() => setPouvoirsPour(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>

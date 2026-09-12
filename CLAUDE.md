@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1190 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1193 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -751,6 +751,17 @@ lit mal est pire qu'un banc absent).
   l'icône seule, le libellé au survol** (`boutonAction`) ; les trois mots
   distincts 📋 Devis / 🔁 Retour / ↩ Reprise vivent dans les `title`. Mêmes
   colonnes de fond, mêmes gestes, mêmes droits, aucune règle pure touchée.
+- **La liste des utilisateurs est lisible** (capture Timo, 12/09/2026 :
+  vingt gestes soulignés par ligne ; « lance les corrections pour les 2 ») :
+  rôle, boutique (« Toutes ») et statut en **pastilles** (+ 🎓 Formation),
+  identité manquante en ⚠ discret ; **quatre boutons ronds** toujours
+  visibles (🔐 Pouvoirs, 🪪 Identité, 🔑 Mot de passe = principal, ⛔ Bloquer /
+  ✅ Réactiver hors sa fiche) et **« ⋯ Gérer »** qui ouvre un panneau SOUS la
+  ligne (jamais un voile), rangé par thème — Compte, Paie, Commercial,
+  Client — avec les MÊMES gardes qu'avant. Les deux gestes graves (formation
+  en masse, retirer Historique + Paramètres) sont en bas dans « ⚠ Actions
+  groupées ». Aucune règle pure touchée ; le banc vérifie que chaque geste
+  est toujours là avec sa garde.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :
