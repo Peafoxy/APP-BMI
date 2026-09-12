@@ -7,9 +7,9 @@ import { useState, useCallback } from "react";
 import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
 import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
-// Timo (12/09/2026) : la pastille « Chez le comptable » devient « DG / BANQUE /
-// COMPTABLE » et montre les trois caisses, lues (lib/caissesCentrales.js).
-import { mouvementsDG, mouvementsBanque, mouvementsComptable, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, LIBELLE_PASTILLE_CAISSES } from "../lib/caissesCentrales";
+// Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
+// (lib/caissesCentrales.js).
+import { mouvementsDG, mouvementsBanque, mouvementsComptable, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
 import { CarteCaisse } from "../components/CarteCaisse";
 import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
@@ -44,7 +44,12 @@ export function Dashboard({ db, profile }) {
   // regardé (TERRAIN suit l'espace ; « Chez le comptable » est réelle,
   // sans jumelle : absente en formation).
   const terrainVu = boutiqueTerrain(db, enFormation);
-  const PASTILLES = [...NOMS, ...(terrainVu ? [terrainVu.nom] : []), ...(enFormation ? [] : [NOM_CAISSE_COMPTABLE])];
+  // Timo (12/09/2026) : « séparer chacun… avoir les onglets DG, BANQUE et
+  // COMPTABLE » — trois pastilles, réelles seulement ; DG et BANQUE pour
+  // l'administrateur PRINCIPAL seul.
+  const principal = estAdminPrincipal(db, profile);
+  const PASTILLES = [...NOMS, ...(terrainVu ? [terrainVu.nom] : []), ...(enFormation ? [] : [...(principal ? [CAISSE_DG, CAISSE_BANQUE] : []), NOM_CAISSE_COMPTABLE])];
+  const nomsCaisses = [...NOMS, ...(terrainVu ? [terrainVu.nom] : [])];
   const TOUTES = "__toutes__";
   const [bqChoisie, setBqChoisie] = useState(() => { const m = boutiqueMemorisee(profile, "dashboard"); return m && m !== TOUTES && PASTILLES.includes(m) ? m : ""; });
   const choisirBq = (nom) => { setBqChoisie(nom); memoriserBoutique(profile, "dashboard", nom || TOUTES); };
@@ -60,9 +65,13 @@ export function Dashboard({ db, profile }) {
   const NOMS_GRAPHE = NOMS_VUES.filter((nom) => !estDepot(nom));
   const depotChoisi = !!bqChoisie && estDepot(bqChoisie);
   const comptableChoisi = bqChoisie === NOM_CAISSE_COMPTABLE;
+  const dgChoisi = bqChoisie === CAISSE_DG;
+  const banqueChoisi = bqChoisie === CAISSE_BANQUE;
+  // Chez le DG et BANQUE ne sont pas des boutiques : rien d'autre que leur caisse.
+  const caisseSeule = dgChoisi || banqueChoisi;
   const terrainChoisi = !!bqChoisie && bqChoisie === terrainVu?.nom;
-  const sansVentes = depotChoisi || comptableChoisi;
-  const sansStock = comptableChoisi || terrainChoisi;
+  const sansVentes = depotChoisi || comptableChoisi || caisseSeule;
+  const sansStock = comptableChoisi || terrainChoisi || caisseSeule;
   // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
   // NOMS_VUES protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
   // TOTAUX GLOBAUX de cette page (CA total, frais, nb clients, commissions,
@@ -227,34 +236,27 @@ export function Dashboard({ db, profile }) {
         {PASTILLES.map((nom) => (
           <button key={nom} onClick={() => choisirBq(nom)}
             className={`px-4 py-1.5 rounded-full text-sm font-bold ${bqChoisie === nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
-            style={bqChoisie === nom ? { backgroundColor: col(nom) } : {}}>{nom === NOM_CAISSE_COMPTABLE ? `🏦 ${LIBELLE_PASTILLE_CAISSES}` : `${nom === terrainVu?.nom ? "🏕 " : ""}${nom}`}</button>
+            style={bqChoisie === nom ? { backgroundColor: col(nom) } : {}}>{libellePastille(nom, terrainVu?.nom)}</button>
         ))}
         {bqChoisie && !sansVentes && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
         {depotChoisi && <span className="text-xs text-slate-500">🏭 Un dépôt ne vend pas : voici ses sorties et son stock.</span>}
-        {comptableChoisi && <span className="text-xs text-slate-500">🏦 Les caisses centrales ne vendent pas : voici ce qui y entre, ce qui en sort, et les sorties du comptable.</span>}
+        {comptableChoisi && <span className="text-xs text-slate-500">🧾 La caisse du comptable ne vend pas : voici ce qui y entre, ce qui en sort, et ses sorties.</span>}
+        {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤" : "🏦"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.</span>}
       </div>
-      {/* Timo (12/09/2026) : « transformer le bouton Chez le comptable en DG / BANQUE /
-          COMPTABLE, à l'intérieur les classer comme dans DG/Banque ». Trois caisses
-          LUES (rien d'écrit), sur les boutiques de l'espace regardé ; Chez le DG et
-          BANQUE pour l'administrateur PRINCIPAL seul, le comptable pour tous ceux
-          qui voient cet écran. Le reste de l'écran (sorties du comptable) suit. */}
-      {comptableChoisi && (() => {
-        const principal = estAdminPrincipal(db, profile);
-        const nomsCaisses = [...NOMS, ...(terrainVu ? [terrainVu.nom] : [])];
-        return (
-          <div className="space-y-4">
-            {principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} bilan={mouvementsDG(db, nomsCaisses)}
-              note="Entre : les versements « Chez le DG » que vous avez validés. Sort : les dépenses payées avec de l'argent que vous avez remis (une fois qu'elles comptent), et les avances de frais que vous avez remboursées vous-même. Les dépenses restent des charges de leur boutique." />}
-            {principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} bilan={mouvementsBanque(db, nomsCaisses)}
-              note="Entre : les versements « BANQUE » validés (banque et bordereau). Sort : les dépenses payées par virement bancaire (salaires virés, fournisseurs, CNSS…). Les dépenses restent des charges de leur boutique." />}
-            {!principal && <div className="text-xs text-slate-500">Les caisses « Chez le DG » et « BANQUE » ne sont visibles que par l'administrateur principal.</div>}
-            {(() => { const c = mouvementsComptable(db); return (
-              <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} bilan={c}
-                note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />
-            ); })()}
-          </div>
-        );
-      })()}
+      {/* Timo (12/09/2026) : « séparer chacun… avoir les onglets DG, BANQUE et
+          COMPTABLE ». Trois caisses LUES (rien d'écrit, lib/caissesCentrales.js),
+          une par pastille, sur les boutiques de l'espace regardé, par UNE carte
+          commune. Chez le DG et BANQUE : l'administrateur PRINCIPAL seul (la
+          pastille n'existe pas pour les autres, et l'écran le revérifie). */}
+      {dgChoisi && principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} bilan={mouvementsDG(db, nomsCaisses)}
+        note="Entre : les versements « Chez le DG » que vous avez validés. Sort : les dépenses payées avec de l'argent que vous avez remis (une fois qu'elles comptent), et les avances de frais que vous avez remboursées vous-même. Les dépenses restent des charges de leur boutique." />}
+      {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} bilan={mouvementsBanque(db, nomsCaisses)}
+        note="Entre : les versements « BANQUE » validés (banque et bordereau). Sort : les dépenses payées par virement bancaire (salaires virés, fournisseurs, CNSS…). Les dépenses restent des charges de leur boutique." />}
+      {comptableChoisi && (() => { const c = mouvementsComptable(db); return (
+        <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} bilan={c}
+          note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />
+      ); })()}
+      {!caisseSeule && (<>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {!sansVentes && <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />}
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
@@ -443,6 +445,7 @@ export function Dashboard({ db, profile }) {
           </div>
         ))}
       </div>}
+      </>)}
     </div>
   );
 }

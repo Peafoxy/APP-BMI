@@ -4461,7 +4461,8 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
   const dash = readFileSync("src/screens/Dashboard.jsx", "utf8");
   test("★ les pastilles : les boutiques de l'espace regardé, la caisse TERRAIN de cet espace, et « Chez le comptable » seulement en réel (pas de jumelle de formation)",
     /const terrainVu = boutiqueTerrain\(db, enFormation\);/.test(dash)
-    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[NOM_CAISSE_COMPTABLE\]\)\];/.test(dash));
+    // (12/09/2026 : DG et BANQUE rejoignent la rangée, pour le principal, réelles seulement)
+    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dash));
   test("★ le choix est mémorisé par écran (« dashboard ») et jamais retenu s'il n'est plus dans les pastilles de l'espace regardé",
     /boutiqueMemorisee\(profile, "dashboard"\); return m && m !== TOUTES && PASTILLES\.includes\(m\) \? m : "";/.test(dash)
     && /memoriserBoutique\(profile, "dashboard", nom \|\| TOUTES\)/.test(dash));
@@ -4478,7 +4479,7 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
     && (dash.match(/\bNOMS_VUES\b/g) || []).length >= 8 && (dash.match(/\bNOMS_GRAPHE\b/g) || []).length >= 7
     && !/\bNOMS\.(map|forEach|reduce|length)/.test(dash));
   test("★ un dépôt ou la caisse du comptable ne montrent aucune carte de vente, dette, commission ou client, ni graphique, top 5, paiements, synthèse ; TERRAIN et le comptable n'ont pas de carte de stock",
-    /const sansVentes = depotChoisi \|\| comptableChoisi;/.test(dash) && /const sansStock = comptableChoisi \|\| terrainChoisi;/.test(dash)
+    /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dash) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dash)
     && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 8 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
     && /\{!sansVentes && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">\s*<div [^>]*>Synthèse par période/.test(dash)
     && /\{!sansStock && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!estDepot\(b\) && <div><div className="text-xs text-slate-500">Dettes clients/.test(dash));
@@ -5577,16 +5578,21 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   const ck = Cg.mouvementsComptable(dbK);
   test("★ Chez le comptable : entrées = les versements qu'il a pointés « Encaissé » (70 000), sorties = ce qu'il a pointé « Remis » (15 000), solde 55 000 ; à encaisser 20 000 et à remettre 40 000 dits à part ; le rejeté et les autres boutiques n'y sont pas",
     ck.totalEntrees === 70000 && ck.totalSorties === 15000 && ck.solde === 55000 && ck.aEncaisser === 20000 && ck.aRemettre === 40000 && ck.mouvements.map((m) => m.id).join("|") === "s1|m1"
-    && /encaissé le 2026-09-11 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable" && Cg.LIBELLE_PASTILLE_CAISSES === "DG / BANQUE / COMPTABLE");
+    && /encaissé le 2026-09-11 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable"
+    // « séparer chacun… avoir les onglets DG, BANQUE et COMPTABLE » : trois pastilles, leurs libellés.
+    && Cg.libellePastille("Chez le DG") === "👤 DG" && Cg.libellePastille("BANQUE") === "🏦 BANQUE" && Cg.libellePastille("Chez le comptable") === "🧾 COMPTABLE" && Cg.libellePastille("TERRAIN", "TERRAIN") === "🏕 TERRAIN" && Cg.libellePastille("APESSITO", "TERRAIN") === "APESSITO");
   const appCg = readFileSync("src/App.jsx", "utf8");
   const dashCg = readFileSync("src/screens/Dashboard.jsx", "utf8");
   const carteCg = readFileSync("src/components/CarteCaisse.jsx", "utf8");
-  test("★ PLUS d'onglet à part (retiré d'App, d'ONGLETS_ROLE, plus d'écran CaissesDG) : la pastille « Chez le comptable » du tableau de bord s'appelle DG / BANQUE / COMPTABLE (la valeur interne ne change pas : le filtre des sorties du comptable suit), et montre les trois caisses par UNE carte commune — DG et BANQUE pour le PRINCIPAL seul, sur les boutiques de l'espace regardé ; rien n'est écrit",
+  test("★ PLUS d'onglet à part (retiré d'App, d'ONGLETS_ROLE, plus d'écran CaissesDG) : TROIS pastilles du tableau de bord — DG et BANQUE pour le PRINCIPAL seul, réelles seulement, COMPTABLE pour qui voit l'écran —, chacune SA caisse par UNE carte commune, sur les boutiques de l'espace regardé ; DG et BANQUE n'affichent rien d'autre (ni ventes, ni dépenses, ni stock, ni exports) ; rien n'est écrit",
     !/dg_banque/.test(appCg) && !/dg_banque/.test(readFileSync("src/lib/calculs.js", "utf8")) && !existsSync("src/screens/CaissesDG.jsx") && !existsSync("src/lib/caissesDG.js")
-    && /nom === NOM_CAISSE_COMPTABLE \? `🏦 \$\{LIBELLE_PASTILLE_CAISSES\}`/.test(dashCg) && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
-    && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg) && (dashCg.match(/\{principal && <CarteCaisse /g) || []).length === 2 && (dashCg.match(/<CarteCaisse /g) || []).length === 3
-    && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /mouvementsDG\(db, nomsCaisses\)/.test(dashCg) && /mouvementsBanque\(db, nomsCaisses\)/.test(dashCg) && /mouvementsComptable\(db\)/.test(dashCg)
-    && /Les dépenses restent des charges de leur boutique/.test(dashCg) && /export function CarteCaisse\(\{ titre, note, bilan \}\)/.test(carteCg) && !/save\(/.test(carteCg));
+    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
+    && /\{libellePastille\(nom, terrainVu\?\.nom\)\}/.test(dashCg) && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg)
+    && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} bilan=\{mouvementsDG\(db, nomsCaisses\)\}/.test(dashCg) && /\{banqueChoisi && principal && <CarteCaisse titre=\{`🏦 \$\{CAISSE_BANQUE\}`\} bilan=\{mouvementsBanque\(db, nomsCaisses\)\}/.test(dashCg)
+    && /\{comptableChoisi && \(\(\) => \{ const c = mouvementsComptable\(db\); return \(/.test(dashCg) && (dashCg.match(/<CarteCaisse /g) || []).length === 3
+    && /const caisseSeule = dgChoisi \|\| banqueChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseSeule && \(<>/.test(dashCg)
+    && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /Les dépenses restent des charges de leur boutique/.test(dashCg)
+    && /export function CarteCaisse\(\{ titre, note, bilan \}\)/.test(carteCg) && !/save\(/.test(carteCg));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

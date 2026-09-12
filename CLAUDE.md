@@ -593,30 +593,32 @@ lit mal est pire qu'un banc absent).
   pas le tiroir). À dire aux vendeuses : une grosse dépense en espèces se fait
   valider AVANT la fermeture, sinon la caisse ne se clôture pas.
 
-### 🏦 DG / BANQUE / COMPTABLE, dans le tableau de bord (12/09/2026)
+### 🏦 DG, BANQUE, COMPTABLE : trois pastilles du tableau de bord (12/09/2026)
 - Timo : « les dépenses de chez le DG et du comptable sont déduites d'où
   alors ? » — le comptable avait sa caisse, le DG et la banque non : l'argent
-  versé chez le DG sortait du suivi. Décisions : **« DG et banque sur le même
-  modèle que le comptable »**, puis **« ramener cet onglet dans le tableau de
-  bord… transformer le bouton Chez le comptable en DG / BANQUE / COMPTABLE,
-  à l'intérieur les classer comme dans DG/Banque »**. Donc PAS d'onglet à
-  part (celui de 2.101.158 a été retiré) : **la pastille « Chez le comptable »
-  du tableau de bord s'appelle 🏦 DG / BANQUE / COMPTABLE** (valeur interne
-  inchangée, le filtre des sorties du comptable suit) et montre trois caisses
-  par UNE carte commune (`components/CarteCaisse.jsx`) : **Chez le DG et
-  BANQUE pour l'admin PRINCIPAL seul**, Chez le comptable pour qui voit
-  l'écran ; boutiques de l'espace regardé (+ TERRAIN).
-- **Trois caisses LUES, rien d'écrit** (`lib/caissesCentrales.js`, exercé par
-  le banc) : **Chez le DG** — entrées = versements « Chez le DG » VALIDÉS ;
-  sorties = dépenses « payées avec de l'argent remis par le DG » qui comptent
-  + avances de frais remboursées par le DG. **BANQUE** — entrées =
-  versements BANQUE validés (banque, bordereau) ; sorties = dépenses payées
-  par **virement bancaire** qui comptent. **Chez le comptable** — entrées =
-  versements pointés « Encaissé », sorties = remises pointées « Remis », ce
-  qui attend son pointage est dit à part. En attente et rejeté n'y sont
-  jamais. **Les dépenses restent des charges de leur boutique** : le
-  résultat ne change pas, on suit seulement d'où l'argent est parti. Pas de
-  montant de départ (proposé, pas demandé).
+  versé chez le DG sortait du suivi. Décisions, dans l'ordre : **« DG et
+  banque sur le même modèle que le comptable »** ; **« ramener cet onglet
+  dans le tableau de bord, comme Chez le comptable s'y retrouve »** (l'onglet
+  à part de 2.101.158 a été retiré) ; **« séparer chacun… avoir les onglets
+  DG, BANQUE et COMPTABLE »**. Donc **trois pastilles** dans la rangée du
+  tableau de bord (`libellePastille` : « 👤 DG », « 🏦 BANQUE », « 🧾
+  COMPTABLE »), réelles seulement ; **DG et BANQUE n'existent que pour
+  l'admin PRINCIPAL** (`principal` dans `PASTILLES`, revérifié à l'affichage)
+  et ne montrent RIEN d'autre que leur caisse (`caisseSeule` : ni ventes, ni
+  dépenses, ni stock, ni exports) ; COMPTABLE garde en plus ses sorties comme
+  avant (valeur interne « Chez le comptable » inchangée).
+- **Trois caisses LUES, rien d'écrit** (`lib/caissesCentrales.js`, UNE carte
+  `components/CarteCaisse.jsx`, exercé par le banc) : **Chez le DG** —
+  entrées = versements « Chez le DG » VALIDÉS ; sorties = dépenses « payées
+  avec de l'argent remis par le DG » qui comptent + avances de frais
+  remboursées par le DG. **BANQUE** — entrées = versements BANQUE validés
+  (banque, bordereau) ; sorties = dépenses payées par **virement bancaire**
+  qui comptent. **Chez le comptable** — entrées = versements pointés
+  « Encaissé », sorties = remises pointées « Remis », ce qui attend son
+  pointage est dit à part. En attente et rejeté n'y sont jamais. Boutiques
+  de l'espace regardé (+ TERRAIN). **Les dépenses restent des charges de
+  leur boutique** : le résultat ne change pas, on suit seulement d'où
+  l'argent est parti. Pas de montant de départ (proposé, pas demandé).
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

@@ -8,10 +8,9 @@
 // solde. Décision : « DG et banque sur le même modèle que le comptable ».
 //
 // Puis (même jour) : « ramener cet onglet DG/banque dans le tableau de bord,
-// comme "Chez le comptable" s'y retrouve… rassembler ça dans un seul onglet,
-// transformer le bouton Chez le comptable en DG / BANQUE / COMPTABLE, à
-// l'intérieur les classer comme dans DG/Banque ». Donc : PAS d'onglet à
-// part, une pastille du tableau de bord, trois caisses lues pareil.
+// comme "Chez le comptable" s'y retrouve », et enfin « séparer chacun… avoir
+// les onglets DG, BANQUE et COMPTABLE ». Donc : PAS d'onglet à part, TROIS
+// pastilles du tableau de bord, trois caisses lues pareil.
 //
 // UNE règle, pure (le banc l'exerce). Rien n'est écrit : les trois caisses se
 // LISENT dans ce qui existe déjà.
@@ -36,8 +35,10 @@ import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse }
 export const CAISSE_DG = DEST_DG;
 export const CAISSE_BANQUE = DEST_BANQUE;
 export const CAISSE_COMPTABLE = DEST_COMPTABLE;
-// Le libellé de la pastille du tableau de bord (à la place de « Chez le comptable »).
-export const LIBELLE_PASTILLE_CAISSES = "DG / BANQUE / COMPTABLE";
+// Le libellé d'une pastille du tableau de bord : « DG », « BANQUE »,
+// « COMPTABLE » pour les trois caisses (Timo), TERRAIN avec sa tente, une
+// boutique par son nom.
+export const libellePastille = (nom, nomTerrain) => (nom === CAISSE_DG ? "👤 DG" : nom === CAISSE_BANQUE ? "🏦 BANQUE" : nom === CAISSE_COMPTABLE ? "🧾 COMPTABLE" : nom === nomTerrain ? `🏕 ${nom}` : nom);
 
 const parDateDesc = (a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`);
 const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) > 0;
