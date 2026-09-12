@@ -26,6 +26,37 @@ import { motifBlocageVente } from "../lib/cloture";
 // équipements" : c'est cette catégorie qu'Autre.jsx accepte sans devoir
 // appartenir au stock d'une catégorie précise — indispensable puisqu'une
 // vente peut mélanger des articles de catégories très différentes.
+// ---- La liste des ventes, lisible (capture Timo, 12/09/2026) ----
+// Les articles : un par ligne, deux au plus, puis « + N autres » — la liste
+// complète au survol. Une vente ordinaire tient sur deux lignes.
+const ARTICLES_VISIBLES = 2;
+function ArticlesVente({ v }) {
+  const lignes = lignesVente(v);
+  const reste = lignes.length - ARTICLES_VISIBLES;
+  const repris = (v.reprises || []).reduce((s, r) => s + Number(r.qte || 0), 0);
+  return (
+    <div title={resumeArticles(v)} className="leading-snug">
+      {lignes.slice(0, ARTICLES_VISIBLES).map((l, i) => (
+        <div key={i} className="truncate max-w-[340px]"><span className="tabular-nums text-slate-500">{l.qte}×</span> <span className="font-semibold text-slate-800">{l.article}</span></div>
+      ))}
+      {reste > 0 && <div className="text-xs text-slate-500">+ {reste} autre{reste > 1 ? "s" : ""}</div>}
+      {repris > 0 && <div className="text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {repris} repris</div>}
+    </div>
+  );
+}
+// Le moyen de paiement en pastille : vert espèces, ambre crédit, bleu mobile money, gris virement.
+function PastillePaiement({ paiement }) {
+  const p = String(paiement || "");
+  const teinte = /Crédit/i.test(p) ? "bg-amber-100 text-amber-800 border-amber-200"
+    : /Espèces/i.test(p) ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : /Flooz|Mixx|T-Money/i.test(p) ? "bg-sky-100 text-sky-800 border-sky-200"
+    : "bg-slate-100 text-slate-700 border-slate-200";
+  const court = /Crédit/i.test(p) ? "Crédit" : /Flooz/i.test(p) ? "Flooz" : /Mixx|T-Money/i.test(p) ? "Mixx" : /Virement/i.test(p) ? "Virement" : p || "—";
+  return <span title={p} className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinte}`}>{court}</span>;
+}
+// Un bouton d'action rond : l'icône seule, le libellé au survol (title).
+const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
+
 function lignesVenteEnAutres(v) {
   return lignesVente(v).map((l) => {
     const net = Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);
@@ -1176,37 +1207,43 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           </table>
         ) : (
           <table className="w-full text-sm min-w-[1000px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N° reçu", "Articles", "Client", "Qté", "Remise", "Total", "Paiement", "Commercial", "Reçu", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          {/* Capture Timo (12/09/2026) : « cet affichage ne semble pas trop
+              professionnel ». Le numéro de reçu se cassait sur trois lignes, les
+              articles s'enroulaient en paragraphe, les montants étaient à gauche
+              et les boutons éparpillés. Même colonnes, mêmes gestes, mêmes
+              droits : seule la présentation change (règle pure : aucune). */}
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
+            {[["Date", "text-left"], ["N° reçu", "text-left"], ["Articles", "text-left"], ["Client", "text-left"], ["Qté", "text-right"], ["Total", "text-right"], ["Paiement", "text-left"], ["Commercial", "text-left"], ["Actions", "text-right"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}
+          </tr></thead>
           <tbody>
-            {listeFiltree.length === 0 && <tr><td colSpan={11} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
-            {listeFiltree.map((v) => (
-              <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}{v.heure ? ` ${v.heure}` : ""}</td>
-                <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision.split("-").pop()}</span>}</td>
-                <td className="px-3 py-2 font-semibold">{resumeArticles(v)}{(v.reprises || []).length > 0 && <span className="ml-1 text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {(v.reprises || []).reduce((s, r) => s + Number(r.qte || 0), 0)} repris</span>}</td>
-                <td className="px-3 py-2">{v.client || "—"}</td>
-                <td className="px-3 py-2 tabular-nums">{qteVente(v)}</td>
-                <td className="px-3 py-2 tabular-nums text-red-600">{v.remise ? `−${fmt(v.remise)}${v.remise_pct ? ` (${v.remise_pct} %)` : ""}` : "—"}</td>
-                <td className="px-3 py-2 tabular-nums font-bold">{fmt(totalVente(v))}</td>
-                <td className="px-3 py-2">{v.paiement}</td>
-                <td className="px-3 py-2">{v.commercial || "—"}</td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu">🖨</button>
-                  <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className="text-xs font-bold text-green-700 underline" title="Envoyer par WhatsApp">WhatsApp</button>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {peutTransformerEnDevis(v) && onTransformerEnDevis && (
-                    <button onClick={() => transformerEnDevis(v)} className="text-xs font-bold text-purple-700 underline mr-2" title="Reprendre cette vente pour en faire un devis d'installation">📋 Devis</button>
-                  )}
-                  {profile.role === "admin" && (
-                    <button onClick={() => ouvrirRetour(v)} className="text-xs font-bold text-amber-700 underline mr-2" title="Échange sous garantie : sortie de stock SANS vente ni facturation (ou frais partiels)">🔁 Retour</button>
-                  )}
-                  {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
-                    <button onClick={() => ouvrirReprise(v)} className="text-xs font-bold text-orange-700 underline mr-2" title="Le client ne prend pas l'article : retour au stock, argent rendu ou dette réduite">↩ Reprise</button>
-                  )}
-                  {profile.role === "admin" && (
-                    <button onClick={() => supprimerVente(v)} className="text-xs text-red-600 underline">Suppr.</button>
-                  )}
+            {listeFiltree.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
+            {listeFiltree.map((v, i) => (
+              <tr key={v.id} className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
+                <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
+                <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
+                <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} /></td>
+                <td className="px-3 py-2">{v.client && v.client !== "Client non renseigné" ? <span className="font-semibold text-slate-800">{v.client}</span> : <span className="text-slate-400">—</span>}</td>
+                <td className="px-3 py-2 tabular-nums text-right">{qteVente(v)}</td>
+                <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap"><div className="font-bold text-slate-900">{fmt(totalVente(v))}</div>{v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}</td>
+                <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} /></td>
+                <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right">
+                  <div className="inline-flex items-center gap-1">
+                    <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu" aria-label="Imprimer le reçu">🖨</button>
+                    <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp" aria-label="WhatsApp">💬</button>
+                    {peutTransformerEnDevis(v) && onTransformerEnDevis && (
+                      <button onClick={() => transformerEnDevis(v)} className={boutonAction("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title="📋 Devis : reprendre cette vente pour en faire un devis d'installation" aria-label="Devis">📋</button>
+                    )}
+                    {profile.role === "admin" && (
+                      <button onClick={() => ouvrirRetour(v)} className={boutonAction("text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100")} title="🔁 Retour : échange sous garantie, sortie de stock SANS vente ni facturation (ou frais partiels)" aria-label="Retour">🔁</button>
+                    )}
+                    {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
+                      <button onClick={() => ouvrirReprise(v)} className={boutonAction("text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100")} title="↩ Reprise : le client ne prend pas l'article — retour au stock, argent rendu ou dette réduite" aria-label="Reprise">↩</button>
+                    )}
+                    {profile.role === "admin" && (
+                      <button onClick={() => supprimerVente(v)} className={boutonAction("text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title="Supprimer cette vente" aria-label="Supprimer">🗑</button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

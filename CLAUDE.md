@@ -740,6 +740,17 @@ lit mal est pire qu'un banc absent).
   et son PDF) y passe.
 
 ### Apparence et étiquettes
+- **La liste des ventes est lisible** (capture Timo, 12/09/2026 : « cet
+  affichage ne semble pas trop professionnel »… « c'est pour les ventes ») :
+  date sur une ligne et l'heure dessous, N° de reçu jamais coupé, **un
+  article par ligne, deux au plus puis « + N autres »** (liste complète au
+  survol, `ArticlesVente`), client en gras (« Client non renseigné » → tiret),
+  quantité et total à droite avec **la remise sous le total** (plus de colonne
+  Remise), paiement en **pastille** (vert espèces, ambre crédit, bleu mobile
+  money, gris virement — `PastillePaiement`), et **des boutons d'action ronds,
+  l'icône seule, le libellé au survol** (`boutonAction`) ; les trois mots
+  distincts 📋 Devis / 🔁 Retour / ↩ Reprise vivent dans les `title`. Mêmes
+  colonnes de fond, mêmes gestes, mêmes droits, aucune règle pure touchée.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

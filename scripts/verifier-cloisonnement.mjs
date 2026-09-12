@@ -5111,7 +5111,9 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
     /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
     && /construireReprise\(db, reprise\.vente, \{ produit_id: reprise\.produit_id, qte: Number\(reprise\.qte\), motif: reprise\.motif, moyen: reprise\.moyen \}, profile, today\(\)\)/.test(vs)
-    && /save\(appliquerReprise\(db, r\), r\.journal\);/.test(vs) && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs) && /↩ \{\(v\.reprises \|\| \[\]\)\.reduce/.test(vs));
+    && /save\(appliquerReprise\(db, r\), r\.journal\);/.test(vs) && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs)
+    // 12/09/2026 (liste des ventes lisible) : le compte des repris vit dans ArticlesVente — « ↩ N repris » toujours sur la ligne.
+    && /const repris = \(v\.reprises \|\| \[\]\)\.reduce/.test(vs) && /↩ \{repris\} repris/.test(vs));
   const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");
   const ta13 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-13 : reprises = principal seul et jamais en arrière (ventes, upsert relu), ajustement reprise_client = principal, dépense « Remboursement client » = principal ; le banc tester-argent le pose et rejoue vendeur / gérant / admin secondaire refusés, principal permis, effacement refusé",
@@ -5201,7 +5203,8 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
     /const dejaVendue = ventesDeProforma\(db, pf\);/.test(vtP) && /déjà été encaissée le \$\{dFR\(dejaVendue\[0\]\.date\)\} — reçu \$\{numeroRecu\(dejaVendue\[0\]\)\}/.test(vtP)
     && /NOUVELLE vente, avec un nouveau numéro de reçu/.test(vtP) && /Vendre de nouveau à partir de cette proforma \?/.test(vtP)
     // Timo (11/09/2026) : « reprise » ne doit désigner QUE l'article rendu par le client.
-    && !/🛒 Reprendre/.test(vtP) && /↩ Reprise<\/button>/.test(vtP) && /🔁 Retour<\/button>/.test(vtP)
+    // 12/09/2026 (liste des ventes lisible) : les boutons sont ronds, l'icône seule — les trois mots distincts vivent dans le libellé au survol.
+    && !/🛒 Reprendre/.test(vtP) && /title="↩ Reprise : /.test(vtP) && /title="🔁 Retour : /.test(vtP) && /title="📋 Devis : /.test(vtP) && /aria-label="Reprise"/.test(vtP) && /aria-label="Retour"/.test(vtP)
     && /proforma_id: origineProforma\.id, proforma_numero: origineProforma\.numero/.test(vtP)
     && /setOrigineProforma\(null\);   \/\/ consommée/.test(vtP)
     && /const numero = prochainNumeroVente\(db, boutique\);/.test(vtP));
