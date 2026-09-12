@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1181 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1183 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -619,6 +619,17 @@ lit mal est pire qu'un banc absent).
   de l'espace regardé (+ TERRAIN). **Les dépenses restent des charges de
   leur boutique** : le résultat ne change pas, on suit seulement d'où
   l'argent est parti. Pas de montant de départ (proposé, pas demandé).
+- **Chaque caisse se lit en RELEVÉ** (12/09/2026 : « ce sont les totaux ou
+  sur une période ? » → « Relevé… lance ») : **le sélecteur de période du
+  tableau de bord** (écrit UNE fois, `selecteurPeriode`, affiché aussi pour
+  les trois pastilles) commande quatre lignes — **solde au début** (tout ce
+  qui précède la période), **+ entrées de la période**, **− sorties de la
+  période**, **solde à la fin** — et la liste des mouvements de la période
+  seulement. Règle pure `releve(bilan, du, au)` (lib/caissesCentrales.js),
+  exercée par le banc (septembre : 250 000 + 300 000 − 45 000 = 505 000).
+  Une période passée ignore ce qui suit ; « Depuis le début » = solde de
+  début 0. Dates retenues : validation d'un versement, pointage du
+  comptable, date de la dépense.
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

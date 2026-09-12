@@ -9,7 +9,7 @@ import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, 
 import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
 // (lib/caissesCentrales.js).
-import { mouvementsDG, mouvementsBanque, mouvementsComptable, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
+import { mouvementsDG, mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
 import { CarteCaisse } from "../components/CarteCaisse";
 import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
@@ -203,6 +203,42 @@ export function Dashboard({ db, profile }) {
   const maxV = Math.max(1, ...mois6.flatMap((x) => NOMS_GRAPHE.map((b) => x.vals[b])));
 
   // Analyses sur la période sélectionnée
+  // Le sélecteur de période, écrit UNE fois : il sert aux cartes de la période
+  // et au relevé des caisses DG / BANQUE / COMPTABLE (Timo, 12/09/2026 : « Relevé… lance »).
+  const selecteurPeriode = (
+    <>
+          <div className="font-bold text-slate-800">Période :</div>
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white"
+            value={periodeIndex}
+            onChange={(e) => setPeriodeIndex(e.target.value === "custom" ? "custom" : Number(e.target.value))}
+          >
+            {periodes().map(([label], i) => (
+              <option key={i} value={i}>{label}</option>
+            ))}
+            <option value="custom">Personnalisée</option>
+          </select>
+
+          {periodeIndex === "custom" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                value={customDebut}
+                onChange={(e) => setCustomDebut(e.target.value)}
+              />
+              <span className="text-slate-400">→</span>
+              <input
+                type="date"
+                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                value={customFin}
+                onChange={(e) => setCustomFin(e.target.value)}
+              />
+            </div>
+          )}
+
+    </>
+  );
   const [, paG, pbG] = getPeriod();
   const ventesPeriode = ventesReellesDb.filter((v) => inP(v.date, paG, pbG));
   const topProduits = (() => {
@@ -248,12 +284,17 @@ export function Dashboard({ db, profile }) {
           une par pastille, sur les boutiques de l'espace regardé, par UNE carte
           commune. Chez le DG et BANQUE : l'administrateur PRINCIPAL seul (la
           pastille n'existe pas pour les autres, et l'écran le revérifie). */}
-      {dgChoisi && principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} bilan={mouvementsDG(db, nomsCaisses)}
+      {(caisseSeule || comptableChoisi) && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="flex flex-wrap items-center gap-3">{selecteurPeriode}</div>
+        </div>
+      )}
+      {dgChoisi && principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} periode={getPeriod()[0]} releve={releve(mouvementsDG(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
         note="Entre : les versements « Chez le DG » que vous avez validés. Sort : les dépenses payées avec de l'argent que vous avez remis (une fois qu'elles comptent), et les avances de frais que vous avez remboursées vous-même. Les dépenses restent des charges de leur boutique." />}
-      {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} bilan={mouvementsBanque(db, nomsCaisses)}
+      {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} periode={getPeriod()[0]} releve={releve(mouvementsBanque(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
         note="Entre : les versements « BANQUE » validés (banque et bordereau). Sort : les dépenses payées par virement bancaire (salaires virés, fournisseurs, CNSS…). Les dépenses restent des charges de leur boutique." />}
       {comptableChoisi && (() => { const c = mouvementsComptable(db); return (
-        <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} bilan={c}
+        <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} periode={getPeriod()[0]} releve={releve(c, getPeriod()[1], getPeriod()[2])}
           note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />
       ); })()}
       {!caisseSeule && (<>
@@ -272,36 +313,7 @@ export function Dashboard({ db, profile }) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="font-bold text-slate-800">Période :</div>
-          <select
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white"
-            value={periodeIndex}
-            onChange={(e) => setPeriodeIndex(e.target.value === "custom" ? "custom" : Number(e.target.value))}
-          >
-            {periodes().map(([label], i) => (
-              <option key={i} value={i}>{label}</option>
-            ))}
-            <option value="custom">Personnalisée</option>
-          </select>
-
-          {periodeIndex === "custom" && (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-                value={customDebut}
-                onChange={(e) => setCustomDebut(e.target.value)}
-              />
-              <span className="text-slate-400">→</span>
-              <input
-                type="date"
-                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-                value={customFin}
-                onChange={(e) => setCustomFin(e.target.value)}
-              />
-            </div>
-          )}
-
+          {selecteurPeriode}
           {periodeIndex === "custom" && (
             <div className="ml-auto text-sm font-semibold">
               Résultat : <span className={resCustom >= 0 ? "text-green-700" : "text-red-600"}>{fmt(resCustom)}</span>

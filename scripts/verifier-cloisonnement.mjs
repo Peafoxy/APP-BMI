@@ -5588,11 +5588,27 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     !/dg_banque/.test(appCg) && !/dg_banque/.test(readFileSync("src/lib/calculs.js", "utf8")) && !existsSync("src/screens/CaissesDG.jsx") && !existsSync("src/lib/caissesDG.js")
     && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
     && /\{libellePastille\(nom, terrainVu\?\.nom\)\}/.test(dashCg) && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg)
-    && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} bilan=\{mouvementsDG\(db, nomsCaisses\)\}/.test(dashCg) && /\{banqueChoisi && principal && <CarteCaisse titre=\{`🏦 \$\{CAISSE_BANQUE\}`\} bilan=\{mouvementsBanque\(db, nomsCaisses\)\}/.test(dashCg)
+    // « Relevé… lance » (12/09/2026) : chaque carte reçoit le RELEVÉ de la période du tableau de bord (getPeriod), le sélecteur est écrit UNE fois (selecteurPeriode) et affiché pour les caisses.
+    && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsDG\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
+    && /\{banqueChoisi && principal && <CarteCaisse titre=\{`🏦 \$\{CAISSE_BANQUE\}`\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsBanque\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
+    && /releve=\{releve\(c, getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg) && (dashCg.match(/\{selecteurPeriode\}/g) || []).length === 2 && /\{\(caisseSeule \|\| comptableChoisi\) && \(/.test(dashCg)
+    && (dashCg.match(/<div className="font-bold text-slate-800">Période :<\/div>/g) || []).length === 1
     && /\{comptableChoisi && \(\(\) => \{ const c = mouvementsComptable\(db\); return \(/.test(dashCg) && (dashCg.match(/<CarteCaisse /g) || []).length === 3
     && /const caisseSeule = dgChoisi \|\| banqueChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseSeule && \(<>/.test(dashCg)
     && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /Les dépenses restent des charges de leur boutique/.test(dashCg)
-    && /export function CarteCaisse\(\{ titre, note, bilan \}\)/.test(carteCg) && !/save\(/.test(carteCg));
+    && /export function CarteCaisse\(\{ titre, note, releve: r, periode \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /Entrées de la période/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg));
+  // Le relevé lui-même, exercé : avant / pendant / après, comme celui de la banque.
+  const bilanR = { entrees: [{ id: "e1", date: "2026-08-20", montant: 252299 }, { id: "e2", date: "2026-09-05", montant: 300000 }, { id: "e3", date: "2026-10-01", montant: 1 }],
+    sorties: [{ id: "s1", date: "2026-08-25", montant: 2299 }, { id: "s2", date: "2026-09-12", montant: 45000 }], mouvements: [] };
+  bilanR.mouvements = [...bilanR.entrees.map((m) => ({ ...m, sens: "entree" })), ...bilanR.sorties.map((m) => ({ ...m, sens: "sortie" }))].sort((a, b) => b.date.localeCompare(a.date));
+  const rSept = Cg.releve(bilanR, "2026-09-01", "2026-09-30");
+  test("★ releve : « Ce mois » (septembre) = solde au 1er (250 000 : tout ce qui précède), + entrées de septembre (300 000), − sorties de septembre (45 000), solde au 30 (505 000) ; les mouvements sont ceux de la période seulement ; octobre n'y est pas",
+    rSept.soldeDebut === 250000 && rSept.entrees === 300000 && rSept.sorties === 45000 && rSept.soldeFin === 505000 && rSept.mouvements.map((m) => m.id).join("|") === "s2|e2");
+  test("★ releve : « Aujourd'hui » sans mouvement = deux soldes égaux, 0 entrée, 0 sortie ; « Depuis le début » = solde de début 0, tout dedans, solde de fin = le solde global ; une période passée (août) ignore ce qui suit",
+    (() => { const r0 = Cg.releve(bilanR, "2026-09-13", "2026-09-13"); const rT = Cg.releve(bilanR, undefined, undefined); const rA = Cg.releve(bilanR, "2026-08-01", "2026-08-31");
+      return r0.soldeDebut === 505000 && r0.entrees === 0 && r0.sorties === 0 && r0.soldeFin === 505000 && r0.mouvements.length === 0
+        && rT.soldeDebut === 0 && rT.entrees === 552300 && rT.sorties === 47299 && rT.soldeFin === 505001 && rT.mouvements.length === 5
+        && rA.soldeDebut === 0 && rA.entrees === 252299 && rA.sorties === 2299 && rA.soldeFin === 250000 && rA.mouvements.map((m) => m.id).join("|") === "s1|e1"; })());
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

@@ -87,6 +87,22 @@ export function mouvementsComptable(db) {
   return { ...bilan(entrees, sorties), aEncaisser, aRemettre };
 }
 
+// ---- LE RELEVÉ (Timo, 12/09/2026 : « Relevé… lance ») ----
+// Comme le relevé de la banque : ce qu'il y avait au début de la période
+// (tout ce qui s'est passé AVANT), ce qui est entré et sorti PENDANT, ce
+// qu'il reste à la fin. `du` et `au` sont des dates AAAA-MM-JJ incluses.
+// Pur : le banc l'exerce.
+export function releve(bilan, du, au) {
+  const d0 = String(du || "0000-01-01"), d1 = String(au || "9999-12-31");
+  const avant = (m) => String(m.date) < d0;
+  const dedans = (m) => String(m.date) >= d0 && String(m.date) <= d1;
+  const somme = (liste) => liste.reduce((s, m) => s + m.montant, 0);
+  const soldeDebut = somme(bilan.entrees.filter(avant)) - somme(bilan.sorties.filter(avant));
+  const entrees = somme(bilan.entrees.filter(dedans));
+  const sorties = somme(bilan.sorties.filter(dedans));
+  return { du: d0, au: d1, soldeDebut, entrees, sorties, soldeFin: soldeDebut + entrees - sorties, mouvements: bilan.mouvements.filter(dedans) };
+}
+
 function bilan(entrees, sorties) {
   const totalEntrees = entrees.reduce((s, m) => s + m.montant, 0);
   const totalSorties = sorties.reduce((s, m) => s + m.montant, 0);
