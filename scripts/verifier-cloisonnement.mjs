@@ -5121,7 +5121,9 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
   // un vrai navigateur par verifier-ecran-ventes ; ici, la forme du geste.
   test("★ Ventes : la suite des articles se voit au CLIC sur la ligne (une seule vente dépliée, un clic n'importe où replie), la cellule des boutons ne déplie pas, et le bouton WhatsApp porte le vrai logo (IconeWhatsApp, écrit une fois dans ui.jsx), plus l'emoji 💬",
     /const \[venteDepliee, setVenteDepliee\] = useState\(null\);/.test(vs) && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d \? null : v\.id\)\)\}/.test(vs)
-    && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs) && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
+    && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs)
+    // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
+    && /venteDepliee === v\.id \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(vs) && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
     && /aria-label="WhatsApp"><IconeWhatsApp \/><\/button>/.test(vs) && !/aria-label="WhatsApp">💬/.test(vs)
     && /export const IconeWhatsApp = \(\{ taille = 18 \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill="#25D366"/.test(readFileSync("src/components/ui.jsx", "utf8")));
   const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");

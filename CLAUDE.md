@@ -757,7 +757,9 @@ lit mal est pire qu'un banc absent).
   revient à 2 lignes par défaut ») : le survol (`title`) ne se voit pas
   partout, donc `venteDepliee` — UNE vente dépliée à la fois, un clic
   n'importe où sur la liste replie, la cellule des boutons ne déplie pas
-  (`stopPropagation`). **Le bouton WhatsApp porte le VRAI logo**
+  (`stopPropagation`). **La ligne dépliée se voit fort** (12/09/2026 : « une
+  sélection forte bien visible pour la ligne sélectionnée ») : fond bleu
+  soutenu et barre épaisse à gauche, couleur de l'espace (violet en formation). **Le bouton WhatsApp porte le VRAI logo**
   (`IconeWhatsApp`, components/ui.jsx, SVG vert #25D366, écrit une fois) :
   « remplacer l'icône de WhatsApp par le vrai icône WhatsApp » — plus d'emoji
   💬. Les deux sont MESURÉS dans Chromium (`verifier-ecran-ventes`).
