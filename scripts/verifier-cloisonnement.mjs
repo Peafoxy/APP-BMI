@@ -4775,7 +4775,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   // reprendre la session ; se déconnecter tout court ; supprimer le
   // descriptif en bas ».
   test("★ textes courts : « Entrez le mot de passe et reprenez la session. », « Se déconnecter » tout court, aucun descriptif sous le bouton",
-    /Entrez le mot de passe et reprenez la session\./.test(ev) && />\s*Se déconnecter\s*<\/button>/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev)
+    /Entrez le mot de passe et reprenez la session\./.test(ev) && />\s*Se déconnecter\s*<\/button>/.test(ev)
+    // 12/09/2026 (capture Timo) : le bouton Se déconnecter est REMPLI (rouge pâle, « petit danger ») — invisible sur certains fonds quand il n'avait qu'un contour.
+    && /onClick=\{onDeconnecter\} className="w-full px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold">/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev)
     && !/Rien n'est perdu/.test(ev));
   test("★ barre du haut (ordinateur) : plus de badge En ligne / version / nom, un bouton « Verrouiller » sans cadenas qui pose le verrou ; la barre latérale garde le badge",
     /<button onClick=\{verrouiller\} className="[^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && (app.match(/<BadgeSync /g) || []).length === 1 && /<BadgeSync sombre \/>/.test(app));

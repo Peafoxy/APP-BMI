@@ -126,7 +126,12 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
             <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
               🔓 Déverrouiller
             </button>
-            <button type="button" onClick={onDeconnecter} className={`w-full px-4 py-2 rounded-lg border text-xs font-bold ${decor.verrouTexteClair ? "border-white/40 text-white hover:bg-white/10" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+            {/* Timo (12/09/2026, capture) : « le bouton Se déconnecter n'est pas
+                pré-rempli, ce qui fait que pour certaines couleurs de fond il
+                devient invisible… le pré-remplir avec un jaune pâle ou rouge pâle
+                signifiant le petit danger » — fond rouge pâle, texte rouge sombre,
+                quelle que soit la couleur de la carte. */}
+            <button type="button" onClick={onDeconnecter} className="w-full px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold">
               Se déconnecter
             </button>
           </div>

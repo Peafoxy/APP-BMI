@@ -163,7 +163,11 @@ lit mal est pire qu'un banc absent).
   (⚙ Paramètres → 🔒 Fenêtre de verrouillage, `verrou_couleur_carte` /
   `verrou_opacite_carte`, règles pures dans lib/verrou.js) ; carte sombre →
   texte clair, **mais le champ garde texte et curseur sombres** (sinon blanc
-  sur blanc : « le mot de passe ne s'écrit pas », 09/09/2026). **Session sécurisée tombée = la même fenêtre de verrou**
+  sur blanc : « le mot de passe ne s'écrit pas », 09/09/2026). **Le bouton
+  « Se déconnecter » est REMPLI en rouge pâle** (capture Timo, 12/09/2026 :
+  « il n'est pas pré-rempli… pour certaines couleurs de fond il devient
+  invisible… rouge pâle signifiant le petit danger »), quelle que soit la
+  carte. **Session sécurisée tombée = la même fenêtre de verrou**
   (« permission denied » à la lecture → `marquerSessionPerdue`, message en
   français, `sync.sessionPerdue`) : le mot de passe déverrouille ET rouvre
   la session (`synchroniserAuth`), sans réseau on déverrouille quand même.
