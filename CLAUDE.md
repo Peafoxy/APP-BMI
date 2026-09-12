@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1183 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1186 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -634,6 +634,16 @@ lit mal est pire qu'un banc absent).
   « Dépenses — cette semaine 0 F » répétaient le relevé du comptable) : les
   trois pastilles n'ont que leur relevé (`caisseChoisie`), COMPTABLE garde
   ses exports (sorties, journal).
+- **Le relevé s'imprime et s'exporte** (12/09/2026 : « vous avez dit que c'est
+  comme un relevé… pourquoi c'est impossible d'exporter pour imprimer ? » →
+  « Lance ») : sur chaque carte, **« 🖨 Imprimer le relevé (PDF) »**
+  (`genererReleve`, src/pdf.js — les briques communes : entête, bandeau de
+  titre « RELEVÉ — caisse », pied de page ; période en clair, les quatre
+  lignes en grandes cases, les mouvements dans l'ordre des dates avec
+  colonnes Entrée / Sortie et le total de la période ; fichier « Relevé -
+  caisse - du au ») et **« Exporter (CSV) »** (mouvements puis les trois
+  soldes). Le PDF reprend l'écran tel quel, même période, mêmes chiffres ;
+  le banc MESURE le texte écrit.
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

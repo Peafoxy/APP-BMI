@@ -3382,8 +3382,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
     /nomDocument\("Contrat", \{ client: client\?\.nom_base \|\| client\?\.nom/.test(imp) && /nomDocument\(avenant \? "Avenant" : "PV", \{ client:/.test(imp)
     && /nomDocument\("Reçu", \{ client: v\.client/.test(imp) && /nomDocument\("Proforma", \{ client: p\.client/.test(imp));
   const pdf = readFileSync("src/pdf.js", "utf8");
-  test("les PDF téléchargés (devis, proforma) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 2 && !/doc\.save\(`/.test(pdf));
+  // 12/09/2026 : le relevé d'une caisse centrale aussi (genererReleve) — trois.
+  test("les PDF téléchargés (devis, proforma, relevé) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 3 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
 }
@@ -4262,8 +4263,9 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     && (pdf.match(/DOCUMENT DE FORMATION — SANS VALEUR/g) || []).length === 1 && (pdf.match(/doc\.roundedRect\(bandeauX/g) || []).length === 1
     && (pdf.match(/doc\.text\("BMI-Gestions Boutiques", largeur \/ 2/g) || []).length === 1
     && (pdf.match(/il constitue une offre de prix et n'a pas de valeur comptable/g) || []).length === 1);
-  test("★ le devis ET le proforma passent par ces briques (enteteSociete, bandeauTitre, bandeauTotal, mentionsOffre, piedDePage)",
-    (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 2 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 2
+  // 12/09/2026 : le relevé d'une caisse (genererReleve) passe par l'entête, le bandeau de titre et le pied de page — trois passages, sans recopie.
+  test("★ le devis, le proforma ET le relevé passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
+    (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 3 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 3
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
@@ -5589,8 +5591,8 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
     && /\{libellePastille\(nom, terrainVu\?\.nom\)\}/.test(dashCg) && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg)
     // « Relevé… lance » (12/09/2026) : chaque carte reçoit le RELEVÉ de la période du tableau de bord (getPeriod), le sélecteur est écrit UNE fois (selecteurPeriode) et affiché pour les caisses.
-    && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsDG\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
-    && /\{banqueChoisi && principal && <CarteCaisse titre=\{`🏦 \$\{CAISSE_BANQUE\}`\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsBanque\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
+    && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} caisse=\{CAISSE_DG\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsDG\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
+    && /\{banqueChoisi && principal && <CarteCaisse titre=\{`🏦 \$\{CAISSE_BANQUE\}`\} caisse=\{CAISSE_BANQUE\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsBanque\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
     && /releve=\{releve\(c, getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg) && (dashCg.match(/\{selecteurPeriode\}/g) || []).length === 2 && /\{\(caisseSeule \|\| comptableChoisi\) && \(/.test(dashCg)
     && (dashCg.match(/<div className="font-bold text-slate-800">Période :<\/div>/g) || []).length === 1
     // Capture Timo (12/09/2026) : sous le relevé du comptable, cartes « Total des dépenses » / « Dépenses — période » et un second « Période » — retirés : les trois caisses n'ont que leur relevé, le comptable garde ses exports.
@@ -5598,7 +5600,7 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     && /\{comptableChoisi && \(\(\) => \{ const c = mouvementsComptable\(db\); return \(/.test(dashCg) && (dashCg.match(/<CarteCaisse /g) || []).length === 3
     && /const caisseSeule = dgChoisi \|\| banqueChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseChoisie && \(<>/.test(dashCg) && /const caisseChoisie = caisseSeule \|\| comptableChoisi;/.test(dashCg) && /\{!caisseSeule && \(<>\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-2">Exporter les données/.test(dashCg)
     && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /Les dépenses restent des charges de leur boutique/.test(dashCg)
-    && /export function CarteCaisse\(\{ titre, note, releve: r, periode \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /Entrées de la période/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg));
+    && /export function CarteCaisse\(\{ titre, caisse, note, releve: r, periode \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /Entrées de la période/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg));
   // Le relevé lui-même, exercé : avant / pendant / après, comme celui de la banque.
   const bilanR = { entrees: [{ id: "e1", date: "2026-08-20", montant: 252299 }, { id: "e2", date: "2026-09-05", montant: 300000 }, { id: "e3", date: "2026-10-01", montant: 1 }],
     sorties: [{ id: "s1", date: "2026-08-25", montant: 2299 }, { id: "s2", date: "2026-09-12", montant: 45000 }], mouvements: [] };
@@ -5611,6 +5613,28 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
       return r0.soldeDebut === 505000 && r0.entrees === 0 && r0.sorties === 0 && r0.soldeFin === 505000 && r0.mouvements.length === 0
         && rT.soldeDebut === 0 && rT.entrees === 552300 && rT.sorties === 47299 && rT.soldeFin === 505001 && rT.mouvements.length === 5
         && rA.soldeDebut === 0 && rA.entrees === 252299 && rA.sorties === 2299 && rA.soldeFin === 250000 && rA.mouvements.map((m) => m.id).join("|") === "s1|e1"; })());
+  // « Pourquoi c'est impossible d'exporter pour imprimer ? » (12/09/2026) : le relevé s'imprime. Le banc MESURE le texte écrit dans le PDF.
+  const sortiePdfR = join("node_modules", ".cache", `bmi-pdf-releve-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/pdf.js"], bundle: true, format: "esm", platform: "node", outfile: sortiePdfR, logLevel: "silent", loader: { ".js": "jsx" } });
+  const PdfR = await import(pathToFileURL(sortiePdfR).href);
+  unlinkSync(sortiePdfR);
+  const textesPdf = (doc) => { const t = []; for (let p = 1; p <= doc.internal.getNumberOfPages(); p++) for (const l of doc.internal.pages[p].join("\n").split("\n")) { const m = l.match(/\((.*?)\)\s*Tj/); if (m) t.push(m[1]); } return t.join(" | "); };
+  const rSeptM = { ...rSept, mouvements: rSept.mouvements.map((m) => ({ ...m, libelle: m.sens === "entree" ? "Versement de BMI DEMAKPOE" : "Achat marchandises - cable", boutique: "BMI DEMAKPOE" })) };
+  const docR = PdfR.genererReleve(rSeptM, { caisse: "Chez le DG", periode: "Ce mois", edite: "12/09/2026" }, true);
+  const txt = textesPdf(docR);
+  test("★ genererReleve : un PDF d'une page, entête BMI, titre RELEVÉ + caisse, la période en clair, les quatre lignes du relevé (250 000 / + 300 000 / - 45 000 / 505 000), les mouvements dans l'ordre des dates avec la colonne Entrée / Sortie, le total de la période, le pied de page",
+    !!docR && docR.internal.getNumberOfPages() === 1 && /BMI TOGO/.test(txt) && /RELEV/.test(txt) && /Chez le DG/.test(txt) && /P\S+riode : Ce mois \\?\(du 01\/09\/2026 au 30\/09\/2026\\?\)/.test(txt) && /RELEV\S* - Chez le DG/.test(txt) && /dit\S* le 12\/09\/2026/.test(txt)
+    && /250 000 F/.test(txt) && /\+ 300 000 F/.test(txt) && /- 45 000 F/.test(txt) && /505 000 F/.test(txt) && /Solde au d/.test(txt) && /Solde \S+ la fin/.test(txt)
+    && txt.indexOf("05/09/2026 | Versement de BMI DEMAKPOE") > 0 && txt.indexOf("05/09/2026 | Versement de BMI DEMAKPOE") < txt.indexOf("12/09/2026 | Achat marchandises") && /Versement de BMI DEMAKPOE/.test(txt) && /Achat marchandises - cable/.test(txt) && /Total de la p/.test(txt) && /BMI-Gestions Boutiques/.test(txt), txt.slice(0, 400));
+  const docV = PdfR.genererReleve({ du: "0000-01-01", au: "9999-12-31", soldeDebut: 0, entrees: 0, sorties: 0, soldeFin: 0, mouvements: [] }, { caisse: "BANQUE", periode: "Depuis le début" }, true);
+  test("★ un relevé vide se fabrique quand même (« Aucun mouvement sur cette période. », « Depuis le début »), et le fichier suit la règle des documents (Relevé - caisse - période)",
+    !!docV && /Aucun mouvement sur cette p/.test(textesPdf(docV)) && /Depuis le d/.test(textesPdf(docV))
+    && /doc\.save\(fichierPdf\("Relevé", \{ client: caisse, numero: /.test(readFileSync("src/pdf.js", "utf8")));
+  const carteR = readFileSync("src/components/CarteCaisse.jsx", "utf8");
+  test("★ la carte porte « 🖨 Imprimer le relevé (PDF) » et « Exporter (CSV) » : le PDF reçoit le relevé affiché (même période, mêmes chiffres, logo, date d'édition), le CSV les mouvements dans l'ordre des dates puis les trois soldes ; le tableau de bord nomme la caisse de chaque carte",
+    /genererReleve\(r, \{ caisse, periode, logo: LOGO, edite: dFR\(today\(\)\) \}\)/.test(carteR) && /🖨 Imprimer le relevé \(PDF\)/.test(carteR) && /Exporter \(CSV\)/.test(carteR)
+    && /exportCSV\(`releve_\$\{/.test(carteR) && /\["Date", "Mouvement", "Boutique", "Entrée", "Sortie"\]/.test(carteR) && /"Total de la période", "", r\.entrees, r\.sorties/.test(carteR)
+    && (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/<CarteCaisse titre=\{`[^`]+`\} caisse=\{CAISSE_(DG|BANQUE|COMPTABLE)\}/g) || []).length === 3);
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

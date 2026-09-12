@@ -294,12 +294,12 @@ export function Dashboard({ db, profile }) {
           <div className="flex flex-wrap items-center gap-3">{selecteurPeriode}</div>
         </div>
       )}
-      {dgChoisi && principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} periode={getPeriod()[0]} releve={releve(mouvementsDG(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
+      {dgChoisi && principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} caisse={CAISSE_DG} periode={getPeriod()[0]} releve={releve(mouvementsDG(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
         note="Entre : les versements « Chez le DG » que vous avez validés. Sort : les dépenses payées avec de l'argent que vous avez remis (une fois qu'elles comptent), et les avances de frais que vous avez remboursées vous-même. Les dépenses restent des charges de leur boutique." />}
-      {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} periode={getPeriod()[0]} releve={releve(mouvementsBanque(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
+      {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} caisse={CAISSE_BANQUE} periode={getPeriod()[0]} releve={releve(mouvementsBanque(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
         note="Entre : les versements « BANQUE » validés (banque et bordereau). Sort : les dépenses payées par virement bancaire (salaires virés, fournisseurs, CNSS…). Les dépenses restent des charges de leur boutique." />}
       {comptableChoisi && (() => { const c = mouvementsComptable(db); return (
-        <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} periode={getPeriod()[0]} releve={releve(c, getPeriod()[1], getPeriod()[2])}
+        <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} caisse={CAISSE_COMPTABLE} periode={getPeriod()[0]} releve={releve(c, getPeriod()[1], getPeriod()[2])}
           note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />
       ); })()}
       {!caisseChoisie && (<>

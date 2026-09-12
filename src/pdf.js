@@ -573,3 +573,56 @@ export function genererDevis(d, logo, retournerDoc = false) {
   doc.save(fichierPdf("Devis", { client: d.client, numero: d.numero }));
 }
 
+// ============ LE RELEVÉ D'UNE CAISSE CENTRALE (Timo, 12/09/2026) ============
+// « Vous avez dit que c'est comme un relevé… pourquoi c'est impossible
+// d'exporter pour imprimer ? » — le relevé de Chez le DG, BANQUE ou Chez le
+// comptable (lib/caissesCentrales.js, `releve`) s'imprime : les briques
+// communes (entête, bandeau de titre, pied de page), la période, les quatre
+// lignes du relevé en grandes cases, puis les mouvements de la période dans
+// l'ordre des dates. Rien n'est écrit : le PDF reprend l'écran, tel quel.
+// `r` : { du, au, soldeDebut, entrees, sorties, soldeFin, mouvements }.
+export function genererReleve(r, { caisse, periode, logo, formation = false, edite = "" } = {}, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+  const dFRl = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
+  const depuisLeDebut = String(r.du) <= "0000-01-01";
+  const jusquAuBout = String(r.au) >= "9999-12-31";
+  const libellePeriode = depuisLeDebut && jusquAuBout ? "Depuis le début"
+    : `du ${depuisLeDebut ? "début" : dFRl(r.du)} au ${jusquAuBout ? "aujourd'hui" : dFRl(r.au)}`;
+
+  enteteSociete(doc, logo, largeur);
+  // Un tiret simple : la police de base du PDF n'écrit pas le tiret long.
+  const yApres = bandeauTitre(doc, largeur, `RELEVÉ - ${caisse || ""}`.trim(), formation);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(`Période : ${periode ? `${periode} (${libellePeriode})` : libellePeriode}`, 14, yApres + 7);
+  if (edite) doc.text(`Édité le ${edite}`, largeur - 14, yApres + 7, { align: "right" });
+
+  let y = grandesCases(doc, yApres + 12, largeur, [
+    [`${fmtMontant(r.soldeDebut)} F`, "Solde au début"],
+    [`+ ${fmtMontant(r.entrees)} F`, "Entrées de la période"],
+    [`- ${fmtMontant(r.sorties)} F`, "Sorties de la période"],
+    [`${fmtMontant(r.soldeFin)} F`, "Solde à la fin"],
+  ]);
+
+  const mouvements = [...(r.mouvements || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  autoTable(doc, {
+    head: [["Date", "Mouvement", "Boutique", "Entrée", "Sortie"]],
+    body: mouvements.length
+      ? mouvements.map((m) => [dFRl(m.date), m.libelle || "", m.boutique || "", m.sens === "entree" ? fmtMontant(m.montant) : "", m.sens === "sortie" ? fmtMontant(m.montant) : ""])
+      : [["", "Aucun mouvement sur cette période.", "", "", ""]],
+    foot: [["", "Total de la période", "", fmtMontant(r.entrees), fmtMontant(r.sorties)]],
+    startY: y + 2,
+    styles: { fontSize: 8, cellPadding: 1.6 },
+    headStyles: { fillColor: BLEU, textColor: 255, fontSize: 8 },
+    footStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
+    columnStyles: { 0: { cellWidth: 20 }, 2: { cellWidth: 34 }, 3: { cellWidth: 26, halign: "right" }, 4: { cellWidth: 26, halign: "right" } },
+    margin: { left: 14, right: 14 },
+    didDrawPage: () => piedDePage(doc, largeur, hauteur),
+  });
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf("Relevé", { client: caisse, numero: depuisLeDebut && jusquAuBout ? "depuis le début" : `${dFRl(r.du).replace(/\//g, "-")} au ${dFRl(r.au).replace(/\//g, "-")}` }));
+  return null;
+}
+
