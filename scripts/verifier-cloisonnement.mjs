@@ -6163,5 +6163,21 @@ titre("Plus aucun compte de départ dans le code ; package.json suit la version"
     existsSync("docs/installation-premier-administrateur.md") && /changer le mot de\s+passe tout de suite/.test(readFileSync("docs/installation-premier-administrateur.md", "utf8")));
 }
 
+
+titre("Les icônes de l'application ont un fond transparent (écran de lancement Android)");
+{
+  // Capture Timo (12/09/2026) : « le logo de lancement est toujours dans un
+  // carré blanc… il devrait être sans fond ». Android dessine l'icône du
+  // manifeste telle quelle sur background_color : une icône RGB (sans
+  // transparence) y laisse son carré blanc. On lit l'en-tête PNG (type de
+  // couleur 6 = RGBA) et le premier pixel (alpha 0), mesuré, pas présumé.
+  for (const f of ["public/pwa-192.png", "public/pwa-512.png"]) {
+    const b = readFileSync(f);
+    const typeCouleur = b[25];
+    const png = execSync(`node -e "const z=require('zlib'),b=require('fs').readFileSync('${f}');let i=8,idat=[];while(i<b.length){const l=b.readUInt32BE(i),t=b.toString('ascii',i+4,i+8);if(t==='IDAT')idat.push(b.subarray(i+8,i+8+l));i+=12+l;}const d=z.inflateSync(Buffer.concat(idat));process.stdout.write(String(d[4]))"`, { encoding: "utf8" });
+    test(`★ ${f} : RGBA (type ${typeCouleur}) et premier pixel transparent (alpha ${png})`, typeCouleur === 6 && png === "0");
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
