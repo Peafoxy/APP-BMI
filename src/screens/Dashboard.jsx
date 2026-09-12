@@ -14,7 +14,7 @@ import { CarteCaisse } from "../components/CarteCaisse";
 import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
-  stockVendu, stockAjuste, stockActuel, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
+  stockVendu, stockAjuste, stockActuel, trierPourRapportStocks, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
   dettesClassiques, estReservation, periodes, reservations,
   filtreEspaceAffichage, afficheChiffresFormation, boutiqueDuChantier, voitLesDeuxEspaces, boutiquesFormation, estAdminPrincipal,
   boutiqueTerrain, NOM_CAISSE_COMPTABLE, memoriserBoutique, boutiqueMemorisee } from "../lib/calculs";
@@ -445,7 +445,7 @@ export function Dashboard({ db, profile }) {
           {!sansVentes && <button className={btnDark} onClick={() => exportCSV("dettes", ["Date", "Nature", "Boutique", "Client", "Téléphone", "Motif", "Montant", "Payé", "Reste", "Saisi par"],
             dettesReellesDb.map((d) => [dFR(d.date), estReservation(d) ? "Réservation prépayée" : "Dette", d.boutique, d.client, d.tel, d.motif, d.montant, d.paye, Math.max(0, d.montant - d.paye), d.par]))}>Dettes</button>}
           {!sansStock && <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
-            produitsReelsDb.map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>}
+            trierPourRapportStocks(produitsReelsDb, (p) => stockActuel(db, p)).map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>}
           <button className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800"
             onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
         </div>

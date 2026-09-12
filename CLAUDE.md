@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1186 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1190 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -731,6 +731,14 @@ lit mal est pire qu'un banc absent).
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix
   d'achat, prix de vente ; deux modes (nouveaux articles / entrées).
 
+### Rapports
+- **Le rapport de stocks est classé par boutique, par catégorie et par
+  seuil** (capture Timo, 12/09/2026) : `trierPourRapportStocks`
+  (lib/calculs.js) — boutique, catégorie (sans accents ni majuscules), puis
+  **le plus urgent d'abord** (reste − seuil croissant : au seuil ou en
+  dessous en tête), puis le nom. L'export « Stocks » du tableau de bord (CSV
+  et son PDF) y passe.
+
 ### Apparence et étiquettes
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
@@ -775,6 +783,13 @@ lit mal est pire qu'un banc absent).
 - **Supabase donne les droits par défaut à `anon` sur toute nouvelle table
   ET toute nouvelle fonction.** `revoke from public` ne suffit pas.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
+- **La police de base du PDF ne connaît ni « → », ni « − », ni l'espace fine
+  de `fmt()`** : devant un caractère inconnu, jsPDF change d'encodage pour
+  toute la chaîne et le texte sort en lettres espacées (capture Timo,
+  12/09/2026, « Rapport — versements » : « V e r s e m e n t … ! C h e z »,
+  « 50/000 F »). Tout texte venu des données passe par `texteSurPdf`
+  (src/pdf.js) avant d'être écrit : rapports génériques, relevé. Les accents
+  restent.
 - **Un cadre confié à une bibliothèque extérieure (Leaflet) n'a JAMAIS
   d'enfant React** : div auto-fermé, textes dans un frère (carte blanche
   du 02/09, trouvée par mesure après trois correctifs à côté).

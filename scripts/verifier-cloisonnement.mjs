@@ -5630,11 +5630,41 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   test("★ un relevé vide se fabrique quand même (« Aucun mouvement sur cette période. », « Depuis le début »), et le fichier suit la règle des documents (Relevé - caisse - période)",
     !!docV && /Aucun mouvement sur cette p/.test(textesPdf(docV)) && /Depuis le d/.test(textesPdf(docV))
     && /doc\.save\(fichierPdf\("Relevé", \{ client: caisse, numero: /.test(readFileSync("src/pdf.js", "utf8")));
+  // ⚠ Capture Timo (12/09/2026) : « Versement de fonds → Chez le DG » sortait en lettres espacées dans le rapport PDF.
+  test("★ texteSurPdf : flèche, signe moins, tirets longs, espaces fines de fmt(), croix et coches sont traduits avant d'écrire dans le PDF ; les accents restent ; un caractère vraiment inconnu devient « ? »",
+    PdfR.texteSurPdf("Versement de fonds → Chez le DG") === "Versement de fonds -> Chez le DG" && PdfR.texteSurPdf("écart − 50\u202f000 F") === "écart - 50 000 F"
+    && PdfR.texteSurPdf("✖ REJETÉ (x) — Versement") === "X REJETÉ (x) - Versement" && PdfR.texteSurPdf("✅ validé…") === "OK validé..." && PdfR.texteSurPdf("⏳ en attente") === "en attente"
+    && PdfR.texteSurPdf("Éléphant à Lomé") === "Éléphant à Lomé" && PdfR.texteSurPdf("中") === "?" && PdfR.texteSurPdf(null) === "");
+  const docT = PdfR.genererPDF ? null : null;
+  test("★ le rapport générique (genererPDF) et le relevé passent chaque cellule par texteSurPdf",
+    /head: \[d\.headers\.map\(texteSurPdf\)\],\n\s*body: d\.rows\.map\(\(r\) => r\.map\(\(c\) => texteSurPdf\(c\)\)\),/.test(readFileSync("src/pdf.js", "utf8"))
+    && /texteSurPdf\(m\.libelle\), texteSurPdf\(m\.boutique\)/.test(readFileSync("src/pdf.js", "utf8")) && docT === null);
   const carteR = readFileSync("src/components/CarteCaisse.jsx", "utf8");
   test("★ la carte porte « 🖨 Imprimer le relevé (PDF) » et « Exporter (CSV) » : le PDF reçoit le relevé affiché (même période, mêmes chiffres, logo, date d'édition), le CSV les mouvements dans l'ordre des dates puis les trois soldes ; le tableau de bord nomme la caisse de chaque carte",
     /genererReleve\(r, \{ caisse, periode, logo: LOGO, edite: dFR\(today\(\)\) \}\)/.test(carteR) && /🖨 Imprimer le relevé \(PDF\)/.test(carteR) && /Exporter \(CSV\)/.test(carteR)
     && /exportCSV\(`releve_\$\{/.test(carteR) && /\["Date", "Mouvement", "Boutique", "Entrée", "Sortie"\]/.test(carteR) && /"Total de la période", "", r\.entrees, r\.sorties/.test(carteR)
     && (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/<CarteCaisse titre=\{`[^`]+`\} caisse=\{CAISSE_(DG|BANQUE|COMPTABLE)\}/g) || []).length === 3);
+}
+
+titre("📦 Le rapport de stocks est classé par boutique, par catégorie et par seuil (capture Timo, 12/09/2026)");
+{
+  const st = (p) => p.stock;
+  const prods = [
+    { boutique: "BMI DEMAKPOE", nom: "Coffret HT 24M", categorie: "coffret", seuil: 2, stock: 3 },
+    { boutique: "BMI APESSITO", nom: "Fusible 300A", categorie: "Accessoire", seuil: 10, stock: 29 },
+    { boutique: "BMI APESSITO", nom: "Cosse 50mm", categorie: "accessoire", seuil: 20, stock: 50 },
+    { boutique: "BMI APESSITO", nom: "Busse BAR", categorie: "accessoire", seuil: 2, stock: 1 },
+    { boutique: "BMI APESSITO", nom: "Coffret HT 12M", categorie: "coffret", seuil: 4, stock: 20 },
+    { boutique: "BMI APESSITO", nom: "Étrier final", categorie: "accessoire", seuil: 0, stock: 4 },
+    { boutique: "BMI DEMAKPOE", nom: "3PWSS", categorie: "pompes", seuil: 5, stock: 15 },
+    { boutique: "BMI DEMAKPOE", nom: "2PWSS", categorie: "pompes", seuil: 4, stock: 3 },
+  ];
+  const ordre = C.trierPourRapportStocks(prods, st).map((p) => `${p.boutique.split(" ")[1]}/${p.categorie.toLowerCase()}/${p.nom}`).join(" | ");
+  test("★ trierPourRapportStocks : boutique, puis catégorie (majuscules et accents ignorés), puis le plus urgent d'abord (reste − seuil croissant), puis le nom ; la liste d'origine n'est pas touchée",
+    ordre === "APESSITO/accessoire/Busse BAR | APESSITO/accessoire/Étrier final | APESSITO/accessoire/Fusible 300A | APESSITO/accessoire/Cosse 50mm | APESSITO/coffret/Coffret HT 12M | DEMAKPOE/coffret/Coffret HT 24M | DEMAKPOE/pompes/2PWSS | DEMAKPOE/pompes/3PWSS"
+    && prods[0].nom === "Coffret HT 24M" && C.trierPourRapportStocks(undefined, st).length === 0);
+  test("★ l'export « Stocks » du tableau de bord (CSV et son PDF) passe par ce tri",
+    /exportCSV\("stocks", \[[^\]]+\],\n\s*trierPourRapportStocks\(produitsReelsDb, \(p\) => stockActuel\(db, p\)\)\.map/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

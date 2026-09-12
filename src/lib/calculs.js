@@ -386,6 +386,20 @@ export const ventesReelles = (db) => {
 // que ventesReelles(), à utiliser partout où un total global ou un export
 // est calculé (c'est leur absence qui laissait « Total des dépenses », le
 // capital dormant et le journal comptable compter l'entraînement).
+// ⚠ Capture Timo (12/09/2026, « Rapport — stocks ») : « le rapport de stock
+// doit être classé par boutique, par catégorie et par seuil ». UNE règle,
+// pure : boutique, puis catégorie (sans accents ni majuscules), puis le plus
+// URGENT d'abord (reste − seuil croissant : au seuil ou en dessous en tête),
+// puis le nom. `stockDe(p)` rend le stock actuel de l'article.
+export function trierPourRapportStocks(produits, stockDe) {
+  const cle = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return [...(produits || [])].sort((a, b) =>
+    cle(a.boutique).localeCompare(cle(b.boutique))
+    || cle(a.categorie).localeCompare(cle(b.categorie))
+    || ((Number(stockDe(a)) || 0) - (Number(a.seuil) || 0)) - ((Number(stockDe(b)) || 0) - (Number(b.seuil) || 0))
+    || cle(a.nom).localeCompare(cle(b.nom)));
+}
+
 export const depensesReelles = (db) => {
   const f = boutiquesFormation(db);
   return (db.depenses || []).filter((d) => !f.has(d.boutique));

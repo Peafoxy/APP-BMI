@@ -10,6 +10,32 @@ function fmtMontant(n) {
   return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
+// ⚠ Capture Timo (12/09/2026, « Rapport — versements ») : la description
+// « Versement de fonds → Chez le DG » sortait en lettres espacées
+// (« V e r s e m e n t … ! C h e z ») et « écart − 50 000 F » en
+// « 50/000 F ». La police de base du PDF ne connaît ni la flèche, ni le signe
+// moins typographique, ni l'espace fine que fmt() glisse entre les milliers :
+// devant un caractère inconnu, jsPDF change d'encodage pour toute la
+// chaîne, et le texte se disloque. On traduit donc AVANT d'écrire : UNE règle,
+// pour tout texte venu des données (descriptions, libellés, noms).
+export function texteSurPdf(x) {
+  return String(x ?? "")
+    .replace(/[\u202F\u00A0\u2009]/g, " ")
+    .replace(/[\u2212\u2013\u2014]/g, "-")
+    .replace(/\u2192/g, "->")
+    .replace(/\u2190/g, "<-")
+    .replace(/\u2026/g, "...")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
+    .replace(/\u2716/g, "X")
+    .replace(/\u2705/g, "OK")
+    .replace(/\u23F3/g, "")
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, "")
+    .replace(/[^\x00-\xFF]/g, "?")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
 // Génère un véritable fichier .pdf téléchargé directement,
 // sans passer par la fenêtre d'impression.
 export function genererPDF(d, logo) {
@@ -42,8 +68,8 @@ export function genererPDF(d, logo) {
 
   // Tableau
   autoTable(doc, {
-    head: [d.headers],
-    body: d.rows.map((r) => r.map((c) => String(c ?? ""))),
+    head: [d.headers.map(texteSurPdf)],
+    body: d.rows.map((r) => r.map((c) => texteSurPdf(c))),
     startY: 30,
     styles: { fontSize: 8, cellPadding: 1.6 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255, fontSize: 8 },
@@ -593,7 +619,7 @@ export function genererReleve(r, { caisse, periode, logo, formation = false, edi
 
   enteteSociete(doc, logo, largeur);
   // Un tiret simple : la police de base du PDF n'écrit pas le tiret long.
-  const yApres = bandeauTitre(doc, largeur, `RELEVÉ - ${caisse || ""}`.trim(), formation);
+  const yApres = bandeauTitre(doc, largeur, texteSurPdf(`RELEVÉ - ${caisse || ""}`), formation);
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
   doc.text(`Période : ${periode ? `${periode} (${libellePeriode})` : libellePeriode}`, 14, yApres + 7);
@@ -610,7 +636,7 @@ export function genererReleve(r, { caisse, periode, logo, formation = false, edi
   autoTable(doc, {
     head: [["Date", "Mouvement", "Boutique", "Entrée", "Sortie"]],
     body: mouvements.length
-      ? mouvements.map((m) => [dFRl(m.date), m.libelle || "", m.boutique || "", m.sens === "entree" ? fmtMontant(m.montant) : "", m.sens === "sortie" ? fmtMontant(m.montant) : ""])
+      ? mouvements.map((m) => [dFRl(m.date), texteSurPdf(m.libelle), texteSurPdf(m.boutique), m.sens === "entree" ? fmtMontant(m.montant) : "", m.sens === "sortie" ? fmtMontant(m.montant) : ""])
       : [["", "Aucun mouvement sur cette période.", "", "", ""]],
     foot: [["", "Total de la période", "", fmtMontant(r.entrees), fmtMontant(r.sorties)]],
     startY: y + 2,
