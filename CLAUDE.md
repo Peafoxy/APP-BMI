@@ -755,7 +755,7 @@ lit mal est pire qu'un banc absent).
   vingt gestes soulignés par ligne ; « lance les corrections pour les 2 ») :
   rôle, boutique (« Toutes ») et statut en **pastilles** (+ 🎓 Formation),
   identité manquante en ⚠ discret ; **quatre boutons ronds** toujours
-  visibles (🔐 Pouvoirs, 🪪 Identité, 🔑 Mot de passe = principal, ⛔ Bloquer /
+  visibles (🔐 Pouvoirs, 🆔 Identité, 🔑 Mot de passe = principal, ⛔ Bloquer /
   ✅ Réactiver hors sa fiche) et **« ⋯ Gérer »** qui ouvre un panneau SOUS la
   ligne (jamais un voile), rangé par thème — Compte, Paie, Commercial,
   Client — avec les MÊMES gardes qu'avant. Les deux gestes graves (formation
