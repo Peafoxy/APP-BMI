@@ -51,7 +51,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1180 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1181 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -593,23 +593,30 @@ lit mal est pire qu'un banc absent).
   pas le tiroir). À dire aux vendeuses : une grosse dépense en espèces se fait
   valider AVANT la fermeture, sinon la caisse ne se clôture pas.
 
-### 🏦 Chez le DG / BANQUE (12/09/2026)
+### 🏦 DG / BANQUE / COMPTABLE, dans le tableau de bord (12/09/2026)
 - Timo : « les dépenses de chez le DG et du comptable sont déduites d'où
   alors ? » — le comptable avait sa caisse, le DG et la banque non : l'argent
-  versé chez le DG sortait du suivi. Décision : **« DG et banque sur le même
-  modèle que le comptable »**. Onglet **🏦 Chez le DG / BANQUE**, **admin
-  PRINCIPAL seul** (retiré aux autres admins dans `tabsPlus3`, revérifié dans
-  l'écran), boutiques de l'espace regardé seulement.
-- **Deux caisses LUES, rien d'écrit** (`lib/caissesDG.js`, exercé par le
-  banc) : **Chez le DG** — entrées = versements « Chez le DG » VALIDÉS ;
+  versé chez le DG sortait du suivi. Décisions : **« DG et banque sur le même
+  modèle que le comptable »**, puis **« ramener cet onglet dans le tableau de
+  bord… transformer le bouton Chez le comptable en DG / BANQUE / COMPTABLE,
+  à l'intérieur les classer comme dans DG/Banque »**. Donc PAS d'onglet à
+  part (celui de 2.101.158 a été retiré) : **la pastille « Chez le comptable »
+  du tableau de bord s'appelle 🏦 DG / BANQUE / COMPTABLE** (valeur interne
+  inchangée, le filtre des sorties du comptable suit) et montre trois caisses
+  par UNE carte commune (`components/CarteCaisse.jsx`) : **Chez le DG et
+  BANQUE pour l'admin PRINCIPAL seul**, Chez le comptable pour qui voit
+  l'écran ; boutiques de l'espace regardé (+ TERRAIN).
+- **Trois caisses LUES, rien d'écrit** (`lib/caissesCentrales.js`, exercé par
+  le banc) : **Chez le DG** — entrées = versements « Chez le DG » VALIDÉS ;
   sorties = dépenses « payées avec de l'argent remis par le DG » qui comptent
   + avances de frais remboursées par le DG. **BANQUE** — entrées =
   versements BANQUE validés (banque, bordereau) ; sorties = dépenses payées
-  par **virement bancaire** qui comptent (salaires virés, fournisseurs,
-  CNSS). En attente et rejeté n'y sont jamais. **Les dépenses restent des
-  charges de leur boutique** : le résultat ne change pas, on suit seulement
-  d'où l'argent est parti. Pas de pastille sur le tableau de bord (non
-  demandé).
+  par **virement bancaire** qui comptent. **Chez le comptable** — entrées =
+  versements pointés « Encaissé », sorties = remises pointées « Remis », ce
+  qui attend son pointage est dit à part. En attente et rejeté n'y sont
+  jamais. **Les dépenses restent des charges de leur boutique** : le
+  résultat ne change pas, on suit seulement d'où l'argent est parti. Pas de
+  montant de départ (proposé, pas demandé).
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

@@ -5,7 +5,6 @@ import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
 import { NouvelleCommande, CommandesRecues } from "./screens/Commandes";
 import { Depenses, ChezComptable } from "./screens/Depenses";
-import { CaissesDG } from "./screens/CaissesDG";
 import { Dettes } from "./screens/Dettes";
 import { CreerClient, Clients } from "./screens/Clients";
 import { Caisse } from "./screens/Caisse";
@@ -63,7 +62,7 @@ const M = Object.fromEntries(Object.entries({
   Dimensionnement, TousLesDevis, Prospects, EspaceClient, Messagerie,
   ClientsInstalles, PrimesRemises, PrimesRecues, ContratsInstallation,
   Commerciaux, MesTaches, Rentabilite, SalairesAdmin, Salaire, MonEquipe,
-  MaCommission, Fournisseurs, Users, Historique, Parametres, CaissesDG,
+  MaCommission, Fournisseurs, Users, Historique, Parametres,
 }).map(([n, C]) => [n, memoEcran(C)]));
 import {
   ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp,
@@ -959,7 +958,7 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dg_banque", "🏦 Chez le DG / BANQUE"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
@@ -997,12 +996,10 @@ export default function App() {
     ? [...tabsPlus, ["mes_contrats", "📄 Mes contrats"]]
     : tabsPlus;
 
-  // 🏦 Chez le DG / BANQUE (Timo, 12/09/2026) : l'administrateur PRINCIPAL seul.
-  const tabsPlus3 = tabsPlus2.filter(([id]) => id !== "dg_banque" || estAdminPrincipal(db, profile));
   // Pouvoirs retirés par l'administrateur
   // …puis l'ordre choisi par la personne (Timo, 12/09/2026) : le rôle décide
   // QUELS onglets, chacun décide de leur ORDRE, pour lui seul.
-  const tabsAutorises = appliquerOrdre(tabsPlus3.filter(([id]) => aDroit(db, profile, id)), maFiche?.ordre_onglets);
+  const tabsAutorises = appliquerOrdre(tabsPlus2.filter(([id]) => aDroit(db, profile, id)), maFiche?.ordre_onglets);
   const reordonnerOnglets = (ids) => {
     const ordre = ordreApres(ids, maFiche?.ordre_onglets);
     if (!ordre || !maFiche) return;
@@ -1188,11 +1185,6 @@ export default function App() {
       {ongletsVisites.chez_comptable && (
         <div style={{ display: tab === "chez_comptable" ? "block" : "none" }}>
           <M.ChezComptable db={db} save={save} profile={profile} />
-        </div>
-      )}
-      {ongletsVisites.dg_banque && isAdmin && (
-        <div style={{ display: tab === "dg_banque" ? "block" : "none" }}>
-          <M.CaissesDG db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.dettes && (

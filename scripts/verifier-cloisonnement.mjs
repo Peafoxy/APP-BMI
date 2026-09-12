@@ -14,7 +14,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
-import { unlinkSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { unlinkSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -5512,8 +5512,8 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
   const appOo = readFileSync("src/App.jsx", "utf8");
   test("★ App.jsx : les deux barres (ordinateur, téléphone) passent par OngletsDeplacables ; l'ordre vient de la fiche (ordre_onglets) APRÈS le filtre des pouvoirs ; l'écriture ne part que si l'ordre change (ordreApres), dans la fiche de la personne seule, sans ligne de réglage",
     (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
-    // (tabsPlus3 depuis 🏦 Chez le DG / BANQUE, réservé au principal — même jour)
-    && /const tabsAutorises = appliquerOrdre\(tabsPlus3\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
+    // (l'onglet à part 🏦 Chez le DG / BANQUE a vécu une heure : Timo l'a voulu dans le tableau de bord — retour à tabsPlus2)
+    && /const tabsAutorises = appliquerOrdre\(tabsPlus2\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
     && /const ordre = ordreApres\(ids, maFiche\?\.ordre_onglets\);\n\s*if \(!ordre \|\| !maFiche\) return;\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, ordre_onglets: ordre \} : u\)\) \}\);/.test(appOo)
     && !/Ordre de mes onglets|ordre des onglets/i.test(appOo) && !/tabsAutorises\.map\(\(\[id, label\]\)/.test(appOo));
   const cmp = readFileSync("src/components/OngletsDeplacables.jsx", "utf8");
@@ -5524,13 +5524,15 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     && /"verifier-onglets-deplacables": "node scripts\/verifier-onglets-deplacables\.mjs"/.test(readFileSync("package.json", "utf8")));
 }
 
-titre("🏦 Chez le DG / BANQUE : deux caisses lues sur le modèle du comptable (Timo, 12/09/2026)");
+titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bord (Timo, 12/09/2026)");
 {
   // « Les dépenses de chez le DG et du comptable sont déduites d'où alors ? »
-  // → « DG et banque sur le même modèle que le comptable ». Rien n'est écrit :
-  // les deux caisses se LISENT (lib/caissesDG.js). Le banc exerce la règle.
+  // → « DG et banque sur le même modèle que le comptable », puis « ramener cet
+  // onglet dans le tableau de bord… transformer le bouton Chez le comptable en
+  // DG / BANQUE / COMPTABLE ». Rien n'est écrit : les trois caisses se LISENT
+  // (lib/caissesCentrales.js). Le banc exerce la règle.
   const sortieCg = join("node_modules", ".cache", `bmi-caisses-dg-${process.pid}.mjs`);
-  await build({ entryPoints: ["src/lib/caissesDG.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCg, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  await build({ entryPoints: ["src/lib/caissesCentrales.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCg, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
   const Cg = await import(pathToFileURL(sortieCg).href);
   unlinkSync(sortieCg);
   const dbG = { depenses: [
@@ -5563,13 +5565,28 @@ titre("🏦 Chez le DG / BANQUE : deux caisses lues sur le modèle du comptable 
   test("★ BANQUE : entrées = les versements BANQUE validés (200 000, banque et bordereau dans le libellé) ; sorties = les virements bancaires qui comptent (150 000 + 2 500 — ni l'attente, ni l'avance perso, ni les espèces, ni un versement) ; solde 47 500",
     bq.totalEntrees === 200000 && /Ecobank — bordereau B-1/.test(bq.entrees[0].libelle) && bq.totalSorties === 152500 && bq.sorties.map((m) => m.id).sort().join("|") === "b1|b3" && bq.solde === 47500
     && Cg.mouvementsDG(dbG, []).mouvements.length === 0 && Cg.mouvementsBanque({}, ["APESSITO"]).solde === 0 && Cg.CAISSE_DG === "Chez le DG" && Cg.CAISSE_BANQUE === "BANQUE");
+  // La caisse du comptable, sur le même modèle : ses pointages font foi.
+  const dbK = { depenses: [
+    { id: "m1", boutique: "Chez le comptable", categorie: "Versement de fonds", montant: -70000, versement_id: "x", decaisse_le: "2026-09-11", decaisse_par: "MARIE", description: "Versement du 10/09/2026 reçu de APESSITO" },
+    { id: "m2", boutique: "Chez le comptable", categorie: "Versement de fonds", montant: -20000, versement_id: "y" },
+    { id: "m3", boutique: "Chez le comptable", categorie: "Versement de fonds", montant: 0, versement_id: "z", versement_rejete_le: "2026-09-11" },
+    { id: "s1", boutique: "Chez le comptable", categorie: "Commissions", description: "commission AGENT", montant: 15000, decaisse_le: "2026-09-12", decaisse_par: "MARIE" },
+    { id: "s2", boutique: "Chez le comptable", categorie: "Salaires", montant: 40000 },
+    { id: "s3", boutique: "APESSITO", categorie: "Loyer", montant: 999, decaisse_le: "2026-09-12" },
+  ] };
+  const ck = Cg.mouvementsComptable(dbK);
+  test("★ Chez le comptable : entrées = les versements qu'il a pointés « Encaissé » (70 000), sorties = ce qu'il a pointé « Remis » (15 000), solde 55 000 ; à encaisser 20 000 et à remettre 40 000 dits à part ; le rejeté et les autres boutiques n'y sont pas",
+    ck.totalEntrees === 70000 && ck.totalSorties === 15000 && ck.solde === 55000 && ck.aEncaisser === 20000 && ck.aRemettre === 40000 && ck.mouvements.map((m) => m.id).join("|") === "s1|m1"
+    && /encaissé le 2026-09-11 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable" && Cg.LIBELLE_PASTILLE_CAISSES === "DG / BANQUE / COMPTABLE");
   const appCg = readFileSync("src/App.jsx", "utf8");
-  const ecrCg = readFileSync("src/screens/CaissesDG.jsx", "utf8");
-  test("★ l'onglet 🏦 Chez le DG / BANQUE : dans la liste de l'admin (App et ONGLETS_ROLE), retiré à tout admin qui n'est pas le PRINCIPAL avant les pouvoirs, l'écran le revérifie et ne lit que les boutiques de l'espace regardé (boutiquesVisibles) ; rien n'est écrit (pas de save)",
-    /\["dg_banque", "🏦 Chez le DG \/ BANQUE"\]/.test(appCg) && /const tabsPlus3 = tabsPlus2\.filter\(\(\[id\]\) => id !== "dg_banque" \|\| estAdminPrincipal\(db, profile\)\);/.test(appCg)
-    && /<M\.CaissesDG db=\{db\} profile=\{profile\} \/>/.test(appCg) && /dg_banque: "🏦 Chez le DG \/ BANQUE"/.test(readFileSync("src/lib/calculs.js", "utf8")) && /"chez_comptable", "dg_banque", "dettes"/.test(readFileSync("src/lib/calculs.js", "utf8"))
-    && /if \(!estAdminPrincipal\(db, profile\)\) return/.test(ecrCg) && /const noms = boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\);/.test(ecrCg) && !/save\(/.test(ecrCg)
-    && /mouvementsDG\(db, noms\)/.test(ecrCg) && /mouvementsBanque\(db, noms\)/.test(ecrCg) && /Les dépenses restent des charges de leur boutique/.test(ecrCg));
+  const dashCg = readFileSync("src/screens/Dashboard.jsx", "utf8");
+  const carteCg = readFileSync("src/components/CarteCaisse.jsx", "utf8");
+  test("★ PLUS d'onglet à part (retiré d'App, d'ONGLETS_ROLE, plus d'écran CaissesDG) : la pastille « Chez le comptable » du tableau de bord s'appelle DG / BANQUE / COMPTABLE (la valeur interne ne change pas : le filtre des sorties du comptable suit), et montre les trois caisses par UNE carte commune — DG et BANQUE pour le PRINCIPAL seul, sur les boutiques de l'espace regardé ; rien n'est écrit",
+    !/dg_banque/.test(appCg) && !/dg_banque/.test(readFileSync("src/lib/calculs.js", "utf8")) && !existsSync("src/screens/CaissesDG.jsx") && !existsSync("src/lib/caissesDG.js")
+    && /nom === NOM_CAISSE_COMPTABLE \? `🏦 \$\{LIBELLE_PASTILLE_CAISSES\}`/.test(dashCg) && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
+    && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg) && (dashCg.match(/\{principal && <CarteCaisse /g) || []).length === 2 && (dashCg.match(/<CarteCaisse /g) || []).length === 3
+    && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /mouvementsDG\(db, nomsCaisses\)/.test(dashCg) && /mouvementsBanque\(db, nomsCaisses\)/.test(dashCg) && /mouvementsComptable\(db\)/.test(dashCg)
+    && /Les dépenses restent des charges de leur boutique/.test(dashCg) && /export function CarteCaisse\(\{ titre, note, bilan \}\)/.test(carteCg) && !/save\(/.test(carteCg));
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

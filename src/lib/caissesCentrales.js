@@ -1,5 +1,5 @@
 // ============================================================
-// lib/caissesDG.js — LES CAISSES « CHEZ LE DG » ET « BANQUE »
+// lib/caissesCentrales.js — LES CAISSES « CHEZ LE DG », « BANQUE », « CHEZ LE COMPTABLE »
 //
 // Timo (12/09/2026) : « les dépenses de chez le DG et du comptable sont
 // déduites d'où alors ? » — le comptable avait sa caisse, le DG et la banque
@@ -7,7 +7,13 @@
 // dépense « payée avec de l'argent remis par le DG » ne diminuait aucun
 // solde. Décision : « DG et banque sur le même modèle que le comptable ».
 //
-// UNE règle, pure (le banc l'exerce). Rien n'est écrit : les deux caisses se
+// Puis (même jour) : « ramener cet onglet DG/banque dans le tableau de bord,
+// comme "Chez le comptable" s'y retrouve… rassembler ça dans un seul onglet,
+// transformer le bouton Chez le comptable en DG / BANQUE / COMPTABLE, à
+// l'intérieur les classer comme dans DG/Banque ». Donc : PAS d'onglet à
+// part, une pastille du tableau de bord, trois caisses lues pareil.
+//
+// UNE règle, pure (le banc l'exerce). Rien n'est écrit : les trois caisses se
 // LISENT dans ce qui existe déjà.
 //   • Chez le DG — entrées : les versements « Chez le DG » VALIDÉS par le DG ;
 //     sorties : les dépenses payées « avec de l'argent remis par le DG » qui
@@ -16,15 +22,22 @@
 //   • BANQUE — entrées : les versements « BANQUE » VALIDÉS (banque, bordereau) ;
 //     sorties : les dépenses payées par virement bancaire qui comptent
 //     (salaires virés, fournisseurs, CNSS…).
+//   • Chez le comptable — entrées : les versements « Chez le comptable » que le
+//     comptable a pointés « Encaissé » (l'entrée miroir, montant négatif) ;
+//     sorties : les sorties de sa caisse qu'il a pointées « Remis ». Ce qui
+//     n'est pas encore pointé est dit à part (à encaisser, à remettre).
 // Les dépenses restent des CHARGES de la boutique qui les a faites : rien ne
 // change pour le résultat, on suit seulement d'où l'argent est parti.
 // Cloisonnement : on ne lit que les boutiques données (l'espace regardé).
 // ============================================================
-import { DEST_DG, DEST_BANQUE, estVersement, estRejete, libelleDestination } from "./versements";
+import { DEST_DG, DEST_BANQUE, DEST_COMPTABLE, estVersement, estRejete, libelleDestination } from "./versements";
 import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse } from "./validationDepenses";
 
 export const CAISSE_DG = DEST_DG;
 export const CAISSE_BANQUE = DEST_BANQUE;
+export const CAISSE_COMPTABLE = DEST_COMPTABLE;
+// Le libellé de la pastille du tableau de bord (à la place de « Chez le comptable »).
+export const LIBELLE_PASTILLE_CAISSES = "DG / BANQUE / COMPTABLE";
 
 const parDateDesc = (a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`);
 const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) > 0;
@@ -57,6 +70,19 @@ export function mouvementsBanque(db, nomsBoutiques) {
     .filter((d) => nomsBoutiques.includes(d.boutique) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compte(d))
     .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` }));
   return bilan(entrees, sorties);
+}
+
+// La caisse du comptable : ce qu'il a réellement encaissé, ce qu'il a
+// réellement remis (ses pointages), et ce qui attend encore son pointage.
+export function mouvementsComptable(db) {
+  const lignes = (db.depenses || []).filter((d) => d.boutique === DEST_COMPTABLE && !estRejete(d));
+  const entrees = lignes.filter((d) => Number(d.montant || 0) < 0 && d.decaisse_le)
+    .map((d) => ({ id: d.id, sens: "entree", date: d.decaisse_le, montant: -Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || "Versement reçu"} — encaissé le ${d.decaisse_le} par ${d.decaisse_par}` }));
+  const sorties = lignes.filter((d) => Number(d.montant || 0) > 0 && d.decaisse_le)
+    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie} — remis le ${d.decaisse_le} par ${d.decaisse_par}` }));
+  const aEncaisser = lignes.filter((d) => Number(d.montant || 0) < 0 && !d.decaisse_le).reduce((s, d) => s - Number(d.montant), 0);
+  const aRemettre = lignes.filter((d) => Number(d.montant || 0) > 0 && !d.decaisse_le).reduce((s, d) => s + Number(d.montant), 0);
+  return { ...bilan(entrees, sorties), aEncaisser, aRemettre };
 }
 
 function bilan(entrees, sorties) {
