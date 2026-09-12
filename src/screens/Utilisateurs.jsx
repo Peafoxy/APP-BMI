@@ -1082,10 +1082,14 @@ export function Users({ db, save, profile }) {
               {gererOuvert === u.id && (
               <tr className="bg-slate-50 border-t border-slate-100">
                 <td colSpan={6} className="px-4 py-3">
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Compte</div>
-                      <div className="flex flex-wrap gap-1.5">
+                  {/* Timo (12/09/2026, capture) : « classer les actions par ligne et non
+                      par colonne » — un thème = UNE ligne : son nom à gauche, ses
+                      boutons à la suite sur la même ligne (ils passent à la ligne
+                      seulement si la place manque). Mêmes gestes, mêmes gardes. */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Compte</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
                   {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <button onClick={() => changerRole(u)} className={boutonGerer} title={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"}>🎭 Rôle</button>}
                   {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
                     <button onClick={() => basculerFormation(u)} className={boutonGerer}>
@@ -1099,9 +1103,9 @@ export function Users({ db, save, profile }) {
                       </div>
                     </div>
                     {SALARIES.includes(u.role) && (
-                    <div>
-                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Paie</div>
-                      <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Paie</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
                   <button onClick={() => changerSalaire(u)} className={boutonGerer}>💵 Salaire</button>
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
@@ -1112,9 +1116,9 @@ export function Users({ db, save, profile }) {
                     </div>
                     )}
                     {u.role !== "client" && (
-                    <div>
-                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Commercial</div>
-                      <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Commercial</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
                   <button onClick={() => changerTauxCommission(u)} className={boutonGerer}>💰 Commission {u.taux_commission ?? 0} %</button>
                   {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className={boutonGerer}>🤝 Parrain</button>}
                   {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className={boutonGerer}>⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT} %</button>}
@@ -1123,9 +1127,9 @@ export function Users({ db, save, profile }) {
                     </div>
                     )}
                     {u.role === "client" && (
-                    <div>
-                      <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Client</div>
-                      <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Client</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
                   <button onClick={() => basculerChatLibre(u)} className={boutonGerer}>{u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"}</button>
                       </div>
                     </div>

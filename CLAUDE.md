@@ -51,12 +51,12 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1193 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1194 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
-npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
+npm run verifier-ecran-ventes    # 44  : l'argent dans l'écran Ventes, et sa liste mesurée dans Chromium (clic, logo WhatsApp)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
@@ -751,6 +751,16 @@ lit mal est pire qu'un banc absent).
   l'icône seule, le libellé au survol** (`boutonAction`) ; les trois mots
   distincts 📋 Devis / 🔁 Retour / ↩ Reprise vivent dans les `title`. Mêmes
   colonnes de fond, mêmes gestes, mêmes droits, aucune règle pure touchée.
+  **La suite des articles se voit au CLIC sur la ligne** (12/09/2026, seconde
+  capture : « +1 autre ou +3 autres ne s'affiche pas… lorsqu'on clique sur la
+  ligne, la suite apparaît, on clique encore, même ligne ou ailleurs, ça
+  revient à 2 lignes par défaut ») : le survol (`title`) ne se voit pas
+  partout, donc `venteDepliee` — UNE vente dépliée à la fois, un clic
+  n'importe où sur la liste replie, la cellule des boutons ne déplie pas
+  (`stopPropagation`). **Le bouton WhatsApp porte le VRAI logo**
+  (`IconeWhatsApp`, components/ui.jsx, SVG vert #25D366, écrit une fois) :
+  « remplacer l'icône de WhatsApp par le vrai icône WhatsApp » — plus d'emoji
+  💬. Les deux sont MESURÉS dans Chromium (`verifier-ecran-ventes`).
 - **La liste des utilisateurs est lisible** (capture Timo, 12/09/2026 :
   vingt gestes soulignés par ligne ; « lance les corrections pour les 2 ») :
   rôle, boutique (« Toutes ») et statut en **pastilles** (+ 🎓 Formation),
@@ -758,7 +768,10 @@ lit mal est pire qu'un banc absent).
   visibles (🔐 Pouvoirs, 🆔 Identité, 🔑 Mot de passe = principal, ⛔ Bloquer /
   ✅ Réactiver hors sa fiche) et **« ⋯ Gérer »** qui ouvre un panneau SOUS la
   ligne (jamais un voile), rangé par thème — Compte, Paie, Commercial,
-  Client — avec les MÊMES gardes qu'avant. Les deux gestes graves (formation
+  Client — avec les MÊMES gardes qu'avant. **Un thème = UNE ligne** (capture
+  Timo, 12/09/2026 : « classer les actions par ligne et non par colonne ») :
+  son nom à gauche, ses boutons à la suite ; Timo a dit « laisse » à l'idée
+  d'en faire une fenêtre — ne pas la reproposer. Les deux gestes graves (formation
   en masse, retirer Historique + Paramètres) sont en bas dans « ⚠ Actions
   groupées ». Aucune règle pure touchée ; le banc vérifie que chaque geste
   est toujours là avec sa garde.

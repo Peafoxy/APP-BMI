@@ -13,7 +13,7 @@ import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -27,19 +27,25 @@ import { motifBlocageVente } from "../lib/cloture";
 // appartenir au stock d'une catégorie précise — indispensable puisqu'une
 // vente peut mélanger des articles de catégories très différentes.
 // ---- La liste des ventes, lisible (capture Timo, 12/09/2026) ----
-// Les articles : un par ligne, deux au plus, puis « + N autres » — la liste
-// complète au survol. Une vente ordinaire tient sur deux lignes.
-const ARTICLES_VISIBLES = 2;
-function ArticlesVente({ v }) {
+// Les articles : un par ligne, deux au plus, puis « + N autres ». Timo
+// (12/09/2026, seconde capture) : « +1 autre ou +3 autres ne s'affiche pas…
+// lorsqu'on clique sur la ligne, la suite apparaît, on clique encore (même
+// ligne ou ailleurs) ça revient à 2 lignes » — le survol (title) ne se voit
+// pas partout (téléphone, souris qui passe) : c'est le CLIC sur la ligne qui
+// déplie (`deplie`), et une seule vente est dépliée à la fois (Ventes.jsx).
+export const ARTICLES_VISIBLES = 2;
+export function ArticlesVente({ v, deplie = false }) {
   const lignes = lignesVente(v);
   const reste = lignes.length - ARTICLES_VISIBLES;
   const repris = (v.reprises || []).reduce((s, r) => s + Number(r.qte || 0), 0);
+  const montrees = deplie ? lignes : lignes.slice(0, ARTICLES_VISIBLES);
   return (
-    <div title={resumeArticles(v)} className="leading-snug">
-      {lignes.slice(0, ARTICLES_VISIBLES).map((l, i) => (
+    <div className="leading-snug">
+      {montrees.map((l, i) => (
         <div key={i} className="truncate max-w-[340px]"><span className="tabular-nums text-slate-500">{l.qte}×</span> <span className="font-semibold text-slate-800">{l.article}</span></div>
       ))}
-      {reste > 0 && <div className="text-xs text-slate-500">+ {reste} autre{reste > 1 ? "s" : ""}</div>}
+      {reste > 0 && !deplie && <div className="text-xs font-semibold text-sky-700">+ {reste} autre{reste > 1 ? "s" : ""} ▾</div>}
+      {reste > 0 && deplie && <div className="text-xs font-semibold text-sky-700">▴ Replier</div>}
       {repris > 0 && <div className="text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {repris} repris</div>}
     </div>
   );
@@ -93,6 +99,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [cat, setCat] = useState("");
   const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   const [panier, setPanier] = useState(() => preRempli?.panier || []);
+  // Une seule vente dépliée à la fois ; un clic n'importe où sur la liste replie.
+  const [venteDepliee, setVenteDepliee] = useState(null);
   // ⚠ Demande Timo, après correction du parcours : une demande de transfert
   // NE VIDE PLUS le panier — le vendeur reclique sur "Encaisser la vente"
   // (même panier) une fois l'autre boutique prévenue par téléphone. Ce suivi
@@ -1218,19 +1226,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           <tbody>
             {listeFiltree.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
             {listeFiltree.map((v, i) => (
-              <tr key={v.id} className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
+              <tr key={v.id} onClick={() => setVenteDepliee((d) => (d ? null : v.id))} className={`border-t border-slate-100 hover:bg-sky-50 align-middle cursor-pointer ${i % 2 ? "bg-slate-50/60" : "bg-white"}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                 <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
-                <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} /></td>
+                <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
                 <td className="px-3 py-2">{v.client && v.client !== "Client non renseigné" ? <span className="font-semibold text-slate-800">{v.client}</span> : <span className="text-slate-400">—</span>}</td>
                 <td className="px-3 py-2 tabular-nums text-right">{qteVente(v)}</td>
                 <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap"><div className="font-bold text-slate-900">{fmt(totalVente(v))}</div>{v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} /></td>
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right">
+                <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu" aria-label="Imprimer le reçu">🖨</button>
-                    <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp" aria-label="WhatsApp">💬</button>
+                    <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp" aria-label="WhatsApp"><IconeWhatsApp /></button>
                     {peutTransformerEnDevis(v) && onTransformerEnDevis && (
                       <button onClick={() => transformerEnDevis(v)} className={boutonAction("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title="📋 Devis : reprendre cette vente pour en faire un devis d'installation" aria-label="Devis">📋</button>
                     )}

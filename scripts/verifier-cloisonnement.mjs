@@ -5114,6 +5114,16 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
     && /save\(appliquerReprise\(db, r\), r\.journal\);/.test(vs) && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs)
     // 12/09/2026 (liste des ventes lisible) : le compte des repris vit dans ArticlesVente — « ↩ N repris » toujours sur la ligne.
     && /const repris = \(v\.reprises \|\| \[\]\)\.reduce/.test(vs) && /↩ \{repris\} repris/.test(vs));
+  // Timo (12/09/2026, seconde capture) : « +1 autre ou +3 autres ne s'affiche
+  // pas… lorsqu'on clique sur la ligne, la suite apparaît, on clique encore
+  // (même ligne ou ailleurs) ça revient à 2 lignes par défaut » — et « remplacer
+  // l'icône de WhatsApp par le vrai icône WhatsApp ». Le rendu est MESURÉ dans
+  // un vrai navigateur par verifier-ecran-ventes ; ici, la forme du geste.
+  test("★ Ventes : la suite des articles se voit au CLIC sur la ligne (une seule vente dépliée, un clic n'importe où replie), la cellule des boutons ne déplie pas, et le bouton WhatsApp porte le vrai logo (IconeWhatsApp, écrit une fois dans ui.jsx), plus l'emoji 💬",
+    /const \[venteDepliee, setVenteDepliee\] = useState\(null\);/.test(vs) && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d \? null : v\.id\)\)\}/.test(vs)
+    && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs) && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
+    && /aria-label="WhatsApp"><IconeWhatsApp \/><\/button>/.test(vs) && !/aria-label="WhatsApp">💬/.test(vs)
+    && /export const IconeWhatsApp = \(\{ taille = 18 \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill="#25D366"/.test(readFileSync("src/components/ui.jsx", "utf8")));
   const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");
   const ta13 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-13 : reprises = principal seul et jamais en arrière (ventes, upsert relu), ajustement reprise_client = principal, dépense « Remboursement client » = principal ; le banc tester-argent le pose et rejoue vendeur / gérant / admin secondaire refusés, principal permis, effacement refusé",
@@ -5678,10 +5688,12 @@ titre("👥 La liste des utilisateurs, lisible : quatre boutons ronds + « ⋯ G
     && /\{jeSuisAdminPrincipal && <button onClick=\{\(\) => changerPwd\(u\)\} className=\{boutonRond\(/.test(ul) && /\{!surMaPropreFiche\(u\) && <button onClick=\{\(\) => toggleActif\(u\)\} className=\{boutonRond\(/.test(ul)
     && /setGererOuvert\(gererOuvert === u\.id \? null : u\.id\)/.test(ul) && /\{gererOuvert === u\.id && \(\n\s*<tr className="bg-slate-50/.test(ul) && !/fixed inset-0[^\n]*gererOuvert/.test(ul));
   test("★ le panneau « Gérer » range TOUS les autres gestes par thème (Compte, Paie, Commercial, Client), chacun avec la même garde qu'avant : rôle et formation au principal hors sa fiche, paie aux salariés, commercial hors clients, chat libre aux clients",
-    ["Compte", "Paie", "Commercial", "Client"].every((t) => ul.includes(`uppercase text-slate-500 mb-1">${t}</div>`))
+    // 12/09/2026 (capture Timo, « classer les actions par ligne et non par colonne ») : un thème = UNE ligne, son nom à gauche, ses boutons à la suite.
+    ["Compte", "Paie", "Commercial", "Client"].every((t) => ul.includes(`<div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">${t}</div>`))
+    && /<div className="space-y-2 text-sm">/.test(ul) && !/grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm/.test(ul)
     && /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <button onClick=\{\(\) => changerRole\(u\)\} className=\{boutonGerer\}/.test(ul)
     && /\{jeSuisAdminPrincipal && !surMaPropreFiche\(u\) && \(\n\s*<button onClick=\{\(\) => basculerFormation\(u\)\} className=\{boutonGerer\}/.test(ul)
-    && /\{SALARIES\.includes\(u\.role\) && \(\n\s*<div>\n\s*<div className="text-\[11px\] font-bold uppercase text-slate-500 mb-1">Paie/.test(ul)
+    && /\{SALARIES\.includes\(u\.role\) && \(\n\s*<div className="flex flex-wrap items-start gap-x-3 gap-y-1">\n\s*<div className="w-24 shrink-0 pt-1\.5 text-\[11px\] font-bold uppercase text-slate-500">Paie/.test(ul)
     && ["changerBoutique(u)", "changerAnniversaire(u)", "voirPwd(u)", "supprimerU(u)", "changerSalaire(u)", "changerTauxAvancement(u)", 'ajouterMouvementSalaire(u, "prime")', 'ajouterMouvementSalaire(u, "avance")', "envoyerVirement(u)", "annulerVirement(u)", "changerTauxCommission(u)", "changerParrain(u)", "changerTauxEquipe(u)", "basculerChef(u)", "basculerChatLibre(u)"].every((g) => ul.includes(`onClick={() => ${g}}`))
     && /\{jeSuisAdminPrincipal && <button onClick=\{\(\) => voirPwd\(u\)\}/.test(ul) && /\{SALARIES_BOUTIQUE\.includes\(u\.role\) && <button onClick=\{\(\) => changerBoutique\(u\)\}/.test(ul));
   test("★ rôle, boutique (« Toutes ») et statut en pastilles (+ 🎓 Formation), identité manquante discrète ; les deux gestes graves (formation en masse, retirer Historique + Paramètres) sont en bas dans « Actions groupées », mêmes gardes, plus de lien souligné au-dessus de la liste",

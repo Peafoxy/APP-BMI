@@ -23,7 +23,11 @@
 // et on vérifie séparément que le calcul du reçu et celui de la dette
 // donnent bien le même chiffre.
 // ============================================================
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createRequire } from "node:module";
+import { build } from "esbuild";
 
 let ok = 0, ko = 0;
 const test = (nom, cond) => { if (cond) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}`); } };
@@ -230,6 +234,74 @@ titre("Une commission n'est due qu'apres la RECEPTION *et* le SOLDE de la dette"
     bloquee({ id: "v2" }, { dettes: [{ id: "d2", vente_id: "v2", montant: 1000000, paye: 999999 }] }) === true);
 }
 
+
+
+// ============================================================
+// LA LISTE DES VENTES, DANS UN VRAI NAVIGATEUR
+// Timo (12/09/2026, capture) : « +1 autre ou +3 autres ne s'affiche pas…
+// lorsqu'on clique sur la ligne, la suite apparaît, on clique encore (même
+// ligne ou ailleurs) ça revient à 2 lignes » ; « remplacer l'icône de WhatsApp
+// par le vrai icône WhatsApp ». On MONTE le vrai composant ArticlesVente
+// (replié, déplié) et le vrai logo, et on lit ce que Chromium affiche.
+// ============================================================
+titre("La liste des ventes, mesurée dans Chromium : la suite des articles au clic, le logo WhatsApp");
+{
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-ventes-"));
+  const entree = join(dossier, "entree.jsx");
+  writeFileSync(entree, `
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
+import { ArticlesVente } from "${process.cwd()}/src/screens/Ventes.jsx";
+import { IconeWhatsApp } from "${process.cwd()}/src/components/ui.jsx";
+const ventes = [
+  { id: "a", articles: [{ article: "Panneau 400W", qte: 2, pu: 1 }, { article: "Batterie 200Ah", qte: 1, pu: 1 }, { article: "Onduleur 3kVA", qte: 1, pu: 1 }, { article: "Câble 6mm", qte: 10, pu: 1 }, { article: "Rail", qte: 4, pu: 1 }] },
+  { id: "b", articles: [{ article: "Lampe", qte: 1, pu: 1 }, { article: "Prise", qte: 3, pu: 1 }, { article: "Interrupteur", qte: 2, pu: 1 }] },
+];
+function Liste() {
+  const [venteDepliee, setVenteDepliee] = useState(null);
+  return <table><tbody>{ventes.map((v) => (
+    <tr key={v.id} data-vente={v.id} onClick={() => setVenteDepliee((d) => (d ? null : v.id))}>
+      <td><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
+      <td onClick={(e) => e.stopPropagation()}><button data-bouton="wa"><IconeWhatsApp /></button></td>
+    </tr>))}</tbody></table>;
+}
+createRoot(document.getElementById("r")).render(<Liste />);
+`);
+  const sortie = join(dossier, "bundle.js");
+  await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
+  const html = join(dossier, "index.html");
+  writeFileSync(html, `<!doctype html><html><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
+  const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  const page = await nav.newPage();
+  const erreurs = [];
+  page.on("pageerror", (e) => erreurs.push(String(e.message).split("\n")[0]));
+  await page.goto(`file://${html}`);
+  await new Promise((r) => setTimeout(r, 400));
+  const texte = async (id) => (await page.innerText(`[data-vente="${id}"] td:first-child`)).replace(/\s+/g, " ").trim();
+  test("★ repliée : deux articles puis « + 3 autres » (la ligne EST affichée), sans erreur", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾" && erreurs.length === 0);
+  await page.click('[data-vente="a"] td:first-child');
+  await new Promise((r) => setTimeout(r, 150));
+  test("★ un clic sur la ligne : les cinq articles apparaissent, avec « Replier »", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah 1× Onduleur 3kVA 10× Câble 6mm 4× Rail ▴ Replier");
+  test("…et l'autre vente reste repliée", (await texte("b")) === "1× Lampe 3× Prise + 1 autre ▾");
+  await page.click('[data-vente="b"] td:first-child');
+  await new Promise((r) => setTimeout(r, 150));
+  test("★ un clic AILLEURS (une autre ligne) replie tout : retour à 2 lignes par défaut", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾" && (await texte("b")) === "1× Lampe 3× Prise + 1 autre ▾");
+  await page.click('[data-vente="a"] td:first-child');
+  await new Promise((r) => setTimeout(r, 150));
+  await page.click('[data-vente="a"] td:first-child');
+  await new Promise((r) => setTimeout(r, 150));
+  test("★ un second clic sur la MÊME ligne replie aussi", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
+  await page.click('[data-vente="a"] [data-bouton="wa"]');
+  await new Promise((r) => setTimeout(r, 150));
+  test("★ cliquer un bouton d'action ne déplie pas la ligne", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
+  const logo = await page.evaluate(() => { const p = document.querySelector('[data-bouton="wa"] svg path'); const r = document.querySelector('[data-bouton="wa"] svg').getBoundingClientRect(); return { fill: p && getComputedStyle(p).fill, w: r.width, h: r.height }; });
+  test("★ le logo WhatsApp est dessiné en vert WhatsApp (#25D366), 18 px", logo.fill === "rgb(37, 211, 102)" && logo.w === 18 && logo.h === 18);
+  test("aucune erreur JavaScript", erreurs.length === 0);
+  await nav.close();
+  rmSync(dossier, { recursive: true, force: true });
+}
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
