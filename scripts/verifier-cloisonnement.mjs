@@ -4301,9 +4301,10 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   test("★ les 13 questions passent par demanderMoyenPaiement (plus aucun uPrompt « Moyen de … »)",
     execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib | wc -l").toString().trim() === "13"
     && execSync("grep -rl 'uPrompt(.Moyen de' src || true").toString().trim() === "");
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×3, demanderDate ×3",
+  // 12/09/2026 : le remboursement d'une avance de frais « avec le salaire » (Caisse.jsx) demande son mois — ×4.
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×4 (le mois de paie d'un remboursement d'avance, 12/09/2026), demanderDate ×3",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
-    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "3"
+    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "4"
     && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "3");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -4335,9 +4336,12 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     execSync("grep -rln 'lu_par: \\[profile.id\\]\\|de_nom: profile.nom' src || true").toString().trim() === "");
   test("★ plus aucune fiche de dépense automatique recopiée : « par: profile.nom, auto: » n'existe plus dans les écrans",
     execSync("grep -rln 'par: profile.nom, auto:' src || true").toString().trim() === "");
-  test("★ nouveauMessage sert aux 20 fabrications (les quatre messages de la demande de modification d'un devis signé, 11/09/2026), nouvelleDepense aux 13 dépenses automatiques (versements de fonds et remboursement d'une reprise compris, 10/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "20"
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "13");
+  // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
+  // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
+  // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
+  test("★ nouveauMessage sert aux 24 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 15 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "24"
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "15");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -4346,7 +4350,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // mois les comptaient encore. Un écran oublié fait mentir une règle.
   test("★ l'écran 💰 Dépenses lui-même ne compte NI les versements de fonds NI les remboursements de reprise (liste et « Ce mois »), et dit où les retrouver",
     /const liste = horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\);/.test(dep)
-    && /import \{ CATEGORIES, PAIEMENTS, horsVersements \} from "\.\.\/lib\/constants";/.test(dep)
+    // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
+    && /import \{ CATEGORIES, PAIEMENTS, horsVersements, depensesComptees \} from "\.\.\/lib\/constants";/.test(dep)
+    && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep));
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
@@ -5018,11 +5024,13 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
                { id: "j2", boutique: "APESSITO", montant: 1, date: "2026-09-10", categorie: "Transport", paiement: "Espèces" }] };
   const lignesJ = Core.lignesJournal(dbJ, "2026-09-01", "2026-09-30");
   test("★ le journal comptable n'écrit pas le versement en charge : la seule dépense du mois y est (1 F), pas les 252 299 F",
-    !JSON.stringify(lignesJ).includes("252299") && JSON.stringify(lignesJ).includes("Transport") && /horsVersements\(db\.depenses\)\.filter\(\(x\) => reel\(x\) && inP\(x\.date, a, b\)\)/.test(readFileSync("src/lib/core.js", "utf8")));
+    // 12/09/2026 : depensesComptees (hors versements ET hors dépenses en attente de validation).
+    !JSON.stringify(lignesJ).includes("252299") && JSON.stringify(lignesJ).includes("Transport") && /depensesComptees\(db\.depenses\)\.filter\(\(x\) => reel\(x\) && inP\(x\.date, a, b\)\)/.test(readFileSync("src/lib/core.js", "utf8")));
   const dashV = readFileSync("src/screens/Dashboard.jsx", "utf8");
-  test("★ tableau de bord : cartes (depensesReellesDb), synthèse par période et période libre (d[bq]) passent par horsVersements ; l'export « Dépenses » ne contient plus les versements, qui ont leur export « Versements » (montant d'origine, destination, état)",
-    /const depensesReellesDb = horsVersements\(db\.depenses\)\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\);/.test(dashV)
-    && (dashV.match(/d\[bq\] = horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === bq && inP\(x\.date, a, b\)\)/g) || []).length === 2 && !/d\[bq\] = db\.depenses/.test(dashV)
+  // 12/09/2026 : depensesComptees, qui retire AUSSI les dépenses en attente de validation.
+  test("★ tableau de bord : cartes (depensesReellesDb), synthèse par période et période libre (d[bq]) passent par depensesComptees (hors versements, hors dépenses en attente — 12/09/2026) ; l'export « Dépenses » ne contient plus les versements, qui ont leur export « Versements » (montant d'origine, destination, état)",
+    /const depensesReellesDb = depensesComptees\(db\.depenses\)\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\);/.test(dashV)
+    && (dashV.match(/d\[bq\] = depensesComptees\(db\.depenses\)\.filter\(\(x\) => x\.boutique === bq && inP\(x\.date, a, b\)\)/g) || []).length === 2 && !/d\[bq\] = db\.depenses/.test(dashV) && !/horsVersements\(/.test(dashV)
     && /exportCSV\("versements", \["Date", "Boutique", "Description", "Montant", "Destination", "Saisi par", "État"\]/.test(dashV) && /x\.versement \? x\.versement\.montant : x\.montant/.test(dashV)
     && /const totalDepenses = depensesReellesDb\.reduce/.test(dashV));
 }
@@ -5094,7 +5102,8 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
   const K2 = await import(pathToFileURL(sortieK2).href);
   unlinkSync(sortieK2);
   test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
-    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client");
+    // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais");
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
     /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
@@ -5311,6 +5320,172 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     /Montant du tiroir \(tout ce qu'il contient, compté\)/.test(csC) && /const alerteRecette = alerteSaisieRecette\(compte, jour, fmt\);/.test(csC) && /\{alerteRecette && <div/.test(csC)
     && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC) && /fonds d'hier soir \$\{fmt\(fondsHier\)\} \+ recette du jour \$\{fmt\(recetteDuJour\)\} − sorties justifiées \$\{fmt\(sortiesJustifiees\)\}/.test(csC)
     && /Fonds de caisse d'hier soir/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
+}
+
+titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avances de frais (Timo, 12/09/2026)");
+{
+  // « On met un seuil : à partir de 5 mil, il faut valider ; moins de 5 mil,
+  // pas besoin » — « seules les dépenses validées comptent » — « la clôture
+  // impossible s'il y a des dépenses liées à la caisse qui ne sont pas
+  // validées » — et l'origine des fonds en trois choix. Le banc EXERCE la
+  // règle (lib/validationDepenses.js), puis la clôture, les fonds à verser,
+  // le journal, le tableau de bord et la paie qui en dépendent.
+  const sortieVd = join("node_modules", ".cache", `bmi-validation-depenses-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/validationDepenses.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVd, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vd = await import(pathToFileURL(sortieVd).href);
+  unlinkSync(sortieVd);
+  const sortieCl2 = join("node_modules", ".cache", `bmi-cloture-vd-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCl2, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Cl2 = await import(pathToFileURL(sortieCl2).href);
+  unlinkSync(sortieCl2);
+  const sortieVs2 = join("node_modules", ".cache", `bmi-versements-vd-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/versements.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVs2, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vs2 = await import(pathToFileURL(sortieVs2).href);
+  unlinkSync(sortieVs2);
+  const tv = (v) => Number(v.total || 0);
+  const timo = { id: "u_admin", nom: "TIMO", role: "admin" };
+  const kossi = { id: "u_vend", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" };
+  const ali = { id: "u_ger", nom: "ALI", role: "gerant", boutique: "APESSITO" };
+  const dbV = { ...base(), users: [...base().users, ali], ventes: [{ id: "v", boutique: "APESSITO", date: "2026-09-12", paiement: "Espèces", total: 100000 }], depenses: [], clotures: [], messages: [] };
+
+  // ---- Le seuil et la saisie ----
+  test("★ le seuil est 5 000 F : 4 999 se passe de validation, 5 000 la demande ; les trois origines des fonds existent (caisse, avance, DG), la caisse est le défaut d'une ancienne ligne",
+    Vd.SEUIL_VALIDATION_DEPENSE === 5000 && Vd.doitEtreValidee(4999) === false && Vd.doitEtreValidee(5000) === true
+    && Vd.PAYE_AVEC.map(([c]) => c).join("|") === "caisse|avance|dg" && Vd.payeAvecCaisse({}) === true && Vd.payeAvecCaisse({ paye_avec: "avance" }) === false
+    && Vd.libellePayeAvec(undefined) === "La caisse de la boutique");
+  const s7 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "carburant", montant: 7000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
+  const s2 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
+  const sT = Vd.construireDepenseSaisie(dbV, timo, { boutique: "APESSITO", categorie: "Loyer", description: "", montant: 60000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
+  test("★ construireDepenseSaisie : 7 000 par un vendeur → « attente », auteur (par_id), origine, et UN message au DG ; 2 000 → aucune validation, aucun message ; 60 000 par le DG lui-même → validée d'office (auto), aucun message",
+    s7.depense.validation.statut === "attente" && s7.aValider === true && s7.depense.par_id === "u_vend" && s7.depense.paye_avec === "caisse" && s7.depense.paiement === "Espèces"
+    && s7.messages.length === 1 && s7.messages[0].a_id === "u_admin" && s7.messages[0].texte.includes(`Dépense à valider : ${Core.fmt(7000)}`) && /à valider par le DG/.test(s7.journal)
+    && s2.depense.validation === undefined && s2.aValider === false && s2.messages.length === 0
+    && sT.depense.validation.statut === "validee" && sT.depense.validation.auto === true && sT.messages.length === 0);
+  test("★ la saisie refuse un montant nul, une origine inconnue, une boutique absente",
+    /montant/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 0, paye_avec: "caisse" }).refus || "")
+    && /caisse de la boutique, une avance personnelle/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 10, paye_avec: "poche" }).refus || "")
+    && /boutique/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "", montant: 10, paye_avec: "caisse" }).refus || ""));
+
+  // ---- Ce qui compte, et où ----
+  const att = { ...s7.depense, id: "d_att", date: "2026-09-12" };
+  const petite = { ...s2.depense, id: "d_pet", date: "2026-09-12" };
+  const avance = { ...Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "taxi", montant: 3000, paiement: "Espèces", paye_avec: "avance" }, "2026-09-12").depense, id: "d_av", date: "2026-09-12" };
+  const dg = { ...Vd.construireDepenseSaisie(dbV, ali, { boutique: "APESSITO", categorie: "Autre", description: "", montant: 1000, paiement: "Espèces", paye_avec: "dg" }, "2026-09-12").depense, id: "d_dg", date: "2026-09-12" };
+  const flooz = { ...s2.depense, id: "d_fl", date: "2026-09-12", paiement: "Mobile Money (Flooz)" };
+  const dbC = { ...dbV, depenses: [att, petite, avance, dg, flooz] };
+  test("★ compteDansLaCaisse : une dépense espèces de la caisse compte (validée, ou sous le seuil) ; en attente NON ; une avance personnelle NON ; l'argent du DG NON ; Flooz NON ; une ancienne ligne sans origine OUI",
+    Vd.compteDansLaCaisse(petite) === true && Vd.compteDansLaCaisse(att) === false && Vd.compteDansLaCaisse(avance) === false && Vd.compteDansLaCaisse(dg) === false
+    && Vd.compteDansLaCaisse(flooz) === false && Vd.compteDansLaCaisse({ paiement: "Espèces", montant: 5 }) === true && Vd.compteDansLaCaisse({ ...att, validation: { statut: "validee" } }) === true);
+  test("★ depensesComptees (constants.js, réexportée) retire les versements ET les dépenses en attente ; garde avance, DG et petite (ce sont des charges)",
+    Vd.depensesComptees(dbC.depenses).map((d) => d.id).join("|") === "d_pet|d_av|d_dg|d_fl"
+    && Vd.depensesComptees([{ categorie: "Versement de fonds", montant: 1 }, att]).length === 0);
+  const jC = Cl2.activiteDuJour(dbC, "APESSITO", "2026-09-12", tv);
+  test("★ la clôture (activiteDuJour, soldeEspecesFinDeJour) ne déduit que ce qui compte dans la caisse : 100 000 − 2 000 = 98 000 attendus dans le tiroir — la dépense en attente (7 000), l'avance (3 000), l'argent du DG (1 000) et le Flooz n'y sont pas",
+    jC.theorique === 98000 && jC.especesDepenses === 2000 && jC.sortiesJustifiees === 2000 && Cl2.soldeEspecesFinDeJour(dbC, "APESSITO", "2026-09-12", tv) === 98000
+    && /import \{ compteDansLaCaisse \} from "\.\/validationDepenses";/.test(readFileSync("src/lib/cloture.js", "utf8")) && !/x\.paiement === "Espèces" && String\(x\.date\) <= d0/.test(readFileSync("src/lib/cloture.js", "utf8")));
+  test("★ les fonds à verser (lib/versements.js) suivent la même règle : 98 000",
+    Vs2.fondsAVerser(dbC, "APESSITO", tv).montant === 98000 && Vs2.fondsAVerser(dbC, "APESSITO", tv).depenses === 2000
+    && /compteDansLaCaisse\(x\)/.test(readFileSync("src/lib/versements.js", "utf8")));
+  const lignesV = Core.lignesJournal({ ...dbC, dettes: [] }, "2026-09-01", "2026-09-30");
+  test("★ le journal comptable n'écrit pas la dépense en attente (7 000 absent), mais écrit l'avance et l'argent du DG (des charges)",
+    !JSON.stringify(lignesV).includes("7000") && JSON.stringify(lignesV).includes("taxi") && JSON.stringify(lignesV).includes("Autre"));
+
+  // ---- Le DG tranche ----
+  test("★ critiqueDecision : pas de validation requise / déjà validée / déjà rejetée / pas le DG / motif vide → refus ; le DG sur une attente → \"\"",
+    /pas besoin/.test(Vd.critiqueDecision(petite, { estPrincipal: true })) && /déjà validée/.test(Vd.critiqueDecision(sT.depense, { estPrincipal: true }))
+    && /Seul le DG/.test(Vd.critiqueDecision(att, { estPrincipal: false })) && /pourquoi/.test(Vd.critiqueDecision(att, { estPrincipal: true }, ""))
+    && Vd.critiqueDecision(att, { estPrincipal: true }) === "" && Vd.critiqueDecision(att, { estPrincipal: true }, "pas de reçu") === "");
+  const val = Vd.validerDepense(dbC, timo, att, "2026-09-12");
+  const valD = val.depenses.find((d) => d.id === "d_att");
+  test("★ validerDepense : statut validee (date, par), message à l'auteur, et la dépense compte désormais dans le tiroir (98 000 → 91 000)",
+    valD.validation.statut === "validee" && valD.validation.par === "TIMO" && valD.montant === 7000 && val.messages.length === 1 && val.messages[0].a_id === "u_vend"
+    && /Dépense validée/.test(val.messages[0].texte) && Cl2.activiteDuJour({ ...dbC, depenses: val.depenses }, "APESSITO", "2026-09-12", tv).theorique === 91000
+    && /déjà validée/.test(Vd.critiqueDecision(valD, { estPrincipal: true })));
+  const rej = Vd.rejeterDepense(dbC, timo, att, "pas de reçu", "2026-09-12");
+  const rejD = rej.depenses.find((d) => d.id === "d_att");
+  test("★ rejeterDepense : montant 0, montant d'origine gardé (montantOrigine = 7 000), description « ✖ REJETÉE (motif) », message qui dit de REMETTRE l'argent dans le tiroir ; le tiroir attendu reste 98 000 → le manque se voit à la clôture, et rejetsDuJour le nomme",
+    rejD.montant === 0 && rejD.validation.statut === "rejetee" && rejD.validation.montant === 7000 && Vd.montantOrigine(rejD) === 7000 && /^✖ REJETÉE \(pas de reçu\) — carburant$/.test(rejD.description)
+    && rej.messages[0].texte.includes(`remettez ${Core.fmt(7000)} dans le tiroir`) && Cl2.activiteDuJour({ ...dbC, depenses: rej.depenses }, "APESSITO", "2026-09-12", tv).theorique === 98000
+    && Vd.rejetsDuJour({ depenses: rej.depenses }, "APESSITO", "2026-09-12").map((r) => `${r.par}:${r.montant}`).join("|") === "KOSSI:7000"
+    && /Aucun remboursement ne vous est dû/.test(Vd.rejeterDepense(dbC, timo, { ...avance, validation: { statut: "attente" } }, "x", "2026-09-12").messages[0].texte)
+    && /déjà rejetée/.test(Vd.critiqueDecision(rejD, { estPrincipal: true })));
+  test("★ la file du DG : depensesAValider sur les boutiques données (la boutique regardée seule), nbAValiderParBoutique pour dire où il en reste, depensesTraitees sans les validations d'office",
+    Vd.depensesAValider(dbC, ["APESSITO"]).map((d) => d.id).join("|") === "d_att" && Vd.depensesAValider(dbC, ["HEDZRANAWOE"]).length === 0
+    && Vd.nbAValiderParBoutique({ depenses: [att, { ...att, id: "x", boutique: "HEDZRANAWOE" }, { ...att, id: "y", boutique: "HEDZRANAWOE" }] }, ["APESSITO", "HEDZRANAWOE"]).map((x) => `${x.boutique}:${x.n}`).join("|") === "APESSITO:1|HEDZRANAWOE:2"
+    && Vd.depensesTraitees({ depenses: [valD, rejD, sT.depense] }, ["APESSITO"]).length === 2);
+
+  // ---- La clôture bloquée ----
+  const attFlooz = { ...att, id: "d_atf", paiement: "Mobile Money (Flooz)" };
+  const attAvance = { ...att, id: "d_ata", paye_avec: "avance" };
+  const attDemain = { ...att, id: "d_atd", date: "2026-09-13" };
+  const attHier = { ...att, id: "d_ath", date: "2026-09-11" };
+  const bloq = Vd.depensesBloquantCloture({ depenses: [att, attFlooz, attAvance, attDemain, attHier, petite, valD] }, "APESSITO", "2026-09-12");
+  test("★ depensesBloquantCloture : les dépenses en attente qui sortiront du tiroir de CETTE boutique, jusqu'au jour clôturé inclus (hier et aujourd'hui) — ni Flooz, ni avance, ni demain, ni ce qui est validé ou sous le seuil",
+    bloq.map((d) => d.id).join("|") === "d_ath|d_att" && Vd.depensesBloquantCloture({ depenses: [att] }, "HEDZRANAWOE", "2026-09-12").length === 0);
+  test("★ motifBlocageCloture : vide sans dépense bloquante ; sinon « Clôture impossible », le nombre, chaque montant, catégorie, date, auteur",
+    Vd.motifBlocageCloture([]) === "" && /^🔒 Clôture impossible : 2 dépenses en espèces attendent la validation du DG : 7000 \(Transport — carburant, 2026-09-11, par KOSSI\) ; 7000 \(Transport — carburant, 2026-09-12, par KOSSI\)\./.test(Vd.motifBlocageCloture(bloq))
+    && /une dépense en espèces attend/.test(Vd.motifBlocageCloture([att])));
+  const csVd = readFileSync("src/screens/Caisse.jsx", "utf8");
+  test("★ écran Caisse : le blocage est calculé sur le jour clôturé (depensesBloquantCloture → motifBlocageCloture), refusé DANS le geste et affiché (bouton grisé), les rejets du jour sont nommés",
+    /const bloquantes = depensesBloquantCloture\(db, boutique, t\);/.test(csVd) && /const blocageCloture = motifBlocageCloture\(bloquantes, fmt, dFR\);/.test(csVd)
+    && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(csVd) && /disabled=\{!!blocageCloture\}/.test(csVd) && /\{blocageCloture && \(/.test(csVd)
+    && /const rejets = rejetsDuJour\(db, boutique, t\);/.test(csVd) && /Dépenses rejetées par le DG ce jour-là/.test(csVd));
+
+  // ---- Les avances de frais ----
+  test("★ avanceDue : une avance sous le seuil est due tout de suite, une avance validée aussi ; en attente, rejetée ou remboursée, non — avancesARembourser par boutique, avancesDe pour l'employé (par_id, sinon par le nom)",
+    Vd.avanceDue(avance) === true && Vd.avanceDue({ ...avance, montant: 9000, validation: { statut: "validee" } }) === true && Vd.avanceDue({ ...avance, validation: { statut: "attente" } }) === false
+    && Vd.avanceDue({ ...avance, montant: 0, validation: { statut: "rejetee", montant: 3000 } }) === false && Vd.avanceDue({ ...avance, remboursement: { le: "2026-09-12" } }) === false && Vd.avanceDue(petite) === false
+    && Vd.avancesARembourser(dbC, "APESSITO").map((d) => d.id).join("|") === "d_av" && Vd.avancesARembourser(dbC, "HEDZRANAWOE").length === 0
+    && Vd.avancesDe(dbC, kossi).length === 1 && Vd.avancesDe({ depenses: [{ ...avance, par_id: undefined, par: "KOSSI" }] }, kossi).length === 1 && Vd.avancesDe(dbC, ali).length === 0);
+  test("★ critiqueRemboursement : le vendeur jamais ; le gérant en espèces oui, avec le salaire ou par le DG non ; personne ne se rembourse soi-même sauf l'admin ; le salaire exige un mois ; en attente / rejetée / déjà remboursée → refus",
+    /gérant ou l'administrateur/.test(Vd.critiqueRemboursement(avance, "caisse", kossi)) && Vd.critiqueRemboursement(avance, "caisse", ali) === ""
+    && /l'administrateur/.test(Vd.critiqueRemboursement(avance, "salaire", ali, { mois: "2026-09" })) && /l'administrateur/.test(Vd.critiqueRemboursement(avance, "dg", ali))
+    && /soi-même/.test(Vd.critiqueRemboursement({ ...avance, par_id: "u_ger", par: "ALI" }, "caisse", ali)) && Vd.critiqueRemboursement({ ...avance, par_id: "u_admin", par: "TIMO" }, "dg", timo) === ""
+    && /mois de paie/.test(Vd.critiqueRemboursement(avance, "salaire", timo, {})) && Vd.critiqueRemboursement(avance, "salaire", timo, { mois: "2026-09" }) === ""
+    && /attend encore/.test(Vd.critiqueRemboursement({ ...avance, validation: { statut: "attente" } }, "caisse", ali)) && /rejetée/.test(Vd.critiqueRemboursement({ ...avance, validation: { statut: "rejetee" } }, "caisse", ali))
+    && /déjà été remboursée/.test(Vd.critiqueRemboursement({ ...avance, remboursement: { le: "2026-09-12" } }, "caisse", ali)) && /pas une avance/.test(Vd.critiqueRemboursement(petite, "caisse", ali))
+    && /Choisissez/.test(Vd.critiqueRemboursement(avance, "cheque", timo)));
+  const rC = Vd.rembourserAvance(dbC, ali, avance, "caisse", "2026-09-13");
+  const sortieR = rC.depenses[0];
+  test("★ rembourserAvance en espèces : UNE sortie « Remboursement d'avance de frais » (espèces, caisse, liée par avance_id, nouvelleDepense), l'avance marquée remboursée (date, par, moyen, depense_id), message à l'employé ; la sortie n'est PAS une charge (horsVersements) mais SORT du tiroir (98 000 → 95 000 le 13/09)",
+    sortieR.categorie === "Remboursement d'avance de frais" && sortieR.montant === 3000 && sortieR.paiement === "Espèces" && sortieR.avance_id === "d_av" && sortieR.boutique === "APESSITO" && sortieR.auto === "avance_frais"
+    && rC.depenses.find((d) => d.id === "d_av").remboursement.moyen === "caisse" && rC.depenses.find((d) => d.id === "d_av").remboursement.depense_id === sortieR.id && rC.depenses.find((d) => d.id === "d_av").remboursement.par === "ALI"
+    && rC.messages.length === 1 && rC.messages[0].a_id === "u_vend" && rC.messages[0].texte.includes(`Avance remboursée : ${Core.fmt(3000)}`)
+    && Vd.depensesComptees([sortieR]).length === 0 && Vd.compteDansLaCaisse(sortieR) === true
+    && Cl2.soldeEspecesFinDeJour({ ...dbC, depenses: rC.depenses.map((d) => (d.id === sortieR.id ? { ...d, date: "2026-09-13" } : d)) }, "APESSITO", "2026-09-13", tv) === 95000
+    && Vd.avancesARembourser({ depenses: rC.depenses }, "APESSITO").length === 0);
+  const rS = Vd.rembourserAvance(dbC, timo, avance, "salaire", "2026-09-13", { mois: "2026-09" });
+  const primeR = rS.users.find((u) => u.id === "u_vend").primes[0];
+  test("★ rembourserAvance avec le salaire : une PRIME de remboursement sur la paie du mois (hors CNSS, liée à la dépense), aucune sortie de caisse, l'avance marquée avec son mois ; par le DG : rien ne bouge en caisse ; auteur introuvable → refus",
+    rS.depenses.length === dbC.depenses.length && primeR.mois === "2026-09" && primeR.montant === 3000 && primeR.hors_cnss === true && primeR.depense_id === "d_av" && /Remboursement d'avance de frais à KOSSI/.test(primeR.motif)
+    && rS.depenses.find((d) => d.id === "d_av").remboursement.mois === "2026-09" && rS.depenses.find((d) => d.id === "d_av").remboursement.moyen === "salaire"
+    && Vd.rembourserAvance(dbC, timo, avance, "dg", "2026-09-13").depenses.length === dbC.depenses.length && Vd.rembourserAvance(dbC, timo, avance, "dg", "2026-09-13").users === dbC.users
+    && /introuvable/.test(Vd.rembourserAvance({ ...dbC, users: [] }, timo, avance, "salaire", "2026-09-13", { mois: "2026-09" }).refus));
+  const paieR = C.paieMois({ salaire_base: 100000, cnss_assujetti: true, primes: [{ mois: "2026-09", montant: 10000 }, primeR] }, "2026-09");
+  test("★ paieMois : la prime de remboursement s'ajoute au net (113 000 − CNSS) mais PAS à la base CNSS (110 000, pas 113 000) ; la déclaration CNSS (Salaires.jsx) lit remunerationCNSS",
+    paieR.primes === 13000 && paieR.primesHorsCnss === 3000 && paieR.remunerationCNSS === 110000 && paieR.retenueCNSS === Math.round(110000 * 0.09) && paieR.net === 113000 - paieR.retenueCNSS
+    && /const remuneration = p\.remunerationCNSS \?\? /.test(readFileSync("src/screens/Salaires.jsx", "utf8")));
+
+  // ---- Les écrans ----
+  const dpV = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ écran Dépenses : « Payé avec » (les trois origines), la saisie passe par construireDepenseSaisie (plus de fiche écrite à la main), l'avertissement du seuil avant l'envoi, « Ce mois » hors dépenses en attente (et le dit)",
+    /<Field label="Payé avec"><select[^\n]*PAYE_AVEC\.map/.test(dpV) && /const r = construireDepenseSaisie\(db, profile, \{ boutique, \.\.\.f \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
+    && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
+  test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
+    /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
+    && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
+    && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
+    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", ""\]/.test(dpV) && (dpV.match(/<thead>/g) || []).length === 1);
+  test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
+    /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
+    && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)
+    && /save\(\{ \.\.\.db, depenses: r\.depenses, users: r\.users, messages: \[\.\.\.r\.messages, \.\.\.\(db\.messages \|\| \[\]\)\] \}, r\.journal\);/.test(csVd));
+  test("★ écran 💵 Mon salaire : l'employé voit ses avances de frais (avancesDe), leur état (attente, rejetée, à me rembourser, remboursée) et le total à lui rembourser",
+    (() => { const sl = readFileSync("src/screens/Salaires.jsx", "utf8"); return /const mesAvances = avancesDe\(db, moi\);/.test(sl) && /Mes avances de frais/.test(sl) && /à me rembourser : \{fmt\(avancesDues/.test(sl) && /💵 à me rembourser/.test(sl) && /remboursée le \{dFR\(d\.remboursement\.le\)\}/.test(sl); })());
+  test("★ serveur : securite-15 pose depenses_regles_validation (valider / rejeter = admin principal, motif obligatoire, montant forcé à 0, décision inaltérable, remboursement gérant / admin) et le banc SQL le charge",
+    (() => { const sq = readFileSync("supabase/securite-15-validation-depenses.sql", "utf8"); return /create or replace function public\.depenses_regles_validation\(\)/.test(sq) && /Rejeter une dépense sans motif/.test(sq) && /jsonb_set\(new\.data, '\{montant\}', '0'::jsonb, true\)/.test(sq)
+      && /Défaire la validation ou le rejet d''une dépense/.test(sq) && /Rembourser une avance de frais', 'le gérant, l''administrateur'/.test(sq) && /revoke all on function public\.depenses_regles_validation\(\) from public, anon;/.test(sq)
+      && /securite-15-validation-depenses\.sql/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8")); })());
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");

@@ -19,6 +19,7 @@
 // ============================================================
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core";
 import { CATEGORIE_VERSEMENT, horsVersements } from "./constants";
+import { compteDansLaCaisse } from "./validationDepenses";
 
 // La catégorie vit dans constants.js (lue aussi par le journal comptable) :
 // importée ET réexportée — jamais `export { x } from` seul (piège connu).
@@ -122,7 +123,9 @@ export function fondsAVerser(db, boutique, totalVente) {
     .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
   const reglements = (db.dettes || []).filter((d) => d.boutique === boutique)
     .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces").reduce((t, p) => t + Number(p.montant || 0), 0), 0);
-  const depenses = (db.depenses || []).filter((x) => x.boutique === boutique && x.paiement === "Espèces")
+  // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
+  // une avance personnelle ou l'argent du DG ne sortent pas du tiroir.
+  const depenses = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x))
     .reduce((s, x) => s + Number(x.montant || 0), 0);
   const dernier = versementsDe(db, boutique)[0];
   return { montant: ventes + reglements - depenses, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "" };

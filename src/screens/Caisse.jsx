@@ -5,7 +5,10 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois } from "../components/ui";
+// Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
+// espèces attend la validation du DG ; les avances de frais se remboursent ici.
+import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
@@ -43,10 +46,17 @@ export function Caisse({ db, save, profile }) {
   const dejaCloturee = estCloturee(db, boutique, t);
   const aReclôturer = depassees.find((d) => d.date === t) || null;
   const ecart = compte === "" ? null : Number(compte) - theorique;
+  // Timo (12/09/2026) : « la clôture impossible s'il y a des dépenses liées à
+  // la caisse qui ne sont pas validées » — jusqu'au jour clôturé inclus.
+  const bloquantes = depensesBloquantCloture(db, boutique, t);
+  const blocageCloture = motifBlocageCloture(bloquantes, fmt, dFR);
+  // Les dépenses REJETÉES du jour qui étaient sorties du tiroir : le manque attendu, et qui le doit.
+  const rejets = rejetsDuJour(db, boutique, t);
 
   const cloturer = async () => {
     if (refuserSaufRoles(profile, ROLES_CAISSE, "Clôturer la caisse")) return;
     if (bloquerSiLecture(db, profile)) return;
+    if (blocageCloture) { uAlert(blocageCloture); return; }
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nAttendu dans le tiroir : ${fmt(theorique)} (fonds d'hier soir ${fmt(fondsHier)} + recette du jour ${fmt(recetteDuJour)} − sorties justifiées ${fmt(sortiesJustifiees)})\nCompté dans le tiroir : ${fmt(Number(compte))}\nÉcart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
     // Une reclôture REMPLACE la clôture du jour, sans effacer son histoire :
@@ -115,6 +125,28 @@ export function Caisse({ db, save, profile }) {
     if (refus) { uAlert(refus); return; }
     const r = rejeterVersement(db, profile, d, motif, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+  };
+
+  // ---- 💼 LES AVANCES DE FRAIS À REMBOURSER (Timo, 12/09/2026) ----
+  // L'employé a payé de sa poche ; une fois que la dépense compte (validée,
+  // ou sous le seuil), on la lui rembourse : en espèces depuis la caisse
+  // (gérant, admin), avec le salaire du mois ou par le DG (admin).
+  const avances = avancesARembourser(db, boutique);
+  const rembourser = async (d, moyen) => {
+    if (bloquerSiLecture(db, profile)) return;
+    let mois;
+    if (moyen === MOYEN_REMB_SALAIRE) {
+      const refusAvant = critiqueRemboursement(d, moyen, profile, { mois: today().slice(0, 7) });
+      if (refusAvant) { uAlert(refusAvant); return; }
+      mois = await demanderMois(`Sur quelle paie porter le remboursement de ${fmt(d.montant)} à ${d.par} ?`);
+      if (mois === null) return;
+    }
+    const refus = critiqueRemboursement(d, moyen, profile, { mois });
+    if (refus) { uAlert(refus); return; }
+    if (!await uConfirm(`Rembourser à ${d.par} l'avance de ${fmt(d.montant)} (${d.description || d.categorie} du ${dFR(d.date)}) — ${libelleMoyenRemb(moyen).toLowerCase()}${mois ? ` (${mois})` : ""} ?${moyen === "caisse" ? `\n\nLa sortie sera enregistrée aujourd'hui dans la caisse de ${boutique}.` : ""}`)) return;
+    const r = rembourserAvance(db, profile, d, moyen, today(), { mois });
+    if (r.refus) { uAlert(r.refus); return; }
+    save({ ...db, depenses: r.depenses, users: r.users, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
   };
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
@@ -215,6 +247,30 @@ export function Caisse({ db, save, profile }) {
           </div>
         )}
       </Panel>
+      {(avances.length > 0 || ROLES_REMB_CAISSE.includes(profile.role)) && (
+        <Panel boutique={boutique}>
+          <div className="font-bold mb-2 flex items-center gap-2">💼 Avances de frais à rembourser ({avances.length}) <Badge boutique={boutique} /></div>
+          {avances.length === 0 && <div className="text-sm text-slate-400">Aucune avance personnelle à rembourser pour {boutique}.</div>}
+          <div className="space-y-1">
+            {avances.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm">
+                <div><b>{d.par}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
+                  <div className="text-xs text-slate-500">dépense du {dFR(d.date)} · payée de sa poche</div>
+                </div>
+                <div className="flex gap-1 shrink-0 flex-wrap">
+                  {MOYENS_REMBOURSEMENT.map(([code, libelle]) => (
+                    <button key={code} onClick={() => rembourser(d, code)} title={libelle}
+                      className={`text-xs font-bold rounded px-2 py-1 whitespace-nowrap ${code === "caisse" ? "text-white bg-green-700 hover:bg-green-800" : "text-slate-800 bg-slate-100 border border-slate-300 hover:bg-slate-200"}`}>
+                      {code === "caisse" ? "💵 Rembourser en espèces" : code === "salaire" ? "🧾 Avec le salaire" : "👤 Par le DG"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-slate-500 mt-2">En espèces : gérant ou administrateur, la sortie compte dans le tiroir du jour (ce n'est pas une nouvelle charge). Avec le salaire ou par le DG : administrateur. L'employé est prévenu.</div>
+        </Panel>
+      )}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse {t === aujourdhui ? "du jour" : `du ${dFR(t)}`} <Badge boutique={boutique} /></div>
         {enRetard.length > 0 && (
@@ -314,12 +370,21 @@ export function Caisse({ db, save, profile }) {
                 </table>
               </div>
             )}
+            {rejets.length > 0 && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <b>✖ Dépenses rejetées par le DG ce jour-là : {fmt(rejets.reduce((s, r) => s + r.montant, 0))}</b> — {rejets.map((r) => `${fmt(r.montant)} (${r.categorie}, ${r.par} : ${r.motif})`).join(" ; ")}.
+                <div className="text-xs mt-1">L'argent était sorti du tiroir : ce manque est attendu dans l'écart, et il est dû par la personne qui l'a saisi.</div>
+              </div>
+            )}
+            {blocageCloture && (
+              <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-bold text-red-800">{blocageCloture}</div>
+            )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <Field label="Montant du tiroir (tout ce qu'il contient, compté)"><input type="number" className={inputCls} value={compte} onChange={(e) => setCompte(e.target.value)} /></Field>
               <div className="lg:col-span-2"><Field label="Remarques"><input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex : Monnaie rendue..." /></Field></div>
             </div>
             {alerteRecette && <div className="mt-2 text-sm font-bold text-red-600">{alerteRecette}</div>}
-            <button onClick={cloturer} className={`mt-3 ${btnDark}`}>Clôturer la caisse</button>
+            <button onClick={cloturer} disabled={!!blocageCloture} className={`mt-3 ${btnDark}${blocageCloture ? " opacity-50 cursor-not-allowed" : ""}`}>Clôturer la caisse</button>
           </>
         )}
       </Panel>

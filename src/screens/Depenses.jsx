@@ -5,30 +5,42 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR } from "../lib/core";
+import { fmt, today, dFR } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement } from "../lib/versements";
-import { CATEGORIES, PAIEMENTS, horsVersements } from "../lib/constants";
+import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
+// Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
+// origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
+import { PAYE_AVEC, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
-import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin } from "../lib/calculs";
+import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 
 // ============ LE TABLEAU DES DÉPENSES — écrit UNE fois (point B5 du relevé
 // des doublons, 08/09/2026) pour les dépenses d'une boutique et pour
 // « Chez le comptable » : une colonne ajoutée l'est aux deux.
+// L'état de validation d'une dépense, en un badge (Timo, 12/09/2026).
+export function BadgeValidation({ x }) {
+  if (estEnAttente(x)) return <span className="text-xs font-bold text-amber-700">⏳ à valider par le DG</span>;
+  if (estRejetee(x)) return <span className="text-xs font-bold text-red-700">✖ rejetée le {dFR(x.validation.le)} par {x.validation.par} — {x.validation.motif}</span>;
+  if (estValidee(x)) return <span className="text-xs font-bold text-green-700">✅ validée le {dFR(x.validation.le)}{x.validation.auto ? " (DG)" : ` par ${x.validation.par}`}</span>;
+  return <span className="text-xs text-slate-400">—</span>;
+}
 function TableauDepenses({ liste, listePage, profile, onSupprimer, vide }) {
   return (
-    <table className="w-full text-sm min-w-[680px]">
-      <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Saisi par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+    <table className="w-full text-sm min-w-[860px]">
+      <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
       <tbody>
-        {liste.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{vide}</td></tr>}
+        {liste.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{vide}</td></tr>}
         {listePage.map((x) => (
-          <tr key={x.id} className="border-t border-slate-100 hover:bg-sky-50">
+          <tr key={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
             <td className="px-3 py-2">{dFR(x.date)}</td>
             <td className="px-3 py-2 font-semibold">{x.categorie}</td>
             <td className="px-3 py-2">{x.description || "—"}</td>
-            <td className="px-3 py-2 tabular-nums font-bold">{fmt(x.montant)}</td>
+            <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}</td>
             <td className="px-3 py-2">{x.paiement}</td>
+            <td className="px-3 py-2 text-xs">{x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
             <td className="px-3 py-2">{x.par}</td>
+            <td className="px-3 py-2"><BadgeValidation x={x} /></td>
             <td className="px-3 py-2">
               {profile.role === "admin" && (
                 <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
@@ -51,14 +63,46 @@ export function Depenses({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "depenses" });
-  const [f, setF] = useState({ categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0] });
+  const formVide = { categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: PAYE_AVEC_CAISSE };
+  const [f, setF] = useState(formVide);
+  const jeSuisDG = estAdminPrincipal(db, profile);
 
+  // Timo (12/09/2026) : à partir de 5 000 F, la dépense attend la validation
+  // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.
   const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!f.montant) { uAlert("Veuillez saisir un montant."); return; }
-    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie} ?`)) return;
-    save({ ...db, depenses: [{ id: uid(), date: today(), boutique, ...f, montant: Number(f.montant), par: profile.nom }, ...db.depenses] }, `Dépense ${fmt(Number(f.montant))} (${f.categorie}) — ${boutique}`);
-    setF({ categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0] });
+    const r = construireDepenseSaisie(db, profile, { boutique, ...f }, today());
+    if (r.refus) { uAlert(r.refus); return; }
+    const suite = r.aValider && !jeSuisDG ? `\n\n⏳ ${fmt(Number(f.montant))} atteint ${fmt(SEUIL_VALIDATION_DEPENSE)} : cette dépense sera soumise à la validation du DG et ne comptera qu'une fois validée.` : "";
+    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libellePayeAvec(f.paye_avec).toLowerCase()} ?${suite}`)) return;
+    save({ ...db, depenses: [r.depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+    setF(formVide);
+    if (r.aValider && !jeSuisDG) uAlert("Dépense enregistrée — en attente de validation par le DG.");
+  };
+
+  // ---- LA FILE DU DG (administrateur principal), sur la boutique regardée ----
+  const nomsEspace = jeSuisDG ? boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom) : [];
+  const aValiderDG = jeSuisDG ? depensesAValider(db, nomsEspace.filter((n) => n === boutique)) : [];
+  const traiteesDG = jeSuisDG ? depensesTraitees(db, nomsEspace.filter((n) => n === boutique)) : [];
+  const ailleursDG = jeSuisDG ? nbAValiderParBoutique(db, nomsEspace.filter((n) => n !== boutique)) : [];
+  const validerDG = async (d) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Valider une dépense (DG)")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueDecision(d, { estPrincipal: true });
+    if (refus) { uAlert(refus); return; }
+    if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvec(d.paye_avec).toLowerCase()} ?`)) return;
+    const r = validerDepense(db, profile, d, today());
+    save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+  };
+  const rejeterDG = async (d) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Rejeter une dépense (DG)")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const motif = await uPrompt(`Rejeter la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) saisie par ${d.par} ?\n\nIndiquez le motif — obligatoire. ${d.paiement === "Espèces" && (!d.paye_avec || d.paye_avec === PAYE_AVEC_CAISSE) ? `L'argent sera considéré comme toujours dû à la caisse de ${d.boutique}, et ${d.par} en sera prévenu.` : `${d.par} en sera prévenu.`}`, "");
+    if (motif === null) return;
+    const refus = critiqueDecision(d, { estPrincipal: true }, motif);
+    if (refus) { uAlert(refus); return; }
+    const r = rejeterDepense(db, profile, d, motif, today());
+    save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
   };
 
   const supprimerDepense = async (d) => {
@@ -85,7 +129,9 @@ export function Depenses({ db, save, profile }) {
   // de l'argent qui change de poche. Il se lit dans 🔒 Caisse et dans l'export
   // « Versements ».
   const liste = horsVersements(db.depenses).filter((x) => x.boutique === boutique);
-  const totalMois = liste.filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
+  // « Ce mois » ne compte que ce qui compte : validé, ou sans validation requise.
+  const totalMois = depensesComptees(liste).filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
+  const enAttenteIci = liste.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
@@ -95,21 +141,62 @@ export function Depenses({ db, save, profile }) {
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="depenses" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {/* Timo (12/09/2026) : le DG valide les dépenses de 5 000 F et plus —
+          l'encadré est PERMANENT (vide, il le dit), sur la boutique regardée
+          seule, et dit où il en reste ailleurs sans les mélanger. */}
+      {jeSuisDG && (
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`}>
+          <div className={`font-bold mb-2 ${aValiderDG.length > 0 ? "text-amber-900" : "text-slate-800"}`}>⏳ Dépenses à valider par le DG ({aValiderDG.length}) <Badge boutique={boutique} /></div>
+          {aValiderDG.length === 0 && <div className="text-sm text-slate-400">Aucune dépense de {boutique} en attente de votre validation (à partir de {fmt(SEUIL_VALIDATION_DEPENSE)}).</div>}
+          <div className="space-y-1">
+            {aValiderDG.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <div><b>{dFR(d.date)}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
+                  <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvec(d.paye_avec).toLowerCase()}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
+                  <button onClick={() => rejeterDG(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✖ Rejeter</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {ailleursDG.length > 0 && <div className="mt-2 text-xs text-amber-800">Ailleurs, en attente : {ailleursDG.map((x) => `${x.boutique} (${x.n})`).join(", ")} — choisissez la boutique en haut.</div>}
+          {traiteesDG.length > 0 && (
+            <div className="mt-3">
+              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Dernières dépenses tranchées</div>
+              <div className="max-h-[200px] overflow-y-auto space-y-1">
+                {traiteesDG.slice(0, 10).map((d) => (
+                  <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
+                    {dFR(d.date)} — <b className={`text-base tabular-nums ${estRejetee(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(montantOrigine(d))}</b> — {d.categorie} · {d.par} <BadgeValidation x={d} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dépense <Badge boutique={boutique} /></div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <Field label="Catégorie"><select className={inputCls} value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
           <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
           <Field label="Montant (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
+          {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
+          <Field label="Payé avec"><select className={inputCls} value={f.paye_avec} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{PAYE_AVEC.map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
         </div>
+        {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
+          <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>
+        )}
+        {f.paye_avec === "avance" && <div className="mt-2 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dépense</button>
       </Panel>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
           <span>Dépenses — {boutique}</span>
-          <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}</span>
+          <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>
         </div>
         <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide="Aucune dépense enregistrée." />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />

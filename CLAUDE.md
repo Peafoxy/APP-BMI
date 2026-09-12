@@ -51,14 +51,14 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1148 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1173 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 36  : l'argent dans l'écran Ventes
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 134 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -523,6 +523,49 @@ lit mal est pire qu'un banc absent).
   `critiqueRejet` / `rejeterVersement` (lib/versements.js) ; serveur
   `securite-12` (montant forcé à 0 ; le comptable n'obtient que ce geste en
   plus de son pointage, porte `rejetVersement` de `save`).
+
+### Validation des dépenses par le DG (12/09/2026)
+- Timo : « ce n'est pas mieux de mettre en place un système de validation
+  des dépenses par l'administrateur ? » puis « on met un seuil : **à partir
+  de 5 mil, il faut valider ; moins de 5 mil, pas besoin** », « **seules les
+  dépenses validées comptent** », « **la clôture impossible s'il y a des
+  dépenses liées à la caisse qui ne sont pas validées** ». UNE règle pure,
+  `lib/validationDepenses.js` ; serveur `securite-15`.
+- **Qui valide : le DG = administrateur PRINCIPAL** (comme les versements),
+  dans 📤 Dépenses, encadré permanent « ⏳ Dépenses à valider par le DG »,
+  **la boutique regardée seule** (« Ailleurs, en attente : … » dit où il en
+  reste). Une dépense saisie par le DG lui-même est validée d'office. Le
+  rejet : motif obligatoire, **montant ramené à 0** (l'origine reste dans
+  `validation.montant`, description « ✖ REJETÉE (motif) — … »), l'auteur
+  reçoit un message ; si l'argent était sorti du tiroir, **le manque se voit
+  à la clôture** (« Dépenses rejetées par le DG ce jour-là », dû par la
+  personne qui l'a saisi). Une décision ne se défait pas.
+- **En attente = ne compte nulle part** : tiroir et fonds à verser
+  (`compteDansLaCaisse`), tableau de bord, journal, export, « Ce mois » de
+  l'écran Dépenses (`depensesComptees`, constants.js — et non plus
+  `horsVersements` seul). L'écran le dit à côté du « Ce mois ».
+- **L'origine des fonds est demandée à la saisie** (« Payé avec », les trois
+  propositions acceptées : « la caisse de la boutique », « une avance
+  personnelle », « de l'argent remis par le DG »). Seule la caisse de la
+  boutique, en espèces, sort du tiroir ; l'avance et l'argent du DG sont des
+  charges qui ne touchent jamais la clôture. Une ligne sans `paye_avec`
+  (anciennes, dépenses automatiques) = caisse de la boutique.
+- **Avance personnelle = somme à rembourser** dès qu'elle compte (validée, ou
+  sous le seuil) : encadré « 💼 Avances de frais à rembourser » dans 🔒 Caisse,
+  trois façons — **en espèces depuis la caisse (gérant, admin)** : une sortie
+  « Remboursement d'avance de frais » (`CATEGORIES_HORS_CHARGES`, la charge
+  est déjà comptée) qui sort du tiroir le jour du remboursement ; **avec le
+  salaire (admin)** : une prime `hors_cnss` sur la paie du mois (`paieMois`
+  l'ajoute au net, pas à la base CNSS, `remunerationCNSS`) ; **par le DG
+  (admin)** : rien ne bouge. Jamais soi-même (sauf admin). L'employé suit
+  ses avances dans 💵 Mon salaire (« Mes avances de frais »). Un
+  remboursement ne se défait pas.
+- **La clôture est bloquée** (`depensesBloquantCloture` / `motifBlocageCloture`,
+  message en rouge, bouton grisé, refus DANS le geste) tant qu'une dépense en
+  espèces payée avec la caisse de la boutique attend, **jusqu'au jour clôturé
+  inclus** ; Flooz, avances et argent du DG ne bloquent pas (ils ne touchent
+  pas le tiroir). À dire aux vendeuses : une grosse dépense en espèces se fait
+  valider AVANT la fermeture, sinon la caisse ne se clôture pas.
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

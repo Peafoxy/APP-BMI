@@ -6,6 +6,8 @@
 import { useState, useEffect } from "react";
 import { SALARIES } from "../lib/constants";
 import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core";
+// Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
+import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
@@ -205,7 +207,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
     // Rémunération déclarée = base + primes du mois (avant avances/retenues
     // BMI, qui sont des affaires internes sans lien avec la CNSS). À faire
     // confirmer par le comptable si votre pratique diffère.
-    const remuneration = (p.base || 0) + (p.primes || 0);
+    const remuneration = p.remunerationCNSS ?? ((p.base || 0) + (p.primes || 0));
     return { u, remuneration, jours: b.jours, natureCode: b.nature, motifSortieCode: b.codeMotifSortie };
   });
   const pretsPourExport = lignesExport.filter(({ u, jours }) => brouillon[u.id]?.assujetti && cnssPret(u, { jours }));
@@ -395,6 +397,10 @@ export function Salaire({ db, save, profile }) {
   const net = p.net;
   const enAttente = p.virements.filter((v) => v.statut !== "accepte");
 
+  // ---- Mes avances de frais (dépenses payées de ma poche) ----
+  const mesAvances = avancesDe(db, moi);
+  const avancesDues = mesAvances.filter((d) => !estEnAttente(d) && !estRejetee(d) && !d.remboursement);
+
   // ---- Crédit BMI ----
   const mesCredits = moi.credits || [];
   const enCours = mesCredits.filter((c) => c.statut === "approuve" && resteCredit(c) > 0);
@@ -536,6 +542,34 @@ export function Salaire({ db, save, profile }) {
         </div>
       )}
 
+      {mesAvances.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
+            <span>💼 Mes avances de frais</span>
+            <span className="text-sm font-semibold text-slate-500">à me rembourser : {fmt(avancesDues.reduce((s, d) => s + Number(d.montant || 0), 0))}</span>
+          </div>
+          <table className="w-full text-sm min-w-[560px]">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Dépense", "Boutique", "Montant", "État"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <tbody>
+              {mesAvances.slice(0, 30).map((d) => (
+                <tr key={d.id} className="border-t border-slate-100">
+                  <td className="px-3 py-2">{dFR(d.date)}</td>
+                  <td className="px-3 py-2">{d.categorie}{d.description ? ` — ${d.description}` : ""}</td>
+                  <td className="px-3 py-2">{d.boutique}</td>
+                  <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(d) ? " line-through text-red-700" : ""}`}>{fmt(estRejetee(d) ? d.validation.montant : d.montant)}</td>
+                  <td className="px-3 py-2 text-xs font-bold">
+                    {estEnAttente(d) ? <span className="text-amber-700">⏳ en attente de validation par le DG</span>
+                      : estRejetee(d) ? <span className="text-red-700">✖ rejetée — {d.validation.motif}</span>
+                      : d.remboursement ? <span className="text-green-700">✅ remboursée le {dFR(d.remboursement.le)} — {libelleMoyenRemb(d.remboursement.moyen).toLowerCase()}{d.remboursement.mois ? ` (${d.remboursement.mois})` : ""}</span>
+                      : <span className="text-sky-700">💵 à me rembourser</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">Une avance est remboursée en espèces par le gérant ou l'administrateur, avec le salaire du mois, ou directement par le DG.</div>
+        </div>
+      )}
       {(primes.length > 0 || avances.length > 0) && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Détail — {libelleMois(mois)}</div>

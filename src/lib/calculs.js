@@ -2085,13 +2085,17 @@ export function paieMois(u, mois) {
   // le net, mais SEULEMENT pour un employé coché « assujetti CNSS » (voir
   // PanneauCNSS, Salaires.jsx). Taux officiels : decret n°2012-038 (CNSS,
   // pensions) + CGAMU (AMU) — voir TAUX_CNSS_SALARIE dans lib/cnss.js.
-  const retenueCNSS = u.cnss_assujetti ? Math.round((base + primes) * TAUX_CNSS_SALARIE) : 0;
+  // Un remboursement de frais avancés (lib/validationDepenses.js) passe par
+  // la paie comme une prime, mais ce n'est pas une rémunération : hors CNSS.
+  const primesHorsCnss = (u.primes || []).filter((p) => p.mois === mois && p.hors_cnss).reduce((s, p) => s + Number(p.montant || 0), 0);
+  const remunerationCNSS = base + primes - primesHorsCnss;
+  const retenueCNSS = u.cnss_assujetti ? Math.round(remunerationCNSS * TAUX_CNSS_SALARIE) : 0;
   const vs = virementsMois(u, mois);
   const verse = vs.reduce((s, v) => s + Number(v.montant || 0), 0);
   const accepte = vs.filter((v) => v.statut === "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
   const enAttente = vs.filter((v) => v.statut !== "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
   const net = base + primes - avances - retenueCredit - retenueCNSS;
-  return { base, primes, avances, retenueCredit, retenueCNSS, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
+  return { base, primes, primesHorsCnss, remunerationCNSS, avances, retenueCredit, retenueCNSS, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
 }
 
 export const libelleMoisFR = (m) => {

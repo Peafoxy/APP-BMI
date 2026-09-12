@@ -63,7 +63,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.155";
+export const VERSION = "2.101.156";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
@@ -102,8 +102,18 @@ export const CATEGORIE_VERSEMENT = "Versement de fonds";
 // une sortie de caisse, mais pas une charge non plus — le chiffre d'affaires
 // est déjà réduit de la reprise (caVente). Même traitement que le versement.
 export const CATEGORIE_REMBOURSEMENT = "Remboursement client";
-export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT];
+// Le remboursement d'une avance de frais (Timo, 12/09/2026) : l'employé a
+// payé de sa poche, la charge est déjà comptée le jour de la dépense ; la
+// sortie qui le rembourse n'est qu'un mouvement de tiroir (lib/validationDepenses.js).
+export const CATEGORIE_REMBOURSEMENT_AVANCE = "Remboursement d'avance de frais";
+export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
+// ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une
+// dépense en attente de la validation du DG (5 000 F et plus, saisie par un
+// autre que lui) n'est PAS une charge tant qu'il n'a pas dit oui : tableau de
+// bord, synthèse par période, export, journal comptable et « Ce mois » de
+// l'écran Dépenses passent par ICI, pas par horsVersements seul.
+export const depensesComptees = (liste) => horsVersements(liste).filter((x) => x?.validation?.statut !== "attente");
 
 // Validité d'une offre de prix (devis) — Timo, 11/09/2026 : 15 jours, comme
 // le seuil de relance des devis sans réponse.

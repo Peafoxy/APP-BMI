@@ -5,7 +5,8 @@
 // ============================================================
 import { useState, useCallback } from "react";
 import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
-import { horsVersements, CATEGORIE_VERSEMENT } from "../lib/constants";
+// Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
+import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
 import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
 import {
@@ -68,7 +69,7 @@ export function Dashboard({ db, profile }) {
   // ⚠ Timo (10/09/2026) : « pourquoi il pense que le versement est une
   // dépense ? » — le versement de fonds n'est une sortie QUE pour la caisse.
   // Ici (cartes, graphique, synthèse par période, exports), il n'existe pas.
-  const depensesReellesDb = horsVersements(db.depenses).filter(dansMonEspace).filter(dansLaBoutique);
+  const depensesReellesDb = depensesComptees(db.depenses).filter(dansMonEspace).filter(dansLaBoutique);
   const versementsReelsDb = (db.depenses || []).filter((x) => x.categorie === CATEGORIE_VERSEMENT).filter(dansMonEspace).filter(dansLaBoutique);
   const dettesReellesDb = (db.dettes || []).filter(dansMonEspace).filter(dansLaBoutique);
   const produitsReelsDb = (db.produits || []).filter(dansMonEspace).filter(dansLaBoutique);
@@ -98,7 +99,7 @@ export function Dashboard({ db, profile }) {
     const v = {}, d = {};
     NOMS_VUES.forEach((bq) => {
       v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
-      d[bq] = horsVersements(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
+      d[bq] = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
     return { label, v, d };
   });
@@ -108,7 +109,7 @@ export function Dashboard({ db, profile }) {
     const v = {}, d = {};
     NOMS_VUES.forEach((bq) => {
       v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
-      d[bq] = horsVersements(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
+      d[bq] = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
     });
     return { label, v, d };
   })();

@@ -20,6 +20,9 @@
 // ============================================================
 
 import { CATEGORIE_VERSEMENT } from "./versements";
+// Timo (12/09/2026) : une dépense en attente de validation ne compte pas dans
+// le tiroir ; une avance personnelle ou l'argent du DG n'en sortent jamais.
+import { compteDansLaCaisse } from "./validationDepenses";
 
 export const DEBUT_REGLE_CLOTURE = "2026-09-09";
 
@@ -36,7 +39,7 @@ export function soldeEspecesFinDeJour(db, boutique, date, totalVente) {
     .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0)
     + (db.dettes || []).filter((d) => d.boutique === boutique)
       .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces" && String(p.date) <= d0).reduce((t, p) => t + Number(p.montant || 0), 0), 0);
-  const sorties = (db.depenses || []).filter((x) => x.boutique === boutique && x.paiement === "Espèces" && String(x.date) <= d0)
+  const sorties = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x) && String(x.date) <= d0)
     .reduce((s, x) => s + Number(x.montant || 0), 0);
   return entrees - sorties;
 }
@@ -47,7 +50,7 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date) === d0);
   const especesVentes = ventesDuJour.filter((v) => v.paiement === "Espèces")
     .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
-  const sortiesDuJour = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && x.paiement === "Espèces");
+  const sortiesDuJour = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && compteDansLaCaisse(x));
   // Les versements de fonds sont montrés À PART des dépenses.
   const versementsDuJour = sortiesDuJour.filter((x) => x.categorie === CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
   const especesDepenses = sortiesDuJour.filter((x) => x.categorie !== CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);

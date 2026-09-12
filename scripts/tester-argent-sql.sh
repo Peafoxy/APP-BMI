@@ -46,6 +46,8 @@ echo "▸ La reprise d'un article par le client : supabase/securite-13-reprise.s
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-13-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-13 refusé par la base"
 echo "▸ Les remises par article : supabase/securite-14-remise-article.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-14-remise-article.sql >/dev/null 2>&1 || echo "   ❌ securite-14 refusé par la base"
+echo "▸ La validation des dépenses par le DG : supabase/securite-15-validation-depenses.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-15-validation-depenses.sql >/dev/null 2>&1 || echo "   ❌ securite-15 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -300,6 +302,50 @@ essai "★ un vendeur porte la remise de 0 à 5 % par upsert" "REFUSE" "$VENDEUR
 essai "★ un vendeur crée une vente à 5 % par upsert (ligne vraiment nouvelle)" "REFUSE" "$VENDEUR" "$(UPS ventes zv8 '{"id":"zv8","boutique":"APESSITO","remise_pct":5}')"
 essai "★ un vendeur touche un proforma à 5 % sans changer la remise, par upsert" "PERMIS" "$VENDEUR" "$(UPS proformas zpf5 '{"id":"zpf5","remise_pct":5,"note":"x"}')"
 essai "★ un vendeur crée un proforma à 5 % par upsert (ligne vraiment nouvelle)" "REFUSE" "$VENDEUR" "$(UPS proformas zpf8 '{"id":"zpf8","remise_pct":5}')"
+
+echo
+echo "── LA VALIDATION DES DÉPENSES (securite-15, Timo 12/09/2026) : le DG tranche, un rejet a un motif et vaut 0, une avance se rembourse ──"
+$P -c "insert into public.depenses (id, data) values
+  ('zd_att', '{\"id\":\"zd_att\",\"boutique\":\"APESSITO\",\"categorie\":\"Transport\",\"montant\":7000,\"paiement\":\"Espèces\",\"par\":\"KOSSI\",\"par_id\":\"zv_kossi\",\"paye_avec\":\"caisse\",\"validation\":{\"statut\":\"attente\"}}'),
+  ('zd_at2', '{\"id\":\"zd_at2\",\"boutique\":\"APESSITO\",\"categorie\":\"Transport\",\"montant\":8000,\"paiement\":\"Espèces\",\"par\":\"KOSSI\",\"paye_avec\":\"caisse\",\"validation\":{\"statut\":\"attente\"}}'),
+  ('zd_val', '{\"id\":\"zd_val\",\"boutique\":\"APESSITO\",\"categorie\":\"Loyer\",\"montant\":50000,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"paye_avec\":\"caisse\",\"validation\":{\"statut\":\"validee\",\"le\":\"2026-09-12\",\"par\":\"TIMO\"}}'),
+  ('zd_rej', '{\"id\":\"zd_rej\",\"boutique\":\"APESSITO\",\"categorie\":\"Autre\",\"montant\":0,\"paiement\":\"Espèces\",\"par\":\"ALI\",\"paye_avec\":\"caisse\",\"validation\":{\"statut\":\"rejetee\",\"le\":\"2026-09-12\",\"par\":\"TIMO\",\"motif\":\"pas de reçu\",\"montant\":9000}}'),
+  ('zd_av',  '{\"id\":\"zd_av\",\"boutique\":\"APESSITO\",\"categorie\":\"Transport\",\"montant\":3000,\"paiement\":\"Espèces\",\"par\":\"KOSSI\",\"par_id\":\"zv_kossi\",\"paye_avec\":\"avance\"}'),
+  ('zd_av2', '{\"id\":\"zd_av2\",\"boutique\":\"APESSITO\",\"categorie\":\"Transport\",\"montant\":4000,\"paiement\":\"Espèces\",\"par\":\"KOSSI\",\"paye_avec\":\"avance\",\"remboursement\":{\"le\":\"2026-09-12\",\"par\":\"ALI\",\"moyen\":\"caisse\"}}');" >/dev/null
+VALIDE='"validation":{"statut":"validee","le":"2026-09-12","par":"TIMO"}'
+REJET='"validation":{"statut":"rejetee","le":"2026-09-12","par":"TIMO","motif":"pas de reçu","montant":7000}'
+ATT='{"id":"zd_att","boutique":"APESSITO","categorie":"Transport","montant":7000,"paiement":"Espèces","par":"KOSSI","par_id":"zv_kossi","paye_avec":"caisse"'
+essai "★ un vendeur enregistre une dépense de 7 000 F EN ATTENTE (le quotidien passe, par upsert)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_new "$(echo "$ATT" | sed 's/zd_att/zd_new/'),\"validation\":{\"statut\":\"attente\"}}")"
+essai "★ un vendeur enregistre une dépense de 2 000 F sans validation (sous le seuil)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_pet '{"id":"zd_pet","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
+essai "★ un vendeur se valide lui-même sa dépense (attente → validee, par upsert)" "REFUSE" "$VENDEUR" "$(UPS depenses zd_att "$ATT,$VALIDE}")"
+essai "★ un gérant valide une dépense" "REFUSE" "$GERANT" "$(UPS depenses zd_att "$ATT,$VALIDE}")"
+essai "★ un administrateur SECONDAIRE valide une dépense" "REFUSE" "$ADMIN2" "$(UPS depenses zd_att "$ATT,$VALIDE}")"
+essai "★ le comptable valide une dépense" "REFUSE" "$COMPTABLE" "$(UPS depenses zd_att "$ATT,$VALIDE}")"
+essai "★ un vendeur crée une dépense DÉJÀ validée (ligne vraiment nouvelle)" "REFUSE" "$VENDEUR" "$(UPS depenses zd_n2 "$(echo "$ATT" | sed 's/zd_att/zd_n2/'),$VALIDE}")"
+essai "★ le DG crée sa propre dépense déjà validée (validation d'office)" "PERMIS" "$ADMIN" "$(UPS depenses zd_dg '{"id":"zd_dg","boutique":"APESSITO","categorie":"Loyer","montant":60000,"paiement":"Espèces","par":"TIMO","paye_avec":"caisse","validation":{"statut":"validee","le":"2026-09-12","auto":true,"par":"TIMO"}}')"
+essai "★ le DG rejette SANS motif" "REFUSE" "$ADMIN" "$(UPS depenses zd_at2 '{"id":"zd_at2","boutique":"APESSITO","categorie":"Transport","montant":0,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse","validation":{"statut":"rejetee","le":"2026-09-12","par":"TIMO","motif":"","montant":8000}}')"
+essai "★ un gérant rejette une dépense" "REFUSE" "$GERANT" "$(UPS depenses zd_att "$(echo "$ATT" | sed 's/\"montant\":7000/\"montant\":0/'),$REJET}")"
+essai "★ le DG VALIDE une dépense en attente (par upsert, comme l'application)" "PERMIS" "$ADMIN" "$(UPS depenses zd_att "$ATT,$VALIDE}")"
+# (chaque essai est rejoué puis annulé : zd_val est la dépense DÉJÀ validée de la fixture)
+essai "★ le DG rejette une dépense DÉJÀ validée" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{validation,statut}','\"rejetee\"'),'{validation,motif}','\"x\"')" zd_val)"
+essai "★ le DG remet une dépense validée « en attente »" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{validation,statut}','\"attente\"')" zd_val)"
+essai "★ le DG change la date d'une validation" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{validation,le}','\"2026-09-13\"')" zd_val)"
+essai "★ le DG REJETTE une dépense en attente, avec motif (par upsert)" "PERMIS" "$ADMIN" "$(UPS depenses zd_at2 '{"id":"zd_at2","boutique":"APESSITO","categorie":"Transport","montant":0,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse","validation":{"statut":"rejetee","le":"2026-09-12","par":"TIMO","motif":"pas de reçu","montant":8000}}')"
+essai "★ …et le serveur FORCE le montant à 0 sur une dépense rejetée même si l'application renvoyait 9 000" "PERMIS" "$ADMIN" "with x as (update public.depenses set data = jsonb_set(data,'{montant}','9000') where id='zd_rej' returning (data->>'montant')::numeric m) select case when (select m from x) = 0 then 1 else 0 end;"
+essai "★ le DG valide une dépense rejetée" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{validation,statut}','\"validee\"')" zd_rej)"
+essai "★ le DG change le motif d'un rejet" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{validation,motif}','\"autre\"')" zd_rej)"
+essai "★ le DG retire la validation (data - 'validation')" "REFUSE" "$ADMIN" "$(MAJ depenses "data - 'validation'" zd_val)"
+essai "le DG corrige la description d'une dépense validée (la validation ne bouge pas : permis)" "PERMIS" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{description}','\"loyer septembre\"')" zd_val)"
+REMB='{"id":"zd_av","boutique":"APESSITO","categorie":"Transport","montant":3000,"paiement":"Espèces","par":"KOSSI","par_id":"zv_kossi","paye_avec":"avance","remboursement":{"le":"2026-09-12","par":"ALI","moyen":"caisse","depense_id":"zd_rb"}}'
+essai "★ un vendeur se marque lui-même son avance remboursée" "REFUSE" "$VENDEUR" "$(UPS depenses zd_av "$REMB")"
+essai "★ le comptable marque une avance remboursée" "REFUSE" "$COMPTABLE" "$(UPS depenses zd_av "$REMB")"
+essai "★ un gérant marque une avance remboursée AVEC LE SALAIRE (c'est l'admin)" "REFUSE" "$GERANT" "$(UPS depenses zd_av "$(echo "$REMB" | sed 's/\"moyen\":\"caisse\"/\"moyen\":\"salaire\",\"mois\":\"2026-09\"/')")"
+essai "★ un gérant enregistre la sortie de caisse qui rembourse (catégorie Remboursement d'avance de frais)" "PERMIS" "$GERANT" "$(UPS depenses zd_rb '{"id":"zd_rb","boutique":"APESSITO","categorie":"Remboursement d'"''"'avance de frais","montant":3000,"paiement":"Espèces","par":"ALI","paye_avec":"caisse","avance_id":"zd_av","auto":"avance_frais"}')"
+essai "★ un gérant marque l'avance remboursée en espèces (par upsert)" "PERMIS" "$GERANT" "$(UPS depenses zd_av "$REMB")"
+essai "★ le gérant défait le remboursement (data - 'remboursement')" "REFUSE" "$GERANT" "$(MAJ depenses "data - 'remboursement'" zd_av2)"
+essai "★ l'admin change le moyen d'un remboursement déjà fait" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{remboursement,moyen}','\"dg\"')" zd_av2)"
+essai "★ l'admin marque une avance remboursée par le DG" "PERMIS" "$ADMIN" "$(UPS depenses zd_av3 '{"id":"zd_av3","boutique":"APESSITO","categorie":"Transport","montant":2500,"paiement":"Espèces","par":"KOSSI","paye_avec":"avance"}'); $(UPS depenses zd_av3 '{"id":"zd_av3","boutique":"APESSITO","categorie":"Transport","montant":2500,"paiement":"Espèces","par":"KOSSI","paye_avec":"avance","remboursement":{"le":"2026-09-12","par":"TIMO","moyen":"dg"}}')"
+essai "le gérant enregistre toujours un versement de fonds (securite-11 repris tel quel, rien ne change)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
 
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"
