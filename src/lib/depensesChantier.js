@@ -21,7 +21,7 @@
 //     C'est sur ce montant-là que les parts des techniciens se calculent.
 // ============================================================
 import { estEnAttente, estRejetee } from "./validationDepenses";
-import { chantiersDeMonEspace, statutChantier, afficheChiffresFormation, boutiqueDuChantier, estBoutiqueFormation } from "./calculs";
+import { chantiersDeMonEspace, statutChantier, afficheChiffresFormation, boutiqueDuChantier, estBoutiqueFormation, travauxSolde } from "./calculs";
 
 export const ROLES_RATTACHEMENT = ["gerant", "admin"];
 
@@ -29,7 +29,7 @@ export const ROLES_RATTACHEMENT = ["gerant", "admin"];
 export const libelleChantier = (c) => {
   const nom = `${c.prenom || ""} ${c.nom || ""}`.trim() || "Chantier";
   const type = c.type_installation ? ` · ${c.type_installation}` : "";
-  return `${nom}${type}`;
+  return `${c.travaux ? "🛠 " : ""}${nom}${type}`;
 };
 
 // « Je vois les deux espaces » ne veut jamais dire « je les affiche
@@ -44,7 +44,7 @@ export const dansLEspaceRegarde = (db, profile, c) => {
 // Les chantiers auxquels on peut rattacher une dépense : espace regardé,
 // pas encore réceptionnés, frais pas déjà payés. Les plus récents d'abord.
 export const chantiersRattachables = (db, profile) => (db.clients_installes || [])
-  .filter((c) => dansLEspaceRegarde(db, profile, c) && statutChantier(c) !== "receptionne" && !fraisDejaPayes(c))
+  .filter((c) => dansLEspaceRegarde(db, profile, c) && statutChantier(c) !== "receptionne" && !fraisDejaPayes(c) && !travauxSolde(db, c))
   .sort((a, b) => String(b.date_installation || b.date || "").localeCompare(String(a.date_installation || a.date || "")));
 
 export const fraisDejaPayes = (c) => (c?.equipe || []).some((e) => e.paye && Number(e.montant || 0) > 0);
@@ -72,6 +72,7 @@ export const critiqueRattachement = (db, profile, dep, chantier) => {
   if (!chantier) return "Chantier introuvable.";
   if (!dansLEspaceRegarde(db, profile, chantier)) return "Ce chantier n'est pas dans l'espace que vous regardez.";
   if (statutChantier(chantier) === "receptionne") return "Ce chantier est déjà réceptionné : ses frais sont clos, on ne lui rattache plus de dépense.";
+  if (travauxSolde(db, chantier)) return "Ces travaux sont soldés : on ne leur rattache plus de dépense.";
   if (fraisDejaPayes(chantier)) return "Les frais d'installation de ce chantier ont déjà été payés aux techniciens : on ne peut plus rien déduire.";
   return null;
 };

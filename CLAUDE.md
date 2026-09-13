@@ -52,12 +52,13 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1210 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1230 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 44  : l'argent dans l'écran Ventes, et sa liste mesurée dans Chromium (clic, logo WhatsApp)
+npm run verifier-ecran-travaux   # 8   : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
@@ -537,14 +538,45 @@ lit mal est pire qu'un banc absent).
   chantier montre « 🧾 Dépenses rattachées : X ». Aucune commission de
   commercial touchée. Rien à coller dans Supabase (une dépense se modifie
   déjà par tout compte non lecteur ; la répartition reste admin).
-- Suite décidée avec Timo, PAS ENCORE CONSTRUITE : l'onglet **« 🛠 Travaux à
-  crédit »** (chantiers hors devis : petites dépenses couvertes par une ligne
-  « Frais de prestation » en % de TOUS les articles ou montant libre ;
-  articles de la boutique au prix boutique avec sortie de stock immédiate,
-  articles HB saisis prix payé / prix facturé ; facturer → reçu ou dette
-  rattachés ; **quitte l'onglet une fois soldé pour se ranger dans 🏠 Clients
-  installés**, badge « Travaux »). Question posée à Timo, sans réponse encore :
-  PV signé par le client ou simple trace ? Ne pas construire avant.
+
+### 🛠 Travaux à crédit (13/09/2026)
+- Timo : « des chantiers qu'on exécute et au fur et à mesure on fait des
+  dépenses… manger, carburant font partie de la prestation… câble, tuyau et
+  autres s'additionnent aux articles sortis de la boutique sauf qu'eux sont
+  des articles HB… la ligne de frais de prestation, en pourcentage ou à taper
+  librement [sur TOUS les articles]… les articles sortis sont facturés au prix
+  de la boutique… le jour où le client finit de payer, le travail à crédit
+  quitte l'onglet pour rester dans Clients installés » ; nom choisi par lui :
+  **« 🛠 Travaux à crédit »** (« Chantiers » prêtait à confusion) ; **option A
+  = une TRACE** dans Clients installés (pas de PV, pas de réception, pas de
+  commission). UNE règle pure, `lib/travaux.js` ; écran `screens/Travaux.jsx`
+  MESURÉ dans Chromium (`verifier-ecran-travaux`).
+- **Une fiche de travaux = une ligne de `clients_installes`** marquée
+  `travaux: true`, statut fixe « travaux », boutique portée par la fiche
+  (`boutiqueDuChantier` la lit) : rien à coller dans Supabase. Onglet pour
+  admin, gérant, vendeur, magasinier ; ouvrir / HB / prestation = gérant,
+  admin ; sortir un article = magasinier, gérant, admin ; facturer =
+  vendeur, gérant, admin — revérifié DANS le geste.
+- **Articles de la boutique : le stock baisse TOUT DE SUITE** (ajustement
+  négatif `sortie_travaux`, `travaux_id`), facturés au prix de vente de la
+  boutique, coût = prix d'achat ; retirer une ligne = ajustement
+  `retour_travaux` (jamais d'effacement), refusé une fois facturé. **Articles
+  HB** : pas de stock, prix payé + prix facturé. **Frais de prestation** :
+  `{mode:"pct"|"montant", valeur}`, % de TOUS les articles (boutique + HB).
+  **Coût** = articles au prix d'achat + petites dépenses rattachées qui
+  comptent (chantier 1, même mécanisme : ligne « Chantier à rattacher »,
+  libellé préfixé 🛠).
+- **Facturer** envoie le panier à 💰 Ventes (`preRempliPourFacture`) : lignes
+  de stock **`deja_sorti`** (le contrôle de stock les ignore, `stockVendu` et
+  l'index aussi — jamais une seconde sortie), HB `hors_boutique`, prestation
+  en ligne libre « Frais de prestation » (compte dans le chiffre d'affaires).
+  L'encaissement reste celui de Ventes (espèces ou crédit avec avance) ; la
+  vente porte `travaux_id` et **le reçu (et la dette) reviennent sur la
+  fiche** (`lierFacture` : `vente_id`, `dette_id`, `facture_le`,
+  `facture_numero`). **Soldé** (`travauxSolde`, calculs.js : facturé et dette
+  à 0, ou comptant) = la fiche quitte l'onglet et apparaît dans 🏠 Clients
+  installés, catégorie « 🛠 Travaux soldés », trace (facturé / coût / marge),
+  sans Frais, Programmer, Entretien ni PV. Une fiche non soldée n'y est jamais.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

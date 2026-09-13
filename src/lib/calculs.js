@@ -41,7 +41,7 @@ export function construireIndexDb(db) {
   const boutiquesFormationSet = boutiquesFormation(db);
   for (const v of db.ventes || []) {
     for (const l of lignesVente(v)) {
-      if (l.produit_id) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
+      if (l.produit_id && !l.deja_sorti) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
     }
     if (v.commercial && !boutiquesFormationSet.has(v.boutique)) {
       const liste = ventesParCommercial.get(v.commercial) || [];
@@ -419,7 +419,17 @@ export const boutiqueDuChantier = (db, c) => {
   const vente = (db.ventes || []).find((v) => v.id === c.vente_id);
   if (vente) return vente.boutique;
   const dette = c.dette_id ? (db.dettes || []).find((d) => d.id === c.dette_id) : null;
-  return dette?.boutique;
+  // Une fiche de 🛠 Travaux à crédit porte sa boutique elle-même (13/09/2026).
+  return dette?.boutique || c.boutique;
+};
+// 🛠 Travaux à crédit (Timo, 13/09/2026) : « le jour où le client finit de
+// payer, le travail quitte l'onglet pour rester dans Clients installés ».
+// Soldé = facturé, et la dette (s'il y en a une) ne doit plus rien.
+export const travauxSolde = (db, c) => {
+  if (!c?.travaux || !c.vente_id) return false;
+  if (!c.dette_id) return true;
+  const d = (db.dettes || []).find((x) => x.id === c.dette_id);
+  return !d || resteAPayer(d) === 0;
 };
 // ⚠ Les écrans de SYNTHÈSE (Tableau de bord, Rentabilité) excluaient la
 // formation « en dur », sans jamais regarder QUI les consulte. Un compte
@@ -489,7 +499,9 @@ export const ventesDuCommercial = (db, nom) => {
 export const stockVendu = (db, pid) =>
   db.__index
     ? (db.__index.venduParProduit.get(pid) || 0)
-    : db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
+    // `deja_sorti` (🛠 Travaux à crédit) : l'article a quitté le stock par un
+    // ajustement au moment de la sortie ; la facture ne le ressort pas.
+    : db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid && !l.deja_sorti).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
 
 export const stockAjuste = (db, pid) =>
   db.__index
@@ -1734,6 +1746,7 @@ export const souhaitsDuJour = (db, dateDuJour = today()) => {
 // L'administrateur peut en désactiver n'importe lequel : les identifiants
 // désactivés sont stockés dans u.droits_off.
 export const LIBELLE_ONGLET = {
+  travaux: "🛠 Travaux à crédit",
   dashboard: "📊 Tableau de bord", ventes: "💰 Ventes", commande: "🛒 Nouvelle commande", commandes: "📥 Commandes reçues",
   dimensionnement: "☀️ Dimensionnement", depenses: "📤 Dépenses", dettes: "🧾 Dettes", clients: "👤 Clients",
   caisse: "🔒 Caisse", stocks: "📦 Stocks", fournisseurs: "🚚 Fournisseurs", commerciaux: "🎯 Commerciaux",
@@ -1746,14 +1759,14 @@ export const LIBELLE_ONGLET = {
 };
 
 export const ONGLETS_ROLE = {
-  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres"],
+  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres", "travaux"],
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "contrats"],
   technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues", "contrats"],
   resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "commission", "salaire", "nouveau_client"],
   technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "commission", "messages", "salaire", "nouveau_client", "contrats"],
-  magasinier: ["stocks", "salaire", "messages", "nouveau_client"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats"],
-  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats"],
+  magasinier: ["stocks", "salaire", "messages", "nouveau_client", "travaux"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats", "travaux"],
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats", "travaux"],
   comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
   client: ["espace_client", "messages", "mes_contrats"],
 };

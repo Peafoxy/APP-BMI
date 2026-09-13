@@ -24,6 +24,7 @@ import { Prospects } from "./screens/Prospects";
 import { EspaceClient } from "./screens/EspaceClient";
 import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
 import { ClientsInstalles } from "./screens/ClientsInstalles";
+import { Travaux } from "./screens/Travaux";
 import { PrimesRemises } from "./screens/PrimesRemises";
 import { PrimesRecues } from "./screens/PrimesRecues";
 import { ContratsInstallation } from "./screens/ContratsInstallation";
@@ -62,7 +63,7 @@ const M = Object.fromEntries(Object.entries({
   Dimensionnement, TousLesDevis, Prospects, EspaceClient, Messagerie,
   ClientsInstalles, PrimesRemises, PrimesRecues, ContratsInstallation,
   Commerciaux, MesTaches, Rentabilite, SalairesAdmin, Salaire, MonEquipe,
-  MaCommission, Fournisseurs, Users, Historique, Parametres,
+  MaCommission, Fournisseurs, Users, Historique, Parametres, Travaux,
 }).map(([n, C]) => [n, memoEcran(C)]));
 import {
   ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp,
@@ -958,7 +959,7 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
@@ -968,9 +969,9 @@ export default function App() {
     : isTechnicienBMI
     ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isMagasinier
-    ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
@@ -980,7 +981,7 @@ export default function App() {
     // vendeur — il voyait des demandes qu'il ne peut pas traiter (valider
     // ou refuser un transfert : magasinier, gérant, admin, règle du 04/09).
     // Un bouton qui ne commande rien se retire. Le gérant garde l'onglet.
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -1260,6 +1261,11 @@ export default function App() {
       {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isVendeur) && (
         <div style={{ display: tab === "parc" ? "block" : "none" }}>
           <M.ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />
+        </div>
+      )}
+      {ongletsVisites.travaux && (isAdmin || isGerant || isVendeur || isMagasinier) && (
+        <div style={{ display: tab === "travaux" ? "block" : "none" }}>
+          <M.Travaux db={db} save={save} profile={profile} onFacturer={(pre) => { setPreRempli(pre); setTab("ventes"); }} />
         </div>
       )}
       {ongletsVisites.primes_remises && isVendeur && (

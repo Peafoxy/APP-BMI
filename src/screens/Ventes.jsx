@@ -19,6 +19,7 @@ import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiqu
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { motifBlocageVente } from "../lib/cloture";
+import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
 // Convertit les articles d'une vente (déjà nets de leur remise de ligne — voir
@@ -119,6 +120,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // par un commercial) : permet de retrouver la vente depuis la commande,
   // et donc de savoir si une commande validée a bien été encaissée ou non.
   const [origineCommande, setOrigineCommande] = useState(() => preRempli?.commandeId || null);
+  // 🛠 Travaux à crédit (13/09/2026) : le panier vient d'une fiche de travaux ;
+  // le reçu (et la dette) reviendront sur cette fiche.
+  const [origineTravaux, setOrigineTravaux] = useState(() => preRempli?.travauxId || null);
   // La proforma d'où vient ce panier (Timo, 11/09/2026) : la vente la citera,
   // ce qui permet de savoir ce qu'une proforma est devenue — et de prévenir
   // avant de la reprendre une seconde fois.
@@ -146,6 +150,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setPanier(preRempli.panier || []);
     setOrigineDevis(preRempli.origineDevis || null);
     setOrigineCommande(preRempli.commandeId || null);
+    setOrigineTravaux(preRempli.travauxId || null);
     setF((f0) => ({
       ...f0,
       client: preRempli.client || f0.client,
@@ -437,6 +442,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     let manquants = [];
     if (!nonLivreCredit) {
       manquants = panier.filter((l) => {
+        if (l.deja_sorti) return false; // 🛠 travaux : déjà sorti du stock à la sortie
         const p = produits.find((x) => x.id === l.produit_id);
         return p && Number(l.qte) > stockActuel(db, p);
       });
@@ -462,6 +468,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // et on recalcule, ça doit désormais passer normalement.
       setTransfertEnAttente(null);
       manquants = panier.filter((l) => {
+        if (l.deja_sorti) return false; // 🛠 travaux : déjà sorti du stock à la sortie
         const p = produits.find((x) => x.id === l.produit_id);
         return p && Number(l.qte) > stockActuel(db, p);
       });
@@ -631,6 +638,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       apporteur: apporteurExterne(total),
       par: profile.nom,
       commande_id: origineCommande,
+      ...(origineTravaux ? { travaux_id: origineTravaux } : {}),
       // D'où vient ce panier, quand il a été repris d'une proforma.
       ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
     };
@@ -768,6 +776,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // 29/08/2026). Les dettes créées avant ne le portent pas : leurs ventes
       // gardent l'ancienne règle, payables dès la réception.
       next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+    }
+    // 🛠 Travaux à crédit : le reçu (et la dette) reviennent sur la fiche.
+    if (origineTravaux) {
+      const detteTravaux = (next.dettes || []).find((d) => d.vente_id === vente.id) || null;
+      next = { ...next, clients_installes: (next.clients_installes || []).map((c) => (c.id === origineTravaux ? lierFacture(c, vente, detteTravaux, today()) : c)) };
+      setOrigineTravaux(null);
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
     save(next, od

@@ -6264,5 +6264,95 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
     && /depenses_deduites: depRattachees, frais_a_partager: fraisNet/.test(ciC) && /🧾 Dépenses rattachées : \{fmt\(totalDepensesChantier\(db, c\.id\)\)\}/.test(ciC));
 }
 
+
+titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et ses branchements");
+{
+  // Timo (13/09/2026) : « des chantiers qu'on exécute… câble, tuyau = articles
+  // HB… ligne de frais de prestation en % ou libre… articles sortis facturés
+  // au prix de la boutique… le jour où le client finit de payer, le travail
+  // quitte l'onglet pour rester dans Clients installés » — option A : une trace.
+  const sortieTv = join("node_modules", ".cache", `bmi-travaux-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/travaux.js"], bundle: true, format: "esm", platform: "node", outfile: sortieTv, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Tv = await import(pathToFileURL(sortieTv).href);
+  unlinkSync(sortieTv);
+  const sortieCa = join("node_modules", ".cache", `bmi-calculs-travaux-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/calculs.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCa, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Ca = await import(pathToFileURL(sortieCa).href);
+  unlinkSync(sortieCa);
+  const admin = { id: "adm", nom: "TIMO", role: "admin" };
+  const p1 = { id: "p1", nom: "Panneau 400W", boutique: "LOME", initial: 3, prix_vente: 100000, prix_achat: 70000 };
+  const dbt = { boutiques: [{ nom: "LOME", formation: false }], users: [{ ...admin, formation: false }], produits: [p1], ventes: [], dettes: [], ajustements: [], depenses: [], clients_installes: [] };
+  const c0 = Tv.nouveauTravail(admin, { nom: "mensah", prenom: "Paul", tel: "90", lieu: "Bè", boutique: "LOME", description: "câblage" }, "2026-09-13");
+  test("★ nouveauTravail : une ligne de clients_installes marquée travaux, statut fixe « travaux », nom en majuscules, boutique portée, articles vides, prestation 0 %",
+    c0.travaux === true && c0.statut === "travaux" && c0.nom === "MENSAH" && c0.boutique === "LOME" && c0.articles_travaux.length === 0 && c0.prestation.mode === "pct" && c0.prestation.valeur === 0 && c0.type_installation === "Travaux");
+  test("★ critiqueFiche : nom obligatoire, boutique obligatoire", /nom/.test(Tv.critiqueFiche({ nom: " ", boutique: "LOME" })) && /boutique/.test(Tv.critiqueFiche({ nom: "X", boutique: "" })) && Tv.critiqueFiche({ nom: "X", boutique: "LOME" }) === null);
+  // Sortie du stock : 2 sur 3, le stock baisse TOUT DE SUITE par un ajustement négatif.
+  const r1 = Tv.ajouterArticleStock(dbt, admin, c0, p1, 2, "2026-09-13");
+  const db1 = { ...dbt, ajustements: [r1.ajustement], clients_installes: [r1.fiche] };
+  test("★ ajouterArticleStock : la ligne porte prix de vente (facturé) et prix d'achat (coût), l'ajustement est de −2 (type sortie_travaux, boutique, travaux_id), le stock passe de 3 à 1",
+    !r1.refus && r1.fiche.articles_travaux[0].pu_vente === 100000 && r1.fiche.articles_travaux[0].pu_achat === 70000 && r1.fiche.articles_travaux[0].hb === false
+    && r1.ajustement.qte === -2 && r1.ajustement.type === "sortie_travaux" && r1.ajustement.boutique === "LOME" && r1.ajustement.travaux_id === c0.id && Ca.stockActuel(db1, p1) === 1);
+  test("★ …et refuse au-delà du stock (2 sur 1 restant), ou une quantité nulle", /Stock insuffisant/.test(Tv.ajouterArticleStock(db1, admin, r1.fiche, p1, 2).refus) && /quantité/.test(Tv.ajouterArticleStock(db1, admin, r1.fiche, p1, 0).refus));
+  const r2 = Tv.ajouterArticleHB(admin, r1.fiche, { nom: "Câble 6 mm", qte: 1, pu_achat: 30000, pu_vente: 50000 }, "2026-09-13");
+  test("★ ajouterArticleHB : pas de stock (pas d'ajustement), marqué hb, prix payé et prix facturé", !r2.refus && r2.fiche.articles_travaux[1].hb === true && r2.fiche.articles_travaux[1].produit_id === null && !("ajustement" in r2) && /nom/.test(Tv.critiqueArticleHB({ nom: "", qte: 1, pu_vente: 1 })));
+  const c2 = { ...r2.fiche, prestation: { mode: "pct", valeur: 10 } };
+  test("★ montants : articles 2 × 100 000 + 50 000 = 250 000 facturés, coût 2 × 70 000 + 30 000 = 170 000 ; prestation 10 % de TOUS les articles = 25 000 ; total 275 000",
+    Tv.totalArticles(c2) === 250000 && Tv.coutArticles(c2) === 170000 && Tv.montantPrestation(c2) === 25000 && Tv.totalAFacturer(c2) === 275000);
+  test("★ prestation en montant libre : 30 000 → total 280 000 ; critiquePrestation refuse un mode inconnu, un négatif, un % > 100",
+    Tv.totalAFacturer({ ...c2, prestation: { mode: "montant", valeur: 30000 } }) === 280000 && Tv.critiquePrestation({ mode: "x", valeur: 1 }) !== null && Tv.critiquePrestation({ mode: "pct", valeur: -1 }) !== null && Tv.critiquePrestation({ mode: "pct", valeur: 101 }) !== null && Tv.critiquePrestation({ mode: "pct", valeur: 10 }) === null);
+  const dbDep = { ...db1, depenses: [{ id: "d1", chantier_id: c0.id, montant: 8000 }, { id: "d2", chantier_id: c0.id, montant: 5000, validation: { statut: "attente" } }] };
+  test("★ coût des travaux = articles au coût + petites dépenses rattachées qui comptent (8 000, pas les 5 000 en attente) = 178 000", Tv.coutTravaux(dbDep, c2) === 178000);
+  // Retirer : l'article de stock revient par un ajustement positif ; refusé une fois facturé.
+  const r3 = Tv.retirerArticle(admin, c2, c2.articles_travaux[0].id, "2026-09-13");
+  test("★ retirerArticle : ajustement +2 (retour_travaux), la ligne disparaît ; un HB retiré ne crée pas d'ajustement ; refusé si déjà facturé",
+    r3.ajustement.qte === 2 && r3.ajustement.type === "retour_travaux" && r3.fiche.articles_travaux.length === 1
+    && Tv.retirerArticle(admin, c2, c2.articles_travaux[1].id).ajustement === null && /déjà facturés/.test(Tv.retirerArticle(admin, { ...c2, vente_id: "v" }, c2.articles_travaux[0].id).refus));
+  // Facturer : le panier pour 💰 Ventes.
+  const panier = Tv.panierPourFacture(c2);
+  test("★ panierPourFacture : la ligne de stock est marquée deja_sorti (pas de seconde sortie), la HB hors_boutique, la prestation en ligne libre « Frais de prestation » ; 3 lignes",
+    panier.length === 3 && panier[0].deja_sorti === true && panier[0].produit_id === "p1" && panier[0].pu === 100000 && panier[1].hors_boutique === true && panier[1].produit_id === null && panier[2].article === "Frais de prestation" && panier[2].pu === 25000 && panier[2].qte === 1);
+  const pre = Tv.preRempliPourFacture(c2);
+  test("★ preRempliPourFacture : boutique, panier, travauxId, client et téléphone", pre.boutique === "LOME" && pre.travauxId === c0.id && pre.client === "Paul MENSAH" && pre.tel === "90" && pre.panier.length === 3);
+  test("★ critiqueFacturation : déjà facturé refusé, rien à facturer refusé, sinon accord", /déjà facturés/.test(Tv.critiqueFacturation({ ...c2, vente_id: "v" })) && /Rien à facturer/.test(Tv.critiqueFacturation(c0)) && Tv.critiqueFacturation(c2) === null);
+  // Le stock ne rebaisse pas quand la vente porte des lignes deja_sorti.
+  const venteT = { id: "v1", boutique: "LOME", articles: panier, numero: "V-1", total: 275000 };
+  const dbV = { ...db1, ventes: [venteT] };
+  test("★ stockVendu ignore les lignes deja_sorti : après la vente, le stock reste à 1 (pas 1 − 2) — avec et sans index",
+    Ca.stockActuel(dbV, p1) === 1 && Ca.stockActuel({ ...dbV, __index: Ca.construireIndexDb(dbV) }, p1) === 1);
+  // Soldé ou pas.
+  const cF = Tv.lierFacture(c2, venteT, null, "2026-09-13");
+  const cD = Tv.lierFacture(c2, venteT, { id: "dt1", montant: 275000, paye: 100000 }, "2026-09-13");
+  test("★ lierFacture pose vente_id, dette_id, facture_le, facture_numero ; travauxSolde : comptant = soldé ; à crédit = soldé seulement quand la dette est à 0",
+    cF.vente_id === "v1" && cF.dette_id === null && cF.facture_numero === "V-1" && Ca.travauxSolde(dbV, cF) === true
+    && Ca.travauxSolde({ ...dbV, dettes: [{ id: "dt1", montant: 275000, paye: 100000 }] }, cD) === false
+    && Ca.travauxSolde({ ...dbV, dettes: [{ id: "dt1", montant: 275000, paye: 275000 }] }, cD) === true && Ca.travauxSolde(dbV, c2) === false);
+  test("★ encaissé / reste dû : comptant → 275 000 / 0 ; à crédit payé 100 000 → 100 000 / 175 000",
+    Tv.encaisse(dbV, cF) === 275000 && Tv.resteDu(dbV, cF) === 0
+    && Tv.encaisse({ ...dbV, dettes: [{ id: "dt1", montant: 275000, paye: 100000 }] }, cD) === 100000 && Tv.resteDu({ ...dbV, dettes: [{ id: "dt1", montant: 275000, paye: 100000 }] }, cD) === 175000);
+  test("★ travauxEnCours : la fiche non soldée est dans l'onglet ; soldée, elle n'y est plus ; boutiqueDuChantier lit la boutique de la fiche",
+    Tv.travauxEnCours({ ...dbV, clients_installes: [cD], dettes: [{ id: "dt1", montant: 275000, paye: 1 }] }, admin).length === 1
+    && Tv.travauxEnCours({ ...dbV, clients_installes: [cF] }, admin).length === 0 && Ca.boutiqueDuChantier(dbV, c0) === "LOME");
+  // Les écrans et l'onglet : la forme.
+  const appT = readFileSync("src/App.jsx", "utf8");
+  const calT = readFileSync("src/lib/calculs.js", "utf8");
+  test("★ l'onglet « 🛠 Travaux à crédit » : dans ONGLETS_ROLE pour admin, gérant, vendeur, magasinier (et eux seuls), dans les quatre menus d'App, rendu pour ces rôles avec onFacturer → panier de 💰 Ventes",
+    ["admin", "gerant", "vendeur", "magasinier"].every((r) => new RegExp(`^  ${r}: \\[.*"travaux"\\],$`, "m").test(calT))
+    && !["commercial", "technicien", "resp_commercial", "technicien_bmi", "comptable", "client"].some((r) => new RegExp(`^  ${r}: \\[.*"travaux"`, "m").test(calT))
+    && /travaux: "🛠 Travaux à crédit"/.test(calT) && (appT.match(/\["travaux", "🛠 Travaux à crédit"\]/g) || []).length === 4
+    && /ongletsVisites\.travaux && \(isAdmin \|\| isGerant \|\| isVendeur \|\| isMagasinier\)/.test(appT) && /<M\.Travaux db=\{db\} save=\{save\} profile=\{profile\} onFacturer=\{\(pre\) => \{ setPreRempli\(pre\); setTab\("ventes"\); \}\} \/>/.test(appT));
+  const vT = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ 💰 Ventes : une ligne deja_sorti ne manque jamais au contrôle de stock (les deux passages), la vente porte travaux_id, et le reçu / la dette reviennent sur la fiche (lierFacture)",
+    (vT.match(/if \(l\.deja_sorti\) return false;/g) || []).length === 2 && /\.\.\.\(origineTravaux \? \{ travaux_id: origineTravaux \} : \{\}\)/.test(vT)
+    && /lierFacture\(c, vente, detteTravaux, today\(\)\)/.test(vT) && /setOrigineTravaux\(preRempli\.travauxId \|\| null\);/.test(vT));
+  const ciT = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ 🏠 Clients installés : une fiche de travaux n'y vient que SOLDÉE, catégorie « 🛠 Travaux soldés », statut « travaux » connu, trace (facturé / coût / marge), pas de Frais, Programmer ni Entretien pour elle",
+    /\.filter\(\(c\) => !c\.travaux \|\| travauxSolde\(db, c\)\)/.test(ciT) && /\{ id: "travaux", label: "🛠 Travaux soldés", test: \(c\) => !!c\.travaux \}/.test(ciT)
+    && /travaux: \{ label: "🛠 Travaux — soldés"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
+    && /\{!c\.travaux && \(\n\s*<button onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <button onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
+  test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
+    /l\.produit_id === pid && !l\.deja_sorti/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti\) venduParProduit/.test(calT)
+    && /Ces travaux sont soldés/.test(readFileSync("src/lib/depensesChantier.js", "utf8")) && /!travauxSolde\(db, c\)\)/.test(readFileSync("src/lib/depensesChantier.js", "utf8")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

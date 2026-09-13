@@ -19,6 +19,8 @@ import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
 import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
+import { travauxSolde } from "../lib/calculs";
+import { factureMontant, coutTravaux, margeTravaux } from "../lib/travaux";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -52,6 +54,8 @@ const STATUT_CHANTIER = {
   termine: { label: "⏳ Terminé — en attente du client", couleur: "text-amber-700 bg-amber-50 border-amber-200" },
   receptionne: { label: "✅ Réceptionné par le client", couleur: "text-green-700 bg-green-50 border-green-200" },
   reserves: { label: "⚠ Réserves émises par le client", couleur: "text-red-700 bg-red-50 border-red-200" },
+  // 🛠 Travaux à crédit soldés (13/09/2026, option A : une trace).
+  travaux: { label: "🛠 Travaux — soldés", couleur: "text-purple-700 bg-purple-50 border-purple-200" },
 };
 const chefDuChantier = (c) => (c.equipe || []).find((e) => e.chef);
 // Le chef de CE chantier, ou l'administrateur, peut le déclarer terminé.
@@ -802,7 +806,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const b = boutiqueDuChantier(db, c);
     return !!b && estBoutiqueFormation(db, b);
   };
-  let liste = voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier);
+  // 🛠 Travaux à crédit : une fiche de travaux ne vient ici qu'une fois SOLDÉE
+  // (Timo, 13/09/2026) ; avant, elle vit dans l'onglet Travaux à crédit.
+  let liste = (voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier)).filter((c) => !c.travaux || travauxSolde(db, c));
   if (q) liste = liste.filter((c) => (String(c.nom) + " " + String(c.prenom) + " " + String(c.tel) + " " + String(c.type_installation)).toLowerCase().includes(q.toLowerCase()));
   if (filtreEntretien) liste = liste.filter((c) => c.date_entretien && c.date_entretien <= today());
 
@@ -817,6 +823,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // d'en-tête insérées dans le MÊME tableau — le rendu de chaque ligne de
   // client, plus bas, reste totalement inchangé.
   const CATEGORIES_CHANTIER = [
+    { id: "travaux", label: "🛠 Travaux soldés", test: (c) => !!c.travaux },
     { id: "a_programmer", label: "📅 À programmer", test: (c) => statutChantier(c) === "en_cours" && !(c.equipe || []).length },
     { id: "en_cours", label: "🔧 En cours", test: (c) => statutChantier(c) === "en_cours" && (c.equipe || []).length > 0 },
     { id: "termine", label: "⏳ En attente du client", test: (c) => statutChantier(c) === "termine" },
@@ -984,7 +991,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              <Info label="Statut" valeur={STATUT_CHANTIER[statutChantier(c)].label} />
+              <Info label="Statut" valeur={(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).label} />
               <Info label="🛡 Garantie" valeur={fin ? `${garantieActive(c) ? "Active" : "Expirée"} — jusqu'au ${dFR(fin)}` : "Non renseignée"} />
               <Info label="🧾 Vente rattachée" valeur={c.vente_id ? (db.ventes.find((v) => v.id === c.vente_id) ? `${dFR(db.ventes.find((v) => v.id === c.vente_id).date)} — ${fmt(totalVente(db.ventes.find((v) => v.id === c.vente_id)))}` : "Vente supprimée") : "—"} />
               <Info label="👷 Équipe" valeur={(c.equipe || []).length ? c.equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom}`).join(", ") : "Non affectée"} />
@@ -1030,7 +1037,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             )}
 
             {/* PROGRAMMATION — admin et responsable commercial */}
-            {peutProgrammer && statutChantier(c) !== "receptionne" && (
+            {peutProgrammer && statutChantier(c) !== "receptionne" && !c.travaux && (
               <div className="rounded-lg border-2 border-purple-300 bg-purple-50 p-3 mb-3">
                 <div className="font-bold text-sm text-purple-900 mb-1">📅 Programmer l'installation</div>
                 <div className="text-xs text-slate-600 mb-3">Fixez la date et composez l'équipe. Le chef ⭐ pourra ensuite déclarer les travaux terminés.</div>
@@ -1320,9 +1327,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         🎓 formation
                       </div>
                     )}
-                    <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${STATUT_CHANTIER[statutChantier(c)].couleur}`}>
-                      {STATUT_CHANTIER[statutChantier(c)].label}
+                    <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).couleur}`}>
+                      {(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).label}
                     </div>
+                    {c.travaux && (
+                      <div className="text-[10px] text-slate-600 mt-1">Facturé {fmt(factureMontant(db, c))}{c.facture_numero ? ` · reçu ${c.facture_numero}` : ""} · coût {fmt(coutTravaux(db, c))} · marge {fmt(margeTravaux(db, c))}</div>
+                    )}
                     {c.contrat_force_par && (
                       <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-red-50 text-red-700 border-red-300 ml-1" title="Aucun contrat signé n'existe pour ce chantier">
                         ⚠ Réceptionné SANS SIGNATURE par {c.contrat_force_par}, le {dFR(c.contrat_force_le)}
@@ -1396,15 +1406,17 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         <span className="text-xs font-bold text-emerald-700 mr-2">✅ Pose soldée</span>
                       ) : null;
                     })()}
+                    {!c.travaux && (
                     <button onClick={() => ouvrirRepartition(c)} className="text-xs font-bold text-purple-700 underline mr-2">
                       🔧 Frais {Number(c.frais_installation || 0) > 0 ? `(${fmt(c.frais_installation)})` : ""}
                     </button>
+                    )}
                     {depensesDuChantier(db, c.id).length > 0 && (
                       <span className="text-xs font-semibold text-purple-800 mr-2" title="Petites dépenses rattachées à ce chantier (📤 Dépenses) — déduites des frais avant le partage">
                         🧾 Dépenses rattachées : {fmt(totalDepensesChantier(db, c.id))}
                       </span>
                     )}
-                    <button onClick={() => modifierEntretien(c)} className="text-xs font-bold text-sky-800 underline mr-2">Entretien</button>
+                    {!c.travaux && <button onClick={() => modifierEntretien(c)} className="text-xs font-bold text-sky-800 underline mr-2">Entretien</button>}
                     {isAdmin && !c.user_id && <button onClick={() => lierCompte(c)} className="text-xs font-bold text-sky-800 underline mr-2">Lier un compte</button>}
                     {(isAdmin || c.commercial === profile.nom) && <button onClick={() => supprimer(c)} className="text-xs text-red-600 underline">Suppr.</button>}
                   </td>
