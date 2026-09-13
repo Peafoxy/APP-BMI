@@ -53,7 +53,7 @@ createRoot(document.getElementById("r")).render(<Essai />);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1100, height: 900 } });
 const erreurs = [];
@@ -122,6 +122,15 @@ console.log("\nChoisir l'article à sortir en tapant son nom (capture Timo, 13/0
   const tApres = await texte();
   const saisie = await champ.inputValue();
   test("★ le clic lie l'article : le champ porte le nom exact, la ligne dit « ✓ 1 en stock · 390 000 F l'unité »", saisie === "Convertisseur hybride DEYE 6kW" && /✓ 1 en stock · 390 000 F l'unité/.test(tApres), saisie + " " + tApres.slice(0, 300));
+  // Captures Timo (13/09/2026) : « la ligne de quantité s'élargit » en tapant ou
+  // en choisissant — la case suivait la hauteur de la ligne d'aide — et « les
+  // lignes ne sont pas nommées au-dessus… Article, Quantité. Même chose pour
+  // les articles HB ». On MESURE la hauteur de la case quantité, avant et après.
+  const hauteurs = await page.evaluate(() => Array.from(document.querySelectorAll("input[type=number]")).map((i) => Math.round(i.getBoundingClientRect().height)));
+  const hChamp = Math.round((await champ.boundingBox()).height);
+  test("★ la case Quantité garde la hauteur du champ Article une fois l'article choisi (elle ne s'étire plus)", hauteurs.length > 0 && hauteurs.every((h) => Math.abs(h - hChamp) <= 2), `quantités ${hauteurs.join("/")} vs article ${hChamp}`);
+  test("★ les colonnes sont nommées : « Article » et « Quantité » au-dessus des cases de sortie, et « Article / Quantité / Prix payé (F) / Prix facturé (F) » pour l'article HB",
+    (tApres.match(/\bArticle\b/g) || []).length >= 2 && (tApres.match(/Quantité/g) || []).length >= 2 && /Prix payé \(F\)/.test(tApres) && /Prix facturé \(F\)/.test(tApres), tApres.slice(0, 400));
   await champ.fill("");
   await champ.type("panneau 400w");
   await attendre(150);

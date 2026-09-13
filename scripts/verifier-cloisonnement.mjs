@@ -5127,9 +5127,33 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
     /const \[venteDepliee, setVenteDepliee\] = useState\(null\);/.test(vs) && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d === v\.id \? null : v\.id\)\)\}/.test(vs) /* 12/09/2026 : « un seul clic pour sélectionner une autre » — une autre ligne se déplie directement */
     && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs)
     // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
-    && /venteDepliee === v\.id \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(vs) && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
+    // 13/09/2026 : la surbrillance est écrite UNE fois (classeLigneDepliable, ui.jsx) — Ventes et Dettes y passent.
+    && /classeLigneDepliable\(venteDepliee === v\.id, i\)/.test(vs) && /export const classeLigneDepliable = \(deplie, i, fondSinon = ""\) => deplie \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(readFileSync("src/components/ui.jsx", "utf8"))
+    && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
     && /aria-label="WhatsApp"><IconeWhatsApp \/><\/button>/.test(vs) && !/aria-label="WhatsApp">💬/.test(vs)
     && /export const IconeWhatsApp = \(\{ taille = 18 \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill="#25D366"/.test(readFileSync("src/components/ui.jsx", "utf8")));
+  // Timo (13/09/2026, capture de 📋 Dettes) : « appliquer la même règle que
+  // dans Ventes pour restructurer les dettes ». Les briques sont écrites UNE
+  // fois dans ui.jsx (ListeArticles, boutonAction, classeLigneDepliable) et
+  // lignesDette (core.js) redécoupe le motif d'une dette en lignes.
+  {
+    const ui = readFileSync("src/components/ui.jsx", "utf8");
+    const dj = readFileSync("src/screens/Dettes.jsx", "utf8");
+    test("★ ListeArticles, boutonAction et classeLigneDepliable sont écrits UNE fois (ui.jsx) ; Ventes n'a plus sa copie de boutonAction et ArticlesVente s'appuie sur ListeArticles",
+      /export function ListeArticles\(\{ lignes, deplie = false, enfants = null \}\)/.test(ui) && /export const boutonAction = \(teinte\) =>/.test(ui) && /export const ARTICLES_VISIBLES = 2;/.test(ui)
+      && !/const boutonAction = /.test(vs) && /<ListeArticles lignes=\{lignesVente\(v\)\} deplie=\{deplie\}/.test(vs) && (execSync("grep -rl 'inline-flex items-center justify-center w-8 h-8 rounded-full' src || true").toString().trim() === "src/components/ui.jsx"));
+    test("★ lignesDette : une dette née d'une vente rend ses articles ({ qte, article }) ; un motif « 2× A, 2× B » se redécoupe ; un motif libre avec virgule reste UNE ligne sans quantité ; sans rien → vide",
+      JSON.stringify(Core.lignesDette({ articles: [{ nom: "Panneau", qte: 2 }, { nom: "Batterie", qte: 1 }] })) === JSON.stringify([{ qte: 2, article: "Panneau" }, { qte: 1, article: "Batterie" }])
+      && JSON.stringify(Core.lignesDette({ motif: "2× Récepteur BOLT 16010-18, 2× Moteur BOLT F100 Nm, 1× Télécommande" })) === JSON.stringify([{ qte: 2, article: "Récepteur BOLT 16010-18" }, { qte: 2, article: "Moteur BOLT F100 Nm" }, { qte: 1, article: "Télécommande" }])
+      && JSON.stringify(Core.lignesDette({ motif: "Réparation, pièces et main-d'œuvre" })) === JSON.stringify([{ qte: null, article: "Réparation, pièces et main-d'œuvre" }])
+      && Core.lignesDette({ motif: "" }).length === 0 && Core.lignesDette({}).length === 0);
+    test("★ écran Dettes : la ligne se déplie au clic (detteDepliee, une seule, un clic sur une autre la déplie directement), surbrillance commune (classeLigneDepliable, retard en rouge pâle), ListeArticles sur lignesDette, montants à droite, boutons ronds (🖨, 💵 Paiement, Relancer = logo WhatsApp, 🗑 admin) dans une cellule qui ne déplie pas ; mêmes gestes, mêmes gardes",
+      /const \[detteDepliee, setDetteDepliee\] = useState\(null\);/.test(dj) && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
+      && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj) && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
+      && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(dj)
+      && /aria-label="Imprimer le reçu">🖨<\/button>/.test(dj) && /\{st !== "Payée" && \(/.test(dj) && /onClick=\{\(\) => encaisser\(d\)\}[^\n]*aria-label="Paiement">💵<\/button>/.test(dj) && /onClick=\{\(\) => relancer\(d\)\}[^\n]*aria-label="Relancer"><IconeWhatsApp \/><\/button>/.test(dj)
+      && /\{profile\.role === "admin" && \(\n\s*<button onClick=\{\(\) => supprimerDette\(d\)\}[^\n]*aria-label="Supprimer">🗑<\/button>/.test(dj) && !/underline mr-2">🖨 Reçu/.test(dj));
+  }
   const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");
   const ta13 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-13 : reprises = principal seul et jamais en arrière (ventes, upsert relu), ajustement reprise_client = principal, dépense « Remboursement client » = principal ; le banc tester-argent le pose et rejoue vendeur / gérant / admin secondaire refusés, principal permis, effacement refusé",

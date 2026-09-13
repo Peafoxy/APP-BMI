@@ -254,7 +254,11 @@ titre("La liste des ventes, mesurée dans Chromium : la suite des articles au cl
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ArticlesVente } from "${process.cwd()}/src/screens/Ventes.jsx";
-import { IconeWhatsApp } from "${process.cwd()}/src/components/ui.jsx";
+import { IconeWhatsApp, ListeArticles } from "${process.cwd()}/src/components/ui.jsx";
+import { lignesDette } from "${process.cwd()}/src/lib/core.js";
+// Une dette née d'une vente à crédit (motif écrit par resumeArticles, comme
+// la capture Timo du 13/09/2026) : affichée avec la MÊME brique que Ventes.
+const dette = { id: "d", motif: "2× Récepteur BOLT 16010-18, 2× Moteur BOLT F100 Nm, 1× Télécommande" };
 const ventes = [
   { id: "a", articles: [{ article: "Panneau 400W", qte: 2, pu: 1 }, { article: "Batterie 200Ah", qte: 1, pu: 1 }, { article: "Onduleur 3kVA", qte: 1, pu: 1 }, { article: "Câble 6mm", qte: 10, pu: 1 }, { article: "Rail", qte: 4, pu: 1 }] },
   { id: "b", articles: [{ article: "Lampe", qte: 1, pu: 1 }, { article: "Prise", qte: 3, pu: 1 }, { article: "Interrupteur", qte: 2, pu: 1 }] },
@@ -265,14 +269,16 @@ function Liste() {
     <tr key={v.id} data-vente={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))}>
       <td><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
       <td onClick={(e) => e.stopPropagation()}><button data-bouton="wa"><IconeWhatsApp /></button></td>
-    </tr>))}</tbody></table>;
+    </tr>))}
+    <tr data-vente="d" onClick={() => setVenteDepliee((x) => (x === "d" ? null : "d"))}><td><ListeArticles lignes={lignesDette(dette)} deplie={venteDepliee === "d"} /></td></tr>
+  </tbody></table>;
 }
 createRoot(document.getElementById("r")).render(<Liste />);
 `);
   const sortie = join(dossier, "bundle.js");
   await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
   const html = join(dossier, "index.html");
-  writeFileSync(html, `<!doctype html><html><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
+  writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
   const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
   const page = await nav.newPage();
   const erreurs = [];
@@ -297,6 +303,13 @@ createRoot(document.getElementById("r")).render(<Liste />);
   await page.click('[data-vente="a"] [data-bouton="wa"]');
   await new Promise((r) => setTimeout(r, 150));
   test("★ cliquer un bouton d'action ne déplie pas la ligne", (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
+  // Timo (13/09/2026) : « appliquer la même règle que dans Ventes pour restructurer les dettes ».
+  test("★ une DETTE (motif « 2× …, 2× …, 1× … ») s'affiche comme une vente : deux lignes puis « + 1 autre »", (await texte("d")) === "2× Récepteur BOLT 16010-18 2× Moteur BOLT F100 Nm + 1 autre ▾");
+  await page.click('[data-vente="d"] td:first-child');
+  await new Promise((r) => setTimeout(r, 150));
+  test("★ …et se déplie au clic, en repliant la vente ouverte", (await texte("d")) === "2× Récepteur BOLT 16010-18 2× Moteur BOLT F100 Nm 1× Télécommande ▴ Replier" && (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
+  await page.click('[data-vente="d"] td:first-child');
+  await new Promise((r) => setTimeout(r, 150));
   const logo = await page.evaluate(() => { const p = document.querySelector('[data-bouton="wa"] svg path'); const r = document.querySelector('[data-bouton="wa"] svg').getBoundingClientRect(); return { fill: p && getComputedStyle(p).fill, w: r.width, h: r.height }; });
   test("★ le logo WhatsApp est dessiné en vert WhatsApp (#25D366), 18 px", logo.fill === "rgb(37, 211, 102)" && logo.w === 18 && logo.h === 18);
   test("aucune erreur JavaScript", erreurs.length === 0);

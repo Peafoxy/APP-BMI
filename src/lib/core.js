@@ -95,6 +95,23 @@ export function lignesJournal(db, a, b) {
 
 // Une vente peut contenir plusieurs articles (panier). Les anciennes ventes
 // à article unique restent compatibles.
+// Les lignes d'une DETTE, pour l'afficher comme une vente (Timo,
+// 13/09/2026 : « appliquer la même règle que dans Ventes pour restructurer
+// les dettes ») : une dette née d'une vente à crédit porte `articles`
+// ({ nom, qte }) ; une dette saisie à la main n'a qu'un motif libre. Un motif
+// écrit par resumeArticles (« 2× Récepteur, 2× Moteur ») se redécoupe en
+// lignes — seulement si CHAQUE morceau a la forme « N× … », sinon le motif
+// reste une seule ligne (une virgule dans un motif libre n'est pas une
+// liste). Même forme que lignesVente : { qte, article }.
+export const lignesDette = (d) => {
+  if (Array.isArray(d?.articles) && d.articles.length) return d.articles.map((l) => ({ qte: l.qte, article: l.nom || l.article || "" }));
+  const motif = String(d?.motif || "").trim();
+  if (!motif) return [];
+  const morceaux = motif.split(/,\s*/).map((m) => m.trim()).filter(Boolean);
+  const forme = /^(\d+(?:[.,]\d+)?)\s*[\u00d7x]\s*(.+)$/i; // \u00d7 = « × »
+  if (morceaux.length > 1 && morceaux.every((m) => forme.test(m))) return morceaux.map((m) => { const [, q, a] = m.match(forme); return { qte: Number(q.replace(",", ".")), article: a.trim() }; });
+  return [{ qte: null, article: motif }];
+};
 export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, article: v.article, qte: v.qte, pu: v.pu }]);
 // ⚠ CORRECTIF 2.99.50 : brutVente() ignorait les remises PAR LIGNE
 // (remise_ligne) — elle ne faisait que qte×pu, sans jamais les soustraire.

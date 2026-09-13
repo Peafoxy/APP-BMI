@@ -8,7 +8,7 @@ import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
@@ -18,7 +18,8 @@ const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "tec
 // ---- La liste des utilisateurs, lisible (capture Timo, 12/09/2026) ----
 // Un bouton d'action rond (icône seule, libellé au survol), un bouton du
 // panneau « Gérer », et la couleur de la pastille de rôle.
-const boutonRond = (teinte) => `relative inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
+// Le bouton rond commun (ui.jsx), avec `relative` pour la pastille d'alerte.
+const boutonRond = (teinte) => `relative ${boutonAction(teinte)}`;
 const boutonGerer = "px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100";
 const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border-slate-800"
   : role === "gerant" ? "bg-sky-100 text-sky-800 border-sky-200"

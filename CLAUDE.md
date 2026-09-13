@@ -52,13 +52,13 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1243 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1246 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
-npm run verifier-ecran-ventes    # 44  : l'argent dans l'écran Ventes, et sa liste mesurée dans Chromium (clic, logo WhatsApp)
-npm run verifier-ecran-travaux   # 15  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant)
+npm run verifier-ecran-ventes    # 46  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), et une dette affichée pareil
+npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
@@ -612,6 +612,12 @@ lit mal est pire qu'un banc absent).
   majuscules), jamais par ressemblance ; sans article lié, « Sortir du
   stock » le dit. La ligne HB reste en saisie libre (voulu). Mesuré dans
   Chromium (« deye » → une seule proposition, clic → ✓ lié).
+  **Les cases sont nommées** (captures Timo, 13/09/2026 : « les lignes ne
+  sont pas nommées au-dessus… Article, Quantité. Même chose pour les
+  articles HB ») : `Field` Article / Quantité pour la sortie, Article /
+  Quantité / Prix payé (F) / Prix facturé (F) pour le HB ; **la ligne d'aide
+  (« ✓ N en stock ») est SOUS la grille**, sinon la case Quantité s'étirait à
+  sa hauteur (« la ligne de quantité s'élargit ») — le banc mesure la hauteur.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
@@ -881,6 +887,18 @@ lit mal est pire qu'un banc absent).
   (`IconeWhatsApp`, components/ui.jsx, SVG vert #25D366, écrit une fois) :
   « remplacer l'icône de WhatsApp par le vrai icône WhatsApp » — plus d'emoji
   💬. Les deux sont MESURÉS dans Chromium (`verifier-ecran-ventes`).
+  **📋 Dettes suit la même règle** (capture Timo, 13/09/2026 : « appliquer la
+  même règle que dans Ventes pour restructurer les dettes ») : date (numéro
+  dessous), client en gras (téléphone dessous), **un article par ligne, deux
+  au plus puis « + N autres », la suite au CLIC** (`detteDepliee`), montants à
+  droite (reste en orange), statut en pastille avec l'ancienneté dessous
+  (retard ⚠ rouge), boutons ronds 🖨 / 💵 Paiement / Relancer (logo WhatsApp)
+  / 🗑 admin. **Les briques sont écrites UNE fois dans ui.jsx** :
+  `ListeArticles` (Ventes l'habille avec les repris), `boutonAction` (aussi
+  le bouton rond des Utilisateurs), `classeLigneDepliable` ; **`lignesDette`
+  (core.js)** rend les articles d'une dette, ou redécoupe un motif
+  « 2× A, 2× B » (seulement si CHAQUE morceau a cette forme — une virgule dans
+  un motif libre n'est pas une liste). Mêmes gestes, mêmes droits.
 - **La liste des utilisateurs est lisible** (capture Timo, 12/09/2026 :
   vingt gestes soulignés par ligne ; « lance les corrections pour les 2 ») :
   rôle, boutique (« Toutes ») et statut en **pastilles** (+ 🎓 Formation),
@@ -946,6 +964,11 @@ lit mal est pire qu'un banc absent).
 - **Supabase donne les droits par défaut à `anon` sur toute nouvelle table
   ET toute nouvelle fonction.** `revoke from public` ne suffit pas.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
+- **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
+  lui, le « × » d'une expression régulière du bundle est lu en deux
+  caractères et la règle échoue dans le navigateur alors qu'elle passe en
+  Node (13/09/2026, `lignesDette`). Dans le code, un caractère non ASCII
+  d'une expression régulière s'écrit `\u00d7`.
 - **La police de base du PDF ne connaît ni « → », ni « − », ni l'espace fine
   de `fmt()`** : devant un caractère inconnu, jsPDF change d'encodage pour
   toute la chaîne et le texte sort en lettres espacées (capture Timo,

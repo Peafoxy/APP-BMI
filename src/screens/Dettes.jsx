@@ -4,9 +4,9 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, envoyerWhatsApp } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, envoyerWhatsApp, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -22,6 +22,10 @@ export function Dettes({ db, save, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dettes" });
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
+  // Timo (13/09/2026) : « appliquer la même règle que dans Ventes pour
+  // restructurer les dettes » — UNE dette dépliée à la fois (la suite des
+  // articles au clic sur la ligne, un clic sur une autre la déplie directement).
+  const [detteDepliee, setDetteDepliee] = useState(null);
 
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
@@ -324,41 +328,49 @@ export function Dettes({ db, save, profile }) {
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">
           Dettes — {boutique} <span className="text-sm font-normal text-slate-500">· Reste total : {fmt(liste.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0))}</span>
         </div>
+        {/* Même présentation que la liste des ventes (Timo, 12 et 13/09/2026) :
+            date sur une ligne, client en gras avec son téléphone dessous, un
+            article par ligne (deux au plus puis « + N autres », la suite au
+            CLIC sur la ligne), montants à droite, statut en pastille avec
+            l'ancienneté dessous, boutons ronds. Mêmes gestes, mêmes droits :
+            seule la présentation change. */}
         <table className="w-full text-sm min-w-[900px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Client", "Téléphone", "Motif", "Dette", "Payé", "Reste", "Statut", "Ancienneté", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
+            {[["Date", "text-left"], ["Client", "text-left"], ["Motif", "text-left"], ["Dette", "text-right"], ["Payé", "text-right"], ["Reste", "text-right"], ["Statut", "text-left"], ["Actions", "text-right"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}
+          </tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucune dette enregistrée.</td></tr>}
-            {listePage.map((d) => {
+            {liste.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucune dette enregistrée.</td></tr>}
+            {listePage.map((d, i) => {
               const st = statut(d);
               const jours = Math.floor((new Date(today()) - new Date(d.date)) / (1000 * 60 * 60 * 24));
               const estRetard = jours > 30 && d.montant - d.paye > 0;
+              const reste = Math.max(0, d.montant - d.paye);
+              const lignes = lignesDette(d);
               return (
-                <tr key={d.id} className={`border-t border-slate-100 ${estRetard ? "bg-red-50" : ""}`}>
-                  <td className="px-3 py-2">{dFR(d.date)}</td>
-                  <td className="px-3 py-2 font-semibold">{d.client}</td>
-                  <td className="px-3 py-2">{d.tel || "—"}</td>
-                  <td className="px-3 py-2">{d.motif || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums">{fmt(d.montant)}</td>
-                  <td className="px-3 py-2 tabular-nums">{fmt(d.paye)}</td>
-                  <td className="px-3 py-2 tabular-nums font-bold">{fmt(Math.max(0, d.montant - d.paye))}</td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${st === "Payée" ? "bg-green-100 text-green-700" : st === "Partielle" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{st}</span>
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {jours} jour{jours > 1 ? 's' : ''}
-                    {estRetard && <span className="ml-1 text-red-600 font-bold">⚠</span>}
-                  </td>
+                <tr key={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+                  <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(d.date)}</div>{d.numero && <div className="text-xs text-slate-400 font-mono">{d.numero}</div>}</td>
+                  <td className="px-3 py-2"><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}</td>
+                  <td className="px-3 py-2 min-w-[240px]">{lignes.length ? <ListeArticles lignes={lignes} deplie={detteDepliee === d.id} /> : <span className="text-slate-400">—</span>}</td>
+                  <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{fmt(d.montant)}</td>
+                  <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap text-green-700">{fmt(d.paye)}</td>
+                  <td className={`px-3 py-2 tabular-nums text-right whitespace-nowrap font-bold ${reste > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(reste)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <button onClick={() => imprimerRecuVersement(d, db.boutiques.find((b) => b.nom === d.boutique) || {})} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)">🖨 Reçu</button>
-                    {st !== "Payée" && (
-                      <>
-                        <button onClick={() => encaisser(d)} className="text-xs font-bold text-sky-800 underline mr-2">+ Paiement</button>
-                        <button onClick={() => relancer(d)} className="text-xs font-bold text-green-700 underline mr-2">Relancer</button>
-                      </>
-                    )}
-                    {profile.role === "admin" && (
-                      <button onClick={() => supprimerDette(d)} className="text-xs text-red-600 underline">Suppr.</button>
-                    )}
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
+                    <div className={`text-xs mt-0.5 ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="inline-flex items-center gap-1">
+                      <button onClick={() => imprimerRecuVersement(d, db.boutiques.find((b) => b.nom === d.boutique) || {})} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
+                      {st !== "Payée" && (
+                        <>
+                          <button onClick={() => encaisser(d)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="+ Paiement : enregistrer un versement du client" aria-label="Paiement">💵</button>
+                          <button onClick={() => relancer(d)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Relancer le client par WhatsApp" aria-label="Relancer"><IconeWhatsApp /></button>
+                        </>
+                      )}
+                      {profile.role === "admin" && (
+                        <button onClick={() => supprimerDette(d)} className={boutonAction("text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title="Supprimer cette dette" aria-label="Supprimer">🗑</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

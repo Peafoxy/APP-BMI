@@ -240,32 +240,39 @@ export function Travaux({ db, save, profile, onFacturer }) {
                         {ROLES_ARTICLES.includes(profile.role) && (
                           <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
                             <div className="text-xs font-bold text-emerald-800 mb-2">Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)</div>
-                            <div className="grid grid-cols-3 gap-2">
+                            {/* Captures Timo (13/09/2026) : « les lignes ne sont pas
+                                nommées au-dessus… on devrait avoir Article, Quantité »
+                                et « la ligne de quantité s'élargit » (la case suivait la
+                                hauteur de la ligne d'aide) : titres, et la ligne d'aide
+                                SOUS la grille, pas dans la colonne. */}
+                            <div className="grid grid-cols-3 gap-2 items-start">
                               <div className="col-span-2">
-                                <ChampSuggestions className={inputCls} placeholder="Article du stock : tapez son nom…"
-                                  valeur={stockForm.saisie}
-                                  suggestions={propositionsStock(db, produits)}
-                                  onChange={(v) => setStockForm({ ...stockForm, saisie: v, produit_id: produitSaisi(produits, v)?.id || "" })}
-                                  onChoisir={(s) => setStockForm({ ...stockForm, saisie: s.valeur, produit_id: s.produit_id })} />
-                                {stockForm.produit_id ? (
-                                  <div className="text-[11px] text-emerald-700 mt-0.5">✓ {stockActuel(db, produits.find((p) => p.id === stockForm.produit_id))} en stock · {fmt(produits.find((p) => p.id === stockForm.produit_id)?.prix_vente)} l'unité</div>
-                                ) : stockForm.saisie ? (
-                                  <div className="text-[11px] text-orange-600 mt-0.5">Aucun article du stock ne porte exactement ce nom : cliquez une proposition.</div>
-                                ) : null}
+                                <Field label="Article">
+                                  <ChampSuggestions className={inputCls} placeholder="Article du stock : tapez son nom…"
+                                    valeur={stockForm.saisie}
+                                    suggestions={propositionsStock(db, produits)}
+                                    onChange={(v) => setStockForm({ ...stockForm, saisie: v, produit_id: produitSaisi(produits, v)?.id || "" })}
+                                    onChoisir={(s) => setStockForm({ ...stockForm, saisie: s.valeur, produit_id: s.produit_id })} />
+                                </Field>
                               </div>
-                              <input type="number" min="1" className={inputCls} value={stockForm.qte} onChange={(e) => setStockForm({ ...stockForm, qte: e.target.value })} />
+                              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={stockForm.qte} onChange={(e) => setStockForm({ ...stockForm, qte: e.target.value })} /></Field>
                             </div>
+                            {stockForm.produit_id ? (
+                              <div className="text-[11px] text-emerald-700 mt-1">✓ {stockActuel(db, produits.find((p) => p.id === stockForm.produit_id))} en stock · {fmt(produits.find((p) => p.id === stockForm.produit_id)?.prix_vente)} l'unité</div>
+                            ) : stockForm.saisie ? (
+                              <div className="text-[11px] text-orange-600 mt-1">Aucun article du stock ne porte exactement ce nom : cliquez une proposition.</div>
+                            ) : null}
                             <button onClick={() => sortirArticle(c)} className={`mt-2 ${btnDark}`}>📦 Sortir du stock</button>
                           </div>
                         )}
                         {ROLES_FICHE.includes(profile.role) && (
                           <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
                             <div className="text-xs font-bold text-amber-800 mb-2">Article HB (acheté dehors : câble, tuyau…) — pas de stock</div>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                              <input className={inputCls} placeholder="Nom" value={hb.nom} onChange={(e) => setHb({ ...hb, nom: e.target.value })} />
-                              <input type="number" min="1" className={inputCls} placeholder="Qté" value={hb.qte} onChange={(e) => setHb({ ...hb, qte: e.target.value })} />
-                              <input type="number" min="0" className={inputCls} placeholder="Prix payé" value={hb.pu_achat} onChange={(e) => setHb({ ...hb, pu_achat: e.target.value })} />
-                              <input type="number" min="0" className={inputCls} placeholder="Prix facturé" value={hb.pu_vente} onChange={(e) => setHb({ ...hb, pu_vente: e.target.value })} />
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 items-start">
+                              <Field label="Article"><input className={inputCls} placeholder="Nom" value={hb.nom} onChange={(e) => setHb({ ...hb, nom: e.target.value })} /></Field>
+                              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={hb.qte} onChange={(e) => setHb({ ...hb, qte: e.target.value })} /></Field>
+                              <Field label="Prix payé (F)"><input type="number" min="0" className={inputCls} value={hb.pu_achat} onChange={(e) => setHb({ ...hb, pu_achat: e.target.value })} /></Field>
+                              <Field label="Prix facturé (F)"><input type="number" min="0" className={inputCls} value={hb.pu_vente} onChange={(e) => setHb({ ...hb, pu_vente: e.target.value })} /></Field>
                             </div>
                             <button onClick={() => ajouterHB(c)} className={`mt-2 ${btnDark}`}>+ Ajouter l'article HB</button>
                           </div>

@@ -13,7 +13,7 @@ import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -37,21 +37,12 @@ import { lierFacture } from "../lib/travaux";
 // Timo (12/09/2026) : « avoir une sélection forte bien visible pour la ligne
 // sélectionnée » — la ligne dépliée a un fond bleu soutenu et une barre
 // épaisse à gauche (couleur de l'espace : bleu en réel, violet en formation).
-export const ARTICLES_VISIBLES = 2;
+export { ARTICLES_VISIBLES };
 export function ArticlesVente({ v, deplie = false }) {
-  const lignes = lignesVente(v);
-  const reste = lignes.length - ARTICLES_VISIBLES;
   const repris = (v.reprises || []).reduce((s, r) => s + Number(r.qte || 0), 0);
-  const montrees = deplie ? lignes : lignes.slice(0, ARTICLES_VISIBLES);
   return (
-    <div className="leading-snug">
-      {montrees.map((l, i) => (
-        <div key={i} className="truncate max-w-[340px]"><span className="tabular-nums text-slate-500">{l.qte}×</span> <span className="font-semibold text-slate-800">{l.article}</span></div>
-      ))}
-      {reste > 0 && !deplie && <div className="text-xs font-semibold text-sky-700">+ {reste} autre{reste > 1 ? "s" : ""} ▾</div>}
-      {reste > 0 && deplie && <div className="text-xs font-semibold text-sky-700">▴ Replier</div>}
-      {repris > 0 && <div className="text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {repris} repris</div>}
-    </div>
+    <ListeArticles lignes={lignesVente(v)} deplie={deplie}
+      enfants={repris > 0 ? <div className="text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {repris} repris</div> : null} />
   );
 }
 // Le moyen de paiement en pastille : vert espèces, ambre crédit, bleu mobile money, gris virement.
@@ -64,8 +55,6 @@ function PastillePaiement({ paiement }) {
   const court = /Crédit/i.test(p) ? "Crédit" : /Flooz/i.test(p) ? "Flooz" : /Mixx|T-Money/i.test(p) ? "Mixx" : /Virement/i.test(p) ? "Virement" : p || "—";
   return <span title={p} className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinte}`}>{court}</span>;
 }
-// Un bouton d'action rond : l'icône seule, le libellé au survol (title).
-const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
 
 function lignesVenteEnAutres(v) {
   return lignesVente(v).map((l) => {
@@ -1245,7 +1234,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           <tbody>
             {listeFiltree.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
             {listeFiltree.map((v, i) => (
-              <tr key={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${venteDepliee === v.id ? "bg-sky-200 shadow-[inset_6px_0_0_0_var(--color-sky-700)]" : `hover:bg-sky-50 ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+              <tr key={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i)}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                 <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
                 <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>

@@ -97,6 +97,34 @@ export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact 
 
 export const btnDark = "px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 transition-colors shadow-sm";
 
+// Une liste d'articles dans une cellule de tableau (Ventes, Dettes) :
+// UN article par ligne, deux au plus puis « + N autres ▾ » ; dépliée, tout
+// et « ▴ Replier ». Timo (12/09/2026, Ventes) puis (13/09/2026) « appliquer
+// la même règle que dans Ventes pour restructurer les dettes » — la brique
+// est écrite ici UNE fois. Lignes : { qte, article } (qte peut être vide :
+// un motif libre s'affiche sans « × »).
+export const ARTICLES_VISIBLES = 2;
+export function ListeArticles({ lignes, deplie = false, enfants = null }) {
+  const reste = lignes.length - ARTICLES_VISIBLES;
+  const montrees = deplie ? lignes : lignes.slice(0, ARTICLES_VISIBLES);
+  return (
+    <div className="leading-snug">
+      {montrees.map((l, i) => (
+        <div key={i} className="truncate max-w-[340px]">{l.qte != null && l.qte !== "" && <><span className="tabular-nums text-slate-500">{l.qte}×</span> </>}<span className="font-semibold text-slate-800">{l.article}</span></div>
+      ))}
+      {reste > 0 && !deplie && <div className="text-xs font-semibold text-sky-700">+ {reste} autre{reste > 1 ? "s" : ""} ▾</div>}
+      {reste > 0 && deplie && <div className="text-xs font-semibold text-sky-700">▴ Replier</div>}
+      {enfants}
+    </div>
+  );
+}
+// Un bouton d'action rond : l'icône seule, le libellé au survol (title).
+export const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
+// La ligne d'un tableau qu'on déplie au clic (Ventes, Dettes) : UNE ligne
+// dépliée à la fois, fond bleu soutenu + barre épaisse à gauche (couleur de
+// l'espace : violet en formation), sinon zébrage et survol.
+export const classeLigneDepliable = (deplie, i, fondSinon = "") => deplie ? "bg-sky-200 shadow-[inset_6px_0_0_0_var(--color-sky-700)]" : `hover:bg-sky-50 ${fondSinon || (i % 2 ? "bg-slate-50/60" : "bg-white")}`;
+
 // Le VRAI logo WhatsApp (Timo, 12/09/2026 : « remplacer l'icône de WhatsApp
 // par le vrai icône WhatsApp ») : dessiné en SVG, vert WhatsApp, à la taille
 // du texte — l'emoji 💬 ne ressemblait à rien de connu. Écrit une fois, pour
