@@ -666,8 +666,10 @@ lit mal est pire qu'un banc absent).
   **Un clic sur une boutique REFERME le résumé** (13/09/2026, « constat
   amer » : « dès qu'on quitte le résumé pour revenir sur les boutiques,
   l'écran ne se recouvre pas… on voit toujours les données du résumé »).
-  **Une période, sur la même ligne, DEVANT RÉSUMÉ** (13/09/2026 : « ajouter
-  période dans résumé devant résumé, appliquée aussi aux boutiques ») : la
+  **Une période, sur la même ligne, À DROITE de RÉSUMÉ** (13/09/2026 :
+  « ajouter période dans résumé devant résumé, appliquée aussi aux
+  boutiques » ; d'abord posée à gauche, Timo : « ramener période devant
+  résumé » → option 1, à droite — pour lui, « devant » = après) : la
   liste du tableau de bord (`periodes()`), **« Depuis le début » d'office**
   (rien ne change tant qu'on n'y touche pas) ; elle commande les quatre
   carrés de la boutique regardée, le tableau du résumé ET l'historique des
