@@ -4375,7 +4375,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep));
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
-    (dep.match(/<thead>/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
+    (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
+    // 13/09/2026 : « appliquer la règle d'archivage aussi à l'historique des dépenses » — LE composant commun, plus de pagination.
+    && /<HistoriqueArchive lignes=\{liste\} dateDe=\{\(x\) => x\.date\} aujourdhui=\{today\(\)\} vide=\{vide\} titreArchives="Dépenses archivées"/.test(dep) && !/usePagination|<Pagination /.test(dep)
     // 13/09/2026 : le texte « vide » de la boutique dépend du rôle (technicien : « Vous n'avez enregistré aucune dépense… »).
     && /vide=\{mesSeules \? "Vous n'avez enregistré aucune dépense pour cette boutique\." : "Aucune dépense enregistrée\."\} \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
 }
@@ -4954,7 +4956,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /onChange=\{\(nom\) => \{ setBq\(nom\); setResume\(false\); \}\}/.test(csR) && /historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(\(d\) => !periode/.test(csR));
     test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
       /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /Total versé\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période */
-      && /extra=\{<>\n\s*<select[^\n]*\n[^\n]*\n[^\n]*<\/select>\n\s*<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>/.test(csR) /* période DEVANT RÉSUMÉ, même ligne */ && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR)
+      && /extra=\{<>\n[^\n]*\n\s*<div className="flex items-center gap-2"><div className="font-bold text-slate-800">Période :<\/div>\n\s*<select className="rounded-lg border border-slate-300 px-3 py-1\.5 text-sm bg-white"[^\n]*\n[^\n]*\n[^\n]*<\/select>\n\s*<\/div>\n\s*<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>/.test(csR) /* « Période : » + liste, comme au tableau de bord, DEVANT RÉSUMÉ, même ligne (capture 13/09/2026) */ && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR)
       && /\["Fonds à verser", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
       && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
       && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8"))
@@ -4986,7 +4988,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     const csA = readFileSync("src/screens/Caisse.jsx", "utf8");
     const importeurs = execSync("grep -rl 'separerArchives\\|lib/archivage' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).sort().join("|");
     test("★ LA SEULE règle : separerArchives n'est appelée que par le composant commun HistoriqueArchive ; le RÉSUMÉ de Caisse affiche l'historique des versements avec ce composant (10 lignes visibles, bouton Archives, rangé par mois), jamais un découpage à lui",
-      importeurs === "src/components/HistoriqueArchive.jsx|src/lib/archivage.js" && /<HistoriqueArchive lignes=\{historiqueVersements\} dateDe=\{\(d\) => d\.date\} aujourdhui=\{aujourdhui\}/.test(csA)
+      importeurs === "src/components/HistoriqueArchive.jsx|src/lib/archivage.js" && /import \{ HistoriqueArchive \} from "\.\.\/components\/HistoriqueArchive";/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /<HistoriqueArchive lignes=\{historiqueVersements\} dateDe=\{\(d\) => d\.date\} aujourdhui=\{aujourdhui\}/.test(csA)
       && /const historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(/.test(csA) && !/slice\(0, (10|20)\)/.test(csA.slice(csA.indexOf("<HistoriqueArchive"), csA.indexOf("{!resume && (<>"))) /* le bloc RÉSUMÉ ne découpe rien lui-même (le « Derniers versements traités » du DG, plus bas, garde ses 10) */
       && /LIGNES_VISIBLES \* HAUTEUR_LIGNE/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")) && /Remonter dans les archives/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")));
   }
@@ -5609,7 +5611,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
     // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
-    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""\]/.test(dpV) && (dpV.match(/<thead>/g) || []).length === 1);
+    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""\]/.test(dpV) && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
   test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
     /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
     && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)

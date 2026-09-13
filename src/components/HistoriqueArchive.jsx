@@ -13,14 +13,14 @@ import { separerArchives, parMois, LIGNES_VISIBLES } from "../lib/archivage";
 // La hauteur du cadre : LIGNES_VISIBLES lignes de tableau (36 px chacune) +
 // l'en-tête. Au-delà, on défile.
 export const HAUTEUR_LIGNE = 36;
-export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, vide = "Aucune ligne.", titreArchives = "Archives" }) {
+export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, vide = "Aucune ligne.", titreArchives = "Archives", classeTable = "w-full text-sm" }) {
   const [archivesOuvertes, setArchivesOuvertes] = useState(false);
   const { visibles, archives } = separerArchives(lignes, { aujourdhui, dateDe });
   const cadre = { maxHeight: `${LIGNES_VISIBLES * HAUTEUR_LIGNE + HAUTEUR_LIGNE}px` };
   return (
     <div>
       <div className="overflow-y-auto overflow-x-auto" style={cadre} data-historique="visibles">
-        <table className="w-full text-sm">
+        <table className={classeTable}>
           {entete}
           <tbody>
             {visibles.length === 0 && <tr><td colSpan={99} className="px-4 py-4 text-center text-slate-400">{vide}</td></tr>}
@@ -37,7 +37,7 @@ export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, 
             <div key={g.mois} className="mt-2" data-historique="archives">
               <div className="text-xs font-bold text-slate-500 uppercase px-1 py-1 bg-slate-50">{g.libelle} · {g.lignes.length}</div>
               <div className="overflow-y-auto overflow-x-auto" style={cadre}>
-                <table className="w-full text-sm">{entete}<tbody>{g.lignes.map(rendre)}</tbody></table>
+                <table className={classeTable}>{entete}<tbody>{g.lignes.map(rendre)}</tbody></table>
               </div>
             </div>
           ))}

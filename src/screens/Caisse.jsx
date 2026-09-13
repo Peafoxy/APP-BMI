@@ -186,9 +186,12 @@ export function Caisse({ db, save, profile }) {
           devant RÉSUMÉ, et vaut pour le résumé ET la boutique regardée. */}
       {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={(nom) => { setBq(nom); setResume(false); }} avecTerrain profile={profile}
         extra={<>
-          <select className="rounded-full border border-slate-300 px-3 py-1.5 text-sm bg-white font-semibold text-slate-700" value={periodeIndex} onChange={(e) => setPeriodeIndex(Number(e.target.value))} title="Période des carrés (boutique et résumé)">
-            {listePeriodes.map(([label], i) => <option key={i} value={i}>{label}</option>)}
-          </select>
+          {/* Capture Timo (13/09/2026) : « avec mention Période, comme c'est fait dans le tableau de bord ». */}
+          <div className="flex items-center gap-2"><div className="font-bold text-slate-800">Période :</div>
+            <select className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white" value={periodeIndex} onChange={(e) => setPeriodeIndex(Number(e.target.value))} title="Période des carrés (boutique et résumé)">
+              {listePeriodes.map(([label], i) => <option key={i} value={i}>{label}</option>)}
+            </select>
+          </div>
           <button onClick={() => setResume((r) => !r)} className={`px-4 py-1.5 rounded-full text-sm font-bold border ${resume ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-300 text-slate-600"}`}>📊 RÉSUMÉ</button>
         </>} />}
       {resume && leResume && (

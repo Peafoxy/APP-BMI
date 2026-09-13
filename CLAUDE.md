@@ -678,6 +678,9 @@ lit mal est pire qu'un banc absent).
   début** (`aVerser` sans période ; un solde ne dépend pas d'une période),
   le banc le vérifie. `fondsAVerser` / `totalVerse` / `resumeCaisses`
   acceptent `periode = { du, au }` facultative.
+  **Le sélecteur porte la mention « Période : »** et la même liste déroulante
+  que le tableau de bord (capture Timo, 13/09/2026 : « avec mention période
+  comme c'est fait dans le tableau de bord »).
 - **📁 L'ARCHIVAGE des historiques : UNE règle, `lib/archivage.js`**
   (13/09/2026 : « au plus 10 lignes, au-delà on doit défiler ; après 3 mois,
   au-delà de 20 lignes, les anciennes sont archivées automatiquement, pour
@@ -694,6 +697,10 @@ lit mal est pire qu'un banc absent).
   des versements** sous le tableau du RÉSUMÉ de 🔒 Caisse (toutes les
   boutiques du résumé, statut validé / en attente / rejeté). Un autre écran
   qui veut s'archiver PASSE PAR CE COMPOSANT, jamais un `slice` à lui.
+  **Deuxième usage : la liste de 📤 Dépenses** (13/09/2026, « appliquer la
+  règle d'archivage aussi à l'historique des dépenses ») : `TableauDepenses`
+  (écrit une fois, boutique et « Chez le comptable ») passe par le composant,
+  plus de pagination ; l'en-tête reste collé en haut du cadre.
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,

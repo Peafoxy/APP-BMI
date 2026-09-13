@@ -11,7 +11,11 @@ import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
+// Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
+// dépenses » — LE composant commun (10 lignes, puis défilement ; archives
+// après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
+import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
@@ -29,34 +33,30 @@ export function BadgeValidation({ x }) {
   if (estValidee(x)) return <span className="text-xs font-bold text-green-700">✅ validée le {dFR(x.validation.le)}{x.validation.auto ? " (DG)" : ` par ${x.validation.par}`}</span>;
   return <span className="text-xs text-slate-400">—</span>;
 }
-function TableauDepenses({ liste, listePage, profile, onSupprimer, vide }) {
+function TableauDepenses({ liste, profile, onSupprimer, vide }) {
   return (
-    <table className="w-full text-sm min-w-[860px]">
-      <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-      <tbody>
-        {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{vide}</td></tr>}
-        {listePage.map((x) => (
-          <tr key={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
-            <td className="px-3 py-2">{dFR(x.date)}</td>
-            <td className="px-3 py-2 font-semibold">{x.categorie}</td>
-            <td className="px-3 py-2">{x.description || "—"}</td>
-            <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}</td>
-            <td className="px-3 py-2">{x.paiement}</td>
-            <td className="px-3 py-2 text-xs">{x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
-            <td className="px-3 py-2">{x.par}</td>
-            <td className="px-3 py-2"><BadgeValidation x={x} /></td>
-            <td className="px-3 py-2 text-xs">
-              {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}</span> : <span className="text-slate-300">—</span>}
-            </td>
-            <td className="px-3 py-2">
-              {profile.role === "admin" && (
-                <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <HistoriqueArchive lignes={liste} dateDe={(x) => x.date} aujourdhui={today()} vide={vide} titreArchives="Dépenses archivées" classeTable="w-full text-sm min-w-[860px]"
+      entete={<thead className="sticky top-0 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>}
+      rendre={(x) => (
+        <tr key={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
+          <td className="px-3 py-2">{dFR(x.date)}</td>
+          <td className="px-3 py-2 font-semibold">{x.categorie}</td>
+          <td className="px-3 py-2">{x.description || "—"}</td>
+          <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}</td>
+          <td className="px-3 py-2">{x.paiement}</td>
+          <td className="px-3 py-2 text-xs">{x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
+          <td className="px-3 py-2">{x.par}</td>
+          <td className="px-3 py-2"><BadgeValidation x={x} /></td>
+          <td className="px-3 py-2 text-xs">
+            {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}</span> : <span className="text-slate-300">—</span>}
+          </td>
+          <td className="px-3 py-2">
+            {profile.role === "admin" && (
+              <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
+            )}
+          </td>
+        </tr>
+      )} />
   );
 }
 
@@ -154,7 +154,6 @@ export function Depenses({ db, save, profile }) {
   // « Ce mois » ne compte que ce qui compte : validé, ou sans validation requise.
   const totalMois = depensesComptees(liste).filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
   const enAttenteIci = liste.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);
-  const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -232,8 +231,7 @@ export function Depenses({ db, save, profile }) {
           <span>{mesSeules ? "Mes dépenses" : "Dépenses"} — {boutique}</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>
         </div>
-        <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
-        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
           Les <b>versements de fonds</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
@@ -251,7 +249,6 @@ export function Depenses({ db, save, profile }) {
 export function ChezComptable({ db, save, profile }) {
   const liste = (db.depenses || []).filter((x) => x.boutique === "Chez le comptable")
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  const { pageItems: listePage, page: pageCC, setPage: setPageCC, totalPages: totalPagesCC } = usePagination(liste, 50);
 
   // ---- POINTAGE DES DÉCAISSEMENTS : le comptable marque ce qu'il a
   // réellement remis (billets donnés / virement fait), pour ne plus se
@@ -360,8 +357,7 @@ export function ChezComptable({ db, save, profile }) {
           <span>Chez le comptable</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)} · Total : {fmt(total)}</span>
         </div>
-        <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
-        <Pagination page={pageCC} setPage={setPageCC} totalPages={totalPagesCC} />
+        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
       </div>
     </div>
   );
