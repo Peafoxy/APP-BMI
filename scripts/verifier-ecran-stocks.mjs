@@ -153,6 +153,12 @@ test("★ la règle est pure (articlesAReapprovisionner), la demande reçoit le 
 test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent dans un cadre à hauteur fixe qui défile, en-tête collé en haut",
   (src.match(/overflow-x-auto overflow-y-auto max-h-\[360px\]/g) || []).length === 2 && (src.match(/<thead className="sticky top-0 z-10 bg-white">/g) || []).length === 2);
 // Timo (10/09/2026) : « figer le nom de l'article quand on défile de droite à gauche ».
+// Timo (13/09/2026) : « figer les articles du stock sur téléphone… comme dans
+// Réapprovisionnement » — le tableau principal aussi (fond rouge pâle gardé sur
+// une ligne en alerte, sinon la cellule collée cacherait la couleur).
+test("★ tableau du stock : la colonne Article (en-tête et lignes) reste collée à gauche sur téléphone, libre à partir de lg, et garde le fond rouge pâle d'une ligne en alerte",
+  /"P\. vente", ""\]\.map\(\(h, i\) => <th key=\{h\} className=\{`text-left px-3 py-2\$\{i === 0 \? " sticky left-0 z-20 bg-slate-100 shadow-\[2px_0_0_0_#e2e8f0\] lg:static lg:shadow-none" : ""\}`\}>/.test(src)
+  && /<td className=\{`px-3 py-2 font-semibold sticky left-0 z-\[5\] \$\{al \? "bg-red-50" : "bg-white"\} shadow-\[2px_0_0_0_#e2e8f0\] max-w-\[180px\] lg:static lg:shadow-none lg:max-w-none`\}>\{p\.nom\}<\/td>/.test(src));
 test("★ à réapprovisionner : la colonne Article reste collée à gauche (en-tête et lignes) pendant le défilement horizontal — sur téléphone exclusivement (libre à partir de lg)",
   /i === 0 \? " sticky left-0 z-20 bg-white[^"]* lg:static lg:shadow-none"/.test(src) && /font-semibold sticky left-0 z-\[5\] bg-white[^"]* lg:static lg:shadow-none[^"]*">\{p\.nom\}<\/td>/.test(src)
   && /<td class="[^"]*sticky left-0[^"]*lg:static[^"]*">REGULATEUR MPPT 60A<\/td>/.test(htmlPlat));

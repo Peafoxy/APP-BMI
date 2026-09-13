@@ -56,7 +56,7 @@ npm run verifier-cloisonnement   # 1263 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Toutes d'office)
+npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
@@ -950,6 +950,11 @@ lit mal est pire qu'un banc absent).
   « éclairage » entre « disjoncteur » et « etiquetteuse », pas à la fin) ;
   plus de mur de pastilles. La recherche reste « toutes catégories
   confondues ». Le banc le rend et le lit.
+  **Le tableau du stock fige aussi sa colonne Article sur téléphone**
+  (13/09/2026 : « figer les articles du stock sur téléphone quand on veut
+  défiler de droite à gauche, comme dans Réapprovisionnement ») : même
+  classes que l'encadré (`sticky left-0 … lg:static`), la cellule collée
+  garde le fond rouge pâle d'une ligne en alerte.
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix

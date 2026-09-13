@@ -1225,14 +1225,17 @@ export function Stocks({ db, save, profile }) {
         </div>
         <div className="max-h-[380px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[960px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{/* Timo (13/09/2026) : « figer les articles du stock sur téléphone quand on
+              veut défiler de droite à gauche, comme dans Réapprovisionnement » — la
+              colonne Article reste collée à gauche, sur téléphone seulement (lg:static). */}
+            {["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? " sticky left-0 z-20 bg-slate-100 shadow-[2px_0_0_0_#e2e8f0] lg:static lg:shadow-none" : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {listeAffichee.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">{enRechercheStock ? "Aucun article ne correspond à cette recherche." : categorieAffichee ? "Aucun article dans cette catégorie." : "Aucun article dans cette boutique."}</td></tr>}
             {listeAffichee.map((p) => {
               const vendu = stockVendu(db, p.id), aj = stockAjuste(db, p.id), actuel = stockActuel(db, p), al = actuel <= Number(p.seuil);
               return (
                 <tr key={p.id} className={`border-t border-slate-100 ${al ? "bg-red-50" : ""}`}>
-                  <td className="px-3 py-2 font-semibold">{p.nom}</td>
+                  <td className={`px-3 py-2 font-semibold sticky left-0 z-[5] ${al ? "bg-red-50" : "bg-white"} shadow-[2px_0_0_0_#e2e8f0] max-w-[180px] lg:static lg:shadow-none lg:max-w-none`}>{p.nom}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => changerFournisseur(p)} className={`text-xs font-semibold underline ${p.fournisseur ? "text-slate-600" : "text-slate-400"}`}>
                       {p.fournisseur || "— Définir —"}
