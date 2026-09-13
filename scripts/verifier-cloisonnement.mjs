@@ -4939,7 +4939,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /extra=\{<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>\}/.test(csR) && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui\)/.test(csR)
       && /\["Fonds à verser", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
       && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
-      && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8")));
+      && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8"))
+      // 13/09/2026 : « dans résumé, ne plus afficher autre chose » — tout le reste de l'écran est sous {!resume && (<>…</>)}.
+      && /\{!resume && \(<>\n\s*\{\/\* Timo \(09\/09\/2026\)/.test(csR) && /<\/>\)\}\n    <\/div>\n  \);\n\}/.test(csR));
   }
   test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",
     f.ventes === 251400 && f.reglements === 900 && f.depenses === 202300 && f.montant === 50000 && f.dernierVersement === "2026-09-05"

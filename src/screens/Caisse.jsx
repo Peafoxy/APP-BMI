@@ -196,6 +196,9 @@ export function Caisse({ db, save, profile }) {
           </table>
         </div>
       )}
+      {/* Timo (13/09/2026) : « dans résumé, ne plus afficher autre chose que le
+          résumé des caisses » — versements, avances, clôture disparaissent. */}
+      {!resume && (<>
       {/* Timo (09/09/2026) : « sans versement, rien n'apparaît » — l'encadré
           du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
       {jeSuisDG && (
@@ -453,6 +456,7 @@ export function Caisse({ db, save, profile }) {
           </tbody>
         </table>
       </div>
+      </>)}
     </div>
   );
 }

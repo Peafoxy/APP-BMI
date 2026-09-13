@@ -660,6 +660,9 @@ lit mal est pire qu'un banc absent).
   Fonds à verser / Total versé / Entrées / Sorties, le retard de clôture en
   rouge, la ligne TOTAL en bas (`resumeCaisses`, lib/versements.js, exercé
   par le banc). Une lecture, rien d'écrit ; depuis le début, comme le solde.
+  **En mode RÉSUMÉ, rien d'autre ne s'affiche** (13/09/2026 : « je vois encore
+  verser les fonds, avances de frais, clôture… ça devrait disparaître ») : tout
+  le reste de l'écran est sous `!resume`.
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,
