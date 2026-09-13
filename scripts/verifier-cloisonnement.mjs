@@ -4056,6 +4056,22 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
   const rg = readFileSync("src/components/RechercheGlobale.jsx", "utf8");
   test("★ la recherche générale (loupe du menu) montre le prix et le stock de chaque article, et cherche avec la même règle",
     /\{fmt\(p\.prix_vente\)\}/.test(rg) && /\{stockActuel\(db, p\)\} en stock/.test(rg) && /correspond\(`\$\{p\.nom\} \$\{p\.code \|\| ""\}`, q\)/.test(rg));
+  // Timo (13/09/2026, capture de la fenêtre « Rechercher un article » de
+  // Ventes) : « la recherche d'articles est rigide… pourquoi elle ne respecte
+  // pas la flexibilité des autres écrans… avoir une seule règle qui régit les
+  // recherches dans l'application ». UNE règle : `correspond` (lib/suggestions)
+  // — plus aucune recherche « maison » (toLowerCase().includes, normNom().includes).
+  {
+    const fichiersRecherche = ["src/components/SelecteurArticle.jsx", "src/components/RechercheGlobale.jsx", "src/screens/Ventes.jsx", "src/screens/Utilisateurs.jsx", "src/screens/Stocks.jsx", "src/screens/Clients.jsx", "src/screens/Historique.jsx", "src/screens/Prospects.jsx", "src/screens/ClientsInstalles.jsx"];
+    // Écrans et composants seulement : trouverArticle (lib/calculs.js) apparie un
+    // nom de devis au stock dans les deux sens — un appariement, pas une recherche tapée.
+    const maison = execSync("grep -rln 'toLowerCase().includes(\\|normNom(.*).includes(' src/screens src/components --include=*.jsx || true").toString().trim().split("\n").filter(Boolean).filter((f) => f !== "src/screens/Rentabilite.jsx" /* choix d'une période, pas une recherche */);
+    test("★ UNE règle de recherche pour toute l'application : plus aucun filtre « maison » (toLowerCase().includes / normNom().includes) — les neuf recherches (sélecteur d'article de Ventes et Commandes, loupe du menu, listes Ventes / proformas, Utilisateurs, Stocks, Clients, Historique, Prospects, Clients installés) passent par correspond (lib/suggestions)",
+      maison.length === 0 && fichiersRecherche.every((f) => { const t = readFileSync(f, "utf8"); return /import \{ correspond \} from "\.\.\/lib\/suggestions";/.test(t) && /correspond\(/.test(t); })
+      && /base\.filter\(\(p\) => correspond\(`\$\{p\.nom\} \$\{p\.code \|\| ""\}`, recherche\)\)/.test(readFileSync("src/components/SelecteurArticle.jsx", "utf8")), "fichiers maison : " + maison.join(", "));
+    test("★ la règle rend la recherche de Ventes souple : « bar 150 » trouve « Busse BAR M10×2 150A », « gache » trouve « Gâche électrique », « led rouge » trouve « Ventilateur LED simple rouge », « nvr 8 » trouve « NVR 8CH » et pas « NVR 16CH » ; « tv » ne sort pas « dstv »",
+      Sug.correspond("Busse BAR M10×2 150A", "bar 150") && Sug.correspond("Gâche électrique", "gache") && Sug.correspond("Ventilateur LED simple rouge", "led rouge") && Sug.correspond("NVR 8CH", "nvr 8") && !Sug.correspond("NVR 16CH", "nvr 8") && !Sug.correspond("Décodeur DSTV", "tv") && Sug.correspond("Quoi que ce soit", ""));
+  }
   test("★ plus AUCUNE liste native du navigateur (<datalist>) dans l'application",
     execSync("grep -rl '<datalist' src || true").toString().trim() === "");
   for (const [f, motif] of [

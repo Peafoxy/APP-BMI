@@ -5,6 +5,11 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { inputCls } from "./ui";
+// LA règle de recherche de l'application (Timo, 13/09/2026 : « dans Ventes,
+// la recherche d'articles est rigide… avoir une seule règle qui régit les
+// recherches ») : sans accents ni majuscules, chaque mot tapé dans
+// n'importe quel ordre, un mot court doit commencer un mot.
+import { correspond } from "../lib/suggestions";
 
 // ============ SÉLECTEUR D'ARTICLE (recherche tactile, sans menu natif) ============
 export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, categorieFiltre }) {
@@ -12,7 +17,7 @@ export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, ca
   const [recherche, setRecherche] = useState("");
   const selectionne = produits.find((p) => p.id === valeur);
   const base = categorieFiltre ? produits.filter((p) => (p.categorie || "Autre") === categorieFiltre) : produits;
-  const filtres = recherche ? base.filter((p) => p.nom.toLowerCase().includes(recherche.toLowerCase())) : base;
+  const filtres = recherche ? base.filter((p) => correspond(`${p.nom} ${p.code || ""}`, recherche)) : base;
   const categories = [...new Set(filtres.map((p) => p.categorie || "Autre"))].sort();
 
   return (

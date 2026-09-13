@@ -5,6 +5,7 @@
 // répartis entre techniciens avec part majorée du chef de chantier.
 // ============================================================
 import { useState, Fragment } from "react";
+import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
@@ -809,7 +810,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // 🛠 Travaux à crédit : une fiche de travaux ne vient ici qu'une fois SOLDÉE
   // (Timo, 13/09/2026) ; avant, elle vit dans l'onglet Travaux à crédit.
   let liste = (voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier)).filter((c) => !c.travaux || travauxSolde(db, c));
-  if (q) liste = liste.filter((c) => (String(c.nom) + " " + String(c.prenom) + " " + String(c.tel) + " " + String(c.type_installation)).toLowerCase().includes(q.toLowerCase()));
+  if (q) liste = liste.filter((c) => correspond(String(c.nom) + " " + String(c.prenom) + " " + String(c.tel) + " " + String(c.type_installation), q));
   if (filtreEntretien) liste = liste.filter((c) => c.date_entretien && c.date_entretien <= today());
 
   const entretiensDus = (voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier)).filter((c) => c.date_entretien && c.date_entretien <= today()).length;

@@ -3,13 +3,14 @@
 // enregistrée (qui, quoi, quand), en lecture seule.
 // ============================================================
 import { useState } from "react";
+import { correspond } from "../lib/suggestions";
 import { dFR } from "../lib/core";
 
 // ============ HISTORIQUE (JOURNAL D'AUDIT) ============
 export function Historique({ db }) {
   const [q, setQ] = useState("");
   let liste = (db.audits || []).slice(0, 500);
-  if (q) liste = liste.filter((a) => (String(a.user) + " " + String(a.action)).toLowerCase().includes(q.toLowerCase()));
+  if (q) liste = liste.filter((a) => correspond(String(a.user) + " " + String(a.action), q));
   const dh = (iso) => `${dFR(iso)} ${String(iso).slice(11, 16)}`;
   return (
     <div className="space-y-4">

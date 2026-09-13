@@ -39,12 +39,12 @@ export function rechercherGlobalement(db, profile, texte) {
 
   const clients = db.users
     .filter((u) => u.role === "client" && u.actif !== false && bonEspace(u))
-    .filter((u) => normNom(`${u.nom_base || u.nom} ${u.tel || ""}`).includes(q))
+    .filter((u) => correspond(`${u.nom_base || u.nom} ${u.tel || ""}`, q))
     .slice(0, 6);
 
   const ventes = (db.ventes || [])
     .filter((v) => bonneBoutique(v.boutique))
-    .filter((v) => normNom(`${numeroRecu(v)} ${v.client || ""} ${v.tel || ""}`).includes(q))
+    .filter((v) => correspond(`${numeroRecu(v)} ${v.client || ""} ${v.tel || ""}`, q))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 6);
 
@@ -60,7 +60,7 @@ export function rechercherGlobalement(db, profile, texte) {
     .flatMap((u) => (u.devis || []).map((d) => ({ ...d, client: u })))
     .filter(bonEspace)
     .filter((d) => voitToutDevis || d.par_id === profile.id)
-    .filter((d) => normNom(`${d.client?.nom_base || d.client?.nom || ""} ${libelleTypeDevis(d)}`).includes(q))
+    .filter((d) => correspond(`${d.client?.nom_base || d.client?.nom || ""} ${libelleTypeDevis(d)}`, q))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 6);
 
@@ -68,14 +68,14 @@ export function rechercherGlobalement(db, profile, texte) {
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
   const proformas = !voitProformas ? [] : (db.proformas || [])
     .filter((pf) => bonneBoutique(pf.boutique))
-    .filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(q))
+    .filter((pf) => correspond(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`, q))
     .sort((a, b) => String(b.ts || b.date).localeCompare(String(a.ts || a.date)))
     .slice(0, 6);
 
   const prospects = (db.prospects || [])
     .filter(bonEspace)
     .filter((p) => voitToutProspects || p.commercial === profile.nom)
-    .filter((p) => normNom(`${p.nom} ${p.tel || ""}`).includes(q))
+    .filter((p) => correspond(`${p.nom} ${p.tel || ""}`, q))
     .slice(0, 6);
 
   const total = clients.length + ventes.length + produits.length + devis.length + prospects.length + proformas.length;

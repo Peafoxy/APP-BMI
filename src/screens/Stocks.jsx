@@ -5,6 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useRef, useState } from "react";
+import { correspond } from "../lib/suggestions";
 import { uid, fmt, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -705,7 +706,7 @@ export function Stocks({ db, save, profile }) {
   const enRechercheStock = qStock.length > 0;
   const categorieAffichee = categorieActive && categoriesPresentes.includes(categorieActive) ? categorieActive : (categoriesPresentes[0] || "");
   const listeAffichee = enRechercheStock
-    ? liste.filter((p) => p.nom.toLowerCase().includes(qStock))
+    ? liste.filter((p) => correspond(`${p.nom} ${p.code || ""}`, qStock))
     : liste.filter((p) => (p.categorie || "Autre") === categorieAffichee);
   const mouvements = (db.ajustements || []).filter((a) => a.boutique === bq).slice(0, 20);
   const nomProduit = (pid) => db.produits.find((p) => p.id === pid)?.nom || "?";

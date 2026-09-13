@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1246 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1248 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -339,7 +339,15 @@ lit mal est pire qu'un banc absent).
   un autre câble »). Jamais un voile sur tout l'écran. La **recherche
   générale** (loupe du menu) suit la même règle et montre **prix et stock**
   de chaque article. **Plus jamais de `<datalist>`**
-  natif (le banc l'interdit).
+  natif (le banc l'interdit). **UNE règle pour TOUTE recherche tapée**
+  (capture Timo, 13/09/2026, fenêtre « Rechercher un article » de Ventes :
+  « la recherche d'articles est rigide… avoir une seule règle qui régit les
+  recherches dans l'application ») : `correspond` (lib/suggestions.js) dans
+  le sélecteur d'article (Ventes, Commandes), la loupe du menu, les listes
+  Ventes / proformas, Utilisateurs, Stocks, Clients, Historique, Prospects,
+  Clients installés. Le banc interdit tout filtre « maison »
+  (`toLowerCase().includes`, `normNom().includes`) dans écrans et composants ;
+  `trouverArticle` (calculs.js) n'est pas une recherche mais un appariement.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

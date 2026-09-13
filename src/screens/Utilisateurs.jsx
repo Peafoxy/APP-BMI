@@ -3,6 +3,7 @@
 // rôle, activation, mots de passe, pouvoirs, demandes de crédit.
 // ============================================================
 import React, { useState } from "react";
+import { correspond } from "../lib/suggestions";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
@@ -69,7 +70,7 @@ export function Users({ db, save, profile }) {
   const qU = rechercheU.trim().toLowerCase();
   const enRecherche = qU.length > 0;
   const listeAffichee = enRecherche
-    ? utilisateursVisibles.filter((x) => `${x.nom || ""} ${x.nom_complet || ""}`.toLowerCase().includes(qU))
+    ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""}`, qU))
     : utilisateursVisibles.filter((x) => x.role === roleAffiche);
   const vide = { nom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);

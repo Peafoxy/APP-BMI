@@ -5,6 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
+import { correspond } from "../lib/suggestions";
 import { uid, fmt, today, dFR, telDigits, totalVente, envoyerWhatsApp } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
@@ -185,7 +186,7 @@ export function Clients({ db, profile }) {
   });
 
   let clients = Object.values(map).sort((a, b) => b.totalAchats - a.totalAchats);
-  if (q) clients = clients.filter((c) => (c.nom + " " + (c.tel || "")).toLowerCase().includes(q.toLowerCase()));
+  if (q) clients = clients.filter((c) => correspond(c.nom + " " + (c.tel || ""), q));
   const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
 
   const contacter = (c) => {

@@ -4,6 +4,7 @@
 // détection des dormants, conversion en client.
 // ============================================================
 import { useState } from "react";
+import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
@@ -221,7 +222,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
 
   let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom);
   if (filtreRelance) liste = liste.filter((p) => p.relance && p.relance <= today());
-  if (q) liste = liste.filter((p) => (p.nom + " " + p.tel + " " + p.localisation).toLowerCase().includes(q.toLowerCase()));
+  if (q) liste = liste.filter((p) => correspond(p.nom + " " + p.tel + " " + p.localisation, q));
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;

@@ -5,6 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
+import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
@@ -963,11 +964,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // ⚠ Lot C : l'ancien numéro d'une vente renumérotée après collision
   // (numero_avant_collision) reste cherchable — c'est LUI qui figure sur le
   // reçu papier déjà remis au client avant la réparation.
-  const listeFiltree = (!qListe ? liste : liste.filter((x) => normNom(`${numeroRecu(x)} ${x.numero_avant_collision || ""} ${x.client || ""} ${x.tel || ""}`).includes(qListe)))
+  const listeFiltree = (!qListe ? liste : liste.filter((x) => correspond(`${numeroRecu(x)} ${x.numero_avant_collision || ""} ${x.client || ""} ${x.tel || ""}`, qListe)))
     .filter((x) => periodeIndex === null || inP(x.date, periodes()[periodeIndex][1], periodes()[periodeIndex][2]))
     .filter((x) => !filtrePaiement || x.paiement === filtrePaiement)
     .slice().sort(triDesc);
-  const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => normNom(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`).includes(qListe)))
+  const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => correspond(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`, qListe)))
     .filter((x) => periodeIndex === null || inP(x.date, periodes()[periodeIndex][1], periodes()[periodeIndex][2]))
     .slice().sort(triDesc);
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
