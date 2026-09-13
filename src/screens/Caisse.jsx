@@ -12,7 +12,7 @@ import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARem
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -25,6 +25,10 @@ export function Caisse({ db, save, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "caisse" });
   const [compte, setCompte] = useState("");
+  // Timo (13/09/2026) : « un bouton RÉSUMÉ dans lequel on reprend les carrés »
+  // — Fonds à verser / Total versé / Entrées / Sorties, une ligne par
+  // boutique, le total en bas. Dans Caisse, pas dans le tableau de bord.
+  const [resume, setResume] = useState(false);
   const [notes, setNotes] = useState("");
   const aujourdhui = today();
   // ⚠ Décision Timo (09/09/2026) : une journée avec des ventes et sans
@@ -83,6 +87,10 @@ export function Caisse({ db, save, profile }) {
   const destinationDefaut = DEST_DG;
   const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
   const aVerser = fondsAVerser(db, boutique, totalVente);
+  const verse = totalVerse(db, boutique, aujourdhui);
+  // Les boutiques de la rangée (vente + TERRAIN, espace regardé) : celles du RÉSUMÉ.
+  const boutiquesResume = boutiquesVisibles(db, profile, [...boutiquesVente(db), ...(db.boutiques || []).filter((b) => b.terrain)]).map((b) => b.nom);
+  const leResume = resume ? resumeCaisses(db, boutiquesResume, totalVente, aujourdhui) : null;
   const mesVersements = versementsDe(db, boutique);
   const verser = async () => {
     if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
@@ -155,7 +163,39 @@ export function Caisse({ db, save, profile }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={setBq} avecTerrain profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={setBq} avecTerrain profile={profile}
+        extra={<button onClick={() => setResume((r) => !r)} className={`px-4 py-1.5 rounded-full text-sm font-bold border ${resume ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-300 text-slate-600"}`}>📊 RÉSUMÉ</button>} />}
+      {resume && leResume && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">📊 Résumé des caisses <span className="text-sm font-normal text-slate-500">· une ligne par boutique, rejetés exclus, depuis le début</span></div>
+          <table className="w-full text-sm min-w-[720px]">
+            <thead><tr className="text-xs text-slate-500 uppercase bg-slate-100">
+              {[["Boutique", "text-left"], ["Fonds à verser", "text-right"], ["Total versé", "text-right"], ["Entrées", "text-right"], ["Sorties (versements compris)", "text-right"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {leResume.lignes.map((l) => {
+                const retard = joursAClôturer(db, l.boutique, aujourdhui, totalVente).length;
+                return (
+                  <tr key={l.boutique} className="border-t border-slate-100">
+                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{l.boutique}</div>{retard > 0 && <div className="text-xs font-bold text-red-600">⚠ {retard} jour{retard > 1 ? "s" : ""} sans clôture</div>}</td>
+                    <td className={`px-3 py-2 tabular-nums text-right font-bold ${l.aVerser < 0 ? "text-red-600" : ""}`}>{fmt(l.aVerser)}{l.dernierVersement && <div className="text-xs font-normal text-slate-400">dernier versement le {dFR(l.dernierVersement)}</div>}</td>
+                    <td className="px-3 py-2 tabular-nums text-right">{fmt(l.verse)}<div className="text-xs text-slate-400">ce mois {fmt(l.verseCeMois)}{l.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(l.verseEnAttente)}</span> : null}</div></td>
+                    <td className="px-3 py-2 tabular-nums text-right text-emerald-700">{fmt(l.entrees)}</td>
+                    <td className="px-3 py-2 tabular-nums text-right">− {fmt(l.sorties)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                <td className="px-3 py-2">TOTAL</td>
+                <td className={`px-3 py-2 tabular-nums text-right ${leResume.total.aVerser < 0 ? "text-red-600" : ""}`}>{fmt(leResume.total.aVerser)}</td>
+                <td className="px-3 py-2 tabular-nums text-right">{fmt(leResume.total.verse)}<div className="text-xs font-normal text-slate-400">ce mois {fmt(leResume.total.verseCeMois)}{leResume.total.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(leResume.total.verseEnAttente)}</span> : null}</div></td>
+                <td className="px-3 py-2 tabular-nums text-right text-emerald-700">{fmt(leResume.total.entrees)}</td>
+                <td className="px-3 py-2 tabular-nums text-right">− {fmt(leResume.total.sorties)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
       {/* Timo (09/09/2026) : « sans versement, rien n'apparaît » — l'encadré
           du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
       {jeSuisDG && (
@@ -194,8 +234,10 @@ export function Caisse({ db, save, profile }) {
       )}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
           <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{aVerser.dernierVersement ? ` — dernier versement le ${dFR(aVerser.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerser.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerser.montant)}</div></div>
+          {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">ce mois {fmt(verse.ceMois)}{verse.enAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(verse.enAttente)}</span> : null}</div></div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerser.ventes + aVerser.reglements)}</div></div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris)</div><div className="font-bold tabular-nums">− {fmt(aVerser.depenses)}</div></div>
         </div>

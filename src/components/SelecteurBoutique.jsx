@@ -5,7 +5,9 @@
 import { boutiquesVente, boutiquesVisibles, memoriserBoutique } from "../lib/calculs";
 
 // ============ SÉLECTEUR BOUTIQUE ============
-export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false, profile, ecran }) {
+// `extra` : un bouton posé dans la MÊME rangée, après les boutiques (le
+// « RÉSUMÉ » de 🔒 Caisse, Timo 13/09/2026) — jamais une boutique.
+export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerrain = false, profile, ecran, extra = null }) {
   // ⚠ Bug trouvé par Timo (capture Stocks) : avecDepots utilisait db.boutiques
   // SANS filtrer TERRAIN — la boutique virtuelle apparaissait donc dans
   // Stocks (et partout ailleurs utilisant avecDepots), alors qu'elle ne
@@ -33,6 +35,7 @@ export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerr
           className={`px-4 py-1.5 rounded-full text-sm font-bold ${value === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
           style={value === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : b.terrain ? "🚐 " : ""}{b.nom}</button>
       ))}
+      {extra}
     </div>
   );
 }

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1248 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1251 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -649,6 +649,17 @@ lit mal est pire qu'un banc absent).
   libre, jamais imposé à la clôture. Un compte de formation n'a jamais
   « Chez le comptable ». Serveur : `securite-10` (la validation DG = admin
   principal seul, upsert relu).
+- **📊 RÉSUMÉ des caisses, dans 🔒 Caisse — PAS dans le tableau de bord**
+  (13/09/2026 : « ajouter un carré présentant le total versé… dans Caisse à
+  côté des boutiques, un bouton RÉSUMÉ dans lequel on reprend les carrés »,
+  puis « Dans caisse (résumé)… pas dans tableau de bord ») : un carré
+  **« Total versé »** à côté de « Fonds à verser » (rejetés exclus, « ce
+  mois » et « en attente » dessous — `totalVerse`), et le bouton **📊 RÉSUMÉ**
+  dans la rangée des boutiques (`extra` de `BoutiqueTabs`) : une ligne par
+  boutique de l'espace regardé (vente + TERRAIN) avec **les quatre carrés**
+  Fonds à verser / Total versé / Entrées / Sorties, le retard de clôture en
+  rouge, la ligne TOTAL en bas (`resumeCaisses`, lib/versements.js, exercé
+  par le banc). Une lecture, rien d'écrit ; depuis le début, comme le solde.
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,

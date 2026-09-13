@@ -131,6 +131,38 @@ export function fondsAVerser(db, boutique, totalVente) {
   return { montant: ventes + reglements - depenses, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "" };
 }
 
+// ---- Le RÉSUMÉ des caisses (Timo, 13/09/2026) ----
+// « Ajouter un carré présentant le total versé… dans Caisse, à côté des
+// boutiques, un bouton RÉSUMÉ dans lequel on reprend les carrés » : Fonds à
+// verser / Total versé / Entrées / Sorties — dans Caisse, pas dans le
+// tableau de bord (confirmé). Rien n'est écrit : une lecture.
+// Total versé = tous les versements de la boutique, REJETÉS EXCLUS (un
+// versement rejeté est « comme jamais versé »), depuis le début ; ce qui
+// attend encore sa validation (DG, banque, comptable) est dit à part, et
+// le mois en cours aussi.
+export function totalVerse(db, boutique, aujourdhui) {
+  const liste = versementsDe(db, boutique).filter((d) => !estRejete(d));
+  const mois = String(aujourdhui || "").slice(0, 7);
+  const somme = (l) => l.reduce((s, d) => s + Number(d.montant || 0), 0);
+  return {
+    total: somme(liste),
+    enAttente: somme(liste.filter((d) => !validationVersement(db, d))),
+    ceMois: somme(liste.filter((d) => String(d.date).slice(0, 7) === mois)),
+    nb: liste.length,
+  };
+}
+// Une ligne par boutique (les quatre carrés) et la ligne Total en bas.
+export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui) {
+  const lignes = (nomsBoutiques || []).map((boutique) => {
+    const f = fondsAVerser(db, boutique, totalVente);
+    const v = totalVerse(db, boutique, aujourdhui);
+    return { boutique, aVerser: f.montant, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
+  });
+  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
+    { aVerser: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
+  return { lignes, total };
+}
+
 // Les versements que le DG (administrateur principal) doit valider : DG et
 // BANQUE, sans validation, dans les boutiques données.
 export const versementsAValiderParDG = (db, nomsBoutiques) => (db.depenses || [])

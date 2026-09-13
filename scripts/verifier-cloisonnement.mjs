@@ -4920,6 +4920,27 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   // Capture Timo (09/09/2026) : attendu 252 299, versé 202 299 → il doit
   // rester 50 000, pas −150 900 (l'ancien calcul repartait de la date du
   // versement).
+  // Timo (13/09/2026) : « ajouter un carré présentant le total versé… dans
+  // Caisse, un bouton RÉSUMÉ dans lequel on reprend les carrés » — Fonds à
+  // verser / Total versé / Entrées / Sorties. Dans Caisse, PAS dans le tableau de bord.
+  {
+    const dbR = { ...db1, depenses: [...db1.depenses, { ...rb.sortie, boutique: "APESSITO", date: "2026-08-20", montant: 90000 }, { ...rd.sortie, boutique: "APESSITO", date: "2026-09-10", montant: 0, versement_rejete_le: "2026-09-10", versement_rejet_motif: "faux" } /* rejeté = montant à 0, règle du 10/09 */, { ...rc.entree, decaisse_le: "2026-09-06", decaisse_par: "COMPTA" }] };
+    const tvR = Vs.totalVerse(dbR, "APESSITO", "2026-09-13");
+    test("★ totalVerse : rejetés EXCLUS (le 50 000 rejeté ne compte pas), 202 299 (comptable, pointé) + 90 000 (banque, pas encore validé) = 292 299 ; en attente 90 000 ; ce mois (septembre) 202 299 ; 2 versements",
+      tvR.total === 292299 && tvR.enAttente === 90000 && tvR.ceMois === 202299 && tvR.nb === 2 && Vs.totalVerse(dbR, "AUTRE", "2026-09-13").total === 0);
+    const r = Vs.resumeCaisses(dbR, ["APESSITO", "AUTRE"], tv, "2026-09-13");
+    test("★ resumeCaisses : une ligne par boutique avec les quatre carrés, et la ligne Total = somme des lignes",
+      r.lignes.length === 2 && r.lignes[0].boutique === "APESSITO" && r.lignes[0].aVerser === 50000 - 90000 && r.lignes[0].verse === 292299 && r.lignes[0].entrees === 252300 && r.lignes[0].sorties === 202300 + 90000
+      && r.lignes[1].aVerser === 9000 && r.lignes[1].verse === 0 && r.total.aVerser === 50000 - 90000 + 9000 && r.total.verse === 292299 && r.total.entrees === 252300 + 9000 && r.total.verseEnAttente === 90000);
+    const csR = readFileSync("src/screens/Caisse.jsx", "utf8");
+    const dashR = readFileSync("src/screens/Dashboard.jsx", "utf8");
+    test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
+      /const verse = totalVerse\(db, boutique, aujourdhui\);/.test(csR) && /Total versé<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR)
+      && /extra=\{<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>\}/.test(csR) && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui\)/.test(csR)
+      && /\["Fonds à verser", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
+      && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
+      && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8")));
+  }
   test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",
     f.ventes === 251400 && f.reglements === 900 && f.depenses === 202300 && f.montant === 50000 && f.dernierVersement === "2026-09-05"
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 252300 && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).dernierVersement === "");
