@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1230 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1232 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -538,6 +538,15 @@ lit mal est pire qu'un banc absent).
   chantier montre « 🧾 Dépenses rattachées : X ». Aucune commission de
   commercial touchée. Rien à coller dans Supabase (une dépense se modifie
   déjà par tout compte non lecteur ; la répartition reste admin).
+
+### 📤 Dépenses pour les techniciens (13/09/2026)
+- Timo : « ouvrir l'onglet Dépenses au technicien, mais ils ne verront que
+  leurs propres dépenses, pas toutes les dépenses ». Technicien ET technicien
+  BMI ont l'onglet ; l'écran passe par `depensesVisibles` (validationDepenses.js :
+  `par_id`, ou `par` = leur nom pour les anciennes), titre « Mes dépenses ».
+  ⚠ La table des dépenses n'est pas cloisonnée par personne côté serveur :
+  ce filtre est la seule barrière. Le serveur accepte déjà leur écriture
+  (seul le compte en lecture seule est refusé) : rien à coller.
 
 ### 🛠 Travaux à crédit (13/09/2026)
 - Timo : « des chantiers qu'on exécute et au fur et à mesure on fait des

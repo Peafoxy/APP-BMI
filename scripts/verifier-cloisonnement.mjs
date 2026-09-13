@@ -4351,7 +4351,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // au journal — mais PAS à l'écran 💰 Dépenses, dont la liste et le total du
   // mois les comptaient encore. Un écran oublié fait mentir une règle.
   test("★ l'écran 💰 Dépenses lui-même ne compte NI les versements de fonds NI les remboursements de reprise (liste et « Ce mois »), et dit où les retrouver",
-    /const liste = horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\);/.test(dep)
+    // 13/09/2026 : la liste passe en plus par depensesVisibles (un technicien ne voit que les siennes) — horsVersements reste dedans.
+    /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dep)
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
     && /import \{ CATEGORIES, PAIEMENTS, horsVersements, depensesComptees \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
@@ -4359,7 +4360,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep));
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
     (dep.match(/<thead>/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
-    && /vide="Aucune dépense enregistrée\." \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
+    // 13/09/2026 : le texte « vide » de la boutique dépend du rôle (technicien : « Vous n'avez enregistré aucune dépense… »).
+    && /vide=\{mesSeules \? "Vous n'avez enregistré aucune dépense pour cette boutique\." : "Aucune dépense enregistrée\."\} \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
 }
 
 titre("Les appareils du volet solaire : catalogue, abréviations, une faute tolérée, liste qui grandit (Timo, 09/09/2026)");
@@ -6352,6 +6354,28 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
     /l\.produit_id === pid && !l\.deja_sorti/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti\) venduParProduit/.test(calT)
     && /Ces travaux sont soldés/.test(readFileSync("src/lib/depensesChantier.js", "utf8")) && /!travauxSolde\(db, c\)\)/.test(readFileSync("src/lib/depensesChantier.js", "utf8")));
+}
+
+
+titre("📤 Dépenses ouvert aux techniciens : leurs propres dépenses seulement");
+{
+  // Timo (13/09/2026) : « ouvrir l'onglet Dépenses au technicien, mais ils ne
+  // verront que leurs propres dépenses, pas toutes les dépenses ».
+  const sortieVd2 = join("node_modules", ".cache", `bmi-vd-techniciens-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/validationDepenses.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVd2, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vd2 = await import(pathToFileURL(sortieVd2).href);
+  unlinkSync(sortieVd2);
+  const tech = { id: "t1", nom: "KOSSI", role: "technicien" };
+  const liste = [{ id: "a", par_id: "t1", par: "KOSSI" }, { id: "b", par_id: "v1", par: "AMA" }, { id: "c", par: "KOSSI" }, { id: "d", par: "AMA" }];
+  test("★ un technicien (et un technicien BMI) ne voit que les siennes : par_id, ou par nom pour les anciennes ; un vendeur, un gérant, l'admin voient tout",
+    Vd2.depensesVisibles(liste, tech).map((d) => d.id).join(",") === "a,c" && Vd2.depensesVisibles(liste, { ...tech, role: "technicien_bmi" }).map((d) => d.id).join(",") === "a,c"
+    && Vd2.depensesVisibles(liste, { id: "v1", nom: "AMA", role: "vendeur" }).length === 4 && Vd2.depensesVisibles(liste, { id: "x", nom: "TIMO", role: "admin" }).length === 4
+    && Vd2.neVoitQueSesDepenses(tech) && !Vd2.neVoitQueSesDepenses({ role: "gerant" }));
+  const calD = readFileSync("src/lib/calculs.js", "utf8"), appD = readFileSync("src/App.jsx", "utf8"), dpD = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ l'onglet est dans ONGLETS_ROLE pour technicien et technicien_bmi, dans leurs menus d'App (pas dans celui du commercial), et l'écran filtre par depensesVisibles avec le titre « Mes dépenses »",
+    /^  technicien: \[.*"depenses"\],$/m.test(calD) && /^  technicien_bmi: \[.*"depenses"\],$/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
+    && /\.\.\.\(isTechnicien \? \[\["depenses", "📤 Dépenses"\]\] : \[\]\)/.test(appD) && /\["parc", "🏠 Clients installés"\].*\["depenses", "📤 Dépenses"\]\]/.test(appD)
+    && /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

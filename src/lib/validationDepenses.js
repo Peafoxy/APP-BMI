@@ -246,3 +246,13 @@ export function rembourserAvance(db, profile, dep, moyen, aujourdhui, { mois } =
     : [];
   return { depenses, users, messages, journal: `Avance de frais REMBOURSÉE à ${dep.par} : ${fmt(dep.montant)} — ${libelleMoyenRemb(moyen)}${moyen === MOYEN_REMB_SALAIRE ? ` (${mois})` : ""} (${dep.boutique})` };
 }
+
+// Timo (13/09/2026) : « ouvrir l'onglet Dépenses au technicien, mais ils ne
+// verront que leurs propres dépenses, pas toutes les dépenses ». Les deux
+// sortes de techniciens (technicien, technicien BMI). ⚠ La table des
+// dépenses n'est pas cloisonnée par personne côté serveur : ce filtre de
+// l'application est la seule barrière, comme pour les personnes.
+export const ROLES_DEPENSES_PERSONNELLES = ["technicien", "technicien_bmi"];
+export const neVoitQueSesDepenses = (profile) => ROLES_DEPENSES_PERSONNELLES.includes(profile?.role);
+export const estMaDepense = (d, profile) => (!!d?.par_id && d.par_id === profile?.id) || (!d?.par_id && !!d?.par && d.par === profile?.nom);
+export const depensesVisibles = (liste, profile) => (neVoitQueSesDepenses(profile) ? (liste || []).filter((d) => estMaDepense(d, profile)) : (liste || []));
