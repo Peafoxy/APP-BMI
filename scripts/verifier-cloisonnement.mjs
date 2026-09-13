@@ -6247,11 +6247,15 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
     && !("chantier_id" in Dc.rattacherDepense(r, null)) && !("chantier_nom" in Dc.rattacherDepense(r, null)) && Dc.rattacherDepense(r, null).montant === 5000);
   // Les écrans : la forme du geste.
   const dpC = readFileSync("src/screens/Depenses.jsx", "utf8");
-  test("★ écran Dépenses : le champ « Rattacher à un chantier de devis » (chantiersRattachables, « — Aucun — »), la saisie passe par critiqueRattachement puis rattacherDepense, la colonne « Chantier » avec « 🔗 rattacher / modifier » (peutRattacher) et le rattachement après coup par uChoix, revérifié dans le geste",
-    /<Field label="Rattacher à un chantier de devis">/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
+  // Capture Timo (13/09/2026) : « devant Payé avec, avoir la ligne : chantier à
+  // rattacher… pas sur la ligne de dépense » — la ligne est TOUJOURS dans le
+  // formulaire (même sans chantier en cours, elle le dit), et le tableau ne
+  // porte plus de lien « rattacher » : il montre seulement le chantier.
+  test("★ écran Dépenses : la ligne « Chantier à rattacher » TOUJOURS présente à côté de « Payé avec » (chantiersRattachables, « — Aucun — », « Aucun chantier de devis en cours » si vide), la saisie passe par critiqueRattachement puis rattacherDepense, la colonne « Chantier » montre le chantier SANS lien ni rattachement après coup",
+    /<Field label="Chantier à rattacher">/.test(dpC) && !/chantiersOuverts\.length > 0 && \(/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
+    && /Aucun chantier de devis en cours<\/option>/.test(dpC)
     && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const depense = chantierChoisi \? rattacherDepense\(r\.depense, chantierChoisi\) : r\.depense;/.test(dpC)
-    && /onRattacher && peutRattacher\(profile, x\)/.test(dpC) && /const choix = await uChoix\(`Rattacher la dépense/.test(dpC) && (dpC.match(/critiqueRattachement\(db, profile, d, /g) || []).length === 2
-    && /onRattacher=\{rattacherApresCoup\}/.test(dpC));
+    && /🏠 \{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && !/uChoix/.test(dpC));
   const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
     /const depRattachees = chantier \? totalDepensesChantier\(db, chantier\) : 0;/.test(ciC) && /const fraisNet = fraisAPartager\(fraisRep, depRattachees\);/.test(ciC)

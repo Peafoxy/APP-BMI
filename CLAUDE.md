@@ -520,11 +520,14 @@ lit mal est pire qu'un banc absent).
   apparaissent et il rattache ». UNE règle pure, `lib/depensesChantier.js`.
 - **Une dépense rattachée reste une dépense ordinaire** (seuil et validation
   du DG, avance à rembourser, versements exclus…) : elle porte seulement
-  `chantier_id` / `chantier_nom`. Dans 📤 Dépenses : champ « Rattacher à un
-  chantier de devis » à la saisie (« — Aucun — » d'office), colonne
-  « Chantier », « 🔗 rattacher / modifier » après coup (uChoix) — gérant,
-  admin, ou l'auteur de la dépense. Rattachable = chantier de l'espace
-  regardé, **pas réceptionné, frais pas déjà payés** ; revérifié DANS le geste.
+  `chantier_id` / `chantier_nom`. Dans 📤 Dépenses : **la ligne « Chantier à
+  rattacher », TOUJOURS présente à côté de « Payé avec »** (« — Aucun — »
+  d'office ; sans chantier en cours elle le dit) — capture Timo, 13/09/2026 :
+  « devant Payé avec, avoir la ligne : chantier à rattacher… pas sur la ligne
+  de dépense » : **aucun lien sur les lignes du tableau**, la colonne
+  « Chantier » ne fait que montrer (le rattachement après coup a été retiré).
+  Rattachable = chantier de l'espace regardé, **pas réceptionné, frais pas
+  déjà payés** ; revérifié DANS le geste.
 - **La déduction** : dans 🏠 Clients installés, 🔧 Frais → parts des
   techniciens et part BMI calculées sur **frais facturés − dépenses
   rattachées qui COMPTENT** (ni en attente du DG, ni rejetées), jamais
