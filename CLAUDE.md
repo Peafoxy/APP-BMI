@@ -52,13 +52,13 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1239 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1243 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 44  : l'argent dans l'écran Ventes, et sa liste mesurée dans Chromium (clic, logo WhatsApp)
-npm run verifier-ecran-travaux   # 9   : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation)
+npm run verifier-ecran-travaux   # 15  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
@@ -602,6 +602,16 @@ lit mal est pire qu'un banc absent).
   l'espace regardé cochés, un responsable ⭐, parts à 0 — admin (le serveur
   réserve la structure de l'équipe à l'admin / resp. commercial).
   Aucune répartition de frais sur des travaux.
+- **L'article à sortir se choisit en TAPANT son nom** (capture Timo,
+  13/09/2026 : « tous les articles apparaissent… un grand nombre dans lequel
+  il faut chercher son article… saisie libre avec proposition à partir de la
+  première lettre ») : plus de liste déroulante, LE champ commun
+  `ChampSuggestions` avec `propositionsStock` (nom en entier, « N en stock ·
+  prix » dessous, articles de la boutique regardée). Un CLIC lie l'article ;
+  un nom tapé ne lie que s'il est EXACT (`produitSaisi`, sans accents ni
+  majuscules), jamais par ressemblance ; sans article lié, « Sortir du
+  stock » le dit. La ligne HB reste en saisie libre (voulu). Mesuré dans
+  Chromium (« deye » → une seule proposition, clic → ✓ lié).
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

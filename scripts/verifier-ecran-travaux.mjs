@@ -33,7 +33,7 @@ const admin = { id: "adm", nom: "TIMO", role: "admin" };
 const depart = {
   boutiques: [{ nom: "LOME", formation: false }],
   users: [{ ...admin, formation: false }],
-  produits: [{ id: "p1", nom: "Panneau 400W", boutique: "LOME", initial: 10, prix_vente: 100000, prix_achat: 70000 }, { id: "p2", nom: "Batterie", boutique: "LOME", initial: 3, prix_vente: 200000, prix_achat: 150000 }],
+  produits: [{ id: "p1", nom: "Panneau 400W", boutique: "LOME", initial: 10, prix_vente: 100000, prix_achat: 70000 }, { id: "p2", nom: "Batterie", boutique: "LOME", initial: 3, prix_vente: 200000, prix_achat: 150000 }, { id: "p3", nom: "Convertisseur hybride DEYE 6kW", boutique: "LOME", initial: 1, prix_vente: 390000, prix_achat: 300000 }],
   ventes: [], dettes: [], ajustements: [], messages: [],
   depenses: [{ id: "d1", boutique: "LOME", categorie: "Carburant", description: "moto", montant: 8000, paiement: "Espèces", par: "AMA", chantier_id: "t1", date: "2026-09-13" }],
   clients_installes: [{ id: "t1", travaux: true, statut: "travaux", nom: "MENSAH", prenom: "Paul", tel: "90000000", boutique: "LOME", description: "Câblage", date: "2026-09-13", par: "TIMO",
@@ -101,6 +101,36 @@ console.log("\nLe bouton Facturer prépare le panier de 💰 Ventes");
   const t = await texte();
   test("★ « Facturer le client (vers 💰 Ventes) » est proposé à l'admin, avec le total 280 000 F = articles 250 000 F + prestation 30 000 F", /Total à facturer : 280 000 F \(articles 250 000 F \+ prestation 30 000 F\)/.test(t) && /Facturer le client \(vers 💰 Ventes\)/.test(t));
 }
+console.log("\nChoisir l'article à sortir en tapant son nom (capture Timo, 13/09/2026)");
+{
+  // Plus de liste déroulante : on tape « deye », seule la proposition qui
+  // correspond apparaît (nom en entier, stock et prix dessous) ; un clic la
+  // lie ; « Sortir du stock » passe par la confirmation (sans fenêtre ici,
+  // uConfirm ne répond pas) — on mesure la liaison, pas la sortie.
+  test("★ plus aucune liste déroulante « Article du stock » dans l'écran", !(await page.$("select >> text=— Article du stock —")) && (await page.$$eval("select", (l) => l.filter((x) => /Article du stock/.test(x.textContent)).length)) === 0);
+  const champ = await page.$("input[placeholder^='Article du stock']");
+  test("★ le champ « Article du stock : tapez son nom… » est là", !!champ);
+  await champ.click();
+  await champ.type("deye");
+  await attendre(200);
+  const props = propre(await page.evaluate(() => Array.from(document.querySelectorAll("body > div.fixed button")).map((b) => b.innerText).join(" | ")));
+  test("★ « deye » ne propose QUE « Convertisseur hybride DEYE 6kW · 1 en stock · 390 000 F » (ni Panneau, ni Batterie)", /Convertisseur hybride DEYE 6kW 1 en stock · 390 000 F/.test(props) && !/Panneau|Batterie/.test(props), props);
+  const tAvant = await texte();
+  test("★ tant qu'on n'a pas cliqué, rien n'est lié : « Aucun article du stock ne porte exactement ce nom »", /Aucun article du stock ne porte exactement ce nom/.test(tAvant));
+  await page.click("body > div.fixed button >> text=Convertisseur hybride DEYE 6kW");
+  await attendre(150);
+  const tApres = await texte();
+  const saisie = await champ.inputValue();
+  test("★ le clic lie l'article : le champ porte le nom exact, la ligne dit « ✓ 1 en stock · 390 000 F l'unité »", saisie === "Convertisseur hybride DEYE 6kW" && /✓ 1 en stock · 390 000 F l'unité/.test(tApres), saisie + " " + tApres.slice(0, 300));
+  await champ.fill("");
+  await champ.type("panneau 400w");
+  await attendre(150);
+  const tExact = await texte();
+  test("★ un nom tapé en entier (sans majuscules) lie aussi : « panneau 400w » → ✓ 10 en stock", /✓ 10 en stock · 100 000 F l'unité/.test(tExact), tExact.slice(0, 300));
+  await champ.fill("");
+  await page.keyboard.press("Escape");
+}
+
 console.log("\nSupprimer et composer l'équipe (13/09/2026)");
 {
   const t = await texte();

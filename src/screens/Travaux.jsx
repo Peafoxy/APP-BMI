@@ -13,10 +13,11 @@ import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { ChampSuggestions } from "../components/ChampSuggestions";
 import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
-import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe } from "../lib/travaux";
+import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi } from "../lib/travaux";
 
 const ficheVide = { nom: "", prenom: "", tel: "", lieu: "", description: "" };
 const hbVide = { nom: "", qte: "1", pu_achat: "", pu_vente: "" };
@@ -27,7 +28,11 @@ export function Travaux({ db, save, profile, onFacturer }) {
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "travaux" });
   const [f, setF] = useState(ficheVide);
   const [ouverte, setOuverte] = useState(null);
-  const [stockForm, setStockForm] = useState({ produit_id: "", qte: "1" });
+  // saisie = ce qui est tapé dans le champ Article (jamais transformé) ;
+  // produit_id = l'article lié : par un CLIC sur une proposition, ou parce
+  // que le nom tapé correspond exactement à un article de la boutique.
+  const stockVide = { saisie: "", produit_id: "", qte: "1" };
+  const [stockForm, setStockForm] = useState(stockVide);
   const [hb, setHb] = useState(hbVide);
   const [prest, setPrest] = useState(null); // { mode, valeur } en cours d'édition
   const [equipeForm, setEquipeForm] = useState(null); // { id, ids, chef } en cours d'édition
@@ -63,7 +68,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
     if (r.refus) { uAlert(r.refus); return; }
     if (!await uConfirm(`Sortir ${stockForm.qte} × ${p.nom} du stock de ${boutique} pour les travaux de ${c.prenom || ""} ${c.nom} ?\n\nLe stock baisse tout de suite. Facturé ${fmt(p.prix_vente)} l'unité (prix de la boutique).`)) return;
     majFiche(r.fiche, r.journal, { ajustements: [r.ajustement, ...(db.ajustements || [])] });
-    setStockForm({ produit_id: "", qte: "1" });
+    setStockForm(stockVide);
   };
 
   const ajouterHB = (c) => {
@@ -237,10 +242,16 @@ export function Travaux({ db, save, profile, onFacturer }) {
                             <div className="text-xs font-bold text-emerald-800 mb-2">Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)</div>
                             <div className="grid grid-cols-3 gap-2">
                               <div className="col-span-2">
-                                <select className={inputCls} value={stockForm.produit_id} onChange={(e) => setStockForm({ ...stockForm, produit_id: e.target.value })}>
-                                  <option value="">— Article du stock —</option>
-                                  {produits.map((p) => <option key={p.id} value={p.id}>{p.nom} · {stockActuel(db, p)} en stock · {fmt(p.prix_vente)}</option>)}
-                                </select>
+                                <ChampSuggestions className={inputCls} placeholder="Article du stock : tapez son nom…"
+                                  valeur={stockForm.saisie}
+                                  suggestions={propositionsStock(db, produits)}
+                                  onChange={(v) => setStockForm({ ...stockForm, saisie: v, produit_id: produitSaisi(produits, v)?.id || "" })}
+                                  onChoisir={(s) => setStockForm({ ...stockForm, saisie: s.valeur, produit_id: s.produit_id })} />
+                                {stockForm.produit_id ? (
+                                  <div className="text-[11px] text-emerald-700 mt-0.5">✓ {stockActuel(db, produits.find((p) => p.id === stockForm.produit_id))} en stock · {fmt(produits.find((p) => p.id === stockForm.produit_id)?.prix_vente)} l'unité</div>
+                                ) : stockForm.saisie ? (
+                                  <div className="text-[11px] text-orange-600 mt-0.5">Aucun article du stock ne porte exactement ce nom : cliquez une proposition.</div>
+                                ) : null}
                               </div>
                               <input type="number" min="1" className={inputCls} value={stockForm.qte} onChange={(e) => setStockForm({ ...stockForm, qte: e.target.value })} />
                             </div>

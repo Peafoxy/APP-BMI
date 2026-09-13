@@ -27,6 +27,7 @@
 // ============================================================
 import { uid, today, fmt, totalVente } from "./core";
 import { stockActuel, resteAPayer, travauxSolde } from "./calculs";
+import { sansAccents } from "./suggestions";
 import { dansLEspaceRegarde, totalDepensesChantier } from "./depensesChantier";
 
 export const STATUT_TRAVAUX = "travaux";
@@ -68,8 +69,24 @@ export const nouveauTravail = (profile, { nom, prenom, tel, lieu, boutique, desc
 });
 
 // ---- Les articles ----
+// ---- Choisir l'article à sortir : LE champ à suggestions (13/09/2026) ----
+// Capture Timo : « tous les articles apparaissent… un grand nombre dans
+// lequel il faut chercher son article… saisie libre avec proposition à
+// partir de la première lettre ». Plus de liste déroulante : le champ
+// commun (components/ChampSuggestions.jsx) propose les articles de la
+// boutique, nom en entier, stock et prix dessous. Un CLIC lie l'article ;
+// un nom tapé ne le lie que s'il correspond EXACTEMENT (sans accents ni
+// majuscules) — jamais par ressemblance : on ne sort pas un autre câble.
+export const propositionsStock = (db, produits) =>
+  (produits || []).map((p) => ({ cle: p.id, produit_id: p.id, valeur: p.nom, detail: `${stockActuel(db, p)} en stock · ${fmt(p.prix_vente)}` }));
+export const produitSaisi = (produits, saisie) => {
+  const q = sansAccents(saisie);
+  if (!q) return null;
+  return (produits || []).find((p) => sansAccents(p.nom) === q) || null;
+};
+
 export const critiqueArticleStock = (db, produit, qte) => {
-  if (!produit) return "Choisissez un article du stock.";
+  if (!produit) return "Choisissez un article du stock : tapez son nom, puis cliquez la proposition.";
   const q = Number(qte);
   if (!(q > 0)) return "La quantité doit être supérieure à zéro.";
   const dispo = stockActuel(db, produit);

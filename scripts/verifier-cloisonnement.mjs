@@ -6346,6 +6346,18 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /\{jeSuisPrincipal && !vente && \(/.test(tvJ)
     && /refuserSaufRoles\(profile, ROLES_EQUIPE, "Composer l'équipe des travaux"\)/.test(tvJ) && /const equipe = composerEquipe\(techniciens, equipeForm\.ids, equipeForm\.chef\);/.test(tvJ)
     && /const techniciens = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => \["technicien", "technicien_bmi"\]\.includes\(u\.role\) && u\.actif !== false\);/.test(tvJ));
+  // Choisir l'article à sortir en tapant son nom (capture Timo, 13/09/2026 :
+  // « tous les articles apparaissent… saisie libre avec proposition »).
+  const p3 = { id: "p3", nom: "Convertisseur hybride DEYE 6kW", boutique: "LOME", initial: 1, prix_vente: 390000, prix_achat: 300000 };
+  const props = Tv.propositionsStock({ ...dbt, produits: [p1, p3] }, [p1, p3]);
+  test("★ propositionsStock : une proposition par article, nom en entier, « N en stock · prix » dessous, l'id de l'article porté",
+    props.length === 2 && props[1].valeur === "Convertisseur hybride DEYE 6kW" && props[1].produit_id === "p3" && props[1].detail.replace(/[\u202f\u00a0]/g, " ") === "1 en stock · 390 000 F" && props[0].detail.replace(/[\u202f\u00a0]/g, " ") === "3 en stock · 100 000 F");
+  test("★ produitSaisi : lie seulement un nom EXACT (sans accents ni majuscules) — « panneau 400w » oui, « panneau » ou « deye » non, vide non",
+    Tv.produitSaisi([p1, p3], "panneau 400w")?.id === "p1" && Tv.produitSaisi([p1, p3], "Panneau") === null && Tv.produitSaisi([p1, p3], "deye") === null && Tv.produitSaisi([p1, p3], "") === null);
+  test("★ critiqueArticleStock sans article : le message dit de taper le nom puis cliquer la proposition", /tapez son nom, puis cliquez la proposition/.test(Tv.critiqueArticleStock(dbt, null, 1)));
+  test("★ l'écran Travaux : plus de <select> pour l'article du stock — LE champ commun ChampSuggestions (propositionsStock, onChoisir lie, onChange relit produitSaisi)",
+    !/<option value="">— Article du stock —<\/option>/.test(tvJ) && /<ChampSuggestions className=\{inputCls\} placeholder="Article du stock : tapez son nom…"/.test(tvJ)
+    && /suggestions=\{propositionsStock\(db, produits\)\}/.test(tvJ) && /produit_id: produitSaisi\(produits, v\)\?\.id \|\| ""/.test(tvJ) && /onChoisir=\{\(s\) => setStockForm\(\{ \.\.\.stockForm, saisie: s\.valeur, produit_id: s\.produit_id \}\)\}/.test(tvJ));
   test("★ travauxEnCours : la fiche non soldée est dans l'onglet ; soldée, elle n'y est plus ; boutiqueDuChantier lit la boutique de la fiche",
     Tv.travauxEnCours({ ...dbV, clients_installes: [cD], dettes: [{ id: "dt1", montant: 275000, paye: 1 }] }, admin).length === 1
     && Tv.travauxEnCours({ ...dbV, clients_installes: [cF] }, admin).length === 0 && Ca.boutiqueDuChantier(dbV, c0) === "LOME");
