@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1235 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1236 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -547,6 +547,12 @@ lit mal est pire qu'un banc absent).
   ⚠ La table des dépenses n'est pas cloisonnée par personne côté serveur :
   ce filtre est la seule barrière. Le serveur accepte déjà leur écriture
   (seul le compte en lecture seule est refusé) : rien à coller.
+
+### Catégories de dépenses
+- Timo (13/09/2026) : « ajouter Livraison, le manger, le carburant, commande
+  en Chine » → `CATEGORIES` (constants.js) : Livraison, Carburant,
+  Nourriture, Commande en Chine, insérées après Transport ; « Autre » reste
+  en dernier. Le banc le vérifie.
 
 ### 🛠 Travaux à crédit (13/09/2026)
 - Timo : « des chantiers qu'on exécute et au fur et à mesure on fait des

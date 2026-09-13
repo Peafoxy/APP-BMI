@@ -6405,5 +6405,16 @@ titre("« Payé avec » nomme chaque caisse : la boutique qui a sorti l'argent p
     && /C'est la caisse de \$\{choixCaisse\.boutique\} qui a payé/.test(dep3) && /Choisissez cette boutique en haut pour la voir/.test(dep3) && !/PAYE_AVEC\.map/.test(dep3));
 }
 
+
+titre("Les catégories de dépenses demandées par Timo");
+{
+  // Timo (13/09/2026) : « Livraison, le manger, le carburant, commande en Chine ».
+  const cst = readFileSync("src/lib/constants.js", "utf8");
+  const m = cst.match(/export const CATEGORIES = \[([^\]]*)\];/);
+  const cats = m ? m[1].split(",").map((x) => x.trim().replace(/^"|"$/g, "")) : [];
+  test("★ CATEGORIES contient Livraison, Carburant, Nourriture, Commande en Chine, et garde « Autre » en dernier",
+    ["Livraison", "Carburant", "Nourriture", "Commande en Chine"].every((c) => cats.includes(c)) && cats[cats.length - 1] === "Autre" && new Set(cats).size === cats.length);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
