@@ -47,6 +47,34 @@ export const PAYE_AVEC = [
   [PAYE_AVEC_DG, "De l'argent remis par le DG"],
 ];
 export const libellePayeAvec = (code) => (PAYE_AVEC.find(([c]) => c === (code || PAYE_AVEC_CAISSE)) || PAYE_AVEC[0])[1];
+// Capture Timo (13/09/2026) : « préciser les boutiques… il peut recevoir dans
+// une boutique et valider pour une boutique… ajouter nommément les boutiques
+// disponibles lors du choix… même si le haut est BMI DEMAKPOE, il a la
+// possibilité de choisir BMI APESSITO comme boutique qui a sorti l'argent ».
+// Les choix de « Payé avec » nomment donc chaque caisse ; la dépense est
+// alors enregistrée sur la boutique dont la caisse a payé (c'est son tiroir
+// qui a bougé, c'est sa clôture et ses fonds à verser qui doivent le voir).
+export const codeCaisse = (nomBoutique) => `caisse:${nomBoutique}`;
+export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee) => {
+  const noms = [...(nomsBoutiques || [])];
+  const ordonnes = boutiqueRegardee && noms.includes(boutiqueRegardee) ? [boutiqueRegardee, ...noms.filter((n) => n !== boutiqueRegardee)] : noms;
+  return [
+    ...ordonnes.map((n) => [codeCaisse(n), `La caisse de ${n}`]),
+    [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
+    [PAYE_AVEC_DG, "De l'argent remis par le DG"],
+  ];
+};
+// Le choix de l'écran → l'origine des fonds ET la boutique de la dépense.
+export const interpreterPayeAvec = (valeur, boutiqueRegardee) => {
+  const v = String(valeur || "");
+  if (v.startsWith("caisse:")) return { paye_avec: PAYE_AVEC_CAISSE, boutique: v.slice(7) };
+  if (v === PAYE_AVEC_AVANCE || v === PAYE_AVEC_DG) return { paye_avec: v, boutique: boutiqueRegardee };
+  return { paye_avec: PAYE_AVEC_CAISSE, boutique: boutiqueRegardee };
+};
+export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
+  const c = interpreterPayeAvec(valeur, boutiqueRegardee);
+  return c.paye_avec === PAYE_AVEC_CAISSE ? `la caisse de ${c.boutique}` : libellePayeAvec(c.paye_avec).toLowerCase();
+};
 // Une dépense sans `paye_avec` (anciennes lignes, dépenses automatiques :
 // salaires, commissions, CNSS, versements…) vient de la caisse de la boutique.
 export const payeAvecCaisse = (d) => !d?.paye_avec || d.paye_avec === PAYE_AVEC_CAISSE;

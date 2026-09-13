@@ -5491,7 +5491,8 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   // ---- Les écrans ----
   const dpV = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ écran Dépenses : « Payé avec » (les trois origines), la saisie passe par construireDepenseSaisie (plus de fiche écrite à la main), l'avertissement du seuil avant l'envoi, « Ce mois » hors dépenses en attente (et le dit)",
-    /<Field label="Payé avec"><select[^\n]*PAYE_AVEC\.map/.test(dpV) && /const r = construireDepenseSaisie\(db, profile, \{ boutique, \.\.\.f \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
+    // 13/09/2026 (capture Timo) : « Payé avec » nomme chaque caisse (optionsPayeAvec) ; le choix donne origine ET boutique (interpreterPayeAvec).
+    /<Field label="Payé avec"><select[^\n]*optionsPayeAvec\(caissesPossibles, boutique\)\.map/.test(dpV) && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
     && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
   test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
     /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
@@ -6376,6 +6377,32 @@ titre("📤 Dépenses ouvert aux techniciens : leurs propres dépenses seulement
     /^  technicien: \[.*"depenses"\],$/m.test(calD) && /^  technicien_bmi: \[.*"depenses"\],$/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
     && /\.\.\.\(isTechnicien \? \[\["depenses", "📤 Dépenses"\]\] : \[\]\)/.test(appD) && /\["parc", "🏠 Clients installés"\].*\["depenses", "📤 Dépenses"\]\]/.test(appD)
     && /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
+}
+
+
+titre("« Payé avec » nomme chaque caisse : la boutique qui a sorti l'argent porte la dépense");
+{
+  // Capture Timo (13/09/2026) : « il peut recevoir dans une boutique et valider
+  // pour une boutique… ajouter nommément les boutiques disponibles… même si le
+  // haut est BMI DEMAKPOE, il a la possibilité de choisir BMI APESSITO comme
+  // boutique qui a sorti l'argent ».
+  const sortieVd3 = join("node_modules", ".cache", `bmi-vd-caisses-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/validationDepenses.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVd3, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vd3 = await import(pathToFileURL(sortieVd3).href);
+  unlinkSync(sortieVd3);
+  const opts = Vd3.optionsPayeAvec(["BMI APESSITO", "BMI DEMAKPOE", "TERRAIN"], "BMI DEMAKPOE");
+  test("★ optionsPayeAvec : une ligne « La caisse de X » par boutique, la boutique regardée en tête, puis avance personnelle et argent du DG",
+    opts.map(([c]) => c).join("|") === "caisse:BMI DEMAKPOE|caisse:BMI APESSITO|caisse:TERRAIN|avance|dg" && opts[0][1] === "La caisse de BMI DEMAKPOE" && opts[1][1] === "La caisse de BMI APESSITO");
+  test("★ interpreterPayeAvec : « caisse:BMI APESSITO » → caisse ET boutique APESSITO même si le haut montre DEMAKPOE ; avance / DG gardent la boutique regardée ; vide = la caisse de la boutique regardée",
+    JSON.stringify(Vd3.interpreterPayeAvec("caisse:BMI APESSITO", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "caisse", boutique: "BMI APESSITO" })
+    && JSON.stringify(Vd3.interpreterPayeAvec("avance", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "avance", boutique: "BMI DEMAKPOE" })
+    && JSON.stringify(Vd3.interpreterPayeAvec("dg", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "dg", boutique: "BMI DEMAKPOE" })
+    && JSON.stringify(Vd3.interpreterPayeAvec("", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "caisse", boutique: "BMI DEMAKPOE" })
+    && Vd3.libelleChoixPayeAvec("caisse:BMI APESSITO", "BMI DEMAKPOE") === "la caisse de BMI APESSITO");
+  const dep3 = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ l'écran : la liste des caisses vient des boutiques visibles de l'espace regardé, la confirmation nomme la caisse et prévient quand une AUTRE boutique a payé, et le message final dit où retrouver la dépense",
+    /const caissesPossibles = boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\);/.test(dep3) && /const choixCaisse = interpreterPayeAvec\(f\.paye_avec, boutique\);/.test(dep3)
+    && /C'est la caisse de \$\{choixCaisse\.boutique\} qui a payé/.test(dep3) && /Choisissez cette boutique en haut pour la voir/.test(dep3) && !/PAYE_AVEC\.map/.test(dep3));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

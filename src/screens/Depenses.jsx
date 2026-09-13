@@ -10,7 +10,7 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement } from "../lib
 import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -70,7 +70,9 @@ export function Depenses({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "depenses" });
-  const formVide = { categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: PAYE_AVEC_CAISSE, chantier_id: "" };
+  // « Payé avec » nomme chaque caisse (capture Timo, 13/09/2026) ; vide = la caisse de la boutique regardée.
+  const formVide = { categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: "", chantier_id: "" };
+  const caissesPossibles = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
   const chantiersOuverts = chantiersRattachables(db, profile);
   const [f, setF] = useState(formVide);
@@ -80,19 +82,22 @@ export function Depenses({ db, save, profile }) {
   // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.
   const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
-    const r = construireDepenseSaisie(db, profile, { boutique, ...f }, today());
+    const choixCaisse = interpreterPayeAvec(f.paye_avec, boutique);
+    const r = construireDepenseSaisie(db, profile, { ...f, ...choixCaisse }, today());
     if (r.refus) { uAlert(r.refus); return; }
+    const autreBoutique = choixCaisse.boutique !== boutique ? `\n\n🏬 C'est la caisse de ${choixCaisse.boutique} qui a payé : la dépense sera enregistrée sur ${choixCaisse.boutique} (sa clôture et ses fonds à verser la verront), pas sur ${boutique}.` : "";
     const suite = r.aValider && !jeSuisDG ? `\n\n⏳ ${fmt(Number(f.montant))} atteint ${fmt(SEUIL_VALIDATION_DEPENSE)} : cette dépense sera soumise à la validation du DG et ne comptera qu'une fois validée.` : "";
     const chantierChoisi = f.chantier_id ? chantiersOuverts.find((c) => c.id === f.chantier_id) : null;
     if (f.chantier_id && !chantierChoisi) { uAlert("Ce chantier n'est plus rattachable (réceptionné, ou frais déjà payés). Choisissez-en un autre ou laissez « Aucun »."); return; }
     const refusChantier = chantierChoisi ? critiqueRattachement(db, profile, r.depense, chantierChoisi) : null;
     if (refusChantier) { uAlert(refusChantier); return; }
     const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "";
-    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libellePayeAvec(f.paye_avec).toLowerCase()} ?${suite}${rattache}`)) return;
+    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}`)) return;
     const depense = chantierChoisi ? rattacherDepense(r.depense, chantierChoisi) : r.depense;
     save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : ""));
     setF(formVide);
-    if (r.aValider && !jeSuisDG) uAlert("Dépense enregistrée — en attente de validation par le DG.");
+    if (r.aValider && !jeSuisDG) uAlert(`Dépense enregistrée — en attente de validation par le DG.${choixCaisse.boutique !== boutique ? `\n\nElle est rangée sous ${choixCaisse.boutique} : choisissez cette boutique en haut pour la voir.` : ""}`);
+    else if (choixCaisse.boutique !== boutique) uAlert(`Dépense enregistrée sur ${choixCaisse.boutique} (sa caisse a payé). Choisissez cette boutique en haut pour la voir.`);
   };
 
   // ---- LA FILE DU DG (administrateur principal), sur la boutique regardée ----
@@ -201,7 +206,7 @@ export function Depenses({ db, save, profile }) {
           <Field label="Montant (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
           {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
-          <Field label="Payé avec"><select className={inputCls} value={f.paye_avec} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{PAYE_AVEC.map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
+          <Field label="Payé avec"><select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{optionsPayeAvec(caissesPossibles, boutique).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
           {/* Timo (13/09/2026) : « au moment d'enregistrer la dépense, rattacher à
               un devis : les chantiers en cours apparaissent et il rattache » —
               puis, capture : « devant Payé avec, avoir la ligne : chantier à

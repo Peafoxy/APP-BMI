@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1232 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1235 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -654,7 +654,15 @@ lit mal est pire qu'un banc absent).
   `horsVersements` seul). L'écran le dit à côté du « Ce mois ».
 - **L'origine des fonds est demandée à la saisie** (« Payé avec », les trois
   propositions acceptées : « la caisse de la boutique », « une avance
-  personnelle », « de l'argent remis par le DG »). Seule la caisse de la
+  personnelle », « de l'argent remis par le DG »). **« Payé avec » nomme
+  CHAQUE caisse** (capture Timo, 13/09/2026 : « il peut recevoir dans une
+  boutique et valider pour une boutique… même si le haut est BMI DEMAKPOE, il
+  a la possibilité de choisir BMI APESSITO comme boutique qui a sorti
+  l'argent ») : « La caisse de X » pour chaque boutique visible de l'espace
+  regardé, la regardée en tête (`optionsPayeAvec`) ; **la dépense est
+  enregistrée sur la boutique dont la caisse a payé** (`interpreterPayeAvec`
+  → origine + boutique ; sa clôture et ses fonds à verser la voient), la
+  confirmation le dit et le message final dit où la retrouver. Seule la caisse de la
   boutique, en espèces, sort du tiroir ; l'avance et l'argent du DG sont des
   charges qui ne touchent jamais la clôture. Une ligne sans `paye_avec`
   (anciennes, dépenses automatiques) = caisse de la boutique.
