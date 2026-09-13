@@ -666,6 +666,10 @@ lit mal est pire qu'un banc absent).
   **Un clic sur une boutique REFERME le résumé** (13/09/2026, « constat
   amer » : « dès qu'on quitte le résumé pour revenir sur les boutiques,
   l'écran ne se recouvre pas… on voit toujours les données du résumé »).
+  **En mode RÉSUMÉ, aucune pastille de boutique n'est allumée** (capture
+  Timo, 13/09/2026 : « même sur résumé, la boutique est toujours
+  sélectionnée ») : `value={resume ? "" : bq}`, la boutique mémorisée reste
+  en place pour le retour.
   **Une période, sur la même ligne, À DROITE de RÉSUMÉ** (13/09/2026 :
   « ajouter période dans résumé devant résumé, appliquée aussi aux
   boutiques » ; d'abord posée à gauche, Timo : « ramener période devant

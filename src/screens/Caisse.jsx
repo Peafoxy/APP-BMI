@@ -184,7 +184,10 @@ export function Caisse({ db, save, profile }) {
           boutiques, l'écran ne se recouvre pas » — un clic sur une boutique
           REFERME le résumé. Le sélecteur de période est sur la même ligne,
           devant RÉSUMÉ, et vaut pour le résumé ET la boutique regardée. */}
-      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={(nom) => { setBq(nom); setResume(false); }} avecTerrain profile={profile}
+      {/* Capture Timo (13/09/2026) : « même sur résumé, la boutique est toujours
+          sélectionnée » — en mode RÉSUMÉ, aucune pastille de boutique n'est allumée
+          (la boutique mémorisée reste en place pour le retour). */}
+      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={resume ? "" : bq} onChange={(nom) => { setBq(nom); setResume(false); }} avecTerrain profile={profile}
         extra={<>
           <button onClick={() => setResume((r) => !r)} className={`px-4 py-1.5 rounded-full text-sm font-bold border ${resume ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-300 text-slate-600"}`}>📊 RÉSUMÉ</button>
           {/* Capture Timo (13/09/2026) : « avec mention Période, comme c'est fait dans
