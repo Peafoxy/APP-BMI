@@ -122,6 +122,32 @@ export async function creerFilleulEnLigne({ nom, tel, note }) {
 
 const URL_ETAT_AUTH = BASE ? `${BASE}/api/etat-auth` : "/api/etat-auth";
 
+// ---- Notifications (13/09/2026) — deux appels, même façon de faire que le
+// parrainage : le jeton de session part dans le corps, le serveur vérifie.
+const URL_ABONNER_PUSH = BASE ? `${BASE}/api/abonner-push` : "/api/abonner-push";
+const URL_NOTIFIER = BASE ? `${BASE}/api/notifier` : "/api/notifier";
+
+async function appelAvecJeton(urlFonction, corps) {
+  if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return { error: "Hors ligne." };
+  try {
+    const { data } = await supabase.auth.getSession();
+    const jeton = data?.session?.access_token;
+    if (!jeton) return { error: "Pas de session sécurisée." };
+    const reponse = await fetch(urlFonction, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jeton, ...corps }),
+    });
+    const resultat = await reponse.json().catch(() => ({}));
+    if (!reponse.ok) return { error: resultat?.error || `Le serveur a répondu ${reponse.status}.`, statut: reponse.status };
+    return resultat;
+  } catch (e) {
+    return { error: `Serveur injoignable : ${e?.message || e}`, reseau: true };
+  }
+}
+export const abonnerPushEnLigne = ({ abonnement, appareil, retirer = false }) => appelAvecJeton(URL_ABONNER_PUSH, { abonnement, appareil, retirer });
+export const notifierEnLigne = (envois) => appelAvecJeton(URL_NOTIFIER, { envois });
+
 // Identifiants de la session en cours, gardés EN MÉMOIRE uniquement (jamais
 // écrits sur le disque) : ils servent à rétablir la session si elle expire
 // pendant que l'application est ouverte.

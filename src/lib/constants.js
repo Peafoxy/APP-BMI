@@ -67,7 +67,14 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.196";
+export const VERSION = "2.101.197";
+
+// ---- Notifications (13/09/2026) ----
+// La clé PUBLIQUE des notifications : le téléphone n'accepte que les
+// notifications signées par la clé PRIVÉE correspondante, qui n'existe que
+// sur le serveur (variable Vercel VAPID_PRIVATE_KEY — jamais ici, jamais
+// VITE_). Vide = notifications désactivées, rien d'autre ne change.
+export const CLE_PUBLIQUE_PUSH = "BGIvpFrckW8n4hs5eIT-fIX6J33Jk8MxpRIejj6E9B65SJ_60-28hFEd6GbzrezjUPdI572xxW87arl8ATGWTyQ";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
 // Timo (13/09/2026) : « ajouter Livraison, le manger, le carburant, commande en Chine ».

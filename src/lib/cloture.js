@@ -19,10 +19,10 @@
 // d'avant la mise en place ne bloquent personne.
 // ============================================================
 
-import { CATEGORIE_VERSEMENT } from "./versements";
+import { CATEGORIE_VERSEMENT } from "./versements.js";
 // Timo (12/09/2026) : une dépense en attente de validation ne compte pas dans
 // le tiroir ; une avance personnelle ou l'argent du DG n'en sortent jamais.
-import { compteDansLaCaisse } from "./validationDepenses";
+import { compteDansLaCaisse } from "./validationDepenses.js";
 
 export const DEBUT_REGLE_CLOTURE = "2026-09-09";
 

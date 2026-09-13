@@ -30,8 +30,8 @@
 //
 // UNE règle, pure (le banc l'exerce). Serveur : securite-15.
 // ============================================================
-import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core";
-import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees } from "./constants";
+import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
+import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
 

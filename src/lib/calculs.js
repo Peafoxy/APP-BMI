@@ -16,6 +16,7 @@ import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois 
 // (voir CLAUDE.md) a été touché une TROISIÈME fois ici, le 29/08/2026 :
 // compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
 import { chiffresTel, memeNumero, numeroComparable } from "./identiteClient";
+import { estCompteFormation as estCompteFormationRegle } from "./espace";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -92,15 +93,10 @@ export const estBoutiqueFormation = (db, nom) => !!(db.boutiques || []).find((b)
 //
 // Les comptes sans boutique (admin, commercial, technicien, responsable
 // commercial, comptable, client) n'ont que le drapeau : il fait foi.
-export const estCompteFormation = (db, profile) => {
-  if (!profile) return false;
-  const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
-  if (moi.boutique) {
-    const b = (db.boutiques || []).find((x) => x.nom === moi.boutique);
-    if (b) return !!b.formation;
-  }
-  return !!moi.formation;
-};
+// ⚠ Depuis les notifications (13/09/2026), la règle vit dans lib/espace.js
+// (lu aussi par le serveur, qui ne peut pas importer ce fichier) : on
+// l'importe ET on la réexporte — jamais une copie.
+export const estCompteFormation = estCompteFormationRegle;
 
 // Les comptes dont le drapeau et la boutique se contredisent — héritage de
 // la 2.100.24. Ils ne sont pas en panne (voir ci-dessus), mais leur
@@ -128,6 +124,36 @@ export const estCompteFormation = (db, profile) => {
 //
 // La règle est la même que partout : la BOUTIQUE d'un compte prime sur son
 // drapeau (estCompteFormation), et l'espace regardé décide.
+// ---- Qui voit le fil « support » d'un client (💬 Messages) ----
+// Venu de screens/Messagerie.jsx (13/09/2026) : la règle sert aussi aux
+// notifications. L'admin toujours ; le technicien s'il est dans l'ÉQUIPE du
+// chantier ; le commercial s'il en est l'apporteur (ou chef d'équipe d'une
+// recrue apporteuse) ; le client lui-même.
+export function peutVoirFilClient(moi, clientId, db) {
+  if (moi.role === "admin") return true;
+  const fiche = (db.clients_installes || []).find((c) => c.user_id === clientId);
+  // ⚠ Audit du 29/08/2026 : TOUT technicien et TOUT chef d'équipe lisaient
+  // les fils de TOUS les clients — noms, adresses, litiges. Or un technicien
+  // intervient sur SES chantiers, pas sur tous. La restriction existait déjà
+  // pour les commerciaux ; elle vaut désormais pour chacun selon son rôle
+  // réel : le technicien s'il est dans l'ÉQUIPE du chantier, le commercial
+  // s'il en est l'apporteur, le chef d'équipe si l'apporteur est une de ses
+  // recrues.
+  if (moi.role === "technicien" || moi.role === "technicien_bmi") {
+    return !!fiche && ((fiche.equipe || []).some((e) => e.user_id === moi.id) || fiche.commercial === moi.nom);
+  }
+  if (moi.role === "commercial") {
+    if (!fiche) return false;
+    if (fiche.commercial === moi.nom) return true;
+    if (moi.chef_equipe) {
+      const recrues = (db.users || []).filter((u) => u.parrain_id === moi.id).map((u) => u.nom);
+      return recrues.includes(fiche.commercial);
+    }
+    return false;
+  }
+  return moi.id === clientId; // le client lui-même
+}
+
 export const utilisateursDeLEspace = (db, profile, liste) => {
   const espace = espaceDuCompte(db, profile);
   return (liste || db.users || []).filter((u) => estCompteFormation(db, u) === espace);

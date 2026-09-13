@@ -6,7 +6,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { telDigits, uid, definirMotDePasse, hacherFort, today, dFR, envoyerWhatsApp, nouveauMessage } from "./core";
+import { telDigits, uid, definirMotDePasse, hacherFort, today, dFR, envoyerWhatsApp, nouveauMessage } from "./core.js";
 
 // Adresse publique de l'application, envoyée au client par WhatsApp.
 export const ADRESSE_APP = "https://gestion.bmitogo.com";
@@ -32,7 +32,7 @@ export const ADRESSE_APP = "https://gestion.bmitogo.com";
 // le réexport. « export { x } from "y" » ne crée AUCUNE variable locale : les
 // fonctions de ce fichier appelaient alors un motDePasseClient inexistant, et
 // la création d'un compte client plantait. Le banc de parrainage l'a vu.
-import { chiffresTel, lettresNom, motDePasseClient } from "./identiteClient";
+import { chiffresTel, lettresNom, motDePasseClient } from "./identiteClient.js";
 export { chiffresTel, lettresNom, motDePasseClient };
 
 // Choisit un mot de passe qui n'entre en conflit avec AUCUN compte existant.

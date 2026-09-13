@@ -6,37 +6,18 @@ import { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
-import { utilisateursDeLEspace, refuserSaufAdmin } from "../lib/calculs";
+import { utilisateursDeLEspace, refuserSaufAdmin, peutVoirFilClient } from "../lib/calculs";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
 // - Fil « Support » par client : le client écrit, et l'admin, les techniciens,
 //   les chefs d'équipe et le commercial rattaché à sa fiche voient et répondent
 // - Un client autorisé par l'admin (chat_libre) peut aussi discuter en 1-à-1
-export function peutVoirFilClient(moi, clientId, db) {
-  if (moi.role === "admin") return true;
-  const fiche = (db.clients_installes || []).find((c) => c.user_id === clientId);
-  // ⚠ Audit du 29/08/2026 : TOUT technicien et TOUT chef d'équipe lisaient
-  // les fils de TOUS les clients — noms, adresses, litiges. Or un technicien
-  // intervient sur SES chantiers, pas sur tous. La restriction existait déjà
-  // pour les commerciaux ; elle vaut désormais pour chacun selon son rôle
-  // réel : le technicien s'il est dans l'ÉQUIPE du chantier, le commercial
-  // s'il en est l'apporteur, le chef d'équipe si l'apporteur est une de ses
-  // recrues.
-  if (moi.role === "technicien" || moi.role === "technicien_bmi") {
-    return !!fiche && ((fiche.equipe || []).some((e) => e.user_id === moi.id) || fiche.commercial === moi.nom);
-  }
-  if (moi.role === "commercial") {
-    if (!fiche) return false;
-    if (fiche.commercial === moi.nom) return true;
-    if (moi.chef_equipe) {
-      const recrues = (db.users || []).filter((u) => u.parrain_id === moi.id).map((u) => u.nom);
-      return recrues.includes(fiche.commercial);
-    }
-    return false;
-  }
-  return moi.id === clientId; // le client lui-même
-}
+// ⚠ La règle « qui voit le fil d'un client » vit dans lib/calculs.js depuis
+// les notifications (13/09/2026) : lib/notifications.js en a besoin pour
+// savoir qui prévenir quand un client écrit. Importée ET réexportée ici
+// (App.jsx l'importe d'ici) — jamais une copie.
+export { peutVoirFilClient };
 
 // Libellé du rôle affiché dans les listes de contacts / membres
 function libelleRole(role) {

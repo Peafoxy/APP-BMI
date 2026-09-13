@@ -3138,12 +3138,16 @@ titre("Les sept petits defauts de l'audit, fermes le 29/08/2026");
   test("★ regler PLUS que le reste du a un fournisseur est refuse",
     /if \(m > resteDu\) \{/.test(fo) && /ajoutez d'abord la dette/.test(fo));
 
-  // 6. La Messagerie : chacun ses chantiers.
+  // 6. La Messagerie : chacun ses chantiers. Depuis les notifications
+  // (13/09/2026), la règle peutVoirFilClient vit dans lib/calculs.js et
+  // Messagerie.jsx l'importe ET la réexporte (App.jsx la lit d'elle).
+  const fil = readFileSync("src/lib/calculs.js", "utf8");
   test("★ un technicien ne lit que les fils de SES chantiers",
-    /\(fiche\.equipe \|\| \[\]\)\.some\(\(e\) => e\.user_id === moi\.id\)/.test(msg)
-    && !/moi\.role === "admin" \|\| moi\.role === "technicien"/.test(msg));
+    /\(fiche\.equipe \|\| \[\]\)\.some\(\(e\) => e\.user_id === moi\.id\)/.test(fil)
+    && !/moi\.role === "admin" \|\| moi\.role === "technicien"/.test(fil)
+    && !/function peutVoirFilClient/.test(msg) && /peutVoirFilClient \} from "\.\.\/lib\/calculs";/.test(msg) && /export \{ peutVoirFilClient \};/.test(msg));
   test("un chef d'equipe ne lit que les fils de ses RECRUES",
-    /recrues\.includes\(fiche\.commercial\)/.test(msg));
+    /recrues\.includes\(fiche\.commercial\)/.test(fil));
 
   // 7. La formule Excel — mesuree sur la fonction exacte.
   const desamorcer = (x) => (typeof x === "string" && /^[=+\-@\t\r]/.test(x) ? `'${x}` : x);
@@ -3698,7 +3702,7 @@ titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prosp
   // restreindre les admins, mots de passe en clair. MonEquipe : plus aucune (09/09/2026, les deux
   // listes passent par utilisateursDeLEspace). Parametres : sécurité (comptes auth), réinitialisation formation ×2.
   const permis = { "Utilisateurs.jsx": 6, "Commandes.jsx": 1, "Clients.jsx": 1, "EspaceClient.jsx": 1, "Parametres.jsx": 3,
-    "ClientsInstalles.jsx": 1, "Messagerie.jsx": 1, "MonEquipe.jsx": 0, "Salaires.jsx": 0, "Prospects.jsx": 0 };
+    "ClientsInstalles.jsx": 1, "Messagerie.jsx": 0, "MonEquipe.jsx": 0, "Salaires.jsx": 0, "Prospects.jsx": 0 };
   const brut = /(?:db\.users|\(db\.users \|\| \[\]\))\.filter\(/g;
   for (const [f, n] of Object.entries(permis)) {
     const trouve = (lit(`src/screens/${f}`).match(brut) || []).length;
@@ -4148,7 +4152,8 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     ["src/screens/EspaceClient.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
   ]) {
     const src = readFileSync(f, "utf8");
-    test(`★ ${f} passe par ${fn} de lib/core.js`, new RegExp(`import \\{[^}]*\\b${fn}\\b[^}]*\\} from "(\\.\\./)*(\\./)?(lib/)?core"`).test(src) && src.includes(`${fn}(`));
+    // (13/09/2026 : lib/comptesClients.js écrit « ./core.js » — la chaîne lue par le serveur des notifications exige l'extension.)
+    test(`★ ${f} passe par ${fn} de lib/core.js`, new RegExp(`import \\{[^}]*\\b${fn}\\b[^}]*\\} from "(\\.\\./)*(\\./)?(lib/)?core(\\.js)?"`).test(src) && src.includes(`${fn}(`));
   }
   test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
     (readFileSync("src/lib/comptesClients.js", "utf8").match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length === 4);
@@ -4662,9 +4667,13 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
   test("★ sans mot de passe connu, le message renvoie à « celui qui vous a été communiqué » ; sans vendeur, signature BMI TOGO seule",
     /celui qui vous a été communiqué/.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })) && /^BMI TOGO — Les bâtiments/m.test(Cli.texteRelanceDevis({ devis: base, compte, motDePasse: null })));
   const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
-  test("★ Tous les devis : seuil 15 jours, comptés depuis la DERNIÈRE relance (relance_le) sinon depuis le devis ; proposé et validé seulement (devisRelancable)",
-    /const SEUIL_RELANCE_JOURS = 15;/.test(tld) && /const joursSansReponse = \(d\) => joursDepuis\(d\.relance_le \|\| d\.date\);/.test(tld)
-    && /const enAttenteDeRelance = \(d\) => devisRelancable\(d\) && joursSansReponse\(d\) >= SEUIL_RELANCE_JOURS;/.test(tld));
+  // 13/09/2026 : la règle vit dans lib/rappels.js (la tournée du matin des
+  // notifications la lit aussi) ; l'écran l'importe, plus de seuil maison.
+  const rappels = readFileSync("src/lib/rappels.js", "utf8");
+  test("★ Tous les devis : seuil 15 jours, comptés depuis la DERNIÈRE relance (relance_le) sinon depuis le devis ; proposé et validé seulement (devisRelancable) — UNE règle, lib/rappels.js",
+    /export const SEUIL_RELANCE_JOURS = 15;/.test(rappels) && /export const joursSansReponse = \(devis, aujourdhui\) => joursEntre\(devis\.relance_le \|\| devis\.date, aujourdhui\);/.test(rappels)
+    && /export const devisARelancer = \(devis, aujourdhui\) => devisRelancable\(devis\) && joursSansReponse\(devis, aujourdhui\) >= SEUIL_RELANCE_JOURS;/.test(rappels)
+    && /const enAttenteDeRelance = \(d\) => devisARelancer\(d, today\(\)\);/.test(tld) && !/const SEUIL_RELANCE_JOURS = 15;/.test(tld) && !/function joursDepuis/.test(tld));
   test("★ le bouton 📲 Relancer sur WhatsApp passe par envoyerWhatsApp (lib/core, jamais wa.me), avec le mot de passe recalculé (motDePasseConnu) et le nom du vendeur ; la date, l'auteur et le nombre de relances sont notés sur le devis",
     /texteRelanceDevis\(\{ devis: d, compte: d\.client, motDePasse: motDePasseConnu\(d\.client\), vendeur: profile\.nom, formaterMontant: fmt \}\)/.test(tld)
     && /await envoyerWhatsApp\(d\.client\.tel, texte, uConfirm\)/.test(tld) && !/wa\.me/.test(tld)
@@ -5130,7 +5139,7 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
   test("★ la catégorie vit dans constants.js, réexportée par lib/versements.js (importée ET réexportée) ; horsVersements retire la sortie de la boutique ET l'entrée miroir, garde le reste, accepte une liste absente",
     K.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.horsVersements(deps).length === 1
     && K.horsVersements(deps).length === 1 && K.horsVersements(deps)[0].montant === 1 && K.horsVersements(undefined).length === 0
-    && /import \{ CATEGORIE_VERSEMENT, horsVersements \} from "\.\/constants";\n[^]*?export \{ CATEGORIE_VERSEMENT, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
+    && /import \{ CATEGORIE_VERSEMENT, horsVersements \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
   const dbJ = { ...base(), ventes: [], dettes: [],
     depenses: [{ id: "j1", boutique: "APESSITO", montant: 252299, date: "2026-09-10", categorie: "Versement de fonds", paiement: "Espèces", versement: { destination: "Chez le DG" } },
                { id: "j2", boutique: "APESSITO", montant: 1, date: "2026-09-10", categorie: "Transport", paiement: "Espèces" }] };
@@ -5538,7 +5547,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   const jC = Cl2.activiteDuJour(dbC, "APESSITO", "2026-09-12", tv);
   test("★ la clôture (activiteDuJour, soldeEspecesFinDeJour) ne déduit que ce qui compte dans la caisse : 100 000 − 2 000 = 98 000 attendus dans le tiroir — la dépense en attente (7 000), l'avance (3 000), l'argent du DG (1 000) et le Flooz n'y sont pas",
     jC.theorique === 98000 && jC.especesDepenses === 2000 && jC.sortiesJustifiees === 2000 && Cl2.soldeEspecesFinDeJour(dbC, "APESSITO", "2026-09-12", tv) === 98000
-    && /import \{ compteDansLaCaisse \} from "\.\/validationDepenses";/.test(readFileSync("src/lib/cloture.js", "utf8")) && !/x\.paiement === "Espèces" && String\(x\.date\) <= d0/.test(readFileSync("src/lib/cloture.js", "utf8")));
+    && /import \{ compteDansLaCaisse \} from "\.\/validationDepenses\.js";/.test(readFileSync("src/lib/cloture.js", "utf8")) && !/x\.paiement === "Espèces" && String\(x\.date\) <= d0/.test(readFileSync("src/lib/cloture.js", "utf8")));
   test("★ les fonds à verser (lib/versements.js) suivent la même règle : 98 000",
     Vs2.fondsAVerser(dbC, "APESSITO", tv).montant === 98000 && Vs2.fondsAVerser(dbC, "APESSITO", tv).depenses === 2000
     && /compteDansLaCaisse\(x\)/.test(readFileSync("src/lib/versements.js", "utf8")));
@@ -6588,6 +6597,18 @@ titre("Les catégories de dépenses demandées par Timo");
   const cats = m ? m[1].split(",").map((x) => x.trim().replace(/^"|"$/g, "")) : [];
   test("★ CATEGORIES contient Livraison, Carburant, Nourriture, Commande en Chine, et garde « Autre » en dernier",
     ["Livraison", "Carburant", "Nourriture", "Commande en Chine"].every((c) => cats.includes(c)) && cats[cats.length - 1] === "Autre" && new Set(cats).size === cats.length);
+}
+
+titre("Les notifications respectent le mur (13/09/2026) — le détail est dans tester-notifications");
+{
+  // Qui reçoit une notification se décide UNIQUEMENT par les briques de
+  // lib/espace.js (personnesDeLEspace, idsDeLaBoutique, idsParRole,
+  // idsAdmins) : jamais un db.users.filter maison dans les deux règles.
+  const notif = readFileSync("src/lib/notifications.js", "utf8"), rap = readFileSync("src/lib/rappels.js", "utf8");
+  test("★ lib/notifications.js et lib/rappels.js ne filtrent jamais db.users eux-mêmes : les destinataires viennent de lib/espace.js (le mur formation / réel, et l'admin principal marqué 🎓)",
+    !/(?:db|apres|avant)\.users(?: \|\| \[\])?\)?\.filter\(/.test(notif) && !/(?:db|apres|avant)\.users(?: \|\| \[\])?\)?\.filter\(/.test(rap)
+    && /from "\.\/espace"/.test(notif) && /from "\.\/espace\.js"/.test(rap));
+  test("★ le banc des notifications existe et fait partie des envois (package.json)", /"tester-notifications": "node scripts\/tester-notifications\.mjs"/.test(readFileSync("package.json", "utf8")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

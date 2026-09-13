@@ -9,6 +9,7 @@ import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { Field, inputCls } from "../components/ui";
 import { souhaitsDuJour } from "../lib/calculs";
 import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
+import { demanderPermissionPush } from "../push";
 import { enregistrerCompteLocal, oublierCompteLocal } from "../db";
 import { fondCarteVerrou, texteClairSur, COULEUR_CARTE_VERROU_DEFAUT } from "../lib/verrou";
 
@@ -20,6 +21,10 @@ export function Login({ db, apparence, onLogin, save }) {
   const [err, setErr] = useState("");
   const [connexionEnCours, setConnexionEnCours] = useState(false);
   const go = async () => {
+    // Notifications (13/09/2026) : la question « Autoriser ? » du téléphone
+    // ne peut se poser que DANS un geste de l'utilisateur — c'est celui-ci,
+    // une seule fois par appareil. Sans attendre la réponse.
+    demanderPermissionPush();
     const saisie = nomSaisi.trim().toLowerCase();
     if (!saisie) { setErr("Entrez votre nom d'utilisateur."); return; }
     let u = db.users.find((x) => x.nom.trim().toLowerCase() === saisie);

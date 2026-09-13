@@ -10,6 +10,7 @@ import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
+import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
@@ -38,17 +39,12 @@ const BadgeStatutDevis = ({ statut }) => {
   return <span className={`text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${cls}`}>{label}</span>;
 };
 
-// Nombre de jours écoulés depuis la date du devis (chaîne "AAAA-MM-JJ").
-function joursDepuis(dateStr) {
-  const t = Date.parse(dateStr);
-  if (Number.isNaN(t)) return 0;
-  return Math.floor((Date.now() - t) / 86400000);
-}
 // ⚠ Timo (09/09/2026) : « Lance, seuil 15 jours. » Les jours se comptent
 // depuis la DERNIÈRE relance (relance_le) quand il y en a eu une, sinon
-// depuis la date du devis — un devis relancé hier ne ressort pas.
-const SEUIL_RELANCE_JOURS = 15;
-const joursSansReponse = (d) => joursDepuis(d.relance_le || d.date);
+// depuis la date du devis — un devis relancé hier ne ressort pas. La règle
+// vit dans lib/rappels.js (la tournée du matin des notifications la lit
+// aussi) : ici on la lit, jamais une copie.
+const joursSansReponse = (d) => joursSansReponseDepuis(d, today());
 
 // ⚠ Demande Timo : la liste est classée par STATUT (proposé → validé → payé →
 // modification demandée → rejeté), et à l'intérieur d'un même statut, du plus
@@ -140,7 +136,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // relancent ; « payé ne doit plus être relancé » — ni rejeté, ni
   // modification demandée (là, c'est au vendeur de répondre). La règle du
   // message est dans lib/comptesClients.js (texteRelanceDevis).
-  const enAttenteDeRelance = (d) => devisRelancable(d) && joursSansReponse(d) >= SEUIL_RELANCE_JOURS;
+  const enAttenteDeRelance = (d) => devisARelancer(d, today());
   const nbARelancer = tousDevis.filter(enAttenteDeRelance).length;
 
   // 📲 Relancer : UN clic, le message est déjà écrit selon le statut ; la

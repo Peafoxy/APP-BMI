@@ -10,6 +10,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, useP
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
@@ -203,8 +204,9 @@ export function Dettes({ db, save, profile }) {
   const statut = (d) => (d.montant - d.paye <= 0 ? "Payée" : d.paye > 0 ? "Partielle" : "En cours");
 
   const dettesEnRetard = liste.filter(d => {
-    const jours = (new Date(today()) - new Date(d.date)) / (1000 * 60 * 60 * 24);
-    return jours > 30 && d.montant - d.paye > 0;
+    // UNE règle (lib/rappels.js) : la tournée du matin des notifications
+    // la lit aussi — jamais une copie ici.
+    return detteEnRetard(d, today());
   });
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
@@ -297,7 +299,7 @@ export function Dettes({ db, save, profile }) {
       {dettesEnRetard.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <span className="text-sm font-semibold text-red-700">
-            ⚠ {dettesEnRetard.length} dette(s) de plus de 30 jours à relancer
+            ⚠ {dettesEnRetard.length} dette(s) de plus de {RETARD_DETTE_JOURS} jours à relancer
           </span>
         </div>
       )}
@@ -342,8 +344,8 @@ export function Dettes({ db, save, profile }) {
             {liste.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucune dette enregistrée.</td></tr>}
             {listePage.map((d, i) => {
               const st = statut(d);
-              const jours = Math.floor((new Date(today()) - new Date(d.date)) / (1000 * 60 * 60 * 24));
-              const estRetard = jours > 30 && d.montant - d.paye > 0;
+              const jours = joursDeDette(d, today());
+              const estRetard = detteEnRetard(d, today());
               const reste = Math.max(0, d.montant - d.paye);
               const lignes = lignesDette(d);
               return (

@@ -63,6 +63,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
+        // 13/09/2026 : les notifications. Le service worker généré charge
+        // public/push-sw.js (réception d'une notification, clic dessus) —
+        // le seul endroit qui affiche une notification.
+        importScripts: ["push-sw.js"],
         maximumFileSizeToCacheInBytes: 5000000,
         // ⚠ Les images du fond de carte (tuiles OpenStreetMap) sont gardées
         // en réserve après leur premier affichage : les endroits déjà vus

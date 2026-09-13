@@ -76,6 +76,10 @@ import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reiniti
 import { planAbandon, resumeAbandon } from "./lib/abandonLot";
 import { idb } from "./db";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
+// Notifications (13/09/2026) : ce qui part est décidé par lib/notifications.js
+// à chaque save (un seul appel) ; src/push.js parle à l'appareil et au serveur.
+import { envoisDepuisSave } from "./lib/notifications";
+import { enregistrerAppareil, oublierAppareil, envoyerPush, viderFilePush } from "./push";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
@@ -158,6 +162,22 @@ export default function App() {
   // rien alourdir chez qui n'utilise pas tel ou tel écran.
   const [ongletsVisites, setOngletsVisites] = useState({});
   useEffect(() => { setOngletsVisites((v) => (v[tab] ? v : { ...v, [tab]: true })); }, [tab]);
+  // Notifications (13/09/2026) : un clic sur une notification ouvre l'écran
+  // qu'elle vise — par l'adresse (?ecran=…) quand l'application était
+  // fermée, par un message du service worker quand elle était ouverte.
+  // L'écran doit être un onglet DU RÔLE, sinon rien ne bouge.
+  useEffect(() => {
+    if (!profile) return undefined;
+    const ouvrir = (ecran) => { if (ecran && (ONGLETS_ROLE[profile.role] || []).includes(ecran)) setTab(ecran); };
+    try {
+      const ecran = new URLSearchParams(window.location.search).get("ecran");
+      if (ecran) { ouvrir(ecran); window.history.replaceState({}, "", window.location.pathname); }
+    } catch {}
+    if (!("serviceWorker" in navigator)) return undefined;
+    const ecouteur = (e) => { if (e.data && e.data.type === "ouvrir-ecran") ouvrir(e.data.ecran); };
+    navigator.serviceWorker.addEventListener("message", ecouteur);
+    return () => navigator.serviceWorker.removeEventListener("message", ecouteur);
+  }, [profile]);
   // Barre(s) d'onglets défilantes (mobile horizontale, barre latérale
   // desktop) : après une actualisation de la page, l'onglet retrouvé (voir
   // tabDeDepart) peut être hors du cadre visible — la barre reste à son
@@ -472,6 +492,9 @@ export default function App() {
           if (u && u.actif !== false && !doitDeconnecter(ts, Date.now())) {
             setProfile(u);
             if (etaitVerrouillee || doitVerrouiller(ts, Date.now(), UA)) verrouiller();
+            // Notifications : l'appareil reste rattaché à la personne (un
+            // abonnement peut changer), et la file d'envois repart.
+            enregistrerAppareil(u).then(() => viderFilePush()).catch(() => {});
             // ⚠ C'est ICI que se joue la demande : après un F5 ou une
             // nouvelle version, on remet le compte dans l'espace qu'il
             // regardait, au lieu de le ramener au réel.
@@ -703,6 +726,10 @@ export default function App() {
       ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", user_id: profile?.id || null, action, ...marqueEspace(next, profile) }, ...(next.audits || [])] }
       : next;
     setDb(final);
+    // Notifications : LE seul endroit qui décide d'un envoi — comparaison de
+    // l'état avant / après (messages nouveaux, et la liste « pour
+    // information »). Ne fait jamais échouer un enregistrement.
+    try { envoyerPush(envoisDepuisSave(prev, final, profile)); } catch {}
     setSaveStatus("saving");
     try {
       // ⚠ Qui écrit ? C'est ce qui décide des fiches de PAIE que cet appareil
@@ -841,6 +868,9 @@ export default function App() {
     // autorité, et on évite deux vérités contradictoires dans le même code.
     restaurerEspaceRegarde(u.id);
     try { localStorage.setItem("bmi_session", JSON.stringify({ id: u.id, ts: Date.now() })); } catch {}
+    // Notifications : cet appareil est désormais celui de `u` (la session
+    // sécurisée vient d'être établie par l'écran de connexion).
+    enregistrerAppareil(u).then(() => viderFilePush()).catch(() => {});
     (async () => {
       // MIROIR : à chaque connexion avec réseau, retéléchargement complet du
       // serveur (curseurs à 1970) PUIS réconciliation — toute ligne locale
@@ -894,6 +924,10 @@ export default function App() {
     // Pas de purge : les données locales restent le cache de travail hors
     // ligne. Leur exactitude est garantie par le miroir à chaque connexion
     // avec réseau — plus par l'effacement.
+    // Notifications : l'appareil est DÉTACHÉ de la personne AVANT la fin de
+    // la session (il faut le jeton) — un téléphone partagé ne vibre jamais
+    // pour l'ancien occupant.
+    try { await oublierAppareil(); } catch {}
     setProfile(null);
     // Fin de session : le réglage meurt avec elle (voir
     // terminerEspaceRegarde).

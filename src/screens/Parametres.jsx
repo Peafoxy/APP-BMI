@@ -9,6 +9,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossier, oublierDossier, viderLocal } from "../db";
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
+import { etatPermissionPush } from "../push";
 import { PALETTE } from "../lib/constants";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
@@ -930,8 +931,17 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     setPositionPour(null);
   };
 
+  const permissionPush = etatPermissionPush();
   return (
     <div className="space-y-4">
+      {/* Notifications (13/09/2026) : rien à activer dans l'application — mais
+          si l'appareil a REFUSÉ la question du téléphone, seul son réglage
+          peut revenir dessus : on le dit, discrètement, ici. */}
+      {permissionPush === "refusee" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-notifications="refusees">
+          🔕 Les notifications sont bloquées sur cet appareil. Pour les recevoir, autorisez-les dans les réglages du téléphone ou du navigateur (Notifications → BMI Gestion), puis reconnectez-vous.
+        </div>
+      )}
       {couleurPour && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm">

@@ -52,10 +52,11 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1263 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1265 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
+npm run tester-notifications     # 73  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
@@ -219,6 +220,50 @@ lit mal est pire qu'un banc absent).
   changent — upsert relu). Le rabais du commercial n'est pas une remise
   (pris sur sa commission, plafonné à elle).
 - Le comptable est en lecture seule, sauf SON geste : pointer un décaissement.
+
+### 🔔 Notifications sur les appareils (13/09/2026)
+- Timo : « Notification par défaut, pas besoin d'activer quelque chose dans
+  l'app ; tant que tu l'utilises, tu auras des notifications » ; sur le
+  contenu : **« Lance avec la liste A telle quelle comme message, et B
+  aussi telle quelle, à titre informatif dans les notifications »** — et
+  avant : « ce qui est informatif reste juste informatif, rien dans
+  Messages ». Détail, tableau complet et mise en service :
+  `docs/etat-notifications-push.md`.
+- **Liste A = UNE règle** : chaque nouveau message de 💬 Messages est une
+  notification pour son destinataire (`envoisMessages`). **Liste B = « pour
+  information », JAMAIS écrit dans 💬 Messages** (`infosDepuisDiff`) :
+  ravitaillement, transfert, commande à valider, prime à payer, devis
+  proposé au client, tâches, pointage du comptable, article qui PASSE au
+  seuil, clôture dépassée ; et la **tournée du matin** (`lib/rappels.js`,
+  serveur `api/rappels-du-matin.js`, Vercel cron 7 h) : caisse d'hier non
+  clôturée, dette qui passe les 30 jours, devis qui atteint 15 jours.
+- **UN seul chemin** : `envoisDepuisSave(prev, final, profile)` dans le
+  `save()` de App.jsx — aucun écran n'envoie de notification (le banc
+  l'interdit) ; `Notification.` / `pushManager` n'existent que dans
+  `src/push.js` (+ `public/push-sw.js`). **L'auteur d'un geste n'est jamais
+  prévenu de son propre geste.** **Le mur** : les destinataires viennent
+  des briques de `lib/espace.js` (`idsDeLaBoutique`, `idsParRole`,
+  `idsAdmins`, `personnesDeLEspace`) — jamais un `db.users.filter` maison ;
+  l'admin principal reçoit les deux espaces, la formation marquée 🎓.
+- **`estCompteFormation` vit dans `lib/espace.js`** (sans import, lu par le
+  serveur) et calculs.js la réexporte ; la chaîne lisible par Node
+  (`rappels → cloture → versements / validationDepenses → core → constants`,
+  `comptesClients`, `espace`) écrit ses imports **avec `.js`** — le banc
+  l'importe sans bundler, comme Vercel. **Les règles « dette en retard 30 j »
+  et « devis à relancer 15 j » vivent dans lib/rappels.js**, les écrans
+  Dettes et Tous les devis les importent.
+- **La permission se demande AU CLIC de connexion** (geste utilisateur,
+  exigé par iPhone et Chrome), une fois par appareil ; l'appareil est
+  rattaché à la personne à la connexion et au retour (F5), **détaché à la
+  déconnexion AVANT la fin de session** (téléphone partagé). Refus → rappel
+  discret dans ⚙ Paramètres, rien d'autre. File d'envoi dans localStorage
+  (24 h), repart au retour du réseau. Un clic ouvre l'écran visé seulement
+  s'il est un onglet du rôle.
+- **Rien de secret dans l'application** : clé publique `CLE_PUBLIQUE_PUSH`
+  (constants.js) ; clé privée = variable Vercel `VAPID_PRIVATE_KEY`
+  uniquement ; la tournée exige `CRON_SECRET`. Table `abonnements_push` sans
+  aucune politique (service_role seul). Tant que Timo n'a pas collé le SQL
+  et posé les variables, rien ne vibre et rien ne casse.
 
 ### L'ordre des onglets (12/09/2026)
 - « Un système de déplacement des onglets par la préférence de chaque
@@ -1122,6 +1167,7 @@ s'est arrêté, mot pour mot.
 | Audit complet du 29/08 (22 279 lignes lues) | Référence | `docs/audit-complet-2026-08.md` |
 | L'ancien CLAUDE.md complet (659 lignes), tel qu'il était avant le rangement du 06/09 — pour retrouver un détail condensé ici | Référence | `docs/CLAUDE-avant-rangement-2026-09-05.md` |
 | **Répétition générale en formation** (44 lignes à cocher, deux téléphones, tiroir et dette sur montants ronds ; écrite le 12/09/2026 à la demande de Timo, PDF remis) : à rejouer avant un GO définitif, puis après tout gros chantier | À faire par Timo | `docs/scenario-test-formation.html` |
+| **🔔 Notifications** (2.101.197) : construit, bancs verts ; **en attente des 3 réglages de Timo** (SQL `abonnements_push`, variables Vercel VAPID + CRON_SECRET, redeploy) | À faire par Timo | `docs/etat-notifications-push.md` |
 | Cloisonnement **par boutique** (au-delà de l'espace) | Reporté | — |
 
 Quand un chantier avance, on met à jour SON fichier dans `docs/`, et ce

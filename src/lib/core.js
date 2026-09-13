@@ -8,7 +8,7 @@
 // modification de logique.
 // ============================================================
 
-import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees } from "./constants";
+import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees } from "./constants.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 

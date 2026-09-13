@@ -17,9 +17,9 @@
 // négatif, convention déjà en place) est posée dans la caisse du comptable,
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
-import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core";
-import { CATEGORIE_VERSEMENT, horsVersements } from "./constants";
-import { compteDansLaCaisse } from "./validationDepenses";
+import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core.js";
+import { CATEGORIE_VERSEMENT, horsVersements } from "./constants.js";
+import { compteDansLaCaisse } from "./validationDepenses.js";
 
 // La catégorie vit dans constants.js (lue aussi par le journal comptable) :
 // importée ET réexportée — jamais `export { x } from` seul (piège connu).
