@@ -11,6 +11,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, Aucu
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
 import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
 
@@ -91,6 +92,9 @@ export function Caisse({ db, save, profile }) {
   // Les boutiques de la rangée (vente + TERRAIN, espace regardé) : celles du RÉSUMÉ.
   const boutiquesResume = boutiquesVisibles(db, profile, [...boutiquesVente(db), ...(db.boutiques || []).filter((b) => b.terrain)]).map((b) => b.nom);
   const leResume = resume ? resumeCaisses(db, boutiquesResume, totalVente, aujourdhui) : null;
+  // L'historique des versements de toutes ces boutiques (Timo, 13/09/2026),
+  // affiché par LE composant commun d'archivage (10 lignes, archives).
+  const historiqueVersements = resume ? boutiquesResume.flatMap((b) => versementsDe(db, b)) : [];
   const mesVersements = versementsDe(db, boutique);
   const verser = async () => {
     if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
@@ -194,6 +198,21 @@ export function Caisse({ db, save, profile }) {
               </tr>
             </tbody>
           </table>
+          <div className="px-4 py-2 font-bold text-slate-800 border-t border-b border-slate-200 bg-slate-50 text-sm">💸 Historique des versements <span className="font-normal text-slate-500">· toutes les boutiques du résumé, du plus récent au plus ancien</span></div>
+          <HistoriqueArchive lignes={historiqueVersements} dateDe={(d) => d.date} aujourdhui={aujourdhui} vide="Aucun versement." titreArchives="Versements archivés"
+            entete={<thead className="sticky top-0"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{[["Date", "text-left"], ["Boutique", "text-left"], ["Montant", "text-right"], ["Destination", "text-left"], ["Statut", "text-left"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}</tr></thead>}
+            rendre={(d) => {
+              const v = validationVersement(db, d);
+              return (
+                <tr key={d.id} className="border-t border-slate-100">
+                  <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
+                  <td className="px-3 py-2 font-semibold">{d.boutique}</td>
+                  <td className={`px-3 py-2 tabular-nums text-right font-bold ${rejetVersement(d) ? "line-through text-red-700" : ""}`}>{fmt(d.versement.montant)}</td>
+                  <td className="px-3 py-2">{libelleDestination(d.versement)}{libelleEcart(d.versement) ? <span className="text-xs text-red-600"> · {libelleEcart(d.versement)}</span> : null}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{rejetVersement(d) ? <span className="text-red-700">✖ rejeté le {dFR(d.versement_rejete_le)}</span> : v ? <span className="text-green-700">✅ validé le {dFR(v.le)} par {v.par}</span> : <span className="text-amber-700">⏳ en attente</span>}</td>
+                </tr>
+              );
+            }} />
         </div>
       )}
       {/* Timo (13/09/2026) : « dans résumé, ne plus afficher autre chose que le

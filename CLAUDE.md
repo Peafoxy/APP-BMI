@@ -52,12 +52,12 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1251 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1256 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
-npm run verifier-ecran-ventes    # 46  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), et une dette affichée pareil
+npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -663,6 +663,22 @@ lit mal est pire qu'un banc absent).
   **En mode RÉSUMÉ, rien d'autre ne s'affiche** (13/09/2026 : « je vois encore
   verser les fonds, avances de frais, clôture… ça devrait disparaître ») : tout
   le reste de l'écran est sous `!resume`.
+- **📁 L'ARCHIVAGE des historiques : UNE règle, `lib/archivage.js`**
+  (13/09/2026 : « au plus 10 lignes, au-delà on doit défiler ; après 3 mois,
+  au-delà de 20 lignes, les anciennes sont archivées automatiquement, pour
+  les voir il faut remonter dans les archives… avec le temps on va
+  implémenter cette règle pour d'autres écrans, mais que ça soit LA SEULE
+  règle qui gère ça »). `LIGNES_VISIBLES` = 10, `MOIS_AVANT_ARCHIVE` = 3,
+  `MINIMUM_RECENTES` = 20 : une ligne est archivée quand elle est ancienne
+  ET au-delà des 20 plus récentes (`separerArchives`) ; archives rangées par
+  mois (`parMois`). **Rien n'est effacé ni déplacé : « archivé » est une façon
+  d'afficher.** UN composant, `components/HistoriqueArchive.jsx` (cadre de 10
+  lignes qui défile, bouton « 📁 … (N) ▾ Remonter dans les archives »), le
+  SEUL à appeler la règle — le banc l'impose (liste des importeurs) et MESURE
+  le cadre dans Chromium (`verifier-ecran-ventes`). Premier usage : **l'historique
+  des versements** sous le tableau du RÉSUMÉ de 🔒 Caisse (toutes les
+  boutiques du résumé, statut validé / en attente / rejeté). Un autre écran
+  qui veut s'archiver PASSE PAR CE COMPOSANT, jamais un `slice` à lui.
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,

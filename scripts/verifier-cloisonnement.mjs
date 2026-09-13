@@ -4943,6 +4943,35 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       // 13/09/2026 : « dans résumé, ne plus afficher autre chose » — tout le reste de l'écran est sous {!resume && (<>…</>)}.
       && /\{!resume && \(<>\n\s*\{\/\* Timo \(09\/09\/2026\)/.test(csR) && /<\/>\)\}\n    <\/div>\n  \);\n\}/.test(csR));
   }
+  // Timo (13/09/2026) : « au plus 10 lignes, au-delà on défile ; après 3 mois,
+  // au-delà de 20 lignes, les anciennes sont archivées automatiquement… que ça
+  // soit LA SEULE règle qui gère ça » — lib/archivage.js, exercée ici.
+  {
+    const sortieAr = join("node_modules", ".cache", `bmi-archivage-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/archivage.js"], bundle: true, format: "esm", platform: "node", outfile: sortieAr, logLevel: "silent" });
+    const Ar = await import(pathToFileURL(sortieAr).href);
+    unlinkSync(sortieAr);
+    test("★ archivage : 10 lignes visibles, 3 mois, 20 récentes gardées ; dateLimite(2026-09-13) = 2026-06-13 ; ancienne = strictement avant", Ar.LIGNES_VISIBLES === 10 && Ar.MOIS_AVANT_ARCHIVE === 3 && Ar.MINIMUM_RECENTES === 20 && Ar.dateLimite("2026-09-13") === "2026-06-13" && Ar.estAncienne("2026-06-12", "2026-09-13") && !Ar.estAncienne("2026-06-13", "2026-09-13") && Ar.dateLimite("2026-01-31") === "2025-10-31");
+    // 22 lignes récentes (septembre) + 8 anciennes (mai) : les 20 premières
+    // restent, les 2 récentes suivantes aussi (pas anciennes), les 8 de mai
+    // partent aux archives.
+    const recentes = Array.from({ length: 22 }, (_, i) => ({ id: `r${i}`, date: `2026-09-${String(1 + (i % 12)).padStart(2, "0")}` }));
+    const anciennes = Array.from({ length: 8 }, (_, i) => ({ id: `a${i}`, date: `2026-05-${String(1 + i).padStart(2, "0")}` }));
+    const sep = Ar.separerArchives([...anciennes, ...recentes], { aujourdhui: "2026-09-13" });
+    test("★ separerArchives : trié du plus récent au plus ancien ; 22 visibles (toutes les récentes), 8 archivées (anciennes ET au-delà des 20)", sep.visibles.length === 22 && sep.archives.length === 8 && sep.visibles[0].date === "2026-09-12" && sep.archives.every((l) => l.id.startsWith("a")));
+    // 25 lignes toutes anciennes : les 20 plus récentes restent quand même visibles.
+    const vieilles = Array.from({ length: 25 }, (_, i) => ({ id: `v${i}`, date: `2026-03-${String(1 + i).padStart(2, "0")}` }));
+    const sep2 = Ar.separerArchives(vieilles, { aujourdhui: "2026-09-13" });
+    test("★ …25 lignes toutes anciennes : les 20 plus récentes restent visibles, 5 archivées ; 5 lignes anciennes seules : rien d'archivé", sep2.visibles.length === 20 && sep2.archives.length === 5 && sep2.archives[0].date === "2026-03-05" && Ar.separerArchives(vieilles.slice(0, 5), { aujourdhui: "2026-09-13" }).archives.length === 0);
+    const pm = Ar.parMois([{ date: "2026-05-02" }, { date: "2026-03-09" }, { date: "2026-05-30" }]);
+    test("★ parMois : rangées par mois du plus récent au plus ancien, libellé en français", pm.map((g) => `${g.libelle}:${g.lignes.length}`).join("|") === "mai 2026:2|mars 2026:1");
+    const csA = readFileSync("src/screens/Caisse.jsx", "utf8");
+    const importeurs = execSync("grep -rl 'separerArchives\\|lib/archivage' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).sort().join("|");
+    test("★ LA SEULE règle : separerArchives n'est appelée que par le composant commun HistoriqueArchive ; le RÉSUMÉ de Caisse affiche l'historique des versements avec ce composant (10 lignes visibles, bouton Archives, rangé par mois), jamais un découpage à lui",
+      importeurs === "src/components/HistoriqueArchive.jsx|src/lib/archivage.js" && /<HistoriqueArchive lignes=\{historiqueVersements\} dateDe=\{\(d\) => d\.date\} aujourdhui=\{aujourdhui\}/.test(csA)
+      && /const historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\) : \[\];/.test(csA) && !/slice\(0, (10|20)\)/.test(csA.slice(csA.indexOf("<HistoriqueArchive"), csA.indexOf("{!resume && (<>"))) /* le bloc RÉSUMÉ ne découpe rien lui-même (le « Derniers versements traités » du DG, plus bas, garde ses 10) */
+      && /LIGNES_VISIBLES \* HAUTEUR_LIGNE/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")) && /Remonter dans les archives/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")));
+  }
   test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",
     f.ventes === 251400 && f.reglements === 900 && f.depenses === 202300 && f.montant === 50000 && f.dernierVersement === "2026-09-05"
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 252300 && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).dernierVersement === "");

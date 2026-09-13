@@ -256,6 +256,10 @@ import { createRoot } from "react-dom/client";
 import { ArticlesVente } from "${process.cwd()}/src/screens/Ventes.jsx";
 import { IconeWhatsApp, ListeArticles } from "${process.cwd()}/src/components/ui.jsx";
 import { lignesDette } from "${process.cwd()}/src/lib/core.js";
+import { HistoriqueArchive } from "${process.cwd()}/src/components/HistoriqueArchive.jsx";
+// L'historique qui défile et s'archive (Timo, 13/09/2026) : 22 lignes de
+// septembre + 8 de mai, aujourd'hui = 13/09/2026.
+const histo = [...Array.from({ length: 22 }, (_, i) => ({ id: "r" + i, date: "2026-09-" + String(1 + (i % 12)).padStart(2, "0"), texte: "récent " + i })), ...Array.from({ length: 8 }, (_, i) => ({ id: "a" + i, date: "2026-05-" + String(1 + i).padStart(2, "0"), texte: "ancien " + i }))];
 // Une dette née d'une vente à crédit (motif écrit par resumeArticles, comme
 // la capture Timo du 13/09/2026) : affichée avec la MÊME brique que Ventes.
 const dette = { id: "d", motif: "2× Récepteur BOLT 16010-18, 2× Moteur BOLT F100 Nm, 1× Télécommande" };
@@ -273,7 +277,12 @@ function Liste() {
     <tr data-vente="d" onClick={() => setVenteDepliee((x) => (x === "d" ? null : "d"))}><td><ListeArticles lignes={lignesDette(dette)} deplie={venteDepliee === "d"} /></td></tr>
   </tbody></table>;
 }
-createRoot(document.getElementById("r")).render(<Liste />);
+function Histo() {
+  return <div id="histo" style={{ width: 600 }}><HistoriqueArchive lignes={histo} dateDe={(l) => l.date} aujourdhui="2026-09-13" titreArchives="Versements archivés"
+    entete={<thead><tr><th>Date</th><th>Texte</th></tr></thead>}
+    rendre={(l) => <tr key={l.id} data-ligne={l.id} style={{ height: 36 }}><td>{l.date}</td><td>{l.texte}</td></tr>} /></div>;
+}
+createRoot(document.getElementById("r")).render(<><Liste /><Histo /></>);
 `);
   const sortie = join(dossier, "bundle.js");
   await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
@@ -310,6 +319,18 @@ createRoot(document.getElementById("r")).render(<Liste />);
   test("★ …et se déplie au clic, en repliant la vente ouverte", (await texte("d")) === "2× Récepteur BOLT 16010-18 2× Moteur BOLT F100 Nm 1× Télécommande ▴ Replier" && (await texte("a")) === "2× Panneau 400W 1× Batterie 200Ah + 3 autres ▾");
   await page.click('[data-vente="d"] td:first-child');
   await new Promise((r) => setTimeout(r, 150));
+  // Timo (13/09/2026) : « au plus 10 lignes, au-delà on défile ; après 3 mois,
+  // au-delà de 20 lignes, les anciennes sont archivées… remonter dans les archives ».
+  const mesure = await page.evaluate(() => {
+    const cadre = document.querySelector('#histo [data-historique="visibles"]');
+    return { lignes: cadre.querySelectorAll("tr[data-ligne]").length, haut: Math.round(cadre.clientHeight), contenu: Math.round(cadre.scrollHeight), archives: document.querySelectorAll('#histo [data-historique="archives"]').length, bouton: document.querySelector("#histo button")?.innerText || "" };
+  });
+  test("★ historique : 22 lignes visibles (les 8 de mai sont archivées), le cadre fait la hauteur de 10 lignes + l'en-tête et DÉFILE (contenu plus haut que le cadre), le bouton dit « 📁 Versements archivés (8) »",
+    mesure.lignes === 22 && mesure.haut === 396 && mesure.contenu > mesure.haut && mesure.archives === 0 && /📁 Versements archivés \(8\)/.test(mesure.bouton), JSON.stringify(mesure));
+  await page.click("#histo button");
+  await new Promise((r) => setTimeout(r, 150));
+  const apresClic = await page.evaluate(() => ({ groupes: Array.from(document.querySelectorAll('#histo [data-historique="archives"]')).map((g) => g.firstChild.innerText), lignes: document.querySelectorAll('#histo [data-historique="archives"] tr[data-ligne]').length }));
+  test("★ « Remonter dans les archives » ouvre les 8 lignes de mai, rangées sous « mai 2026 · 8 »", apresClic.groupes.join("|") === "mai 2026 · 8" && apresClic.lignes === 8, JSON.stringify(apresClic));
   const logo = await page.evaluate(() => { const p = document.querySelector('[data-bouton="wa"] svg path'); const r = document.querySelector('[data-bouton="wa"] svg').getBoundingClientRect(); return { fill: p && getComputedStyle(p).fill, w: r.width, h: r.height }; });
   test("★ le logo WhatsApp est dessiné en vert WhatsApp (#25D366), 18 px", logo.fill === "rgb(37, 211, 102)" && logo.w === 18 && logo.h === 18);
   test("aucune erreur JavaScript", erreurs.length === 0);
