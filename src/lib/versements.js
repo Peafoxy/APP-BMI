@@ -118,17 +118,29 @@ export const versementsDe = (db, boutique) => (db.depenses || [])
 // dernier versement — elle ne comptait que les entrées de ce jour-là mais
 // retranchait le versement entier : « attendu 252 299, versé 202 299 »
 // donnait −150 900 au lieu des 50 000 restants.
-export function fondsAVerser(db, boutique, totalVente) {
-  const ventes = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces")
-    .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
-  const reglements = (db.dettes || []).filter((d) => d.boutique === boutique)
-    .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces").reduce((t, p) => t + Number(p.montant || 0), 0), 0);
+// `periode` (Timo, 13/09/2026 : « ajouter période dans résumé… appliquée aussi
+// aux boutiques ») : { du, au } facultatif. Avec une période, entrées et
+// sorties sont celles de la période, et `montant` est le solde d'espèces À LA
+// FIN de la période (tout ce qui précède `au`), comme le relevé des caisses
+// centrales. Sans période : depuis le début, comme avant — c'est ce que le
+// formulaire de versement attend TOUJOURS (le montant à verser est un solde).
+const dansPeriode = (date, periode) => !periode || ((String(date || "").slice(0, 10) >= periode.du) && (String(date || "").slice(0, 10) <= periode.au));
+const avantFin = (date, periode) => !periode || String(date || "").slice(0, 10) <= periode.au;
+export function fondsAVerser(db, boutique, totalVente, periode = null) {
+  const montantVente = (v) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+  const ventesEspeces = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces");
+  const paiementsEspeces = (db.dettes || []).filter((d) => d.boutique === boutique)
+    .flatMap((d) => (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces"));
   // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
   // une avance personnelle ou l'argent du DG ne sortent pas du tiroir.
-  const depenses = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x))
-    .reduce((s, x) => s + Number(x.montant || 0), 0);
-  const dernier = versementsDe(db, boutique)[0];
-  return { montant: ventes + reglements - depenses, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "" };
+  const sortiesCaisse = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x));
+  const somme = (liste, de, filtre) => liste.filter((x) => filtre(x.date)).reduce((s, x) => s + de(x), 0);
+  const ventes = somme(ventesEspeces, montantVente, (d) => dansPeriode(d, periode));
+  const reglements = somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => dansPeriode(d, periode));
+  const depenses = somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => dansPeriode(d, periode));
+  const montant = somme(ventesEspeces, montantVente, (d) => avantFin(d, periode)) + somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => avantFin(d, periode)) - somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => avantFin(d, periode));
+  const dernier = versementsDe(db, boutique).find((d) => avantFin(d.date, periode));
+  return { montant, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "" };
 }
 
 // ---- Le RÉSUMÉ des caisses (Timo, 13/09/2026) ----
@@ -140,8 +152,8 @@ export function fondsAVerser(db, boutique, totalVente) {
 // versement rejeté est « comme jamais versé »), depuis le début ; ce qui
 // attend encore sa validation (DG, banque, comptable) est dit à part, et
 // le mois en cours aussi.
-export function totalVerse(db, boutique, aujourdhui) {
-  const liste = versementsDe(db, boutique).filter((d) => !estRejete(d));
+export function totalVerse(db, boutique, aujourdhui, periode = null) {
+  const liste = versementsDe(db, boutique).filter((d) => !estRejete(d) && dansPeriode(d.date, periode));
   const mois = String(aujourdhui || "").slice(0, 7);
   const somme = (l) => l.reduce((s, d) => s + Number(d.montant || 0), 0);
   return {
@@ -151,11 +163,12 @@ export function totalVerse(db, boutique, aujourdhui) {
     nb: liste.length,
   };
 }
-// Une ligne par boutique (les quatre carrés) et la ligne Total en bas.
-export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui) {
+// Une ligne par boutique (les quatre carrés) et la ligne Total en bas ;
+// `periode` { du, au } facultative (voir fondsAVerser).
+export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui, periode = null) {
   const lignes = (nomsBoutiques || []).map((boutique) => {
-    const f = fondsAVerser(db, boutique, totalVente);
-    const v = totalVerse(db, boutique, aujourdhui);
+    const f = fondsAVerser(db, boutique, totalVente, periode);
+    const v = totalVerse(db, boutique, aujourdhui, periode);
     return { boutique, aVerser: f.montant, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
   });
   const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),

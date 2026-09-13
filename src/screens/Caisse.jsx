@@ -9,7 +9,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, Aucu
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
-import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE, periodes } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
@@ -30,6 +30,15 @@ export function Caisse({ db, save, profile }) {
   // — Fonds à verser / Total versé / Entrées / Sorties, une ligne par
   // boutique, le total en bas. Dans Caisse, pas dans le tableau de bord.
   const [resume, setResume] = useState(false);
+  // Timo (13/09/2026) : « ajouter période… devant RÉSUMÉ, appliquée aussi aux
+  // boutiques » — la même liste que le tableau de bord (periodes()), « Depuis
+  // le début » d'office : rien ne change tant qu'on ne touche pas au choix.
+  const listePeriodes = periodes();
+  const [periodeIndex, setPeriodeIndex] = useState(listePeriodes.length - 1);
+  const periodeChoisie = listePeriodes[periodeIndex] || listePeriodes[listePeriodes.length - 1];
+  const depuisLeDebut = periodeIndex === listePeriodes.length - 1;
+  const periode = depuisLeDebut ? null : { du: periodeChoisie[1], au: periodeChoisie[2] };
+  const libellePeriode = periodeChoisie[0];
   const [notes, setNotes] = useState("");
   const aujourdhui = today();
   // ⚠ Décision Timo (09/09/2026) : une journée avec des ventes et sans
@@ -87,14 +96,18 @@ export function Caisse({ db, save, profile }) {
   // Timo (10/09/2026) : « Destination de versement reste sur DG par défaut ».
   const destinationDefaut = DEST_DG;
   const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+  // ⚠ Le montant ATTENDU par le formulaire de versement est toujours le solde
+  // depuis le début (un solde ne dépend pas d'une période) ; les carrés, eux,
+  // suivent la période choisie.
   const aVerser = fondsAVerser(db, boutique, totalVente);
-  const verse = totalVerse(db, boutique, aujourdhui);
+  const aVerserPeriode = fondsAVerser(db, boutique, totalVente, periode);
+  const verse = totalVerse(db, boutique, aujourdhui, periode);
   // Les boutiques de la rangée (vente + TERRAIN, espace regardé) : celles du RÉSUMÉ.
   const boutiquesResume = boutiquesVisibles(db, profile, [...boutiquesVente(db), ...(db.boutiques || []).filter((b) => b.terrain)]).map((b) => b.nom);
-  const leResume = resume ? resumeCaisses(db, boutiquesResume, totalVente, aujourdhui) : null;
+  const leResume = resume ? resumeCaisses(db, boutiquesResume, totalVente, aujourdhui, periode) : null;
   // L'historique des versements de toutes ces boutiques (Timo, 13/09/2026),
   // affiché par LE composant commun d'archivage (10 lignes, archives).
-  const historiqueVersements = resume ? boutiquesResume.flatMap((b) => versementsDe(db, b)) : [];
+  const historiqueVersements = resume ? boutiquesResume.flatMap((b) => versementsDe(db, b)).filter((d) => !periode || (String(d.date).slice(0, 10) >= periode.du && String(d.date).slice(0, 10) <= periode.au)) : [];
   const mesVersements = versementsDe(db, boutique);
   const verser = async () => {
     if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
@@ -167,11 +180,20 @@ export function Caisse({ db, save, profile }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={setBq} avecTerrain profile={profile}
-        extra={<button onClick={() => setResume((r) => !r)} className={`px-4 py-1.5 rounded-full text-sm font-bold border ${resume ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-300 text-slate-600"}`}>📊 RÉSUMÉ</button>} />}
+      {/* Timo (13/09/2026) : « dès qu'on quitte le résumé pour revenir sur les
+          boutiques, l'écran ne se recouvre pas » — un clic sur une boutique
+          REFERME le résumé. Le sélecteur de période est sur la même ligne,
+          devant RÉSUMÉ, et vaut pour le résumé ET la boutique regardée. */}
+      {!profile.boutique && <BoutiqueTabs ecran="caisse" db={db} value={bq} onChange={(nom) => { setBq(nom); setResume(false); }} avecTerrain profile={profile}
+        extra={<>
+          <select className="rounded-full border border-slate-300 px-3 py-1.5 text-sm bg-white font-semibold text-slate-700" value={periodeIndex} onChange={(e) => setPeriodeIndex(Number(e.target.value))} title="Période des carrés (boutique et résumé)">
+            {listePeriodes.map(([label], i) => <option key={i} value={i}>{label}</option>)}
+          </select>
+          <button onClick={() => setResume((r) => !r)} className={`px-4 py-1.5 rounded-full text-sm font-bold border ${resume ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-300 text-slate-600"}`}>📊 RÉSUMÉ</button>
+        </>} />}
       {resume && leResume && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">📊 Résumé des caisses <span className="text-sm font-normal text-slate-500">· une ligne par boutique, rejetés exclus, depuis le début</span></div>
+          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">📊 Résumé des caisses <span className="text-sm font-normal text-slate-500">· une ligne par boutique, rejetés exclus · {libellePeriode}{!depuisLeDebut ? " (fonds à verser = solde à la fin de la période)" : ""}</span></div>
           <table className="w-full text-sm min-w-[720px]">
             <thead><tr className="text-xs text-slate-500 uppercase bg-slate-100">
               {[["Boutique", "text-left"], ["Fonds à verser", "text-right"], ["Total versé", "text-right"], ["Entrées", "text-right"], ["Sorties (versements compris)", "text-right"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}
@@ -198,7 +220,7 @@ export function Caisse({ db, save, profile }) {
               </tr>
             </tbody>
           </table>
-          <div className="px-4 py-2 font-bold text-slate-800 border-t border-b border-slate-200 bg-slate-50 text-sm">💸 Historique des versements <span className="font-normal text-slate-500">· toutes les boutiques du résumé, du plus récent au plus ancien</span></div>
+          <div className="px-4 py-2 font-bold text-slate-800 border-t border-b border-slate-200 bg-slate-50 text-sm">💸 Historique des versements <span className="font-normal text-slate-500">· toutes les boutiques du résumé, du plus récent au plus ancien · {libellePeriode}</span></div>
           <HistoriqueArchive lignes={historiqueVersements} dateDe={(d) => d.date} aujourdhui={aujourdhui} vide="Aucun versement." titreArchives="Versements archivés"
             entete={<thead className="sticky top-0"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{[["Date", "text-left"], ["Boutique", "text-left"], ["Montant", "text-right"], ["Destination", "text-left"], ["Statut", "text-left"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}</tr></thead>}
             rendre={(d) => {
@@ -257,11 +279,11 @@ export function Caisse({ db, save, profile }) {
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{aVerser.dernierVersement ? ` — dernier versement le ${dFR(aVerser.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerser.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerser.montant)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}{aVerserPeriode.dernierVersement ? ` — dernier versement le ${dFR(aVerserPeriode.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerserPeriode.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerserPeriode.montant)}</div></div>
           {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">ce mois {fmt(verse.ceMois)}{verse.enAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(verse.enAttente)}</span> : null}</div></div>
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerser.ventes + aVerser.reglements)}</div></div>
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris)</div><div className="font-bold tabular-nums">− {fmt(aVerser.depenses)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">{depuisLeDebut ? `ce mois ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerserPeriode.ventes + aVerserPeriode.reglements)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris){depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">− {fmt(aVerserPeriode.depenses)}</div></div>
         </div>
         {ROLES_VERSEMENT.includes(profile.role) && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

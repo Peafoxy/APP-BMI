@@ -4932,11 +4932,29 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     test("★ resumeCaisses : une ligne par boutique avec les quatre carrés, et la ligne Total = somme des lignes",
       r.lignes.length === 2 && r.lignes[0].boutique === "APESSITO" && r.lignes[0].aVerser === 50000 - 90000 && r.lignes[0].verse === 292299 && r.lignes[0].entrees === 252300 && r.lignes[0].sorties === 202300 + 90000
       && r.lignes[1].aVerser === 9000 && r.lignes[1].verse === 0 && r.total.aVerser === 50000 - 90000 + 9000 && r.total.verse === 292299 && r.total.entrees === 252300 + 9000 && r.total.verseEnAttente === 90000);
+    // Timo (13/09/2026) : « ajouter période dans résumé, devant RÉSUMÉ, appliquée
+    // aussi aux boutiques ». Sur db1 (APESSITO) : septembre = ventes 251 400 +
+    // règlements 300 − sorties 202 300 ; le règlement de 600 F date du 01/09 et
+    // la vente de 200 000 du 04/09… tout est en septembre sauf rien : on prend
+    // la fenêtre 06/09 → 07/09 : vente 51 400 (06), règlement 300 (07) ; sorties 0 ;
+    // solde à la fin (07/09) = tout ce qui précède = 252 300 − 202 300 = 50 000.
+    const fp = Vs.fondsAVerser(db1, "APESSITO", tv, { du: "2026-09-06", au: "2026-09-07" });
+    test("★ fondsAVerser avec période : entrées et sorties DE la période (51 400 + 300, 0 sortie), montant = solde À LA FIN de la période (50 000) ; sans période, inchangé",
+      fp.ventes === 51400 && fp.reglements === 300 && fp.depenses === 0 && fp.montant === 50000 && Vs.fondsAVerser(db1, "APESSITO", tv, { du: "2026-09-01", au: "2026-09-03" }).montant === 600 - 1
+      && Vs.fondsAVerser(db1, "APESSITO", tv, null).montant === 50000);
+    test("★ totalVerse et resumeCaisses acceptent la période : versé en août seulement = 90 000 (banque) ; résumé en août : versé 90 000, entrées 0",
+      Vs.totalVerse(dbR, "APESSITO", "2026-09-13", { du: "2026-08-01", au: "2026-08-31" }).total === 90000 && Vs.resumeCaisses(dbR, ["APESSITO"], tv, "2026-09-13", { du: "2026-08-01", au: "2026-08-31" }).lignes[0].verse === 90000
+      && Vs.resumeCaisses(dbR, ["APESSITO"], tv, "2026-09-13", { du: "2026-08-01", au: "2026-08-31" }).lignes[0].entrees === 0);
     const csR = readFileSync("src/screens/Caisse.jsx", "utf8");
     const dashR = readFileSync("src/screens/Dashboard.jsx", "utf8");
+    test("★ écran Caisse : le sélecteur de période (periodes(), « Depuis le début » d'office) est dans la rangée des boutiques devant RÉSUMÉ, vaut pour le résumé, l'historique ET les carrés de la boutique ; le montant ATTENDU du formulaire reste le solde depuis le début ; un clic sur une boutique REFERME le résumé",
+      /const \[periodeIndex, setPeriodeIndex\] = useState\(listePeriodes\.length - 1\);/.test(csR) && /<select[^\n]*value=\{periodeIndex\} onChange=\{\(e\) => setPeriodeIndex\(Number\(e\.target\.value\)\)\}/.test(csR)
+      && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR) && /const aVerserPeriode = fondsAVerser\(db, boutique, totalVente, periode\);/.test(csR) && /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR)
+      && /attendu: aVerser\.montant/.test(csR) && /montantDifferent\(vers\.montant, aVerser\.montant\)/.test(csR) && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR)
+      && /onChange=\{\(nom\) => \{ setBq\(nom\); setResume\(false\); \}\}/.test(csR) && /historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(\(d\) => !periode/.test(csR));
     test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
-      /const verse = totalVerse\(db, boutique, aujourdhui\);/.test(csR) && /Total versé<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR)
-      && /extra=\{<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>\}/.test(csR) && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui\)/.test(csR)
+      /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /Total versé\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période */
+      && /extra=\{<>\n\s*<select[^\n]*\n[^\n]*\n[^\n]*<\/select>\n\s*<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>/.test(csR) /* période DEVANT RÉSUMÉ, même ligne */ && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR)
       && /\["Fonds à verser", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
       && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
       && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8"))
@@ -4969,7 +4987,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     const importeurs = execSync("grep -rl 'separerArchives\\|lib/archivage' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).sort().join("|");
     test("★ LA SEULE règle : separerArchives n'est appelée que par le composant commun HistoriqueArchive ; le RÉSUMÉ de Caisse affiche l'historique des versements avec ce composant (10 lignes visibles, bouton Archives, rangé par mois), jamais un découpage à lui",
       importeurs === "src/components/HistoriqueArchive.jsx|src/lib/archivage.js" && /<HistoriqueArchive lignes=\{historiqueVersements\} dateDe=\{\(d\) => d\.date\} aujourdhui=\{aujourdhui\}/.test(csA)
-      && /const historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\) : \[\];/.test(csA) && !/slice\(0, (10|20)\)/.test(csA.slice(csA.indexOf("<HistoriqueArchive"), csA.indexOf("{!resume && (<>"))) /* le bloc RÉSUMÉ ne découpe rien lui-même (le « Derniers versements traités » du DG, plus bas, garde ses 10) */
+      && /const historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(/.test(csA) && !/slice\(0, (10|20)\)/.test(csA.slice(csA.indexOf("<HistoriqueArchive"), csA.indexOf("{!resume && (<>"))) /* le bloc RÉSUMÉ ne découpe rien lui-même (le « Derniers versements traités » du DG, plus bas, garde ses 10) */
       && /LIGNES_VISIBLES \* HAUTEUR_LIGNE/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")) && /Remonter dans les archives/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")));
   }
   test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",

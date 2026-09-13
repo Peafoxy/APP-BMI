@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1256 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1259 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -663,6 +663,21 @@ lit mal est pire qu'un banc absent).
   **En mode RÉSUMÉ, rien d'autre ne s'affiche** (13/09/2026 : « je vois encore
   verser les fonds, avances de frais, clôture… ça devrait disparaître ») : tout
   le reste de l'écran est sous `!resume`.
+  **Un clic sur une boutique REFERME le résumé** (13/09/2026, « constat
+  amer » : « dès qu'on quitte le résumé pour revenir sur les boutiques,
+  l'écran ne se recouvre pas… on voit toujours les données du résumé »).
+  **Une période, sur la même ligne, DEVANT RÉSUMÉ** (13/09/2026 : « ajouter
+  période dans résumé devant résumé, appliquée aussi aux boutiques ») : la
+  liste du tableau de bord (`periodes()`), **« Depuis le début » d'office**
+  (rien ne change tant qu'on n'y touche pas) ; elle commande les quatre
+  carrés de la boutique regardée, le tableau du résumé ET l'historique des
+  versements. Avec une période : entrées, sorties, versé = ceux DE la
+  période ; **« Fonds à verser » = le solde d'espèces À LA FIN de la période**
+  (comme le relevé des caisses centrales), le libellé le dit. ⚠ **Le montant
+  ATTENDU par le formulaire de versement reste TOUJOURS le solde depuis le
+  début** (`aVerser` sans période ; un solde ne dépend pas d'une période),
+  le banc le vérifie. `fondsAVerser` / `totalVerse` / `resumeCaisses`
+  acceptent `periode = { du, au }` facultative.
 - **📁 L'ARCHIVAGE des historiques : UNE règle, `lib/archivage.js`**
   (13/09/2026 : « au plus 10 lignes, au-delà on doit défiler ; après 3 mois,
   au-delà de 20 lignes, les anciennes sont archivées automatiquement, pour
