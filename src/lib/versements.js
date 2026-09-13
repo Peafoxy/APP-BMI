@@ -126,6 +126,15 @@ export const versementsDe = (db, boutique) => (db.depenses || [])
 // formulaire de versement attend TOUJOURS (le montant à verser est un solde).
 const dansPeriode = (date, periode) => !periode || ((String(date || "").slice(0, 10) >= periode.du) && (String(date || "").slice(0, 10) <= periode.au));
 const avantFin = (date, periode) => !periode || String(date || "").slice(0, 10) <= periode.au;
+// ---- Le FONDS DE CAISSE FIXE (Timo, 13/09/2026) ----
+// « Si chaque mois je laisse un fonds d'argent au revendeur, histoire de
+// faire une dépense s'il n'y a pas encore une vente » → réglage par boutique
+// (`fonds_caisse_fixe`, ⚙ Paramètres → Boutiques, admin) : l'application
+// attend un versement de `solde − fonds fixe`, sans justification à écrire,
+// et « Fonds à verser » montre ce qu'il y a AU-DELÀ du fonds. Le fonds ne
+// se verse jamais : il reste dans le tiroir de la boutique.
+export const fondsCaisseFixe = (db, boutique) => Math.max(0, Math.round(Number((db?.boutiques || []).find((b) => b.nom === boutique)?.fonds_caisse_fixe || 0)));
+export const aVerserAuDela = (solde, fondsFixe) => Math.max(0, Math.round(Number(solde) || 0) - Math.round(Number(fondsFixe) || 0));
 export function fondsAVerser(db, boutique, totalVente, periode = null) {
   const montantVente = (v) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
   const ventesEspeces = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces");
@@ -140,7 +149,9 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
   const depenses = somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => dansPeriode(d, periode));
   const montant = somme(ventesEspeces, montantVente, (d) => avantFin(d, periode)) + somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => avantFin(d, periode)) - somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => avantFin(d, periode));
   const dernier = versementsDe(db, boutique).find((d) => avantFin(d.date, periode));
-  return { montant, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "" };
+  const fondsFixe = fondsCaisseFixe(db, boutique);
+  // `montant` = le SOLDE d'espèces ; `aVerser` = ce qu'il y a au-delà du fonds fixe.
+  return { montant, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "", fondsFixe, aVerser: aVerserAuDela(montant, fondsFixe) };
 }
 
 // ---- Le RÉSUMÉ des caisses (Timo, 13/09/2026) ----
@@ -169,10 +180,10 @@ export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui, periode
   const lignes = (nomsBoutiques || []).map((boutique) => {
     const f = fondsAVerser(db, boutique, totalVente, periode);
     const v = totalVerse(db, boutique, aujourdhui, periode);
-    return { boutique, aVerser: f.montant, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
+    return { boutique, aVerser: f.aVerser, solde: f.montant, fondsFixe: f.fondsFixe, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
   });
-  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
-    { aVerser: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
+  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, solde: t.solde + l.solde, fondsFixe: t.fondsFixe + l.fondsFixe, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
+    { aVerser: 0, solde: 0, fondsFixe: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
   return { lignes, total };
 }
 

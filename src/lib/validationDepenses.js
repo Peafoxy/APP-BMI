@@ -41,10 +41,18 @@ export const SEUIL_VALIDATION_DEPENSE = 5000;
 export const PAYE_AVEC_CAISSE = "caisse";
 export const PAYE_AVEC_AVANCE = "avance";
 export const PAYE_AVEC_DG = "dg";
+// Timo (13/09/2026) : « dans Payé avec, ajouter aussi : caisse du comptable » —
+// l'argent de BMI qui est chez le comptable (les versements qu'il a encaissés).
+// Une charge de la boutique, une SORTIE de la caisse « Chez le comptable »,
+// qui compte quand le comptable la pointe « Remis » (comme ses autres
+// sorties). Jamais proposé à un compte de formation (« Chez le comptable »
+// est réel et n'a pas de jumelle).
+export const PAYE_AVEC_COMPTABLE = "comptable";
 export const PAYE_AVEC = [
   [PAYE_AVEC_CAISSE, "La caisse de la boutique"],
   [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
   [PAYE_AVEC_DG, "De l'argent remis par le DG"],
+  [PAYE_AVEC_COMPTABLE, "La caisse du comptable"],
 ];
 export const libellePayeAvec = (code) => (PAYE_AVEC.find(([c]) => c === (code || PAYE_AVEC_CAISSE)) || PAYE_AVEC[0])[1];
 // Capture Timo (13/09/2026) : « préciser les boutiques… il peut recevoir dans
@@ -55,20 +63,21 @@ export const libellePayeAvec = (code) => (PAYE_AVEC.find(([c]) => c === (code ||
 // alors enregistrée sur la boutique dont la caisse a payé (c'est son tiroir
 // qui a bougé, c'est sa clôture et ses fonds à verser qui doivent le voir).
 export const codeCaisse = (nomBoutique) => `caisse:${nomBoutique}`;
-export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee) => {
+export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable = false } = {}) => {
   const noms = [...(nomsBoutiques || [])];
   const ordonnes = boutiqueRegardee && noms.includes(boutiqueRegardee) ? [boutiqueRegardee, ...noms.filter((n) => n !== boutiqueRegardee)] : noms;
   return [
     ...ordonnes.map((n) => [codeCaisse(n), `La caisse de ${n}`]),
     [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
     [PAYE_AVEC_DG, "De l'argent remis par le DG"],
+    ...(avecComptable ? [[PAYE_AVEC_COMPTABLE, "La caisse du comptable"]] : []),
   ];
 };
 // Le choix de l'écran → l'origine des fonds ET la boutique de la dépense.
 export const interpreterPayeAvec = (valeur, boutiqueRegardee) => {
   const v = String(valeur || "");
   if (v.startsWith("caisse:")) return { paye_avec: PAYE_AVEC_CAISSE, boutique: v.slice(7) };
-  if (v === PAYE_AVEC_AVANCE || v === PAYE_AVEC_DG) return { paye_avec: v, boutique: boutiqueRegardee };
+  if (v === PAYE_AVEC_AVANCE || v === PAYE_AVEC_DG || v === PAYE_AVEC_COMPTABLE) return { paye_avec: v, boutique: boutiqueRegardee };
   return { paye_avec: PAYE_AVEC_CAISSE, boutique: boutiqueRegardee };
 };
 export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
@@ -78,6 +87,9 @@ export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
 // Une dépense sans `paye_avec` (anciennes lignes, dépenses automatiques :
 // salaires, commissions, CNSS, versements…) vient de la caisse de la boutique.
 export const payeAvecCaisse = (d) => !d?.paye_avec || d.paye_avec === PAYE_AVEC_CAISSE;
+// Une dépense de boutique payée avec la caisse du comptable : elle attend
+// son pointage « Remis » dans le panneau « Chez le comptable ».
+export const payeeParLeComptable = (d) => d?.paye_avec === PAYE_AVEC_COMPTABLE;
 export const estAvance = (d) => d?.paye_avec === PAYE_AVEC_AVANCE;
 
 // ---- L'ÉTAT DE VALIDATION ----
@@ -100,7 +112,7 @@ export const compteDansLaCaisse = (d) => sortDuTiroir(d) && !estEnAttente(d);
 export function critiqueSaisie({ montant, paye_avec, boutique }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Veuillez saisir un montant (supérieur à zéro).";
-  if (!PAYE_AVEC.some(([c]) => c === paye_avec)) return "Indiquez avec quoi la dépense a été payée : la caisse de la boutique, une avance personnelle, ou de l'argent remis par le DG.";
+  if (!PAYE_AVEC.some(([c]) => c === paye_avec)) return "Indiquez avec quoi la dépense a été payée : la caisse de la boutique, une avance personnelle, de l'argent remis par le DG, ou la caisse du comptable.";
   if (!boutique) return "Aucune boutique n'est choisie.";
   return "";
 }

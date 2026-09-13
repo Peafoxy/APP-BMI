@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1259 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1263 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -707,6 +707,33 @@ lit mal est pire qu'un banc absent).
   règle d'archivage aussi à l'historique des dépenses ») : `TableauDepenses`
   (écrit une fois, boutique et « Chez le comptable ») passe par le composant,
   plus de pagination ; l'en-tête reste collé en haut du cadre.
+- **💼 Fonds de caisse fixe par boutique** (13/09/2026 : « si chaque mois je
+  laisse un fonds d'argent au revendeur, histoire de faire une dépense s'il
+  n'y a pas encore une vente… ajoute le réglage fonds de caisse fixe par
+  boutique ») : ⚙ Paramètres → Boutiques, bouton « 💼 Fonds de caisse »
+  (admin, pas pour un dépôt), champ `fonds_caisse_fixe` de la boutique —
+  rien à coller (les champs de boutique sont libres pour l'admin). Règle
+  pure `fondsCaisseFixe` / `aVerserAuDela` (lib/versements.js) :
+  `fondsAVerser` rend `montant` (le SOLDE d'espèces) ET `aVerser` (au-delà
+  du fonds, jamais négatif). **Le versement attendu = `aVerser`**, sans
+  justification à écrire ; le carré « Fonds à verser » et le résumé montrent
+  `aVerser` avec « solde … · fonds fixe … conservé » quand un fonds est
+  réglé, sinon le solde comme avant. Le fonds ne se verse jamais : il reste
+  dans le tiroir, et les dépenses « payées avec la caisse » sont justes.
+  Sans réglage, rien ne change. **Un fonds laissé APRÈS un versement n'est
+  pas une entrée** : on verse moins, on ne remet pas.
+- **« Payé avec : la caisse du comptable »** (13/09/2026) : quatrième origine
+  (`PAYE_AVEC_COMPTABLE`), **réel seulement** (`optionsPayeAvec(…, {
+  avecComptable: !afficheChiffresFormation })`, « Chez le comptable » n'a pas
+  de jumelle). Charge de la boutique ; **sortie de la caisse « Chez le
+  comptable » quand le comptable la pointe « Remis »** (`mouvementsComptable`
+  lit aussi `payeeParLeComptable`, le panneau du comptable la liste « à
+  remettre » avec « dépense de X, payée avec ma caisse ») ; ne touche pas le
+  tiroir (`sortDuTiroir` faux), ne bloque pas la clôture. Le serveur accepte
+  déjà le pointage du comptable sur toute dépense existante (champs
+  `decaisse_le` / `decaisse_par` seulement) : rien à coller. **« De l'argent
+  remis par le DG » = l'argent de BMI qui est chez le DG**, pas son argent
+  personnel ; un apport personnel n'existe pas encore dans l'application.
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,

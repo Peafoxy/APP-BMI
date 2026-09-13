@@ -4932,8 +4932,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       tvR.total === 292299 && tvR.enAttente === 90000 && tvR.ceMois === 202299 && tvR.nb === 2 && Vs.totalVerse(dbR, "AUTRE", "2026-09-13").total === 0);
     const r = Vs.resumeCaisses(dbR, ["APESSITO", "AUTRE"], tv, "2026-09-13");
     test("★ resumeCaisses : une ligne par boutique avec les quatre carrés, et la ligne Total = somme des lignes",
-      r.lignes.length === 2 && r.lignes[0].boutique === "APESSITO" && r.lignes[0].aVerser === 50000 - 90000 && r.lignes[0].verse === 292299 && r.lignes[0].entrees === 252300 && r.lignes[0].sorties === 202300 + 90000
-      && r.lignes[1].aVerser === 9000 && r.lignes[1].verse === 0 && r.total.aVerser === 50000 - 90000 + 9000 && r.total.verse === 292299 && r.total.entrees === 252300 + 9000 && r.total.verseEnAttente === 90000);
+      // 13/09/2026 (fonds de caisse fixe) : `solde` = le solde d'espèces (négatif possible), `aVerser` = au-delà du fonds fixe, jamais négatif.
+      r.lignes.length === 2 && r.lignes[0].boutique === "APESSITO" && r.lignes[0].solde === 50000 - 90000 && r.lignes[0].aVerser === 0 && r.lignes[0].verse === 292299 && r.lignes[0].entrees === 252300 && r.lignes[0].sorties === 202300 + 90000
+      && r.lignes[1].aVerser === 9000 && r.lignes[1].solde === 9000 && r.lignes[1].verse === 0 && r.total.solde === 50000 - 90000 + 9000 && r.total.aVerser === 9000 && r.total.verse === 292299 && r.total.entrees === 252300 + 9000 && r.total.verseEnAttente === 90000);
     // Timo (13/09/2026) : « ajouter période dans résumé, devant RÉSUMÉ, appliquée
     // aussi aux boutiques ». Sur db1 (APESSITO) : septembre = ventes 251 400 +
     // règlements 300 − sorties 202 300 ; le règlement de 600 F date du 01/09 et
@@ -4952,7 +4953,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     test("★ écran Caisse : le sélecteur de période (periodes(), « Depuis le début » d'office) est dans la rangée des boutiques devant RÉSUMÉ, vaut pour le résumé, l'historique ET les carrés de la boutique ; le montant ATTENDU du formulaire reste le solde depuis le début ; un clic sur une boutique REFERME le résumé",
       /const \[periodeIndex, setPeriodeIndex\] = useState\(listePeriodes\.length - 1\);/.test(csR) && /<select[^\n]*value=\{periodeIndex\} onChange=\{\(e\) => setPeriodeIndex\(Number\(e\.target\.value\)\)\}/.test(csR)
       && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR) && /const aVerserPeriode = fondsAVerser\(db, boutique, totalVente, periode\);/.test(csR) && /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR)
-      && /attendu: aVerser\.montant/.test(csR) && /montantDifferent\(vers\.montant, aVerser\.montant\)/.test(csR) && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR)
+      && /attendu: aVerser\.aVerser/.test(csR) && /montantDifferent\(vers\.montant, aVerser\.aVerser\)/.test(csR) && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR) /* 13/09/2026 : au-delà du fonds fixe, TOUJOURS depuis le début */
       && /value=\{resume \? "" : bq\} onChange=\{\(nom\) => \{ setBq\(nom\); setResume\(false\); \}\}/.test(csR) /* en mode RÉSUMÉ, aucune boutique allumée (capture 13/09/2026) */ && /historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(\(d\) => !periode/.test(csR));
     test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
       /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /Total versé\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période */
@@ -4992,6 +4993,22 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /const historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(/.test(csA) && !/slice\(0, (10|20)\)/.test(csA.slice(csA.indexOf("<HistoriqueArchive"), csA.indexOf("{!resume && (<>"))) /* le bloc RÉSUMÉ ne découpe rien lui-même (le « Derniers versements traités » du DG, plus bas, garde ses 10) */
       && /LIGNES_VISIBLES \* HAUTEUR_LIGNE/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")) && /Remonter dans les archives/.test(readFileSync("src/components/HistoriqueArchive.jsx", "utf8")));
   }
+  // Timo (13/09/2026) : « ajoute le réglage fonds de caisse fixe par boutique ».
+  {
+    const dbF = { ...db1, boutiques: [{ nom: "APESSITO", fonds_caisse_fixe: 30000 }, { nom: "AUTRE" }] };
+    const ff = Vs.fondsAVerser(dbF, "APESSITO", tv);
+    test("★ fonds de caisse fixe : solde 50 000, fonds fixe 30 000 → à verser 20 000 ; sans réglage, à verser = solde ; un fonds plus grand que le solde → 0, jamais négatif",
+      ff.montant === 50000 && ff.fondsFixe === 30000 && ff.aVerser === 20000 && Vs.fondsAVerser(dbF, "AUTRE", tv).aVerser === 9000 && Vs.fondsAVerser(dbF, "AUTRE", tv).fondsFixe === 0
+      && Vs.fondsAVerser({ ...dbF, boutiques: [{ nom: "APESSITO", fonds_caisse_fixe: 80000 }] }, "APESSITO", tv).aVerser === 0 && Vs.fondsCaisseFixe(dbF, "APESSITO") === 30000 && Vs.aVerserAuDela(50000, 30000) === 20000);
+    const rf = Vs.resumeCaisses(dbF, ["APESSITO", "AUTRE"], tv, "2026-09-13");
+    test("★ resumeCaisses porte solde, fonds fixe et à verser par ligne et au total (20 000 + 9 000 = 29 000 à verser ; soldes 59 000 ; fonds fixes 30 000)",
+      rf.lignes[0].aVerser === 20000 && rf.lignes[0].solde === 50000 && rf.lignes[0].fondsFixe === 30000 && rf.total.aVerser === 29000 && rf.total.solde === 59000 && rf.total.fondsFixe === 30000);
+    const csF = readFileSync("src/screens/Caisse.jsx", "utf8");
+    const paF = readFileSync("src/screens/Parametres.jsx", "utf8");
+    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3), le carré et le résumé le disent (« fonds de caisse fixe … conservé », « fonds fixe ») ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe)",
+      (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && /fonds de caisse fixe \{fmt\(aVerserPeriode\.fondsFixe\)\} conservé/.test(csF) && /solde \{fmt\(l\.solde\)\} · fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
+      && /refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/.test(paF) && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: v \}/.test(paF));
+  }
   test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",
     f.ventes === 251400 && f.reglements === 900 && f.depenses === 202300 && f.montant === 50000 && f.dernierVersement === "2026-09-05"
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 252300 && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).dernierVersement === "");
@@ -5009,8 +5026,8 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && /^Versement du \d\d\/\d\d\/\d{4} reçu de APESSITO \(par KOSSI\) — attendu 200 000 F, écart − 50 000 F : fonds de caisse gardé$/.test(nz(re.entree.description))
     && Vs.libelleEcart(rc.versement) === "" && Vs.libelleVersementDu({ date: "2026-09-09" }) === "Versement du 09/09/2026");
   test("★ écran Caisse : la note n'apparaît que si le montant diffère de l'attendu, avec la mention rouge ; l'attendu (fondsAVerser) part avec le versement ; le DG voit « Versement du … »",
-    /\{vers\.montant !== "" && montantDifferent\(vers\.montant, aVerser\.montant\) && \(/.test(csV) && /text-red-600 mb-1">⚠ \{messageJustification\(aVerser\.montant\)\}/.test(csV)
-    && /construireVersement\(profile, \{ boutique, \.\.\.vers, attendu: aVerser\.montant \}\)/.test(csV) && /<b>\{libelleVersementDu\(d\)\}<\/b>/.test(csV) && (csV.match(/<Field label="Note[^"]*">/g) || []).length === 1);
+    /\{vers\.montant !== "" && montantDifferent\(vers\.montant, aVerser\.aVerser\) && \(/.test(csV) && /text-red-600 mb-1">⚠ \{messageJustification\(aVerser\.aVerser\)\}/.test(csV)
+    && /construireVersement\(profile, \{ boutique, \.\.\.vers, attendu: aVerser\.aVerser \}\)/.test(csV) /* 13/09/2026 : l'attendu = au-delà du fonds de caisse fixe */ && /<b>\{libelleVersementDu\(d\)\}<\/b>/.test(csV) && (csV.match(/<Field label="Note[^"]*">/g) || []).length === 1);
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
@@ -5483,9 +5500,9 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   const dbV = { ...base(), users: [...base().users, ali], ventes: [{ id: "v", boutique: "APESSITO", date: "2026-09-12", paiement: "Espèces", total: 100000 }], depenses: [], clotures: [], messages: [] };
 
   // ---- Le seuil et la saisie ----
-  test("★ le seuil est 5 000 F : 4 999 se passe de validation, 5 000 la demande ; les trois origines des fonds existent (caisse, avance, DG), la caisse est le défaut d'une ancienne ligne",
+  test("★ le seuil est 5 000 F : 4 999 se passe de validation, 5 000 la demande ; les QUATRE origines des fonds existent (caisse, avance, DG, comptable — 13/09/2026), la caisse est le défaut d'une ancienne ligne",
     Vd.SEUIL_VALIDATION_DEPENSE === 5000 && Vd.doitEtreValidee(4999) === false && Vd.doitEtreValidee(5000) === true
-    && Vd.PAYE_AVEC.map(([c]) => c).join("|") === "caisse|avance|dg" && Vd.payeAvecCaisse({}) === true && Vd.payeAvecCaisse({ paye_avec: "avance" }) === false
+    && Vd.PAYE_AVEC.map(([c]) => c).join("|") === "caisse|avance|dg|comptable" && Vd.payeAvecCaisse({}) === true && Vd.payeAvecCaisse({ paye_avec: "avance" }) === false
     && Vd.libellePayeAvec(undefined) === "La caisse de la boutique");
   const s7 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "carburant", montant: 7000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
   const s2 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
@@ -5604,7 +5621,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   const dpV = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ écran Dépenses : « Payé avec » (les trois origines), la saisie passe par construireDepenseSaisie (plus de fiche écrite à la main), l'avertissement du seuil avant l'envoi, « Ce mois » hors dépenses en attente (et le dit)",
     // 13/09/2026 (capture Timo) : « Payé avec » nomme chaque caisse (optionsPayeAvec) ; le choix donne origine ET boutique (interpreterPayeAvec).
-    /<Field label="Payé avec"><select[^\n]*optionsPayeAvec\(caissesPossibles, boutique\)\.map/.test(dpV) && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
+    /<Field label="Payé avec"><select[^\n]*optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\) \}\)\.map/.test(dpV) /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
     && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
   test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
     /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
@@ -5711,6 +5728,16 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     { id: "s3", boutique: "APESSITO", categorie: "Loyer", montant: 999, decaisse_le: "2026-09-12" },
   ] };
   const ck = Cg.mouvementsComptable(dbK);
+  // Timo (13/09/2026) : une dépense de boutique « payée avec la caisse du
+  // comptable » est une sortie de SA caisse quand il la pointe « Remis ».
+  const dbK2 = { depenses: [...dbK.depenses,
+    { id: "c1", boutique: "APESSITO", categorie: "Carburant", description: "moto", montant: 5000, par: "AMA", paye_avec: "comptable", decaisse_le: "2026-09-13", decaisse_par: "MARIE" },
+    { id: "c2", boutique: "APESSITO", categorie: "Nourriture", montant: 3000, par: "AMA", paye_avec: "comptable" },
+  ] };
+  const ck2 = Cg.mouvementsComptable(dbK2);
+  test("★ Chez le comptable : une dépense de boutique payée avec sa caisse, pointée « Remis », est une sortie (15 000 + 5 000 = 20 000, libellé « dépense de APESSITO, par AMA ») ; pas encore pointée, elle est « à remettre » (40 000 + 3 000)",
+    ck2.totalSorties === 20000 && ck2.aRemettre === 43000 && ck2.solde === 50000 && /moto \(dépense de APESSITO, par AMA\) — remis le 13\/09\/2026 par MARIE/.test(ck2.sorties.find((m) => m.id === "c1").libelle)
+    && /payeeParLeComptable\(x\)/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /x\.boutique === "Chez le comptable" \|\| payeeParLeComptable\(x\)/.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
   test("★ Chez le comptable : entrées = les versements qu'il a pointés « Encaissé » (70 000), sorties = ce qu'il a pointé « Remis » (15 000), solde 55 000 ; à encaisser 20 000 et à remettre 40 000 dits à part ; le rejeté et les autres boutiques n'y sont pas",
     ck.totalEntrees === 70000 && ck.totalSorties === 15000 && ck.solde === 55000 && ck.aEncaisser === 20000 && ck.aRemettre === 40000 && ck.mouvements.map((m) => m.id).join("|") === "s1|m1"
     && /encaissé le 11\/09\/2026 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable"
@@ -6529,8 +6556,12 @@ titre("« Payé avec » nomme chaque caisse : la boutique qui a sorti l'argent p
   const Vd3 = await import(pathToFileURL(sortieVd3).href);
   unlinkSync(sortieVd3);
   const opts = Vd3.optionsPayeAvec(["BMI APESSITO", "BMI DEMAKPOE", "TERRAIN"], "BMI DEMAKPOE");
-  test("★ optionsPayeAvec : une ligne « La caisse de X » par boutique, la boutique regardée en tête, puis avance personnelle et argent du DG",
-    opts.map(([c]) => c).join("|") === "caisse:BMI DEMAKPOE|caisse:BMI APESSITO|caisse:TERRAIN|avance|dg" && opts[0][1] === "La caisse de BMI DEMAKPOE" && opts[1][1] === "La caisse de BMI APESSITO");
+  test("★ optionsPayeAvec : une ligne « La caisse de X » par boutique, la boutique regardée en tête, puis avance personnelle et argent du DG ; « La caisse du comptable » SEULEMENT si demandée (réel), jamais d'office (formation)",
+    opts.map(([c]) => c).join("|") === "caisse:BMI DEMAKPOE|caisse:BMI APESSITO|caisse:TERRAIN|avance|dg" && opts[0][1] === "La caisse de BMI DEMAKPOE" && opts[1][1] === "La caisse de BMI APESSITO"
+    && Vd3.optionsPayeAvec(["A"], "A", { avecComptable: true }).map(([c]) => c).join("|") === "caisse:A|avance|dg|comptable" && Vd3.optionsPayeAvec(["A"], "A", { avecComptable: true }).pop()[1] === "La caisse du comptable"
+    && JSON.stringify(Vd3.interpreterPayeAvec("comptable", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "comptable", boutique: "BMI DEMAKPOE" }) && Vd3.PAYE_AVEC_COMPTABLE === "comptable"
+    && Vd3.critiqueSaisie({ montant: 100, paye_avec: "comptable", boutique: "A" }) === "" && Vd3.payeeParLeComptable({ paye_avec: "comptable" }) && !Vd3.payeeParLeComptable({ paye_avec: "dg" })
+    && !Vd3.sortDuTiroir({ paiement: "Espèces", paye_avec: "comptable" }) /* ne touche pas le tiroir, ne bloque pas la clôture */);
   test("★ interpreterPayeAvec : « caisse:BMI APESSITO » → caisse ET boutique APESSITO même si le haut montre DEMAKPOE ; avance / DG gardent la boutique regardée ; vide = la caisse de la boutique regardée",
     JSON.stringify(Vd3.interpreterPayeAvec("caisse:BMI APESSITO", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "caisse", boutique: "BMI APESSITO" })
     && JSON.stringify(Vd3.interpreterPayeAvec("avance", "BMI DEMAKPOE")) === JSON.stringify({ paye_avec: "avance", boutique: "BMI DEMAKPOE" })

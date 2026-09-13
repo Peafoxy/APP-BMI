@@ -854,6 +854,18 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     }
   };
 
+  // Timo (13/09/2026) : « ajoute le réglage fonds de caisse fixe par boutique »
+  // — le fonds qu'on laisse dans le tiroir pour les petites dépenses ; le
+  // versement attendu devient solde − fonds fixe (lib/versements.js).
+  const modifierFondsFixe = async (b) => {
+    if (refuserSaufAdmin(profile, "Régler le fonds de caisse fixe d'une boutique")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const saisie = await uPrompt(`Fonds de caisse fixe de ${b.nom} (F) — l'argent qu'on laisse dans le tiroir et qu'on ne verse jamais. 0 = aucun.`, String(b.fonds_caisse_fixe || 0));
+    if (saisie === null) return;
+    const v = Math.round(Number(saisie));
+    if (!Number.isFinite(v) || v < 0) { uAlert("Indiquez un montant en francs, 0 ou plus."); return; }
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.nom === b.nom ? { ...x, fonds_caisse_fixe: v } : x)) }, `Fonds de caisse fixe de ${b.nom} : ${fmt(v)}`);
+  };
   const modifierInfos = async (b) => {
     if (refuserSaufAdmin(profile, "Modifier les informations d'une boutique")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -1075,6 +1087,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <button onClick={() => modifierInfos(b)} className="text-xs font-bold text-sky-800 underline mr-2">📍 Infos reçu</button>
                   <button onClick={() => setPositionPour(b)} className={`text-xs font-bold underline mr-2 ${b.lat ? "text-green-700" : "text-sky-800"}`}>📌 {b.lat ? "Position GPS ✓" : "Position GPS"}</button>
                   <button onClick={() => setCouleurPour(b)} className="text-xs font-bold text-sky-800 underline mr-2">Couleur</button>
+                  {!b.depot && <button onClick={() => modifierFondsFixe(b)} className={`text-xs font-bold underline mr-2 ${b.fonds_caisse_fixe > 0 ? "text-green-700" : "text-sky-800"}`}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>}
                   <button onClick={() => supprimer(b)} className="text-xs text-red-600 underline mr-2">Suppr.</button>
                   {utilisee(b.nom) && <button onClick={() => supprimerAvecDonnees(b)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-0.5 hover:bg-red-800">Suppr. avec ses données</button>}
                 </td>

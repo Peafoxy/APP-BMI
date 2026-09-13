@@ -31,7 +31,7 @@
 // ============================================================
 import { DEST_DG, DEST_BANQUE, DEST_COMPTABLE, estVersement, estRejete, libelleDestination } from "./versements";
 import { dFR } from "./core";
-import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse } from "./validationDepenses";
+import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse, payeeParLeComptable } from "./validationDepenses";
 
 export const CAISSE_DG = DEST_DG;
 export const CAISSE_BANQUE = DEST_BANQUE;
@@ -76,12 +76,15 @@ export function mouvementsBanque(db, nomsBoutiques) {
 
 // La caisse du comptable : ce qu'il a réellement encaissé, ce qu'il a
 // réellement remis (ses pointages), et ce qui attend encore son pointage.
+// Timo (13/09/2026) : une dépense de BOUTIQUE « payée avec la caisse du
+// comptable » est une sortie de sa caisse, comptée quand il la pointe
+// « Remis » (le montant d'une dépense rejetée par le DG est à 0 : rien).
 export function mouvementsComptable(db) {
-  const lignes = (db.depenses || []).filter((d) => d.boutique === DEST_COMPTABLE && !estRejete(d));
+  const lignes = (db.depenses || []).filter((d) => (d.boutique === DEST_COMPTABLE || payeeParLeComptable(d)) && !estRejete(d));
   const entrees = lignes.filter((d) => Number(d.montant || 0) < 0 && d.decaisse_le)
     .map((d) => ({ id: d.id, sens: "entree", date: d.decaisse_le, montant: -Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || "Versement reçu"} — encaissé le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const sorties = lignes.filter((d) => Number(d.montant || 0) > 0 && d.decaisse_le)
-    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
+    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie}${payeeParLeComptable(d) ? ` (dépense de ${d.boutique}, par ${d.par})` : ""} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const aEncaisser = lignes.filter((d) => Number(d.montant || 0) < 0 && !d.decaisse_le).reduce((s, d) => s - Number(d.montant), 0);
   const aRemettre = lignes.filter((d) => Number(d.montant || 0) > 0 && !d.decaisse_le).reduce((s, d) => s + Number(d.montant), 0);
   return { ...bilan(entrees, sorties), aEncaisser, aRemettre };

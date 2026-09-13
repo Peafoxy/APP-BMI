@@ -113,7 +113,7 @@ export function Caisse({ db, save, profile }) {
     if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!destinations.includes(vers.destination)) { uAlert("Cette destination n'est pas disponible dans l'espace regardé."); return; }
-    const r = construireVersement(profile, { boutique, ...vers, attendu: aVerser.montant });
+    const r = construireVersement(profile, { boutique, ...vers, attendu: aVerser.aVerser });
     if (r.refus) { uAlert(r.refus); return; }
     if (!await uConfirm(`Enregistrer le versement de ${fmt(Number(vers.montant))} de ${boutique} → ${libelleDestination(r.versement)} ?\n\nIl restera « en attente » jusqu'à sa validation par ${vers.destination === DEST_COMPTABLE ? "le comptable" : "le DG"}.`)) return;
     save({
@@ -212,7 +212,7 @@ export function Caisse({ db, save, profile }) {
                 return (
                   <tr key={l.boutique} className="border-t border-slate-100">
                     <td className="px-3 py-2"><div className="font-semibold text-slate-800">{l.boutique}</div>{retard > 0 && <div className="text-xs font-bold text-red-600">⚠ {retard} jour{retard > 1 ? "s" : ""} sans clôture</div>}</td>
-                    <td className={`px-3 py-2 tabular-nums text-right font-bold ${l.aVerser < 0 ? "text-red-600" : ""}`}>{fmt(l.aVerser)}{l.dernierVersement && <div className="text-xs font-normal text-slate-400">dernier versement le {dFR(l.dernierVersement)}</div>}</td>
+                    <td className={`px-3 py-2 tabular-nums text-right font-bold ${l.solde < 0 ? "text-red-600" : ""}`}>{fmt(l.fondsFixe > 0 ? l.aVerser : l.solde)}{l.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">solde {fmt(l.solde)} · fonds fixe {fmt(l.fondsFixe)}</div>}{l.dernierVersement && <div className="text-xs font-normal text-slate-400">dernier versement le {dFR(l.dernierVersement)}</div>}</td>
                     <td className="px-3 py-2 tabular-nums text-right">{fmt(l.verse)}<div className="text-xs text-slate-400">ce mois {fmt(l.verseCeMois)}{l.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(l.verseEnAttente)}</span> : null}</div></td>
                     <td className="px-3 py-2 tabular-nums text-right text-emerald-700">{fmt(l.entrees)}</td>
                     <td className="px-3 py-2 tabular-nums text-right">− {fmt(l.sorties)}</td>
@@ -221,7 +221,7 @@ export function Caisse({ db, save, profile }) {
               })}
               <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                 <td className="px-3 py-2">TOTAL</td>
-                <td className={`px-3 py-2 tabular-nums text-right ${leResume.total.aVerser < 0 ? "text-red-600" : ""}`}>{fmt(leResume.total.aVerser)}</td>
+                <td className={`px-3 py-2 tabular-nums text-right ${leResume.total.solde < 0 ? "text-red-600" : ""}`}>{fmt(leResume.total.fondsFixe > 0 ? leResume.total.aVerser : leResume.total.solde)}{leResume.total.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">solde {fmt(leResume.total.solde)} · fonds fixes {fmt(leResume.total.fondsFixe)}</div>}</td>
                 <td className="px-3 py-2 tabular-nums text-right">{fmt(leResume.total.verse)}<div className="text-xs font-normal text-slate-400">ce mois {fmt(leResume.total.verseCeMois)}{leResume.total.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(leResume.total.verseEnAttente)}</span> : null}</div></td>
                 <td className="px-3 py-2 tabular-nums text-right text-emerald-700">{fmt(leResume.total.entrees)}</td>
                 <td className="px-3 py-2 tabular-nums text-right">− {fmt(leResume.total.sorties)}</td>
@@ -287,7 +287,7 @@ export function Caisse({ db, save, profile }) {
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}{aVerserPeriode.dernierVersement ? ` — dernier versement le ${dFR(aVerserPeriode.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerserPeriode.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerserPeriode.montant)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}{aVerserPeriode.dernierVersement ? ` — dernier versement le ${dFR(aVerserPeriode.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerserPeriode.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerserPeriode.fondsFixe > 0 ? aVerserPeriode.aVerser : aVerserPeriode.montant)}</div>{aVerserPeriode.fondsFixe > 0 && <div className="text-xs text-slate-400">solde en caisse {fmt(aVerserPeriode.montant)} · fonds de caisse fixe {fmt(aVerserPeriode.fondsFixe)} conservé</div>}</div>
           {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">{depuisLeDebut ? `ce mois ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</div></div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerserPeriode.ventes + aVerserPeriode.reglements)}</div></div>
@@ -309,9 +309,9 @@ export function Caisse({ db, save, profile }) {
             )}
             {/* Timo (09/09/2026) : la Note n'apparaît que si le montant versé
                 diffère du montant attendu — avec, en rouge, la raison à donner. */}
-            {vers.montant !== "" && montantDifferent(vers.montant, aVerser.montant) && (
+            {vers.montant !== "" && montantDifferent(vers.montant, aVerser.aVerser) && (
               <div className="sm:col-span-2 lg:col-span-4">
-                <div className="text-sm font-bold text-red-600 mb-1">⚠ {messageJustification(aVerser.montant)}</div>
+                <div className="text-sm font-bold text-red-600 mb-1">⚠ {messageJustification(aVerser.aVerser)}</div>
                 <Field label="Note (justification)"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} /></Field>
               </div>
             )}

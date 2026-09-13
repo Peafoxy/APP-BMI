@@ -10,13 +10,13 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement } from "../lib
 import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
-import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal } from "../lib/calculs";
+import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
 // un chantier de devis ; elle sera déduite des frais d'installation avant le
@@ -205,7 +205,7 @@ export function Depenses({ db, save, profile }) {
           <Field label="Montant (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
           {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
-          <Field label="Payé avec"><select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{optionsPayeAvec(caissesPossibles, boutique).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
+          <Field label="Payé avec"><select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile) }).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
           {/* Timo (13/09/2026) : « au moment d'enregistrer la dépense, rattacher à
               un devis : les chantiers en cours apparaissent et il rattache » —
               puis, capture : « devant Payé avec, avoir la ligne : chantier à
@@ -247,7 +247,10 @@ export function Depenses({ db, save, profile }) {
 // boutique mais confiées au comptable (commissions, salaires, etc. payés
 // « Chez le comptable ») — sinon ces dépenses étaient invisibles nulle part.
 export function ChezComptable({ db, save, profile }) {
-  const liste = (db.depenses || []).filter((x) => x.boutique === "Chez le comptable")
+  // Timo (13/09/2026) : une dépense de boutique « payée avec la caisse du
+  // comptable » passe aussi par son pointage « Remis » — elle est une sortie
+  // de SA caisse (lib/caissesCentrales.js, mouvementsComptable).
+  const liste = (db.depenses || []).filter((x) => x.boutique === "Chez le comptable" || payeeParLeComptable(x))
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
   // ---- POINTAGE DES DÉCAISSEMENTS : le comptable marque ce qu'il a
@@ -318,7 +321,7 @@ export function ChezComptable({ db, save, profile }) {
             <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
               <div>
                 <b>{fmt(Math.abs(x.montant))}</b> — {x.description || x.categorie}
-                <div className="text-xs text-slate-500">{dFR(x.date)} · enregistré par {x.par}{x.montant < 0 ? " · 💵 entrée de caisse" : ""}</div>
+                <div className="text-xs text-slate-500">{dFR(x.date)} · enregistré par {x.par}{x.montant < 0 ? " · 💵 entrée de caisse" : ""}{payeeParLeComptable(x) ? ` · dépense de ${x.boutique}, payée avec ma caisse` : ""}</div>
               </div>
               {estComptable && (
                 <div className="flex gap-1 shrink-0">
