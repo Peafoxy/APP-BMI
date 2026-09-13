@@ -698,16 +698,24 @@ export function Stocks({ db, save, profile }) {
   // l'écran Utilisateurs. N'affecte QUE l'affichage : l'inventaire et les
   // autres opérations continuent d'utiliser la liste complète de la
   // boutique, jamais ce sous-ensemble filtré/limité.
+  // Capture Timo (13/09/2026) : « les catégories sont affichées en totalité,
+  // ce n'est plus esthétique… sur la même ligne entre la boutique et Faire
+  // l'inventaire, une liste Catégorie, classée par ordre alphabétique, mais
+  // tout afficher par défaut ». Plus de mur de pastilles : UNE liste
+  // déroulante, « Toutes » d'office, ordre alphabétique français (accents
+  // et majuscules sans effet : « éclairage » entre « disjoncteur » et
+  // « etiquetteuse », pas à la fin).
   const [categorieActive, setCategorieActive] = useState("");
   const [rechercheStock, setRechercheStock] = useState("");
-  const categoriesPresentes = [...new Set(liste.map((p) => p.categorie || "Autre"))].sort();
+  const categoriesPresentes = [...new Set(liste.map((p) => p.categorie || "Autre"))].sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
   const nbParCategorie = Object.fromEntries(categoriesPresentes.map((c) => [c, liste.filter((p) => (p.categorie || "Autre") === c).length]));
   const qStock = rechercheStock.trim().toLowerCase();
   const enRechercheStock = qStock.length > 0;
-  const categorieAffichee = categorieActive && categoriesPresentes.includes(categorieActive) ? categorieActive : (categoriesPresentes[0] || "");
+  // "" = Toutes (par défaut) ; une catégorie disparue de la boutique = Toutes.
+  const categorieAffichee = categorieActive && categoriesPresentes.includes(categorieActive) ? categorieActive : "";
   const listeAffichee = enRechercheStock
     ? liste.filter((p) => correspond(`${p.nom} ${p.code || ""}`, qStock))
-    : liste.filter((p) => (p.categorie || "Autre") === categorieAffichee);
+    : (categorieAffichee ? liste.filter((p) => (p.categorie || "Autre") === categorieAffichee) : liste);
   const mouvements = (db.ajustements || []).filter((a) => a.boutique === bq).slice(0, 20);
   const nomProduit = (pid) => db.produits.find((p) => p.id === pid)?.nom || "?";
 
@@ -1203,15 +1211,13 @@ export function Stocks({ db, save, profile }) {
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <span className="font-bold text-slate-800">Stocks — {bq}</span>
+            <label className="flex items-center gap-2 text-sm"><span className="font-bold text-slate-800">Catégorie :</span>
+              <select className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white" value={categorieAffichee} onChange={(e) => { setCategorieActive(e.target.value); setRechercheStock(""); }}>
+                <option value="">Toutes ({liste.length})</option>
+                {categoriesPresentes.map((c) => <option key={c} value={c}>{c} ({nbParCategorie[c]})</option>)}
+              </select>
+            </label>
             {!inv && <button onClick={ouvrirInventaire} className="px-4 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800">📋 Faire l'inventaire</button>}
-          </div>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {categoriesPresentes.map((c) => (
-              <button key={c} onClick={() => { setCategorieActive(c); setRechercheStock(""); }}
-                className={`px-3 py-1 rounded-lg text-xs font-bold ${!enRechercheStock && categorieAffichee === c ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`}>
-                {c} ({nbParCategorie[c]})
-              </button>
-            ))}
           </div>
           <input value={rechercheStock} onChange={(e) => setRechercheStock(e.target.value)}
             placeholder="🔍 Rechercher un article par son nom (toutes catégories confondues)…" className={inputCls} />
@@ -1221,7 +1227,7 @@ export function Stocks({ db, save, profile }) {
         <table className="w-full text-sm min-w-[960px]">
           <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {listeAffichee.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">{enRechercheStock ? "Aucun article ne correspond à cette recherche." : "Aucun article dans cette catégorie."}</td></tr>}
+            {listeAffichee.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">{enRechercheStock ? "Aucun article ne correspond à cette recherche." : categorieAffichee ? "Aucun article dans cette catégorie." : "Aucun article dans cette boutique."}</td></tr>}
             {listeAffichee.map((p) => {
               const vendu = stockVendu(db, p.id), aj = stockAjuste(db, p.id), actuel = stockActuel(db, p), al = actuel <= Number(p.seuil);
               return (

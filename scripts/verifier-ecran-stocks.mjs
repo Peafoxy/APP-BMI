@@ -112,6 +112,7 @@ test("…et aucun article réel ne lui est proposé",
 test("le stock affiché ne montre que les articles de la boutique en cours",
   html.includes("BATTERIE GEL 12V200AH") && !html.includes("COFFRET ETANCHE IP65"));
 
+
 // ⚠ RELEVÉ PAR TIMO (02/09/2026) : présélectionner puis modifier doit
 // AJOUTER — la correction n'existe que par le bouton ✏️ Corriger de la
 // fiche. L'ancienne version ouvrait la correction quand l'article existait
@@ -120,6 +121,13 @@ test("le stock affiché ne montre que les articles de la boutique en cours",
 // danger — la fiche en double qui coupe le stock en deux — est refusé au
 // moment d'Ajouter, avec explication.
 const src = readFileSync("src/screens/Stocks.jsx", "utf8");
+// Capture Timo (13/09/2026) : plus de mur de pastilles — UNE liste « Catégorie »
+// sur la ligne du titre, « Toutes » d'office (les DEUX articles d'APESSITO sont
+// listés, pas seulement la première catégorie), ordre alphabétique.
+test("★ Stocks : la liste « Catégorie : » est sur la ligne du titre, « Toutes (2) » d'office, les catégories classées par ordre alphabétique, et TOUS les articles de la boutique sont listés par défaut",
+  /Catégorie :<\/span><select[^>]*><option value="" selected="">Toutes \(2\)<\/option><option value="Batteries">Batteries \(1\)<\/option><option value="Régulateurs">Régulateurs \(1\)<\/option><\/select>/.test(html.replace(/<!-- -->/g, "")) /* le rendu serveur pose des marqueurs <!-- --> entre les morceaux de texte */
+  && html.includes("BATTERIE GEL 12V200AH") && html.includes("REGULATEUR MPPT 60A") && !/px-3 py-1 rounded-lg text-xs font-bold \$\{!enRechercheStock && categorieAffichee === c/.test(src)
+  && /\.sort\(\(a, b\) => a\.localeCompare\(b, "fr", \{ sensitivity: "base" \}\)\)/.test(src) && /: \(categorieAffichee \? liste\.filter\(\(p\) => \(p\.categorie \|\| "Autre"\) === categorieAffichee\) : liste\);/.test(src));
 test("★ cliquer une présélection remplit TOUJOURS le formulaire d'ajout (jamais la correction)",
   /const choisirSuggestion = \(a\) => reprendreArticle\(a\);/.test(src)
   && !/choisirSuggestion = \(a\) =>.*corriger/.test(src));

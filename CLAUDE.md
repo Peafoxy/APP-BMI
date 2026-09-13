@@ -56,7 +56,7 @@ npm run verifier-cloisonnement   # 1263 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run verifier-ecran-stocks    # 16  : l'écran Stocks
+npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Toutes d'office)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
@@ -941,6 +941,15 @@ lit mal est pire qu'un banc absent).
   colonne Article collée à gauche pendant le défilement horizontal, sur
   téléphone exclusivement** (« figer le nom de l'article », 10/09/2026 ;
   `lg:static`).
+- **Les catégories de 📦 Stocks sont UNE liste déroulante** (capture Timo,
+  13/09/2026 : « les catégories sont affichées en totalité, ce n'est plus
+  esthétique… sur la même ligne entre la boutique et Faire l'inventaire, une
+  liste Catégorie, classée par ordre alphabétique, mais tout afficher par
+  défaut ») : « Catégorie : Toutes (N) » sur la ligne du titre, **« Toutes »
+  d'office**, ordre alphabétique français (`localeCompare("fr", base)` :
+  « éclairage » entre « disjoncteur » et « etiquetteuse », pas à la fin) ;
+  plus de mur de pastilles. La recherche reste « toutes catégories
+  confondues ». Le banc le rend et le lit.
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix
