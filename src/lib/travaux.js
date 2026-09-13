@@ -180,3 +180,34 @@ export const lierFacture = (c, vente, dette, aujourdhui = today()) => ({
 });
 
 export const resumeTravaux = (db, c) => `${fmt(totalAFacturer(c))} à facturer · coût ${fmt(coutTravaux(db, c))}`;
+
+// ---- Supprimer (Timo, 13/09/2026) : « tant qu'il n'y a pas d'article rattaché
+// aux travaux, donner la possibilité à l'admin principal de supprimer les
+// travaux… mais les dépenses liées resteront dans Dépenses pour traçabilité ».
+// La fiche part à la corbeille (30 jours, restaurable) ; les dépenses gardent
+// chantier_id / chantier_nom et restent visibles dans 📤 Dépenses.
+export const ROLES_SUPPRESSION = ["admin"]; // et PRINCIPAL seulement (refuserSaufAdminPrincipal dans le geste)
+export const critiqueSuppression = (c) => {
+  if (!c) return "Fiche introuvable.";
+  if ((c.articles_travaux || []).length > 0) return "Des articles sont rattachés à ces travaux : retirez-les d'abord (ils reviennent en stock), puis supprimez.";
+  if (c.vente_id) return "Ces travaux sont déjà facturés : on ne les supprime pas.";
+  return null;
+};
+
+// ---- L'équipe (Timo, 13/09/2026) : « sur la fiche aussi, donner la possibilité
+// de choisir un technicien comme responsable d'équipe, comme dans Clients
+// installés ». Même forme d'équipe que les chantiers de devis (le serveur la
+// réserve à l'administrateur / au responsable commercial) : membres cochés,
+// un chef ⭐, parts à 0 (aucune répartition de frais sur des travaux).
+export const ROLES_EQUIPE = ["admin"];
+export const critiqueEquipe = (ids, chefId) => {
+  if (!(ids || []).length) return "Cochez au moins un technicien.";
+  if (!chefId || !ids.includes(chefId)) return "Désignez le responsable d'équipe parmi les techniciens cochés.";
+  return null;
+};
+export const composerEquipe = (techniciens, ids, chefId) => (ids || []).map((id) => {
+  const u = (techniciens || []).find((t) => t.id === id);
+  return { user_id: id, nom: u ? (u.nom_complet || u.nom) : "?", chef: id === chefId, pct: 0, montant: 0, paye: false };
+});
+export const chefTravaux = (c) => (c?.equipe || []).find((e) => e.chef) || null;
+export const libelleEquipe = (c) => (c?.equipe || []).map((e) => `${e.chef ? "⭐ " : ""}${e.nom}`).join(", ");

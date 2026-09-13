@@ -52,13 +52,13 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1236 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1239 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run verifier-ecran-stocks    # 16  : l'écran Stocks
 npm run verifier-ecran-ventes    # 44  : l'argent dans l'écran Ventes, et sa liste mesurée dans Chromium (clic, logo WhatsApp)
-npm run verifier-ecran-travaux   # 8   : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation)
+npm run verifier-ecran-travaux   # 9   : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
@@ -592,6 +592,16 @@ lit mal est pire qu'un banc absent).
   à 0, ou comptant) = la fiche quitte l'onglet et apparaît dans 🏠 Clients
   installés, catégorie « 🛠 Travaux soldés », trace (facturé / coût / marge),
   sans Frais, Programmer, Entretien ni PV. Une fiche non soldée n'y est jamais.
+- **Supprimer des travaux** (13/09/2026 : « tant qu'il n'y a pas d'article
+  rattaché… l'admin principal… les dépenses liées resteront dans Dépenses
+  pour traçabilité ») : principal seul, refusé s'il reste un article (les
+  retirer d'abord, ils reviennent en stock) ou si c'est facturé ; la fiche
+  part à la corbeille 30 jours ; les dépenses gardent leur `chantier_nom` et
+  restent dans 📤 Dépenses. **L'équipe** (« choisir un technicien comme
+  responsable d'équipe, comme dans Clients installés ») : techniciens de
+  l'espace regardé cochés, un responsable ⭐, parts à 0 — admin (le serveur
+  réserve la structure de l'équipe à l'admin / resp. commercial).
+  Aucune répartition de frais sur des travaux.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

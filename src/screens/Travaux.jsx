@@ -13,9 +13,10 @@ import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
-import { bloquerSiLecture, refuserSaufRoles, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, stockActuel } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
+import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
-import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture } from "../lib/travaux";
+import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe } from "../lib/travaux";
 
 const ficheVide = { nom: "", prenom: "", tel: "", lieu: "", description: "" };
 const hbVide = { nom: "", qte: "1", pu_achat: "", pu_vente: "" };
@@ -29,6 +30,10 @@ export function Travaux({ db, save, profile, onFacturer }) {
   const [stockForm, setStockForm] = useState({ produit_id: "", qte: "1" });
   const [hb, setHb] = useState(hbVide);
   const [prest, setPrest] = useState(null); // { mode, valeur } en cours d'édition
+  const [equipeForm, setEquipeForm] = useState(null); // { id, ids, chef } en cours d'édition
+  const jeSuisPrincipal = estAdminPrincipal(db, profile);
+  // Les techniciens de l'espace regardé (technicien, technicien BMI), actifs.
+  const techniciens = utilisateursDeLEspace(db, profile).filter((u) => ["technicien", "technicien_bmi"].includes(u.role) && u.actif !== false);
 
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
 
@@ -86,6 +91,30 @@ export function Travaux({ db, save, profile, onFacturer }) {
     if (refus) { uAlert(refus); return; }
     majFiche({ ...c, prestation: { mode: prest.mode, valeur: Number(prest.valeur) } }, `Travaux ${c.nom} : frais de prestation ${prest.mode === "pct" ? `${prest.valeur} %` : fmt(Number(prest.valeur))}`);
     setPrest(null);
+  };
+
+  // Timo (13/09/2026) : supprimer tant qu'aucun article n'est rattaché ; les
+  // dépenses liées restent dans 📤 Dépenses. Corbeille 30 jours, principal seul.
+  const supprimer = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Supprimer des travaux")) return;
+    const refus = critiqueSuppression(c);
+    if (refus) { uAlert(refus); return; }
+    const nbDep = depensesDuChantier(db, c.id).length;
+    if (!await uConfirm(`Supprimer les travaux de ${c.prenom || ""} ${c.nom} ?\n\nLa fiche part à la corbeille ${DUREE_CORBEILLE_JOURS} jours (restaurable dans ⚙ Paramètres).${nbDep ? `\n${nbDep} dépense(s) rattachée(s) RESTENT dans 📤 Dépenses, pour la traçabilité.` : ""}`)) return;
+    save(mettreALaCorbeille(db, "clients_installes", c.id, profile), `Travaux supprimés (corbeille) — ${c.prenom || ""} ${c.nom}${nbDep ? ` · ${nbDep} dépense(s) conservée(s)` : ""}`);
+    setOuverte(null);
+  };
+
+  // Timo (13/09/2026) : « choisir un technicien comme responsable d'équipe, comme dans Clients installés ».
+  const enregistrerEquipe = (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufRoles(profile, ROLES_EQUIPE, "Composer l'équipe des travaux")) return;
+    const refus = critiqueEquipe(equipeForm.ids, equipeForm.chef);
+    if (refus) { uAlert(refus); return; }
+    const equipe = composerEquipe(techniciens, equipeForm.ids, equipeForm.chef);
+    majFiche({ ...c, equipe }, `Travaux ${c.nom} : équipe ${equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom}`).join(", ")}`);
+    setEquipeForm(null);
   };
 
   const facturer = async (c) => {
@@ -150,6 +179,34 @@ export function Travaux({ db, save, profile, onFacturer }) {
                     <Chiffre label="Reste dû" valeur={vente ? resteDu(db, c) : totalAFacturer(c)} />
                   </div>
                   {(c.tel || c.adresse) && <div className="text-xs text-slate-600">{c.tel ? `📞 ${c.tel}` : ""}{c.tel && c.adresse ? " · " : ""}{c.adresse ? `📍 ${c.adresse}` : ""}</div>}
+
+                  {/* ---- Équipe ---- */}
+                  <div>
+                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">👷 Équipe — {(c.equipe || []).length ? libelleEquipe(c) : "aucune"}</div>
+                    {ROLES_EQUIPE.includes(profile.role) && (equipeForm && equipeForm.id === c.id ? (
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="text-xs text-slate-500 mb-2">Cochez les techniciens, puis désignez le responsable ⭐.</div>
+                        {techniciens.length === 0 && <div className="text-sm text-slate-400">Aucun technicien actif dans cet espace.</div>}
+                        <div className="space-y-1">
+                          {techniciens.map((u) => {
+                            const coche = equipeForm.ids.includes(u.id);
+                            return (
+                              <div key={u.id} className="flex flex-wrap items-center gap-3 text-sm">
+                                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={coche} onChange={() => setEquipeForm({ ...equipeForm, ids: coche ? equipeForm.ids.filter((x) => x !== u.id) : [...equipeForm.ids, u.id], chef: coche && equipeForm.chef === u.id ? "" : equipeForm.chef })} />{u.nom_complet || u.nom}</label>
+                                {coche && <label className="flex items-center gap-1 text-xs font-bold text-amber-700"><input type="radio" name={`chef-${c.id}`} checked={equipeForm.chef === u.id} onChange={() => setEquipeForm({ ...equipeForm, chef: u.id })} />⭐ Responsable</label>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={() => enregistrerEquipe(c)} className={btnDark}>Enregistrer l'équipe</button>
+                          <button onClick={() => setEquipeForm(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm">Annuler</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setEquipeForm({ id: c.id, ids: (c.equipe || []).map((e) => e.user_id), chef: (c.equipe || []).find((e) => e.chef)?.user_id || "" })} className="text-xs font-bold text-sky-800 underline">👷 {(c.equipe || []).length ? "Modifier l'équipe" : "Composer l'équipe"}</button>
+                    ))}
+                  </div>
 
                   {/* ---- Articles ---- */}
                   <div>
@@ -250,6 +307,11 @@ export function Travaux({ db, save, profile, onFacturer }) {
                       </div>
                     )}
                   </div>
+                  {jeSuisPrincipal && !vente && (
+                    <div className="text-right">
+                      <button onClick={() => supprimer(c)} className="text-xs font-bold text-red-700 underline" title="Possible tant qu'aucun article n'est rattaché ; les dépenses liées restent dans 📤 Dépenses">🗑 Supprimer ces travaux</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

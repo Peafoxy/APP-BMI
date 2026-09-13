@@ -101,6 +101,11 @@ console.log("\nLe bouton Facturer prépare le panier de 💰 Ventes");
   const t = await texte();
   test("★ « Facturer le client (vers 💰 Ventes) » est proposé à l'admin, avec le total 280 000 F = articles 250 000 F + prestation 30 000 F", /Total à facturer : 280 000 F \(articles 250 000 F \+ prestation 30 000 F\)/.test(t) && /Facturer le client \(vers 💰 Ventes\)/.test(t));
 }
+console.log("\nSupprimer et composer l'équipe (13/09/2026)");
+{
+  const t = await texte();
+  test("★ l'admin principal voit « 🗑 Supprimer ces travaux » et « 👷 Composer l'équipe » ; l'équipe est « aucune » au départ", /🗑 Supprimer ces travaux/.test(t) && /Composer l'équipe/.test(t) && /Équipe — aucune/.test(t));
+}
 test("aucune erreur JavaScript", erreurs.length === 0, erreurs.join(" | "));
 await nav.close();
 rmSync(dossier, { recursive: true, force: true });

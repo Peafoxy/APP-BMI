@@ -6332,6 +6332,20 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   test("★ encaissé / reste dû : comptant → 275 000 / 0 ; à crédit payé 100 000 → 100 000 / 175 000",
     Tv.encaisse(dbV, cF) === 275000 && Tv.resteDu(dbV, cF) === 0
     && Tv.encaisse({ ...dbV, dettes: [{ id: "dt1", montant: 275000, paye: 100000 }] }, cD) === 100000 && Tv.resteDu({ ...dbV, dettes: [{ id: "dt1", montant: 275000, paye: 100000 }] }, cD) === 175000);
+  // Timo (13/09/2026) : supprimer tant qu'aucun article n'est rattaché (principal, corbeille) ; l'équipe avec son responsable ⭐.
+  test("★ critiqueSuppression : refusé avec des articles rattachés, refusé une fois facturé, permis sinon",
+    /articles sont rattachés/.test(Tv.critiqueSuppression(c2)) && /déjà facturés/.test(Tv.critiqueSuppression({ ...c0, vente_id: "v" })) && Tv.critiqueSuppression(c0) === null);
+  const techs = [{ id: "t1", nom: "KOSSI" }, { id: "t2", nom: "AMA", nom_complet: "AMA D." }];
+  const eq = Tv.composerEquipe(techs, ["t1", "t2"], "t2");
+  test("★ l'équipe : composerEquipe pose les membres avec le chef ⭐, parts à 0 (aucune répartition de frais) ; critiqueEquipe exige un membre et un chef parmi les cochés ; chefTravaux / libelleEquipe",
+    eq.length === 2 && eq[1].chef === true && eq[0].chef === false && eq[1].nom === "AMA D." && eq[0].pct === 0 && eq[0].montant === 0
+    && /Cochez/.test(Tv.critiqueEquipe([], "")) && /responsable/.test(Tv.critiqueEquipe(["t1"], "t2")) && Tv.critiqueEquipe(["t1"], "t1") === null
+    && Tv.chefTravaux({ equipe: eq }).user_id === "t2" && Tv.libelleEquipe({ equipe: eq }) === "KOSSI, ⭐ AMA D.");
+  const tvJ = readFileSync("src/screens/Travaux.jsx", "utf8");
+  test("★ l'écran : « 🗑 Supprimer ces travaux » pour le PRINCIPAL seul (refuserSaufAdminPrincipal + critiqueSuppression, corbeille, dépenses conservées dites), l'équipe pour l'admin (refuserSaufRoles ROLES_EQUIPE, composerEquipe) parmi les techniciens de l'espace regardé",
+    /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /\{jeSuisPrincipal && !vente && \(/.test(tvJ)
+    && /refuserSaufRoles\(profile, ROLES_EQUIPE, "Composer l'équipe des travaux"\)/.test(tvJ) && /const equipe = composerEquipe\(techniciens, equipeForm\.ids, equipeForm\.chef\);/.test(tvJ)
+    && /const techniciens = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => \["technicien", "technicien_bmi"\]\.includes\(u\.role\) && u\.actif !== false\);/.test(tvJ));
   test("★ travauxEnCours : la fiche non soldée est dans l'onglet ; soldée, elle n'y est plus ; boutiqueDuChantier lit la boutique de la fiche",
     Tv.travauxEnCours({ ...dbV, clients_installes: [cD], dettes: [{ id: "dt1", montant: 275000, paye: 1 }] }, admin).length === 1
     && Tv.travauxEnCours({ ...dbV, clients_installes: [cF] }, admin).length === 0 && Ca.boutiqueDuChantier(dbV, c0) === "LOME");
