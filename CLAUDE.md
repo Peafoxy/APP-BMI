@@ -938,9 +938,9 @@ lit mal est pire qu'un banc absent).
   boutiques » n'a plus de limite à 20 lignes. **Les deux listes tiennent
   dans un cadre à hauteur fixe qui défile** (« au plus 8 ou 10 lignes, et
   une barre de défilement », 10/09/2026), en-tête collé en haut, et **la
-  colonne Article collée à gauche pendant le défilement horizontal, sur
-  téléphone exclusivement** (« figer le nom de l'article », 10/09/2026 ;
-  `lg:static`).
+  colonne Article collée à gauche pendant le défilement horizontal**
+  (« figer le nom de l'article », 10/09/2026 ; depuis le 13/09/2026 sur
+  ordinateur aussi — voir la règle commune ci-dessous).
 - **Les catégories de 📦 Stocks sont UNE liste déroulante** (capture Timo,
   13/09/2026 : « les catégories sont affichées en totalité, ce n'est plus
   esthétique… sur la même ligne entre la boutique et Faire l'inventaire, une
@@ -950,11 +950,17 @@ lit mal est pire qu'un banc absent).
   « éclairage » entre « disjoncteur » et « etiquetteuse », pas à la fin) ;
   plus de mur de pastilles. La recherche reste « toutes catégories
   confondues ». Le banc le rend et le lit.
-  **Le tableau du stock fige aussi sa colonne Article sur téléphone**
-  (13/09/2026 : « figer les articles du stock sur téléphone quand on veut
-  défiler de droite à gauche, comme dans Réapprovisionnement ») : même
-  classes que l'encadré (`sticky left-0 … lg:static`), la cellule collée
-  garde le fond rouge pâle d'une ligne en alerte.
+  **La PREMIÈRE colonne d'un tableau reste FIGÉE pendant le défilement
+  horizontal, téléphone ET ordinateur** (13/09/2026 : « figer les articles
+  du stock… comme dans Réapprovisionnement », puis « faire pareil dans
+  Dépenses et Dettes ; cette règle doit aussi s'appliquer sur Windows » —
+  le « téléphone exclusivement » du 10/09 est levé). UNE règle, écrite une
+  fois dans ui.jsx : `enTeteFige(fond)` / `celluleFigee(fond, deplie)` —
+  la cellule porte le fond de sa ligne (rouge pâle en alerte ou rejetée,
+  ambre en attente, bleu soutenu et barre bleue si dépliée :
+  `fondLigneDepliable`). Appliquée aux quatre tableaux : Stocks (tableau
+  et « À réapprovisionner », colonne Article), Dépenses et Dettes (colonne
+  Date). Le banc interdit `lg:static` et tout `sticky left-0` hors ui.jsx.
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix

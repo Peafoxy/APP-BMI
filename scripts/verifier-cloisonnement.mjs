@@ -5254,7 +5254,12 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
       && Core.lignesDette({ motif: "" }).length === 0 && Core.lignesDette({}).length === 0);
     test("★ écran Dettes : la ligne se déplie au clic (detteDepliee, une seule, un clic sur une autre la déplie directement), surbrillance commune (classeLigneDepliable, retard en rouge pâle), ListeArticles sur lignesDette, montants à droite, boutons ronds (🖨, 💵 Paiement, Relancer = logo WhatsApp, 🗑 admin) dans une cellule qui ne déplie pas ; mêmes gestes, mêmes gardes",
       /const \[detteDepliee, setDetteDepliee\] = useState\(null\);/.test(dj) && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
-      && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj) && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
+      && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj)
+      // 13/09/2026 : la première colonne (Date) reste figée, ordinateur aussi ; Dépenses pareil (Date, fond de la ligne gardé) ; plus aucun lg:static dans l'application.
+      && /celluleFigee\(fondLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\), detteDepliee === d\.id\)/.test(dj) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(dj)
+      && /celluleFigee\(estRejetee\(x\) \? "bg-red-50" : estEnAttente\(x\) \? "bg-amber-50" : "bg-white"\)/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
+      && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
+      && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
       && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(dj)
       && /aria-label="Imprimer le reçu">🖨<\/button>/.test(dj) && /\{st !== "Payée" && \(/.test(dj) && /onClick=\{\(\) => encaisser\(d\)\}[^\n]*aria-label="Paiement">💵<\/button>/.test(dj) && /onClick=\{\(\) => relancer\(d\)\}[^\n]*aria-label="Relancer"><IconeWhatsApp \/><\/button>/.test(dj)
       && /\{profile\.role === "admin" && \(\n\s*<button onClick=\{\(\) => supprimerDette\(d\)\}[^\n]*aria-label="Supprimer">🗑<\/button>/.test(dj) && !/underline mr-2">🖨 Reçu/.test(dj));

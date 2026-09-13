@@ -123,7 +123,16 @@ export const boutonAction = (teinte) => `inline-flex items-center justify-center
 // La ligne d'un tableau qu'on déplie au clic (Ventes, Dettes) : UNE ligne
 // dépliée à la fois, fond bleu soutenu + barre épaisse à gauche (couleur de
 // l'espace : violet en formation), sinon zébrage et survol.
-export const classeLigneDepliable = (deplie, i, fondSinon = "") => deplie ? "bg-sky-200 shadow-[inset_6px_0_0_0_var(--color-sky-700)]" : `hover:bg-sky-50 ${fondSinon || (i % 2 ? "bg-slate-50/60" : "bg-white")}`;
+export const fondLigneDepliable = (deplie, i, fondSinon = "") => deplie ? "bg-sky-200" : (fondSinon || (i % 2 ? "bg-slate-50/60" : "bg-white"));
+export const classeLigneDepliable = (deplie, i, fondSinon = "") => deplie ? "bg-sky-200 shadow-[inset_6px_0_0_0_var(--color-sky-700)]" : `hover:bg-sky-50 ${fondLigneDepliable(false, i, fondSinon)}`;
+// La PREMIÈRE colonne d'un tableau reste FIGÉE pendant le défilement
+// horizontal (Timo, 10/09/2026 « figer le nom de l'article » puis 13/09/2026
+// « faire pareil dans Dépenses et Dettes… cette règle doit aussi s'appliquer
+// sur Windows ») : téléphone ET ordinateur. Écrit UNE fois : l'en-tête et la
+// cellule portent leur fond (une cellule collée sans fond laisserait passer
+// les colonnes qui glissent dessous) ; une ligne dépliée garde sa barre bleue.
+export const enTeteFige = (fond = "bg-slate-100") => `sticky left-0 z-20 ${fond} shadow-[2px_0_0_0_#e2e8f0]`;
+export const celluleFigee = (fond = "bg-white", deplie = false) => `sticky left-0 z-[5] ${fond} ${deplie ? "shadow-[inset_6px_0_0_0_var(--color-sky-700),2px_0_0_0_#e2e8f0]" : "shadow-[2px_0_0_0_#e2e8f0]"} max-w-[180px]`;
 
 // Le VRAI logo WhatsApp (Timo, 12/09/2026 : « remplacer l'icône de WhatsApp
 // par le vrai icône WhatsApp ») : dessiné en SVG, vert WhatsApp, à la taille

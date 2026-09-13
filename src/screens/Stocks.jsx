@@ -7,7 +7,7 @@
 import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { uid, fmt, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -777,11 +777,11 @@ export function Stocks({ db, save, profile }) {
                   {/* Timo (10/09/2026) : « figer le nom de l'article quand on défile de
                       droite à gauche — sur téléphone exclusivement » : la première
                       colonne reste collée à gauche sous la largeur lg, libre au-dessus. */}
-                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? " sticky left-0 z-20 bg-white shadow-[2px_0_0_0_#e2e8f0] lg:static lg:shadow-none" : ""}`}>{h}</th>)}</tr></thead>
+                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Manque"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
                   <tbody>
                     {aReapprovisionner.map(({ p, actuel, seuil, manque }) => (
                       <tr key={p.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 font-semibold sticky left-0 z-[5] bg-white shadow-[2px_0_0_0_#e2e8f0] max-w-[180px] lg:static lg:shadow-none lg:max-w-none">{p.nom}</td>
+                        <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{p.nom}</td>
                         <td className="px-3 py-2 text-slate-500">{p.categorie || "—"}</td>
                         <td className="px-3 py-2 text-slate-500">{p.fournisseur || "—"}</td>
                         <td className={`px-3 py-2 tabular-nums font-bold ${actuel <= 0 ? "text-red-600" : "text-orange-600"}`}>{actuel}</td>
@@ -1225,17 +1225,17 @@ export function Stocks({ db, save, profile }) {
         </div>
         <div className="max-h-[380px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[960px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{/* Timo (13/09/2026) : « figer les articles du stock sur téléphone quand on
-              veut défiler de droite à gauche, comme dans Réapprovisionnement » — la
-              colonne Article reste collée à gauche, sur téléphone seulement (lg:static). */}
-            {["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? " sticky left-0 z-20 bg-slate-100 shadow-[2px_0_0_0_#e2e8f0] lg:static lg:shadow-none" : ""}`}>{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{/* Timo (13/09/2026) : « figer les articles du stock quand on veut défiler
+              de droite à gauche, comme dans Réapprovisionnement… sur Windows aussi » —
+              la colonne Article reste collée à gauche (enTeteFige / celluleFigee, ui.jsx). */}
+            {["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {listeAffichee.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">{enRechercheStock ? "Aucun article ne correspond à cette recherche." : categorieAffichee ? "Aucun article dans cette catégorie." : "Aucun article dans cette boutique."}</td></tr>}
             {listeAffichee.map((p) => {
               const vendu = stockVendu(db, p.id), aj = stockAjuste(db, p.id), actuel = stockActuel(db, p), al = actuel <= Number(p.seuil);
               return (
                 <tr key={p.id} className={`border-t border-slate-100 ${al ? "bg-red-50" : ""}`}>
-                  <td className={`px-3 py-2 font-semibold sticky left-0 z-[5] ${al ? "bg-red-50" : "bg-white"} shadow-[2px_0_0_0_#e2e8f0] max-w-[180px] lg:static lg:shadow-none lg:max-w-none`}>{p.nom}</td>
+                  <td className={`px-3 py-2 font-semibold ${celluleFigee(al ? "bg-red-50" : "bg-white")}`}>{p.nom}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => changerFournisseur(p)} className={`text-xs font-semibold underline ${p.fournisseur ? "text-slate-600" : "text-slate-400"}`}>
                       {p.fournisseur || "— Définir —"}
