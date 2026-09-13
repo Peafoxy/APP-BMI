@@ -11,9 +11,13 @@ import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, AucuneBoutique } from "../components/ui";
 import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+// Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
+// un chantier de devis ; elle sera déduite des frais d'installation avant le
+// partage entre techniciens — règle pure dans lib/depensesChantier.js.
+import { chantiersRattachables, libelleChantier, critiqueRattachement, rattacherDepense, peutRattacher } from "../lib/depensesChantier";
 
 // ============ LE TABLEAU DES DÉPENSES — écrit UNE fois (point B5 du relevé
 // des doublons, 08/09/2026) pour les dépenses d'une boutique et pour
@@ -25,12 +29,12 @@ export function BadgeValidation({ x }) {
   if (estValidee(x)) return <span className="text-xs font-bold text-green-700">✅ validée le {dFR(x.validation.le)}{x.validation.auto ? " (DG)" : ` par ${x.validation.par}`}</span>;
   return <span className="text-xs text-slate-400">—</span>;
 }
-function TableauDepenses({ liste, listePage, profile, onSupprimer, vide }) {
+function TableauDepenses({ liste, listePage, profile, onSupprimer, onRattacher, vide }) {
   return (
     <table className="w-full text-sm min-w-[860px]">
-      <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+      <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
       <tbody>
-        {liste.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{vide}</td></tr>}
+        {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{vide}</td></tr>}
         {listePage.map((x) => (
           <tr key={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
             <td className="px-3 py-2">{dFR(x.date)}</td>
@@ -41,6 +45,12 @@ function TableauDepenses({ liste, listePage, profile, onSupprimer, vide }) {
             <td className="px-3 py-2 text-xs">{x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
             <td className="px-3 py-2">{x.par}</td>
             <td className="px-3 py-2"><BadgeValidation x={x} /></td>
+            <td className="px-3 py-2 text-xs">
+              {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}</span> : <span className="text-slate-300">—</span>}
+              {onRattacher && peutRattacher(profile, x) && (
+                <button onClick={() => onRattacher(x)} className="ml-1 text-purple-700 underline" title="Rattacher cette dépense à un chantier de devis (ou l'en détacher)">{x.chantier_id ? "modifier" : "🔗 rattacher"}</button>
+              )}
+            </td>
             <td className="px-3 py-2">
               {profile.role === "admin" && (
                 <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
@@ -63,7 +73,9 @@ export function Depenses({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "depenses" });
-  const formVide = { categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: PAYE_AVEC_CAISSE };
+  const formVide = { categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: PAYE_AVEC_CAISSE, chantier_id: "" };
+  // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
+  const chantiersOuverts = chantiersRattachables(db, profile);
   const [f, setF] = useState(formVide);
   const jeSuisDG = estAdminPrincipal(db, profile);
 
@@ -74,8 +86,14 @@ export function Depenses({ db, save, profile }) {
     const r = construireDepenseSaisie(db, profile, { boutique, ...f }, today());
     if (r.refus) { uAlert(r.refus); return; }
     const suite = r.aValider && !jeSuisDG ? `\n\n⏳ ${fmt(Number(f.montant))} atteint ${fmt(SEUIL_VALIDATION_DEPENSE)} : cette dépense sera soumise à la validation du DG et ne comptera qu'une fois validée.` : "";
-    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libellePayeAvec(f.paye_avec).toLowerCase()} ?${suite}`)) return;
-    save({ ...db, depenses: [r.depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+    const chantierChoisi = f.chantier_id ? chantiersOuverts.find((c) => c.id === f.chantier_id) : null;
+    if (f.chantier_id && !chantierChoisi) { uAlert("Ce chantier n'est plus rattachable (réceptionné, ou frais déjà payés). Choisissez-en un autre ou laissez « Aucun »."); return; }
+    const refusChantier = chantierChoisi ? critiqueRattachement(db, profile, r.depense, chantierChoisi) : null;
+    if (refusChantier) { uAlert(refusChantier); return; }
+    const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "";
+    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libellePayeAvec(f.paye_avec).toLowerCase()} ?${suite}${rattache}`)) return;
+    const depense = chantierChoisi ? rattacherDepense(r.depense, chantierChoisi) : r.depense;
+    save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : ""));
     setF(formVide);
     if (r.aValider && !jeSuisDG) uAlert("Dépense enregistrée — en attente de validation par le DG.");
   };
@@ -103,6 +121,23 @@ export function Depenses({ db, save, profile }) {
     if (refus) { uAlert(refus); return; }
     const r = rejeterDepense(db, profile, d, motif, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+  };
+
+  // Rattacher (ou détacher) une dépense déjà enregistrée : gérant, admin, ou son auteur.
+  const rattacherApresCoup = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const refusRole = critiqueRattachement(db, profile, d, null);
+    if (refusRole) { uAlert(refusRole); return; }
+    if (!chantiersOuverts.length && !d.chantier_id) { uAlert("Aucun chantier de devis en cours dans cet espace."); return; }
+    const options = [...chantiersOuverts.map((c) => `🏠 ${libelleChantier(c)}`), ...(d.chantier_id ? ["✖ Détacher de son chantier"] : [])];
+    const choix = await uChoix(`Rattacher la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) à quel chantier de devis ?${d.chantier_id ? `\n\nActuellement : ${d.chantier_nom}` : ""}`, options);
+    if (!choix) return;
+    const chantier = choix.startsWith("✖") ? null : chantiersOuverts[options.indexOf(choix)];
+    const refus = critiqueRattachement(db, profile, d, chantier);
+    if (refus) { uAlert(refus); return; }
+    const apres = rattacherDepense(d, chantier);
+    save({ ...db, depenses: db.depenses.map((x) => (x.id === d.id ? apres : x)) },
+      chantier ? `Dépense ${fmt(d.montant)} (${d.categorie}) rattachée au chantier ${libelleChantier(chantier)}` : `Dépense ${fmt(d.montant)} (${d.categorie}) détachée du chantier ${d.chantier_nom || ""}`);
   };
 
   const supprimerDepense = async (d) => {
@@ -185,7 +220,18 @@ export function Depenses({ db, save, profile }) {
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
           {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
           <Field label="Payé avec"><select className={inputCls} value={f.paye_avec} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{PAYE_AVEC.map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
+          {/* Timo (13/09/2026) : « au moment d'enregistrer la dépense, rattacher à
+              un devis : les chantiers en cours apparaissent et il rattache ». */}
+          {chantiersOuverts.length > 0 && (
+            <Field label="Rattacher à un chantier de devis">
+              <select className={inputCls} value={f.chantier_id} onChange={(e) => setF({ ...f, chantier_id: e.target.value })}>
+                <option value="">— Aucun —</option>
+                {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>🏠 {libelleChantier(c)}</option>)}
+              </select>
+            </Field>
+          )}
         </div>
+        {f.chantier_id && <div className="mt-2 text-xs text-purple-800">🏠 Cette dépense sera déduite des frais d'installation du chantier avant le partage entre techniciens (une fois qu'elle compte).</div>}
         {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
           <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>
         )}
@@ -198,7 +244,7 @@ export function Depenses({ db, save, profile }) {
           <span>Dépenses — {boutique}</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>
         </div>
-        <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} vide="Aucune dépense enregistrée." />
+        <TableauDepenses liste={liste} listePage={listePage} profile={profile} onSupprimer={supprimerDepense} onRattacher={rattacherApresCoup} vide="Aucune dépense enregistrée." />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">

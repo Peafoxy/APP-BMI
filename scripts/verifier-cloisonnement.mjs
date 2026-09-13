@@ -5495,7 +5495,8 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
-    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", ""\]/.test(dpV) && (dpV.match(/<thead>/g) || []).length === 1);
+    // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
+    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""\]/.test(dpV) && (dpV.match(/<thead>/g) || []).length === 1);
   test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
     /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
     && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)
@@ -6180,6 +6181,83 @@ titre("Les icônes de l'application ont un fond transparent (écran de lancement
     const png = execSync(`node -e "const z=require('zlib'),b=require('fs').readFileSync('${f}');let i=8,idat=[];while(i<b.length){const l=b.readUInt32BE(i),t=b.toString('ascii',i+4,i+8);if(t==='IDAT')idat.push(b.subarray(i+8,i+8+l));i+=12+l;}const d=z.inflateSync(Buffer.concat(idat));process.stdout.write(String(d[4]))"`, { encoding: "utf8" });
     test(`★ ${f} : RGBA (type ${typeCouleur}) et premier pixel transparent (alpha ${png})`, typeCouleur === 6 && png === "0");
   }
+}
+
+
+titre("Les petites dépenses d'un chantier de devis, déduites avant le partage des frais d'installation");
+{
+  // Timo (13/09/2026) : « pour les chantiers nés d'un devis, les petites
+  // dépenses peuvent être rattachées au devis… à la fin, ces petites dépenses
+  // sont soustraites avant le partage » — « je parle des frais
+  // d'installation, pas de la commission du commercial » — « au moment
+  // d'enregistrer la dépense… les chantiers en cours apparaissent et il
+  // rattache ». La règle vit dans lib/depensesChantier.js : on la BUNDLE et on
+  // l'exerce avec des chiffres connus.
+  const sortieDc = join("node_modules", ".cache", `bmi-depenses-chantier-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/depensesChantier.js"], bundle: true, format: "esm", platform: "node", outfile: sortieDc, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Dc = await import(pathToFileURL(sortieDc).href);
+  unlinkSync(sortieDc);
+  const admin = { id: "adm", nom: "TIMO", role: "admin" };
+  const gerant = { id: "ger", nom: "KOFFI", role: "gerant" };
+  const vendeur = { id: "ven", nom: "AMA", role: "vendeur" };
+  const autreVendeur = { id: "ven2", nom: "ESSI", role: "vendeur" };
+  const dbc = {
+    boutiques: [{ nom: "LOME", formation: false }, { nom: "LOME-F", formation: true }],
+    users: [{ ...admin, formation: false }, { ...gerant, formation: false }, { ...vendeur, formation: false }, { ...autreVendeur, formation: false }],
+    ventes: [{ id: "v1", boutique: "LOME" }, { id: "v2", boutique: "LOME" }, { id: "v3", boutique: "LOME" }, { id: "vf", boutique: "LOME-F" }],
+    clients_installes: [
+      { id: "c1", nom: "MENSAH", prenom: "Paul", type_installation: "Solaire résidentiel", vente_id: "v1", statut: "en_cours", date_installation: "2026-09-10", equipe: [] },
+      { id: "c2", nom: "DOE", prenom: "Ama", type_installation: "Pompage solaire", vente_id: "v2", statut: "receptionne", equipe: [] },
+      { id: "c3", nom: "KOFFI", prenom: "Jean", vente_id: "v3", statut: "termine", date_installation: "2026-09-12", equipe: [{ user_id: "t1", montant: 30000, paye: true }] },
+      { id: "cf", nom: "FORMATION", vente_id: "vf", statut: "en_cours", equipe: [] },
+    ],
+    depenses: [
+      { id: "d1", boutique: "LOME", categorie: "Carburant", montant: 8000, paiement: "Espèces", par: "AMA", par_id: "ven", chantier_id: "c1", validation: { statut: "validee", le: "2026-09-11", par: "TIMO" } },
+      { id: "d2", boutique: "LOME", categorie: "Nourriture", montant: 3000, paiement: "Espèces", par: "AMA", par_id: "ven", chantier_id: "c1" },
+      { id: "d3", boutique: "LOME", categorie: "Carburant", montant: 12000, paiement: "Espèces", par: "AMA", par_id: "ven", chantier_id: "c1", validation: { statut: "attente" } },
+      { id: "d4", boutique: "LOME", categorie: "Carburant", montant: 0, paiement: "Espèces", par: "AMA", par_id: "ven", chantier_id: "c1", validation: { statut: "rejetee", le: "2026-09-11", par: "TIMO", motif: "x", montant: 9000 } },
+      { id: "d5", boutique: "LOME", categorie: "Carburant", montant: 5000, paiement: "Espèces", par: "AMA", par_id: "ven" },
+    ],
+  };
+  const ouverts = Dc.chantiersRattachables(dbc, admin).map((c) => c.id);
+  // L'admin de la maquette est le principal (seul admin) : il VOIT les deux
+  // espaces, mais la liste ne propose que l'espace REGARDÉ (réel ici).
+  test("★ rattachables pour l'admin principal qui regarde le réel : le chantier en cours seulement ; JAMAIS le réceptionné, ni celui dont les frais sont déjà payés (même terminé), ni le chantier de formation",
+    ouverts.join(",") === "c1");
+  const enFormation = Dc.chantiersRattachables({ ...dbc, users: [{ ...admin, formation: false }, { id: "gf", nom: "GF", role: "gerant", boutique: "LOME-F" }] }, { id: "gf", nom: "GF", role: "gerant", boutique: "LOME-F" }).map((c) => c.id);
+  test("★ …et un compte de formation ne se voit proposer que le chantier de formation", enFormation.join(",") === "cf");
+  test("★ le libellé d'un chantier = prénom, nom, type d'installation", Dc.libelleChantier(dbc.clients_installes[0]) === "Paul MENSAH · Solaire résidentiel" && Dc.libelleChantier({ nom: "X" }) === "X");
+  test("★ le total rattaché ne compte que ce qui COMPTE : validée 8 000 + sous le seuil 3 000 = 11 000 ; l'attente (12 000) et la rejetée (0, origine 9 000) sont ignorées ; d5 sans chantier aussi",
+    Dc.totalDepensesChantier(dbc, "c1") === 11000 && Dc.depensesDuChantier(dbc, "c1").length === 4);
+  test("★ frais à partager = facturés − rattachées, jamais négatif : 100 000 − 11 000 = 89 000 ; 5 000 − 11 000 = 0 ; sans dépense = les frais",
+    Dc.fraisAPartager(100000, 11000) === 89000 && Dc.fraisAPartager(5000, 11000) === 0 && Dc.fraisAPartager(100000, 0) === 100000 && Dc.fraisAPartager("100000", undefined) === 100000);
+  test("★ qui rattache : gérant et admin toujours, l'auteur de la dépense (par_id, ou par nom pour les anciennes), pas un autre vendeur",
+    Dc.peutRattacher(admin, dbc.depenses[4]) && Dc.peutRattacher(gerant, dbc.depenses[4]) && Dc.peutRattacher(vendeur, dbc.depenses[4]) && !Dc.peutRattacher(autreVendeur, dbc.depenses[4])
+    && Dc.peutRattacher({ id: "z", nom: "AMA", role: "vendeur" }, { par: "AMA" }) && !Dc.peutRattacher({ id: "z", nom: "ESSI", role: "vendeur" }, { par: "AMA" }));
+  const c1 = dbc.clients_installes[0], c2 = dbc.clients_installes[1], c3 = dbc.clients_installes[2], cf = dbc.clients_installes[3];
+  test("★ critiqueRattachement : refus pour un autre vendeur, pour un chantier réceptionné, pour des frais déjà payés, pour un chantier hors de l'espace regardé ; accord pour un chantier en cours, et pour détacher (null)",
+    /Seuls le gérant/.test(Dc.critiqueRattachement(dbc, autreVendeur, dbc.depenses[4], c1))
+    && /réceptionné/.test(Dc.critiqueRattachement(dbc, admin, dbc.depenses[4], c2))
+    && /déjà été payés/.test(Dc.critiqueRattachement(dbc, admin, dbc.depenses[4], c3))
+    && /espace/.test(Dc.critiqueRattachement(dbc, vendeur, dbc.depenses[4], cf))
+    && Dc.critiqueRattachement(dbc, vendeur, dbc.depenses[4], c1) === null && Dc.critiqueRattachement(dbc, vendeur, dbc.depenses[4], null) === null);
+  const r = Dc.rattacherDepense(dbc.depenses[4], c1);
+  test("★ rattacherDepense pose chantier_id + chantier_nom sans rien toucher d'autre ; détacher (null) les retire",
+    r.chantier_id === "c1" && r.chantier_nom === "Paul MENSAH · Solaire résidentiel" && r.montant === 5000 && r.id === "d5"
+    && !("chantier_id" in Dc.rattacherDepense(r, null)) && !("chantier_nom" in Dc.rattacherDepense(r, null)) && Dc.rattacherDepense(r, null).montant === 5000);
+  // Les écrans : la forme du geste.
+  const dpC = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ écran Dépenses : le champ « Rattacher à un chantier de devis » (chantiersRattachables, « — Aucun — »), la saisie passe par critiqueRattachement puis rattacherDepense, la colonne « Chantier » avec « 🔗 rattacher / modifier » (peutRattacher) et le rattachement après coup par uChoix, revérifié dans le geste",
+    /<Field label="Rattacher à un chantier de devis">/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
+    && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const depense = chantierChoisi \? rattacherDepense\(r\.depense, chantierChoisi\) : r\.depense;/.test(dpC)
+    && /onRattacher && peutRattacher\(profile, x\)/.test(dpC) && /const choix = await uChoix\(`Rattacher la dépense/.test(dpC) && (dpC.match(/critiqueRattachement\(db, profile, d, /g) || []).length === 2
+    && /onRattacher=\{rattacherApresCoup\}/.test(dpC));
+  const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
+    /const depRattachees = chantier \? totalDepensesChantier\(db, chantier\) : 0;/.test(ciC) && /const fraisNet = fraisAPartager\(fraisRep, depRattachees\);/.test(ciC)
+    && /const montant = Math\.round\(\(fraisNet \* pct\) \/ 100\);/.test(ciC) && !/fraisRep \* pct/.test(ciC) && !/fraisRep \* pctBMI/.test(ciC) && !/fraisRep \* \(100 - totalPct\)/.test(ciC)
+    && /Petites dépenses rattachées : − \{fmt\(depRattachees\)\}/.test(ciC) && /const ligneDeduction = depRattachees > 0/.test(ciC)
+    && /depenses_deduites: depRattachees, frais_a_partager: fraisNet/.test(ciC) && /🧾 Dépenses rattachées : \{fmt\(totalDepensesChantier\(db, c\.id\)\)\}/.test(ciC));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

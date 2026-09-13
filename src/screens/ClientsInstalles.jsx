@@ -16,6 +16,9 @@ import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+// Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
+// déduites des frais d'installation AVANT le partage entre techniciens.
+import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -641,6 +644,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const totalPct = Object.values(rep.pcts).reduce((s, v) => s + Number(v || 0), 0);
   const fraisRep = Number(rep.frais || 0);
+  // Timo (13/09/2026) : « ces petites dépenses sont soustraites avant le
+  // partage » — les parts se calculent sur les frais NETS des dépenses
+  // rattachées qui comptent (ni en attente du DG, ni rejetées).
+  const depRattachees = chantier ? totalDepensesChantier(db, chantier) : 0;
+  const fraisNet = fraisAPartager(fraisRep, depRattachees);
 
   const validerRepartition = async (c) => {
     if (refuserSaufAdmin(profile, "Répartir les frais d'installation")) return;
@@ -669,7 +677,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const equipe = rep.equipe.map((id) => {
       const u = db.users.find((x) => x.id === id);
       const pct = Number(rep.pcts[id] || 0);
-      const montant = Math.round((fraisRep * pct) / 100);
+      const montant = Math.round((fraisNet * pct) / 100);
       const ancien = (c.equipe || []).find((e) => e.user_id === id);
       const base = { user_id: id, nom: u ? u.nom : "?", pct, montant, chef: id === rep.chef, paye: false };
       if (ancien?.demande_prime && Number(ancien.montant || 0) === montant) {
@@ -686,11 +694,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
     const resume = equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom} : ${e.pct} % = ${fmt(e.montant)}`).join("\n");
     const pctBMI = Math.round((100 - totalPct) * 10) / 10;
-    const ligneBMI = pctBMI > 0.5 ? `\n🏢 Part BMI (non distribuée) : ${pctBMI} % = ${fmt(Math.round((fraisRep * pctBMI) / 100))}` : "";
+    const ligneBMI = pctBMI > 0.5 ? `\n🏢 Part BMI (non distribuée) : ${pctBMI} % = ${fmt(Math.round((fraisNet * pctBMI) / 100))}` : "";
+    const ligneDeduction = depRattachees > 0 ? `\n🧾 Petites dépenses rattachées : − ${fmt(depRattachees)} → ${fmt(fraisNet)} à partager` : "";
     const ligneAnnulees = annulees.length
       ? `\n\n⚠ ${annulees.length} demande(s) de paiement en attente seront ANNULÉES (le montant a changé ou la personne quitte le chantier) :\n${annulees.map((e) => `• ${e.nom} — ${fmt(e.montant)} chez ${e.prime_boutique}`).join("\n")}\nLes vendeurs concernés seront prévenus.`
       : "";
-    if (!await uConfirm(`Répartir ${fmt(fraisRep)} de frais d'installation ?\n\n${resume}${ligneBMI}${ligneAnnulees}\n\nLes techniciens verront leur part. Le paiement se fait ensuite, technicien par technicien.`)) return;
+    if (!await uConfirm(`Répartir ${fmt(fraisRep)} de frais d'installation ?${ligneDeduction}\n\n${resume}${ligneBMI}${ligneAnnulees}\n\nLes techniciens verront leur part. Le paiement se fait ensuite, technicien par technicien.`)) return;
 
     // Prévenir les vendeurs dont la demande disparaît de leur écran.
     const avis = annulees.flatMap((e) => (db.users || [])
@@ -703,10 +712,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, frais_installation: fraisRep, chef_id: rep.chef, part_chef: Number(rep.partChef), equipe, date_repartition: today(), par_repartition: profile.nom }
+        ? { ...x, frais_installation: fraisRep, depenses_deduites: depRattachees, frais_a_partager: fraisNet, chef_id: rep.chef, part_chef: Number(rep.partChef), equipe, date_repartition: today(), par_repartition: profile.nom }
         : x)),
       ...(avis.length ? { messages: [...avis, ...(db.messages || [])] } : {}),
-    }, `Frais d'installation de ${fmt(fraisRep)} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""}${annulees.length ? ` · ${annulees.length} demande(s) de prime annulée(s)` : ""})`);
+    }, `Frais d'installation de ${fmt(fraisRep)}${depRattachees > 0 ? ` (− ${fmt(depRattachees)} de dépenses rattachées = ${fmt(fraisNet)})` : ""} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""}${annulees.length ? ` · ${annulees.length} demande(s) de prime annulée(s)` : ""})`);
     setChantier(null);
     uAlert(`✅ Répartition enregistrée.${annulees.length ? `\n\n${annulees.length} demande(s) de paiement annulée(s) — les vendeurs ont été prévenus.` : ""}`);
   };
@@ -1161,10 +1170,24 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               <div className="flex flex-col justify-end text-sm font-bold text-slate-600">
                 <div>Total réparti : <span className={`ml-1 tabular-nums ${totalPct > 100.5 ? "text-red-600" : "text-green-700"}`}>{Math.round(totalPct * 10) / 10} %</span></div>
                 {totalPct < 99.5 && (
-                  <div className="text-xs text-slate-500">🏢 Part BMI : {Math.round((100 - totalPct) * 10) / 10} % = {fmt(Math.round((fraisRep * (100 - totalPct)) / 100))}</div>
+                  <div className="text-xs text-slate-500">🏢 Part BMI : {Math.round((100 - totalPct) * 10) / 10} % = {fmt(Math.round((fraisNet * (100 - totalPct)) / 100))}</div>
                 )}
               </div>
             </div>
+            {/* Timo (13/09/2026) : les petites dépenses rattachées (carburant,
+                nourriture) sont soustraites AVANT le partage. */}
+            {(() => {
+              const toutes = depensesDuChantier(db, c.id);
+              if (!toutes.length) return null;
+              const attente = toutes.filter((d) => !depenseCompteAuChantier(d) && Number(d.montant || 0) > 0);
+              return (
+                <div className="mt-3 rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm">
+                  <div className="font-bold text-purple-900">🧾 Petites dépenses rattachées : − {fmt(depRattachees)} → <span className="tabular-nums">{fmt(fraisNet)}</span> à partager entre les techniciens</div>
+                  <div className="mt-1 text-xs text-slate-600">{toutes.filter(depenseCompteAuChantier).map((d) => `${dFR(d.date)} · ${d.categorie}${d.description ? ` — ${d.description}` : ""} · ${fmt(d.montant)} (${d.par})`).join(" ; ")}</div>
+                  {attente.length > 0 && <div className="mt-1 text-xs text-amber-700">⏳ {attente.length} dépense(s) en attente de validation du DG ne sont pas encore déduites ({fmt(attente.reduce((s, d) => s + Number(d.montant || 0), 0))}).</div>}
+                </div>
+              );
+            })()}
 
             <div className="mt-4 text-xs font-bold text-slate-500 uppercase mb-2">Techniciens présents sur le chantier</div>
             {techsPour(c).length === 0 ? (
@@ -1198,7 +1221,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         )}
                       </div>
                       <div className="text-sm font-bold tabular-nums text-right">
-                        {present ? fmt(Math.round((fraisRep * pct) / 100)) : <span className="text-slate-300">—</span>}
+                        {present ? fmt(Math.round((fraisNet * pct) / 100)) : <span className="text-slate-300">—</span>}
                       </div>
                     </div>
                   );
@@ -1376,6 +1399,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     <button onClick={() => ouvrirRepartition(c)} className="text-xs font-bold text-purple-700 underline mr-2">
                       🔧 Frais {Number(c.frais_installation || 0) > 0 ? `(${fmt(c.frais_installation)})` : ""}
                     </button>
+                    {depensesDuChantier(db, c.id).length > 0 && (
+                      <span className="text-xs font-semibold text-purple-800 mr-2" title="Petites dépenses rattachées à ce chantier (📤 Dépenses) — déduites des frais avant le partage">
+                        🧾 Dépenses rattachées : {fmt(totalDepensesChantier(db, c.id))}
+                      </span>
+                    )}
                     <button onClick={() => modifierEntretien(c)} className="text-xs font-bold text-sky-800 underline mr-2">Entretien</button>
                     {isAdmin && !c.user_id && <button onClick={() => lierCompte(c)} className="text-xs font-bold text-sky-800 underline mr-2">Lier un compte</button>}
                     {(isAdmin || c.commercial === profile.nom) && <button onClick={() => supprimer(c)} className="text-xs text-red-600 underline">Suppr.</button>}

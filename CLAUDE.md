@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1200 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1210 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -510,6 +510,38 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### Petites dépenses d'un chantier de devis (13/09/2026)
+- Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,
+  nourriture] peuvent être rattachées au devis en question, et à la fin ces
+  petites dépenses sont soustraites avant le partage » — précisé : **« je
+  parle des frais d'installation, pas de la commission du commercial »** ;
+  le geste : « au moment d'enregistrer la dépense… les chantiers en cours
+  apparaissent et il rattache ». UNE règle pure, `lib/depensesChantier.js`.
+- **Une dépense rattachée reste une dépense ordinaire** (seuil et validation
+  du DG, avance à rembourser, versements exclus…) : elle porte seulement
+  `chantier_id` / `chantier_nom`. Dans 📤 Dépenses : champ « Rattacher à un
+  chantier de devis » à la saisie (« — Aucun — » d'office), colonne
+  « Chantier », « 🔗 rattacher / modifier » après coup (uChoix) — gérant,
+  admin, ou l'auteur de la dépense. Rattachable = chantier de l'espace
+  regardé, **pas réceptionné, frais pas déjà payés** ; revérifié DANS le geste.
+- **La déduction** : dans 🏠 Clients installés, 🔧 Frais → parts des
+  techniciens et part BMI calculées sur **frais facturés − dépenses
+  rattachées qui COMPTENT** (ni en attente du DG, ni rejetées), jamais
+  négatif (`fraisAPartager`) ; le panneau le dit, la confirmation aussi, et
+  la fiche mémorise `depenses_deduites` / `frais_a_partager` (informatif : le
+  serveur protège les parts de l'équipe, pas ces deux champs). La fiche du
+  chantier montre « 🧾 Dépenses rattachées : X ». Aucune commission de
+  commercial touchée. Rien à coller dans Supabase (une dépense se modifie
+  déjà par tout compte non lecteur ; la répartition reste admin).
+- Suite décidée avec Timo, PAS ENCORE CONSTRUITE : l'onglet **« 🛠 Travaux à
+  crédit »** (chantiers hors devis : petites dépenses couvertes par une ligne
+  « Frais de prestation » en % de TOUS les articles ou montant libre ;
+  articles de la boutique au prix boutique avec sortie de stock immédiate,
+  articles HB saisis prix payé / prix facturé ; facturer → reçu ou dette
+  rattachés ; **quitte l'onglet une fois soldé pour se ranger dans 🏠 Clients
+  installés**, badge « Travaux »). Question posée à Timo, sans réponse encore :
+  PV signé par le client ou simple trace ? Ne pas construire avant.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
