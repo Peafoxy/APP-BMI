@@ -315,30 +315,61 @@ export function dimensionsPage(page = PAGE_A4) {
 }
 // Le nom du fichier partagé : « Reçu - MR ERIC - BMID-2026-0014.pdf ».
 export const nomFichierPartage = (titre) => `${String(titre || "Document").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s{2,}/g, " ").trim() || "Document"}.pdf`;
-// Le PDF du document affiché dans l'aperçu : l'image de la zone, découpée
-// en pages à la taille du format ; pur en dehors du rendu (le banc lit
-// dimensionsPage et nomFichierPartage, le rendu se mesure dans Chromium).
-export async function pdfDeLApercu(zone, page = PAGE_A4) {
-  const [largeur, hauteur, marge] = dimensionsPage(page);
-  const toile = await html2canvas(zone, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
-  const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur] });
-  const utileL = largeur - 2 * marge, utileH = hauteur - 2 * marge;
-  const echelle = utileL / toile.width;              // mm par pixel
-  const hauteurPageEnPx = Math.floor(utileH / echelle);
-  let y = 0, premiere = true;
-  while (y < toile.height) {
-    const h = Math.min(hauteurPageEnPx, toile.height - y);
-    const morceau = document.createElement("canvas");
-    morceau.width = toile.width; morceau.height = h;
-    morceau.getContext("2d").drawImage(toile, 0, y, toile.width, h, 0, 0, toile.width, h);
-    if (!premiere) doc.addPage([largeur, hauteur], largeur > hauteur ? "landscape" : "portrait");
-    doc.addImage(morceau.toDataURL("image/jpeg", 0.92), "JPEG", marge, marge, utileL, h * echelle);
-    premiere = false; y += h;
-  }
-  return doc;
+// Le PDF du document de l'aperçu. ⚠ Deux captures de Timo (14/09/2026) : le
+// PDF partagé depuis le téléphone sortait à la LARGEUR DE L'ÉCRAN (étroit,
+// tableau coupé en deux pages) alors que l'impression donnait une belle page
+// A4. Le document est donc rendu HORS ÉCRAN, à une largeur fixe de page
+// (LARGEUR_RENDU_PX, la largeur d'une A4 à l'écran), quel que soit l'appareil,
+// puis découpé en pages en cherchant une ligne BLANCHE (jamais au milieu
+// d'une ligne de tableau ou de texte). Le rendu se mesure dans Chromium ;
+// dimensionsPage, nomFichierPartage et positionCoupe sont purs (banc).
+export const LARGEUR_RENDU_PX = 794;
+// Où couper : au plus bas possible avant `limite`, sur une ligne entièrement
+// blanche ; sinon à `limite`. `estBlanche(y)` est fournie par le rendu.
+export function positionCoupe(limite, hauteurTotale, estBlanche, marge = 0.2) {
+  if (limite >= hauteurTotale) return hauteurTotale;
+  const plancher = Math.max(1, Math.floor(limite * (1 - marge)));
+  for (let y = limite; y >= plancher; y--) if (estBlanche(y)) return y;
+  return limite;
 }
-export async function partagerDocument(zone, titre, page = PAGE_A4) {
-  const doc = await pdfDeLApercu(zone, page);
+const ligneBlanche = (ctx, largeur) => (y) => {
+  const d = ctx.getImageData(0, y, largeur, 1).data;
+  for (let i = 0; i < d.length; i += 4) if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) return false;
+  return true;
+};
+export async function pdfDeLApercu(html, page = PAGE_A4) {
+  const [largeur, hauteur, marge] = dimensionsPage(page);
+  // Rendu hors écran, à la largeur d'une page — jamais à celle du téléphone.
+  const horsEcran = document.createElement("div");
+  horsEcran.id = "zone-impression";
+  horsEcran.style.cssText = `position:fixed;left:-20000px;top:0;width:${LARGEUR_RENDU_PX}px;background:#fff;padding:16px;box-sizing:border-box;z-index:-1`;
+  horsEcran.innerHTML = html;
+  document.body.appendChild(horsEcran);
+  try {
+    const toile = await html2canvas(horsEcran, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, width: LARGEUR_RENDU_PX, windowWidth: LARGEUR_RENDU_PX });
+    const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur] });
+    const utileL = largeur - 2 * marge, utileH = hauteur - 2 * marge;
+    const echelle = utileL / toile.width;              // mm par pixel
+    const hauteurPageEnPx = Math.floor(utileH / echelle);
+    const blanche = ligneBlanche(toile.getContext("2d"), toile.width);
+    let y = 0, premiere = true;
+    while (y < toile.height) {
+      const fin = positionCoupe(Math.min(y + hauteurPageEnPx, toile.height), toile.height, blanche);
+      const h = Math.max(1, fin - y);
+      const morceau = document.createElement("canvas");
+      morceau.width = toile.width; morceau.height = h;
+      morceau.getContext("2d").drawImage(toile, 0, y, toile.width, h, 0, 0, toile.width, h);
+      if (!premiere) doc.addPage([largeur, hauteur], largeur > hauteur ? "landscape" : "portrait");
+      doc.addImage(morceau.toDataURL("image/jpeg", 0.92), "JPEG", marge, marge, utileL, h * echelle);
+      premiere = false; y = fin;
+    }
+    return doc;
+  } finally {
+    horsEcran.remove();
+  }
+}
+export async function partagerDocument(html, titre, page = PAGE_A4) {
+  const doc = await pdfDeLApercu(html, page);
   const nom = nomFichierPartage(titre);
   const fichier = new File([doc.output("blob")], nom, { type: "application/pdf" });
   if (typeof navigator !== "undefined" && navigator.share && (!navigator.canShare || navigator.canShare({ files: [fichier] }))) {
@@ -358,8 +389,7 @@ export function PrintHost() {
     if (partageEnCours) return;
     setPartageEnCours(true);
     try {
-      const zone = document.getElementById("zone-impression");
-      const r = await partagerDocument(zone, titreDoc, page);
+      const r = await partagerDocument(html, titreDoc, page);
       if (r === "enregistre") uAlert("Le partage n'est pas proposé par ce navigateur : le PDF a été enregistré sur l'appareil, vous pouvez l'envoyer depuis vos fichiers.");
     } catch (e) {
       uAlert("Impossible de préparer le fichier à partager. Utilisez « Imprimer / Enregistrer en PDF ».");

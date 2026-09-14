@@ -61,6 +61,7 @@ npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
+npm run verifier-partage         # 3   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 184 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
@@ -576,8 +577,12 @@ lit mal est pire qu'un banc absent).
   la place de "Aperçu avant impression", exclusivement sur téléphone ; sous
   Windows, en plus de ce bouton, garder toujours "Aperçu avant impression" »).
   Écrit UNE fois dans `PrintHost` (components/ui.jsx) : le document affiché
-  devient un PDF (`pdfDeLApercu` : image de la zone par html2canvas, découpée
-  en pages au format de l'aperçu, `dimensionsPage`), nommé par la règle des
+  devient un PDF (`pdfDeLApercu` : image du document par html2canvas, **rendu
+  HORS ÉCRAN à la largeur d'une page, `LARGEUR_RENDU_PX` = 794, jamais à la
+  largeur du téléphone** — deux captures du 14/09/2026 : le PDF partagé
+  sortait étroit, tableau coupé — découpée en pages au format de l'aperçu,
+  `dimensionsPage`, **la coupe cherche une ligne blanche**, `positionCoupe`,
+  jamais au milieu d'une ligne), nommé par la règle des
   documents (`nomFichierPartage`), remis à la **feuille de partage** du
   téléphone (`navigator.share`, WhatsApp / mail…) ; navigateur sans partage →
   le PDF est enregistré et on le dit. Le titre « Aperçu avant impression »
