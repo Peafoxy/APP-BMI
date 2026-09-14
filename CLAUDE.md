@@ -1042,9 +1042,10 @@ lit mal est pire qu'un banc absent).
   pure `lib/bons.js` (`bonReprise`, `retoursDeVente`, `bonRetour`,
   `texteBon`), mise en page `imprimerBon` / `bonWhatsApp` (lib/impression.js,
   **le style du reçu écrit UNE fois**, `STYLE_RECU`). **Un document de plus,
-  jamais une écriture** : numéro DÉRIVÉ du reçu (`BR-<n° reçu>-<rang>`,
-  `BT-<n° reçu>-<rang>` — aucun compteur, rien à coller, pas de collision
-  hors ligne), reçu d'origine, article, quantité, motif ; reprise → valeur
+  jamais une écriture** : numéro DÉRIVÉ du reçu (`REP-<n° reçu>-<rang>`,
+  `RET-<n° reçu>-<rang>` — d'abord BR / BT, changés le jour même : « tous BR,
+  ça va pas porter confusion ? » ; aucun compteur, rien à coller, pas de
+  collision hors ligne), reçu d'origine, article, quantité, motif ; reprise → valeur
   reprise, **rendu au client** (et comment) ou dette réduite, case « Le
   client reconnaît avoir reçu … » ; retour → remplacement remis, défectueux
   repris, frais facturés (dette `retour_ref`) ou GRATUIT, case « … reçu

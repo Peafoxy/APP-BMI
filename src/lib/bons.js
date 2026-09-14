@@ -15,7 +15,9 @@
 //   • bon de retour (🔁 échange sous garantie) : l'article de remplacement
 //     remis, le défectueux repris, frais facturés (dette) ou gratuit.
 // Numéro dérivé du reçu (aucun compteur, rien à coller, jamais de collision
-// hors ligne) : BR-<n° reçu>-<rang> et BT-<n° reçu>-<rang>.
+// hors ligne) : REP-<n° reçu>-<rang> et RET-<n° reçu>-<rang> — Timo
+// (14/09/2026) : « bon de reprise et bon de retour, tous BR, ça va pas porter
+// confusion ? » → les mêmes mots que les références du journal, lisibles.
 // Pur : le banc l'exerce. L'impression vit dans lib/impression.js.
 // ============================================================
 import { dFR, fmt, numeroRecu } from "./core";
@@ -30,7 +32,7 @@ const motifNu = (m) => trim(m).replace(/^(Échange garantie|Reprise client|Défe
 // ---- Bon de reprise ----
 export const numeroBonReprise = (vente, reprise) => {
   const rang = (vente?.reprises || []).findIndex((r) => r.ref === reprise?.ref);
-  return `BR-${numeroRecu(vente)}-${(rang >= 0 ? rang : (vente?.reprises || []).length) + 1}`;
+  return `REP-${numeroRecu(vente)}-${(rang >= 0 ? rang : (vente?.reprises || []).length) + 1}`;
 };
 export function bonReprise(db, vente, reprise) {
   if (!vente || !reprise) return null;
@@ -73,7 +75,7 @@ export function retoursDeVente(db, vente) {
 }
 export const numeroBonRetour = (vente, retour, liste) => {
   const rang = (liste || []).findIndex((r) => r.ref === retour?.ref);
-  return `BT-${numeroRecu(vente)}-${(rang >= 0 ? rang : (liste || []).length) + 1}`;
+  return `RET-${numeroRecu(vente)}-${(rang >= 0 ? rang : (liste || []).length) + 1}`;
 };
 export function bonRetour(db, vente, retour) {
   if (!vente || !retour) return null;

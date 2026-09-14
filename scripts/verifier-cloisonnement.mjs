@@ -3258,10 +3258,10 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
         { id: "a4", date: "2026-09-11", type: "echange_garantie", ref: "RET-ZZZZ", vente_id: "autre", produit_id: "p1", qte: -1, motif: "x", par: "ALI" },
       ] };
     const br = Bn.bonReprise(dbBn, venteB, venteB.reprises[0]);
-    test("★ bonReprise : numéro dérivé du reçu (BR-BMID-2026-0014-1, aucun compteur), reçu d'origine et sa date, client, article, quantité, motif SANS le préfixe technique, valeur reprise 600, rendu 600 en espèces, pas de dette, établi par TIMO",
-      br.numero === "BR-BMID-2026-0014-1" && br.type === "reprise" && br.recu === "BMID-2026-0014" && br.dateVente === "2026-09-10" && br.client === "MR" && br.tel === "90000000" && br.article === "Étrier final" && br.qte === 1
+    test("★ bonReprise : numéro dérivé du reçu (REP-BMID-2026-0014-1, aucun compteur), reçu d'origine et sa date, client, article, quantité, motif SANS le préfixe technique, valeur reprise 600, rendu 600 en espèces, pas de dette, établi par TIMO",
+      br.numero === "REP-BMID-2026-0014-1" && br.type === "reprise" && br.recu === "BMID-2026-0014" && br.dateVente === "2026-09-10" && br.client === "MR" && br.tel === "90000000" && br.article === "Étrier final" && br.qte === 1
       && br.motif === "le client a changé d'avis" && br.montant === 600 && br.rembourse === 600 && br.moyen === "Espèces" && br.dette === null && br.par === "TIMO" && br.date === "2026-09-14"
-      && Bn.numeroBonReprise(venteB, { ref: "REP-NOUV" }) === "BR-BMID-2026-0014-2" && Bn.bonReprise(dbBn, venteB, null) === null);
+      && Bn.numeroBonReprise(venteB, { ref: "REP-NOUV" }) === "REP-BMID-2026-0014-2" && Bn.bonReprise(dbBn, venteB, null) === null);
     const brD = Bn.bonReprise({ ...dbBn, dettes: [{ id: "d9", numero: "BMID-DET-2026-0009", montant: 5000, paye: 2000 }] }, venteB, { ...venteB.reprises[0], dette_id: "d9", rembourse: 0, moyen: "", motif: "Reprise client (REP-AAAA) — trop cher" });
     test("★ bonReprise sur une vente à crédit : la dette est nommée, réduite de la valeur reprise, reste après = montant − payé (3 000), rien à rendre ; le motif est nettoyé du préfixe « Reprise client (…) — »",
       brD.dette.numero === "BMID-DET-2026-0009" && brD.dette.reduction === 600 && brD.dette.resteApres === 3000 && brD.rembourse === 0 && brD.motif === "trop cher");
@@ -3270,12 +3270,12 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
       rets.length === 2 && rets[0].ref === "RET-BBBB" && rets[1].ref === "RET-CCCC" && rets[0].qte === 2 && rets[0].article === "Étrier final" && rets[0].motif === "étrier cassé" && rets[0].dette.montant === 4000 && rets[0].dette.motif === "déplacement" && rets[0].dette.numero === "BMID-DET-2026-0003"
       && rets[1].dette === null && rets[1].motif === "fêlé" && rets[1].qte === 1 && rets[0].statutSav === "en_sav" && Bn.retoursDeVente(dbBn, null).length === 0);
     const bt1 = Bn.bonRetour(dbBn, venteB, rets[0]); const bt2 = Bn.bonRetour(dbBn, venteB, rets[1]);
-    test("★ bonRetour : BT-BMID-2026-0014-1 avec frais 4 000 (déplacement, dette nommée), BT-…-2 gratuit ; reçu d'origine, client, article, quantité, motif, établi par",
-      bt1.numero === "BT-BMID-2026-0014-1" && bt1.type === "retour" && bt1.frais.montant === 4000 && bt1.frais.detail === "déplacement" && bt1.frais.numero === "BMID-DET-2026-0003" && bt1.gratuit === false && bt1.qte === 2
-      && bt2.numero === "BT-BMID-2026-0014-2" && bt2.gratuit === true && bt2.frais === null && bt2.recu === "BMID-2026-0014" && bt2.client === "MR" && bt2.par === "ALI" && bt2.article === "Étrier final");
+    test("★ bonRetour : RET-BMID-2026-0014-1 avec frais 4 000 (déplacement, dette nommée), RET-…-2 gratuit ; reçu d'origine, client, article, quantité, motif, établi par",
+      bt1.numero === "RET-BMID-2026-0014-1" && bt1.type === "retour" && bt1.frais.montant === 4000 && bt1.frais.detail === "déplacement" && bt1.frais.numero === "BMID-DET-2026-0003" && bt1.gratuit === false && bt1.qte === 2
+      && bt2.numero === "RET-BMID-2026-0014-2" && bt2.gratuit === true && bt2.frais === null && bt2.recu === "BMID-2026-0014" && bt2.client === "MR" && bt2.par === "ALI" && bt2.article === "Étrier final");
     const tR = nzB(Bn.texteBon(br, { adresse: "Lomé", tel: "22 22" })); const tT = nzB(Bn.texteBon(bt1, { formation: true })); const tT2 = nzB(Bn.texteBon(bt2));
     test("★ texteBon (WhatsApp) : titre BON DE REPRISE / BON DE RETOUR, numéro, reçu d'origine et sa date, article, motif, « Rendu au client : 600 F (Espèces) », l'article repris par BMI ; retour avec frais « Frais facturés : 4 000 F (déplacement) », gratuit « Échange GRATUIT sous garantie » ; le bandeau de formation en tête quand la boutique est de formation",
-      /^↩ \*BON DE REPRISE — BMI DEMAKPOE\*\nLomé\nTél : 22 22\n/.test(tR) && /N° : BR-BMID-2026-0014-1\nDate : 14\/09\/2026\nReçu d'origine : BMID-2026-0014 du 10\/09\/2026\nClient : MR/.test(tR) && /1 × Étrier final\nMotif : le client a changé d'avis\nValeur reprise : 600 F\n\*Rendu au client : 600 F\* \(Espèces\)\nL'article est repris par BMI/.test(tR) && /Établi par : TIMO/.test(tR)
+      /^↩ \*BON DE REPRISE — BMI DEMAKPOE\*\nLomé\nTél : 22 22\n/.test(tR) && /N° : REP-BMID-2026-0014-1\nDate : 14\/09\/2026\nReçu d'origine : BMID-2026-0014 du 10\/09\/2026\nClient : MR/.test(tR) && /1 × Étrier final\nMotif : le client a changé d'avis\nValeur reprise : 600 F\n\*Rendu au client : 600 F\* \(Espèces\)\nL'article est repris par BMI/.test(tR) && /Établi par : TIMO/.test(tR)
       && /^🎓 \*DOCUMENT DE FORMATION — SANS VALEUR\*\n-+\n🔁 \*BON DE RETOUR \(garantie\) — BMI DEMAKPOE\*/.test(tT) && /Article de remplacement remis : 2 × Étrier final\nL'article défectueux est repris par BMI \(SAV\)\.\n\*Frais facturés : 4 000 F\* \(déplacement\) — dette BMID-DET-2026-0003/.test(tT)
       && /\*Échange GRATUIT sous garantie\.\*/.test(tT2) && !/DOCUMENT DE FORMATION/.test(tT2) && Bn.texteBon(null) === "");
     const impB = readFileSync("src/lib/impression.js", "utf8");
