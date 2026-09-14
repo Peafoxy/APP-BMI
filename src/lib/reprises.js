@@ -99,7 +99,7 @@ export function construireReprise(db, vente, choix, profile, aujourdhui = today(
   return {
     vente: { ...vente, reprises: [...(vente.reprises || []), reprise] },
     ajustement, depense, dette, detteAvant, reprise, montant, rembourse, ref,
-    journal: `↩ Reprise ${ref} : ${n} × ${ligne.article} repris par le client (reçu ${numeroRecu(vente)}${client}) — ${m}${dette ? ` — dette ramenée à ${dette.montant}` : ""}${rembourse > 0 ? ` — ${rembourse} rendu(s) (${moyen})` : ""} — par ${qui}`,
+    journal: `↩ Reprise ${ref} : ${n} × ${ligne.article} repris par BMI (reçu ${numeroRecu(vente)}${client}) — ${m}${dette ? ` — dette ramenée à ${dette.montant}` : ""}${rembourse > 0 ? ` — ${rembourse} rendu(s) (${moyen})` : ""} — par ${qui}`,
   };
 }
 

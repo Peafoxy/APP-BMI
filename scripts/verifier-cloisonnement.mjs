@@ -5316,7 +5316,7 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     liste.map((x) => x.manque).join("|") === "10|3|3|1|1" && liste[0].actuel === 0 && liste[0].seuil === 10);
 }
 
-titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pour l'administrateur principal seul »)");
+titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'administrateur principal seul » ; 14/09/2026 : « Reprise de l'article par BMI », pas « par le client » — c'est BMI qui reprend, le client rend)");
 {
   const sortieRp = join("node_modules", ".cache", `bmi-reprises-${process.pid}.mjs`);
   await build({ entryPoints: ["src/lib/reprises.js"], bundle: true, format: "esm", platform: "node", outfile: sortieRp, logLevel: "silent" });
@@ -5364,6 +5364,9 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
     // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
     K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis" /* 14/09/2026 : le fonds remis par le DG non plus */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
+    /↩ Reprise de l'article par BMI<\/div>/.test(vs) && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
+    && /repris par BMI \(reçu/.test(readFileSync("src/lib/reprises.js", "utf8")) && !/repris par le client/.test(readFileSync("src/lib/reprises.js", "utf8")));
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
     /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
     && /construireReprise\(db, reprise\.vente, \{ produit_id: reprise\.produit_id, qte: Number\(reprise\.qte\), motif: reprise\.motif, moyen: reprise\.moyen \}, profile, today\(\)\)/.test(vs)
@@ -5501,7 +5504,7 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
     && /NOUVELLE vente, avec un nouveau numéro de reçu/.test(vtP) && /Vendre de nouveau à partir de cette proforma \?/.test(vtP)
     // Timo (11/09/2026) : « reprise » ne doit désigner QUE l'article rendu par le client.
     // 12/09/2026 (liste des ventes lisible) : les boutons sont ronds, l'icône seule — les trois mots distincts vivent dans le libellé au survol.
-    && !/🛒 Reprendre/.test(vtP) && /title="↩ Reprise : /.test(vtP) && /title="🔁 Retour : /.test(vtP) && /title="📋 Devis : /.test(vtP) && /aria-label="Reprise"/.test(vtP) && /aria-label="Retour"/.test(vtP)
+    && !/🛒 Reprendre/.test(vtP) && /title="↩ Reprise de l'article par BMI : /.test(vtP) /* 14/09/2026 : « Reprise de l'article par BMI » */ && /title="🔁 Retour : /.test(vtP) && /title="📋 Devis : /.test(vtP) && /aria-label="Reprise"/.test(vtP) && /aria-label="Retour"/.test(vtP)
     && /proforma_id: origineProforma\.id, proforma_numero: origineProforma\.numero/.test(vtP)
     && /setOrigineProforma\(null\);   \/\/ consommée/.test(vtP)
     && /const numero = prochainNumeroVente\(db, boutique\);/.test(vtP));

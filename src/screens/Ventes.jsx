@@ -1255,7 +1255,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       <button onClick={() => ouvrirRetour(v)} className={boutonAction("text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100")} title="🔁 Retour : échange sous garantie, sortie de stock SANS vente ni facturation (ou frais partiels)" aria-label="Retour">🔁</button>
                     )}
                     {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
-                      <button onClick={() => ouvrirReprise(v)} className={boutonAction("text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100")} title="↩ Reprise : le client ne prend pas l'article — retour au stock, argent rendu ou dette réduite" aria-label="Reprise">↩</button>
+                      <button onClick={() => ouvrirReprise(v)} className={boutonAction("text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100")} title="↩ Reprise de l'article par BMI : le client ne le prend pas — retour au stock, argent rendu ou dette réduite" aria-label="Reprise">↩</button>
                     )}
                     {profile.role === "admin" && (
                       <button onClick={() => supprimerVente(v)} className={boutonAction("text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title="Supprimer cette vente" aria-label="Supprimer">🗑</button>
@@ -1273,7 +1273,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       {reprise && (() => { const ap = apercuReprise(); return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3 max-h-[90vh] overflow-y-auto">
-            <div className="font-bold text-slate-900">↩ Reprise d'un article par le client</div>
+            <div className="font-bold text-slate-900">↩ Reprise de l'article par BMI</div>
             <div className="text-xs text-slate-500">
               Reçu {numeroRecu(reprise.vente)} — {reprise.vente.client || "client de passage"} — {reprise.vente.boutique}.
               L'article <b>revient au stock</b> ; le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits.

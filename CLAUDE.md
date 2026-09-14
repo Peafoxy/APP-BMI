@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1297 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1298 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1016,7 +1016,7 @@ lit mal est pire qu'un banc absent).
   aux vendeuses : **clôturer en dernier, à la fermeture, jamais avant**.
 
 ### Retours / SAV
-- **↩ Reprise d'un article par le client** (10/09/2026, « un article vendu
+- **↩ Reprise de l'article par BMI** (10/09/2026, « un article vendu
   mais sur le champ le client ne veut plus le prendre » → « Reprise pour
   l'administrateur principal seul ») : bouton dans 💰 Ventes, principal
   seul. **La vente reste telle qu'encaissée** (reçu, numéro, date, total,
@@ -1032,6 +1032,9 @@ lit mal est pire qu'un banc absent).
   « Remboursement client » n'est pas une charge (`CATEGORIES_HORS_CHARGES`,
   avec le versement). Règle pure `lib/reprises.js` ; serveur `securite-13`
   (remplace ventes securite-8, ajustements securite-4, dépenses securite-12).
+  **Les mots (14/09/2026, capture : « Reprise d'un article par BMI ou par le
+  client ? » → « Reprise de l'article par BMI ») : c'est BMI qui REPREND, le
+  client REND — fenêtre, infobulle, journal ; jamais « par le client ».**
 - **Un échange n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**

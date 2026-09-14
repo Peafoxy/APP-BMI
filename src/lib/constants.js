@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.205";
+export const VERSION = "2.101.206";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -110,7 +110,7 @@ export const COMPTE_TRESORERIE = (paiement) => {
 // verser, clôture) ; il n'est JAMAIS une charge : le tableau de bord, la
 // synthèse par période, l'export des dépenses et le journal l'ignorent.
 export const CATEGORIE_VERSEMENT = "Versement de fonds";
-// La reprise d'un article par le client (Timo, 10/09/2026) rend de l'argent :
+// La reprise d'un article par BMI (Timo, 10/09/2026 ; « Reprise de l'article par BMI », 14/09/2026) rend de l'argent :
 // une sortie de caisse, mais pas une charge non plus — le chiffre d'affaires
 // est déjà réduit de la reprise (caVente). Même traitement que le versement.
 export const CATEGORIE_REMBOURSEMENT = "Remboursement client";
