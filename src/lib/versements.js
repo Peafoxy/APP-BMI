@@ -18,12 +18,12 @@
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core.js";
-import { CATEGORIE_VERSEMENT, horsVersements } from "./constants.js";
+import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
 
 // La catégorie vit dans constants.js (lue aussi par le journal comptable) :
 // importée ET réexportée — jamais `export { x } from` seul (piège connu).
-export { CATEGORIE_VERSEMENT, horsVersements };
+export { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements };
 export const DEST_DG = "Chez le DG";
 export const DEST_BANQUE = "BANQUE";
 export const DEST_COMPTABLE = "Chez le comptable";
@@ -135,6 +135,58 @@ const avantFin = (date, periode) => !periode || String(date || "").slice(0, 10) 
 // se verse jamais : il reste dans le tiroir de la boutique.
 export const fondsCaisseFixe = (db, boutique) => Math.max(0, Math.round(Number((db?.boutiques || []).find((b) => b.nom === boutique)?.fonds_caisse_fixe || 0)));
 export const aVerserAuDela = (solde, fondsFixe) => Math.max(0, Math.round(Number(solde) || 0) - Math.round(Number(fondsFixe) || 0));
+// Ce qu'il RESTE du fonds dans le tiroir (Timo, 14/09/2026 : « s'il n'y a pas
+// de vente et que les dépenses sont soustraites du fonds de caisse, par où
+// voir le restant du fonds ? ») : le solde d'espèces, borné au fonds fixe —
+// intact quand le solde le couvre, entamé quand les dépenses l'ont mangé.
+export function etatFondsCaisse(solde, fondsFixe) {
+  const fixe = Math.max(0, Math.round(Number(fondsFixe) || 0));
+  const s = Math.round(Number(solde) || 0);
+  const reste = Math.max(0, Math.min(s, fixe));
+  return { fondsFixe: fixe, reste, entame: fixe - reste, intact: fixe > 0 && reste === fixe };
+}
+
+// ---- LE FONDS DE CAISSE REMIS PAR LE DG (Timo, 14/09/2026) ----
+// Capture d'APESSITO : 348 000 d'entrées, 50 000 de dépenses, 298 000 versés
+// — et « dans la foulée on avait aussi donné un fonds de caisse de 50 000 ».
+// L'application ne connaissait le tiroir que par les ventes, encaissements,
+// dépenses et versements : ces 50 000, venus du DG, n'étaient écrits nulle
+// part — solde 0, « 50 000 conservé » faux, clôture faussée de 50 000.
+// « Il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser…
+// on ne verse jamais le fonds de caisse. »
+// Donc : « 💼 Remettre le fonds de caisse » dans 🔒 Caisse, pour
+// l'administrateur PRINCIPAL seul (c'est l'argent de BMI qui sort de chez le
+// DG ou de la banque) : une ENTRÉE dans la caisse de la boutique (ligne de
+// `depenses` à montant NÉGATIF, convention déjà en place pour la caisse du
+// comptable) — jamais une vente, jamais du chiffre d'affaires, jamais une
+// charge (CATEGORIES_HORS_CHARGES) — et une SORTIE de la caisse « Chez le DG »
+// ou « BANQUE » (lib/caissesCentrales.js). Un fonds laissé en versant moins
+// reste ce qu'il est : rien à écrire. Serveur : securite-16.
+export const ORIGINES_FONDS = [DEST_DG, DEST_BANQUE];
+export const estFondsCaisseRemis = (dep) => !!dep?.fonds_caisse && dep.categorie === CATEGORIE_FONDS_CAISSE;
+export function critiqueRemiseFonds({ montant, origine, banque, date }) {
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant remis (supérieur à zéro).";
+  if (!ORIGINES_FONDS.includes(origine)) return "Indiquez d'où vient l'argent : Chez le DG ou BANQUE.";
+  if (origine === DEST_BANQUE && !String(banque || "").trim()) return "Indiquez le nom de la banque.";
+  if (!date || Number.isNaN(new Date(String(date)).getTime())) return "Indiquez la date de la remise.";
+  return "";
+}
+export function construireRemiseFonds(profile, { boutique, montant, origine, banque = "", note = "", date }) {
+  const refus = critiqueRemiseFonds({ montant, origine, banque, date });
+  if (refus) return { refus };
+  const m = Math.round(Number(montant));
+  const fonds_caisse = { id: uid(), origine, banque: origine === DEST_BANQUE ? String(banque).trim() : "", montant: m, note: String(note || "").trim() };
+  const entree = {
+    ...nouvelleDepense(profile, { boutique, categorie: CATEGORIE_FONDS_CAISSE, description: `Fonds de caisse remis le ${dFR(date)} par ${profile.nom} (${libelleOrigineFonds(fonds_caisse)})${fonds_caisse.note ? ` — ${fonds_caisse.note}` : ""}`, montant: -m, moyen: "Espèces", fonds_caisse, par_id: profile.id ?? null }),
+    date: String(date),
+  };
+  return { entree, fonds_caisse, journal: `Fonds de caisse ${fmt(m)} remis à ${boutique} (${libelleOrigineFonds(fonds_caisse)}) par ${profile.nom}` };
+}
+export const libelleOrigineFonds = (f) => (f?.origine === DEST_BANQUE ? `BANQUE ${String(f.banque || "").trim()}`.trim() : (f?.origine || DEST_DG));
+// Les remises de fonds d'une boutique, la plus récente en premier.
+export const remisesFondsDe = (db, boutique) => (db?.depenses || []).filter((d) => d.boutique === boutique && estFondsCaisseRemis(d))
+  .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
 export function fondsAVerser(db, boutique, totalVente, periode = null) {
   const montantVente = (v) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
   const ventesEspeces = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces");
@@ -142,16 +194,26 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
     .flatMap((d) => (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces"));
   // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
   // une avance personnelle ou l'argent du DG ne sortent pas du tiroir.
-  const sortiesCaisse = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x));
+  const mouvementsCaisse = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x));
+  // Le fonds de caisse REMIS par le DG (14/09/2026) est une ENTRÉE (montant
+  // négatif) : il est compté à part, jamais dans « Sorties ».
+  const remises = mouvementsCaisse.filter(estFondsCaisseRemis);
+  const sortiesCaisse = mouvementsCaisse.filter((x) => !estFondsCaisseRemis(x));
   const somme = (liste, de, filtre) => liste.filter((x) => filtre(x.date)).reduce((s, x) => s + de(x), 0);
   const ventes = somme(ventesEspeces, montantVente, (d) => dansPeriode(d, periode));
   const reglements = somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => dansPeriode(d, periode));
   const depenses = somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => dansPeriode(d, periode));
-  const montant = somme(ventesEspeces, montantVente, (d) => avantFin(d, periode)) + somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => avantFin(d, periode)) - somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => avantFin(d, periode));
+  const fondsRemis = -somme(remises, (x) => Number(x.montant || 0), (d) => dansPeriode(d, periode));
+  const montant = somme(ventesEspeces, montantVente, (d) => avantFin(d, periode)) + somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => avantFin(d, periode))
+    - somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => avantFin(d, periode)) - somme(remises, (x) => Number(x.montant || 0), (d) => avantFin(d, periode));
   const dernier = versementsDe(db, boutique).find((d) => avantFin(d.date, periode));
+  const derniereRemise = remisesFondsDe(db, boutique).find((d) => avantFin(d.date, periode));
   const fondsFixe = fondsCaisseFixe(db, boutique);
-  // `montant` = le SOLDE d'espèces ; `aVerser` = ce qu'il y a au-delà du fonds fixe.
-  return { montant, ventes, reglements, depenses, dernierVersement: dernier ? String(dernier.date) : "", fondsFixe, aVerser: aVerserAuDela(montant, fondsFixe) };
+  const etat = etatFondsCaisse(montant, fondsFixe);
+  // `montant` = le SOLDE d'espèces ; `aVerser` = ce qu'il y a au-delà du fonds
+  // fixe ; `resteFonds` = ce qu'il reste du fonds dans le tiroir (14/09/2026).
+  return { montant, ventes, reglements, depenses, fondsRemis, dernierVersement: dernier ? String(dernier.date) : "", derniereRemise: derniereRemise ? String(derniereRemise.date) : "",
+    fondsFixe, aVerser: aVerserAuDela(montant, fondsFixe), resteFonds: etat.reste, fondsEntame: etat.entame, fondsIntact: etat.intact };
 }
 
 // ---- Le RÉSUMÉ des caisses (Timo, 13/09/2026) ----
@@ -180,10 +242,11 @@ export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui, periode
   const lignes = (nomsBoutiques || []).map((boutique) => {
     const f = fondsAVerser(db, boutique, totalVente, periode);
     const v = totalVerse(db, boutique, aujourdhui, periode);
-    return { boutique, aVerser: f.aVerser, solde: f.montant, fondsFixe: f.fondsFixe, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
+    // `entrees` = ventes + règlements (le fonds remis est dit à part : `fondsRemis`).
+    return { boutique, aVerser: f.aVerser, solde: f.montant, fondsFixe: f.fondsFixe, resteFonds: f.resteFonds, fondsRemis: f.fondsRemis, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
   });
-  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, solde: t.solde + l.solde, fondsFixe: t.fondsFixe + l.fondsFixe, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
-    { aVerser: 0, solde: 0, fondsFixe: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
+  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, solde: t.solde + l.solde, fondsFixe: t.fondsFixe + l.fondsFixe, resteFonds: t.resteFonds + l.resteFonds, fondsRemis: t.fondsRemis + l.fondsRemis, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
+    { aVerser: 0, solde: 0, fondsFixe: 0, resteFonds: 0, fondsRemis: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
   return { lignes, total };
 }
 

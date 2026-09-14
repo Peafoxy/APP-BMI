@@ -235,7 +235,7 @@ export function Depenses({ db, save, profile }) {
         <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
-          Les <b>versements de fonds</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
+          Les <b>versements de fonds</b>, les <b>fonds de caisse remis par le DG</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
           Retrouvez-les dans <b>🔒 Caisse</b> et dans l'export « Versements » du tableau de bord.
         </div>
       </div>

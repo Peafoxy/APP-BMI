@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.201";
+export const VERSION = "2.101.202";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -118,7 +118,13 @@ export const CATEGORIE_REMBOURSEMENT = "Remboursement client";
 // payé de sa poche, la charge est déjà comptée le jour de la dépense ; la
 // sortie qui le rembourse n'est qu'un mouvement de tiroir (lib/validationDepenses.js).
 export const CATEGORIE_REMBOURSEMENT_AVANCE = "Remboursement d'avance de frais";
-export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE];
+// Le fonds de caisse REMIS à une boutique par le DG (Timo, 14/09/2026 : « on
+// avait aussi donné un fonds de caisse de 50 000… on ne verse jamais le fonds
+// de caisse ») : de l'argent de BMI qui entre dans le tiroir (montant négatif,
+// convention des entrées de caisse) — ni une vente, ni une charge. Règle :
+// lib/versements.js (construireRemiseFonds).
+export const CATEGORIE_FONDS_CAISSE = "Fonds de caisse remis";
+export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une
 // dépense en attente de la validation du DG (5 000 F et plus, saisie par un

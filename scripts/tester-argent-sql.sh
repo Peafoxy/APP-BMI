@@ -48,6 +48,8 @@ echo "▸ Les remises par article : supabase/securite-14-remise-article.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-14-remise-article.sql >/dev/null 2>&1 || echo "   ❌ securite-14 refusé par la base"
 echo "▸ La validation des dépenses par le DG : supabase/securite-15-validation-depenses.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-15-validation-depenses.sql >/dev/null 2>&1 || echo "   ❌ securite-15 refusé par la base"
+echo "▸ Le fonds de caisse remis par le DG : supabase/securite-16-fonds-de-caisse.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-16-fonds-de-caisse.sql >/dev/null 2>&1 || echo "   ❌ securite-16 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -346,6 +348,28 @@ essai "★ le gérant défait le remboursement (data - 'remboursement')" "REFUSE
 essai "★ l'admin change le moyen d'un remboursement déjà fait" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{remboursement,moyen}','\"dg\"')" zd_av2)"
 essai "★ l'admin marque une avance remboursée par le DG" "PERMIS" "$ADMIN" "$(UPS depenses zd_av3 '{"id":"zd_av3","boutique":"APESSITO","categorie":"Transport","montant":2500,"paiement":"Espèces","par":"KOSSI","paye_avec":"avance"}'); $(UPS depenses zd_av3 '{"id":"zd_av3","boutique":"APESSITO","categorie":"Transport","montant":2500,"paiement":"Espèces","par":"KOSSI","paye_avec":"avance","remboursement":{"le":"2026-09-12","par":"TIMO","moyen":"dg"}}')"
 essai "le gérant enregistre toujours un versement de fonds (securite-11 repris tel quel, rien ne change)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
+
+echo
+echo "── LE FONDS DE CAISSE REMIS PAR LE DG (securite-16, Timo 14/09/2026) : le DG seul, une entrée du montant remis, jamais modifiée ──"
+$P -c "insert into public.depenses (id, data) values
+  ('zfc0', '{\"id\":\"zfc0\",\"boutique\":\"APESSITO\",\"categorie\":\"Fonds de caisse remis\",\"montant\":-50000,\"paiement\":\"Espèces\",\"date\":\"2026-09-13\",\"par\":\"TIMO\",\"fonds_caisse\":{\"id\":\"fc0\",\"origine\":\"Chez le DG\",\"montant\":50000}}');" >/dev/null
+FONDS='{"id":"zfc1","boutique":"APESSITO","categorie":"Fonds de caisse remis","montant":-50000,"paiement":"Espèces","date":"2026-09-13","par":"TIMO","fonds_caisse":{"id":"fc1","origine":"Chez le DG","montant":50000,"note":"fonds du mois"}}'
+essai "★ le DG remet un fonds de caisse de 50 000 à APESSITO (ligne nouvelle, par upsert comme l'application)" "PERMIS" "$ADMIN" "$(UPS depenses zfc1 "$FONDS")"
+essai "★ le DG remet un fonds venu de la BANQUE" "PERMIS" "$ADMIN" "$(UPS depenses zfc2 "$(echo "$FONDS" | sed 's/zfc1/zfc2/; s/\"origine\":\"Chez le DG\"/\"origine\":\"BANQUE\",\"banque\":\"Ecobank\"/')")"
+essai "★ un gérant remet un fonds de caisse" "REFUSE" "$GERANT" "$(UPS depenses zfc1 "$FONDS")"
+essai "★ un administrateur SECONDAIRE remet un fonds de caisse" "REFUSE" "$ADMIN2" "$(UPS depenses zfc1 "$FONDS")"
+essai "★ un vendeur remet un fonds de caisse" "REFUSE" "$VENDEUR" "$(UPS depenses zfc1 "$FONDS")"
+essai "★ le comptable remet un fonds de caisse" "REFUSE" "$COMPTABLE" "$(UPS depenses zfc1 "$FONDS")"
+essai "★ le DG remet un fonds sans dire d'où vient l'argent" "REFUSE" "$ADMIN" "$(UPS depenses zfc1 "$(echo "$FONDS" | sed 's/\"origine\":\"Chez le DG\"/\"origine\":\"Chez le comptable\"/')")"
+essai "★ le DG remet un fonds sans montant" "REFUSE" "$ADMIN" "$(UPS depenses zfc1 "$(echo "$FONDS" | sed 's/\"montant\":50000/\"montant\":0/')")"
+essai "★ une ligne « Fonds de caisse remis » sans son détail fonds_caisse" "REFUSE" "$ADMIN" "$(UPS depenses zfc1 '{"id":"zfc1","boutique":"APESSITO","categorie":"Fonds de caisse remis","montant":-50000,"paiement":"Espèces","par":"TIMO"}')"
+essai "★ le montant de la ligne est FORCÉ à − 50 000 même si l'appareil envoie +50 000 (une remise est toujours une entrée du montant remis)" "PERMIS" "$ADMIN" "with x as (insert into public.depenses (id, data) values ('zfc3', '$(echo "$FONDS" | sed 's/zfc1/zfc3/; s/\"montant\":-50000/\"montant\":50000/')') on conflict (id) do update set data = excluded.data returning data) select count(*) from x where (data->>'montant')::numeric = -50000;"
+essai "★ le DG modifie le montant d'une remise déjà enregistrée" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{montant}','-40000'),'{fonds_caisse,montant}','40000')" zfc0)"
+essai "★ le DG change l'origine d'une remise déjà enregistrée" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{fonds_caisse,origine}','\"BANQUE\"')" zfc0)"
+essai "★ un gérant déplace une remise vers une autre boutique" "REFUSE" "$GERANT" "$(MAJ depenses "jsonb_set(data,'{boutique}','\"DEPOT\"')" zfc0)"
+essai "★ l'admin supprime une remise (règle générale des dépenses : admin seul)" "PERMIS" "$ADMIN" "$(SUPPR depenses zfc0)"
+essai "★ un gérant supprime une remise" "REFUSE" "$GERANT" "$(SUPPR depenses zfc0)"
+essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord '{"id":"zd_ord","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
 
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"

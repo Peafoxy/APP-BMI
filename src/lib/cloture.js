@@ -19,7 +19,7 @@
 // d'avant la mise en place ne bloquent personne.
 // ============================================================
 
-import { CATEGORIE_VERSEMENT } from "./versements.js";
+import { CATEGORIE_VERSEMENT, estFondsCaisseRemis } from "./versements.js";
 // Timo (12/09/2026) : une dépense en attente de validation ne compte pas dans
 // le tiroir ; une avance personnelle ou l'argent du DG n'en sortent jamais.
 import { compteDansLaCaisse } from "./validationDepenses.js";
@@ -50,7 +50,11 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date) === d0);
   const especesVentes = ventesDuJour.filter((v) => v.paiement === "Espèces")
     .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
-  const sortiesDuJour = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && compteDansLaCaisse(x));
+  const mouvementsDuJour = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && compteDansLaCaisse(x));
+  // Le fonds de caisse REMIS par le DG ce jour-là (14/09/2026) est une ENTRÉE
+  // du tiroir (montant négatif) : jamais une « sortie justifiée » négative.
+  const fondsRemisDuJour = -mouvementsDuJour.filter(estFondsCaisseRemis).reduce((s, x) => s + Number(x.montant || 0), 0);
+  const sortiesDuJour = mouvementsDuJour.filter((x) => !estFondsCaisseRemis(x));
   // Les versements de fonds sont montrés À PART des dépenses.
   const versementsDuJour = sortiesDuJour.filter((x) => x.categorie === CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
   const especesDepenses = sortiesDuJour.filter((x) => x.categorie !== CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
@@ -86,12 +90,13 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   // créent JAMAIS d'écart) = ce que le tiroir doit contenir.
   const recetteDuJour = especesVentes + especesReglements;
   const sortiesJustifiees = especesDepenses + versementsDuJour;
-  const fluxDuJour = recetteDuJour - sortiesJustifiees;
+  // …plus le fonds de caisse remis par le DG ce jour-là, s'il y en a un.
+  const fluxDuJour = recetteDuJour + fondsRemisDuJour - sortiesJustifiees;
   const theorique = soldeEspecesFinDeJour(db, boutique, d0, totalVente);
   return {
     date: d0,
     nbVentes: ventesDuJour.length,
-    especesVentes, especesReglements, especesDepenses, versementsDuJour, detailReglements,
+    especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, detailReglements,
     recetteDuJour, sortiesJustifiees, recetteParPersonne,
     // Le flux de la journée, pour information…
     fluxDuJour,
@@ -113,7 +118,7 @@ export function alerteSaisieRecette(compte, jour, fmt = (x) => String(x)) {
   if (compte === "" || compte === null || compte === undefined) return "";
   const c = Number(compte);
   if (!Number.isFinite(c) || jour.recetteDuJour !== c || jour.theorique === c) return "";
-  return `⚠ ${fmt(c)} est la recette du jour, pas le contenu du tiroir. Le tiroir doit contenir le fonds d'hier soir (${fmt(jour.fondsHier)}) + la recette (${fmt(jour.recetteDuJour)}) − les sorties du jour (${fmt(jour.sortiesJustifiees)}) = ${fmt(jour.theorique)}. Comptez ce qu'il y a réellement dans le tiroir.`;
+  return `⚠ ${fmt(c)} est la recette du jour, pas le contenu du tiroir. Le tiroir doit contenir le fonds d'hier soir (${fmt(jour.fondsHier)}) + la recette (${fmt(jour.recetteDuJour)})${jour.fondsRemisDuJour > 0 ? ` + le fonds de caisse remis par le DG (${fmt(jour.fondsRemisDuJour)})` : ""} − les sorties du jour (${fmt(jour.sortiesJustifiees)}) = ${fmt(jour.theorique)}. Comptez ce qu'il y a réellement dans le tiroir.`;
 }
 
 export const estCloturee = (db, boutique, date) => (db.clotures || []).some((c) => c.boutique === boutique && String(c.date) === String(date));

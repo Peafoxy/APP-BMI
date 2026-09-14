@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1280 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1293 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -62,7 +62,7 @@ npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 163 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 179 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -791,6 +791,26 @@ lit mal est pire qu'un banc absent).
   dans le tiroir, et les dépenses « payées avec la caisse » sont justes.
   Sans réglage, rien ne change. **Un fonds laissé APRÈS un versement n'est
   pas une entrée** : on verse moins, on ne remet pas.
+- **💼 Le fonds de caisse REMIS par le DG** (14/09/2026, captures d'APESSITO :
+  348 000 d'entrées, 50 000 de dépenses, 298 000 versés, « et dans la foulée
+  on avait aussi donné un fonds de caisse de 50 000… il ne faut pas mélanger
+  le fonds de caisse avec ce qu'on va verser… on ne verse jamais le fonds de
+  caisse ») : l'argent que le DG remet lui-même n'était écrit nulle part
+  (solde 0, « 50 000 conservé » faux, clôture faussée de 50 000). Donc
+  **« 💼 Remettre le fonds de caisse » dans 🔒 Caisse, administrateur
+  PRINCIPAL seul** (`construireRemiseFonds`, lib/versements.js ; serveur
+  `securite-16`) : une ligne de `depenses` sur la boutique, catégorie
+  `CATEGORIE_FONDS_CAISSE` (« Fonds de caisse remis »), **montant NÉGATIF**
+  (entrée du tiroir, convention de la caisse du comptable), date libre,
+  origine **Chez le DG** (d'office) ou **BANQUE** ; c'est une SORTIE de cette
+  caisse centrale le jour de la remise. **Ni vente, ni charge**
+  (`CATEGORIES_HORS_CHARGES`), jamais une « sortie » négative : `fondsAVerser`
+  la rend à part (`fondsRemis`), la clôture aussi (`fondsRemisDuJour`, dans la
+  recette). **Le fonds a SON carré** (« 💼 Fonds de caisse » : ce qu'il en
+  reste dans le tiroir = solde borné au fonds fixe, `etatFondsCaisse` —
+  intact / entamé de X) et sa colonne dans le RÉSUMÉ ; le carré « Fonds à
+  verser » ne dit plus « conservé ». Un fonds gardé en versant moins ne se
+  saisit pas (rien à écrire).
 - **« Payé avec : la caisse du comptable »** (13/09/2026) : quatrième origine
   (`PAYE_AVEC_COMPTABLE`), **réel seulement** (`optionsPayeAvec(…, {
   avecComptable: !afficheChiffresFormation })`, « Chez le comptable » n'a pas

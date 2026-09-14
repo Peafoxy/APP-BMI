@@ -4364,9 +4364,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 24 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 15 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026)",
+  test("★ nouveauMessage sert aux 24 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "24"
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "15");
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -4966,14 +4966,14 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR) && /const aVerserPeriode = fondsAVerser\(db, boutique, totalVente, periode\);/.test(csR) && /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR)
       && /attendu: aVerser\.aVerser/.test(csR) && /montantDifferent\(vers\.montant, aVerser\.aVerser\)/.test(csR) && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR) /* 13/09/2026 : au-delà du fonds fixe, TOUJOURS depuis le début */
       && /value=\{resume \? "" : bq\} onChange=\{\(nom\) => \{ setBq\(nom\); setResume\(false\); \}\}/.test(csR) /* en mode RÉSUMÉ, aucune boutique allumée (capture 13/09/2026) */ && /historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(\(d\) => !periode/.test(csR));
-    test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
+    test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes — plus « Fonds de caisse » depuis le 14/09/2026 —, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
       /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /Total versé\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période */
       && /extra=\{<>\n\s*<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>\n(?:[^\n]*\n){3}\s*<div className="flex items-center gap-2"><div className="font-bold text-slate-800">Période :<\/div>\n\s*<select className="rounded-lg border border-slate-300 px-3 py-1\.5 text-sm bg-white"[^\n]*\n[^\n]*\n[^\n]*<\/select>\n\s*<\/div>\n\s*<\/>\}/.test(csR) /* « Période : » + liste, comme au tableau de bord, à DROITE de RÉSUMÉ, même ligne (Timo, 13/09/2026 : « ramener période devant résumé » → option 1) */ && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR)
-      && /\["Fonds à verser", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
+      && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
       && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
       && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8"))
       // 13/09/2026 : « dans résumé, ne plus afficher autre chose » — tout le reste de l'écran est sous {!resume && (<>…</>)}.
-      && /\{!resume && \(<>\n\s*\{\/\* Timo \(09\/09\/2026\)/.test(csR) && /<\/>\)\}\n    <\/div>\n  \);\n\}/.test(csR));
+      && /\{!resume && \(<>\n\s*\{\/\* Timo \(14\/09\/2026\)/.test(csR) /* 14/09/2026 : le bloc « Remettre le fonds de caisse » du DG ouvre la partie hors résumé */ && /<\/>\)\}\n    <\/div>\n  \);\n\}/.test(csR));
   }
   // Timo (13/09/2026) : « au plus 10 lignes, au-delà on défile ; après 3 mois,
   // au-delà de 20 lignes, les anciennes sont archivées automatiquement… que ça
@@ -5016,17 +5016,117 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       rf.lignes[0].aVerser === 20000 && rf.lignes[0].solde === 50000 && rf.lignes[0].fondsFixe === 30000 && rf.total.aVerser === 29000 && rf.total.solde === 59000 && rf.total.fondsFixe === 30000);
     const csF = readFileSync("src/screens/Caisse.jsx", "utf8");
     const paF = readFileSync("src/screens/Parametres.jsx", "utf8");
-    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3), le carré et le résumé le disent (« fonds de caisse fixe … conservé », « fonds fixe ») ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe)",
-      (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && /fonds de caisse fixe \{fmt\(aVerserPeriode\.fondsFixe\)\} conservé/.test(csF) && /solde \{fmt\(l\.solde\)\} · fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
+    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3) ; RETOURNÉ le 14/09/2026 (Timo : « il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser ») : le carré « Fonds à verser » ne dit PLUS « fonds de caisse fixe … conservé » (faux quand le solde est à 0), le fonds a SON carré ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe)",
+      (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /au-delà du fonds de caisse · solde en caisse \{fmt\(aVerserPeriode\.montant\)\}/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
       && /refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/.test(paF) && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: v \}/.test(paF));
+  }
+  // Timo (14/09/2026), captures d'APESSITO : 348 000 d'entrées, 50 000 de
+  // dépenses, 298 000 versés — « et dans la foulée on avait aussi donné un
+  // fonds de caisse de 50 000… il ne faut pas mélanger le fonds de caisse avec
+  // ce qu'on va verser… on ne verse jamais le fonds de caisse ». Le fonds remis
+  // par le DG n'était écrit nulle part (solde 0, « 50 000 conservé » faux).
+  {
+    const TIMO = { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true };
+    const nzF = (t) => String(t).replace(/\u202f|\u00a0/g, " ");
+    const sortieCsF = join("node_modules", ".cache", `bmi-constants-fonds-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCsF, logLevel: "silent" });
+    const Cs = await import(pathToFileURL(sortieCsF).href);
+    unlinkSync(sortieCsF);
+    const dbA = {
+      boutiques: [{ nom: "APESSITO", fonds_caisse_fixe: 50000 }, { nom: "DEMAKPOE", fonds_caisse_fixe: 50000 }],
+      ventes: [{ id: "a1", boutique: "APESSITO", date: "2026-09-10", paiement: "Espèces", total: 300000 }, { id: "a2", boutique: "APESSITO", date: "2026-09-11", paiement: "Espèces", total: 48000 }, { id: "k1", boutique: "DEMAKPOE", date: "2026-09-11", paiement: "Espèces", total: 898600 }],
+      dettes: [],
+      depenses: [
+        { id: "x1", boutique: "APESSITO", date: "2026-09-12", categorie: "Transport", montant: 50000, paiement: "Espèces", par: "TIMO", validation: { statut: "validee", le: "2026-09-12", par: "TIMO" } },
+        { id: "x2", boutique: "APESSITO", date: "2026-09-14", categorie: "Versement de fonds", montant: 298000, paiement: "Espèces", par: "ALI", versement: { id: "vv", destination: "Chez le DG", montant: 298000 }, versement_valide_le: "2026-09-14", versement_valide_par: "TIMO" },
+      ],
+    };
+    const f0 = Vs.fondsAVerser(dbA, "APESSITO", tv);
+    test("★ AVANT la remise (la capture) : entrées 348 000, sorties 348 000 (50 000 + 298 000), solde 0, à verser 0 — et le fonds n'est PAS « conservé » : il en reste 0, entamé de 50 000, pas intact ; DEMAKPOE : 898 600 → 848 600 à verser, fonds de 50 000 intact",
+      f0.ventes + f0.reglements === 348000 && f0.depenses === 348000 && f0.montant === 0 && f0.aVerser === 0 && f0.fondsRemis === 0 && f0.resteFonds === 0 && f0.fondsEntame === 50000 && f0.fondsIntact === false
+      && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).aVerser === 848600 && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).resteFonds === 50000 && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).fondsIntact === true
+      && Vs.etatFondsCaisse(45000, 50000).entame === 5000 && Vs.etatFondsCaisse(-3000, 50000).reste === 0 && Vs.etatFondsCaisse(80000, 0).fondsFixe === 0 && Vs.etatFondsCaisse(80000, 0).intact === false);
+    test("★ une remise mal formée est refusée avec son motif : montant nul, origine inconnue (seulement Chez le DG / BANQUE), BANQUE sans banque, sans date",
+      /montant/.test(Vs.critiqueRemiseFonds({ montant: 0, origine: "Chez le DG", date: "2026-09-13" })) && /Chez le DG ou BANQUE/.test(Vs.critiqueRemiseFonds({ montant: 100, origine: "Chez le comptable", date: "2026-09-13" }))
+      && /banque/.test(Vs.critiqueRemiseFonds({ montant: 100, origine: "BANQUE", banque: " ", date: "2026-09-13" })) && /date/.test(Vs.critiqueRemiseFonds({ montant: 100, origine: "Chez le DG", date: "" }))
+      && Vs.critiqueRemiseFonds({ montant: 50000, origine: "Chez le DG", date: "2026-09-13" }) === "" && Vs.ORIGINES_FONDS.join("|") === "Chez le DG|BANQUE" && Vs.construireRemiseFonds(TIMO, { boutique: "APESSITO", montant: 0, origine: "Chez le DG", date: "2026-09-13" }).refus.length > 0);
+    const rm = Vs.construireRemiseFonds(TIMO, { boutique: "APESSITO", montant: 50000, origine: "Chez le DG", date: "2026-09-13", note: "fonds du mois" });
+    test("★ construireRemiseFonds : UNE ligne de dépenses sur la boutique, catégorie « Fonds de caisse remis », montant NÉGATIF (une entrée, convention de la caisse du comptable), espèces, à la date choisie, détail dans fonds_caisse (origine, montant positif, note), description lisible, journal",
+      rm.entree.boutique === "APESSITO" && rm.entree.categorie === Vs.CATEGORIE_FONDS_CAISSE && rm.entree.categorie === "Fonds de caisse remis" && rm.entree.montant === -50000 && rm.entree.paiement === "Espèces" && rm.entree.date === "2026-09-13" && rm.entree.par === "TIMO" && rm.entree.par_id === "u_timo"
+      && rm.entree.fonds_caisse.origine === "Chez le DG" && rm.entree.fonds_caisse.montant === 50000 && rm.entree.fonds_caisse.note === "fonds du mois" && /^Fonds de caisse remis le 13\/09\/2026 par TIMO \(Chez le DG\) — fonds du mois$/.test(rm.entree.description)
+      && Vs.estFondsCaisseRemis(rm.entree) && !Vs.estVersement(rm.entree) && /Fonds de caisse 50 000 F remis à APESSITO \(Chez le DG\) par TIMO/.test(nzF(rm.journal)) && !rm.entree.validation && !rm.entree.paye_avec
+      && Vs.libelleOrigineFonds(Vs.construireRemiseFonds(TIMO, { boutique: "APESSITO", montant: 100, origine: "BANQUE", banque: "Ecobank", date: "2026-09-13" }).fonds_caisse) === "BANQUE Ecobank");
+    const dbB = { ...dbA, depenses: [rm.entree, ...dbA.depenses] };
+    const f1 = Vs.fondsAVerser(dbB, "APESSITO", tv);
+    test("★ APRÈS la remise de 50 000 : solde 50 000, à verser 0 (on ne verse jamais le fonds), fonds remis 50 000 (dernière remise le 13/09), il en reste 50 000, intact ; Sorties restent 348 000 (la remise n'est PAS une sortie négative) ; Entrées ventes + règlements inchangées",
+      f1.montant === 50000 && f1.aVerser === 0 && f1.fondsRemis === 50000 && f1.derniereRemise === "2026-09-13" && f1.resteFonds === 50000 && f1.fondsIntact === true && f1.fondsEntame === 0 && f1.depenses === 348000 && f1.ventes + f1.reglements === 348000
+      && Vs.remisesFondsDe(dbB, "APESSITO").length === 1 && Vs.remisesFondsDe(dbB, "DEMAKPOE").length === 0);
+    const dbC = { ...dbB, depenses: [{ id: "x3", boutique: "APESSITO", date: "2026-09-15", categorie: "Carburant", montant: 5000, paiement: "Espèces", par: "ALI" }, ...dbB.depenses] };
+    const f2 = Vs.fondsAVerser(dbC, "APESSITO", tv);
+    test("★ une dépense de 5 000 sans vente : le fonds est ENTAMÉ — solde 45 000, il en reste 45 000, entamé de 5 000, toujours 0 à verser (Timo : « par où voir le restant du fonds de caisse ? ») ; une vente de 20 000 ensuite : reste 50 000 intact, 15 000 à verser",
+      f2.montant === 45000 && f2.resteFonds === 45000 && f2.fondsEntame === 5000 && f2.fondsIntact === false && f2.aVerser === 0
+      && (() => { const f3 = Vs.fondsAVerser({ ...dbC, ventes: [...dbC.ventes, { id: "a3", boutique: "APESSITO", date: "2026-09-16", paiement: "Espèces", total: 20000 }] }, "APESSITO", tv); return f3.montant === 65000 && f3.resteFonds === 50000 && f3.fondsIntact === true && f3.aVerser === 15000; })());
+    test("★ avec une période : le fonds remis compté DANS la période seulement (septembre 13 → 13 : 50 000 ; 10 → 12 : 0) ; le solde à la fin du 12/09 = 0, à la fin du 13/09 = 50 000",
+      Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-13", au: "2026-09-13" }).fondsRemis === 50000 && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-10", au: "2026-09-12" }).fondsRemis === 0
+      && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-10", au: "2026-09-12" }).montant === -0 + (348000 - 50000) && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-13", au: "2026-09-13" }).montant === 348000 - 50000 + 50000);
+    const rs = Vs.resumeCaisses(dbC, ["APESSITO", "DEMAKPOE"], tv, "2026-09-15");
+    test("★ resumeCaisses porte le fonds : reste 45 000 (APESSITO) + 50 000 (DEMAKPOE) = 95 000 ; fonds remis 50 000 ; Entrées = ventes + règlements (348 000), le fonds remis dit à part",
+      rs.lignes[0].resteFonds === 45000 && rs.lignes[0].fondsRemis === 50000 && rs.lignes[0].entrees === 348000 && rs.lignes[1].resteFonds === 50000 && rs.lignes[1].fondsRemis === 0 && rs.total.resteFonds === 95000 && rs.total.fondsRemis === 50000 && rs.total.fondsFixe === 100000);
+    test("★ le fonds remis n'est ni une charge ni une dépense : CATEGORIES_HORS_CHARGES le porte, horsVersements et depensesComptees l'écartent (tableau de bord, journal, export, écran Dépenses) ; l'écran Dépenses DIT où le retrouver",
+      Cs.CATEGORIES_HORS_CHARGES.includes("Fonds de caisse remis") && Cs.horsVersements(dbB.depenses).every((d) => !Vs.estFondsCaisseRemis(d)) && Cs.depensesComptees(dbB.depenses).length === 1 && Cs.horsVersements(dbB.depenses).length === 1
+      && /les <b>fonds de caisse remis par le DG<\/b> et les <b>remboursements de reprise<\/b> ne sont pas des dépenses/.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
+    // La clôture : le jour de la remise, c'est une ENTRÉE du tiroir — jamais une « sortie justifiée » négative.
+    const sortieClF = join("node_modules", ".cache", `bmi-cloture-fonds-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieClF, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const ClF = await import(pathToFileURL(sortieClF).href);
+    unlinkSync(sortieClF);
+    const j13 = ClF.activiteDuJour(dbB, "APESSITO", "2026-09-13", tv);
+    const j14 = ClF.activiteDuJour(dbB, "APESSITO", "2026-09-14", tv);
+    test("★ clôture du 13/09 (jour de la remise) : fonds remis du jour 50 000, dépenses du jour 0, sorties justifiées 0 (jamais − 50 000), flux + 50 000, fonds d'hier soir 298 000, attendu dans le tiroir 348 000 ; le 14/09 : versement 298 000, fonds d'hier 348 000, attendu 50 000 ; l'alerte « recette au lieu du tiroir » cite le fonds remis ce jour-là seulement",
+      j13.fondsRemisDuJour === 50000 && j13.especesDepenses === 0 && j13.sortiesJustifiees === 0 && j13.fluxDuJour === 50000 && j13.fondsHier === 298000 && j13.theorique === 348000
+      && j14.fondsRemisDuJour === 0 && j14.versementsDuJour === 298000 && j14.fondsHier === 348000 && j14.theorique === 50000 && ClF.soldeEspecesFinDeJour(dbB, "APESSITO", "2026-09-14", tv) === 50000
+      && /fonds de caisse remis par le DG \(50 000 F\)/.test(nzF(ClF.alerteSaisieRecette(0, { ...j13, recetteDuJour: 0, theorique: 348000 }, (x) => new Intl.NumberFormat("fr-FR").format(x) + " F")))
+      && !/fonds de caisse remis/.test(ClF.alerteSaisieRecette(0, { ...j14, recetteDuJour: 0 }, String)));
+    // Les caisses centrales : l'argent est SORTI de chez le DG (ou de la banque) le jour de la remise.
+    const sortieCgF = join("node_modules", ".cache", `bmi-caisses-fonds-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/caissesCentrales.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCgF, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const CgF = await import(pathToFileURL(sortieCgF).href);
+    unlinkSync(sortieCgF);
+    const rb = Vs.construireRemiseFonds(TIMO, { boutique: "DEMAKPOE", montant: 30000, origine: "BANQUE", banque: "Ecobank", date: "2026-09-12" });
+    const dbD = { ...dbB, depenses: [rb.entree, ...dbB.depenses] };
+    const dgF = CgF.mouvementsDG(dbD, ["APESSITO", "DEMAKPOE"]);
+    const bqF = CgF.mouvementsBanque(dbD, ["APESSITO", "DEMAKPOE"]);
+    test("★ Chez le DG : entrée 298 000 (versement validé), SORTIE 50 000 « Fonds de caisse remis à APESSITO » le 13/09 → solde 248 000 ; BANQUE : sortie 30 000 « remis à DEMAKPOE · BANQUE Ecobank », pas chez le DG ; hors espace : rien",
+      dgF.totalEntrees === 298000 && dgF.totalSorties === 50000 && dgF.sorties[0].date === "2026-09-13" && /Fonds de caisse remis à APESSITO \(par TIMO\) — fonds du mois/.test(dgF.sorties[0].libelle) && dgF.solde === 248000
+      && bqF.totalSorties === 30000 && /remis à DEMAKPOE \(par TIMO\) · BANQUE Ecobank/.test(bqF.sorties[0].libelle) && bqF.totalEntrees === 0 && CgF.mouvementsDG(dbD, ["APESSITO"]).totalSorties === 50000 && CgF.mouvementsBanque(dbD, ["APESSITO"]).totalSorties === 0
+      && CgF.mouvementsComptable(dbD).mouvements.length === 0);
+    // L'écran 🔒 Caisse : le geste du DG, son carré, sa colonne, sa liste.
+    const csG = readFileSync("src/screens/Caisse.jsx", "utf8");
+    test("★ écran Caisse : « 💼 Remettre le fonds de caisse » = bloc du DG seul (jeSuisDG, data-bloc=\"remise-fonds\"), revérifié DANS le geste (refuserSaufAdminPrincipal + bloquerSiLecture), construireRemiseFonds, confirmation qui dit que l'argent entre dans le tiroir et sort de la caisse d'origine, date libre bornée à aujourd'hui, origine parmi ORIGINES_FONDS, banque demandée pour BANQUE",
+      /\{jeSuisDG && \(\n\s*<div className="bg-white rounded-xl border-2 border-slate-200 shadow-sm p-4" data-bloc="remise-fonds">/.test(csG) && /refuserSaufAdminPrincipal\(db, profile, "Remettre le fonds de caisse d'une boutique \(DG\)"\)/.test(csG)
+      && /const remettreFonds = async \(\) => \{\n\s*if \(refuserSaufAdminPrincipal[^\n]*\n\s*if \(bloquerSiLecture\(db, profile\)\) return;\n\s*const r = construireRemiseFonds\(profile, \{ boutique, \.\.\.remise \}\);/.test(csG)
+      && /Cet argent entre dans le tiroir de \$\{boutique\} \(il n'est ni une vente ni une dépense\) et sort de la caisse « \$\{remise\.origine\} »/.test(csG) && /<input type="date" className=\{inputCls\} value=\{remise\.date\} max=\{aujourdhui\}/.test(csG)
+      && /\{ORIGINES_FONDS\.map\(\(o\) => <option key=\{o\} value=\{o\}>\{o\}<\/option>\)\}/.test(csG) && /\{remise\.origine === DEST_BANQUE && <Field label="Nom de la banque">/.test(csG) && /save\(\{ \.\.\.db, depenses: \[r\.entree, \.\.\.\(db\.depenses \|\| \[\]\)\] \}, r\.journal\);/.test(csG));
+    test("★ écran Caisse : le carré « 💼 Fonds de caisse » À PART (data-carre=\"fonds-de-caisse\" : reste dans le tiroir, intact / entamé de, remis par le DG), la colonne « Fonds de caisse » du RÉSUMÉ (reste, fixe, entamé / intact, remis), les Entrées disent « dont fonds de caisse remis », la clôture montre le fonds remis du jour dans la recette (jamais dans les sorties), et la liste des remises passe par HistoriqueArchive",
+      /data-carre="fonds-de-caisse"/.test(csG) && /aVerserPeriode\.fondsIntact \? "intact dans le tiroir" : `il en reste \$\{fmt\(aVerserPeriode\.resteFonds\)\} · entamé de \$\{fmt\(aVerserPeriode\.fondsEntame\)\}`/.test(csG) && /remis par le DG \$\{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
+      && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\]/.test(csG) && /\{l\.fondsFixe > 0 \? fmt\(l\.resteFonds\) : "—"\}/.test(csG) && /dont fonds de caisse remis \{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
+      && /\+ \{fmt\(recetteDuJour \+ fondsRemisDuJour\)\}/.test(csG) && /fonds de caisse remis par le DG \$\{fmt\(fondsRemisDuJour\)\}/.test(csG) && /<HistoriqueArchive lignes=\{remisesFonds\} dateDe=\{\(d\) => d\.date\} aujourdhui=\{aujourdhui\}/.test(csG)
+      && /\+ recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0 \? ` \+ fonds de caisse remis par le DG \$\{fmt\(fondsRemisDuJour\)\}` : ""\} − sorties justifiées/.test(csG));
+    const s16 = readFileSync("supabase/securite-16-fonds-de-caisse.sql", "utf8");
+    const ta16 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+    test("★ securite-16 (serveur) : créer un « Fonds de caisse remis » = l'administrateur PRINCIPAL seul, origine Chez le DG / BANQUE exigée, montant FORCÉ à − fonds_caisse.montant, une remise ne se modifie plus ; upsert relu ; le banc tester-argent le pose et rejoue gérant / admin secondaire / vendeur refusés, DG permis, montant forcé, modification refusée",
+      /if not public\.est_admin_principal\(\) then\n\s*perform public\.refus_role\('Remettre le fonds de caisse d''une boutique', 'l''administrateur principal \(le DG\)'\);/.test(s16) && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s16)
+      && /not in \('Chez le DG', 'BANQUE'\)/.test(s16) && /new\.data := jsonb_set\(new\.data, '\{montant\}', to_jsonb\(-montant_remis\), true\);/.test(s16) && /Modifier un fonds de caisse déjà remis', 'personne'/.test(s16) && /revoke all on function public\.depenses_regles_fonds_caisse\(\) from public, anon;/.test(s16)
+      && /-f supabase\/securite-16-fonds-de-caisse\.sql/.test(ta16) && /le DG remet un fonds de caisse de 50 000 à APESSITO[^"]*" "PERMIS"/.test(ta16) && /un gérant remet un fonds de caisse[^"]*" "REFUSE"/.test(ta16) && /un administrateur SECONDAIRE remet un fonds de caisse[^"]*" "REFUSE"/.test(ta16)
+      && /le montant de la ligne est FORCÉ à − 50 000[^"]*" "PERMIS"/.test(ta16) && /le DG modifie le montant d'une remise déjà enregistrée[^"]*" "REFUSE"/.test(ta16));
   }
   test("★ fonds à verser = SOLDE d'espèces en caisse : toutes les entrées espèces (ventes + règlements) − toutes les sorties espèces (versements compris) ; un versement fait baisser le solde d'autant ; jamais le mobile money ni une autre boutique",
     f.ventes === 251400 && f.reglements === 900 && f.depenses === 202300 && f.montant === 50000 && f.dernierVersement === "2026-09-05"
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 252300 && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).dernierVersement === "");
   const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
   const nz = (t) => String(t).replace(/\u202f|\u00a0/g, " "); // les montants formatés portent une espace fine insécable
-  test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple",
-    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du [^\n]{0,40} au\b|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
+  test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple ; le SEUL champ de date de l'écran est celui de la remise du fonds de caisse (14/09/2026)",
+    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du [^\n]{0,40} au\b/.test(csV) && (csV.match(/type="date"/g) || []).length === 1 && /type="date" className=\{inputCls\} value=\{remise\.date\}/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
   test("★ montant différent de l'attendu SANS note → refusé avec « Justifiez pourquoi le montant n'est pas X » ; avec note → accepté ; montant égal → aucune note exigée",
     nz(Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "" })) === "Justifiez pourquoi le montant n'est pas 200 000 F"
     && Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "fonds de caisse gardé" }) === "" && Vs.critiqueVersement({ montant: 200000, destination: "Chez le DG", attendu: 200000.4, note: "" }) === ""
@@ -5141,7 +5241,7 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
   test("★ la catégorie vit dans constants.js, réexportée par lib/versements.js (importée ET réexportée) ; horsVersements retire la sortie de la boutique ET l'entrée miroir, garde le reste, accepte une liste absente",
     K.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.horsVersements(deps).length === 1
     && K.horsVersements(deps).length === 1 && K.horsVersements(deps)[0].montant === 1 && K.horsVersements(undefined).length === 0
-    && /import \{ CATEGORIE_VERSEMENT, horsVersements \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
+    && /import \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
   const dbJ = { ...base(), ventes: [], dettes: [],
     depenses: [{ id: "j1", boutique: "APESSITO", montant: 252299, date: "2026-09-10", categorie: "Versement de fonds", paiement: "Espèces", versement: { destination: "Chez le DG" } },
                { id: "j2", boutique: "APESSITO", montant: 1, date: "2026-09-10", categorie: "Transport", paiement: "Espèces" }] };
@@ -5226,7 +5326,7 @@ titre("↩ Reprise d'un article par le client (Timo, 10/09/2026 : « Reprise pou
   unlinkSync(sortieK2);
   test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
     // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
-    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais");
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis" /* 14/09/2026 : le fonds remis par le DG non plus */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
     /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
@@ -5485,7 +5585,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     && Cl.alerteSaisieRecette(300, Cl.activiteDuJour({ ...dbc, ventes: [] }, "A", "2026-09-09", tv)) !== "" && Cl.alerteSaisieRecette(250, Cl.activiteDuJour({ ...dbc, ventes: [] }, "A", "2026-09-09", tv)) === "");
   test("★ Caisse : le champ dit « Montant du tiroir (tout ce qu'il contient, compté) », l'alerte recette/tiroir s'affiche sous le champ ET dans la confirmation, la confirmation détaille fonds d'hier + recette − sorties, et « ne créent pas d'écart » est écrit sous les sorties",
     /Montant du tiroir \(tout ce qu'il contient, compté\)/.test(csC) && /const alerteRecette = alerteSaisieRecette\(compte, jour, fmt\);/.test(csC) && /\{alerteRecette && <div/.test(csC)
-    && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC) && /fonds d'hier soir \$\{fmt\(fondsHier\)\} \+ recette du jour \$\{fmt\(recetteDuJour\)\} − sorties justifiées \$\{fmt\(sortiesJustifiees\)\}/.test(csC)
+    && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC) && /fonds d'hier soir \$\{fmt\(fondsHier\)\} \+ recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0 \? [^\n]*\} − sorties justifiées \$\{fmt\(sortiesJustifiees\)\}/.test(csC)
     && /Fonds de caisse d'hier soir/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
 }
 
