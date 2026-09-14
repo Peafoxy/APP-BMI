@@ -15,7 +15,10 @@ import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable } from "../components/ui";
-import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
+import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
+// Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
+// document à part, jamais le reçu réimprimé (lib/bons.js).
+import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
@@ -871,8 +874,36 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         : `• ${fmt(r.rembourse)} rendus au client (${reprise.moyen}) — sortie de caisse du jour`) +
       `\n• Le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits d'autant`
     ))) return;
-    save(appliquerReprise(db, r), r.journal);
+    const dbApres = appliquerReprise(db, r);
+    save(dbApres, r.journal);
     setReprise(null);
+    // Le bon de reprise, tout de suite (Timo, 14/09/2026) — le reçu de vente reste tel quel.
+    await proposerBon(bonReprise(dbApres, r.vente, r.reprise), infoBq(r.vente.boutique));
+  };
+  // UN chemin pour proposer un bon (reprise ou retour) : imprimer, envoyer par
+  // WhatsApp si le client a un numéro, ou plus tard depuis la ligne de la vente.
+  const proposerBon = async (bon, bq) => {
+    if (!bon) return;
+    const options = ["🖨 Imprimer", ...(bon.tel ? ["Envoyer par WhatsApp"] : []), "Plus tard"];
+    const choix = await uChoix(`${bon.type === "reprise" ? "Bon de reprise" : "Bon de retour"} ${bon.numero} — le client garde une trace de ce qui a été repris et rendu.`, options);
+    if (choix === "🖨 Imprimer") imprimerBon(bon, bq);
+    else if (choix === "Envoyer par WhatsApp") bonWhatsApp(bon, bq);
+  };
+  // Les bons d'une vente déjà enregistrés : réimprimables depuis sa ligne.
+  const bonsDeVente = (v) => [
+    ...(v.reprises || []).map((r) => ({ bon: bonReprise(db, v, r), libelle: `↩ Bon de reprise ${dFR(r.date)} — ${r.qte} × ${r.article}` })),
+    ...retoursDeVente(db, v).map((r) => ({ bon: bonRetour(db, v, r), libelle: `🔁 Bon de retour ${dFR(r.date)} — ${r.qte} × ${r.article}` })),
+  ];
+  const ouvrirBons = async (v) => {
+    const liste = bonsDeVente(v);
+    if (!liste.length) return;
+    let choisi = liste[0];
+    if (liste.length > 1) {
+      const c = await uChoix("Quel bon ?", liste.map((x) => x.libelle));
+      if (!c) return;
+      choisi = liste.find((x) => x.libelle === c);
+    }
+    await proposerBon(choisi.bon, infoBq(v.boutique));
   };
   const ouvrirRetour = (v) => {
     if (refuserSaufRoles(profile, ROLES_RETOUR_GARANTIE, "Enregistrer un retour sous garantie")) return;
@@ -907,6 +938,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }, `🔁 Retour ${ref} : ${n} × ${produit.nom} échangé(s) sous garantie (reçu ${numeroRecu(r.vente)}${r.vente.client ? `, ${r.vente.client}` : ""})${dette ? ` — frais facturés ${fmt(dette.montant)}` : " — gratuit"}`);
     setRetour(null);
     uAlert(`✅ Retour ${ref} enregistré.\n\nLe défectueux attend son sort dans 📦 Stocks → 🔧 Défectueux / SAV (renvoi au fournisseur ou rebut).${dette ? `\n\nLes frais (${fmt(dette.montant)}) sont dans 💳 Dettes, au nom du client.` : ""}`);
+    // Le bon de retour, tout de suite (Timo, 14/09/2026).
+    const dbApres = { ...db, ajustements: [...ajustements, ...(db.ajustements || [])], ...(dette ? { dettes: [dette, ...(db.dettes || [])] } : {}) };
+    const retourFait = retoursDeVente(dbApres, r.vente).find((x) => x.ref === ref);
+    await proposerBon(bonRetour(dbApres, r.vente, retourFait), infoBq(r.vente.boutique));
   };
 
   // ⚠ Demande Timo : reprendre une vente déjà encaissée pour en faire un devis
@@ -1248,6 +1283,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu" aria-label="Imprimer le reçu">🖨</button>
                     <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp" aria-label="WhatsApp"><IconeWhatsApp /></button>
+                    {bonsDeVente(v).length > 0 && (
+                      <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
+                    )}
                     {peutTransformerEnDevis(v) && onTransformerEnDevis && (
                       <button onClick={() => transformerEnDevis(v)} className={boutonAction("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title="📋 Devis : reprendre cette vente pour en faire un devis d'installation" aria-label="Devis">📋</button>
                     )}

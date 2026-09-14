@@ -5,6 +5,7 @@
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
 import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits, nomDocument, envoyerWhatsApp } from "./core";
+import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
@@ -25,31 +26,9 @@ const bandeauFormation = (estFormation) => estFormation
   ? `<div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">🎓 DOCUMENT DE FORMATION — SANS VALEUR</div>`
   : "";
 
-// ============ REÇU CLIENT ============
-export function imprimerRecu(v, bq = {}, produits = []) {
-  // MODULE GARANTIES : si l'article vendu a une "Garantie boutique"
-  // renseignée sur sa fiche produit, on l'ajoute entre parenthèses après le
-  // nom — jamais si le champ est vide, pour ne rien changer aux reçus déjà
-  // habituels (demande Timo, cahier des charges garanties).
-  const garantieBoutiqueDe = (l) => {
-    const p = l.produit_id ? produits.find((x) => x.id === l.produit_id) : null;
-    return p?.garantie_boutique ? ` (Garantie : ${esc(p.garantie_boutique)})` : "";
-  };
-  const logo = bq.logo || LOGO;
-  const brut = brutVente(v);
-  const net = totalVente(v);
-  const numero = numeroRecu(v);
-  const modes = [
-    ["Espèces", /Espèces/i],
-    ["Mobile Money", /Mobile Money/i],
-    ["Virement", /Virement/i],
-    ["Crédit", /Crédit/i],
-  ];
-  const casesMode = modes
-    .map(([lbl, re]) => `<span class="case">${re.test(v.paiement || "") ? "☑" : "☐"} ${lbl}</span>`)
-    .join("");
-
-  const html = `
+// Le style du reçu, écrit UNE fois : le reçu de vente, le bon de reprise et
+// le bon de retour (14/09/2026) ont la même présentation.
+const STYLE_RECU = `
   <style>
   #zone-impression .recu-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
   #zone-impression .recu-doc .entete{width:100%;border-collapse:collapse}
@@ -77,6 +56,34 @@ export function imprimerRecu(v, bq = {}, produits = []) {
   #zone-impression .recu-doc table.sign .ligne{border-top:1px solid #555;padding-top:4px}
   #zone-impression .recu-doc .merci{text-align:center;font-style:italic;color:#555;margin-top:16px;border-top:1px dashed #aaa;padding-top:8px}
   </style>
+`;
+
+// ============ REÇU CLIENT ============
+export function imprimerRecu(v, bq = {}, produits = []) {
+  // MODULE GARANTIES : si l'article vendu a une "Garantie boutique"
+  // renseignée sur sa fiche produit, on l'ajoute entre parenthèses après le
+  // nom — jamais si le champ est vide, pour ne rien changer aux reçus déjà
+  // habituels (demande Timo, cahier des charges garanties).
+  const garantieBoutiqueDe = (l) => {
+    const p = l.produit_id ? produits.find((x) => x.id === l.produit_id) : null;
+    return p?.garantie_boutique ? ` (Garantie : ${esc(p.garantie_boutique)})` : "";
+  };
+  const logo = bq.logo || LOGO;
+  const brut = brutVente(v);
+  const net = totalVente(v);
+  const numero = numeroRecu(v);
+  const modes = [
+    ["Espèces", /Espèces/i],
+    ["Mobile Money", /Mobile Money/i],
+    ["Virement", /Virement/i],
+    ["Crédit", /Crédit/i],
+  ];
+  const casesMode = modes
+    .map(([lbl, re]) => `<span class="case">${re.test(v.paiement || "") ? "☑" : "☐"} ${lbl}</span>`)
+    .join("");
+
+  const html = `
+  ${STYLE_RECU}
   <div class="recu-doc">
     ${bandeauFormation(bq.formation)}
     <table class="entete"><tr>
@@ -823,6 +830,72 @@ export function recuWhatsApp(v, bq = {}) {
     bq.message || "Merci de votre confiance !",
   ].filter(Boolean);
   envoyerWhatsApp(v.tel, lignes.join("\n"));
+}
+
+// ============ BON DE REPRISE / BON DE RETOUR (Timo, 14/09/2026) ============
+// « Ce n'est pas judicieux de sortir un reçu ? comment ça se passe avec les
+// grands logiciels ? » → un avoir / bon à part, le reçu de vente reste tel
+// quel. Les données viennent de lib/bons.js (bonReprise / bonRetour) ; ici
+// la mise en page seulement, sur le style du reçu.
+const enteteDocument = (bq, boutique) => `
+    ${bandeauFormation(bq.formation)}
+    <table class="entete"><tr>
+      <td><img src="${bq.logo || LOGO}" alt="${esc(boutique)}"></td>
+      <td class="soc">
+        <div class="nom">${esc(boutique)}</div>
+        <div>${esc(bq.adresse || "Lomé, Togo")}</div>
+        ${bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}
+        <div>Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}</div>
+        <div>NIF : 1001790098</div>
+        <div>RCCM : TG-LFW-01-2022-A10-01523</div>
+      </td>
+    </tr></table>`;
+export function imprimerBon(bon, bq = {}) {
+  if (!bon) return;
+  const reprise = bon.type === TYPE_BON_REPRISE;
+  const html = `
+  ${STYLE_RECU}
+  <div class="recu-doc">
+    ${enteteDocument(bq, bon.boutique)}
+    <h1>${reprise ? "BON DE REPRISE" : "BON DE RETOUR — ÉCHANGE SOUS GARANTIE"}</h1>
+    <div class="meta">
+      <div><b>N° :</b> ${esc(bon.numero)}</div>
+      <div><b>Date :</b> ${dFR(bon.date)}</div>
+      <div><b>Reçu d'origine :</b> ${esc(bon.recu)} du ${dFR(bon.dateVente)}</div>
+    </div>
+    <div class="btitre">CLIENT</div>
+    <div class="client">
+      <div><b>Nom :</b> ${esc(bon.client || "________________________")}</div>
+      <div><b>Téléphone :</b> ${esc(bon.tel || "________________________")}</div>
+    </div>
+    <table class="articles">
+      <thead><tr><th>${reprise ? "Article repris par BMI" : "Article échangé"}</th><th>Quantité</th>${reprise ? "<th>Valeur reprise</th>" : ""}</tr></thead>
+      <tbody><tr><td>${esc(bon.article)}<br><small style="color:#555">Motif : ${esc(bon.motif)}</small></td><td>${bon.qte}</td>${reprise ? `<td>${fmt(bon.montant)}</td>` : ""}</tr></tbody>
+    </table>
+    ${reprise ? `
+    <table class="totaux">
+      <tr><td>Valeur reprise (prix payé, remises comprises) :</td><td>${fmt(bon.montant)}</td></tr>
+      ${bon.dette ? `<tr><td>Dette du client réduite de${bon.dette.numero ? ` (dette ${esc(bon.dette.numero)})` : ""} :</td><td>−${fmt(bon.dette.reduction)}</td></tr>` : ""}
+      <tr class="total"><td>RENDU AU CLIENT :</td><td>${fmt(bon.rembourse)}</td></tr>
+    </table>
+    <div class="paiement"><b>${bon.rembourse > 0 ? `Remboursé en : ${esc(bon.moyen)}` : "Rien à rendre : la dette est réduite d'autant."}</b><div style="margin-top:4px;font-size:11px;color:#555">L'article revient au stock de ${esc(bon.boutique)}. Le reçu de vente ${esc(bon.recu)} reste valable pour le reste.</div></div>`
+    : `
+    <div class="paiement"><b>${bon.gratuit ? "Échange GRATUIT sous garantie." : `Frais facturés au client : ${fmt(bon.frais.montant)}${bon.frais.detail ? ` — ${esc(bon.frais.detail)}` : ""}${bon.frais.numero ? ` (dette ${esc(bon.frais.numero)})` : ""}`}</b>
+      <div style="margin-top:4px;font-size:11px;color:#555">${bon.qte} article(s) de remplacement remis au client. L'article défectueux est repris par ${esc(bon.boutique)} (service après-vente). Le reçu de vente ${esc(bon.recu)} reste valable.</div></div>`}
+    <table class="sign"><tr>
+      <td><div class="ligne">Pour ${esc(bon.boutique)}${bon.par ? ` : ${esc(bon.par)}` : ""}</div></td>
+      <td></td>
+      <td><div class="ligne">${reprise
+        ? (bon.rembourse > 0 ? `Le client reconnaît avoir reçu ${fmt(bon.rembourse)}` : "Le client reconnaît la reprise et la réduction de sa dette")
+        : "Le client reconnaît avoir reçu l'article de remplacement et remis le défectueux"}</div></td>
+    </tr></table>
+    <div class="merci">${esc(bq.message || "Merci de votre confiance !")}</div>
+  </div>`;
+  if (printApi) printApi.open(html, nomDocument(reprise ? "Bon de reprise" : "Bon de retour", { client: bon.client, numero: bon.numero }));
+}
+export function bonWhatsApp(bon, bq = {}) {
+  if (!bon) return;
+  envoyerWhatsApp(bon.tel, texteBon(bon, bq));
 }
 
 // ============ ÉTIQUETTE PRODUIT (code-barres) ============

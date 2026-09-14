@@ -3237,6 +3237,61 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
   test("★ un retour GRATUIT ne crée ni vente ni dette", !gratuit.erreur && gratuit.dette === null);
   test("★ la sortie de remplacement est un ajustement négatif — pas une vente",
     gratuit.ajustements[0].qte === -1 && gratuit.ajustements[0].type === "echange_garantie");
+  // Timo (14/09/2026) : « ce n'est pas judicieux de sortir un reçu ? comment ça
+  // se passe avec les grands logiciels ? » → un bon à part ; « bon de reprise
+  // et bon de retour, les deux ». Règle pure lib/bons.js, exercée ici.
+  {
+    const sortieBn = join("node_modules", ".cache", `bmi-bons-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/bons.js"], bundle: true, format: "esm", platform: "node", outfile: sortieBn, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const Bn = await import(pathToFileURL(sortieBn).href);
+    unlinkSync(sortieBn);
+    const nzB = (t) => String(t).replace(/\u202f|\u00a0/g, " ");
+    const venteB = { id: "v_b1", numero: "BMID-2026-0014", boutique: "BMI DEMAKPOE", date: "2026-09-10", client: "MR", tel: "90000000",
+      articles: [{ produit_id: "p1", article: "Étrier final", qte: 17, pu: 600 }],
+      reprises: [{ ref: "REP-AAAA", date: "2026-09-14", produit_id: "p1", article: "Étrier final", qte: 1, montant: 600, rembourse: 600, moyen: "Espèces", motif: "le client a changé d'avis", par: "TIMO", dette_id: null }] };
+    const dbBn = { ventes: [venteB], produits: [{ id: "p1", nom: "Étrier final" }],
+      dettes: [{ id: "d1", numero: "BMID-DET-2026-0003", montant: 4000, paye: 1000, retour_ref: "RET-BBBB", motif: "SAV RET-BBBB — déplacement" }],
+      ajustements: [
+        { id: "a1", date: "2026-09-12", type: "echange_garantie", ref: "RET-BBBB", vente_id: "v_b1", produit_id: "p1", qte: -2, motif: "Échange garantie (RET-BBBB) — étrier cassé", par: "ALI", prix_achat: 300 },
+        { id: "a2", date: "2026-09-12", type: "retour_defectueux", ref: "RET-BBBB", vente_id: "v_b1", produit_id: "p1", qte: 0, qte_sav: 2, article: "Étrier final", statut: "en_sav", motif: "Défectueux rendu — étrier cassé", par: "ALI" },
+        { id: "a3", date: "2026-09-13", type: "echange_garantie", ref: "RET-CCCC", vente_id: "v_b1", produit_id: "p1", qte: -1, motif: "Échange garantie (RET-CCCC) — fêlé", par: "ALI", prix_achat: 300 },
+        { id: "a4", date: "2026-09-11", type: "echange_garantie", ref: "RET-ZZZZ", vente_id: "autre", produit_id: "p1", qte: -1, motif: "x", par: "ALI" },
+      ] };
+    const br = Bn.bonReprise(dbBn, venteB, venteB.reprises[0]);
+    test("★ bonReprise : numéro dérivé du reçu (BR-BMID-2026-0014-1, aucun compteur), reçu d'origine et sa date, client, article, quantité, motif SANS le préfixe technique, valeur reprise 600, rendu 600 en espèces, pas de dette, établi par TIMO",
+      br.numero === "BR-BMID-2026-0014-1" && br.type === "reprise" && br.recu === "BMID-2026-0014" && br.dateVente === "2026-09-10" && br.client === "MR" && br.tel === "90000000" && br.article === "Étrier final" && br.qte === 1
+      && br.motif === "le client a changé d'avis" && br.montant === 600 && br.rembourse === 600 && br.moyen === "Espèces" && br.dette === null && br.par === "TIMO" && br.date === "2026-09-14"
+      && Bn.numeroBonReprise(venteB, { ref: "REP-NOUV" }) === "BR-BMID-2026-0014-2" && Bn.bonReprise(dbBn, venteB, null) === null);
+    const brD = Bn.bonReprise({ ...dbBn, dettes: [{ id: "d9", numero: "BMID-DET-2026-0009", montant: 5000, paye: 2000 }] }, venteB, { ...venteB.reprises[0], dette_id: "d9", rembourse: 0, moyen: "", motif: "Reprise client (REP-AAAA) — trop cher" });
+    test("★ bonReprise sur une vente à crédit : la dette est nommée, réduite de la valeur reprise, reste après = montant − payé (3 000), rien à rendre ; le motif est nettoyé du préfixe « Reprise client (…) — »",
+      brD.dette.numero === "BMID-DET-2026-0009" && brD.dette.reduction === 600 && brD.dette.resteApres === 3000 && brD.rembourse === 0 && brD.motif === "trop cher");
+    const rets = Bn.retoursDeVente(dbBn, venteB);
+    test("★ retoursDeVente : les échanges sous garantie de CETTE vente seulement (2, pas celui d'une autre vente), du plus ancien au plus récent, quantité positive, article lu sur le défectueux ou le stock, motif nettoyé, frais lus sur la dette retour_ref (4 000, « déplacement »), gratuit sinon",
+      rets.length === 2 && rets[0].ref === "RET-BBBB" && rets[1].ref === "RET-CCCC" && rets[0].qte === 2 && rets[0].article === "Étrier final" && rets[0].motif === "étrier cassé" && rets[0].dette.montant === 4000 && rets[0].dette.motif === "déplacement" && rets[0].dette.numero === "BMID-DET-2026-0003"
+      && rets[1].dette === null && rets[1].motif === "fêlé" && rets[1].qte === 1 && rets[0].statutSav === "en_sav" && Bn.retoursDeVente(dbBn, null).length === 0);
+    const bt1 = Bn.bonRetour(dbBn, venteB, rets[0]); const bt2 = Bn.bonRetour(dbBn, venteB, rets[1]);
+    test("★ bonRetour : BT-BMID-2026-0014-1 avec frais 4 000 (déplacement, dette nommée), BT-…-2 gratuit ; reçu d'origine, client, article, quantité, motif, établi par",
+      bt1.numero === "BT-BMID-2026-0014-1" && bt1.type === "retour" && bt1.frais.montant === 4000 && bt1.frais.detail === "déplacement" && bt1.frais.numero === "BMID-DET-2026-0003" && bt1.gratuit === false && bt1.qte === 2
+      && bt2.numero === "BT-BMID-2026-0014-2" && bt2.gratuit === true && bt2.frais === null && bt2.recu === "BMID-2026-0014" && bt2.client === "MR" && bt2.par === "ALI" && bt2.article === "Étrier final");
+    const tR = nzB(Bn.texteBon(br, { adresse: "Lomé", tel: "22 22" })); const tT = nzB(Bn.texteBon(bt1, { formation: true })); const tT2 = nzB(Bn.texteBon(bt2));
+    test("★ texteBon (WhatsApp) : titre BON DE REPRISE / BON DE RETOUR, numéro, reçu d'origine et sa date, article, motif, « Rendu au client : 600 F (Espèces) », l'article repris par BMI ; retour avec frais « Frais facturés : 4 000 F (déplacement) », gratuit « Échange GRATUIT sous garantie » ; le bandeau de formation en tête quand la boutique est de formation",
+      /^↩ \*BON DE REPRISE — BMI DEMAKPOE\*\nLomé\nTél : 22 22\n/.test(tR) && /N° : BR-BMID-2026-0014-1\nDate : 14\/09\/2026\nReçu d'origine : BMID-2026-0014 du 10\/09\/2026\nClient : MR/.test(tR) && /1 × Étrier final\nMotif : le client a changé d'avis\nValeur reprise : 600 F\n\*Rendu au client : 600 F\* \(Espèces\)\nL'article est repris par BMI/.test(tR) && /Établi par : TIMO/.test(tR)
+      && /^🎓 \*DOCUMENT DE FORMATION — SANS VALEUR\*\n-+\n🔁 \*BON DE RETOUR \(garantie\) — BMI DEMAKPOE\*/.test(tT) && /Article de remplacement remis : 2 × Étrier final\nL'article défectueux est repris par BMI \(SAV\)\.\n\*Frais facturés : 4 000 F\* \(déplacement\) — dette BMID-DET-2026-0003/.test(tT)
+      && /\*Échange GRATUIT sous garantie\.\*/.test(tT2) && !/DOCUMENT DE FORMATION/.test(tT2) && Bn.texteBon(null) === "");
+    const impB = readFileSync("src/lib/impression.js", "utf8");
+    test("★ impression : UN style de reçu (STYLE_RECU) partagé par le reçu et les bons ; imprimerBon = même entête (logo, adresse, NIF, RCCM, bandeau de formation), titre BON DE REPRISE / BON DE RETOUR — ÉCHANGE SOUS GARANTIE, reçu d'origine, RENDU AU CLIENT, cases « Pour la boutique » / « Le client reconnaît avoir reçu … », nom de fichier par la règle (nomDocument) ; bonWhatsApp passe par texteBon et envoyerWhatsApp",
+      (impB.match(/\$\{STYLE_RECU\}/g) || []).length === 2 && /^const STYLE_RECU = `/m.test(impB) && !/<style>/.test(impB.slice(impB.indexOf("export function imprimerRecu("), impB.indexOf("// ============ PROFORMA"))) /* le reçu n'a plus son style en ligne (le reçu de versement garde sa variante) */
+      && /export function imprimerBon\(bon, bq = \{\}\)/.test(impB) && /<h1>\$\{reprise \? "BON DE REPRISE" : "BON DE RETOUR — ÉCHANGE SOUS GARANTIE"\}<\/h1>/.test(impB) && /<b>Reçu d'origine :<\/b> \$\{esc\(bon\.recu\)\} du \$\{dFR\(bon\.dateVente\)\}/.test(impB)
+      && /<tr class="total"><td>RENDU AU CLIENT :<\/td><td>\$\{fmt\(bon\.rembourse\)\}<\/td><\/tr>/.test(impB) && /Le client reconnaît avoir reçu \$\{fmt\(bon\.rembourse\)\}/.test(impB) && /Le client reconnaît avoir reçu l'article de remplacement et remis le défectueux/.test(impB)
+      && /printApi\.open\(html, nomDocument\(reprise \? "Bon de reprise" : "Bon de retour", \{ client: bon\.client, numero: bon\.numero \}\)\);/.test(impB) && /export function bonWhatsApp\(bon, bq = \{\}\) \{\n\s*if \(!bon\) return;\n\s*envoyerWhatsApp\(bon\.tel, texteBon\(bon, bq\)\);/.test(impB)
+      && /\$\{enteteDocument\(bq, bon\.boutique\)\}/.test(impB) && /\$\{bandeauFormation\(bq\.formation\)\}/.test(impB.slice(impB.indexOf("const enteteDocument"), impB.indexOf("export function imprimerBon("))));
+    const vB = readFileSync("src/screens/Ventes.jsx", "utf8");
+    test("★ écran Ventes : le bon est PROPOSÉ juste après la reprise (bonReprise sur la base APRÈS le geste) et juste après le retour (retoursDeVente sur la base après) — 🖨 Imprimer / Envoyer par WhatsApp (si téléphone) / Plus tard, UN chemin (proposerBon) ; sur la ligne, le bouton rond 🧾 n'apparaît que si la vente a un bon (bonsDeVente), choix parmi plusieurs (uChoix) ; aucune écriture : un document seulement",
+      /await proposerBon\(bonReprise\(dbApres, r\.vente, r\.reprise\), infoBq\(r\.vente\.boutique\)\);/.test(vB) && /const retourFait = retoursDeVente\(dbApres, r\.vente\)\.find\(\(x\) => x\.ref === ref\);\n\s*await proposerBon\(bonRetour\(dbApres, r\.vente, retourFait\), infoBq\(r\.vente\.boutique\)\);/.test(vB)
+      && /const options = \["🖨 Imprimer", \.\.\.\(bon\.tel \? \["Envoyer par WhatsApp"\] : \[\]\), "Plus tard"\];/.test(vB) && /if \(choix === "🖨 Imprimer"\) imprimerBon\(bon, bq\);\n\s*else if \(choix === "Envoyer par WhatsApp"\) bonWhatsApp\(bon, bq\);/.test(vB)
+      && /\{bonsDeVente\(v\)\.length > 0 && \(\n\s*<button onClick=\{\(\) => ouvrirBons\(v\)\}/.test(vB) && /aria-label="Bons">🧾<\/button>/.test(vB) && (vB.match(/proposerBon\(/g) || []).length === 3 /* reprise, retour, ligne */
+      && !/imprimerBon\(|bonWhatsApp\(/.test(vB.replace(/const proposerBon = async[^]*?\n  \};/, "")) /* les deux documents ne partent que par proposerBon */);
+  }
   // Timo (14/09/2026) : « ouvre le retour sous garantie au gérant ».
   {
     const vG = readFileSync("src/screens/Ventes.jsx", "utf8");
@@ -5370,7 +5425,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
     /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
     && /construireReprise\(db, reprise\.vente, \{ produit_id: reprise\.produit_id, qte: Number\(reprise\.qte\), motif: reprise\.motif, moyen: reprise\.moyen \}, profile, today\(\)\)/.test(vs)
-    && /save\(appliquerReprise\(db, r\), r\.journal\);/.test(vs) && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs)
+    && /const dbApres = appliquerReprise\(db, r\);\n\s*save\(dbApres, r\.journal\);/.test(vs) /* 14/09/2026 : le bon de reprise est proposé juste après */ && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs)
     // 12/09/2026 (liste des ventes lisible) : le compte des repris vit dans ArticlesVente — « ↩ N repris » toujours sur la ligne.
     && /const repris = \(v\.reprises \|\| \[\]\)\.reduce/.test(vs) && /↩ \{repris\} repris/.test(vs));
   // Timo (12/09/2026, seconde capture) : « +1 autre ou +3 autres ne s'affiche

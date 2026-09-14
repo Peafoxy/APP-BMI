@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1298 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1305 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1035,6 +1035,23 @@ lit mal est pire qu'un banc absent).
   **Les mots (14/09/2026, capture : « Reprise d'un article par BMI ou par le
   client ? » → « Reprise de l'article par BMI ») : c'est BMI qui REPREND, le
   client REND — fenêtre, infobulle, journal ; jamais « par le client ».**
+- **🧾 Bon de reprise et bon de retour** (14/09/2026 : « ce n'est pas
+  judicieux de sortir un reçu ? comment ça se passe avec les grands
+  logiciels ? » → un avoir / bon à part, **jamais le reçu de vente
+  réimprimé** ; puis « bon de reprise et bon de retour, les deux ») : règle
+  pure `lib/bons.js` (`bonReprise`, `retoursDeVente`, `bonRetour`,
+  `texteBon`), mise en page `imprimerBon` / `bonWhatsApp` (lib/impression.js,
+  **le style du reçu écrit UNE fois**, `STYLE_RECU`). **Un document de plus,
+  jamais une écriture** : numéro DÉRIVÉ du reçu (`BR-<n° reçu>-<rang>`,
+  `BT-<n° reçu>-<rang>` — aucun compteur, rien à coller, pas de collision
+  hors ligne), reçu d'origine, article, quantité, motif ; reprise → valeur
+  reprise, **rendu au client** (et comment) ou dette réduite, case « Le
+  client reconnaît avoir reçu … » ; retour → remplacement remis, défectueux
+  repris, frais facturés (dette `retour_ref`) ou GRATUIT, case « … reçu
+  l'article de remplacement et remis le défectueux ». **Proposé juste après
+  le geste** (🖨 Imprimer / WhatsApp si téléphone / Plus tard — UN chemin,
+  `proposerBon`) et réimprimable depuis la ligne de la vente (bouton rond 🧾,
+  choix parmi plusieurs). Bandeau de formation comme tout document.
 - **Un échange n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
