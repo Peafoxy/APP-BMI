@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1305 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1307 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -571,6 +571,18 @@ lit mal est pire qu'un banc absent).
   confirmation en nommant la date et le reçu. **Jamais de blocage** : un
   client peut recommander le même matériel. Le numéro de reçu est de toute
   façon recalculé à chaque vente (`prochainNumeroVente`).
+- **📤 Partager, sur TOUS les documents de l'aperçu** (14/09/2026, deux
+  captures : « sur tous les fichiers générés par l'app, un bouton Partager à
+  la place de "Aperçu avant impression", exclusivement sur téléphone ; sous
+  Windows, en plus de ce bouton, garder toujours "Aperçu avant impression" »).
+  Écrit UNE fois dans `PrintHost` (components/ui.jsx) : le document affiché
+  devient un PDF (`pdfDeLApercu` : image de la zone par html2canvas, découpée
+  en pages au format de l'aperçu, `dimensionsPage`), nommé par la règle des
+  documents (`nomFichierPartage`), remis à la **feuille de partage** du
+  téléphone (`navigator.share`, WhatsApp / mail…) ; navigateur sans partage →
+  le PDF est enregistré et on le dit. Le titre « Aperçu avant impression »
+  est `hidden sm:block`. `navigator.share` et `html2canvas` n'existent que
+  dans ui.jsx (le banc l'impose).
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.

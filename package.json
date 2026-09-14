@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.101.209",
+  "version": "2.101.210",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -37,6 +37,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "dexie": "^4.0.8",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",

@@ -11,6 +11,13 @@ import { createPortal } from "react-dom";
 import { col, light } from "../lib/core";
 import { LOGO } from "../lib/constants";
 import { genererPDF } from "../pdf";
+// Timo (14/09/2026) : « sur tous les fichiers générés par l'app, un bouton
+// Partager » — le document de l'aperçu devient un PDF (image de la page,
+// html2canvas + jsPDF) remis à la feuille de partage du téléphone (WhatsApp,
+// mail…) ; sans partage possible (ordinateur), le PDF est simplement
+// enregistré. Écrit UNE fois, ici, pour tout document qui passe par l'aperçu.
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 // ============ COMPOSANTS UI ============
 // ⚠ Pagination (demande Timo, réponse à "l'app va-t-elle ramer") : la
@@ -299,10 +306,65 @@ function imprimerDocumentDedie(html, titre = "Document", page = PAGE_A4) {
   else cadre.addEventListener("load", () => setTimeout(lancer, 50));
 }
 
+// Le format de page de l'aperçu (« size: A4; margin: 12mm; » ou une étiquette
+// « size: 60mm 30mm; … ») lu pour le PDF partagé : [largeur mm, hauteur mm, marge mm].
+export function dimensionsPage(page = PAGE_A4) {
+  const m = /size:\s*([\d.]+)mm\s+([\d.]+)mm/i.exec(String(page || ""));
+  const marge = /margin:\s*([\d.]+)mm/i.exec(String(page || ""));
+  return m ? [Number(m[1]), Number(m[2]), marge ? Number(marge[1]) : 0] : [210, 297, marge ? Number(marge[1]) : 12];
+}
+// Le nom du fichier partagé : « Reçu - MR ERIC - BMID-2026-0014.pdf ».
+export const nomFichierPartage = (titre) => `${String(titre || "Document").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s{2,}/g, " ").trim() || "Document"}.pdf`;
+// Le PDF du document affiché dans l'aperçu : l'image de la zone, découpée
+// en pages à la taille du format ; pur en dehors du rendu (le banc lit
+// dimensionsPage et nomFichierPartage, le rendu se mesure dans Chromium).
+export async function pdfDeLApercu(zone, page = PAGE_A4) {
+  const [largeur, hauteur, marge] = dimensionsPage(page);
+  const toile = await html2canvas(zone, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
+  const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur] });
+  const utileL = largeur - 2 * marge, utileH = hauteur - 2 * marge;
+  const echelle = utileL / toile.width;              // mm par pixel
+  const hauteurPageEnPx = Math.floor(utileH / echelle);
+  let y = 0, premiere = true;
+  while (y < toile.height) {
+    const h = Math.min(hauteurPageEnPx, toile.height - y);
+    const morceau = document.createElement("canvas");
+    morceau.width = toile.width; morceau.height = h;
+    morceau.getContext("2d").drawImage(toile, 0, y, toile.width, h, 0, 0, toile.width, h);
+    if (!premiere) doc.addPage([largeur, hauteur], largeur > hauteur ? "landscape" : "portrait");
+    doc.addImage(morceau.toDataURL("image/jpeg", 0.92), "JPEG", marge, marge, utileL, h * echelle);
+    premiere = false; y += h;
+  }
+  return doc;
+}
+export async function partagerDocument(zone, titre, page = PAGE_A4) {
+  const doc = await pdfDeLApercu(zone, page);
+  const nom = nomFichierPartage(titre);
+  const fichier = new File([doc.output("blob")], nom, { type: "application/pdf" });
+  if (typeof navigator !== "undefined" && navigator.share && (!navigator.canShare || navigator.canShare({ files: [fichier] }))) {
+    try { await navigator.share({ files: [fichier], title: titre }); return "partage"; }
+    catch (e) { if (e && e.name === "AbortError") return "annule"; }
+  }
+  doc.save(nom);
+  return "enregistre";
+}
+
 export function PrintHost() {
   const [html, setHtml] = useState(null);
   const [titreDoc, setTitreDoc] = useState("Document");
   const [page, setPage] = useState(PAGE_A4);
+  const [partageEnCours, setPartageEnCours] = useState(false);
+  const partager = async () => {
+    if (partageEnCours) return;
+    setPartageEnCours(true);
+    try {
+      const zone = document.getElementById("zone-impression");
+      const r = await partagerDocument(zone, titreDoc, page);
+      if (r === "enregistre") uAlert("Le partage n'est pas proposé par ce navigateur : le PDF a été enregistré sur l'appareil, vous pouvez l'envoyer depuis vos fichiers.");
+    } catch (e) {
+      uAlert("Impossible de préparer le fichier à partager. Utilisez « Imprimer / Enregistrer en PDF ».");
+    } finally { setPartageEnCours(false); }
+  };
   printApi = { open: (h, titre, formatPage) => { setTitreDoc(titre || "Document"); setPage(formatPage || PAGE_A4); setHtml(h); } };
   if (!html) return null;
   return createPortal(
@@ -330,8 +392,12 @@ export function PrintHost() {
       @page { ${page} }`}</style>
       <div className="cadre-apercu bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[92vh]">
         <div className="barre-apercu flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
-          <div className="font-bold text-slate-900 text-sm">Aperçu avant impression</div>
+          {/* Timo (14/09/2026) : « Partager à la place de "Aperçu avant impression",
+              exclusivement sur téléphone ; sous Windows, en plus de ce bouton, garder
+              toujours "Aperçu avant impression" ». */}
+          <div className="font-bold text-slate-900 text-sm hidden sm:block">Aperçu avant impression</div>
           <div className="flex gap-2">
+            <button onClick={partager} disabled={partageEnCours} className="px-4 py-2 rounded-lg bg-green-700 text-white text-sm font-bold hover:bg-green-800 disabled:opacity-60" data-action="partager">{partageEnCours ? "⏳ Préparation…" : "📤 Partager"}</button>
             <button onClick={() => imprimerDocumentDedie(html, titreDoc, page)} className="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800">🖨 Imprimer / Enregistrer en PDF</button>
             <button onClick={() => setHtml(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
           </div>

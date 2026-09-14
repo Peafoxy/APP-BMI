@@ -3293,6 +3293,26 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
       && /\{bonsDeVente\(v\)\.length > 0 && \(\n\s*<button onClick=\{\(\) => ouvrirBons\(v\)\}/.test(vB) && /aria-label="Bons">🧾<\/button>/.test(vB) && (vB.match(/proposerBon\(/g) || []).length === 3 /* reprise, retour, ligne */
       && !/imprimerBon\(|bonWhatsApp\(/.test(vB.replace(/const proposerBon = async[^]*?\n  \};/, "")) /* les deux documents ne partent que par proposerBon */);
   }
+  // Timo (14/09/2026, deux captures de l'aperçu) : « sur tous les fichiers
+  // générés par l'app, un bouton Partager à la place de "Aperçu avant
+  // impression" (exclusivement sur téléphone) ; sous Windows, en plus de ce
+  // bouton, garder toujours "Aperçu avant impression" ».
+  {
+    const sortieUi = join("node_modules", ".cache", `bmi-ui-partage-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/components/ui.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieUi, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"] });
+    const Ui = await import(pathToFileURL(sortieUi).href);
+    unlinkSync(sortieUi);
+    test("★ partage : le format de page de l'aperçu est lu pour le PDF (A4 12 mm d'office ; « size: 60mm 30mm » = l'étiquette, sans marge) ; le nom du fichier vient du titre du document (règle nomDocument), caractères interdits retirés, .pdf",
+      Ui.dimensionsPage(Ui.PAGE_A4).join("|") === "210|297|12" && Ui.dimensionsPage("size: 60mm 30mm; margin: 0;").join("|") === "60|30|0" && Ui.dimensionsPage(undefined).join("|") === "210|297|12"
+      && Ui.nomFichierPartage("Reçu - MR ERIC - BMID-2026-0014") === "Reçu - MR ERIC - BMID-2026-0014.pdf" && Ui.nomFichierPartage("Bon: a/b?") === "Bon a b.pdf" && Ui.nomFichierPartage("") === "Document.pdf");
+    const uiP = readFileSync("src/components/ui.jsx", "utf8");
+    test("★ l'aperçu porte le bouton « 📤 Partager » (data-action=\"partager\") pour TOUS les documents ; sur téléphone le titre « Aperçu avant impression » disparaît (hidden sm:block), sur ordinateur il reste ; le partage passe par la feuille de partage (navigator.share, fichier PDF), sinon le PDF est enregistré ; html2canvas + jsPDF n'entrent que par ui.jsx",
+      /<div className="font-bold text-slate-900 text-sm hidden sm:block">Aperçu avant impression<\/div>/.test(uiP) && /data-action="partager">\{partageEnCours \? "⏳ Préparation…" : "📤 Partager"\}<\/button>/.test(uiP)
+      && /navigator\.share\(\{ files: \[fichier\], title: titre \}\)/.test(uiP) && /new File\(\[doc\.output\("blob"\)\], nom, \{ type: "application\/pdf" \}\)/.test(uiP) && /doc\.save\(nom\);\n\s*return "enregistre";/.test(uiP)
+      && /const zone = document\.getElementById\("zone-impression"\);\n\s*const r = await partagerDocument\(zone, titreDoc, page\);/.test(uiP)
+      && execSync("grep -rl 'navigator.share' src || true").toString().trim() === "src/components/ui.jsx" && execSync("grep -rl 'from \"html2canvas\"' src || true").toString().trim() === "src/components/ui.jsx"
+      && /"html2canvas": "\^1\.4\.1"/.test(readFileSync("package.json", "utf8")));
+  }
   // Timo (14/09/2026) : « ouvre le retour sous garantie au gérant ».
   {
     const vG = readFileSync("src/screens/Ventes.jsx", "utf8");
