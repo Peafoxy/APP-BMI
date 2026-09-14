@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1334 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1335 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -343,10 +343,17 @@ lit mal est pire qu'un banc absent).
   **étriers = (panneaux × 2) + 8** (07/09/2026) ; lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
   **Le MODÈLE de support se choisit dans le devis** (14/09/2026 : « il y a
-  les M8 et les M10, pour l'instant c'est resté sur M8 par défaut ») : tous
-  les articles « support » de la boutique dans une liste sur la ligne
-  (`articlesSupportsStock`, `supportId`), le premier d'office, le choix suit
-  le brouillon et le devis repris (`supportDepuisLignes`, par le nom).
+  les M8 et les M10, pour l'instant c'est resté sur M8 par défaut » ; puis,
+  capture : « on ne peut pas choisir, il reste choisi par défaut » — une
+  liste limitée aux articles nommés « support » ne montrait pas le M10) :
+  **LE champ commun** `ChampSuggestions` + `propositionsStock` sur TOUT le
+  stock de la boutique, sur la ligne des supports ; le premier article
+  « support » (jamais un étrier, `supportAuto`) est proposé d'office tant
+  qu'on n'a rien touché (`support.saisie === null`), un clic lie un autre
+  article, un nom tapé ne lie que s'il est exact (`produitSaisi`), sans
+  article la ligne n'est pas ajoutée et l'écran le dit. Le choix suit le
+  brouillon (`support`) et le devis repris (`supportDepuisLignes` par le
+  nom, `etatSupport`). Jamais une liste `<select>` filtrée par un mot.
   **Chaque ligne de fixation a sa case de quantité** (0 = retirée) ; une
   correction est liée à la base qui l'a produite (mètres de rails,
   panneaux) et tombe si la base change. **Le brouillon du volet solaire

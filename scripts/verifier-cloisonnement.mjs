@@ -4051,20 +4051,28 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
   test("★ chaque ligne (supports, étriers) a sa case de quantité, et dit le calculé quand on s'en écarte",
     /onChange=\{\(e\) => corrigerFixation\(cle, base, e\.target\.value\)\}/.test(sol) && /calculé : \{calcule\}/.test(sol) && /retiré du devis/.test(sol));
   test("★ le brouillon du volet garde les équipements, leurs quantités, les rails, les corrections de fixation et le modèle de support (F5)",
-    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres \}\)/.test(sol));
+    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, support, autres \}\)/.test(sol));
   // 14/09/2026, Timo : « les supports doivent être sélectionnés dans le devis,
-  // puisqu'il y a les M8 et les M10 ; pour l'instant c'est resté sur M8 ».
+  // puisqu'il y a les M8 et les M10 ; pour l'instant c'est resté sur M8 » —
+  // puis, capture : « on ne peut pas choisir, il reste choisi par défaut » (une
+  // liste limitée aux articles nommés « support » ne montrait pas le M10).
   const stockSupports = [{ id: "s8", nom: "SUPPORT RAIL M8", prix_vente: 500 }, { id: "s10", nom: "Support rail M10", prix_vente: 700 }, { id: "r", nom: "RAIL 4,2 m" }];
-  test("★ le modèle de support se CHOISIT dans le devis : tous les articles « support » de la boutique sont proposés (liste), le premier d'office, le choix suit le brouillon",
-    /const articlesSupportsStock = produitsBoutique\.filter\(\(p\) => \/support\/i\.test\(p\.nom\) \|\| \/support\/i\.test\(p\.categorie \|\| ""\)\);/.test(sol)
-    && /const articleSupportsStock = articlesSupportsStock\.find\(\(p\) => p\.id === supportId\) \|\| articlesSupportsStock\[0\];/.test(sol)
-    && /data-choix="support"/.test(sol) && /articlesSupportsStock\.map\(\(p\) => <option key=\{p\.id\} value=\{p\.id\}>/.test(sol)
-    && /brouillon\.supportId/.test(sol) && !/produitsBoutique\.find\(\(p\) => \/support\/i/.test(sol));
-  test("★ un devis repris retrouve SON modèle de support par son nom (M10 reste M10), sinon aucun choix forcé",
+  test("★ le modèle de support se CHOISIT dans le devis par LE champ commun (ChampSuggestions + propositionsStock sur TOUT le stock de la boutique) — plus de liste limitée aux « support », plus de <select>",
+    /suggestions=\{propositionsStock\(db, produitsBoutique\)\} onChange=\{taperSupport\} onChoisir=\{choisirSupport\}/.test(sol)
+    && /data-choix="support"/.test(sol) && !/<select[^>]*data-choix="support"/.test(sol) && !/articlesSupportsStock/.test(sol)
+    && /const choisirSupport = \(s\) => setSupport\(\{ saisie: s\.valeur, id: s\.produit_id \}\);/.test(sol)
+    && /const taperSupport = \(v\) => setSupport\(\{ saisie: v, id: produitSaisi\(produitsBoutique, v\)\?\.id \|\| null \}\);/.test(sol));
+  test("★ le premier article « support » (jamais un étrier) est proposé d'office tant qu'on n'a rien touché ; un article lié prime ; un nom sans article = pas de ligne",
+    /const supportAuto = produitsBoutique\.find\(\(p\) => \(\/support\/i\.test\(p\.nom\) \|\| \/support\/i\.test\(p\.categorie \|\| ""\)\) && !\/\[ée\]trier\/i\.test\(p\.nom\)\) \|\| null;/.test(sol)
+    && /const articleSupportsStock = support\.id \? \(produitsBoutique\.find\(\(p\) => p\.id === support\.id\) \|\| null\) : \(support\.saisie === null \? supportAuto : null\);/.test(sol)
+    && /brouillon\.support/.test(sol) && /Sans article, les supports ne sont pas ajoutés au devis/.test(sol));
+  test("★ un devis repris retrouve SON modèle de support par son nom (M10 reste M10), sinon aucun choix forcé (le support d'office s'applique)",
     SolEcran.supportDepuisLignes([{ categorie: "Supports de rail", article: "support rail m10", qte: 22 }], stockSupports)?.id === "s10"
     && SolEcran.supportDepuisLignes([{ categorie: "Rails de fixation", qte: 6 }], stockSupports) === null
     && SolEcran.supportDepuisLignes([{ categorie: "Supports de rail", article: "SUPPORT INCONNU" }], stockSupports) === null
-    && /setSupportId\(supportDepuisLignes\(lignesReprises, articlesSupportsStock\)\?\.id \|\| null\);/.test(sol));
+    && JSON.stringify(SolEcran.etatSupport(stockSupports[1])) === JSON.stringify({ saisie: "Support rail M10", id: "s10" })
+    && JSON.stringify(SolEcran.etatSupport(null)) === JSON.stringify({ saisie: null, id: null })
+    && /setSupport\(etatSupport\(supportDepuisLignes\(lignesReprises, produitsBoutique\)\)\);/.test(sol));
   test("★ la reprise relit les MÈTRES du rail (metresDeLigne) aux deux endroits, jamais les barres",
     SolEcran.metresDeLigne({ qte: 6, metres_calcules: 22 }) === 22 && SolEcran.metresDeLigne({ qte: 16 }) === 16
     && /setRailsQte\(ligneRails \? metresDeLigne\(ligneRails\) : 0\);/.test(sol) && !/Number\(ligneRails\.qte\)/.test(sol));
