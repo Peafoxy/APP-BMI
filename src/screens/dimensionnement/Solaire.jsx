@@ -9,7 +9,6 @@ import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimen
 import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
-import { propositionsStock, produitSaisi } from "../../lib/travaux";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 
@@ -66,9 +65,12 @@ export const supportDepuisLignes = (lignes, articles) => {
   const nom = String(l.article || "").trim().toLowerCase();
   return (articles || []).find((p) => String(p.nom || "").trim().toLowerCase() === nom) || null;
 };
-// L'état du choix : un article → son nom lié ; rien → jamais touché (le
-// support d'office s'applique).
-export const etatSupport = (article) => (article ? { saisie: article.nom, id: article.id } : { saisie: null, id: null });
+// Les supports d'une boutique : tout article dont le nom ou la catégorie
+// porte le mot « support » (jamais un étrier). C'est LA liste proposée dans
+// le devis — les supports seulement, jamais tout le stock (Timo, 14/09/2026 :
+// « une liste déroulante dans laquelle seuls les supports sont
+// sélectionnables, et non tous les articles »).
+export const supportsDuStock = (produits) => (produits || []).filter((p) => (/support/i.test(p.nom) || /support/i.test(p.categorie || "")) && !/[ée]trier/i.test(p.nom));
 // UN seul lien pour revenir au calcul, partout où une ligne s'en écarte
 // (Timo, 08/09/2026 : « prendre la règle existante — revenir à la sélection
 // automatique ») : article ou quantité choisis à la main, rails, supports,
@@ -489,7 +491,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRailsQte(ligneRails ? metresDeLigne(ligneRails) : 0);
     premierRenduRails.current = true;
     setFixationManuelle(fixationDepuisLignes(lignesReprises));
-    setSupport(etatSupport(supportDepuisLignes(lignesReprises, produitsBoutique)));
+    setSupportId(supportDepuisLignes(lignesReprises, produitsBoutique)?.id || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
 
@@ -644,21 +646,19 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // rails au devis ET que l'article est en stock (sinon rien ne pourrait
   // être soustrait) ; leur prix est celui de l'article en stock.
   // Les supports existent en plusieurs modèles (M8, M10…) : le vendeur choisit
-  // dans le devis (14/09/2026, Timo : « on ne peut pas choisir, il reste
-  // choisi par défaut » — une liste limitée aux articles nommés « support »
-  // ne montrait pas le M10). Donc LE champ commun de l'application, sur TOUT
-  // le stock de la boutique : le premier article « support » est proposé
-  // d'office ; taper ou cliquer en choisit un autre (un nom tapé ne lie que
-  // s'il est exact, comme partout). `saisie === null` = jamais touché → le
-  // support d'office. Le choix suit le brouillon et le devis repris (par le nom).
-  const supportAuto = produitsBoutique.find((p) => (/support/i.test(p.nom) || /support/i.test(p.categorie || "")) && !/[ée]trier/i.test(p.nom)) || null;
-  const [support, setSupport] = useState(() =>
-    lignesReprises.length ? etatSupport(supportDepuisLignes(lignesReprises, produitsBoutique))
-      : (choixDuBrouillon && brouillon.support && typeof brouillon.support === "object") ? brouillon.support : { saisie: null, id: null });
-  const articleSupportsStock = support.id ? (produitsBoutique.find((p) => p.id === support.id) || null) : (support.saisie === null ? supportAuto : null);
-  const supportSaisie = support.saisie ?? (supportAuto?.nom || "");
-  const choisirSupport = (s) => setSupport({ saisie: s.valeur, id: s.produit_id });
-  const taperSupport = (v) => setSupport({ saisie: v, id: produitSaisi(produitsBoutique, v)?.id || null });
+  // dans le devis, dans UNE liste déroulante des SUPPORTS de la boutique —
+  // jamais tout le stock (Timo, 14/09/2026, trois messages : « les supports
+  // doivent être sélectionnés dans le devis, il y a les M8 et les M10 » ;
+  // « on ne peut pas choisir, il reste choisi par défaut » — la liste ne
+  // s'affichait qu'à partir de deux supports ; « une liste déroulante dans
+  // laquelle seuls les supports sont sélectionnables, et non tous les
+  // articles »). La liste s'affiche TOUJOURS, même avec un seul support, et
+  // dit combien la boutique en a. Le premier est proposé d'office ; le choix
+  // suit le brouillon (supportId) et le devis repris (par le nom).
+  const articlesSupportsStock = supportsDuStock(produitsBoutique);
+  const [supportId, setSupportId] = useState(() =>
+    (lignesReprises.length ? supportDepuisLignes(lignesReprises, produitsBoutique)?.id : (choixDuBrouillon ? brouillon.supportId : null)) || null);
+  const articleSupportsStock = articlesSupportsStock.find((p) => p.id === supportId) || articlesSupportsStock[0] || null;
   const articleEtriersStock = produitsBoutique.find((p) => /[ée]trier/i.test(p.nom) || /[ée]trier/i.test(p.categorie || ""));
   // Chaque ligne a sa case de quantité (demande Timo, 08/09/2026) : la
   // valeur calculée est proposée, on peut la corriger ou la mettre à 0 pour
@@ -682,7 +682,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
-  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, support, autres });
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres });
 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -977,11 +977,12 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               <tr key={libelle} className="border-t border-slate-100 bg-amber-50/40">
                 <td className="px-3 py-2 font-semibold whitespace-nowrap">{libelle}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">
-                  {cle === "supports" ? (
-                    <div data-choix="support">
-                      <ChampSuggestions className={`${inputCls} max-w-xs`} placeholder="Modèle de support : tapez son nom ou cliquez…"
-                        valeur={supportSaisie} suggestions={propositionsStock(db, produitsBoutique)} onChange={taperSupport} onChoisir={choisirSupport} />
-                      <div className="mt-1">{article ? <>✓ {article.nom} — {calcul}</> : <span className="text-amber-700">Aucun article lié : tapez le nom d'un article du stock de {boutique}, puis cliquez la proposition. Sans article, les supports ne sont pas ajoutés au devis.</span>}</div>
+                  {cle === "supports" && article ? (
+                    <div>
+                      <select className={`${inputCls} w-auto max-w-full`} value={article.id} onChange={(e) => setSupportId(e.target.value)} aria-label="Modèle de support" data-choix="support">
+                        {articlesSupportsStock.map((p) => <option key={p.id} value={p.id}>{p.nom} — {fmt(Number(p.prix_vente || 0))}</option>)}
+                      </select>
+                      <div className="mt-1">{calcul} · {articlesSupportsStock.length} support{articlesSupportsStock.length > 1 ? "s" : ""} dans le stock de {boutique}</div>
                     </div>
                   ) : article ? <>{article.nom} — {calcul}</> : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
                 </td>

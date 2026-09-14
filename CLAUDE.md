@@ -342,18 +342,18 @@ lit mal est pire qu'un banc absent).
   « rails × 2, pair suivant » du 07/09 est RETOURNÉ, `pairSuivant` retiré) ;
   **étriers = (panneaux × 2) + 8** (07/09/2026) ; lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
-  **Le MODÈLE de support se choisit dans le devis** (14/09/2026 : « il y a
-  les M8 et les M10, pour l'instant c'est resté sur M8 par défaut » ; puis,
-  capture : « on ne peut pas choisir, il reste choisi par défaut » — une
-  liste limitée aux articles nommés « support » ne montrait pas le M10) :
-  **LE champ commun** `ChampSuggestions` + `propositionsStock` sur TOUT le
-  stock de la boutique, sur la ligne des supports ; le premier article
-  « support » (jamais un étrier, `supportAuto`) est proposé d'office tant
-  qu'on n'a rien touché (`support.saisie === null`), un clic lie un autre
-  article, un nom tapé ne lie que s'il est exact (`produitSaisi`), sans
-  article la ligne n'est pas ajoutée et l'écran le dit. Le choix suit le
-  brouillon (`support`) et le devis repris (`supportDepuisLignes` par le
-  nom, `etatSupport`). Jamais une liste `<select>` filtrée par un mot.
+  **Le MODÈLE de support se choisit dans le devis, dans UNE liste déroulante
+  des SUPPORTS de la boutique** (14/09/2026, trois messages : « il y a les M8
+  et les M10, pour l'instant c'est resté sur M8 par défaut » ; capture : « on
+  ne peut pas choisir, il reste choisi par défaut » — la liste ne s'affichait
+  qu'à partir de deux supports ; puis, devant un champ sur tout le stock :
+  « une liste déroulante dans laquelle seuls les supports sont
+  sélectionnables, et non tous les articles ») : `supportsDuStock` = les
+  articles dont le nom ou la catégorie porte « support », jamais un étrier ;
+  la liste s'affiche TOUJOURS, même avec un seul, et dit combien la boutique
+  en a ; le premier d'office ; le choix suit le brouillon (`supportId`) et le
+  devis repris (`supportDepuisLignes`, par le nom). Un support que la liste
+  ne montre pas = un article sans le mot « support », ou d'une autre boutique.
   **Chaque ligne de fixation a sa case de quantité** (0 = retirée) ; une
   correction est liée à la base qui l'a produite (mètres de rails,
   panneaux) et tombe si la base change. **Le brouillon du volet solaire
