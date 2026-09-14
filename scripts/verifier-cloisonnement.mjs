@@ -3487,6 +3487,43 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
 }
 
+titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé (14/09/2026)");
+{
+  // Capture Timo : MR ERIC, 1 000 000 F dû, 0 F versé, et le document disait
+  // « REÇU DE VERSEMENT — Date du versement — Reçu par ». Sa règle : « si pas
+  // d'avance donné, il doit rester : reçu de dette jusqu'au jour où il y a un
+  // 1er versement… mais si le premier jour, il y a eu une avance, il peut être
+  // nommé reçu de versement en même temps ».
+  const imp = readFileSync("src/lib/impression.js", "utf8");
+  const t = Core.titreRecuDette;
+  const sans = { montant: 1000000, paye: 0, paiements: [], date: "2026-09-14", par: "ANGELE" };
+  test("★ dette sans aucune avance → REÇU DE DETTE (le cas exact de la capture)",
+    t(sans).titre === Core.TITRE_RECU_DETTE && t(sans).titre === "REÇU DE DETTE" && !t(sans).versement && !t(sans).solde);
+  test("une ancienne dette sans liste de versements (paiements absent) → REÇU DE DETTE aussi",
+    t({ montant: 500, paye: 0 }).titre === "REÇU DE DETTE");
+  const avance = { montant: 1000000, paye: 200000, paiements: [{ date: "2026-09-14", montant: 200000, par: "ANGELE" }] };
+  test("★ une avance le premier jour → REÇU DE VERSEMENT dès ce jour-là",
+    t(avance).titre === Core.TITRE_RECU_VERSEMENT && t(avance).versement && !t(avance).solde && t(avance).reste === 800000);
+  test("un premier versement plus tard → REÇU DE VERSEMENT",
+    t({ ...sans, paye: 50000, paiements: [{ date: "2026-10-01", montant: 50000 }] }).titre === "REÇU DE VERSEMENT");
+  test("une ancienne dette avec un « déjà payé » sans ligne de versement compte comme versée",
+    t({ montant: 1000, paye: 300 }).titre === "REÇU DE VERSEMENT");
+  test("tout est versé → REÇU DÉFINITIF — DETTE SOLDÉE (inchangé)",
+    t({ montant: 1000, paye: 1000, paiements: [{ montant: 1000 }] }).titre === Core.TITRE_RECU_SOLDE && t({ montant: 1000, paye: 1000 }).solde);
+  test("★ le document lit la règle : titre, date et signature suivent `versement` — aucun titre écrit à la main",
+    imp.includes("const { solde, versement, titre, montantDu, totalVerse, reste } = titreRecuDette(d);")
+    && imp.includes("<h1${solde ? ' class=\"solde\"' : \"\"}>${titre}</h1>")
+    && !/"REÇU DE VERSEMENT"|"REÇU DÉFINITIF/.test(imp)
+    && imp.includes("<div><b>Date du versement :</b>") && imp.includes("<div><b>Date :</b> ${dFR(d.date)}</div>")
+    && imp.includes("<div><b>Établi par :</b> ${esc(d.par || \"—\")}</div>")
+    && imp.includes("${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : \"\"}` : `Établi par${d.par ? ` : ${esc(d.par)}` : \"\"}`}"));
+  test("sans versement, pas de tableau vide : « Aucun versement à ce jour »",
+    imp.includes("${paiements.length > 0 ? `") && imp.includes("Aucun versement à ce jour."));
+  test("Dettes et Ventes impriment toujours par la même fonction (le titre s'adapte tout seul)",
+    (readFileSync("src/screens/Dettes.jsx", "utf8").match(/imprimerRecuVersement\(/g) || []).length === 3
+    && readFileSync("src/screens/Ventes.jsx", "utf8").includes("imprimerRecuVersement(reservation, infoBq(boutique))"));
+}
+
 titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser à moitié");
 {
   // Vague 3, étape 1. La file d'attente : un geste refusé (lot 7 : users +

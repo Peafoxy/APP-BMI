@@ -411,6 +411,33 @@ export const prochainNumeroDette = (db, boutique, date = today()) =>
 // principe que numeroRecu() ci-dessus.
 export const numeroRecuDette = (d) => d.numero || `${prefixeBoutique(d.boutique)}-DET-${String(d.date).slice(0, 4)}-${String(d.id).slice(0, 4).toUpperCase()}`;
 
+// ---- Le TITRE du reçu d'une dette (14/09/2026) ----
+// Capture Timo : le document imprimé depuis 📋 Dettes pour MR ERIC (1 000 000 F
+// dû, 0 F versé) disait « REÇU DE VERSEMENT ». Sa règle, mot pour mot :
+// « Si pas d'avance donné, il doit rester : reçu de dette jusqu'au jour où il
+// y a un 1er versement… Mais si le premier jour, il y a eu une avance, il peut
+// être nommé reçu de versement en même temps ». Donc :
+//   - rien d'encaissé (ni avance, ni versement)  → REÇU DE DETTE
+//   - au moins un versement (l'avance du jour de la dette en est un) → REÇU DE VERSEMENT
+//   - tout est versé                              → REÇU DÉFINITIF — DETTE SOLDÉE
+// UNE règle, lue par le document (impression.js) et exercée par le banc.
+export const TITRE_RECU_DETTE = "REÇU DE DETTE";
+export const TITRE_RECU_VERSEMENT = "REÇU DE VERSEMENT";
+export const TITRE_RECU_SOLDE = "REÇU DÉFINITIF — DETTE SOLDÉE";
+export function titreRecuDette(d) {
+  const montantDu = Number(d?.montant || 0);
+  const totalVerse = Number(d?.paye || 0);
+  const nbVersements = (d?.paiements || []).length;
+  const reste = Math.max(0, montantDu - totalVerse);
+  const solde = reste <= 0;
+  const versement = solde || nbVersements > 0 || totalVerse > 0;
+  return {
+    solde, versement,
+    titre: solde ? TITRE_RECU_SOLDE : versement ? TITRE_RECU_VERSEMENT : TITRE_RECU_DETTE,
+    montantDu, totalVerse, reste,
+  };
+}
+
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
 // Deux enregistrements sont-ils identiques ? Par référence d'abord (l'app
 // met à jour par recopie immuable : une ligne inchangée garde son objet),

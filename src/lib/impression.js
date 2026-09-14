@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, telDigits, nomDocument, envoyerWhatsApp } from "./core";
+import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, telDigits, nomDocument, envoyerWhatsApp } from "./core";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
@@ -163,12 +163,13 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 // ce qu'il a déjà payé. Quand le versement solde la dette (reste = 0), le
 // document devient automatiquement le REÇU DÉFINITIF plutôt qu'un simple
 // reçu de versement de plus.
+// 14/09/2026 (capture Timo, MR ERIC à 0 F versé titré « REÇU DE VERSEMENT ») :
+// tant que rien n'a été encaissé, c'est un REÇU DE DETTE — daté du jour de la
+// dette, établi par celui qui l'a saisie, sans historique de versements. Le
+// titre vient de la règle `titreRecuDette` (core.js), jamais d'ici.
 export function imprimerRecuVersement(d, bq = {}) {
   const logo = bq.logo || LOGO;
-  const montantDu = Number(d.montant || 0);
-  const totalVerse = Number(d.paye || 0);
-  const reste = Math.max(0, montantDu - totalVerse);
-  const solde = reste <= 0;
+  const { solde, versement, titre, montantDu, totalVerse, reste } = titreRecuDette(d);
   const paiements = d.paiements || [];
   const dernier = paiements[paiements.length - 1];
 
@@ -219,12 +220,15 @@ export function imprimerRecuVersement(d, bq = {}) {
       </td>
     </tr></table>
 
-    <h1${solde ? ' class="solde"' : ""}>${solde ? "REÇU DÉFINITIF — DETTE SOLDÉE" : "REÇU DE VERSEMENT"}</h1>
+    <h1${solde ? ' class="solde"' : ""}>${titre}</h1>
 
     <div class="meta">
       <div><b>N° de reçu :</b> ${esc(numeroRecuDette(d))}</div>
-      <div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}${dernier?.heure ? ` à ${dernier.heure}` : ""}</div>
-      <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>
+      ${versement
+        ? `<div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}${dernier?.heure ? ` à ${dernier.heure}` : ""}</div>
+      <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>`
+        : `<div><b>Date :</b> ${dFR(d.date)}</div>
+      <div><b>Établi par :</b> ${esc(d.par || "—")}</div>`}
     </div>
 
     <div class="btitre">CLIENT</div>
@@ -243,13 +247,16 @@ export function imprimerRecuVersement(d, bq = {}) {
       </tbody>
     </table>` : ""}
 
+    ${paiements.length > 0 ? `
     <div class="btitre">HISTORIQUE DES VERSEMENTS</div>
     <table class="articles">
       <thead><tr><th>Date</th><th>Moyen</th><th>Reçu par</th><th>Montant</th></tr></thead>
       <tbody>
         ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
       </tbody>
-    </table>
+    </table>` : `
+    <div class="btitre">VERSEMENTS</div>
+    <div class="client"><div>Aucun versement à ce jour.</div></div>`}
 
     <table class="totaux">
       <tr><td>Montant total dû :</td><td>${fmt(montantDu)}</td></tr>
@@ -263,7 +270,7 @@ export function imprimerRecuVersement(d, bq = {}) {
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : ""}</div></td>
+      <td><div class="ligne">${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : ""}` : `Établi par${d.par ? ` : ${esc(d.par)}` : ""}`}</div></td>
       <td></td>
     </tr></table>
 

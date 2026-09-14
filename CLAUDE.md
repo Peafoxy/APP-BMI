@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1307 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1316 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -597,6 +597,19 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### 🧾 Le reçu d'une dette (14/09/2026)
+- Capture Timo (MR ERIC, 1 000 000 F dû, 0 F versé, titré « REÇU DE
+  VERSEMENT ») : « si pas d'avance donné, il doit rester : reçu de dette
+  jusqu'au jour où il y a un 1er versement… mais si le premier jour, il y a
+  eu une avance, il peut être nommé reçu de versement en même temps ». UNE
+  règle pure, `titreRecuDette` (lib/core.js, à côté du numéro de reçu),
+  exercée par le banc : rien d'encaissé → **REÇU DE DETTE** (« Date : » du
+  jour de la dette, « Établi par : », « Aucun versement à ce jour », pas de
+  tableau vide) ; au moins un versement, l'avance du premier jour comprise →
+  **REÇU DE VERSEMENT** ; tout versé → **REÇU DÉFINITIF — DETTE SOLDÉE**
+  (inchangé). Le document (`imprimerRecuVersement`) lit la règle, n'écrit
+  aucun titre à la main ; même fonction pour Dettes, Ventes et réservations.
 
 ### 💬 Messages : l'ordre des conversations (14/09/2026)
 - Timo, deux captures (14 clients « Support » à défiler avant DJEDJE et ses
