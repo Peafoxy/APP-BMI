@@ -165,23 +165,32 @@ export function etatFondsCaisse(solde, fondsFixe) {
 export const ORIGINES_FONDS = [DEST_DG, DEST_BANQUE];
 // Timo (14/09/2026, après coup) : « fonds de caisse, les deux ne peuvent jamais
 // être deux choses différentes… je le préfère dans la fiche de la boutique,
-// puisque c'est une opération une fois de bon ». Donc UN seul geste, dans
-// ⚙ Paramètres → Boutiques → 💼 Fonds de caisse : on dit le MONTANT du fonds
-// et D'OÙ vient l'argent. Si le fonds monte et que l'argent vient de chez le
-// DG ou de la banque, la différence ENTRE dans le tiroir (construireRemiseFonds) ;
-// « laissé sur les ventes » = l'argent est déjà dans le tiroir, rien n'entre ;
-// un fonds qui baisse ne fait rien bouger (le surplus devient à verser).
-export const ORIGINE_VENTES = "Laissé sur les ventes";
-export const ORIGINES_FONDS_TOUTES = [DEST_DG, DEST_BANQUE, ORIGINE_VENTES];
-export function planFondsCaisse({ ancien, nouveau, origine }) {
-  const a = Math.max(0, Math.round(Number(ancien) || 0));
-  const n = Math.round(Number(nouveau));
-  if (!Number.isFinite(n) || n < 0) return { refus: "Indiquez le montant du fonds de caisse (0 ou plus)." };
-  if (!ORIGINES_FONDS_TOUTES.includes(origine)) return { refus: "Indiquez d'où vient l'argent : Chez le DG, BANQUE, ou laissé sur les ventes." };
-  const delta = n - a;
-  const remise = delta > 0 && origine !== ORIGINE_VENTES;
-  if (n === a) return { refus: `Le fonds de caisse est déjà de ${fmt(a)}.` };
-  return { ancien: a, nouveau: n, delta, remise, montantRemis: remise ? delta : 0 };
+// puisque c'est une opération une fois de bon » — puis, devant un choix
+// « laissé sur les ventes » qui n'écrivait rien (« il y a un trou… il faut
+// revoir ») : « **il ne doit y avoir aucun lien entre le fonds de caisse et
+// les ventes. Le seul lien, c'est la compensation : fonds de caisse entamé,
+// les ventes viennent rembourser. C'est tout.** »
+// Donc le fonds d'une boutique est TOUJOURS de l'argent remis par le DG (ou
+// la banque), jamais « laissé sur les ventes » : UN geste, « Remettre », dans
+// ⚙ Paramètres → Boutiques → 💼 Fonds de caisse. Chaque remise AUGMENTE le
+// fonds de la boutique (`fonds_caisse_fixe`) ET entre dans son tiroir.
+// Le « trou » : un fonds réglé (13/09) sans remise enregistrée — le tiroir ne
+// le connaît pas. `manqueRemises` le mesure, et une remise « de
+// régularisation » comble le manque SANS changer le montant du fonds.
+export const totalRemisesFonds = (db, boutique) => remisesFondsDe(db, boutique).reduce((s, d) => s + Number(d.fonds_caisse?.montant || 0), 0);
+export const manqueRemises = (db, boutique) => Math.max(0, fondsCaisseFixe(db, boutique) - totalRemisesFonds(db, boutique));
+// Le plan d'une remise : le fonds après, et si elle comble le manque.
+export function planRemiseFonds({ fondsActuel, manque, montant, regularisation = false }) {
+  const m = Math.round(Number(montant));
+  if (!Number.isFinite(m) || m <= 0) return { refus: "Indiquez le montant remis (supérieur à zéro)." };
+  const f = Math.max(0, Math.round(Number(fondsActuel) || 0));
+  const q = Math.max(0, Math.round(Number(manque) || 0));
+  if (regularisation) {
+    if (q <= 0) return { refus: "Rien à régulariser : toutes les remises de ce fonds sont enregistrées." };
+    if (m > q) return { refus: `La régularisation ne peut pas dépasser le manque (${fmt(q)}). Au-delà, faites une remise ordinaire : elle augmentera le fonds.` };
+    return { montant: m, fondsApres: f, regularisation: true };
+  }
+  return { montant: m, fondsApres: f + m, regularisation: false };
 }
 export const estFondsCaisseRemis = (dep) => !!dep?.fonds_caisse && dep.categorie === CATEGORIE_FONDS_CAISSE;
 export function critiqueRemiseFonds({ montant, origine, banque, date }) {

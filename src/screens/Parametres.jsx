@@ -13,7 +13,7 @@ import { etatPermissionPush } from "../push";
 import { PALETTE } from "../lib/constants";
 // Timo (14/09/2026) : « fonds de caisse, les deux ne peuvent jamais être deux
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
-import { ORIGINES_FONDS_TOUTES, ORIGINE_VENTES, DEST_BANQUE, DEST_DG, planFondsCaisse, construireRemiseFonds, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
+import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planRemiseFonds, manqueRemises, totalRemisesFonds, construireRemiseFonds, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
@@ -366,7 +366,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   // Le fonds de caisse d'une boutique : UN geste (14/09/2026), montant + origine de l'argent.
   const [fondsPour, setFondsPour] = useState(null);
-  const [fondsForm, setFondsForm] = useState({ montant: "", origine: DEST_DG, banque: "", date: today(), note: "" });
+  const [fondsForm, setFondsForm] = useState({ montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
   const nomCouleur = (hex) => (PALETTE.find(([, h]) => h === hex) || [hex])[0];
 
   const utilisee = (nom) =>
@@ -865,42 +865,34 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // — le fonds qu'on laisse dans le tiroir pour les petites dépenses ; le
   // versement attendu devient solde − fonds fixe (lib/versements.js).
   // Puis (14/09/2026) : « les deux ne peuvent jamais être deux choses
-  // différentes… je le préfère dans la fiche de la boutique, puisque c'est une
-  // opération une fois de bon » — le réglage ET l'entrée de l'argent dans le
-  // tiroir sont UN seul geste, ici : on dit le montant du fonds et d'où vient
-  // l'argent ; s'il vient de chez le DG ou de la banque, la différence entre
-  // dans la caisse de la boutique (règle pure planFondsCaisse / construireRemiseFonds).
+  // différentes… je le préfère dans la fiche de la boutique » et « aucun lien
+  // entre le fonds de caisse et les ventes ; le seul lien, c'est la
+  // compensation » — UN geste, « Remettre » : chaque remise augmente le fonds
+  // ET entre dans le tiroir (règle pure planRemiseFonds / construireRemiseFonds) ;
+  // « Régulariser » comble un fonds réglé sans remise enregistrée (le trou).
   const modifierFondsFixe = (b) => {
     if (refuserSaufAdmin(profile, "Régler le fonds de caisse fixe d'une boutique")) return;
-    setFondsForm({ montant: String(b.fonds_caisse_fixe || ""), origine: DEST_DG, banque: "", date: today(), note: "" });
+    setFondsForm({ montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
     setFondsPour(b);
   };
+  const regulariserFonds = (b) => setFondsForm({ montant: String(manqueRemises(db, b.nom)), origine: DEST_DG, banque: "", date: today(), note: "", regularisation: true });
   const enregistrerFonds = async () => {
     const b = fondsPour;
     if (!b) return;
-    if (refuserSaufAdmin(profile, "Régler le fonds de caisse fixe d'une boutique")) return;
+    // L'argent sort de chez le DG (ou de la banque) : le DG seul (serveur : securite-16).
+    if (refuserSaufAdminPrincipal(db, profile, "Remettre le fonds de caisse d'une boutique (DG)")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const plan = planFondsCaisse({ ancien: fondsCaisseFixe(db, b.nom), nouveau: fondsForm.montant, origine: fondsForm.origine });
+    const plan = planRemiseFonds({ fondsActuel: fondsCaisseFixe(db, b.nom), manque: manqueRemises(db, b.nom), montant: fondsForm.montant, regularisation: fondsForm.regularisation });
     if (plan.refus) { uAlert(plan.refus); return; }
-    let entree = null;
-    if (plan.remise) {
-      // L'argent sort de chez le DG (ou de la banque) : le DG seul (serveur : securite-16).
-      if (refuserSaufAdminPrincipal(db, profile, "Remettre le fonds de caisse d'une boutique (DG)")) return;
-      const r = construireRemiseFonds(profile, { boutique: b.nom, montant: plan.montantRemis, origine: fondsForm.origine, banque: fondsForm.banque, note: fondsForm.note, date: fondsForm.date });
-      if (r.refus) { uAlert(r.refus); return; }
-      entree = r.entree;
-    }
-    const explication = plan.remise
-      ? `${fmt(plan.montantRemis)} entrent dans le tiroir de ${b.nom} le ${dFR(fondsForm.date)} (ni vente, ni dépense) et sortent de la caisse « ${fondsForm.origine} ».`
-      : plan.delta > 0
-        ? `Rien n'entre en caisse : les ${fmt(plan.delta)} de plus sont déjà dans le tiroir (laissés sur les ventes) ; ils ne sont simplement plus à verser.`
-        : `Rien ne bouge dans le tiroir : ${fmt(-plan.delta)} deviennent à verser.`;
-    if (!await uConfirm(`Fonds de caisse de ${b.nom} : ${fmt(plan.ancien)} → ${fmt(plan.nouveau)}.\n\n${explication}`)) return;
+    const r = construireRemiseFonds(profile, { boutique: b.nom, montant: plan.montant, origine: fondsForm.origine, banque: fondsForm.banque, note: fondsForm.note, date: fondsForm.date });
+    if (r.refus) { uAlert(r.refus); return; }
+    const explication = `${fmt(plan.montant)} entrent dans le tiroir de ${b.nom} le ${dFR(fondsForm.date)} (ni vente, ni dépense) et sortent de la caisse « ${fondsForm.origine} ».`;
+    if (!await uConfirm(`${plan.regularisation ? `Régulariser le fonds de caisse de ${b.nom} : le fonds reste à ${fmt(plan.fondsApres)}.` : `Fonds de caisse de ${b.nom} : ${fmt(fondsCaisseFixe(db, b.nom))} → ${fmt(plan.fondsApres)}.`}\n\n${explication}`)) return;
     save({
       ...db,
-      boutiques: db.boutiques.map((x) => (x.nom === b.nom ? { ...x, fonds_caisse_fixe: plan.nouveau } : x)),
-      ...(entree ? { depenses: [entree, ...(db.depenses || [])] } : {}),
-    }, `Fonds de caisse de ${b.nom} : ${fmt(plan.ancien)} → ${fmt(plan.nouveau)}${plan.remise ? ` (${fmt(plan.montantRemis)} remis, ${libelleOrigineFonds(entree.fonds_caisse)})` : plan.delta > 0 ? " (laissé sur les ventes)" : ""}`);
+      boutiques: db.boutiques.map((x) => (x.nom === b.nom ? { ...x, fonds_caisse_fixe: plan.fondsApres } : x)),
+      depenses: [r.entree, ...(db.depenses || [])],
+    }, `Fonds de caisse de ${b.nom} : ${fmt(plan.montant)} remis (${libelleOrigineFonds(r.entree.fonds_caisse)})${plan.regularisation ? ", régularisation" : ""} → fonds ${fmt(plan.fondsApres)}`);
     setFondsPour(null);
   };
   const modifierInfos = async (b) => {
@@ -982,16 +974,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" data-fenetre="fonds-de-caisse">
           <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="font-bold text-slate-900 mb-1">💼 Fonds de caisse de {fondsPour.nom}</div>
-            <div className="text-xs text-slate-500 mb-3">L'argent qu'on laisse dans le tiroir pour les petites dépenses et qu'on ne verse jamais. Actuellement : <b>{fmt(fondsCaisseFixe(db, fondsPour.nom))}</b>. Si le fonds monte et que l'argent vient de chez le DG ou de la banque, la différence entre dans la caisse de la boutique ; « laissé sur les ventes » = l'argent y est déjà.</div>
+            <div className="text-xs text-slate-500 mb-2">L'argent que vous remettez à la boutique pour ses petites dépenses, et qu'on ne verse jamais. Les ventes ne font que rembourser ce que les dépenses ont entamé. Chaque remise augmente le fonds et entre dans le tiroir.</div>
+            <div className="text-sm mb-3">Fonds actuel : <b className="tabular-nums">{fmt(fondsCaisseFixe(db, fondsPour.nom))}</b> <span className="text-xs text-slate-500">· remises enregistrées {fmt(totalRemisesFonds(db, fondsPour.nom))}</span></div>
+            {manqueRemises(db, fondsPour.nom) > 0 && !fondsForm.regularisation && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 mb-3" data-fonds="manque">
+                ⚠ {fmt(manqueRemises(db, fondsPour.nom))} de ce fonds n'ont aucune remise enregistrée : le tiroir de {fondsPour.nom} ne les connaît pas (fonds à verser et clôture sont faussés d'autant).
+                <button onClick={() => regulariserFonds(fondsPour)} className="ml-2 font-bold underline">Régulariser</button>
+              </div>
+            )}
+            {fondsForm.regularisation && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">Régularisation : cette remise comble le manque, le fonds reste à {fmt(fondsCaisseFixe(db, fondsPour.nom))}. <button onClick={() => setFondsForm({ ...fondsForm, montant: "", regularisation: false })} className="ml-1 underline">Annuler</button></div>}
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Montant du fonds (F)"><input type="number" inputMode="numeric" className={inputCls} value={fondsForm.montant} onChange={(e) => setFondsForm({ ...fondsForm, montant: e.target.value })} /></Field>
+              <Field label="Montant remis (F)"><input type="number" inputMode="numeric" className={inputCls} value={fondsForm.montant} onChange={(e) => setFondsForm({ ...fondsForm, montant: e.target.value })} /></Field>
               <Field label="D'où vient l'argent">
                 <select className={inputCls} value={fondsForm.origine} onChange={(e) => setFondsForm({ ...fondsForm, origine: e.target.value })}>
-                  {ORIGINES_FONDS_TOUTES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {ORIGINES_FONDS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </Field>
               {fondsForm.origine === DEST_BANQUE && <Field label="Nom de la banque"><input className={inputCls} value={fondsForm.banque} onChange={(e) => setFondsForm({ ...fondsForm, banque: e.target.value })} placeholder="Ex : Ecobank" /></Field>}
-              {fondsForm.origine !== ORIGINE_VENTES && <Field label="Date de la remise"><input type="date" className={inputCls} value={fondsForm.date} max={today()} onChange={(e) => setFondsForm({ ...fondsForm, date: e.target.value })} /></Field>}
+              <Field label="Date de la remise"><input type="date" className={inputCls} value={fondsForm.date} max={today()} onChange={(e) => setFondsForm({ ...fondsForm, date: e.target.value })} /></Field>
               <Field label="Précision (facultatif)"><input className={inputCls} value={fondsForm.note} onChange={(e) => setFondsForm({ ...fondsForm, note: e.target.value })} /></Field>
             </div>
             {remisesFondsDe(db, fondsPour.nom).length > 0 && (
@@ -1005,8 +1005,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               </div>
             )}
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setFondsPour(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
-              <button onClick={enregistrerFonds} className={btnDark}>💼 Enregistrer</button>
+              <button onClick={() => setFondsPour(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
+              <button onClick={enregistrerFonds} className={btnDark}>💼 {fondsForm.regularisation ? "Régulariser" : "Remettre"}</button>
             </div>
           </div>
         </div>
