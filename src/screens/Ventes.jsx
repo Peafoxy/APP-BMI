@@ -10,12 +10,12 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable } from "../components/ui";
-import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
+import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
@@ -781,8 +781,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ? `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne} — DEVIS PAYÉ : chantier créé, à programmer`
       : `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}`);
     // Le reçu s'imprime immédiatement, sans clic supplémentaire : au comptoir,
-    // l'encaissement et le reçu ne font qu'un geste.
-    try { imprimerRecu(vente, infoBq(boutique), db.produits); } catch {}
+    // l'encaissement et le reçu ne font qu'un geste. À crédit, c'est le reçu de
+    // la dette qui vient d'être créée (elle est dans `next`) — 14/09/2026.
+    try { imprimerRecuDeVente(next, vente, infoBq(boutique), db.produits); } catch {}
     if (od) {
       setOrigineDevis(null); // consommé : une seule fiche d'installation par devis
       uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
@@ -1281,7 +1282,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">
-                    <button onClick={() => imprimerRecu(v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu" aria-label="Imprimer le reçu">🖨</button>
+                    <button onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} aria-label="Imprimer le reçu">🖨</button>
                     <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp" aria-label="WhatsApp"><IconeWhatsApp /></button>
                     {bonsDeVente(v).length > 0 && (
                       <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>

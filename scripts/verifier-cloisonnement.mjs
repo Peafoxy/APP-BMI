@@ -3528,6 +3528,24 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
   test("Dettes et Ventes impriment toujours par la même fonction (le titre s'adapte tout seul)",
     (readFileSync("src/screens/Dettes.jsx", "utf8").match(/imprimerRecuVersement\(/g) || []).length === 3
     && readFileSync("src/screens/Ventes.jsx", "utf8").includes("imprimerRecuVersement(reservation, infoBq(boutique))"));
+  // 14/09/2026, Timo devant le reçu d'une vente à crédit sans avance : « le
+  // document porte reçu de vente au lieu de reçu de dette, le motif a disparu »
+  // → « ta proposition » : une vente à crédit remet le reçu de SA dette.
+  const dbV = { dettes: [{ id: "d1", vente_id: "v1", montant: 1000, paye: 0, paiements: [] }, { id: "d2", montant: 5 }] };
+  const credit = { id: "v1", paiement: "Crédit (dette)" };
+  test("★ une vente à crédit remet le reçu de sa dette (documentDeVente → la dette liée par vente_id)",
+    Core.documentDeVente(dbV, credit).type === "dette" && Core.documentDeVente(dbV, credit).dette.id === "d1");
+  test("une vente comptant garde son reçu de vente, même si une dette porte son id par erreur",
+    Core.documentDeVente(dbV, { id: "v1", paiement: "Espèces" }).type === "vente");
+  test("une vieille vente à crédit sans dette liée garde le reçu de vente (on ne devine jamais une dette)",
+    Core.documentDeVente(dbV, { id: "v9", paiement: "Crédit (dette)" }).type === "vente" && Core.documentDeVente({}, credit).type === "vente"
+    && Core.detteDeVente(dbV, { paiement: "Crédit (dette)" }) === null);
+  const ventesSrc = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ 💰 Ventes n'appelle plus jamais le reçu de vente directement : UN chemin, imprimerRecuDeVente (après l'encaissement, sur `next` qui porte la dette neuve ; et le bouton 🖨 de la ligne)",
+    !/imprimerRecu\(/.test(ventesSrc) && !/\bimprimerRecu\b/.test(ventesSrc.split("\n").find((l) => l.startsWith("import") && l.includes("../lib/impression")) || "")
+    && ventesSrc.includes("imprimerRecuDeVente(next, vente, infoBq(boutique), db.produits)")
+    && ventesSrc.includes("imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)")
+    && imp.includes("const doc = documentDeVente(db, v);") && imp.includes('if (doc.type === "dette") imprimerRecuVersement(doc.dette, bq);'));
 }
 
 titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser à moitié");

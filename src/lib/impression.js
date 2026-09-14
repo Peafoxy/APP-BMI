@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, telDigits, nomDocument, envoyerWhatsApp } from "./core";
+import { today, dFR, fmt, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp } from "./core";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
@@ -288,6 +288,15 @@ export function imprimerRecuVersement(d, bq = {}) {
       html
     : html;
   if (printApi) printApi.open(sortie, nomDocument("Reçu", { client: d.client, numero: d.numero }));
+}
+
+// ---- Le reçu d'une vente : UN chemin (14/09/2026) ----
+// Vente comptant → reçu de vente ; vente à crédit → le reçu de sa dette
+// (règle `documentDeVente`, core.js). Ventes ne choisit jamais lui-même.
+export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
+  const doc = documentDeVente(db, v);
+  if (doc.type === "dette") imprimerRecuVersement(doc.dette, bq);
+  else imprimerRecu(v, bq, produits);
 }
 
 export function imprimerProforma(p, logo, estFormation = false) {

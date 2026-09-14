@@ -438,6 +438,21 @@ export function titreRecuDette(d) {
   };
 }
 
+// ---- Quel document remet une vente ? (14/09/2026) ----
+// Timo, devant le reçu qui sort d'une vente à crédit sans avance : « le document
+// porte reçu de vente au lieu de reçu de dette, le motif a disparu ». Décision :
+// une vente à crédit ne produit plus de « reçu de vente » — elle remet le reçu
+// de SA dette (reçu de dette sans avance, reçu de versement avec, définitif
+// une fois soldée), avec motif, articles, historique. Une vente comptant garde
+// son reçu de vente. Une vieille vente à crédit dont la dette n'est pas liée
+// (avant `vente_id`) garde le reçu de vente : on ne devine jamais une dette.
+export const estVenteACredit = (v) => v?.paiement === "Crédit (dette)";
+export const detteDeVente = (db, v) => (v?.id && (db?.dettes || []).find((d) => d.vente_id === v.id)) || null;
+export function documentDeVente(db, v) {
+  const dette = estVenteACredit(v) ? detteDeVente(db, v) : null;
+  return dette ? { type: "dette", dette } : { type: "vente" };
+}
+
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
 // Deux enregistrements sont-ils identiques ? Par référence d'abord (l'app
 // met à jour par recopie immuable : une ligne inchangée garde son objet),
