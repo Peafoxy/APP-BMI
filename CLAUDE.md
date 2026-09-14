@@ -803,6 +803,11 @@ lit mal est pire qu'un banc absent).
   `decaisse_le` / `decaisse_par` seulement) : rien à coller. **« De l'argent
   remis par le DG » = l'argent de BMI qui est chez le DG**, pas son argent
   personnel ; un apport personnel n'existe pas encore dans l'application.
+  **« Laisse » (14/09/2026)** à trois propositions, ne pas les reproposer :
+  un choix « fonds de caisse » dans « Payé avec » (le fonds EST dans le
+  tiroir : c'est « la caisse de la boutique »), restreindre « remis par le
+  DG » à l'admin ou le faire valider quel que soit le montant, un « apport
+  de départ » pour la caisse Chez le DG (elle part de zéro, et Timo le sait).
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,
