@@ -870,8 +870,10 @@ export function imprimerBon(bon, bq = {}) {
     </div>
     <table class="articles">
       <thead><tr><th>${reprise ? "Article repris par BMI" : "Article échangé"}</th><th>Quantité</th>${reprise ? "<th>Valeur reprise</th>" : ""}</tr></thead>
-      <tbody><tr><td>${esc(bon.article)}<br><small style="color:#555">Motif : ${esc(bon.motif)}</small></td><td>${bon.qte}</td>${reprise ? `<td>${fmt(bon.montant)}</td>` : ""}</tr></tbody>
+      <tbody><tr><td>${esc(bon.article)}</td><td>${bon.qte}</td>${reprise ? `<td>${fmt(bon.montant)}</td>` : ""}</tr></tbody>
     </table>
+    <div class="btitre">${reprise ? "MOTIF DE LA REPRISE" : "MOTIF DU RETOUR (panne constatée)"}</div>
+    <div class="client"><div style="font-size:13px"><b>${esc(bon.motif || "—")}</b></div></div>
     ${reprise ? `
     <table class="totaux">
       <tr><td>Valeur reprise (prix payé, remises comprises) :</td><td>${fmt(bon.montant)}</td></tr>

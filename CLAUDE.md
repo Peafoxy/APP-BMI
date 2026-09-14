@@ -1052,7 +1052,10 @@ lit mal est pire qu'un banc absent).
   l'article de remplacement et remis le défectueux ». **Proposé juste après
   le geste** (🖨 Imprimer / WhatsApp si téléphone / Plus tard — UN chemin,
   `proposerBon`) et réimprimable depuis la ligne de la vente (bouton rond 🧾,
-  choix parmi plusieurs). Bandeau de formation comme tout document.
+  choix parmi plusieurs). Bandeau de formation comme tout document. **Le
+  motif a SA ligne, bien visible** (« MOTIF DE LA REPRISE » / « MOTIF DU
+  RETOUR (panne constatée) » — Timo : « la raison devrait figurer sur les
+  reçus là »), pas un petit texte sous l'article.
 - **Un échange n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
