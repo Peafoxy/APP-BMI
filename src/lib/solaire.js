@@ -101,11 +101,12 @@ export function besoinsSolaires(appareils, { autonomie, soleil, tension, typeBat
   };
 }
 
-// ---- Supports de rail et étriers (règle Timo, 07/09/2026) ----
-// Supports : nombre de rails × 2, puis le nombre PAIR qui suit — même sans
-// virgule ; s'il est déjà pair, rien à faire. Étriers : (panneaux × 2) + 8.
-export const pairSuivant = (x) => { const n = Math.ceil(Number(x) || 0); return n % 2 === 0 ? n : n + 1; };
-export const supportsPourRails = (rails) => (Number(rails) > 0 ? pairSuivant(Number(rails) * 2) : 0);
+// ---- Supports de rail et étriers ----
+// Supports (14/09/2026, Timo : « c'était une erreur, le nombre de supports,
+// c'est le nombre de mètres de rail ») : UN support par mètre de rail
+// calculé — 22 m → 22 supports. Le « rails × 2, pair suivant » du 07/09 est
+// retiré. Étriers : (panneaux × 2) + 8 (règle du 07/09/2026, inchangée).
+export const supportsPourRails = (metresDeRail) => (Number(metresDeRail) > 0 ? Math.ceil(Number(metresDeRail)) : 0);
 export const etriersPourPanneaux = (panneaux) => Number(panneaux || 0) * 2 + 8;
 
 // ---- Des mètres calculés aux barres sorties du stock (14/09/2026) ----

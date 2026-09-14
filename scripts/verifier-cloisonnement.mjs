@@ -1428,8 +1428,8 @@ titre("Rail : le stock compte des BARRES, le devis des mètres — le client pai
     && !/qte: railsQte, pu: PRIX_RAIL/.test(solR));
   test("★ la ligne du devis garde ses mètres (metres_calcules, metres_factures, longueur_barre) ; une reprise relit les mètres, une ancienne ligne (mètres en quantité) aussi ; la case reste en mètres",
     /metres_calcules: rails\.metresCalcules, metres_factures: rails\.metresFactures, longueur_barre: rails\.longueurBarre/.test(solR)
-    && /const metresDeLigne = \(l\) => Number\(l\.metres_calcules \?\? l\.qte\) \|\| 0;/.test(solR)
-    && /base: Number\(rails\.metres_calcules \?\? rails\.qte\) \|\| 0/.test(solR)
+    && /export const metresDeLigne = \(l\) => Number\(l\?\.metres_calcules \?\? l\?\.qte\) \|\| 0;/.test(solR)
+    && /base: metresDeLigne\(rails\)/.test(solR)
     && /value=\{railsQte\} onChange/.test(solR) && /barres? de \{LONGUEUR_RAIL\} m = \{rails\.metresFactures\} m facturés/.test(solR.replace(/\{rails\.barres > 1 \? "s" : ""\}/, "s")));
   test("l'article « rail » du stock n'est jamais un SUPPORT rail ni un étrier",
     /&& !\/support\|etrier\|étrier\/i\.test\(p\.nom\)\)/.test(solR));
@@ -3994,14 +3994,16 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
   }
 }
 
-titre("Solaire : les supports de rail et les étriers suivent les rails (règle Timo du 07/09/2026)");
+titre("Solaire : les supports de rail et les étriers suivent les rails (règles Timo du 07/09 et du 14/09/2026)");
 {
-  // « Support rail : nombre de rails × 2 — toujours le nombre pair qui suit,
-  // sauf s'il est déjà pair. Étrier : (nombre de panneaux × 2) + 8. »
-  test("★ supports : 9 rails → 18 ; 8,8 → 18 (17,6 → pair suivant) ; 7 → 14 ; 0 → 0",
-    Sol.supportsPourRails(9) === 18 && Sol.supportsPourRails(8.8) === 18 && Sol.supportsPourRails(7) === 14 && Sol.supportsPourRails(0) === 0);
-  test("★ un nombre déjà pair ne bouge pas ; un impair passe au pair suivant",
-    Sol.pairSuivant(18) === 18 && Sol.pairSuivant(17) === 18 && Sol.pairSuivant(17.2) === 18);
+  // 07/09 : « Support rail : nombre de rails × 2 — toujours le nombre pair qui
+  // suit. Étrier : (nombre de panneaux × 2) + 8. » — 14/09, RETOURNÉ : « c'était
+  // une erreur, le nombre de supports, c'est le nombre de mètres de rail ».
+  test("★ supports : UN par mètre de rail — 22 m → 22 ; 9 → 9 ; 8,8 → 9 ; 0 → 0 (plus jamais × 2 ni pair suivant)",
+    Sol.supportsPourRails(22) === 22 && Sol.supportsPourRails(9) === 9 && Sol.supportsPourRails(8.8) === 9 && Sol.supportsPourRails(0) === 0
+    && Sol.supportsPourRails(7) === 7 && Sol.supportsPourRails(7) !== 14);
+  test("★ la règle « pair suivant » n'existe plus (une règle qui ne commande plus rien ne reste pas)",
+    typeof Sol.pairSuivant === "undefined" && !/pairSuivant/.test(readFileSync("src/lib/solaire.js", "utf8")));
   test("★ étriers : 4 panneaux → 16 ; 10 → 28 ; 0 → 8", Sol.etriersPourPanneaux(4) === 16 && Sol.etriersPourPanneaux(10) === 28 && Sol.etriersPourPanneaux(0) === 8);
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
   test("★ les deux lignes n'existent qu'avec des rails ET l'article en stock, liées à lui (produit_id) pour la sortie de stock",
@@ -4048,8 +4050,26 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
   test("★ l'écran applique exactement cette règle", /const qteFixation = \(cle, base, calcul\) => \(fixationManuelle\[cle\]\?\.base === base \? Math\.max\(0, Number\(fixationManuelle\[cle\]\.qte\) \|\| 0\) : calcul\);/.test(sol));
   test("★ chaque ligne (supports, étriers) a sa case de quantité, et dit le calculé quand on s'en écarte",
     /onChange=\{\(e\) => corrigerFixation\(cle, base, e\.target\.value\)\}/.test(sol) && /calculé : \{calcule\}/.test(sol) && /retiré du devis/.test(sol));
-  test("★ le brouillon du volet garde les équipements, leurs quantités, les rails et les corrections de fixation (F5)",
-    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, autres \}\)/.test(sol));
+  test("★ le brouillon du volet garde les équipements, leurs quantités, les rails, les corrections de fixation et le modèle de support (F5)",
+    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres \}\)/.test(sol));
+  // 14/09/2026, Timo : « les supports doivent être sélectionnés dans le devis,
+  // puisqu'il y a les M8 et les M10 ; pour l'instant c'est resté sur M8 ».
+  const stockSupports = [{ id: "s8", nom: "SUPPORT RAIL M8", prix_vente: 500 }, { id: "s10", nom: "Support rail M10", prix_vente: 700 }, { id: "r", nom: "RAIL 4,2 m" }];
+  test("★ le modèle de support se CHOISIT dans le devis : tous les articles « support » de la boutique sont proposés (liste), le premier d'office, le choix suit le brouillon",
+    /const articlesSupportsStock = produitsBoutique\.filter\(\(p\) => \/support\/i\.test\(p\.nom\) \|\| \/support\/i\.test\(p\.categorie \|\| ""\)\);/.test(sol)
+    && /const articleSupportsStock = articlesSupportsStock\.find\(\(p\) => p\.id === supportId\) \|\| articlesSupportsStock\[0\];/.test(sol)
+    && /data-choix="support"/.test(sol) && /articlesSupportsStock\.map\(\(p\) => <option key=\{p\.id\} value=\{p\.id\}>/.test(sol)
+    && /brouillon\.supportId/.test(sol) && !/produitsBoutique\.find\(\(p\) => \/support\/i/.test(sol));
+  test("★ un devis repris retrouve SON modèle de support par son nom (M10 reste M10), sinon aucun choix forcé",
+    SolEcran.supportDepuisLignes([{ categorie: "Supports de rail", article: "support rail m10", qte: 22 }], stockSupports)?.id === "s10"
+    && SolEcran.supportDepuisLignes([{ categorie: "Rails de fixation", qte: 6 }], stockSupports) === null
+    && SolEcran.supportDepuisLignes([{ categorie: "Supports de rail", article: "SUPPORT INCONNU" }], stockSupports) === null
+    && /setSupportId\(supportDepuisLignes\(lignesReprises, articlesSupportsStock\)\?\.id \|\| null\);/.test(sol));
+  test("★ la reprise relit les MÈTRES du rail (metresDeLigne) aux deux endroits, jamais les barres",
+    SolEcran.metresDeLigne({ qte: 6, metres_calcules: 22 }) === 22 && SolEcran.metresDeLigne({ qte: 16 }) === 16
+    && /setRailsQte\(ligneRails \? metresDeLigne\(ligneRails\) : 0\);/.test(sol) && !/Number\(ligneRails\.qte\)/.test(sol));
+  test("l'écran dit la règle : « N m de rail → N supports (un par mètre) »",
+    /m de rail → \$\{supportsPourRails\(railsQte\)\} supports \(un par mètre\)/.test(sol) && !/rails × 2/.test(sol));
   test("★ après un F5, le premier calcul automatique n'écrase pas ce qui vient du brouillon ; les suivants recalculent",
     /const sauterPremierCalcul = useRef\(!!choixDuBrouillon\);/.test(sol) && /if \(sauterPremierCalcul\.current\) \{ sauterPremierCalcul\.current = false; return; \}/.test(sol));
   test("★ un devis repris passe TOUJOURS avant le brouillon, et un brouillon du mode Libre n'est pas restitué",

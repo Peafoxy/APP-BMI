@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1330 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1334 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -336,12 +336,17 @@ lit mal est pire qu'un banc absent).
   prix du mètre, admin). La ligne du devis garde `metres_calcules`,
   `metres_factures`, `longueur_barre` ; une reprise relit les mètres (une
   ancienne ligne a ses mètres en quantité). L'article « rail » du stock n'est
-  jamais un support ni un étrier. ⚠ La base des supports (« rails × 2 »)
-  reste les MÈTRES de rail, comme avant : à revoir si Timo dit que « rails »
-  voulait dire barres.
-  **supports de rail = rails × 2 arrondi au pair suivant, étriers =
-  (panneaux × 2) + 8** (règle Timo du 07/09/2026), lignes ajoutées seulement
+  jamais un support ni un étrier.
+  **Supports de rail = UN par mètre de rail calculé** (14/09/2026 : « c'était
+  une erreur, le nombre de supports, c'est le nombre de mètres de rail » — le
+  « rails × 2, pair suivant » du 07/09 est RETOURNÉ, `pairSuivant` retiré) ;
+  **étriers = (panneaux × 2) + 8** (07/09/2026) ; lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
+  **Le MODÈLE de support se choisit dans le devis** (14/09/2026 : « il y a
+  les M8 et les M10, pour l'instant c'est resté sur M8 par défaut ») : tous
+  les articles « support » de la boutique dans une liste sur la ligne
+  (`articlesSupportsStock`, `supportId`), le premier d'office, le choix suit
+  le brouillon et le devis repris (`supportDepuisLignes`, par le nom).
   **Chaque ligne de fixation a sa case de quantité** (0 = retirée) ; une
   correction est liée à la base qui l'a produite (mètres de rails,
   panneaux) et tombe si la base change. **Le brouillon du volet solaire

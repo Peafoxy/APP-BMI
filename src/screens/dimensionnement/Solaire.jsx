@@ -40,6 +40,10 @@ const ROLES_EQUIPEMENT = [
 // Reprise d'un devis : les supports de rail et les étriers reviennent avec
 // LEURS quantités — y compris 0 (ligne absente alors qu'il y avait des
 // rails) : le devis repris est le devis tel qu'il était.
+// Les mètres d'une ligne de rail : une ligne d'après le 14/09/2026 a sa
+// quantité en BARRES et ses mètres dans `metres_calcules` ; une ancienne
+// ligne a ses mètres en quantité.
+export const metresDeLigne = (l) => Number(l?.metres_calcules ?? l?.qte) || 0;
 export const fixationDepuisLignes = (lignes) => {
   const rails = lignes.find((l) => l.categorie === "Rails de fixation");
   if (!rails) return {};
@@ -47,11 +51,19 @@ export const fixationDepuisLignes = (lignes) => {
   const supports = lignes.find((l) => l.categorie === "Supports de rail");
   const etriers = lignes.find((l) => l.categorie === "Étriers");
   return {
-    // La base des supports = les MÈTRES de rail (une ligne d'après le 14/09/2026
-    // a sa quantité en barres et ses mètres dans `metres_calcules`).
-    supports: { qte: supports ? Number(supports.qte) || 0 : 0, base: Number(rails.metres_calcules ?? rails.qte) || 0 },
+    // La base des supports = les MÈTRES de rail.
+    supports: { qte: supports ? Number(supports.qte) || 0 : 0, base: metresDeLigne(rails) },
     etriers: { qte: etriers ? Number(etriers.qte) || 0 : 0, base: panneaux ? Number(panneaux.qte) || 0 : 0 },
   };
+};
+// Le MODÈLE de support d'un devis repris (14/09/2026, Timo : « les supports
+// doivent être sélectionnés dans le devis, puisqu'il y a les M8 et les
+// M10 ») : retrouvé par son nom dans le stock de la boutique.
+export const supportDepuisLignes = (lignes, articles) => {
+  const l = (lignes || []).find((x) => x.categorie === "Supports de rail");
+  if (!l) return null;
+  const nom = String(l.article || "").trim().toLowerCase();
+  return (articles || []).find((p) => String(p.nom || "").trim().toLowerCase() === nom) || null;
 };
 // UN seul lien pour revenir au calcul, partout où une ligne s'en écarte
 // (Timo, 08/09/2026 : « prendre la règle existante — revenir à la sélection
@@ -470,9 +482,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     // recalcul automatique (déclenché juste après par le nouveau nombre de
     // panneaux) écraserait immédiatement la quantité reprise.
     const ligneRails = lignesReprises.find((l) => l.categorie === "Rails de fixation");
-    setRailsQte(ligneRails ? Number(ligneRails.qte) : 0);
+    setRailsQte(ligneRails ? metresDeLigne(ligneRails) : 0);
     premierRenduRails.current = true;
     setFixationManuelle(fixationDepuisLignes(lignesReprises));
+    setSupportId(supportDepuisLignes(lignesReprises, articlesSupportsStock)?.id || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
 
@@ -605,7 +618,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // Reprise : une ligne d'après le 14/09/2026 porte ses mètres calculés
   // (`metres_calcules`, sa quantité étant en barres) ; une ancienne ligne a
   // ses mètres en quantité.
-  const metresDeLigne = (l) => Number(l.metres_calcules ?? l.qte) || 0;
   const [railsQte, setRailsQte] = useState(ligneRailsReprise ? metresDeLigne(ligneRailsReprise) : (choixDuBrouillon ? Number(brouillon.railsQte || 0) : 0));
   const premierRenduRails = useRef(true);
   useEffect(() => {
@@ -621,12 +633,20 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const PRIX_BARRE = Math.round(LONGUEUR_RAIL * PRIX_RAIL);
   const sousTotalRails = rails.barres * PRIX_BARRE;
   const libelleRails = `Rails de fixation (barre de ${LONGUEUR_RAIL} m)`;
-  // ⚠ Règle Timo (07/09/2026) : la sortie du rail s'accompagne de celle des
-  // SUPPORTS DE RAIL (rails × 2, arrondi au nombre pair suivant) et des
-  // ÉTRIERS ((panneaux × 2) + 8). Les deux lignes n'existent que s'il y a des
+  // ⚠ Règle Timo : la sortie du rail s'accompagne de celle des SUPPORTS DE
+  // RAIL (un par mètre de rail — 14/09/2026, « c'était une erreur, le nombre
+  // de supports c'est le nombre de mètres de rail ») et des ÉTRIERS
+  // ((panneaux × 2) + 8, 07/09/2026). Les deux lignes n'existent que s'il y a des
   // rails au devis ET que l'article est en stock (sinon rien ne pourrait
   // être soustrait) ; leur prix est celui de l'article en stock.
-  const articleSupportsStock = produitsBoutique.find((p) => /support/i.test(p.nom) || /support/i.test(p.categorie || ""));
+  // Les supports existent en plusieurs modèles (M8, M10…) : TOUS les articles
+  // « support » de la boutique sont proposés, le vendeur choisit dans le devis
+  // (14/09/2026 ; avant, le premier trouvé était pris d'office). Le choix suit
+  // le brouillon et le devis repris (retrouvé par son nom).
+  const articlesSupportsStock = produitsBoutique.filter((p) => /support/i.test(p.nom) || /support/i.test(p.categorie || ""));
+  const [supportId, setSupportId] = useState(() =>
+    (lignesReprises.length ? supportDepuisLignes(lignesReprises, articlesSupportsStock)?.id : (choixDuBrouillon ? brouillon.supportId : null)) || null);
+  const articleSupportsStock = articlesSupportsStock.find((p) => p.id === supportId) || articlesSupportsStock[0];
   const articleEtriersStock = produitsBoutique.find((p) => /[ée]trier/i.test(p.nom) || /[ée]trier/i.test(p.categorie || ""));
   // Chaque ligne a sa case de quantité (demande Timo, 08/09/2026) : la
   // valeur calculée est proposée, on peut la corriger ou la mettre à 0 pour
@@ -650,7 +670,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
-  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, autres });
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres });
 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -939,13 +959,22 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
             </tr>
             {/* Supports de rail et étriers : suivent les rails et les panneaux (règle Timo, 07/09/2026) */}
             {railsQte > 0 && [
-              ["Supports de rail", articleSupportsStock, supportsQte, sousTotalSupports, `${railsQte} rails × 2 → nombre pair suivant = ${supportsPourRails(railsQte)}`, "supports", railsQte, supportsPourRails(railsQte)],
+              ["Supports de rail", articleSupportsStock, supportsQte, sousTotalSupports, `${railsQte} m de rail → ${supportsPourRails(railsQte)} supports (un par mètre)`, "supports", railsQte, supportsPourRails(railsQte)],
               ["Étriers", articleEtriersStock, etriersQte, sousTotalEtriers, `(${nombrePanneaux} panneaux × 2) + 8 = ${etriersPourPanneaux(nombrePanneaux)}`, "etriers", nombrePanneaux, etriersPourPanneaux(nombrePanneaux)],
             ].map(([libelle, article, qte, sousTotal, calcul, cle, base, calcule]) => (
               <tr key={libelle} className="border-t border-slate-100 bg-amber-50/40">
                 <td className="px-3 py-2 font-semibold whitespace-nowrap">{libelle}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">
-                  {article ? <>{article.nom} — {calcul}</> : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
+                  {article ? (
+                    <>
+                      {cle === "supports" && articlesSupportsStock.length > 1 ? (
+                        <select className={`${inputCls} w-auto max-w-full mr-1`} value={article.id} onChange={(e) => setSupportId(e.target.value)} aria-label="Modèle de support" data-choix="support">
+                          {articlesSupportsStock.map((p) => <option key={p.id} value={p.id}>{p.nom} — {fmt(Number(p.prix_vente || 0))}</option>)}
+                        </select>
+                      ) : article.nom}
+                      {" — "}{calcul}
+                    </>
+                  ) : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
                 </td>
                 <td className="px-3 py-2 text-slate-400">—</td>
                 <td className="px-3 py-2">
