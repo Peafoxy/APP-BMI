@@ -5,7 +5,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois } from "../components/ui";
+import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois } from "../components/ui";
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
@@ -483,8 +483,12 @@ export function Caisse({ db, save, profile }) {
               <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-bold text-red-800">{blocageCloture}</div>
             )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <Field label="Montant du tiroir (tout ce qu'il contient, compté)"><input type="number" className={inputCls} value={compte} onChange={(e) => setCompte(e.target.value)} /></Field>
-              <div className="lg:col-span-2"><Field label="Remarques"><input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex : Monnaie rendue..." /></Field></div>
+              {/* Libellés COURTS (Timo, 14/09/2026 : « trop de commentaire »
+                  dans le libellé du montant du tiroir, et la ligne des
+                  remarques trop longue) : deux cases de même largeur, la
+                  remarque grandit avec le texte. */}
+              <Field label="Montant du tiroir"><input type="number" className={inputCls} value={compte} onChange={(e) => setCompte(e.target.value)} /></Field>
+              <Field label="Remarques"><ChampQuiGrandit valeur={notes} onChange={setNotes} placeholder="Ex : Monnaie rendue…" /></Field>
             </div>
             {alerteRecette && <div className="mt-2 text-sm font-bold text-red-600">{alerteRecette}</div>}
             <button onClick={cloturer} disabled={!!blocageCloture} className={`mt-3 ${btnDark}${blocageCloture ? " opacity-50 cursor-not-allowed" : ""}`}>Clôturer la caisse</button>

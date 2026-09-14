@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1337 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1338 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1068,8 +1068,13 @@ lit mal est pire qu'un banc absent).
   théorique contre montant du tiroir ») : fonds de caisse d'hier soir +
   recette du jour − sorties justifiées (dépenses + versements, **qui ne
   créent jamais d'écart** : « une dépense n'est pas un manque ») = attendu
-  dans le tiroir ; le champ s'appelle « Montant du tiroir (tout ce qu'il
-  contient, compté) ». Saisir la recette du jour à la place du tiroir est
+  dans le tiroir ; le champ s'appelle **« Montant du tiroir »** (14/09/2026,
+  capture : « trop de commentaire » — le libellé long du 09/09 est RETOURNÉ).
+  **La remarque tient sur UNE case et GRANDIT avec le texte** (« la ligne de
+  la remarque aussi trop longue, la raccourcir, et si le texte augmente, la
+  case aussi augmente de taille ») : `ChampQuiGrandit` (components/ui.jsx,
+  écrit UNE fois, une ligne au départ, 6 au plus, sans barre ni poignée) —
+  tout champ de texte libre de l'application y passera. Saisir la recette du jour à la place du tiroir est
   signalé en rouge avec le calcul (`alerteSaisieRecette`, écart 1 400 de sa
   capture). Blocage côté application seulement (règle de travail, pas de rôle).
   **Plusieurs vendeurs, UNE caisse, UNE clôture** (11/09/2026 : « que ce soit

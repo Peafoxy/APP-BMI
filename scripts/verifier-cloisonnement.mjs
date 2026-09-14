@@ -5844,10 +5844,21 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     /est la recette du jour, pas le contenu du tiroir/.test(Cl.alerteSaisieRecette("51400", jt)) && /200899.*51400.*202300.*49999/.test(nzc(Cl.alerteSaisieRecette(51400, jt)))
     && Cl.alerteSaisieRecette("50000", jt) === "" && Cl.alerteSaisieRecette("", jt) === "" && Cl.alerteSaisieRecette("abc", jt) === ""
     && Cl.alerteSaisieRecette(300, Cl.activiteDuJour({ ...dbc, ventes: [] }, "A", "2026-09-09", tv)) !== "" && Cl.alerteSaisieRecette(250, Cl.activiteDuJour({ ...dbc, ventes: [] }, "A", "2026-09-09", tv)) === "");
-  test("★ Caisse : le champ dit « Montant du tiroir (tout ce qu'il contient, compté) », l'alerte recette/tiroir s'affiche sous le champ ET dans la confirmation, la confirmation détaille fonds d'hier + recette − sorties, et « ne créent pas d'écart » est écrit sous les sorties",
-    /Montant du tiroir \(tout ce qu'il contient, compté\)/.test(csC) && /const alerteRecette = alerteSaisieRecette\(compte, jour, fmt\);/.test(csC) && /\{alerteRecette && <div/.test(csC)
+  // 14/09/2026, capture Timo : « trop de commentaire… montant du tiroir (tout
+  // ce qu'il contient, compté) ; la ligne de la remarque aussi trop longue, la
+  // raccourcir, et si le texte augmente, la case aussi augmente de taille ».
+  // Le libellé long du 09/09 est RETOURNÉ : « Montant du tiroir », point.
+  test("★ Caisse : le champ dit « Montant du tiroir » (plus de commentaire dans le libellé), l'alerte recette/tiroir s'affiche sous le champ ET dans la confirmation, la confirmation détaille fonds d'hier + recette − sorties, et « ne créent pas d'écart » est écrit sous les sorties",
+    /<Field label="Montant du tiroir">/.test(csC) && !/tout ce qu'il contient, compté/.test(csC) && /const alerteRecette = alerteSaisieRecette\(compte, jour, fmt\);/.test(csC) && /\{alerteRecette && <div/.test(csC)
     && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC) && /fonds d'hier soir \$\{fmt\(fondsHier\)\} \+ recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0 \? [^\n]*\} − sorties justifiées \$\{fmt\(sortiesJustifiees\)\}/.test(csC)
     && /Fonds de caisse d'hier soir/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
+  const uiG = readFileSync("src/components/ui.jsx", "utf8");
+  test("★ la remarque de clôture tient sur UNE case (plus de lg:col-span-2) et passe par LE champ qui grandit avec le texte, écrit une fois dans ui.jsx",
+    /<Field label="Remarques"><ChampQuiGrandit valeur=\{notes\} onChange=\{setNotes\} placeholder="Ex : Monnaie rendue…" \/><\/Field>/.test(csC)
+    && !/lg:col-span-2"><Field label="Remarques"/.test(csC)
+    && /export const ChampQuiGrandit = /.test(uiG) && /<textarea ref=\{ref\} rows=\{1\}/.test(uiG)
+    && /el\.style\.height = `\$\{Math\.min\(el\.scrollHeight, maxLignes \* 20 \+ 18\)\}px`;/.test(uiG)
+    && /resize-none overflow-hidden/.test(uiG));
 }
 
 titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avances de frais (Timo, 12/09/2026)");

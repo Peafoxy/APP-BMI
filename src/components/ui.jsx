@@ -6,7 +6,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { col, light } from "../lib/core";
 import { LOGO } from "../lib/constants";
@@ -57,6 +57,26 @@ export const Field = ({ label, children }) => (
 );
 
 export const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100";
+
+// ---- UN champ libre qui GRANDIT avec le texte (14/09/2026) ----
+// Timo, devant la case Remarques de la clôture : « la ligne de la remarque
+// est trop longue, la raccourcir, et si le texte augmente, la case aussi
+// augmente de taille ». Une seule ligne au départ, autant qu'il en faut
+// ensuite (jusqu'à `maxLignes`), sans barre de défilement ni poignée.
+// Écrit UNE fois : tout champ de texte libre de l'application y passe.
+export const ChampQuiGrandit = ({ valeur, onChange, placeholder, className = inputCls, maxLignes = 6 }) => {
+  const ref = useRef(null);
+  const ajuster = (el) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, maxLignes * 20 + 18)}px`;
+  };
+  useEffect(() => { ajuster(ref.current); }, [valeur]);
+  return (
+    <textarea ref={ref} rows={1} className={`${className} resize-none overflow-hidden`} value={valeur} placeholder={placeholder}
+      onChange={(e) => { onChange(e.target.value); ajuster(e.target); }} />
+  );
+};
 // ============ LES CASES DE CHIFFRES — UNE TEINTE PAR NATURE ============
 //
 // ⚠ DEMANDE TIMO (26/08/2026) : « avec cet aspect des cases, ça se reconnaît
