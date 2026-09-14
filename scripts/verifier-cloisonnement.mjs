@@ -4973,7 +4973,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
       && !/totalVerse|resumeCaisses|RÉSUMÉ/.test(dashR) && /\{extra\}/.test(readFileSync("src/components/SelecteurBoutique.jsx", "utf8"))
       // 13/09/2026 : « dans résumé, ne plus afficher autre chose » — tout le reste de l'écran est sous {!resume && (<>…</>)}.
-      && /\{!resume && \(<>\n\s*\{\/\* Timo \(14\/09\/2026\)/.test(csR) /* 14/09/2026 : le bloc « Remettre le fonds de caisse » du DG ouvre la partie hors résumé */ && /<\/>\)\}\n    <\/div>\n  \);\n\}/.test(csR));
+      && /\{!resume && \(<>\n\s*\{\/\* Timo \(09\/09\/2026\)/.test(csR) /* 14/09/2026 : le bloc « Remettre » du DG a été RETIRÉ de Caisse (Timo : « je le préfère dans la fiche de la boutique ») */ && /<\/>\)\}\n    <\/div>\n  \);\n\}/.test(csR));
   }
   // Timo (13/09/2026) : « au plus 10 lignes, au-delà on défile ; après 3 mois,
   // au-delà de 20 lignes, les anciennes sont archivées automatiquement… que ça
@@ -5016,9 +5016,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       rf.lignes[0].aVerser === 20000 && rf.lignes[0].solde === 50000 && rf.lignes[0].fondsFixe === 30000 && rf.total.aVerser === 29000 && rf.total.solde === 59000 && rf.total.fondsFixe === 30000);
     const csF = readFileSync("src/screens/Caisse.jsx", "utf8");
     const paF = readFileSync("src/screens/Parametres.jsx", "utf8");
-    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3) ; RETOURNÉ le 14/09/2026 (Timo : « il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser ») : le carré « Fonds à verser » ne dit PLUS « fonds de caisse fixe … conservé » (faux quand le solde est à 0), le fonds a SON carré ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe)",
+    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3) ; RETOURNÉ le 14/09/2026 (Timo : « il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser ») : le carré « Fonds à verser » ne dit PLUS « fonds de caisse fixe … conservé » (faux quand le solde est à 0), le fonds a SON carré ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe — depuis le 14/09/2026 par la fenêtre du geste unique, plan.nouveau)",
       (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /au-delà du fonds de caisse · solde en caisse \{fmt\(aVerserPeriode\.montant\)\}/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
-      && /refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/.test(paF) && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: v \}/.test(paF));
+      && (paF.match(/refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/g) || []).length === 2 && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: plan\.nouveau \}/.test(paF));
   }
   // Timo (14/09/2026), captures d'APESSITO : 348 000 d'entrées, 50 000 de
   // dépenses, 298 000 versés — « et dans la foulée on avait aussi donné un
@@ -5102,15 +5102,30 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && CgF.mouvementsComptable(dbD).mouvements.length === 0);
     // L'écran 🔒 Caisse : le geste du DG, son carré, sa colonne, sa liste.
     const csG = readFileSync("src/screens/Caisse.jsx", "utf8");
-    test("★ écran Caisse : « 💼 Remettre le fonds de caisse » = bloc du DG seul (jeSuisDG, data-bloc=\"remise-fonds\"), revérifié DANS le geste (refuserSaufAdminPrincipal + bloquerSiLecture), construireRemiseFonds, confirmation qui dit que l'argent entre dans le tiroir et sort de la caisse d'origine, date libre bornée à aujourd'hui, origine parmi ORIGINES_FONDS, banque demandée pour BANQUE",
-      /\{jeSuisDG && \(\n\s*<div className="bg-white rounded-xl border-2 border-slate-200 shadow-sm p-4" data-bloc="remise-fonds">/.test(csG) && /refuserSaufAdminPrincipal\(db, profile, "Remettre le fonds de caisse d'une boutique \(DG\)"\)/.test(csG)
-      && /const remettreFonds = async \(\) => \{\n\s*if \(refuserSaufAdminPrincipal[^\n]*\n\s*if \(bloquerSiLecture\(db, profile\)\) return;\n\s*const r = construireRemiseFonds\(profile, \{ boutique, \.\.\.remise \}\);/.test(csG)
-      && /Cet argent entre dans le tiroir de \$\{boutique\} \(il n'est ni une vente ni une dépense\) et sort de la caisse « \$\{remise\.origine\} »/.test(csG) && /<input type="date" className=\{inputCls\} value=\{remise\.date\} max=\{aujourdhui\}/.test(csG)
-      && /\{ORIGINES_FONDS\.map\(\(o\) => <option key=\{o\} value=\{o\}>\{o\}<\/option>\)\}/.test(csG) && /\{remise\.origine === DEST_BANQUE && <Field label="Nom de la banque">/.test(csG) && /save\(\{ \.\.\.db, depenses: \[r\.entree, \.\.\.\(db\.depenses \|\| \[\]\)\] \}, r\.journal\);/.test(csG));
-    test("★ écran Caisse : le carré « 💼 Fonds de caisse » À PART (data-carre=\"fonds-de-caisse\" : reste dans le tiroir, intact / entamé de, remis par le DG), la colonne « Fonds de caisse » du RÉSUMÉ (reste, fixe, entamé / intact, remis), les Entrées disent « dont fonds de caisse remis », la clôture montre le fonds remis du jour dans la recette (jamais dans les sorties), et la liste des remises passe par HistoriqueArchive",
+    // Timo (14/09/2026, après coup) : « fonds de caisse, les deux ne peuvent
+    // jamais être deux choses différentes… je le préfère dans la fiche de la
+    // boutique, puisque c'est une opération une fois de bon » — le bloc
+    // « Remettre » de Caisse est RETIRÉ ; UN geste dans ⚙ Paramètres.
+    test("★ planFondsCaisse (règle pure du geste unique) : 0 → 50 000 depuis Chez le DG = 50 000 remis ; 50 000 → 80 000 depuis la BANQUE = 30 000 remis (la différence seulement) ; « Laissé sur les ventes » = rien n'entre ; un fonds qui baisse ne remet rien ; même montant → refus ; montant ou origine mal formés → refus",
+      (() => { const a = Vs.planFondsCaisse({ ancien: 0, nouveau: 50000, origine: "Chez le DG" }); const b = Vs.planFondsCaisse({ ancien: 50000, nouveau: 80000, origine: "BANQUE" }); const c = Vs.planFondsCaisse({ ancien: 0, nouveau: 50000, origine: Vs.ORIGINE_VENTES }); const d = Vs.planFondsCaisse({ ancien: 50000, nouveau: 20000, origine: "Chez le DG" });
+        return a.remise === true && a.montantRemis === 50000 && a.delta === 50000 && b.remise === true && b.montantRemis === 30000 && c.remise === false && c.montantRemis === 0 && c.delta === 50000 && d.remise === false && d.delta === -30000
+          && /déjà de 50 000/.test(nzF(Vs.planFondsCaisse({ ancien: 50000, nouveau: 50000, origine: "Chez le DG" }).refus)) && /montant/.test(Vs.planFondsCaisse({ ancien: 0, nouveau: -5, origine: "Chez le DG" }).refus) && /Chez le DG, BANQUE/.test(Vs.planFondsCaisse({ ancien: 0, nouveau: 5, origine: "Ailleurs" }).refus)
+          && Vs.ORIGINES_FONDS_TOUTES.join("|") === "Chez le DG|BANQUE|Laissé sur les ventes"; })());
+    const paG = readFileSync("src/screens/Parametres.jsx", "utf8");
+    test("★ ⚙ Paramètres → Boutiques → 💼 Fonds de caisse = LE geste (fenêtre data-fenetre=\"fonds-de-caisse\") : montant du fonds, origine parmi ORIGINES_FONDS_TOUTES, banque pour BANQUE, date bornée à aujourd'hui sauf « laissé sur les ventes » ; planFondsCaisse puis, si l'argent vient du DG / de la banque, refuserSaufAdminPrincipal + construireRemiseFonds de la DIFFÉRENCE ; UN save écrit fonds_caisse_fixe ET l'entrée ; la confirmation dit ce qui entre ou que rien n'entre ; la liste des remises s'y lit",
+      /data-fenetre="fonds-de-caisse"/.test(paG) && /\{ORIGINES_FONDS_TOUTES\.map\(\(o\) => <option key=\{o\} value=\{o\}>\{o\}<\/option>\)\}/.test(paG) && /\{fondsForm\.origine === DEST_BANQUE && <Field label="Nom de la banque">/.test(paG)
+      && /\{fondsForm\.origine !== ORIGINE_VENTES && <Field label="Date de la remise"><input type="date" className=\{inputCls\} value=\{fondsForm\.date\} max=\{today\(\)\}/.test(paG)
+      && /const plan = planFondsCaisse\(\{ ancien: fondsCaisseFixe\(db, b\.nom\), nouveau: fondsForm\.montant, origine: fondsForm\.origine \}\);/.test(paG)
+      && /if \(plan\.remise\) \{\n[^\n]*\n\s*if \(refuserSaufAdminPrincipal\(db, profile, "Remettre le fonds de caisse d'une boutique \(DG\)"\)\) return;\n\s*const r = construireRemiseFonds\(profile, \{ boutique: b\.nom, montant: plan\.montantRemis,/.test(paG)
+      && /boutiques: db\.boutiques\.map\(\(x\) => \(x\.nom === b\.nom \? \{ \.\.\.x, fonds_caisse_fixe: plan\.nouveau \} : x\)\),\n\s*\.\.\.\(entree \? \{ depenses: \[entree, \.\.\.\(db\.depenses \|\| \[\]\)\] \} : \{\}\),/.test(paG)
+      && /entrent dans le tiroir de \$\{b\.nom\} le \$\{dFR\(fondsForm\.date\)\} \(ni vente, ni dépense\) et sortent de la caisse « \$\{fondsForm\.origine\} »/.test(paG) && /Rien n'entre en caisse : les/.test(paG) && /deviennent à verser/.test(paG)
+      && /\{remisesFondsDe\(db, fondsPour\.nom\)\.length > 0 && \(/.test(paG) && /if \(bloquerSiLecture\(db, profile\)\) return;\n\s*const plan = planFondsCaisse/.test(paG));
+    test("★ 🔒 Caisse ne porte PLUS le geste (Timo : « je le préfère dans la fiche de la boutique ») : ni bloc « Remettre », ni construireRemiseFonds, ni champ de date ; il ne garde que la lecture (le carré) et renvoie vers ⚙ Paramètres → Boutiques → 💼 Fonds de caisse",
+      !/remise-fonds|construireRemiseFonds|remettreFonds|type="date"/.test(readFileSync("src/screens/Caisse.jsx", "utf8")) && /aucun fonds réglé \(⚙ Paramètres → Boutiques → 💼 Fonds de caisse\)/.test(readFileSync("src/screens/Caisse.jsx", "utf8")));
+    test("★ écran Caisse : le carré « 💼 Fonds de caisse » À PART (data-carre=\"fonds-de-caisse\" : reste dans le tiroir, intact / entamé de, remis par le DG), la colonne « Fonds de caisse » du RÉSUMÉ (reste, fixe, entamé / intact, remis), les Entrées disent « dont fonds de caisse remis », la clôture montre le fonds remis du jour dans la recette (jamais dans les sorties)",
       /data-carre="fonds-de-caisse"/.test(csG) && /aVerserPeriode\.fondsIntact \? "intact dans le tiroir" : `il en reste \$\{fmt\(aVerserPeriode\.resteFonds\)\} · entamé de \$\{fmt\(aVerserPeriode\.fondsEntame\)\}`/.test(csG) && /remis par le DG \$\{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
       && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\]/.test(csG) && /\{l\.fondsFixe > 0 \? fmt\(l\.resteFonds\) : "—"\}/.test(csG) && /dont fonds de caisse remis \{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
-      && /\+ \{fmt\(recetteDuJour \+ fondsRemisDuJour\)\}/.test(csG) && /fonds de caisse remis par le DG \$\{fmt\(fondsRemisDuJour\)\}/.test(csG) && /<HistoriqueArchive lignes=\{remisesFonds\} dateDe=\{\(d\) => d\.date\} aujourdhui=\{aujourdhui\}/.test(csG)
+      && /\+ \{fmt\(recetteDuJour \+ fondsRemisDuJour\)\}/.test(csG) && /fonds de caisse remis par le DG \$\{fmt\(fondsRemisDuJour\)\}/.test(csG)
       && /\+ recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0 \? ` \+ fonds de caisse remis par le DG \$\{fmt\(fondsRemisDuJour\)\}` : ""\} − sorties justifiées/.test(csG));
     const s16 = readFileSync("supabase/securite-16-fonds-de-caisse.sql", "utf8");
     const ta16 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
@@ -5125,8 +5140,8 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).montant === 252300 && Vs.fondsAVerser({ depenses: [], ventes: db1.ventes, dettes: db1.dettes }, "APESSITO", tv).dernierVersement === "");
   const csV = readFileSync("src/screens/Caisse.jsx", "utf8");
   const nz = (t) => String(t).replace(/\u202f|\u00a0/g, " "); // les montants formatés portent une espace fine insécable
-  test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple ; le SEUL champ de date de l'écran est celui de la remise du fonds de caisse (14/09/2026)",
-    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du [^\n]{0,40} au\b/.test(csV) && (csV.match(/type="date"/g) || []).length === 1 && /type="date" className=\{inputCls\} value=\{remise\.date\}/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
+  test("★ plus de « Recette du … au » nulle part (règle et écran) ; la note n'a pas d'exemple ; aucun champ de date dans l'écran (la date de remise du fonds vit dans ⚙ Paramètres depuis le 14/09/2026)",
+    !/libellePeriode|du: String\(du/.test(readFileSync("src/lib/versements.js", "utf8")) && !/Recette du [^\n]{0,40} au\b|type="date"/.test(csV) && !/placeholder="Ex : recette du jour"/.test(csV));
   test("★ montant différent de l'attendu SANS note → refusé avec « Justifiez pourquoi le montant n'est pas X » ; avec note → accepté ; montant égal → aucune note exigée",
     nz(Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "" })) === "Justifiez pourquoi le montant n'est pas 200 000 F"
     && Vs.critiqueVersement({ montant: 150000, destination: "Chez le DG", attendu: 200000, note: "fonds de caisse gardé" }) === "" && Vs.critiqueVersement({ montant: 200000, destination: "Chez le DG", attendu: 200000.4, note: "" }) === ""

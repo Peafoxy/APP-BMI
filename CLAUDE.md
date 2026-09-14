@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1293 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1295 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -796,21 +796,28 @@ lit mal est pire qu'un banc absent).
   on avait aussi donné un fonds de caisse de 50 000… il ne faut pas mélanger
   le fonds de caisse avec ce qu'on va verser… on ne verse jamais le fonds de
   caisse ») : l'argent que le DG remet lui-même n'était écrit nulle part
-  (solde 0, « 50 000 conservé » faux, clôture faussée de 50 000). Donc
-  **« 💼 Remettre le fonds de caisse » dans 🔒 Caisse, administrateur
-  PRINCIPAL seul** (`construireRemiseFonds`, lib/versements.js ; serveur
-  `securite-16`) : une ligne de `depenses` sur la boutique, catégorie
-  `CATEGORIE_FONDS_CAISSE` (« Fonds de caisse remis »), **montant NÉGATIF**
-  (entrée du tiroir, convention de la caisse du comptable), date libre,
-  origine **Chez le DG** (d'office) ou **BANQUE** ; c'est une SORTIE de cette
-  caisse centrale le jour de la remise. **Ni vente, ni charge**
+  (solde 0, « 50 000 conservé » faux, clôture faussée de 50 000). Puis, le
+  même jour, devant un bloc « Remettre » ajouté dans 🔒 Caisse à côté du
+  réglage de ⚙ Paramètres : **« fonds de caisse, les deux ne peuvent jamais
+  être deux choses différentes… je le préfère dans la fiche de la boutique,
+  puisque c'est une opération une fois de bon »**. Donc **UN seul geste,
+  ⚙ Paramètres → Boutiques → 💼 Fonds de caisse** (fenêtre, admin) : le
+  MONTANT du fonds et D'OÙ vient l'argent (`planFondsCaisse`,
+  lib/versements.js) — **Chez le DG** (d'office) ou **BANQUE** : la
+  DIFFÉRENCE entre dans le tiroir (`construireRemiseFonds`, administrateur
+  PRINCIPAL seul, revérifié dans le geste ; serveur `securite-16`) ; **« Laissé
+  sur les ventes »** : rien n'entre, l'argent y est déjà ; un fonds qui baisse
+  ne fait rien bouger. L'entrée = une ligne de `depenses` sur la boutique,
+  catégorie `CATEGORIE_FONDS_CAISSE` (« Fonds de caisse remis »), **montant
+  NÉGATIF** (convention de la caisse du comptable), à la date choisie, et une
+  SORTIE de la caisse centrale d'origine ce jour-là. **Ni vente, ni charge**
   (`CATEGORIES_HORS_CHARGES`), jamais une « sortie » négative : `fondsAVerser`
   la rend à part (`fondsRemis`), la clôture aussi (`fondsRemisDuJour`, dans la
-  recette). **Le fonds a SON carré** (« 💼 Fonds de caisse » : ce qu'il en
-  reste dans le tiroir = solde borné au fonds fixe, `etatFondsCaisse` —
-  intact / entamé de X) et sa colonne dans le RÉSUMÉ ; le carré « Fonds à
-  verser » ne dit plus « conservé ». Un fonds gardé en versant moins ne se
-  saisit pas (rien à écrire).
+  recette). **🔒 Caisse ne fait que LIRE** : le carré « 💼 Fonds de caisse »
+  (ce qu'il en reste dans le tiroir = solde borné au fonds, `etatFondsCaisse`
+  — intact / entamé de X) et sa colonne dans le RÉSUMÉ ; le carré « Fonds à
+  verser » ne dit plus « conservé ». Le banc interdit tout geste de remise
+  dans Caisse.
 - **« Payé avec : la caisse du comptable »** (13/09/2026) : quatrième origine
   (`PAYE_AVEC_COMPTABLE`), **réel seulement** (`optionsPayeAvec(…, {
   avecComptable: !afficheChiffresFormation })`, « Chez le comptable » n'a pas

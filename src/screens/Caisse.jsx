@@ -13,7 +13,7 @@ import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut,
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, ORIGINES_FONDS, construireRemiseFonds, remisesFondsDe, libelleOrigineFonds } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -96,12 +96,6 @@ export function Caisse({ db, save, profile }) {
   // Timo (10/09/2026) : « Destination de versement reste sur DG par défaut ».
   const destinationDefaut = DEST_DG;
   const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
-  // ---- 💼 LE FONDS DE CAISSE REMIS PAR LE DG (Timo, 14/09/2026) ----
-  // « On avait aussi donné un fonds de caisse de 50 000… on ne verse jamais le
-  // fonds de caisse » : l'argent que le DG remet à une boutique ENTRE dans son
-  // tiroir (lib/versements.js, construireRemiseFonds) — l'administrateur
-  // PRINCIPAL seul, date libre (le jour où l'argent a été remis).
-  const [remise, setRemise] = useState({ montant: "", origine: DEST_DG, banque: "", note: "", date: today() });
   // ⚠ Le montant ATTENDU par le formulaire de versement est toujours le solde
   // depuis le début (un solde ne dépend pas d'une période) ; les carrés, eux,
   // suivent la période choisie.
@@ -156,18 +150,6 @@ export function Caisse({ db, save, profile }) {
     if (refus) { uAlert(refus); return; }
     const r = rejeterVersement(db, profile, d, motif, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
-  };
-
-  const remisesFonds = remisesFondsDe(db, boutique);
-  const remettreFonds = async () => {
-    if (refuserSaufAdminPrincipal(db, profile, "Remettre le fonds de caisse d'une boutique (DG)")) return;
-    if (bloquerSiLecture(db, profile)) return;
-    const r = construireRemiseFonds(profile, { boutique, ...remise });
-    if (r.refus) { uAlert(r.refus); return; }
-    if (!await uConfirm(`Enregistrer la remise de ${fmt(Number(remise.montant))} à ${boutique} le ${dFR(remise.date)} (${libelleOrigineFonds(r.fonds_caisse)}) ?\n\nCet argent entre dans le tiroir de ${boutique} (il n'est ni une vente ni une dépense) et sort de la caisse « ${remise.origine} ».${aVerser.fondsFixe > 0 ? `\nFonds de caisse fixe réglé : ${fmt(aVerser.fondsFixe)}.` : "\nAucun fonds de caisse fixe n'est réglé pour cette boutique (⚙ Paramètres → Boutiques)."}`)) return;
-    save({ ...db, depenses: [r.entree, ...(db.depenses || [])] }, r.journal);
-    setRemise({ montant: "", origine: DEST_DG, banque: "", note: "", date: today() });
-    uAlert(`Fonds de caisse remis à ${boutique} : ${fmt(Number(r.fonds_caisse.montant))}.`);
   };
 
   // ---- 💼 LES AVANCES DE FRAIS À REMBOURSER (Timo, 12/09/2026) ----
@@ -268,42 +250,6 @@ export function Caisse({ db, save, profile }) {
       {/* Timo (13/09/2026) : « dans résumé, ne plus afficher autre chose que le
           résumé des caisses » — versements, avances, clôture disparaissent. */}
       {!resume && (<>
-      {/* Timo (14/09/2026) : « on avait aussi donné un fonds de caisse de 50 000 »
-          — le DG remet le fonds ICI ; l'argent entre dans le tiroir, sort de sa
-          caisse (ou de la banque). Jamais un versement, jamais une dépense. */}
-      {jeSuisDG && (
-        <div className="bg-white rounded-xl border-2 border-slate-200 shadow-sm p-4" data-bloc="remise-fonds">
-          <div className="font-bold mb-1 text-slate-800">💼 Remettre le fonds de caisse <Badge boutique={boutique} /></div>
-          <div className="text-xs text-slate-500 mb-3">L'argent que vous laissez dans le tiroir de {boutique} pour ses petites dépenses. Il entre dans sa caisse (ni vente, ni dépense) et sort de la caisse « Chez le DG » ou de la BANQUE. Un fonds gardé en versant moins ne se saisit pas ici.{aVerser.fondsFixe > 0 ? ` Fonds fixe réglé : ${fmt(aVerser.fondsFixe)} · il en reste ${fmt(aVerser.resteFonds)} dans le tiroir.` : " Aucun fonds fixe réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse)."}</div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Field label="Montant remis (F)"><input type="number" inputMode="numeric" className={inputCls} value={remise.montant} onChange={(e) => setRemise({ ...remise, montant: e.target.value })} placeholder={aVerser.fondsFixe > 0 ? String(aVerser.fondsFixe) : ""} /></Field>
-            <Field label="Date de la remise"><input type="date" className={inputCls} value={remise.date} max={aujourdhui} onChange={(e) => setRemise({ ...remise, date: e.target.value })} /></Field>
-            <Field label="D'où vient l'argent">
-              <select className={inputCls} value={remise.origine} onChange={(e) => setRemise({ ...remise, origine: e.target.value })}>
-                {ORIGINES_FONDS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </Field>
-            {remise.origine === DEST_BANQUE && <Field label="Nom de la banque"><input className={inputCls} value={remise.banque} onChange={(e) => setRemise({ ...remise, banque: e.target.value })} placeholder="Ex : Ecobank" /></Field>}
-            <Field label="Précision (facultatif)"><input className={inputCls} value={remise.note} onChange={(e) => setRemise({ ...remise, note: e.target.value })} /></Field>
-            <div className="flex items-end"><button onClick={remettreFonds} className={btnDark}>💼 Enregistrer la remise</button></div>
-          </div>
-          {remisesFonds.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Fonds remis à {boutique}</div>
-              <HistoriqueArchive lignes={remisesFonds} dateDe={(d) => d.date} aujourdhui={aujourdhui} vide="Aucune remise." titreArchives="Remises archivées"
-                entete={<thead className="sticky top-0"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{[["Date", "text-left"], ["Montant", "text-right"], ["Origine", "text-left"], ["Par", "text-left"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}</tr></thead>}
-                rendre={(d) => (
-                  <tr key={d.id} className="border-t border-slate-100">
-                    <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
-                    <td className="px-3 py-2 tabular-nums text-right font-bold">{fmt(d.fonds_caisse.montant)}</td>
-                    <td className="px-3 py-2">{libelleOrigineFonds(d.fonds_caisse)}{d.fonds_caisse.note ? <span className="text-xs text-slate-500"> · {d.fonds_caisse.note}</span> : null}</td>
-                    <td className="px-3 py-2 text-xs">{d.par}</td>
-                  </tr>
-                )} />
-            </div>
-          )}
-        </div>
-      )}
       {/* Timo (09/09/2026) : « sans versement, rien n'apparaît » — l'encadré
           du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
       {jeSuisDG && (
@@ -349,7 +295,7 @@ export function Caisse({ db, save, profile }) {
           {(aVerserPeriode.fondsFixe > 0 || aVerserPeriode.fondsRemis > 0) && (
             <div className="bg-white rounded-lg p-3 border border-slate-200" data-carre="fonds-de-caisse"><div className="text-xs text-slate-500">💼 Fonds de caisse{aVerserPeriode.fondsFixe > 0 ? ` (fixe ${fmt(aVerserPeriode.fondsFixe)})` : ""}</div>
               <div className={`font-bold tabular-nums ${aVerserPeriode.fondsFixe > 0 && aVerserPeriode.fondsEntame > 0 ? "text-amber-700" : ""}`}>{aVerserPeriode.fondsFixe > 0 ? fmt(aVerserPeriode.resteFonds) : "—"}</div>
-              <div className="text-xs text-slate-400">{aVerserPeriode.fondsFixe > 0 ? (aVerserPeriode.fondsIntact ? "intact dans le tiroir" : `il en reste ${fmt(aVerserPeriode.resteFonds)} · entamé de ${fmt(aVerserPeriode.fondsEntame)}`) : "aucun fonds fixe réglé (⚙ Paramètres → Boutiques)"}{aVerserPeriode.fondsRemis > 0 ? ` · remis par le DG ${fmt(aVerserPeriode.fondsRemis)}${aVerserPeriode.derniereRemise ? ` (le ${dFR(aVerserPeriode.derniereRemise)})` : ""}` : ""}</div></div>
+              <div className="text-xs text-slate-400">{aVerserPeriode.fondsFixe > 0 ? (aVerserPeriode.fondsIntact ? "intact dans le tiroir" : `il en reste ${fmt(aVerserPeriode.resteFonds)} · entamé de ${fmt(aVerserPeriode.fondsEntame)}`) : "aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse)"}{aVerserPeriode.fondsRemis > 0 ? ` · remis par le DG ${fmt(aVerserPeriode.fondsRemis)}${aVerserPeriode.derniereRemise ? ` (le ${dFR(aVerserPeriode.derniereRemise)})` : ""}` : ""}</div></div>
           )}
           {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">{depuisLeDebut ? `ce mois ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</div></div>

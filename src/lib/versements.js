@@ -163,6 +163,26 @@ export function etatFondsCaisse(solde, fondsFixe) {
 // ou « BANQUE » (lib/caissesCentrales.js). Un fonds laissé en versant moins
 // reste ce qu'il est : rien à écrire. Serveur : securite-16.
 export const ORIGINES_FONDS = [DEST_DG, DEST_BANQUE];
+// Timo (14/09/2026, après coup) : « fonds de caisse, les deux ne peuvent jamais
+// être deux choses différentes… je le préfère dans la fiche de la boutique,
+// puisque c'est une opération une fois de bon ». Donc UN seul geste, dans
+// ⚙ Paramètres → Boutiques → 💼 Fonds de caisse : on dit le MONTANT du fonds
+// et D'OÙ vient l'argent. Si le fonds monte et que l'argent vient de chez le
+// DG ou de la banque, la différence ENTRE dans le tiroir (construireRemiseFonds) ;
+// « laissé sur les ventes » = l'argent est déjà dans le tiroir, rien n'entre ;
+// un fonds qui baisse ne fait rien bouger (le surplus devient à verser).
+export const ORIGINE_VENTES = "Laissé sur les ventes";
+export const ORIGINES_FONDS_TOUTES = [DEST_DG, DEST_BANQUE, ORIGINE_VENTES];
+export function planFondsCaisse({ ancien, nouveau, origine }) {
+  const a = Math.max(0, Math.round(Number(ancien) || 0));
+  const n = Math.round(Number(nouveau));
+  if (!Number.isFinite(n) || n < 0) return { refus: "Indiquez le montant du fonds de caisse (0 ou plus)." };
+  if (!ORIGINES_FONDS_TOUTES.includes(origine)) return { refus: "Indiquez d'où vient l'argent : Chez le DG, BANQUE, ou laissé sur les ventes." };
+  const delta = n - a;
+  const remise = delta > 0 && origine !== ORIGINE_VENTES;
+  if (n === a) return { refus: `Le fonds de caisse est déjà de ${fmt(a)}.` };
+  return { ancien: a, nouveau: n, delta, remise, montantRemis: remise ? delta : 0 };
+}
 export const estFondsCaisseRemis = (dep) => !!dep?.fonds_caisse && dep.categorie === CATEGORIE_FONDS_CAISSE;
 export function critiqueRemiseFonds({ montant, origine, banque, date }) {
   const m = Number(montant);
