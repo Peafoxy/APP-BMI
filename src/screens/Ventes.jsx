@@ -1045,7 +1045,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 </select>
               </Field>
               <Field label="Article">
-                <SelecteurArticle produits={dom ? produitsDuDomaine : produits} valeur={sel.produit_id} onChoisir={choisir} dispoRestant={dispoRestant} categorieFiltre={cat} />
+                <SelecteurArticle produits={dom ? produitsDuDomaine : produits} valeur={sel.produit_id} onChoisir={choisir} dispoRestant={dispoRestant} categorieFiltre={cat} prix={(p) => Number(p.prix_vente || 0)} />
               </Field>
               <Field label="Quantité"><input type="number" min="1" className={inputCls} value={sel.qte} onChange={(e) => setSel({ ...sel, qte: e.target.value })} /></Field>
               <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value, remF: "", remP: "" })} /></Field>

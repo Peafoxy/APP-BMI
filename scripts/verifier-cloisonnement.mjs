@@ -3527,6 +3527,19 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
 }
 
+titre("💰 Ventes : le prix de vente se lit dans la fenêtre « Rechercher un article » (14/09/2026)");
+{
+  // Timo : « dans Ventes, quand on clique sur l'article, à part la quantité en
+  // stock qui apparaît, on devrait aussi avoir le prix de vente ».
+  const sa = readFileSync("src/components/SelecteurArticle.jsx", "utf8");
+  test("★ chaque ligne du sélecteur montre le prix (quand l'écran en passe un) à côté du disponible — « 12 000 F · dispo : 30 »",
+    /prix \? <span className="font-semibold text-slate-700" data-prix=\{p\.id\}>\{fmt\(prix\(p\)\)\}<\/span> : null/.test(sa)
+    && /<span className="text-slate-400">dispo : \{dispoRestant\(p\)\}<\/span>/.test(sa) && /import \{ fmt \} from "\.\.\/lib\/core";/.test(sa));
+  test("★ Ventes passe le PRIX DE VENTE de l'article ; Commandes ne passe rien (le prix de vente n'y a pas de sens)",
+    /<SelecteurArticle [^\n]*prix=\{\(p\) => Number\(p\.prix_vente \|\| 0\)\} \/>/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && !/prix=/.test((readFileSync("src/screens/Commandes.jsx", "utf8").match(/<SelecteurArticle [^\n]*\/>/) || [""])[0]));
+}
+
 titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé (14/09/2026)");
 {
   // Capture Timo : MR ERIC, 1 000 000 F dû, 0 F versé, et le document disait

@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { inputCls } from "./ui";
+import { fmt } from "../lib/core";
 // LA règle de recherche de l'application (Timo, 13/09/2026 : « dans Ventes,
 // la recherche d'articles est rigide… avoir une seule règle qui régit les
 // recherches ») : sans accents ni majuscules, chaque mot tapé dans
@@ -12,7 +13,12 @@ import { inputCls } from "./ui";
 import { correspond } from "../lib/suggestions";
 
 // ============ SÉLECTEUR D'ARTICLE (recherche tactile, sans menu natif) ============
-export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, categorieFiltre }) {
+// `prix` (facultatif) : une fonction qui rend le prix à montrer sur chaque
+// ligne, à côté du disponible (Timo, 14/09/2026 : « dans Ventes, quand on
+// clique sur l'article, à part la quantité en stock, on devrait aussi avoir
+// le prix de vente »). Ventes passe le prix de vente ; Commandes ne passe
+// rien, et rien ne s'affiche.
+export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, categorieFiltre, prix }) {
   const [ouvert, setOuvert] = useState(false);
   const [recherche, setRecherche] = useState("");
   const selectionne = produits.find((p) => p.id === valeur);
@@ -44,7 +50,7 @@ export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, ca
                     <button key={p.id} type="button" onClick={() => { onChoisir(p.id); setOuvert(false); setRecherche(""); }}
                       className="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between">
                       <span className="font-medium">{p.nom}</span>
-                      <span className="text-xs text-slate-400 whitespace-nowrap ml-2">dispo : {dispoRestant(p)}</span>
+                      <span className="text-xs whitespace-nowrap ml-2">{prix ? <span className="font-semibold text-slate-700" data-prix={p.id}>{fmt(prix(p))}</span> : null}{prix ? <span className="text-slate-400"> · </span> : null}<span className="text-slate-400">dispo : {dispoRestant(p)}</span></span>
                     </button>
                   ))}
                 </div>

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1335 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1337 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -625,6 +625,13 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### 💰 Ventes : le prix dans la fenêtre « Rechercher un article » (14/09/2026)
+- Timo : « quand on clique sur l'article, à part la quantité en stock, on
+  devrait aussi avoir le prix de vente » → chaque ligne du sélecteur
+  (`components/SelecteurArticle.jsx`) montre « 12 000 F · dispo : 30 »
+  quand l'écran passe une fonction `prix` ; Ventes passe le prix de vente,
+  Commandes ne passe rien (rien ne s'affiche). Le banc le vérifie.
 
 ### 🧾 Le reçu d'une dette (14/09/2026)
 - Capture Timo (MR ERIC, 1 000 000 F dû, 0 F versé, titré « REÇU DE
