@@ -16,7 +16,7 @@ import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, con
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable } from "../components/ui";
 import { imprimerRecu, imprimerProforma, recuWhatsApp, imprimerRecuVersement } from "../lib/impression";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { motifBlocageVente } from "../lib/cloture";
@@ -875,13 +875,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setReprise(null);
   };
   const ouvrirRetour = (v) => {
-    if (refuserSaufAdmin(profile, "Enregistrer un retour sous garantie")) return;
+    if (refuserSaufRoles(profile, ROLES_RETOUR_GARANTIE, "Enregistrer un retour sous garantie")) return;
     const lignesStock = lignesVente(v).filter((l) => !l.hors_boutique && l.produit_id);
     if (!lignesStock.length) { uAlert("Cette vente ne porte aucun article de stock à échanger."); return; }
     setRetour({ vente: v, produit_id: lignesStock[0].produit_id, qte: "1", motif: "", facture: false, montant: "", detail: "" });
   };
   const confirmerRetour = async () => {
-    if (refuserSaufAdmin(profile, "Enregistrer un retour sous garantie")) return;
+    if (refuserSaufRoles(profile, ROLES_RETOUR_GARANTIE, "Enregistrer un retour sous garantie")) return;
     if (bloquerSiLecture(db, profile)) return;
     const r = retour;
     if (r.facture && !(Number(r.montant) > 0)) { uAlert("Indiquez le montant facturé, ou repassez sur « Gratuit »."); return; }
@@ -1251,7 +1251,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     {peutTransformerEnDevis(v) && onTransformerEnDevis && (
                       <button onClick={() => transformerEnDevis(v)} className={boutonAction("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title="📋 Devis : reprendre cette vente pour en faire un devis d'installation" aria-label="Devis">📋</button>
                     )}
-                    {profile.role === "admin" && (
+                    {ROLES_RETOUR_GARANTIE.includes(profile.role) && (
                       <button onClick={() => ouvrirRetour(v)} className={boutonAction("text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100")} title="🔁 Retour : échange sous garantie, sortie de stock SANS vente ni facturation (ou frais partiels)" aria-label="Retour">🔁</button>
                     )}
                     {jeSuisPrincipal && lignesReprenables(v).length > 0 && (

@@ -3237,6 +3237,19 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
   test("★ un retour GRATUIT ne crée ni vente ni dette", !gratuit.erreur && gratuit.dette === null);
   test("★ la sortie de remplacement est un ajustement négatif — pas une vente",
     gratuit.ajustements[0].qte === -1 && gratuit.ajustements[0].type === "echange_garantie");
+  // Timo (14/09/2026) : « ouvre le retour sous garantie au gérant ».
+  {
+    const vG = readFileSync("src/screens/Ventes.jsx", "utf8");
+    const s17 = readFileSync("supabase/securite-17-retour-gerant.sql", "utf8");
+    const ta17 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+    test("★ le retour sous garantie est ouvert au GÉRANT (Timo, 14/09/2026) : ROLES_RETOUR_GARANTIE = gérant + admin ; dans Ventes le bouton 🔁 suit ce rôle et le geste le revérifie deux fois (refuserSaufRoles) ; statuer sur le défectueux reste admin (Stocks) ; serveur securite-17 (ligne relue, statut par upsert refusé au gérant), banc tester-argent : gérant permis, vendeur refusé, statut par upsert refusé",
+      C.ROLES_RETOUR_GARANTIE.join() === "gerant,admin" && /\{ROLES_RETOUR_GARANTIE\.includes\(profile\.role\) && \(\n\s*<button onClick=\{\(\) => ouvrirRetour\(v\)\}/.test(vG)
+      && (vG.match(/refuserSaufRoles\(profile, ROLES_RETOUR_GARANTIE, "Enregistrer un retour sous garantie"\)/g) || []).length === 2 && !/refuserSaufAdmin\(profile, "Enregistrer un retour sous garantie"\)/.test(vG)
+      && (readFileSync("src/screens/Stocks.jsx", "utf8").match(/refuserSaufAdmin\(profile, "Statuer sur un article défectueux"\)/g) || []).length === 2
+      && /if r not in \('gerant', 'admin'\) then perform public\.refus_role\('Retour sous garantie', 'le gérant, l''administrateur'\); end if;/.test(s17) && /select a\.data into avant from public\.ajustements a where a\.id = new\.id;/.test(s17)
+      && /if avant is not null and \(avant ->> 'statut'\) is distinct from \(new\.data ->> 'statut'\) and r <> 'admin' then/.test(s17) && /revoke all on function public\.ajustements_regles_roles\(\) from public, anon;/.test(s17)
+      && /-f supabase\/securite-17-retour-gerant\.sql/.test(ta17) && /le GÉRANT enregistre un échange sous garantie[^"]*" "PERMIS"/.test(ta17) && /un vendeur enregistre un échange sous garantie" "REFUSE"/.test(ta17) && /le gérant statue sur un défectueux PAR UPSERT[^"]*" "REFUSE"/.test(ta17));
+  }
   const dbApres = { ...dbR, ajustements: gratuit.ajustements };
   test("★ le stock vendable baisse d'exactement 1 (5 − 2 vendus − 1 échangé = 2)",
     C.stockActuel(dbApres, dbR.produits[0]) === 2);
@@ -3440,7 +3453,7 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
     && C.ROLES_FOURNISSEURS.join() === "gerant,admin" && C.PLAFOND_REMISE_PCT === 3
     && C.remiseExigeAdmin(3.5) && !C.remiseExigeAdmin(3) && !C.remiseExigeAdmin("") );
   const attendus = [
-    ["src/screens/Ventes.jsx", ["Supprimer une vente", "Enregistrer un retour sous garantie", "Enregistrer un retour sous garantie"]],
+    ["src/screens/Ventes.jsx", ["Supprimer une vente"]], // 14/09/2026 : le retour sous garantie passe au gérant (refuserSaufRoles, ROLES_RETOUR_GARANTIE)
     ["src/screens/Dettes.jsx", ["Supprimer une dette"]],
     ["src/screens/Depenses.jsx", ["Supprimer une dépense", "Supprimer une dépense", "Annuler un pointage du comptable"]],
     ["src/screens/Stocks.jsx", ["Servir un bon de ravitaillement", "Refuser une demande de ravitaillement", "Faire l'inventaire", "Valider l'inventaire",

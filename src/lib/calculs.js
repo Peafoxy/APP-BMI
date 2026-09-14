@@ -1847,6 +1847,10 @@ export const bloquerSiLecture = (db, profile) => {
 // que le serveur refuserait.
 export const ROLES_STOCK = ["magasinier", "gerant", "admin"];        // entrées, ajustements, transferts, inventaire, bons
 export const ROLES_CAISSE = ["vendeur", "gerant", "admin"];          // clôturer la caisse (vendeur aussi — Timo, 09/09/2026)
+// Timo (14/09/2026) : « ouvre le retour sous garantie au gérant » — l'échange
+// d'un article défectueux (🔁 Retour dans Ventes) ; statuer sur le défectueux
+// (renvoyé au fournisseur / rebut) reste admin. Serveur : securite-17.
+export const ROLES_RETOUR_GARANTIE = ["gerant", "admin"];
 export const ROLES_FOURNISSEURS = ["gerant", "admin"];               // régler, endetter, supprimer un fournisseur
 export const PLAFOND_REMISE_PCT = 3;                                  // au-delà : admin seul
 const LIBELLE_ROLE_COURT = { admin: "l'administrateur", gerant: "le gérant", magasinier: "le magasinier",

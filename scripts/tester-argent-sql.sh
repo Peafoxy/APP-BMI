@@ -50,6 +50,8 @@ echo "▸ La validation des dépenses par le DG : supabase/securite-15-validatio
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-15-validation-depenses.sql >/dev/null 2>&1 || echo "   ❌ securite-15 refusé par la base"
 echo "▸ Le fonds de caisse remis par le DG : supabase/securite-16-fonds-de-caisse.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-16-fonds-de-caisse.sql >/dev/null 2>&1 || echo "   ❌ securite-16 refusé par la base"
+echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -140,12 +142,17 @@ essai "le magasinier supprime un article" "REFUSE" "$MAGASINIER" "$(SUPPR produi
 essai "l'admin supprime un article" "PERMIS" "$ADMIN" "$(SUPPR produits zp1)"
 
 echo
-echo "── LES MOUVEMENTS DE STOCK : magasinier / gérant / admin ; garantie et SAV : admin ──"
+echo "── LES MOUVEMENTS DE STOCK : magasinier / gérant / admin ; garantie : gérant + admin (securite-17, 14/09/2026) ; SAV : admin ──"
 essai "un vendeur enregistre un transfert de stock" "REFUSE" "$VENDEUR" "$(INS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-1,"type":"transfert"}')"
 essai "le gérant enregistre un transfert de stock" "PERMIS" "$GERANT" "$(INS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-1,"type":"transfert"}')"
 essai "le magasinier valide un inventaire (ajustement d'écart)" "PERMIS" "$MAGASINIER" "$(INS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-2,"type":"inventaire"}')"
 essai "le magasinier enregistre un ÉCHANGE SOUS GARANTIE" "REFUSE" "$MAGASINIER" "$(INS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-1,"type":"echange_garantie"}')"
 essai "l'admin enregistre un échange sous garantie" "PERMIS" "$ADMIN" "$(INS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-1,"type":"echange_garantie"}')"
+essai "★ le GÉRANT enregistre un échange sous garantie (Timo, 14/09/2026 : « ouvre le retour sous garantie au gérant »)" "PERMIS" "$GERANT" "$(UPS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-1,"type":"echange_garantie"}')"
+essai "★ le gérant pose le défectueux en SAV (retour_defectueux, statut en_sav)" "PERMIS" "$GERANT" "$(UPS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":1,"type":"retour_defectueux","statut":"en_sav"}')"
+essai "★ un vendeur enregistre un échange sous garantie" "REFUSE" "$VENDEUR" "$(UPS ajustements zj9 '{"id":"zj9","produit_id":"zp1","qte":-1,"type":"echange_garantie"}')"
+essai "★ le gérant statue sur un défectueux PAR UPSERT (statut en_sav → rebut, ligne relue)" "REFUSE" "$GERANT" "$(UPS ajustements zj1 '{"id":"zj1","produit_id":"zp1","boutique":"APESSITO","qte":0,"qte_sav":1,"type":"retour_defectueux","statut":"rebut"}')"
+essai "★ l'admin statue sur un défectueux par upsert" "PERMIS" "$ADMIN" "$(UPS ajustements zj1 '{"id":"zj1","produit_id":"zp1","boutique":"APESSITO","qte":0,"qte_sav":1,"type":"retour_defectueux","statut":"rebut"}')"
 essai "le gérant statue sur un défectueux (rebut)" "REFUSE" "$GERANT" "$(MAJ ajustements "jsonb_set(data,'{statut}','\"rebut\"')" zj1)"
 essai "l'admin statue sur un défectueux (rebut)" "PERMIS" "$ADMIN" "$(MAJ ajustements "jsonb_set(data,'{statut}','\"rebut\"')" zj1)"
 essai "un vendeur supprime un ajustement" "REFUSE" "$VENDEUR" "$(SUPPR ajustements zj1)"
