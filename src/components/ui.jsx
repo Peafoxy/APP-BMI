@@ -337,6 +337,30 @@ const ligneBlanche = (ctx, largeur) => (y) => {
   for (let i = 0; i < d.length; i += 4) if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) return false;
   return true;
 };
+// Le rectangle réellement occupé par le document dans le cadre hors écran
+// (l'union des boîtes de ses éléments visibles), en pixels CSS relatifs au
+// cadre — un petit air de 4 px autour, jamais hors du cadre.
+export function cadreContenu(conteneur, air = 4) {
+  const base = conteneur.getBoundingClientRect();
+  let g = Infinity, d = -Infinity, h = Infinity, b = -Infinity;
+  conteneur.querySelectorAll("*").forEach((el) => {
+    if (el.tagName === "STYLE" || el.tagName === "SCRIPT") return;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return;
+    g = Math.min(g, r.left); d = Math.max(d, r.right); h = Math.min(h, r.top); b = Math.max(b, r.bottom);
+  });
+  if (!Number.isFinite(g)) return { x: 0, y: 0, largeur: base.width, hauteur: base.height };
+  const x = Math.max(0, g - base.left - air), y = Math.max(0, h - base.top - air);
+  return { x, y, largeur: Math.min(base.width - x, d - base.left + air - x), hauteur: Math.min(base.height - y, b - base.top + air - y) };
+}
+const rogner = (toile, cadre, echelle) => {
+  const sx = Math.round(cadre.x * echelle), sy = Math.round(cadre.y * echelle);
+  const sw = Math.max(1, Math.min(toile.width - sx, Math.round(cadre.largeur * echelle)));
+  const sh = Math.max(1, Math.min(toile.height - sy, Math.round(cadre.hauteur * echelle)));
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+  c.getContext("2d").drawImage(toile, sx, sy, sw, sh, 0, 0, sw, sh);
+  return c;
+};
 export async function pdfDeLApercu(html, page = PAGE_A4) {
   const [largeur, hauteur, marge] = dimensionsPage(page);
   // Rendu hors écran, à la largeur d'une page — jamais à celle du téléphone.
@@ -346,7 +370,13 @@ export async function pdfDeLApercu(html, page = PAGE_A4) {
   horsEcran.innerHTML = html;
   document.body.appendChild(horsEcran);
   try {
-    const toile = await html2canvas(horsEcran, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, width: LARGEUR_RENDU_PX, windowWidth: LARGEUR_RENDU_PX });
+    const brute = await html2canvas(horsEcran, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, width: LARGEUR_RENDU_PX, windowWidth: LARGEUR_RENDU_PX });
+    // ⚠ Capture Timo (14/09/2026) : « les marges sont trop grandes » — le reçu
+    // (680 px) était posé au centre du cadre de 794 px, et ce blanc s'ajoutait
+    // à la marge de la page. On ROGNE l'image au contenu réel (cadreContenu),
+    // pour que le document remplisse la page comme à l'impression.
+    const cadre = cadreContenu(horsEcran);
+    const toile = rogner(brute, cadre, 2);
     const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur] });
     const utileL = largeur - 2 * marge, utileH = hauteur - 2 * marge;
     const echelle = utileL / toile.width;              // mm par pixel
