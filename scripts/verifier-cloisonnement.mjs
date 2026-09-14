@@ -6611,5 +6611,33 @@ titre("Les notifications respectent le mur (13/09/2026) — le détail est dans 
   test("★ le banc des notifications existe et fait partie des envois (package.json)", /"tester-notifications": "node scripts\/tester-notifications\.mjs"/.test(readFileSync("package.json", "utf8")));
 }
 
+titre("💬 Messages : un nouveau message apparaît EN TÊTE, bien avant le support client (Timo, 14/09/2026)");
+{
+  const sortieCv = join("node_modules", ".cache", `bmi-conversations-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/conversations.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCv, logLevel: "silent" });
+  const Cv = await import(pathToFileURL(sortieCv).href);
+  unlinkSync(sortieCv);
+  const sections = [
+    { cle: "equipe", titre: "Équipe", items: [{ cle: "sandrine", conv: { type: "user", id: "sandrine" } }, { cle: "djedje", conv: { type: "user", id: "djedje" } }] },
+    { cle: "groupes", titre: "Groupes", toujours: true, items: [] },
+    { cle: "support", titre: "Support", items: [{ cle: "kossi", conv: { type: "client", id: "kossi" } }, { cle: "roland", conv: { type: "client", id: "roland" } }] },
+  ];
+  const nonLus = { djedje: 2, roland: 1 };
+  const activite = { djedje: "2026-09-14T00:10:00Z", roland: "2026-09-14T00:12:00Z" };
+  const r = Cv.separerNonLues(sections, (c) => nonLus[c.id] || 0, (c) => activite[c.id] || "");
+  test("★ les conversations non lues forment le bloc du haut, la plus récente en premier (ROLAND puis DJEDJE), avec leur compte et leur bloc d'origine",
+    r.nonLues.map((x) => x.cle).join("|") === "roland|djedje" && r.nonLues[1].nb === 2 && r.nonLues[0].section === "support" && r.nonLues[1].section === "equipe");
+  test("★ une conversation n'apparaît qu'une fois : les non lues sont retirées de leur bloc, les autres y restent dans l'ordre",
+    r.sections.map((s) => s.items.map((x) => x.cle).join(",")).join("|") === "sandrine||kossi" && r.sections[1].toujours === true);
+  test("sans non lu, le bloc du haut est vide et rien ne bouge", Cv.separerNonLues(sections, () => 0).nonLues.length === 0 && Cv.separerNonLues(sections, () => 0).sections[0].items.length === 2);
+  const msgCv = readFileSync("src/screens/Messagerie.jsx", "utf8");
+  test("★ l'écran passe par la règle (separerNonLues), montre « Nouveaux messages » en tête, puis Équipe, Groupes, Clients qui vous ont écrit, Mes clients (chef), Support — UNE ligne de conversation (LigneConversation), plus de tri maison",
+    /const liste = separerNonLues\(sectionsBrutes, nonLusPour, derniereActivite\);/.test(msgCv) && /data-conversations="nouveaux"/.test(msgCv)
+    && /🔴 Nouveaux messages/.test(msgCv) && /liste\.nonLues\.map/.test(msgCv) && /liste\.sections\.map/.test(msgCv)
+    && msgCv.indexOf('cle: "equipe"') < msgCv.indexOf('cle: "groupes"') && msgCv.indexOf('cle: "groupes"') < msgCv.indexOf('cle: "clients_ecrit"')
+    && msgCv.indexOf('cle: "clients_ecrit"') < msgCv.indexOf('cle: "clients_chef"') && msgCv.indexOf('cle: "clients_chef"') < msgCv.indexOf('cle: "support"')
+    && !/nonLusEnPremier/.test(msgCv) && (msgCv.match(/<LigneConversation /g) || []).length === 2 && /function LigneConversation\(/.test(msgCv));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

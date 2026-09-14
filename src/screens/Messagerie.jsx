@@ -2,11 +2,12 @@
 // screens/Messagerie.jsx — Messagerie interne en différé (via la
 // synchronisation) : fils par client, groupes, visibilité par rôle.
 // ============================================================
-import { useState } from "react";
+import React, { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
 import { utilisateursDeLEspace, refuserSaufAdmin, peutVoirFilClient } from "../lib/calculs";
+import { separerNonLues } from "../lib/conversations";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
@@ -86,8 +87,17 @@ export function Messagerie({ db, save, profile }) {
   // ⚠ Demande Timo : les fils avec des messages non lus remontent TOUJOURS en
   // première position dans chaque liste — tri stable (ne change pas l'ordre
   // entre deux fils tous deux lus, ou tous deux non lus).
-  const nonLusEnPremier = (liste, cOf) =>
-    liste.map((x) => ({ x, nb: nonLusPour(cOf(x)) })).sort((a, b) => (b.nb > 0) - (a.nb > 0)).map((e) => e.x);
+  // Le dernier message d'une conversation (pour classer les non lues, la
+  // plus récente en premier).
+  const derniereActivite = (c) => { const f = messagesDe(c); return f.length ? String(f[f.length - 1].ts || "") : ""; };
+  const sectionsBrutes = estClient ? [] : [
+    { cle: "equipe", titre: "👤 Équipe", items: contacts.map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="text-sm"><span className="font-semibold">{u.nom}</span> <span className="text-xs text-slate-400">{libelleRole(u.role)}</span></span> })) },
+    { cle: "groupes", titre: "👥 Groupes", toujours: true, items: mesGroupes.map((g) => ({ cle: g.id, conv: { type: "groupe", id: g.id }, libelle: <span className="text-sm"><span className="font-semibold">{g.nom}</span> <span className="text-xs text-slate-400">({(g.membres || []).length})</span></span> })) },
+    { cle: "clients_ecrit", titre: "👤 Clients qui vous ont écrit", items: clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="font-semibold text-sm">{u.nom_base || u.nom}</span> })) },
+    { cle: "clients_chef", titre: "👷 Mes clients (chef d'équipe)", items: mesClientsEnTantQueChef.map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="font-semibold text-sm">{u.nom_base || u.nom}</span> })) },
+    { cle: "support", titre: "🛟 Support clients", items: clientsAvecFil.map((u) => ({ cle: u.id, conv: { type: "client", id: u.id }, libelle: <span className="font-semibold text-sm">{u.nom}</span> })) },
+  ];
+  const liste = separerNonLues(sectionsBrutes, nonLusPour, derniereActivite);
 
   const ouvrir = (c) => {
     setConv(c);
@@ -165,85 +175,29 @@ export function Messagerie({ db, save, profile }) {
               {nonLusPour({ type: "user", id: monChefEquipe.id }) > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nonLusPour({ type: "user", id: monChefEquipe.id })}</span>}
             </button>
           )}
-          {!estClient && mesClientsEnTantQueChef.length > 0 && (
+          {/* Timo (14/09/2026) : « un nouveau message apparaît en tête, bien
+              avant le support client ». Règle pure lib/conversations.js :
+              UN bloc « Nouveaux messages » tout en haut, puis Équipe, Groupes,
+              Clients qui vous ont écrit, Mes clients (chef), Support clients —
+              une conversation n'apparaît qu'une fois. */}
+          {!estClient && liste.nonLues.length > 0 && (
             <>
-              <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👷 Mes clients (chef d'équipe)</div>
-              {nonLusEnPremier(mesClientsEnTantQueChef, (u) => ({ type: "user", id: u.id })).map((u) => {
-                const c = { type: "user", id: u.id };
-                const nb = nonLusPour(c);
-                return (
-                  <button key={"chef" + u.id} onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${conv?.type === "user" && conv?.id === u.id ? "bg-sky-50" : ""}`}>
-                    <span className="font-semibold text-sm">{u.nom_base || u.nom}</span>
-                    {nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nb}</span>}
-                  </button>
-                );
-              })}
+              <div className="px-4 py-1.5 text-xs font-bold text-red-700 uppercase bg-red-50" data-conversations="nouveaux">🔴 Nouveaux messages</div>
+              {liste.nonLues.map((it) => <LigneConversation key={"nouveau" + it.cle} item={it} conv={conv} ouvrir={ouvrir} />)}
             </>
           )}
-          {!estClient && clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).length > 0 && (
-            <>
-              <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👤 Clients qui vous ont écrit</div>
-              {nonLusEnPremier(clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)), (u) => ({ type: "user", id: u.id })).map((u) => {
-                const c = { type: "user", id: u.id };
-                const nb = nonLusPour(c);
-                return (
-                  <button key={"ecrit" + u.id} onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${conv?.type === "user" && conv?.id === u.id ? "bg-sky-50" : ""}`}>
-                    <span className="font-semibold text-sm">{u.nom_base || u.nom}</span>
-                    {nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nb}</span>}
-                  </button>
-                );
-              })}
-            </>
-          )}
-          {!estClient && clientsAvecFil.length > 0 && (
-            <>
-              <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">🛟 Support clients</div>
-              {nonLusEnPremier(clientsAvecFil, (u) => ({ type: "client", id: u.id })).map((u) => {
-                const c = { type: "client", id: u.id };
-                const nb = nonLusPour(c);
-                return (
-                  <button key={"cl" + u.id} onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${conv?.type === "client" && conv?.id === u.id ? "bg-sky-50" : ""}`}>
-                    <span className="font-semibold text-sm">{u.nom}</span>
-                    {nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nb}</span>}
-                  </button>
-                );
-              })}
-            </>
-          )}
-          {!estClient && (
-            <>
-              <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50 flex items-center justify-between">
-                <span>👥 Groupes</span>
-                {isAdmin && <button onClick={() => setCreationGroupe(true)} className="text-sky-800 font-bold normal-case text-xs">+ Nouveau</button>}
-              </div>
-              {mesGroupes.length === 0 && <div className="px-4 py-3 text-xs text-slate-400">{isAdmin ? "Créez un groupe pour discuter avec plusieurs collaborateurs à la fois." : "Aucun groupe pour l'instant."}</div>}
-              {nonLusEnPremier(mesGroupes, (g) => ({ type: "groupe", id: g.id })).map((g) => {
-                const c = { type: "groupe", id: g.id };
-                const nb = nonLusPour(c);
-                return (
-                  <button key={"gr" + g.id} onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${conv?.type === "groupe" && conv?.id === g.id ? "bg-sky-50" : ""}`}>
-                    <span className="text-sm"><span className="font-semibold">{g.nom}</span> <span className="text-xs text-slate-400">({(g.membres || []).length})</span></span>
-                    {nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nb}</span>}
-                  </button>
-                );
-              })}
-            </>
-          )}
-          {contacts.length > 0 && (
-            <>
-              <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50">👤 Équipe</div>
-              {nonLusEnPremier(contacts, (u) => ({ type: "user", id: u.id })).map((u) => {
-                const c = { type: "user", id: u.id };
-                const nb = nonLusPour(c);
-                return (
-                  <button key={u.id} onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${conv?.type === "user" && conv?.id === u.id ? "bg-sky-50" : ""}`}>
-                    <span className="text-sm"><span className="font-semibold">{u.nom}</span> <span className="text-xs text-slate-400">{libelleRole(u.role)}</span></span>
-                    {nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{nb}</span>}
-                  </button>
-                );
-              })}
-            </>
-          )}
+          {!estClient && liste.sections.map((s) => (
+            <React.Fragment key={s.cle}>
+              {(s.items.length > 0 || s.toujours) && (
+                <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50 flex items-center justify-between" data-conversations={s.cle}>
+                  <span>{s.titre}</span>
+                  {s.cle === "groupes" && isAdmin && <button onClick={() => setCreationGroupe(true)} className="text-sky-800 font-bold normal-case text-xs">+ Nouveau</button>}
+                </div>
+              )}
+              {s.cle === "groupes" && mesGroupes.length === 0 && <div className="px-4 py-3 text-xs text-slate-400">{isAdmin ? "Créez un groupe pour discuter avec plusieurs collaborateurs à la fois." : "Aucun groupe pour l'instant."}</div>}
+              {s.items.map((it) => <LigneConversation key={s.cle + it.cle} item={it} conv={conv} ouvrir={ouvrir} />)}
+            </React.Fragment>
+          ))}
           {estClient && !chatLibre && <div className="px-4 py-3 text-xs text-slate-400">Vos messages sont transmis à l'équipe BMI Togo (administration, techniciens et votre commercial).</div>}
           {!estClient && contacts.length === 0 && clientsAvecFil.length === 0 && mesGroupes.length === 0 && mesClientsEnTantQueChef.length === 0 && clientsQuiMOntEcrit.length === 0 && !isAdmin && <div className="px-4 py-6 text-sm text-slate-400 text-center">Aucun contact pour l'instant — les autres membres de l'équipe apparaîtront ici dès leur création.</div>}
         </div>
@@ -310,6 +264,17 @@ export function Messagerie({ db, save, profile }) {
 
       {creationGroupe && <CreationGroupeModal db={db} profile={profile} onFermer={() => setCreationGroupe(false)} onCreer={creerGroupe} />}
     </div>
+  );
+}
+
+// Une ligne de la liste des conversations — écrite UNE fois pour tous les blocs.
+function LigneConversation({ item, conv, ouvrir }) {
+  const ouverte = conv?.type === item.conv.type && conv?.id === item.conv.id;
+  return (
+    <button onClick={() => ouvrir(item.conv)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${ouverte ? "bg-sky-50" : ""}`}>
+      {item.libelle}
+      {item.nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{item.nb}</span>}
+    </button>
   );
 }
 

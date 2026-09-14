@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1265 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1269 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -564,6 +564,18 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### 💬 Messages : l'ordre des conversations (14/09/2026)
+- Timo, deux captures (14 clients « Support » à défiler avant DJEDJE et ses
+  2 non lus) : « je veux qu'un nouveau message apparaisse en tête, bien
+  avant le support client — je l'avais déjà demandé ». Règle pure
+  `lib/conversations.js` (`separerNonLues`), exercée par le banc : **UN bloc
+  « 🔴 Nouveaux messages » tout en haut** avec TOUTE conversation qui porte
+  un non lu, la plus récente en premier, quel que soit son bloc ; puis
+  **Équipe, Groupes, Clients qui vous ont écrit, Mes clients (chef),
+  Support clients** — une conversation n'apparaît qu'une fois (lue, elle
+  redescend dans son bloc). UNE ligne, `LigneConversation` ; plus de tri
+  maison par bloc. Le client connecté ne voit toujours que son fil.
 
 ### Petites dépenses d'un chantier de devis (13/09/2026)
 - Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,
