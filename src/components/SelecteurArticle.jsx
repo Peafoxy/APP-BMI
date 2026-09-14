@@ -50,7 +50,7 @@ export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, ca
                     <button key={p.id} type="button" onClick={() => { onChoisir(p.id); setOuvert(false); setRecherche(""); }}
                       className="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between">
                       <span className="font-medium">{p.nom}</span>
-                      <span className="text-xs whitespace-nowrap ml-2">{prix ? <span className="font-semibold text-slate-700" data-prix={p.id}>{fmt(prix(p))}</span> : null}{prix ? <span className="text-slate-400"> · </span> : null}<span className="text-slate-400">dispo : {dispoRestant(p)}</span></span>
+                      <span className="text-xs whitespace-nowrap ml-2">{prix ? <span className="font-bold text-sky-800" data-prix={p.id}>{fmt(prix(p))}</span> : null}{prix ? <span className="text-slate-400"> · </span> : null}<span className="text-slate-400">dispo : {dispoRestant(p)}</span></span>
                     </button>
                   ))}
                 </div>

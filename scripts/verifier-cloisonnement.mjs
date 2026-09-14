@@ -3532,8 +3532,11 @@ titre("💰 Ventes : le prix de vente se lit dans la fenêtre « Rechercher un a
   // Timo : « dans Ventes, quand on clique sur l'article, à part la quantité en
   // stock qui apparaît, on devrait aussi avoir le prix de vente ».
   const sa = readFileSync("src/components/SelecteurArticle.jsx", "utf8");
-  test("★ chaque ligne du sélecteur montre le prix (quand l'écran en passe un) à côté du disponible — « 12 000 F · dispo : 30 »",
-    /prix \? <span className="font-semibold text-slate-700" data-prix=\{p\.id\}>\{fmt\(prix\(p\)\)\}<\/span> : null/.test(sa)
+  // Couleur : le bleu de l'espace, en gras (Timo, 14/09/2026 : « les prix ne
+  // peuvent pas avoir une autre couleur que gris ? » → option 1) — violet en
+  // formation tout seul, par les variables de src/index.css.
+  test("★ chaque ligne du sélecteur montre le prix (quand l'écran en passe un) à côté du disponible — « 12 000 F · dispo : 30 », en bleu de l'espace et en gras",
+    /prix \? <span className="font-bold text-sky-800" data-prix=\{p\.id\}>\{fmt\(prix\(p\)\)\}<\/span> : null/.test(sa)
     && /<span className="text-slate-400">dispo : \{dispoRestant\(p\)\}<\/span>/.test(sa) && /import \{ fmt \} from "\.\.\/lib\/core";/.test(sa));
   test("★ Ventes passe le PRIX DE VENTE de l'article ; Commandes ne passe rien (le prix de vente n'y a pas de sens)",
     /<SelecteurArticle [^\n]*prix=\{\(p\) => Number\(p\.prix_vente \|\| 0\)\} \/>/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))

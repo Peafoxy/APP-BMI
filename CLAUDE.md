@@ -631,7 +631,9 @@ lit mal est pire qu'un banc absent).
   devrait aussi avoir le prix de vente » → chaque ligne du sélecteur
   (`components/SelecteurArticle.jsx`) montre « 12 000 F · dispo : 30 »
   quand l'écran passe une fonction `prix` ; Ventes passe le prix de vente,
-  Commandes ne passe rien (rien ne s'affiche). Le banc le vérifie.
+  Commandes ne passe rien (rien ne s'affiche). **Le prix est en bleu de
+  l'espace, en gras** (`text-sky-800`, violet en formation ; « pas gris »,
+  option 1 choisie par Timo), le disponible reste gris. Le banc le vérifie.
 
 ### 🧾 Le reçu d'une dette (14/09/2026)
 - Capture Timo (MR ERIC, 1 000 000 F dû, 0 F versé, titré « REÇU DE
