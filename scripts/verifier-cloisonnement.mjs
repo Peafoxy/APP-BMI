@@ -3519,6 +3519,12 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     && imp.includes("${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : \"\"}` : `Établi par${d.par ? ` : ${esc(d.par)}` : \"\"}`}"));
   test("sans versement, pas de tableau vide : « Aucun versement à ce jour »",
     imp.includes("${paiements.length > 0 ? `") && imp.includes("Aucun versement à ce jour."));
+  // 14/09/2026, Timo : « le reste à payer doit être écrit en rouge » — sur le
+  // reçu de dette ET sur le reçu de vente à crédit (même ligne, même règle).
+  test("★ « RESTE À PAYER » est écrit en ROUGE (reçu de dette et reçu de vente à crédit)",
+    (imp.match(/<tr class="reste"><td>RESTE À PAYER :<\/td>/g) || []).length === 2
+    && !/<tr class="total"><td>RESTE À PAYER/.test(imp)
+    && (imp.match(/tr\.reste td\{border-top:2px solid #dc2626;font-weight:bold;font-size:14px;color:#dc2626\}/g) || []).length === 2);
   test("Dettes et Ventes impriment toujours par la même fonction (le titre s'adapte tout seul)",
     (readFileSync("src/screens/Dettes.jsx", "utf8").match(/imprimerRecuVersement\(/g) || []).length === 3
     && readFileSync("src/screens/Ventes.jsx", "utf8").includes("imprimerRecuVersement(reservation, infoBq(boutique))"));

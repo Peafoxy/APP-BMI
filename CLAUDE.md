@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1316 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1317 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -610,6 +610,8 @@ lit mal est pire qu'un banc absent).
   **REÇU DE VERSEMENT** ; tout versé → **REÇU DÉFINITIF — DETTE SOLDÉE**
   (inchangé). Le document (`imprimerRecuVersement`) lit la règle, n'écrit
   aucun titre à la main ; même fonction pour Dettes, Ventes et réservations.
+  **« RESTE À PAYER » s'écrit en ROUGE** (14/09/2026), sur le reçu de dette
+  et sur le reçu de vente à crédit (classe `reste`, `STYLE_RECU`).
 
 ### 💬 Messages : l'ordre des conversations (14/09/2026)
 - Timo, deux captures (14 clients « Support » à défiler avant DJEDJE et ses

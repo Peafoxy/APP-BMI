@@ -49,6 +49,7 @@ const STYLE_RECU = `
   #zone-impression .recu-doc table.totaux td{padding:4px 6px}
   #zone-impression .recu-doc table.totaux td:last-child{text-align:right;white-space:nowrap}
   #zone-impression .recu-doc table.totaux tr.total td{border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
+  #zone-impression .recu-doc table.totaux tr.reste td{border-top:2px solid #dc2626;font-weight:bold;font-size:14px;color:#dc2626}
   #zone-impression .recu-doc .paiement{margin:12px 0;padding:8px 10px;background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px}
   #zone-impression .recu-doc .case{margin-right:14px;white-space:nowrap}
   #zone-impression .recu-doc table.sign{width:100%;border-collapse:collapse;margin-top:26px}
@@ -128,7 +129,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       ${Number(v.frais_installation || 0) > 0 ? `<tr><td>Frais d'installation :</td><td>${fmt(v.frais_installation)}</td></tr>` : ""}
       ${Number(v.frais_transport || 0) > 0 ? `<tr><td>Transport / livraison :</td><td>${fmt(v.frais_transport)}</td></tr>` : ""}
       <tr class="total"><td>TOTAL TTC :</td><td>${fmt(net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0))}</td></tr>
-      ${v.paiement === "Crédit (dette)" ? `<tr><td>Avance versée :</td><td>${fmt(v.avance || 0)}</td></tr><tr class="total"><td>RESTE À PAYER :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - (Number(v.avance) || 0)))}</td></tr>` : ""}
+      ${v.paiement === "Crédit (dette)" ? `<tr><td>Avance versée :</td><td>${fmt(v.avance || 0)}</td></tr><tr class="reste"><td>RESTE À PAYER :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - (Number(v.avance) || 0)))}</td></tr>` : ""}
     </table>
 
     <div class="paiement"><b>Mode de paiement :</b><br>${casesMode}<div style="margin-top:4px;font-size:11px;color:#555">${esc(v.paiement || "")}</div></div>
@@ -195,6 +196,7 @@ export function imprimerRecuVersement(d, bq = {}) {
   #zone-impression .recu-doc table.totaux td{padding:4px 6px}
   #zone-impression .recu-doc table.totaux td:last-child{text-align:right;white-space:nowrap}
   #zone-impression .recu-doc table.totaux tr.total td{border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
+  #zone-impression .recu-doc table.totaux tr.reste td{border-top:2px solid #dc2626;font-weight:bold;font-size:14px;color:#dc2626}
   #zone-impression .recu-doc table.totaux tr.solde td{border-top:2px solid #166534;font-weight:bold;font-size:14px;color:#166534}
   #zone-impression .recu-doc .bandeau-solde{margin:12px 0;padding:10px;background:#f0fdf4;border:2px solid #166534;border-radius:6px;text-align:center;font-weight:bold;color:#166534;letter-spacing:1px}
   #zone-impression .recu-doc .bandeau-livree{margin:12px 0;padding:10px;background:#eff6ff;border:2px solid #1e5a8a;border-radius:6px;text-align:center;font-weight:bold;color:#1e5a8a;letter-spacing:1px}
@@ -261,7 +263,7 @@ export function imprimerRecuVersement(d, bq = {}) {
     <table class="totaux">
       <tr><td>Montant total dû :</td><td>${fmt(montantDu)}</td></tr>
       <tr class="${solde ? "solde" : "total"}"><td>Total versé à ce jour :</td><td>${fmt(totalVerse)}</td></tr>
-      ${!solde ? `<tr class="total"><td>RESTE À PAYER :</td><td>${fmt(reste)}</td></tr>` : ""}
+      ${!solde ? `<tr class="reste"><td>RESTE À PAYER :</td><td>${fmt(reste)}</td></tr>` : ""}
     </table>
 
     ${solde ? `<div class="bandeau-solde">✔ CETTE DETTE EST INTÉGRALEMENT SOLDÉE — AUCUN MONTANT NE RESTE DÛ</div>` : ""}
