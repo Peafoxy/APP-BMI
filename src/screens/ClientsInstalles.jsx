@@ -376,20 +376,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // création (pas encore de chantier), c'est l'espace du compte connecté.
   const tousLesTechs = techniciensActifs(db);
   const techsPour = (c) => techniciensDeLEspace(db, tousLesTechs, espaceDuChantier(db, c, profile));
-  const techsMasques = (c) => tousLesTechs.filter((u) => !techsPour(c).some((x) => x.id === u.id));
-  // On ne cache jamais quelqu'un en silence : si un technicien manque à
-  // l'appel, l'écran dit qui, et pourquoi. Sans ça, un rattachement erroné
-  // se traduirait par un nom introuvable et aucune explication.
-  const noteMasques = (c) => {
-    const m = techsMasques(c);
-    if (!m.length) return null;
-    return (
-      <div className="text-xs text-amber-700 mt-2">
-        🎓 {m.length} technicien(s) ne sont pas proposés ici : ils appartiennent à l'autre espace de travail — {m.map((u) => u.nom).join(", ")}.
-        {" "}Si l'un d'eux devrait être disponible, corrigez son rattachement dans 👥 Utilisateurs.
-      </div>
-    );
-  };
+  // ⚠ Timo (14/09/2026, « débat clos ») : plus AUCUNE mention des techniciens
+  // de l'autre espace. En réel, un technicien de formation n'existe pas ; il
+  // n'y a rien à signaler. La liste est simplement celle de l'espace regardé.
   // L'admin et le responsable commercial programment les chantiers.
   const peutProgrammer = isAdmin || profile.role === "resp_commercial";
 
@@ -911,7 +900,6 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3">
           <div className="font-bold text-sm text-sky-900 mb-1">👷 Équipe prévue sur le chantier</div>
           <div className="text-xs text-slate-500 mb-2">Cochez les techniciens, puis désignez le chef ⭐. C'est lui qui pourra déclarer les travaux terminés.</div>
-          {noteMasques(null)}
           {techsPour(null).length === 0 ? (
             <div className="text-xs text-slate-400">Aucun technicien enregistré dans votre espace de travail.</div>
           ) : (
@@ -1049,8 +1037,6 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
                 <div className="mt-3">
                   <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Équipe — cochez, puis désignez le chef ⭐</div>
-                  {noteMasques(c)}
-                  {noteMasques(c)}
             {techsPour(c).length === 0 ? (
                     <div className="text-xs text-slate-400">Aucun technicien enregistré dans l'espace de ce chantier.</div>
                   ) : (

@@ -6641,5 +6641,12 @@ titre("💬 Messages : un nouveau message apparaît EN TÊTE, bien avant le supp
     && !/nonLusEnPremier/.test(msgCv) && (msgCv.match(/<LigneConversation /g) || []).length === 2 && /function LigneConversation\(/.test(msgCv));
 }
 
+titre("Chantier : aucune mention de l'autre espace (Timo, 14/09/2026, « débat clos »)");
+{
+  const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ la note « N technicien(s) ne sont pas proposés ici : ils appartiennent à l'autre espace » n'existe plus ; la liste est celle de l'espace regardé, point",
+    !/ne sont pas proposés ici/.test(ci) && !/noteMasques|techsMasques/.test(ci) && /techniciensDeLEspace\(db, tousLesTechs, espaceDuChantier\(db, c, profile\)\)/.test(ci));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

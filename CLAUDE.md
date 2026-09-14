@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1269 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1270 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -115,6 +115,12 @@ lit mal est pire qu'un banc absent).
   `espaceDuChantier` sans boutique passe par `espaceDuCompte` (l'espace
   regardé). `estCompteFormation` sert à dire ce qu'EST un compte, jamais ce
   qu'il REGARDE.
+  **Et aucune mention de l'autre espace** (14/09/2026, « pourquoi
+  nécessairement informer ? je suis en réel, c'est cloisonné, un technicien
+  formation n'existe pas — débat clos ») : la note « N technicien(s) ne sont
+  pas proposés ici : ils appartiennent à l'autre espace » a été RETIRÉE du
+  formulaire de chantier ; la liste est celle de l'espace regardé, point. Ne
+  pas la remettre, ni ailleurs sous une autre forme.
 - **Toute liste passe par un filtre d'espace** : boutiques →
   `boutiquesVisibles` ; personnes → `utilisateursDeLEspace` ; lignes
   (ventes, proformas…) → `filtreEspaceAffichage` ou la boutique regardée.
