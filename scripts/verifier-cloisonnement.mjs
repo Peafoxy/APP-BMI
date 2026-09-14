@@ -1150,8 +1150,10 @@ titre("Clients installés : les coordonnées des vrais clients restent dans l'es
     proposes(chReel, timo).includes("KOSSI") && !proposes(chReel, timo).includes("STAGE"));
   test("sur un chantier d'entraînement, seul le technicien de formation est proposé",
     proposes(chForm, timo).includes("STAGE") && !proposes(chForm, timo).includes("KOSSI"));
-  test("sur le formulaire de création (aucun chantier), c'est l'espace du compte connecté",
-    C.espaceDuChantier(db, null, chefForm) === true && C.espaceDuChantier(db, null, timo) === false);
+  test("sur le formulaire de création (aucun chantier), c'est l'espace REGARDÉ : un compte de formation → formation ; le principal → l'espace qu'il regarde (14/09/2026, capture Timo : il regardait la formation et voyait les vrais techniciens)",
+    C.espaceDuChantier(db, null, chefForm) === true && C.espaceDuChantier(db, null, timo) === false
+    && (C.setRegardeFormation(true), C.espaceDuChantier(db, null, timo) === true) && (C.setRegardeFormation(false), C.espaceDuChantier(db, null, timo) === false)
+    && /return b \? estBoutiqueFormation\(db, b\) : espaceDuCompte\(db, profile\);/.test(readFileSync("src/lib/calculs.js", "utf8")));
 }
 
 

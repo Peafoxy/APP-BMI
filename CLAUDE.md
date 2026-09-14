@@ -108,7 +108,13 @@ lit mal est pire qu'un banc absent).
   ensemble ».** C'est l'espace REGARDÉ qui décide, pour lui aussi. Toute
   condition `voitLesDeuxEspaces(...) || ...` dans un filtre d'affichage est
   un défaut (quatrième trouvé par Timo : 👑 Équipe, 09/09/2026 — le
-  principal y voyait réel et formation mélangés, badge 🎓).
+  principal y voyait réel et formation mélangés, badge 🎓). **Cinquième
+  (14/09/2026, capture du formulaire d'un nouveau chantier) : un écran qui
+  lit `estCompteFormation(db, profile)` pour DÉCIDER d'une liste se trompe
+  pour le principal** (son compte est réel, quel que soit l'espace regardé) :
+  `espaceDuChantier` sans boutique passe par `espaceDuCompte` (l'espace
+  regardé). `estCompteFormation` sert à dire ce qu'EST un compte, jamais ce
+  qu'il REGARDE.
 - **Toute liste passe par un filtre d'espace** : boutiques →
   `boutiquesVisibles` ; personnes → `utilisateursDeLEspace` ; lignes
   (ventes, proformas…) → `filtreEspaceAffichage` ou la boutique regardée.

@@ -1411,11 +1411,16 @@ export const techniciensDeLEspace = (db, liste, espaceFormation) =>
   liste.filter((u) => estCompteFormation(db, u) === !!espaceFormation);
 
 // L'espace d'un chantier : celui de sa boutique quand on peut la retrouver
-// (via la vente ou la dette rattachée), sinon celui du compte qui travaille
-// dessus — un chantier sans rattachement n'appartient à aucun des deux.
+// (via la vente ou la dette rattachée), sinon l'espace REGARDÉ par le compte
+// qui travaille dessus — un chantier sans rattachement n'appartient à aucun
+// des deux. ⚠ 14/09/2026 (capture Timo, formulaire de création) : c'était
+// l'espace du COMPTE (estCompteFormation) — pour l'administrateur principal,
+// toujours le réel, même en regardant la formation : les vrais techniciens
+// étaient proposés sur un chantier d'entraînement. « C'est l'espace REGARDÉ
+// qui décide, pour lui aussi » : espaceDuCompte.
 export const espaceDuChantier = (db, c, profile) => {
   const b = c ? boutiqueDuChantier(db, c) : null;
-  return b ? estBoutiqueFormation(db, b) : estCompteFormation(db, profile);
+  return b ? estBoutiqueFormation(db, b) : espaceDuCompte(db, profile);
 };
 
 export const repartirCommissionEquipe = (ventes, tauxFilleul, tauxEquipe, db) => {
