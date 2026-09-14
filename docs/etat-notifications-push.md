@@ -6,9 +6,11 @@ notifications. » Puis, sur ce qui part : **« Lance avec la liste A telle
 quelle comme message, et B aussi telle quelle, à titre informatif dans les
 notifications. »**
 
-Construit en 2.101.197. **Ne fonctionne qu'une fois les trois réglages
-ci-dessous faits par Timo** (jusque-là, l'application marche exactement
-comme avant : rien ne casse, rien ne vibre).
+Construit en 2.101.197. **EN SERVICE depuis le 14/09/2026** : Timo a collé
+le SQL, posé les quatre variables Vercel, redéployé (le cron apparaît) et
+testé sur un téléphone Android — « ça a vibré, le message est arrivé »,
+écran éteint. Les trois réglages ci-dessous sont donc faits ; ils restent
+ici pour une nouvelle base ou un nouveau projet Vercel.
 
 ---
 

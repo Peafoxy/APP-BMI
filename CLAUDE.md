@@ -262,8 +262,8 @@ lit mal est pire qu'un banc absent).
 - **Rien de secret dans l'application** : clé publique `CLE_PUBLIQUE_PUSH`
   (constants.js) ; clé privée = variable Vercel `VAPID_PRIVATE_KEY`
   uniquement ; la tournée exige `CRON_SECRET`. Table `abonnements_push` sans
-  aucune politique (service_role seul). Tant que Timo n'a pas collé le SQL
-  et posé les variables, rien ne vibre et rien ne casse.
+  aucune politique (service_role seul). **En service depuis le 14/09/2026**
+  (réglages faits par Timo, test réel sur Android réussi, 7 h validé).
 
 ### L'ordre des onglets (12/09/2026)
 - « Un système de déplacement des onglets par la préférence de chaque
@@ -1167,7 +1167,7 @@ s'est arrêté, mot pour mot.
 | Audit complet du 29/08 (22 279 lignes lues) | Référence | `docs/audit-complet-2026-08.md` |
 | L'ancien CLAUDE.md complet (659 lignes), tel qu'il était avant le rangement du 06/09 — pour retrouver un détail condensé ici | Référence | `docs/CLAUDE-avant-rangement-2026-09-05.md` |
 | **Répétition générale en formation** (44 lignes à cocher, deux téléphones, tiroir et dette sur montants ronds ; écrite le 12/09/2026 à la demande de Timo, PDF remis) : à rejouer avant un GO définitif, puis après tout gros chantier | À faire par Timo | `docs/scenario-test-formation.html` |
-| **🔔 Notifications** (2.101.197) : construit, bancs verts ; **en attente des 3 réglages de Timo** (SQL `abonnements_push`, variables Vercel VAPID + CRON_SECRET, redeploy) | À faire par Timo | `docs/etat-notifications-push.md` |
+| **🔔 Notifications** (2.101.197) : en service depuis le 14/09/2026 (SQL collé, variables Vercel posées, cron visible, testé sur Android : « ça a vibré ») ; tournée du matin à 7 h validée par Timo | En service | `docs/etat-notifications-push.md` |
 | Cloisonnement **par boutique** (au-delà de l'espace) | Reporté | — |
 
 Quand un chantier avance, on met à jour SON fichier dans `docs/`, et ce
