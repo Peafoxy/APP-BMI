@@ -29,6 +29,7 @@ import { clotureDepassee, estCloturee } from "./cloture";
 import { payeeParLeComptable } from "./validationDepenses";
 import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace";
 import { fabriquerEnvoi, CAISSE_COMPTABLE } from "./rappels";
+import { TYPE_TRANSFERT_STOCK, STATUT_ATTENTE, STATUT_VALIDE, STATUT_REFUSE, libelleLignes } from "./transfertsStock";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
 const nomsLignes = (lignes) => (lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
@@ -83,8 +84,31 @@ export function infosDepuisDiff(avant, apres) {
     (apres.boutiques || []).forEach((b) => {
       const deja = parId(demandesDe(avantB.get(b.nom) || {}));
       demandesDe(b).forEach((d) => {
-        if (deja.has(d.id) || d.statut !== "en_attente") return;
         const formation = !!b.formation;
+        // Transfert de STOCK (Timo, 14/09/2026) : à valider → la boutique qui
+        // reçoit ; validé ou refusé → celui qui l'a envoyé (+ gérant de sa boutique).
+        if (d.type === TYPE_TRANSFERT_STOCK) {
+          const d0 = deja.get(d.id);
+          if (!d0 && d.statut === STATUT_ATTENTE) {
+            pousser({
+              destinataires: [...idsDeLaBoutique(apres, b.nom, ["gerant", "magasinier"]), ...idsAdmins(apres, formation)],
+              titre: `📦 Transfert de stock à valider — ${b.nom}`,
+              texte: `${d.de} envoie ${libelleLignes(d)} (par ${d.par}). L'article ne bouge pas tant que vous n'avez pas validé.`,
+              ecran: "stocks", tag: `transfert_stock:${d.id}`, formation,
+            });
+          } else if (d0 && d0.statut === STATUT_ATTENTE && (d.statut === STATUT_VALIDE || d.statut === STATUT_REFUSE)) {
+            pousser({
+              destinataires: [d.par_id, ...idsDeLaBoutique(apres, d.de, ["gerant"])],
+              titre: d.statut === STATUT_VALIDE ? `✅ Transfert reçu par ${b.nom}` : `❌ Transfert refusé par ${b.nom}`,
+              texte: d.statut === STATUT_VALIDE
+                ? `${libelleLignes(d)} : réception validée par ${d.traite_par}${d.numero_bon ? ` (${d.numero_bon})` : ""}. Le stock a bougé.`
+                : `${libelleLignes(d)} : refusé par ${d.traite_par}${d.motif ? ` — ${d.motif}` : ""}. Rien n'a bougé, l'article est toujours chez ${d.de}.`,
+              ecran: "stocks", tag: `transfert_stock:${d.id}:${d.statut}`, formation,
+            });
+          }
+          return;
+        }
+        if (deja.has(d.id) || d.statut !== "en_attente") return;
         if (d.type === "transfert") {
           pousser({
             destinataires: [...idsDeLaBoutique(apres, b.nom, ["gerant"]), ...idsAdmins(apres, formation)],

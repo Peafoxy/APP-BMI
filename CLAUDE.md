@@ -52,11 +52,11 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1270 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1280 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 73  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
+npm run tester-notifications     # 77  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
@@ -996,6 +996,25 @@ lit mal est pire qu'un banc absent).
   **dette du montant saisi**. Geste réservé à tout admin.
 
 ### Stocks
+- **📦 Transfert de STOCK : la boutique qui reçoit VALIDE, l'article ne bouge
+  pas avant** (14/09/2026, Timo mot pour mot : « lorsqu'un gérant ou admin
+  transfère vers une autre boutique, le gérant de la boutique de réception
+  doit valider dans Transfert — bien mentionné transfert de STOCK, différent
+  de transfert de vente ; tant que cette validation n'est pas faite,
+  l'article ne bouge pas »). Règle pure `lib/transfertsStock.js`, exercée
+  par le banc : ⇄ Transfert dans 📦 Stocks pose une fiche `transfert_stock`
+  dans les `demandes` de la boutique qui REÇOIT (rien à coller : ce champ
+  est libre, securite-8) et n'écrit AUCUN ajustement ; la boutique qui
+  envoie voit « ⏳ Transferts envoyés, en attente » (annulable) ; dans
+  🔁 Transfert (ou 📦 Stocks pour l'admin / magasinier), « 📦 Transferts de
+  stock à valider » : **Valider la réception** (magasinier, gérant, admin,
+  revérifié dans le geste) écrit les deux mouvements avec un numéro TRF-…
+  à cet instant ; **Refuser** (motif) ne bouge rien. L'article restant
+  vendable chez l'envoyeur, la validation REVÉRIFIE le stock et refuse s'il
+  a été vendu entre-temps. Les badges 🔁 Transfert (gérant) et 📦 Stocks
+  (admin) comptent ces fiches ; notification « pour information » à la
+  boutique qui reçoit, puis à l'envoyeur (reçu / refusé). La demande de
+  transfert depuis 💰 Ventes (type `transfert`) reste ce qu'elle est.
 - **⚠ À réapprovisionner** (10/09/2026, « comment avoir la liste de tous les
   articles à approvisionner ? ») : un encadré dans 📦 Stocks, pour la
   boutique ou le magasin regardé, avec **TOUS** les articles au seuil ou en

@@ -154,6 +154,21 @@ titre("LISTE B — ravitaillement, transfert, commande, prime");
   test("une prime déjà demandée ne repart pas", seul(envoisDe(avec(avant, { clients_installes: [chApres] }), avec(avant, { clients_installes: [chApres] })), "prime:").length === 0);
 }
 
+titre("LISTE B — transfert de STOCK : à valider, puis reçu ou refusé (Timo, 14/09/2026)");
+{
+  const avant = base();
+  const t = { id: "ts1", type: "transfert_stock", de: "DEMAKPOE", vers: "APESSITO", date: "2026-09-14", par: "GERANT D", par_id: "gerantD", lignes: [{ produit_id: "p1", nom: "Batterie 200Ah", qte: 2 }], statut: "en_attente" };
+  const chez = (etat, fiche) => avec(etat, { boutiques: boutiques.map((b) => (b.nom === "APESSITO" ? { ...b, demandes: [fiche] } : b)) });
+  const e = seul(envoisDe(avant, chez(avant, t), { id: "gerantD" }), "transfert_stock:");
+  test("★ un transfert de stock envoyé → vendeur ? non : gérant + magasinier de la boutique qui reçoit (APESSITO n'a pas de gérant ici) + admins, écran stocks, « l'article ne bouge pas »",
+    e.length === 1 && memes(e[0].destinataires, ["timo", "adminR"]) && e[0].ecran === "stocks" && /DEMAKPOE envoie 2× Batterie 200Ah/.test(e[0].texte) && /ne bouge pas/.test(e[0].texte));
+  const eV = seul(envoisDe(chez(avant, t), chez(avant, { ...t, statut: "valide", traite_par: "VEND A", numero_bon: "TRF-1" }), { id: "vendA" }), "transfert_stock:");
+  test("★ validé → celui qui a envoyé + le gérant de sa boutique, « le stock a bougé »", eV.length === 1 && memes(eV[0].destinataires, ["gerantD"]) && /reçu par APESSITO/.test(eV[0].titre) && /Le stock a bougé/.test(eV[0].texte));
+  const eR = seul(envoisDe(chez(avant, t), chez(avant, { ...t, statut: "refuse", traite_par: "VEND A", motif: "Colis non reçu" }), { id: "vendA" }), "transfert_stock:");
+  test("refusé → les mêmes, avec le motif, « rien n'a bougé »", eR.length === 1 && memes(eR[0].destinataires, ["gerantD"]) && /Colis non reçu/.test(eR[0].texte) && /Rien n'a bougé/.test(eR[0].texte));
+  test("une fiche inchangée ne repart pas", seul(envoisDe(chez(avant, t), chez(avant, t)), "transfert_stock:").length === 0);
+}
+
 titre("LISTE B — devis proposé au client, tâches, pointage du comptable");
 {
   const avant = base();

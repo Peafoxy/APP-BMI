@@ -14,6 +14,7 @@ import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { exportCSV } from "../lib/export";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
+import { nouveauTransfertStock, critiqueEnvoi, envoyerTransfertStock, transfertsStockEnvoyes, annulerTransfertStock, libelleLignes } from "../lib/transfertsStock";
 import { COLONNES_IMPORT, EXEMPLE_IMPORT, MODES_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, analyserEntrees, resumeEntrees, appliquerEntrees, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
 
 // ============ STOCKS ============
@@ -629,20 +630,28 @@ export function Stocks({ db, save, profile }) {
     const refus = refusMouvementEntreEspaces(db, bq, dest);
     if (refus) { uAlert(refus); return; }
     const s = await uPrompt(`Transfert de « ${p.nom} » : ${bq} → ${dest}\nQuantité (disponible : ${dispo}) :`);
+    if (s === null || s === "") return;
+    // ⚠ Timo (14/09/2026) : « tant que cette validation n'est pas faite,
+    // l'article ne bouge pas ». L'envoi pose une fiche chez la boutique qui
+    // reçoit ; c'est SA validation (🔁 Transfert) qui écrit les mouvements.
+    // Règle pure lib/transfertsStock.js.
+    const refusEnvoi = critiqueEnvoi({ de: bq, vers: dest, qte: s, dispo });
+    if (refusEnvoi) { uAlert(refusEnvoi); return; }
     const q = Number(s);
-    if (!s || isNaN(q) || q <= 0) return;
-    if (q > dispo) { uAlert(`Stock insuffisant : il reste ${dispo}.`); return; }
-    let produits = db.produits;
-    let cible = produits.find((x) => x.boutique === dest && x.nom.trim().toLowerCase() === p.nom.trim().toLowerCase());
-    if (!cible) {
-      cible = { id: uid(), boutique: dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, tension: p.tension || "" };
-      produits = [...produits, cible];
-    }
-    save({ ...db, produits, ajustements: [
-      { id: uid(), date: today(), produit_id: p.id, boutique: bq, qte: -q, motif: `Transfert vers ${dest}`, par: profile.nom },
-      { id: uid(), date: today(), produit_id: cible.id, boutique: dest, qte: q, motif: `Transfert depuis ${bq}`, par: profile.nom },
-      ...db.ajustements] }, `Transfert ${q} « ${p.nom} » : ${bq} → ${dest}`);
-    uAlert(`Transfert de ${q} ${p.nom} vers ${dest} effectué !`);
+    const transfert = nouveauTransfertStock({ de: bq, vers: dest, produit: p, qte: q, profile });
+    save(envoyerTransfertStock(db, transfert), `Transfert de stock envoyé : ${q} « ${p.nom} » ${bq} → ${dest}, en attente de validation par ${dest}`);
+    uAlert(`Transfert envoyé : ${q} ${p.nom} → ${dest}.\n\nEn attente de validation par ${dest} (🔁 Transfert). L'article reste dans le stock de ${bq} jusque-là.`);
+  };
+
+  // Les envois de CETTE boutique qui attendent la validation de l'autre.
+  const envoisEnAttente = transfertsStockEnvoyes(db, bq);
+  const annulerEnvoi = async (t) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Annuler un transfert de stock")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(`Annuler le transfert ${libelleLignes(t)} → ${t.vers} ?\n\nRien n'a bougé : l'article est toujours chez ${bq}.`)) return;
+    const r = annulerTransfertStock(db, t, profile);
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
   };
 
   const supprimer = async (p) => {
@@ -795,6 +804,21 @@ export function Stocks({ db, save, profile }) {
             </>
           )}
       </div>
+
+      {envoisEnAttente.length > 0 && (
+        <div className="rounded-xl p-4 bg-white border-2 border-amber-200" data-transferts="envoyes">
+          <div className="font-bold mb-1 text-amber-800">⏳ Transferts de stock envoyés, en attente de validation ({envoisEnAttente.length})</div>
+          <div className="text-xs text-slate-500 mb-3">L'article reste dans le stock de {bq} tant que la boutique qui reçoit n'a pas validé dans 🔁 Transfert.</div>
+          <ul className="text-sm space-y-2">
+            {envoisEnAttente.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <span>{libelleLignes(t)} → <b>{t.vers}</b> <span className="text-xs text-slate-400">— {dFR(t.date)}, par {t.par}</span></span>
+                <button onClick={() => annulerEnvoi(t)} className="text-xs text-red-600 underline">Annuler</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <DemandesTransfertRecues db={db} save={save} profile={profile} boutique={bq} />
 

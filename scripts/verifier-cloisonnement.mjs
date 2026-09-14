@@ -6648,5 +6648,53 @@ titre("Chantier : aucune mention de l'autre espace (Timo, 14/09/2026, « débat 
     !/ne sont pas proposés ici/.test(ci) && !/noteMasques|techsMasques/.test(ci) && /techniciensDeLEspace\(db, tousLesTechs, espaceDuChantier\(db, c, profile\)\)/.test(ci));
 }
 
+titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bouge pas avant (Timo, 14/09/2026)");
+{
+  const sortieTs = join("node_modules", ".cache", `bmi-transferts-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/transfertsStock.js"], bundle: true, format: "esm", platform: "node", outfile: sortieTs, logLevel: "silent", loader: { ".js": "jsx" }, jsx: "automatic" });
+  const Ts = await import(pathToFileURL(sortieTs).href);
+  unlinkSync(sortieTs);
+  const gerantD = { id: "gd", nom: "GERANT D", role: "gerant", boutique: "DEMAKPOE" };
+  const gerantA = { id: "ga", nom: "GERANT A", role: "gerant", boutique: "APESSITO" };
+  const admin = { id: "ad", nom: "ADMIN", role: "admin" };
+  const p1 = { id: "p1", nom: "Batterie 200Ah", boutique: "DEMAKPOE", initial: 5, entrees: 0, seuil: 1, prix_achat: 100, prix_vente: 150 };
+  const dbT = { users: [gerantD, gerantA, admin], boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b2", nom: "APESSITO" }], produits: [p1], ventes: [], ajustements: [] };
+  test("critiqueEnvoi : même boutique, quantité vide ou trop grande → refus ; sinon rien",
+    Ts.critiqueEnvoi({ de: "A", vers: "A", qte: 1, dispo: 5 }) !== "" && Ts.critiqueEnvoi({ de: "A", vers: "B", qte: "", dispo: 5 }) !== "" && Ts.critiqueEnvoi({ de: "A", vers: "B", qte: 6, dispo: 5 }) !== "" && Ts.critiqueEnvoi({ de: "A", vers: "B", qte: 2, dispo: 5 }) === "");
+  const t = Ts.nouveauTransfertStock({ de: "DEMAKPOE", vers: "APESSITO", produit: p1, qte: 2, profile: gerantD, date: "2026-09-14" });
+  const envoye = Ts.envoyerTransfertStock(dbT, t);
+  test("★ l'ENVOI pose la fiche chez la boutique qui reçoit et n'écrit AUCUN ajustement : le stock de DEMAKPOE reste à 5",
+    t.type === "transfert_stock" && t.statut === "en_attente" && envoye.ajustements.length === 0 && C.stockActuel(envoye, p1) === 5
+    && Ts.transfertsStockAValider(envoye, "APESSITO").length === 1 && Ts.transfertsStockAValider(envoye, "DEMAKPOE").length === 0 && Ts.transfertsStockEnvoyes(envoye, "DEMAKPOE").length === 1);
+  test("le badge : le gérant d'APESSITO en voit 1, celui de DEMAKPOE 0, l'admin (sans boutique) 1",
+    Ts.compterTransfertsStockAValider(envoye, gerantA) === 1 && Ts.compterTransfertsStockAValider(envoye, gerantD) === 0 && Ts.compterTransfertsStockAValider(envoye, admin) === 1);
+  const v = Ts.validerTransfertStock(envoye, "APESSITO", t, gerantA, "2026-09-14");
+  const cible = v.db.produits.find((x) => x.boutique === "APESSITO" && x.nom === "Batterie 200Ah");
+  test("★ la VALIDATION écrit les deux mouvements (−2 DEMAKPOE, +2 APESSITO, numéro TRF-, type transfert), crée l'article chez APESSITO s'il n'existe pas, marque la fiche validée",
+    !v.erreur && v.db.ajustements.length === 2 && C.stockActuel(v.db, p1) === 3 && cible && C.stockActuel(v.db, cible) === 2
+    && v.db.ajustements.every((a) => a.type === "transfert" && /^Transfert TRF-20260914-/.test(a.motif)) && cible.prix_vente === 150
+    && Ts.transfertsStockAValider(v.db, "APESSITO").length === 0 && Ts.historiqueTransfertsStock(v.db, "APESSITO")[0].statut === "valide" && /validé par GERANT A/.test(v.journal));
+  const vendu = { ...envoye, ventes: [{ id: "v1", boutique: "DEMAKPOE", date: "2026-09-14", articles: [{ produit_id: "p1", article: "Batterie 200Ah", qte: 4, pu: 150 }] }] };
+  const vRefus = Ts.validerTransfertStock(vendu, "APESSITO", t, gerantA, "2026-09-14");
+  test("★ vendu entre-temps (il reste 1, on en attendait 2) : la validation est REFUSÉE et le dit, rien ne bouge",
+    !!vRefus.erreur && /il ne reste que 1/.test(vRefus.erreur) && !vRefus.db);
+  const r = Ts.refuserTransfertStock(envoye, "APESSITO", t, gerantA, "Colis non reçu", "2026-09-14");
+  test("le REFUS demande un motif, n'écrit aucun mouvement, garde le stock de DEMAKPOE à 5",
+    !!Ts.refuserTransfertStock(envoye, "APESSITO", t, gerantA, "  ").erreur && !r.erreur && r.db.ajustements.length === 0 && C.stockActuel(r.db, p1) === 5 && Ts.historiqueTransfertsStock(r.db, "APESSITO")[0].motif === "Colis non reçu");
+  const a = Ts.annulerTransfertStock(envoye, t, gerantD, "2026-09-14");
+  test("l'envoyeur ANNULE tant que ce n'est pas validé ; un transfert validé ne s'annule ni ne se refuse plus",
+    !a.erreur && Ts.transfertsStockAValider(a.db, "APESSITO").length === 0 && !!Ts.annulerTransfertStock(v.db, Ts.historiqueTransfertsStock(v.db, "APESSITO")[0], gerantD).erreur
+    && !!Ts.validerTransfertStock(v.db, "APESSITO", Ts.historiqueTransfertsStock(v.db, "APESSITO")[0], gerantA).erreur);
+  const st = readFileSync("src/screens/Stocks.jsx", "utf8"), rv = readFileSync("src/screens/Ravitaillement.jsx", "utf8"), appT = readFileSync("src/App.jsx", "utf8");
+  test("★ 📦 Stocks : ⇄ Transfert passe par envoyerTransfertStock et n'écrit plus d'ajustement « Transfert vers … » ; la boutique voit ses envois en attente (annulables)",
+    /save\(envoyerTransfertStock\(db, transfert\)/.test(st) && !/motif: `Transfert vers \$\{dest\}`/.test(st) && /transfertsStockEnvoyes\(db, bq\)/.test(st) && /data-transferts="envoyes"/.test(st) && /annulerTransfertStock\(db, t, profile\)/.test(st));
+  test("★ 🔁 Transfert : « Transferts de stock à valider », Valider la réception / Refuser, rôles du stock revérifiés DANS le geste, historique",
+    /data-transferts="a-valider"/.test(rv) && /validerTransfertStock\(db, bq, t, profile\)/.test(rv) && /refuserTransfertStock\(db, bq, t, profile, motif\)/.test(rv)
+    && /refuserSaufRoles\(profile, ROLES_STOCK, "Valider un transfert de stock"\)/.test(rv) && /refuserSaufRoles\(profile, ROLES_STOCK, "Refuser un transfert de stock"\)/.test(rv) && /Valider la réception/.test(rv));
+  test("le badge de 🔁 Transfert (gérant) et de 📦 Stocks (admin) comptent les transferts de stock à valider",
+    /compterDemandesTransfertRecues\(db, profile\) \+ \(profile\.boutique \? compterTransfertsStockAValider\(db, profile\) : 0\)/.test(appT)
+    && /compterDemandesTransfertToutes\(db, profile\) \+ \(profile\.boutique \? 0 : compterTransfertsStockAValider\(db, profile\)\)/.test(appT));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

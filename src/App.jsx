@@ -80,6 +80,7 @@ import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, charger
 // à chaque save (un seul appel) ; src/push.js parle à l'appareil et au serveur.
 import { envoisDepuisSave } from "./lib/notifications";
 import { enregistrerAppareil, oublierAppareil, envoyerPush, viderFilePush } from "./push";
+import { compterTransfertsStockAValider } from "./lib/transfertsStock";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
@@ -980,9 +981,12 @@ export default function App() {
   const jeSuisApporteur = estApporteur(db, profile);
   const nbReponsesRav = compterReponsesRavitaillement(db, profile);
   const labelRavitaillement = `🚚 Ravitaillement${nbReponsesRav ? ` (${nbReponsesRav})` : ""}`;
-  const nbTransfertRecu = compterDemandesTransfertRecues(db, profile);
+  // 🔁 Transfert compte les demandes de transfert reçues ET les transferts de
+  // STOCK à valider (Timo, 14/09/2026) ; l'admin, sans boutique, les voit
+  // tous sur 📦 Stocks.
+  const nbTransfertRecu = compterDemandesTransfertRecues(db, profile) + (profile.boutique ? compterTransfertsStockAValider(db, profile) : 0);
   const labelTransfert = `🔁 Transfert${nbTransfertRecu ? ` (${nbTransfertRecu})` : ""}`;
-  const nbTransfertToutes = compterDemandesTransfertToutes(db, profile);
+  const nbTransfertToutes = compterDemandesTransfertToutes(db, profile) + (profile.boutique ? 0 : compterTransfertsStockAValider(db, profile));
   const labelStocksAdmin = `📦 Stocks${nbTransfertToutes ? ` (${nbTransfertToutes})` : ""}`;
   const nbTaches = compterTaches(db, profile);
   const labelTaches = `✅ Mes tâches${nbTaches ? ` (${nbTaches})` : ""}`;

@@ -8,6 +8,7 @@ import { uid, today, dFR } from "../lib/core";
 import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
+import { transfertsStockAValider, historiqueTransfertsStock, validerTransfertStock, refuserTransfertStock, libelleLignes, STATUT_VALIDE, STATUT_REFUSE } from "../lib/transfertsStock";
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
 // Utilisé à deux endroits : dans l'onglet 📦 Stocks (gérant, admin) et comme
@@ -204,9 +205,76 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
       : b)) }, `Demande de transfert de ${demande.demandeur} refusée : ${motif.trim()} (par ${profile.nom})`);
   };
 
+  // ---- Transferts de STOCK à valider (Timo, 14/09/2026 : « le gérant de la
+  // boutique de réception doit valider dans Transfert ; tant que cette
+  // validation n'est pas faite, l'article ne bouge pas »). Règle pure
+  // lib/transfertsStock.js ; magasinier, gérant, admin.
+  const stockAValider = transfertsStockAValider(db, bq);
+  const historiqueStock = historiqueTransfertsStock(db, bq);
+  const validerStock = async (t) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Valider un transfert de stock")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(`Valider la réception de ${libelleLignes(t)} envoyé par ${t.de} ?\n\nLe stock de ${t.de} baisse et celui de ${bq} monte à cet instant.`)) return;
+    const r = validerTransfertStock(db, bq, t, profile);
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
+    uAlert(`✅ Réception validée : ${libelleLignes(t)} est maintenant dans le stock de ${bq}.`);
+  };
+  const refuserStock = async (t) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Refuser un transfert de stock")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const motif = await uPrompt(`Motif du refus (visible par ${t.de}) :`, "Colis non reçu");
+    if (motif === null) return;
+    const r = refuserTransfertStock(db, bq, t, profile, motif);
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
+  };
+
   if (!bq) return <div className="text-sm text-slate-400 text-center py-6">Votre compte n'est rattaché à aucune boutique.</div>;
 
   return (
+    <div className="space-y-4">
+    <div className="rounded-xl p-4 bg-white border-2 border-blue-200" data-transferts="a-valider">
+      <div className="font-bold mb-1 text-blue-800">📦 Transferts de stock à valider {stockAValider.length > 0 ? `(${stockAValider.length})` : ""}</div>
+      <div className="text-xs text-slate-500 mb-4">Une autre boutique vous envoie des articles. Tant que vous n'avez pas validé, ils restent dans SON stock : validez quand le colis est bien arrivé.</div>
+      {stockAValider.length === 0 ? (
+        <div className="text-sm text-slate-400 text-center py-4">Aucun transfert de stock en attente.</div>
+      ) : (
+        <div className="space-y-3">
+          {stockAValider.map((t) => (
+            <div key={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm">
+                  <b>{t.de}</b> envoie : {libelleLignes(t)}
+                  <div className="text-xs text-slate-400 mt-1">{dFR(t.date)}{t.heure ? ` ${t.heure}` : ""} — par {t.par}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => validerStock(t)} className="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-xs font-bold hover:bg-blue-800">✅ Valider la réception</button>
+                  <button onClick={() => refuserStock(t)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Refuser</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {historiqueStock.length > 0 && (
+        <div className="mt-4">
+          <div className="text-xs font-bold text-slate-500 uppercase mb-2">Historique récent</div>
+          <ul className="text-xs text-slate-500 space-y-1">
+            {historiqueStock.map((t) => (
+              <li key={t.id}>
+                {t.de} (envoyé par {t.par}) — {libelleLignes(t)} —{" "}
+                {t.statut === STATUT_VALIDE
+                  ? <span className="text-green-700 font-semibold">✅ Reçu, validé par {t.traite_par}{t.numero_bon ? ` (${t.numero_bon})` : ""}</span>
+                  : t.statut === STATUT_REFUSE
+                    ? <span className="text-red-600 font-semibold">❌ Refusé par {t.traite_par}{t.motif ? ` (${t.motif})` : ""}</span>
+                    : <span className="text-slate-500 font-semibold">↩ Annulé par {t.traite_par}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
     <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
       <div className="font-bold mb-1 text-purple-800">🔁 Demandes de transfert reçues {demandesTransfertRecues.length > 0 ? `(${demandesTransfertRecues.length})` : ""}</div>
       <div className="text-xs text-slate-500 mb-4">Une autre boutique a besoin de ces articles — probablement pour finaliser une vente en attente. Validez simplement si vous les avez en stock.</div>
@@ -246,6 +314,7 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
           </ul>
         </div>
       )}
+    </div>
     </div>
   );
 }
