@@ -5,8 +5,8 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat } from "../../components/ui";
-import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
-import { besoinsSolaires, supportsPourRails, etriersPourPanneaux } from "../../lib/solaire";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
+import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
@@ -47,7 +47,9 @@ export const fixationDepuisLignes = (lignes) => {
   const supports = lignes.find((l) => l.categorie === "Supports de rail");
   const etriers = lignes.find((l) => l.categorie === "Étriers");
   return {
-    supports: { qte: supports ? Number(supports.qte) || 0 : 0, base: Number(rails.qte) || 0 },
+    // La base des supports = les MÈTRES de rail (une ligne d'après le 14/09/2026
+    // a sa quantité en barres et ses mètres dans `metres_calcules`).
+    supports: { qte: supports ? Number(supports.qte) || 0 : 0, base: Number(rails.metres_calcules ?? rails.qte) || 0 },
     etriers: { qte: etriers ? Number(etriers.qte) || 0 : 0, base: panneaux ? Number(panneaux.qte) || 0 : 0 },
   };
 };
@@ -98,6 +100,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const [prixLibre, setPrixLibre] = useState({});
   const produitsBoutique = modeLibre ? [] : db.produits.filter((p) => p.boutique === boutique);
   const PRIX_RAIL = prixRailMetre(db);
+  const LONGUEUR_RAIL = longueurRailBarre(db);
 
   // ---- Besoins du client (liste d'appareils) ----
   // Si on reprend un devis (modification/rejet), on repart de ses besoins d'origine.
@@ -595,15 +598,29 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // jamais celui du stock — demande explicite de Timo. S'il n'y a pas cet
   // article en stock, tout reste exactement comme avant (aucun lien,
   // aucune vérification de stock, le calcul n'est jamais impacté).
-  const articleRailsStock = produitsBoutique.find((p) => /rail/i.test(p.nom) || /rail/i.test(p.categorie || ""));
+  // (14/09/2026 : un « SUPPORT RAIL » ou un étrier porte aussi le mot rail —
+  // ce n'est pas la barre.)
+  const articleRailsStock = produitsBoutique.find((p) => (/rail/i.test(p.nom) || /rail/i.test(p.categorie || "")) && !/support|etrier|étrier/i.test(p.nom));
   const ligneRailsReprise = lignesReprises.find((l) => l.categorie === "Rails de fixation");
-  const [railsQte, setRailsQte] = useState(ligneRailsReprise ? Number(ligneRailsReprise.qte) : (choixDuBrouillon ? Number(brouillon.railsQte || 0) : 0));
+  // Reprise : une ligne d'après le 14/09/2026 porte ses mètres calculés
+  // (`metres_calcules`, sa quantité étant en barres) ; une ancienne ligne a
+  // ses mètres en quantité.
+  const metresDeLigne = (l) => Number(l.metres_calcules ?? l.qte) || 0;
+  const [railsQte, setRailsQte] = useState(ligneRailsReprise ? metresDeLigne(ligneRailsReprise) : (choixDuBrouillon ? Number(brouillon.railsQte || 0) : 0));
   const premierRenduRails = useRef(true);
   useEffect(() => {
     if (premierRenduRails.current) { premierRenduRails.current = false; return; } // ne pas écraser la reprise au montage
     setRailsQte(railsCalcules(nombrePanneaux));
   }, [nombrePanneaux]);
-  const sousTotalRails = railsQte * PRIX_RAIL;
+  // ⚠ Décision Timo (14/09/2026, option « b ») : le stock compte des BARRES
+  // (4,2 m, réglable dans ⚙ Paramètres) et le client paie les barres
+  // ENTAMÉES — 22 m → 6 barres → 25,2 m au prix du mètre. La ligne part au
+  // panier en barres (c'est ce que le stock sait soustraire), au prix d'une
+  // barre (longueur × prix du mètre). Règle pure `barresDeRail`.
+  const rails = barresDeRail(railsQte, LONGUEUR_RAIL);
+  const PRIX_BARRE = Math.round(LONGUEUR_RAIL * PRIX_RAIL);
+  const sousTotalRails = rails.barres * PRIX_BARRE;
+  const libelleRails = `Rails de fixation (barre de ${LONGUEUR_RAIL} m)`;
   // ⚠ Règle Timo (07/09/2026) : la sortie du rail s'accompagne de celle des
   // SUPPORTS DE RAIL (rails × 2, arrondi au nombre pair suivant) et des
   // ÉTRIERS ((panneaux × 2) + 8). Les deux lignes n'existent que s'il y a des
@@ -671,7 +688,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
   const panierMetier = () => [
       ...lignesDevis.filter((l) => l.produit).map((l) => ({ produit_id: l.produit.manuel ? null : l.produit.id, article: l.produit.nom, qte: l.qte, pu: l.produit.prix_vente, hors_boutique: !!rolesHB[l.role.id] })),
-      ...(railsQte > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL }] : []),
+      ...(rails.barres > 0 ? [{ produit_id: articleRailsStock ? articleRailsStock.id : null, article: libelleRails, qte: rails.barres, pu: PRIX_BARRE }] : []),
       ...(supportsQte > 0 ? [{ produit_id: articleSupportsStock.id, article: articleSupportsStock.nom, qte: supportsQte, pu: Number(articleSupportsStock.prix_vente || 0) }] : []),
       ...(etriersQte > 0 ? [{ produit_id: articleEtriersStock.id, article: articleEtriersStock.nom, qte: etriersQte, pu: Number(articleEtriersStock.prix_vente || 0) }] : []),
   
@@ -681,7 +698,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           categorie: l.role.label, article: l.produit.nom, qte: l.qte,
           pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!rolesHB[l.role.id],
         })),
-        ...(railsQte > 0 ? [{ categorie: "Rails de fixation", article: "Rails de fixation (le mètre)", qte: railsQte, pu: PRIX_RAIL, total: sousTotalRails }] : []),
+        ...(rails.barres > 0 ? [{ categorie: "Rails de fixation", article: libelleRails, qte: rails.barres, pu: PRIX_BARRE, total: sousTotalRails, metres_calcules: rails.metresCalcules, metres_factures: rails.metresFactures, longueur_barre: rails.longueurBarre }] : []),
         ...(supportsQte > 0 ? [{ categorie: "Supports de rail", article: articleSupportsStock.nom, qte: supportsQte, pu: Number(articleSupportsStock.prix_vente || 0), total: sousTotalSupports }] : []),
         ...(etriersQte > 0 ? [{ categorie: "Étriers", article: articleEtriersStock.nom, qte: etriersQte, pu: Number(articleEtriersStock.prix_vente || 0), total: sousTotalEtriers }] : []),
   ];
@@ -904,7 +921,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
             {/* Rails de fixation : quantité et prix calculés automatiquement */}
             <tr className="border-t border-slate-100 bg-amber-50/40">
               <td className="px-3 py-2 font-semibold whitespace-nowrap">Rails de fixation <span className="font-normal text-slate-500">(en mètres)</span></td>
-              <td className="px-3 py-2 text-xs text-slate-500">Calculé automatiquement : {nombrePanneaux} panneaux × 2,2 m = {railsQte} m</td>
+              <td className="px-3 py-2 text-xs text-slate-500">
+                Calculé automatiquement : {nombrePanneaux} panneaux × 2,2 m = {railsQte} m
+                {rails.barres > 0 && <div className="mt-0.5 font-semibold text-slate-700">→ {rails.barres} barre{rails.barres > 1 ? "s" : ""} de {LONGUEUR_RAIL} m = {rails.metresFactures} m facturés{rails.chute > 0 ? ` (chute ${rails.chute} m)` : ""}</div>}
+              </td>
               <td className="px-3 py-2 text-slate-400">—</td>
               <td className="px-3 py-2">
                 <div className="flex items-center gap-1">
@@ -913,7 +933,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                 </div>
                 {railsQte !== railsCalcules(nombrePanneaux) && <div className="mt-1"><LienAuto onClick={() => setRailsQte(railsCalcules(nombrePanneaux))} /></div>}
               </td>
-              <td className="px-3 py-2 tabular-nums whitespace-nowrap">{fmt(PRIX_RAIL)} <span className="text-xs text-slate-500">/m</span></td>
+              <td className="px-3 py-2 tabular-nums whitespace-nowrap">{fmt(PRIX_RAIL)} <span className="text-xs text-slate-500">/m</span><div className="text-xs text-slate-500">{fmt(PRIX_BARRE)} la barre</div></td>
               <td className="px-3 py-2 tabular-nums font-bold">{fmt(sousTotalRails)}</td>
               <td className="px-3 py-2"></td>
             </tr>

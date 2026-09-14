@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1321 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1330 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -323,7 +323,23 @@ lit mal est pire qu'un banc absent).
   sont la seule barrière, aucun filtre côté application.
 - Un devis ne touche pas le stock ; l'encaissement, oui (« ça reste ainsi »).
   Solaire : le rail se vend au mètre (prix de ⚙ Paramètres, jamais celui du
-  stock) ; **supports de rail = rails × 2 arrondi au pair suivant, étriers =
+  stock). **Le stock compte des BARRES de 4,2 m** (14/09/2026 : « le rail est
+  vendu à l'unité de 4,2 m dans le stock ; dans le dimensionnement c'est au
+  mètre… par quel mécanisme déduire le stock ? » — option « b » choisie, et
+  « prix réglable dans Paramètres ») : les mètres calculés (panneaux × 2,2)
+  sont arrondis aux **barres entamées**, **le client paie ces barres** au
+  prix du mètre (22 m → 6 barres → 25,2 m facturés), le stock perd ce nombre
+  de barres à l'encaissement (la ligne part au panier **en barres**, au prix
+  d'une barre) ; la chute est dite pour information. Règle pure `barresDeRail`
+  (lib/solaire.js), longueur `longueurRailBarre` / `LONGUEUR_RAIL_DEFAUT` =
+  4,2 (calculs.js, champ `longueur_rail` des boutiques, ⚙ Paramètres à côté du
+  prix du mètre, admin). La ligne du devis garde `metres_calcules`,
+  `metres_factures`, `longueur_barre` ; une reprise relit les mètres (une
+  ancienne ligne a ses mètres en quantité). L'article « rail » du stock n'est
+  jamais un support ni un étrier. ⚠ La base des supports (« rails × 2 »)
+  reste les MÈTRES de rail, comme avant : à revoir si Timo dit que « rails »
+  voulait dire barres.
+  **supports de rail = rails × 2 arrondi au pair suivant, étriers =
   (panneaux × 2) + 8** (règle Timo du 07/09/2026), lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
   **Chaque ligne de fixation a sa case de quantité** (0 = retirée) ; une

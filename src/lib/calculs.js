@@ -2257,6 +2257,17 @@ export const prixRailMetre = (db) => {
   const b = (db?.boutiques || []).find((x) => Number(x.prix_rail) > 0);
   return b ? Number(b.prix_rail) : PRIX_RAIL_DEFAUT;
 };
+// ---- LONGUEUR D'UNE BARRE DE RAIL (14/09/2026) ----
+// Timo : « le rail est vendu à l'unité de 4,2 m dans le stock ; dans le
+// dimensionnement c'est au mètre ». Le stock compte des BARRES, le devis des
+// MÈTRES : la longueur d'une barre fait le pont (règle `barresDeRail`,
+// lib/solaire.js). Réglable dans ⚙ Paramètres à côté du prix du mètre, rangé
+// pareil (sur les boutiques, aucune table nouvelle).
+export const LONGUEUR_RAIL_DEFAUT = 4.2;
+export const longueurRailBarre = (db) => {
+  const b = (db?.boutiques || []).find((x) => Number(x.longueur_rail) > 0);
+  return b ? Number(b.longueur_rail) : LONGUEUR_RAIL_DEFAUT;
+};
 
 // Statut d'un chantier (par défaut : en cours)
 export const statutChantier = (c) => c.statut || "en_cours";

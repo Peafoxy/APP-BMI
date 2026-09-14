@@ -1399,6 +1399,46 @@ titre("Prix du rail : réglable dans les Paramètres, sans rien casser de l'exis
     22 * C.prixRailMetre({ boutiques: [{ prix_rail: 6200 }] }) === 136400);
 }
 
+titre("Rail : le stock compte des BARRES, le devis des mètres — le client paie les barres entamées (14/09/2026)");
+{
+  // Timo : « le rail est vendu à l'unité de 4,2 m dans le stock ; dans le
+  // dimensionnement c'est au mètre… par quel mécanisme déduire le stock ? »
+  // Décision « b » : 22 m calculés → 6 barres → 25,2 m facturés au prix du
+  // mètre ; le stock perd 6 barres. Longueur réglable dans ⚙ Paramètres.
+  const r = Sol.barresDeRail(22, 4.2);
+  test("★ 22 m → 6 barres de 4,2 m = 25,2 m facturés, chute 3,2 m",
+    r.barres === 6 && r.metresFactures === 25.2 && r.chute === 3.2 && r.metresCalcules === 22 && r.longueurBarre === 4.2);
+  test("une barre juste pleine n'en entame pas une autre : 4,2 → 1 ; 8,4 → 2 ; 8,5 → 3 ; 16 → 4 (16,8 m) ; 0 → 0",
+    Sol.barresDeRail(4.2, 4.2).barres === 1 && Sol.barresDeRail(8.4, 4.2).barres === 2 && Sol.barresDeRail(8.5, 4.2).barres === 3
+    && Sol.barresDeRail(16, 4.2).barres === 4 && Sol.barresDeRail(16, 4.2).metresFactures === 16.8 && Sol.barresDeRail(0, 4.2).barres === 0
+    && Sol.barresDeRail(0, 4.2).metresFactures === 0);
+  test("une longueur absurde (0, négative, absente) retombe sur 4,2 m",
+    Sol.barresDeRail(22, 0).longueurBarre === 4.2 && Sol.barresDeRail(22, -1).barres === 6 && Sol.barresDeRail(22).barres === 6);
+  test("★ le prix payé = barres × (longueur × prix du mètre) : 6 × 4,2 × 5 500 = 138 600, pas 22 × 5 500",
+    6 * Math.round(4.2 * 5500) === 138600 && 138600 !== 22 * 5500);
+  test("la longueur se règle comme le prix : 4,2 d'office, lue sur la première boutique qui la porte, 0 ignoré",
+    C.LONGUEUR_RAIL_DEFAUT === 4.2 && C.longueurRailBarre({ boutiques: [{ nom: "A" }] }) === 4.2
+    && C.longueurRailBarre({ boutiques: [{ nom: "A" }, { nom: "B", longueur_rail: 6 }] }) === 6
+    && C.longueurRailBarre({ boutiques: [{ longueur_rail: 0 }] }) === 4.2 && C.longueurRailBarre(null) === 4.2);
+  const solR = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ le devis solaire passe par la règle : la ligne part au panier en BARRES (qte = rails.barres, prix d'une barre), liée à l'article du stock — c'est ce que le stock soustrait",
+    /const rails = barresDeRail\(railsQte, LONGUEUR_RAIL\);/.test(solR) && /const PRIX_BARRE = Math\.round\(LONGUEUR_RAIL \* PRIX_RAIL\);/.test(solR)
+    && /const sousTotalRails = rails\.barres \* PRIX_BARRE;/.test(solR)
+    && /rails\.barres > 0 \? \[\{ produit_id: articleRailsStock \? articleRailsStock\.id : null, article: libelleRails, qte: rails\.barres, pu: PRIX_BARRE \}\]/.test(solR)
+    && !/qte: railsQte, pu: PRIX_RAIL/.test(solR));
+  test("★ la ligne du devis garde ses mètres (metres_calcules, metres_factures, longueur_barre) ; une reprise relit les mètres, une ancienne ligne (mètres en quantité) aussi ; la case reste en mètres",
+    /metres_calcules: rails\.metresCalcules, metres_factures: rails\.metresFactures, longueur_barre: rails\.longueurBarre/.test(solR)
+    && /const metresDeLigne = \(l\) => Number\(l\.metres_calcules \?\? l\.qte\) \|\| 0;/.test(solR)
+    && /base: Number\(rails\.metres_calcules \?\? rails\.qte\) \|\| 0/.test(solR)
+    && /value=\{railsQte\} onChange/.test(solR) && /barres? de \{LONGUEUR_RAIL\} m = \{rails\.metresFactures\} m facturés/.test(solR.replace(/\{rails\.barres > 1 \? "s" : ""\}/, "s")));
+  test("l'article « rail » du stock n'est jamais un SUPPORT rail ni un étrier",
+    /&& !\/support\|etrier\|étrier\/i\.test\(p\.nom\)\)/.test(solR));
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("⚙ Paramètres : « Longueur d'une barre (m) » à côté du prix du mètre, admin, écrite sur les boutiques (longueur_rail), exemple en barres",
+    /data-reglage="longueur-rail"/.test(par) && /longueur_rail: v/.test(par) && /refuserSaufAdmin\(profile, "Modifier la longueur d'une barre de rail"\)/.test(par)
+    && /barresDeRail\(22, Number\(longueurRail\)\)/.test(par));
+}
+
 
 titre("L'administrateur qui voit les deux espaces doit le pouvoir AUSSI côté serveur");
 {

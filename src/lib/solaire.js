@@ -107,3 +107,17 @@ export function besoinsSolaires(appareils, { autonomie, soleil, tension, typeBat
 export const pairSuivant = (x) => { const n = Math.ceil(Number(x) || 0); return n % 2 === 0 ? n : n + 1; };
 export const supportsPourRails = (rails) => (Number(rails) > 0 ? pairSuivant(Number(rails) * 2) : 0);
 export const etriersPourPanneaux = (panneaux) => Number(panneaux || 0) * 2 + 8;
+
+// ---- Des mètres calculés aux barres sorties du stock (14/09/2026) ----
+// Le dimensionnement compte des MÈTRES (panneaux × 2,2) ; le stock compte des
+// BARRES (4,2 m d'office, réglable). Décision Timo (option « b ») : le client
+// paie les barres ENTAMÉES — 22 m calculés → 6 barres de 4,2 m → 25,2 m
+// facturés au prix du mètre ; le stock perd 6 barres. La chute (3,2 m) est
+// dite pour information. Une longueur absurde retombe sur 4,2.
+export const barresDeRail = (metres, longueurBarre) => {
+  const m = Math.max(0, Number(metres) || 0);
+  const L = Number(longueurBarre) > 0 ? Number(longueurBarre) : 4.2;
+  const barres = m > 0 ? Math.ceil(m / L - 1e-9) : 0;
+  const metresFactures = Math.round(barres * L * 100) / 100;
+  return { barres, longueurBarre: L, metresCalcules: m, metresFactures, chute: Math.round((metresFactures - m) * 100) / 100 };
+};

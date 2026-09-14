@@ -16,10 +16,11 @@ import { PALETTE } from "../lib/constants";
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planRemiseFonds, manqueRemises, totalRemisesFonds, construireRemiseFonds, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
+import { barresDeRail } from "../lib/solaire";
 
 // ============ PARAMÈTRES ============
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
@@ -221,6 +222,18 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // ⚠ Ce prix était écrit en dur dans le code du Dimensionnement : Timo ne
   // pouvait pas le changer lui-même quand son fournisseur augmentait.
   const [prixRail, setPrixRail] = useState(String(prixRailMetre(db)));
+  // Longueur d'une barre (14/09/2026) : le stock compte des barres, le devis
+  // des mètres ; le client paie les barres entamées (décision Timo, « b »).
+  const [longueurRail, setLongueurRail] = useState(String(longueurRailBarre(db)));
+  const enregistrerLongueurRail = () => {
+    if (refuserSaufAdmin(profile, "Modifier la longueur d'une barre de rail")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const v = Number(String(longueurRail).replace(",", "."));
+    if (Number.isNaN(v) || v <= 0) { uAlert("Entrez la longueur d'UNE barre de rail, en mètres (par exemple 4,2)."); return; }
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, longueur_rail: v })) },
+      `Longueur d'une barre de rail fixée à ${v} m`);
+    uAlert(`✅ Une barre de rail fait désormais ${v} m.\n\nLe dimensionnement compte les mètres, arrondit aux barres entamées et facture ces barres au prix du mètre ; le stock perd ce nombre de barres à l'encaissement. S'applique aux PROCHAINS devis.`);
+  };
 
   const enregistrerPrixRail = () => {
     if (refuserSaufAdmin(profile, "Modifier le prix du rail")) return;
@@ -1265,11 +1278,20 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <input type="number" min="0" step="100" className={inputCls + " w-36"} value={prixRail} onChange={(e) => setPrixRail(e.target.value)} />
           </Field>
           <button onClick={enregistrerPrixRail} className={btnDark}>✅ Enregistrer le prix</button>
-          {Number(prixRail) > 0 && (
+        </div>
+        <div className="flex gap-2 items-end flex-wrap mt-3" data-reglage="longueur-rail">
+          <Field label="Longueur d'une barre (m)">
+            <input type="number" min="0" step="0.1" className={inputCls + " w-36"} value={longueurRail} onChange={(e) => setLongueurRail(e.target.value)} />
+          </Field>
+          <button onClick={enregistrerLongueurRail} className={btnDark}>✅ Enregistrer la longueur</button>
+          {Number(prixRail) > 0 && Number(longueurRail) > 0 && (() => { const ex = barresDeRail(22, Number(longueurRail)); return (
             <div className="text-xs text-slate-500 pb-2">
-              Exemple : 10 panneaux → 22 m → <b>{fmt(22 * Number(prixRail))}</b>
+              Exemple : 10 panneaux → 22 m → <b>{ex.barres} barres de {ex.longueurBarre} m</b> = {ex.metresFactures} m facturés → <b>{fmt(ex.barres * Math.round(ex.longueurBarre * Number(prixRail)))}</b>
             </div>
-          )}
+          ); })()}
+        </div>
+        <div className="text-xs text-slate-500 mt-2">
+          Le stock compte des barres : le devis arrondit les mètres calculés aux barres entamées, le client paie ces barres au prix du mètre, et le stock perd ce nombre de barres à l'encaissement.
         </div>
         {Number(prixRail) !== PRIX_RAIL_DEFAUT && (
           <button
