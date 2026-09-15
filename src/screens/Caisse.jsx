@@ -13,7 +13,7 @@ import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut,
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir, fondsCaisseFixe } from "../lib/versements";
 import { banquesReglees } from "../lib/banques";
 
 // ============ CAISSE ============
@@ -178,6 +178,17 @@ export function Caisse({ db, save, profile }) {
     }
     const refus = critiqueRemboursement(d, moyen, profile, { mois });
     if (refus) { uAlert(refus); return; }
+    // Timo (15/09/2026), sur l'employé qui a avancé de sa poche : « elle
+    // attendra que le tiroir soit capable et après validation elle reprend son
+    // argent ». Un remboursement en ESPÈCES vide le tiroir comme une dépense :
+    // même règle (critiqueSortieTiroir). Le salaire et le DG n'y touchent pas.
+    if (moyen === "caisse") {
+      const refusT = critiqueSortieTiroir({
+        tiroir: aVerser.montant, fondsFixe: fondsCaisseFixe(db, boutique),
+        montant: Number(d.montant), geste: "Ce remboursement", boutique, avecAvance: false,
+      });
+      if (refusT) { uAlert(refusT); return; }
+    }
     if (!await uConfirm(`Rembourser à ${d.par} l'avance de ${fmt(d.montant)} (${d.description || d.categorie} du ${dFR(d.date)}) — ${libelleMoyenRemb(moyen).toLowerCase()}${mois ? ` (${mois})` : ""} ?${moyen === "caisse" ? `\n\nLa sortie sera enregistrée aujourd'hui dans la caisse de ${boutique}.` : ""}`)) return;
     const r = rembourserAvance(db, profile, d, moyen, today(), { mois });
     if (r.refus) { uAlert(r.refus); return; }

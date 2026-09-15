@@ -5,8 +5,8 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { fmt, today, dFR } from "../lib/core";
-import { critiqueRejet, rejeterVersement, estRejete, estVersement } from "../lib/versements";
+import { fmt, today, dFR, totalVente } from "../lib/core";
+import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, fondsCaisseFixe } from "../lib/versements";
 import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
@@ -79,6 +79,19 @@ export function Depenses({ db, save, profile }) {
   const [f, setF] = useState(formVide);
   const jeSuisDG = estAdminPrincipal(db, profile);
 
+  // Timo (15/09/2026) : « si dépense dépasse fonds de caisse, impossible de
+  // dépenser ». La limite est TOUT le contenu du tiroir (recettes + ce qu'il
+  // reste du fonds) — règle pure critiqueSortieTiroir, revérifiée DANS chaque
+  // geste. Seules les espèces payées avec la caisse d'une boutique vident le
+  // tiroir : Flooz, virement, avance personnelle, argent du DG et caisse du
+  // comptable n'y touchent pas (« si une dépense ne sort pas du tiroir, elle
+  // n'est pas comptabilisée dans la caisse de toute façon »).
+  const refusTiroir = (nomBoutique, montant, geste) => critiqueSortieTiroir({
+    tiroir: fondsAVerser(db, nomBoutique, totalVente).montant,
+    fondsFixe: fondsCaisseFixe(db, nomBoutique),
+    montant, geste, boutique: nomBoutique,
+  });
+
   // Timo (12/09/2026) : à partir de 5 000 F, la dépense attend la validation
   // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.
   const ajouter = async () => {
@@ -92,6 +105,12 @@ export function Depenses({ db, save, profile }) {
     if (f.chantier_id && !chantierChoisi) { uAlert("Ce chantier n'est plus rattachable (réceptionné, ou frais déjà payés). Choisissez-en un autre ou laissez « Aucun »."); return; }
     const refusChantier = chantierChoisi ? critiqueRattachement(db, profile, r.depense, chantierChoisi) : null;
     if (refusChantier) { uAlert(refusChantier); return; }
+    // ⚠ Une dépense EN ATTENTE n'a pas encore vidé le tiroir : on mesure donc
+    // le tiroir tel qu'il est, et c'est la VALIDATION qui butera à son tour.
+    if (r.depense.paiement === "Espèces" && (!r.depense.paye_avec || r.depense.paye_avec === PAYE_AVEC_CAISSE)) {
+      const refusT = refusTiroir(choixCaisse.boutique, Number(f.montant), "Cette dépense");
+      if (refusT) { uAlert(refusT); return; }
+    }
     const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "";
     if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}`)) return;
     const depense = chantierChoisi ? rattacherDepense(r.depense, chantierChoisi) : r.depense;
@@ -111,6 +130,13 @@ export function Depenses({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     const refus = critiqueDecision(d, { estPrincipal: true });
     if (refus) { uAlert(refus); return; }
+    // Timo : « si on valide la première, la seconde refuse jusqu'à ce que le
+    // tiroir contienne l'argent nécessaire. » Valider, c'est faire sortir
+    // l'argent : on revérifie le tiroir à cet instant.
+    if (d.paiement === "Espèces" && (!d.paye_avec || d.paye_avec === PAYE_AVEC_CAISSE)) {
+      const refusT = refusTiroir(d.boutique, Number(d.montant), "Valider cette dépense");
+      if (refusT) { uAlert(refusT); return; }
+    }
     if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvec(d.paye_avec).toLowerCase()} ?`)) return;
     const r = validerDepense(db, profile, d, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);

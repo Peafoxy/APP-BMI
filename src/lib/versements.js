@@ -146,6 +146,38 @@ export function etatFondsCaisse(solde, fondsFixe) {
   return { fondsFixe: fixe, reste, entame: fixe - reste, intact: fixe > 0 && reste === fixe };
 }
 
+// ---- ON NE SORT PAS DU TIROIR PLUS QU'IL NE CONTIENT (Timo, 15/09/2026) ----
+// « Si dépense dépasse fonds de caisse, impossible de dépenser » — puis, sur
+// deux dépenses en attente : « si on valide la première, la seconde refuse
+// jusqu'à ce que le tiroir contienne l'argent nécessaire » — et sur l'argent
+// avancé de sa poche : « elle attendra que le tiroir soit capable et après
+// validation elle reprend son argent ».
+// Avant, rien ne bloquait : une dépense en espèces de 200 000 passait avec
+// 40 000 dans le tiroir, et le solde partait en négatif.
+//
+// LA LIMITE, c'est TOUT ce que le tiroir contient — l'argent des recettes ET
+// ce qu'il reste du fonds de caisse —, pas le fonds seul : avec 100 000 de
+// recettes et un fonds de 50 000, une dépense de 60 000 doit passer.
+//
+// ⚠ Une dépense EN ATTENTE du DG n'est pas encore sortie (règle du 12/09,
+// « sans validation, ça ne compte pas ») : elle ne réduit donc pas la limite.
+// C'est sa VALIDATION qui se heurte au tiroir — mot pour mot la réponse de
+// Timo. Le contrôle se pose donc aux DEUX moments, et au remboursement d'une
+// avance de frais en espèces (le troisième chemin par lequel le tiroir se vide
+// en dehors d'un versement).
+export const MSG_AVANCE_PERSONNELLE = "Sinon, choisissez « une avance personnelle » dans « Payé avec » : la dépense sera remboursée dès que la caisse le permettra.";
+export function critiqueSortieTiroir({ tiroir, fondsFixe = 0, montant, geste = "Cette dépense", boutique = "", avecAvance = true }) {
+  const m = Math.round(Number(montant) || 0);
+  if (!Number.isFinite(m) || m <= 0) return "";
+  const t = Math.round(Number(tiroir) || 0);
+  if (m <= t) return "";
+  const etat = etatFondsCaisse(t, fondsFixe);
+  const dispo = Math.max(0, t);
+  return `${geste} (${fmt(m)}) dépasse ce qu'il y a dans le tiroir${boutique ? ` de ${boutique}` : ""} : ${fmt(dispo)}`
+    + (etat.fondsFixe > 0 ? ` (dont ${fmt(etat.reste)} de fonds de caisse)` : "")
+    + `. Attendez une recette.${avecAvance ? ` ${MSG_AVANCE_PERSONNELLE}` : ""}`;
+}
+
 // ---- LE FONDS DE CAISSE REMIS PAR LE DG (Timo, 14/09/2026) ----
 // Capture d'APESSITO : 348 000 d'entrées, 50 000 de dépenses, 298 000 versés
 // — et « dans la foulée on avait aussi donné un fonds de caisse de 50 000 ».

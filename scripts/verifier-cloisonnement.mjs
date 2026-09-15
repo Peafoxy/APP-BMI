@@ -7350,6 +7350,41 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // ⚠ securite-16 refusait TOUTE modification d'une remise, date comprise :
   // le bouton « Date » aurait été refusé par la base. securite-19 rouvre
   // cette porte-là, et elle seule.
+  // ── ON NE SORT PAS DU TIROIR PLUS QU'IL NE CONTIENT (Timo, 15/09/2026) ──
+  // « Si dépense dépasse fonds de caisse, impossible de dépenser » ; sur deux
+  // dépenses en attente : « si on valide la première, la seconde refuse
+  // jusqu'à ce que le tiroir contienne l'argent nécessaire » ; sur l'avance de
+  // poche : « elle attendra que le tiroir soit capable ». Avant, RIEN ne
+  // bloquait : 200 000 de dépense passaient avec 40 000 dans le tiroir.
+  const tiroirVide = { tiroir: 40000, fondsFixe: 50000 };
+  test("★ une dépense en espèces plus grosse que le tiroir est REFUSÉE, et le refus dit ce qu'il y a (dont le fonds de caisse) et la porte de sortie",
+    /dépasse ce qu'il y a dans le tiroir de DEMAKPOE : 40\s000\sF \(dont 40\s000\sF de fonds de caisse\)/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 200000, boutique: "DEMAKPOE" }))
+    && /avance personnelle/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 200000 })));
+  test("★ LA LIMITE, c'est TOUT le tiroir — recettes ET reste du fonds —, pas le fonds seul : 100 000 de recettes + 50 000 de fonds laissent passer 60 000",
+    V.critiqueSortieTiroir({ tiroir: 150000, fondsFixe: 50000, montant: 60000 }) === ""
+    && V.critiqueSortieTiroir({ tiroir: 150000, fondsFixe: 50000, montant: 150000 }) === ""
+    && V.critiqueSortieTiroir({ tiroir: 150000, fondsFixe: 50000, montant: 150001 }) !== "");
+  test("ce qui tient exactement dans le tiroir passe ; un montant nul ou absent ne dit rien ; un tiroir négatif refuse tout",
+    V.critiqueSortieTiroir({ ...tiroirVide, montant: 40000 }) === "" && V.critiqueSortieTiroir({ ...tiroirVide, montant: 0 }) === ""
+    && V.critiqueSortieTiroir({ ...tiroirVide, montant: "" }) === "" && /:\s0\sF/.test(V.critiqueSortieTiroir({ tiroir: -5000, montant: 1000 })));
+  test("★ DEUX dépenses de 30 000 avec 40 000 dans le tiroir : la première passe, et une fois VALIDÉE (tiroir 10 000) la seconde est refusée — mot pour mot la réponse de Timo",
+    V.critiqueSortieTiroir({ tiroir: 40000, fondsFixe: 50000, montant: 30000 }) === ""
+    && /dépasse ce qu'il y a dans le tiroir/.test(V.critiqueSortieTiroir({ tiroir: 10000, fondsFixe: 50000, montant: 30000 })));
+  test("le remboursement d'une avance ne propose pas « une avance personnelle » comme issue (on est déjà dedans)",
+    !/avance personnelle/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 90000, geste: "Ce remboursement", avecAvance: false }))
+    && /Ce remboursement \(90\s000\sF\)/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 90000, geste: "Ce remboursement", avecAvance: false })));
+  const dpJ = readFileSync("src/screens/Depenses.jsx", "utf8"), caJ = readFileSync("src/screens/Caisse.jsx", "utf8");
+  test("★ le contrôle est posé aux TROIS moments où le tiroir se vide hors versement : la saisie, la validation du DG, et le remboursement d'une avance en espèces",
+    /const refusTiroir = \(nomBoutique, montant, geste\) => critiqueSortieTiroir\(\{/.test(dpJ)
+    && /const refusT = refusTiroir\(choixCaisse\.boutique, Number\(f\.montant\), "Cette dépense"\);/.test(dpJ)
+    && /const refusT = refusTiroir\(d\.boutique, Number\(d\.montant\), "Valider cette dépense"\);/.test(dpJ)
+    && /if \(moyen === "caisse"\) \{\n\s*const refusT = critiqueSortieTiroir\(\{/.test(caJ));
+  test("★ seules les ESPÈCES payées avec la caisse d'une boutique sont bloquées : Flooz, virement, avance personnelle, argent du DG et caisse du comptable ne touchent pas le tiroir",
+    (dpJ.match(/paiement === "Espèces" && \(!\w+\.paye_avec \|\| \w+\.paye_avec === PAYE_AVEC_CAISSE\)/g) || []).length === 2
+    && /montant: Number\(d\.montant\), geste: "Ce remboursement", boutique, avecAvance: false/.test(caJ));
+  test("★ la dépense est mesurée sur la caisse QUI PAIE, pas sur la boutique regardée (« il peut recevoir dans une boutique et valider pour une boutique »)",
+    /refusTiroir\(choixCaisse\.boutique/.test(dpJ) && /tiroir: fondsAVerser\(db, nomBoutique, totalVente\)\.montant/.test(dpJ));
+
   const s19 = readFileSync("supabase/securite-19-date-remise-fonds.sql", "utf8");
   const ta19 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-19 (serveur) : seule la DATE (et la description qui la porte) se corrige, par l'administrateur PRINCIPAL seul ; tout le reste d'une remise reste gravé pour tout le monde ; la création ne change pas ; upsert relu",
