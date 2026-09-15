@@ -19,7 +19,7 @@
 // d'avant la mise en place ne bloquent personne.
 // ============================================================
 
-import { CATEGORIE_VERSEMENT, estFondsCaisseRemis } from "./versements.js";
+import { CATEGORIE_VERSEMENT, estFondsCaisseRemis, deuxPoches, etatFondsCaisse } from "./versements.js";
 // Timo (12/09/2026) : une dépense en attente de validation ne compte pas dans
 // le tiroir ; une avance personnelle ou l'argent du DG n'en sortent jamais.
 import { compteDansLaCaisse } from "./validationDepenses.js";
@@ -33,37 +33,53 @@ export const DEBUT_REGLE_CLOTURE = "2026-09-09";
 // ⚠ Capture Timo (09/09/2026) : « Espèces attendues −150 900 » — le
 // versement de 202 299 comptait comme une dépense du jour, contre 51 400 de
 // ventes ; il restait en réalité 50 000 en caisse.
-export function soldeEspecesFinDeJour(db, boutique, date, totalVente) {
-  const d0 = String(date);
-  const entrees = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces" && String(v.date) <= d0)
-    .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0)
-    + (db.dettes || []).filter((d) => d.boutique === boutique)
-      .reduce((s, d) => s + (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces" && String(p.date) <= d0).reduce((t, p) => t + Number(p.montant || 0), 0), 0);
-  const sorties = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x) && String(x.date) <= d0)
-    .reduce((s, x) => s + Number(x.montant || 0), 0);
-  return entrees - sorties;
-}
+// La veille d'un jour, pour lire le tiroir tel qu'il était hier soir.
+const veilleDe = (d) => {
+  const t = new Date(`${String(d).slice(0, 10)}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() - 1);
+  return t.toISOString().slice(0, 10);
+};
+
+// Ce qu'il doit y avoir dans le TIROIR à la fin d'une journée.
+// ⚠ Timo (15/09/2026, réponse B) : le fonds de caisse est gardé À PART, dans
+// une enveloppe — il n'est PAS dans le tiroir et n'entre dans aucun total de
+// caisse. Le tiroir, c'est la RECETTE : ventes et règlements en espèces,
+// moins ce qu'elle a payé et ce qui a été versé (lib/versements.js,
+// `deuxPoches`). Avant, le fonds y était compté : la clôture du 14/09 à
+// DEMAKPOE attendait 50 000 F de trop.
+export const soldeEspecesFinDeJour = (db, boutique, date, totalVente) =>
+  deuxPoches(db, boutique, totalVente, { du: "", au: String(date).slice(0, 10) }).recette;
 
 // Les chiffres de caisse d'une journée, pour une boutique.
 export function activiteDuJour(db, boutique, date, totalVente) {
-  const d0 = String(date);
-  const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date) === d0);
-  const especesVentes = ventesDuJour.filter((v) => v.paiement === "Espèces")
-    .reduce((s, v) => s + totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0), 0);
-  const mouvementsDuJour = (db.depenses || []).filter((x) => x.boutique === boutique && String(x.date) === d0 && compteDansLaCaisse(x));
-  // Le fonds de caisse REMIS par le DG ce jour-là (14/09/2026) est une ENTRÉE
-  // du tiroir (montant négatif) : jamais une « sortie justifiée » négative.
-  const fondsRemisDuJour = -mouvementsDuJour.filter(estFondsCaisseRemis).reduce((s, x) => s + Number(x.montant || 0), 0);
-  const sortiesDuJour = mouvementsDuJour.filter((x) => !estFondsCaisseRemis(x));
-  // Les versements de fonds sont montrés À PART des dépenses.
-  const versementsDuJour = sortiesDuJour.filter((x) => x.categorie === CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
-  const especesDepenses = sortiesDuJour.filter((x) => x.categorie !== CATEGORIE_VERSEMENT).reduce((s, x) => s + Number(x.montant || 0), 0);
+  const d0 = String(date).slice(0, 10);
+  const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date).slice(0, 10) === d0);
+  // Les deux poches : ce qui s'est passé CE JOUR, et où en est le tiroir ce
+  // soir-là et la veille au soir.
+  const jour = deuxPoches(db, boutique, totalVente, { du: d0, au: d0 });
+  const finDuJour = deuxPoches(db, boutique, totalVente, { du: "", au: d0 });
+  const theorique = finDuJour.recette;
+  const fondsHier = deuxPoches(db, boutique, totalVente, { du: "", au: veilleDe(d0) }).recette;
+  const especesVentes = jour.detail.ventes;
+  const especesReglements = jour.detail.reglements;
+  // Les dépenses du jour : ce que le TIROIR a payé, et ce qu'on a dû prendre
+  // dans l'enveloppe parce que le tiroir ne suffisait pas (« que si pas de
+  // vente et il faut une dépense »). Seule la première touche la clôture.
+  const especesDepenses = jour.detail.surRecette;
+  const depensesSurFonds = jour.detail.surFonds;
+  const versementsDuJour = jour.detail.versements;
+  // Le fonds remis par le DG ce jour-là va dans l'ENVELOPPE, jamais dans le
+  // tiroir : il est dit à part, il n'entre dans aucun calcul de clôture.
+  const fondsRemisDuJour = jour.detail.remises;
+  // Ce que les recettes du jour ont RENDU à l'enveloppe entamée (« fonds de
+  // caisse entamé, les ventes viennent rembourser ») : cet argent est sorti
+  // du tiroir pour retourner dans l'enveloppe.
+  const rembourseAuFonds = jour.detail.rendu;
   const detailReglements = (db.dettes || []).filter((d) => d.boutique === boutique)
     .flatMap((d) => (d.paiements || [])
-      .filter((p) => String(p.date) === d0)
+      .filter((p) => String(p.date).slice(0, 10) === d0)
       .map((p) => ({ ...p, client: d.client, motif: d.motif, numero: d.numero, detteId: d.id })))
     .sort((a, b) => (a.heure || "").localeCompare(b.heure || ""));
-  const especesReglements = detailReglements.filter((p) => (p.paiement || "Espèces") === "Espèces").reduce((s, p) => s + Number(p.montant || 0), 0);
   // Timo (11/09/2026) : « que ce soit l'admin, le gérant ou le vendeur qui a
   // vendu, c'est la même caisse » — UNE clôture, mais la recette du jour se
   // lit aussi PAR PERSONNE : ventes (tout moyen), espèces encaissées (ventes
@@ -84,25 +100,27 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   const recetteParPersonne = Object.values(parPersonne).sort((a, b) => b.especes - a.especes || b.nbVentes - a.nbVentes || a.nom.localeCompare(b.nom));
   // Timo (09/09/2026) : « Clôture de caisse, c'est journalier : recette du
   // jour théorique contre montant du tiroir » et « une dépense n'est pas un
-  // manque… il ne devrait pas y avoir d'écart ». Donc la journée se lit en
-  // quatre lignes : ce qu'il y avait hier soir + la recette du jour − les
-  // sorties justifiées (dépenses, versements : déjà déduites, elles ne
-  // créent JAMAIS d'écart) = ce que le tiroir doit contenir.
+  // manque… il ne devrait pas y avoir d'écart ». La journée se lit donc :
+  // ce qu'il y avait hier soir dans le tiroir + la recette du jour − ce qui
+  // en est sorti (dépenses payées par le tiroir, versements, et ce qui est
+  // retourné dans l'enveloppe) = ce que le tiroir doit contenir.
   const recetteDuJour = especesVentes + especesReglements;
   const sortiesJustifiees = especesDepenses + versementsDuJour;
-  // …plus le fonds de caisse remis par le DG ce jour-là, s'il y en a un.
-  const fluxDuJour = recetteDuJour + fondsRemisDuJour - sortiesJustifiees;
-  const theorique = soldeEspecesFinDeJour(db, boutique, d0, totalVente);
+  const fluxDuJour = recetteDuJour - rembourseAuFonds - sortiesJustifiees;
+  // L'état de l'enveloppe ce soir-là, montré À PART.
+  const etatFonds = etatFondsCaisse(finDuJour.fonds, finDuJour.plafond);
   return {
     date: d0,
     nbVentes: ventesDuJour.length,
-    especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, detailReglements,
+    especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements,
     recetteDuJour, sortiesJustifiees, recetteParPersonne,
+    // L'enveloppe (jamais additionnée au tiroir).
+    fondsPlafond: finDuJour.plafond, fondsReste: etatFonds.reste, fondsEntame: etatFonds.entame, fondsIntact: etatFonds.intact,
     // Le flux de la journée, pour information…
     fluxDuJour,
-    // …le fonds de caisse d'hier soir (le solde avant la journée)…
-    fondsHier: theorique - fluxDuJour,
-    // …et ce qu'on doit TROUVER dans le tiroir : le solde en caisse ce soir-là.
+    // …ce qu'il y avait dans le tiroir hier soir…
+    fondsHier,
+    // …et ce qu'on doit TROUVER dans le tiroir : la recette, ce soir-là.
     theorique,
     // Une journée « active » demande une clôture : au moins une vente, ou un
     // encaissement en espèces.
@@ -118,7 +136,7 @@ export function alerteSaisieRecette(compte, jour, fmt = (x) => String(x)) {
   if (compte === "" || compte === null || compte === undefined) return "";
   const c = Number(compte);
   if (!Number.isFinite(c) || jour.recetteDuJour !== c || jour.theorique === c) return "";
-  return `⚠ ${fmt(c)} est la recette du jour, pas le contenu du tiroir. Le tiroir doit contenir le fonds d'hier soir (${fmt(jour.fondsHier)}) + la recette (${fmt(jour.recetteDuJour)})${jour.fondsRemisDuJour > 0 ? ` + le fonds de caisse remis par le DG (${fmt(jour.fondsRemisDuJour)})` : ""} − les sorties du jour (${fmt(jour.sortiesJustifiees)}) = ${fmt(jour.theorique)}. Comptez ce qu'il y a réellement dans le tiroir.`;
+  return `⚠ ${fmt(c)} est la recette du jour, pas le contenu du tiroir. Le tiroir doit contenir le fonds d'hier soir (${fmt(jour.fondsHier)}) + la recette (${fmt(jour.recetteDuJour)})${jour.rembourseAuFonds > 0 ? ` − ce qui est retourné dans le fonds de caisse (${fmt(jour.rembourseAuFonds)})` : ""} − les sorties du jour (${fmt(jour.sortiesJustifiees)}) = ${fmt(jour.theorique)}. Comptez ce qu'il y a réellement dans le tiroir.`;
 }
 
 export const estCloturee = (db, boutique, date) => (db.clotures || []).some((c) => c.boutique === boutique && String(c.date) === String(date));

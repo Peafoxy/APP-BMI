@@ -6,7 +6,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, today, dFR, totalVente } from "../lib/core";
-import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, fondsCaisseFixe } from "../lib/versements";
+import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
@@ -86,11 +86,13 @@ export function Depenses({ db, save, profile }) {
   // tiroir : Flooz, virement, avance personnelle, argent du DG et caisse du
   // comptable n'y touchent pas (« si une dépense ne sort pas du tiroir, elle
   // n'est pas comptabilisée dans la caisse de toute façon »).
-  const refusTiroir = (nomBoutique, montant, geste) => critiqueSortieTiroir({
-    tiroir: fondsAVerser(db, nomBoutique, totalVente).montant,
-    fondsFixe: fondsCaisseFixe(db, nomBoutique),
-    montant, geste, boutique: nomBoutique,
-  });
+  const refusTiroir = (nomBoutique, montant, geste) => {
+    // ⚠ Timo (15/09/2026, réponse B) : le fonds est gardé À PART. On peut y
+    // piocher quand le tiroir ne suffit pas — la limite est donc le tiroir
+    // PLUS ce qu'il reste dans l'enveloppe.
+    const p = fondsAVerser(db, nomBoutique, totalVente);
+    return critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste, boutique: nomBoutique });
+  };
 
   // Timo (12/09/2026) : à partir de 5 000 F, la dépense attend la validation
   // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.

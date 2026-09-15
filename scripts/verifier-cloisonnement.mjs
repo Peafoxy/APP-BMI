@@ -5310,16 +5310,19 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
   {
     const dbF = { ...db1, boutiques: [{ nom: "APESSITO", fonds_caisse_fixe: 30000 }, { nom: "AUTRE" }] };
     const ff = Vs.fondsAVerser(dbF, "APESSITO", tv);
-    test("★ fonds de caisse fixe : solde 50 000, fonds fixe 30 000 → à verser 20 000 ; sans réglage, à verser = solde ; un fonds plus grand que le solde → 0, jamais négatif",
-      ff.montant === 50000 && ff.fondsFixe === 30000 && ff.aVerser === 20000 && Vs.fondsAVerser(dbF, "AUTRE", tv).aVerser === 9000 && Vs.fondsAVerser(dbF, "AUTRE", tv).fondsFixe === 0
-      && Vs.fondsAVerser({ ...dbF, boutiques: [{ nom: "APESSITO", fonds_caisse_fixe: 80000 }] }, "APESSITO", tv).aVerser === 0 && Vs.fondsCaisseFixe(dbF, "APESSITO") === 30000 && Vs.aVerserAuDela(50000, 30000) === 20000);
+  // ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : « fais appel au fonds de caisse QUE si pas de vente et il faut une dépense » — le fonds est gardé À PART, dans une enveloppe, jamais dans le tiroir).
+    test("★ un fonds de caisse RÉGLÉ mais jamais REMIS ne retient plus rien : l'enveloppe est vide, tout le tiroir est à verser (50 000) — le réglage seul ne met pas d'argent de côté, c'est la remise du DG qui le fait (manqueRemises le signale)",
+      ff.montant === 50000 && ff.fondsFixe === 30000 && ff.aVerser === 50000 && ff.fondsPlafond === 0 && ff.resteFonds === 0
+      && Vs.fondsAVerser(dbF, "AUTRE", tv).aVerser === 9000 && Vs.fondsAVerser(dbF, "AUTRE", tv).fondsFixe === 0
+      && Vs.fondsCaisseFixe(dbF, "APESSITO") === 30000 && Vs.aVerserAuDela(50000, 30000) === 20000 && Vs.manqueRemises(dbF, "APESSITO") === 30000);
     const rf = Vs.resumeCaisses(dbF, ["APESSITO", "AUTRE"], tv, "2026-09-13");
-    test("★ resumeCaisses porte solde, fonds fixe et à verser par ligne et au total (20 000 + 9 000 = 29 000 à verser ; soldes 59 000 ; fonds fixes 30 000)",
-      rf.lignes[0].aVerser === 20000 && rf.lignes[0].solde === 50000 && rf.lignes[0].fondsFixe === 30000 && rf.total.aVerser === 29000 && rf.total.solde === 59000 && rf.total.fondsFixe === 30000);
+  // ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : « fais appel au fonds de caisse QUE si pas de vente et il faut une dépense » — le fonds est gardé À PART, dans une enveloppe, jamais dans le tiroir).
+    test("★ resumeCaisses porte le tiroir, le fonds réglé et à verser par ligne et au total ; sans remise enregistrée, à verser = le tiroir entier (50 000 + 9 000 = 59 000)",
+      rf.lignes[0].aVerser === 50000 && rf.lignes[0].solde === 50000 && rf.lignes[0].fondsFixe === 30000 && rf.total.aVerser === 59000 && rf.total.solde === 59000 && rf.total.fondsFixe === 30000);
     const csF = readFileSync("src/screens/Caisse.jsx", "utf8");
     const paF = readFileSync("src/screens/Parametres.jsx", "utf8");
-    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3) ; RETOURNÉ le 14/09/2026 (Timo : « il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser ») : le carré « Fonds à verser » ne dit PLUS « fonds de caisse fixe … conservé » (faux quand le solde est à 0), le fonds a SON carré ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe — depuis le 14/09/2026 par la fenêtre du geste unique, plan.fondsApres)",
-      (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /au-delà du fonds de caisse · solde en caisse \{fmt\(aVerserPeriode\.montant\)\}/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
+    test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3) ; RETOURNÉ le 14/09/2026 (Timo : « il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser ») : le carré « Fonds à verser » ne dit PLUS « fonds de caisse fixe … conservé » (faux quand le solde est à 0), le fonds a SON carré — et depuis le 15/09/2026 le carré dit que le fonds est gardé À PART, il n'est plus « au-delà » de quoi que ce soit ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe — depuis le 14/09/2026 par la fenêtre du geste unique, plan.fondsApres)",
+      (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /le fonds de caisse est gardé à part : il n'est pas là-dedans/.test(csF) && !/au-delà du fonds de caisse/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
       && /refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/.test(paF) && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: plan\.fondsApres \}/.test(paF));
   }
   // Timo (14/09/2026), captures d'APESSITO : 348 000 d'entrées, 50 000 de
@@ -5345,8 +5348,9 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     };
     const f0 = Vs.fondsAVerser(dbA, "APESSITO", tv);
     test("★ AVANT la remise (la capture) : entrées 348 000, sorties 348 000 (50 000 + 298 000), solde 0, à verser 0 — et le fonds n'est PAS « conservé » : il en reste 0, entamé de 50 000, pas intact ; DEMAKPOE : 898 600 → 848 600 à verser, fonds de 50 000 intact",
-      f0.ventes + f0.reglements === 348000 && f0.depenses === 348000 && f0.montant === 0 && f0.aVerser === 0 && f0.fondsRemis === 0 && f0.resteFonds === 0 && f0.fondsEntame === 50000 && f0.fondsIntact === false
-      && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).aVerser === 848600 && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).resteFonds === 50000 && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).fondsIntact === true
+      f0.ventes + f0.reglements === 348000 && f0.depenses === 348000 && f0.montant === 0 && f0.aVerser === 0 && f0.fondsRemis === 0 && f0.resteFonds === 0 && f0.fondsEntame === 0 && f0.fondsIntact === false
+      // ⚠ RETOURNÉ le 15/09/2026 (réponse B) : sans remise enregistrée, l'enveloppe est VIDE — DEMAKPOE a donc 898 600 à verser, pas 848 600.
+      && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).aVerser === 898600 && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).resteFonds === 0 && Vs.fondsAVerser(dbA, "DEMAKPOE", tv).fondsIntact === false
       && Vs.etatFondsCaisse(45000, 50000).entame === 5000 && Vs.etatFondsCaisse(-3000, 50000).reste === 0 && Vs.etatFondsCaisse(80000, 0).fondsFixe === 0 && Vs.etatFondsCaisse(80000, 0).intact === false);
     test("★ une remise mal formée est refusée avec son motif : montant nul, origine inconnue (seulement Chez le DG / BANQUE), BANQUE sans banque, sans date",
       /montant/.test(Vs.critiqueRemiseFonds({ montant: 0, origine: "Chez le DG", date: "2026-09-13" })) && /Chez le DG ou BANQUE/.test(Vs.critiqueRemiseFonds({ montant: 100, origine: "Chez le comptable", date: "2026-09-13" }))
@@ -5361,19 +5365,22 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     const dbB = { ...dbA, depenses: [rm.entree, ...dbA.depenses] };
     const f1 = Vs.fondsAVerser(dbB, "APESSITO", tv);
     test("★ APRÈS la remise de 50 000 : solde 50 000, à verser 0 (on ne verse jamais le fonds), fonds remis 50 000 (dernière remise le 13/09), il en reste 50 000, intact ; Sorties restent 348 000 (la remise n'est PAS une sortie négative) ; Entrées ventes + règlements inchangées",
-      f1.montant === 50000 && f1.aVerser === 0 && f1.fondsRemis === 50000 && f1.derniereRemise === "2026-09-13" && f1.resteFonds === 50000 && f1.fondsIntact === true && f1.fondsEntame === 0 && f1.depenses === 348000 && f1.ventes + f1.reglements === 348000
+      f1.montant === 0 && f1.aVerser === 0 && f1.fondsPlafond === 50000 && f1.fondsRemis === 50000 && f1.derniereRemise === "2026-09-13" && f1.resteFonds === 50000 && f1.fondsIntact === true && f1.fondsEntame === 0 && f1.depenses === 348000 && f1.ventes + f1.reglements === 348000
       && Vs.remisesFondsDe(dbB, "APESSITO").length === 1 && Vs.remisesFondsDe(dbB, "DEMAKPOE").length === 0);
     const dbC = { ...dbB, depenses: [{ id: "x3", boutique: "APESSITO", date: "2026-09-15", categorie: "Carburant", montant: 5000, paiement: "Espèces", par: "ALI" }, ...dbB.depenses] };
     const f2 = Vs.fondsAVerser(dbC, "APESSITO", tv);
     test("★ une dépense de 5 000 sans vente : le fonds est ENTAMÉ — solde 45 000, il en reste 45 000, entamé de 5 000, toujours 0 à verser (Timo : « par où voir le restant du fonds de caisse ? ») ; une vente de 20 000 ensuite : reste 50 000 intact, 15 000 à verser",
-      f2.montant === 45000 && f2.resteFonds === 45000 && f2.fondsEntame === 5000 && f2.fondsIntact === false && f2.aVerser === 0
-      && (() => { const f3 = Vs.fondsAVerser({ ...dbC, ventes: [...dbC.ventes, { id: "a3", boutique: "APESSITO", date: "2026-09-16", paiement: "Espèces", total: 20000 }] }, "APESSITO", tv); return f3.montant === 65000 && f3.resteFonds === 50000 && f3.fondsIntact === true && f3.aVerser === 15000; })());
+      f2.montant === 0 && f2.depensesSurFonds === 5000 && f2.resteFonds === 45000 && f2.fondsEntame === 5000 && f2.fondsIntact === false && f2.aVerser === 0
+      // La vente d'après REMBOURSE d'abord l'enveloppe (5 000), le reste va au tiroir.
+      && (() => { const f3 = Vs.fondsAVerser({ ...dbC, ventes: [...dbC.ventes, { id: "a3", boutique: "APESSITO", date: "2026-09-16", paiement: "Espèces", total: 20000 }] }, "APESSITO", tv); return f3.montant === 15000 && f3.resteFonds === 50000 && f3.fondsIntact === true && f3.aVerser === 15000; })());
     test("★ avec une période : le fonds remis compté DANS la période seulement (septembre 13 → 13 : 50 000 ; 10 → 12 : 0) ; le solde à la fin du 12/09 = 0, à la fin du 13/09 = 50 000",
       Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-13", au: "2026-09-13" }).fondsRemis === 50000 && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-10", au: "2026-09-12" }).fondsRemis === 0
-      && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-10", au: "2026-09-12" }).montant === -0 + (348000 - 50000) && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-13", au: "2026-09-13" }).montant === 348000 - 50000 + 50000);
+      // ⚠ RETOURNÉ le 15/09/2026 : la remise n'entre plus dans le TIROIR (elle va dans l'enveloppe) — le tiroir reste à 298 000 le 13/09.
+      && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-10", au: "2026-09-12" }).montant === 348000 - 50000 && Vs.fondsAVerser(dbB, "APESSITO", tv, { du: "2026-09-13", au: "2026-09-13" }).montant === 348000 - 50000);
     const rs = Vs.resumeCaisses(dbC, ["APESSITO", "DEMAKPOE"], tv, "2026-09-15");
     test("★ resumeCaisses porte le fonds : reste 45 000 (APESSITO) + 50 000 (DEMAKPOE) = 95 000 ; fonds remis 50 000 ; Entrées = ventes + règlements (348 000), le fonds remis dit à part",
-      rs.lignes[0].resteFonds === 45000 && rs.lignes[0].fondsRemis === 50000 && rs.lignes[0].entrees === 348000 && rs.lignes[1].resteFonds === 50000 && rs.lignes[1].fondsRemis === 0 && rs.total.resteFonds === 95000 && rs.total.fondsRemis === 50000 && rs.total.fondsFixe === 100000);
+      // ⚠ RETOURNÉ le 15/09/2026 : DEMAKPOE n'a aucune remise enregistrée — son enveloppe est vide (0), pas 50 000.
+      rs.lignes[0].resteFonds === 45000 && rs.lignes[0].fondsRemis === 50000 && rs.lignes[0].entrees === 348000 && rs.lignes[1].resteFonds === 0 && rs.lignes[1].fondsRemis === 0 && rs.total.resteFonds === 45000 && rs.total.fondsRemis === 50000 && rs.total.fondsFixe === 100000);
     test("★ le fonds remis n'est ni une charge ni une dépense : CATEGORIES_HORS_CHARGES le porte, horsVersements et depensesComptees l'écartent (tableau de bord, journal, export, écran Dépenses) ; l'écran Dépenses DIT où le retrouver",
       Cs.CATEGORIES_HORS_CHARGES.includes("Fonds de caisse remis") && Cs.horsVersements(dbB.depenses).every((d) => !Vs.estFondsCaisseRemis(d)) && Cs.depensesComptees(dbB.depenses).length === 1 && Cs.horsVersements(dbB.depenses).length === 1
       && /les <b>fonds de caisse remis par le DG<\/b> et les <b>remboursements de reprise<\/b> ne sont pas des dépenses/.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
@@ -5384,10 +5391,11 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     unlinkSync(sortieClF);
     const j13 = ClF.activiteDuJour(dbB, "APESSITO", "2026-09-13", tv);
     const j14 = ClF.activiteDuJour(dbB, "APESSITO", "2026-09-14", tv);
-    test("★ clôture du 13/09 (jour de la remise) : fonds remis du jour 50 000, dépenses du jour 0, sorties justifiées 0 (jamais − 50 000), flux + 50 000, fonds d'hier soir 298 000, attendu dans le tiroir 348 000 ; le 14/09 : versement 298 000, fonds d'hier 348 000, attendu 50 000 ; l'alerte « recette au lieu du tiroir » cite le fonds remis ce jour-là seulement",
-      j13.fondsRemisDuJour === 50000 && j13.especesDepenses === 0 && j13.sortiesJustifiees === 0 && j13.fluxDuJour === 50000 && j13.fondsHier === 298000 && j13.theorique === 348000
-      && j14.fondsRemisDuJour === 0 && j14.versementsDuJour === 298000 && j14.fondsHier === 348000 && j14.theorique === 50000 && ClF.soldeEspecesFinDeJour(dbB, "APESSITO", "2026-09-14", tv) === 50000
-      && /fonds de caisse remis par le DG \(50 000 F\)/.test(nzF(ClF.alerteSaisieRecette(0, { ...j13, recetteDuJour: 0, theorique: 348000 }, (x) => new Intl.NumberFormat("fr-FR").format(x) + " F")))
+  // ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : « fais appel au fonds de caisse QUE si pas de vente et il faut une dépense » — le fonds est gardé À PART, dans une enveloppe, jamais dans le tiroir).
+    test("★ clôture du 13/09 (jour de la remise) : le fonds remis (50 000) est dit à part et ne touche PAS le tiroir — flux 0, tiroir d'hier 298 000, attendu 298 000 (et non 348 000) ; l'enveloppe montre 50 000 intacts ; le 14/09 : versement 298 000, tiroir d'hier 298 000, attendu 0",
+      j13.fondsRemisDuJour === 50000 && j13.especesDepenses === 0 && j13.sortiesJustifiees === 0 && j13.fluxDuJour === 0 && j13.fondsHier === 298000 && j13.theorique === 298000
+      && j13.fondsPlafond === 50000 && j13.fondsReste === 50000 && j13.fondsIntact === true
+      && j14.fondsRemisDuJour === 0 && j14.versementsDuJour === 298000 && j14.fondsHier === 298000 && j14.theorique === 0 && ClF.soldeEspecesFinDeJour(dbB, "APESSITO", "2026-09-14", tv) === 0
       && !/fonds de caisse remis/.test(ClF.alerteSaisieRecette(0, { ...j14, recetteDuJour: 0 }, String)));
     // Les caisses centrales : l'argent est SORTI de chez le DG (ou de la banque) le jour de la remise.
     const sortieCgF = join("node_modules", ".cache", `bmi-caisses-fonds-${process.pid}.mjs`);
@@ -5432,14 +5440,15 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /\{remisesFondsDe\(db, fondsPour\.nom\)\.length > 0 && \(/.test(paG) && /Les ventes ne font que rembourser ce que les dépenses ont entamé/.test(paG));
     test("★ 🔒 Caisse ne porte PLUS le geste (Timo : « je le préfère dans la fiche de la boutique ») : ni bloc « Remettre », ni construireRemiseFonds, ni champ de date ; il ne garde que la lecture (le carré) et renvoie vers ⚙ Paramètres → Boutiques → 💼 Fonds de caisse",
       !/remise-fonds|construireRemiseFonds|remettreFonds|type="date"/.test(readFileSync("src/screens/Caisse.jsx", "utf8")) && /aucun fonds réglé \(⚙ Paramètres → Boutiques → 💼 Fonds de caisse\)/.test(readFileSync("src/screens/Caisse.jsx", "utf8")));
-    test("★ écran Caisse : le carré « 💼 Fonds de caisse » À PART (data-carre=\"fonds-de-caisse\" : reste dans le tiroir, intact / entamé de, remis par le DG), la colonne « Fonds de caisse » du RÉSUMÉ (reste, fixe, entamé / intact, remis), les Entrées disent « dont fonds de caisse remis », la clôture montre le fonds remis du jour À PART de la recette (⚠ RETOURNÉ le 15/09/2026 : il était additionné DEDANS) et jamais dans les sorties",
-      /data-carre="fonds-de-caisse"/.test(csG) && /aVerserPeriode\.fondsIntact \? "intact dans le tiroir" : `il en reste \$\{fmt\(aVerserPeriode\.resteFonds\)\} · entamé de \$\{fmt\(aVerserPeriode\.fondsEntame\)\}`/.test(csG) && /remis par le DG \$\{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
-      && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\]/.test(csG) && /\{l\.fondsFixe > 0 \? fmt\(l\.resteFonds\) : "—"\}/.test(csG) && /dont fonds de caisse remis \{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
+    test("★ écran Caisse : le carré « 💼 Fonds de caisse » À PART (data-carre=\"fonds-de-caisse\" : GARDÉ À PART, jamais dans le tiroir, intact / entamé de, remis par le DG), la colonne « Fonds de caisse » du RÉSUMÉ ; ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : le fonds de caisse est gardé À PART, dans une enveloppe — il n'est PAS dans le tiroir et n'entre dans aucun total de caisse) : les Entrées du tiroir n'additionnent PLUS le fonds remis, et la clôture ne montre plus de case « fonds remis dans le tiroir » mais l'enveloppe à part",
+      /data-carre="fonds-de-caisse"/.test(csG) && /gardé à part, jamais dans le tiroir · \{aVerserPeriode\.fondsFixe > 0 \? \(aVerserPeriode\.fondsIntact \? "intact"/.test(csG) && /remis par le DG \$\{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
+      && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\]/.test(csG) && /\{l\.fondsPlafond > 0 \? fmt\(l\.resteFonds\) : "—"\}/.test(csG) && /réglé \{fmt\(l\.fondsFixe\)\}, jamais remis/.test(csG) && /hors fonds de caisse remis \{fmt\(aVerserPeriode\.fondsRemis\)\} \(il va dans l'enveloppe\)/.test(csG)
       // Timo (15/09/2026) : « pourquoi tu additionnes le fonds de caisse aux
       // ventes ? » — la case « Recette du jour » montre recetteDuJour SEUL, le
       // fonds a sa propre case et sa propre ligne dans la confirmation.
       && /\+ \{fmt\(recetteDuJour\)\}/.test(csG) && !/fmt\(recetteDuJour \+ fondsRemisDuJour\)/.test(csG)
-      && /data-carte="fonds-remis"/.test(csG) && /💼 \+ Fonds de caisse remis par le DG/.test(csG)
+      && !/fmt\(aVerserPeriode\.ventes \+ aVerserPeriode\.reglements \+ aVerserPeriode\.fondsRemis\)/.test(csG)
+      && /data-carte="enveloppe-fonds"/.test(csG) && /💼 Fonds de caisse \(gardé à part\)/.test(csG) && /PAS dans le tiroir/.test(csG)
       && !/\+ recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0/.test(csG));
     const s16 = readFileSync("supabase/securite-16-fonds-de-caisse.sql", "utf8");
     const ta16 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
@@ -5922,9 +5931,9 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
   test("★ Caisse : le champ dit « Montant du tiroir » (plus de commentaire dans le libellé), l'alerte recette/tiroir s'affiche sous le champ ET dans la confirmation, la confirmation détaille fonds d'hier + recette − sorties LIGNE À LIGNE (⚠ RETOURNÉ le 15/09/2026 : c'était une seule phrase où le fonds de caisse se lisait comme de la recette), et « ne créent pas d'écart » est écrit sous les sorties",
     /<Field label="Montant du tiroir">/.test(csC) && !/tout ce qu'il contient, compté/.test(csC) && /const alerteRecette = alerteSaisieRecette\(compte, jour, fmt\);/.test(csC) && /\{alerteRecette && <div/.test(csC)
     && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC)
-    && /Fonds d'hier soir : \$\{fmt\(fondsHier\)\}/.test(csC) && /\+ Recette du jour \(ventes et encaissements\) : \$\{fmt\(recetteDuJour\)\}/.test(csC)
+    && /Dans le tiroir hier soir : \$\{fmt\(fondsHier\)\}/.test(csC) && /\+ Recette du jour \(ventes et encaissements\) : \$\{fmt\(recetteDuJour\)\}/.test(csC)
     && /− Sorties du jour \(dépenses, versements\) : \$\{fmt\(sortiesJustifiees\)\}/.test(csC) && /= À trouver dans le tiroir : \$\{fmt\(theorique\)\}/.test(csC)
-    && /Fonds de caisse d'hier soir/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
+    && /Dans le tiroir hier soir/.test(csC) && /la recette — le fonds de caisse n'est pas dedans/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
   const uiG = readFileSync("src/components/ui.jsx", "utf8");
   test("★ la remarque de clôture tient sur UNE case (plus de lg:col-span-2) et passe par LE champ qui grandit avec le texte, écrit une fois dans ui.jsx",
     /<Field label="Remarques"><ChampQuiGrandit valeur=\{notes\} onChange=\{setNotes\} placeholder="Ex : Monnaie rendue…" \/><\/Field>/.test(csC)
@@ -7316,17 +7325,18 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   const jF = Clo.activiteDuJour(dbF, "DEMAKPOE", "2026-09-14", Core.totalVente);
   test("★ la règle pure n'a JAMAIS mélangé : « recette du jour » = ventes + encaissements (800), le fonds remis est une valeur À PART (50 000)",
     jF.recetteDuJour === 800 && jF.especesVentes === 800 && jF.fondsRemisDuJour === 50000 && jF.sortiesJustifiees === 10000);
-  test("le fonds remis n'est pas non plus une « sortie » négative, et le tiroir attendu les compte tous (0 + 800 + 50 000 − 10 000)",
-    jF.theorique === 40800 && jF.fondsHier === 0);
-  test("★ l'AFFICHAGE ne les mélange plus : la case « Recette du jour » montre recetteDuJour SEUL, le fonds a SA case, seulement les jours où le DG a remis",
+  test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : le fonds de caisse est gardé À PART — il n'est PAS dans le tiroir) : le fonds remis n'est ni une sortie négative ni une entrée du tiroir — le tiroir attendu vaut 0 + 800 − 10 000, et l'enveloppe porte les 50 000 à part",
+    jF.theorique === -9200 && jF.fondsHier === 0 && jF.fondsPlafond === 50000 && jF.fondsReste === 50000 && jF.fondsIntact === true);
+  test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : le fonds de caisse est gardé À PART — il n'est PAS dans le tiroir) : la case « Recette du jour » montre recetteDuJour SEUL, et le fonds a sa case d'ENVELOPPE (gardé à part, PAS dans le tiroir), jamais une case « remis dans le tiroir »",
     /Recette du jour \(espèces\)<\/div><div className="font-bold tabular-nums text-emerald-700">\+ \{fmt\(recetteDuJour\)\}/.test(csC2)
-    && !/fmt\(recetteDuJour \+ fondsRemisDuJour\)/.test(csC2)
-    && /\{fondsRemisDuJour > 0 && \(/.test(csC2) && /data-carte="fonds-remis"/.test(csC2)
-    && /ce n'est pas une recette/.test(csC2));
-  test("★ la confirmation de clôture pose le fonds sur SA ligne, sous un trait, jamais dans la suite des « + » de la recette",
+    && !/fmt\(recetteDuJour \+ fondsRemisDuJour\)/.test(csC2) && !/data-carte="fonds-remis"/.test(csC2)
+    && /\{fondsPlafond > 0 && \(/.test(csC2) && /data-carte="enveloppe-fonds"/.test(csC2)
+    && /PAS dans le tiroir/.test(csC2) && /pris dessus ce jour-là/.test(csC2));
+  test("★ la confirmation de clôture ne rappelle l'enveloppe qu'en bas, en disant qu'elle n'est PAS dans le tiroir, et compte le rendu au fonds parmi les sorties du tiroir",
     /\+ `− Sorties du jour \(dépenses, versements\) : \$\{fmt\(sortiesJustifiees\)\}/.test(csC2)
-    && /💼 \+ Fonds de caisse remis par le DG/.test(csC2) && /pas une recette : argent de BMI déposé dans le tiroir/.test(csC2)
-    && !/recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0/.test(csC2));
+    && /− Rendu au fonds de caisse : \$\{fmt\(rembourseAuFonds\)\}/.test(csC2)
+    && /💼 Fonds de caisse \(gardé à part, PAS dans le tiroir\)/.test(csC2)
+    && !/argent de BMI déposé dans le tiroir/.test(csC2));
   test("★ une RÉGULARISATION ne pré-remplit plus la date à aujourd'hui (elle parle d'un argent remis dans le PASSÉ) et le dit en rouge",
     /const regulariserFonds = \(b\) => setFondsForm\(\{ montant: String\(manqueRemises\(db, b\.nom\)\), origine: DEST_DG, banque: "", date: "", note: "", regularisation: true \}\);/.test(pmC2)
     && /Indiquez le jour où le DG a RÉELLEMENT remis cet argent/.test(pmC2) && /data-fonds="regularisation"/.test(pmC2));
@@ -7341,8 +7351,17 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && !!V.corrigerDateRemise(remise, "2026-09-14").refus && !!V.corrigerDateRemise(dbF.depenses[0], "2026-08-20").refus);
   const dbCorr = { ...dbF, depenses: dbF.depenses.map((x) => (x.id === "x2" ? corr.remise : x)) };
   const jCorr = Clo.activiteDuJour(dbCorr, "DEMAKPOE", "2026-09-14", Core.totalVente);
-  test("★ LE CAS DE TIMO : la remise redatée au 20/08 quitte la clôture du 14/09 — plus de ligne « fonds remis » ce jour-là, le fonds est passé dans le fonds d'hier soir ; le tiroir attendu, lui, ne change pas (un solde ne dépend pas d'une date d'écriture)",
-    jCorr.fondsRemisDuJour === 0 && jCorr.recetteDuJour === 800 && jCorr.fondsHier === 50000 && jCorr.theorique === 40800);
+  // ★ LE CAS DE TIMO, réglé pour de bon. Le fonds n'entre plus JAMAIS dans le
+  // tiroir — mais la DATE de la remise garde un sens : elle dit à partir de
+  // quand l'enveloppe existait, donc si elle pouvait payer ce que le tiroir
+  // ne couvrait pas. Remise datée du 14/09 (fausse) : le jour de la dépense
+  // l'enveloppe n'existe pas encore, le tiroir se creuse de 9 200. Remise
+  // redatée au 20/08 (vraie) : l'enveloppe est là, elle avance les 9 200, le
+  // tiroir tombe juste à 0 et l'enveloppe descend à 40 800.
+  test("★ LE CAS DE TIMO : le fonds ne gonfle plus le tiroir attendu (plus de 50 000 de trop) ; et la vraie date de la remise décide seulement de QUI a payé — l'enveloppe avance ce que le tiroir ne couvre pas",
+    jF.theorique === -9200 && jF.fondsReste === 50000
+    && jCorr.fondsRemisDuJour === 0 && jCorr.recetteDuJour === 800 && jCorr.theorique === 0
+    && jCorr.fondsPlafond === 50000 && jCorr.fondsReste === 40800 && jCorr.depensesSurFonds === 9200);
   test("★ la remise garde la trace qu'elle était une régularisation, et seul l'admin PRINCIPAL peut corriger sa date",
     corr.remise.fonds_caisse.regularisation === true
     && /refuserSaufAdminPrincipal\(db, profile, "Corriger la date d'une remise de fonds de caisse"\)/.test(pmC2)
@@ -7375,7 +7394,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && /Ce remboursement \(90\s000\sF\)/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 90000, geste: "Ce remboursement", avecAvance: false })));
   const dpJ = readFileSync("src/screens/Depenses.jsx", "utf8"), caJ = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ le contrôle est posé aux TROIS moments où le tiroir se vide hors versement : la saisie, la validation du DG, et le remboursement d'une avance en espèces",
-    /const refusTiroir = \(nomBoutique, montant, geste\) => critiqueSortieTiroir\(\{/.test(dpJ)
+    /const refusTiroir = \(nomBoutique, montant, geste\) => \{/.test(dpJ) && /return critiqueSortieTiroir\(\{ tiroir: p\.montant \+ p\.resteFonds, fondsFixe: p\.resteFonds/.test(dpJ)
     && /const refusT = refusTiroir\(choixCaisse\.boutique, Number\(f\.montant\), "Cette dépense"\);/.test(dpJ)
     && /const refusT = refusTiroir\(d\.boutique, Number\(d\.montant\), "Valider cette dépense"\);/.test(dpJ)
     && /if \(moyen === "caisse"\) \{\n\s*const refusT = critiqueSortieTiroir\(\{/.test(caJ));
@@ -7383,7 +7402,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     (dpJ.match(/paiement === "Espèces" && \(!\w+\.paye_avec \|\| \w+\.paye_avec === PAYE_AVEC_CAISSE\)/g) || []).length === 2
     && /montant: Number\(d\.montant\), geste: "Ce remboursement", boutique, avecAvance: false/.test(caJ));
   test("★ la dépense est mesurée sur la caisse QUI PAIE, pas sur la boutique regardée (« il peut recevoir dans une boutique et valider pour une boutique »)",
-    /refusTiroir\(choixCaisse\.boutique/.test(dpJ) && /tiroir: fondsAVerser\(db, nomBoutique, totalVente\)\.montant/.test(dpJ));
+    /refusTiroir\(choixCaisse\.boutique/.test(dpJ) && /const p = fondsAVerser\(db, nomBoutique, totalVente\);/.test(dpJ));
 
   const s19 = readFileSync("supabase/securite-19-date-remise-fonds.sql", "utf8");
   const ta19 = readFileSync("scripts/tester-argent-sql.sh", "utf8");

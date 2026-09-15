@@ -13,7 +13,7 @@ import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut,
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir, fondsCaisseFixe } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
 import { banquesReglees } from "../lib/banques";
 
 // ============ CAISSE ============
@@ -55,7 +55,7 @@ export function Caisse({ db, save, profile }) {
   const t = jourChoisi && (enRetard.includes(jourChoisi) || jourReclôturable(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
   // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
   const jour = activiteDuJour(db, boutique, t, totalVente);
-  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne } = jour;
+  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne, fondsPlafond, fondsReste, fondsEntame, fondsIntact } = jour;
   // Le piège de la capture du 09/09/2026 (écart 1 400) : la recette saisie à la place du tiroir.
   const alerteRecette = alerteSaisieRecette(compte, jour, fmt);
   const dejaCloturee = estCloturee(db, boutique, t);
@@ -74,12 +74,16 @@ export function Caisse({ db, save, profile }) {
     if (blocageCloture) { uAlert(blocageCloture); return; }
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\n\n`
-      + `Fonds d'hier soir : ${fmt(fondsHier)}\n`
+      + `Dans le tiroir hier soir : ${fmt(fondsHier)}\n`
       + `+ Recette du jour (ventes et encaissements) : ${fmt(recetteDuJour)}\n`
       + `− Sorties du jour (dépenses, versements) : ${fmt(sortiesJustifiees)}\n`
+      + (rembourseAuFonds > 0 ? `− Rendu au fonds de caisse : ${fmt(rembourseAuFonds)}\n` : "")
       // Le fonds remis par le DG a SA ligne, sous un trait : ce n'est pas une
       // recette (Timo, 15/09/2026 — « ne pas mélanger le fonds aux ventes »).
-      + (fondsRemisDuJour > 0 ? `\n💼 + Fonds de caisse remis par le DG : ${fmt(fondsRemisDuJour)}\n   (pas une recette : argent de BMI déposé dans le tiroir ce jour-là)\n` : "")
+      // 💼 L'enveloppe est GARDÉE À PART (Timo, 15/09/2026, réponse B) : elle
+      // n'est pas dans le tiroir, elle n'entre dans aucun total — on la
+      // rappelle seulement, pour information.
+      + (fondsPlafond > 0 ? `\n💼 Fonds de caisse (gardé à part, PAS dans le tiroir) : ${fmt(fondsReste)}${fondsIntact ? " — intact" : ` — entamé de ${fmt(fondsEntame)}`}\n` : "")
       + `\n= À trouver dans le tiroir : ${fmt(theorique)}\n`
       + `Compté dans le tiroir : ${fmt(Number(compte))}\n`
       + `Écart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
@@ -184,7 +188,7 @@ export function Caisse({ db, save, profile }) {
     // même règle (critiqueSortieTiroir). Le salaire et le DG n'y touchent pas.
     if (moyen === "caisse") {
       const refusT = critiqueSortieTiroir({
-        tiroir: aVerser.montant, fondsFixe: fondsCaisseFixe(db, boutique),
+        tiroir: aVerser.montant + aVerser.resteFonds, fondsFixe: aVerser.resteFonds,
         montant: Number(d.montant), geste: "Ce remboursement", boutique, avecAvance: false,
       });
       if (refusT) { uAlert(refusT); return; }
@@ -234,7 +238,7 @@ export function Caisse({ db, save, profile }) {
                   <tr key={l.boutique} className="border-t border-slate-100">
                     <td className="px-3 py-2"><div className="font-semibold text-slate-800">{l.boutique}</div>{retard > 0 && <div className="text-xs font-bold text-red-600">⚠ {retard} jour{retard > 1 ? "s" : ""} sans clôture</div>}</td>
                     <td className={`px-3 py-2 tabular-nums text-right font-bold ${l.solde < 0 ? "text-red-600" : ""}`}>{fmt(l.fondsFixe > 0 ? l.aVerser : l.solde)}{l.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">solde {fmt(l.solde)}</div>}{l.dernierVersement && <div className="text-xs font-normal text-slate-400">dernier versement le {dFR(l.dernierVersement)}</div>}</td>
-                    <td className={`px-3 py-2 tabular-nums text-right ${l.fondsFixe > 0 && l.resteFonds < l.fondsFixe ? "text-amber-700 font-bold" : ""}`}>{l.fondsFixe > 0 ? fmt(l.resteFonds) : "—"}{l.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">fixe {fmt(l.fondsFixe)}{l.resteFonds < l.fondsFixe ? ` · entamé de ${fmt(l.fondsFixe - l.resteFonds)}` : " · intact"}</div>}{l.fondsRemis > 0 && <div className="text-xs font-normal text-slate-400">remis par le DG {fmt(l.fondsRemis)}</div>}</td>
+                    <td className={`px-3 py-2 tabular-nums text-right ${l.fondsPlafond > 0 && l.resteFonds < l.fondsPlafond ? "text-amber-700 font-bold" : ""}`}>{l.fondsPlafond > 0 ? fmt(l.resteFonds) : "—"}{l.fondsPlafond > 0 && <div className="text-xs font-normal text-slate-400">gardé à part{l.resteFonds < l.fondsPlafond ? ` · entamé de ${fmt(l.fondsPlafond - l.resteFonds)}` : " · intact"}</div>}{l.fondsPlafond === 0 && l.fondsFixe > 0 && <div className="text-xs font-normal text-red-700">réglé {fmt(l.fondsFixe)}, jamais remis</div>}{l.fondsRemis > 0 && <div className="text-xs font-normal text-slate-400">remis par le DG {fmt(l.fondsRemis)}</div>}</td>
                     <td className="px-3 py-2 tabular-nums text-right">{fmt(l.verse)}<div className="text-xs text-slate-400">ce mois {fmt(l.verseCeMois)}{l.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(l.verseEnAttente)}</span> : null}</div></td>
                     <td className="px-3 py-2 tabular-nums text-right text-emerald-700">{fmt(l.entrees)}</td>
                     <td className="px-3 py-2 tabular-nums text-right">− {fmt(l.sorties)}</td>
@@ -244,7 +248,7 @@ export function Caisse({ db, save, profile }) {
               <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                 <td className="px-3 py-2">TOTAL</td>
                 <td className={`px-3 py-2 tabular-nums text-right ${leResume.total.solde < 0 ? "text-red-600" : ""}`}>{fmt(leResume.total.fondsFixe > 0 ? leResume.total.aVerser : leResume.total.solde)}{leResume.total.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">soldes {fmt(leResume.total.solde)}</div>}</td>
-                <td className="px-3 py-2 tabular-nums text-right">{leResume.total.fondsFixe > 0 ? fmt(leResume.total.resteFonds) : "—"}{leResume.total.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">fixes {fmt(leResume.total.fondsFixe)}</div>}</td>
+                <td className="px-3 py-2 tabular-nums text-right">{leResume.total.fondsPlafond > 0 ? fmt(leResume.total.resteFonds) : "—"}{leResume.total.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">réglés {fmt(leResume.total.fondsFixe)}</div>}</td>
                 <td className="px-3 py-2 tabular-nums text-right">{fmt(leResume.total.verse)}<div className="text-xs font-normal text-slate-400">ce mois {fmt(leResume.total.verseCeMois)}{leResume.total.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(leResume.total.verseEnAttente)}</span> : null}</div></td>
                 <td className="px-3 py-2 tabular-nums text-right text-emerald-700">{fmt(leResume.total.entrees)}</td>
                 <td className="px-3 py-2 tabular-nums text-right">− {fmt(leResume.total.sorties)}</td>
@@ -310,17 +314,17 @@ export function Caisse({ db, save, profile }) {
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (espèces en caisse{depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}{aVerserPeriode.dernierVersement ? ` — dernier versement le ${dFR(aVerserPeriode.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerserPeriode.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerserPeriode.fondsFixe > 0 ? aVerserPeriode.aVerser : aVerserPeriode.montant)}</div>{aVerserPeriode.fondsFixe > 0 && <div className="text-xs text-slate-400">au-delà du fonds de caisse · solde en caisse {fmt(aVerserPeriode.montant)}</div>}</div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (le tiroir{depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}{aVerserPeriode.dernierVersement ? ` — dernier versement le ${dFR(aVerserPeriode.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerserPeriode.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerserPeriode.montant)}</div>{aVerserPeriode.fondsPlafond > 0 && <div className="text-xs text-slate-400">le fonds de caisse est gardé à part : il n'est pas là-dedans</div>}</div>
           {/* Timo (14/09/2026) : « il ne faut pas mélanger le fonds de caisse avec ce
               qu'on va verser » — le fonds a SON carré : ce qu'il en reste dans le tiroir. */}
           {(aVerserPeriode.fondsFixe > 0 || aVerserPeriode.fondsRemis > 0) && (
             <div className="bg-white rounded-lg p-3 border border-slate-200" data-carre="fonds-de-caisse"><div className="text-xs text-slate-500">💼 Fonds de caisse{aVerserPeriode.fondsFixe > 0 ? ` (fixe ${fmt(aVerserPeriode.fondsFixe)})` : ""}</div>
               <div className={`font-bold tabular-nums ${aVerserPeriode.fondsFixe > 0 && aVerserPeriode.fondsEntame > 0 ? "text-amber-700" : ""}`}>{aVerserPeriode.fondsFixe > 0 ? fmt(aVerserPeriode.resteFonds) : "—"}</div>
-              <div className="text-xs text-slate-400">{aVerserPeriode.fondsFixe > 0 ? (aVerserPeriode.fondsIntact ? "intact dans le tiroir" : `il en reste ${fmt(aVerserPeriode.resteFonds)} · entamé de ${fmt(aVerserPeriode.fondsEntame)}`) : "aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse)"}{aVerserPeriode.fondsRemis > 0 ? ` · remis par le DG ${fmt(aVerserPeriode.fondsRemis)}${aVerserPeriode.derniereRemise ? ` (le ${dFR(aVerserPeriode.derniereRemise)})` : ""}` : ""}</div></div>
+              <div className="text-xs text-slate-400">gardé à part, jamais dans le tiroir · {aVerserPeriode.fondsFixe > 0 ? (aVerserPeriode.fondsIntact ? "intact" : `il en reste ${fmt(aVerserPeriode.resteFonds)} · entamé de ${fmt(aVerserPeriode.fondsEntame)}`) : "aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse)"}{aVerserPeriode.fondsRemis > 0 ? ` · remis par le DG ${fmt(aVerserPeriode.fondsRemis)}${aVerserPeriode.derniereRemise ? ` (le ${dFR(aVerserPeriode.derniereRemise)})` : ""}` : ""}</div></div>
           )}
           {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">{depuisLeDebut ? `ce mois ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</div></div>
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerserPeriode.ventes + aVerserPeriode.reglements + aVerserPeriode.fondsRemis)}</div>{aVerserPeriode.fondsRemis > 0 && <div className="text-xs text-slate-400">dont fonds de caisse remis {fmt(aVerserPeriode.fondsRemis)}</div>}</div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerserPeriode.ventes + aVerserPeriode.reglements)}</div>{aVerserPeriode.fondsRemis > 0 && <div className="text-xs text-slate-400">hors fonds de caisse remis {fmt(aVerserPeriode.fondsRemis)} (il va dans l'enveloppe)</div>}</div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris){depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">− {fmt(aVerserPeriode.depenses)}</div></div>
         </div>
         {ROLES_VERSEMENT.includes(profile.role) && (
@@ -460,7 +464,7 @@ export function Caisse({ db, save, profile }) {
                   théorique contre montant du tiroir ». La journée se lit de gauche à droite :
                   fonds d'hier soir + recette du jour − sorties justifiées = attendu dans le tiroir.
                   Les dépenses et les versements sont déjà déduits : ils ne créent JAMAIS d'écart. */}
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Fonds de caisse d'hier soir</div><div className={`font-bold tabular-nums ${fondsHier < 0 ? "text-red-600" : ""}`}>{fmt(fondsHier)}</div></div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Dans le tiroir hier soir</div><div className={`font-bold tabular-nums ${fondsHier < 0 ? "text-red-600" : ""}`}>{fmt(fondsHier)}</div><div className="text-[11px] text-slate-400">la recette — le fonds de caisse n'est pas dedans</div></div>
               {/* ⚠ Timo, 15/09/2026 : « pourquoi tu additionnes le fonds de caisse aux
                   ventes ? J'avais dit de ne pas mélanger le fonds de caisse aux ventes. »
                   Le fonds remis par le DG était additionné DANS la case « Recette du
@@ -469,10 +473,15 @@ export function Caisse({ db, save, profile }) {
                   maintenant SA case, à part, et seulement les jours où le DG a
                   réellement remis de l'argent. */}
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Recette du jour (espèces)</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(recetteDuJour)}</div><div className="text-[11px] text-slate-400">ventes {fmt(especesVentes)} · encaissements {fmt(especesReglements)}</div></div>
-              {fondsRemisDuJour > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-amber-300" data-carte="fonds-remis"><div className="text-xs text-slate-500">💼 Fonds de caisse remis par le DG</div><div className="font-bold tabular-nums text-amber-700">+ {fmt(fondsRemisDuJour)}</div><div className="text-[11px] text-slate-400">ce n'est pas une recette : c'est l'argent de BMI déposé dans le tiroir ce jour-là</div></div>
+              {rembourseAuFonds > 0 && (
+                <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Rendu au fonds de caisse</div><div className="font-bold tabular-nums">− {fmt(rembourseAuFonds)}</div><div className="text-[11px] text-slate-400">la recette rembourse ce que le fonds avait avancé</div></div>
               )}
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties justifiées du jour</div><div className="font-bold tabular-nums">− {fmt(sortiesJustifiees)}</div><div className="text-[11px] text-slate-400">dépenses {fmt(especesDepenses)} · versements {fmt(versementsDuJour)} — ne créent pas d'écart</div></div>
+              {/* 💼 L'ENVELOPPE, à part : elle n'entre dans aucune des quatre
+                  cases ci-dessus (Timo, 15/09/2026, réponse B). */}
+              {fondsPlafond > 0 && (
+                <div className="bg-white rounded-lg p-3 border border-amber-300" data-carte="enveloppe-fonds"><div className="text-xs text-slate-500">💼 Fonds de caisse (gardé à part)</div><div className={`font-bold tabular-nums ${fondsEntame > 0 ? "text-amber-700" : ""}`}>{fmt(fondsReste)}</div><div className="text-[11px] text-slate-400">{fondsIntact ? "intact" : `entamé de ${fmt(fondsEntame)}`} · PAS dans le tiroir{depensesSurFonds > 0 ? ` · ${fmt(depensesSurFonds)} pris dessus ce jour-là` : ""}{fondsRemisDuJour > 0 ? ` · ${fmt(fondsRemisDuJour)} remis par le DG` : ""}</div></div>
+              )}
               <div className="bg-white rounded-lg p-3 border-2 border-slate-300"><div className="text-xs text-slate-500">Montant attendu dans le tiroir</div><div className={`font-bold tabular-nums ${theorique < 0 ? "text-red-600" : ""}`}>{fmt(theorique)}</div></div>
               <div className="bg-white rounded-lg p-3 border border-slate-200">
                 <div className="text-xs text-slate-500">Écart de caisse (manque ou surplus)</div>

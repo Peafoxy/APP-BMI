@@ -268,33 +268,113 @@ export const libelleOrigineFonds = (f) => (f?.origine === DEST_BANQUE ? `BANQUE 
 // Les remises de fonds d'une boutique, la plus récente en premier.
 export const remisesFondsDe = (db, boutique) => (db?.depenses || []).filter((d) => d.boutique === boutique && estFondsCaisseRemis(d))
   .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
-export function fondsAVerser(db, boutique, totalVente, periode = null) {
+// ═══════════ LES DEUX POCHES (Timo, 15/09/2026) ═══════════
+// « Pourquoi tu veux toujours impliquer le fonds de caisse dans les totaux ?
+//  …fais appel au fonds de caisse QUE s'il n'y a pas de vente et qu'il faut
+//  une dépense » — puis, à la question « ces 50 000, ils sont où
+//  physiquement ? », réponse **B : à part** (une enveloppe, pas le tiroir).
+//
+// ⚠ CE QUI CHANGE PAR RAPPORT AU 14/09. Ce jour-là, le fonds remis par le DG
+// « entrait dans le tiroir » et tous les totaux le traînaient : la clôture du
+// 14/09 à DEMAKPOE attendait 50 000 F de trop. Le fonds n'est PAS dans le
+// tiroir : c'est une poche à part, qui n'entre dans AUCUN total de caisse.
+//
+// DEUX POCHES, suivies dans l'ordre du temps :
+//   • LA RECETTE (le tiroir) : ventes et règlements en espèces, moins les
+//     dépenses qu'elle a pu payer, moins les versements.
+//   • LE FONDS (l'enveloppe) : ce que le DG y a mis, moins ce qu'on y a pris.
+// Les règles de Timo, dans l'ordre où elles s'appliquent :
+//   1. une ENTRÉE rembourse d'abord le fonds s'il est entamé (« fonds de
+//      caisse entamé, les ventes viennent rembourser »), le reste va au tiroir ;
+//   2. une DÉPENSE se paie sur le tiroir ; on ne pioche dans l'enveloppe que
+//      pour ce que le tiroir ne couvre pas (« que si pas de vente ») ;
+//   3. un VERSEMENT ne sort QUE du tiroir — on ne verse jamais le fonds ;
+//   4. une REMISE du DG va dans l'enveloppe, jamais dans le tiroir.
+const mouvementsEspeces = (db, boutique, totalVente) => {
+  const out = [];
+  const quand = (x) => `${String(x.date || "").slice(0, 10)} ${x.heure || ""}`;
   const montantVente = (v) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
-  const ventesEspeces = (db.ventes || []).filter((v) => v.boutique === boutique && v.paiement === "Espèces");
-  const paiementsEspeces = (db.dettes || []).filter((d) => d.boutique === boutique)
-    .flatMap((d) => (d.paiements || []).filter((p) => (p.paiement || "Espèces") === "Espèces"));
+  (db?.ventes || []).forEach((v) => {
+    if (v.boutique === boutique && v.paiement === "Espèces") out.push({ q: quand(v), date: String(v.date).slice(0, 10), type: "vente", montant: montantVente(v) });
+  });
+  (db?.dettes || []).forEach((d) => {
+    if (d.boutique !== boutique) return;
+    (d.paiements || []).forEach((p) => {
+      if ((p.paiement || "Espèces") === "Espèces") out.push({ q: quand(p), date: String(p.date).slice(0, 10), type: "reglement", montant: Number(p.montant || 0) });
+    });
+  });
   // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
   // une avance personnelle ou l'argent du DG ne sortent pas du tiroir.
-  const mouvementsCaisse = (db.depenses || []).filter((x) => x.boutique === boutique && compteDansLaCaisse(x));
-  // Le fonds de caisse REMIS par le DG (14/09/2026) est une ENTRÉE (montant
-  // négatif) : il est compté à part, jamais dans « Sorties ».
-  const remises = mouvementsCaisse.filter(estFondsCaisseRemis);
-  const sortiesCaisse = mouvementsCaisse.filter((x) => !estFondsCaisseRemis(x));
-  const somme = (liste, de, filtre) => liste.filter((x) => filtre(x.date)).reduce((s, x) => s + de(x), 0);
-  const ventes = somme(ventesEspeces, montantVente, (d) => dansPeriode(d, periode));
-  const reglements = somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => dansPeriode(d, periode));
-  const depenses = somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => dansPeriode(d, periode));
-  const fondsRemis = -somme(remises, (x) => Number(x.montant || 0), (d) => dansPeriode(d, periode));
-  const montant = somme(ventesEspeces, montantVente, (d) => avantFin(d, periode)) + somme(paiementsEspeces, (p) => Number(p.montant || 0), (d) => avantFin(d, periode))
-    - somme(sortiesCaisse, (x) => Number(x.montant || 0), (d) => avantFin(d, periode)) - somme(remises, (x) => Number(x.montant || 0), (d) => avantFin(d, periode));
-  const dernier = versementsDe(db, boutique).find((d) => avantFin(d.date, periode));
-  const derniereRemise = remisesFondsDe(db, boutique).find((d) => avantFin(d.date, periode));
+  (db?.depenses || []).forEach((x) => {
+    if (x.boutique !== boutique || !compteDansLaCaisse(x)) return;
+    const base = { q: quand(x), date: String(x.date).slice(0, 10) };
+    if (estFondsCaisseRemis(x)) out.push({ ...base, type: "remise", montant: -Number(x.montant || 0) });
+    else if (x.categorie === CATEGORIE_VERSEMENT) out.push({ ...base, type: "versement", montant: Number(x.montant || 0) });
+    else out.push({ ...base, type: "sortie", montant: Number(x.montant || 0) });
+  });
+  return out.sort((a, b) => a.q.localeCompare(b.q));
+};
+
+// L'état des deux poches à la fin d'une période (ou depuis toujours), et le
+// détail de ce qui s'est passé PENDANT la période.
+export function deuxPoches(db, boutique, totalVente, periode = null) {
+  let recette = 0, fonds = 0, plafond = 0;
+  const d = { ventes: 0, reglements: 0, depenses: 0, surRecette: 0, surFonds: 0, versements: 0, remises: 0, rendu: 0 };
+  for (const m of mouvementsEspeces(db, boutique, totalVente)) {
+    if (!avantFin(m.date, periode)) break;
+    const dedans = dansPeriode(m.date, periode);
+    if (m.type === "remise") {
+      fonds += m.montant; plafond += m.montant;
+      if (dedans) d.remises += m.montant;
+    } else if (m.type === "versement") {
+      recette -= m.montant;
+      if (dedans) d.versements += m.montant;
+    } else if (m.type === "sortie") {
+      // Le tiroir d'abord ; l'enveloppe seulement pour ce qu'il ne couvre pas.
+      const surRecette = Math.min(Math.max(0, recette), m.montant);
+      let reste = m.montant - surRecette;
+      // ⚠ On ne prend dans l'enveloppe que ce qu'elle CONTIENT : au-delà, c'est
+      // le tiroir qui se creuse (une saisie ancienne, une dépense enregistrée
+      // avant la vente qui la couvre). L'enveloppe ne part jamais en négatif.
+      const surFonds = Math.min(Math.max(0, fonds), reste);
+      fonds -= surFonds;
+      reste -= surFonds;
+      recette -= surRecette + reste;
+      if (dedans) { d.depenses += m.montant; d.surRecette += surRecette + reste; d.surFonds += surFonds; }
+    } else {
+      // Une entrée rembourse d'abord ce qui manque à l'enveloppe.
+      const manque = Math.max(0, plafond - fonds);
+      const rendu = Math.min(manque, m.montant);
+      fonds += rendu;
+      recette += m.montant - rendu;
+      if (dedans) { if (m.type === "vente") d.ventes += m.montant; else d.reglements += m.montant; d.rendu += rendu; }
+    }
+  }
+  return { recette: Math.round(recette), fonds: Math.round(fonds), plafond: Math.round(plafond), detail: d };
+}
+
+// Ce qu'il y a dans le TIROIR (la recette), et ce qu'il reste dans
+// l'ENVELOPPE — deux nombres, jamais additionnés dans un total de caisse.
+export function fondsAVerser(db, boutique, totalVente, periode = null) {
+  const p = deuxPoches(db, boutique, totalVente, periode);
+  const dernier = versementsDe(db, boutique).find((x) => avantFin(x.date, periode));
+  const derniereRemise = remisesFondsDe(db, boutique).find((x) => avantFin(x.date, periode));
+  // Le fonds RÉGLÉ (⚙ Paramètres) est la référence ; le plafond réel de
+  // l'enveloppe est ce que le DG y a effectivement mis (voir manqueRemises).
   const fondsFixe = fondsCaisseFixe(db, boutique);
-  const etat = etatFondsCaisse(montant, fondsFixe);
-  // `montant` = le SOLDE d'espèces ; `aVerser` = ce qu'il y a au-delà du fonds
-  // fixe ; `resteFonds` = ce qu'il reste du fonds dans le tiroir (14/09/2026).
-  return { montant, ventes, reglements, depenses, fondsRemis, dernierVersement: dernier ? String(dernier.date) : "", derniereRemise: derniereRemise ? String(derniereRemise.date) : "",
-    fondsFixe, aVerser: aVerserAuDela(montant, fondsFixe), resteFonds: etat.reste, fondsEntame: etat.entame, fondsIntact: etat.intact };
+  const etat = etatFondsCaisse(p.fonds, p.plafond);
+  return {
+    // `montant` = le tiroir (la recette) ; `aVerser` = la même chose : le
+    // fonds n'en fait plus partie, il n'y a plus rien à en retrancher.
+    montant: p.recette, aVerser: Math.max(0, p.recette),
+    ventes: p.detail.ventes, reglements: p.detail.reglements,
+    // « Sorties » = tout ce qui est sorti en espèces (dépenses + versements),
+    // quelle que soit la poche ; `depensesSurFonds` dit la part de l'enveloppe.
+    depenses: p.detail.depenses + p.detail.versements,
+    depensesSurFonds: p.detail.surFonds, fondsRemis: p.detail.remises,
+    dernierVersement: dernier ? String(dernier.date) : "", derniereRemise: derniereRemise ? String(derniereRemise.date) : "",
+    fondsFixe, fondsPlafond: p.plafond, resteFonds: etat.reste, fondsEntame: etat.entame, fondsIntact: etat.intact,
+  };
 }
 
 // ---- Le RÉSUMÉ des caisses (Timo, 13/09/2026) ----
@@ -324,10 +404,10 @@ export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui, periode
     const f = fondsAVerser(db, boutique, totalVente, periode);
     const v = totalVerse(db, boutique, aujourdhui, periode);
     // `entrees` = ventes + règlements (le fonds remis est dit à part : `fondsRemis`).
-    return { boutique, aVerser: f.aVerser, solde: f.montant, fondsFixe: f.fondsFixe, resteFonds: f.resteFonds, fondsRemis: f.fondsRemis, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
+    return { boutique, aVerser: f.aVerser, solde: f.montant, fondsFixe: f.fondsFixe, fondsPlafond: f.fondsPlafond, resteFonds: f.resteFonds, fondsRemis: f.fondsRemis, dernierVersement: f.dernierVersement, entrees: f.ventes + f.reglements, sorties: f.depenses, verse: v.total, verseEnAttente: v.enAttente, verseCeMois: v.ceMois };
   });
-  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, solde: t.solde + l.solde, fondsFixe: t.fondsFixe + l.fondsFixe, resteFonds: t.resteFonds + l.resteFonds, fondsRemis: t.fondsRemis + l.fondsRemis, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
-    { aVerser: 0, solde: 0, fondsFixe: 0, resteFonds: 0, fondsRemis: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
+  const total = lignes.reduce((t, l) => ({ aVerser: t.aVerser + l.aVerser, solde: t.solde + l.solde, fondsFixe: t.fondsFixe + l.fondsFixe, fondsPlafond: t.fondsPlafond + l.fondsPlafond, resteFonds: t.resteFonds + l.resteFonds, fondsRemis: t.fondsRemis + l.fondsRemis, entrees: t.entrees + l.entrees, sorties: t.sorties + l.sorties, verse: t.verse + l.verse, verseEnAttente: t.verseEnAttente + l.verseEnAttente, verseCeMois: t.verseCeMois + l.verseCeMois }),
+    { aVerser: 0, solde: 0, fondsFixe: 0, fondsPlafond: 0, resteFonds: 0, fondsRemis: 0, entrees: 0, sorties: 0, verse: 0, verseEnAttente: 0, verseCeMois: 0 });
   return { lignes, total };
 }
 
