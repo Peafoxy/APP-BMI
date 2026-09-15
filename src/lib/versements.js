@@ -201,16 +201,36 @@ export function critiqueRemiseFonds({ montant, origine, banque, date }) {
   if (!date || Number.isNaN(new Date(String(date)).getTime())) return "Indiquez la date de la remise.";
   return "";
 }
-export function construireRemiseFonds(profile, { boutique, montant, origine, banque = "", note = "", date }) {
+export function construireRemiseFonds(profile, { boutique, montant, origine, banque = "", note = "", date, regularisation = false }) {
   const refus = critiqueRemiseFonds({ montant, origine, banque, date });
   if (refus) return { refus };
   const m = Math.round(Number(montant));
-  const fonds_caisse = { id: uid(), origine, banque: origine === DEST_BANQUE ? String(banque).trim() : "", montant: m, note: String(note || "").trim() };
+  const fonds_caisse = { id: uid(), origine, banque: origine === DEST_BANQUE ? String(banque).trim() : "", montant: m, note: String(note || "").trim(), regularisation: !!regularisation };
   const entree = {
     ...nouvelleDepense(profile, { boutique, categorie: CATEGORIE_FONDS_CAISSE, description: `Fonds de caisse remis le ${dFR(date)} par ${profile.nom} (${libelleOrigineFonds(fonds_caisse)})${fonds_caisse.note ? ` — ${fonds_caisse.note}` : ""}`, montant: -m, moyen: "Espèces", fonds_caisse, par_id: profile.id ?? null }),
     date: String(date),
   };
   return { entree, fonds_caisse, journal: `Fonds de caisse ${fmt(m)} remis à ${boutique} (${libelleOrigineFonds(fonds_caisse)}) par ${profile.nom}` };
+}
+// ⚠ Timo, 15/09/2026 (capture de la clôture du 14/09 à DEMAKPOE, écart
+// −40 800) : « pourquoi tu additionnes le fonds de caisse aux ventes ? » puis
+// « l'argent était remis depuis [avant] ». Les 50 000 F avaient bien été
+// remis par le DG, mais des semaines plus tôt. « Régulariser » pré-remplissait
+// la date à AUJOURD'HUI — alors qu'une régularisation parle par définition
+// d'un argent remis dans le PASSÉ : les 50 000 tombaient donc dans la clôture
+// du jour, comme s'ils venaient d'arriver dans le tiroir.
+// La remise elle-même était juste ; c'est sa DATE qui était fausse. Elle se
+// corrige donc, sans rien recalculer d'autre : le montant, l'origine et le
+// fonds ne bougent pas. La description porte la date en clair : elle suit.
+export function corrigerDateRemise(remise, nouvelleDate) {
+  if (!estFondsCaisseRemis(remise)) return { refus: "Cette ligne n'est pas une remise de fonds de caisse." };
+  const d = String(nouvelleDate || "").trim();
+  if (!d || Number.isNaN(new Date(d).getTime())) return { refus: "Indiquez la date réelle de la remise (AAAA-MM-JJ)." };
+  if (d === String(remise.date)) return { refus: "C'est déjà la date de cette remise." };
+  return {
+    remise: { ...remise, date: d, description: String(remise.description || "").replace(/remis le [^ ]+ par/, `remis le ${dFR(d)} par`) },
+    journal: `Date de la remise de fonds de ${remise.boutique} corrigée : ${dFR(remise.date)} → ${dFR(d)} (${fmt(Math.abs(Number(remise.montant || 0)))})`,
+  };
 }
 export const libelleOrigineFonds = (f) => (f?.origine === DEST_BANQUE ? `BANQUE ${String(f.banque || "").trim()}`.trim() : (f?.origine || DEST_DG));
 // Les remises de fonds d'une boutique, la plus récente en premier.

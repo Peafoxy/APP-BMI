@@ -73,7 +73,16 @@ export function Caisse({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     if (blocageCloture) { uAlert(blocageCloture); return; }
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
-    if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\nAttendu dans le tiroir : ${fmt(theorique)} (fonds d'hier soir ${fmt(fondsHier)} + recette du jour ${fmt(recetteDuJour)}${fondsRemisDuJour > 0 ? ` + fonds de caisse remis par le DG ${fmt(fondsRemisDuJour)}` : ""} − sorties justifiées ${fmt(sortiesJustifiees)})\nCompté dans le tiroir : ${fmt(Number(compte))}\nÉcart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
+    if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\n\n`
+      + `Fonds d'hier soir : ${fmt(fondsHier)}\n`
+      + `+ Recette du jour (ventes et encaissements) : ${fmt(recetteDuJour)}\n`
+      + `− Sorties du jour (dépenses, versements) : ${fmt(sortiesJustifiees)}\n`
+      // Le fonds remis par le DG a SA ligne, sous un trait : ce n'est pas une
+      // recette (Timo, 15/09/2026 — « ne pas mélanger le fonds aux ventes »).
+      + (fondsRemisDuJour > 0 ? `\n💼 + Fonds de caisse remis par le DG : ${fmt(fondsRemisDuJour)}\n   (pas une recette : argent de BMI déposé dans le tiroir ce jour-là)\n` : "")
+      + `\n= À trouver dans le tiroir : ${fmt(theorique)}\n`
+      + `Compté dans le tiroir : ${fmt(Number(compte))}\n`
+      + `Écart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
     // Une reclôture REMPLACE la clôture du jour, sans effacer son histoire :
     // l'ancienne photo reste dans `precedentes`, qui ne rétrécit jamais.
     const ancienne = db.clotures.find((c) => c.boutique === boutique && String(c.date) === t);
@@ -441,7 +450,17 @@ export function Caisse({ db, save, profile }) {
                   fonds d'hier soir + recette du jour − sorties justifiées = attendu dans le tiroir.
                   Les dépenses et les versements sont déjà déduits : ils ne créent JAMAIS d'écart. */}
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Fonds de caisse d'hier soir</div><div className={`font-bold tabular-nums ${fondsHier < 0 ? "text-red-600" : ""}`}>{fmt(fondsHier)}</div></div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Recette du jour (espèces)</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(recetteDuJour + fondsRemisDuJour)}</div><div className="text-[11px] text-slate-400">ventes {fmt(especesVentes)} · encaissements {fmt(especesReglements)}{fondsRemisDuJour > 0 ? ` · fonds de caisse remis par le DG ${fmt(fondsRemisDuJour)}` : ""}</div></div>
+              {/* ⚠ Timo, 15/09/2026 : « pourquoi tu additionnes le fonds de caisse aux
+                  ventes ? J'avais dit de ne pas mélanger le fonds de caisse aux ventes. »
+                  Le fonds remis par le DG était additionné DANS la case « Recette du
+                  jour » : la règle pure ne les a jamais mélangés (recetteDuJour =
+                  ventes + encaissements), c'est l'affichage qui mentait. Le fonds a
+                  maintenant SA case, à part, et seulement les jours où le DG a
+                  réellement remis de l'argent. */}
+              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Recette du jour (espèces)</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(recetteDuJour)}</div><div className="text-[11px] text-slate-400">ventes {fmt(especesVentes)} · encaissements {fmt(especesReglements)}</div></div>
+              {fondsRemisDuJour > 0 && (
+                <div className="bg-white rounded-lg p-3 border border-amber-300" data-carte="fonds-remis"><div className="text-xs text-slate-500">💼 Fonds de caisse remis par le DG</div><div className="font-bold tabular-nums text-amber-700">+ {fmt(fondsRemisDuJour)}</div><div className="text-[11px] text-slate-400">ce n'est pas une recette : c'est l'argent de BMI déposé dans le tiroir ce jour-là</div></div>
+              )}
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties justifiées du jour</div><div className="font-bold tabular-nums">− {fmt(sortiesJustifiees)}</div><div className="text-[11px] text-slate-400">dépenses {fmt(especesDepenses)} · versements {fmt(versementsDuJour)} — ne créent pas d'écart</div></div>
               <div className="bg-white rounded-lg p-3 border-2 border-slate-300"><div className="text-xs text-slate-500">Montant attendu dans le tiroir</div><div className={`font-bold tabular-nums ${theorique < 0 ? "text-red-600" : ""}`}>{fmt(theorique)}</div></div>
               <div className="bg-white rounded-lg p-3 border border-slate-200">
