@@ -20,7 +20,7 @@
 // acquis d'office, sans jamais lire la table des comptes.
 // ============================================================
 
-import { totalVente } from "./core.js";
+import { telDigits, totalVente } from "./core.js";
 import { dettesClassiques } from "./calculs.js";
 import { chiffresTel, numeroComparable } from "./identiteClient.js";
 import { sansAccents } from "./suggestions.js";
@@ -31,6 +31,20 @@ import { sansAccents } from "./suggestions.js";
 export const cleClient = (nom, tel) => {
   const n = numeroComparable(tel);
   return n ? `t:${n}` : `n:${sansAccents(nom)}`;
+};
+
+// Toutes les écritures d'un même numéro, pour qu'il se retrouve quelle que
+// soit la façon dont on le tape : les chiffres tels quels (« 90556677 »),
+// les 8 derniers (l'indicatif ne compte pas) et l'écriture internationale
+// (« +22890556677 ») — sans elle, commencer par « +228 » ne proposait plus
+// rien alors que c'est ce que la case affiche en exemple.
+// ⚠ Ce qui reste hors de portée : le numéro tapé ENTIER avec ses espaces
+// (« +228 90 55 66 77 »). La règle commune compare mot à mot, et « 55 » ne
+// commence aucun mot du numéro. Trois chiffres suffisent à réduire la liste,
+// personne n'a besoin d'aller jusque-là.
+const motsDuNumero = (tel) => {
+  const d = telDigits(tel);
+  return [chiffresTel(tel), numeroComparable(tel), d && `+${d}`].filter(Boolean).join(" ");
 };
 
 // Tous les clients connus d'une boutique, du plus RÉCENT au plus ancien.
@@ -97,7 +111,7 @@ export function propositionsClients(clients, { fmt = (x) => String(x), dFR = (x)
       cle: c.cle,
       valeur: c.nom,
       tel: c.tel || "",
-      mots: [chiffresTel(c.tel), numeroComparable(c.tel)].filter(Boolean).join(" "),
+      mots: motsDuNumero(c.tel),
       detail: [
         c.tel || "sans numéro",
         c.derniere ? `dernier passage ${dFR(c.derniere)}` : "",
@@ -107,4 +121,26 @@ export function propositionsClients(clients, { fmt = (x) => String(x), dFR = (x)
     });
   }
   return out;
+}
+
+// Les mêmes clients, proposés PAR LEUR NUMÉRO (Timo, 15/09/2026 : « la
+// présélection n'est pas possible avec le numéro ? »). C'est dans la case du
+// numéro qu'on tape un numéro : elle doit proposer comme celle du nom.
+// • `valeur` = le numéro, c'est lui qui remplit la case ;
+// • `detail` = le nom, le dernier passage, la dette ;
+// • `mots` = le nom ET les chiffres sans espaces, pour retrouver un client
+//   par son NOM depuis la case du numéro aussi.
+// Un client sans numéro n'a rien à proposer ici : il n'y figure pas.
+export function propositionsNumeros(clients, { fmt = (x) => String(x), dFR = (x) => String(x) } = {}) {
+  return (clients || []).filter((c) => c.tel).map((c) => ({
+    cle: c.cle,
+    valeur: c.tel,
+    nom: c.nom,
+    mots: [c.nom, motsDuNumero(c.tel)].filter(Boolean).join(" "),
+    detail: [
+      c.nom,
+      c.derniere ? `dernier passage ${dFR(c.derniere)}` : "",
+      c.dette > 0 ? `doit encore ${fmt(c.dette)}` : "",
+    ].filter(Boolean).join(" · "),
+  }));
 }

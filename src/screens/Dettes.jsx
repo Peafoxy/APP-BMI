@@ -11,7 +11,7 @@ import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { clientsConnus, propositionsClients } from "../lib/clientsConnus";
+import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels";
 
 // ============ DETTES ============
@@ -232,7 +232,12 @@ export function Dettes({ db, save, profile }) {
               suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
               placeholder="Nom, ou numéro du client" />
           </Field>
-          <Field label="Téléphone"><input className={inputCls} value={res.tel} onChange={(e) => setRes({ ...res, tel: e.target.value })} /></Field>
+          <Field label="Téléphone">
+            <ChampSuggestions type="tel" valeur={res.tel} onChange={(v) => setRes({ ...res, tel: v })}
+              onChoisir={(c) => setRes({ ...res, tel: c.valeur, client: c.nom || res.client })}
+              suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
+              placeholder="+228 ..." />
+          </Field>
           <Field label="Article">
             <select className={inputCls} value={res.produit_id} onChange={(e) => setRes({ ...res, produit_id: e.target.value })}>
               <option value="">— Choisir —</option>
@@ -324,7 +329,12 @@ export function Dettes({ db, save, profile }) {
               suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
               placeholder="Nom, ou numéro du client" />
           </Field>
-          <Field label="Téléphone"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+          <Field label="Téléphone">
+            <ChampSuggestions type="tel" valeur={f.tel} onChange={(v) => setF({ ...f, tel: v })}
+              onChoisir={(c) => setF({ ...f, tel: c.valeur, client: c.nom || f.client })}
+              suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
+              placeholder="+228 ..." />
+          </Field>
           <Field label="Article / Motif"><input className={inputCls} value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} /></Field>
           <Field label="Montant dette (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Déjà payé (F)"><input type="number" className={inputCls} value={f.paye} onChange={(e) => setF({ ...f, paye: e.target.value })} /></Field>

@@ -7204,6 +7204,23 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("une base vide ne fait pas tomber la règle (aucune vente, aucune dette)",
     CC.clientsConnus({}, "DEMAKPOE").length === 0 && CC.propositionsClients([]).length === 0);
 
+  // ⚠ Timo, 15/09/2026 : « la présélection n'est pas possible avec le
+  // numéro ? » — taper le numéro marchait dans la case du NOM, mais la case
+  // du NUMÉRO ne proposait rien. C'est pourtant là qu'on tape un numéro.
+  const nums = CC.propositionsNumeros(liste, { fmt: (x) => `${x} F`, dFR: (d) => d });
+  test("★ la case du NUMÉRO propose aussi : le numéro en valeur (il remplit la case), le nom à recopier au clic",
+    nums.find((p) => p.valeur === "90556677")?.nom === "DJEDJE" && /^DJEDJE · dernier passage 2026-09-13 · doit encore 70000 F$/.test(nums.find((p) => p.valeur === "90556677").detail));
+  test("★ depuis la case du numéro, on retrouve un client en tapant son NOM aussi bien que son NUMÉRO (les deux sont dans `mots`)",
+    Sug.filtrerSuggestions(nums, "djedje").map((p) => p.valeur).join() === "90556677"
+    && Sug.filtrerSuggestions(nums, "9055").map((p) => p.valeur).join() === "90556677"
+    // ⚠ Commencer par l'indicatif, comme la case le montre en exemple, doit
+    // proposer : sans l'écriture internationale dans `mots`, « +228 » ne
+    // trouvait plus personne.
+    && Sug.filtrerSuggestions(nums, "228").map((p) => p.valeur).includes("90556677")
+    && Sug.filtrerSuggestions(nums, "+228 9055").map((p) => p.valeur).join() === "90556677");
+  test("un client SANS numéro n'a rien à proposer dans la case du numéro : il n'y figure pas (une case vide ne se propose pas)",
+    !nums.some((p) => p.valeur === "" || p.nom === "PASSANT") && nums.length === liste.filter((c) => c.tel).length);
+
   // Les écrans : LE champ commun, jamais une liste maison, et le clic
   // remplit le nom ET le numéro.
   const ecrans = [
@@ -7214,13 +7231,27 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("★ 💰 Ventes, 💳 Dettes et 🛠 Travaux : la case Client passe par LE champ commun (ChampSuggestions + propositionsClients de la boutique regardée), et un CLIC remplit le nom ET le numéro",
     ecrans.every(([f, vRe, cRe]) => {
       const t = readFileSync(f, "utf8");
-      return /import \{ ChampSuggestions \}/.test(t) && /import \{ clientsConnus, propositionsClients \} from "\.\.\/lib\/clientsConnus";/.test(t)
+      return /import \{ ChampSuggestions \}/.test(t) && /import \{ clientsConnus, propositionsClients, propositionsNumeros \} from "\.\.\/lib\/clientsConnus";/.test(t)
         && /suggestions=\{propositionsClients\(clientsConnus\(db, boutique\), \{ fmt, dFR \}\)\}/.test(t) && vRe.test(t) && cRe.test(t);
     }));
   const dtJ = readFileSync("src/screens/Dettes.jsx", "utf8");
   test("💳 Dettes a les DEUX cases traitées : la réservation prépayée et la nouvelle dette",
     (dtJ.match(/suggestions=\{propositionsClients\(/g) || []).length === 2
     && /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, client: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/.test(dtJ));
+  const numEcrans = [
+    ["src/screens/Ventes.jsx", /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, tel: c\.valeur, client: c\.nom \|\| f\.client \}\)\}/],
+    ["src/screens/Dettes.jsx", /onChoisir=\{\(c\) => setRes\(\{ \.\.\.res, tel: c\.valeur, client: c\.nom \|\| res\.client \}\)\}/],
+    ["src/screens/Travaux.jsx", /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, tel: c\.valeur, nom: c\.nom \|\| f\.nom \}\)\}/],
+  ];
+  test("★ les trois écrans proposent DANS LES DEUX SENS : la case du numéro passe aussi par le champ commun (propositionsNumeros), et le clic y remplit le numéro ET le nom",
+    numEcrans.every(([f, re]) => {
+      const t = readFileSync(f, "utf8");
+      return /suggestions=\{propositionsNumeros\(clientsConnus\(db, boutique\), \{ fmt, dFR \}\)\}/.test(t)
+        && /<ChampSuggestions type="tel" valeur=\{\w+\.tel\}/.test(t) && re.test(t);
+    })
+    && (readFileSync("src/screens/Dettes.jsx", "utf8").match(/propositionsNumeros\(/g) || []).length === 2);
+  test("★ plus une seule case Client ou Numéro en saisie nue dans les trois écrans : toutes passent par le champ commun",
+    !numEcrans.some(([f]) => /<input type="tel" placeholder="\+228 \.\.\." className=\{inputCls\} value=\{\w+\.tel\}/.test(readFileSync(f, "utf8"))));
   test("★ ce qui est TAPÉ n'est jamais transformé : les quatre écrans gardent une case libre (onChange pose la frappe telle quelle), un client de passage se saisit comme avant",
     ecrans.every(([f]) => /onChange=\{\(v\) => set[FR]\w*\(\{ \.\.\.\w+, (client|nom): v \}\)\}/.test(readFileSync(f, "utf8"))));
   test("★ UNE règle, pas deux : 👥 Clients lit clientsConnus au lieu de refaire son propre regroupement (plus de `const map = {}` ni de clé maison)",

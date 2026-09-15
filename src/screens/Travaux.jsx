@@ -14,7 +14,7 @@ import { fmt, dFR, today } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { clientsConnus, propositionsClients } from "../lib/clientsConnus";
+import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
@@ -156,7 +156,12 @@ export function Travaux({ db, save, profile, onFacturer }) {
                 placeholder="Nom, ou numéro du client" />
             </Field>
             <Field label="Prénom"><input className={inputCls} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
-            <Field label="Téléphone"><input className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+            <Field label="Téléphone">
+              <ChampSuggestions type="tel" valeur={f.tel} onChange={(v) => setF({ ...f, tel: v })}
+                onChoisir={(c) => setF({ ...f, tel: c.valeur, nom: c.nom || f.nom })}
+                suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
+                placeholder="+228 ..." />
+            </Field>
             <Field label="Lieu des travaux"><input className={inputCls} value={f.lieu} onChange={(e) => setF({ ...f, lieu: e.target.value })} /></Field>
             <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Plomberie, câblage…" /></Field>
           </div>

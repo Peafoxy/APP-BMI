@@ -23,7 +23,7 @@ import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiqu
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { clientsConnus, propositionsClients } from "../lib/clientsConnus";
+import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { lierFacture } from "../lib/travaux";
 
@@ -1088,7 +1088,15 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
                   placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : "Nom, ou numéro du client"} />
               </Field>
-              <Field label={origineDevis ? "Son numéro" : "Numéro du client"}><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
+              <Field label={origineDevis ? "Son numéro" : "Numéro du client"}>
+                {/* Timo (15/09/2026) : « la présélection n'est pas possible
+                    avec le numéro ? » — la case du numéro propose comme celle
+                    du nom, et le clic remplit les deux. */}
+                <ChampSuggestions type="tel" valeur={f.tel} onChange={(v) => setF({ ...f, tel: v })}
+                  onChoisir={(c) => setF({ ...f, tel: c.valeur, client: c.nom || f.client })}
+                  suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
+                  placeholder="+228 ..." />
+              </Field>
               {origineDevis ? (
                 Number(f.remise || 0) > 0 && (
                   <Field label="Remise (déjà fixée sur le devis)">
