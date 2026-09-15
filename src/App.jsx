@@ -1019,7 +1019,12 @@ export default function App() {
     // vendeur — il voyait des demandes qu'il ne peut pas traiter (valider
     // ou refuser un transfert : magasinier, gérant, admin, règle du 04/09).
     // Un bouton qui ne commande rien se retire. Le gérant garde l'onglet.
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
+    // ⚠ Décision Timo (15/09/2026) : plus d'onglet « 📤 Dépenses » pour le
+    // vendeur non plus — « le vendeur en boutique clôture juste la caisse, il
+    // ne fait jamais le versement ni dépense ; ici c'est le gérant aussi qui
+    // vend ». Il garde 🔒 Caisse : la clôture reste son geste (règle du
+    // 09/09/2026, « comment la clôture peut être impossible à un vendeur ? »).
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient

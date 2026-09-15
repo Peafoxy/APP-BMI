@@ -7393,6 +7393,33 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // ⚠ securite-16 refusait TOUTE modification d'une remise, date comprise :
   // le bouton « Date » aurait été refusé par la base. securite-19 rouvre
   // cette porte-là, et elle seule.
+  // ── L'ENVELOPPE SE COMPTE À LA CLÔTURE, ET LE VENDEUR N'A PLUS DE DÉPENSES ──
+  // Timo (15/09/2026) : « 1- retire [l'onglet Dépenses au vendeur] ; 2- tout
+  // de suite [le comptage de l'enveloppe] ; mais on informe lors de la clôture
+  // de la caisse. » C'était le seul trou du modèle à deux poches : la clôture
+  // vérifiait le tiroir, l'enveloppe n'était JAMAIS comptée par personne.
+  {
+    const appE = readFileSync("src/App.jsx", "utf8");
+    const vendeurE = (appE.match(/: \[\["ventes", "💰 Ventes"\], \["commandes", labelCommandes\][^\n]*\["primes_remises"[^\n]*\];/) || [""])[0];
+    test("★ le VENDEUR n'a plus l'onglet 📤 Dépenses (« il ne fait jamais le versement ni dépense ») — mais il GARDE 🔒 Caisse : la clôture reste son geste (règle du 09/09/2026)",
+      vendeurE.length > 0 && !/\["depenses", "📤 Dépenses"\]/.test(vendeurE) && /\["caisse", "🔒 Caisse"\]/.test(vendeurE) && /\["ventes", "💰 Ventes"\]/.test(vendeurE)
+      // …et il reste là où il doit être : admin, comptable, gérant, techniciens.
+      && (appE.match(/\["depenses", "📤 Dépenses"\]/g) || []).length === 5);
+    const caE = readFileSync("src/screens/Caisse.jsx", "utf8");
+    test("★ la clôture INFORME toujours sur l'enveloppe, et la fait COMPTER quand elle a été entamée (le champ n'apparaît que dans ce cas, avec son écart à part)",
+      /const compterLEnveloppe = fondsPlafond > 0 && fondsEntame > 0;/.test(caE) && /const ecartFonds = fondsCompte === "" \? null : Number\(fondsCompte\) - fondsReste;/.test(caE)
+      && /data-cloture="enveloppe"/.test(caE) && /\{fondsPlafond > 0 && \(/.test(caE) && /\{compterLEnveloppe && \(/.test(caE)
+      && /data-cloture="fonds-compte"/.test(caE) && /Écart sur l'enveloppe/.test(caE)
+      && /Elle n'a pas été touchée/.test(caE) && /c'est la seule fois où on la vérifie/.test(caE));
+    test("★ la clôture est REFUSÉE tant que l'enveloppe entamée n'est pas comptée, la confirmation dit les deux chiffres, et la fiche garde fonds_attendu / fonds_compte",
+      /if \(compterLEnveloppe && fondsCompte === ""\) \{ uAlert\(/.test(caE)
+      && /Compté dans l'enveloppe : \$\{fmt\(Number\(fondsCompte\)\)\} — écart \$\{fmt\(Number\(fondsCompte\) - fondsReste\)\}/.test(caE)
+      && /\.\.\.\(compterLEnveloppe \? \{ fonds_attendu: fondsReste, fonds_compte: Number\(fondsCompte\) \} : \{\}\),/.test(caE)
+      && /setCompte\(""\); setNotes\(""\); setFondsCompte\(""\); setJourChoisi\(""\);/.test(caE));
+    test("★ l'enveloppe comptée n'entre dans AUCUN total du tiroir : le montant attendu, l'écart de caisse et les fonds à verser l'ignorent",
+      !/theorique \+ fonds|compte \+ fondsCompte|fondsCompte \+ compte/.test(caE) && /const ecart = compte === "" \? null : Number\(compte\) - theorique;/.test(caE));
+  }
+
   // ── « PAYÉ AVEC : LE FONDS DE CAISSE » (Timo, 15/09/2026) ──
   // « Dans Payé avec, ajouter fonds de caisse, de sorte que si pas d'argent et
   // il faut effectuer une dépense, fonds de caisse apparaît (gérant). »
