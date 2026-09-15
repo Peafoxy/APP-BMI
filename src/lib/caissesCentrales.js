@@ -53,13 +53,21 @@ const entreesVersements = (db, destination, nomsBoutiques) => (db.depenses || []
 // Le fonds de caisse REMIS à une boutique (Timo, 14/09/2026) : l'argent sort
 // de « Chez le DG » ou de la BANQUE le jour de la remise (montant positif ici ;
 // la ligne de la boutique le porte en négatif, comme une entrée).
-const sortiesFondsRemis = (db, origine, nomsBoutiques) => (db.depenses || [])
+// ⚠ Timo (15/09/2026) : « à tout moment je peux augmenter ou diminuer le
+// fonds de caisse ». Une REMISE sort d'ici (le DG donne) ; une REPRISE y
+// RENTRE (le DG récupère). Le signe de `fonds_caisse.montant` le dit.
+const mouvementsFondsRemis = (db, origine, nomsBoutiques) => (db.depenses || [])
   .filter((d) => estFondsCaisseRemis(d) && d.fonds_caisse.origine === origine && nomsBoutiques.includes(d.boutique))
-  .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Math.abs(Number(d.montant || 0)), boutique: d.boutique, par: d.par,
-    libelle: `Fonds de caisse remis à ${d.boutique} (par ${d.par})${origine === DEST_BANQUE ? ` · ${libelleOrigineFonds(d.fonds_caisse)}` : ""}${d.fonds_caisse.note ? ` — ${d.fonds_caisse.note}` : ""}` }));
+  .map((d) => {
+    const repris = Number(d.fonds_caisse.montant || 0) < 0;
+    return { id: d.id, sens: repris ? "entree" : "sortie", date: d.date, montant: Math.abs(Number(d.montant || 0)), boutique: d.boutique, par: d.par,
+      libelle: `Fonds de caisse ${repris ? "repris de" : "remis à"} ${d.boutique} (par ${d.par})${origine === DEST_BANQUE ? ` · ${libelleOrigineFonds(d.fonds_caisse)}` : ""}${d.fonds_caisse.note ? ` — ${d.fonds_caisse.note}` : ""}` };
+  });
+const sortiesFondsRemis = (db, origine, nomsBoutiques) => mouvementsFondsRemis(db, origine, nomsBoutiques).filter((m) => m.sens === "sortie");
+const entreesFondsRepris = (db, origine, nomsBoutiques) => mouvementsFondsRemis(db, origine, nomsBoutiques).filter((m) => m.sens === "entree");
 
 export function mouvementsDG(db, nomsBoutiques) {
-  const entrees = entreesVersements(db, DEST_DG, nomsBoutiques);
+  const entrees = entreesVersements(db, DEST_DG, nomsBoutiques).concat(entreesFondsRepris(db, DEST_DG, nomsBoutiques));
   const sorties = sortiesFondsRemis(db, DEST_DG, nomsBoutiques).concat((db.depenses || []).flatMap((d) => {
     if (!nomsBoutiques.includes(d.boutique)) return [];
     const lignes = [];
@@ -75,7 +83,7 @@ export function mouvementsDG(db, nomsBoutiques) {
 }
 
 export function mouvementsBanque(db, nomsBoutiques) {
-  const entrees = entreesVersements(db, DEST_BANQUE, nomsBoutiques);
+  const entrees = entreesVersements(db, DEST_BANQUE, nomsBoutiques).concat(entreesFondsRepris(db, DEST_BANQUE, nomsBoutiques));
   const sorties = sortiesFondsRemis(db, DEST_BANQUE, nomsBoutiques).concat((db.depenses || [])
     .filter((d) => nomsBoutiques.includes(d.boutique) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compte(d))
     .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` })));

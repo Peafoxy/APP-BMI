@@ -211,38 +211,59 @@ export const ORIGINES_FONDS = [DEST_DG, DEST_BANQUE];
 // régularisation » comble le manque SANS changer le montant du fonds.
 export const totalRemisesFonds = (db, boutique) => remisesFondsDe(db, boutique).reduce((s, d) => s + Number(d.fonds_caisse?.montant || 0), 0);
 export const manqueRemises = (db, boutique) => Math.max(0, fondsCaisseFixe(db, boutique) - totalRemisesFonds(db, boutique));
-// Le plan d'une remise : le fonds après, et si elle comble le manque.
-export function planRemiseFonds({ fondsActuel, manque, montant, regularisation = false }) {
-  const m = Math.round(Number(montant));
-  if (!Number.isFinite(m) || m <= 0) return { refus: "Indiquez le montant remis (supérieur à zéro)." };
+// ⚠ Timo (15/09/2026) : « le réglage dans les paramètres doit rester utile,
+// car à tout moment je peux augmenter ou diminuer le fonds de caisse et ça
+// devrait passer par les paramètres. » Le réglage `fonds_caisse_fixe` EST donc
+// le niveau du fonds, et on le change en donnant le NOUVEAU montant :
+//   • à la hausse  → le DG APPORTE la différence (elle entre dans l'enveloppe
+//     et sort de sa caisse : Chez le DG ou BANQUE) ;
+//   • à la baisse  → le DG REPREND la différence (elle sort de l'enveloppe et
+//     rentre dans sa caisse).
+// Le plafond de l'enveloppe est donc toujours la somme de ces mouvements,
+// c'est-à-dire le réglage lui-même — et « Régulariser » ne sert plus qu'à
+// rattraper un fonds réglé AVANT que ce geste existe (le trou de traçabilité).
+export const SENS_REMISE = "remise";
+export const SENS_REPRISE = "reprise";
+export function planFondsCaisse({ fondsActuel, nouveau, manque, montant, regularisation = false }) {
   const f = Math.max(0, Math.round(Number(fondsActuel) || 0));
-  const q = Math.max(0, Math.round(Number(manque) || 0));
   if (regularisation) {
+    const m = Math.round(Number(montant));
+    const q = Math.max(0, Math.round(Number(manque) || 0));
+    if (!Number.isFinite(m) || m <= 0) return { refus: "Indiquez le montant remis (supérieur à zéro)." };
     if (q <= 0) return { refus: "Rien à régulariser : toutes les remises de ce fonds sont enregistrées." };
-    if (m > q) return { refus: `La régularisation ne peut pas dépasser le manque (${fmt(q)}). Au-delà, faites une remise ordinaire : elle augmentera le fonds.` };
-    return { montant: m, fondsApres: f, regularisation: true };
+    if (m > q) return { refus: `La régularisation ne peut pas dépasser le manque (${fmt(q)}).` };
+    return { sens: SENS_REMISE, montant: m, fondsApres: f, regularisation: true };
   }
-  return { montant: m, fondsApres: f + m, regularisation: false };
+  const n = Math.round(Number(nouveau));
+  if (!Number.isFinite(n) || n < 0) return { refus: "Indiquez le nouveau montant du fonds de caisse (zéro ou plus)." };
+  const delta = n - f;
+  if (delta === 0) return { refus: `Le fonds de caisse est déjà de ${fmt(f)}.` };
+  return { sens: delta > 0 ? SENS_REMISE : SENS_REPRISE, montant: Math.abs(delta), fondsApres: n, regularisation: false };
 }
 export const estFondsCaisseRemis = (dep) => !!dep?.fonds_caisse && dep.categorie === CATEGORIE_FONDS_CAISSE;
 export function critiqueRemiseFonds({ montant, origine, banque, date }) {
   const m = Number(montant);
-  if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant remis (supérieur à zéro).";
-  if (!ORIGINES_FONDS.includes(origine)) return "Indiquez d'où vient l'argent : Chez le DG ou BANQUE.";
+  if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant (supérieur à zéro).";
+  if (!ORIGINES_FONDS.includes(origine)) return "Indiquez d'où vient l'argent (ou où il retourne) : Chez le DG ou BANQUE.";
   if (origine === DEST_BANQUE && !String(banque || "").trim()) return "Indiquez le nom de la banque.";
-  if (!date || Number.isNaN(new Date(String(date)).getTime())) return "Indiquez la date de la remise.";
+  if (!date || Number.isNaN(new Date(String(date)).getTime())) return "Indiquez la date.";
   return "";
 }
-export function construireRemiseFonds(profile, { boutique, montant, origine, banque = "", note = "", date, regularisation = false }) {
+// Une remise ENTRE dans l'enveloppe (ligne à montant négatif, convention de la
+// caisse du comptable) ; une reprise en SORT (montant positif). Dans les deux
+// cas `fonds_caisse.montant` porte le signe du mouvement de l'enveloppe.
+export function construireRemiseFonds(profile, { boutique, montant, origine, banque = "", note = "", date, regularisation = false, sens = SENS_REMISE }) {
   const refus = critiqueRemiseFonds({ montant, origine, banque, date });
   if (refus) return { refus };
   const m = Math.round(Number(montant));
-  const fonds_caisse = { id: uid(), origine, banque: origine === DEST_BANQUE ? String(banque).trim() : "", montant: m, note: String(note || "").trim(), regularisation: !!regularisation };
+  const signe = sens === SENS_REPRISE ? -1 : 1;
+  const fonds_caisse = { id: uid(), origine, banque: origine === DEST_BANQUE ? String(banque).trim() : "", montant: signe * m, note: String(note || "").trim(), regularisation: !!regularisation, sens };
+  const verbe = sens === SENS_REPRISE ? "repris" : "remis";
   const entree = {
-    ...nouvelleDepense(profile, { boutique, categorie: CATEGORIE_FONDS_CAISSE, description: `Fonds de caisse remis le ${dFR(date)} par ${profile.nom} (${libelleOrigineFonds(fonds_caisse)})${fonds_caisse.note ? ` — ${fonds_caisse.note}` : ""}`, montant: -m, moyen: "Espèces", fonds_caisse, par_id: profile.id ?? null }),
+    ...nouvelleDepense(profile, { boutique, categorie: CATEGORIE_FONDS_CAISSE, description: `Fonds de caisse ${verbe} le ${dFR(date)} par ${profile.nom} (${libelleOrigineFonds(fonds_caisse)})${fonds_caisse.note ? ` — ${fonds_caisse.note}` : ""}`, montant: -signe * m, moyen: "Espèces", fonds_caisse, par_id: profile.id ?? null }),
     date: String(date),
   };
-  return { entree, fonds_caisse, journal: `Fonds de caisse ${fmt(m)} remis à ${boutique} (${libelleOrigineFonds(fonds_caisse)}) par ${profile.nom}` };
+  return { entree, fonds_caisse, sens, journal: `Fonds de caisse ${fmt(m)} ${verbe} ${sens === SENS_REPRISE ? "de" : "à"} ${boutique} (${libelleOrigineFonds(fonds_caisse)}) par ${profile.nom}` };
 }
 // ⚠ Timo, 15/09/2026 (capture de la clôture du 14/09 à DEMAKPOE, écart
 // −40 800) : « pourquoi tu additionnes le fonds de caisse aux ventes ? » puis
@@ -260,7 +281,7 @@ export function corrigerDateRemise(remise, nouvelleDate) {
   if (!d || Number.isNaN(new Date(d).getTime())) return { refus: "Indiquez la date réelle de la remise (AAAA-MM-JJ)." };
   if (d === String(remise.date)) return { refus: "C'est déjà la date de cette remise." };
   return {
-    remise: { ...remise, date: d, description: String(remise.description || "").replace(/remis le [^ ]+ par/, `remis le ${dFR(d)} par`) },
+    remise: { ...remise, date: d, description: String(remise.description || "").replace(/(remis|repris) le [^ ]+ par/, (_, v) => `${v} le ${dFR(d)} par`) },
     journal: `Date de la remise de fonds de ${remise.boutique} corrigée : ${dFR(remise.date)} → ${dFR(d)} (${fmt(Math.abs(Number(remise.montant || 0)))})`,
   };
 }

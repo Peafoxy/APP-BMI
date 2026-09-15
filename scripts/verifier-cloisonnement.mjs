@@ -5420,36 +5420,56 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     // entre le fonds de caisse et les ventes ; le seul lien, c'est la
     // compensation : fonds entamé, les ventes viennent rembourser. C'est tout. »
     // → plus de « laissé sur les ventes » : le fonds est TOUJOURS remis.
-    test("★ planRemiseFonds (règle pure) : une remise de 50 000 sur un fonds de 0 → fonds 50 000 ; 30 000 de plus → 80 000 (chaque remise AUGMENTE le fonds) ; régularisation = comble le manque SANS changer le fonds, refusée au-delà du manque ou sans manque ; montant nul → refus ; aucune origine « ventes » n'existe plus",
-      (() => { const a = Vs.planRemiseFonds({ fondsActuel: 0, manque: 0, montant: 50000 }); const b = Vs.planRemiseFonds({ fondsActuel: 50000, manque: 0, montant: 30000 }); const c = Vs.planRemiseFonds({ fondsActuel: 50000, manque: 50000, montant: 50000, regularisation: true });
-        return a.montant === 50000 && a.fondsApres === 50000 && a.regularisation === false && b.fondsApres === 80000 && c.montant === 50000 && c.fondsApres === 50000 && c.regularisation === true
-          && /dépasser le manque/.test(Vs.planRemiseFonds({ fondsActuel: 50000, manque: 20000, montant: 30000, regularisation: true }).refus) && /Rien à régulariser/.test(Vs.planRemiseFonds({ fondsActuel: 50000, manque: 0, montant: 1000, regularisation: true }).refus)
-          && /montant/.test(Vs.planRemiseFonds({ fondsActuel: 0, manque: 0, montant: 0 }).refus) && Vs.ORIGINES_FONDS.join("|") === "Chez le DG|BANQUE" && Vs.ORIGINE_VENTES === undefined && Vs.ORIGINES_FONDS_TOUTES === undefined && Vs.planFondsCaisse === undefined; })());
+    test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo : « le réglage dans les paramètres doit rester utile, car à tout moment je peux augmenter ou diminuer le fonds de caisse ») — planFondsCaisse (règle pure) remplace planRemiseFonds : on donne le NOUVEAU montant du fonds, l'application en déduit ce que le DG apporte (remise) ou reprend (reprise) ; 0 → 50 000 = remise de 50 000 ; 50 000 → 80 000 = remise de 30 000 ; 50 000 → 20 000 = REPRISE de 30 000 ; même montant → refus ; négatif → refus",
+      (() => { const a = Vs.planFondsCaisse({ fondsActuel: 0, nouveau: 50000 }); const b = Vs.planFondsCaisse({ fondsActuel: 50000, nouveau: 80000 }); const d = Vs.planFondsCaisse({ fondsActuel: 50000, nouveau: 20000 }); const e = Vs.planFondsCaisse({ fondsActuel: 50000, nouveau: 0 });
+        return a.sens === Vs.SENS_REMISE && a.montant === 50000 && a.fondsApres === 50000 && a.regularisation === false
+          && b.sens === Vs.SENS_REMISE && b.montant === 30000 && b.fondsApres === 80000
+          && d.sens === Vs.SENS_REPRISE && d.montant === 30000 && d.fondsApres === 20000
+          && e.sens === Vs.SENS_REPRISE && e.montant === 50000 && e.fondsApres === 0
+          && /déjà de/.test(Vs.planFondsCaisse({ fondsActuel: 50000, nouveau: 50000 }).refus) && /nouveau montant/.test(Vs.planFondsCaisse({ fondsActuel: 0, nouveau: -1 }).refus)
+          && Vs.planRemiseFonds === undefined; })());
+    test("★ la RÉGULARISATION n'a pas changé : elle comble le manque SANS toucher au montant du fonds, refusée au-delà du manque ou quand il n'y a rien à régulariser",
+      (() => { const c = Vs.planFondsCaisse({ fondsActuel: 50000, manque: 50000, montant: 50000, regularisation: true });
+        return c.montant === 50000 && c.fondsApres === 50000 && c.regularisation === true && c.sens === Vs.SENS_REMISE
+          && /dépasser le manque/.test(Vs.planFondsCaisse({ fondsActuel: 50000, manque: 20000, montant: 30000, regularisation: true }).refus)
+          && /Rien à régulariser/.test(Vs.planFondsCaisse({ fondsActuel: 50000, manque: 0, montant: 1000, regularisation: true }).refus)
+          && /montant/.test(Vs.planFondsCaisse({ fondsActuel: 0, manque: 5, montant: 0, regularisation: true }).refus)
+          && Vs.ORIGINES_FONDS.join("|") === "Chez le DG|BANQUE" && Vs.ORIGINE_VENTES === undefined && Vs.ORIGINES_FONDS_TOUTES === undefined; })());
+    // Une REPRISE : l'enveloppe se vide de 20 000, la ligne devient une SORTIE.
+    const rep = Vs.construireRemiseFonds(TIMO, { boutique: "APESSITO", montant: 20000, origine: "Chez le DG", date: "2026-09-16", sens: Vs.SENS_REPRISE });
+    test("★ construireRemiseFonds en REPRISE : fonds_caisse.montant NÉGATIF (−20 000), ligne à +20 000 (une sortie), description « repris », journal « repris de »",
+      rep.entree.fonds_caisse.montant === -20000 && rep.entree.montant === 20000 && rep.sens === Vs.SENS_REPRISE
+      && /^Fonds de caisse repris le 16\/09\/2026 par TIMO \(Chez le DG\)$/.test(rep.entree.description) && /repris de APESSITO/.test(nzF(rep.journal))
+      && Vs.estFondsCaisseRemis(rep.entree));
     test("★ le TROU (capture Timo, 14/09/2026 : « les fonds n'apparaissent nulle part ») est MESURÉ : un fonds réglé à 50 000 sans remise enregistrée → manque 50 000 ; après la remise de 50 000 → manque 0, remises 50 000 ; jamais négatif",
       Vs.manqueRemises(dbA, "APESSITO") === 50000 && Vs.totalRemisesFonds(dbA, "APESSITO") === 0 && Vs.manqueRemises(dbB, "APESSITO") === 0 && Vs.totalRemisesFonds(dbB, "APESSITO") === 50000
       && Vs.manqueRemises({ ...dbB, boutiques: [{ nom: "APESSITO", fonds_caisse_fixe: 20000 }] }, "APESSITO") === 0 && Vs.manqueRemises(dbA, "INCONNUE") === 0);
     const paG = readFileSync("src/screens/Parametres.jsx", "utf8");
-    test("★ ⚙ Paramètres → Boutiques → 💼 Fonds de caisse = LE geste (fenêtre data-fenetre=\"fonds-de-caisse\") : « Remettre » — montant, origine parmi ORIGINES_FONDS (Chez le DG, BANQUE — jamais « ventes »), banque pour BANQUE, date bornée à aujourd'hui ; administrateur PRINCIPAL revérifié dans le geste + bloquerSiLecture ; planRemiseFonds puis construireRemiseFonds ; UN save écrit fonds_caisse_fixe = fondsApres ET l'entrée ; le manque est dit en rouge (data-fonds=\"manque\") avec « Régulariser » ; la liste des remises s'y lit",
-      /data-fenetre="fonds-de-caisse"/.test(paG) && /\{ORIGINES_FONDS\.map\(\(o\) => <option key=\{o\} value=\{o\}>\{o\}<\/option>\)\}/.test(paG) && !/ORIGINE_VENTES|Laissé sur les ventes|planFondsCaisse/.test(paG) && /\{fondsForm\.origine === DEST_BANQUE && <Field label="Nom de la banque">/.test(paG)
+    test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo : « le réglage dans les paramètres doit rester utile, car à tout moment je peux augmenter ou diminuer le fonds de caisse ») — ⚙ Paramètres → Boutiques → 💼 Fonds de caisse = LE geste (fenêtre data-fenetre=\"fonds-de-caisse\") : on saisit le NOUVEAU montant du fonds (data-fonds=\"nouveau\"), origine parmi ORIGINES_FONDS (jamais « ventes »), banque pour BANQUE, date bornée à aujourd'hui ; administrateur PRINCIPAL revérifié dans le geste + bloquerSiLecture ; planFondsCaisse puis construireRemiseFonds avec son SENS ; UN save écrit fonds_caisse_fixe = fondsApres ET la ligne ; le bouton dit « Diminuer le fonds » quand on baisse ; le manque garde son « Régulariser »",
+      /data-fenetre="fonds-de-caisse"/.test(paG) && /\{ORIGINES_FONDS\.map\(\(o\) => <option key=\{o\} value=\{o\}>\{o\}<\/option>\)\}/.test(paG) && !/ORIGINE_VENTES|Laissé sur les ventes|planRemiseFonds/.test(paG) && /\{fondsForm\.origine === DEST_BANQUE && <Field label="Nom de la banque">/.test(paG)
+      && /<Field label="Nouveau montant du fonds \(F\)"><input type="number" inputMode="numeric" className=\{inputCls\} value=\{fondsForm\.nouveau\}[^\n]*data-fonds="nouveau" \/><\/Field>/.test(paG)
       && /<Field label="Date de la remise"><input type="date" className=\{inputCls\} value=\{fondsForm\.date\} max=\{today\(\)\}/.test(paG)
-      && /const enregistrerFonds = async \(\) => \{\n\s*const b = fondsPour;\n\s*if \(!b\) return;\n[^\n]*\n\s*if \(refuserSaufAdminPrincipal\(db, profile, "Remettre le fonds de caisse d'une boutique \(DG\)"\)\) return;\n\s*if \(bloquerSiLecture\(db, profile\)\) return;\n\s*const plan = planRemiseFonds\(\{ fondsActuel: fondsCaisseFixe\(db, b\.nom\), manque: manqueRemises\(db, b\.nom\), montant: fondsForm\.montant, regularisation: fondsForm\.regularisation \}\);/.test(paG)
-      && /const r = construireRemiseFonds\(profile, \{ boutique: b\.nom, montant: plan\.montant,/.test(paG)
+      && /if \(refuserSaufAdminPrincipal\(db, profile, "Régler le fonds de caisse d'une boutique \(DG\)"\)\) return;/.test(paG) && /if \(bloquerSiLecture\(db, profile\)\) return;/.test(paG)
+      && /const plan = planFondsCaisse\(\{ fondsActuel: fondsCaisseFixe\(db, b\.nom\), nouveau: fondsForm\.nouveau, manque: manqueRemises\(db, b\.nom\), montant: fondsForm\.montant, regularisation: fondsForm\.regularisation \}\);/.test(paG)
+      && /const r = construireRemiseFonds\(profile, \{ boutique: b\.nom, montant: plan\.montant,/.test(paG) && /sens: plan\.sens \}\);/.test(paG)
       && /boutiques: db\.boutiques\.map\(\(x\) => \(x\.nom === b\.nom \? \{ \.\.\.x, fonds_caisse_fixe: plan\.fondsApres \} : x\)\),\n\s*depenses: \[r\.entree, \.\.\.\(db\.depenses \|\| \[\]\)\],/.test(paG)
-      && /entrent dans le tiroir de \$\{b\.nom\} le \$\{dFR\(fondsForm\.date\)\} \(ni vente, ni dépense\) et sortent de la caisse « \$\{fondsForm\.origine\} »/.test(paG)
+      // ⚠ Le fonds est gardé À PART : ni la remise ni la reprise ne touchent le tiroir, et la fenêtre le DIT.
+      && /entrent dans l'enveloppe de \$\{b\.nom\}/.test(paG) && /sortent de l'enveloppe de \$\{b\.nom\}/.test(paG) && (paG.match(/Le tiroir des ventes n'est pas touché\./g) || []).length === 2
+      && !/entrent dans le tiroir de/.test(paG) && /GARDÉ À PART du tiroir des ventes et jamais versé/.test(paG)
+      && /"Diminuer le fonds" : "Régler le fonds"/.test(paG)
       && /\{manqueRemises\(db, fondsPour\.nom\) > 0 && !fondsForm\.regularisation && \(\n\s*<div className="[^"]*" data-fonds="manque">/.test(paG) && /<button onClick=\{\(\) => regulariserFonds\(fondsPour\)\} className="ml-2 font-bold underline">Régulariser<\/button>/.test(paG)
-      && /\{remisesFondsDe\(db, fondsPour\.nom\)\.length > 0 && \(/.test(paG) && /Les ventes ne font que rembourser ce que les dépenses ont entamé/.test(paG));
-    test("★ 🔒 Caisse ne porte PLUS le geste (Timo : « je le préfère dans la fiche de la boutique ») : ni bloc « Remettre », ni construireRemiseFonds, ni champ de date ; il ne garde que la lecture (le carré) et renvoie vers ⚙ Paramètres → Boutiques → 💼 Fonds de caisse",
-      !/remise-fonds|construireRemiseFonds|remettreFonds|type="date"/.test(readFileSync("src/screens/Caisse.jsx", "utf8")) && /aucun fonds réglé \(⚙ Paramètres → Boutiques → 💼 Fonds de caisse\)/.test(readFileSync("src/screens/Caisse.jsx", "utf8")));
-    test("★ écran Caisse : le carré « 💼 Fonds de caisse » À PART (data-carre=\"fonds-de-caisse\" : GARDÉ À PART, jamais dans le tiroir, intact / entamé de, remis par le DG), la colonne « Fonds de caisse » du RÉSUMÉ ; ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : le fonds de caisse est gardé À PART, dans une enveloppe — il n'est PAS dans le tiroir et n'entre dans aucun total de caisse) : les Entrées du tiroir n'additionnent PLUS le fonds remis, et la clôture ne montre plus de case « fonds remis dans le tiroir » mais l'enveloppe à part",
-      /data-carre="fonds-de-caisse"/.test(csG) && /gardé à part, jamais dans le tiroir · \{aVerserPeriode\.fondsFixe > 0 \? \(aVerserPeriode\.fondsIntact \? "intact"/.test(csG) && /remis par le DG \$\{fmt\(aVerserPeriode\.fondsRemis\)\}/.test(csG)
-      && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\]/.test(csG) && /\{l\.fondsPlafond > 0 \? fmt\(l\.resteFonds\) : "—"\}/.test(csG) && /réglé \{fmt\(l\.fondsFixe\)\}, jamais remis/.test(csG) && /hors fonds de caisse remis \{fmt\(aVerserPeriode\.fondsRemis\)\} \(il va dans l'enveloppe\)/.test(csG)
-      // Timo (15/09/2026) : « pourquoi tu additionnes le fonds de caisse aux
-      // ventes ? » — la case « Recette du jour » montre recetteDuJour SEUL, le
-      // fonds a sa propre case et sa propre ligne dans la confirmation.
-      && /\+ \{fmt\(recetteDuJour\)\}/.test(csG) && !/fmt\(recetteDuJour \+ fondsRemisDuJour\)/.test(csG)
-      && !/fmt\(aVerserPeriode\.ventes \+ aVerserPeriode\.reglements \+ aVerserPeriode\.fondsRemis\)/.test(csG)
-      && /data-carte="enveloppe-fonds"/.test(csG) && /💼 Fonds de caisse \(gardé à part\)/.test(csG) && /PAS dans le tiroir/.test(csG)
-      && !/\+ recette du jour \$\{fmt\(recetteDuJour\)\}\$\{fondsRemisDuJour > 0/.test(csG));
+      && /\{remisesFondsDe\(db, fondsPour\.nom\)\.length > 0 && \(/.test(paG));
+    // Le serveur doit suivre : une reprise porte un montant NÉGATIF.
+    const s20 = readFileSync("supabase/securite-20-fonds-reprise.sql", "utf8");
+    const ta20 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+    test("★ securite-20 (serveur) : un fonds_caisse.montant NÉGATIF est permis (la reprise), zéro reste refusé, le montant de la ligne reste forcé à − fonds_caisse.montant, le DG seul ; le banc SQL rejoue reprise permise, gérant et admin secondaire refusés, zéro refusé, origine exigée, montant non modifiable",
+      /if montant_fonds = 0 then/.test(s20) && !/if montant_remis <= 0 then/.test(s20) && /le DG récupère/.test(s20)
+      && /new\.data := jsonb_set\(new\.data, '\{montant\}', to_jsonb\(-montant_fonds\), true\);/.test(s20)
+      && /Régler le fonds de caisse d''une boutique', 'l''administrateur principal \(le DG\)'/.test(s20)
+      && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s20) && /revoke all on function public\.depenses_regles_fonds_caisse\(\) from public, anon;/.test(s20)
+      && /-f supabase\/securite-20-fonds-reprise\.sql/.test(ta20) && /le DG REPREND 20 000 du fonds de caisse[^\n]*"PERMIS"/.test(ta20)
+      && /un gérant reprend du fonds de caisse" "REFUSE"/.test(ta20) && /un administrateur SECONDAIRE reprend du fonds de caisse" "REFUSE"/.test(ta20)
+      && /un mouvement de fonds à ZÉRO reste refusé[^\n]*"REFUSE"/.test(ta20) && /le montant d'une reprise déjà enregistrée ne se modifie plus" "REFUSE"/.test(ta20));
     const s16 = readFileSync("supabase/securite-16-fonds-de-caisse.sql", "utf8");
     const ta16 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
     test("★ securite-16 (serveur) : créer un « Fonds de caisse remis » = l'administrateur PRINCIPAL seul, origine Chez le DG / BANQUE exigée, montant FORCÉ à − fonds_caisse.montant, une remise ne se modifie plus ; upsert relu ; le banc tester-argent le pose et rejoue gérant / admin secondaire / vendeur refusés, DG permis, montant forcé, modification refusée",
@@ -7338,7 +7358,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && /💼 Fonds de caisse \(gardé à part, PAS dans le tiroir\)/.test(csC2)
     && !/argent de BMI déposé dans le tiroir/.test(csC2));
   test("★ une RÉGULARISATION ne pré-remplit plus la date à aujourd'hui (elle parle d'un argent remis dans le PASSÉ) et le dit en rouge",
-    /const regulariserFonds = \(b\) => setFondsForm\(\{ montant: String\(manqueRemises\(db, b\.nom\)\), origine: DEST_DG, banque: "", date: "", note: "", regularisation: true \}\);/.test(pmC2)
+    /const regulariserFonds = \(b\) => setFondsForm\(\{[^\n]*montant: String\(manqueRemises\(db, b\.nom\)\), origine: DEST_DG, banque: "", date: "", note: "", regularisation: true \}\);/.test(pmC2)
     && /Indiquez le jour où le DG a RÉELLEMENT remis cet argent/.test(pmC2) && /data-fonds="regularisation"/.test(pmC2));
   const remise = dbF.depenses[1];
   const corr = V.corrigerDateRemise(remise, "2026-08-20");

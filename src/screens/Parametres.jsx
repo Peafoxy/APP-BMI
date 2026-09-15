@@ -13,7 +13,7 @@ import { etatPermissionPush } from "../push";
 import { PALETTE } from "../lib/constants";
 // Timo (14/09/2026) : « fonds de caisse, les deux ne peuvent jamais être deux
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
-import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planRemiseFonds, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
+import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
@@ -403,7 +403,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   // Le fonds de caisse d'une boutique : UN geste (14/09/2026), montant + origine de l'argent.
   const [fondsPour, setFondsPour] = useState(null);
-  const [fondsForm, setFondsForm] = useState({ montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
+  const [fondsForm, setFondsForm] = useState({ nouveau: "", montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
   const nomCouleur = (hex) => (PALETTE.find(([, h]) => h === hex) || [hex])[0];
 
   const utilisee = (nom) =>
@@ -904,44 +904,59 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // Puis (14/09/2026) : « les deux ne peuvent jamais être deux choses
   // différentes… je le préfère dans la fiche de la boutique » et « aucun lien
   // entre le fonds de caisse et les ventes ; le seul lien, c'est la
-  // compensation » — UN geste, « Remettre » : chaque remise augmente le fonds
-  // ET entre dans le tiroir (règle pure planRemiseFonds / construireRemiseFonds) ;
+  // compensation ». Puis (15/09/2026, réponse B) : le fonds est GARDÉ À PART,
+  // dans une enveloppe — il n'entre jamais dans le tiroir des ventes. Et « le
+  // réglage dans les paramètres doit rester utile, car à tout moment je peux
+  // augmenter ou diminuer le fonds de caisse » : on saisit ici le NOUVEAU
+  // montant, le DG apporte la différence ou la reprend (règle pure
+  // planFondsCaisse / construireRemiseFonds, serveur securite-20) ;
   // « Régulariser » comble un fonds réglé sans remise enregistrée (le trou).
   const modifierFondsFixe = (b) => {
     if (refuserSaufAdmin(profile, "Régler le fonds de caisse fixe d'une boutique")) return;
-    setFondsForm({ montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
+    setFondsForm({ nouveau: String(fondsCaisseFixe(db, b.nom) || ""), montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
     setFondsPour(b);
   };
   // ⚠ Timo, 15/09/2026 : une régularisation parle d'un argent remis dans le
   // PASSÉ. La dater d'aujourd'hui la fait tomber dans la clôture du jour — ce
   // qui a mis 50 000 F dans la caisse du 14/09 à DEMAKPOE. La date part donc
   // VIDE : c'est au DG de dire quel jour il a réellement remis cet argent.
-  const regulariserFonds = (b) => setFondsForm({ montant: String(manqueRemises(db, b.nom)), origine: DEST_DG, banque: "", date: "", note: "", regularisation: true });
+  const regulariserFonds = (b) => setFondsForm({ nouveau: String(fondsCaisseFixe(db, b.nom) || ""), montant: String(manqueRemises(db, b.nom)), origine: DEST_DG, banque: "", date: "", note: "", regularisation: true });
   const enregistrerFonds = async () => {
     const b = fondsPour;
     if (!b) return;
-    // L'argent sort de chez le DG (ou de la banque) : le DG seul (serveur : securite-16).
-    if (refuserSaufAdminPrincipal(db, profile, "Remettre le fonds de caisse d'une boutique (DG)")) return;
+    // L'argent sort de chez le DG (ou de la banque), ou y retourne : le DG seul
+    // (serveur : securite-16 / -19 / -20).
+    if (refuserSaufAdminPrincipal(db, profile, "Régler le fonds de caisse d'une boutique (DG)")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const plan = planRemiseFonds({ fondsActuel: fondsCaisseFixe(db, b.nom), manque: manqueRemises(db, b.nom), montant: fondsForm.montant, regularisation: fondsForm.regularisation });
+    const plan = planFondsCaisse({ fondsActuel: fondsCaisseFixe(db, b.nom), nouveau: fondsForm.nouveau, manque: manqueRemises(db, b.nom), montant: fondsForm.montant, regularisation: fondsForm.regularisation });
     if (plan.refus) { uAlert(plan.refus); return; }
-    const r = construireRemiseFonds(profile, { boutique: b.nom, montant: plan.montant, origine: fondsForm.origine, banque: fondsForm.banque, note: fondsForm.note, date: fondsForm.date, regularisation: plan.regularisation });
+    const r = construireRemiseFonds(profile, { boutique: b.nom, montant: plan.montant, origine: fondsForm.origine, banque: fondsForm.banque, note: fondsForm.note, date: fondsForm.date, regularisation: plan.regularisation, sens: plan.sens });
     if (r.refus) { uAlert(r.refus); return; }
-    const explication = `${fmt(plan.montant)} entrent dans le tiroir de ${b.nom} le ${dFR(fondsForm.date)} (ni vente, ni dépense) et sortent de la caisse « ${fondsForm.origine} ».`;
-    if (!await uConfirm(`${plan.regularisation ? `Régulariser le fonds de caisse de ${b.nom} : le fonds reste à ${fmt(plan.fondsApres)}.` : `Fonds de caisse de ${b.nom} : ${fmt(fondsCaisseFixe(db, b.nom))} → ${fmt(plan.fondsApres)}.`}\n\n${explication}`)) return;
+    const reprise = plan.sens === SENS_REPRISE;
+    // ⚠ Timo (15/09/2026, réponse B) : le fonds est gardé À PART, dans une
+    // enveloppe — jamais dans le tiroir. Une remise ou une reprise ne touche
+    // donc ni la recette, ni ce qu'il y a à verser.
+    const explication = reprise
+      ? `${fmt(plan.montant)} sortent de l'enveloppe de ${b.nom} le ${dFR(fondsForm.date)} et rentrent dans la caisse « ${fondsForm.origine} ». Le tiroir des ventes n'est pas touché.`
+      : `${fmt(plan.montant)} entrent dans l'enveloppe de ${b.nom} le ${dFR(fondsForm.date)} (ni vente, ni dépense) et sortent de la caisse « ${fondsForm.origine} ». Le tiroir des ventes n'est pas touché.`;
+    const titre = plan.regularisation
+      ? `Régulariser le fonds de caisse de ${b.nom} : le fonds reste à ${fmt(plan.fondsApres)}.`
+      : `Fonds de caisse de ${b.nom} : ${fmt(fondsCaisseFixe(db, b.nom))} → ${fmt(plan.fondsApres)} (${reprise ? "le DG reprend" : "le DG apporte"} ${fmt(plan.montant)}).`;
+    if (!await uConfirm(`${titre}\n\n${explication}`)) return;
     save({
       ...db,
       boutiques: db.boutiques.map((x) => (x.nom === b.nom ? { ...x, fonds_caisse_fixe: plan.fondsApres } : x)),
       depenses: [r.entree, ...(db.depenses || [])],
-    }, `Fonds de caisse de ${b.nom} : ${fmt(plan.montant)} remis (${libelleOrigineFonds(r.entree.fonds_caisse)})${plan.regularisation ? ", régularisation" : ""} → fonds ${fmt(plan.fondsApres)}`);
+    }, r.journal + (plan.regularisation ? " (régularisation)" : ` → fonds ${fmt(plan.fondsApres)}`));
     setFondsPour(null);
   };
+
   // La remise était juste, sa DATE était fausse : on corrige la date seule —
   // montant, origine et fonds ne bougent pas (règle pure corrigerDateRemise).
   const corrigerRemise = async (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Corriger la date d'une remise de fonds de caisse")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const date = await demanderDate(`Quel jour le DG a-t-il réellement remis ces ${fmt(d.fonds_caisse.montant)} à ${d.boutique} ?\n\nEnregistré aujourd'hui au ${dFR(d.date)} — tant que la date est fausse, cet argent tombe dans la clôture du mauvais jour.`, d.date);
+    const date = await demanderDate(`Quel jour ce mouvement de fonds de caisse (${fmt(Math.abs(d.fonds_caisse.montant))}) a-t-il réellement eu lieu à ${d.boutique} ?\n\nEnregistré au ${dFR(d.date)} — tant que la date est fausse, ce mouvement tombe dans la mauvaise journée.`, d.date);
     if (!date) return;
     const r = corrigerDateRemise(d, date);
     if (r.refus) { uAlert(r.refus); return; }
@@ -1027,7 +1042,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" data-fenetre="fonds-de-caisse">
           <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="font-bold text-slate-900 mb-1">💼 Fonds de caisse de {fondsPour.nom}</div>
-            <div className="text-xs text-slate-500 mb-2">L'argent que vous remettez à la boutique pour ses petites dépenses, et qu'on ne verse jamais. Les ventes ne font que rembourser ce que les dépenses ont entamé. Chaque remise augmente le fonds et entre dans le tiroir.</div>
+            <div className="text-xs text-slate-500 mb-2">L'argent que vous laissez à la boutique pour ses petites dépenses, GARDÉ À PART du tiroir des ventes et jamais versé. On n'y touche que quand la recette ne suffit pas ; les ventes suivantes le remboursent. Indiquez le nouveau montant : le DG apporte la différence, ou la reprend.</div>
             <div className="text-sm mb-3">Fonds actuel : <b className="tabular-nums">{fmt(fondsCaisseFixe(db, fondsPour.nom))}</b> <span className="text-xs text-slate-500">· remises enregistrées {fmt(totalRemisesFonds(db, fondsPour.nom))}</span></div>
             {manqueRemises(db, fondsPour.nom) > 0 && !fondsForm.regularisation && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 mb-3" data-fonds="manque">
@@ -1037,8 +1052,14 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             )}
             {fondsForm.regularisation && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3" data-fonds="regularisation">Régularisation : cette remise comble le manque, le fonds reste à {fmt(fondsCaisseFixe(db, fondsPour.nom))}. <b className="text-red-700">Indiquez le jour où le DG a RÉELLEMENT remis cet argent — pas aujourd'hui : daté du jour, il tombe dans la clôture du jour.</b> <button onClick={() => setFondsForm({ ...fondsForm, montant: "", regularisation: false })} className="ml-1 underline">Annuler</button></div>}
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Montant remis (F)"><input type="number" inputMode="numeric" className={inputCls} value={fondsForm.montant} onChange={(e) => setFondsForm({ ...fondsForm, montant: e.target.value })} /></Field>
-              <Field label="D'où vient l'argent">
+              {/* Timo (15/09/2026) : « à tout moment je peux augmenter ou diminuer
+                  le fonds de caisse et ça devrait passer par les paramètres » — on
+                  saisit le NOUVEAU montant du fonds ; l'application en déduit ce que
+                  le DG apporte ou reprend. */}
+              {fondsForm.regularisation
+                ? <Field label="Montant à régulariser (F)"><input type="number" inputMode="numeric" className={inputCls} value={fondsForm.montant} onChange={(e) => setFondsForm({ ...fondsForm, montant: e.target.value })} /></Field>
+                : <Field label="Nouveau montant du fonds (F)"><input type="number" inputMode="numeric" className={inputCls} value={fondsForm.nouveau} onChange={(e) => setFondsForm({ ...fondsForm, nouveau: e.target.value })} data-fonds="nouveau" /></Field>}
+              <Field label={fondsForm.regularisation || Number(fondsForm.nouveau || 0) >= fondsCaisseFixe(db, fondsPour.nom) ? "D'où vient l'argent" : "Où retourne l'argent"}>
                 <select className={inputCls} value={fondsForm.origine} onChange={(e) => setFondsForm({ ...fondsForm, origine: e.target.value })}>
                   {ORIGINES_FONDS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -1053,7 +1074,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 <div className="max-h-[160px] overflow-y-auto text-sm space-y-1">
                   {remisesFondsDe(db, fondsPour.nom).map((d) => (
                     <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 flex items-center gap-2" data-remise={d.id}>
-                      <span className="flex-1">{dFR(d.date)} — <b className="tabular-nums text-slate-900">{fmt(d.fonds_caisse.montant)}</b> — {libelleOrigineFonds(d.fonds_caisse)}{d.fonds_caisse.regularisation ? <span className="text-xs text-amber-700"> · régularisation</span> : null}{d.fonds_caisse.note ? <span className="text-xs text-slate-500"> · {d.fonds_caisse.note}</span> : null} <span className="text-xs text-slate-400">par {d.par}</span></span>
+                      <span className="flex-1">{dFR(d.date)} — <b className={`tabular-nums ${d.fonds_caisse.montant < 0 ? "text-amber-700" : "text-slate-900"}`}>{d.fonds_caisse.montant < 0 ? `− ${fmt(-d.fonds_caisse.montant)}` : fmt(d.fonds_caisse.montant)}</b> — {d.fonds_caisse.montant < 0 ? "repris" : "remis"} · {libelleOrigineFonds(d.fonds_caisse)}{d.fonds_caisse.regularisation ? <span className="text-xs text-amber-700"> · régularisation</span> : null}{d.fonds_caisse.note ? <span className="text-xs text-slate-500"> · {d.fonds_caisse.note}</span> : null} <span className="text-xs text-slate-400">par {d.par}</span></span>
                       {estAdminPrincipal(db, profile) && <button onClick={() => corrigerRemise(d)} title="Corriger la date de cette remise" className="shrink-0 text-xs font-bold text-sky-700 underline">📅 Date</button>}
                     </div>
                   ))}
@@ -1062,7 +1083,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             )}
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setFondsPour(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
-              <button onClick={enregistrerFonds} className={btnDark}>💼 {fondsForm.regularisation ? "Régulariser" : "Remettre"}</button>
+              <button onClick={enregistrerFonds} className={btnDark}>💼 {fondsForm.regularisation ? "Régulariser" : Number(fondsForm.nouveau || 0) < fondsCaisseFixe(db, fondsPour.nom) ? "Diminuer le fonds" : "Régler le fonds"}</button>
             </div>
           </div>
         </div>

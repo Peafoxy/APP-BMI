@@ -52,6 +52,8 @@ echo "▸ Le fonds de caisse remis par le DG : supabase/securite-16-fonds-de-cai
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-16-fonds-de-caisse.sql >/dev/null 2>&1 || echo "   ❌ securite-16 refusé par la base"
 echo "▸ La DATE d'une remise de fonds se corrige : supabase/securite-19-date-remise-fonds.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-19-date-remise-fonds.sql >/dev/null 2>&1 || echo "   ❌ securite-19 refusé par la base"
+echo "▸ Le fonds de caisse se règle à la hausse ET à la baisse : supabase/securite-20-fonds-reprise.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-20-fonds-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-20 refusé par la base"
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -386,6 +388,16 @@ essai "★ un administrateur SECONDAIRE corrige la date d'une remise" "REFUSE" "
 essai "★ un gérant corrige la date d'une remise" "REFUSE" "$GERANT" "$(MAJ depenses "jsonb_set(data,'{date}','\"2026-08-22\"')" zfc0)"
 essai "★ le DG change la date ET le montant en même temps (la date seule est rouverte)" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{date}','\"2026-08-23\"'),'{montant}','-40000')" zfc0)"
 essai "★ le DG change la date ET la boutique en même temps" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{date}','\"2026-08-23\"'),'{boutique}','\"DEPOT\"')" zfc0)"
+# ── securite-20 (Timo, 15/09/2026) : « à tout moment je peux augmenter ou
+# diminuer le fonds de caisse et ça devrait passer par les paramètres ». Une
+# REPRISE porte un fonds_caisse.montant NÉGATIF ; la ligne devient une sortie.
+REPRISE='{"id":"zfr1","boutique":"APESSITO","categorie":"Fonds de caisse remis","montant":20000,"paiement":"Espèces","date":"2026-09-15","par":"TIMO","fonds_caisse":{"id":"fr1","origine":"Chez le DG","montant":-20000}}'
+essai "★ le DG REPREND 20 000 du fonds de caisse (montant négatif, la ligne devient une sortie de +20 000)" "PERMIS" "$ADMIN" "with x as (insert into public.depenses (id, data) values ('zfr1', '$REPRISE') on conflict (id) do update set data = excluded.data returning data) select count(*) from x where (data->>'montant')::numeric = 20000;"
+essai "★ un gérant reprend du fonds de caisse" "REFUSE" "$GERANT" "$(UPS depenses zfr2 "$(echo "$REPRISE" | sed 's/zfr1/zfr2/')")"
+essai "★ un administrateur SECONDAIRE reprend du fonds de caisse" "REFUSE" "$ADMIN2" "$(UPS depenses zfr3 "$(echo "$REPRISE" | sed 's/zfr1/zfr3/')")"
+essai "★ un mouvement de fonds à ZÉRO reste refusé (remise comme reprise)" "REFUSE" "$ADMIN" "$(UPS depenses zfr4 "$(echo "$REPRISE" | sed 's/zfr1/zfr4/; s/\"montant\":-20000/\"montant\":0/')")"
+essai "★ une reprise sans dire où retourne l'argent" "REFUSE" "$ADMIN" "$(UPS depenses zfr5 "$(echo "$REPRISE" | sed 's/zfr1/zfr5/; s/\"Chez le DG\"/\"Chez le comptable\"/')")"
+essai "★ le montant d'une reprise déjà enregistrée ne se modifie plus" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{fonds_caisse,montant}','-5000')" zfr1)"
 essai "★ l'admin supprime une remise (règle générale des dépenses : admin seul)" "PERMIS" "$ADMIN" "$(SUPPR depenses zfc0)"
 essai "★ un gérant supprime une remise" "REFUSE" "$GERANT" "$(SUPPR depenses zfc0)"
 essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord '{"id":"zd_ord","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
