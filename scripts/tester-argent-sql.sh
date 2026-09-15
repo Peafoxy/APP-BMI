@@ -50,6 +50,8 @@ echo "▸ La validation des dépenses par le DG : supabase/securite-15-validatio
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-15-validation-depenses.sql >/dev/null 2>&1 || echo "   ❌ securite-15 refusé par la base"
 echo "▸ Le fonds de caisse remis par le DG : supabase/securite-16-fonds-de-caisse.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-16-fonds-de-caisse.sql >/dev/null 2>&1 || echo "   ❌ securite-16 refusé par la base"
+echo "▸ La DATE d'une remise de fonds se corrige : supabase/securite-19-date-remise-fonds.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-19-date-remise-fonds.sql >/dev/null 2>&1 || echo "   ❌ securite-19 refusé par la base"
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -374,6 +376,16 @@ essai "★ le montant de la ligne est FORCÉ à − 50 000 même si l'appareil e
 essai "★ le DG modifie le montant d'une remise déjà enregistrée" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{montant}','-40000'),'{fonds_caisse,montant}','40000')" zfc0)"
 essai "★ le DG change l'origine d'une remise déjà enregistrée" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{fonds_caisse,origine}','\"BANQUE\"')" zfc0)"
 essai "★ un gérant déplace une remise vers une autre boutique" "REFUSE" "$GERANT" "$(MAJ depenses "jsonb_set(data,'{boutique}','\"DEPOT\"')" zfc0)"
+# ── securite-19 (Timo, 15/09/2026) : « Régulariser » datait la remise
+# d'aujourd'hui alors que l'argent avait été remis des semaines plus tôt —
+# les 50 000 tombaient dans la clôture du jour. La DATE doit donc se
+# corriger : elle SEULE, et par le DG seul.
+essai "★ le DG corrige la DATE d'une remise (l'argent avait été remis le 20/08, pas le 13/09)" "PERMIS" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{date}','\"2026-08-20\"')" zfc0)"
+essai "★ le DG corrige la date ET la description qui la porte en clair" "PERMIS" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{date}','\"2026-08-21\"'),'{description}','\"Fonds de caisse remis le 21/08/2026 par TIMO (Chez le DG)\"')" zfc0)"
+essai "★ un administrateur SECONDAIRE corrige la date d'une remise" "REFUSE" "$ADMIN2" "$(MAJ depenses "jsonb_set(data,'{date}','\"2026-08-22\"')" zfc0)"
+essai "★ un gérant corrige la date d'une remise" "REFUSE" "$GERANT" "$(MAJ depenses "jsonb_set(data,'{date}','\"2026-08-22\"')" zfc0)"
+essai "★ le DG change la date ET le montant en même temps (la date seule est rouverte)" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{date}','\"2026-08-23\"'),'{montant}','-40000')" zfc0)"
+essai "★ le DG change la date ET la boutique en même temps" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(jsonb_set(data,'{date}','\"2026-08-23\"'),'{boutique}','\"DEPOT\"')" zfc0)"
 essai "★ l'admin supprime une remise (règle générale des dépenses : admin seul)" "PERMIS" "$ADMIN" "$(SUPPR depenses zfc0)"
 essai "★ un gérant supprime une remise" "REFUSE" "$GERANT" "$(SUPPR depenses zfc0)"
 essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord '{"id":"zd_ord","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"

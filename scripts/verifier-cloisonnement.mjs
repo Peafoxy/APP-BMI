@@ -7347,6 +7347,22 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     corr.remise.fonds_caisse.regularisation === true
     && /refuserSaufAdminPrincipal\(db, profile, "Corriger la date d'une remise de fonds de caisse"\)/.test(pmC2)
     && /estAdminPrincipal\(db, profile\) && <button onClick=\{\(\) => corrigerRemise\(d\)\}/.test(pmC2));
+  // ⚠ securite-16 refusait TOUTE modification d'une remise, date comprise :
+  // le bouton « Date » aurait été refusé par la base. securite-19 rouvre
+  // cette porte-là, et elle seule.
+  const s19 = readFileSync("supabase/securite-19-date-remise-fonds.sql", "utf8");
+  const ta19 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ securite-19 (serveur) : seule la DATE (et la description qui la porte) se corrige, par l'administrateur PRINCIPAL seul ; tout le reste d'une remise reste gravé pour tout le monde ; la création ne change pas ; upsert relu",
+    /\(avant - 'updated_at' - 'date' - 'description'\)\n\s*is distinct from \(new\.data - 'updated_at' - 'date' - 'description'\)/.test(s19)
+    && /seule sa DATE se corrige/.test(s19)
+    && /and not public\.est_admin_principal\(\) then\n\s*perform public\.refus_role\('Corriger la date d''une remise de fonds de caisse'/.test(s19)
+    && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(s19)
+    && /Remettre le fonds de caisse d''une boutique/.test(s19) && /revoke all on function public\.depenses_regles_fonds_caisse\(\) from public, anon;/.test(s19));
+  test("★ le banc SQL pose securite-19 sur base jetable et rejoue les six cas : DG permis (date seule, date + description), admin secondaire et gérant refusés, date + montant et date + boutique refusés",
+    /-f supabase\/securite-19-date-remise-fonds\.sql/.test(ta19)
+    && /le DG corrige la DATE d'une remise[^\n]*"PERMIS"/.test(ta19) && /le DG corrige la date ET la description[^\n]*"PERMIS"/.test(ta19)
+    && /un administrateur SECONDAIRE corrige la date d'une remise" "REFUSE"/.test(ta19) && /un gérant corrige la date d'une remise" "REFUSE"/.test(ta19)
+    && /le DG change la date ET le montant en même temps[^\n]*"REFUSE"/.test(ta19) && /le DG change la date ET la boutique en même temps" "REFUSE"/.test(ta19));
   test("le fonds de caisse n'entre toujours ni dans les ventes, ni dans les charges, ni dans ce qu'on verse",
     V.fondsAVerser(dbF, "DEMAKPOE", Core.totalVente).ventes === 800
     && V.fondsAVerser(dbF, "DEMAKPOE", Core.totalVente).fondsRemis === 50000
