@@ -358,6 +358,10 @@ export default function App() {
   // Contrôle toutes les 5 minutes ; n'écrit que si plus d'une heure s'est écoulée
   // ET que des données ont changé depuis la dernière écriture.
   useEffect(() => {
+    // ⚠ Capture Timo (15/09/2026) : « Autoriser ce site à modifier les
+    // fichiers ? » à chaque connexion. JAMAIS de demande d'autorisation au
+    // démarrage : ecrireDansDossier sans `demander` passe son tour en silence
+    // et réessaiera. Seul un CLIC dans ⚙ Paramètres peut ouvrir la fenêtre.
     if (!dossierAuto || !db) return;
     let vivant = true;
     const tenter = async () => {

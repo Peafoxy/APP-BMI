@@ -4,7 +4,7 @@
 // principal et réinitialisation (réservée au logiciel Windows
 // et à l'admin principal — helpers dans lib/calculs.js).
 // ============================================================
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CarteChoixPosition } from "../components/Carte";
 import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossier, oublierDossier, viderLocal } from "../db";
 import { synchroniser, reinitialiserDistant } from "../sync";
@@ -17,7 +17,7 @@ import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, ma
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate } from "../components/ui";
 import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
-import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "../lib/sauvegarde";
+import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
 import { barresDeRail } from "../lib/solaire";
@@ -339,6 +339,22 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   };
 
   // ---- SAUVEGARDE HORAIRE DANS UN DOSSIER (Google Drive, clé USB...) ----
+  // ⚠ Capture Timo (15/09/2026) : « Autoriser ce site à modifier les fichiers ? »
+  // à chaque connexion. Le navigateur ne garde l'autorisation que tant qu'un
+  // onglet du site reste ouvert. On la REGARDE ici (jamais on ne la demande) ;
+  // si elle est tombée, l'écran le dit et c'est un CLIC qui la redemande.
+  const [dossierEnPause, setDossierEnPause] = useState(false);
+  useEffect(() => {
+    let vivant = true;
+    (async () => {
+      if (!dossierAuto) { setDossierEnPause(false); return; }
+      const ok = await dossierAutorise(dossierAuto);
+      if (vivant) setDossierEnPause(!ok);
+    })();
+    return () => { vivant = false; };
+  }, [dossierAuto]);
+
+  // ---- SAUVEGARDE HORAIRE DANS UN DOSSIER (Google Drive, clé USB...) ----
   const choisirDossier = async () => {
     if (!dossierDispo()) {
       uAlert("Cette fonction nécessite Google Chrome ou Microsoft Edge sur ordinateur.\n\nSur téléphone, la sauvegarde quotidienne classique reste active.");
@@ -348,7 +364,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       const handle = await window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" });
       const perm = await handle.requestPermission({ mode: "readwrite" });
       if (perm !== "granted") { uAlert("Autorisation refusée."); return; }
-      await ecrireDansDossier(db, handle);      // première écriture immédiate : on vérifie que ça marche
+      await ecrireDansDossier(db, handle, { demander: true });  // première écriture immédiate : on vérifie que ça marche
       await memoriserDossier(handle);
       setDossierAuto(handle);
       uAlert(`✅ Dossier « ${handle.name} » configuré.\n\nLe fichier « ${NOM_FICHIER_AUTO} » y sera réécrit toutes les heures, automatiquement.\n\nSi ce dossier est synchronisé par Google Drive, vos données partent dans le cloud toutes seules.`);
@@ -364,10 +380,14 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     setDossierAuto(null);
   };
 
+  // Le CLIC qui redemande l'autorisation, quand le navigateur l'a laissée
+  // tomber (il ne la garde que tant qu'un onglet du site reste ouvert). C'est
+  // le seul endroit où une fenêtre d'autorisation peut s'ouvrir.
   const sauvegarderMaintenant = async () => {
     if (!dossierAuto) return;
     try {
-      await ecrireDansDossier(db, dossierAuto);
+      await ecrireDansDossier(db, dossierAuto, { demander: true });
+      setDossierEnPause(false);
       uAlert(`✅ Sauvegarde écrite dans « ${dossierAuto.name} / ${NOM_FICHIER_AUTO} ».`);
     } catch (e) {
       uAlert("Échec : " + e.message);
@@ -1527,6 +1547,14 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 : `Dernière sauvegarde il y a ${Math.floor(dernierAuto)} h.`}
               {" "}L'écriture se fait tant que l'application reste ouverte.
             </div>
+            {/* Le rappel discret quand le navigateur a laissé tomber
+                l'autorisation : on le DIT ici, on n'ouvre rien tout seul. */}
+            {dossierEnPause && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 mb-3" data-sauvegarde="pause">
+                ⏸ <b>En pause</b> : le navigateur a oublié l'autorisation du dossier (il ne la garde que tant qu'un onglet du site reste ouvert). Rien n'est écrit pour l'instant, et vos données restent en sécurité dans le cloud.
+                Cliquez sur <b>⏱ Sauvegarder maintenant</b> pour la redonner — l'écriture horaire repart aussitôt.
+              </div>
+            )}
             <div className="flex gap-2 flex-wrap">
               <button onClick={sauvegarderMaintenant} className={btnDark}>⏱ Sauvegarder maintenant</button>
               <button onClick={choisirDossier} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Changer de dossier</button>

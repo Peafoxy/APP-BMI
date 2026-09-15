@@ -7543,5 +7543,53 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && Cst.CATEGORIES_HORS_CHARGES.includes(Cst.CATEGORIE_FONDS_CAISSE));
 }
 
+// ═══════════════════════════════════════════════════════════
+// LA SAUVEGARDE PAR DOSSIER NE DEMANDE PLUS RIEN AU DÉMARRAGE
+// (capture Timo, 15/09/2026 : « Autoriser ce site à modifier les fichiers ? »
+//  à chaque connexion — « ce message vient de trop, pourquoi »)
+//
+// Le navigateur ne garde l'autorisation du dossier que tant qu'un onglet du
+// site reste ouvert (« jusqu'à ce que vous fermiez tous les onglets de ce
+// site »). L'application tentait d'écrire la sauvegarde DÈS L'OUVERTURE,
+// pendant l'écran de connexion : l'autorisation manquait, elle la redemandait,
+// et la fenêtre s'ouvrait à chaque fois. Pire, une demande hors clic peut être
+// refusée d'office par le navigateur — la sauvegarde échouait en silence.
+//
+// Décision de Timo : la sauvegarde par dossier RESTE (téléphone compris) ;
+// « une fois autorisée, elle écrit toutes les heures en silence, comme
+// aujourd'hui ». Même règle que les notifications : on demande AU CLIC,
+// jamais par surprise ; sinon un rappel discret dans ⚙ Paramètres.
+// ═══════════════════════════════════════════════════════════
+{
+  const sv = readFileSync("src/lib/sauvegarde.js", "utf8");
+  const appS = readFileSync("src/App.jsx", "utf8");
+  const paS = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ ecrireDansDossier ne demande l'autorisation que si on le lui DIT (`demander`, faux par défaut) ; sans elle, il passe son tour en silence et réessaiera",
+    /export async function ecrireDansDossier\(db, handle, \{ demander = false \} = \{\}\) \{/.test(sv)
+    && /if \(!\(await dossierAutorise\(handle\)\)\) \{\n\s*if \(!demander\) throw new Error\("PAUSE"\);/.test(sv)
+    && /export async function dossierAutorise\(handle\)/.test(sv) && /queryPermission/.test(sv));
+  test("★ requestPermission n'existe QU'À UN ENDROIT du code de sauvegarde — dans ecrireDansDossier, derrière `demander` — et au choix du dossier (showDirectoryPicker, qui est déjà un clic)",
+    (sv.match(/requestPermission/g) || []).length === 1
+    && (paS.match(/requestPermission/g) || []).length === 1
+    && /const handle = await window\.showDirectoryPicker\(/.test(paS)
+    && !/requestPermission/.test(appS));
+  test("★ la sauvegarde HORAIRE (App.jsx) n'ouvre jamais de fenêtre : elle appelle ecrireDansDossier SANS `demander`",
+    /await ecrireDansDossier\(dbRef\.current \|\| db, dossierAuto\);/.test(appS)
+    && !/ecrireDansDossier\([^)]*demander/.test(appS)
+    && /JAMAIS de demande d'autorisation au\n\s*\/\/ démarrage/.test(appS));
+  test("★ les DEUX seuls chemins qui peuvent ouvrir la fenêtre sont des CLICS de ⚙ Paramètres : choisir le dossier, et « ⏱ Sauvegarder maintenant »",
+    (paS.match(/ecrireDansDossier\(db, [^)]*\{ demander: true \}\)/g) || []).length === 2
+    && /const sauvegarderMaintenant = async \(\) => \{/.test(paS) && /⏱ Sauvegarder maintenant/.test(paS));
+  test("★ ⚙ Paramètres REGARDE l'autorisation (jamais ne la demande) et DIT quand la sauvegarde est en pause, avec quoi faire — et rassure : les données restent dans le cloud",
+    /const \[dossierEnPause, setDossierEnPause\] = useState\(false\);/.test(paS)
+    && /const ok = await dossierAutorise\(dossierAuto\);/.test(paS)
+    && /data-sauvegarde="pause"/.test(paS) && /le navigateur a oublié l'autorisation du dossier/.test(paS)
+    && /vos données restent en sécurité dans le cloud/.test(paS)
+    && /setDossierEnPause\(false\);/.test(paS));
+  test("la sauvegarde par dossier reste offerte partout où le navigateur la connaît (téléphone compris) : aucune exclusion maison",
+    /export const dossierDispo = \(\) => typeof window !== "undefined" && "showDirectoryPicker" in window;/.test(sv)
+    && !/dossierSurTelephone|estTelephone/.test(sv));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
