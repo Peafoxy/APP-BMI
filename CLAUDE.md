@@ -60,7 +60,7 @@ npm run tester-notifications     # 77  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
-npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
+npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 184 : les règles de rôle sur l'argent (serveur)
@@ -296,6 +296,15 @@ lit mal est pire qu'un banc absent).
   et ne change rien pour les autres ; rien à coller dans Supabase (la fiche
   accepte déjà un champ personnel). L'écriture ne part que si l'ordre change
   (`ordreApres`), sans ligne de journal.
+- **L'onglet OUVERT est toujours visible dans la barre** (15/09/2026, capture
+  Timo : « quand tu te reconnectes, le dernier onglet est mémorisé, l'écran
+  affiche ses données, mais les onglets eux-mêmes sont restés sur les premiers
+  — tableau de bord, rentabilité… » ; « j'avais déjà soulevé le problème ») :
+  au montage et à chaque changement d'onglet, `OngletsDeplacables` ramène SA
+  barre sur l'onglet actif s'il est hors du cadre. ⚠ **On fait défiler la
+  BARRE, jamais la page** : pas de `scrollIntoView`, qui entraînerait tout
+  l'écran. Rien ne bouge si l'onglet est déjà visible, ni pendant un
+  déplacement. Mesuré dans Chromium (barre étroite, dernier onglet ouvert).
 - Composant unique `components/OngletsDeplacables.jsx` pour la barre
   latérale (verticale) et la barre du téléphone (horizontale). Pièges
   réglés : le `touchmove` est avalé en écouteur NON passif pendant le

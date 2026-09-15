@@ -44,15 +44,25 @@ function Essai({ sens }) {
     classeBouton={(id, actif) => "b " + (actif ? "actif" : "")} />;
 }
 const style = document.createElement("style");
-style.textContent = ".v{display:flex;flex-direction:column;width:200px} .h{display:flex;flex-direction:row;overflow-x:auto;width:600px} .b{padding:12px;margin:2px;background:#ddd;border:0;font:14px sans-serif;white-space:nowrap} .actif{background:#8cf}";
+style.textContent = ".v{display:flex;flex-direction:column;width:200px} .h{display:flex;flex-direction:row;overflow-x:auto;width:600px} .n{display:flex;flex-direction:row;overflow-x:auto;width:220px} .b{padding:12px;margin:2px;background:#ddd;border:0;font:14px sans-serif;white-space:nowrap} .actif{background:#8cf}";
 document.head.appendChild(style);
+// 15/09/2026 : une barre ÉTROITE (téléphone) dont l'onglet ouvert est le
+// DERNIER — le cas du retour, quand le dernier onglet est mémorisé.
+function Etroit() {
+  const [tab, setTab] = useState("caisse");
+  return <OngletsDeplacables tabs={TABS} tab={tab} sens="horizontal"
+    onChoisir={(id) => { window.journal.push("choisir:" + id); setTab(id); }}
+    onReordonner={() => {}} className="n"
+    classeBouton={(id, actif) => "b " + (actif ? "actif" : "")} />;
+}
 createRoot(document.getElementById("v")).render(<Essai sens="vertical" />);
 createRoot(document.getElementById("h")).render(<Essai sens="horizontal" />);
+createRoot(document.getElementById("n")).render(<Etroit />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><body><div id="v"></div><div id="h" style="margin-top:40px"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><body><div id="v"></div><div id="h" style="margin-top:40px"></div><div id="n" style="margin-top:40px"></div><script src="bundle.js"></script></body></html>`);
 
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const ctx = await nav.newContext({ hasTouch: true, viewport: { width: 800, height: 600 } });
@@ -139,6 +149,35 @@ console.log("\nBarre horizontale (téléphone), au doigt");
   await toucher("touchEnd", 0, 0);
   await attendre(200);
   test("★ au doigt : un tap choisit l'onglet", (await journal()).join("|") === "choisir:ventes");
+}
+console.log("\nBarre étroite (téléphone) : l'onglet OUVERT est visible (15/09/2026)");
+{
+  // Timo : « quand tu te reconnectes, le dernier onglet est mémorisé, l'écran
+  // affiche ses données, mais les onglets sont restés sur les premiers ».
+  const mesure = async () => page.evaluate(() => {
+    const el = document.querySelector(".n");
+    const b = [...el.querySelectorAll("[data-tab-id]")].find((x) => x.className.includes("actif"));
+    const r = b.getBoundingClientRect(), c = el.getBoundingClientRect();
+    return { id: b.dataset.tabId, dedans: r.left >= c.left - 1 && r.right <= c.right + 1, scroll: Math.round(el.scrollLeft),
+      largeurBarre: Math.round(el.clientWidth), largeurTotale: Math.round(el.scrollWidth), pageY: Math.round(window.scrollY) };
+  });
+  const m = await mesure();
+  test("★ au retour, la barre s'est déplacée toute seule sur le dernier onglet ouvert (il est ENTIÈREMENT visible)",
+    m.id === "caisse" && m.dedans && m.scroll > 0 && m.largeurTotale > m.largeurBarre,
+    `mesuré : ${JSON.stringify(m)}`);
+  test("★ c'est la BARRE qui défile, jamais la page", m.pageY === 0, `défilement de la page : ${m.pageY}`);
+  // Un onglet déjà visible ne fait rien bouger : on tape le premier visible.
+  const avant = m.scroll;
+  await page.evaluate(() => { document.querySelector(".n").scrollLeft = 0; });
+  await page.evaluate(() => {
+    const el = document.querySelector(".n");
+    const b = [...el.querySelectorAll("[data-tab-id]")][0];
+    b.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  await attendre(200);
+  const m2 = await mesure();
+  test("★ choisir un onglet DÉJÀ visible ne fait pas sauter la barre", m2.id === "ventes" && m2.dedans && m2.scroll === 0,
+    `mesuré : ${JSON.stringify(m2)} (avant : ${avant})`);
 }
 test("aucune erreur JavaScript pendant les gestes", erreurs.length === 0, erreurs.join(" | "));
 

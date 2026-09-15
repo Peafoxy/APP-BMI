@@ -36,6 +36,29 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
     return () => el.removeEventListener("touchmove", avaler);
   }, []);
 
+  // ---- L'ONGLET OUVERT EST TOUJOURS VISIBLE DANS LA BARRE (15/09/2026) ----
+  // Timo, capture du téléphone : « quand tu te reconnectes, le dernier onglet
+  // est mémorisé, l'écran affiche ses données, mais les onglets eux-mêmes sont
+  // restés sur les premiers — tableau de bord, rentabilité… ». La barre du
+  // téléphone défile : l'onglet ouvert était hors de l'écran, à droite, et
+  // rien ne disait où l'on se trouvait.
+  // ⚠ On fait défiler LA BARRE, jamais la page : pas de `scrollIntoView`, qui
+  // entraînerait tout l'écran. Rien ne bouge si l'onglet est déjà visible, ni
+  // pendant un déplacement (l'onglet soulevé suit le doigt).
+  useEffect(() => {
+    const el = cadre.current;
+    if (!el || saisi) return;
+    const bouton = [...el.querySelectorAll("[data-tab-id]")].find((b) => b.dataset.tabId === tab);
+    if (!bouton) return;
+    const r = bouton.getBoundingClientRect();
+    const c = el.getBoundingClientRect();
+    if (vertical) {
+      if (r.top < c.top || r.bottom > c.bottom) el.scrollTop += (r.top - c.top) - (c.height - r.height) / 2;
+    } else if (r.left < c.left || r.right > c.right) {
+      el.scrollLeft += (r.left - c.left) - (c.width - r.width) / 2;
+    }
+  }, [tab, vertical, saisi, affiches.length]);
+
   const commencer = (e, id) => {
     if (e.button !== undefined && e.button !== 0) return;
     annulerMinuteur();
