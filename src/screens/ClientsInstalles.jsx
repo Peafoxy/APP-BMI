@@ -15,7 +15,7 @@ import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
@@ -788,15 +788,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // photos des installations, matériel et numéros de série. Plus sensible que
   // des chiffres : ce sont les coordonnées et le domicile de vos clients.
   //
-  // Même précaution que sur 👑 Mon équipe : un compte qui voit les deux
-  // espaces (l'administrateur principal) garde EXACTEMENT la même liste
-  // qu'avant — aucun chantier ne disparaît, ceux de formation portent un
-  // badge 🎓. Un compte cloisonné ne voit que son espace.
-  const mesChantiers = chantiersDeMonEspace(db, profile);
-  const chantierEnFormation = (c) => {
-    const b = boutiqueDuChantier(db, c);
-    return !!b && estBoutiqueFormation(db, b);
-  };
+  // ⚠ RETOURNÉ le 15/09/2026 (Timo : « même pour l'administrateur principal,
+  // ça ne devrait pas apparaître, sauf si je suis dans l'espace formation »).
+  // Avant, le principal gardait la liste des DEUX espaces, badge 🎓 sur les
+  // fiches de formation — c'était le cinquième défaut du même genre : « je
+  // vois les deux espaces » ne veut jamais dire « je les affiche ensemble ».
+  // L'écran suit maintenant l'espace REGARDÉ, pour tout le monde.
+  const mesChantiers = chantiersDeLEspaceRegarde(db, profile);
   // 🛠 Travaux à crédit : une fiche de travaux ne vient ici qu'une fois SOLDÉE
   // (Timo, 13/09/2026) ; avant, elle vit dans l'onglet Travaux à crédit.
   let liste = (voitTout ? mesChantiers : mesChantiers.filter(voitCeDossier)).filter((c) => !c.travaux || travauxSolde(db, c));
@@ -1308,13 +1306,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   )}
                 <tr key={c.id} className={`border-t border-slate-100 hover:bg-sky-50 ${entretienDu ? "bg-orange-50" : ""}`}>
                   <td className="px-3 py-2 font-semibold">{c.prenom} {c.nom}{c.user_id ? " 🔑" : ""}
-                    {/* Rien ne disparaît pour l'administrateur : les chantiers
-                        d'entraînement restent listés, simplement signalés. */}
-                    {voitLesDeuxEspaces(db, profile) && chantierEnFormation(c) && (
-                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-violet-50 text-violet-700 border-violet-300 ml-1" title="Chantier d'entraînement : il n'appartient pas à vos données réelles.">
-                        🎓 formation
-                      </div>
-                    )}
+                    {/* Plus de badge 🎓 ici (15/09/2026) : l'écran ne montre
+                        plus que l'espace REGARDÉ, donc une fiche de formation
+                        n'apparaît que lorsque TOUT l'écran est en formation —
+                        le badge ne commandait plus rien. */}
                     <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).couleur}`}>
                       {(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).label}
                     </div>

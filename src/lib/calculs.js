@@ -509,6 +509,30 @@ export const chantiersReels = (db) => {
 // en un seul save() et seraient refusés en bloc s'ils mélangeaient les deux
 // espaces. Un chantier sans boutique identifiable reste traité par tous :
 // il n'appartient à aucun espace, et le verrou le laisse passer.
+// ⚠ Timo (15/09/2026) : « pourquoi pour moi elle rend tout alors que la règle
+// est claire ?… même pour l'administrateur principal, ça ne devrait pas
+// apparaître, sauf si je suis dans l'espace formation. »
+// `chantiersDeMonEspace` dit ce qu'un compte a le DROIT D'ÉCRIRE (les
+// traitements de masse s'en servent) : le principal peut écrire partout, donc
+// elle rend tout pour lui. Ce n'est PAS ce qu'un écran doit AFFICHER — et
+// c'était le cinquième défaut du même genre : « je vois les deux espaces » ne
+// veut jamais dire « je les affiche ensemble ». Voici donc la règle
+// d'AFFICHAGE, qui suit l'espace REGARDÉ, pour tout le monde y compris lui.
+// Un chantier sans boutique identifiable suit l'espace regardé (règle du
+// 14/09/2026, `espaceDuChantier`) : il reste donc visible.
+export const chantiersDeLEspaceRegarde = (db, profile, voirFormation = undefined) => {
+  const enFormation = voirFormation === undefined
+    ? afficheChiffresFormation(db, profile)
+    : afficheChiffresFormation(db, profile, voirFormation);
+  return (db.clients_installes || []).filter((c) => {
+    const b = boutiqueDuChantier(db, c);
+    return !b || estBoutiqueFormation(db, b) === enFormation;
+  });
+};
+
+// Ce qu'un compte a le droit d'ÉCRIRE (traitements de masse : réception
+// automatique à J+7…). Le principal écrit dans les deux espaces — c'est
+// voulu. Pour AFFICHER, utiliser `chantiersDeLEspaceRegarde` ci-dessus.
 export const chantiersDeMonEspace = (db, profile) => {
   if (voitLesDeuxEspaces(db, profile)) return db.clients_installes || [];
   const monEspace = estCompteFormation(db, profile);

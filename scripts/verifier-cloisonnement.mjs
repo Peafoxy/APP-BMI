@@ -7621,5 +7621,49 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     /Le banc la garde à jour/.test(carte) && /pas que sa phrase est encore vraie/.test(carte));
 }
 
+// ═══════════════════════════════════════════════════════════
+// 🏠 CLIENTS INSTALLÉS SUIT L'ESPACE REGARDÉ (Timo, 15/09/2026)
+// « Pourquoi pour moi elle rend tout alors que la règle est claire ?… même
+//  pour l'administrateur principal, ça ne devrait pas apparaître, sauf si je
+//  suis dans l'espace formation. »
+// CINQUIÈME défaut du même genre (après Paramètres/Utilisateurs 29/08,
+// proformas et Salaires 05/09, 👑 Équipe 09/09) : l'écran partait de
+// `chantiersDeMonEspace`, qui rend TOUT au principal — c'est la règle des
+// DROITS D'ÉCRITURE (traitements de masse), pas celle de l'AFFICHAGE.
+// ⚠ Le banc ne voyait rien : aucun contrôle n'exerçait cet écran. C'est
+// réparé ici — sinon le défaut reviendrait à la première refonte.
+// ═══════════════════════════════════════════════════════════
+{
+  const dbCh = {
+    boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b2", nom: "ECOLE", formation: true }],
+    users: [{ id: "g1", nom: "ALI", role: "gerant", boutique: "DEMAKPOE" },
+            { id: "a1", nom: "TIMO", role: "admin", admin_principal: true }],
+    ventes: [], dettes: [], depenses: [],
+    clients_installes: [
+      { id: "c1", nom: "REEL", boutique: "DEMAKPOE", travaux: true },
+      { id: "c2", nom: "FORMATION", boutique: "ECOLE", travaux: true },
+      { id: "c3", nom: "SANS BOUTIQUE", travaux: true },
+    ],
+  };
+  const principal = dbCh.users[1], gerant = dbCh.users[0];
+  const noms = (l) => l.map((c) => c.nom).sort().join("|");
+  test("★ l'administrateur PRINCIPAL en RÉEL ne voit plus les chantiers de formation (avant, `chantiersDeMonEspace` lui rendait TOUT, badge 🎓)",
+    noms(C.chantiersDeLEspaceRegarde(dbCh, principal, false)) === "REEL|SANS BOUTIQUE");
+  test("★ le MÊME principal, quand il REGARDE la formation, ne voit QUE la formation — « sauf si je suis dans l'espace formation »",
+    noms(C.chantiersDeLEspaceRegarde(dbCh, principal, true)) === "FORMATION|SANS BOUTIQUE");
+  test("un compte cloisonné (gérant du réel) ne voit que son espace, quoi qu'il arrive",
+    noms(C.chantiersDeLEspaceRegarde(dbCh, gerant, false)) === "REEL|SANS BOUTIQUE"
+    && noms(C.chantiersDeLEspaceRegarde(dbCh, gerant, true)) === "REEL|SANS BOUTIQUE");
+  test("★ les DROITS D'ÉCRITURE ne changent pas : `chantiersDeMonEspace` rend toujours tout au principal (les traitements de masse en dépendent) — deux règles, deux noms, deux usages",
+    (C.chantiersDeMonEspace(dbCh, principal) || []).length === 3
+    && noms(C.chantiersDeMonEspace(dbCh, gerant)) === "REEL|SANS BOUTIQUE");
+  const ciE = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ 🏠 Clients installés part de chantiersDeLEspaceRegarde, plus jamais de chantiersDeMonEspace, et le badge 🎓 (qui ne commandait plus rien) est RETIRÉ",
+    /const mesChantiers = chantiersDeLEspaceRegarde\(db, profile\);/.test(ciE)
+    && !/chantiersDeMonEspace/.test(ciE) && !/🎓 formation/.test(ciE) && !/chantierEnFormation/.test(ciE));
+  test("★ aucun ÉCRAN ne lit chantiersDeMonEspace pour AFFICHER : la règle des droits d'écriture ne sert qu'aux traitements de masse",
+    execSync("grep -rl 'chantiersDeMonEspace' src/screens src/components || true").toString().trim() === "");
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
