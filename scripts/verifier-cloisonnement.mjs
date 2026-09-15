@@ -7591,5 +7591,35 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && !/dossierSurTelephone|estTelephone/.test(sv));
 }
 
+// ═══════════════════════════════════════════════════════════
+// LA CARTE DU CODE RESTE COMPLÈTE (Timo, 15/09/2026)
+// « À chaque question, il faut relire le code… ça me met mal à l'aise et les
+//  réponses sont tardives. Comment essayer de te donner une mémoire ? »
+// `docs/carte-du-code.md` dit où vit chaque règle. Elle n'a de valeur que si
+// elle est COMPLÈTE : une carte incomplète envoie chercher au mauvais endroit,
+// ce qui est pire que pas de carte du tout. Le banc la tient donc à jour — un
+// fichier de règles ajouté sans être inscrit fait tomber l'envoi.
+// ⚠ Ce contrôle vérifie qu'un fichier FIGURE, pas que sa phrase est encore
+// vraie. C'est pourquoi la carte ne dit que le SUJET d'un fichier, jamais son
+// fonctionnement : un sujet vieillit lentement (le fonds de caisse a changé
+// trois fois de règle en deux jours sans changer de fichier).
+// ═══════════════════════════════════════════════════════════
+{
+  const carte = readFileSync("docs/carte-du-code.md", "utf8");
+  const regles = execSync("ls src/lib/*.js").toString().trim().split("\n").map((f) => f.replace("src/", ""));
+  const absents = regles.filter((f) => !carte.includes(`\`${f}\``));
+  test(`★ la carte du code cite les ${regles.length} fichiers de règles de src/lib${absents.length ? ` — MANQUENT : ${absents.join(", ")}` : ""}`,
+    absents.length === 0);
+  const composants = execSync("ls src/components/*.jsx").toString().trim().split("\n").map((f) => f.split("/").pop());
+  const compAbsents = composants.filter((f) => !carte.includes(`\`${f}\``));
+  test(`★ elle cite aussi les ${composants.length} composants partagés${compAbsents.length ? ` — MANQUENT : ${compAbsents.join(", ")}` : ""}`,
+    compAbsents.length === 0);
+  test("★ elle dit à quoi sert chaque fichier, et pointe les endroits qui ne se touchent pas (identiteClient n'importe rien, push.js seul détenteur des notifications, le SQL collé par Timo)",
+    /n'importe RIEN/.test(carte) && /le seul endroit\*\* où `Notification` et `pushManager` existent/.test(carte)
+    && /Timo les colle lui-même\*\*, jamais nous/.test(carte) && /verifier-imports/.test(carte));
+  test("elle dit qu'elle est gardée par le banc, et ce que le banc NE peut pas vérifier (qu'une phrase soit encore vraie)",
+    /Le banc la garde à jour/.test(carte) && /pas que sa phrase est encore vraie/.test(carte));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

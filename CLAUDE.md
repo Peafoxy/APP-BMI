@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1409 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1413 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1470,6 +1470,7 @@ s'est arrêté, mot pour mot.
 | Suites de l'audit du 29/08 (graves fermés, hygiène, 3 projets sur la base) | Fermé, ne pas rouvrir | `docs/etat-audit-2026-08.md` |
 | Inventaire des verrous (cases cochées par Timo) | Référence | `docs/inventaire-verrous-employes-2026-09.md` |
 | Audit complet du 29/08 (22 279 lignes lues) | Référence | `docs/audit-complet-2026-08.md` |
+| **Carte du code** : où vit chaque règle, chaque composant, chaque écran. Une ligne par fichier — le SUJET, jamais le fonctionnement. Écrite le 15/09/2026 (« comment essayer de te donner une mémoire ») ; **le banc tombe si un fichier de `src/lib` ou `src/components` n'y figure pas** | À lire EN PREMIER quand on cherche où toucher | `docs/carte-du-code.md` |
 | L'ancien CLAUDE.md complet (659 lignes), tel qu'il était avant le rangement du 06/09 — pour retrouver un détail condensé ici | Référence | `docs/CLAUDE-avant-rangement-2026-09-05.md` |
 | **Répétition générale en formation** (44 lignes à cocher, deux téléphones, tiroir et dette sur montants ronds ; écrite le 12/09/2026 à la demande de Timo, PDF remis) : à rejouer avant un GO définitif, puis après tout gros chantier | À faire par Timo | `docs/scenario-test-formation.html` |
 | **🔔 Notifications** (2.101.197) : en service depuis le 14/09/2026 (SQL collé, variables Vercel posées, cron visible, testé sur Android : « ça a vibré ») ; tournée du matin à 7 h validée par Timo | En service | `docs/etat-notifications-push.md` |
