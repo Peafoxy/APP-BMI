@@ -7665,5 +7665,64 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     execSync("grep -rl 'chantiersDeMonEspace' src/screens src/components || true").toString().trim() === "");
 }
 
+// ═══════════════════════════════════════════════════════════
+// UN CHANTIER PORTE SON ESPACE (Timo, 15/09/2026)
+// « Ne pas se fier à la boutique mais à l'ESPACE dans lequel le chantier ou
+//  le devis est élaboré… un travail effectué dans formation ne doit pas être
+//  visible dans réel, et vice versa. La règle doit respecter l'espace, et non
+//  la boutique de l'espace. » — puis : « pas ma règle, mais CELLE QUI EXISTE
+//  DÉJÀ… faire toujours confiance à l'espace… et fais en sorte que l'erreur
+//  ne se produise plus dans l'avenir. »
+// La règle « ce qu'on crée naît dans l'espace qu'on regarde » (`marqueEspace`)
+// existait — elle n'était posée sur AUCUN chantier. Un chantier créé à la main
+// (donc sans boutique) était donc visible dans les DEUX espaces.
+// ⚠ LE GARDE-FOU : tout fichier qui crée une fiche de `clients_installes`
+// DOIT poser la marque. Un nouveau chemin qui l'oublie fait tomber l'envoi.
+// ═══════════════════════════════════════════════════════════
+{
+  const creeUnChantier = execSync("grep -rl 'clients_installes: \\[' src --include=*.jsx --include=*.js || true")
+    .toString().trim().split("\n").filter(Boolean).sort();
+  const sansMarque = creeUnChantier.filter((f) => !/marqueEspace|formation:/.test(readFileSync(f, "utf8")));
+  test(`★ LE GARDE-FOU : les ${creeUnChantier.length} chemins qui créent un chantier posent TOUS la marque d'espace${sansMarque.length ? ` — OUBLIÉE dans : ${sansMarque.join(", ")}` : ""}`,
+    creeUnChantier.length >= 4 && sansMarque.length === 0);
+  test("★ les quatre chemins connus la posent : la création à la main (sans boutique : l'espace REGARDÉ), 🛠 Travaux, la vente encaissée, le devis « pose seule »",
+    /\.\.\.marqueEspace\(db, profile\),/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8"))
+    && /formation: !!marqueEspace\(db, profile, boutique\)\.formation/.test(readFileSync("src/screens/Travaux.jsx", "utf8"))
+    && /\.\.\.marqueEspace\(db, profile, boutique\),/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && /\.\.\.marqueEspace\(db, acteur, boutique\),/.test(readFileSync("src/lib/validationDevis.js", "utf8")));
+
+  const dbM = {
+    boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b2", nom: "ECOLE", formation: true }],
+    users: [{ id: "a1", nom: "TIMO", role: "admin", admin_principal: true }],
+    ventes: [], dettes: [], depenses: [],
+    clients_installes: [
+      // Marquées : c'est la MARQUE qui décide, même sans boutique.
+      { id: "m1", nom: "REEL MARQUE", formation: false },
+      { id: "m2", nom: "FORMATION MARQUEE", formation: true },
+      // ⚠ Une fiche marquée FORMATION posée sur une boutique RÉELLE : la
+      // marque l'emporte (« faire confiance à l'espace, pas à la boutique »).
+      { id: "m3", nom: "FORMATION SUR BOUTIQUE REELLE", boutique: "DEMAKPOE", formation: true },
+      // Ancienne fiche, sans marque : la boutique prend le relais.
+      { id: "v1", nom: "ANCIENNE REELLE", boutique: "DEMAKPOE" },
+      { id: "v2", nom: "ANCIENNE FORMATION", boutique: "ECOLE" },
+    ],
+  };
+  const principalM = dbM.users[0];
+  const nomsM = (l) => l.map((c) => c.nom).sort().join("|");
+  test("★ LA MARQUE L'EMPORTE SUR LA BOUTIQUE : une fiche marquée formation posée sur une boutique RÉELLE reste invisible en réel",
+    nomsM(C.chantiersDeLEspaceRegarde(dbM, principalM, false)) === "ANCIENNE REELLE|REEL MARQUE"
+    && nomsM(C.chantiersDeLEspaceRegarde(dbM, principalM, true)) === "ANCIENNE FORMATION|FORMATION MARQUEE|FORMATION SUR BOUTIQUE REELLE");
+  test("★ une fiche SANS boutique n'est plus visible des deux côtés : sa marque la range d'un seul côté",
+    C.chantiersDeLEspaceRegarde(dbM, principalM, false).some((c) => c.id === "m1")
+    && !C.chantiersDeLEspaceRegarde(dbM, principalM, true).some((c) => c.id === "m1")
+    && C.chantiersDeLEspaceRegarde(dbM, principalM, true).some((c) => c.id === "m2")
+    && !C.chantiersDeLEspaceRegarde(dbM, principalM, false).some((c) => c.id === "m2"));
+  test("l'ordre de confiance est écrit une fois (espaceDeLaFiche) : marque, puis boutique, puis espace regardé — les anciennes fiches ne bougent pas",
+    C.espaceDeLaFiche({ formation: true }) === true && C.espaceDeLaFiche({ formation: false }) === false
+    && C.espaceDeLaFiche({}) === null && C.espaceDeLaFiche(null) === null
+    && C.espaceDuChantier(dbM, { formation: true, boutique: "DEMAKPOE" }, principalM) === true
+    && C.espaceDuChantier(dbM, { boutique: "ECOLE" }, principalM) === true);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

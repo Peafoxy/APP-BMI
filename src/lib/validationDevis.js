@@ -11,7 +11,7 @@
 // ============================================================
 import { uid, today, fmt, prochainNumeroDette } from "./core";
 import { PAIEMENTS, TYPES_INSTALLATION } from "./constants";
-import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation } from "./calculs";
+import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "./calculs";
 
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
 export const trouverDevis = (db, clientId, devisId) => {
@@ -57,6 +57,8 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
     };
     const chantier = {
       id: uid(), date: today(),
+      // ⚠ 15/09/2026 : l'espace où le devis a été élaboré, porté par la fiche.
+      ...marqueEspace(db, acteur, boutique),
       nom: nomClient, prenom: "", tel: client.tel || "",
       user_id: client.id,
       type_installation: TYPES_INSTALLATION[0],

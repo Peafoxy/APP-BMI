@@ -324,6 +324,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       commercial: profile.role === "admin" ? (f.commercial || null) : profile.nom,
       ...f, user_id: f.user_id || null, statut: "en_cours",
       equipe, garantie_mois: Number(f.garantie_mois || 0),
+      // ⚠ 15/09/2026 : la fiche NAÎT dans l'espace regardé et le porte. Sans
+      // cette marque, un chantier créé à la main (donc sans boutique) était
+      // visible dans les DEUX espaces. « Faire toujours confiance à l'espace. »
+      ...marqueEspace(db, profile),
     };
     delete c.equipe_prevue; delete c.chef_prevu;
     save({ ...db, clients_installes: [c, ...(db.clients_installes || [])] }, `Nouveau client installé « ${f.prenom} ${f.nom} » (${f.type_installation})`);

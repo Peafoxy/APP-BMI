@@ -525,6 +525,9 @@ export const chantiersDeLEspaceRegarde = (db, profile, voirFormation = undefined
     ? afficheChiffresFormation(db, profile)
     : afficheChiffresFormation(db, profile, voirFormation);
   return (db.clients_installes || []).filter((c) => {
+    // La MARQUE de la fiche fait foi ; la boutique ne sert qu'aux anciennes.
+    const marque = espaceDeLaFiche(c);
+    if (marque !== null) return marque === enFormation;
     const b = boutiqueDuChantier(db, c);
     return !b || estBoutiqueFormation(db, b) === enFormation;
   });
@@ -1446,7 +1449,19 @@ export const techniciensDeLEspace = (db, liste, espaceFormation) =>
 // toujours le réel, même en regardant la formation : les vrais techniciens
 // étaient proposés sur un chantier d'entraînement. « C'est l'espace REGARDÉ
 // qui décide, pour lui aussi » : espaceDuCompte.
+// ⚠ Timo (15/09/2026) : « ne pas se fier à la boutique mais à l'ESPACE dans
+// lequel le chantier ou le devis est élaboré… un travail effectué dans
+// formation ne doit pas être visible dans réel, et vice versa. La règle doit
+// respecter l'espace, et non la boutique de l'espace. » — c'est la règle qui
+// existait déjà (« ce qu'on crée naît dans l'espace qu'on regarde »,
+// `marqueEspace`) : elle n'était simplement posée sur AUCUN chantier.
+// ORDRE DE CONFIANCE : la marque de la fiche d'abord (elle dit l'espace où le
+// travail a été fait), la boutique ensuite (fiches anciennes, sans marque),
+// l'espace regardé en dernier recours.
+export const espaceDeLaFiche = (c) => (c && Object.prototype.hasOwnProperty.call(c, "formation") ? !!c.formation : null);
 export const espaceDuChantier = (db, c, profile) => {
+  const marque = espaceDeLaFiche(c);
+  if (marque !== null) return marque;
   const b = c ? boutiqueDuChantier(db, c) : null;
   return b ? estBoutiqueFormation(db, b) : espaceDuCompte(db, profile);
 };

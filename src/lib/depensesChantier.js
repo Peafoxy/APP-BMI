@@ -21,7 +21,7 @@
 //     C'est sur ce montant-là que les parts des techniciens se calculent.
 // ============================================================
 import { estEnAttente, estRejetee } from "./validationDepenses";
-import { chantiersDeMonEspace, statutChantier, afficheChiffresFormation, boutiqueDuChantier, estBoutiqueFormation, travauxSolde } from "./calculs";
+import { chantiersDeMonEspace, espaceDeLaFiche, statutChantier, afficheChiffresFormation, boutiqueDuChantier, estBoutiqueFormation, travauxSolde } from "./calculs";
 
 export const ROLES_RATTACHEMENT = ["gerant", "admin"];
 
@@ -35,8 +35,13 @@ export const libelleChantier = (c) => {
 // « Je vois les deux espaces » ne veut jamais dire « je les affiche
 // ensemble » : même pour l'administrateur principal, c'est l'espace REGARDÉ
 // qui décide. Un chantier sans boutique connue suit l'espace du compte.
+// ⚠ 15/09/2026 : la MARQUE d'espace de la fiche fait foi (espaceDeLaFiche) —
+// « faire toujours confiance à l'espace, pas à la boutique de l'espace ». La
+// boutique ne sert plus qu'aux fiches anciennes, créées avant la marque.
 export const dansLEspaceRegarde = (db, profile, c) => {
   if (!chantiersDeMonEspace(db, profile).some((x) => x.id === c?.id)) return false;
+  const marque = espaceDeLaFiche(c);
+  if (marque !== null) return marque === afficheChiffresFormation(db, profile);
   const b = boutiqueDuChantier(db, c);
   return !b || estBoutiqueFormation(db, b) === afficheChiffresFormation(db, profile);
 };

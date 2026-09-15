@@ -51,9 +51,12 @@ export const critiqueFiche = ({ nom, boutique }) => {
   return null;
 };
 
-export const nouveauTravail = (profile, { nom, prenom, tel, lieu, boutique, description }, aujourdhui = today()) => ({
+// ⚠ 15/09/2026 : la fiche porte l'espace où le travail est fait (`formation`),
+// pas seulement sa boutique — « faire toujours confiance à l'espace ».
+export const nouveauTravail = (profile, { nom, prenom, tel, lieu, boutique, description, formation = false }, aujourdhui = today()) => ({
   id: uid(),
   travaux: true,
+  ...(formation ? { formation: true } : { formation: false }),
   statut: STATUT_TRAVAUX,
   nom: String(nom || "").trim().toUpperCase(),
   prenom: String(prenom || "").trim(),

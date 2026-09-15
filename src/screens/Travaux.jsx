@@ -15,7 +15,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutiqu
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
-import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
 import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi } from "../lib/travaux";
@@ -55,7 +55,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
     if (refuserSaufRoles(profile, ROLES_FICHE, "Ouvrir des travaux à crédit")) return;
     const refus = critiqueFiche({ nom: f.nom, boutique });
     if (refus) { uAlert(refus); return; }
-    const c = nouveauTravail(profile, { ...f, boutique }, today());
+    const c = nouveauTravail(profile, { ...f, boutique, formation: !!marqueEspace(db, profile, boutique).formation }, today());
     save({ ...db, clients_installes: [c, ...(db.clients_installes || [])] }, `Travaux ouverts — ${c.prenom} ${c.nom} (${boutique})`);
     setF(ficheVide);
     setOuverte(c.id);
