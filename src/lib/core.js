@@ -8,7 +8,7 @@
 // modification de logique.
 // ============================================================
 
-import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees } from "./constants.js";
+import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT } from "./constants.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -23,6 +23,12 @@ export const genererJetonSignature = () => {
 };
 
 // Normalise un moyen de paiement saisi librement vers la liste officielle
+// Les boutons du moyen de paiement, le moyen proposé EN PREMIER (c'est ce
+// que « defaut » voulait dire du temps où la réponse se tapait).
+export const moyensProposes = (defaut = "Espèces") => {
+  const d = normPaiement(defaut);
+  return [d, ...MOYENS_ENCAISSEMENT.filter((m) => m !== d)];
+};
 export const normPaiement = (t) => {
   const s = String(t || "").toLowerCase();
   if (/flooz/.test(s)) return "Mobile Money (Flooz)";

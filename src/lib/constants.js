@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.222";
+export const VERSION = "2.101.223";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -77,6 +77,10 @@ export const VERSION = "2.101.222";
 export const CLE_PUBLIQUE_PUSH = "BGIvpFrckW8n4hs5eIT-fIX6J33Jk8MxpRIejj6E9B65SJ_60-28hFEd6GbzrezjUPdI572xxW87arl8ATGWTyQ";
 
 export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire", "Crédit (dette)"];
+// Les moyens proposés quand on PAIE ou qu'on ENCAISSE : les mêmes, sans le
+// crédit (on ne paie pas un salaire « à crédit »). Timo, 14/09/2026 : « et si
+// ce mode était à sélectionner ? » — la question devient quatre boutons.
+export const MOYENS_ENCAISSEMENT = PAIEMENTS.filter((p) => p !== "Crédit (dette)");
 // Timo (13/09/2026) : « ajouter Livraison, le manger, le carburant, commande en Chine ».
 export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", "Commande en Chine", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
 

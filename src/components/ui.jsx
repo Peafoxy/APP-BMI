@@ -8,8 +8,9 @@
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { col, light } from "../lib/core";
+import { col, light, moyensProposes } from "../lib/core";
 import { LOGO } from "../lib/constants";
+import { libelleBanque } from "../lib/banques";
 import { genererPDF } from "../pdf";
 // Timo (14/09/2026) : « sur tous les fichiers générés par l'app, un bouton
 // Partager » — le document de l'aperçu devient un PDF (image de la page,
@@ -200,13 +201,26 @@ export const uChoix = (m, options) => (dialogApi ? dialogApi.open("choix", m, nu
 // ---- Les questions posées partout, écrites UNE fois (points B1 et B4 du
 // relevé des doublons, Timo : « lance tout », 08/09/2026) ----
 // « Moyen de paiement » était tapé à 13 endroits avec 5 formulations ; un
-// moyen ajouté un jour aurait manqué quelque part. La liste vit ici.
-export const LISTE_MOYENS_SAISIE = "Espèces / Flooz / Mixx / Virement bancaire";
+// moyen ajouté un jour aurait manqué quelque part. La question vit ici.
+// ⚠ 14/09/2026, Timo : « et si ce mode était à sélectionner ? » — la réponse
+// était TAPÉE, et un mot non reconnu retombait en silence sur « Espèces »
+// (taper « BTCI » enregistrait un virement comme de l'argent liquide). Ce
+// sont maintenant des BOUTONS : plus de faute de frappe possible.
 // complement : « pour KOSSI », « à FOURNISSEUR X », « de la CNSS »… ;
-// defaut : la réponse proposée ; libelle : « Moyen de paiement » sauf cas
-// particulier (« Moyen de remise des fonds », « Moyen de paiement reçu »).
-export const demanderMoyenPaiement = (complement = "", defaut = "Espèces", libelle = "Moyen de paiement") =>
-  uPrompt(`${libelle}${complement ? ` ${complement}` : ""} (${LISTE_MOYENS_SAISIE}) :`, defaut);
+// defaut : le moyen proposé, placé en PREMIER bouton ; libelle : « Moyen de
+// paiement » sauf cas particulier (« Moyen de remise des fonds », « Moyen de
+// paiement reçu ») ; beneficiaire : la fiche de la personne payée, dont la
+// BANQUE est rappelée sous la question (14/09/2026 : « si banque, dans la
+// fiche de l'utilisateur, on devrait ajouter le nom de la banque »).
+const rappelBanque = (b) => {
+  if (!b) return "";
+  const l = libelleBanque(b);
+  const qui = b.nom || "cette personne";
+  return l ? `\n\n🏦 Banque de ${qui} : ${l}`
+    : `\n\n🏦 Aucune banque sur la fiche de ${qui} (👥 Utilisateurs → ⋯ Gérer → 🏦 Banque).`;
+};
+export const demanderMoyenPaiement = (complement = "", defaut = "Espèces", libelle = "Moyen de paiement", beneficiaire = null) =>
+  uChoix(`${libelle}${complement ? ` ${complement}` : ""} :${rappelBanque(beneficiaire)}`, moyensProposes(defaut));
 // Un mois « AAAA-MM » ou une date « AAAA-MM-JJ » : la question, le contrôle
 // du format et le message d'erreur, les mêmes partout. Renvoient la valeur
 // nettoyée, "" si facultatif et laissé vide, null si annulé ou refusé.

@@ -36,6 +36,8 @@ echo "▸ Pose des verrous : supabase/securite-5-comptes.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-5-comptes.sql >/dev/null 2>&1
 echo "▸ Pose des verrous : supabase/securite-9-changer-role.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-9-changer-role.sql >/dev/null 2>&1 || echo "   ❌ securite-9 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-18-banque.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-18-banque.sql >/dev/null 2>&1 || echo "   ❌ securite-18 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -110,9 +112,17 @@ essai "un commercial se nomme chef d'équipe" "REFUSE" "$COMMERCIAL" "$(MAJ "$(S
 essai "★ un vendeur écrit un salaire dans SA fiche (le dernier échec de tester-ecriture-sql)" "REFUSE" "$VENDEUR" "$(MAJ "$(SET salaire_base 900000)" zv_kossi)"
 essai "★ un vendeur écrit un salaire dans la fiche de l'administrateur" "REFUSE" "$VENDEUR" "$(MAJ "$(SET salaire_base 1)" za_timo)"
 essai "un vendeur change l'identité officielle d'un collègue" "REFUSE" "$VENDEUR" "$(MAJ "$(SET nom_complet '"X"')" zt_tech)"
+# 15/09/2026 (securite-18) : la banque d'un employé. Sans ce verrou, n'importe
+# quel compte qui peut écrire aurait pu changer la banque d'un collègue — et
+# l'argent d'un virement serait parti ailleurs sans que personne le voie.
+essai "★ un vendeur change la BANQUE d'un collègue" "REFUSE" "$VENDEUR" "$(MAJ "$(SET banque '"Banque du vendeur"')" zt_tech)"
+essai "★ un vendeur change le NUMÉRO DE COMPTE d'un collègue" "REFUSE" "$VENDEUR" "$(MAJ "$(SET compte_bancaire '"TG00999"')" zt_tech)"
+essai "★ un vendeur se met une banque à LUI-MÊME" "REFUSE" "$VENDEUR" "$(MAJ "$(SET banque '"Ecobank"')" zv_kossi)"
+essai "un gérant change la banque d'un technicien" "REFUSE" "$GERANT" "$(MAJ "$(SET banque '"Orabank"')" zt_tech)"
 essai "un admin secondaire change la boutique d'un vendeur" "PERMIS" "$CALEB" "$(MAJ "$(SET boutique '"HEDZRANAWOE"')" zv_kossi)"
 essai "un admin secondaire fixe un taux de commission" "PERMIS" "$CALEB" "$(MAJ "$(SET taux_commission 7)" zo_com)"
 essai "un admin secondaire enregistre l'identité et l'anniversaire" "PERMIS" "$CALEB" "$(MAJ "data || '{\"nom_complet\":\"KOSSI A.\",\"anniv\":\"04-12\"}'" zv_kossi)"
+essai "★ un admin enregistre la banque et le compte d'un employé" "PERMIS" "$CALEB" "$(MAJ "data || '{\"banque\":\"Ecobank\",\"compte_bancaire\":\"TG0012345678904321\"}'" zv_kossi)"
 essai "un admin secondaire nomme un chef d'équipe" "PERMIS" "$CALEB" "$(MAJ "$(SET chef_equipe true)" zt_tech)"
 
 echo

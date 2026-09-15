@@ -16,6 +16,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demand
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeMonEspace, boutiqueDuChantier, estBoutiqueFormation, voitLesDeuxEspaces, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { ficheParId } from "../lib/banques";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
@@ -741,7 +742,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
-    const moyen = await demanderMoyenPaiement(`pour ${e.nom}`);
+    const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
     if (moyen === null) return;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`)) return;
     // Deuxième lecture APRÈS les questions : entre l'ouverture de la fenêtre

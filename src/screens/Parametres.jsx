@@ -21,6 +21,7 @@ import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossie
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
 import { barresDeRail } from "../lib/solaire";
+import { banquesReglees, ajouterBanque, retirerBanque, nettoyerNomBanque } from "../lib/banques";
 
 // ============ PARAMÈTRES ============
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
@@ -216,6 +217,29 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, taux_parrainage: t })) },
       `Taux de parrainage par défaut fixé à ${t} %`);
     uAlert(`✅ Le taux de parrainage par défaut est désormais ${t} %.\n\nIl s'applique aux clients qui n'ont pas de taux personnel.`);
+  };
+
+  // ---- 🏦 LA LISTE DES BANQUES (14/09/2026) ----
+  // Timo : « une liste dans paramètres ». Elle sert au versement des fonds
+  // vers BANQUE et à la banque de chaque employé — plus de nom retapé.
+  // Rangée sur les boutiques, comme le prix du rail : rien à coller.
+  const banques = banquesReglees(db);
+  const [nouvelleBanque, setNouvelleBanque] = useState("");
+  const ecrireBanques = (liste, journal) =>
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, banques: liste })) }, journal);
+  const ajouterUneBanque = () => {
+    if (refuserSaufAdmin(profile, "Modifier la liste des banques")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const r = ajouterBanque(banques, nouvelleBanque);
+    if (r.refus) { uAlert(r.refus); return; }
+    ecrireBanques(r.liste, `Banque ajoutée à la liste : ${nettoyerNomBanque(nouvelleBanque)}`);
+    setNouvelleBanque("");
+  };
+  const retirerUneBanque = async (nom) => {
+    if (refuserSaufAdmin(profile, "Modifier la liste des banques")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(`Retirer « ${nom} » de la liste des banques ?\n\nLes fiches et les versements qui la citent déjà ne changent pas.`)) return;
+    ecrireBanques(retirerBanque(banques, nom), `Banque retirée de la liste : ${nom}`);
   };
 
   // ---- PRIX DU RAIL DE FIXATION (au mètre) ----
@@ -1301,6 +1325,29 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             Revenir au prix d'origine ({fmt(PRIX_RAIL_DEFAUT)} le mètre)
           </button>
         )}
+      </div>
+
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="banques">
+        <div className="font-bold mb-1">🏦 Banques</div>
+        <div className="text-xs text-slate-500 mb-3">
+          La liste proposée au <b>versement des fonds vers BANQUE</b> et sur la <b>fiche de chaque employé</b> (👥 Utilisateurs → ⋯ Gérer → 🏦 Banque). Plus de nom retapé, plus de faute de frappe.
+        </div>
+        <div className="flex gap-2 items-end flex-wrap">
+          <Field label="Nom de la banque">
+            <input className={inputCls + " w-56"} value={nouvelleBanque} onChange={(e) => setNouvelleBanque(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && ajouterUneBanque()} placeholder="Ex : Ecobank" />
+          </Field>
+          <button onClick={ajouterUneBanque} className={btnDark}>➕ Ajouter</button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {banques.length === 0 && <div className="text-xs text-slate-400">Aucune banque pour l'instant : le nom se tape librement au versement et sur les fiches, comme avant.</div>}
+          {banques.map((b) => (
+            <span key={b} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-300 bg-slate-50 text-sm font-semibold text-slate-700">
+              {b}
+              <button onClick={() => retirerUneBanque(b)} className="text-red-600 font-bold" title={`Retirer ${b} de la liste`} aria-label={`Retirer ${b}`}>✖</button>
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">

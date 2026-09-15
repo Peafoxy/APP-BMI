@@ -8,6 +8,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
+import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES } from "./constants";
 import { mettreAuPanier } from "./panier";
 import { TAUX_CNSS_SALARIE } from "./cnss";
@@ -744,6 +745,9 @@ export function construirePaiementPrime(db, profile, c, e, moyen) {
     boutique: bq, categorie: "Prime d'installation",
     description: `Installation ${c.nom} — ${e.nom}${e.chef ? " (chef de chantier)" : ""} · ${e.pct} %`,
     montant: e.montant, moyen, auto: "installation", user_id: e.user_id,
+    // Payée par virement : la dépense garde la banque du technicien, telle
+    // qu'elle était ce jour-là (Timo, 14/09/2026).
+    ...mentionVirement(ficheParId(db.users, e.user_id), moyen),
   });
   return {
     ...db,

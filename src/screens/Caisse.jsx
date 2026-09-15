@@ -14,6 +14,7 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
 import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement } from "../lib/versements";
+import { banquesReglees } from "../lib/banques";
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile }) {
@@ -312,7 +313,22 @@ export function Caisse({ db, save, profile }) {
             </Field>
             {vers.destination === DEST_BANQUE && (
               <>
-                <Field label="Nom de la banque"><input className={inputCls} value={vers.banque} onChange={(e) => setVers({ ...vers, banque: e.target.value })} placeholder="Ex : Ecobank" /></Field>
+                {/* La banque se CHOISIT dans la liste de ⚙ Paramètres → 🏦 Banques
+                    (Timo, 14/09/2026 : « une liste dans paramètres ») ; « ✏️ Autre
+                    banque… » garde la saisie libre, et sans liste réglée rien ne
+                    change : on tape le nom comme avant. */}
+                {banquesReglees(db).length > 0 && !vers.banqueLibre ? (
+                  <Field label="Banque">
+                    <select className={inputCls} value={vers.banque} data-choix="banque-versement"
+                      onChange={(e) => (e.target.value === "__autre__" ? setVers({ ...vers, banque: "", banqueLibre: true }) : setVers({ ...vers, banque: e.target.value }))}>
+                      <option value="">— Choisir la banque —</option>
+                      {banquesReglees(db).map((b) => <option key={b} value={b}>{b}</option>)}
+                      <option value="__autre__">✏️ Autre banque…</option>
+                    </select>
+                  </Field>
+                ) : (
+                  <Field label="Nom de la banque"><input className={inputCls} value={vers.banque} onChange={(e) => setVers({ ...vers, banque: e.target.value })} placeholder="Ex : Ecobank" /></Field>
+                )}
                 <Field label="N° du bordereau de versement"><input className={inputCls} value={vers.bordereau} onChange={(e) => setVers({ ...vers, bordereau: e.target.value })} /></Field>
               </>
             )}

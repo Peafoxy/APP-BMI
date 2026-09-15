@@ -9,6 +9,7 @@ import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
+import { mentionVirement } from "../lib/banques";
 import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
@@ -205,7 +206,7 @@ export function MonEquipe({ db, save, profile }) {
   const payerCommissionEquipe = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (c.due <= 0) { uAlert("Aucune commission d'équipe en attente pour " + c.u.nom + "."); return; }
-    const moyen = await demanderMoyenPaiement(`pour ${c.u.nom}`);
+    const moyen = await demanderMoyenPaiement(`pour ${c.u.nom}`, "Espèces", "Moyen de paiement", c.u);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, c.u, `Commission d'équipe de ${fmt(c.due)} à ${c.u.nom}`, profile);
     if (bq === null) return;
@@ -216,6 +217,7 @@ export function MonEquipe({ db, save, profile }) {
       boutique: bq, categorie: "Commissions",
       description: `Commission d'équipe — ${c.u.nom} (${c.tauxEq} % sur ${c.nbFilleuls} recrue(s))`,
       montant: c.due, moyen, auto: "commission_equipe", user_id: c.u.id,
+      ...mentionVirement(c.u, moyen),
     });
     save({
       ...db,
@@ -353,7 +355,7 @@ export function MonEquipe({ db, save, profile }) {
   const payerCommission = async (st) => {
     if (bloquerSiLecture(db, profile)) return;
     if (st.commissionDue === 0) { uAlert("Aucune commission en attente pour " + st.u.nom + " sur cette période."); return; }
-    const moyen = await demanderMoyenPaiement(`pour ${st.u.nom}`);
+    const moyen = await demanderMoyenPaiement(`pour ${st.u.nom}`, "Espèces", "Moyen de paiement", st.u);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile);
     if (bq === null) return;

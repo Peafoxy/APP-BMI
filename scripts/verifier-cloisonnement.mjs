@@ -138,6 +138,13 @@ await build({ entryPoints: ["src/lib/solaire.js"], bundle: true, format: "esm",
 const Sol = await import(pathToFileURL(sortieSol).href);
 unlinkSync(sortieSol);
 
+// 🏦 La liste des banques et la banque d'un employé (14/09/2026).
+const sortieBq = join("node_modules", ".cache", `bmi-banques-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/banques.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieBq, logLevel: "silent", loader: { ".js": "jsx" } });
+const Bq = await import(pathToFileURL(sortieBq).href);
+unlinkSync(sortieBq);
+
 // La séparation fiche employé / fiche de paie.
 const sortiePaie = join("node_modules", ".cache", `bmi-paie-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/paie.js"], bundle: true, format: "esm",
@@ -3527,6 +3534,58 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
 }
 
+titre("🏦 Les banques : une liste dans Paramètres, la banque sur la fiche, le moyen en boutons (14/09/2026)");
+{
+  // Timo, dans l'ordre : « et si ce mode était à sélectionner ? » ; « si
+  // banque, normalement dans la fiche de l'utilisateur, on devrait ajouter le
+  // nom de la banque ? » ; « une liste dans paramètres, lance ».
+  const dbB = { boutiques: [{ nom: "A" }, { nom: "B", banques: ["Orabank", "Ecobank"] }] };
+  test("★ la liste vit sur les boutiques (rien à coller) ; sans réglage, elle est vide",
+    JSON.stringify(Bq.banquesReglees(dbB)) === JSON.stringify(["Orabank", "Ecobank"])
+    && Bq.banquesReglees({ boutiques: [{ nom: "A" }] }).length === 0 && Bq.banquesReglees(null).length === 0);
+  test("★ ajouter : nom vide refusé, doublon refusé quels que soient accents et majuscules, liste rangée par ordre alphabétique",
+    Bq.ajouterBanque([], "").refus && Bq.ajouterBanque(["Ecobank"], "  ECOBANK ").refus
+    && JSON.stringify(Bq.ajouterBanque(["Orabank", "Ecobank"], "  BTCI  ").liste) === JSON.stringify(["BTCI", "Ecobank", "Orabank"])
+    && Bq.nettoyerNomBanque("  Coris   Bank ") === "Coris Bank");
+  test("retirer : la banque part quelles que soient les majuscules, les autres restent",
+    JSON.stringify(Bq.retirerBanque(["BTCI", "Ecobank"], "ecobank")) === JSON.stringify(["BTCI"]));
+  const kossi = { nom: "KOSSI", banque: "Ecobank", compte_bancaire: "TG0012345678904321" };
+  test("★ la banque d'une personne se lit « banque, compte …4321 » — le numéro n'est JAMAIS affiché en entier",
+    Bq.libelleBanque(kossi) === "Ecobank, compte …4321" && Bq.compteMasque("TG0012345678904321") === "…4321" && Bq.compteMasque("12") === "12"
+    && Bq.libelleBanque({ banque: "BTCI" }) === "BTCI" && Bq.libelleBanque({}) === "" && Bq.libelleBanque(null) === "");
+  test("★ un paiement PAR VIREMENT garde la banque du jour sur la dépense ; espèces ou fiche sans banque n'écrivent rien",
+    JSON.stringify(Bq.mentionVirement(kossi, "Virement bancaire")) === JSON.stringify({ banque: "Ecobank", compte_bancaire: "TG0012345678904321" })
+    && JSON.stringify(Bq.mentionVirement(kossi, "Espèces")) === "{}" && JSON.stringify(Bq.mentionVirement({ nom: "X" }, "Virement bancaire")) === "{}"
+    && JSON.stringify(Bq.mentionVirement(null, "Virement bancaire")) === "{}"
+    && Bq.ficheParId([kossi, { id: "u2" }], "u2")?.id === "u2" && Bq.ficheParId([], "u2") === null);
+  test("★ les boutons du moyen : quatre, jamais « Crédit (dette) », le moyen proposé en PREMIER",
+    JSON.stringify(Core.moyensProposes("Espèces")) === JSON.stringify(["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)", "Virement bancaire"])
+    && Core.moyensProposes("Virement bancaire")[0] === "Virement bancaire" && Core.moyensProposes("Virement bancaire").length === 4
+    && !Core.moyensProposes("Espèces").includes("Crédit (dette)"));
+  const uiB = readFileSync("src/components/ui.jsx", "utf8");
+  test("★ la question rappelle la banque du bénéficiaire, ou dit qu'elle manque et où la saisir",
+    /🏦 Banque de \$\{qui\} : \$\{l\}/.test(uiB) && /🏦 Aucune banque sur la fiche de \$\{qui\} \(👥 Utilisateurs → ⋯ Gérer → 🏦 Banque\)/.test(uiB));
+  const parB = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ ⚙ Paramètres → 🏦 Banques : ajouter et retirer, administrateur, écrit sur les boutiques",
+    /data-reglage="banques"/.test(parB) && /refuserSaufAdmin\(profile, "Modifier la liste des banques"\)/.test(parB)
+    && /db\.boutiques\.map\(\(b\) => \(\{ \.\.\.b, banques: liste \}\)\)/.test(parB) && /ajouterBanque\(banques, nouvelleBanque\)/.test(parB));
+  const csB = readFileSync("src/screens/Caisse.jsx", "utf8");
+  test("★ le versement vers BANQUE choisit dans la liste, « ✏️ Autre banque… » garde la saisie libre, et sans liste réglée rien ne change",
+    /data-choix="banque-versement"/.test(csB) && /banquesReglees\(db\)\.length > 0 && !vers\.banqueLibre \?/.test(csB)
+    && /<option value="__autre__">✏️ Autre banque…<\/option>/.test(csB) && /<Field label="Nom de la banque"><input/.test(csB));
+  const utiB = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ la fiche porte 🏦 Banque : administrateur, choix dans la liste (ou saisie libre sans liste), banque et numéro de compte enregistrés",
+    /refuserSaufAdmin\(profile, "Modifier la banque d'un employé"\)/.test(utiB)
+    && /\{ \.\.\.x, banque, compte_bancaire: String\(compte\)\.trim\(\) \}/.test(utiB)
+    && /🏦 Banque\{banqueDe\(u\) \? ` · \$\{banqueDe\(u\)\}` : ""\}/.test(utiB));
+  test("★ chaque paiement à une personne passe SA fiche à la question, et la prime d'installation garde sa banque",
+    /demanderMoyenPaiement\(`pour \$\{c\.u\.nom\}`, "Espèces", "Moyen de paiement", c\.u\)/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8"))
+    && /demanderMoyenPaiement\(`pour \$\{st\.u\.nom\}`, "Espèces", "Moyen de paiement", st\.u\)/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8"))
+    && /demanderMoyenPaiement\(`pour \$\{e\.nom\}`, "Espèces", "Moyen de paiement", ficheParId\(db\.users, e\.user_id\)\)/.test(readFileSync("src/screens/PrimesRemises.jsx", "utf8"))
+    && /demanderMoyenPaiement\(`pour \$\{e\.nom\}`, "Espèces", "Moyen de paiement", ficheParId\(db\.users, e\.user_id\)\)/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8"))
+    && /\.\.\.mentionVirement\(ficheParId\(db\.users, e\.user_id\), moyen\),/.test(readFileSync("src/lib/calculs.js", "utf8")));
+}
+
 titre("💰 Ventes : le prix de vente se lit dans la fenêtre « Rechercher un article » (14/09/2026)");
 {
   // Timo : « dans Ventes, quand on clique sur l'article, à part la quantité en
@@ -4555,9 +4614,14 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   test("★ hors écran (aucune fenêtre), demanderMois / demanderDate / demanderMoyenPaiement répondent « annulé » sans planter",
     (await Ui.demanderMois("Mois")) === null && (await Ui.demanderDate("Date")) === null && (await Ui.demanderMoyenPaiement()) === null);
   const ui = readFileSync("src/components/ui.jsx", "utf8");
-  test("★ la liste des moyens saisis n'est écrite qu'UNE fois, dans ui.jsx, et la question la reprend",
-    /export const LISTE_MOYENS_SAISIE = "Espèces \/ Flooz \/ Mixx \/ Virement bancaire";/.test(ui)
-    && execSync("grep -rl 'Espèces / Flooz / Mixx / Virement bancaire' src || true").toString().trim() === "src/components/ui.jsx");
+  // 14/09/2026, Timo : « et si ce mode était à sélectionner ? » — la réponse
+  // était TAPÉE et la liste des moyens rappelée dans la question
+  // (LISTE_MOYENS_SAISIE). Ce sont des BOUTONS : la liste vit dans
+  // constants.js (MOYENS_ENCAISSEMENT) et plus personne ne la récrit.
+  test("★ le moyen de paiement se CHOISIT (boutons), plus aucune liste de moyens tapée dans une question",
+    !/LISTE_MOYENS_SAISIE/.test(ui) && execSync("grep -rl 'Espèces / Flooz / Mixx / Virement bancaire' src || true").toString().trim() === ""
+    && /export const demanderMoyenPaiement = \(complement = "", defaut = "Espèces", libelle = "Moyen de paiement", beneficiaire = null\) =>\n  uChoix\(/.test(ui)
+    && /moyensProposes\(defaut\)\)/.test(ui) && !/uPrompt\(`\$\{libelle\}/.test(ui));
   test("★ les 13 questions passent par demanderMoyenPaiement (plus aucun uPrompt « Moyen de … »)",
     execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib | wc -l").toString().trim() === "13"
     && execSync("grep -rl 'uPrompt(.Moyen de' src || true").toString().trim() === "");
@@ -4567,7 +4631,7 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
     && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "4"
     && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "3");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
-    /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
+    /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("de la CNSS", "Virement bancaire"\)/.test(readFileSync("src/screens/Salaires.jsx", "utf8")));
   test("la relance d'un prospect (jamais contrôlée avant) passe par demanderDate, facultative", /demanderDate\(`Nouvelle date de relance pour \$\{p\.nom\}`, p\.relance \|\| "", true\)/.test(readFileSync("src/screens/Prospects.jsx", "utf8")));

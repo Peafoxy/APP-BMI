@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1338 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1349 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 10 : l'appui long qui déplace un onglet,
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 184 : les règles de rôle sur l'argent (serveur)
-npm run tester-comptes           # 67  : les règles de rôle sur les comptes (serveur)
+npm run tester-comptes           # 72  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
@@ -145,7 +145,7 @@ lit mal est pire qu'un banc absent).
   l'autre (un contrôle du banc vérifie leur accord). Tout geste réservé à un
   rôle le revérifie DANS le geste (`refuserSaufAdmin`, `refuserSaufRoles`,
   `refuserSaufAdminPrincipal`, `refuserSaufProprietaire`…), et le serveur
-  applique la même règle par déclencheur (`supabase/securite-3` à `-17`).
+  applique la même règle par déclencheur (`supabase/securite-3` à `-18`).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
@@ -625,6 +625,40 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### 🏦 Les banques, et le moyen de paiement en BOUTONS (15/09/2026)
+- Timo, dans l'ordre : **« et si ce mode était à sélectionner ? »** (la
+  question « Moyen de paiement » se TAPAIT — un mot non reconnu retombait en
+  silence sur « Espèces », taper « BTCI » enregistrait un virement comme du
+  liquide) ; **« si banque, normalement dans la fiche de l'utilisateur, on
+  devrait ajouter le nom de la banque ? »** ; **« une liste dans paramètres,
+  lance »**.
+- **Le moyen de paiement est un CHOIX** : `demanderMoyenPaiement` (ui.jsx)
+  passe par `uChoix` avec `moyensProposes(defaut)` (core.js) — les quatre
+  moyens de `MOYENS_ENCAISSEMENT` (constants.js, `PAIEMENTS` sans le crédit),
+  **le moyen proposé en PREMIER bouton**. `LISTE_MOYENS_SAISIE` a été RETIRÉE
+  (une règle qui ne commande plus rien ne reste pas). Les 13 questions de
+  l'application suivent d'un coup.
+- **UNE liste de banques, ⚙ Paramètres → 🏦 Banques** (admin) : règle pure
+  `lib/banques.js` (sans import, lisible par Node), rangée sur les boutiques
+  (champ `banques`, comme le prix du rail — **rien à coller**) ; ajout refusé
+  si vide ou déjà présent (accents et majuscules ignorés), liste rangée par
+  ordre alphabétique français. **Sans liste réglée, rien ne change** : le nom
+  se tape comme avant.
+- **Le versement vers BANQUE choisit dans cette liste** (🔒 Caisse), avec
+  « ✏️ Autre banque… » pour un nom hors liste.
+- **La fiche d'un employé porte sa banque** : 👥 Utilisateurs → ⋯ Gérer →
+  **🏦 Banque** (admin), champs `banque` et `compte_bancaire`. Le numéro **ne
+  s'affiche jamais en entier** (`compteMasque` : « …4321 »).
+- **Quand on paie une personne**, la question rappelle sa banque sous le
+  libellé, ou dit qu'elle manque et où la saisir ; **un paiement par virement
+  GARDE la banque du jour sur la dépense** (`mentionVirement` : commission
+  d'équipe, commission d'un filleul, avance sur salaire, prime d'installation
+  via `construirePaiementPrime`). Espèces ou fiche sans banque n'écrivent rien.
+- **Serveur : `securite-18`** — `banque` et `compte_bancaire` rejoignent la
+  liste « gestion » de `users_regles_comptes` (admin seul). Sans lui, n'importe
+  quel compte qui écrit pouvait changer la banque d'un collègue. `securite-9`
+  (changer le rôle) vit dans une AUTRE fonction : il n'est pas touché.
 
 ### 💰 Ventes : le prix dans la fenêtre « Rechercher un article » (14/09/2026)
 - Timo : « quand on clique sur l'article, à part la quantité en stock, on

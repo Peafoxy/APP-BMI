@@ -9,6 +9,7 @@ import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense } from "../lib/core";
+import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
@@ -627,6 +628,40 @@ export function Users({ db, save, profile }) {
       `Identité de ${u.nom} enregistrée : ${nc.trim()}${num.trim() ? ` (${tp.trim()} n° ${num.trim()})` : ""}`);
   };
 
+  // ---- 🏦 LA BANQUE DE L'EMPLOYÉ (14/09/2026) ----
+  // Timo : « si banque, normalement dans la fiche de l'utilisateur, on
+  // devrait ajouter le nom de la banque ». Payer un salaire « par virement »
+  // n'écrivait nulle part vers quelle banque l'argent partait. La banque se
+  // choisit dans la liste de ⚙ Paramètres → 🏦 Banques ; sans liste réglée,
+  // le nom se tape. Admin, comme l'identité.
+  const changerBanque = async (u) => {
+    if (refuserSaufAdmin(profile, "Modifier la banque d'un employé")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const liste = banquesReglees(db);
+    const actuelle = libelleBanque(u);
+    let banque;
+    if (liste.length) {
+      const AUTRE = "✏️ Autre banque…";
+      const AUCUNE = "— Aucune banque —";
+      const choix = await uChoix(`Banque de ${u.nom} :${actuelle ? `\n\nActuellement : ${actuelle}` : ""}`, [...liste, AUTRE, AUCUNE]);
+      if (choix === null) return;
+      if (choix === AUCUNE) banque = "";
+      else if (choix === AUTRE) {
+        const t = await uPrompt(`Nom de la banque de ${u.nom} :`, banqueDe(u));
+        if (t === null) return;
+        banque = nettoyerNomBanque(t);
+      } else banque = choix;
+    } else {
+      const t = await uPrompt(`Banque de ${u.nom} (la liste se règle dans ⚙ Paramètres → 🏦 Banques) :`, banqueDe(u));
+      if (t === null) return;
+      banque = nettoyerNomBanque(t);
+    }
+    const compte = banque ? await uPrompt(`Numéro de compte de ${u.nom} (laisser vide si non communiqué) :`, compteDe(u)) : "";
+    if (compte === null) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, banque, compte_bancaire: String(compte).trim() } : x)) },
+      `Banque de ${u.nom} : ${banque || "retirée"}${String(compte).trim() ? ` (compte ${String(compte).trim()})` : ""}`);
+  };
+
   // ---- ANNIVERSAIRE (jour et mois seulement) ----
   // ⚠ Demande Timo (20/08/2026) : souhaiter automatiquement les anniversaires
   // sur l'écran de connexion. On ne demande PAS l'année : cet écran s'affiche
@@ -724,12 +759,13 @@ export function Users({ db, save, profile }) {
     if (type === "avance") {
       const bq = await choisirBoutiqueDebit(u, `Avance de ${fmt(montant)} à ${u.nom}`);
       if (bq === null) return;
-      const moyen = await demanderMoyenPaiement();
+      const moyen = await demanderMoyenPaiement("", "Espèces", "Moyen de paiement", u);
       if (moyen === null) return;
       const dep = nouvelleDepense(profile, {
         boutique: bq, categorie: "Salaires",
         description: `Avance sur salaire ${libelleMoisFR(mois.trim())} — ${u.nom}`,
         montant, moyen, auto: "avance", user_id: u.id,
+        ...mentionVirement(u, moyen),
       });
       next = { ...next, depenses: [dep, ...next.depenses], messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Avance versée à"), ...(db.messages || [])] };
     }
@@ -785,7 +821,7 @@ export function Users({ db, save, profile }) {
     }
     const note = await uPrompt("Commentaire (facultatif) :", "");
     if (note === null) return;
-    const moyen = await demanderMoyenPaiement("", "Espèces", "Moyen de remise des fonds");
+    const moyen = await demanderMoyenPaiement("", "Espèces", "Moyen de remise des fonds", u);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebit(u, `Crédit de ${fmt(montant)} à ${u.nom}`);
     if (bq === null) return;
@@ -1112,6 +1148,7 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
+                  <button onClick={() => changerBanque(u)} className={boutonGerer} title={libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : "Aucune banque sur cette fiche"}>🏦 Banque{banqueDe(u) ? ` · ${banqueDe(u)}` : ""}</button>
                   <button onClick={() => envoyerVirement(u)} className={boutonGerer}>💸 Virement</button>
                   {(u.virements || []).some((v) => v.statut !== "accepte") && <button onClick={() => annulerVirement(u)} className={`${boutonGerer} !text-amber-700 !border-amber-200`}>Annuler virement</button>}
                       </div>
