@@ -14,6 +14,7 @@ import { fmt, dFR, today } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
+import { clientsConnus, propositionsClients } from "../lib/clientsConnus";
 import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
@@ -145,7 +146,15 @@ export function Travaux({ db, save, profile, onFacturer }) {
         <Panel boutique={boutique}>
           <div className="font-bold mb-3 flex items-center gap-2">Nouveaux travaux <Badge boutique={boutique} /></div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Field label="Nom du client *"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
+            <Field label="Nom du client *">
+              {/* Timo (15/09/2026) : le client déjà connu de la boutique se
+                  propose — un clic remplit le nom ET le numéro. Le prénom
+                  reste libre : la liste ne connaît que le nom enregistré. */}
+              <ChampSuggestions valeur={f.nom} onChange={(v) => setF({ ...f, nom: v })}
+                onChoisir={(c) => setF({ ...f, nom: c.valeur, tel: c.tel || f.tel })}
+                suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
+                placeholder="Nom, ou numéro du client" />
+            </Field>
             <Field label="Prénom"><input className={inputCls} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
             <Field label="Téléphone"><input className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
             <Field label="Lieu des travaux"><input className={inputCls} value={f.lieu} onChange={(e) => setF({ ...f, lieu: e.target.value })} /></Field>

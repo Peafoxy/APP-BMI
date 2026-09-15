@@ -22,6 +22,8 @@ import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
+import { ChampSuggestions } from "../components/ChampSuggestions";
+import { clientsConnus, propositionsClients } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { lierFacture } from "../lib/travaux";
 
@@ -1076,7 +1078,16 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             </div>
 
             <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Field label={origineDevis ? "Payeur (si différent du client)" : "Client"}><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : ""} /></Field>
+              <Field label={origineDevis ? "Payeur (si différent du client)" : "Client"}>
+                {/* Timo (15/09/2026) : un client déjà connu de la boutique se
+                    propose — un clic remplit le nom ET le numéro. Ce qui est
+                    tapé n'est jamais transformé : un client de passage se saisit
+                    librement, comme avant. */}
+                <ChampSuggestions valeur={f.client} onChange={(v) => setF({ ...f, client: v })}
+                  onChoisir={(c) => setF({ ...f, client: c.valeur, tel: c.tel || f.tel })}
+                  suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
+                  placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : "Nom, ou numéro du client"} />
+              </Field>
               <Field label={origineDevis ? "Son numéro" : "Numéro du client"}><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
               {origineDevis ? (
                 Number(f.remise || 0) > 0 && (

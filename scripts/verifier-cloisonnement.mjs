@@ -7132,5 +7132,105 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && /compterDemandesTransfertToutes\(db, profile\) \+ \(profile\.boutique \? 0 : compterTransfertsStockAValider\(db, profile\)\)/.test(appT));
 }
 
+// ═══════════════════════════════════════════════════════════
+// LE CLIENT DÉJÀ CONNU SE PROPOSE (Timo, 15/09/2026)
+// « Dans vente, lorsqu'on veut enregistrer le nom et le numéro du client…
+//   si le client existe déjà dans le système, pourquoi il n'est pas proposé
+//   pour pré-remplir les lignes ? » — puis, sur l'étendue : « Les trois ».
+// Le nom et le numéro étaient des cases de TEXTE LIBRE dans 💰 Ventes,
+// 💳 Dettes et 🛠 Travaux : le même client s'écrivait de trois façons, et un
+// chiffre de travers détachait la vente du compte du client (compteClientPour
+// compare les 8 derniers chiffres).
+// ═══════════════════════════════════════════════════════════
+{
+  const sortieCC = join("node_modules", ".cache", `bmi-cc-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/clientsConnus.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieCC, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const CC = await import(pathToFileURL(sortieCC).href);
+  unlinkSync(sortieCC);
+  // Le champ commun filtre avec filtrerSuggestions : on l'exerce pour de
+  // vrai, plutôt que de supposer qu'un numéro tapé retrouve son client.
+  const sortieSugC = join("node_modules", ".cache", `bmi-sugc-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/suggestions.js"], bundle: true, format: "esm", platform: "node", outfile: sortieSugC, logLevel: "silent" });
+  const Sug = await import(pathToFileURL(sortieSugC).href);
+  unlinkSync(sortieSugC);
+
+  const dbC = {
+    ventes: [
+      { id: "v1", boutique: "DEMAKPOE", date: "2026-09-01", client: "KOFFI AMA", tel: "+228 90 11 22 33", articles: [{ qte: 1, pu: 10000 }] },
+      // Le MÊME homme, revenu le 10, son numéro écrit sans l'indicatif.
+      { id: "v2", boutique: "DEMAKPOE", date: "2026-09-10", client: "KOFFI AMA", tel: "90112233", articles: [{ qte: 1, pu: 5000 }] },
+      // Une autre boutique : elle ne doit JAMAIS remonter ici (le mur).
+      { id: "v3", boutique: "APESSITO", date: "2026-09-12", client: "MAWULI", tel: "91223344", articles: [{ qte: 1, pu: 7000 }] },
+      // Un client de passage, sans numéro.
+      { id: "v4", boutique: "DEMAKPOE", date: "2026-09-05", client: "PASSANT", tel: "", articles: [{ qte: 1, pu: 2000 }] },
+      // Un homonyme, plus ancien, avec un AUTRE numéro.
+      { id: "v5", boutique: "DEMAKPOE", date: "2026-08-20", client: "KOFFI AMA", tel: "99887766", articles: [{ qte: 1, pu: 1000 }] },
+      // Une ligne sans nom ni numéro : elle n'entre pas dans la liste.
+      { id: "v6", boutique: "DEMAKPOE", date: "2026-09-11", client: "", tel: "", articles: [{ qte: 1, pu: 500 }] },
+    ],
+    dettes: [
+      { id: "d1", boutique: "DEMAKPOE", date: "2026-09-13", client: "DJEDJE", tel: "90556677", montant: 100000, paye: 30000 },
+      // Une réservation prépayée n'est pas une dette (règle de 👥 Clients).
+      { id: "d2", boutique: "DEMAKPOE", date: "2026-09-14", type: "prepaye", client: "RESERVE", tel: "90998877", montant: 50000, paye: 50000 },
+    ],
+  };
+  const liste = CC.clientsConnus(dbC, "DEMAKPOE");
+  const parNom = (n) => liste.filter((c) => c.nom === n);
+  const koffi = liste.find((c) => c.cle === "t:90112233");
+  test("★ deux écritures du MÊME numéro (« +228 90 11 22 33 » et « 90112233 ») font UN seul client : 2 achats, 15 000 F, dernier passage le 10",
+    !!koffi && parNom("KOFFI AMA").length === 2 && koffi.achats === 2 && koffi.totalAchats === 15000 && koffi.derniere === "2026-09-10");
+  test("★ LE MUR : la liste ne contient QUE la boutique regardée — MAWULI (APESSITO) n'y est pas, et rien ne lit db.users",
+    !liste.some((c) => c.nom === "MAWULI") && !/\.users\b/.test(readFileSync("src/lib/clientsConnus.js", "utf8").replace(/\/\/[^\n]*/g, "")));
+  test("un client sans numéro existe quand même (regroupé sur son nom) ; une ligne sans nom NI numéro n'entre pas dans la liste",
+    !!liste.find((c) => c.cle === "n:passant") && !liste.some((c) => c.nom === "(sans nom)"));
+  test("une DETTE fait connaître son client et ce qu'il doit encore (100 000 − 30 000) ; une réservation prépayée n'est pas une dette",
+    liste.find((c) => c.nom === "DJEDJE")?.dette === 70000 && !liste.some((c) => c.nom === "RESERVE"));
+  test("la liste est rangée du plus RÉCENT au plus ancien — c'est le client d'hier qu'on revoit, pas celui du mois dernier",
+    liste[0].nom === "DJEDJE" && liste.map((c) => c.derniere).join(">") === [...liste].map((c) => c.derniere).sort().reverse().join(">"));
+
+  const props = CC.propositionsClients(liste, { fmt: (x) => `${x} F`, dFR: (d) => d });
+  const pKoffi = props.find((p) => p.valeur === "KOFFI AMA");
+  test("★ une proposition porte le nom en VALEUR (ce qui remplit la case) et le NUMÉRO à recopier au clic — celui de sa ligne la PLUS RÉCENTE, pas une vieille écriture",
+    !!pKoffi && pKoffi.tel === "90112233" && koffi.tel === "90112233" && props.find((p) => p.valeur === "DJEDJE").tel === "90556677");
+  test("★ on retrouve un client en tapant son NUMÉRO aussi bien que son nom (les chiffres bruts sont dans `mots`)",
+    Sug.filtrerSuggestions(props, "90556677").map((p) => p.valeur).join() === "DJEDJE"
+    && Sug.filtrerSuggestions(props, "djed").map((p) => p.valeur).join() === "DJEDJE");
+  test("★ DEUX CLIENTS AU MÊME NOM : le champ commun n'en garde qu'un, alors la ligne le DIT (« ⚠ 2 clients à ce nom ») et c'est le PLUS RÉCENT qui est proposé",
+    props.filter((p) => p.valeur === "KOFFI AMA").length === 1 && /⚠ 2 clients à ce nom/.test(pKoffi.detail) && pKoffi.tel === "90112233");
+  test("le détail dit le numéro, le dernier passage et la dette qui reste ; « sans numéro » quand il n'y en a pas",
+    /90556677 · dernier passage 2026-09-13 · doit encore 70000 F/.test(props.find((p) => p.valeur === "DJEDJE").detail)
+    && /^sans numéro/.test(props.find((p) => p.valeur === "PASSANT").detail));
+  test("une base vide ne fait pas tomber la règle (aucune vente, aucune dette)",
+    CC.clientsConnus({}, "DEMAKPOE").length === 0 && CC.propositionsClients([]).length === 0);
+
+  // Les écrans : LE champ commun, jamais une liste maison, et le clic
+  // remplit le nom ET le numéro.
+  const ecrans = [
+    ["src/screens/Ventes.jsx", /valeur=\{f\.client\}/, /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, client: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/],
+    ["src/screens/Dettes.jsx", /valeur=\{res\.client\}/, /onChoisir=\{\(c\) => setRes\(\{ \.\.\.res, client: c\.valeur, tel: c\.tel \|\| res\.tel \}\)\}/],
+    ["src/screens/Travaux.jsx", /valeur=\{f\.nom\}/, /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, nom: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/],
+  ];
+  test("★ 💰 Ventes, 💳 Dettes et 🛠 Travaux : la case Client passe par LE champ commun (ChampSuggestions + propositionsClients de la boutique regardée), et un CLIC remplit le nom ET le numéro",
+    ecrans.every(([f, vRe, cRe]) => {
+      const t = readFileSync(f, "utf8");
+      return /import \{ ChampSuggestions \}/.test(t) && /import \{ clientsConnus, propositionsClients \} from "\.\.\/lib\/clientsConnus";/.test(t)
+        && /suggestions=\{propositionsClients\(clientsConnus\(db, boutique\), \{ fmt, dFR \}\)\}/.test(t) && vRe.test(t) && cRe.test(t);
+    }));
+  const dtJ = readFileSync("src/screens/Dettes.jsx", "utf8");
+  test("💳 Dettes a les DEUX cases traitées : la réservation prépayée et la nouvelle dette",
+    (dtJ.match(/suggestions=\{propositionsClients\(/g) || []).length === 2
+    && /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, client: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/.test(dtJ));
+  test("★ ce qui est TAPÉ n'est jamais transformé : les quatre écrans gardent une case libre (onChange pose la frappe telle quelle), un client de passage se saisit comme avant",
+    ecrans.every(([f]) => /onChange=\{\(v\) => set[FR]\w*\(\{ \.\.\.\w+, (client|nom): v \}\)\}/.test(readFileSync(f, "utf8"))));
+  test("★ UNE règle, pas deux : 👥 Clients lit clientsConnus au lieu de refaire son propre regroupement (plus de `const map = {}` ni de clé maison)",
+    /import \{ clientsConnus \} from "\.\.\/lib\/clientsConnus";/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    && /let clients = clientsConnus\(db, boutique\)\.sort\(\(a, b\) => b\.totalAchats - a\.totalAchats\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    && !/const key = \(nom, tel\)/.test(readFileSync("src/screens/Clients.jsx", "utf8")));
+  const importeursCC = execSync("grep -rl 'clientsConnus' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).sort().join("|");
+  test("★ la règle n'est recopiée nulle part : seuls les quatre écrans et son propre fichier la connaissent",
+    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Travaux.jsx|src/screens/Ventes.jsx");
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

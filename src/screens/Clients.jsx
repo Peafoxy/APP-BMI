@@ -6,9 +6,13 @@
 // ============================================================
 import { useState } from "react";
 import { correspond } from "../lib/suggestions";
-import { uid, fmt, today, dFR, telDigits, totalVente, envoyerWhatsApp } from "../lib/core";
+// UNE règle pour « les clients que cette boutique connaît » — celle que
+// 💰 Ventes, 💳 Dettes et 🛠 Travaux proposent dans leur case Client
+// (Timo, 15/09/2026). Cet écran avait sa propre copie.
+import { clientsConnus } from "../lib/clientsConnus";
+import { uid, fmt, today, dFR, telDigits, envoyerWhatsApp } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
-import { boutiquesVente, dettesClassiques, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
@@ -166,26 +170,7 @@ export function Clients({ db, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "clients" });
   const [q, setQ] = useState("");
-  const map = {};
-  const key = (nom, tel) => (telDigits(tel) || String(nom || "").trim().toLowerCase());
-
-  db.ventes.filter((v) => v.boutique === boutique && (v.client || v.tel)).forEach((v) => {
-    const k = key(v.client, v.tel);
-    if (!map[k]) map[k] = { nom: v.client || "(sans nom)", tel: v.tel, achats: 0, totalAchats: 0, dette: 0, derniere: v.date };
-    map[k].achats += 1;
-    map[k].totalAchats += totalVente(v);
-    if (!map[k].tel && v.tel) map[k].tel = v.tel;
-    if (String(v.date) > String(map[k].derniere)) map[k].derniere = v.date;
-  });
-
-  dettesClassiques(db).filter((d) => d.boutique === boutique).forEach((d) => {
-    const k = key(d.client, d.tel);
-    if (!map[k]) map[k] = { nom: d.client, tel: d.tel, achats: 0, totalAchats: 0, dette: 0, derniere: d.date };
-    map[k].dette += Math.max(0, d.montant - d.paye);
-    if (!map[k].tel && d.tel) map[k].tel = d.tel;
-  });
-
-  let clients = Object.values(map).sort((a, b) => b.totalAchats - a.totalAchats);
+  let clients = clientsConnus(db, boutique).sort((a, b) => b.totalAchats - a.totalAchats);
   if (q) clients = clients.filter((c) => correspond(c.nom + " " + (c.tel || ""), q));
   const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
 

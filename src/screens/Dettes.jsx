@@ -10,6 +10,8 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, useP
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { ChampSuggestions } from "../components/ChampSuggestions";
+import { clientsConnus, propositionsClients } from "../lib/clientsConnus";
 import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels";
 
 // ============ DETTES ============
@@ -222,7 +224,14 @@ export function Dettes({ db, save, profile }) {
         <div className="text-xs text-slate-500 mb-4">Le prix est bloqué, les versements s'accumulent. La marchandise ne sort du stock qu'au moment de la livraison.</div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Field label="Client"><input className={inputCls} value={res.client} onChange={(e) => setRes({ ...res, client: e.target.value })} /></Field>
+          <Field label="Client">
+            {/* Timo (15/09/2026) : le client déjà connu de la boutique se
+                propose — un clic remplit le nom ET le numéro. */}
+            <ChampSuggestions valeur={res.client} onChange={(v) => setRes({ ...res, client: v })}
+              onChoisir={(c) => setRes({ ...res, client: c.valeur, tel: c.tel || res.tel })}
+              suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
+              placeholder="Nom, ou numéro du client" />
+          </Field>
           <Field label="Téléphone"><input className={inputCls} value={res.tel} onChange={(e) => setRes({ ...res, tel: e.target.value })} /></Field>
           <Field label="Article">
             <select className={inputCls} value={res.produit_id} onChange={(e) => setRes({ ...res, produit_id: e.target.value })}>
@@ -307,7 +316,14 @@ export function Dettes({ db, save, profile }) {
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dette client <Badge boutique={boutique} /></div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <Field label="Client"><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} /></Field>
+          <Field label="Client">
+            {/* Timo (15/09/2026) : le client déjà connu de la boutique se
+                propose — un clic remplit le nom ET le numéro. */}
+            <ChampSuggestions valeur={f.client} onChange={(v) => setF({ ...f, client: v })}
+              onChoisir={(c) => setF({ ...f, client: c.valeur, tel: c.tel || f.tel })}
+              suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
+              placeholder="Nom, ou numéro du client" />
+          </Field>
           <Field label="Téléphone"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           <Field label="Article / Motif"><input className={inputCls} value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} /></Field>
           <Field label="Montant dette (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
