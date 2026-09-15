@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1349 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1409 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 184 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 72  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
@@ -217,7 +217,11 @@ lit mal est pire qu'un banc absent).
   (09/09/2026, « comment la clôture peut être impossible à un vendeur ? » —
   le « gérant + admin » du 04/09 était un malentendu ; `securite-11`).
   Gérant + admin : fournisseurs.
-  **Le vendeur n'a pas l'onglet 🔁 Transfert** (09/09/2026 : il ne peut
+  **Le vendeur n'a ni l'onglet 📤 Dépenses ni 🔁 Transfert.** Dépenses :
+  retiré le 15/09/2026 (« le vendeur en boutique clôture juste la caisse, il
+  ne fait jamais le versement ni dépense ; ici c'est le gérant aussi qui
+  vend ») — il garde 🔒 Caisse, la clôture reste son geste. Transfert
+  (09/09/2026 : il ne peut
   pas valider, l'onglet est parti ; le gérant le garde).
   Admin + resp. commercial : programmer une installation. Admin ou chef de
   CE chantier : marquer terminé. Admin ou son commercial (« laisser comme
@@ -872,10 +876,12 @@ lit mal est pire qu'un banc absent).
   (rien ne change tant qu'on n'y touche pas) ; elle commande les quatre
   carrés de la boutique regardée, le tableau du résumé ET l'historique des
   versements. Avec une période : entrées, sorties, versé = ceux DE la
-  période ; **« Fonds à verser » = le solde d'espèces À LA FIN de la période**
-  (comme le relevé des caisses centrales), le libellé le dit. ⚠ **Le montant
-  ATTENDU par le formulaire de versement reste TOUJOURS le solde depuis le
-  début** (`aVerser` sans période ; un solde ne dépend pas d'une période),
+  période ; **« Fonds à verser » = LE TIROIR À LA FIN de la période** (la
+  recette — depuis le 15/09/2026 le fonds de caisse n'y est plus, il est dans
+  l'enveloppe), comme le relevé des caisses centrales, et le libellé le dit.
+  ⚠ **Le montant ATTENDU par le formulaire de versement reste TOUJOURS le
+  tiroir depuis le début** (`aVerser` sans période ; un solde ne dépend pas
+  d'une période),
   le banc le vérifie. `fondsAVerser` / `totalVerse` / `resumeCaisses`
   acceptent `periode = { du, au }` facultative.
   **Le sélecteur porte la mention « Période : »** et la même liste déroulante
@@ -901,57 +907,110 @@ lit mal est pire qu'un banc absent).
   règle d'archivage aussi à l'historique des dépenses ») : `TableauDepenses`
   (écrit une fois, boutique et « Chez le comptable ») passe par le composant,
   plus de pagination ; l'en-tête reste collé en haut du cadre.
-- **💼 Fonds de caisse fixe par boutique** (13/09/2026 : « si chaque mois je
-  laisse un fonds d'argent au revendeur, histoire de faire une dépense s'il
-  n'y a pas encore une vente… ajoute le réglage fonds de caisse fixe par
-  boutique ») : ⚙ Paramètres → Boutiques, bouton « 💼 Fonds de caisse »
-  (admin, pas pour un dépôt), champ `fonds_caisse_fixe` de la boutique —
-  rien à coller (les champs de boutique sont libres pour l'admin). Règle
-  pure `fondsCaisseFixe` / `aVerserAuDela` (lib/versements.js) :
-  `fondsAVerser` rend `montant` (le SOLDE d'espèces) ET `aVerser` (au-delà
-  du fonds, jamais négatif). **Le versement attendu = `aVerser`**, sans
-  justification à écrire ; le carré « Fonds à verser » et le résumé montrent
-  `aVerser` avec « solde … · fonds fixe … conservé » quand un fonds est
-  réglé, sinon le solde comme avant. Le fonds ne se verse jamais : il reste
-  dans le tiroir, et les dépenses « payées avec la caisse » sont justes.
-  Sans réglage, rien ne change. ~~Un fonds laissé après un versement n'est
-  pas une entrée : on verse moins, on ne remet pas~~ — **remplacé le
-  14/09/2026** (voir le point suivant) : le fonds est TOUJOURS remis par le DG.
-- **💼 Le fonds de caisse = de l'argent REMIS par le DG, rien d'autre**
-  (14/09/2026, captures d'APESSITO : 348 000 d'entrées, 50 000 de dépenses,
-  298 000 versés, « et dans la foulée on avait aussi donné un fonds de caisse
-  de 50 000… il ne faut pas mélanger le fonds de caisse avec ce qu'on va
-  verser… on ne verse jamais le fonds de caisse ») : l'argent remis n'était
-  écrit nulle part (solde 0, « 50 000 conservé » faux, clôture faussée de
-  50 000). Trois décisions dans la journée, dans l'ordre : **« fonds de
-  caisse, les deux ne peuvent jamais être deux choses différentes »** (un
-  bloc « Remettre » dans Caisse à côté du réglage de Paramètres → retiré) ;
-  **« je le préfère dans la fiche de la boutique, puisque c'est une opération
-  une fois de bon »** ; et, devant un choix « laissé sur les ventes » qui
-  n'écrivait rien (« il y a un trou… il faut revoir ») : **« il ne doit y
-  avoir AUCUN lien entre le fonds de caisse et les ventes. Le seul lien,
-  c'est la compensation : fonds de caisse entamé, les ventes viennent
-  rembourser. C'est tout. »** Donc **UN geste, « Remettre », dans
-  ⚙ Paramètres → Boutiques → 💼 Fonds de caisse** (fenêtre ; administrateur
-  PRINCIPAL, revérifié dans le geste ; serveur `securite-16`) : montant,
-  d'où vient l'argent (**Chez le DG** d'office, ou **BANQUE**), date. Chaque
-  remise **AUGMENTE le fonds** de la boutique (`fonds_caisse_fixe`) ET
-  **entre dans son tiroir** (`planRemiseFonds` / `construireRemiseFonds`,
-  lib/versements.js) : une ligne de `depenses`, catégorie
-  `CATEGORIE_FONDS_CAISSE` (« Fonds de caisse remis »), **montant NÉGATIF**
-  (convention de la caisse du comptable), et une SORTIE de la caisse
-  centrale d'origine ce jour-là. **Ni vente, ni charge**
-  (`CATEGORIES_HORS_CHARGES`), jamais une « sortie » négative : `fondsAVerser`
-  la rend à part (`fondsRemis`), la clôture aussi (`fondsRemisDuJour`, dans la
-  recette). Aucune origine « ventes » : ne pas la remettre. **Le trou se
-  mesure** (`manqueRemises` = fonds réglé − remises enregistrées) : la
-  fenêtre le dit en rouge et propose « Régulariser » (une remise qui comble
-  le manque SANS changer le fonds — pour les fonds réglés le 13/09 avant que
-  la remise existe). **🔒 Caisse ne fait que LIRE** : le carré « 💼 Fonds de
-  caisse » (ce qu'il en reste dans le tiroir = solde borné au fonds,
-  `etatFondsCaisse` — intact / entamé de X), sa colonne dans le RÉSUMÉ ; le
-  carré « Fonds à verser » ne dit plus « conservé ». Le banc interdit tout
-  geste de remise dans Caisse.
+- **💼 LE FONDS DE CAISSE EST DANS UNE ENVELOPPE, PAS DANS LE TIROIR**
+  (15/09/2026 — **la règle en vigueur** ; elle RETOURNE celles du 13 et du
+  14/09, rappelées à la fin du point parce qu'elles expliquent le chemin).
+  Timo, dans l'ordre : « pourquoi tu veux toujours impliquer le fonds de
+  caisse dans les totaux ?… fais appel au fonds de caisse QUE s'il n'y a pas
+  de vente et qu'il faut une dépense » ; puis, à la question « ces 50 000, ils
+  sont où physiquement ? », **réponse B : à part** — une enveloppe, pas le
+  tiroir. Tout ce qui suit découle de là.
+  - **DEUX POCHES, jamais additionnées.** Règle pure `deuxPoches`
+    (lib/versements.js) : une marche dans l'ordre du temps sur les mouvements
+    d'espèces d'une boutique. **LE TIROIR** = ventes et règlements en espèces,
+    moins ce qu'ils ont payé, moins les versements. **L'ENVELOPPE** = ce que
+    le DG y a mis, moins ce qu'on y a pris. Dans cet ordre : (1) une ENTRÉE
+    rembourse d'abord l'enveloppe si elle est entamée, le reste va au tiroir
+    (« fonds de caisse entamé, les ventes viennent rembourser ») ; (2) une
+    DÉPENSE se paie sur le tiroir, l'enveloppe ne complète que ce qu'il ne
+    couvre pas — et jamais au-delà de ce qu'elle contient (au-delà, c'est le
+    tiroir qui se creuse) ; (3) un VERSEMENT ne sort QUE du tiroir ; (4) une
+    REMISE du DG va dans l'enveloppe, jamais dans le tiroir.
+  - **Le « montant attendu dans le tiroir » = la recette seule.**
+    `fondsAVerser` rend `montant` (le tiroir) et `aVerser` (la même chose : il
+    n'y a plus rien à retrancher), plus `fondsPlafond`, `resteFonds`,
+    `fondsEntame`, `depensesSurFonds`. Le carré « Fonds à verser » dit « le
+    fonds de caisse est gardé à part : il n'est pas là-dedans » ; les Entrées
+    n'additionnent plus le fonds remis.
+  - **L'enveloppe est INFORMÉE à la clôture, jamais demandée** (15/09/2026 —
+    un comptage obligatoire a été posé puis RETIRÉ le jour même : « enlève
+    cette restriction de compter l'enveloppe… tant qu'elle a été entamée,
+    l'information suffit déjà. Elle est compensée automatiquement quand il y a
+    vente, et à la clôture le système informe combien a été restitué dans
+    l'enveloppe. C'est déjà suffisant. »). La clôture dit l'état (intacte, ou
+    entamée de X avec ce qu'il doit rester) **et le mouvement du jour** (ce
+    qui y a été pris, ce que les recettes ont restitué). Aucun champ, aucun
+    écart d'enveloppe, aucun blocage. ⚠ Conséquence assumée par Timo :
+    **l'enveloppe n'est jamais comptée physiquement.**
+  - **Le réglage de ⚙ Paramètres COMMANDE le fonds, à la hausse comme à la
+    baisse** (15/09/2026 : « le réglage dans les paramètres doit rester utile,
+    car à tout moment je peux augmenter ou diminuer le fonds de caisse et ça
+    devrait passer par les paramètres »). ⚙ Paramètres → Boutiques → 💼 Fonds
+    de caisse : on saisit **le NOUVEAU montant**. Règle pure
+    `planFondsCaisse`, qui REMPLACE `planRemiseFonds` (retirée) : à la hausse
+    le DG **apporte** la différence, à la baisse il la **reprend**. Une remise
+    porte un `fonds_caisse.montant` POSITIF (ligne négative, une entrée
+    d'enveloppe) ; une reprise un montant NÉGATIF (ligne positive, une
+    sortie). La caisse centrale suit : **si j'augmente, la caisse du DG
+    diminue ; si je diminue, c'est reversé sur la caisse du DG** (ou la
+    BANQUE, au choix — « Chez le DG » d'office). Administrateur PRINCIPAL
+    seul, revérifié dans le geste. **Le tiroir des ventes n'est jamais
+    touché**, ni par une remise ni par une reprise, et la fenêtre le dit.
+  - **Serveur** : `securite-16` (créer = le DG seul, montant forcé à
+    − `fonds_caisse.montant`), puis **`securite-19`** (seule la DATE se
+    corrige, par le DG) et **`securite-20`** (le montant peut être NÉGATIF :
+    la reprise ; zéro reste refusé). Le -20 contient le -19 en entier : c'est
+    le seul à coller. Collé par Timo le 15/09/2026 (`true | true | true`).
+  - **La DATE d'un mouvement se corrige** (`corrigerDateRemise`, bouton
+    « 📅 Date » sur chaque ligne de la fenêtre, principal seul) — parce que
+    « Régulariser » pré-remplissait la date à AUJOURD'HUI alors qu'une
+    régularisation parle d'un argent remis dans le PASSÉ : 50 000 F sont ainsi
+    tombés dans la clôture du 14/09 à DEMAKPOE (capture Timo, écart −40 800).
+    La date part maintenant VIDE en régularisation, avec un mot en rouge.
+    Seule la date bouge ; montant, origine et fonds restent gravés.
+  - **« Payé avec : Le fonds de caisse »** (15/09/2026 — RETOURNE le « laisse »
+    du 14/09, qui valait quand le fonds était DANS le tiroir) : « de sorte que
+    si pas d'argent et il faut effectuer une dépense, fonds de caisse apparaît
+    (gérant) ». Règle pure `fondsProposable` : l'option n'apparaît **JAMAIS
+    « au cas où »** — il faut le rôle (`ROLES_FONDS_CAISSE` = gérant, admin),
+    une enveloppe non vide, un montant saisi, un **TIROIR QUI NE SUFFIT PAS**,
+    et une enveloppe capable de couvrir ce qui manque. Mot pour mot :
+    « 20 000 dans la caisse alors que la dépense doit être 30 000 : la dépense
+    prend les 20 000 de la caisse et on passe avec 10 000 de fonds de caisse…
+    pour des dépenses où il n'y a même pas la caisse, c'est le fonds de caisse
+    qui sera utilisé ». DEUX cas, **UNE règle d'affectation** : le tiroir paie
+    ce qu'il peut, l'enveloppe complète. Le choix ne change pas le partage, il
+    le rend voulu et visible ; pour le reste c'est une dépense de caisse
+    ordinaire (même `sortDuTiroir`, même validation du DG, même blocage de
+    clôture). Un mot en ambre annonce le partage, la confirmation le répète.
+  - **On ne sort pas du tiroir plus qu'il ne contient** (15/09/2026 : « si
+    dépense dépasse fonds de caisse, impossible de dépenser » ; sur deux
+    dépenses en attente : « si on valide la première, la seconde refuse
+    jusqu'à ce que le tiroir contienne l'argent nécessaire » ; sur l'argent
+    avancé de sa poche : « elle attendra que le tiroir soit capable et après
+    validation elle reprend son argent »). Règle pure `critiqueSortieTiroir` :
+    **la limite est le tiroir PLUS ce qu'il reste dans l'enveloppe**, pas le
+    fonds seul. Posée aux TROIS moments où l'argent sort hors versement : la
+    saisie (mesurée sur la caisse QUI PAIE), la validation du DG, et le
+    remboursement d'une avance de frais en espèces. Le refus nomme les
+    montants et la porte de sortie (« une avance personnelle »).
+  - ⚠ **Un fonds réglé sans remise enregistrée ne retient rien** :
+    `manqueRemises` le mesure, le RÉSUMÉ de 🔒 Caisse le dit en rouge
+    (« réglé X, jamais remis »), et « Régulariser » comble le trou de
+    traçabilité SANS toucher au montant du fonds.
+  - **Ce qui a été RETOURNÉ, et qu'il ne faut pas reconstruire** : le réglage
+    du 13/09 (« le versement attendu = solde − fonds fixe », le fonds
+    « conservé » dans le tiroir) ; et la décision du 14/09 (« chaque remise
+    AUGMENTE le fonds ET entre dans son tiroir », `fondsRemisDuJour` compté
+    dans la recette de la clôture). Les deux venaient d'un fonds rangé dans le
+    tiroir. Leur histoire reste utile : c'est en cherchant un écart de
+    −40 800 F sur la clôture du 14/09 à DEMAKPOE que Timo a tranché
+    l'enveloppe. Ce qui n'a PAS bougé du 14/09 : le fonds est toujours de
+    l'argent de BMI venu du DG ou de la banque, **jamais « laissé sur les
+    ventes »** (« il ne doit y avoir AUCUN lien entre le fonds de caisse et
+    les ventes. Le seul lien, c'est la compensation »), il n'est ni vente ni
+    charge (`CATEGORIES_HORS_CHARGES`), et **on ne le verse jamais**.
+
 - **« Payé avec : la caisse du comptable »** (13/09/2026) : quatrième origine
   (`PAYE_AVEC_COMPTABLE`), **réel seulement** (`optionsPayeAvec(…, {
   avecComptable: !afficheChiffresFormation })`, « Chez le comptable » n'a pas
@@ -964,11 +1023,15 @@ lit mal est pire qu'un banc absent).
   `decaisse_le` / `decaisse_par` seulement) : rien à coller. **« De l'argent
   remis par le DG » = l'argent de BMI qui est chez le DG**, pas son argent
   personnel ; un apport personnel n'existe pas encore dans l'application.
-  **« Laisse » (14/09/2026)** à trois propositions, ne pas les reproposer :
-  un choix « fonds de caisse » dans « Payé avec » (le fonds EST dans le
-  tiroir : c'est « la caisse de la boutique »), restreindre « remis par le
-  DG » à l'admin ou le faire valider quel que soit le montant, un « apport
-  de départ » pour la caisse Chez le DG (elle part de zéro, et Timo le sait).
+  **« Laisse » (14/09/2026)** à trois propositions. Deux tiennent toujours, ne
+  pas les reproposer : restreindre « remis par le DG » à l'admin ou le faire
+  valider quel que soit le montant ; un « apport de départ » pour la caisse
+  Chez le DG (elle part de zéro, et Timo le sait). ~~Un choix « fonds de
+  caisse » dans « Payé avec » (le fonds EST dans le tiroir : c'est « la caisse
+  de la boutique »)~~ — **RETOURNÉ le 15/09/2026** : le fonds n'est plus dans
+  le tiroir mais dans une enveloppe, et Timo a DEMANDÉ ce choix (voir le point
+  « Payé avec : Le fonds de caisse » plus haut). Le « laisse » du 14/09 ne
+  valait que tant que le fonds vivait dans le tiroir.
 - **Un versement n'est JAMAIS une dépense** (10/09/2026, capture : « pourquoi
   il pense que le versement est une dépense ? » — résultat du jour à
   −252 299). Il n'est une sortie que pour la caisse (fonds à verser,
@@ -1108,10 +1171,14 @@ lit mal est pire qu'un banc absent).
   (`soldeEspecesFinDeJour`), pas le flux du jour (capture Timo, 09/09/2026 :
   −150 900 affiché alors qu'il restait 50 000 dans le tiroir). **La clôture
   se lit en quatre lignes** (Timo : « c'est journalier : recette du jour
-  théorique contre montant du tiroir ») : fonds de caisse d'hier soir +
-  recette du jour − sorties justifiées (dépenses + versements, **qui ne
-  créent jamais d'écart** : « une dépense n'est pas un manque ») = attendu
-  dans le tiroir ; le champ s'appelle **« Montant du tiroir »** (14/09/2026,
+  théorique contre montant du tiroir ») : **ce qu'il y avait DANS LE TIROIR
+  hier soir** + recette du jour − sorties justifiées (dépenses + versements,
+  **qui ne créent jamais d'écart** : « une dépense n'est pas un manque »),
+  − ce que la recette a rendu à l'enveloppe = attendu dans le tiroir.
+  ⚠ **Le fonds de caisse n'y entre PAS** (15/09/2026, voir § « l'enveloppe »
+  plus bas) : la première ligne dit « Dans le tiroir hier soir — la recette,
+  le fonds de caisse n'est pas dedans ». L'ancienne formule disait « fonds de
+  caisse d'hier soir » et comptait le fonds : RETOURNÉE ; le champ s'appelle **« Montant du tiroir »** (14/09/2026,
   capture : « trop de commentaire » — le libellé long du 09/09 est RETOURNÉ).
   **La remarque tient sur UNE case et GRANDIT avec le texte** (« la ligne de
   la remarque aussi trop longue, la raccourcir, et si le texte augmente, la
