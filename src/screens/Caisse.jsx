@@ -41,7 +41,6 @@ export function Caisse({ db, save, profile }) {
   const periode = depuisLeDebut ? null : { du: periodeChoisie[1], au: periodeChoisie[2] };
   const libellePeriode = periodeChoisie[0];
   const [notes, setNotes] = useState("");
-  const [fondsCompte, setFondsCompte] = useState("");
   const aujourdhui = today();
   // ⚠ Décision Timo (09/09/2026) : une journée avec des ventes et sans
   // clôture BLOQUE les ventes du lendemain (lib/cloture.js). L'écran doit
@@ -59,13 +58,12 @@ export function Caisse({ db, save, profile }) {
   const { especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne, fondsPlafond, fondsReste, fondsEntame, fondsIntact } = jour;
   // Le piège de la capture du 09/09/2026 (écart 1 400) : la recette saisie à la place du tiroir.
   const alerteRecette = alerteSaisieRecette(compte, jour, fmt);
-  // ⚠ Timo (15/09/2026) : le fonds est gardé À PART, dans une enveloppe — et
-  // « personne ne compte jamais l'enveloppe » était le seul trou du modèle.
-  // Décision : « tout de suite… mais on informe lors de la clôture de la
-  // caisse ». Quand l'enveloppe a été ENTAMÉE, la clôture la fait compter
-  // aussi ; intacte, elle est seulement rappelée.
-  const compterLEnveloppe = fondsPlafond > 0 && fondsEntame > 0;
-  const ecartFonds = fondsCompte === "" ? null : Number(fondsCompte) - fondsReste;
+  // ⚠ Timo (15/09/2026), après avoir essayé le comptage obligatoire : « enlève
+  // cette restriction de compter l'enveloppe… tant qu'elle a été entamée,
+  // l'information suffit déjà. Elle est compensée automatiquement quand il y a
+  // vente, et à la clôture le système informe combien a été restitué dans
+  // l'enveloppe. C'est déjà suffisant. » La clôture INFORME donc, elle ne
+  // demande RIEN : ni champ, ni écart, ni blocage.
   const dejaCloturee = estCloturee(db, boutique, t);
   const aReclôturer = depassees.find((d) => d.date === t) || null;
   const ecart = compte === "" ? null : Number(compte) - theorique;
@@ -81,7 +79,6 @@ export function Caisse({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     if (blocageCloture) { uAlert(blocageCloture); return; }
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
-    if (compterLEnveloppe && fondsCompte === "") { uAlert(`Le fonds de caisse de ${boutique} a été entamé de ${fmt(fondsEntame)}.\n\nComptez aussi l'enveloppe et saisissez ce qu'elle contient : c'est la seule fois où on la vérifie.`); return; }
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\n\n`
       + `Dans le tiroir hier soir : ${fmt(fondsHier)}\n`
       + `+ Recette du jour (ventes et encaissements) : ${fmt(recetteDuJour)}\n`
@@ -93,7 +90,7 @@ export function Caisse({ db, save, profile }) {
       // n'est pas dans le tiroir, elle n'entre dans aucun total — on la
       // rappelle seulement, pour information.
       + (fondsPlafond > 0 ? `\n💼 Fonds de caisse (gardé à part, PAS dans le tiroir) : ${fmt(fondsReste)}${fondsIntact ? " — intact" : ` — entamé de ${fmt(fondsEntame)}`}\n` : "")
-      + (compterLEnveloppe ? `   Compté dans l'enveloppe : ${fmt(Number(fondsCompte))} — écart ${fmt(Number(fondsCompte) - fondsReste)}\n` : "")
+      + (rembourseAuFonds > 0 ? `   Les recettes du jour lui ont restitué ${fmt(rembourseAuFonds)}.\n` : "")
       + `\n= À trouver dans le tiroir : ${fmt(theorique)}\n`
       + `Compté dans le tiroir : ${fmt(Number(compte))}\n`
       + `Écart de caisse : ${fmt(Number(compte) - theorique)}${alerteRecette ? "\n\n" + alerteRecette : ""}`)) return;
@@ -101,13 +98,10 @@ export function Caisse({ db, save, profile }) {
     // l'ancienne photo reste dans `precedentes`, qui ne rétrécit jamais.
     const ancienne = db.clotures.find((c) => c.boutique === boutique && String(c.date) === t);
     const fiche = { id: ancienne?.id || uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui,
-      // 💼 L'enveloppe, quand elle a été comptée : ce qu'on y attendait et ce
-      // qu'on y a trouvé. Jamais additionnée au tiroir.
-      ...(compterLEnveloppe ? { fonds_attendu: fondsReste, fonds_compte: Number(fondsCompte) } : {}),
       ...(ancienne ? { precedentes: [...(ancienne.precedentes || []), { theorique: ancienne.theorique, compte: ancienne.compte, par: ancienne.par, cloture_le: ancienne.cloture_le, notes: ancienne.notes || "" }] } : {}) };
     save({ ...db, clotures: [fiche, ...db.clotures.filter((c) => !(c.boutique === boutique && String(c.date) === t))] },
       `${ancienne ? "RECLÔTURE" : "Clôture"} caisse ${boutique} du ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui && !ancienne ? " — clôturée en retard" : ""}`);
-    setCompte(""); setNotes(""); setFondsCompte(""); setJourChoisi("");
+    setCompte(""); setNotes(""); setJourChoisi("");
     uAlert(`Clôture du ${dFR(t)} enregistrée !`);
   };
 
@@ -565,22 +559,18 @@ export function Caisse({ db, save, profile }) {
                 rappelle ; ENTAMÉE, on la fait compter — c'est la seule fois où
                 elle est vérifiée. */}
             {fondsPlafond > 0 && (
-              <div className={`mt-3 rounded-lg border p-3 ${compterLEnveloppe ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"}`} data-cloture="enveloppe">
+              <div className={`mt-3 rounded-lg border p-3 ${fondsIntact ? "border-slate-200 bg-slate-50" : "border-amber-300 bg-amber-50"}`} data-cloture="enveloppe">
                 <div className="text-sm font-bold text-slate-800">💼 Fonds de caisse — l'enveloppe, à part du tiroir</div>
                 <div className="text-xs text-slate-600 mt-0.5">
                   {fondsIntact
-                    ? <>Elle n'a pas été touchée : il doit y avoir <b className="tabular-nums">{fmt(fondsReste)}</b>. Rien à faire — elle n'entre dans aucun calcul ci-dessus.</>
-                    : <>Elle a été entamée de <b className="tabular-nums">{fmt(fondsEntame)}</b> : il devrait y rester <b className="tabular-nums">{fmt(fondsReste)}</b> sur {fmt(fondsPlafond)}. <b>Comptez-la aussi</b> — c'est la seule fois où on la vérifie.</>}
+                    ? <>Elle est intacte : il doit y avoir <b className="tabular-nums">{fmt(fondsReste)}</b>. Elle n'entre dans aucun calcul ci-dessus.</>
+                    : <>Elle a été entamée de <b className="tabular-nums">{fmt(fondsEntame)}</b> : il devrait y rester <b className="tabular-nums">{fmt(fondsReste)}</b> sur {fmt(fondsPlafond)}. Les prochaines recettes la rembourseront toutes seules.</>}
                 </div>
-                {compterLEnveloppe && (
-                  <div className="grid sm:grid-cols-2 gap-3 mt-2">
-                    <Field label="Montant compté dans l'enveloppe"><input type="number" className={inputCls} value={fondsCompte} onChange={(e) => setFondsCompte(e.target.value)} data-cloture="fonds-compte" /></Field>
-                    <div className="flex items-end">
-                      <div className="text-sm">
-                        <div className="text-xs text-slate-500">Écart sur l'enveloppe</div>
-                        <div className={`font-bold tabular-nums ${ecartFonds === null ? "text-slate-400" : ecartFonds === 0 ? "text-green-700" : "text-red-600"}`}>{ecartFonds === null ? "—" : fmt(ecartFonds)}</div>
-                      </div>
-                    </div>
+                {(depensesSurFonds > 0 || rembourseAuFonds > 0) && (
+                  <div className="text-xs text-slate-500 mt-1" data-cloture="enveloppe-jour">
+                    Ce jour-là :{depensesSurFonds > 0 ? <> <b className="tabular-nums text-amber-800">− {fmt(depensesSurFonds)}</b> pris dans l'enveloppe</> : null}
+                    {depensesSurFonds > 0 && rembourseAuFonds > 0 ? " ·" : null}
+                    {rembourseAuFonds > 0 ? <> <b className="tabular-nums text-emerald-700">+ {fmt(rembourseAuFonds)}</b> restitués par les recettes</> : null}
                   </div>
                 )}
               </div>

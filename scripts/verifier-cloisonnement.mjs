@@ -7406,18 +7406,24 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
       // …et il reste là où il doit être : admin, comptable, gérant, techniciens.
       && (appE.match(/\["depenses", "📤 Dépenses"\]/g) || []).length === 5);
     const caE = readFileSync("src/screens/Caisse.jsx", "utf8");
-    test("★ la clôture INFORME toujours sur l'enveloppe, et la fait COMPTER quand elle a été entamée (le champ n'apparaît que dans ce cas, avec son écart à part)",
-      /const compterLEnveloppe = fondsPlafond > 0 && fondsEntame > 0;/.test(caE) && /const ecartFonds = fondsCompte === "" \? null : Number\(fondsCompte\) - fondsReste;/.test(caE)
-      && /data-cloture="enveloppe"/.test(caE) && /\{fondsPlafond > 0 && \(/.test(caE) && /\{compterLEnveloppe && \(/.test(caE)
-      && /data-cloture="fonds-compte"/.test(caE) && /Écart sur l'enveloppe/.test(caE)
-      && /Elle n'a pas été touchée/.test(caE) && /c'est la seule fois où on la vérifie/.test(caE));
-    test("★ la clôture est REFUSÉE tant que l'enveloppe entamée n'est pas comptée, la confirmation dit les deux chiffres, et la fiche garde fonds_attendu / fonds_compte",
-      /if \(compterLEnveloppe && fondsCompte === ""\) \{ uAlert\(/.test(caE)
-      && /Compté dans l'enveloppe : \$\{fmt\(Number\(fondsCompte\)\)\} — écart \$\{fmt\(Number\(fondsCompte\) - fondsReste\)\}/.test(caE)
-      && /\.\.\.\(compterLEnveloppe \? \{ fonds_attendu: fondsReste, fonds_compte: Number\(fondsCompte\) \} : \{\}\),/.test(caE)
-      && /setCompte\(""\); setNotes\(""\); setFondsCompte\(""\); setJourChoisi\(""\);/.test(caE));
-    test("★ l'enveloppe comptée n'entre dans AUCUN total du tiroir : le montant attendu, l'écart de caisse et les fonds à verser l'ignorent",
-      !/theorique \+ fonds|compte \+ fondsCompte|fondsCompte \+ compte/.test(caE) && /const ecart = compte === "" \? null : Number\(compte\) - theorique;/.test(caE));
+    // ⚠ RETOURNÉ dans la journée du 15/09/2026. Le comptage obligatoire de
+    // l'enveloppe a été posé puis RETIRÉ sur décision de Timo : « enlève cette
+    // restriction de compter l'enveloppe… tant qu'elle a été entamée,
+    // l'information suffit déjà. Elle est compensée automatiquement quand il y
+    // a vente, et à la clôture le système informe combien a été restitué dans
+    // l'enveloppe. C'est déjà suffisant. » La clôture INFORME, elle ne demande
+    // RIEN : aucun champ, aucun écart d'enveloppe, aucun blocage.
+    test("★ la clôture INFORME sur l'enveloppe (intacte, ou entamée avec ce qu'il doit rester) et ne demande RIEN : aucun champ à saisir, aucun écart d'enveloppe, aucun blocage",
+      /data-cloture="enveloppe"/.test(caE) && /\{fondsPlafond > 0 && \(/.test(caE)
+      && /Elle est intacte/.test(caE) && /Les prochaines recettes la rembourseront toutes seules/.test(caE)
+      && !/compterLEnveloppe|fondsCompte|ecartFonds|Écart sur l'enveloppe|Montant compté dans l'enveloppe/.test(caE)
+      && !/fonds_attendu|fonds_compte/.test(caE));
+    test("★ et elle DIT le mouvement du jour : ce qui a été pris dans l'enveloppe, et ce que les recettes lui ont restitué (« le système informe combien a été restitué »)",
+      /data-cloture="enveloppe-jour"/.test(caE) && /\{\(depensesSurFonds > 0 \|\| rembourseAuFonds > 0\) && \(/.test(caE)
+      && /pris dans l'enveloppe/.test(caE) && /restitués par les recettes/.test(caE)
+      && /Les recettes du jour lui ont restitué \$\{fmt\(rembourseAuFonds\)\}/.test(caE));
+    test("★ l'enveloppe n'entre dans AUCUN total du tiroir : le montant attendu, l'écart de caisse et les fonds à verser l'ignorent",
+      !/theorique \+ fonds|compte \+ fonds/.test(caE) && /const ecart = compte === "" \? null : Number\(compte\) - theorique;/.test(caE));
   }
 
   // ── « PAYÉ AVEC : LE FONDS DE CAISSE » (Timo, 15/09/2026) ──
