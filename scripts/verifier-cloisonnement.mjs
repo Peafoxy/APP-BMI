@@ -5990,9 +5990,10 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   const dbV = { ...base(), users: [...base().users, ali], ventes: [{ id: "v", boutique: "APESSITO", date: "2026-09-12", paiement: "Espèces", total: 100000 }], depenses: [], clotures: [], messages: [] };
 
   // ---- Le seuil et la saisie ----
-  test("★ le seuil est 5 000 F : 4 999 se passe de validation, 5 000 la demande ; les QUATRE origines des fonds existent (caisse, avance, DG, comptable — 13/09/2026), la caisse est le défaut d'une ancienne ligne",
+  test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo : « dans Payé avec, ajouter fonds de caisse, de sorte que si pas d'argent et il faut effectuer une dépense, fonds de caisse apparaît (gérant) ») — le « laisse » du 14/09 valait quand le fonds était DANS le tiroir ; il est maintenant une enveloppe à part — le seuil est 5 000 F ; les CINQ origines des fonds existent (caisse, avance, DG, comptable, fonds de caisse), la caisse est le défaut d'une ancienne ligne",
     Vd.SEUIL_VALIDATION_DEPENSE === 5000 && Vd.doitEtreValidee(4999) === false && Vd.doitEtreValidee(5000) === true
-    && Vd.PAYE_AVEC.map(([c]) => c).join("|") === "caisse|avance|dg|comptable" && Vd.payeAvecCaisse({}) === true && Vd.payeAvecCaisse({ paye_avec: "avance" }) === false
+    && Vd.PAYE_AVEC.map(([c]) => c).join("|") === "caisse|avance|dg|comptable|fonds" && Vd.payeAvecCaisse({}) === true && Vd.payeAvecCaisse({ paye_avec: "avance" }) === false
+    && Vd.payeAvecCaisse({ paye_avec: "fonds" }) === false && Vd.libellePayeAvec("fonds") === "Le fonds de caisse (l'enveloppe)"
     && Vd.libellePayeAvec(undefined) === "La caisse de la boutique");
   const s7 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "carburant", montant: 7000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
   const s2 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
@@ -6004,7 +6005,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && sT.depense.validation.statut === "validee" && sT.depense.validation.auto === true && sT.messages.length === 0);
   test("★ la saisie refuse un montant nul, une origine inconnue, une boutique absente",
     /montant/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 0, paye_avec: "caisse" }).refus || "")
-    && /caisse de la boutique, une avance personnelle/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 10, paye_avec: "poche" }).refus || "")
+    && /caisse de la boutique, le fonds de caisse, une avance personnelle/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 10, paye_avec: "poche" }).refus || "")
     && /boutique/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "", montant: 10, paye_avec: "caisse" }).refus || ""));
 
   // ---- Ce qui compte, et où ----
@@ -6026,6 +6027,9 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && /import \{ compteDansLaCaisse \} from "\.\/validationDepenses\.js";/.test(readFileSync("src/lib/cloture.js", "utf8")) && !/x\.paiement === "Espèces" && String\(x\.date\) <= d0/.test(readFileSync("src/lib/cloture.js", "utf8")));
   test("★ les fonds à verser (lib/versements.js) suivent la même règle : 98 000",
     Vs2.fondsAVerser(dbC, "APESSITO", tv).montant === 98000 && Vs2.fondsAVerser(dbC, "APESSITO", tv).depenses === 2000
+    // La marche des deux poches lit compteDansLaCaisse — qui, depuis le
+    // 15/09/2026, englobe « payé avec le fonds de caisse » (le tiroir paie ce
+    // qu'il peut, l'enveloppe complète : UNE seule règle d'affectation).
     && /compteDansLaCaisse\(x\)/.test(readFileSync("src/lib/versements.js", "utf8")));
   const lignesV = Core.lignesJournal({ ...dbC, dettes: [] }, "2026-09-01", "2026-09-30");
   test("★ le journal comptable n'écrit pas la dépense en attente (7 000 absent), mais écrit l'avance et l'argent du DG (des charges)",
@@ -6109,9 +6113,9 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
 
   // ---- Les écrans ----
   const dpV = readFileSync("src/screens/Depenses.jsx", "utf8");
-  test("★ écran Dépenses : « Payé avec » (les trois origines), la saisie passe par construireDepenseSaisie (plus de fiche écrite à la main), l'avertissement du seuil avant l'envoi, « Ce mois » hors dépenses en attente (et le dit)",
+  test("★ écran Dépenses : « Payé avec » nomme chaque caisse, la saisie passe par construireDepenseSaisie (plus de fiche écrite à la main), l'avertissement du seuil avant l'envoi, « Ce mois » hors dépenses en attente (et le dit) ; ⚠ RETOURNÉ le 15/09/2026 : la liste reçoit en plus la proposition du fonds de caisse",
     // 13/09/2026 (capture Timo) : « Payé avec » nomme chaque caisse (optionsPayeAvec) ; le choix donne origine ET boutique (interpreterPayeAvec).
-    /<Field label="Payé avec"><select[^\n]*optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\) \}\)\.map/.test(dpV) /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
+    /optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\), fonds: propositionFonds \}\)\.map/.test(dpV) /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
     && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
   test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
     /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
@@ -7389,6 +7393,69 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // ⚠ securite-16 refusait TOUTE modification d'une remise, date comprise :
   // le bouton « Date » aurait été refusé par la base. securite-19 rouvre
   // cette porte-là, et elle seule.
+  // ── « PAYÉ AVEC : LE FONDS DE CAISSE » (Timo, 15/09/2026) ──
+  // « Dans Payé avec, ajouter fonds de caisse, de sorte que si pas d'argent et
+  // il faut effectuer une dépense, fonds de caisse apparaît (gérant). »
+  // ⚠ RETOURNE le « laisse » du 14/09 : à l'époque le fonds était DANS le
+  // tiroir, « la caisse de la boutique » suffisait. Depuis la réponse B, le
+  // fonds est une ENVELOPPE à part : l'option a un sens, et c'est la seule
+  // façon de dire « j'ai ouvert l'enveloppe ».
+  const Vd = await bundle("src/lib/validationDepenses.js", "vdf");
+  const fp = (o) => Vd.fondsProposable(o);
+  test("★ le fonds n'est proposé QUE si le tiroir ne suffit pas : tiroir 0 et enveloppe 50 000 pour 10 000 → proposé ; tiroir 200 000 → JAMAIS proposé (motif « tiroir »)",
+    fp({ role: "gerant", tiroir: 0, enveloppe: 50000, montant: 10000 }).possible === true
+    && fp({ role: "gerant", tiroir: 200000, enveloppe: 50000, montant: 10000 }).possible === false
+    && fp({ role: "gerant", tiroir: 200000, enveloppe: 50000, montant: 10000 }).motif === "tiroir"
+    && fp({ role: "gerant", tiroir: 9999, enveloppe: 50000, montant: 10000 }).possible === true);
+  test("★ le fonds de caisse est le geste du GÉRANT (et de l'admin) : un vendeur, un magasinier, un comptable ne le voient jamais",
+    Vd.ROLES_FONDS_CAISSE.join("|") === "gerant|admin"
+    && ["vendeur", "magasinier", "comptable", "technicien", "resp_commercial"].every((r) => fp({ role: r, tiroir: 0, enveloppe: 50000, montant: 10000 }).motif === "role")
+    && fp({ role: "admin", tiroir: 0, enveloppe: 50000, montant: 10000 }).possible === true);
+  test("une enveloppe vide, un montant absent, ou une dépense plus grosse que tiroir + enveloppe : jamais proposé",
+    fp({ role: "gerant", tiroir: 0, enveloppe: 0, montant: 10000 }).motif === "vide"
+    && fp({ role: "gerant", tiroir: 0, enveloppe: 50000, montant: "" }).motif === "montant"
+    && fp({ role: "gerant", tiroir: 0, enveloppe: 50000, montant: 90000 }).motif === "trop");
+  test("★ l'option n'entre dans « Payé avec » que quand elle est proposable, et jamais « au cas où »",
+    Vd.optionsPayeAvec(["DEMAKPOE"], "DEMAKPOE", { fonds: fp({ role: "gerant", tiroir: 0, enveloppe: 50000, montant: 10000 }) }).map(([c]) => c).join("|") === "caisse:DEMAKPOE|fonds|avance|dg"
+    && Vd.optionsPayeAvec(["DEMAKPOE"], "DEMAKPOE", { fonds: fp({ role: "gerant", tiroir: 200000, enveloppe: 50000, montant: 10000 }) }).map(([c]) => c).join("|") === "caisse:DEMAKPOE|avance|dg"
+    && Vd.optionsPayeAvec(["DEMAKPOE"], "DEMAKPOE").map(([c]) => c).join("|") === "caisse:DEMAKPOE|avance|dg"
+    && Vd.interpreterPayeAvec(Vd.PAYE_AVEC_FONDS, "DEMAKPOE").paye_avec === Vd.PAYE_AVEC_FONDS
+    && Vd.interpreterPayeAvec(Vd.PAYE_AVEC_FONDS, "DEMAKPOE").boutique === "DEMAKPOE");
+  // ⚠ Timo, MOT POUR MOT (15/09/2026) : « 20 000 dans la caisse alors que la
+  // dépense doit être 30 000 : la dépense prend les 20 000 de la caisse et on
+  // passe avec 10 000 de fonds de caisse. Maintenant, pour des dépenses où il
+  // n'y a même pas la caisse, c'est le fonds de caisse qui est dans
+  // l'enveloppe qui sera utilisé. » DEUX cas, UNE règle — le banc rejoue les deux.
+  const dbFo = (tiroir) => ({ boutiques: [{ nom: "X", fonds_caisse_fixe: 50000 }], dettes: [],
+    ventes: tiroir > 0 ? [{ id: "v0", boutique: "X", date: "2026-09-01", paiement: "Espèces", articles: [{ qte: 1, pu: tiroir }] }] : [],
+    depenses: [
+      { id: "f", boutique: "X", date: "2026-09-01", categorie: "Fonds de caisse remis", montant: -50000, paiement: "Espèces", fonds_caisse: { id: "z", origine: "Chez le DG", montant: 50000 } },
+      { id: "d", boutique: "X", date: "2026-09-02", categorie: "Carburant", montant: 30000, paiement: "Espèces", paye_avec: "fonds" }] });
+  const fo20 = V.fondsAVerser(dbFo(20000), "X", Core.totalVente);
+  const fo0 = V.fondsAVerser(dbFo(0), "X", Core.totalVente);
+  test("★ LE CAS DE TIMO : 20 000 dans le tiroir, dépense de 30 000 → le tiroir paie ses 20 000 et l'enveloppe COMPLÈTE 10 000 (tiroir 0, enveloppe 40 000)",
+    fo20.montant === 0 && fo20.resteFonds === 40000 && fo20.depensesSurFonds === 10000 && fo20.fondsEntame === 10000 && fo20.fondsIntact === false);
+  test("★ SON SECOND CAS : tiroir vide, dépense de 30 000 → l'enveloppe paie TOUT (enveloppe 20 000, rien pris au tiroir)",
+    fo0.montant === 0 && fo0.resteFonds === 20000 && fo0.depensesSurFonds === 30000);
+  test("★ et la recette suivante REMBOURSE l'enveloppe avant d'aller au tiroir (10 000 rendus sur une vente de 30 000 → tiroir 20 000, enveloppe 50 000)",
+    (() => { const base = dbFo(20000); const q = V.fondsAVerser({ ...base, ventes: [...base.ventes, { id: "v", boutique: "X", date: "2026-09-03", paiement: "Espèces", articles: [{ qte: 1, pu: 30000 }] }] }, "X", Core.totalVente);
+      return q.montant === 20000 && q.resteFonds === 50000 && q.fondsIntact === true; })());
+  test("★ UNE SEULE règle d'affectation : « payé avec le fonds » ne change pas le partage, il le rend voulu — l'argent sort de la boutique comme une dépense de caisse (même sortDuTiroir, même blocage de clôture, même validation du DG)",
+    Vd.sortDuTiroir({ paiement: "Espèces", paye_avec: "fonds" }) === true && Vd.payeeAvecLeFonds({ paye_avec: "fonds" }) === true
+    && Vd.compteDansLaCaisse({ paiement: "Espèces", paye_avec: "fonds" }) === true
+    && Vd.compteDansLaCaisse({ paiement: "Espèces", paye_avec: "fonds", validation: { statut: "attente" } }) === false
+    && Vd.sortDuTiroir({ paiement: "Flooz", paye_avec: "fonds" }) === false
+    && Vd.sortDeLaBoutique === undefined && Vd.compteDansLaBoutique === undefined
+    && !/sortieFonds/.test(readFileSync("src/lib/versements.js", "utf8")));
+  const dpF = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ 📤 Dépenses : l'option est branchée sur fondsProposable (rôle, enveloppe, tiroir, montant), le mot amber la propose, et le rôle EST revérifié dans le geste avec la proposabilité",
+    /const propositionFonds = fondsProposable\(\{ role: profile\.role, tiroir: poches\.montant, enveloppe: poches\.resteFonds, montant: f\.montant \}\);/.test(dpF)
+    && /fonds: propositionFonds \}\)/.test(dpF) && /data-fonds="propose"/.test(dpF)
+    && /Le tiroir paiera \{fmt\(Math\.max\(0, poches\.montant\)\)\} et l'enveloppe \{fmt\(propositionFonds\.manqueAuTiroir\)\}/.test(dpF)
+    && /Le tiroir de \$\{boutique\} paie \$\{fmt\(Math\.max\(0, poches\.montant\)\)\} et le fonds de caisse complète \$\{fmt\(propositionFonds\.manqueAuTiroir\)\}/.test(dpF)
+    && /if \(refuserSaufRoles\(profile, ROLES_FONDS_CAISSE, "Payer une dépense avec le fonds de caisse"\)\) return;/.test(dpF)
+    && /if \(!propositionFonds\.possible\) \{ uAlert\(/.test(dpF));
+
   // ── ON NE SORT PAS DU TIROIR PLUS QU'IL NE CONTIENT (Timo, 15/09/2026) ──
   // « Si dépense dépasse fonds de caisse, impossible de dépenser » ; sur deux
   // dépenses en attente : « si on valide la première, la seconde refuse

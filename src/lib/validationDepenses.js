@@ -48,11 +48,24 @@ export const PAYE_AVEC_DG = "dg";
 // sorties). Jamais proposé à un compte de formation (« Chez le comptable »
 // est réel et n'a pas de jumelle).
 export const PAYE_AVEC_COMPTABLE = "comptable";
+// ⚠ Timo (15/09/2026) : « dans Payé avec, ajouter fonds de caisse, de sorte
+// que si pas d'argent et il faut effectuer une dépense, fonds de caisse
+// apparaît (gérant) ». Le 14/09, Timo avait dit « laisse » à cette idée — mais
+// à l'époque le fonds était DANS le tiroir : « la caisse de la boutique »
+// suffisait. Depuis la réponse B (15/09), le fonds est une ENVELOPPE à part :
+// l'option a désormais un sens, et elle est la seule façon de dire « j'ai
+// ouvert l'enveloppe ».
+export const PAYE_AVEC_FONDS = "fonds";
+// Le fonds de caisse est la réserve de BMI : le gérant et l'admin y touchent.
+// « En réalité les règles qu'on met en place, c'est pour le gérant… ici c'est
+// le gérant aussi qui vend. »
+export const ROLES_FONDS_CAISSE = ["gerant", "admin"];
 export const PAYE_AVEC = [
   [PAYE_AVEC_CAISSE, "La caisse de la boutique"],
   [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
   [PAYE_AVEC_DG, "De l'argent remis par le DG"],
   [PAYE_AVEC_COMPTABLE, "La caisse du comptable"],
+  [PAYE_AVEC_FONDS, "Le fonds de caisse (l'enveloppe)"],
 ];
 export const libellePayeAvec = (code) => (PAYE_AVEC.find(([c]) => c === (code || PAYE_AVEC_CAISSE)) || PAYE_AVEC[0])[1];
 // Capture Timo (13/09/2026) : « préciser les boutiques… il peut recevoir dans
@@ -63,21 +76,41 @@ export const libellePayeAvec = (code) => (PAYE_AVEC.find(([c]) => c === (code ||
 // alors enregistrée sur la boutique dont la caisse a payé (c'est son tiroir
 // qui a bougé, c'est sa clôture et ses fonds à verser qui doivent le voir).
 export const codeCaisse = (nomBoutique) => `caisse:${nomBoutique}`;
-export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable = false } = {}) => {
+// `fonds` : { possible, reste } — l'enveloppe de la boutique regardée et si
+// le tiroir ne suffit pas pour ce montant. L'option « Le fonds de caisse »
+// n'apparaît QUE dans ce cas, et seulement pour un rôle qui y a droit
+// (Timo : « si pas d'argent et il faut effectuer une dépense, fonds de caisse
+// apparaît »). Elle n'est jamais proposée « au cas où ».
+export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable = false, fonds = null } = {}) => {
   const noms = [...(nomsBoutiques || [])];
   const ordonnes = boutiqueRegardee && noms.includes(boutiqueRegardee) ? [boutiqueRegardee, ...noms.filter((n) => n !== boutiqueRegardee)] : noms;
   return [
     ...ordonnes.map((n) => [codeCaisse(n), `La caisse de ${n}`]),
+    ...(fonds?.possible ? [[PAYE_AVEC_FONDS, `Le fonds de caisse (l'enveloppe${boutiqueRegardee ? ` de ${boutiqueRegardee}` : ""})`]] : []),
     [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
     [PAYE_AVEC_DG, "De l'argent remis par le DG"],
     ...(avecComptable ? [[PAYE_AVEC_COMPTABLE, "La caisse du comptable"]] : []),
   ];
 };
+// Le fonds de caisse est-il proposable pour cette dépense ? Il faut le rôle,
+// une enveloppe qui existe, un montant, que le TIROIR NE SUFFISE PAS, et que
+// l'enveloppe, elle, puisse payer le reste.
+export function fondsProposable({ role, tiroir, enveloppe, montant }) {
+  const m = Math.round(Number(montant) || 0);
+  const t = Math.round(Number(tiroir) || 0);
+  const e = Math.round(Number(enveloppe) || 0);
+  if (!ROLES_FONDS_CAISSE.includes(role)) return { possible: false, motif: "role", reste: e };
+  if (e <= 0) return { possible: false, motif: "vide", reste: e };
+  if (!Number.isFinite(m) || m <= 0) return { possible: false, motif: "montant", reste: e };
+  if (m <= t) return { possible: false, motif: "tiroir", reste: e };
+  if (m > t + e) return { possible: false, motif: "trop", reste: e };
+  return { possible: true, reste: e, manqueAuTiroir: m - Math.max(0, t) };
+}
 // Le choix de l'écran → l'origine des fonds ET la boutique de la dépense.
 export const interpreterPayeAvec = (valeur, boutiqueRegardee) => {
   const v = String(valeur || "");
   if (v.startsWith("caisse:")) return { paye_avec: PAYE_AVEC_CAISSE, boutique: v.slice(7) };
-  if (v === PAYE_AVEC_AVANCE || v === PAYE_AVEC_DG || v === PAYE_AVEC_COMPTABLE) return { paye_avec: v, boutique: boutiqueRegardee };
+  if (v === PAYE_AVEC_AVANCE || v === PAYE_AVEC_DG || v === PAYE_AVEC_COMPTABLE || v === PAYE_AVEC_FONDS) return { paye_avec: v, boutique: boutiqueRegardee };
   return { paye_avec: PAYE_AVEC_CAISSE, boutique: boutiqueRegardee };
 };
 export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
@@ -91,6 +124,8 @@ export const payeAvecCaisse = (d) => !d?.paye_avec || d.paye_avec === PAYE_AVEC_
 // son pointage « Remis » dans le panneau « Chez le comptable ».
 export const payeeParLeComptable = (d) => d?.paye_avec === PAYE_AVEC_COMPTABLE;
 export const estAvance = (d) => d?.paye_avec === PAYE_AVEC_AVANCE;
+// Payée avec l'ENVELOPPE : elle sort du fonds de caisse, jamais du tiroir.
+export const payeeAvecLeFonds = (d) => d?.paye_avec === PAYE_AVEC_FONDS;
 
 // ---- L'ÉTAT DE VALIDATION ----
 export const doitEtreValidee = (montant) => Number(montant) >= SEUIL_VALIDATION_DEPENSE;
@@ -103,7 +138,19 @@ export const montantOrigine = (d) => (estRejetee(d) ? Number(d.validation.montan
 // Cette dépense sort-elle (ou sortira-t-elle) du tiroir ? Espèces, payée
 // avec la caisse de la boutique. Une avance personnelle ou l'argent du DG
 // ne touchent jamais le tiroir.
-export const sortDuTiroir = (d) => d?.paiement === "Espèces" && payeAvecCaisse(d);
+// ⚠ Timo (15/09/2026), mot pour mot : « 20 000 dans la caisse alors que la
+// dépense doit être 30 000 : la dépense prend les 20 000 de la caisse et on
+// passe avec 10 000 de fonds de caisse. Maintenant, pour des dépenses où il
+// n'y a même pas la caisse, c'est le fonds de caisse qui est dans l'enveloppe
+// qui sera utilisé. » DEUX cas, UNE règle : le tiroir paie ce qu'il peut,
+// l'enveloppe complète.
+// Une dépense payée « avec le fonds » sort donc de l'argent de la boutique
+// comme une autre : LE TIROIR PAIE CE QU'IL PEUT, l'enveloppe complète le
+// reste (c'est la marche des deux poches, lib/versements.js, qui fait le
+// partage — UNE seule règle d'affectation). Le choix « Le fonds de caisse »
+// dit que le gérant SAIT qu'il va entamer l'enveloppe ; il ne change pas le
+// partage, il le rend voulu et visible.
+export const sortDuTiroir = (d) => d?.paiement === "Espèces" && (payeAvecCaisse(d) || payeeAvecLeFonds(d));
 // …et compte-t-elle DÉJÀ dans la caisse ? Seulement validée (ou sans
 // validation requise). En attente, elle ne compte nulle part.
 export const compteDansLaCaisse = (d) => sortDuTiroir(d) && !estEnAttente(d);
@@ -112,7 +159,7 @@ export const compteDansLaCaisse = (d) => sortDuTiroir(d) && !estEnAttente(d);
 export function critiqueSaisie({ montant, paye_avec, boutique }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Veuillez saisir un montant (supérieur à zéro).";
-  if (!PAYE_AVEC.some(([c]) => c === paye_avec)) return "Indiquez avec quoi la dépense a été payée : la caisse de la boutique, une avance personnelle, de l'argent remis par le DG, ou la caisse du comptable.";
+  if (!PAYE_AVEC.some(([c]) => c === paye_avec)) return "Indiquez avec quoi la dépense a été payée : la caisse de la boutique, le fonds de caisse, une avance personnelle, de l'argent remis par le DG, ou la caisse du comptable.";
   if (!boutique) return "Aucune boutique n'est choisie.";
   return "";
 }

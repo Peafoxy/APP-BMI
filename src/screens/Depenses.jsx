@@ -10,13 +10,13 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
-import { bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
+import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
 // un chantier de devis ; elle sera déduite des frais d'installation avant le
@@ -86,6 +86,13 @@ export function Depenses({ db, save, profile }) {
   // tiroir : Flooz, virement, avance personnelle, argent du DG et caisse du
   // comptable n'y touchent pas (« si une dépense ne sort pas du tiroir, elle
   // n'est pas comptabilisée dans la caisse de toute façon »).
+  // Timo (15/09/2026) : « dans Payé avec, ajouter fonds de caisse, de sorte
+  // que si pas d'argent et il faut effectuer une dépense, fonds de caisse
+  // apparaît (gérant) ». L'option n'est JAMAIS proposée « au cas où » : il
+  // faut le rôle, une enveloppe qui existe, et un tiroir qui ne suffit pas.
+  const poches = fondsAVerser(db, boutique, totalVente);
+  const propositionFonds = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: f.montant });
+
   const refusTiroir = (nomBoutique, montant, geste) => {
     // ⚠ Timo (15/09/2026, réponse B) : le fonds est gardé À PART. On peut y
     // piocher quand le tiroir ne suffit pas — la limite est donc le tiroir
@@ -113,8 +120,19 @@ export function Depenses({ db, save, profile }) {
       const refusT = refusTiroir(choixCaisse.boutique, Number(f.montant), "Cette dépense");
       if (refusT) { uAlert(refusT); return; }
     }
+    // Ouvrir l'enveloppe : le rôle est revérifié DANS le geste, et l'option
+    // doit être réellement proposable à cet instant (tiroir insuffisant).
+    if (r.depense.paye_avec === PAYE_AVEC_FONDS) {
+      if (refuserSaufRoles(profile, ROLES_FONDS_CAISSE, "Payer une dépense avec le fonds de caisse")) return;
+      if (!propositionFonds.possible) { uAlert(`Le fonds de caisse ne peut pas payer cette dépense.\n\nTiroir de ${boutique} : ${fmt(Math.max(0, poches.montant))} · enveloppe : ${fmt(propositionFonds.reste)}.\n\nOn n'ouvre l'enveloppe que si le tiroir ne suffit pas, et seulement pour ce qu'elle contient.`); return; }
+    }
     const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "";
-    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}`)) return;
+    // Timo (15/09/2026) : « la dépense prend les 20 000 de la caisse et on
+    // passe avec 10 000 de fonds de caisse » — la confirmation DIT le partage.
+    const partage = r.depense.paye_avec === PAYE_AVEC_FONDS
+      ? `\n\n💼 Le tiroir de ${boutique} paie ${fmt(Math.max(0, poches.montant))} et le fonds de caisse complète ${fmt(propositionFonds.manqueAuTiroir)} (il restera ${fmt(propositionFonds.reste - propositionFonds.manqueAuTiroir)} dans l'enveloppe). Les prochaines recettes le rembourseront.`
+      : "";
+    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}${partage}`)) return;
     const depense = chantierChoisi ? rattacherDepense(r.depense, chantierChoisi) : r.depense;
     save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : ""));
     setF(formVide);
@@ -234,7 +252,11 @@ export function Depenses({ db, save, profile }) {
           <Field label="Montant (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
           {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
-          <Field label="Payé avec"><select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })}>{optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile) }).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></Field>
+          <Field label="Payé avec">
+            <select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })} data-paye-avec>
+              {optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile), fonds: propositionFonds }).map(([c, l]) => <option key={c} value={c}>{l}</option>)}
+            </select>
+          </Field>
           {/* Timo (13/09/2026) : « au moment d'enregistrer la dépense, rattacher à
               un devis : les chantiers en cours apparaissent et il rattache » —
               puis, capture : « devant Payé avec, avoir la ligne : chantier à
@@ -247,6 +269,7 @@ export function Depenses({ db, save, profile }) {
             </select>
           </Field>
         </div>
+        {propositionFonds.possible && <div className="mt-2 text-xs text-amber-800" data-fonds="propose">💼 Le tiroir de {boutique} ne contient que {fmt(Math.max(0, poches.montant))} : le <b>fonds de caisse</b> peut compléter. Le tiroir paiera {fmt(Math.max(0, poches.montant))} et l'enveloppe {fmt(propositionFonds.manqueAuTiroir)} (il y reste {fmt(propositionFonds.reste)}). Choisissez « Le fonds de caisse » dans « Payé avec » ; les prochaines recettes le rembourseront.</div>}
         {f.chantier_id && <div className="mt-2 text-xs text-purple-800">🏠 Cette dépense sera déduite des frais d'installation du chantier avant le partage entre techniciens (une fois qu'elle compte).</div>}
         {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
           <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>
