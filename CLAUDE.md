@@ -1386,9 +1386,31 @@ lit mal est pire qu'un banc absent).
   recherche y passe par **la règle commune** `correspond` nourrie de
   `motsDuNumero` (lib/clientsConnus.js, cinquième importeur) — « 90112233 »,
   « +228 90 11 22 33 » et « 228 » trouvent le même compte. ⚠ **Corriger** un
-  numéro n'est PAS fait : pour un client, l'identifiant et le mot de passe en
-  dérivent, donc le changer le déconnecte (à traiter à part, avec renvoi des
-  codes).
+  numéro n'est PAS fait pour un CLIENT : son identifiant et son mot de passe en
+  dérivent, le changer le déconnecte (à traiter à part, avec renvoi des codes) ;
+  le geste le refuse en le disant.
+  **Le numéro d'un EMPLOYÉ était JETÉ** (16/09/2026, « pourquoi la règle n'est
+  pas applicable à tous les utilisateurs ? ») : demandé à la création, il
+  servait UNE fois à envoyer les identifiants par WhatsApp et n'était écrit
+  nulle part — la règle s'appliquait donc sur du vide. Il est **gardé** sur la
+  fiche, et **se saisit ou se corrige** par **📞 dans ⋯ Gérer** (admin ; sans
+  risque : un employé se connecte avec SON mot de passe, pas avec son numéro).
+  Serveur : `tel` est déjà dans la liste « gestion » de `securite-18` — rien à
+  coller.
+- **💬 Le mot de fidélité au client** (16/09/2026, « proposer un message aussi à
+  envoyer quand on clique sur l'icône WhatsApp ») : texte **écrit par Timo, mot
+  pour mot** (`MESSAGE_FIDELITE_DEFAUT`, lib/comptesClients.js — 6 lignes, de
+  « Bonjour {client}.. » à « Consultez aussi notre site Web bmitogo.com »).
+  **EXCLUSIVEMENT pour les clients** : sur la fiche d'un employé le clic ouvre
+  une conversation vide, comme avant. Trois mots se remplacent — `{client}`,
+  `{auteur}`, `{role}` — et **l'article est DANS le rôle** (`roleAvecArticle` :
+  « le vendeur », « l'administrateur »), donc le modèle écrit `{role}`, jamais
+  « le {role} ». **Réglable dans ⚙ Paramètres → 💬 Mot de fidélité** (admin ;
+  champ `message_fidelite` sur les boutiques, comme la liste des banques —
+  **rien à coller**), avec l'aperçu de ce que le client recevra et « ↺ Rétablir
+  le texte d'origine » ; un modèle vidé rouvre une conversation vide. Le mot
+  part par `envoyerWhatsApp`, et **WhatsApp n'envoie jamais tout seul** : le
+  texte arrive dans la case de saisie.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

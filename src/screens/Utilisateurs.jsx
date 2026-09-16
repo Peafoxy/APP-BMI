@@ -7,7 +7,7 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
@@ -143,7 +143,13 @@ export function Users({ db, save, profile }) {
         : "Choisissez la boutique de rattachement de ce compte.");
       return;
     }
-    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!espaceCree };
+    // ⚠ Timo (16/09/2026) : « pourquoi la règle n'est pas applicable à tous
+    // les utilisateurs ? » — le numéro d'un EMPLOYÉ était demandé ici, servait
+    // UNE fois à lui envoyer ses identifiants par WhatsApp, puis était JETÉ :
+    // il n'était écrit nulle part sur sa fiche. D'où un écran Utilisateurs
+    // qui n'affichait le numéro que des clients. Il est gardé maintenant.
+    const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!espaceCree,
+      ...(chiffresTel(f.tel).length >= 4 ? { tel: f.tel.trim() } : {}) };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
     // qu'un point de départ : n'importe quel admin peut toujours redonner
@@ -669,6 +675,30 @@ export function Users({ db, save, profile }) {
       `Banque de ${u.nom} : ${banque || "retirée"}${String(compte).trim() ? ` (compte ${String(compte).trim()})` : ""}`);
   };
 
+  // ---- 📞 TÉLÉPHONE D'UN EMPLOYÉ ----
+  // Les employés créés avant le 16/09/2026 n'ont AUCUN numéro (il était jeté
+  // à la création) : il faut pouvoir le saisir après coup.
+  // ⚠ EMPLOYÉS SEULEMENT. Pour un compte CLIENT, l'identifiant et le mot de
+  // passe sont fabriqués à partir du nom ET du numéro : le changer
+  // déconnecterait le client. Ça se fera à part, avec renvoi de ses codes.
+  // Un employé, lui, se connecte avec le mot de passe qu'on lui a donné :
+  // son numéro ne commande rien. Serveur : `tel` est déjà dans la liste
+  // « gestion » de securite-18 (admin seul) — rien à coller.
+  const changerTelephone = async (u) => {
+    if (refuserSaufAdmin(profile, "Modifier le téléphone d'un employé")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (u.role === "client") {
+      uAlert("Le numéro d'un CLIENT ne se change pas ici : son identifiant et son mot de passe en dépendent, il ne pourrait plus se connecter.");
+      return;
+    }
+    const t = await uPrompt(`Téléphone de ${u.nom} (laisser vide pour le retirer) :`, u.tel || "");
+    if (t === null) return;
+    const tel = String(t).trim();
+    if (tel && chiffresTel(tel).length < 4) { uAlert("Un numéro doit compter au moins 4 chiffres."); return; }
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, tel } : x)) },
+      `Téléphone de ${u.nom} : ${tel || "retiré"}`);
+  };
+
   // ---- ANNIVERSAIRE (jour et mois seulement) ----
   // ⚠ Demande Timo (20/08/2026) : souhaiter automatiquement les anniversaires
   // sur l'écran de connexion. On ne demande PAS l'année : cet écran s'affiche
@@ -1092,7 +1122,15 @@ export function Users({ db, save, profile }) {
                   {u.tel && (
                     <div className="text-xs font-normal text-slate-500 flex items-center gap-1.5">
                       <span>📞 {u.tel}</span>
-                      <button onClick={() => envoyerWhatsApp(telDigits(u.tel), "")} title={`Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></button>
+                      {/* Timo (16/09/2026) : « proposer un message aussi à envoyer
+                          quand on clique sur l'icône WhatsApp » — texte écrit par
+                          lui, réglable dans ⚙ Paramètres, et « exclusivement pour
+                          les clients » : sur la fiche d'un employé le clic ouvre
+                          une conversation vide, comme avant. WhatsApp n'envoie
+                          jamais tout seul, le mot arrive dans la case de saisie. */}
+                      <button onClick={() => envoyerWhatsApp(telDigits(u.tel), u.role === "client"
+                        ? texteFidelite(messageFideliteRegle(db), { client: u.nom_base || u.nom, auteur: profile.nom, role: profile.role })
+                        : "")} title={u.role === "client" ? `Écrire à ${u.nom} sur WhatsApp (le mot de fidélité est pré-rempli)` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></button>
                     </div>
                   )}
                 </td>
@@ -1157,6 +1195,7 @@ export function Users({ db, save, profile }) {
                     </button>
                   )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className={boutonGerer}>🏬 Boutique</button>}
+                  {u.role !== "client" && <button onClick={() => changerTelephone(u)} className={boutonGerer} title={u.tel ? `Téléphone : ${u.tel}` : "Aucun numéro sur cette fiche"}>📞 {u.tel || "Téléphone"}</button>}
                   {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className={boutonGerer}>🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className={boutonGerer}>👁 Voir le mot de passe</button>}
                   <button onClick={() => supprimerU(u)} className={`${boutonGerer} !text-red-700 !border-red-200`}>🗑 Supprimer</button>

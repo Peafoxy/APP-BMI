@@ -130,6 +130,49 @@ export const LIBELLE_ROLE_EMPLOYE = {
   resp_commercial: "Responsable Commercial", comptable: "Comptable", admin: "Administrateur",
 };
 
+// ---- 💬 LE MOT DE FIDÉLITÉ AU CLIENT (Timo, 16/09/2026) ----
+// « Proposer un message aussi à envoyer quand on clique sur l'icône WhatsApp »
+// — dans 👥 Utilisateurs. Il a écrit le texte lui-même, mot pour mot, et a
+// tranché deux choses : **exclusivement pour les clients** (le clic sur la
+// fiche d'un employé ouvre une conversation vide, comme avant), et **le
+// texte se règle dans ⚙ Paramètres**.
+//
+// ⚠ WhatsApp n'envoie JAMAIS tout seul : le texte arrive dans la case de
+// saisie, la personne le complète ou l'efface avant d'appuyer. C'est un mot
+// déjà prêt, pas un envoi automatique.
+//
+// Le réglage vit sur les boutiques (champ `message_fidelite`), comme la
+// liste des banques et le prix du rail : rien à coller dans Supabase.
+export const MESSAGE_FIDELITE_DEFAUT = [
+  "Bonjour {client}.. c'est {auteur}, {role} chez BMI",
+  "C'est pour vous renouveler notre reconnaissance de votre fidélité envers BMI...",
+  "MERCI POUR VOTRE CONFIANCE",
+  "nous sommes toujours disponibles pour vous servir",
+  "N'hésitez pas à nous contacter ou à passer en boutique à tout moment pour vos achat et devis..",
+  "Consultez aussi notre site Web bmitogo.com",
+].join("\n");
+
+// « le vendeur », « l'administrateur » : l'ARTICLE est dans le rôle, pour que
+// le texte reste juste devant une voyelle (« c'est TIMO, l'administrateur »
+// et non « le administrateur »). Le modèle écrit donc « {role} », jamais
+// « le {role} » — dit en clair dans ⚙ Paramètres.
+export const roleAvecArticle = (role) => {
+  const l = String(LIBELLE_ROLE_EMPLOYE[role] || role || "").toLowerCase();
+  if (!l) return "";
+  return /^[aeiouâàéèêëîïôöûüùy]/.test(l) ? `l'${l}` : `le ${l}`;
+};
+
+export const messageFideliteRegle = (db) => {
+  const b = (db?.boutiques || []).find((x) => typeof x?.message_fidelite === "string" && x.message_fidelite.trim());
+  return b ? b.message_fidelite : MESSAGE_FIDELITE_DEFAUT;
+};
+
+export const texteFidelite = (modele, { client, auteur, role } = {}) =>
+  String(modele ?? "")
+    .replace(/\{client\}/g, String(client || "").toUpperCase())
+    .replace(/\{auteur\}/g, String(auteur || "").toUpperCase())
+    .replace(/\{role\}/g, roleAvecArticle(role));
+
 // Invitation WhatsApp pour un EMPLOYÉ (tout rôle sauf client) : mêmes
 // identifiants qu'au client, mais SANS conseil de changer le mot de passe —
 // pour un employé, ce n'est pas possible : seul l'administrateur PRINCIPAL
