@@ -75,15 +75,41 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   // un geste de la personne pour ouvrir la fenêtre du capteur. D'où un
   // bouton, jamais un appel automatique.
   const [dispo, setDispo] = useState(false);
+  // 👆 Timo (16/09/2026, deux captures) : « tant que la personne a activé les
+  // empreintes, on ne devrait plus lui poser la question de taper avant que
+  // les empreintes ne s'ouvrent… ça devrait venir automatiquement dès qu'on
+  // rentre ou qu'on rouvre l'application. Sauf s'il annule, ça revient sur
+  // mot de passe normalement. »
+  // Donc : l'empreinte est le chemin PRINCIPAL quand elle est posée, le
+  // champ du mot de passe reste caché jusqu'au premier échec ou refus.
+  // ⚠ L'essai automatique n'est pas garanti : certains navigateurs exigent
+  // un appui récent même pour OUVRIR. S'il est refusé, on ne dit rien (ce
+  // serait du bruit) : on découvre simplement le mot de passe et le bouton.
+  const autoTente = useRef(false);
+  const [mdpDecouvert, setMdpDecouvert] = useState(false);
+  const empreinteEnTete = empreintePosee && empreinteOuvrable;
+  const montrerMotDePasse = !empreinteEnTete || mdpDecouvert;
   const [occupeEmpreinte, setOccupeEmpreinte] = useState(false);
   useEffect(() => { let vivant = true; empreinteDisponible().then((d) => vivant && setDispo(!!d)); return () => { vivant = false; }; }, []);
+  // L'ESSAI AUTOMATIQUE, une seule fois : dès que la fenêtre s'ouvre, si
+  // l'empreinte est posée sur cet appareil. Refusé → le mot de passe se
+  // découvre, sans un mot. Jamais deux fois : on ne harcèle personne.
+  useEffect(() => {
+    if (!empreinteEnTete || autoTente.current) return;
+    autoTente.current = true;
+    parEmpreinte(true);
+  }, [empreinteEnTete]);
 
-  const parEmpreinte = async () => {
+  const parEmpreinte = async (auto = false) => {
     if (occupeEmpreinte) return;
     setOccupeEmpreinte(true);
     let r = null;
     try { r = await onEmpreinte?.(); } catch { r = { ok: false }; } finally { setOccupeEmpreinte(false); }
     if (r?.ok) return;
+    // Échec : le mot de passe reprend sa place, toujours.
+    setMdpDecouvert(true);
+    // Un essai AUTOMATIQUE refusé ne dit rien : la personne n'a rien demandé.
+    if (auto && !r?.expiree) { champ.current?.focus(); return; }
     // ⚠ Un doigt non reconnu n'est PAS un mot de passe faux : aucun des 5
     // essais n'est consommé, on propose simplement l'autre porte.
     // ⚠ Et on DIT pourquoi : la première version avalait l'erreur, il ne se
@@ -166,13 +192,29 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                 du mot de passe reste EN DESSOUS, toujours — un capteur en
                 panne, un doigt mouillé, un appareil neuf : il y a toujours
                 une porte. */}
-            {empreintePosee && empreinteOuvrable && dispo && (
-              <button type="button" onClick={parEmpreinte} disabled={occupeEmpreinte}
+            {/* ⚠ CAPTURE TIMO du 16/09/2026, juste après le verrouillage : le
+                bouton MANQUAIT, et n'apparaissait qu'après un F5. Il attendait
+                `dispo` — la réponse du téléphone à « as-tu un capteur ? » —
+                qui met parfois une seconde ou deux à venir. Or **une clé déjà
+                posée sur cet appareil PROUVE que le capteur existe** : il n'y
+                a rien à attendre. `dispo` ne sert plus qu'à proposer
+                l'ACTIVATION sur un appareil qui n'a encore rien. */}
+            {empreinteEnTete && (
+              <button type="button" onClick={() => parEmpreinte(false)} disabled={occupeEmpreinte}
                 className="w-full px-4 py-3 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50 flex items-center justify-center gap-2">
                 <span className="text-xl">👆</span> {occupeEmpreinte ? "Posez votre doigt…" : "Déverrouiller avec l'empreinte"}
               </button>
             )}
-            <div className="relative">
+            {/* Le mot de passe reste LA porte de secours — mais quand
+                l'empreinte est posée, il attend son tour : il se découvre au
+                premier refus, ou sur « Utiliser le mot de passe ». */}
+            {!montrerMotDePasse && (
+              <button type="button" onClick={() => { setMdpDecouvert(true); setTimeout(focaliser, 50); }}
+                className={`text-xs underline ${decor.verrouTexteClair ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-700"}`}>
+                Utiliser le mot de passe
+              </button>
+            )}
+            <div className="relative" style={{ display: montrerMotDePasse ? undefined : "none" }}>
               {/* ⚠ Capture Timo (09/09/2026) : carte SOMBRE → le texte de la
                   carte est blanc, et le champ (fond blanc) en héritait :
                   mot de passe et curseur blancs sur blanc, « le mot de passe
@@ -187,9 +229,11 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
             </div>
             {erreur && <div className={`text-sm font-semibold text-center ${decor.verrouTexteClair ? "text-red-300" : "text-red-700"}`}>{erreur}</div>}
             {diag && <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 break-words">{diag}</div>}
-            <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
-              🔓 Déverrouiller
-            </button>
+            {montrerMotDePasse && (
+              <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
+                🔓 Déverrouiller
+              </button>
+            )}
             {/* 👆 L'ACTIVATION se fait ICI, et nulle part ailleurs : le
                 vendeur n'a même pas l'onglet ⚙ Paramètres, et c'est ce
                 moment précis — celui où l'on tape son mot de passe pour la

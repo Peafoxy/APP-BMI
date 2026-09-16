@@ -5285,8 +5285,32 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     // …et il porte le garde des 30 min, comme le mot de passe
     && /doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)/.test(corpsEmpreinte)
     && /setErreur\(r\?\.expiree[\s\S]{0,160}motifEmpreinte\(r\?\.erreur\)\)/.test(ev));
-  test("★ rien n'est lancé tout seul au montage : iPhone et Chrome exigent un geste, donc un BOUTON",
-    /onClick=\{parEmpreinte\}/.test(ev) && !/useEffect\(\(\) => \{[^}]*parEmpreinte\(\)/.test(ev));
+  // ⚠ RETOURNÉ le 16/09/2026 (Timo, deux captures) : « tant que la personne
+  // a activé les empreintes, on ne devrait plus lui poser la question de
+  // taper… ça devrait venir automatiquement ». La règle du geste vaut pour
+  // l'ACTIVATION (create), pas pour l'OUVERTURE (get) : on tente donc UNE
+  // fois tout seul, et un refus découvre le mot de passe SANS un mot.
+  // Ce qui reste interdit : harceler (deux essais), et laisser la personne
+  // sans porte.
+  test("★ l'empreinte est tentée AUTOMATIQUEMENT à l'ouverture de la fenêtre, UNE seule fois, et un refus découvre le mot de passe sans un mot",
+    /autoTente = useRef\(false\)/.test(ev)
+    && /if \(!empreinteEnTete \|\| autoTente\.current\) return;\n\s+autoTente\.current = true;\n\s+parEmpreinte\(true\);/.test(ev)
+    && /setMdpDecouvert\(true\);\n\s+\/\/ Un essai AUTOMATIQUE refusé ne dit rien/.test(ev)
+    && /if \(auto && !r\?\.expiree\) \{ champ\.current\?\.focus\(\); return; \}/.test(ev));
+  test("★ l'ACTIVATION, elle, reste un BOUTON : c'est le clic qui donne le droit de toucher le capteur",
+    /onClick=\{activerPuisOuvrir\}/.test(ev) && !/parEmpreinte\(true\)[\s\S]{0,200}creerEmpreinte/.test(ev));
+  // ⚠ CAPTURE TIMO, juste après le verrouillage : le bouton d'empreinte
+  // MANQUAIT et n'apparaissait qu'après un F5 — il attendait la réponse du
+  // téléphone à « as-tu un capteur ? ». Une clé déjà posée le prouve.
+  test("★ le bouton d'ouverture n'attend PAS le téléphone : une clé posée prouve le capteur (le bouton manquait juste après le verrouillage)",
+    /const empreinteEnTete = empreintePosee && empreinteOuvrable;/.test(ev)
+    && /\{empreinteEnTete && \(\n\s+<button type="button" onClick=\{\(\) => parEmpreinte\(false\)\}/.test(ev)
+    // …et `dispo` ne sert plus QU'À proposer l'activation là où il n'y a rien
+    && /\{!empreintePosee && empreinteOuvrable && dispo && \(/.test(ev));
+  test("★ le mot de passe reste TOUJOURS accessible : il se découvre au premier refus, ou par « Utiliser le mot de passe »",
+    /const montrerMotDePasse = !empreinteEnTete \|\| mdpDecouvert;/.test(ev)
+    && /Utiliser le mot de passe/.test(ev) && /setMdpDecouvert\(true\); setTimeout\(focaliser, 50\)/.test(ev)
+    && /style=\{\{ display: montrerMotDePasse \? undefined : "none" \}\}/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");

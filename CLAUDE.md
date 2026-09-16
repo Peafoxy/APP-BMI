@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1450 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1453 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -212,10 +212,27 @@ lit mal est pire qu'un banc absent).
     revérifié DANS le geste) : à 30 min la session est finie (le mot de passe
     non plus ne la ressuscite pas) ; une session sécurisée tombée a besoin du
     VRAI mot de passe, qui ROUVRE la session (`synchroniserAuth`).
-  - **Le mot de passe ne disparaît jamais** : le bouton 👆 s'ajoute AU-DESSUS
-    du champ. Un doigt non reconnu ne consomme **aucun** des 5 essais (un doigt
-    mouillé n'est pas un mot de passe faux). Rien n'est lancé au montage :
-    iPhone et Chrome exigent un geste, donc un BOUTON.
+  - **L'empreinte EST le chemin principal une fois posée** (16/09/2026, deux
+    captures : « tant que la personne a activé les empreintes, on ne devrait
+    plus lui poser la question de taper avant que les empreintes ne s'ouvrent…
+    ça devrait venir automatiquement dès qu'on rentre ou qu'on rouvre
+    l'application. Sauf s'il annule, ça revient sur mot de passe
+    normalement ») : **elle est tentée TOUTE SEULE à l'ouverture de la
+    fenêtre, UNE fois** (`autoTente`, jamais deux — on ne harcèle personne),
+    et le champ du mot de passe **reste caché** jusqu'au premier refus, ou
+    jusqu'à « Utiliser le mot de passe ». ⚠ **La règle du geste vaut pour
+    l'ACTIVATION (`create`), pas pour l'OUVERTURE (`get`)** — mais l'essai
+    automatique **n'est pas garanti** : certains navigateurs le refusent aussi.
+    Refusé → **on ne dit RIEN** (la personne n'a rien demandé), le mot de passe
+    se découvre, le bouton 👆 reste. **Le mot de passe ne disparaît jamais.**
+    Un doigt non reconnu ne consomme **aucun** des 5 essais (un doigt mouillé
+    n'est pas un mot de passe faux).
+  - ⚠ **Le bouton d'ouverture n'attend PAS le téléphone** (capture Timo,
+    16/09/2026, juste après le verrouillage : le bouton MANQUAIT, et
+    n'apparaissait qu'après un F5) : il attendait `empreinteDisponible()`,
+    la réponse à « as-tu un capteur ? », qui met parfois une seconde ou deux.
+    **Une clé déjà posée sur cet appareil PROUVE que le capteur existe.**
+    `dispo` ne sert plus qu'à proposer l'ACTIVATION là où il n'y a rien.
   - **L'activation vit DANS la fenêtre de verrou**, et nulle part ailleurs :
     **le vendeur n'a pas l'onglet ⚙ Paramètres**, et c'est là que la gêne est.
     Une case à cocher sous le champ ; le mot de passe tapé SERT de preuve —
