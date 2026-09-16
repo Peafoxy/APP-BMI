@@ -5175,8 +5175,12 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     // ⚠ RETOURNÉ le 16/09/2026 : l'appel passe l'option d'activation de
     // l'empreinte. Le try/finally — ce que ce contrôle garde — est intact,
     // et le geste par EMPREINTE a le sien.
-    /try \{ r = await onDeverrouiller\(saisie, \{ activerEmpreinte: activer \}\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupe\(false\); \}/.test(ev)
+    // ⚠ RETOURNÉ le 16/09/2026 : l'activation est passée dans SON bouton
+    // (le capteur doit être touché dans le clic). Les TROIS chemins gardent
+    // leur try/finally — sans lui, le champ restait désactivé pour toujours.
+    /try \{ r = await onDeverrouiller\(saisie\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupe\(false\); \}/.test(ev)
     && /try \{ r = await onEmpreinte\?\.\(\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupeEmpreinte\(false\); \}/.test(ev)
+    && /try \{ fab = await creerEmpreinte\(profile\); \} catch \{ fab = \{ erreur: "UnknownError" \}; \} finally \{ setOccupeEmpreinte\(false\); \}/.test(ev)
     && /\$\{decor\.verrouTranslucide \? "backdrop-blur-sm" : ""\}/.test(ev) && !/decor\.flou/.test(ev) && /const verrouTranslucide = !\/,1\\\)\$\/\.test\(verrouFond\);/.test(cnxV));
   test("★ la fenêtre reprend le focus sur le champ à tout clic et à toute touche (filet Timo, 09/09/2026 : « le curseur ne clignote pas ») et nomme ce qui s'interpose si le champ n'a toujours pas le clavier",
     /window\.addEventListener\("keydown", clavier, true\)/.test(ev) && /onPointerDown=\{\(e\) => \{ if \(e\.target\?\.tagName !== "BUTTON" && e\.target\?\.tagName !== "INPUT"\) focaliser\(\); \}\}/.test(ev)
@@ -5234,10 +5238,41 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /empreintePosee && empreinteOuvrable && dispo && \(/.test(ev) && /Déverrouiller avec l'empreinte/.test(ev)
     && /type=\{visible \? "text" : "password"\}/.test(ev) && /🔓 Déverrouiller/.test(ev));
   test("★ l'activation vit DANS la fenêtre de verrou (le vendeur n'a pas l'onglet ⚙ Paramètres), et c'est le mot de passe tapé qui la valide",
-    /Activer l'empreinte sur cet appareil/.test(ev) && /checked=\{activer\}/.test(ev)
-    && /if \(options\.activerEmpreinte\) \{ try \{ await activerEmpreiteIci\(\); \}/.test(app) === false
-    && /if \(options\.activerEmpreinte\) \{ try \{ await activerEmpreinteIci\(\); \}/.test(app)
+    /Activer l'empreinte sur cet appareil/.test(ev) && /onClick=\{activerPuisOuvrir\}/.test(ev)
+    && /if \(options\.cleEmpreinte\) \{ try \{ await activerEmpreinteIci\(options\.cleEmpreinte\); \}/.test(app)
     && /Retirer l'empreinte de cet appareil/.test(ev));
+  // ⚠⚠ LA FAUTE DU 16/09/2026, et le contrôle qui l'empêche de revenir.
+  // Timo : « je pense que le fonctionnement n'a pas réussi ». Deux causes :
+  //   • le capteur n'obéit qu'à un clic ENCORE CHAUD, et l'ancienne version
+  //     vérifiait le mot de passe (calcul long) AVANT de l'appeler — refus
+  //     systématique ;
+  //   • toutes les erreurs étaient avalées : rien ne s'affichait.
+  const corpsActiver = ev.slice(ev.indexOf("const activerPuisOuvrir"), ev.indexOf("const valider ="));
+  test("★ LE CAPTEUR EST TOUCHÉ EN PREMIER, dans le clic : aucun `await` avant lui (un mot de passe vérifié avant consommait le geste — c'est ce qui ne marchait pas)",
+    corpsActiver.length > 200
+    && corpsActiver.indexOf("creerEmpreinte(profile)") < corpsActiver.indexOf("onDeverrouiller(saisie")
+    // …et rien d'attendu entre le début du clic et la touche du capteur
+    // ⚠ On coupe avant le `try` qui PORTE le capteur : sinon le « await »
+    // de `await creerEmpreinte(...)` se comptait lui-même, et le contrôle
+    // passait quoi qu'on écrive au-dessus.
+    && !/await/.test(corpsActiver.slice(0, corpsActiver.indexOf("try { fab =")))
+    // …le mot de passe reste la preuve : faux → la clé est jetée, rien n'est rangé
+    && /Mot de passe incorrect — l'empreinte n'a pas été activée\./.test(ev)
+    && /if \(!appareil \|\| !cle\) return false;/.test(app));
+  test("★ PLUS AUCUNE ERREUR AVALÉE : le capteur remonte son motif, la règle le traduit, l'écran l'affiche",
+    (() => {
+      const f = readFileSync("src/empreinte.js", "utf8");
+      // Les DEUX fonctions qui touchent le capteur, elles seules : idAppareil
+      // et empreinteDisponible ont le droit de retomber en silence
+      // (navigation privée, téléphone sans capteur).
+      const capteur = f.slice(f.indexOf("export async function creerEmpreinte"));
+      return !/catch \{ return ""; \}|catch \{ return false; \}/.test(capteur)
+        && (capteur.match(/catch \(e\) \{ return \{ erreur: e\?\.name \|\| "UnknownError" \}; \}/g) || []).length === 2;
+    })()
+    && /setErreur\(motifEmpreinte\(fab\?\.erreur\)\)/.test(ev)
+    && Emp.motifEmpreinte("NotAllowedError").startsWith("Annulé")
+    && Emp.motifEmpreinte("NotSupportedError").includes("ne sait pas")
+    && Emp.motifEmpreinte("nimportequoi").includes("Entrez votre mot de passe"));
   // ⚠ Le corps de la fonction est DÉCOUPÉ avant d'être lu : un « pas de
   // apresErreur après deverrouillerParEmpreinte » sur le fichier entier
   // aurait toujours trouvé celui de `deverrouiller`, plus bas — un contrôle
@@ -5249,7 +5284,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && !/apresErreur|setErreursVerrou\(erreurs/.test(corpsEmpreinte)
     // …et il porte le garde des 30 min, comme le mot de passe
     && /doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)/.test(corpsEmpreinte)
-    && /Empreinte non reconnue — entrez votre mot de passe\./.test(ev));
+    && /setErreur\(r\?\.expiree[\s\S]{0,160}motifEmpreinte\(r\?\.erreur\)\)/.test(ev));
   test("★ rien n'est lancé tout seul au montage : iPhone et Chrome exigent un geste, donc un BOUTON",
     /onClick=\{parEmpreinte\}/.test(ev) && !/useEffect\(\(\) => \{[^}]*parEmpreinte\(\)/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).

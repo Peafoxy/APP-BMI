@@ -93,7 +93,7 @@ import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
 // tout ce qui parle au capteur vit dans src/empreinte.js, et nulle part
 // ailleurs — le banc l'impose, comme pour les notifications.
 import { empreinteOuvreCeVerrou, empreinteDeLAppareil, poserEmpreinte, retirerEmpreinte } from "./lib/empreinte";
-import { idAppareil, nomDeCetAppareil, creerEmpreinte, verifierEmpreinte } from "./empreinte";
+import { idAppareil, nomDeCetAppareil, verifierEmpreinte } from "./empreinte";
 import { EcranVerrou } from "./components/EcranVerrou";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
@@ -644,7 +644,8 @@ export default function App() {
     const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
     const e = empreinteDeLAppareil(compte, idAppareil());
     if (!e) return { ok: false };
-    if (!(await verifierEmpreinte(e.cle))) return { ok: false };
+    const r = await verifierEmpreinte(e.cle);
+    if (!r.ok) return { ok: false, erreur: r.erreur };
     // ⚠ Un doigt mouillé n'est PAS un mot de passe faux : on ne touche pas
     // au compteur des 5 erreurs, qui ferme la session.
     derniereActiviteRef.current = Date.now();
@@ -656,12 +657,14 @@ export default function App() {
   // Poser ou retirer la clé de CET appareil sur la fiche de la personne.
   // La fiche accepte déjà un champ personnel (comme l'ordre de ses onglets
   // et ses brouillons de devis) : rien à coller dans Supabase.
-  const activerEmpreinteIci = async () => {
+  // ⚠ La clé arrive DÉJÀ FABRIQUÉE (la fenêtre de verrou a touché le capteur
+  // dans le clic — voir src/empreinte.js : un `await` avant l'appel fait
+  // perdre le droit, c'est ce qui a fait échouer la première version).
+  // Ici on ne fait que RANGER, une fois le mot de passe vérifié.
+  const activerEmpreinteIci = async (cle) => {
     const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
     const appareil = idAppareil();
-    if (!appareil) return false;
-    const cle = await creerEmpreinte(compte);
-    if (!cle) return false;
+    if (!appareil || !cle) return false;
     const majs = poserEmpreinte(compte, { appareil, cle, nom: nomDeCetAppareil(), le: today() });
     await save({ ...dbRef.current, users: (dbRef.current.users || []).map((x) => (x.id === compte.id ? majs : x)) },
       `Empreinte activée sur un appareil (${nomDeCetAppareil()})`);
@@ -702,7 +705,7 @@ export default function App() {
       // 👆 Le mot de passe vient de prouver que c'est bien elle : c'est le
       // bon moment pour poser l'empreinte, sans lui poser une question de
       // plus ailleurs (le vendeur n'a même pas l'onglet ⚙ Paramètres).
-      if (options.activerEmpreinte) { try { await activerEmpreinteIci(); } catch { /* refus : le mot de passe a marché, on ouvre quand même */ } }
+      if (options.cleEmpreinte) { try { await activerEmpreinteIci(options.cleEmpreinte); } catch { /* le mot de passe a marché : on ouvre quand même */ } }
       derniereActiviteRef.current = Date.now();
       setVerrouille(false); setErreursVerrou(0); setMotifVerrou("inactivite");
       ecrireSession({ verrouille: false, ts: derniereActiviteRef.current });

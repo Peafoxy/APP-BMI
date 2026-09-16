@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1448 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1450 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -221,6 +221,26 @@ lit mal est pire qu'un banc absent).
     Une case à cocher sous le champ ; le mot de passe tapé SERT de preuve —
     aucune question de plus. « Retirer l'empreinte de cet appareil » au même
     endroit.
+  - ⚠⚠ **LES DEUX FAUTES DE LA PREMIÈRE VERSION** (16/09/2026, Timo : « je
+    pense que le fonctionnement n'a pas réussi… il faut te documenter » — la
+    2.101.240 ne marchait PAS sur son téléphone) :
+    **(1) LE GESTE DOIT ÊTRE ENCORE CHAUD.** Le capteur n'obéit qu'à un clic
+    RÉCENT (« transient user activation »), et **un `await` posé avant l'appel
+    consomme ce droit**. La version fautive vérifiait le mot de passe (calcul
+    long) PUIS touchait le capteur : refus systématique. **L'ordre est
+    maintenant : capteur d'ABORD, dans le clic, sans un seul `await` devant ;
+    le mot de passe — déjà tapé dans la case — est vérifié APRÈS** et reste la
+    preuve (faux → la clé est jetée, rien n'est rangé). D'où un **BOUTON**
+    « 👆 Activer l'empreinte sur cet appareil », jamais une case à cocher : le
+    clic lui-même est ce qui donne le droit. Le banc le MESURE (découpe le
+    corps du geste, vérifie l'ordre et l'absence d'`await`) — et le contrôle a
+    été éprouvé en remettant la faute exprès : il tombe.
+    **(2) LES ERREURS ÉTAIENT AVALÉES** (`catch { return "" }`) : rien ne se
+    passait, personne ne pouvait comprendre. Le capteur dit TOUJOURS pourquoi,
+    en un nom (`NotAllowedError`, `NotSupportedError`, `InvalidStateError`…) ;
+    `MOTIF_EMPREINTE` / `motifEmpreinte` (lib/empreinte.js) le traduit, l'écran
+    l'affiche. ⚠ Seules `idAppareil` et `empreinteDisponible` ont le droit de
+    retomber en silence (navigation privée, téléphone sans capteur).
   - ⚠ **Un téléphone dit oui à TOUTES les empreintes qu'il connaît** : on ne
     peut pas savoir de quel doigt il s'agit. Règle à l'équipe, pas un défaut à
     corriger : le téléphone de travail ne porte que votre doigt. Et l'id de

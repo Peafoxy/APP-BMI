@@ -16,7 +16,8 @@
 import { useState, useRef, useEffect } from "react";
 import { inputCls } from "./ui";
 import { decorAccueil, FondAccueil, Bulles } from "../screens/Connexion";
-import { empreinteDisponible } from "../empreinte";
+import { empreinteDisponible, creerEmpreinte } from "../empreinte";
+import { motifEmpreinte } from "../lib/empreinte";
 
 export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDeverrouiller, onDeconnecter, empreintePosee = false, empreinteOuvrable = false, onEmpreinte, onRetirerEmpreinte }) {
   const [saisie, setSaisie] = useState("");
@@ -74,7 +75,6 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   // un geste de la personne pour ouvrir la fenêtre du capteur. D'où un
   // bouton, jamais un appel automatique.
   const [dispo, setDispo] = useState(false);
-  const [activer, setActiver] = useState(false);
   const [occupeEmpreinte, setOccupeEmpreinte] = useState(false);
   useEffect(() => { let vivant = true; empreinteDisponible().then((d) => vivant && setDispo(!!d)); return () => { vivant = false; }; }, []);
 
@@ -86,9 +86,36 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     if (r?.ok) return;
     // ⚠ Un doigt non reconnu n'est PAS un mot de passe faux : aucun des 5
     // essais n'est consommé, on propose simplement l'autre porte.
+    // ⚠ Et on DIT pourquoi : la première version avalait l'erreur, il ne se
+    // passait rien et personne ne pouvait comprendre (Timo, 16/09/2026).
     setErreur(r?.expiree
       ? "Session expirée : 30 minutes sans activité. Reconnectez-vous."
-      : "Empreinte non reconnue — entrez votre mot de passe.");
+      : motifEmpreinte(r?.erreur));
+    champ.current?.focus();
+  };
+
+  // ---- ACTIVER : le capteur d'ABORD, dans le clic ----
+  // ⚠ L'ORDRE EST LA CORRECTION du 16/09/2026. Avant, on vérifiait le mot
+  // de passe (calcul long) PUIS on touchait le capteur : le droit donné par
+  // le clic était déjà consommé, le téléphone refusait à tous les coups et
+  // rien ne s'affichait. Maintenant : capteur en PREMIER, sans un seul
+  // `await` devant ; le mot de passe, déjà tapé dans la case, est vérifié
+  // APRÈS et reste la preuve que c'est bien elle. Clé jetée s'il est faux.
+  const activerPuisOuvrir = async () => {
+    if (occupe || occupeEmpreinte) return;
+    if (!saisie) { setErreur(motifEmpreinte("sansMotDePasse")); champ.current?.focus(); return; }
+    setOccupeEmpreinte(true);
+    let fab = null;
+    try { fab = await creerEmpreinte(profile); } catch { fab = { erreur: "UnknownError" }; } finally { setOccupeEmpreinte(false); }
+    if (!fab?.cle) { setErreur(motifEmpreinte(fab?.erreur)); return; }
+    setOccupe(true);
+    let r = null;
+    try { r = await onDeverrouiller(saisie, { cleEmpreinte: fab.cle }); } catch { r = { ok: false }; } finally { setOccupe(false); }
+    if (r?.ok) return;
+    setSaisie("");
+    setErreur(r?.expiree
+      ? "Session expirée : 30 minutes sans activité. Reconnectez-vous."
+      : "Mot de passe incorrect — l'empreinte n'a pas été activée.");
     champ.current?.focus();
   };
 
@@ -100,7 +127,7 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     // try/finally : quoi qu'il arrive, le champ redevient saisissable.
     // Sans cela, une vérification qui échoue laissait « occupe » à vrai et
     // le champ DÉSACTIVÉ pour toujours (« le mot de passe ne s'écrit pas »).
-    try { r = await onDeverrouiller(saisie, { activerEmpreinte: activer }); } catch { r = { ok: false }; } finally { setOccupe(false); }
+    try { r = await onDeverrouiller(saisie); } catch { r = { ok: false }; } finally { setOccupe(false); }
     if (r?.ok) return;
     setSaisie("");
     setErreur(r?.expiree
@@ -172,10 +199,20 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                 ne lit aucune empreinte. Le téléphone compare tout seul et
                 répond oui ou non ; on ne range qu'une clé, jamais un doigt. */}
             {!empreintePosee && empreinteOuvrable && dispo && (
-              <label className={`flex items-start gap-2 text-xs cursor-pointer ${decor.verrouTexteClair ? "text-white/80" : "text-slate-600"}`}>
-                <input type="checkbox" checked={activer} onChange={(e) => setActiver(e.target.checked)} className="mt-0.5" />
-                <span>👆 <b>Activer l'empreinte sur cet appareil</b> — la prochaine fois, un doigt suffira. Votre empreinte reste dans le téléphone : l'application ne la voit jamais.</span>
-              </label>
+              <div className="space-y-1">
+                {/* ⚠ Un BOUTON, pas une case à cocher : c'est le clic lui-même
+                    qui donne le droit de toucher le capteur, et ce droit ne
+                    survit pas à une vérification de mot de passe posée avant
+                    (la faute du 16/09/2026). */}
+                <button type="button" onClick={activerPuisOuvrir} disabled={occupe || occupeEmpreinte}
+                  className="w-full px-4 py-2.5 rounded-lg border-2 border-sky-700 text-sky-800 bg-white/90 font-bold text-sm hover:bg-white disabled:opacity-50 flex items-center justify-center gap-2">
+                  <span className="text-lg">👆</span> {occupeEmpreinte ? "Posez votre doigt…" : "Activer l'empreinte sur cet appareil"}
+                </button>
+                <div className={`text-[11px] leading-snug ${decor.verrouTexteClair ? "text-white/70" : "text-slate-500"}`}>
+                  Tapez votre mot de passe ci-dessus, puis touchez ce bouton : la prochaine fois, un doigt suffira.
+                  Votre empreinte reste dans le téléphone — l'application ne la voit jamais.
+                </div>
+              </div>
             )}
             {empreintePosee && (
               <button type="button" onClick={() => onRetirerEmpreinte?.()}

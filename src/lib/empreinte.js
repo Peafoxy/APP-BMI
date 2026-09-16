@@ -65,6 +65,29 @@ export const retirerEmpreinte = (u, appareil) => ({
   ...u, empreintes: empreintesDe(u).filter((e) => e.appareil !== appareil),
 });
 
+// ---- POURQUOI ÇA N'A PAS MARCHÉ ----
+// ⚠ 16/09/2026, Timo : « je pense que le fonctionnement n'a pas réussi ».
+// La PREMIÈRE version avalait toutes les erreurs (`catch { return "" }`) :
+// rien ne se passait, et personne — lui comme moi — ne pouvait savoir
+// pourquoi. C'est exactement le piège du dépôt : « une écriture refusée
+// doit afficher son motif ». Le capteur dit TOUJOURS pourquoi, en un nom ;
+// on le traduit ici, une fois, et l'écran l'affiche.
+export const MOTIF_EMPREINTE = {
+  // Le plus fréquent, et il recouvre plusieurs cas : annulation, délai
+  // dépassé, aucune empreinte connue — et surtout LE GESTE PERDU (voir
+  // src/empreinte.js : le capteur exige un clic encore « chaud »).
+  NotAllowedError: "Annulé, ou le téléphone n'a pas reconnu le doigt. Réessayez, ou entrez votre mot de passe.",
+  InvalidStateError: "L'empreinte est déjà enregistrée sur cet appareil.",
+  NotSupportedError: "Ce téléphone ne sait pas faire d'empreinte pour un site.",
+  SecurityError: "Le téléphone refuse : l'adresse du site n'est pas celle attendue.",
+  AbortError: "Demande interrompue. Réessayez.",
+  ConstraintError: "Le téléphone n'a pas pu créer la clé (aucun écran de verrouillage réglé ?).",
+  UnknownError: "Le téléphone n'a pas pu répondre. Réessayez.",
+  indisponible: "Ce téléphone n'a pas d'empreinte configurée.",
+  sansMotDePasse: "Entrez d'abord votre mot de passe, puis touchez le capteur.",
+};
+export const motifEmpreinte = (nom) => MOTIF_EMPREINTE[nom] || "L'empreinte n'a pas fonctionné. Entrez votre mot de passe.";
+
 // Un nom lisible pour l'appareil, pour que la personne reconnaisse sa
 // ligne dans la liste (« Android · Chrome »). Jamais un identifiant.
 export const nomAppareil = (ua) => {
