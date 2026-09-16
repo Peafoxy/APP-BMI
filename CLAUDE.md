@@ -1376,6 +1376,19 @@ lit mal est pire qu'un banc absent).
   en masse, retirer Historique + Paramètres) sont en bas dans « ⚠ Actions
   groupées ». Aucune règle pure touchée ; le banc vérifie que chaque geste
   est toujours là avec sa garde.
+  **Le NUMÉRO se voit sous le nom, et se cherche** (16/09/2026 : « un client
+  créé par un utilisateur, l'administrateur principal n'a pas la possibilité de
+  voir son numéro de téléphone ») : il était ENREGISTRÉ (il fabrique
+  l'identifiant du client) mais affiché nulle part — pas de colonne ici, et
+  📋 Clients ne liste que ceux qui ont DÉJÀ ACHETÉ, donc un client créé sans
+  achat n'avait aucun chemin. Ligne « 📞 numéro » sous le nom pour tous les
+  rôles, avec le vrai logo WhatsApp (`envoyerWhatsApp`, jamais `wa.me`) ; la
+  recherche y passe par **la règle commune** `correspond` nourrie de
+  `motsDuNumero` (lib/clientsConnus.js, cinquième importeur) — « 90112233 »,
+  « +228 90 11 22 33 » et « 228 » trouvent le même compte. ⚠ **Corriger** un
+  numéro n'est PAS fait : pour un client, l'identifiant et le mot de passe en
+  dérivent, donc le changer le déconnecte (à traiter à part, avec renvoi des
+  codes).
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

@@ -4,13 +4,14 @@
 // ============================================================
 import React, { useState } from "react";
 import { correspond } from "../lib/suggestions";
+import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
-import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense } from "../lib/core";
+import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
@@ -71,7 +72,13 @@ export function Users({ db, save, profile }) {
   const qU = rechercheU.trim().toLowerCase();
   const enRecherche = qU.length > 0;
   const listeAffichee = enRecherche
-    ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""}`, qU))
+    // Timo (16/09/2026) : « un client créé par un utilisateur, l'administrateur
+    // principal n'a pas la possibilité de voir son numéro de téléphone ». La
+    // recherche ne regardait QUE le nom : on lui donne aussi le numéro, par la
+    // règle commune des écritures d'un numéro (`motsDuNumero`, clientsConnus.js) —
+    // « 90112233 », « +228 90 11 22 33 » et « 90 11 22 33 » trouvent le même
+    // compte. Le filtre reste `correspond` : UNE règle pour toute recherche tapée.
+    ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
     : utilisateursVisibles.filter((x) => x.role === roleAffiche);
   const vide = { nom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
@@ -1073,6 +1080,21 @@ export function Users({ db, save, profile }) {
                   {u.piece_num
                     ? <div className="text-xs font-normal text-slate-400">{u.piece_type || "Pièce"} n° {u.piece_num}</div>
                     : u.role !== "client" && <div className="text-xs font-normal text-orange-500" title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité</div>}
+                  {/* Timo (16/09/2026) : « un client créé par un utilisateur,
+                      l'administrateur principal n'a pas la possibilité de voir
+                      son numéro de téléphone ». Le numéro était ENREGISTRÉ (il
+                      sert à fabriquer l'identifiant et à joindre la personne)
+                      mais n'était affiché NULLE PART : pas de colonne ici, et
+                      📋 Clients ne liste que ceux qui ont déjà acheté. Il se lit
+                      maintenant sous le nom, comme la pièce d'identité, pour
+                      tout le monde. Le logo WhatsApp passe par `envoyerWhatsApp`
+                      — aucun écran n'ouvre WhatsApp lui-même. */}
+                  {u.tel && (
+                    <div className="text-xs font-normal text-slate-500 flex items-center gap-1.5">
+                      <span>📞 {u.tel}</span>
+                      <button onClick={() => envoyerWhatsApp(telDigits(u.tel), "")} title={`Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></button>
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
                 <td className="px-4 py-2">

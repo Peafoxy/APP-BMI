@@ -42,7 +42,7 @@ export const cleClient = (nom, tel) => {
 // (« +228 90 55 66 77 »). La règle commune compare mot à mot, et « 55 » ne
 // commence aucun mot du numéro. Trois chiffres suffisent à réduire la liste,
 // personne n'a besoin d'aller jusque-là.
-const motsDuNumero = (tel) => {
+export const motsDuNumero = (tel) => {
   const d = telDigits(tel);
   return [chiffresTel(tel), numeroComparable(tel), d && `+${d}`].filter(Boolean).join(" ");
 };

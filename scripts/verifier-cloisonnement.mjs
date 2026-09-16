@@ -7300,9 +7300,34 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     /import \{ clientsConnus \} from "\.\.\/lib\/clientsConnus";/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
     && /let clients = clientsConnus\(db, boutique\)\.sort\(\(a, b\) => b\.totalAchats - a\.totalAchats\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
     && !/const key = \(nom, tel\)/.test(readFileSync("src/screens/Clients.jsx", "utf8")));
+  // ═══════════════════════════════════════════════════════════
+  // 👥 UTILISATEURS : LE NUMÉRO SE VOIT, ET SE CHERCHE (Timo, 16/09/2026)
+  // « Aujourd'hui un client créé par un utilisateur, l'administrateur
+  // principal n'a pas la possibilité de voir son numéro de téléphone. »
+  // Constaté : le numéro était bien ENREGISTRÉ (il fabrique l'identifiant du
+  // client et sert à le joindre), mais affiché NULLE PART — pas de colonne
+  // dans 👥 Utilisateurs, et 📋 Clients ne liste que ceux qui ont déjà
+  // acheté. Un client créé sans achat n'avait donc aucun chemin.
+  // ═══════════════════════════════════════════════════════════
+  const uNum = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ 👥 Utilisateurs AFFICHE le numéro sous le nom, pour tout le monde, avec le vrai logo WhatsApp",
+    /\{u\.tel && \(/.test(uNum) && /📞 \{u\.tel\}/.test(uNum)
+    && /envoyerWhatsApp\(telDigits\(u\.tel\), ""\)/.test(uNum) && /<IconeWhatsApp taille=\{14\} \/>/.test(uNum));
+  test("★ la recherche de 👥 Utilisateurs regarde AUSSI le numéro, par la règle commune (motsDuNumero), jamais un filtre maison",
+    /correspond\(`\$\{x\.nom \|\| ""\} \$\{x\.nom_complet \|\| ""\} \$\{motsDuNumero\(x\.tel\)\}`, qU\)/.test(uNum)
+    && /import \{ motsDuNumero \} from "\.\.\/lib\/clientsConnus";/.test(uNum));
+  // Le banc MESURE la recherche : on exerce la vraie chaîne, pas le code.
+  const chaineU = (x) => `${x.nom || ""} ${x.nom_complet || ""} ${CC.motsDuNumero(x.tel)}`;
+  const compteU = { nom: "DJEDJE", nom_complet: "DJEDJE Kossi", tel: "+228 90 55 66 77" };
+  test("★ un compte se trouve par son NUMÉRO écrit de n'importe quelle façon, et toujours par son nom",
+    ["9055", "90556677", "228", "+228 9055", "djedje", "kossi"].every((q) => Sug.correspond(chaineU(compteU), q))
+    && !Sug.correspond(chaineU(compteU), "91") /* un numéro voisin ne sort pas */);
+  test("un compte SANS numéro ne fait pas tomber la recherche (employé sans téléphone)",
+    Sug.correspond(chaineU({ nom: "AYAO", tel: "" }), "ayao") && CC.motsDuNumero("") === "" && CC.motsDuNumero(undefined) === "");
+
   const importeursCC = execSync("grep -rl 'clientsConnus' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).sort().join("|");
-  test("★ la règle n'est recopiée nulle part : seuls les quatre écrans et son propre fichier la connaissent",
-    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Travaux.jsx|src/screens/Ventes.jsx");
+  test("★ la règle n'est recopiée nulle part : seuls les CINQ écrans et son propre fichier la connaissent (👥 Utilisateurs depuis le 16/09/2026, pour chercher par numéro)",
+    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx");
 }
 
 // ═══════════════════════════════════════════════════════════
