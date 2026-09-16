@@ -5182,7 +5182,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /try \{ r = await onEmpreinte\?\.\(\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupeEmpreinte\(false\); \}/.test(ev)
     && /try \{ fab = await creerEmpreinte\(profile\); \} catch \{ fab = \{ erreur: "UnknownError" \}; \} finally \{ setOccupeEmpreinte\(false\); \}/.test(ev)
     && /\$\{decor\.verrouTranslucide \? "backdrop-blur-sm" : ""\}/.test(ev) && !/decor\.flou/.test(ev) && /const verrouTranslucide = !\/,1\\\)\$\/\.test\(verrouFond\);/.test(cnxV));
-  test("★ la fenêtre reprend le focus sur le champ à tout clic et à toute touche (filet Timo, 09/09/2026 : « le curseur ne clignote pas ») et nomme ce qui s'interpose si le champ n'a toujours pas le clavier",
+  // ⚠ RETOURNÉ le 16/09/2026 : ce qui s'interpose est toujours NOMMÉ, mais
+  // dans la console — plus à l'écran (Timo : « je n'aime plus voir ça »).
+  test("★ la fenêtre reprend le focus sur le champ à tout clic et à toute touche (filet Timo, 09/09/2026 : « le curseur ne clignote pas ») et nomme ce qui s'interpose DANS LA CONSOLE, jamais à l'écran",
     /window\.addEventListener\("keydown", clavier, true\)/.test(ev) && /onPointerDown=\{\(e\) => \{ if \(e\.target\?\.tagName !== "BUTTON" && e\.target\?\.tagName !== "INPUT"\) focaliser\(\); \}\}/.test(ev)
     && /document\.elementFromPoint\(r\.left \+ 20, r\.top \+ r\.height \/ 2\)/.test(ev) && /Le champ n'a pas le clavier/.test(ev));
   test("★ le champ mot de passe impose texte et curseur SOMBRES (carte sombre → texte de carte blanc → champ blanc sur blanc, capture Timo 09/09/2026 : « le mot de passe ne s'écrit pas »)",
@@ -5234,9 +5236,12 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /attestation: "none"/.test(readFileSync("src/empreinte.js", "utf8"))
     && /userVerification: "required"/.test(readFileSync("src/empreinte.js", "utf8"))
     && /authenticatorAttachment: "platform"/.test(readFileSync("src/empreinte.js", "utf8")));
-  test("★ le MOT DE PASSE ne disparaît jamais : le bouton d'empreinte s'ajoute au-dessus du champ, il ne le remplace pas",
-    /empreintePosee && empreinteOuvrable && dispo && \(/.test(ev) && /Déverrouiller avec l'empreinte/.test(ev)
-    && /type=\{visible \? "text" : "password"\}/.test(ev) && /🔓 Déverrouiller/.test(ev));
+  // ⚠ Ce contrôle annonçait « le bouton d'empreinte » mais lisait la ligne de
+  // l'ACTIVATION : il mesurait autre chose que son titre. Corrigé le
+  // 16/09/2026 — il lit maintenant les deux portes, chacune à sa place.
+  test("★ le MOT DE PASSE ne disparaît jamais : le champ et son bouton sont là, le rond de l'empreinte s'ajoute à côté",
+    /type=\{visible \? "text" : "password"\}/.test(ev) && /🔓 Déverrouiller/.test(ev)
+    && /Déverrouiller avec l'empreinte/.test(ev) && /\{empreinteEnTete && \(/.test(ev));
   test("★ l'activation vit DANS la fenêtre de verrou (le vendeur n'a pas l'onglet ⚙ Paramètres), et c'est le mot de passe tapé qui la valide",
     /Activer l'empreinte sur cet appareil/.test(ev) && /onClick=\{activerPuisOuvrir\}/.test(ev)
     && /if \(options\.cleEmpreinte\) \{ try \{ await activerEmpreinteIci\(options\.cleEmpreinte\); \}/.test(app)
@@ -5305,7 +5310,25 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /const empreinteEnTete = empreintePosee && empreinteOuvrable;/.test(ev)
     && /onClick=\{\(\) => parEmpreinte\(false\)\}/.test(ev)
     // …et `dispo` ne sert plus QU'À proposer l'activation là où il n'y a rien
-    && /\{!empreintePosee && empreinteOuvrable && dispo && \(/.test(ev));
+    && /\{!empreintePosee && empreinteOuvrable && dispo && !refusee && \(/.test(ev));
+  // ⚠ Capture Timo, 16/09/2026 : « même si la personne ne veut pas les
+  // empreintes, le message est toujours là tant que ce n'est pas activé ».
+  // Une proposition qu'on ne peut pas refuser n'est pas une proposition.
+  test("★ « Non merci » ferme la proposition POUR DE BON sur cet appareil (elle ne revient plus à chaque verrouillage)",
+    /Non merci/.test(ev) && /onClick=\{refuserEmpreinte\}/.test(ev)
+    && /localStorage\.setItem\(CLE_REFUS, "1"\)/.test(ev)
+    && /localStorage\.getItem\(CLE_REFUS\) === "1"/.test(ev)
+    && Emp.CLE_REFUS === "bmi_empreinte_non"
+    // …et la navigation privée ne fait pas tomber l'écran
+    && /catch \{ return false; \}/.test(ev) && /catch \{ \/\* navigation privée \*\//.test(ev));
+  // ⚠ Capture Timo, 16/09/2026 : « le champ du message rouge sous la ligne du
+  // mot de passe… je n'aime plus voir ça ». Le diagnostic du 09/09 était
+  // écrit pour le dépannage, et il s'affichait chez lui.
+  test("★ le DIAGNOSTIC ne s'affiche plus à l'écran — mais le FILET qui reprend le clavier reste entier",
+    !/setDiag|\{diag &&/.test(ev) && /journalDiag\(/.test(ev)
+    // le filet, lui, n'a pas bougé : focus repris à tout clic et à toute touche
+    && /window\.addEventListener\("keydown", clavier, true\)/.test(ev)
+    && /onPointerDown=\{\(e\) => \{ if \(e\.target\?\.tagName !== "BUTTON" && e\.target\?\.tagName !== "INPUT"\) focaliser\(\); \}\}/.test(ev));
   // ⚠ RETOURNÉ le 16/09/2026, capture Timo d'une AUTRE application (Solimi) :
   // « tu vois cet exemple… empreinte ET possibilité de taper le mot de passe
   // aussi ». Une version cachait le champ tant que l'empreinte menait : c'est

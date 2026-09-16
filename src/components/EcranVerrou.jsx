@@ -17,7 +17,7 @@ import { useState, useRef, useEffect } from "react";
 import { inputCls, IconeEmpreinte } from "./ui";
 import { decorAccueil, FondAccueil, Bulles } from "../screens/Connexion";
 import { empreinteDisponible, creerEmpreinte } from "../empreinte";
-import { motifEmpreinte } from "../lib/empreinte";
+import { motifEmpreinte, CLE_REFUS } from "../lib/empreinte";
 
 export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDeverrouiller, onDeconnecter, empreintePosee = false, empreinteOuvrable = false, onEmpreinte, onRetirerEmpreinte }) {
   const [saisie, setSaisie] = useState("");
@@ -25,7 +25,14 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   const [occupe, setOccupe] = useState(false);
   const [visible, setVisible] = useState(false); // 👁 même œil que l'écran de connexion (capture Timo, 09/09/2026)
   const champ = useRef(null);
-  const [diag, setDiag] = useState("");
+  // ⚠ Capture Timo (16/09/2026) : « le champ du message rouge sous la ligne
+  // du mot de passe… je n'aime plus voir ça ». Le diagnostic du 09/09/2026
+  // (« Le champ n'a pas le clavier — au-dessus : input.w-full… ») était un
+  // texte de dépannage, écrit pour MOI, et il s'affichait chez lui.
+  // **Il ne s'affiche plus.** Le FILET, lui, reste entier : reprendre le
+  // focus à tout clic et à toute touche — c'est lui qui soigne « le curseur
+  // ne clignote pas », pas le message. Le diagnostic part maintenant dans la
+  // console, où il sert au dépannage sans encombrer personne.
   // ⚠ Timo (09/09/2026, Chrome sur PC) : « le curseur ne clignote pas, le
   // mot de passe ne s'écrit pas » — non reproduit ici. Deux filets :
   //   1. le champ reprend le focus à TOUT clic dans la fenêtre et à TOUTE
@@ -43,12 +50,13 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     return `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${texte}${cls}`;
   };
   const historique = useRef([]); // les derniers déplacements du focus, pour la capture
+  const journalDiag = (m) => { try { console.warn(m); } catch { /* sans importance */ } };
   const diagnostiquer = () => {
     const i = champ.current;
-    if (!i || document.activeElement === i) { setDiag(""); return; }
+    if (!i || document.activeElement === i) return;
     const r = i.getBoundingClientRect();
     const el = document.elementFromPoint(r.left + 20, r.top + r.height / 2);
-    setDiag(`⚠ Le champ n'a pas le clavier — au-dessus : ${nomDe(el)} ; focus : ${nomDe(document.activeElement)} ; désactivé : ${i.disabled ? "oui" : "non"} ; visible : ${r.width > 0 ? "oui" : "non"} ; derniers focus : ${historique.current.slice(-4).join(" → ") || "aucun"}`);
+    journalDiag(`⚠ Le champ n'a pas le clavier — au-dessus : ${nomDe(el)} ; focus : ${nomDe(document.activeElement)} ; désactivé : ${i.disabled ? "oui" : "non"} ; visible : ${r.width > 0 ? "oui" : "non"} ; derniers focus : ${historique.current.slice(-4).join(" → ") || "aucun"}`);
   };
   useEffect(() => {
     focaliser();
@@ -92,6 +100,11 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   // ENSEMBLE, toujours** — le clavier au-dessus, le rond de l'empreinte en
   // dessous. L'essai automatique, lui, reste.
   const autoTente = useRef(false);
+  // Le refus vit dans le navigateur, sur CET appareil : il ne suit pas la
+  // personne d'un téléphone à l'autre, et vider les données du site le lève
+  // (la proposition reviendra une fois — c'est le seul dégât possible).
+  const [refusee, setRefusee] = useState(() => { try { return localStorage.getItem(CLE_REFUS) === "1"; } catch { return false; } });
+  const refuserEmpreinte = () => { try { localStorage.setItem(CLE_REFUS, "1"); } catch { /* navigation privée */ } setRefusee(true); };
   const empreinteEnTete = empreintePosee && empreinteOuvrable;
   const [occupeEmpreinte, setOccupeEmpreinte] = useState(false);
   useEffect(() => { let vivant = true; empreinteDisponible().then((d) => vivant && setDispo(!!d)); return () => { vivant = false; }; }, []);
@@ -209,7 +222,6 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
               </button>
             </div>
             {erreur && <div className={`text-sm font-semibold text-center ${decor.verrouTexteClair ? "text-red-300" : "text-red-700"}`}>{erreur}</div>}
-            {diag && <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 break-words">{diag}</div>}
             <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
               🔓 Déverrouiller
             </button>
@@ -239,7 +251,12 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                 ⚠ Ce que l'application ne fait PAS, et qu'il faut savoir : elle
                 ne lit aucune empreinte. Le téléphone compare tout seul et
                 répond oui ou non ; on ne range qu'une clé, jamais un doigt. */}
-            {!empreintePosee && empreinteOuvrable && dispo && (
+            {/* ⚠ Timo (16/09/2026) : « même si la personne ne veut pas les
+                empreintes, le message est toujours là tant que ce n'est pas
+                activé ». On propose UNE fois, discrètement, et « Non merci »
+                referme la porte POUR DE BON sur cet appareil. Une proposition
+                qu'on ne peut pas refuser n'est pas une proposition. */}
+            {!empreintePosee && empreinteOuvrable && dispo && !refusee && (
               <div className="space-y-1">
                 {/* ⚠ Un BOUTON, pas une case à cocher : c'est le clic lui-même
                     qui donne le droit de toucher le capteur, et ce droit ne
@@ -249,9 +266,12 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                   className="w-full px-4 py-2.5 rounded-lg border-2 border-sky-700 text-sky-800 bg-white/90 font-bold text-sm hover:bg-white disabled:opacity-50 flex items-center justify-center gap-2">
                   <span className="text-lg">👆</span> {occupeEmpreinte ? "Posez votre doigt…" : "Activer l'empreinte sur cet appareil"}
                 </button>
-                <div className={`text-[11px] leading-snug ${decor.verrouTexteClair ? "text-white/70" : "text-slate-500"}`}>
-                  Tapez votre mot de passe ci-dessus, puis touchez ce bouton : la prochaine fois, un doigt suffira.
-                  Votre empreinte reste dans le téléphone — l'application ne la voit jamais.
+                <div className={`flex items-center justify-between gap-2 text-[11px] leading-snug ${decor.verrouTexteClair ? "text-white/70" : "text-slate-500"}`}>
+                  <span>Tapez le mot de passe, puis touchez ce bouton. Votre empreinte reste dans le téléphone.</span>
+                  <button type="button" onClick={refuserEmpreinte}
+                    className={`shrink-0 underline font-semibold ${decor.verrouTexteClair ? "text-white/80 hover:text-white" : "text-slate-600 hover:text-slate-800"}`}>
+                    Non merci
+                  </button>
                 </div>
               </div>
             )}

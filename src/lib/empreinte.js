@@ -36,6 +36,12 @@
 // toutes dans src/push.js.
 // ============================================================
 
+// Où le REFUS de la proposition est gardé, sur l'appareil (Timo,
+// 16/09/2026 : « même si la personne ne veut pas les empreintes, le message
+// est toujours là tant que ce n'est pas activé »). Une proposition qu'on ne
+// peut pas refuser n'est pas une proposition.
+export const CLE_REFUS = "bmi_empreinte_non";
+
 // Le seul motif de verrou que l'empreinte ouvre.
 export const MOTIF_INACTIVITE = "inactivite";
 

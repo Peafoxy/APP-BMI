@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1453 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1455 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -240,9 +240,20 @@ lit mal est pire qu'un banc absent).
     `dispo` ne sert plus qu'à proposer l'ACTIVATION là où il n'y a rien.
   - **L'activation vit DANS la fenêtre de verrou**, et nulle part ailleurs :
     **le vendeur n'a pas l'onglet ⚙ Paramètres**, et c'est là que la gêne est.
-    Une case à cocher sous le champ ; le mot de passe tapé SERT de preuve —
-    aucune question de plus. « Retirer l'empreinte de cet appareil » au même
-    endroit.
+    Un BOUTON sous le champ ; le mot de passe tapé SERT de preuve — aucune
+    question de plus. « Retirer l'empreinte de cet appareil » au même endroit.
+    ⚠ **Et « Non merci » ferme la proposition POUR DE BON** (capture Timo,
+    16/09/2026 : « même si la personne ne veut pas les empreintes, le message
+    est toujours là tant que ce n'est pas activé ») : le refus vit dans le
+    navigateur (`CLE_REFUS` = `bmi_empreinte_non`), sur CET appareil.
+    **Une proposition qu'on ne peut pas refuser n'est pas une proposition.**
+  - ⚠ **LE DIAGNOSTIC DU VERROU NE S'AFFICHE PLUS** (capture Timo,
+    16/09/2026 : « le champ du message rouge sous la ligne du mot de passe…
+    je n'aime plus voir ça ») : le texte du 09/09 (« Le champ n'a pas le
+    clavier — au-dessus : input.w-full… ») était écrit pour le DÉPANNAGE et
+    s'affichait chez lui. Il part dans la console (`journalDiag`). **Le FILET
+    reste entier** — focus repris à tout clic et à toute touche : c'est lui
+    qui soigne « le curseur ne clignote pas », pas le message.
   - ⚠⚠ **LES DEUX FAUTES DE LA PREMIÈRE VERSION** (16/09/2026, Timo : « je
     pense que le fonctionnement n'a pas réussi… il faut te documenter » — la
     2.101.240 ne marchait PAS sur son téléphone) :
