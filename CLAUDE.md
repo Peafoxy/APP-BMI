@@ -218,9 +218,14 @@ lit mal est pire qu'un banc absent).
     ça devrait venir automatiquement dès qu'on rentre ou qu'on rouvre
     l'application. Sauf s'il annule, ça revient sur mot de passe
     normalement ») : **elle est tentée TOUTE SEULE à l'ouverture de la
-    fenêtre, UNE fois** (`autoTente`, jamais deux — on ne harcèle personne),
-    et le champ du mot de passe **reste caché** jusqu'au premier refus, ou
-    jusqu'à « Utiliser le mot de passe ». ⚠ **La règle du geste vaut pour
+    fenêtre, UNE fois** (`autoTente`, jamais deux — on ne harcèle personne).
+    ⚠ **MAIS LES DEUX PORTES SE VOIENT ENSEMBLE** (capture Timo d'une autre
+    application, le même jour : « tu vois cet exemple… empreinte ET
+    possibilité de taper le mot de passe aussi ») : une version avait CACHÉ le
+    champ tant que l'empreinte menait — **retiré**. Clavier au-dessus, **rond
+    de l'empreinte juste en dessous** (`IconeEmpreinte`, dessinée UNE fois
+    dans ui.jsx comme le logo WhatsApp — jamais un emoji, flou et de travers
+    sur un gros bouton). ⚠ **La règle du geste vaut pour
     l'ACTIVATION (`create`), pas pour l'OUVERTURE (`get`)** — mais l'essai
     automatique **n'est pas garanti** : certains navigateurs le refusent aussi.
     Refusé → **on ne dit RIEN** (la personne n'a rien demandé), le mot de passe

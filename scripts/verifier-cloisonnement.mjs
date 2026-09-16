@@ -5292,10 +5292,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   // fois tout seul, et un refus découvre le mot de passe SANS un mot.
   // Ce qui reste interdit : harceler (deux essais), et laisser la personne
   // sans porte.
-  test("★ l'empreinte est tentée AUTOMATIQUEMENT à l'ouverture de la fenêtre, UNE seule fois, et un refus découvre le mot de passe sans un mot",
+  test("★ l'empreinte est tentée AUTOMATIQUEMENT à l'ouverture de la fenêtre, UNE seule fois, et un refus ne dit RIEN",
     /autoTente = useRef\(false\)/.test(ev)
     && /if \(!empreinteEnTete \|\| autoTente\.current\) return;\n\s+autoTente\.current = true;\n\s+parEmpreinte\(true\);/.test(ev)
-    && /setMdpDecouvert\(true\);\n\s+\/\/ Un essai AUTOMATIQUE refusé ne dit rien/.test(ev)
     && /if \(auto && !r\?\.expiree\) \{ champ\.current\?\.focus\(\); return; \}/.test(ev));
   test("★ l'ACTIVATION, elle, reste un BOUTON : c'est le clic qui donne le droit de toucher le capteur",
     /onClick=\{activerPuisOuvrir\}/.test(ev) && !/parEmpreinte\(true\)[\s\S]{0,200}creerEmpreinte/.test(ev));
@@ -5304,13 +5303,23 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   // téléphone à « as-tu un capteur ? ». Une clé déjà posée le prouve.
   test("★ le bouton d'ouverture n'attend PAS le téléphone : une clé posée prouve le capteur (le bouton manquait juste après le verrouillage)",
     /const empreinteEnTete = empreintePosee && empreinteOuvrable;/.test(ev)
-    && /\{empreinteEnTete && \(\n\s+<button type="button" onClick=\{\(\) => parEmpreinte\(false\)\}/.test(ev)
+    && /onClick=\{\(\) => parEmpreinte\(false\)\}/.test(ev)
     // …et `dispo` ne sert plus QU'À proposer l'activation là où il n'y a rien
     && /\{!empreintePosee && empreinteOuvrable && dispo && \(/.test(ev));
-  test("★ le mot de passe reste TOUJOURS accessible : il se découvre au premier refus, ou par « Utiliser le mot de passe »",
-    /const montrerMotDePasse = !empreinteEnTete \|\| mdpDecouvert;/.test(ev)
-    && /Utiliser le mot de passe/.test(ev) && /setMdpDecouvert\(true\); setTimeout\(focaliser, 50\)/.test(ev)
-    && /style=\{\{ display: montrerMotDePasse \? undefined : "none" \}\}/.test(ev));
+  // ⚠ RETOURNÉ le 16/09/2026, capture Timo d'une AUTRE application (Solimi) :
+  // « tu vois cet exemple… empreinte ET possibilité de taper le mot de passe
+  // aussi ». Une version cachait le champ tant que l'empreinte menait : c'est
+  // RETIRÉ. Les deux portes se voient ENSEMBLE, toujours — clavier au-dessus,
+  // rond de l'empreinte en dessous.
+  test("★ LES DEUX PORTES SE VOIENT ENSEMBLE : le champ du mot de passe n'est JAMAIS caché, et le rond de l'empreinte est juste en dessous",
+    !/montrerMotDePasse|mdpDecouvert|Utiliser le mot de passe/.test(ev)
+    && /<div className="relative">\n\s+\{\/\* ⚠ Capture Timo \(09\/09\/2026\)/.test(ev)
+    && /🔓 Déverrouiller\n\s+<\/button>\n/.test(ev)
+    // le rond, avec le dessin écrit UNE fois dans ui.jsx (jamais un emoji)
+    && /rounded-full bg-sky-700 text-white/.test(ev) && /<IconeEmpreinte \/>/.test(ev)
+    && /import \{ inputCls, IconeEmpreinte \} from "\.\/ui";/.test(ev)
+    && (execSync("grep -rl 'IconeEmpreinte' src || true").toString().trim().split("\n").filter(Boolean).sort().join("|")
+        === "src/components/EcranVerrou.jsx|src/components/ui.jsx"));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");

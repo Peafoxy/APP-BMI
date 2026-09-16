@@ -14,7 +14,7 @@
 // connexion s'applique ici aussi, sans rien recopier.
 // ============================================================
 import { useState, useRef, useEffect } from "react";
-import { inputCls } from "./ui";
+import { inputCls, IconeEmpreinte } from "./ui";
 import { decorAccueil, FondAccueil, Bulles } from "../screens/Connexion";
 import { empreinteDisponible, creerEmpreinte } from "../empreinte";
 import { motifEmpreinte } from "../lib/empreinte";
@@ -85,10 +85,14 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   // ⚠ L'essai automatique n'est pas garanti : certains navigateurs exigent
   // un appui récent même pour OUVRIR. S'il est refusé, on ne dit rien (ce
   // serait du bruit) : on découvre simplement le mot de passe et le bouton.
+  // ⚠ CORRIGÉ le 16/09/2026 (capture Timo d'une autre application) : « tu
+  // vois cet exemple… empreinte ET possibilité de taper le mot de passe
+  // aussi ». Une première version CACHAIT le champ tant que l'empreinte
+  // était le chemin principal : mauvaise idée. **LES DEUX SE VOIENT
+  // ENSEMBLE, toujours** — le clavier au-dessus, le rond de l'empreinte en
+  // dessous. L'essai automatique, lui, reste.
   const autoTente = useRef(false);
-  const [mdpDecouvert, setMdpDecouvert] = useState(false);
   const empreinteEnTete = empreintePosee && empreinteOuvrable;
-  const montrerMotDePasse = !empreinteEnTete || mdpDecouvert;
   const [occupeEmpreinte, setOccupeEmpreinte] = useState(false);
   useEffect(() => { let vivant = true; empreinteDisponible().then((d) => vivant && setDispo(!!d)); return () => { vivant = false; }; }, []);
   // L'ESSAI AUTOMATIQUE, une seule fois : dès que la fenêtre s'ouvre, si
@@ -106,9 +110,8 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     let r = null;
     try { r = await onEmpreinte?.(); } catch { r = { ok: false }; } finally { setOccupeEmpreinte(false); }
     if (r?.ok) return;
-    // Échec : le mot de passe reprend sa place, toujours.
-    setMdpDecouvert(true);
-    // Un essai AUTOMATIQUE refusé ne dit rien : la personne n'a rien demandé.
+    // Un essai AUTOMATIQUE refusé ne dit rien : la personne n'a rien demandé,
+    // et le clavier est déjà là, sous ses yeux.
     if (auto && !r?.expiree) { champ.current?.focus(); return; }
     // ⚠ Un doigt non reconnu n'est PAS un mot de passe faux : aucun des 5
     // essais n'est consommé, on propose simplement l'autre porte.
@@ -192,29 +195,7 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                 du mot de passe reste EN DESSOUS, toujours — un capteur en
                 panne, un doigt mouillé, un appareil neuf : il y a toujours
                 une porte. */}
-            {/* ⚠ CAPTURE TIMO du 16/09/2026, juste après le verrouillage : le
-                bouton MANQUAIT, et n'apparaissait qu'après un F5. Il attendait
-                `dispo` — la réponse du téléphone à « as-tu un capteur ? » —
-                qui met parfois une seconde ou deux à venir. Or **une clé déjà
-                posée sur cet appareil PROUVE que le capteur existe** : il n'y
-                a rien à attendre. `dispo` ne sert plus qu'à proposer
-                l'ACTIVATION sur un appareil qui n'a encore rien. */}
-            {empreinteEnTete && (
-              <button type="button" onClick={() => parEmpreinte(false)} disabled={occupeEmpreinte}
-                className="w-full px-4 py-3 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50 flex items-center justify-center gap-2">
-                <span className="text-xl">👆</span> {occupeEmpreinte ? "Posez votre doigt…" : "Déverrouiller avec l'empreinte"}
-              </button>
-            )}
-            {/* Le mot de passe reste LA porte de secours — mais quand
-                l'empreinte est posée, il attend son tour : il se découvre au
-                premier refus, ou sur « Utiliser le mot de passe ». */}
-            {!montrerMotDePasse && (
-              <button type="button" onClick={() => { setMdpDecouvert(true); setTimeout(focaliser, 50); }}
-                className={`text-xs underline ${decor.verrouTexteClair ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-700"}`}>
-                Utiliser le mot de passe
-              </button>
-            )}
-            <div className="relative" style={{ display: montrerMotDePasse ? undefined : "none" }}>
+            <div className="relative">
               {/* ⚠ Capture Timo (09/09/2026) : carte SOMBRE → le texte de la
                   carte est blanc, et le champ (fond blanc) en héritait :
                   mot de passe et curseur blancs sur blanc, « le mot de passe
@@ -229,10 +210,26 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
             </div>
             {erreur && <div className={`text-sm font-semibold text-center ${decor.verrouTexteClair ? "text-red-300" : "text-red-700"}`}>{erreur}</div>}
             {diag && <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 break-words">{diag}</div>}
-            {montrerMotDePasse && (
-              <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
-                🔓 Déverrouiller
-              </button>
+            <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
+              🔓 Déverrouiller
+            </button>
+            {/* ⚠ CAPTURE TIMO, juste après le verrouillage : ce bouton
+                MANQUAIT et n'apparaissait qu'après un F5 — il attendait la
+                réponse du téléphone à « as-tu un capteur ? ». Une clé déjà
+                posée sur cet appareil le PROUVE : il n'y a rien à attendre.
+                `dispo` ne sert plus qu'à proposer l'ACTIVATION là où il n'y a
+                encore rien. */}
+            {empreinteEnTete && (
+              <div className="flex flex-col items-center gap-1 pt-1">
+                <button type="button" onClick={() => parEmpreinte(false)} disabled={occupeEmpreinte}
+                  aria-label="Déverrouiller avec l'empreinte" title="Déverrouiller avec l'empreinte"
+                  className={`w-16 h-16 rounded-full bg-sky-700 text-white flex items-center justify-center shadow-lg hover:bg-sky-800 disabled:opacity-60 ${occupeEmpreinte ? "animate-pulse" : ""}`}>
+                  <IconeEmpreinte />
+                </button>
+                <div className={`text-[11px] ${decor.verrouTexteClair ? "text-white/70" : "text-slate-500"}`}>
+                  {occupeEmpreinte ? "Posez votre doigt…" : "ou déverrouillez avec l'empreinte"}
+                </div>
+              </div>
             )}
             {/* 👆 L'ACTIVATION se fait ICI, et nulle part ailleurs : le
                 vendeur n'a même pas l'onglet ⚙ Paramètres, et c'est ce
