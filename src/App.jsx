@@ -88,6 +88,12 @@ import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, res
 import { adminPrincipal } from "./lib/calculs";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
 import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
+// 👆 L'empreinte qui ouvre le verrou d'inactivité (Timo, 16/09/2026, « lance
+// le niveau 1 sur le verrou »). Les règles sont pures (lib/empreinte.js) ;
+// tout ce qui parle au capteur vit dans src/empreinte.js, et nulle part
+// ailleurs — le banc l'impose, comme pour les notifications.
+import { empreinteOuvreCeVerrou, empreinteDeLAppareil, poserEmpreinte, retirerEmpreinte } from "./lib/empreinte";
+import { idAppareil, nomDeCetAppareil, creerEmpreinte, verifierEmpreinte } from "./empreinte";
 import { EcranVerrou } from "./components/EcranVerrou";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
@@ -621,7 +627,56 @@ export default function App() {
   // Le mot de passe est vérifié contre la fiche ACTUELLE du compte (si
   // l'administrateur l'a changé entre-temps, c'est le nouveau qui ouvre),
   // sur l'appareil : sans internet aussi.
-  const deverrouiller = async (saisie) => {
+  // 👆 OUVRIR AVEC L'EMPREINTE — le verrou d'INACTIVITÉ seulement.
+  // ⚠ Les deux autres motifs gardent le mot de passe, et ce n'est pas un
+  // oubli : à 30 min la session est finie (le mot de passe non plus ne la
+  // ressuscite pas), et une session sécurisée tombée a besoin du VRAI mot
+  // de passe pour être rouverte auprès du serveur (synchroniserAuth).
+  const deverrouillerParEmpreinte = async () => {
+    if (fermetureRef.current || doitDeconnecter(derniereActiviteRef.current, Date.now())) {
+      fermetureRef.current = true;
+      setVerrouille(false); setMotifVerrou("inactivite"); setProfile(null);
+      deconnexion(true).finally(() => { fermetureRef.current = false; });
+      uAlert("⏳ Session expirée : 30 minutes sans activité.\n\nReconnectez-vous pour continuer. Rien n'est perdu.");
+      return { ok: false, expiree: true };
+    }
+    if (!empreinteOuvreCeVerrou(motifVerrou, etatAuth.sessionPerdue)) return { ok: false };
+    const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
+    const e = empreinteDeLAppareil(compte, idAppareil());
+    if (!e) return { ok: false };
+    if (!(await verifierEmpreinte(e.cle))) return { ok: false };
+    // ⚠ Un doigt mouillé n'est PAS un mot de passe faux : on ne touche pas
+    // au compteur des 5 erreurs, qui ferme la session.
+    derniereActiviteRef.current = Date.now();
+    setVerrouille(false); setErreursVerrou(0); setMotifVerrou("inactivite");
+    ecrireSession({ verrouille: false, ts: derniereActiviteRef.current });
+    return { ok: true };
+  };
+
+  // Poser ou retirer la clé de CET appareil sur la fiche de la personne.
+  // La fiche accepte déjà un champ personnel (comme l'ordre de ses onglets
+  // et ses brouillons de devis) : rien à coller dans Supabase.
+  const activerEmpreinteIci = async () => {
+    const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
+    const appareil = idAppareil();
+    if (!appareil) return false;
+    const cle = await creerEmpreinte(compte);
+    if (!cle) return false;
+    const majs = poserEmpreinte(compte, { appareil, cle, nom: nomDeCetAppareil(), le: today() });
+    await save({ ...dbRef.current, users: (dbRef.current.users || []).map((x) => (x.id === compte.id ? majs : x)) },
+      `Empreinte activée sur un appareil (${nomDeCetAppareil()})`);
+    return true;
+  };
+
+  const retirerEmpreinteIci = async () => {
+    const compte = (dbRef.current?.users || []).find((x) => x.id === profile?.id) || profile;
+    const majs = retirerEmpreinte(compte, idAppareil());
+    await save({ ...dbRef.current, users: (dbRef.current.users || []).map((x) => (x.id === compte.id ? majs : x)) },
+      `Empreinte retirée d'un appareil (${nomDeCetAppareil()})`);
+    return true;
+  };
+
+  const deverrouiller = async (saisie, options = {}) => {
     // ⚠ Les 30 minutes sont passées (ou la fermeture est déjà engagée) : le
     // mot de passe ne rouvre RIEN. On ferme et on dit pourquoi, au lieu de
     // laisser croire que la session reprend.
@@ -644,6 +699,10 @@ export default function App() {
       }
       // Le compteur des 30 min repart de zéro : sans cela, la minuterie
       // pouvait refermer la session juste après le déverrouillage.
+      // 👆 Le mot de passe vient de prouver que c'est bien elle : c'est le
+      // bon moment pour poser l'empreinte, sans lui poser une question de
+      // plus ailleurs (le vendeur n'a même pas l'onglet ⚙ Paramètres).
+      if (options.activerEmpreinte) { try { await activerEmpreinteIci(); } catch { /* refus : le mot de passe a marché, on ouvre quand même */ } }
       derniereActiviteRef.current = Date.now();
       setVerrouille(false); setErreursVerrou(0); setMotifVerrou("inactivite");
       ecrireSession({ verrouille: false, ts: derniereActiviteRef.current });
@@ -1375,7 +1434,11 @@ export default function App() {
 
   return (
     <>
-    {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} motif={motifVerrou} onDeverrouiller={deverrouiller} onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
+    {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} motif={motifVerrou} onDeverrouiller={deverrouiller}
+      empreintePosee={!!empreinteDeLAppareil((db?.users || []).find((x) => x.id === profile?.id) || profile, idAppareil())}
+      empreinteOuvrable={empreinteOuvreCeVerrou(motifVerrou, etatAuth.sessionPerdue)}
+      onEmpreinte={deverrouillerParEmpreinte} onRetirerEmpreinte={retirerEmpreinteIci}
+      onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
     {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant.
         Plus de flou (filter) sur ce cadre (Timo, 09/09/2026 : « le mot de
         passe ne s'écrit pas ») : la fenêtre de verrou couvre tout l'écran

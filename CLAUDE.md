@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1424 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1448 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -192,6 +192,40 @@ lit mal est pire qu'un banc absent).
   par surprise** : une bande orange « Rétablir » en haut, sinon le verrou
   d'inactivité s'en charge ; la session est renouvelée au réveil de
   l'appareil et 10 min avant expiration (`expireBientot`).
+- **👆 L'EMPREINTE OUVRE LE VERROU — niveau 1** (16/09/2026 : « sur téléphone,
+  est-il possible d'ajouter l'authentification par empreinte digitale ? » →
+  « lance le niveau 1 sur le verrou »). Règles pures `lib/empreinte.js` (sans
+  import) ; **`src/empreinte.js` est le SEUL à toucher `navigator.credentials`
+  / `PublicKeyCredential`**, comme `src/push.js` pour les notifications — le
+  banc l'impose.
+  - **L'application ne LIT JAMAIS une empreinte** : le téléphone compare tout
+    seul et répond oui ou non. Ce qui est rangé sur la fiche (`empreintes`,
+    une par appareil — **rien à coller**, comme `ordre_onglets`) est une CLÉ,
+    jamais un doigt. `attestation: "none"` : on ne veut rien savoir de
+    l'appareil. Phrase à dire à l'équipe : **il n'y a aucune empreinte à
+    protéger chez nous, parce qu'il n'y en a aucune.**
+  - ⚠ **NIVEAU 1 = une COMMODITÉ, pas un verrou** : la réponse du téléphone
+    est crue sur parole, notre serveur ne vérifie rien. **Ne jamais écrire
+    « sécurisé » à son sujet.** Le niveau 2 (signature vérifiée côté Vercel)
+    garde ces deux fonctions telles quelles et ajoute la vérification.
+  - **Elle n'ouvre QUE le verrou d'INACTIVITÉ** (`empreinteOuvreCeVerrou`,
+    revérifié DANS le geste) : à 30 min la session est finie (le mot de passe
+    non plus ne la ressuscite pas) ; une session sécurisée tombée a besoin du
+    VRAI mot de passe, qui ROUVRE la session (`synchroniserAuth`).
+  - **Le mot de passe ne disparaît jamais** : le bouton 👆 s'ajoute AU-DESSUS
+    du champ. Un doigt non reconnu ne consomme **aucun** des 5 essais (un doigt
+    mouillé n'est pas un mot de passe faux). Rien n'est lancé au montage :
+    iPhone et Chrome exigent un geste, donc un BOUTON.
+  - **L'activation vit DANS la fenêtre de verrou**, et nulle part ailleurs :
+    **le vendeur n'a pas l'onglet ⚙ Paramètres**, et c'est là que la gêne est.
+    Une case à cocher sous le champ ; le mot de passe tapé SERT de preuve —
+    aucune question de plus. « Retirer l'empreinte de cet appareil » au même
+    endroit.
+  - ⚠ **Un téléphone dit oui à TOUTES les empreintes qu'il connaît** : on ne
+    peut pas savoir de quel doigt il s'agit. Règle à l'équipe, pas un défaut à
+    corriger : le téléphone de travail ne porte que votre doigt. Et l'id de
+    l'appareil vit dans le navigateur (`bmi_appareil`) : vider les données du
+    site le perd, la personne réactive — seul dégât possible.
 - L'étiquette de connexion (espace, rôle, principal, boutique, pouvoirs
   retirés) n'est réécrite **qu'à la connexion** : tout changement de règle
   prend effet à la prochaine reconnexion de chacun — à dire à Timo.

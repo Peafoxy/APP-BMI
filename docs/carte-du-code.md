@@ -67,6 +67,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 |---|---|
 | `lib/espace.js` | À quel espace (réel / formation) appartient un compte, et qui prévenir |
 | `lib/verrou.js` | Le verrou d'inactivité, et la reconnaissance d'un téléphone |
+| `lib/empreinte.js` | Qui peut ouvrir le verrou avec son doigt, et la clé rangée par appareil — **aucune empreinte n'entre ici**, le téléphone compare tout seul (`src/empreinte.js` est le seul à lui parler) |
 | `lib/notifications.js` | Ce qui part en notification à chaque enregistrement |
 | `lib/rappels.js` | Les rappels « pour information » qui dépendent du temps (tournée du matin) |
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |

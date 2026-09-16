@@ -145,6 +145,13 @@ await build({ entryPoints: ["src/lib/banques.js"], bundle: true, format: "esm",
 const Bq = await import(pathToFileURL(sortieBq).href);
 unlinkSync(sortieBq);
 
+// 👆 L'empreinte qui ouvre le verrou d'inactivité (16/09/2026).
+const sortieEmp = join("node_modules", ".cache", `bmi-empreinte-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/empreinte.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieEmp, logLevel: "silent", loader: { ".js": "jsx" } });
+const Emp = await import(pathToFileURL(sortieEmp).href);
+unlinkSync(sortieEmp);
+
 // La séparation fiche employé / fiche de paie.
 const sortiePaie = join("node_modules", ".cache", `bmi-paie-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/paie.js"], bundle: true, format: "esm",
@@ -5084,13 +5091,22 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /fermetureRef\.current = true;\n\s+\/\/[^]*?setVerrouille\(false\); setMotifVerrou\("inactivite"\); setProfile\(null\);\n\s+deconnexion\(true\)\.finally\(\(\) => \{ fermetureRef\.current = false; \}\);/.test(app)
     && !/deconnexion\(true\)\.then\(\(\) => \{ setVerrouille\(false\)/.test(app));
   test("★ un mot de passe ne ROUVRE JAMAIS une session déjà expirée : deverrouiller le vérifie EN PREMIER (30 min ou fermeture engagée), ferme, et dit pourquoi — la fenêtre affiche « Session expirée », pas « mot de passe incorrect »",
-    /const deverrouiller = async \(saisie\) => \{\n\s+\/\/[^]*?if \(fermetureRef\.current \|\| doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)\) \{/.test(app)
+    // ⚠ RETOURNÉ le 16/09/2026 : la fonction prend une option (activer
+    // l'empreinte au passage). Ce qui est vérifié ne change pas d'un cheveu —
+    // le contrôle des 30 min est toujours la PREMIÈRE chose qu'elle fait.
+    /const deverrouiller = async \(saisie, options = \{\}\) => \{\n\s+\/\/[^]*?if \(fermetureRef\.current \|\| doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)\) \{/.test(app)
+    // …et le déverrouillage par EMPREINTE porte le MÊME garde, en premier.
+    && /const deverrouillerParEmpreinte = async \(\) => \{\n\s+if \(fermetureRef\.current \|\| doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)\) \{/.test(app)
     && /return \{ ok: false, expiree: true \};/.test(app) && /Session expirée : 30 minutes sans activité/.test(app)
     && /r\?\.expiree/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
   test("★ un déverrouillage réussi fait repartir le compteur des 30 min de zéro (sinon la minuterie refermait la session juste après)",
     /derniereActiviteRef\.current = Date\.now\(\);\n\s+setVerrouille\(false\); setErreursVerrou\(0\); setMotifVerrou\("inactivite"\);\n\s+ecrireSession\(\{ verrouille: false, ts: derniereActiviteRef\.current \}\);/.test(app));
   test("★ le voile est un FRÈRE du cadre de l'application (jamais un enfant) ; le cadre derrière est insensible aux clics et non sélectionnable — et PLUS flouté (Timo, 09/09/2026 : « le mot de passe ne s'écrit pas » — le flou redessinait toute l'application à chaque lettre)",
-    /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\} onDeconnecter=\{/.test(app)
+    // ⚠ RETOURNÉ le 16/09/2026 : la fenêtre reçoit en plus les props de
+    // l'empreinte. Ce que ce contrôle garde — le voile FRÈRE du cadre, le
+    // cadre insensible aux clics, aucun flou — n'a pas bougé.
+    /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\}\n/.test(app)
+    && /onDeconnecter=\{async \(\) => \{ await deconnexion\(true\); setVerrouille\(false\); \}\} \/>\}/.test(app)
     && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
@@ -5156,13 +5172,86 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ la fenêtre dit pourquoi : « Votre session sécurisée a expiré … » quand c'est la session, le texte court sinon",
     /motif === "session"\s*\? "Votre session sécurisée a expiré : entrez le mot de passe pour la rétablir et reprendre\."/.test(ev));
   test("★ le champ redevient toujours saisissable (try/finally sur « occupe ») ; le flou de la carte n'est posé que si elle est translucide",
-    /try \{ r = await onDeverrouiller\(saisie\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupe\(false\); \}/.test(ev)
+    // ⚠ RETOURNÉ le 16/09/2026 : l'appel passe l'option d'activation de
+    // l'empreinte. Le try/finally — ce que ce contrôle garde — est intact,
+    // et le geste par EMPREINTE a le sien.
+    /try \{ r = await onDeverrouiller\(saisie, \{ activerEmpreinte: activer \}\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupe\(false\); \}/.test(ev)
+    && /try \{ r = await onEmpreinte\?\.\(\); \} catch \{ r = \{ ok: false \}; \} finally \{ setOccupeEmpreinte\(false\); \}/.test(ev)
     && /\$\{decor\.verrouTranslucide \? "backdrop-blur-sm" : ""\}/.test(ev) && !/decor\.flou/.test(ev) && /const verrouTranslucide = !\/,1\\\)\$\/\.test\(verrouFond\);/.test(cnxV));
   test("★ la fenêtre reprend le focus sur le champ à tout clic et à toute touche (filet Timo, 09/09/2026 : « le curseur ne clignote pas ») et nomme ce qui s'interpose si le champ n'a toujours pas le clavier",
     /window\.addEventListener\("keydown", clavier, true\)/.test(ev) && /onPointerDown=\{\(e\) => \{ if \(e\.target\?\.tagName !== "BUTTON" && e\.target\?\.tagName !== "INPUT"\) focaliser\(\); \}\}/.test(ev)
     && /document\.elementFromPoint\(r\.left \+ 20, r\.top \+ r\.height \/ 2\)/.test(ev) && /Le champ n'a pas le clavier/.test(ev));
   test("★ le champ mot de passe impose texte et curseur SOMBRES (carte sombre → texte de carte blanc → champ blanc sur blanc, capture Timo 09/09/2026 : « le mot de passe ne s'écrit pas »)",
     /className=\{`\$\{inputCls\} pr-10 text-slate-900 caret-slate-900 placeholder:text-slate-400`\} placeholder="Mot de passe"/.test(ev));
+
+  // ═══════════════════════════════════════════════════════════
+  // 👆 L'EMPREINTE QUI OUVRE LE VERROU — NIVEAU 1 (Timo, 16/09/2026)
+  // « Sur téléphone, est-il possible d'ajouter l'authentification par
+  // empreinte digitale ? » → « Lance le niveau 1 sur le verrou ».
+  // Ce que le banc garde ici : les DEUX portes fermées (30 min, session
+  // perdue), le mot de passe qui ne disparaît jamais, et le fait qu'AUCUNE
+  // empreinte n'entre dans l'application.
+  // ═══════════════════════════════════════════════════════════
+  test("★ l'empreinte n'ouvre QUE le verrou d'inactivité : la session perdue et les autres motifs gardent le mot de passe",
+    Emp.empreinteOuvreCeVerrou("inactivite", false) === true
+    && Emp.empreinteOuvreCeVerrou("inactivite", true) === false /* session sécurisée tombée : il faut le VRAI mot de passe (synchroniserAuth) */
+    && Emp.empreinteOuvreCeVerrou("session", false) === false
+    && Emp.empreinteOuvreCeVerrou("", false) === false);
+  test("★ une clé PAR APPAREIL, et ré-activer sur le même appareil REMPLACE au lieu d'empiler",
+    (() => {
+      const u0 = { id: "u1", nom: "AYAO" };
+      const u1 = Emp.poserEmpreinte(u0, { appareil: "a1", cle: "K1", nom: "Android · Chrome", le: "2026-09-16" });
+      const u2 = Emp.poserEmpreinte(u1, { appareil: "a2", cle: "K2" });
+      const u3 = Emp.poserEmpreinte(u2, { appareil: "a1", cle: "K1bis" });
+      return Emp.empreintesDe(u1).length === 1 && Emp.empreintesDe(u2).length === 2
+        && Emp.empreintesDe(u3).length === 2 && Emp.empreinteDeLAppareil(u3, "a1").cle === "K1bis"
+        && Emp.empreinteActive(u3, "a1") === true && Emp.empreinteActive(u3, "a9") === false
+        && Emp.empreintesDe(Emp.retirerEmpreinte(u3, "a1")).length === 1
+        // une fiche sans rien, un appareil inconnu : la règle ne tombe pas
+        && Emp.empreintesDe(undefined).length === 0 && Emp.empreinteActive(u3, "") === false
+        && Emp.empreinteDeLAppareil(u3, null) === null;
+    })());
+  test("un appareil se reconnaît en clair pour la personne (jamais un identifiant)",
+    Emp.nomAppareil("Mozilla/5.0 (Linux; Android 13) Chrome/120") === "Android · Chrome"
+    && Emp.nomAppareil("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Version/17.0 Safari/605") === "iPhone · Safari"
+    && Emp.nomAppareil("") === "Appareil");
+  test("★ lib/empreinte.js est PUR : aucune touche au navigateur, aucun import (comme identiteClient)",
+    !/^import /m.test(readFileSync("src/lib/empreinte.js", "utf8"))
+    && !/navigator\.|PublicKeyCredential|localStorage/.test(readFileSync("src/lib/empreinte.js", "utf8")));
+  // ⚠ UN SEUL endroit parle au capteur, comme src/push.js est le seul à
+  // parler aux notifications. Sans ce contrôle, un écran finirait par
+  // appeler le capteur dans son coin, avec ses propres règles.
+  {
+    const porteurs = execSync(`grep -rlE "navigator[.]credentials|PublicKeyCredential" src || true`).toString().trim().split("\n").filter(Boolean).sort().join("|");
+    test("★ `navigator.credentials` et `PublicKeyCredential` n'existent QUE dans src/empreinte.js",
+      porteurs === "src/empreinte.js");
+  }
+  test("★ AUCUNE empreinte n'entre dans l'application : on ne range qu'une clé fabriquée par le téléphone, et l'attestation est refusée",
+    /attestation: "none"/.test(readFileSync("src/empreinte.js", "utf8"))
+    && /userVerification: "required"/.test(readFileSync("src/empreinte.js", "utf8"))
+    && /authenticatorAttachment: "platform"/.test(readFileSync("src/empreinte.js", "utf8")));
+  test("★ le MOT DE PASSE ne disparaît jamais : le bouton d'empreinte s'ajoute au-dessus du champ, il ne le remplace pas",
+    /empreintePosee && empreinteOuvrable && dispo && \(/.test(ev) && /Déverrouiller avec l'empreinte/.test(ev)
+    && /type=\{visible \? "text" : "password"\}/.test(ev) && /🔓 Déverrouiller/.test(ev));
+  test("★ l'activation vit DANS la fenêtre de verrou (le vendeur n'a pas l'onglet ⚙ Paramètres), et c'est le mot de passe tapé qui la valide",
+    /Activer l'empreinte sur cet appareil/.test(ev) && /checked=\{activer\}/.test(ev)
+    && /if \(options\.activerEmpreinte\) \{ try \{ await activerEmpreiteIci\(\); \}/.test(app) === false
+    && /if \(options\.activerEmpreinte\) \{ try \{ await activerEmpreinteIci\(\); \}/.test(app)
+    && /Retirer l'empreinte de cet appareil/.test(ev));
+  // ⚠ Le corps de la fonction est DÉCOUPÉ avant d'être lu : un « pas de
+  // apresErreur après deverrouillerParEmpreinte » sur le fichier entier
+  // aurait toujours trouvé celui de `deverrouiller`, plus bas — un contrôle
+  // qui rassure sans protéger.
+  const corpsEmpreinte = app.slice(app.indexOf("const deverrouillerParEmpreinte"), app.indexOf("const activerEmpreinteIci"));
+  test("★ le geste par empreinte revérifie la règle DANS le geste, et un doigt non reconnu ne consomme AUCUN des 5 essais",
+    corpsEmpreinte.length > 200
+    && /if \(!empreinteOuvreCeVerrou\(motifVerrou, etatAuth\.sessionPerdue\)\) return \{ ok: false \};/.test(corpsEmpreinte)
+    && !/apresErreur|setErreursVerrou\(erreurs/.test(corpsEmpreinte)
+    // …et il porte le garde des 30 min, comme le mot de passe
+    && /doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\)/.test(corpsEmpreinte)
+    && /Empreinte non reconnue — entrez votre mot de passe\./.test(ev));
+  test("★ rien n'est lancé tout seul au montage : iPhone et Chrome exigent un geste, donc un BOUTON",
+    /onClick=\{parEmpreinte\}/.test(ev) && !/useEffect\(\(\) => \{[^}]*parEmpreinte\(\)/.test(ev));
   // Les hooks du verrou sont AVANT les retours anticipés (piège écran blanc).
   const posHooks = app.indexOf("const [verrouille, setVerrouille] = useState(false);");
   const posRetour = app.indexOf("if (!db) return <div");

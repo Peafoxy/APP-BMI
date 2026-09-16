@@ -16,8 +16,9 @@
 import { useState, useRef, useEffect } from "react";
 import { inputCls } from "./ui";
 import { decorAccueil, FondAccueil, Bulles } from "../screens/Connexion";
+import { empreinteDisponible } from "../empreinte";
 
-export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDeverrouiller, onDeconnecter }) {
+export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDeverrouiller, onDeconnecter, empreintePosee = false, empreinteOuvrable = false, onEmpreinte, onRetirerEmpreinte }) {
   const [saisie, setSaisie] = useState("");
   const [erreur, setErreur] = useState("");
   const [occupe, setOccupe] = useState(false);
@@ -66,6 +67,31 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   const decorBase = decorAccueil(db || { boutiques: [] }, apparence);
   const decor = { ...decorBase, pleinEcran: !!decorBase.accueilImage };
 
+  // 👆 L'EMPREINTE (Timo, 16/09/2026). Elle n'ouvre que le verrou
+  // d'inactivité : `empreinteOuvrable` porte cette règle, calculée une
+  // seule fois dans lib/empreinte.js.
+  // ⚠ On ne lance RIEN tout seul au montage : iPhone comme Chrome exigent
+  // un geste de la personne pour ouvrir la fenêtre du capteur. D'où un
+  // bouton, jamais un appel automatique.
+  const [dispo, setDispo] = useState(false);
+  const [activer, setActiver] = useState(false);
+  const [occupeEmpreinte, setOccupeEmpreinte] = useState(false);
+  useEffect(() => { let vivant = true; empreinteDisponible().then((d) => vivant && setDispo(!!d)); return () => { vivant = false; }; }, []);
+
+  const parEmpreinte = async () => {
+    if (occupeEmpreinte) return;
+    setOccupeEmpreinte(true);
+    let r = null;
+    try { r = await onEmpreinte?.(); } catch { r = { ok: false }; } finally { setOccupeEmpreinte(false); }
+    if (r?.ok) return;
+    // ⚠ Un doigt non reconnu n'est PAS un mot de passe faux : aucun des 5
+    // essais n'est consommé, on propose simplement l'autre porte.
+    setErreur(r?.expiree
+      ? "Session expirée : 30 minutes sans activité. Reconnectez-vous."
+      : "Empreinte non reconnue — entrez votre mot de passe.");
+    champ.current?.focus();
+  };
+
   const valider = async (e) => {
     e?.preventDefault?.();
     if (occupe || !saisie) return;
@@ -74,7 +100,7 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
     // try/finally : quoi qu'il arrive, le champ redevient saisissable.
     // Sans cela, une vérification qui échoue laissait « occupe » à vrai et
     // le champ DÉSACTIVÉ pour toujours (« le mot de passe ne s'écrit pas »).
-    try { r = await onDeverrouiller(saisie); } catch { r = { ok: false }; } finally { setOccupe(false); }
+    try { r = await onDeverrouiller(saisie, { activerEmpreinte: activer }); } catch { r = { ok: false }; } finally { setOccupe(false); }
     if (r?.ok) return;
     setSaisie("");
     setErreur(r?.expiree
@@ -108,6 +134,17 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                   : "Entrez le mot de passe et reprenez la session."}
               </div>
             </div>
+            {/* 👆 Quand l'empreinte est posée sur CET appareil et que le
+                verrou est celui de l'inactivité : un doigt suffit. Le champ
+                du mot de passe reste EN DESSOUS, toujours — un capteur en
+                panne, un doigt mouillé, un appareil neuf : il y a toujours
+                une porte. */}
+            {empreintePosee && empreinteOuvrable && dispo && (
+              <button type="button" onClick={parEmpreinte} disabled={occupeEmpreinte}
+                className="w-full px-4 py-3 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50 flex items-center justify-center gap-2">
+                <span className="text-xl">👆</span> {occupeEmpreinte ? "Posez votre doigt…" : "Déverrouiller avec l'empreinte"}
+              </button>
+            )}
             <div className="relative">
               {/* ⚠ Capture Timo (09/09/2026) : carte SOMBRE → le texte de la
                   carte est blanc, et le champ (fond blanc) en héritait :
@@ -126,6 +163,26 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
             <button type="submit" disabled={occupe || !saisie} className="w-full px-4 py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
               🔓 Déverrouiller
             </button>
+            {/* 👆 L'ACTIVATION se fait ICI, et nulle part ailleurs : le
+                vendeur n'a même pas l'onglet ⚙ Paramètres, et c'est ce
+                moment précis — celui où l'on tape son mot de passe pour la
+                dixième fois — qui donne envie de l'activer. Le mot de passe
+                qu'elle tape SERT de preuve : aucune question de plus.
+                ⚠ Ce que l'application ne fait PAS, et qu'il faut savoir : elle
+                ne lit aucune empreinte. Le téléphone compare tout seul et
+                répond oui ou non ; on ne range qu'une clé, jamais un doigt. */}
+            {!empreintePosee && empreinteOuvrable && dispo && (
+              <label className={`flex items-start gap-2 text-xs cursor-pointer ${decor.verrouTexteClair ? "text-white/80" : "text-slate-600"}`}>
+                <input type="checkbox" checked={activer} onChange={(e) => setActiver(e.target.checked)} className="mt-0.5" />
+                <span>👆 <b>Activer l'empreinte sur cet appareil</b> — la prochaine fois, un doigt suffira. Votre empreinte reste dans le téléphone : l'application ne la voit jamais.</span>
+              </label>
+            )}
+            {empreintePosee && (
+              <button type="button" onClick={() => onRetirerEmpreinte?.()}
+                className={`text-xs underline ${decor.verrouTexteClair ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-700"}`}>
+                Retirer l'empreinte de cet appareil
+              </button>
+            )}
             {/* Timo (12/09/2026, capture) : « le bouton Se déconnecter n'est pas
                 pré-rempli, ce qui fait que pour certaines couleurs de fond il
                 devient invisible… le pré-remplir avec un jaune pâle ou rouge pâle
