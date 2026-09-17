@@ -339,6 +339,7 @@ lit mal est pire qu'un banc absent).
   (lib/calculs.js) et `a_pouvoir_taches()` (serveur, **`securite-21`**) doivent
   nommer les MÊMES rôles — sinon le geste part, la base dit non, et tout le lot
   reste coincé dans la file d'attente. Le banc mesure les deux côtés et compare.
+  **`securite-21` collé par Timo le 17/09/2026 (`true | true`).**
   Admin + resp. commercial : programmer une installation. Admin ou chef de
   CE chantier : marquer terminé. Admin ou son commercial (« laisser comme
   tel ») : supprimer un chantier, gestes sur un prospect. Réassigner un
