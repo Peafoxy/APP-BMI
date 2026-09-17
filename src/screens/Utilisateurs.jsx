@@ -162,6 +162,9 @@ export function Users({ db, save, profile }) {
     }
     // Responsable Commercial : salarié, avec un taux de commission FACULTATIF
     // (il n'est commissionné que si un commercial l'associe volontairement à une commande).
+    // ⚠ CHEF TECHNICIEN (17/09/2026) : le technicien BMI est salarié, son
+    // taux se règle plus bas — mais il peut être chef comme les deux autres.
+    if (f.role === "technicien_bmi" && f.chef) nouvelUser.chef_equipe = true;
     if (f.role === "resp_commercial") nouvelUser.taux_commission = Number(f.taux_resp || 0);
     // Technicien BMI : salarié, mais s'il apporte un client, il touche une commission
     // sur cette vente, exactement comme un commercial.
@@ -974,10 +977,10 @@ export function Users({ db, save, profile }) {
           {(f.role === "commercial" || f.role === "technicien") && <Field label="Taux de commission (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.taux} onChange={(e) => setF({ ...f, taux: e.target.value })} /></Field>}
           {(f.role === "resp_commercial" || f.role === "technicien_bmi") && <Field label="Taux de commission (%) — facultatif"><input type="number" min="0" max="100" step="0.5" placeholder="0 = aucune commission" className={inputCls} value={f.taux_resp || ""} onChange={(e) => setF({ ...f, taux_resp: e.target.value })} /></Field>}
           {SALARIES.includes(f.role) && <Field label="Taux d'avancement annuel (%)"><input type="number" min="0" max="100" step="0.5" placeholder="Ex : 5" className={inputCls} value={f.taux_avancement || ""} onChange={(e) => setF({ ...f, taux_avancement: e.target.value })} /></Field>}
-          {(f.role === "commercial" || f.role === "technicien") && (
+          {(f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi") && (
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mt-6">
               <input type="checkbox" checked={!!f.chef} onChange={(e) => setF({ ...f, chef: e.target.checked })} />
-              Chef d'équipe (responsable commercial)
+              {f.role === "commercial" ? "Chef d'équipe (responsable commercial)" : "Chef d'équipe (chef des techniciens)"}
             </label>
           )}
           {/* ⚠ Le client était exclu de ce choix (relevé par Timo) : il ne
@@ -1134,7 +1137,7 @@ export function Users({ db, save, profile }) {
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
+                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
                 <td className="px-4 py-2">
                   {u.boutique
                     ? <Badge boutique={u.boutique} />
@@ -1222,7 +1225,7 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerTauxCommission(u)} className={boutonGerer}>💰 Commission {u.taux_commission ?? 0} %</button>
                   {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className={boutonGerer}>🤝 Parrain</button>}
                   {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className={boutonGerer}>⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT} %</button>}
-                  {["commercial", "technicien"].includes(u.role) && <button onClick={() => basculerChef(u)} className={boutonGerer}>{u.chef_equipe ? "Retirer chef" : "Nommer chef"}</button>}
+                  {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <button onClick={() => basculerChef(u)} className={boutonGerer}>{u.chef_equipe ? "Retirer chef" : "Nommer chef"}</button>}
                       </div>
                     </div>
                     )}

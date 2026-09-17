@@ -3750,8 +3750,11 @@ titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie s
   // supprimer, champs de gestion d'un employé ; admin PRINCIPAL seul : mot de
   // passe d'un autre, transfert du rôle, bascule réel ↔ formation ; pouvoir
   // « tâches » pour les tâches des autres. Chacun garde sa propre fiche.
-  test("★ les aides existent (ROLES_TACHES = admin, resp. commercial, commercial, technicien)",
-    C.ROLES_TACHES.join() === "admin,resp_commercial,commercial,technicien"
+  // ⚠ RETOURNÉ le 17/09/2026 (Timo : « ouvre le rôle technicien BMI ») : le
+  // chef des techniciens est un SALARIÉ, donc « technicien BMI ». La liste
+  // du 05/09 ne l'avait pas — elle en compte cinq depuis.
+  test("★ les aides existent (ROLES_TACHES = admin, resp. commercial, commercial, technicien, technicien BMI)",
+    C.ROLES_TACHES.join() === "admin,resp_commercial,commercial,technicien,technicien_bmi"
     && typeof C.refuserSaufAdminPrincipal === "function" && typeof C.refuserSaufTaches === "function");
   const dbT = { users: [{ id: "a", role: "admin", admin_principal: true, actif: true }, { id: "c", role: "commercial" }, { id: "v", role: "vendeur" }, { id: "x", role: "commercial", droits_off: ["act_taches"] }] };
   test("★ refuserSaufAdminPrincipal ne laisse passer que le porteur du drapeau",
@@ -7990,6 +7993,84 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && C.espaceDeLaFiche({}) === null && C.espaceDeLaFiche(null) === null
     && C.espaceDuChantier(dbM, { formation: true, boutique: "DEMAKPOE" }, principalM) === true
     && C.espaceDuChantier(dbM, { boutique: "ECOLE" }, principalM) === true);
+}
+
+// ═══════════════════════════════════════════════════════════
+// LE CHEF DES TECHNICIENS (Timo, 17/09/2026 : « ouvre le rôle technicien BMI »)
+// ═══════════════════════════════════════════════════════════
+// Le chef des techniciens de BMI est un SALARIÉ : le seul rôle qui lui
+// convienne est « technicien BMI ». Or ce rôle ne pouvait même PAS être nommé
+// chef — le bouton « Nommer chef » n'existait que pour le commercial et le
+// technicien (commission) — et il n'avait ni 👑 Équipe ni ✅ Mes tâches : un
+// chef qui ne peut ni suivre ses hommes ni leur donner du travail.
+// ⚠ LE COUPLE : ROLES_TACHES (application) et a_pouvoir_taches() (serveur,
+// securite-21) doivent dire LA MÊME CHOSE. Si l'un ouvre le rôle et pas
+// l'autre, le geste part, la base dit non, et TOUT le lot reste coincé dans
+// la file d'attente (« une écriture refusée par le serveur coince tout le lot »).
+{
+  const calC = readFileSync("src/lib/calculs.js", "utf8");
+  const appC = readFileSync("src/App.jsx", "utf8");
+  const usC = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const sqlC = existsSync("supabase/securite-21-chef-technicien-bmi.sql")
+    ? readFileSync("supabase/securite-21-chef-technicien-bmi.sql", "utf8") : "";
+
+  const ongletsBMI = C.ONGLETS_ROLE.technicien_bmi || [];
+  test("★ le rôle « technicien BMI » a bien 👑 Équipe et ✅ Mes tâches dans ONGLETS_ROLE — donc l'administrateur peut les lui RETIRER dans 🔐 Pouvoirs (« taches » y manquait alors qu'App.jsx le donnait déjà : un onglet qu'on ne peut pas retirer est un pouvoir qui échappe à l'administrateur)",
+    ongletsBMI.includes("equipe") && ongletsBMI.includes("taches")
+    && C.pouvoirsDuRole("technicien_bmi").some(([id]) => id === "equipe")
+    && C.pouvoirsDuRole("technicien_bmi").some(([id]) => id === "taches"));
+
+  test("★ 👑 Mon équipe ne s'affiche QUE s'il est chef (estChefEquipe, comme pour le commercial et le technicien) — le menu et l'écran le disent tous les deux",
+    /\["taches", labelTaches\], \.\.\.\(estChefEquipe\(db, profile\) \? \[\["equipe", labelMonEquipe\]\] : \[\]\), \["commission", "💵 Ma commission"\]/.test(appC)
+    && /ongletsVisites\.equipe && \(isAdmin \|\| isRespCom \|\| \(\(isCommercial \|\| isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appC));
+
+  test("★ le bouton « Nommer chef » existe enfin sur la fiche d'un technicien BMI, la case est proposée à la création, et l'étoile ⭐ Chef se VOIT sur sa pastille",
+    /\{\["commercial", "technicien", "technicien_bmi"\]\.includes\(u\.role\) && <button onClick=\{\(\) => basculerChef\(u\)\}/.test(usC)
+    && /\{\(f\.role === "commercial" \|\| f\.role === "technicien" \|\| f\.role === "technicien_bmi"\) && \(\s*\n\s*<label/.test(usC)
+    && /if \(f\.role === "technicien_bmi" && f\.chef\) nouvelUser\.chef_equipe = true;/.test(usC)
+    && /u\.role === "technicien_bmi" \? `🔧 Technicien BMI \(salarié\).*\$\{u\.chef_equipe \? " ⭐ Chef" : ""\}`/.test(usC));
+
+  test("★ nommer un chef reste le geste de l'ADMINISTRATEUR (refuserSaufAdmin dans basculerChef) — ouvrir le rôle n'ouvre pas la nomination",
+    /const basculerChef = \(u\) => \{\s*\n\s*if \(refuserSaufAdmin\(profile, "Nommer ou retirer un chef d'équipe"\)\) return;/.test(usC));
+
+  test("★ les trois pouvoirs d'un chef (✅ tâches, 💰 commissions, 🔁 réaffecter) sont LISTÉS pour le technicien BMI : sans ça l'administrateur ne pourrait pas les lui retirer (aDroit dit oui par défaut à ce qui n'est pas listé)",
+    ["act_taches", "act_commission", "act_reaffecter"].every((a) =>
+      C.pouvoirsDuRole("technicien_bmi").some(([id]) => id === a)));
+
+  const dbT = { users: [
+    { id: "t1", nom: "CHEF BMI", role: "technicien_bmi", chef_equipe: true },
+    { id: "t2", nom: "SIMPLE BMI", role: "technicien_bmi" },
+    // ⚠ Le pouvoir retiré vit sur la FICHE : droitsOffDe lit la base avant le
+    // profil qu'on lui passe. Posé sur le seul profil, le contrôle passerait
+    // sans rien mesurer.
+    { id: "t3", nom: "CHEF SANS POUVOIR", role: "technicien_bmi", chef_equipe: true, droits_off: ["act_reaffecter"] },
+  ] };
+  const chefBMI = dbT.users[0], simpleBMI = dbT.users[1], chefSansPouvoir = dbT.users[2];
+  test("★ un chef technicien BMI peut réaffecter un prospect, un technicien BMI ordinaire non, et l'administrateur peut le lui retirer",
+    C.estChefEquipe(dbT, chefBMI) && !C.estChefEquipe(dbT, simpleBMI)
+    && C.peutReaffecter(dbT, chefBMI) && !C.peutReaffecter(dbT, simpleBMI)
+    && !C.peutReaffecter(dbT, chefSansPouvoir));
+
+  // ⚠ LE COUPLE application / serveur, MESURÉ des deux côtés.
+  const rolesApp = (calC.match(/export const ROLES_TACHES = \[([^\]]*)\]/) || [, ""])[1]
+    .split(",").map((x) => x.trim().replace(/"/g, "")).filter(Boolean).sort();
+  const rolesSql = ((sqlC.match(/role_jeton\(\) in \(([^)]*)\)/) || [, ""])[1])
+    .split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean).sort();
+  test(`★ LE COUPLE : ROLES_TACHES (application) et a_pouvoir_taches() (serveur, securite-21) nomment EXACTEMENT les mêmes rôles — application : ${rolesApp.join(", ") || "(vide)"} | serveur : ${rolesSql.join(", ") || "(vide)"}`,
+    rolesApp.length === 5 && rolesApp.includes("technicien_bmi")
+    && rolesApp.join("|") === rolesSql.join("|"));
+
+  test("★ securite-21 REMPLACE la fonction sans toucher au reste : il ne pose aucun déclencheur, ne supprime rien, et porte sa vérification « doit afficher : true | true »",
+    /create or replace function public\.a_pouvoir_taches\(\)/.test(sqlC)
+    && !/create trigger|drop trigger|drop function|delete from|alter table/i.test(sqlC)
+    && /doit afficher : true \| true/.test(sqlC));
+
+  test("★ le banc SQL des comptes rejoue securite-21 et mesure le chef technicien (assigner, valider, pouvoir retiré, ⭐ admin seul)",
+    (() => { const b = readFileSync("scripts/tester-comptes-sql.sh", "utf8");
+      return /securite-21-chef-technicien-bmi\.sql/.test(b)
+        && /CHEF TECHNICIEN \(technicien BMI ⭐\) assigne une tâche/.test(b)
+        && /chef technicien à qui l'admin a RETIRÉ le pouvoir « tâches »" "REFUSE"/.test(b)
+        && /se retire l'étoile de chef LUI-MÊME.*"REFUSE"/.test(b); })());
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

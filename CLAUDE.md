@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1455 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1464 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
-npm run tester-comptes           # 72  : les règles de rôle sur les comptes (serveur)
+npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
@@ -318,6 +318,27 @@ lit mal est pire qu'un banc absent).
   vend ») — il garde 🔒 Caisse, la clôture reste son geste. Transfert
   (09/09/2026 : il ne peut
   pas valider, l'onglet est parti ; le gérant le garde).
+- **👷 LE CHEF DES TECHNICIENS = un TECHNICIEN BMI coché ⭐ chef d'équipe**
+  (17/09/2026 : « ouvre le rôle technicien BMI »). Le chef des techniciens est
+  un SALARIÉ : le seul rôle qui lui convienne est « technicien BMI » — le
+  technicien à commission n'est pas sur la paie (`SALARIES`), et administrateur
+  diminué donne un vrai admin côté base. Or ce rôle ne pouvait même PAS être
+  nommé chef (le bouton n'existait que pour commercial et technicien) et
+  n'avait ni 👑 Équipe ni ✅ Mes tâches : un chef qui ne peut ni suivre ses
+  hommes ni leur donner du travail. Ouverts d'un coup : la case à la création,
+  le bouton « Nommer chef », l'étoile ⭐ sur sa pastille, `taches` et `equipe`
+  dans `ONGLETS_ROLE` (👑 Mon équipe ne s'affiche que s'il EST chef, comme pour
+  le commercial et le technicien), et les trois pouvoirs d'un chef —
+  `act_taches`, `act_commission`, `act_reaffecter` — LISTÉS pour ce rôle dans
+  `ACTIONS_POUVOIR`. ⚠ **Un pouvoir non listé n'est pas un pouvoir absent** :
+  `aDroit` dit oui par défaut à tout ce qui n'est pas dans `droits_off` — non
+  listé, il s'appliquait quand même et l'administrateur ne pouvait pas le
+  retirer. **Nommer un chef reste le geste de l'administrateur**
+  (`refuserSaufAdmin` ; `chef_equipe` est déjà dans la liste « gestion » du
+  serveur, rien de plus à coller de ce côté). ⚠ **LE COUPLE** : `ROLES_TACHES`
+  (lib/calculs.js) et `a_pouvoir_taches()` (serveur, **`securite-21`**) doivent
+  nommer les MÊMES rôles — sinon le geste part, la base dit non, et tout le lot
+  reste coincé dans la file d'attente. Le banc mesure les deux côtés et compare.
   Admin + resp. commercial : programmer une installation. Admin ou chef de
   CE chantier : marquer terminé. Admin ou son commercial (« laisser comme
   tel ») : supprimer un chantier, gestes sur un prospect. Réassigner un

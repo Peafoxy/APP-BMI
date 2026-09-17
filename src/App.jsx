@@ -1071,7 +1071,7 @@ export default function App() {
     : (isCommercial || isTechnicien)
     ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["depenses", "📤 Dépenses"]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : []), ["contrats", "📄 Contrats"]]
     : isTechnicienBMI
-    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"], ["depenses", "📤 Dépenses"]]
+    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"], ["depenses", "📤 Dépenses"]]
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
     : isGerant
@@ -1357,7 +1357,7 @@ export default function App() {
           <M.MaCommission db={db} profile={profile} />
         </div>
       )}
-      {ongletsVisites.equipe && (isAdmin || isRespCom || ((isCommercial || isTechnicien) && estChefEquipe(db, profile))) && (
+      {ongletsVisites.equipe && (isAdmin || isRespCom || ((isCommercial || isTechnicien || isTechnicienBMI) && estChefEquipe(db, profile))) && (
         <div style={{ display: tab === "equipe" ? "block" : "none" }}>
           <M.MonEquipe db={db} save={save} profile={profile} />
         </div>

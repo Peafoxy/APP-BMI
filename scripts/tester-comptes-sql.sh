@@ -38,6 +38,8 @@ echo "▸ Pose des verrous : supabase/securite-9-changer-role.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-9-changer-role.sql >/dev/null 2>&1 || echo "   ❌ securite-9 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-18-banque.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-18-banque.sql >/dev/null 2>&1 || echo "   ❌ securite-18 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-21-chef-technicien-bmi.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-21-chef-technicien-bmi.sql >/dev/null 2>&1 || echo "   ❌ securite-21 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -48,6 +50,7 @@ insert into public.users (id, data) values
   ('zo_com',   '{\"id\":\"zo_com\",\"nom\":\"COM\",\"role\":\"commercial\",\"taux_commission\":5,\"chef_equipe\":true}'),
   ('zt_tech',  '{\"id\":\"zt_tech\",\"nom\":\"TECH\",\"role\":\"technicien\",\"parrain_id\":\"zo_com\",\"taux_commission\":3,\"taches\":[{\"id\":\"tt1\",\"titre\":\"Poser\",\"statut\":\"terminee\"}]}'),
   ('zr_resp',  '{\"id\":\"zr_resp\",\"nom\":\"RESP\",\"role\":\"resp_commercial\"}'),
+  ('zb_chef',  '{\"id\":\"zb_chef\",\"nom\":\"CHEF BMI\",\"role\":\"technicien_bmi\",\"chef_equipe\":true,\"taches\":[{\"id\":\"tb1\",\"titre\":\"Poser\",\"statut\":\"a_faire\"}]}'),
   ('zc_ama',   '{\"id\":\"zc_ama\",\"nom\":\"AMA\",\"role\":\"client\",\"tel\":\"90112233\",\"pwd_hash2\":\"h-ama\",\"pwd_salt\":\"s\",\"mdp_auto\":true,\"devis\":[]}')
 on conflict (id) do nothing;
 " >/dev/null
@@ -78,6 +81,12 @@ GERANT=$(jeton zg_ali gerant true '')
 COMMERCIAL=$(jeton zo_com commercial true ',"pouvoirs_off":[]')
 COMMERCIAL_SANS_TACHES=$(jeton zo_com commercial true ',"pouvoirs_off":["act_taches"]')
 TECHNICIEN=$(jeton zt_tech technicien true '')
+# ⚠ CHEF TECHNICIEN (17/09/2026) : le chef des techniciens est un SALARIÉ,
+# donc « technicien BMI ». securite-21 ajoute ce rôle à a_pouvoir_taches() ;
+# sans lui, l'application le laisserait assigner une tâche et la base dirait
+# non — tout le lot resterait coincé dans la file d'attente.
+CHEF_BMI=$(jeton zb_chef technicien_bmi true ',"pouvoirs_off":[]')
+CHEF_BMI_SANS_TACHES=$(jeton zb_chef technicien_bmi true ',"pouvoirs_off":["act_taches"]')
 RESP=$(jeton zr_resp resp_commercial true '')
 CLIENT=$(jeton zc_ama client true '')
 VIDE='{}'
@@ -178,6 +187,12 @@ essai "le responsable commercial assigne une tâche" "PERMIS" "$RESP" "$(MAJ "js
 essai "un commercial à qui l'admin a RETIRÉ le pouvoir « tâches »" "REFUSE" "$COMMERCIAL_SANS_TACHES" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"validee\"')" zt_tech)"
 essai "un vendeur assigne une tâche à un collègue" "REFUSE" "$VENDEUR" "$(MAJ "jsonb_set(data,'{taches}','[{\"id\":\"t9\"}]')" zt_tech)"
 essai "un gérant valide la tâche d'un autre" "REFUSE" "$GERANT" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"validee\"')" zt_tech)"
+essai "le CHEF TECHNICIEN (technicien BMI ⭐) assigne une tâche à l'un de ses hommes" "PERMIS" "$CHEF_BMI" "$(MAJ "jsonb_set(data,'{taches}', coalesce(data->'taches','[]') || '[{\"id\":\"tb9\",\"titre\":\"Poser les rails\",\"statut\":\"a_faire\"}]')" zt_tech)"
+essai "le CHEF TECHNICIEN valide la tâche terminée d'un technicien" "PERMIS" "$CHEF_BMI" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"validee\"')" zt_tech)"
+essai "un chef technicien à qui l'admin a RETIRÉ le pouvoir « tâches »" "REFUSE" "$CHEF_BMI_SANS_TACHES" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"validee\"')" zt_tech)"
+essai "le chef technicien déclare SA propre tâche terminée" "PERMIS" "$CHEF_BMI" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"terminee\"')" zb_chef)"
+essai "un technicien BMI se retire l'étoile de chef LUI-MÊME (⭐ reste admin seul)" "REFUSE" "$CHEF_BMI" "$(MAJ "$(SET chef_equipe false)" zb_chef)"
+essai "l'administrateur retire l'étoile de chef au technicien BMI" "PERMIS" "$CALEB" "$(MAJ "$(SET chef_equipe false)" zb_chef)"
 essai "un technicien déclare SA tâche terminée (✅ Mes tâches)" "PERMIS" "$TECHNICIEN" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"terminee\"')" zt_tech)"
 essai "un vendeur déclare SA tâche terminée" "PERMIS" "$VENDEUR" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"terminee\"')" zv_kossi)"
 

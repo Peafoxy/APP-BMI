@@ -1837,7 +1837,17 @@ export const ONGLETS_ROLE = {
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "contrats"],
   technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses"],
   resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "commission", "salaire", "nouveau_client"],
-  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "commission", "messages", "salaire", "nouveau_client", "contrats", "depenses"],
+  // ⚠ CHEF TECHNICIEN (17/09/2026, Timo : « ouvre le rôle technicien BMI »).
+  // Le chef des techniciens de BMI est un SALARIÉ : le seul rôle qui lui
+  // convient est « technicien BMI ». Or ce rôle ne pouvait même pas être
+  // nommé chef (le bouton n'existait que pour commercial et technicien), et
+  // il n'avait ni 👑 Équipe ni ✅ Mes tâches : un chef qui ne peut ni suivre
+  // ses hommes ni leur donner du travail. « equipe » ne s'affiche que s'il
+  // EST chef (App.jsx, comme pour le commercial et le technicien) ; il est
+  // listé ici pour que l'administrateur puisse le lui retirer dans 🔐 Pouvoirs.
+  // « taches » y manquait alors qu'App.jsx le donnait déjà : un onglet qu'on
+  // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
+  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "salaire", "nouveau_client", "contrats", "depenses"],
   magasinier: ["stocks", "salaire", "messages", "nouveau_client", "travaux"],
   gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats", "travaux"],
   vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats", "travaux"],
@@ -1849,9 +1859,9 @@ export const ONGLETS_ROLE = {
 export const ACTIONS_POUVOIR = [
   ["act_ecriture", "✏️ Créer / modifier / supprimer (sinon : lecture seule)", (r) => r !== "comptable" && r !== "client"],
   ["act_credit", "🏦 Demander un crédit BMI", (r) => SALARIES.includes(r)],
-  ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
-  ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
-  ["act_taches", "✅ Assigner des tâches", (r) => ["admin", "resp_commercial", "commercial", "technicien"].includes(r)],
+  ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
+  ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
+  ["act_taches", "✅ Assigner des tâches", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
   // ⚠ RETIRÉ EN 2.101.14 : « act_voir_tout » (voir les deux espaces).
   // Il ne commande plus rien — seul l'administrateur PRINCIPAL traverse le
   // mur formation / réel, et ce n'est pas un pouvoir qu'on accorde, c'est
@@ -1944,7 +1954,7 @@ export const critiqueRemises = (lignes, remisePct, remiseF, role) => {
 //     si ce pouvoir leur a été retiré.
 // Chacun garde SA propre fiche pour le quotidien : signature, disponibilité,
 // ses tâches, sa demande de crédit, la confirmation de son virement.
-export const ROLES_TACHES = ["admin", "resp_commercial", "commercial", "technicien"];
+export const ROLES_TACHES = ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"];
 export const refuserSaufAdminPrincipal = (db, profile, geste) => {
   if (estAdminPrincipal(db, profile)) return false;
   uAlert(`🔒 ${geste} : réservé à l'administrateur PRINCIPAL.`);
@@ -1972,7 +1982,7 @@ export const refuserSaufReaffectation = (db, profile, geste) => {
 };
 export const refuserSaufTaches = (db, profile, geste) => {
   if (ROLES_TACHES.includes(profile?.role) && aDroit(db, profile, "act_taches")) return false;
-  uAlert(`🔒 ${geste} : réservé aux comptes qui ont le pouvoir « Assigner des tâches » (administrateur, responsable commercial, commercial, technicien).`);
+  uAlert(`🔒 ${geste} : réservé aux comptes qui ont le pouvoir « Assigner des tâches » (administrateur, responsable commercial, commercial, technicien, technicien BMI).`);
   return true;
 };
 
