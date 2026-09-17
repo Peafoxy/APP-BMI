@@ -40,6 +40,8 @@ echo "▸ Pose du verrou de la corbeille : supabase/securite-7-corbeille.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-7-corbeille.sql >/dev/null 2>&1
 echo "▸ Correctif upsert : supabase/securite-8-correctif-upsert.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-8-correctif-upsert.sql >/dev/null 2>&1
+echo "▸ Pose des verrous : supabase/securite-22-outillage.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-22-outillage.sql >/dev/null 2>&1 || echo "   ❌ securite-22 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -51,6 +53,8 @@ insert into public.users (id, data) values
   ('zo_com2',  '{\"id\":\"zo_com2\",\"nom\":\"COM2\",\"role\":\"commercial\"}'),
   ('zt_tech',  '{\"id\":\"zt_tech\",\"nom\":\"TECH\",\"role\":\"technicien\"}'),
   ('zt_tech2', '{\"id\":\"zt_tech2\",\"nom\":\"TECH2\",\"role\":\"technicien\"}'),
+  ('zm_mag',   '{\"id\":\"zm_mag\",\"nom\":\"MAGASIN\",\"role\":\"magasinier\",\"boutique\":\"APESSITO\"}'),
+  ('zb_chef',  '{\"id\":\"zb_chef\",\"nom\":\"CHEF BMI\",\"role\":\"technicien_bmi\",\"chef_equipe\":true}'),
   ('zr_resp',  '{\"id\":\"zr_resp\",\"nom\":\"RESP\",\"role\":\"resp_commercial\"}'),
   ('zc_ama',   '{\"id\":\"zc_ama\",\"nom\":\"AMA\",\"role\":\"client\",\"tel\":\"90112233\",\"devis\":[{\"id\":\"dv1\",\"statut\":\"propose\",\"total\":100000,\"plan_reglement\":{\"type\":\"mensuel\",\"statut\":\"en_attente\"}}]}')
 on conflict (id) do nothing;
@@ -89,6 +93,10 @@ COM_SANS_REAFFECTER=$(jeton zo_com commercial ',"pouvoirs_off":["act_reaffecter"
 COM2=$(jeton zo_com2 commercial '')
 TECH=$(jeton zt_tech technicien '')
 TECH2=$(jeton zt_tech2 technicien '')
+# 🧰 OUTILLAGE (17/09/2026) : « chef technicien, magasinier, administrateur ».
+MAGASINIER=$(jeton zm_mag magasinier '')
+CHEF_BMI=$(jeton zb_chef technicien_bmi ',"pouvoirs_off":[]')
+CHEF_BMI_SANS_OUTILLAGE=$(jeton zb_chef technicien_bmi ',"pouvoirs_off":["outillage"]')
 RESP=$(jeton zr_resp resp_commercial '')
 CLIENT=$(jeton zc_ama client '')
 
@@ -216,6 +224,29 @@ essai "★ l'admin principal, lui, le peut par upsert" "PERMIS" "$PRINCIPAL" "$(
 essai "un client crée la caisse TERRAIN (devis « pose seule »)" "PERMIS" "$CLIENT" "$(INS boutiques b_terrain '{"id":"b_terrain","nom":"TERRAIN","terrain":true,"actif":true}')"
 essai "un gérant supprime une boutique" "REFUSE" "$GERANT" "$(SUPPR boutiques b2)"
 essai "l'admin supprime une boutique" "PERMIS" "$CALEB" "$(SUPPR boutiques b2)"
+
+echo
+echo "── 🧰 LE REGISTRE DE L'OUTILLAGE (securite-22) : chef technicien, magasinier, admin ──"
+# Le registre vit dans le champ `outillage` de la boutique : aucune table à
+# créer, mais sans securite-22 SEUL l'administrateur pouvait l'écrire.
+# ⚠ PIÈGE MESURÉ : `jsonb_set(data,'{outillage,outils}',…)` ne crée PAS le
+# chemin quand `outillage` n'existe pas encore — la ligne repartait
+# IDENTIQUE, le déclencheur ne voyait rien, et les huit contrôles passaient
+# sans rien mesurer. On CONCATÈNE, ce qui ajoute vraiment le champ.
+REG='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","numero":"BMI-012","mouvements":[]}],"appels":[]}}'
+POSER="data || '$REG'::jsonb"
+essai "★ le MAGASINIER enregistre une sortie d'outil" "PERMIS" "$MAGASINIER" "$(MAJ boutiques "$POSER" b1)"
+essai "★ le CHEF TECHNICIEN (technicien BMI ⭐) enregistre une sortie d'outil" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "$POSER" b1)"
+essai "★ l'administrateur tient le registre" "PERMIS" "$CALEB" "$(MAJ boutiques "$POSER" b1)"
+essai "★ un technicien ORDINAIRE (sans l'étoile) touche au registre" "REFUSE" "$TECH" "$(MAJ boutiques "$POSER" b1)"
+essai "★ un chef d'équipe COMMERCIAL touche au registre (ce n'est pas son métier)" "REFUSE" "$COM" "$(MAJ boutiques "$POSER" b1)"
+essai "★ un vendeur touche au registre" "REFUSE" "$VENDEUR" "$(MAJ boutiques "$POSER" b1)"
+essai "★ un gérant touche au registre (Timo n'a pas nommé le gérant)" "REFUSE" "$GERANT" "$(MAJ boutiques "$POSER" b1)"
+essai "★ un chef technicien à qui l'admin a RETIRÉ l'onglet 🧰 Outillage" "REFUSE" "$CHEF_BMI_SANS_OUTILLAGE" "$(MAJ boutiques "$POSER" b1)"
+essai "★ le magasinier tient le registre PAR UPSERT (comme l'application écrit)" "PERMIS" "$MAGASINIER" "$(UPS boutiques b1 '{"nom":"APESSITO","outillage":{"outils":[{"id":"o1","nom":"Perceuse"}],"appels":[]}}')"
+essai "★ le magasinier en PROFITE pour renommer la boutique : refusé" "REFUSE" "$MAGASINIER" "$(UPS boutiques b1 '{"nom":"AUTRE","outillage":{"outils":[],"appels":[]}}')"
+essai "★ le chef technicien ne touche toujours pas au taux de parrainage" "REFUSE" "$CHEF_BMI" "$(MAJ boutiques "$(SET taux_parrainage 50)" b1)"
+essai "★ la demande de ravitaillement du vendeur passe TOUJOURS (securite-8 intact)" "PERMIS" "$VENDEUR" "$(UPS boutiques b1 '{"nom":"APESSITO","demandes":[{"id":"dm1","qte":20}]}')"
 
 echo
 if [ $ko -eq 0 ]; then echo "✅  $ok vérification(s) passée(s), 0 en échec."; exit 0

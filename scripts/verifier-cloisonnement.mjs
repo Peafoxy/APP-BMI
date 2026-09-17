@@ -145,6 +145,13 @@ await build({ entryPoints: ["src/lib/banques.js"], bundle: true, format: "esm",
 const Bq = await import(pathToFileURL(sortieBq).href);
 unlinkSync(sortieBq);
 
+// 🧰 Le registre du matériel de travail (17/09/2026).
+const sortieOut = join("node_modules", ".cache", `bmi-outillage-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/outillage.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieOut, logLevel: "silent", loader: { ".js": "jsx" } });
+const Out = await import(pathToFileURL(sortieOut).href);
+unlinkSync(sortieOut);
+
 // 👆 L'empreinte qui ouvre le verrou d'inactivité (16/09/2026).
 const sortieEmp = join("node_modules", ".cache", `bmi-empreinte-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/empreinte.js"], bundle: true, format: "esm",
@@ -4639,9 +4646,9 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×4 (le mois de paie d'un remboursement d'avance, 12/09/2026), demanderDate ×4 (dont la date réelle d'une remise de fonds)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×5 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu, 17/09/2026), demanderDate ×4 (dont la date réelle d'une remise de fonds)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
-    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "4"
+    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "5"
     && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "4");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -4676,8 +4683,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 24 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "24"
+  test("★ nouveauMessage sert aux 26 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "26"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
@@ -7188,7 +7195,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   const appT = readFileSync("src/App.jsx", "utf8");
   const calT = readFileSync("src/lib/calculs.js", "utf8");
   test("★ l'onglet « 🛠 Travaux à crédit » : dans ONGLETS_ROLE pour admin, gérant, vendeur, magasinier (et eux seuls), dans les quatre menus d'App, rendu pour ces rôles avec onFacturer → panier de 💰 Ventes",
-    ["admin", "gerant", "vendeur", "magasinier"].every((r) => new RegExp(`^  ${r}: \\[.*"travaux"\\],$`, "m").test(calT))
+    ["admin", "gerant", "vendeur", "magasinier"].every((r) => new RegExp(`^  ${r}: \\[.*"travaux"[,\\]]`, "m").test(calT))
     && !["commercial", "technicien", "resp_commercial", "technicien_bmi", "comptable", "client"].some((r) => new RegExp(`^  ${r}: \\[.*"travaux"`, "m").test(calT))
     && /travaux: "🛠 Travaux à crédit"/.test(calT) && (appT.match(/\["travaux", "🛠 Travaux à crédit"\]/g) || []).length === 4
     && /ongletsVisites\.travaux && \(isAdmin \|\| isGerant \|\| isVendeur \|\| isMagasinier\)/.test(appT) && /<M\.Travaux db=\{db\} save=\{save\} profile=\{profile\} onFacturer=\{\(pre\) => \{ setPreRempli\(pre\); setTab\("ventes"\); \}\} \/>/.test(appT));
@@ -7223,7 +7230,7 @@ titre("📤 Dépenses ouvert aux techniciens : leurs propres dépenses seulement
     && Vd2.neVoitQueSesDepenses(tech) && !Vd2.neVoitQueSesDepenses({ role: "gerant" }));
   const calD = readFileSync("src/lib/calculs.js", "utf8"), appD = readFileSync("src/App.jsx", "utf8"), dpD = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ l'onglet est dans ONGLETS_ROLE pour technicien et technicien_bmi, dans leurs menus d'App (pas dans celui du commercial), et l'écran filtre par depensesVisibles avec le titre « Mes dépenses »",
-    /^  technicien: \[.*"depenses"\],$/m.test(calD) && /^  technicien_bmi: \[.*"depenses"\],$/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
+    /^  technicien: \[.*"depenses"[,\]]/m.test(calD) && /^  technicien_bmi: \[.*"depenses"[,\]]/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
     && /\.\.\.\(isTechnicien \? \[\["depenses", "📤 Dépenses"\]\] : \[\]\)/.test(appD) && /\["parc", "🏠 Clients installés"\].*\["depenses", "📤 Dépenses"\]\]/.test(appD)
     && /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
 }
@@ -8021,7 +8028,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && C.pouvoirsDuRole("technicien_bmi").some(([id]) => id === "taches"));
 
   test("★ 👑 Mon équipe ne s'affiche QUE s'il est chef (estChefEquipe, comme pour le commercial et le technicien) — le menu et l'écran le disent tous les deux",
-    /\["taches", labelTaches\], \.\.\.\(estChefEquipe\(db, profile\) \? \[\["equipe", labelMonEquipe\]\] : \[\]\), \["commission", "💵 Ma commission"\]/.test(appC)
+    /\["taches", labelTaches\], \.\.\.\(estChefEquipe\(db, profile\) \? \[\["equipe", labelMonEquipe\], \["outillage", "🧰 Outillage"\]\] : \[\]\), \["commission", "💵 Ma commission"\]/.test(appC)
     && /ongletsVisites\.equipe && \(isAdmin \|\| isRespCom \|\| \(\(isCommercial \|\| isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appC));
 
   test("★ le bouton « Nommer chef » existe enfin sur la fiche d'un technicien BMI, la case est proposée à la création, et l'étoile ⭐ Chef se VOIT sur sa pastille",
@@ -8071,6 +8078,156 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
         && /CHEF TECHNICIEN \(technicien BMI ⭐\) assigne une tâche/.test(b)
         && /chef technicien à qui l'admin a RETIRÉ le pouvoir « tâches »" "REFUSE"/.test(b)
         && /se retire l'étoile de chef LUI-MÊME.*"REFUSE"/.test(b); })());
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🧰 LE MATÉRIEL DE TRAVAIL (Timo, 17/09/2026)
+// ═══════════════════════════════════════════════════════════
+// « Comment faire le suivi, pour éviter la perte des équipements de travail
+// sur le terrain. » Décisions : le tiennent le chef technicien, le
+// magasinier, l'administrateur ; un outil perdu se marque, sa valeur entre
+// dans les pertes de l'année ET l'administrateur peut poser une retenue sur
+// le salaire (« b et c ») ; l'appel de l'outillage se fait CHAQUE SEMAINE.
+// ⚠ CE N'EST PAS DU STOCK : rangé dans 📦 Stocks, un outil entrerait dans la
+// valeur du stock et une sortie ressemblerait à une vente.
+titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelqu'un (17/09/2026)");
+{
+  const outC = readFileSync("src/lib/outillage.js", "utf8");
+  const ecrC = readFileSync("src/screens/Outillage.jsx", "utf8");
+  const calO = readFileSync("src/lib/calculs.js", "utf8");
+  const appO = readFileSync("src/App.jsx", "utf8");
+  const sqlO = existsSync("supabase/securite-22-outillage.sql")
+    ? readFileSync("supabase/securite-22-outillage.sql", "utf8") : "";
+
+  test("★ la règle pure n'importe RIEN (lisible par Node sans bundler, comme lib/banques.js et lib/espace.js)",
+    !/^\s*import\s/m.test(outC));
+
+  test("★ QUI tient le registre : le magasinier, l'administrateur, et le CHEF technicien (⭐) — jamais un technicien ordinaire, jamais un chef d'équipe COMMERCIAL, jamais le vendeur ni le gérant",
+    Out.peutTenirOutillage({ role: "magasinier" }) && Out.peutTenirOutillage({ role: "admin" })
+    && Out.peutTenirOutillage({ role: "technicien_bmi", chef_equipe: true })
+    && Out.peutTenirOutillage({ role: "technicien", chef_equipe: true })
+    && !Out.peutTenirOutillage({ role: "technicien_bmi" })
+    && !Out.peutTenirOutillage({ role: "technicien" })
+    && !Out.peutTenirOutillage({ role: "commercial", chef_equipe: true })
+    && !Out.peutTenirOutillage({ role: "vendeur" }) && !Out.peutTenirOutillage({ role: "gerant" })
+    && !Out.peutTenirOutillage({ role: "comptable" }) && !Out.peutTenirOutillage(null));
+
+  // Le scénario de Timo, joué en entier : une perceuse sort, elle est en
+  // retard, elle se perd, la valeur entre dans les pertes.
+  let perceuse = Out.nouvelOutil({ id: "o1", nom: "Perceuse BOSCH", numero: "BMI-012", prix_achat: 85000, le: "2026-09-10", par: "TIMO" });
+  test("★ un outil neuf est EN BOUTIQUE, et son état est DÉRIVÉ du dernier mouvement — jamais un champ écrit à la main (deux vérités qui divergent, c'est une vérité de moins)",
+    Out.etatOutil(perceuse) === "en_boutique" && !/etat:\s*"(en_boutique|sorti)"/.test(outC)
+    && !Out.detenteurOutil(perceuse));
+
+  test("★ une sortie SANS personne est refusée : « un outil est toujours sous le nom de quelqu'un »",
+    /un outil est toujours sous le nom de quelqu'un/.test(Out.critiqueSortie(perceuse, { retour_prevu: "2026-09-16" }))
+    && /quand l'outil doit revenir/.test(Out.critiqueSortie(perceuse, { user_id: "u1" })));
+
+  perceuse = Out.sortirOutil(perceuse, { id: "m1", le: "2026-09-15", user_id: "u1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-09-16", par_id: "c1", par: "CHEF" });
+  test("★ sortie : l'outil est SORTI, KOSSI en répond, et il ne peut pas repartir chez quelqu'un d'autre sans être rentré",
+    Out.etatOutil(perceuse) === "sorti" && Out.detenteurOutil(perceuse).nom === "KOSSI"
+    && /déjà sorti — il est chez KOSSI/.test(Out.critiqueSortie(perceuse, { user_id: "u2", retour_prevu: "2026-09-30" })));
+
+  test("★ le RETARD se mesure sur la date de retour promise, et les jours dehors se comptent depuis la sortie",
+    Out.enRetard(perceuse, "2026-09-17") && !Out.enRetard(perceuse, "2026-09-16")
+    && Out.joursDehors(perceuse, "2026-09-17") === 2);
+
+  test("★ une perte SANS motif est refusée (« une perte sans motif ne s'explique à personne »), et le responsable est celui qui détenait l'outil",
+    /ne s'explique à personne/.test(Out.critiquePerte(perceuse, { motif: "   " }))
+    && Out.critiquePerte(perceuse, { motif: "Oublié sur le toit" }) === ""
+    && Out.responsableDeLaPerte(perceuse).nom === "KOSSI"
+    && Out.valeurProposee(perceuse) === 85000);
+
+  const echelle = Out.nouvelOutil({ id: "o2", nom: "Échelle 6 m", numero: "BMI-002", prix_achat: 40000, le: "2026-09-10", par: "TIMO" });
+  perceuse = Out.declarerPerdu(perceuse, { id: "m2", le: "2026-09-17", motif: "Oublié sur le toit", valeur: 85000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" });
+  const bqO = { id: "b1", nom: "DEMAKPOE", outillage: { outils: [perceuse, echelle], appels: [] } };
+
+  test("★ un outil PERDU ne repart plus sur un chantier, sort des listes de travail, et reste au registre pour la trace",
+    Out.etatOutil(perceuse) === "perdu" && /déclaré perdu/.test(Out.critiqueSortie(perceuse, {}))
+    && Out.outilsVivants(bqO).length === 1 && Out.outilsDe(bqO).length === 2);
+
+  test("★ décision « c » : la valeur de la perte entre dans le total des pertes, avec sa date, son motif et son responsable",
+    Out.valeurPerdue(bqO, null) === 85000
+    && Out.pertesDe(bqO, { du: "2026-09-01", au: "2026-09-30" }).length === 1
+    && Out.pertesDe(bqO, { du: "2026-10-01", au: "2026-10-31" }).length === 0
+    && Out.pertesDe(bqO, null)[0].user === "KOSSI"
+    && Out.resumeOutillage(bqO, "2026-09-17").perdus === 1);
+
+  test("★ décision « b » : la retenue passe par le mécanisme QUI EXISTE DÉJÀ — une AVANCE du mois, que paieMois soustrait du net sans toucher à la base CNSS. Aucun champ neuf",
+    (() => { const r = Out.retenuePourOutil({ id: "r1", mois: "2026-09", montant: 85000, outil: "Perceuse BOSCH", date: "2026-09-17", par: "TIMO" });
+      return r.mois === "2026-09" && r.montant === 85000 && r.auto === "outil_perdu" && /Perceuse BOSCH/.test(r.motif)
+        && /avances: \[\.\.\.\(u\.avances \|\| \[\]\), av\]/.test(ecrC)
+        && /const net = base \+ primes - avances/.test(calO); })());
+
+  test("★ la retenue est proposée, jamais imposée, et à l'ADMINISTRATEUR seul (c'est de l'argent sur la paie de quelqu'un)",
+    /jeSuisAdmin && resp && valeur > 0\s*\n\s*&& await uConfirm\(`Retenir /.test(ecrC)
+    && /la perte reste à la charge de BMI/.test(ecrC));
+
+  // ---- L'appel de la semaine
+  test("★ l'appel est HEBDOMADAIRE et la semaine est nommée par son LUNDI : deux personnes qui appellent le mardi et le jeudi parlent de la même semaine",
+    Out.lundiDe("2026-09-17") === "2026-09-14" && Out.lundiDe("2026-09-15") === "2026-09-14"
+    && Out.lundiDe("2026-09-14") === "2026-09-14" && Out.lundiDe("2026-09-21") === "2026-09-21");
+
+  const appel = Out.construireAppel({ id: "a1", jour: "2026-09-17", presents: [], par_id: "c1", par: "CHEF", boutique: bqO });
+  const bqApres = Out.ajouterAppel(bqO, appel);
+  test("★ l'appel est une PHOTO : ce qui n'est pas coché reste dehors et SE VOIT ; une fois fait, il n'est plus réclamé de la semaine, et il revient la semaine suivante",
+    Out.appelAFaire(bqO, "2026-09-17") && appel.semaine === "2026-09-14"
+    && appel.absents.length === 1 && appel.presents.length === 0
+    && Out.manquantsDuDernierAppel(bqApres).map((o) => o.nom).join() === "Échelle 6 m"
+    && !Out.appelAFaire(bqApres, "2026-09-18") && Out.appelAFaire(bqApres, "2026-09-21"));
+
+  test("★ un outil PERDU n'est jamais appelé, et une boutique sans outil ne réclame aucun appel",
+    !appel.presents.includes("o1") && !appel.absents.includes("o1")
+    && !Out.appelAFaire({ nom: "VIDE" }, "2026-09-17"));
+
+  // ---- Le registre, et ce qu'il ne fait PAS
+  test("★ LE REGISTRE N'EST PAS DU STOCK : il vit dans le champ `outillage` de SA boutique — rien à coller pour créer une table —, et l'écran ne touche jamais db.produits ni un ajustement",
+    /outillage: \{/.test(outC) && !/db\.produits/.test(ecrC) && !/ajustements/.test(ecrC)
+    && /boutiques: \(db\.boutiques \|\| \[\]\)\.map/.test(ecrC));
+
+  test("★ le numéro GRAVÉ est unique dans la boutique, et il se TAPE : un clic lie l'outil, un nom ou un numéro tapé ne le lie que s'il est EXACT — jamais par ressemblance",
+    /déjà porté par un autre outil/.test(Out.critiqueNouvelOutil(bqO, { nom: "Autre", numero: "bmi-012" }))
+    && Out.critiqueNouvelOutil(bqO, { nom: "Autre", numero: "BMI-999" }) === ""
+    && /Donnez un nom/.test(Out.critiqueNouvelOutil(bqO, { nom: "  " }))
+    && Out.outilSaisi(bqO, "BMI-002").id === "o2" && Out.outilSaisi(bqO, "échelle 6 M").id === "o2"
+    && Out.outilSaisi(bqO, "échelle") === null);
+
+  test("★ un mouvement ne s'efface JAMAIS : la liste ne rétrécit pas (comme les reprises d'une vente ou les clôtures précédentes)",
+    Out.mouvementsDe(perceuse).length === 2
+    && !/mouvements:.*\.filter\(/.test(outC) && !/mouvements\.splice|mouvements\.pop/.test(outC));
+
+  test("★ LE COUPLE application / serveur : la règle de rôle est revérifiée DANS le geste, et securite-22 dit la même chose (le chef technicien, le magasinier, l'administrateur — plus l'onglet retiré)",
+    /if \(!peutTenirOutillage\(profile\)\) \{ uAlert\(REFUS_ROLE\); return true; \}/.test(ecrC)
+    && /role_jeton\(\) in \('magasinier', 'admin'\)/.test(sqlO)
+    && /role_jeton\(\) in \('technicien', 'technicien_bmi'\) and public\.est_chef_equipe\(\)/.test(sqlO)
+    && /pouvoirs_off' \? 'outillage'/.test(sqlO));
+
+  test("★ securite-22 REPREND securite-8 sans rien lui retirer : `demandes` reste libre, l'écran de connexion et le cachet restent au PRINCIPAL, et le piège de l'UPSERT est toujours là",
+    /- 'demandes' - 'updated_at' - 'outillage'/.test(sqlO)
+    && /accueil\\_%' or champ like 'cachet%'/.test(sqlO) && /est_admin_principal\(\)/.test(sqlO)
+    && /AVANT INSERT se déclenche même si la ligne existe déjà/.test(sqlO)
+    && /doit afficher : true \| true \| true/.test(sqlO));
+
+  test("★ le banc SQL rejoue securite-22 sur base jetable et mesure les deux côtés (permis ET refusé), en CHANGEANT vraiment le champ",
+    (() => { const b = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
+      return /securite-22-outillage\.sql/.test(b)
+        && /POSER="data \|\| '\$REG'::jsonb"/.test(b)
+        && /technicien ORDINAIRE \(sans l'étoile\) touche au registre" "REFUSE"/.test(b)
+        && /chef d'équipe COMMERCIAL touche au registre.*"REFUSE"/.test(b)
+        && /RETIRÉ l'onglet 🧰 Outillage" "REFUSE"/.test(b)
+        && /demande de ravitaillement du vendeur passe TOUJOURS.*"PERMIS"/.test(b); })());
+
+  test("★ l'onglet 🧰 Outillage : listé dans ONGLETS_ROLE pour admin, magasinier, technicien et technicien BMI (donc retirable dans 🔐 Pouvoirs), et RENDU pour l'admin, le magasinier et un technicien seulement s'il est CHEF",
+    /outillage: "🧰 Outillage"/.test(calO)
+    && ["admin", "magasinier", "technicien", "technicien_bmi"].every((r) => (C.ONGLETS_ROLE[r] || []).includes("outillage"))
+    && !["vendeur", "gerant", "commercial", "resp_commercial", "comptable", "client"].some((r) => (C.ONGLETS_ROLE[r] || []).includes("outillage"))
+    && /ongletsVisites\.outillage && \(isAdmin \|\| isMagasinier \|\| \(\(isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appO));
+
+  test("★ l'écran passe par les briques communes : le filtre d'espace pour les personnes (utilisateursDeLEspace, jamais un db.users.filter maison) et LA règle de recherche (correspond)",
+    /utilisateursDeLEspace\(db, profile\)/.test(ecrC)
+    && !/db\.users\.filter|\(db\.users \|\| \[\]\)\.filter/.test(ecrC)
+    && /correspond\(`\$\{o\.nom\}/.test(ecrC)
+    && !/toLowerCase\(\)\.includes/.test(ecrC));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

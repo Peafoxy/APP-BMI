@@ -1829,13 +1829,13 @@ export const LIBELLE_ONGLET = {
   commission: "💵 Ma commission", taches: "✅ Mes tâches", salaire: "💵 Salaire", espace_client: "🏠 Mon espace", ravitaillement: "🚚 Ravitaillement",
   nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
   primes_remises: "💰 Primes remises", primes_recues: "💰 Primes reçues",
-  contrats: "📄 Contrats", mes_contrats: "📄 Mes contrats",
+  contrats: "📄 Contrats", mes_contrats: "📄 Mes contrats", outillage: "🧰 Outillage",
 };
 
 export const ONGLETS_ROLE = {
-  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres", "travaux"],
+  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres", "travaux", "outillage"],
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "contrats"],
-  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses"],
+  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses", "outillage"],
   resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "commission", "salaire", "nouveau_client"],
   // ⚠ CHEF TECHNICIEN (17/09/2026, Timo : « ouvre le rôle technicien BMI »).
   // Le chef des techniciens de BMI est un SALARIÉ : le seul rôle qui lui
@@ -1847,8 +1847,8 @@ export const ONGLETS_ROLE = {
   // listé ici pour que l'administrateur puisse le lui retirer dans 🔐 Pouvoirs.
   // « taches » y manquait alors qu'App.jsx le donnait déjà : un onglet qu'on
   // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
-  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "salaire", "nouveau_client", "contrats", "depenses"],
-  magasinier: ["stocks", "salaire", "messages", "nouveau_client", "travaux"],
+  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
+  magasinier: ["stocks", "salaire", "messages", "nouveau_client", "travaux", "outillage"],
   gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats", "travaux"],
   vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats", "travaux"],
   comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],

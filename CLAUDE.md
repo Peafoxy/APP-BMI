@@ -52,12 +52,12 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1464 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1486 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 77  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
-npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
+npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
@@ -65,7 +65,7 @@ npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium 
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 84  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 96  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -941,6 +941,70 @@ lit mal est pire qu'un banc absent).
   Quantité / Prix payé (F) / Prix facturé (F) pour le HB ; **la ligne d'aide
   (« ✓ N en stock ») est SOUS la grille**, sinon la case Quantité s'étirait à
   sa hauteur (« la ligne de quantité s'élargit ») — le banc mesure la hauteur.
+
+### 🧰 Le matériel de travail (17/09/2026)
+- Timo : « le matériel de travail… comment faire le suivi, pour éviter la
+  perte des équipements de travail sur le terrain ». Puis, sur le marquage :
+  « un code QR imprimé sur un outil peut s'abîmer en quelques heures
+  d'utilisation… y a-t-il une alternative plus robuste ? » — **il a raison**,
+  une étiquette papier ne tient pas une semaine sur un chantier. Le numéro se
+  **GRAVE** sur l'outil et **se TAPE** (le champ accepte déjà un code scanné
+  ou tapé) ; le NFC a été proposé et **mis de côté** (puce anti-métal
+  nécessaire sur du métal, et **Web NFC n'existe que sur Chrome Android, pas
+  sur iPhone** — non vérifié sur un vrai téléphone, à ne pas promettre).
+  **Le registre ne dépend d'AUCUN marquage** : on choisit l'outil dans la
+  liste, comme un article dans 🛠 Travaux. UNE règle pure, `lib/outillage.js`
+  (sans import, comme lib/banques.js) ; écran `screens/Outillage.jsx`.
+- ⚠ **CE N'EST PAS DU STOCK.** Le stock compte ce qui se VEND ; une échelle
+  ne se vend pas, elle part et elle revient. Rangée dans 📦 Stocks, elle
+  entrerait dans la valeur du stock et dans les alertes de
+  réapprovisionnement, et une sortie ressemblerait à une vente. Le registre
+  vit dans le champ **`outillage`** de SA boutique (`{ outils, appels }`),
+  comme la liste des banques — **rien à coller pour créer une table**.
+- **LA RÈGLE QUI EMPÊCHE LA PERTE : un outil est TOUJOURS sous le nom de
+  QUELQU'UN.** Pas « sur le chantier de MR ERIC » — un chantier ne perd pas
+  une perceuse, une personne la perd ; le chantier est noté à côté. L'état
+  (en boutique / sorti / en réparation / perdu / réformé) est **DÉRIVÉ du
+  dernier mouvement**, jamais un champ écrit à la main, et **un mouvement ne
+  s'efface jamais** (liste qui ne rétrécit pas, comme les reprises d'une
+  vente). Deux gestes : **📤 Sortie** (qui le prend, pour quel chantier,
+  quand il revient — la personne reçoit un message) et **📥 Retour** (bon
+  état ou abîmé). Une sortie sans personne ou sans date de retour est refusée.
+- **QUI le tient** (décision Timo) : **le chef technicien, le magasinier,
+  l'administrateur** — `peutTenirOutillage`, revérifié DANS le geste. Le
+  technicien ORDINAIRE ne s'enregistre pas lui-même (sinon la trace ne vaut
+  rien), un chef d'équipe COMMERCIAL non plus, et **le gérant n'a pas été
+  nommé** : ne pas l'ajouter sans sa demande. Ajouter ou réformer un outil =
+  administrateur (c'est du matériel acheté). ⚠ **LE COUPLE** :
+  `peutTenirOutillage` (lib/outillage.js) et `a_pouvoir_outillage()`
+  (serveur, **`securite-22`**) doivent dire la même chose — sans le SQL, la
+  sortie enregistrée par le chef ou le magasinier serait REFUSÉE par la base
+  et tout le lot resterait coincé. `securite-22` REPREND `securite-8` telle
+  quelle et n'y ajoute que `outillage` à côté de `demandes` : `securite-8`
+  reste entier (ravitaillement, écran de connexion et cachet au PRINCIPAL,
+  piège de l'UPSERT).
+- **UN OUTIL PERDU : décisions « b » ET « c »** (Timo, 17/09/2026). Motif
+  obligatoire (« une perte sans motif ne s'explique à personne »), valeur
+  proposée = le prix d'achat ; **la valeur entre dans les pertes** de la
+  boutique (`pertesDe`, `valeurPerdue`, tableau 💸 Pertes) ; **et
+  l'ADMINISTRATEUR peut poser une retenue sur le salaire** de la personne qui
+  en répondait — proposée, **jamais imposée** (« la perte reste à la charge de
+  BMI » si on refuse). La retenue passe par **le mécanisme qui existe déjà** :
+  une **AVANCE du mois** (`u.avances`), que `paieMois` soustrait du net sans
+  toucher à la base CNSS — **aucun champ neuf, rien à coller**. Une perte
+  déclarée ne se défait pas ; la personne reçoit un message.
+- **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE** (décision Timo). Une bande
+  ambre le réclame tant que la semaine en cours n'a pas le sien ; on coche ce
+  qu'on a sous la main, **ce qui n'est pas coché reste dehors et SE VOIT**
+  (`manquantsDuDernierAppel`). **Un appel est une PHOTO : il ne se corrige
+  pas.** La semaine est nommée par son **LUNDI** (`lundiDe`) : deux personnes
+  qui appellent le mardi et le jeudi parlent de la même semaine. Un outil
+  sorti n'est pas coché d'office (il est chez quelqu'un), un outil perdu n'est
+  jamais appelé.
+- L'onglet **🧰 Outillage** est listé dans `ONGLETS_ROLE` pour admin,
+  magasinier, technicien et technicien BMI (donc retirable dans 🔐 Pouvoirs —
+  et le serveur lit ce retrait, `pouvoirs_off ? 'outillage'`), mais il ne
+  s'AFFICHE pour un technicien que s'il porte l'étoile ⭐.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

@@ -41,6 +41,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
 | `lib/travaux.js` | 🛠 Travaux à crédit : les prestations hors devis |
+| `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
 | `lib/impression.js` | Les documents imprimables : reçus, bons, contrats |
 | `lib/export.js` | L'export CSV des tableaux |
 | `lib/barcode.js` | Le code-barres des étiquettes |
