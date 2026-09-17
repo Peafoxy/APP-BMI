@@ -5243,7 +5243,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /type=\{visible \? "text" : "password"\}/.test(ev) && /🔓 Déverrouiller/.test(ev)
     && /Déverrouiller avec l'empreinte/.test(ev) && /\{empreinteEnTete && \(/.test(ev));
   test("★ l'activation vit DANS la fenêtre de verrou (le vendeur n'a pas l'onglet ⚙ Paramètres), et c'est le mot de passe tapé qui la valide",
-    /Activer l'empreinte sur cet appareil/.test(ev) && /onClick=\{activerPuisOuvrir\}/.test(ev)
+    /Activer l'empreinte/.test(ev) && /onClick=\{activerPuisOuvrir\}/.test(ev)
     && /if \(options\.cleEmpreinte\) \{ try \{ await activerEmpreinteIci\(options\.cleEmpreinte\); \}/.test(app)
     && /Retirer l'empreinte de cet appareil/.test(ev));
   // ⚠⚠ LA FAUTE DU 16/09/2026, et le contrôle qui l'empêche de revenir.
@@ -5319,6 +5319,13 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /localStorage\.setItem\(CLE_REFUS, "1"\)/.test(ev)
     && /localStorage\.getItem\(CLE_REFUS\) === "1"/.test(ev)
     && Emp.CLE_REFUS === "bmi_empreinte_non"
+    // ⚠ Capture Timo (17/09/2026, sur son PC) : « pourquoi le bouton est-il
+    // persistant… et on ne peut pas décliner ? » — « Non merci » existait,
+    // mais en 11 px souligné au bout d'un paragraphe : ça ne ressemblait pas
+    // à un choix. DEUX VRAIS BOUTONS, côte à côte, même hauteur.
+    && /<div className="flex items-stretch gap-2">/.test(ev)
+    && /onClick=\{refuserEmpreinte\} disabled=\{occupe \|\| occupeEmpreinte\}\n\s+className="shrink-0 px-4 py-2\.5 rounded-lg border-2/.test(ev)
+    && /« Non merci » retire cette proposition pour de bon sur cet appareil/.test(ev)
     // …et la navigation privée ne fait pas tomber l'écran
     && /catch \{ return false; \}/.test(ev) && /catch \{ \/\* navigation privée \*\//.test(ev));
   // ⚠ Capture Timo, 16/09/2026 : « le champ du message rouge sous la ligne du

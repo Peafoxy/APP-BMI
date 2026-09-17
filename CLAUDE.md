@@ -245,8 +245,16 @@ lit mal est pire qu'un banc absent).
     ⚠ **Et « Non merci » ferme la proposition POUR DE BON** (capture Timo,
     16/09/2026 : « même si la personne ne veut pas les empreintes, le message
     est toujours là tant que ce n'est pas activé ») : le refus vit dans le
-    navigateur (`CLE_REFUS` = `bmi_empreinte_non`), sur CET appareil.
+    navigateur (`CLE_REFUS` = `bmi_empreinte_non`), sur CET appareil — donc
+    refuser sur le téléphone ne refuse pas sur le PC, et c'est voulu (la clé
+    aussi est par appareil).
     **Une proposition qu'on ne peut pas refuser n'est pas une proposition.**
+    ⚠⚠ **ET ELLE DOIT SE VOIR** (capture Timo, 17/09/2026, sur son PC :
+    « pourquoi le bouton est-il persistant… et on ne peut pas décliner ? ») :
+    « Non merci » ÉTAIT là, mais en 11 px souligné au bout d'un paragraphe —
+    il ressemblait à la fin de la phrase, pas à un choix. **DEUX VRAIS
+    BOUTONS, côte à côte, même hauteur.** Un refus qu'on ne voit pas ne vaut
+    pas mieux qu'un refus absent.
   - ⚠ **LE DIAGNOSTIC DU VERROU NE S'AFFICHE PLUS** (capture Timo,
     16/09/2026 : « le champ du message rouge sous la ligne du mot de passe…
     je n'aime plus voir ça ») : le texte du 09/09 (« Le champ n'a pas le

@@ -262,16 +262,26 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
                     qui donne le droit de toucher le capteur, et ce droit ne
                     survit pas à une vérification de mot de passe posée avant
                     (la faute du 16/09/2026). */}
-                <button type="button" onClick={activerPuisOuvrir} disabled={occupe || occupeEmpreinte}
-                  className="w-full px-4 py-2.5 rounded-lg border-2 border-sky-700 text-sky-800 bg-white/90 font-bold text-sm hover:bg-white disabled:opacity-50 flex items-center justify-center gap-2">
-                  <span className="text-lg">👆</span> {occupeEmpreinte ? "Posez votre doigt…" : "Activer l'empreinte sur cet appareil"}
-                </button>
-                <div className={`flex items-center justify-between gap-2 text-[11px] leading-snug ${decor.verrouTexteClair ? "text-white/70" : "text-slate-500"}`}>
-                  <span>Tapez le mot de passe, puis touchez ce bouton. Votre empreinte reste dans le téléphone.</span>
-                  <button type="button" onClick={refuserEmpreinte}
-                    className={`shrink-0 underline font-semibold ${decor.verrouTexteClair ? "text-white/80 hover:text-white" : "text-slate-600 hover:text-slate-800"}`}>
+                {/* ⚠ Capture Timo (17/09/2026, sur son PC) : « pourquoi le bouton
+                    est-il persistant… et on ne peut pas décliner ? » — « Non
+                    merci » ÉTAIT là, mais en 11 px, souligné, coincé à droite
+                    d'un paragraphe : ça ne ressemblait pas à un choix, ça
+                    ressemblait à la fin de la phrase. **DEUX VRAIS BOUTONS,
+                    côte à côte, même hauteur** : on voit qu'on a le choix. */}
+                <div className="flex items-stretch gap-2">
+                  <button type="button" onClick={activerPuisOuvrir} disabled={occupe || occupeEmpreinte}
+                    className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border-2 border-sky-700 text-sky-800 bg-white/90 font-bold text-sm hover:bg-white disabled:opacity-50 flex items-center justify-center gap-2">
+                    <span className="text-lg">👆</span> <span className="truncate">{occupeEmpreinte ? "Posez votre doigt…" : "Activer l'empreinte"}</span>
+                  </button>
+                  <button type="button" onClick={refuserEmpreinte} disabled={occupe || occupeEmpreinte}
+                    className="shrink-0 px-4 py-2.5 rounded-lg border-2 border-slate-400 bg-white/80 text-slate-700 font-bold text-sm hover:bg-white disabled:opacity-50">
                     Non merci
                   </button>
+                </div>
+                <div className={`text-[11px] leading-snug ${decor.verrouTexteClair ? "text-white/70" : "text-slate-500"}`}>
+                  Tapez le mot de passe, puis touchez « Activer » : la prochaine fois, un doigt suffira.
+                  Votre empreinte reste dans l'appareil — l'application ne la voit jamais.
+                  <b> « Non merci » retire cette proposition pour de bon sur cet appareil.</b>
                 </div>
               </div>
             )}
