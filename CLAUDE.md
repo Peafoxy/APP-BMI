@@ -971,10 +971,14 @@ lit mal est pire qu'un banc absent).
   quand il revient — la personne reçoit un message) et **📥 Retour** (bon
   état ou abîmé). Une sortie sans personne ou sans date de retour est refusée.
 - **QUI le tient** (décision Timo) : **le chef technicien, le magasinier,
-  l'administrateur** — `peutTenirOutillage`, revérifié DANS le geste. Le
-  technicien ORDINAIRE ne s'enregistre pas lui-même (sinon la trace ne vaut
-  rien), un chef d'équipe COMMERCIAL non plus, et **le gérant n'a pas été
-  nommé** : ne pas l'ajouter sans sa demande. Ajouter ou réformer un outil =
+  l'administrateur** — `peutTenirOutillage`, revérifié DANS le geste.
+  ⚠ **« Chef technicien » = un technicien QUI PORTE L'ÉTOILE ⭐, à commission
+  OU salarié** (Timo, 18/09/2026 : « technicien ordinaire veut dire technicien
+  commission ? » — non : ce n'est pas le type de paie qui décide, c'est
+  l'étoile). Un technicien SANS étoile ne s'enregistre donc pas lui-même
+  (sinon la trace ne vaut rien), qu'il soit à commission ou salarié ; un chef
+  d'équipe COMMERCIAL non plus (ce n'est pas son métier), et **le gérant n'a
+  pas été nommé** : ne pas l'ajouter sans sa demande. Ajouter ou réformer un outil =
   administrateur (c'est du matériel acheté). ⚠ **LE COUPLE** :
   `peutTenirOutillage` (lib/outillage.js) et `a_pouvoir_outillage()`
   (serveur, **`securite-22`**) doivent dire la même chose — sans le SQL, la
