@@ -15,9 +15,9 @@
 // de lib/outillage.js) : le registre vit dans le champ `outillage` de sa
 // boutique — rien à coller pour créer une table.
 // ============================================================
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { fmt, dFR, today, uid, nouveauMessage } from "../lib/core";
-import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
@@ -28,7 +28,7 @@ import {
   rendreOutil, mettreEnReparation, critiquePerte, responsableDeLaPerte, valeurProposee, declarerPerdu,
   reformerOutil, retenuePourOutil, pertesDe, appelAFaire, appelDeLaSemaine, construireAppel,
   manquantsDuDernierAppel, resumeOutillage, propositionsOutils, outilSaisi, critiqueNouvelOutil,
-  nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel,
+  nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
 } from "../lib/outillage";
 
 const REFUS_ROLE = "🔒 Tenir le registre de l'outillage : réservé au chef des techniciens, au magasinier et à l'administrateur.";
@@ -43,6 +43,10 @@ export function Outillage({ db, save, profile }) {
   const [neuf, setNeuf] = useState(null);      // formulaire « ➕ Ajouter un outil »
   const [q, setQ] = useState("");
   const [appel, setAppel] = useState(null);    // { vus: Set } pendant l'appel
+  // ⚠ Timo, 18/09/2026 : « à qui on rend l'outil n'est pas mentionné ». La
+  // personne était enregistrée mais invisible. UN clic sur la ligne ouvre
+  // l'histoire de l'outil — la règle du dépliage de 💰 Ventes et 📋 Dettes.
+  const [outilDeplie, setOutilDeplie] = useState("");
   const jeSuisAdmin = profile.role === "admin";
   const jePeux = peutTenirOutillage(profile);
 
@@ -108,10 +112,10 @@ export function Outillage({ db, save, profile }) {
     if (garde()) return;
     const refus = critiqueRetour(outil);
     if (refus) { uAlert(refus); return; }
-    const etat = await uConfirm(`« ${outil.nom} » revient-il en bon état ?\n\nOK = bon état · Annuler = abîmé`);
+    const etat = await uConfirm(`« ${outil.nom} » vous est rendu — reçu par ${profile.nom}.\n\nRevient-il en bon état ?\n\nOK = bon état · Annuler = abîmé`);
     const note = etat ? "" : (await uPrompt("Qu'est-ce qui est abîmé ?", "")) || "";
     const apres = rendreOutil(outil, { id: uid(), le: jour, etat: etat ? "bon" : "abime", note, par_id: profile.id, par: profile.nom });
-    ecrire(remplacerOutil(fiche, apres), `🧰 Retour — ${outil.nom}${etat ? "" : ` (ABÎMÉ : ${note})`} (${boutique})`);
+    ecrire(remplacerOutil(fiche, apres), `🧰 Retour — ${outil.nom} rendu à ${profile.nom}${etat ? "" : ` (ABÎMÉ : ${note})`} (${boutique})`);
   };
 
   const reparer = async (outil) => {
@@ -264,7 +268,7 @@ export function Outillage({ db, save, profile }) {
                     return (
                       <tr key={o.id} className={fond}>
                         <td className={`px-3 py-2 font-semibold ${celluleFigee(fond)}`}>{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}</td>
-                        <td className="px-3 py-2 font-semibold">{s.user}</td>
+                        <td className="px-3 py-2 font-semibold">{s.user}<div className="text-xs font-normal text-slate-500">remis par {s.par || "—"}</div></td>
                         <td className="px-3 py-2 tabular-nums">{dFR(s.le)}<div className="text-xs text-slate-500">{joursDehors(o, jour)} j</div></td>
                         <td className={`px-3 py-2 tabular-nums ${tard ? "text-red-700 font-bold" : ""}`}>{s.retour_prevu ? dFR(s.retour_prevu) : "—"}{tard && <div className="text-xs">⚠ en retard</div>}</td>
                         <td className="px-3 py-2 text-slate-600">{s.chantier || "—"}</td>
@@ -356,7 +360,7 @@ export function Outillage({ db, save, profile }) {
                     <th className="px-3 py-2">N°</th>
                     <th className="px-3 py-2">Catégorie</th>
                     <th className="px-3 py-2">État</th>
-                    <th className="px-3 py-2">Chez qui</th>
+                    <th className="px-3 py-2">Chez qui / rendu à</th>
                     <th className="px-3 py-2 text-right">Prix d'achat</th>
                     <th className="px-3 py-2"></th>
                   </tr>
@@ -365,22 +369,51 @@ export function Outillage({ db, save, profile }) {
                   {listeAffichee.map((o, i) => {
                     const etat = etatOutil(o);
                     const d = detenteurOutil(o);
-                    const fond = i % 2 ? "bg-slate-50/60" : "bg-white";
+                    const deplie = outilDeplie === o.id;
+                    const rendu = dernierRetour(o);
+                    const fond = deplie ? "bg-sky-200" : (i % 2 ? "bg-slate-50/60" : "bg-white");
                     return (
-                      <tr key={o.id} className={fond}>
-                        <td className={`px-3 py-2 font-semibold ${celluleFigee(fond)}`}>{o.nom}</td>
+                      <Fragment key={o.id}>
+                      <tr className={`cursor-pointer ${classeLigneDepliable(deplie, i)}`} onClick={() => setOutilDeplie(deplie ? "" : o.id)} title="Cliquez pour voir l'histoire de cet outil">
+                        <td className={`px-3 py-2 font-semibold ${celluleFigee(fond, deplie)}`}>{o.nom}</td>
                         <td className="px-3 py-2 text-slate-600">{o.numero || "—"}</td>
                         <td className="px-3 py-2 text-slate-600">{o.categorie || "—"}</td>
                         <td className="px-3 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span></td>
-                        <td className="px-3 py-2">{d ? d.nom : "—"}</td>
+                        {/* ⚠ Sorti : chez qui il est. Rentré : à QUI il a été rendu,
+                            et quand — la question de Timo du 18/09/2026. */}
+                        <td className="px-3 py-2">
+                          {d ? <>{d.nom}</> : rendu ? <span className="text-slate-600">rendu à <b>{rendu.par || "—"}</b><div className="text-xs text-slate-500">le {dFR(rendu.le)}</div></span> : "—"}
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">{o.prix_achat ? fmt(o.prix_achat) : "—"}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           {jePeux && (etat === "sorti" || etat === "reparation") && <button title="Retour en boutique" onClick={() => rendre(o)} className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>}
                           {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => reparer(o)} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
                           {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")}>🗑</button>}
                         </td>
                       </tr>
+                      {deplie && (
+                        <tr className="bg-sky-50">
+                          <td colSpan={7} className="px-4 py-3">
+                            <div className="text-xs font-bold text-sky-900 mb-2">🕘 Histoire de « {o.nom} »{o.numero ? ` — N° ${o.numero}` : ""}</div>
+                            {histoireOutil(o).length === 0 ? (
+                              <div className="text-sm text-slate-500">Cet outil n'a encore jamais bougé.</div>
+                            ) : (
+                              <div className="space-y-1">
+                                {histoireOutil(o).map((h) => (
+                                  <div key={h.id} className="text-sm flex flex-wrap gap-x-2 items-baseline">
+                                    <span className="tabular-nums text-slate-500 w-24 shrink-0">{dFR(h.le)}</span>
+                                    <span className="font-bold text-slate-800 w-28 shrink-0">{h.quoi}</span>
+                                    <span className="text-slate-800"><span className="text-slate-500">{h.role}</span> <b>{h.qui}</b></span>
+                                    {h.detail && <span className="text-slate-600">— {h.detail}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1486 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1489 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -970,6 +970,17 @@ lit mal est pire qu'un banc absent).
   vente). Deux gestes : **📤 Sortie** (qui le prend, pour quel chantier,
   quand il revient — la personne reçoit un message) et **📥 Retour** (bon
   état ou abîmé). Une sortie sans personne ou sans date de retour est refusée.
+  ⚠ **À QUI L'OUTIL EST RENDU DOIT SE LIRE** (défaut trouvé par Timo,
+  18/09/2026 : « à qui on rend l'outil n'est pas mentionné ») : la personne
+  qui reçoit le retour était bien ENREGISTRÉE (`par`, celui qui fait le geste)
+  mais ne s'affichait NULLE PART — **un registre dont la trace ne se lit pas
+  ne sert à rien**. Depuis : `histoireOutil` rend chaque mouvement en une
+  ligne lisible, **UN CLIC sur la ligne du registre l'ouvre** (la règle de
+  dépliage de 💰 Ventes et 📋 Dettes), la colonne dit « Chez qui / **rendu
+  à** », la question du retour et le journal nomment celui qui reçoit, et
+  « Ce qui est dehors » dit qui a **remis** l'outil. ⚠ Les mots comptent :
+  une sortie se lit « **pris par** KOSSI · remis par CHEF BMI » — une
+  première version écrivait « remis par KOSSI », c'est-à-dire l'inverse.
 - **QUI le tient** (décision Timo) : **le chef technicien, le magasinier,
   l'administrateur** — `peutTenirOutillage`, revérifié DANS le geste.
   ⚠ **« Chef technicien » = un technicien QUI PORTE L'ÉTOILE ⭐, à commission

@@ -291,3 +291,35 @@ export const ajouterOutil = (boutique, outil) =>
   poserRegistre(boutique, { outils: [...outilsDe(boutique), outil] });
 export const ajouterAppel = (boutique, appel) =>
   poserRegistre(boutique, { appels: [...appelsDe(boutique), appel] });
+
+// ---- L'HISTOIRE D'UN OUTIL, en clair (Timo, 18/09/2026 : « à qui on rend
+// l'outil n'est pas mentionné »). La personne qui REÇOIT le retour était
+// bien enregistrée (`par`), mais elle ne s'affichait nulle part : un registre
+// dont la trace ne se lit pas ne sert à rien. Chaque mouvement se lit en une
+// ligne — le quoi, le qui, et le détail —, du plus récent au plus ancien.
+export const histoireOutil = (outil) => mouvementsDe(outil).map((m) => {
+  const par = m.par || "—";
+  if (m.type === "sortie") return {
+    id: m.id, le: m.le, quoi: "📤 Sortie", role: "pris par", qui: m.user || "—",
+    detail: [`remis par ${par}`, m.chantier ? `pour ${m.chantier}` : "", m.retour_prevu ? `retour prévu le ${m.retour_prevu}` : ""].filter(Boolean).join(" · "),
+  };
+  // ⚠ C'est ICI qu'était le trou : au retour, celui qui enregistre le geste
+  // est celui qui REÇOIT l'outil. C'est la question de Timo.
+  if (m.type === "retour") return {
+    id: m.id, le: m.le, quoi: "📥 Retour", role: "rendu à", qui: par,
+    detail: [m.etat === "abime" ? "ABÎMÉ" : "bon état", m.note || ""].filter(Boolean).join(" — "),
+  };
+  if (m.type === "reparation") return { id: m.id, le: m.le, quoi: "🔧 Réparation", role: "envoyé par", qui: par, detail: m.note || "" };
+  if (m.type === "perdu") return {
+    id: m.id, le: m.le, quoi: "⚠ Perdu", role: "sous la responsabilité de", qui: m.user || "personne (il était rangé)",
+    detail: [m.motif || "", m.valeur ? `valeur ${m.valeur}` : "", `déclaré par ${par}`].filter(Boolean).join(" — "),
+  };
+  if (m.type === "reforme") return { id: m.id, le: m.le, quoi: "🗑 Réformé", role: "décidé par", qui: par, detail: m.motif || "" };
+  return { id: m.id, le: m.le, quoi: String(m.type || ""), role: "par", qui: par, detail: "" };
+}).reverse();
+
+// À QUI l'outil a été rendu la dernière fois — vide s'il n'est jamais rentré.
+export const dernierRetour = (outil) => {
+  const m = mouvementsDe(outil).filter((x) => x.type === "retour");
+  return m.length ? m[m.length - 1] : null;
+};

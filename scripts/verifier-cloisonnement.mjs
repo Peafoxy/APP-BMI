@@ -8223,6 +8223,36 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     && !["vendeur", "gerant", "commercial", "resp_commercial", "comptable", "client"].some((r) => (C.ONGLETS_ROLE[r] || []).includes("outillage"))
     && /ongletsVisites\.outillage && \(isAdmin \|\| isMagasinier \|\| \(\(isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appO));
 
+  // ⚠ TROUVÉ PAR TIMO (18/09/2026) : « à qui on rend l'outil n'est pas
+  // mentionné ». La personne qui REÇOIT le retour était bien enregistrée
+  // (`par`) mais ne s'affichait NULLE PART — un registre dont la trace ne se
+  // lit pas ne sert à rien. Et la première version de `histoireOutil` écrivait
+  // « remis par KOSSI » pour une sortie, alors que KOSSI est celui qui PREND.
+  {
+    let h = Out.nouvelOutil({ id: "h1", nom: "Perceuse", prix_achat: 85000, le: "2026-09-10", par: "TIMO" });
+    h = Out.sortirOutil(h, { id: "s1", le: "2026-09-15", user_id: "u1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-09-16", par_id: "c1", par: "CHEF BMI" });
+    h = Out.rendreOutil(h, { id: "r1", le: "2026-09-17", etat: "abime", note: "mandrin cassé", par_id: "m9", par: "MAGASIN" });
+    const lignes = Out.histoireOutil(h);
+    test("★ À QUI L'OUTIL EST RENDU se lit : l'histoire dit « rendu à MAGASIN », et la sortie dit « pris par KOSSI » puis « remis par CHEF BMI » — jamais l'inverse",
+      lignes.length === 2 && lignes[0].quoi === "📥 Retour" && lignes[0].role === "rendu à" && lignes[0].qui === "MAGASIN"
+      && /ABÎMÉ — mandrin cassé/.test(lignes[0].detail)
+      && lignes[1].role === "pris par" && lignes[1].qui === "KOSSI" && /remis par CHEF BMI/.test(lignes[1].detail)
+      && Out.dernierRetour(h).par === "MAGASIN" && Out.dernierRetour(h).le === "2026-09-17");
+    test("★ l'histoire se lit du PLUS RÉCENT au plus ancien, et une perte nomme les DEUX : celui qui en répondait et celui qui l'a déclarée",
+      (() => { const p2 = Out.declarerPerdu(h, { id: "p1", le: "2026-09-18", motif: "Volé", valeur: 85000, user_id: "u2", user: "AFI", par_id: "c1", par: "CHEF BMI" });
+        const l = Out.histoireOutil(p2);
+        return l[0].le === "2026-09-18" && l[l.length - 1].le === "2026-09-15"
+          && l[0].role === "sous la responsabilité de" && l[0].qui === "AFI" && /déclaré par CHEF BMI/.test(l[0].detail); })());
+    test("★ et l'ÉCRAN le montre : la colonne dit « Chez qui / rendu à », un CLIC sur la ligne ouvre l'histoire (la règle de dépliage de 💰 Ventes et 📋 Dettes), la question du retour nomme celui qui reçoit, et le journal aussi",
+      /Chez qui \/ rendu à/.test(ecrC)
+      && /classeLigneDepliable\(deplie, i\)/.test(ecrC) && /setOutilDeplie\(deplie \? "" : o\.id\)/.test(ecrC)
+      && /🕘 Histoire de/.test(ecrC) && /rendu à <b>\{rendu\.par \|\| "—"\}<\/b>/.test(ecrC)
+      && /vous est rendu — reçu par \$\{profile\.nom\}/.test(ecrC)
+      && /🧰 Retour — \$\{outil\.nom\} rendu à \$\{profile\.nom\}/.test(ecrC)
+      && /remis par \{s\.par \|\| "—"\}/.test(ecrC)
+      && /onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(ecrC));
+  }
+
   test("★ l'écran passe par les briques communes : le filtre d'espace pour les personnes (utilisateursDeLEspace, jamais un db.users.filter maison) et LA règle de recherche (correspond)",
     /utilisateursDeLEspace\(db, profile\)/.test(ecrC)
     && !/db\.users\.filter|\(db\.users \|\| \[\]\)\.filter/.test(ecrC)
