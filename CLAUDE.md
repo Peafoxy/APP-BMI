@@ -61,7 +61,7 @@ npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
-npm run verifier-champs          # 11  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
+npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1829,6 +1829,19 @@ lit mal est pire qu'un banc absent).
   d'article) ; **le banc compte les usages et interdit toute largeur écrite à
   la main** sur une ligne de recherche. ⚠ Le fichier qui l'emploie doit
   l'IMPORTER : le build ne voit pas un nom manquant (écran blanc 2.101.59).
+  ⚠ **SAUF DANS UNE FENÊTRE DÉJÀ ÉTROITE**, et c'est la même règle qui le dit
+  (`champRechercheFenetre`, à côté de l'autre dans ui.jsx) : le sélecteur
+  d'article s'ouvre dans un panneau de 448 px — la ligne n'a rien à traverser,
+  c'est le cadre qui la bride. Bridée à 320 px elle laissait **104 px de blanc
+  à sa droite** pendant que la liste dessous courait sur tout le panneau
+  (mesuré dans Chromium, 18/09/2026 — défaut introduit le jour même par la
+  règle de largeur, réparé aussitôt). Le banc MESURE les deux cas, et le
+  contrôle a été éprouvé en remettant la faute exprès : il tombe.
+  ⚠ **La ligne « Rechercher un outil… » de 🧰 Outillage n'a jamais proposé de
+  liste**, et c'est voulu : elle FILTRE le tableau au fur et à mesure (règle
+  commune `correspond`). Les propositions d'outils enregistrés vivent sur le
+  champ **« Outil » de 📤 Sortir un outil** (`ChampSuggestions` +
+  `propositionsOutils`) — intactes.
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 - **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**

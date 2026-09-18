@@ -68,6 +68,14 @@ export const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 tex
 // ordinateur : une ligne de recherche ne traverse pas l'écran.
 export const champRecherche = `${inputCls} sm:w-80`;
 
+// ⚠ …SAUF DANS UNE FENÊTRE DÉJÀ ÉTROITE, et c'est la même règle qui le dit.
+// Le sélecteur d'article s'ouvre dans un panneau de 448 px : la ligne n'a
+// rien à traverser, c'est le cadre qui la bride. À 320 px elle laissait
+// 104 px de blanc à sa droite pendant que la liste dessous courait sur tout
+// le panneau (mesuré dans Chromium le 18/09/2026). Dans une fenêtre, elle
+// prend donc toute la largeur — sur téléphone, les deux se rejoignent.
+export const champRechercheFenetre = inputCls;
+
 // ---- UN champ libre qui GRANDIT avec le texte (14/09/2026) ----
 // Timo, devant la case Remarques de la clôture : « la ligne de la remarque
 // est trop longue, la raccourcir, et si le texte augmente, la case aussi

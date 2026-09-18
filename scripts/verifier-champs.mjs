@@ -34,6 +34,8 @@ const test = (nom, cond, detail = "") => { if (cond) { ok++; console.log(`  ✓ 
 const ui = readFileSync("src/components/ui.jsx", "utf8");
 const inputCls = ui.match(/export const inputCls = "([^"]+)"/)[1];
 const suffixe = ui.match(/export const champRecherche = `\$\{inputCls\} ([^`]+)`/)[1];
+const mf = ui.match(/export const champRechercheFenetre = (?:`\$\{inputCls\}([^`]*)`|inputCls);/);
+const fenetre = (mf && mf[1] ? mf[1] : "").trim();
 
 const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0];
 if (!css) { console.log("❌ Pas de CSS construit — lancez `npm run build` d'abord."); process.exit(1); }
@@ -56,6 +58,17 @@ writeFileSync(page, `<!doctype html><html><head><meta charset="utf-8">
   <input id="temoin" class="${inputCls} max-w-xs" placeholder="Témoin : un max-w sur un champ">
   <button id="btemoin" class="px-4 py-2 temoin-transition">Témoin : transition sur un bouton</button>
   <span id="stemoin" class="temoin-transition">Témoin : la même classe hors bouton</span>
+</div>
+<!-- La fenêtre du sélecteur d'article, telle qu'elle s'ouvre vraiment -->
+<div class="fixed inset-0 flex items-end sm:items-center justify-center">
+  <div id="panneau" class="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
+    <div class="p-3 border-b border-slate-200">
+      <input id="dansFenetre" class="${inputCls} ${fenetre}" placeholder="🔍 Rechercher un article…">
+    </div>
+    <div id="listeFenetre" class="overflow-y-auto flex-1">
+      <button class="w-full text-left px-4 py-3">Panneau 400W</button>
+    </div>
+  </div>
 </div></body></html>`);
 
 console.log("\n── 🔍 LA LIGNE DE RECHERCHE, MESURÉE ──");
@@ -69,6 +82,8 @@ const mesurer = async (largeur) => {
     temoin: Math.round(document.getElementById("temoin").getBoundingClientRect().width),
     btnTransition: getComputedStyle(document.getElementById("btemoin")).transitionProperty,
     spanTransition: getComputedStyle(document.getElementById("stemoin")).transitionProperty,
+    dansFenetre: Math.round(document.getElementById("dansFenetre").getBoundingClientRect().width),
+    listeFenetre: Math.round(document.getElementById("listeFenetre").getBoundingClientRect().width),
   }));
   await p.close();
   return r;
@@ -88,6 +103,18 @@ test("★ sur TÉLÉPHONE (390 px) elle prend TOUTE la largeur — c'est là qu'
   tel.recherche === tel.ordinaire && tel.recherche >= 360, `mesuré : ${tel.recherche} px`);
 test("★ un champ ORDINAIRE n'a pas été rétréci au passage (la règle ne vaut que pour la recherche)",
   pc.ordinaire >= 1300 && tel.ordinaire >= 360);
+
+// ⚠ …SAUF DANS UNE FENÊTRE DÉJÀ ÉTROITE. Le sélecteur d'article s'ouvre dans
+// un panneau de 448 px : à 320 px, la ligne laissait 104 px de blanc à sa
+// droite pendant que la liste dessous courait sur tout le panneau (mesuré le
+// 18/09/2026, défaut introduit le jour même par la règle de largeur).
+console.log("\n── 🪟 …ET DANS UNE FENÊTRE, ELLE SUIT LE CADRE ──");
+test("★ dans la fenêtre du sélecteur d'article (448 px), la ligne fait TOUTE la largeur du panneau — pas 320 px avec du blanc à droite",
+  pc.dansFenetre > 380 && pc.listeFenetre - pc.dansFenetre <= 30,
+  `mesuré : ligne ${pc.dansFenetre} px dans un panneau de ${pc.listeFenetre} px`);
+test("★ et sur TÉLÉPHONE (390 px) elle remplit son panneau de la même façon (les deux règles se rejoignent)",
+  tel.listeFenetre - tel.dansFenetre <= 30 && tel.dansFenetre >= 340,
+  `mesuré : ligne ${tel.dansFenetre} px dans un panneau de ${tel.listeFenetre} px`);
 
 console.log("\n── ⚠ LE PIÈGE, GRAVÉ : `max-w-*` NE COMMANDE RIEN SUR UN CHAMP ──");
 test("★ le TÉMOIN le prouve : un `max-w-xs` posé sur un input ne bride RIEN (la règle globale d'index.css l'écrase)",

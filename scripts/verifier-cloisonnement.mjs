@@ -8431,11 +8431,12 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && /verifier-champs/.test(readFileSync("package.json", "utf8")); })());
 
     const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
+    const fenetres = execSync("grep -rn 'className={champRechercheFenetre}' src/screens src/components | wc -l").toString().trim();
     test("★ les 10 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
-      Number(usages) === 10
+      Number(usages) === 9 && Number(fenetres) === 1
       && lignes.length >= 8
-      && lignes.every((x) => /className=\{champRecherche\}/.test(x.l))
-      && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace("champRecherche", "")))
+      && lignes.every((x) => /className=\{champRecherche(Fenetre)?\}/.test(x.l))
+      && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace(/champRecherche(Fenetre)?/g, "")))
       // et les deux écrans qui écrivent le placeholder sur une AUTRE ligne
       && /toutes catégories confondues\)…" className=\{champRecherche\}/.test(readFileSync("src/screens/Stocks.jsx", "utf8"))
       && /tous rôles confondus\)…" className=\{champRecherche\}/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
@@ -8443,7 +8444,9 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ et chaque écran qui l'emploie l'IMPORTE (le build ne voit pas un nom manquant : c'est l'écran blanc de 2.101.59)",
       fichiers.every((f) => {
         const t = readFileSync(f, "utf8");
-        return !/champRecherche/.test(t) || /import \{[^}]*\bchampRecherche\b[^}]*\} from "(\.\.\/components\/ui|\.\/ui)"/.test(t);
+        if (!/champRecherche/.test(t)) return true;
+        const nom = /champRechercheFenetre/.test(t) ? "champRechercheFenetre" : "champRecherche";
+        return new RegExp(`import \\{[^}]*\\b${nom}\\b[^}]*\\} from "(\\.\\./components/ui|\\./ui)"`).test(t);
       }));
 
     test("★ et le mot « Lieu » a disparu du filtre de 🧰 Outillage (Timo : « Registre est déjà suffisant »)",

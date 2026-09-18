@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { inputCls, champRecherche } from "./ui";
+import { inputCls, champRechercheFenetre } from "./ui";
 import { fmt } from "../lib/core";
 // LA règle de recherche de l'application (Timo, 13/09/2026 : « dans Ventes,
 // la recherche d'articles est rigide… avoir une seule règle qui régit les
@@ -39,7 +39,7 @@ export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, ca
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" onClick={() => { setOuvert(false); setRecherche(""); }}>
           <div className="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="p-3 border-b border-slate-200">
-              <input autoFocus className={champRecherche} placeholder="🔍 Rechercher un article…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+              <input autoFocus className={champRechercheFenetre} placeholder="🔍 Rechercher un article…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
             </div>
             <div className="overflow-y-auto flex-1">
               {filtres.length === 0 && <div className="p-6 text-sm text-slate-400 text-center">Aucun article trouvé.</div>}
