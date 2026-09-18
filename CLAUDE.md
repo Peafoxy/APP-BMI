@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1557 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1562 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1166,7 +1166,9 @@ lit mal est pire qu'un banc absent).
   posait une liste, donc le bouton 🧰 s'affichait sur TOUS les outils —
   RETOURNÉ. `estBoite` lit le drapeau `boite` ; le `|| contenuDe(...)` qui
   reste est un filet pour les boîtes nées avant la case, jamais une porte.
-  ⚠ Une caisse oubliée à la création ne se rattrape pas : on recrée la fiche.
+  ⚠ Une caisse oubliée à la création ne se rattrape pas : **on supprime la
+  fiche et on la recrée** (voir le point suivant) — on ne transforme JAMAIS
+  une perceuse en caisse après coup, c'est exactement ce qu'il a retiré.
   Elle
   sort et elle rentre en UN geste, comme avant ; **c'est AU RETOUR qu'on
   compte**, une fois et pas deux (elle a été comptée la fois d'avant, on sait
@@ -1216,6 +1218,41 @@ lit mal est pire qu'un banc absent).
     boîte doit contenir. Il REPREND `securite-25` (donc `-24`, `-23`, `-22`)
     en entier : **c'est le seul à coller**.
     **Collé par Timo le 18/09/2026 (`true | true | true | true | true | true`).**
+
+- **🗑 SUPPRIMER UN OUTIL, ✏️ CORRIGER UNE CAISSE — SEULEMENT QUAND ELLE EST
+  RANGÉE** (Timo, 18/09/2026 : « pourquoi l'administrateur principal ne peut
+  pas supprimer un outil ou modifier une caisse ? » puis, sur la condition :
+  **« possible quand l'outil est en magasin ou boutique »**). Il manquait
+  vraiment les deux : une fiche créée par erreur n'avait aucune sortie (la
+  réformer aurait sali « Hors d'usage » avec un outil qui n'a jamais existé),
+  et `changerLigneContenu` était écrite dans lib/outillage.js **sans qu'aucun
+  écran ne l'appelle** — une règle qui ne commandait rien.
+  - **LA CONDITION EST LA SIENNE, et elle est juste** : `outilRange` /
+    `critiqueOutilRange` — un outil chez quelqu'un, chez un réparateur, perdu
+    ou réformé ne se réécrit pas. On ne change pas ce qu'une caisse « doit
+    contenir » pendant qu'elle est sur un chantier, sinon le comptage du
+    retour mesurerait autre chose que ce qui est parti. Le refus NOMME l'état
+    et le détenteur (« est dehors — chez KOSSI : vous pourrez le supprimer
+    quand il sera rentré »).
+  - **SUPPRIMER = administrateur PRINCIPAL seul**, motif obligatoire, et
+    **rien n'est jeté** : la fiche passe dans `outillage.supprimes`, une liste
+    qui ne rétrécit jamais (comme les reclôtures d'une caisse), avec qui,
+    quand et pourquoi. Un cadre « 🗑 Fiches retirées du registre » sous le
+    registre la remet d'un clic — **et la fiche revient PROPRE** (les quatre
+    champs `supprime_*` et les marques du registre unifié sont retirés).
+    La confirmation dit combien de mouvements partent avec elle.
+  - **MODIFIER UNE CAISSE = l'administrateur**, caisse rangée : ✏️ sur chaque
+    ligne (nom, quantité, valeur — `changerLigneContenu` enfin employée),
+    ajout et retrait gardés par la même condition, et **« ↩ Ce n'est plus une
+    caisse »**. ⚠ Décocher exige une **liste VIDE** : sinon le filet
+    d'`estBoite` (« un outil qui porte une liste reste une boîte ») la
+    rattraperait et la case mentirait.
+  - ⚠ **La règle du 18/09 tient** : on ne transforme jamais une perceuse en
+    caisse après coup. Le bouton 🧰 ne s'affiche que sur une caisse ; la porte
+    de sortie d'une erreur, c'est la suppression puis une nouvelle fiche.
+  - **Rien à coller** : `admin` est déjà dans `a_pouvoir_outillage`
+    (`securite-22`) des deux côtés. Le banc le vérifie côté application ET
+    dans le SQL.
 
 - **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE ET PAR LIEU** (décision Timo,
   18/09/2026 : personne ne peut voir les outils de deux boutiques à la fois —

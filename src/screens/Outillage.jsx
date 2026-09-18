@@ -28,7 +28,7 @@ import { correspond } from "../lib/suggestions";
 import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE } from "../lib/validationDepenses";
 import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constants";
-import { bloquerSiLecture, refuserSaufAdmin, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles, chantiersOuvertsPourOutil } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles, chantiersOuvertsPourOutil } from "../lib/calculs";
 import {
   ETATS_OUTIL, peutTenirOutillage, outilsDe, outilsVivants, etatOutil, libelleEtat,
   detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortie, sortirOutil, critiqueRetour,
@@ -38,6 +38,8 @@ import {
   contenuDe, estBoite, nbContenu, critiqueLigneContenu, ajouterLigneContenu, retirerLigneContenu,
   dernierComptage, comptageDeLaSortie, critiqueComptage, compterBoite, manquesDuComptage, manquesEnCours,
   peutCompterBoite, valeurDuManque, perteDuContenu, responsableDuComptage, manquesADeclarer,
+  outilRange, critiqueOutilRange, critiqueSuppressionOutil, supprimerOutil, restaurerOutil, mouvementsDe,
+  supprimesDe, critiqueBasculeBoite, basculerBoite, changerLigneContenu,
   nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
@@ -308,6 +310,7 @@ export function Outillage({ db, save, profile }) {
   const [compter, setCompter] = useState(null);  // { outil_id, pourRetour, valeurs }
   const [contenu, setContenu] = useState(null);  // { outil_id, nom, quantite, valeur }
   const jeSuisAdmin = profile.role === "admin";
+  const jeSuisPrincipal = estAdminPrincipal(db, profile);
   const jePeux = peutTenirOutillage(profile);
 
   // Un technicien sans l'étoile ⭐ : son interface à lui, et rien d'autre.
@@ -659,12 +662,70 @@ export function Outillage({ db, save, profile }) {
     ecrire(ajouterOutil(bq, r.apres), `🧰 PERDU — ${r.apres.nom} : ${motif} (${fmt(valeur)})${r.mention}`, r.extra);
   };
 
+  // ---- 🗑 SUPPRIMER un outil du registre — administrateur PRINCIPAL seul,
+  // et SEULEMENT s'il est rangé (condition de Timo, 18/09/2026 : « possible
+  // quand l'outil est en magasin ou boutique »). Rien n'est jeté : la fiche
+  // passe dans `outillage.supprimes`, une liste qui ne rétrécit jamais, et
+  // le principal peut la remettre au registre.
+  const supprimer = async (outil) => {
+    if (garde()) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Supprimer un outil du registre")) return;
+    const bloque = critiqueOutilRange(outil, "vous pourrez le supprimer");
+    if (bloque) { uAlert(bloque); return; }
+    const motif = await uPrompt(`Supprimer « ${outil.nom} » du registre.\n\nPourquoi ? (fiche créée par erreur, doublon…)`, "");
+    if (motif === null) return;
+    const refus = critiqueSuppressionOutil(outil, { motif });
+    if (refus) { uAlert(refus); return; }
+    const n = mouvementsDe(outil).length;
+    if (!await uConfirm(`Retirer « ${outil.nom} » du registre ?\n\nMotif : ${motif}${n ? `\n\n⚠ Cette fiche porte ${n} mouvement(s) : toute son histoire part avec elle.` : ""}\n\nRien n'est jeté : vous pourrez la remettre depuis « 🗑 Fiches retirées ».`)) return;
+    const bq = ficheDe(outil);
+    if (!bq) { uAlert("Cet outil n'est rattaché à aucune boutique connue."); return; }
+    ecrire(supprimerOutil(bq, outil, { le: jour, motif, par_id: profile.id, par: profile.nom }),
+      `🧰 Fiche retirée du registre — ${outil.nom}${outil.numero ? ` (N° ${outil.numero})` : ""} : ${motif}`);
+  };
+  const restaurer = async (outil) => {
+    if (garde()) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Remettre un outil au registre")) return;
+    if (!await uConfirm(`Remettre « ${outil.nom} » au registre ?`)) return;
+    const bq = (db.boutiques || []).find((b) => b.id === outil._fiche);
+    if (!bq) { uAlert("Cette fiche n'est rattachée à aucune boutique connue."); return; }
+    ecrire(restaurerOutil(bq, outil.id), `🧰 Fiche remise au registre — ${outil.nom}`);
+  };
+
+  // ---- ✏️ MODIFIER UNE CAISSE : la case elle-même, et ses lignes.
+  const changerCaisse = async (outil, oui) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
+    const refus = critiqueBasculeBoite(outil, oui);
+    if (refus) { uAlert(refus); return; }
+    if (!oui && !await uConfirm(`« ${outil.nom} » ne sera plus une caisse : plus de liste, plus de comptage au retour.`)) return;
+    ecrireOutil(outil, basculerBoite(outil, oui), `🧰 ${outil.nom} — ${oui ? "devient une caisse à outils" : "n'est plus une caisse à outils"}`);
+  };
+  const corrigerLigne = async (outil, ligne) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
+    const bloque = critiqueOutilRange(outil, "vous pourrez corriger sa liste");
+    if (bloque) { uAlert(bloque); return; }
+    const nom = await uPrompt("Nom du matériel :", ligne.nom);
+    if (nom === null) return;
+    if (!String(nom).trim()) { uAlert("Donnez un nom à ce matériel."); return; }
+    const q = await uPrompt(`Combien de « ${String(nom).trim()} » la caisse doit-elle contenir ?`, String(ligne.quantite));
+    if (q === null) return;
+    if (!(Number(q) >= 1)) { uAlert("Dites combien il y en a (au moins 1)."); return; }
+    const v = await uPrompt("Valeur d'une pièce (F) — elle sert le jour où il en manque :", String(ligne.valeur || ""));
+    if (v === null) return;
+    ecrireOutil(outil, changerLigneContenu(outil, ligne.id, { nom: String(nom).trim(), quantite: Number(q), valeur: Number(v) || 0 }),
+      `🧰 ${outil.nom} — ligne corrigée : ${String(nom).trim()} × ${Number(q)}`);
+  };
+
   // ---- 🧰 CE QUE LA BOÎTE CONTIENT : la liste se règle par l'administrateur
   // (c'est du matériel acheté, comme l'ajout d'un outil). Un outil qui porte
   // une liste EST une boîte — pas de case à cocher de plus.
   const ajouterAuContenu = (boite) => {
     if (garde()) return;
     if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
+    const bloque = critiqueOutilRange(boite, "vous pourrez corriger sa liste");
+    if (bloque) { uAlert(bloque); return; }
     const refus = critiqueLigneContenu(boite, contenu);
     if (refus) { uAlert(refus); return; }
     const apres = ajouterLigneContenu(boite, { id: uid(), nom: contenu.nom, quantite: contenu.quantite, valeur: contenu.valeur });
@@ -674,6 +735,8 @@ export function Outillage({ db, save, profile }) {
   const retirerDuContenu = async (boite, ligne) => {
     if (garde()) return;
     if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
+    const bloque = critiqueOutilRange(boite, "vous pourrez corriger sa liste");
+    if (bloque) { uAlert(bloque); return; }
     if (!await uConfirm(`Retirer « ${ligne.nom} » de la liste de « ${boite.nom} » ?\n\nOn ne le comptera plus à chaque retour.`)) return;
     ecrireOutil(boite, retirerLigneContenu(boite, ligne.id), `🧰 ${boite.nom} — ${ligne.nom} retiré de la liste de la boîte`);
   };
@@ -1006,12 +1069,19 @@ export function Outillage({ db, save, profile }) {
                         <span className="font-semibold text-slate-800 min-w-[10rem]">{l.nom}</span>
                         <span className="text-slate-600">× {l.quantite}</span>
                         <span className="text-slate-500 text-xs">{l.valeur ? `${fmt(l.valeur)} pièce` : "valeur non renseignée"}</span>
-                        {jeSuisAdmin && <button onClick={() => retirerDuContenu(o, l)} className={boutonAction("border-red-300 text-red-700 hover:bg-red-50")} title="Retirer de la liste">🗑</button>}
+                        {jeSuisAdmin && outilRange(o) && <button onClick={() => corrigerLigne(o, l)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`} title="Corriger cette ligne">✏️</button>}
+                        {jeSuisAdmin && outilRange(o) && <button onClick={() => retirerDuContenu(o, l)} className={boutonAction("border-red-300 text-red-700 hover:bg-red-50")} title="Retirer de la liste">🗑</button>}
                       </div>
                     ))}
                   </div>
                 )}
-                {jeSuisAdmin && (
+                {/* ⚠ Condition de Timo : on ne touche à une caisse que RANGÉE. */}
+                {jeSuisAdmin && !outilRange(o) && (
+                  <div className="text-sm font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded-lg p-2 mb-3">
+                    {critiqueOutilRange(o, "vous pourrez corriger sa liste")}
+                  </div>
+                )}
+                {jeSuisAdmin && outilRange(o) && (
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
                     <Field label="Matériel"><input className={inputCls} value={contenu.nom} onChange={(e) => setContenu({ ...contenu, nom: e.target.value })} placeholder="Tournevis plat" /></Field>
                     <Field label="Combien"><input type="number" min="1" className={inputCls} value={contenu.quantite} onChange={(e) => setContenu({ ...contenu, quantite: e.target.value })} /></Field>
@@ -1027,6 +1097,9 @@ export function Outillage({ db, save, profile }) {
                   </div>
                 )}
                 <div className="flex gap-2 mt-3 flex-wrap">
+                  {jeSuisAdmin && outilRange(o) && contenuDe(o).length === 0 && (
+                    <button onClick={() => changerCaisse(o, false)} className="px-4 py-2 rounded-lg border-2 border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-100">↩ Ce n'est plus une caisse</button>
+                  )}
                   {jeSuisAdmin && aDeclarer.length > 0 && (
                     <button onClick={() => perdreContenu(o)} className="px-4 py-2 rounded-lg border-2 border-red-300 text-red-700 font-bold text-sm hover:bg-red-50">⚠ Déclarer ce manque perdu</button>
                   )}
@@ -1174,7 +1247,8 @@ export function Outillage({ db, save, profile }) {
                               className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🧰</button>
                           )}
                           {peutCompterBoite(o, profile) && etat === "sorti" && <button title="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🔢</button>}
-                          {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")}>🗑</button>}
+                          {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={`${boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")} mr-1`}>🗑</button>}
+                          {jeSuisPrincipal && outilRange(o) && <button title="Retirer cette fiche du registre (créée par erreur)" onClick={() => supprimer(o)} className={boutonAction("border-red-300 text-red-700 hover:bg-red-50")}>✖</button>}
                         </td>
                       </tr>
                       {deplie && (
@@ -1226,6 +1300,24 @@ export function Outillage({ db, save, profile }) {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* 🗑 LES FICHES RETIRÉES — rien n'est jeté (Timo, 18/09/2026 :
+              l'administrateur principal peut supprimer un outil rangé ; la
+              fiche part ici, et elle revient d'un clic). */}
+          {vue === "tous" && jeSuisPrincipal && supprimesDe(registre).length > 0 && (
+            <div className="mt-4 rounded-xl border border-slate-300 bg-slate-50 p-3">
+              <div className="text-sm font-bold text-slate-700 mb-2">🗑 Fiches retirées du registre ({supprimesDe(registre).length})</div>
+              <div className="space-y-1">
+                {supprimesDe(registre).map((o) => (
+                  <div key={o.id} className="flex items-center gap-3 text-sm flex-wrap">
+                    <span className="font-semibold text-slate-800">{o.nom}{o.numero ? ` — N° ${o.numero}` : ""}</span>
+                    <span className="text-xs text-slate-500">retirée le {dFR(o.supprime_le)} par {o.supprime_par || "—"}{o.supprime_motif ? ` — ${o.supprime_motif}` : ""}</span>
+                    <button onClick={() => restaurer(o)} className="px-3 py-1 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-xs hover:bg-sky-50">♻️ Remettre au registre</button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

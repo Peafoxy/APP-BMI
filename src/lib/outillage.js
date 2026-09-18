@@ -115,6 +115,7 @@ export const registreUnifie = (boutiques) => ({
   outillage: {
     outils: (boutiques || []).flatMap((b) => outilsDe(b).map((o) => ({ ...o, _fiche: b?.id || "", _lieu_defaut: b?.nom || "" }))),
     appels: [],
+    supprimes: (boutiques || []).flatMap((b) => supprimesDe(b).map((o) => ({ ...o, _fiche: b?.id || "", _lieu_defaut: b?.nom || "" }))),
   },
 });
 // Les LIEUX possibles : les boutiques et les magasins de l'espace regardé.
@@ -389,12 +390,13 @@ export const nouvelOutil = ({ id, nom, numero, categorie, achete_le, prix_achat,
 });
 
 // ---- Écrire le registre d'une boutique sans toucher au reste de sa fiche.
-export const poserRegistre = (boutique, { outils, appels }) => ({
+export const poserRegistre = (boutique, { outils, appels, supprimes }) => ({
   ...boutique,
   outillage: {
     ...(boutique && typeof boutique.outillage === "object" && boutique.outillage ? boutique.outillage : {}),
     outils: outils !== undefined ? outils : outilsDe(boutique),
     appels: appels !== undefined ? appels : appelsDe(boutique),
+    ...(supprimes !== undefined ? { supprimes } : {}),
   },
 });
 // ⚠ `sansMarques` ici, et NULLE PART ailleurs : les deux champs que le
@@ -913,3 +915,77 @@ export const perteDuContenu = (boite, manque, { id, mouvement_id, comptage_id, l
   };
   return declarerPerdu(fiche, { id: mouvement_id, le, motif, valeur, a_rembourser, user_id, user, par_id, par });
 };
+
+
+// ============================================================
+// 🗑 SUPPRIMER un outil, ✏️ CORRIGER une caisse — SEULEMENT QUAND ELLE EST
+// RANGÉE (Timo, 18/09/2026 : « pourquoi l'administrateur principal ne peut
+// pas supprimer un outil ou modifier une caisse ? » puis, sur la condition :
+// « possible quand l'outil est en magasin ou boutique »).
+//
+// La condition est la SIENNE, et elle est juste : un outil chez quelqu'un,
+// chez un réparateur, perdu ou réformé ne se réécrit pas — on ne change pas
+// ce qu'une caisse « doit contenir » pendant qu'elle est sur un chantier,
+// sinon le comptage du retour mesure autre chose que ce qui est parti.
+// ⚠ Rien à coller : l'administrateur a déjà `a_pouvoir_outillage` des deux
+// côtés (application et serveur, securite-22).
+// ============================================================
+export const outilRange = (outil) => etatOutil(outil) === "en_boutique";
+export const critiqueOutilRange = (outil, geste) => {
+  if (!outil) return "Choisissez d'abord un outil.";
+  const etat = etatOutil(outil);
+  if (etat === "en_boutique") return "";
+  if (etat === "sorti") {
+    const d = detenteurOutil(outil);
+    return `« ${outil.nom} » est dehors${d && d.nom ? ` — chez ${d.nom}` : ""} : ${geste} quand il sera rentré.`;
+  }
+  if (etat === "reparation") return `« ${outil.nom} » est chez un réparateur : ${geste} quand il sera revenu.`;
+  return `« ${outil.nom} » est ${libelleEtat(etat).toLowerCase()} : sa fiche ne se touche plus, c'est une trace.`;
+};
+
+// ---- LA SUPPRESSION NE JETTE RIEN. L'outil passe dans
+// `outillage.supprimes`, une liste qui ne rétrécit jamais — comme les
+// reclôtures d'une caisse ou les reprises d'une vente. Le principal peut le
+// remettre au registre.
+export const supprimesDe = (boutique) => {
+  const o = boutique && typeof boutique.outillage === "object" && boutique.outillage ? boutique.outillage : {};
+  return Array.isArray(o.supprimes) ? o.supprimes : [];
+};
+export const critiqueSuppressionOutil = (outil, { motif } = {}) => {
+  const r = critiqueOutilRange(outil, "vous pourrez le supprimer");
+  if (r) return r;
+  if (!String(motif || "").trim()) return "Dites pourquoi : une fiche ne disparaît pas du registre sans raison.";
+  return "";
+};
+export const supprimerOutil = (boutique, outil, { le, motif, par_id, par }) => poserRegistre(boutique, {
+  outils: outilsDe(boutique).filter((o) => o.id !== outil.id),
+  supprimes: [...supprimesDe(boutique), {
+    ...sansMarques(outil),
+    supprime_le: le, supprime_motif: String(motif || "").trim(),
+    supprime_par: par || "", supprime_par_id: par_id || "",
+  }],
+});
+export const restaurerOutil = (boutique, outilId) => {
+  const parti = supprimesDe(boutique).find((o) => o.id === outilId);
+  if (!parti) return boutique;
+  const propre = { ...sansMarques(parti) };
+  delete propre.supprime_le; delete propre.supprime_motif;
+  delete propre.supprime_par; delete propre.supprime_par_id;
+  return poserRegistre(boutique, {
+    outils: [...outilsDe(boutique), propre],
+    supprimes: supprimesDe(boutique).filter((o) => o.id !== outilId),
+  });
+};
+
+// ---- ✏️ MODIFIER UNE CAISSE : la case elle-même, et ses lignes.
+// ⚠ Décocher exige une liste VIDE — sinon `estBoite` la rattraperait par son
+// filet (un outil qui porte une liste reste une boîte) et la case mentirait.
+export const critiqueBasculeBoite = (outil, oui) => {
+  const r = critiqueOutilRange(outil, oui ? "vous pourrez en faire une caisse" : "vous pourrez la remettre en simple outil");
+  if (r) return r;
+  if (!oui && contenuDe(outil).length > 0) {
+    return `Videz d'abord la liste de « ${outil.nom} » : tant qu'elle contient du matériel, c'est une caisse.`;
+  }
+  return "";
+};
+export const basculerBoite = (outil, oui) => ({ ...outil, boite: !!oui });

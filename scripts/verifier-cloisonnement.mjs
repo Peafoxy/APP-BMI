@@ -8538,6 +8538,72 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /a_pouvoir_outillage\(\)/.test(sql26) && /- 'demandes' - 'updated_at' - 'outillage'/.test(sql26)
       && /doit afficher : true \| true \| true \| true \| true \| true/.test(sql26));
 
+    // ═══ 🗑 SUPPRIMER un outil, ✏️ CORRIGER une caisse — SEULEMENT RANGÉ ═══
+    // Timo, 18/09/2026 : « pourquoi l'administrateur principal ne peut pas
+    // supprimer un outil ou modifier une caisse ? » puis, sur la condition :
+    // « possible quand l'outil est en magasin ou boutique ».
+    {
+      const range = Out.nouvelOutil({ id: "sp1", nom: "Perceuse", numero: "BMI-9", le: "2026-09-01", par: "TIMO", lieu: "DEMAKPOE" });
+      const dehors = Out.sortirOutil(range, { id: "s1", le: "2026-09-15", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-17", par: "CHEF" });
+      const enRepar = Out.mettreEnReparation(range, { id: "r1", le: "2026-09-15", reparateur: "KODJO", panne: "charbons", par: "CHEF" });
+      const perduO = Out.declarerPerdu(range, { id: "x1", le: "2026-09-10", motif: "volée", valeur: 1000 });
+
+      test("★ LA CONDITION DE TIMO : on ne supprime et on ne corrige QUE ce qui est rangé — dehors, en réparation, perdu ou réformé, la fiche ne se touche pas",
+        Out.outilRange(range) && !Out.outilRange(dehors) && !Out.outilRange(enRepar) && !Out.outilRange(perduO)
+        && Out.critiqueSuppressionOutil(range, { motif: "doublon" }) === ""
+        && /est dehors — chez KOSSI/.test(Out.critiqueSuppressionOutil(dehors, { motif: "doublon" }))
+        && /chez un réparateur/.test(Out.critiqueSuppressionOutil(enRepar, { motif: "doublon" }))
+        && /c'est une trace/.test(Out.critiqueSuppressionOutil(perduO, { motif: "doublon" }))
+        && /une fiche ne disparaît pas du registre sans raison/.test(Out.critiqueSuppressionOutil(range, { motif: " " })));
+
+      test("★ LA SUPPRESSION NE JETTE RIEN : la fiche passe dans `supprimes` avec qui, quand et pourquoi — et elle revient au registre PROPRE",
+        (() => {
+          let bq = { id: "b1", nom: "DEMAKPOE", outillage: { outils: [range], appels: [] } };
+          bq = Out.supprimerOutil(bq, range, { le: "2026-09-18", motif: "créée par erreur", par: "TIMO", par_id: "t1" });
+          const parti = Out.supprimesDe(bq)[0];
+          if (Out.outilsDe(bq).length !== 0 || !parti) return false;
+          if (parti.supprime_motif !== "créée par erreur" || parti.supprime_par !== "TIMO" || parti.supprime_le !== "2026-09-18") return false;
+          const rendu = Out.restaurerOutil(bq, "sp1");
+          const o = Out.outilsDe(rendu)[0];
+          // ⚠ la fiche remise ne garde AUCUNE marque de son passage
+          return Out.supprimesDe(rendu).length === 0 && o && o.nom === "Perceuse"
+            && !("supprime_le" in o) && !("supprime_motif" in o) && !("supprime_par" in o) && !("_fiche" in o);
+        })());
+
+      test("★ ✏️ MODIFIER UNE CAISSE : la case se décoche seulement si la liste est VIDE (sinon le filet d'`estBoite` la rattraperait et la case mentirait), et une ligne se corrige",
+        (() => {
+          const pleine = Out.ajouterLigneContenu(Out.nouvelOutil({ id: "c1", nom: "Boîte 2", boite: true, le: "2026-09-01", par: "T", lieu: "DEMAKPOE" }), { id: "L1", nom: "Tournevis", quantite: 3, valeur: 2000 });
+          const vide = Out.retirerLigneContenu(pleine, "L1");
+          const corrigee = Out.changerLigneContenu(pleine, "L1", { nom: "Tournevis cruciforme", quantite: 5, valeur: 2500 });
+          const l = Out.contenuDe(corrigee)[0];
+          return /Videz d'abord la liste/.test(Out.critiqueBasculeBoite(pleine, false))
+            && Out.critiqueBasculeBoite(vide, false) === ""
+            && Out.estBoite(vide) === true                      // encore cochée
+            && Out.estBoite(Out.basculerBoite(vide, false)) === false
+            && l.nom === "Tournevis cruciforme" && l.quantite === 5 && l.valeur === 2500
+            // …et dehors, on ne touche à rien
+            && /est dehors/.test(Out.critiqueBasculeBoite(Out.sortirOutil(vide, { id: "s", le: "2026-09-15", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-17", par: "C" }), true));
+        })());
+
+      test("★ l'ÉCRAN : ✖ n'est offert qu'au PRINCIPAL sur un outil rangé, la liste d'une caisse ne se règle que rangée, et les fiches retirées se voient (elles reviennent d'un clic)",
+        /refuserSaufAdminPrincipal\(db, profile, "Supprimer un outil du registre"\)/.test(ecrC)
+        && /refuserSaufAdminPrincipal\(db, profile, "Remettre un outil au registre"\)/.test(ecrC)
+        && /\{jeSuisPrincipal && outilRange\(o\) && <button title="Retirer cette fiche du registre/.test(ecrC)
+        && /\{jeSuisAdmin && outilRange\(o\) && <button onClick=\{\(\) => corrigerLigne\(o, l\)\}/.test(ecrC)
+        && /\{jeSuisAdmin && outilRange\(o\) && <button onClick=\{\(\) => retirerDuContenu\(o, l\)\}/.test(ecrC)
+        && /const bloque = critiqueOutilRange\(boite, "vous pourrez corriger sa liste"\);/.test(ecrC)
+        && /🗑 Fiches retirées du registre/.test(ecrC)
+        && /♻️ Remettre au registre/.test(ecrC)
+        // ⚠ la règle de Timo tient : on ne transforme pas une perceuse en caisse
+        && !/changerCaisse\(o, true\)/.test(ecrC));
+
+      // ⚠ C'est `securite-22` qui porte `a_pouvoir_outillage` — securite-26 ne
+      // fait que rouvrir la porte du détenteur. L'administrateur y est déjà.
+      test("★ et RIEN à coller pour ça : l'administrateur a déjà le pouvoir sur le registre, des DEUX côtés",
+        Out.peutTenirOutillage({ role: "admin" }) === true
+        && /role_jeton\(\) in \('magasinier', 'admin'\)/.test(readFileSync("supabase/securite-22-outillage.sql", "utf8")));
+    }
+
     test("★ et le banc SQL le rejoue sur base jetable : il compte ce qu'il ramène, mais n'enregistre pas le retour et ne baisse pas la liste de la boîte",
       (() => { const bh = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
         return /securite-26-comptage-boite\.sql/.test(bh)
