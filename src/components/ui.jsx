@@ -132,7 +132,7 @@ export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact 
   );
 };
 
-export const btnDark = "px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 transition-colors shadow-sm";
+export const btnDark = "px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 shadow-sm";
 
 // Une liste d'articles dans une cellule de tableau (Ventes, Dettes) :
 // UN article par ligne, deux au plus puis « + N autres ▾ » ; dépliée, tout

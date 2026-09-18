@@ -592,7 +592,7 @@ export function Outillage({ db, save, profile }) {
           ].map(([id, label, valeur, nature]) => (
             <button key={id} type="button" onClick={() => { setVue(id); setOutilDeplie(""); }}
               title={`Voir : ${label}`}
-              className={`text-left rounded-xl transition-all ${vue === id ? "ring-4 ring-sky-600 scale-[1.02]" : "hover:ring-2 hover:ring-sky-300"}`}>
+              className={`text-left rounded-xl ${vue === id ? "ring-4 ring-sky-600 scale-[1.02]" : "hover:ring-2 hover:ring-sky-300"}`}>
               <Stat label={label} value={valeur} nature={nature} />
             </button>
           ))}

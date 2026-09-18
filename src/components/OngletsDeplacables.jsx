@@ -121,7 +121,7 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
           onPointerCancel={finir}
           onContextMenu={(e) => e.preventDefault()}
           style={saisi === id ? { touchAction: "none" } : undefined}
-          className={`${classeBouton(id, tab === id)}${saisi === id ? " ring-2 ring-white/80 scale-105 opacity-90 shadow-lg z-10" : saisi ? " transition-transform" : ""}`}>
+          className={`${classeBouton(id, tab === id)}${saisi === id ? " ring-2 ring-white/80 scale-105 opacity-90 shadow-lg z-10" : ""}`}>
           {label}
         </button>
       ))}

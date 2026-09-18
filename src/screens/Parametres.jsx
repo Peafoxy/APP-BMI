@@ -1180,7 +1180,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["appareils", `🔌 Appareils${aClasser.length ? ` (${aClasser.length} à classer)` : ""}`], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"],
           ...(jeSuisPrincipal ? [["corbeille", `🗑 Corbeille${corbeille.length ? ` (${corbeille.length})` : ""}`]] : []),
           ["securite", "🔐 Sécurité"]].map(([id, label]) => (
-          <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
+          <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
         ))}
       </div>
       <div className="space-y-4" style={{ display: onglet === "boutiques" ? undefined : "none" }}>
@@ -1227,7 +1227,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               <div className="flex flex-wrap gap-2 items-center">
                 {PALETTE.map(([nomC, hex]) => (
                   <button key={hex} type="button" title={nomC} onClick={() => setF({ ...f, couleur: hex })}
-                    className={`w-8 h-8 rounded-full border-2 transition-transform ${f.couleur === hex ? "border-slate-900 scale-110 shadow" : "border-white shadow-sm"}`}
+                    className={`w-8 h-8 rounded-full border-2 ${f.couleur === hex ? "border-slate-900 scale-110 shadow" : "border-white shadow-sm"}`}
                     style={{ backgroundColor: hex }}></button>
                 ))}
                 <span className="text-sm font-semibold text-slate-600 ml-1">{nomCouleur(f.couleur)}</span>

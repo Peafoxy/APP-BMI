@@ -61,7 +61,7 @@ npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
-npm run verifier-champs          # 7   : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; le témoin qui prouve qu'un max-w ne commande rien)
+npm run verifier-champs          # 11  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1892,8 +1892,29 @@ lit mal est pire qu'un banc absent).
   et un contrôle du banc vérifiait qu'elle était là. Elle était là. **Un
   contrôle qui lit une CLASSE ne mesure pas un EFFET.** Depuis,
   `npm run verifier-champs` monte le vrai CSS construit dans Chromium et LIT
-  LA LARGEUR OBTENUE — avec un **témoin** (un `max-w-xs` sur un input) qui
-  prouve à chaque passage que ce piège existe toujours.
+  LA VALEUR OBTENUE — avec des **témoins** qui prouvent à chaque passage que
+  ces pièges existent toujours.
+- ⚠⚠ **`transition-*` NE COMMANDE RIEN SUR UN BOUTON** (trouvé le 18/09/2026
+  en répondant à Timo : « vérifie si d'autres classes ne commandent rien comme
+  celle-là » — la bonne question). Même cause : `src/index.css` donne à CHAQUE
+  bouton actif son retour visuel (demande Timo, 20/08/2026) avec
+  `button:not(:disabled) { transition: filter 120ms, transform 80ms; }`, une
+  **propriété raccourcie écrite hors layer** — elle remet donc à zéro les trois
+  longhands que pose une classe Tailwind. **DOUZE `transition-colors` /
+  `transition-all` / `transition-transform`, toutes sur des boutons, toutes
+  mortes** : elles ont été RETIRÉES (aucun changement à l'écran, c'est bien la
+  preuve). Le banc en interdit une treizième, et son témoin le mesure.
+  ⚠ **Un témoin doit être INDÉPENDANT de l'application** : le premier se
+  servait de `transition-colors`, et le jour où plus personne ne l'écrivait,
+  Tailwind cessait de la générer — le témoin ne prouvait plus rien. Il pose
+  maintenant sa propre classe.
+- **Les TROIS autres règles globales d'`index.css` ont été passées au crible le
+  même jour et sont SAINES** — inutile de refaire l'audit : `.grid > * {
+  min-width: 0 }` (aucun `min-w-*` n'est enfant DIRECT d'une grille : ils sont
+  tous sur un `<table>` dans un cadre qui défile) ; `button:active { transform }`
+  (aucun `active:scale-*` écrit) ; `:focus-visible { outline }` (les trois
+  `outline-none` sont sur des `<input>`). Et **aucune** classe écrite dans le
+  code ne manque du CSS construit (597 jetons vérifiés un par un).
 - **Un cadre confié à une bibliothèque extérieure (Leaflet) n'a JAMAIS
   d'enfant React** : div auto-fermé, textes dans un frère (carte blanche
   du 02/09, trouvée par mesure après trois correctifs à côté).

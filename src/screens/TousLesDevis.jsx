@@ -334,13 +334,13 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         <div className="flex flex-wrap gap-2 mb-3">
           {[["", "📋 Tous"], ["propose", "⏳ Proposé"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"]].map(([id, label]) => (
             <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
-              className={`px-3 py-1.5 rounded-full text-sm font-bold border transition-colors ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+              className={`px-3 py-1.5 rounded-full text-sm font-bold border ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
               {label} <span className={`ml-1 ${filtreStatut === id ? "text-sky-200" : "text-slate-400"}`}>({compteStatut(id)})</span>
             </button>
           ))}
         </div>
         {nbARelancer > 0 && (
-          <button onClick={() => setRelanceSeule((v) => !v)} className={`mb-3 w-full text-left rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${relanceSeule ? "bg-amber-100 border-amber-400 text-amber-900" : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"}`}>
+          <button onClick={() => setRelanceSeule((v) => !v)} className={`mb-3 w-full text-left rounded-lg border px-3 py-2 text-sm font-semibold ${relanceSeule ? "bg-amber-100 border-amber-400 text-amber-900" : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"}`}>
             ⚠️ {nbARelancer} devis sans réponse depuis plus de {SEUIL_RELANCE_JOURS} jours (proposé{nbARelancer > 1 ? "s" : ""} ou validé{nbARelancer > 1 ? "s" : ""} non payé{nbARelancer > 1 ? "s" : ""}) — {relanceSeule ? "voir tous les devis" : "voir uniquement ceux-ci"}
           </button>
         )}

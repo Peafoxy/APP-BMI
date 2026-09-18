@@ -41,11 +41,21 @@ if (!css) { console.log("❌ Pas de CSS construit — lancez `npm run build` d'a
 const dossier = mkdtempSync(join(tmpdir(), "bmi-champs-"));
 const page = join(dossier, "p.html");
 writeFileSync(page, `<!doctype html><html><head><meta charset="utf-8">
-<link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}"></head>
+<link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}">
+<style>
+  /* ⚠ Le témoin des transitions porte SA propre classe, posée dans la même
+     couche que les utilitaires Tailwind. Sinon il dépend d'une classe que
+     l'application écrit encore — et le jour où plus personne ne l'écrit,
+     Tailwind ne la génère plus et le témoin ne prouve plus rien (c'est
+     arrivé le 18/09/2026, au moment même où on retirait les douze mortes). */
+  @layer utilities { .temoin-transition { transition-property: background-color; transition-duration: .3s; } }
+</style></head>
 <body style="margin:0"><div style="width:100%">
   <input id="recherche" class="${inputCls} ${suffixe}" placeholder="Rechercher…">
   <input id="ordinaire" class="${inputCls}" placeholder="Champ ordinaire">
   <input id="temoin" class="${inputCls} max-w-xs" placeholder="Témoin : un max-w sur un champ">
+  <button id="btemoin" class="px-4 py-2 temoin-transition">Témoin : transition sur un bouton</button>
+  <span id="stemoin" class="temoin-transition">Témoin : la même classe hors bouton</span>
 </div></body></html>`);
 
 console.log("\n── 🔍 LA LIGNE DE RECHERCHE, MESURÉE ──");
@@ -57,6 +67,8 @@ const mesurer = async (largeur) => {
     recherche: Math.round(document.getElementById("recherche").getBoundingClientRect().width),
     ordinaire: Math.round(document.getElementById("ordinaire").getBoundingClientRect().width),
     temoin: Math.round(document.getElementById("temoin").getBoundingClientRect().width),
+    btnTransition: getComputedStyle(document.getElementById("btemoin")).transitionProperty,
+    spanTransition: getComputedStyle(document.getElementById("stemoin")).transitionProperty,
   }));
   await p.close();
   return r;
@@ -88,6 +100,35 @@ const morts = execSync("grep -rn 'max-w-' src/screens src/components | grep -E '
   .toString().trim();
 test("★ donc PLUS AUCUN `max-w-*` posé sur un champ de saisie dans l'application — dix l'étaient, aucun ne commandait rien",
   morts === "", morts.split("\n").slice(0, 5).join("\n     "));
+
+// ═══ LA MÊME QUESTION, POSÉE À TOUT LE RESTE (Timo, 18/09/2026 : « vérifie
+// si d'autres classes ne commandent rien comme celle-là »). `src/index.css`
+// donne à CHAQUE bouton actif son retour visuel (demande Timo, 20/08/2026) :
+//     button:not(:disabled) { transition: filter 120ms, transform 80ms; }
+// Écrite hors layer, elle écrase toute classe `transition-*` posée sur un
+// bouton. DOUZE l'étaient — elles n'animaient rien.
+console.log("\n── ⚠ ET `transition-*` NE COMMANDE RIEN SUR UN BOUTON ──");
+test("★ le TÉMOIN le prouve : une classe qui pose `transition-property` sur un bouton devient « filter, transform » — la classe est là, elle n'anime rien",
+  pc.btnTransition === "filter, transform",
+  `mesuré sur le bouton : ${pc.btnTransition}`);
+test("★ …alors que la MÊME classe, hors bouton, fonctionne — la preuve que c'est bien la règle globale qui mange, pas Tailwind qui manque",
+  pc.spanTransition === "background-color",
+  `mesuré hors bouton : ${pc.spanTransition.slice(0, 60)}…`);
+
+const transitionsMortes = execSync("grep -rn 'transition-all\\|transition-colors\\|transition-transform\\|duration-[0-9]\\|\\bease-' src --include=*.jsx || true")
+  .toString().trim();
+test("★ donc PLUS AUCUNE `transition-*` écrite dans l'application — douze l'étaient, toutes sur des boutons, toutes mortes",
+  transitionsMortes === "", transitionsMortes.split("\n").slice(0, 5).join("\n     "));
+
+// Les trois autres règles globales d'index.css ont été passées au crible le
+// même jour et sont SAINES — on le note ici pour ne pas refaire l'audit :
+//   `.grid > * { min-width: 0 }`  → aucun `min-w-*` n'est enfant DIRECT d'une
+//        grille (ils sont tous sur un <table> dans un cadre qui défile) ;
+//   `button:active { transform }` → aucun `active:scale-*` dans le code ;
+//   `:focus-visible { outline }`  → les trois `outline-none` sont sur des
+//        <input>, que cette règle ne touche pas.
+test("★ la règle qui donne son retour visuel à chaque bouton est TOUJOURS là (c'est elle qui mange les transitions, et elle vaut mieux qu'elles)",
+  /button:not\(:disabled\) \{[\s\S]*transition: filter/.test(readFileSync("src/index.css", "utf8")));
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

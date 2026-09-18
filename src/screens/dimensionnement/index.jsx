@@ -91,12 +91,12 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
       <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
         {domaines.map((d) => (
           <button key={d.id} onClick={() => setMode(d.id)}
-                  className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${mode === d.id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                  className={`px-4 py-1.5 rounded-md text-sm font-bold ${mode === d.id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
             {d.icone} {d.nom}
           </button>
         ))}
         <button onClick={() => setMode("brouillons")}
-                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${mode === "brouillons" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                className={`px-4 py-1.5 rounded-md text-sm font-bold ${mode === "brouillons" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
           📝 Mes brouillons{nbBrouillons ? ` (${nbBrouillons})` : ""}
         </button>
       </div>

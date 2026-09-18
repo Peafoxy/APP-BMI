@@ -1284,14 +1284,14 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         </div>
         <div className="px-4 py-2 border-b border-slate-200 flex gap-2 flex-wrap">
           <button onClick={() => setOngletChantier("tout")}
-            className={`px-3 py-1.5 rounded-full text-sm font-bold border transition-colors ${ongletChantier === "tout" ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+            className={`px-3 py-1.5 rounded-full text-sm font-bold border ${ongletChantier === "tout" ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
             Tout <span className={`ml-1 ${ongletChantier === "tout" ? "text-sky-200" : "text-slate-400"}`}>({liste.length})</span>
           </button>
           {CATEGORIES_CHANTIER.map(({ id, label }) => {
             const n = liste.filter((c) => categorieDe(c) === id).length;
             return (
               <button key={id} onClick={() => setOngletChantier(id)}
-                className={`px-3 py-1.5 rounded-full text-sm font-bold border transition-colors ${ongletChantier === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+                className={`px-3 py-1.5 rounded-full text-sm font-bold border ${ongletChantier === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
                 {label} <span className={`ml-1 ${ongletChantier === id ? "text-sky-200" : "text-slate-400"}`}>({n})</span>
               </button>
             );
