@@ -42,6 +42,8 @@ echo "▸ Correctif upsert : supabase/securite-8-correctif-upsert.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-8-correctif-upsert.sql >/dev/null 2>&1
 echo "▸ Pose des verrous : supabase/securite-22-outillage.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-22-outillage.sql >/dev/null 2>&1 || echo "   ❌ securite-22 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-23-justifier-retard.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-23-justifier-retard.sql >/dev/null 2>&1 || echo "   ❌ securite-23 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -247,6 +249,21 @@ essai "★ le magasinier tient le registre PAR UPSERT (comme l'application écri
 essai "★ le magasinier en PROFITE pour renommer la boutique : refusé" "REFUSE" "$MAGASINIER" "$(UPS boutiques b1 '{"nom":"AUTRE","outillage":{"outils":[],"appels":[]}}')"
 essai "★ le chef technicien ne touche toujours pas au taux de parrainage" "REFUSE" "$CHEF_BMI" "$(MAJ boutiques "$(SET taux_parrainage 50)" b1)"
 essai "★ la demande de ravitaillement du vendeur passe TOUJOURS (securite-8 intact)" "PERMIS" "$VENDEUR" "$(UPS boutiques b1 '{"nom":"APESSITO","demandes":[{"id":"dm1","qte":20}]}')"
+
+echo
+echo "── ⏱ LE RETARD SE JUSTIFIE, PAR CELUI QUI DÉTIENT L'OUTIL (securite-23) ──"
+# Le technicien n'a pas le droit de tenir le registre : on lui ouvre EXACTEMENT
+# une porte — ajouter une justification — et pas une de plus. Le registre, une
+# fois les justifications retirées, doit rester IDENTIQUE.
+POSE_OUTIL="data || '{\"outillage\":{\"outils\":[{\"id\":\"o1\",\"nom\":\"Perceuse\",\"mouvements\":[{\"id\":\"s1\",\"type\":\"sortie\",\"user_id\":\"zt_tech\",\"retour_prevu\":\"2026-09-16\"}]}],\"appels\":[]}}'::jsonb"
+JUSTIF="data || '{\"outillage\":{\"outils\":[{\"id\":\"o1\",\"nom\":\"Perceuse\",\"mouvements\":[{\"id\":\"s1\",\"type\":\"sortie\",\"user_id\":\"zt_tech\",\"retour_prevu\":\"2026-09-16\"}],\"justifications\":[{\"id\":\"j1\",\"texte\":\"Le chantier a pris du retard\"}]}],\"appels\":[]}}'::jsonb"
+RENDU="data || '{\"outillage\":{\"outils\":[{\"id\":\"o1\",\"nom\":\"Perceuse\",\"mouvements\":[{\"id\":\"s1\",\"type\":\"sortie\",\"user_id\":\"zt_tech\",\"retour_prevu\":\"2026-09-16\"},{\"id\":\"r1\",\"type\":\"retour\"}]}],\"appels\":[]}}'::jsonb"
+$P -c "update public.boutiques set data = $POSE_OUTIL where id='b1';" >/dev/null
+essai "★ le TECHNICIEN qui détient l'outil justifie son retard" "PERMIS" "$TECH" "$(MAJ boutiques "$JUSTIF" b1)"
+essai "★ le même technicien en PROFITE pour rendre l'outil : refusé (ce n'est pas son geste)" "REFUSE" "$TECH" "$(MAJ boutiques "$RENDU" b1)"
+essai "★ un VENDEUR ne justifie rien (ce n'est pas un technicien)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "$JUSTIF" b1)"
+essai "★ le chef technicien, lui, peut tout : justifier comme rendre" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "$RENDU" b1)"
+$P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
 
 echo
 if [ $ko -eq 0 ]; then echo "✅  $ok vérification(s) passée(s), 0 en échec."; exit 0

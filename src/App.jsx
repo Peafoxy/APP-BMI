@@ -26,6 +26,7 @@ import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
 import { ClientsInstalles } from "./screens/ClientsInstalles";
 import { Travaux } from "./screens/Travaux";
 import { Outillage } from "./screens/Outillage";
+import { mesOutils, doitJustifier, peutTenirOutillage } from "./lib/outillage";
 import { PrimesRemises } from "./screens/PrimesRemises";
 import { PrimesRecues } from "./screens/PrimesRecues";
 import { ContratsInstallation } from "./screens/ContratsInstallation";
@@ -107,7 +108,7 @@ import {
   choisirBoutiqueDebitG, messagesNotifSortieCaisse, messagesNotifPaiementCommission, annulerLiensDepense, envoyerVirementG,
   derniereActivite, joursSansActivite, estDormant, toucher, SEUIL_COMMERCIAL,
   TAUX_PARRAINAGE_CLIENT, CRITERES_NOTE, moyenneNote, noteMoyenne, etoiles, tauxParrainageDefaut, tauxParrain,
-  SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe,
+  SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVisibles,
   commissionBloquee, commissionBrute, commissionVente, commissionEnAttente, commissionPour,
   normNom, trouverArticle,
   estReservation, reservations, dettesClassiques, resteAPayer, totalReservation,
@@ -1060,21 +1061,32 @@ export default function App() {
   const nbAValider = compterTachesAValider(db, profile);
   const labelEquipe = `👑 Équipe${nbAValider ? ` (${nbAValider})` : ""}`;
   const labelMonEquipe = `👑 Mon équipe${nbAValider ? ` (${nbAValider})` : ""}`;
+  // 🧰 Outillage : le chef tient le registre ; un technicien ordinaire n'a
+  // que CE QU'IL DÉTIENT — et son onglet compte les retards qu'il doit
+  // justifier (Timo, 18/09/2026 : « dans son interface »).
+  // ⚠ « Outillage » ou « Mes outils » : c'est le DROIT DE TENIR LE REGISTRE
+  // qui décide, jamais l'étoile seule — sinon l'administrateur et le
+  // magasinier, qui ne sont pas chefs d'équipe, verraient « Mes outils ».
+  const tientLeRegistre = peutTenirOutillage(profile);
+  const retardsAJustifier = (isTechnicien || isTechnicienBMI) && !tientLeRegistre
+    ? mesOutils(boutiquesVisibles(db, profile, db.boutiques || []), profile.id).filter(({ outil }) => doitJustifier(outil, profile.id, today())).length
+    : 0;
+  const labelOutillage = tientLeRegistre ? "🧰 Outillage" : `🧰 Mes outils${retardsAJustifier ? ` (${retardsAJustifier})` : ""}`;
   const demandesCredit = isAdmin ? compterDemandesCredit(db) : 0;
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["outillage", "🧰 Outillage"], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
     ? [["equipe", labelMonEquipe], ["ventes", "💰 Ventes"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
-    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien && estChefEquipe(db, profile) ? [["outillage", "🧰 Outillage"]] : []), ...(isTechnicien ? [["depenses", "📤 Dépenses"]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : []), ["contrats", "📄 Contrats"]]
+    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["outillage", labelOutillage]] : []), ...(isTechnicien ? [["depenses", "📤 Dépenses"]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : []), ["contrats", "📄 Contrats"]]
     : isTechnicienBMI
-    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe], ["outillage", "🧰 Outillage"]] : []), ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"], ["depenses", "📤 Dépenses"]]
+    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ["outillage", labelOutillage], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"], ["depenses", "📤 Dépenses"]]
     : isMagasinier
-    ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", "🧰 Outillage"]]
+    ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage]]
     : isGerant
     ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
     : isClient
@@ -1381,7 +1393,7 @@ export default function App() {
       {/* 🧰 Outillage — le registre du matériel de travail. Admin, magasinier,
           et le CHEF des techniciens (⭐), jamais un technicien ordinaire :
           celui qui prend l'outil ne s'enregistre pas lui-même. */}
-      {ongletsVisites.outillage && (isAdmin || isMagasinier || ((isTechnicien || isTechnicienBMI) && estChefEquipe(db, profile))) && (
+      {ongletsVisites.outillage && (isAdmin || isMagasinier || isTechnicien || isTechnicienBMI) && (
         <div style={{ display: tab === "outillage" ? "block" : "none" }}>
           <M.Outillage db={db} save={save} profile={profile} />
         </div>

@@ -8028,7 +8028,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && C.pouvoirsDuRole("technicien_bmi").some(([id]) => id === "taches"));
 
   test("★ 👑 Mon équipe ne s'affiche QUE s'il est chef (estChefEquipe, comme pour le commercial et le technicien) — le menu et l'écran le disent tous les deux",
-    /\["taches", labelTaches\], \.\.\.\(estChefEquipe\(db, profile\) \? \[\["equipe", labelMonEquipe\], \["outillage", "🧰 Outillage"\]\] : \[\]\), \["commission", "💵 Ma commission"\]/.test(appC)
+    /\["taches", labelTaches\], \.\.\.\(estChefEquipe\(db, profile\) \? \[\["equipe", labelMonEquipe\]\] : \[\]\), \["outillage", labelOutillage\], \["commission", "💵 Ma commission"\]/.test(appC)
     && /ongletsVisites\.equipe && \(isAdmin \|\| isRespCom \|\| \(\(isCommercial \|\| isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appC));
 
   test("★ le bouton « Nommer chef » existe enfin sur la fiche d'un technicien BMI, la case est proposée à la création, et l'étoile ⭐ Chef se VOIT sur sa pastille",
@@ -8217,11 +8217,14 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
         && /RETIRÉ l'onglet 🧰 Outillage" "REFUSE"/.test(b)
         && /demande de ravitaillement du vendeur passe TOUJOURS.*"PERMIS"/.test(b); })());
 
-  test("★ l'onglet 🧰 Outillage : listé dans ONGLETS_ROLE pour admin, magasinier, technicien et technicien BMI (donc retirable dans 🔐 Pouvoirs), et RENDU pour l'admin, le magasinier et un technicien seulement s'il est CHEF",
+  // ⚠ RETOURNÉ le 18/09/2026 (« dans son interface ») : l'onglet n'est plus
+  // réservé au CHEF. Tout technicien l'a — le chef y tient le registre,
+  // l'autre n'y voit que ce qu'il détient.
+  test("★ l'onglet 🧰 Outillage : listé dans ONGLETS_ROLE pour admin, magasinier, technicien et technicien BMI (donc retirable dans 🔐 Pouvoirs), et RENDU pour ces quatre-là — l'écran, lui, décide ce qu'il montre",
     /outillage: "🧰 Outillage"/.test(calO)
     && ["admin", "magasinier", "technicien", "technicien_bmi"].every((r) => (C.ONGLETS_ROLE[r] || []).includes("outillage"))
     && !["vendeur", "gerant", "commercial", "resp_commercial", "comptable", "client"].some((r) => (C.ONGLETS_ROLE[r] || []).includes("outillage"))
-    && /ongletsVisites\.outillage && \(isAdmin \|\| isMagasinier \|\| \(\(isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appO));
+    && /ongletsVisites\.outillage && \(isAdmin \|\| isMagasinier \|\| isTechnicien \|\| isTechnicienBMI\)/.test(appO));
 
   // ⚠ TROUVÉ PAR TIMO (18/09/2026) : « à qui on rend l'outil n'est pas
   // mentionné ». La personne qui REÇOIT le retour était bien enregistrée
@@ -8245,12 +8248,111 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && l[0].role === "sous la responsabilité de" && l[0].qui === "AFI" && /déclaré par CHEF BMI/.test(l[0].detail); })());
     test("★ et l'ÉCRAN le montre : la colonne dit « Chez qui / rendu à », un CLIC sur la ligne ouvre l'histoire (la règle de dépliage de 💰 Ventes et 📋 Dettes), la question du retour nomme celui qui reçoit, et le journal aussi",
       /Chez qui \/ rendu à/.test(ecrC)
-      && /classeLigneDepliable\(deplie, i\)/.test(ecrC) && /setOutilDeplie\(deplie \? "" : o\.id\)/.test(ecrC)
+      && /classeLigneDepliable\(true, i\)/.test(ecrC) && /setOutilDeplie\(deplie \? "" : o\.id\)/.test(ecrC)
       && /🕘 Histoire de/.test(ecrC) && /rendu à <b>\{rendu\.par \|\| "—"\}<\/b>/.test(ecrC)
       && /vous est rendu — reçu par \$\{profile\.nom\}/.test(ecrC)
       && /🧰 Retour — \$\{outil\.nom\} rendu à \$\{profile\.nom\}/.test(ecrC)
-      && /remis par \{s\.par \|\| "—"\}/.test(ecrC)
+      && /remis par \{so\.par \|\| "—"\}/.test(ecrC)
       && /onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(ecrC));
+  }
+
+  // ═══ LES QUATRE CARRÉS S'OUVRENT (Timo, 18/09/2026, capture) ═══
+  // « Outils / Dehors / En retard / En réparation : lorsqu'on clique dessus »,
+  // chacun ouvre SA liste, avec les colonnes qui répondent à SA question.
+  {
+    const sql23 = existsSync("supabase/securite-23-justifier-retard.sql")
+      ? readFileSync("supabase/securite-23-justifier-retard.sql", "utf8") : "";
+    let a = Out.nouvelOutil({ id: "v1", nom: "Perceuse", le: "2026-09-10", par: "TIMO" });
+    a = Out.sortirOutil(a, { id: "s1", le: "2026-09-15", user_id: "u1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-09-16", par_id: "c1", par: "CHEF" });
+    let b = Out.nouvelOutil({ id: "v2", nom: "Meuleuse", le: "2026-09-10", par: "TIMO" });
+    b = Out.mettreEnReparation(b, { id: "r1", le: "2026-09-18", reparateur: "ATELIER KODJO", tel: "90112233", panne: "Charbons usés", prix: 12000, par_id: "c1", par: "CHEF" });
+    const c = Out.nouvelOutil({ id: "v3", nom: "Échelle", le: "2026-09-10", par: "TIMO" });
+    const bqV = { id: "b1", nom: "DEMAKPOE", outillage: { outils: [a, b, c], appels: [] } };
+    const noms = (v, j) => Out.outilsDeLaVue(bqV, v, j).map((o) => o.nom).join();
+
+    test("★ les QUATRE vues rendent chacune SA liste : tous, dehors, en retard, en réparation",
+      noms("tous", "2026-09-18") === "Perceuse,Meuleuse,Échelle"
+      && noms("dehors", "2026-09-18") === "Perceuse"
+      && noms("retard", "2026-09-18") === "Perceuse" && noms("retard", "2026-09-16") === ""
+      && noms("reparation", "2026-09-18") === "Meuleuse"
+      && Out.VUES_OUTILLAGE.join() === "tous,dehors,retard,reparation");
+
+    // ⚠ Ce contrôle mesure L'ÉCRAN : les quatre colonnes que Timo a demandées
+    // doivent exister, et le numéro du réparateur doit s'appeler par LA règle
+    // WhatsApp commune (jamais un wa.me écrit à la main).
+    test("★ 🔧 EN RÉPARATION montre les QUATRE colonnes demandées — chez quel réparateur, son numéro (avec le vrai logo WhatsApp), la panne, le prix — et les quatre cases existent au formulaire",
+      /<th className="px-3 py-2">Chez quel réparateur<\/th><th className="px-3 py-2">Son numéro<\/th><th className="px-3 py-2">La panne<\/th><th className="px-3 py-2 text-right">Prix<\/th>/.test(ecrC)
+      && /<Field label="Chez quel réparateur">/.test(ecrC) && /<Field label="Son numéro">/.test(ecrC)
+      && /<Field label="La panne">/.test(ecrC) && /<Field label="Prix de réparation \(F\)">/.test(ecrC)
+      && /envoyerWhatsApp\(chiffresTel\(rep\.tel\), ""\)/.test(ecrC) && !/wa\.me/.test(ecrC)
+      && /<IconeWhatsApp taille=\{14\} \/>/.test(ecrC));
+
+    test("★ ⏰ EN RETARD montre chez qui, la date promise, le retard en jours, et POURQUOI — ou dit tout haut que ce n'est pas encore justifié",
+      /<th className="px-3 py-2">Chez qui<\/th><th className="px-3 py-2">Retour prévu<\/th><th className="px-3 py-2">Retard<\/th><th className="px-3 py-2">Pourquoi ce n'est pas rentré<\/th>/.test(ecrC)
+      && /⏳ Pas encore justifié/.test(ecrC)
+      && /<th className="px-3 py-2">Chez qui<\/th><th className="px-3 py-2">Chantier<\/th><th className="px-3 py-2">Depuis<\/th><th className="px-3 py-2">Retour prévu<\/th>/.test(ecrC));
+
+    test("★ les quatre carrés sont des BOUTONS qui OUVRENT leur liste, et celui qu'on regarde se voit (cadre épais)",
+      /onClick=\{\(\) => \{ setVue\(id\); setOutilDeplie\(""\); \}\}/.test(ecrC)
+      && /vue === id \? "ring-4 ring-sky-600/.test(ecrC)
+      && /outilsDeLaVue\(fiche, vue, jour\)/.test(ecrC));
+    test("★ le réparateur et la panne sont EXIGÉS, le prix non (on ne le connaît pas toujours en déposant l'outil)",
+      /Dites chez quel réparateur/.test(Out.critiqueReparation({ reparateur: " ", panne: "Charbons" }))
+      && /Dites quelle est la panne/.test(Out.critiqueReparation({ reparateur: "ATELIER", panne: "" }))
+      && Out.critiqueReparation({ reparateur: "ATELIER", panne: "Charbons" }) === ""
+      && Out.reparationEnCours(b).reparateur === "ATELIER KODJO" && Out.reparationEnCours(b).tel === "90112233"
+      && Out.reparationEnCours(b).panne === "Charbons usés" && Out.reparationEnCours(b).prix === 12000
+      && Out.reparationEnCours(a) === null);
+
+    test("★ le prix d'une réparation est une INFORMATION portée par l'outil : il n'écrit AUCUNE dépense (l'écran le dit, et il ne fabrique ni dépense ni ajustement)",
+      Out.coutReparations(bqV, null) === 12000
+      && !/nouvelleDepense|depenses:/.test(ecrC)
+      && /aucune dépense n'est enregistrée/.test(ecrC));
+
+    // ---- ⏱ Le retard se justifie, par celui qui détient l'outil
+    test("★ ⏰ EN RETARD : c'est le DÉTENTEUR qui doit justifier — pas un autre, pas si l'outil est à l'heure, et plus une fois qu'il a répondu",
+      Out.doitJustifier(a, "u1", "2026-09-18") && !Out.doitJustifier(a, "u2", "2026-09-18")
+      && !Out.doitJustifier(a, "u1", "2026-09-16") && !Out.doitJustifier(c, "u1", "2026-09-18")
+      && Out.joursDeRetard(a, "2026-09-18") === 2 && Out.joursDeRetard(c, "2026-09-18") === 0);
+
+    const aJ = Out.justifierRetard(a, { id: "j1", le: "2026-09-18", texte: "Le chantier a pris du retard", par_id: "u1", par: "KOSSI" });
+    test("★ une justification VIDE est refusée, et une justification donnée se rattache à SA sortie — une nouvelle sortie en redemandera une",
+      /Dites pourquoi l'outil n'est pas encore rentré/.test(Out.critiqueJustification(a, { texte: "   " }))
+      && Out.critiqueJustification(a, { texte: "bloqué" }) === ""
+      && !Out.doitJustifier(aJ, "u1", "2026-09-18")
+      && Out.derniereJustification(aJ).texte === "Le chantier a pris du retard"
+      && Out.justificationsDeLaSortie(aJ).length === 1
+      && Out.justificationsDeLaSortie(Out.rendreOutil(aJ, { id: "r9", le: "2026-09-19", par: "CHEF" })).length === 0);
+
+    test("★ CE QU'IL DÉTIENT se cherche dans TOUTES les boutiques de son espace : un technicien n'a pas de boutique, son outil peut venir de n'importe laquelle",
+      Out.mesOutils([bqV, { id: "b2", nom: "APESSITO", outillage: { outils: [], appels: [] } }], "u1")
+        .map((x) => `${x.outil.nom}@${x.boutique.nom}`).join() === "Perceuse@DEMAKPOE"
+      && Out.mesOutils([bqV], "u2").length === 0);
+
+    test("★ L'ÉCRAN DU DÉTENTEUR existe (« 🧰 Mes outils ») : un technicien SANS l'étoile n'y voit QUE ce qu'il détient, la case pour justifier, et rien du registre des autres",
+      /function MesOutils\(\{ db, save, profile \}\)/.test(ecrC)
+      && /if \(!jePeux && \["technicien", "technicien_bmi"\]\.includes\(profile\.role\)\) \{\s*\n\s*return <MesOutils/.test(ecrC)
+      && /boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)/.test(ecrC)
+      && /Pourquoi l'outil n'est pas encore rentré/.test(ecrC));
+
+    test("★ son ONGLET le lui dit et COMPTE ses retards : « 🧰 Mes outils (N) » pour qui ne tient pas le registre, « 🧰 Outillage » pour qui le tient (l'administrateur et le magasinier ne sont pas chefs d'équipe — c'est le DROIT qui décide, pas l'étoile)",
+      /const tientLeRegistre = peutTenirOutillage\(profile\);/.test(appO)
+      && /const labelOutillage = tientLeRegistre \? "🧰 Outillage" : `🧰 Mes outils\$\{retardsAJustifier \? ` \(\$\{retardsAJustifier\}\)` : ""\}`;/.test(appO)
+      && /ongletsVisites\.outillage && \(isAdmin \|\| isMagasinier \|\| isTechnicien \|\| isTechnicienBMI\)/.test(appO));
+
+    test("★ LE COUPLE pour la justification : securite-23 ouvre au détenteur EXACTEMENT une porte — le registre débarrassé des justifications doit rester IDENTIQUE —, et rien d'autre de securite-22 ne bouge",
+      /create or replace function public\.outillage_sans_justifs/.test(sql23)
+      && /r in \('technicien', 'technicien_bmi'\)/.test(sql23)
+      && /outillage_sans_justifs\(avant -> 'outillage'\)\s*\n\s*is not distinct from public\.outillage_sans_justifs\(new\.data -> 'outillage'\)/.test(sql23)
+      && /a_pouvoir_outillage\(\)/.test(sql23) && /- 'demandes' - 'updated_at' - 'outillage'/.test(sql23)
+      && /doit afficher : true \| true \| true/.test(sql23));
+
+    test("★ le banc SQL rejoue securite-23 et mesure la porte ET son cadre (justifier passe, rendre l'outil ne passe pas, un vendeur ne justifie rien)",
+      (() => { const bh = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
+        return /securite-23-justifier-retard\.sql/.test(bh)
+          && /le TECHNICIEN qui détient l'outil justifie son retard" "PERMIS"/.test(bh)
+          && /en PROFITE pour rendre l'outil : refusé.*"REFUSE"/.test(bh)
+          && /un VENDEUR ne justifie rien.*"REFUSE"/.test(bh); })());
   }
 
   test("★ l'écran passe par les briques communes : le filtre d'espace pour les personnes (utilisateursDeLEspace, jamais un db.users.filter maison) et LA règle de recherche (correspond)",

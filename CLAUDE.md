@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1489 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1502 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -65,7 +65,7 @@ npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium 
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 96  : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 100 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -1016,10 +1016,46 @@ lit mal est pire qu'un banc absent).
   qui appellent le mardi et le jeudi parlent de la même semaine. Un outil
   sorti n'est pas coché d'office (il est chez quelqu'un), un outil perdu n'est
   jamais appelé.
+- **LES QUATRE CARRÉS S'OUVRENT** (Timo, 18/09/2026, capture : « dans les
+  cases outils, dehors, en retard, en réparation, lorsqu'on clique dessus ») :
+  chacun ouvre SA liste, avec les colonnes qui répondent à SA question —
+  **Outils** = le registre entier (spécifications + l'histoire au clic),
+  **Dehors** = chez qui, pour quel chantier, depuis quand, retour prévu,
+  **En retard** = chez qui, la date promise, le retard en jours, **pourquoi**,
+  **En réparation** = chez quel réparateur, **son numéro** (vrai logo
+  WhatsApp, `envoyerWhatsApp`), la panne, le prix. `outilsDeLaVue` +
+  `VUES_OUTILLAGE` ; « Dehors » d'office. Le carré regardé porte un cadre
+  épais. ⚠ **Le PRIX d'une réparation est une INFORMATION portée par
+  l'outil : il n'écrit AUCUNE dépense** — créer une charge sans que Timo l'ait
+  demandé toucherait ses comptes ; l'écran le dit, et propose d'en parler.
+  Réparateur et panne sont EXIGÉS, le prix non (on ne le connaît pas toujours
+  en déposant l'outil).
+- **⏱ LE RETARD SE JUSTIFIE, PAR CELUI QUI DÉTIENT L'OUTIL** (Timo,
+  18/09/2026 : « celui qui a un outil et est en retard de retour doit
+  justifier pourquoi l'outil n'est pas encore de retour, **dans son
+  interface** »). `doitJustifier` : SON outil, en retard, pas encore
+  expliqué ; `justifierRetard` empile la phrase sur la fiche
+  (`justifications`), **rattachée à SA sortie** — une nouvelle sortie en
+  redemandera une. Une justification vide est refusée. La vue « En retard »
+  la montre, ou dit tout haut « ⏳ Pas encore justifié ».
+  ⚠ **LE TECHNICIEN A DONC SON INTERFACE** : l'onglet 🧰 passe à TOUT
+  technicien, mais celui qui ne tient pas le registre n'y voit QUE ce qu'il
+  détient (`MesOutils`, `mesOutils` cherche dans TOUTES les boutiques de son
+  espace — un technicien n'a pas de boutique) et la case pour expliquer. Son
+  onglet s'appelle **« 🧰 Mes outils (N) »**, N = ses retards à justifier ;
+  celui qui tient le registre lit « 🧰 Outillage ». ⚠ **C'est le DROIT
+  (`peutTenirOutillage`) qui décide du libellé, jamais l'étoile seule** —
+  l'administrateur et le magasinier ne sont pas chefs d'équipe.
+  ⚠ **Serveur : `securite-23`** ouvre au détenteur **EXACTEMENT une porte** —
+  le registre débarrassé des justifications (`outillage_sans_justifs`) doit
+  rester IDENTIQUE. Il ajoute une phrase ; il ne sort pas un outil, ne le rend
+  pas, ne le déclare pas perdu. `securite-22` n'est pas touché.
 - L'onglet **🧰 Outillage** est listé dans `ONGLETS_ROLE` pour admin,
   magasinier, technicien et technicien BMI (donc retirable dans 🔐 Pouvoirs —
-  et le serveur lit ce retrait, `pouvoirs_off ? 'outillage'`), mais il ne
-  s'AFFICHE pour un technicien que s'il porte l'étoile ⭐.
+  et le serveur lit ce retrait, `pouvoirs_off ? 'outillage'`). ~~Il ne
+  s'affiche pour un technicien que s'il porte l'étoile ⭐~~ — **RETOURNÉ le
+  18/09/2026** : tout technicien l'a, c'est l'ÉCRAN qui décide ce qu'il
+  montre.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

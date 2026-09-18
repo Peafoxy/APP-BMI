@@ -140,8 +140,11 @@ export const critiqueRetour = (outil) => {
 export const rendreOutil = (outil, { id, le, etat, note, par_id, par }) =>
   ajouter(outil, { id, type: "retour", le, etat: etat || "bon", note: note || "", par_id, par });
 
-export const mettreEnReparation = (outil, { id, le, note, par_id, par }) =>
-  ajouter(outil, { id, type: "reparation", le, note: note || "", par_id, par });
+// 🔧 Réparation : chez QUI, son NUMÉRO, la PANNE, le PRIX (Timo, 18/09/2026).
+export const mettreEnReparation = (outil, { id, le, reparateur, tel, panne, prix, note, par_id, par }) =>
+  ajouter(outil, { id, type: "reparation", le,
+    reparateur: String(reparateur || "").trim(), tel: String(tel || "").trim(),
+    panne: String(panne || "").trim(), prix: Number(prix || 0), note: note || "", par_id, par });
 
 // ---- PERDU (décisions « b » ET « c » de Timo, 17/09/2026) : on marque la
 // perte, on GARDE sa valeur pour le total des pertes de l'année, ET on peut
@@ -309,7 +312,10 @@ export const histoireOutil = (outil) => mouvementsDe(outil).map((m) => {
     id: m.id, le: m.le, quoi: "📥 Retour", role: "rendu à", qui: par,
     detail: [m.etat === "abime" ? "ABÎMÉ" : "bon état", m.note || ""].filter(Boolean).join(" — "),
   };
-  if (m.type === "reparation") return { id: m.id, le: m.le, quoi: "🔧 Réparation", role: "envoyé par", qui: par, detail: m.note || "" };
+  if (m.type === "reparation") return {
+    id: m.id, le: m.le, quoi: "🔧 Réparation", role: "chez", qui: m.reparateur || par,
+    detail: [m.tel ? `☎ ${m.tel}` : "", m.panne || "", m.prix ? `${m.prix} F` : "", `envoyé par ${par}`, m.note || ""].filter(Boolean).join(" — "),
+  };
   if (m.type === "perdu") return {
     id: m.id, le: m.le, quoi: "⚠ Perdu", role: "sous la responsabilité de", qui: m.user || "personne (il était rangé)",
     detail: [m.motif || "", m.valeur ? `valeur ${m.valeur}` : "", `déclaré par ${par}`].filter(Boolean).join(" — "),
@@ -322,4 +328,95 @@ export const histoireOutil = (outil) => mouvementsDe(outil).map((m) => {
 export const dernierRetour = (outil) => {
   const m = mouvementsDe(outil).filter((x) => x.type === "retour");
   return m.length ? m[m.length - 1] : null;
+};
+
+// ============================================================
+// LES QUATRE VUES (Timo, 18/09/2026, capture des carrés) : « lorsqu'on
+// clique dessus » — Outils, Dehors, En retard, En réparation. Chaque carré
+// ouvre SA liste, avec les colonnes qui répondent à SA question.
+// ============================================================
+export const VUES_OUTILLAGE = ["tous", "dehors", "retard", "reparation"];
+export const outilsDeLaVue = (boutique, vue, jour) => {
+  if (vue === "dehors") return outilsDehors(boutique);
+  if (vue === "retard") return outilsDehors(boutique).filter((o) => enRetard(o, jour));
+  if (vue === "reparation") return outilsDe(boutique).filter((o) => etatOutil(o) === "reparation");
+  return outilsDe(boutique);
+};
+
+// ---- 🔧 LA RÉPARATION : chez QUI, son NUMÉRO, la PANNE, le PRIX.
+// ⚠ Le prix est une INFORMATION portée par l'outil : il n'écrit AUCUNE
+// dépense. Créer une charge sans que Timo l'ait demandé toucherait ses
+// comptes — on le lui dit, on ne le décide pas.
+export const critiqueReparation = ({ reparateur, panne } = {}) => {
+  if (!String(reparateur || "").trim()) return "Dites chez quel réparateur part l'outil.";
+  if (!String(panne || "").trim()) return "Dites quelle est la panne.";
+  return "";
+};
+export const reparationEnCours = (outil) => (etatOutil(outil) === "reparation" ? dernierMouvement(outil) : null);
+export const coutReparations = (boutique, periode) => {
+  const du = periode && periode.du ? String(periode.du) : "";
+  const au = periode && periode.au ? String(periode.au) : "";
+  return outilsDe(boutique).reduce((s, o) => s + mouvementsDe(o)
+    .filter((m) => m.type === "reparation" && (!du || String(m.le) >= du) && (!au || String(m.le) <= au))
+    .reduce((t, m) => t + Number(m.prix || 0), 0), 0);
+};
+
+// ---- ⏱ LE RETARD SE JUSTIFIE, PAR CELUI QUI DÉTIENT L'OUTIL
+// Timo (18/09/2026) : « celui qui a un outil et est en retard de retour doit
+// justifier pourquoi l'outil n'est pas encore de retour, dans son interface ».
+// La justification se RATTACHE à la sortie en cours : un nouveau retard
+// (une autre sortie) en redemande une. Rien ne s'efface, on empile.
+export const justificationsDe = (outil) => Array.isArray(outil?.justifications) ? outil.justifications : [];
+export const justificationsDeLaSortie = (outil) => {
+  const s = sortieEnCours(outil);
+  if (!s) return [];
+  return justificationsDe(outil).filter((j) => j.sortie_id === s.id);
+};
+export const derniereJustification = (outil) => {
+  const l = justificationsDeLaSortie(outil);
+  return l.length ? l[l.length - 1] : null;
+};
+// Ce qu'on doit à son chef : un outil qu'on détient, en retard, et dont la
+// dernière justification est plus ancienne que le dernier jour de retard.
+export const doitJustifier = (outil, userId, jour) => {
+  const s = sortieEnCours(outil);
+  if (!s || String(s.user_id || "") !== String(userId || "")) return false;
+  if (!enRetard(outil, jour)) return false;
+  const d = derniereJustification(outil);
+  return !d;
+};
+export const critiqueJustification = (outil, { texte } = {}) => {
+  if (!outil) return "Choisissez d'abord un outil.";
+  if (!sortieEnCours(outil)) return "Cet outil n'est pas sorti : il n'y a pas de retard à justifier.";
+  if (!String(texte || "").trim()) return "Dites pourquoi l'outil n'est pas encore rentré.";
+  return "";
+};
+export const justifierRetard = (outil, { id, le, texte, par_id, par }) => {
+  const s = sortieEnCours(outil);
+  return { ...outil, justifications: [...justificationsDe(outil), {
+    id, le, texte: String(texte || "").trim(), par_id, par: par || "",
+    sortie_id: s ? s.id : "", retour_prevu: s ? s.retour_prevu : "",
+  }] };
+};
+
+// ---- CE QUE JE DÉTIENS, dans TOUTES les boutiques de mon espace : un
+// technicien n'a pas de boutique, et son outil peut venir de n'importe
+// laquelle. Rend [{ boutique, outil }].
+export const mesOutils = (boutiques, userId) => {
+  const liste = [];
+  (boutiques || []).forEach((b) => outilsDehors(b).forEach((o) => {
+    const d = detenteurOutil(o);
+    if (d && String(d.id) === String(userId || "")) liste.push({ boutique: b, outil: o });
+  }));
+  return liste;
+};
+
+// Depuis combien de jours l'outil aurait dû être rentré.
+export const joursDeRetard = (outil, aujourdhui) => {
+  const s = sortieEnCours(outil);
+  if (!s || !s.retour_prevu) return 0;
+  const a = Date.parse(`${String(s.retour_prevu).slice(0, 10)}T00:00:00Z`);
+  const b = Date.parse(`${String(aujourdhui).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 86400000));
 };
