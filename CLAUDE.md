@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1535 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1539 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -991,8 +991,10 @@ lit mal est pire qu'un banc absent).
   - **Un numéro gravé est unique dans TOUTE la maison**, plus seulement dans
     une boutique.
   - **UN FILTRE PAR LIEU** (demande Timo, 18/09/2026) : une liste déroulante
-    « Lieu : Tous les lieux (N) » sur la ligne du titre, qui vaut pour les
-    CINQ vues, chaque lieu avec son compte. « Tous » d'office.
+    « Tous les lieux (N) » sur la ligne du titre, qui vaut pour les CINQ vues,
+    chaque lieu avec son compte. « Tous » d'office. **Sans le mot « Lieu »
+    devant** (capture Timo : « supprimer le mot Lieu… Registre est déjà
+    suffisant ») — le titre de la vue dit déjà ce qu'on regarde.
 - **🏗 LE CHANTIER D'UN OUTIL SE CHANGE SANS LE RAMENER** (Timo, 18/09/2026 :
   « aujourd'hui il finit le chantier A, il n'a pas besoin de ramener l'outil
   avant d'aller sur le chantier B… il peut juste changer le chantier DANS SON
@@ -1026,7 +1028,7 @@ lit mal est pire qu'un banc absent).
     (`outillage_sans_justifs_ni_chantiers`) doit rester IDENTIQUE : il dit où
     il travaille, il ne rend pas l'outil et ne repousse pas sa date de retour.
     Il REPREND `securite-24` (donc `-23`, `-22`) en entier : **c'est le seul à
-    coller**.
+    coller**. **Collé par Timo le 18/09/2026 (`true | true | true | true | true`).**
 - **LA RÈGLE QUI EMPÊCHE LA PERTE : un outil est TOUJOURS sous le nom de
   QUELQU'UN.** Pas « sur le chantier de MR ERIC » — un chantier ne perd pas
   une perceuse, une personne la perd ; le chantier est noté à côté. L'état
@@ -1808,6 +1810,21 @@ lit mal est pire qu'un banc absent).
   mois ») ; « Dettes en cours » ne dépend pas de la période. **Le sélecteur
   démarre sur « Aujourd'hui »** (11/09/2026 : « Période doit rester sur
   Aujourd'hui par défaut » — c'était « Ce mois »).
+- **🔍 UNE SEULE RÈGLE POUR TOUTE LIGNE DE RECHERCHE** (capture Timo,
+  18/09/2026, 🧰 Outillage : « réduire la ligne rechercher un outil, trop
+  long… mais est-ce que ce n'est pas mieux d'avoir une seule règle qui gère ce
+  côté de ligne de recherche ? Ailleurs c'est bon, mais dans les autres écrans
+  cette ligne apparaît trop longue ») — il avait raison : **HUIT largeurs**
+  coexistaient pour le même geste (`w-48`, `w-52`, `w-56`, `w-64`, `max-w-xs`,
+  `max-w-[220px]` et trois en pleine largeur). `champRecherche`
+  (components/ui.jsx, à côté d'`inputCls`) = **pleine largeur sur téléphone**
+  — c'est là qu'on en a besoin — **et bridée sur ordinateur** (`sm:max-w-xs`) :
+  une ligne de recherche ne traverse pas l'écran. Les **10** lignes de
+  l'application y passent (Clients, Clients installés, Historique, Outillage,
+  Prospects, Stocks, Tous les devis, Utilisateurs, Ventes, sélecteur
+  d'article) ; **le banc compte les usages et interdit toute largeur écrite à
+  la main** sur une ligne de recherche. ⚠ Le fichier qui l'emploie doit
+  l'IMPORTER : le build ne voit pas un nom manquant (écran blanc 2.101.59).
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 - **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**

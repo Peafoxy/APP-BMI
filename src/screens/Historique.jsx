@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { dFR } from "../lib/core";
+import { champRecherche } from "../components/ui";
 
 // ============ HISTORIQUE (JOURNAL D'AUDIT) ============
 export function Historique({ db }) {
@@ -17,7 +18,7 @@ export function Historique({ db }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">Historique des actions <span className="text-sm font-normal text-slate-500">(500 dernières)</span></span>
-          <input className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm w-64" placeholder="Rechercher (utilisateur, action)…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className={champRecherche} placeholder="Rechercher (utilisateur, action)…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <table className="w-full text-sm min-w-[640px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date et heure", "Utilisateur", "Action"].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>

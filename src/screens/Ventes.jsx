@@ -14,7 +14,7 @@ import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche } from "../components/ui";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
@@ -1219,7 +1219,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
         </div>
         <div className="px-4 py-2 border-b border-slate-100 bg-white flex flex-wrap items-center gap-2">
-          <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher…" className={`${inputCls} max-w-[220px]`} />
+          <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher…" className={champRecherche} />
           {/* ⚠ Demande Timo : le filtre de période s'applique aux DEUX vues
               (Ventes et Proformas — une proforma a aussi une date), contrairement
               au filtre de paiement (Crédit/Espèces...) qui n'a pas de sens pour

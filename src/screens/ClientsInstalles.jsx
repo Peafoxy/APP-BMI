@@ -12,7 +12,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
@@ -1279,7 +1279,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             <button onClick={() => setFiltreEntretien(!filtreEntretien)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${filtreEntretien ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
               🔔 Entretien dû{entretiensDus ? ` (${entretiensDus})` : ""}
             </button>
-            <input className={`${inputCls} w-48`} placeholder="🔍 Rechercher..." value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className={champRecherche} placeholder="🔍 Rechercher..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
         <div className="px-4 py-2 border-b border-slate-200 flex gap-2 flex-wrap">

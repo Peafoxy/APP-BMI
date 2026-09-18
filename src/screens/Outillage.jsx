@@ -19,7 +19,7 @@ import { Fragment, useState } from "react";
 import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } from "../lib/core";
 import { chiffresTel } from "../lib/identiteClient";
 import { ficheParId } from "../lib/banques";
-import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
 // ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
@@ -647,7 +647,6 @@ export function Outillage({ db, save, profile }) {
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <div className="font-bold text-slate-800">{TITRE_VUE[vue]} ({affichee.length})</div>
             <label className="flex items-center gap-2 text-sm text-slate-600">
-              <span className="font-semibold">Lieu :</span>
               <select className={`${inputCls} max-w-[14rem]`} value={lieuFiltre} onChange={(e) => { setLieuFiltre(e.target.value); setOutilDeplie(""); }}>
                 <option value="">Tous les lieux ({outilsDeLaVue(registre, vue, jour).length})</option>
                 {lieux.map((b) => (
@@ -655,7 +654,7 @@ export function Outillage({ db, save, profile }) {
                 ))}
               </select>
             </label>
-            {vue === "tous" && <input className={`${inputCls} max-w-xs`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un outil…" />}
+            {vue === "tous" && <input className={champRecherche} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un outil…" />}
             {vue === "tous" && jeSuisAdmin && !neuf && <button onClick={() => setNeuf(outilVide)} className="px-3 py-1.5 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-sm hover:bg-sky-50">➕ Ajouter un outil</button>}
             {vue === "reparation" && coutRep > 0 && <span className="text-xs text-slate-600">Réparations payées jusqu'ici : <b>{fmt(coutRep)}</b> — <i>chacune est une dépense de BMI, à retrouver dans 📤 Dépenses</i></span>}
           </div>

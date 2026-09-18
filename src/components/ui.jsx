@@ -59,6 +59,15 @@ export const Field = ({ label, children }) => (
 
 export const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100";
 
+// ⚠ UNE RÈGLE POUR TOUTE LIGNE DE RECHERCHE (Timo, 18/09/2026, capture de
+// 🧰 Outillage : « réduire la ligne rechercher un outil, trop long… mais
+// est-ce que ce n'est pas mieux d'avoir une seule règle qui gère ce côté de
+// ligne de recherche ? »). HUIT largeurs coexistaient pour le même geste —
+// w-48, w-52, w-56, w-64, max-w-xs, max-w-[220px] et trois en pleine largeur.
+// Pleine largeur sur TÉLÉPHONE (c'est là qu'on en a besoin), bridée sur
+// ordinateur : une ligne de recherche ne traverse pas l'écran.
+export const champRecherche = `${inputCls} sm:max-w-xs`;
+
 // ---- UN champ libre qui GRANDIT avec le texte (14/09/2026) ----
 // Timo, devant la case Remarques de la clôture : « la ligne de la remarque
 // est trop longue, la raccourcir, et si le texte augmente, la case aussi

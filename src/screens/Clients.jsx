@@ -11,7 +11,7 @@ import { correspond } from "../lib/suggestions";
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits, envoyerWhatsApp } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche } from "../components/ui";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
@@ -190,7 +190,7 @@ export function Clients({ db, profile }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">Clients — {boutique} <span className="text-sm font-normal text-slate-500">({clients.length})</span></span>
-          <input className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm w-56" placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className={champRecherche} placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <table className="w-full text-sm min-w-[720px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>

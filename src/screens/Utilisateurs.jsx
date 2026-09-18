@@ -11,7 +11,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
 
 // ============ UTILISATEURS ============
@@ -1061,7 +1061,7 @@ export function Users({ db, save, profile }) {
             ))}
           </div>
           <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
-            placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={inputCls} />
+            placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={champRecherche} />
           {enRecherche && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans tous les rôles</div>}
         </div>
         <div className="max-h-[420px] overflow-y-auto overflow-x-auto">

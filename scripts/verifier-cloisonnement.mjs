@@ -8372,8 +8372,11 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /Où part l'outil — ou tapez librement/.test(ecrC)
       && /detail: c\.type === "travaux" \? "🛠 Travaux à crédit" : "Chantier en cours"/.test(ecrC));
 
-    test("★ LE FILTRE PAR LIEU (demande Timo) : une liste déroulante, « Tous les lieux » d'office, qui vaut pour TOUTES les vues",
-      /<span className="font-semibold">Lieu :<\/span>/.test(ecrC)
+    // ⚠ RETOURNÉ le 18/09/2026 : le mot « Lieu » devant la liste est parti
+    // (Timo : « supprimer le mot Lieu… Registre est déjà suffisant »). Ce que
+    // le contrôle protège — la liste, « Tous » d'office, le filtre — ne bouge pas.
+    test("★ LE FILTRE PAR LIEU (demande Timo) : une liste déroulante SANS libellé, « Tous les lieux » d'office, qui vaut pour TOUTES les vues",
+      !/Lieu :/.test(ecrC)
       && /Tous les lieux \(\{outilsDeLaVue\(registre, vue, jour\)\.length\}\)/.test(ecrC)
       && /\.filter\(\(o\) => !lieuFiltre \|\| lieuDeRangement\(o\) === lieuFiltre\)/.test(ecrC)
       && /const \[lieuFiltre, setLieuFiltre\] = useState\(""\)/.test(ecrC));
@@ -8394,6 +8397,46 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && /pour rendre l'outil : refusé.*"REFUSE"/.test(bh)
           && /pour repousser sa date de retour : refusé" "REFUSE"/.test(bh)
           && /la justification de securite-23 passe TOUJOURS.*"PERMIS"/.test(bh); })());
+  }
+
+  // ═══ 🔍 UNE SEULE RÈGLE POUR TOUTE LIGNE DE RECHERCHE ═══
+  // Timo, 18/09/2026 (capture de 🧰 Outillage) : « réduire la ligne rechercher
+  // un outil, trop long… mais est-ce que ce n'est pas mieux d'avoir une seule
+  // règle qui gère ce côté de ligne de recherche ? Ailleurs c'est bon, mais
+  // dans les autres écrans cette ligne apparaît trop longue. »
+  // Il y avait HUIT largeurs pour le même geste. Le banc compte, et interdit
+  // la neuvième : toute ligne de recherche passe par `champRecherche`.
+  {
+    const ui = readFileSync("src/components/ui.jsx", "utf8");
+    const fichiers = execSync("grep -rl 'placeholder=\"[^\"]*echerch' src/screens src/components || true")
+      .toString().trim().split("\n").filter(Boolean);
+    const lignes = fichiers.flatMap((f) => readFileSync(f, "utf8").split("\n")
+      .map((l, i) => ({ f, n: i + 1, l }))
+      .filter((x) => /placeholder="[^"]*echerch/.test(x.l) && /<input/.test(x.l)));
+
+    test("★ LA RÈGLE EXISTE et dit les deux choses : pleine largeur sur téléphone, bridée sur ordinateur",
+      /export const champRecherche = `\$\{inputCls\} sm:max-w-xs`;/.test(ui)
+      && /UNE RÈGLE POUR TOUTE LIGNE DE RECHERCHE/.test(ui));
+
+    const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
+    test("★ les 10 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
+      Number(usages) === 10
+      && lignes.length >= 8
+      && lignes.every((x) => /className=\{champRecherche\}/.test(x.l))
+      && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace("champRecherche", "")))
+      // et les deux écrans qui écrivent le placeholder sur une AUTRE ligne
+      && /toutes catégories confondues\)…" className=\{champRecherche\}/.test(readFileSync("src/screens/Stocks.jsx", "utf8"))
+      && /tous rôles confondus\)…" className=\{champRecherche\}/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
+
+    test("★ et chaque écran qui l'emploie l'IMPORTE (le build ne voit pas un nom manquant : c'est l'écran blanc de 2.101.59)",
+      fichiers.every((f) => {
+        const t = readFileSync(f, "utf8");
+        return !/champRecherche/.test(t) || /import \{[^}]*\bchampRecherche\b[^}]*\} from "(\.\.\/components\/ui|\.\/ui)"/.test(t);
+      }));
+
+    test("★ et le mot « Lieu » a disparu du filtre de 🧰 Outillage (Timo : « Registre est déjà suffisant »)",
+      !/<span className="font-semibold">Lieu :<\/span>/.test(ecrC)
+      && /Tous les lieux \(/.test(ecrC));
   }
 
   // ---- Le registre, et ce qu'il ne fait PAS

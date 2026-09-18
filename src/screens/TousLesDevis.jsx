@@ -12,7 +12,7 @@ import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
-import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche } from "../components/ui";
 import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
@@ -345,7 +345,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
           </button>
         )}
         <div className="grid sm:grid-cols-2 gap-2">
-          <input className={inputCls} placeholder="Rechercher un client ou un vendeur…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+          <input className={champRecherche} placeholder="Rechercher un client ou un vendeur…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
           <select className={inputCls} value={filtreType} onChange={(e) => setFiltreType(e.target.value)}>
             <option value="">Tous les types</option>
             <option value="solaire">☀️ Solaire</option>

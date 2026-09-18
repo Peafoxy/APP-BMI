@@ -7,7 +7,7 @@
 import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { uid, fmt, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -1244,7 +1244,7 @@ export function Stocks({ db, save, profile }) {
             {!inv && <button onClick={ouvrirInventaire} className="px-4 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800">📋 Faire l'inventaire</button>}
           </div>
           <input value={rechercheStock} onChange={(e) => setRechercheStock(e.target.value)}
-            placeholder="🔍 Rechercher un article par son nom (toutes catégories confondues)…" className={inputCls} />
+            placeholder="🔍 Rechercher un article par son nom (toutes catégories confondues)…" className={champRecherche} />
           {enRechercheStock && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans toutes les catégories</div>}
         </div>
         <div className="max-h-[380px] overflow-y-auto overflow-x-auto">

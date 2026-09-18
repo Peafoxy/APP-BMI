@@ -10,7 +10,7 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 import { prospectAcquis } from "../lib/prospects";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -349,7 +349,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">{isAdmin ? "Tous les prospects" : "Mes prospects"} ({liste.length})</span>
           <div className="flex items-center gap-2 flex-wrap">
-            <input className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm w-52" placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className={champRecherche} placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
             {acquis.length > 0 && (
               <button onClick={() => setVoirAcquis(!voirAcquis)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${voirAcquis ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                 {voirAcquis ? "✅ Clients acquis affichés" : `Afficher les clients acquis (${acquis.length})`}
