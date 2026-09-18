@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1589 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1608 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1447,11 +1447,54 @@ lit mal est pire qu'un banc absent).
   (Supabase et Vercel sont à l'étranger ; la loi encadre la sortie des
   données), et la **durée de conservation** (aujourd'hui rien ne s'efface tout
   seul). Ne jamais laisser croire que tout est réglé.
-- **Les quatre autres chantiers proposés, PAS ENCORE lancés** (décrits à Timo
-  le 18/09/2026, il a choisi le point 1) : donner au client tout ce qu'on a sur
-  lui (droit d'accès) ; une page « Vos données » dans l'espace client ; un mot
-  aux employés sur ce que l'application garde d'eux ; une durée de conservation
-  à décider par lui. Ne pas les construire sans sa demande.
+
+#### 📄 LE DROIT D'ACCÈS — le point 2 (18/09/2026, « lance le point 2 »)
+- **Un bouton, un document** : ⚙ Paramètres → 🔒 Données personnelles, sur le
+  client choisi, **« 🖨 Dossier personnel (PDF) »** et **« Exporter (CSV) »**.
+  Répondre à « qu'est-ce que vous avez sur moi ? » demandait d'ouvrir cinq
+  écrans et de recopier à la main : **une réponse incomplète n'est pas une
+  réponse.** Règle pure `lib/dossierPersonnel.js`, PDF `genererDossierPersonnel`
+  (src/pdf.js, **quatrième** document à passer par les briques communes —
+  entête, bandeau de titre, pied de page).
+- **UNE SEULE SOURCE** : le dossier vient du MÊME `dossierClient`
+  (lib/effacementClient.js) que l'effacement — même mur, même façon de
+  reconnaître le client. Deux sources finiraient par se contredire.
+- **Neuf familles, aucune oubliée** : identité, achats, dettes et règlements,
+  proformas, commandes, devis, chantiers, messages, prospection. **Une famille
+  vide le DIT en toutes lettres** (« Aucune commande. ») au lieu de disparaître
+  — sinon le client ne sait pas si on n'a rien, ou si on a oublié de regarder.
+  Un message dit dans quel SENS il est parti (« vous → BMI »).
+- ⚠⚠ **SON MOT DE PASSE N'Y EST JAMAIS — le point le plus important.**
+  L'application sait le RECALCULER (`motDePasseConnu`) : c'est justement pour
+  ça qu'il faut l'écrire. **Un dossier d'accès qui se promène ne doit pas être
+  une clé.** `CHAMPS_INTERDITS` (pwd, pwd_hash2, pwd_salt, mdp_variante,
+  `contrat_jeton` — le jeton de signature du PV est lui aussi une clé,
+  `empreintes`). L'identifiant, lui, SE DIT : le client en a besoin pour se
+  connecter. Le banc le vérifie sur la règle ET **dans le PDF fabriqué** ;
+  éprouvé en remettant la faute : trois contrôles tombent.
+- **Le document dit ses droits au client** (`MENTIONS_DOSSIER`, qui reprend le
+  fond de l'article 18 — il change là-bas, il change ici) : loi n° 2019-014,
+  accès / rectification / suppression, et **que factures et contrats se gardent
+  par obligation comptable, le nom pouvant en être retiré**. Il dit aussi que
+  le mot de passe ne figure nulle part en clair.
+- **Le droit d'accès reste OUVERT quand l'effacement est refusé** : une dette
+  non soldée n'empêche personne de demander ce qu'on a sur lui. Il est donc
+  posé AVANT dans le panneau, comme dans le contrat. **Un client déjà effacé
+  n'a plus de dossier** (`critiqueDossier`).
+- ⚠ **Le document est un concentré de données personnelles** : l'écran et la
+  confirmation disent qu'il ne se remet **qu'à lui**, en main propre ou sur SON
+  numéro. **LA TRACE NOMME le client** (`journalDossier`, `save(db, …)` qui ne
+  change rien d'autre) — au contraire de celle de l'effacement : on n'efface
+  rien ici, il faut pouvoir dire à QUI on a remis.
+- ⚠ Piège jsPDF : tout texte venu des données passe par `texteSurPdf`, le banc
+  mesure qu'aucune ligne ne sort en lettres espacées.
+- **Rien à coller dans Supabase** : on ne fait que lire.
+
+- **Les trois autres chantiers proposés, PAS ENCORE lancés** (décrits à Timo
+  le 18/09/2026 ; il a lancé le point 1 puis le point 2) : une page « Vos
+  données » dans l'espace client ; un mot aux employés sur ce que l'application
+  garde d'eux ; une durée de conservation à décider par lui. Ne pas les
+  construire sans sa demande.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

@@ -652,3 +652,74 @@ export function genererReleve(r, { caisse, periode, logo, formation = false, edi
   return null;
 }
 
+
+// ============ 📄 LE DOSSIER PERSONNEL D'UN CLIENT (droit d'accès, 18/09/2026) ============
+// Timo : « lance le point 2 » — répondre à « qu'est-ce que vous avez sur
+// moi ? » en un bouton. La structure vient de lib/dossierPersonnel.js ; ici
+// on ne fait que la DESSINER, avec les mêmes briques que le relevé (entête,
+// bandeau de titre, pied de page). Aucune donnée n'est choisie ici.
+//
+// ⚠ Tout texte venu des données passe par texteSurPdf : sans lui, un « → »
+// ou un tiret long fait basculer jsPDF en lettres espacées (capture Timo,
+// 12/09/2026 — « V e r s e m e n t »).
+export function genererDossierPersonnel(vue, { logo, formation = false, edite = "", client = "" } = {}, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+
+  enteteSociete(doc, logo, largeur);
+  const yApres = bandeauTitre(doc, largeur, texteSurPdf("VOS DONNÉES PERSONNELLES"), formation);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(texteSurPdf("Document établi à votre demande"), 14, yApres + 7);
+  if (edite) doc.text(`Édité le ${edite}`, largeur - 14, yApres + 7, { align: "right" });
+
+  // ---- Votre identité
+  let y = titreBloc(doc, yApres + 13, "VOTRE IDENTITÉ");
+  autoTable(doc, {
+    body: (vue.identite || []).map(([l, x]) => [texteSurPdf(l), texteSurPdf(x)]),
+    startY: y,
+    theme: "plain",
+    styles: { fontSize: 9, cellPadding: 1.4 },
+    columnStyles: { 0: { cellWidth: 55, textColor: GRIS_TEXTE }, 1: { fontStyle: "bold" } },
+    margin: { left: 14, right: 14 },
+    didDrawPage: () => piedDePage(doc, largeur, hauteur),
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  // ---- Une section par famille de données
+  for (const s of vue.sections || []) {
+    y = titreBloc(doc, placePour(doc, y + 3, hauteur, 26), texteSurPdf(s.titre));
+    const colonnes = {};
+    (s.alignDroite || []).forEach((i) => { colonnes[i] = { halign: "right" }; });
+    autoTable(doc, {
+      head: [s.colonnes.map((c, i) => enTete(texteSurPdf(c), (s.alignDroite || []).includes(i) ? "right" : "left"))],
+      body: s.lignes.length
+        ? s.lignes.map((l) => l.map((x) => texteSurPdf(x)))
+        : [[{ content: texteSurPdf(s.vide), colSpan: s.colonnes.length, styles: { textColor: GRIS_TEXTE } }]],
+      startY: y,
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: "linebreak" },
+      headStyles: { fillColor: BLEU, textColor: 255, fontSize: 8 },
+      columnStyles: colonnes,
+      margin: { left: 14, right: 14 },
+      didDrawPage: () => piedDePage(doc, largeur, hauteur),
+    });
+    y = doc.lastAutoTable.finalY + 2;
+  }
+
+  // ---- Vos droits
+  y = titreBloc(doc, placePour(doc, y + 5, hauteur, 40), "VOS DROITS SUR CES DONNÉES");
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  for (const m of vue.mentions || []) {
+    const lignes = doc.splitTextToSize(texteSurPdf(m), largeur - 28);
+    y = placePour(doc, y, hauteur, lignes.length * 3.6 + 4);
+    doc.text(lignes, 14, y);
+    y += lignes.length * 3.6 + 2.5;
+  }
+  piedDePage(doc, largeur, hauteur);
+
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf("Dossier personnel", { client }));
+  return null;
+}

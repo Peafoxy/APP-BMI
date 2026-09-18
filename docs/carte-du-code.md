@@ -62,6 +62,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/identiteClient.js` | L'identifiant et le mot de passe d'un client — **n'importe RIEN** (lu aussi par le serveur) |
 | `lib/clientsConnus.js` | Les clients que la boutique connaît déjà (proposés dans Ventes, Dettes, Travaux) |
 | `lib/effacementClient.js` | 🔒 Le droit à l'effacement : ce qui part, ce que les livres gardent sans son nom |
+| `lib/dossierPersonnel.js` | 📄 Le droit d'accès : tout ce qu'on a sur un client, en un document — **jamais son mot de passe** |
 
 ## Les personnes, les espaces, la sécurité
 

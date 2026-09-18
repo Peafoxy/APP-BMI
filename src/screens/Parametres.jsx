@@ -10,7 +10,7 @@ import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossi
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { etatPermissionPush } from "../push";
-import { PALETTE } from "../lib/constants";
+import { PALETTE, LOGO } from "../lib/constants";
 // Timo (14/09/2026) : « fonds de caisse, les deux ne peuvent jamais être deux
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
@@ -26,6 +26,10 @@ import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "..
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
 import { motsDuNumero } from "../lib/clientsConnus";
+// 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
+import { dossierPersonnel, critiqueDossier, journalDossier, nomDossierPersonnel, lignesCsvDossier } from "../lib/dossierPersonnel";
+import { genererDossierPersonnel } from "../pdf";
+import { exportCSV } from "../lib/export";
 import { correspond } from "../lib/suggestions";
 
 // ============ PARAMÈTRES ============
@@ -148,6 +152,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // en entier.
   const espaceEff = filtreEspaceAffichage(db, profile);
   const chantiersEff = chantiersDeLEspaceRegarde(db, profile);
+  const enFormationEff = !!espaceDuCompte(db, profile);
   const comptesEff = utilisateursDeLEspace(db, profile);
   const idsEspaceEff = new Set(comptesEff.map((u) => u.id));
   const visibleEff = {
@@ -183,6 +188,35 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   ].filter(Boolean) : [];
   const refusEff = dossierEff ? critiqueEffacement(dossierEff, fmt) : "";
   const avertEff = dossierEff ? avertissementsEffacement(dossierEff, today(), autresNomsEff) : [];
+
+  // ---- 📄 LE DROIT D'ACCÈS : remettre au client tout ce qu'on a sur lui ----
+  // Même dossier que l'effacement (dossierClient), donc même mur et même
+  // façon de le reconnaître — une seule source, sinon les deux finiraient
+  // par se contredire.
+  const vueDossier = dossierEff ? dossierPersonnel(dossierEff, { fmt, dFR }) : null;
+  const refusDossier = dossierEff ? critiqueDossier(dossierEff) : "";
+
+  const remettreDossier = async (format) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Remettre à un client le dossier de ses données")) return;
+    if (!vueDossier) return;
+    const refus = critiqueDossier(dossierEff);
+    if (refus) { uAlert(refus); return; }
+    const ok = await uConfirm(
+      `Établir le dossier personnel de « ${cibleEff.nom} » (${format}) ?\n\n`
+      + `${dossierEff.total} enregistrement(s) y figureront.\n\n`
+      + `⚠ Ce document rassemble TOUTES ses données : il ne se remet qu'à LUI, en main propre ou sur SON numéro.`
+    );
+    if (!ok) return;
+    if (format === "PDF") {
+      genererDossierPersonnel(vueDossier, { logo: LOGO, formation: enFormationEff, edite: dFR(today()), client: cibleEff.nom });
+    } else {
+      exportCSV(nomDossierPersonnel(cibleEff).toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+        ["", "", "", "", "", ""], lignesCsvDossier(vueDossier));
+    }
+    // Le journal garde la trace de la demande honorée — et il NOMME le
+    // client : on n'efface rien ici, il faut pouvoir dire à qui on a remis.
+    save(db, journalDossier(dossierEff, profile, { format }));
+  };
 
   const lancerEffacement = async () => {
     if (bloquerSiLecture(db, profile)) return;
@@ -1618,10 +1652,10 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           ne se détruit pas, elle perd son nom. */}
       <div className="space-y-4" style={{ display: onglet === "donnees_perso" ? undefined : "none" }}>
         <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-          <div className="font-bold mb-1">🔒 Effacer les données d'un client</div>
+          <div className="font-bold mb-1">🔒 Les données d'un client</div>
           <div className="text-xs text-slate-600 mb-3 space-y-1">
             <p>
-              Quand un client demande que vous effaciez ses données, c'est ici. Vous seul pouvez le faire.
+              Quand un client demande à <b>voir</b> ou à <b>effacer</b> ses données, c'est ici. Vous seul pouvez le faire.
               L'article 18 de vos contrats le lui promet — et cite la <b>loi n° 2019-014</b> sur la protection des données à caractère personnel.
             </p>
             <p className="text-slate-500">
@@ -1655,6 +1689,29 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         {dossierEff && (
           <div className="rounded-xl p-4 bg-white border-2 border-slate-300 shadow-sm">
             <div className="font-bold mb-2">Dossier de « {cibleEff.nom} »{cibleEff.tel ? ` — ${cibleEff.tel}` : ""}</div>
+
+            {/* ⚠ LE DROIT D'ACCÈS VIENT AVANT LE DROIT À L'EFFACEMENT, ici comme
+                dans l'article 18 du contrat : on remet, on n'efface qu'ensuite.
+                Et il reste ouvert même quand l'effacement est refusé — une dette
+                non soldée n'empêche personne de demander ce qu'on a sur lui. */}
+            <div className="mb-3 rounded-lg bg-sky-50 border border-sky-200 p-3">
+              <div className="text-sm font-bold text-sky-900 mb-1">📄 Lui remettre ses données</div>
+              {refusDossier ? (
+                <div className="text-xs text-slate-600">{refusDossier}</div>
+              ) : (
+                <>
+                  <div className="text-xs text-slate-600 mb-2">
+                    {dossierEff.total} enregistrement(s) : identité, achats, dettes, devis, chantiers, messages.
+                    <b> Son mot de passe n'y figure pas</b> — il n'existe en clair nulle part.
+                    Ce document ne se remet qu'à lui.
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => remettreDossier("PDF")} className="px-4 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">🖨 Dossier personnel (PDF)</button>
+                    <button onClick={() => remettreDossier("CSV")} className="px-4 py-1.5 rounded-lg border border-sky-700 text-sky-800 text-xs font-bold hover:bg-sky-100">Exporter (CSV)</button>
+                  </div>
+                </>
+              )}
+            </div>
 
             {refusEff ? (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800 whitespace-pre-line">🔒 {refusEff}</div>

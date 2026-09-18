@@ -152,6 +152,20 @@ await build({ entryPoints: ["src/lib/outillage.js"], bundle: true, format: "esm"
 const Out = await import(pathToFileURL(sortieOut).href);
 unlinkSync(sortieOut);
 
+// 📄 Le droit d'accès : le dossier personnel d'un client (18/09/2026).
+const sortieDos = join("node_modules", ".cache", `bmi-dossier-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/dossierPersonnel.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieDos, logLevel: "silent", loader: { ".js": "jsx" } });
+const Dos = await import(pathToFileURL(sortieDos).href);
+unlinkSync(sortieDos);
+
+// Le PDF lui-même : on MESURE le texte réellement écrit, jamais le code.
+const sortiePdfDos = join("node_modules", ".cache", `bmi-pdfdos-${process.pid}.mjs`);
+await build({ entryPoints: ["src/pdf.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortiePdfDos, logLevel: "silent", loader: { ".js": "jsx" } });
+const PdfDos = await import(pathToFileURL(sortiePdfDos).href);
+unlinkSync(sortiePdfDos);
+
 // 🔒 Le droit à l'effacement d'un client (18/09/2026).
 const sortieEff = join("node_modules", ".cache", `bmi-effacement-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/effacementClient.js"], bundle: true, format: "esm",
@@ -3549,8 +3563,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
     && /nomDocument\("Reçu", \{ client: v\.client/.test(imp) && /nomDocument\("Proforma", \{ client: p\.client/.test(imp));
   const pdf = readFileSync("src/pdf.js", "utf8");
   // 12/09/2026 : le relevé d'une caisse centrale aussi (genererReleve) — trois.
-  test("les PDF téléchargés (devis, proforma, relevé) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 3 && !/doc\.save\(`/.test(pdf));
+  // 18/09/2026 : le DOSSIER PERSONNEL d'un client (droit d'accès) — quatre.
+  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 4 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
 }
@@ -4609,13 +4624,17 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     && (pdf.match(/doc\.text\("BMI-Gestions Boutiques", largeur \/ 2/g) || []).length === 1
     && (pdf.match(/il constitue une offre de prix et n'a pas de valeur comptable/g) || []).length === 1);
   // 12/09/2026 : le relevé d'une caisse (genererReleve) passe par l'entête, le bandeau de titre et le pied de page — trois passages, sans recopie.
-  test("★ le devis, le proforma ET le relevé passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
-    (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 3 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 3
+  // ⚠ RETOURNÉ le 18/09/2026 : le dossier personnel d'un client (droit
+  // d'accès) est le QUATRIÈME document à passer par les mêmes briques. Il
+  // n'a ni total ni mentions d'offre — ce n'est pas une offre de prix —,
+  // mais il pose son pied de page lui-même sur la dernière page.
+  test("★ le devis, le proforma, le relevé ET le dossier personnel passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
+    (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 4 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 4
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
     && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y[ +0-9.]*, /g) || []).length === 2
-    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 2);
+    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 3);
   test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
     && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf)
@@ -9395,6 +9414,141 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ et le contrat, lui, disait déjà la vérité : loi n° 2019-014, droit d'accès, de rectification et de suppression",
       (() => { const imp = readFileSync("src/lib/impression.js", "utf8");
         return /loi n° 2019-014/.test(imp) && /droit d'accès, de rectification/.test(imp); })());
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 📄 LE DROIT D'ACCÈS : LE DOSSIER PERSONNEL D'UN CLIENT (18/09/2026)
+//
+// Timo : « lance le point 2 ». L'article 18 de nos contrats promet un droit
+// d'accès AVANT le droit de suppression. Répondre à « qu'est-ce que vous
+// avez sur moi ? » demandait d'ouvrir cinq écrans et de recopier à la main —
+// une réponse incomplète n'est pas une réponse. Le banc EXERCE la règle ET
+// MESURE le PDF réellement écrit.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("📄 Le droit d'accès : le dossier personnel d'un client (18/09/2026)");
+
+  const fmtD = (x) => `${Number(x || 0)} F`;
+  const dFRD = (x) => String(x || "").slice(0, 10).split("-").reverse().join("/");
+  const dossierD = {
+    cible: { nom: "KOSSI MENSAH", tel: "90112233" },
+    compte: {
+      id: "cl1", nom: "KOSSI", nom_base: "KOSSI MENSAH", tel: "90112233", cree_par: "AMA", actif: true,
+      // ⚠ Tout ce qui suit DOIT rester hors du document.
+      pwd_hash2: "EMPREINTE-DU-MOT-DE-PASSE", pwd_salt: "GRAIN-DE-SEL", mdp_variante: 0, mdp_longueur: 6,
+      devis: [{ date: "2026-08-01", type: "solaire", statut: "payé", total: 2400000 }],
+    },
+    ventes: [{ id: "v1", date: "2026-09-01", numero: "R-12", boutique: "DEMAKPOE", total: 50000, articles: [{ nom: "Panneau 400W", qte: 2 }] }],
+    dettes: [{ id: "d1", date: "2026-09-02", numero: "DET-3", motif: "Installation", montant: 300000, paye: 100000 }],
+    proformas: [], commandes: [],
+    chantiers: [{
+      id: "c1", date_installation: "2026-08-15", type_installation: "Solaire", adresse_contrat: "Bè-Kpota",
+      garantie_mois: 24, statut: "receptionne", materiel: [{ nom: "Onduleur Deye", qte: 1 }],
+      contrat_jeton: "JETON-DE-SIGNATURE", lat: 6.17, lng: 1.23,
+    }],
+    messages: [{ id: "m1", date: "2026-09-03", de_id: "cl1", texte: "Bonjour, quand est l'installation ?" }],
+    prospects: [], total: 6,
+  };
+  const vueD = Dos.dossierPersonnel(dossierD, { fmt: fmtD, dFR: dFRD });
+
+  test("★ LE DOSSIER RASSEMBLE TOUT ce que l'application sait de lui — identité, achats, dettes, proformas, commandes, devis, chantiers, messages, prospection : neuf familles, aucune oubliée (une réponse incomplète n'est pas une réponse)",
+    vueD.sections.length === 8 && vueD.identite.length === 5
+    && ["Vos achats", "Vos dettes et règlements", "Vos devis", "Vos installations et chantiers", "Vos messages avec nous"]
+      .every((t) => vueD.sections.some((s) => s.titre === t)));
+
+  test("★ une famille VIDE le dit en toutes lettres au lieu de disparaître — sinon le client ne peut pas savoir si on n'a rien, ou si on a oublié de regarder",
+    (() => { const p = vueD.sections.find((s) => s.titre === "Vos commandes");
+      return p.lignes.length === 0 && /Aucune commande/.test(p.vide); })());
+
+  test("★ les chiffres sont là, mis en forme comme à l'écran : le reste d'une dette est CALCULÉ (300 000 − 100 000 = 200 000), pas recopié",
+    (() => { const d = vueD.sections.find((s) => s.titre === "Vos dettes et règlements");
+      return d.lignes[0][3] === "300000 F" && d.lignes[0][4] === "100000 F" && d.lignes[0][5] === "200000 F"; })());
+
+  test("★ un message dit DANS QUEL SENS il est parti (« vous → BMI »), sinon une conversation relue plus tard ne veut plus rien dire",
+    vueD.sections.find((s) => s.titre === "Vos messages avec nous").lignes[0][1] === "vous → BMI");
+
+  test("★⚠⚠ SON MOT DE PASSE N'Y EST PAS — et c'est le point le plus important : l'application sait le RECALCULER, donc un dossier d'accès qui se promène ne doit pas être une clé. L'identifiant, lui, se dit (il en a besoin pour se connecter)",
+    (() => {
+      const tout = JSON.stringify(vueD);
+      return Dos.CHAMPS_INTERDITS.every((c) => !tout.includes(c))
+        && !tout.includes("EMPREINTE-DU-MOT-DE-PASSE") && !tout.includes("GRAIN-DE-SEL")
+        && vueD.identite.some(([l, v]) => /Identifiant/.test(l) && v === "KOSSI");
+    })());
+
+  test("★⚠ LE JETON DE SIGNATURE du PV n'y est pas non plus : c'est une clé d'accès à son espace, pas une coordonnée",
+    !JSON.stringify(vueD).includes("JETON-DE-SIGNATURE"));
+
+  test("★ le document DIT ses droits au client, en citant la loi n° 2019-014 — et prévient que factures et contrats se gardent par obligation comptable, le nom pouvant en être retiré",
+    vueD.mentions.some((m) => /loi n° 2019-014/.test(m))
+    && vueD.mentions.some((m) => /droit d'accès, de rectification/.test(m))
+    && vueD.mentions.some((m) => /obligation comptable/.test(m))
+    && vueD.mentions.some((m) => /mot de passe ne figure pas/.test(m)));
+
+  test("★ un client DÉJÀ EFFACÉ n'a plus de dossier à recevoir : il n'y a plus personne derrière la référence",
+    (() => {
+      const efface = Dos.critiqueDossier({ cible: { nom: "CLIENT EFFACÉ N° 3" }, total: 4 });
+      const vide = Dos.critiqueDossier({ cible: { nom: "X" }, total: 0 });
+      return /déjà été effacé/.test(efface) && /Aucune donnée trouvée/.test(vide)
+        && Dos.critiqueDossier(dossierD) === "";
+    })());
+
+  test("★ LA TRACE NOMME le client — au contraire de celle de l'effacement : on n'efface rien ici, il faut pouvoir dire à QUI le dossier a été remis",
+    (() => { const l = Dos.journalDossier(dossierD, { nom: "TIMO" }, { format: "PDF" });
+      return /KOSSI MENSAH/.test(l) && /90112233/.test(l) && /TIMO/.test(l) && /PDF/.test(l); })());
+
+  test("★ le CSV rend les MÊMES sections mises à plat (un seul fichier, les familles titrées les unes sous les autres) — les deux sorties lisent la même structure, sinon elles finiraient par se contredire",
+    (() => {
+      const l = Dos.lignesCsvDossier(vueD).map((r) => r.join("|"));
+      return l.some((x) => /^VOTRE IDENTITÉ/.test(x)) && l.some((x) => /^VOS ACHATS/.test(x))
+        && l.some((x) => /^VOS DROITS/.test(x)) && l.some((x) => /Panneau 400W/.test(x))
+        && !l.join(" ").includes("GRAIN-DE-SEL");
+    })());
+
+  // ---- LE PDF : on lit ce qui est RÉELLEMENT écrit dedans ----
+  {
+    const doc = PdfDos.genererDossierPersonnel(vueD, { edite: "18/09/2026", client: "KOSSI MENSAH" }, true);
+    const lu = [];
+    for (let pg = 1; pg <= doc.internal.getNumberOfPages(); pg++)
+      for (const ligne of doc.internal.pages[pg].join("\n").split("\n")) {
+        const m = ligne.match(/\((.*?)\)\s*Tj/);
+        if (m) lu.push(m[1]);
+      }
+    const ecrit = lu.join(" | ");
+
+    test("★ LE PDF EST MESURÉ, pas présumé : le texte réellement écrit porte l'identité, les achats, le matériel posé et les droits du client",
+      /VOS DONNÉES PERSONNELLES/.test(ecrit) && /KOSSI MENSAH/.test(ecrit)
+      && /R-12/.test(ecrit) && /Panneau 400W/.test(ecrit) && /Onduleur Deye/.test(ecrit)
+      && /2019-014/.test(ecrit) && /VOS DROITS SUR CES DONNÉES/.test(ecrit));
+
+    test("★⚠ et le PDF lui-même ne porte AUCUN secret : ni l'empreinte du mot de passe, ni son grain de sel, ni le jeton de signature",
+      !/EMPREINTE-DU-MOT-DE-PASSE|GRAIN-DE-SEL|JETON-DE-SIGNATURE|pwd_/.test(ecrit));
+
+    test("★ le piège de jsPDF est évité : tout texte venu des données passe par texteSurPdf, donc aucune ligne ne sort en lettres espacées (« V e r s e m e n t », capture Timo du 12/09/2026)",
+      !/ [A-Z] [a-z] [a-z] /.test(ecrit) && /vous -> BMI/.test(ecrit));
+
+    test("★ il passe par les briques communes : l'entête de la société, le bandeau de titre et le pied de page — jamais une mise en page recopiée",
+      /BMI TOGO/.test(ecrit) && /BMI-Gestions Boutiques/.test(ecrit));
+  }
+
+  {
+    const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+    test("★ le geste vit dans le MÊME panneau que l'effacement, réservé à l'administrateur PRINCIPAL — revérifié DANS le geste",
+      /refuserSaufAdminPrincipal\(db, profile, "Remettre à un client le dossier de ses données"\)/.test(par)
+      && /Dossier personnel \(PDF\)/.test(par) && /Exporter \(CSV\)/.test(par));
+
+    test("★ UNE SEULE SOURCE : le dossier d'accès et le dossier d'effacement viennent du MÊME dossierClient — même mur, même façon de reconnaître le client, sinon les deux finiraient par se contredire",
+      /dossierPersonnel\(dossierEff, \{ fmt, dFR \}\)/.test(par));
+
+    test("★ le droit d'accès reste OUVERT même quand l'effacement est refusé : une dette non soldée n'empêche personne de demander ce qu'on a sur lui",
+      par.indexOf("Lui remettre ses données") < par.indexOf("{refusEff ?"));
+
+    test("★ l'écran PRÉVIENT que ce document est un concentré de données personnelles et ne se remet qu'au client lui-même",
+      /ne se remet qu'à LUI, en main propre ou sur SON numéro/.test(par)
+      && /Son mot de passe n'y figure pas/.test(par));
+
+    test("★ la remise laisse sa TRACE au journal (save avec la même base : rien ne change, une ligne s'écrit)",
+      /save\(db, journalDossier\(dossierEff, profile, \{ format \}\)\)/.test(par));
   }
 }
 
