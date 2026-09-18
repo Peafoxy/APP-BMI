@@ -1156,7 +1156,18 @@ lit mal est pire qu'un banc absent).
   boîte ne rentre pas dans le registre comme une perceuse : **personne
   n'enregistrera quinze sorties chaque matin**, et on ne grave pas un numéro
   sur une pince à 2 000 F. Donc : **LA BOÎTE EST UN OUTIL, et elle porte SA
-  LISTE** (champ `contenu` sur la fiche de l'outil — `rien à coller`). Elle
+  LISTE** (champs `boite` et `contenu` sur la fiche de l'outil — **rien à
+  coller**). ⚠ **Et ça se DIT À LA CRÉATION, par une case à cocher**
+  (18/09/2026, le jour même : « c'est peu logique d'avoir cette caisse sur une
+  perceuse… lors de la création d'un outil, ajouter une case à cocher si
+  caisse ou boîte à outils. En ce moment-là caisse apparaît sur la fiche pour
+  renseigner ce qu'elle contient. **Si pas coché, pas de caisse dans la
+  fiche** ») : la première version faisait d'un outil une boîte dès qu'on lui
+  posait une liste, donc le bouton 🧰 s'affichait sur TOUS les outils —
+  RETOURNÉ. `estBoite` lit le drapeau `boite` ; le `|| contenuDe(...)` qui
+  reste est un filet pour les boîtes nées avant la case, jamais une porte.
+  ⚠ Une caisse oubliée à la création ne se rattrape pas : on recrée la fiche.
+  Elle
   sort et elle rentre en UN geste, comme avant ; **c'est AU RETOUR qu'on
   compte**, une fois et pas deux (elle a été comptée la fois d'avant, on sait
   donc ce qu'elle contient en partant). Règles pures dans `lib/outillage.js`

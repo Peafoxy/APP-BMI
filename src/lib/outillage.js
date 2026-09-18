@@ -374,10 +374,14 @@ export const critiqueNouvelOutil = (boutique, { nom, numero } = {}) => {
   }
   return "";
 };
-export const nouvelOutil = ({ id, nom, numero, categorie, achete_le, prix_achat, lieu, le, par_id, par }) => ({
+export const nouvelOutil = ({ id, nom, numero, categorie, achete_le, prix_achat, lieu, boite, le, par_id, par }) => ({
   id, nom: String(nom || "").trim(), numero: String(numero || "").trim(),
   categorie: String(categorie || "").trim(), achete_le: achete_le || "",
   prix_achat: Number(prix_achat || 0),
+  // 🧰 Caisse ou boîte à outils ? Ça se DIT à la création (Timo, 18/09/2026 :
+  // « c'est peu logique d'avoir cette caisse sur une perceuse »). Non coché,
+  // la fiche n'en parle jamais.
+  boite: !!boite,
   // Où il est rangé au départ : une boutique ou un magasin, jamais « nulle part ».
   lieu: String(lieu || ""),
   cree_le: le, cree_par: par || "", cree_par_id: par_id || "",
@@ -764,10 +768,17 @@ export const appliquerRetenues = (boutiques, lignes, { id, le, sur, ref, par }) 
 // chantier de MR ERIC », jamais « c'est LE tournevis n° 7 ».
 // ============================================================
 
-// Une boîte, c'est un outil qui porte une liste — pas une case à cocher de
-// plus : on lui ajoute du matériel, elle devient une boîte.
+// ⚠ UNE BOÎTE SE DÉCLARE À LA CRÉATION (Timo, 18/09/2026 : « c'est peu
+// logique d'avoir cette caisse sur une perceuse… lors de la création d'un
+// outil, ajouter une case à cocher si caisse ou boîte à outils. En ce
+// moment-là caisse apparaît sur la fiche pour renseigner ce qu'elle
+// contient. Si pas coché, pas de caisse dans la fiche »). La première
+// version en faisait une boîte dès qu'on lui posait une liste : le bouton 🧰
+// s'affichait donc sur TOUS les outils, perceuse comprise. RETOURNÉ.
+// Le `|| contenuDe(...)` est un filet pour les boîtes nées avant la case :
+// un outil qui porte déjà une liste reste une boîte.
 export const contenuDe = (outil) => (Array.isArray(outil?.contenu) ? outil.contenu : []);
-export const estBoite = (outil) => contenuDe(outil).length > 0;
+export const estBoite = (outil) => !!outil?.boite || contenuDe(outil).length > 0;
 export const nbContenu = (outil) => contenuDe(outil).reduce((s, l) => s + Math.max(0, Number(l.quantite || 0)), 0);
 
 export const critiqueLigneContenu = (outil, { nom, quantite } = {}) => {

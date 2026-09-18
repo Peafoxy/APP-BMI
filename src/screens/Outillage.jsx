@@ -98,7 +98,7 @@ async function nouveauChantierPour(outil, ouverts, profile, jour) {
 
 const REFUS_ROLE = "🔒 Tenir le registre de l'outillage : réservé au chef des techniciens, au magasinier et à l'administrateur.";
 const sortieVide = { saisie: "", outil_id: "", user_id: "", chantier: "", retour_prevu: "" };
-const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_achat: "", lieu: "" };
+const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_achat: "", lieu: "", boite: false };
 
 // ============================================================
 // L'INTERFACE DU DÉTENTEUR (Timo, 18/09/2026) : « celui qui a un outil et
@@ -886,6 +886,15 @@ export function Outillage({ db, save, profile }) {
                 <Field label="Acheté le"><input type="date" className={inputCls} value={neuf.achete_le} onChange={(e) => setNeuf({ ...neuf, achete_le: e.target.value })} /></Field>
                 <Field label="Prix d'achat (F)"><input type="number" className={inputCls} value={neuf.prix_achat} onChange={(e) => setNeuf({ ...neuf, prix_achat: e.target.value })} /></Field>
               </div>
+              {/* 🧰 Caisse ou boîte à outils ? Ça se dit ICI (Timo, 18/09/2026) :
+                  une perceuse n'a rien à contenir, sa fiche ne doit pas le proposer. */}
+              <label className="flex items-start gap-2 mt-3 cursor-pointer">
+                <input type="checkbox" className="mt-0.5" checked={!!neuf.boite} onChange={(e) => setNeuf({ ...neuf, boite: e.target.checked })} />
+                <span className="text-sm text-slate-700">
+                  <b>C'est une caisse ou une boîte à outils</b>
+                  <span className="block text-xs text-slate-500">Sa fiche portera alors la liste de ce qu'elle contient, et on la comptera à chaque retour. Une perceuse, non.</span>
+                </span>
+              </label>
               <div className="text-xs text-slate-500 mt-2">Le numéro est celui que vous GRAVEZ sur l'outil : il se tape à la sortie, même sale. Le prix d'achat sert de valeur proposée le jour où l'outil est perdu.</div>
               <div className="flex gap-2 mt-3">
                 <button onClick={ajouter} className={btnDark}>Ajouter</button>
@@ -989,7 +998,7 @@ export function Outillage({ db, save, profile }) {
                   C'est cette liste qu'on comptera à chaque retour. Le petit matériel n'a pas de numéro gravé : on compte des quantités, pas des identités.
                 </div>
                 {contenuDe(o).length === 0 ? (
-                  <div className="text-sm text-slate-500 mb-3">Aucun matériel listé : cet outil n'est pas encore une boîte.</div>
+                  <div className="text-sm text-slate-500 mb-3">Rien dans la liste pour l'instant : ajoutez ci-dessous ce que cette caisse doit contenir.</div>
                 ) : (
                   <div className="space-y-1 mb-3">
                     {contenuDe(o).map((l) => (
@@ -1160,8 +1169,8 @@ export function Outillage({ db, save, profile }) {
                           {jePeux && etat === "sorti" && <button title="Changer le chantier (sans le ramener)" onClick={() => changerLeChantier(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🏗</button>}
                           {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
-                          {(estBoite(o) || jeSuisAdmin) && !["perdu", "reforme"].includes(etat) && (
-                            <button title={estBoite(o) ? "Ce que contient la boîte" : "En faire une boîte à outils"} onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })}
+                          {estBoite(o) && !["perdu", "reforme"].includes(etat) && (
+                            <button title="Ce que contient la boîte" onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })}
                               className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🧰</button>
                           )}
                           {peutCompterBoite(o, profile) && etat === "sorti" && <button title="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🔢</button>}

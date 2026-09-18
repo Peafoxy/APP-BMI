@@ -8415,15 +8415,29 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     const KOSSI = { id: "u1", nom: "KOSSI", role: "technicien" };
     const VENDEUR = { id: "v1", nom: "AFI", role: "vendeur" };
 
-    // Une boîte : un outil qui porte une liste. Pas de case à cocher de plus.
-    let bte = Out.nouvelOutil({ id: "bt1", nom: "Boîte n°2", le: "2026-09-01", par: "TIMO", lieu: "DEMAKPOE" });
+    // ⚠ Une boîte se DÉCLARE À LA CRÉATION (case à cocher), plus « dès qu'on
+    // lui pose une liste » : sinon le bouton 🧰 s'affichait sur une perceuse.
+    let bte = Out.nouvelOutil({ id: "bt1", nom: "Boîte n°2", boite: true, le: "2026-09-01", par: "TIMO", lieu: "DEMAKPOE" });
     bte = Out.ajouterLigneContenu(bte, { id: "L1", nom: "Tournevis plat", quantite: 3, valeur: 2000 });
     bte = Out.ajouterLigneContenu(bte, { id: "L2", nom: "Pince coupante", quantite: 1, valeur: 5000 });
     const perceuse = Out.nouvelOutil({ id: "p1", nom: "Perceuse", le: "2026-09-01", par: "TIMO", lieu: "DEMAKPOE" });
 
-    test("★ UNE BOÎTE = un outil qui porte SA LISTE — pas une case à cocher de plus ; une perceuse n'en est pas une",
-      Out.estBoite(bte) && Out.nbContenu(bte) === 4 && Out.contenuDe(bte).length === 2
-      && !Out.estBoite(perceuse) && Out.nbContenu(perceuse) === 0
+    // ⚠ CONTRÔLE RETOURNÉ le 18/09/2026, le jour même. La première version
+    // disait « une boîte = un outil qui porte une liste » — donc N'IMPORTE
+    // QUEL outil pouvait le devenir, et le bouton 🧰 s'affichait sur une
+    // perceuse. Timo : « c'est peu logique d'avoir cette caisse sur une
+    // perceuse… ajouter une case à cocher [à la création]… si pas coché, pas
+    // de caisse dans la fiche ». On le retourne, on ne le supprime pas.
+    test("★ UNE BOÎTE SE DÉCLARE À LA CRÉATION (case à cocher) — une perceuse n'en devient jamais une, et sa fiche n'en parle pas",
+      Out.estBoite(bte) && bte.boite === true && Out.nbContenu(bte) === 4 && Out.contenuDe(bte).length === 2
+      && !Out.estBoite(perceuse) && perceuse.boite === false && Out.nbContenu(perceuse) === 0
+      // le filet : une boîte née AVANT la case (elle porte déjà sa liste) en reste une
+      && Out.estBoite({ id: "z", nom: "Ancienne caisse", contenu: [{ id: "L", nom: "Clé", quantite: 1 }] })
+      // et l'écran ne propose la caisse QUE sur une caisse
+      && /checked=\{!!neuf\.boite\}/.test(ecrC)
+      && /C'est une caisse ou une boîte à outils/.test(ecrC)
+      && /\{estBoite\(o\) && !\["perdu", "reforme"\]\.includes\(etat\) && \(/.test(ecrC)
+      && !/En faire une boîte à outils/.test(ecrC)
       && /déjà dans la liste/.test(Out.critiqueLigneContenu(bte, { nom: "tournevis PLAT", quantite: 1 }))
       && /Donnez un nom/.test(Out.critiqueLigneContenu(bte, { nom: " ", quantite: 1 }))
       && /au moins 1/.test(Out.critiqueLigneContenu(bte, { nom: "Marteau", quantite: 0 }))
