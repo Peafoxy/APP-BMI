@@ -372,10 +372,29 @@ export const outilSaisi = (boutique, saisie) => {
 
 // ---- Créer un outil (administrateur). Le numéro est CELUI GRAVÉ sur
 // l'outil ; deux outils ne peuvent pas porter le même dans une boutique.
+// ---- 🔢 LE NUMÉRO GRAVÉ S'ATTRIBUE TOUT SEUL (Timo, 18/09/2026 : « je veux
+// que les numéros s'attribuent d'une manière automatique… pas à taper »).
+// Un numéro qu'on tape est un numéro qu'on peut se tromper, ou répéter.
+// ⚠ Le compteur regarde AUSSI les fiches retirées du registre : une fiche
+// remise ne doit jamais faire un doublon — c'était le trou ouvert le jour
+// même par la suppression.
+export const PREFIXE_NUMERO_OUTIL = "BMI-";
+const toutesLesFiches = (registre) => [...outilsDe(registre), ...supprimesDe(registre)];
+const numeroDejaPris = (registre, numero, saufId) => {
+  const n = sansAccentsO(numero);
+  return !!n && toutesLesFiches(registre).some((o) => o.id !== saufId && sansAccentsO(o.numero) === n);
+};
+export const prochainNumeroOutil = (registre) => {
+  const plusGrand = toutesLesFiches(registre).reduce((max, o) => {
+    const m = String(o?.numero || "").match(/(\d+)\s*$/);
+    return m ? Math.max(max, Number(m[1])) : max;
+  }, 0);
+  return `${PREFIXE_NUMERO_OUTIL}${String(plusGrand + 1).padStart(3, "0")}`;
+};
+
 export const critiqueNouvelOutil = (boutique, { nom, numero } = {}) => {
   if (!String(nom || "").trim()) return "Donnez un nom à l'outil.";
-  const n = sansAccentsO(numero);
-  if (n && outilsDe(boutique).some((o) => sansAccentsO(o.numero) === n)) {
+  if (numeroDejaPris(boutique, numero)) {
     return `Le numéro « ${String(numero).trim()} » est déjà porté par un autre outil de BMI.`;
   }
   return "";
@@ -1007,8 +1026,7 @@ export const critiqueCorrectionOutil = (registre, outil, { nom, numero } = {}) =
   const r = critiqueOutilRange(outil, "vous pourrez corriger sa fiche");
   if (r) return r;
   if (!String(nom || "").trim()) return "Donnez un nom à l'outil.";
-  const n = sansAccentsO(numero);
-  if (n && outilsDe(registre).some((o) => o.id !== outil.id && sansAccentsO(o.numero) === n)) {
+  if (numeroDejaPris(registre, numero, outil.id)) {
     return `Le numéro « ${String(numero).trim()} » est déjà porté par un autre outil de BMI.`;
   }
   return "";

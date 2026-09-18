@@ -8615,6 +8615,37 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
             && !("lieu" in Out.corrigerOutil(a, {}) && Out.corrigerOutil(a, {}).lieu !== a.lieu);  // le LIEU n'est pas corrigible ici
         })());
 
+      // ═══ 🔢 LE NUMÉRO GRAVÉ S'ATTRIBUE TOUT SEUL ═══
+      // Timo, 18/09/2026 : « je veux que les numéros s'attribuent d'une
+      // manière automatique… pas à taper. Déjà j'ai essayé 2 numéros
+      // identiques, c'est passé. »
+      test("★ LE NUMÉRO EST ATTRIBUÉ, PAS TAPÉ : il suit le plus grand déjà pris, et l'écran ne laisse plus écrire dedans",
+        (() => {
+          const a = Out.nouvelOutil({ id: "n1", nom: "Perceuse", numero: "BMI-012", le: "x", par: "T" });
+          const b = Out.nouvelOutil({ id: "n2", nom: "Meuleuse", numero: "BMI-007", le: "x", par: "T" });
+          const vide = Out.registreUnifie([{ id: "z", nom: "Z", outillage: { outils: [], appels: [] } }]);
+          const reg = Out.registreUnifie([{ id: "b1", nom: "DEMAKPOE", outillage: { outils: [a, b], appels: [] } }]);
+          return Out.prochainNumeroOutil(vide) === "BMI-001"
+            && Out.prochainNumeroOutil(reg) === "BMI-013"
+            && Out.PREFIXE_NUMERO_OUTIL === "BMI-"
+            // l'écran l'AFFICHE sans le laisser taper, et l'écrit lui-même
+            && /value=\{prochainNumeroOutil\(registre\)\} readOnly/.test(ecrC)
+            && /numero: prochainNumeroOutil\(registre\), le: jour/.test(ecrC)
+            && /Le numéro est attribué par l'application/.test(ecrC);
+        })());
+
+      test("★ ⚠ ET UNE FICHE RETIRÉE GARDE SON NUMÉRO RÉSERVÉ — sinon la remettre au registre ferait un doublon (trou ouvert le jour même par la suppression)",
+        (() => {
+          const a = Out.nouvelOutil({ id: "n3", nom: "Perceuse", numero: "BMI-012", le: "x", par: "T" });
+          let bq = { id: "b1", nom: "DEMAKPOE", outillage: { outils: [a], appels: [] } };
+          bq = Out.supprimerOutil(bq, a, { le: "x", motif: "erreur", par: "T" });
+          const reg = Out.registreUnifie([bq]);
+          return Out.outilsDe(reg).length === 0
+            && Out.prochainNumeroOutil(reg) === "BMI-013"                       // ne redescend PAS
+            && /déjà porté par un autre outil/.test(Out.critiqueNouvelOutil(reg, { nom: "X", numero: "BMI-012" }))
+            && /déjà porté par un autre outil/.test(Out.critiqueCorrectionOutil(reg, { id: "autre" }, { nom: "X", numero: "BMI-012" }));
+        })());
+
       // ⚠ L'ÉTIQUETTE MENTAIT (capture Timo, 18/09/2026, colonne État :
       // « je ne comprends pas pourquoi on dit en boutique même si au
       // magasin »). Un outil rangé au DÉPÔT affichait « En boutique ».

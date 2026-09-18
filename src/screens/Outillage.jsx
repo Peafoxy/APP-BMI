@@ -40,7 +40,7 @@ import {
   peutCompterBoite, valeurDuManque, perteDuContenu, responsableDuComptage, manquesADeclarer,
   outilRange, critiqueOutilRange, critiqueSuppressionOutil, supprimerOutil, restaurerOutil, mouvementsDe,
   supprimesDe, critiqueBasculeBoite, basculerBoite, changerLigneContenu,
-  critiqueCorrectionOutil, corrigerOutil, diffFiche,
+  critiqueCorrectionOutil, corrigerOutil, diffFiche, prochainNumeroOutil,
   nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
@@ -366,13 +366,13 @@ export function Outillage({ db, save, profile }) {
   const ajouter = async () => {
     if (garde()) return;
     if (refuserSaufAdmin(profile, "Ajouter un outil au registre")) return;
-    const refus = critiqueNouvelOutil(registre, neuf);
+    const refus = critiqueNouvelOutil(registre, { ...neuf, numero: prochainNumeroOutil(registre) });
     if (refus) { uAlert(refus); return; }
     // ⚠ Le lieu est DEMANDÉ (plus de pastille en haut) : une boutique ou un
     // magasin — jamais « nulle part ».
     const bq = lieux.find((b) => b.nom === neuf.lieu);
     if (!bq) { uAlert("Dites où l'outil est rangé : une boutique ou un magasin."); return; }
-    const o = nouvelOutil({ id: uid(), ...neuf, le: jour, par_id: profile.id, par: profile.nom });
+    const o = nouvelOutil({ id: uid(), ...neuf, numero: prochainNumeroOutil(registre), le: jour, par_id: profile.id, par: profile.nom });
     ecrire(ajouterOutil(bq, o), `🧰 Outil ajouté — ${o.nom}${o.numero ? ` (N° ${o.numero})` : ""} — rangé à ${bq.nom}`);
     setNeuf(null);
   };
@@ -963,7 +963,9 @@ export function Outillage({ db, save, profile }) {
             <div className="rounded-xl border-2 border-sky-300 bg-white p-3 mb-3">
               <div className="grid md:grid-cols-5 gap-3">
                 <Field label="Nom de l'outil"><input className={inputCls} value={neuf.nom} onChange={(e) => setNeuf({ ...neuf, nom: e.target.value })} placeholder="Perceuse BOSCH" autoFocus /></Field>
-                <Field label="Numéro gravé"><input className={inputCls} value={neuf.numero} onChange={(e) => setNeuf({ ...neuf, numero: e.target.value })} placeholder="BMI-012" /></Field>
+                {/* 🔢 Le numéro s'attribue TOUT SEUL (Timo, 18/09/2026 : « pas à
+                    taper »). Un numéro tapé est un numéro qu'on peut répéter. */}
+                <Field label="Numéro gravé"><input className={`${inputCls} bg-slate-100 font-bold`} value={prochainNumeroOutil(registre)} readOnly tabIndex={-1} /></Field>
                 <Field label="Où est-il rangé ?">
                   <select className={inputCls} value={neuf.lieu} onChange={(e) => setNeuf({ ...neuf, lieu: e.target.value })}>
                     <option value="">— Choisir —</option>
@@ -983,7 +985,9 @@ export function Outillage({ db, save, profile }) {
                   <span className="block text-xs text-slate-500">Sa fiche portera alors la liste de ce qu'elle contient, et on la comptera à chaque retour. Une perceuse, non.</span>
                 </span>
               </label>
-              <div className="text-xs text-slate-500 mt-2">Le numéro est celui que vous GRAVEZ sur l'outil : il se tape à la sortie, même sale. Le prix d'achat sert de valeur proposée le jour où l'outil est perdu.</div>
+              <div className="text-xs text-slate-500 mt-2">
+                <b>Le numéro est attribué par l'application</b> — vous le GRAVEZ sur l'outil, et il se tape à la sortie, même sale. Deux outils ne peuvent plus porter le même. Le prix d'achat sert de valeur proposée le jour où l'outil est perdu.
+              </div>
               <div className="flex gap-2 mt-3">
                 <button onClick={ajouter} className={btnDark}>Ajouter</button>
                 <button onClick={() => setNeuf(null)} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Annuler</button>

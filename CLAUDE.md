@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1565 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1567 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1241,10 +1241,26 @@ lit mal est pire qu'un banc absent).
     registre la remet d'un clic — **et la fiche revient PROPRE** (les quatre
     champs `supprime_*` et les marques du registre unifié sont retirés).
     La confirmation dit combien de mouvements partent avec elle.
+  - **🔢 LE NUMÉRO GRAVÉ S'ATTRIBUE TOUT SEUL** (18/09/2026 : « je veux que
+    les numéros s'attribuent d'une manière automatique… **pas à taper**.
+    Déjà j'ai essayé 2 numéros identiques, c'est passé ») :
+    `prochainNumeroOutil` = `BMI-` + le plus grand numéro déjà pris + 1, sur
+    trois chiffres (`BMI-001`, `BMI-013`…). Le champ du formulaire l'AFFICHE
+    en gras, **en lecture seule** ; c'est le geste qui l'écrit, jamais la
+    frappe. Un numéro qu'on tape est un numéro qu'on peut répéter.
+    ⚠⚠ **ET UNE FICHE RETIRÉE GARDE SON NUMÉRO RÉSERVÉ** : le compteur ET le
+    contrôle d'unicité regardent `outils` **+ `supprimes`** (`toutesLesFiches`)
+    — sinon remettre une fiche au registre ferait un doublon, trou ouvert le
+    jour même par la suppression. Le compteur ne redescend jamais.
+    ⚠ Le doublon vu par Timo n'a **pas** pu être reproduit sur la règle
+    (elle refuse même à la casse et aux espaces près) ; la seule porte
+    légitime restante est **le MUR** — le même numéro peut exister une fois
+    en réel et une fois en formation, ce sont deux mondes.
   - **✏️ CORRIGER LA FICHE ELLE-MÊME = l'administrateur**, outil rangé
     (18/09/2026 : « sur la fiche elle-même aussi on doit pouvoir modifier…
     **si numéro gravé est faussé, on ne peut pas laisser comme ça** ») : nom,
-    **numéro gravé**, catégorie, date et prix d'achat (`corrigerOutil`,
+    **numéro gravé** (resté corrigible : un outil mal gravé physiquement se
+    rattrape), catégorie, date et prix d'achat (`corrigerOutil`,
     `critiqueCorrectionOutil`). Le numéro reste **UNIQUE dans toute la
     maison**, mais ⚠ **l'outil ne se gêne pas lui-même** (`o.id !== outil.id`
     — `critiqueNouvelOutil` l'aurait refusé, puisqu'il l'aurait trouvé).
