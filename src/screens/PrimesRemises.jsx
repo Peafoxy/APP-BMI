@@ -38,7 +38,7 @@ export function PrimesRemises({ db, save, profile }) {
     const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
     if (moyen === null) return;
     // 🧰 Outil perdu : retenue sur la part d'un technicien à commission.
-    const ret = retenueOutilPourPrime(db, e.user_id, e.montant);
+    const ret = retenueOutilPourPrime(db, e.user_id, e.montant, e.prime_boutique);
     const net = e.montant - ret.montant;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ${c.prenom || ""} ?${ret.montant > 0
       ? `\n\n🧰 Retenue pour outil perdu : ${fmt(ret.montant)} (${ret.lignes.map((l) => l.outil).join(", ")})\nIl reçoit : ${fmt(net)}\n\nSortie de caisse ${boutique} : ${fmt(net)}`

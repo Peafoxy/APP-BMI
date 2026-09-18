@@ -775,10 +775,17 @@ export function primeDejaPayee(db, c, e) {
 // sur son salaire — ce chemin-là ne le concerne pas et rend 0.
 // ⚠ On ne retient jamais plus que ce qui est payé : une part d'installation
 // ne devient pas une dette.
-export function retenueOutilPourPrime(db, user_id, montant) {
+export function retenueOutilPourPrime(db, user_id, montant, boutiqueQuiPaie) {
   const u = ficheParId(db.users, user_id);
   if (!u || modeRetenue(u) !== "commission") return { montant: 0, lignes: [] };
-  return retenueSurPaiement(db.boutiques || [], user_id, montant);
+  // ⚠ LE MUR. Sans ce filtre, `retenueSurPaiement` parcourait TOUTES les
+  // boutiques du chargement : pour l'administrateur principal, qui télécharge
+  // les deux espaces, une perte d'ENTRAÎNEMENT se retenait sur de l'argent
+  // RÉEL (mesuré le 18/09/2026 : 30 000 F). L'espace de l'argent décide —
+  // celui de la caisse QUI PAIE, jamais celui de la personne qui clique.
+  const formation = estBoutiqueFormation(db, boutiqueQuiPaie);
+  const mienne = (db.boutiques || []).filter((b) => !!b.formation === !!formation);
+  return retenueSurPaiement(mienne, user_id, montant);
 }
 
 export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {

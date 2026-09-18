@@ -750,7 +750,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (moyen === null) return;
     // 🧰 Outil perdu : pour un technicien à COMMISSION, la retenue se prend ici
     // — c'est son seul revenu. Elle est ANNONCÉE, jamais silencieuse.
-    const ret = retenueOutilPourPrime(db, e.user_id, e.montant);
+    const ret = retenueOutilPourPrime(db, e.user_id, e.montant, e.prime_boutique);
     const net = e.montant - ret.montant;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?${ret.montant > 0
       ? `\n\n🧰 Retenue pour outil perdu : ${fmt(ret.montant)} (${ret.lignes.map((l) => l.outil).join(", ")})\nIl reçoit : ${fmt(net)}\n\nSortie de caisse ${e.prime_boutique} : ${fmt(net)}`

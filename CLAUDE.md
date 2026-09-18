@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1517 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1519 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1036,6 +1036,19 @@ lit mal est pire qu'un banc absent).
     paient une part (🏠 Clients installés, 💰 Primes remises) : l'outil, le
     montant retenu, le net. Le bouton 💵 n'est **pas** proposé pour elle —
     l'écran DIT que ça se prend tout seul, il ne fait pas semblant.
+  - ⚠⚠ **LE MUR (défaut trouvé le 18/09/2026 en répondant à « le cloisonnement
+    comme tu le dis est bien fait ? »)** : `retenueSurPaiement` parcourait
+    TOUTES les boutiques du chargement. Un vendeur réel ne télécharge que les
+    siennes — mais **l'administrateur PRINCIPAL télécharge les deux espaces**,
+    et c'est lui qui paie les parts depuis 🏠 Clients installés : une perte
+    d'ENTRAÎNEMENT se retenait sur de l'argent RÉEL (30 000 F, **mesuré**).
+    `retenueOutilPourPrime` reçoit donc la **CAISSE QUI PAIE**
+    (`e.prime_boutique`) et ne regarde que les boutiques de SON espace :
+    **c'est l'espace de l'ARGENT qui décide, jamais celui de la personne qui
+    clique.** Leçon générale : le banc surveille les lectures brutes de
+    `db.users`, **pas** celles de `db.boutiques` — une fonction pure qui reçoit
+    `db.boutiques` en entier et le PARCOURT (au lieu d'y chercher un nom) est
+    un passage de mur en puissance.
   - ⚠ **LE COUPLE : `securite-24`**. Le vendeur et le gérant PAIENT une part,
     et ne tiennent pas le registre : sans ce script leur écriture serait
     refusée par la base et **tout le lot resterait coincé**. Il leur ouvre

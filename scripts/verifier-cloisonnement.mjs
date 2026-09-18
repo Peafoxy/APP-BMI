@@ -8452,7 +8452,38 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
         && Out.retenueSurPaiement([bqA, bqB], "u1", 5000).montant === 5000
         && Out.retenueSurPaiement([bqA, bqB], "u1", 500000).montant === 35000
         && Out.retenueSurPaiement([bqA, bqB], "u2", 50000).montant === 0
-        && Out.resteDeLaPersonne([bqA, bqB], "u1") === 35000);
+        && Out.ardoisesDeLaPersonne([bqA, bqB], "u1").reduce((t, l) => t + l.reste, 0) === 35000);
+
+      // ⚠⚠ LE MUR, TROUVÉ LE 18/09/2026 EN RÉPONDANT À TIMO (« le cloisonnement
+      // comme tu le dis est bien fait ? »). `retenueSurPaiement` parcourait
+      // TOUTES les boutiques du chargement. Un vendeur réel ne télécharge que
+      // les siennes — mais l'ADMINISTRATEUR PRINCIPAL télécharge LES DEUX
+      // espaces, et c'est lui qui paie les parts depuis 🏠 Clients installés :
+      // une perte d'ENTRAÎNEMENT se retenait sur de l'argent RÉEL (30 000 F,
+      // mesuré). C'est l'espace de la CAISSE QUI PAIE qui décide, jamais celui
+      // de la personne qui clique.
+      test("★ LE MUR sur la retenue : une perte d'ENTRAÎNEMENT ne se retient JAMAIS sur une part payée en RÉEL, ni l'inverse — l'espace de la caisse qui paie décide",
+        (() => {
+          const perdu = Out.declarerPerdu(Out.nouvelOutil({ id: "ox", nom: "Perceuse école", le: "2026-09-01", par: "T" }),
+            { id: "px", le: "2026-09-10", motif: "Volée", valeur: 50000, a_rembourser: 30000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" });
+          const dbX = {
+            users: [{ id: "u1", nom: "KOSSI", role: "technicien" }],
+            boutiques: [
+              { id: "bf", nom: "ÉCOLE", formation: true, outillage: { outils: [perdu], appels: [] } },
+              { id: "br", nom: "DEMAKPOE", outillage: { outils: [], appels: [] } },
+            ],
+          };
+          // payée par la caisse RÉELLE : la perte d'entraînement reste dehors
+          const reel = C.retenueOutilPourPrime(dbX, "u1", 100000, "DEMAKPOE");
+          // payée par la caisse de FORMATION : elle compte, chez elle
+          const form = C.retenueOutilPourPrime(dbX, "u1", 100000, "ÉCOLE");
+          return reel.montant === 0 && reel.lignes.length === 0
+            && form.montant === 30000 && form.lignes[0].boutique_id === "bf"; })());
+
+      test("★ et les DEUX écrans qui paient une part nomment la caisse qui paie (sans elle, la règle ne sait pas de quel espace il s'agit)",
+        [ciP, prP].every((f) => /retenueOutilPourPrime\(db, e\.user_id, e\.montant, e\.prime_boutique\)/.test(f))
+        && /const formation = estBoutiqueFormation\(db, boutiqueQuiPaie\);/.test(calP)
+        && /\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => !!b\.formation === !!formation\)/.test(calP));
 
       test("★ et elle S'ÉCRIT sur les pertes concernées, dans leurs boutiques respectives : sans cette écriture, l'argent partait mais RIEN ne pouvait s'afficher",
         (() => { const r = Out.retenueSurPaiement([bqA, bqB], "u1", 15000);
@@ -8462,12 +8493,12 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           return Out.dejaRetenu(pA) === 10000 && Out.resteARetenir(pA) === 0
             && Out.dejaRetenu(pB) === 5000 && Out.resteARetenir(pB) === 20000
             && Out.retenuesDe(pA)[0].sur === "commission" && /MR ERIC/.test(Out.retenuesDe(pA)[0].ref)
-            && Out.resteDeLaPersonne(apres, "u1") === 20000
+            && Out.ardoisesDeLaPersonne(apres, "u1").reduce((t, l) => t + l.reste, 0) === 20000
             // une boutique que rien ne touche est rendue TELLE QUELLE
             && Out.appliquerRetenues([bqA, bqB], [], { id: "z2", le: "x", sur: "commission", par: "T" })[0] === bqA; })());
 
       test("★ LE CHEMIN RÉEL : la part d'installation d'un technicien à COMMISSION sort de la caisse DIMINUÉE de la retenue — la dépense, le message et la fiche disent le net ; tout retenu = AUCUNE dépense (rien ne sort de la caisse)",
-        /export function retenueOutilPourPrime\(db, user_id, montant\)/.test(calP)
+        /export function retenueOutilPourPrime\(db, user_id, montant, boutiqueQuiPaie\)/.test(calP)
         && /if \(!u \|\| modeRetenue\(u\) !== "commission"\) return \{ montant: 0, lignes: \[\] \};/.test(calP)
         && /const net = Number\(e\.montant \|\| 0\) - pris;/.test(calP)
         && /const dep = net > 0 \? nouvelleDepense\(/.test(calP)
@@ -8478,7 +8509,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
         && /net > 0 \? messagesNotifSortieCaisse/.test(calP));
 
       test("★ elle est ANNONCÉE, jamais silencieuse : les DEUX écrans qui paient une part (🏠 Clients installés et 💰 Primes remises) nomment la retenue, l'outil et le net AVANT de confirmer",
-        [ciP, prP].every((f) => /const ret = retenueOutilPourPrime\(db, e\.user_id, e\.montant\);/.test(f)
+        [ciP, prP].every((f) => /const ret = retenueOutilPourPrime\(db, e\.user_id, e\.montant, e\.prime_boutique\);/.test(f)
           && /const net = e\.montant - ret\.montant;/.test(f)
           && /🧰 Retenue pour outil perdu/.test(f)
           && /ret\.lignes\.map\(\(l\) => l\.outil\)\.join\(", "\)/.test(f)

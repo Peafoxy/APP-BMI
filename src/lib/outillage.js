@@ -517,7 +517,7 @@ export const ajouterRetenue = (outil, perteId, { id, le, montant, sur, mois, ref
     : m)),
 });
 
-// La liste du carré « Perdus » : tout ce que Timo a demandé, sur une ligne.
+// Une ligne d'ardoise, telle qu'elle se lit dans le carré « Perdus ».
 const ligneArdoise = (boutique, outil) => {
   const p = perteDe(outil);
   return {
@@ -530,10 +530,6 @@ const ligneArdoise = (boutique, outil) => {
     retenues: retenuesDe(p),
   };
 };
-export const ardoisesPerdus = (boutique) => outilsDe(boutique)
-  .filter((o) => etatOutil(o) === "perdu")
-  .map((o) => ligneArdoise(boutique, o))
-  .sort((a, b) => String(b.le).localeCompare(String(a.le)));
 // Les mêmes ardoises, pour UNE personne, dans TOUTES les boutiques de son
 // espace (un technicien n'a pas de boutique) : les plus anciennes d'abord,
 // c'est celles-là qu'on solde en premier.
@@ -546,8 +542,6 @@ export const ardoisesDeLaPersonne = (boutiques, userId) => {
   }));
   return liste.sort((a, b) => String(a.le).localeCompare(String(b.le)));
 };
-export const resteDeLaPersonne = (boutiques, userId) =>
-  ardoisesDeLaPersonne(boutiques, userId).reduce((s, l) => s + l.reste, 0);
 
 // ---- LA RETENUE SUR COMMISSION : ce qu'on prend sur un paiement.
 // On ne prend JAMAIS plus que ce qui est payé (une part d'installation ne
