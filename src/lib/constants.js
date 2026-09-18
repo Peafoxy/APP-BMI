@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.249";
+export const VERSION = "2.101.250";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -82,7 +82,13 @@ export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mix
 // ce mode était à sélectionner ? » — la question devient quatre boutons.
 export const MOYENS_ENCAISSEMENT = PAIEMENTS.filter((p) => p !== "Crédit (dette)");
 // Timo (13/09/2026) : « ajouter Livraison, le manger, le carburant, commande en Chine ».
-export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", "Commande en Chine", "Achat marchandises", "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
+// ⚠ « Réparation d'outillage » (Timo, 18/09/2026 : « oui, mets le prix de
+// réparation dans les dépenses ») : c'est une VRAIE charge de BMI — elle
+// n'entre donc PAS dans CATEGORIES_HORS_CHARGES. Elle est posée par 🧰
+// Outillage quand on envoie un outil chez un réparateur, ou quand il en
+// revient ; « Autre » reste en dernier.
+export const CATEGORIE_REPARATION_OUTIL = "Réparation d'outillage";
+export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", "Commande en Chine", "Achat marchandises", CATEGORIE_REPARATION_OUTIL, "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
 
 // ============ RÔLES ============
 // Salariés : fiche de paie, avancement, primes/avances, virements, crédit BMI.

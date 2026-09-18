@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1502 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1504 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1025,11 +1025,26 @@ lit mal est pire qu'un banc absent).
   **En réparation** = chez quel réparateur, **son numéro** (vrai logo
   WhatsApp, `envoyerWhatsApp`), la panne, le prix. `outilsDeLaVue` +
   `VUES_OUTILLAGE` ; « Dehors » d'office. Le carré regardé porte un cadre
-  épais. ⚠ **Le PRIX d'une réparation est une INFORMATION portée par
-  l'outil : il n'écrit AUCUNE dépense** — créer une charge sans que Timo l'ait
-  demandé toucherait ses comptes ; l'écran le dit, et propose d'en parler.
-  Réparateur et panne sont EXIGÉS, le prix non (on ne le connaît pas toujours
-  en déposant l'outil).
+  épais. Réparateur et panne sont EXIGÉS, le prix non (on ne le connaît pas
+  toujours en déposant l'outil).
+- **💸 LE PRIX D'UNE RÉPARATION EST UNE DÉPENSE** (Timo, 18/09/2026 : « oui,
+  mets le prix de réparation dans les dépenses » — ~~la version du matin en
+  faisait une simple information portée par l'outil~~, RETOURNÉ). Catégorie
+  **`CATEGORIE_REPARATION_OUTIL`** = « Réparation d'outillage » (constants.js,
+  insérée après « Achat marchandises », « Autre » reste en dernier) : c'est
+  une VRAIE charge de BMI, donc **jamais** dans `CATEGORIES_HORS_CHARGES`.
+  ⚠ **Elle passe par LA fabrique commune `construireDepenseSaisie`** — donc
+  par TOUTES les règles de l'argent, sans qu'une seule soit recopiée dans
+  l'écran : validation du DG au-delà de 5 000, « Payé avec » qui nomme chaque
+  caisse, message aux principaux, blocage de clôture, et la limite du tiroir
+  (`critiqueSortieTiroir`, tiroir + enveloppe) revérifiée comme à la saisie.
+  **DEUX moments, jamais deux dépenses** : au dépôt si le prix est connu ;
+  sinon **au retour**, où le 📥 ouvre un petit formulaire « Combien a coûté la
+  réparation ? ». Le mouvement porte son `depense_id` — c'est lui qui empêche
+  le doublon —, la dépense porte `outil_id`, `outil_nom`, `mouvement_id` et
+  `auto: "reparation_outil"`, et sa description cite l'outil, son numéro, la
+  panne et le réparateur. **0 F = rien n'est écrit** (garantie, geste du
+  réparateur). Corriger un montant déjà dépensé passe par 📤 Dépenses.
 - **⏱ LE RETARD SE JUSTIFIE, PAR CELUI QUI DÉTIENT L'OUTIL** (Timo,
   18/09/2026 : « celui qui a un outil et est en retard de retour doit
   justifier pourquoi l'outil n'est pas encore de retour, **dans son

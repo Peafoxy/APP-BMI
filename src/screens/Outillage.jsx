@@ -16,12 +16,18 @@
 // boutique — rien à coller pour créer une table.
 // ============================================================
 import { Fragment, useState } from "react";
-import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp } from "../lib/core";
+import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } from "../lib/core";
 import { chiffresTel } from "../lib/identiteClient";
 import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
+// ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
+// du DG au-delà du seuil, origine des fonds, blocage de clôture. On ne
+// recopie aucune de ces règles ici.
+import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE } from "../lib/validationDepenses";
+import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
+import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constants";
 import { bloquerSiLecture, refuserSaufAdmin, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles } from "../lib/calculs";
 import {
   ETATS_OUTIL, peutTenirOutillage, outilsDe, outilsVivants, etatOutil, libelleEtat,
@@ -32,6 +38,7 @@ import {
   nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
+  marquerDepenseReparation, depenseDeLaReparation, libelleDepenseReparation,
 } from "../lib/outillage";
 
 // Les quatre vues de Timo (18/09/2026), leurs titres et ce qu'on dit quand
@@ -147,7 +154,10 @@ export function Outillage({ db, save, profile }) {
   // chaque carré ouvre SA liste, avec les colonnes qui répondent à SA
   // question. « Dehors » d'office : c'est ce qu'on regarde tous les jours.
   const [vue, setVue] = useState("dehors");
-  const [repar, setRepar] = useState(null); // { outil_id, reparateur, tel, panne, prix }
+  const [repar, setRepar] = useState(null); // { outil_id, reparateur, tel, panne, prix, paiement, paye_avec }
+  // Le retour d'un outil parti en réparation SANS dépense encore posée :
+  // c'est là qu'on connaît enfin le prix payé.
+  const [retourRep, setRetourRep] = useState(null); // { outil_id, prix, paiement, paye_avec }
   const jeSuisAdmin = profile.role === "admin";
   const jePeux = peutTenirOutillage(profile);
 
@@ -226,15 +236,69 @@ export function Outillage({ db, save, profile }) {
   // 18/09/2026). ⚠ Le prix est une INFORMATION portée par l'outil : il
   // n'écrit AUCUNE dépense — créer une charge sans que Timo l'ait demandé
   // toucherait ses comptes.
+  // Le tiroir : la même limite qu'à la saisie d'une dépense (Timo, 15/09/2026)
+  // — le tiroir PLUS ce qu'il reste dans l'enveloppe.
+  const refusTiroir = (nomBoutique, montant, geste) => {
+    const p = fondsAVerser(db, nomBoutique, totalVente);
+    return critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste, boutique: nomBoutique });
+  };
+
+  // 💸 Construit la dépense d'une réparation — ou rend son refus. Elle passe
+  // par LA fabrique commune : validation du DG au-delà du seuil, origine des
+  // fonds, message aux principaux. Rien n'est recopié ici.
+  const depensePourReparation = async ({ prix, paiement, paye_avec }, outil, rep, libelleGeste) => {
+    const montant = Number(prix || 0);
+    if (!montant) return { depense: null, messages: [], journal: "" };
+    const choix = interpreterPayeAvec(paye_avec, boutique);
+    const r = construireDepenseSaisie(db, profile, {
+      ...choix, categorie: CATEGORIE_REPARATION_OUTIL,
+      description: libelleDepenseReparation(outil, rep), montant, paiement,
+    }, jour);
+    if (r.refus) { uAlert(r.refus); return null; }
+    if (paiement === "Espèces" && (!r.depense.paye_avec || r.depense.paye_avec === PAYE_AVEC_CAISSE)) {
+      const refusT = refusTiroir(choix.boutique, montant, libelleGeste);
+      if (refusT) { uAlert(refusT); return null; }
+    }
+    const suite = r.aValider ? `\n\n⏳ ${fmt(montant)} atteint ${fmt(SEUIL_VALIDATION_DEPENSE)} : la dépense ira à la validation du DG et ne comptera qu'une fois validée.` : "";
+    const ailleurs = choix.boutique !== boutique ? `\n\n🏬 C'est la caisse de ${choix.boutique} qui paie : la dépense sera rangée sous ${choix.boutique}.` : "";
+    if (!await uConfirm(`${libelleGeste} : enregistrer une dépense de ${fmt(montant)} en « ${CATEGORIE_REPARATION_OUTIL} », payée avec ${libelleChoixPayeAvec(paye_avec, boutique)} ?${suite}${ailleurs}`)) return null;
+    return { ...r, depense: { ...r.depense, outil_id: outil.id, outil_nom: outil.nom, mouvement_id: rep.id, auto: "reparation_outil" } };
+  };
+
   const enregistrerReparation = async () => {
     if (garde()) return;
     const outil = tous.find((o) => o.id === repar.outil_id);
     if (!outil) { uAlert("Cet outil est introuvable."); return; }
     const refus = critiqueReparation(repar);
     if (refus) { uAlert(refus); return; }
-    const apres = mettreEnReparation(outil, { id: uid(), le: jour, ...repar, par_id: profile.id, par: profile.nom });
-    ecrire(remplacerOutil(fiche, apres), `🧰 En réparation — ${outil.nom} chez ${repar.reparateur} (${repar.panne})${repar.prix ? ` — ${fmt(repar.prix)}` : ""} (${boutique})`);
+    const mvt = { id: uid(), le: jour, ...repar, par_id: profile.id, par: profile.nom };
+    const d = await depensePourReparation(repar, outil, mvt, `Réparation de « ${outil.nom} »`);
+    if (d === null) return;
+    const apres = d.depense
+      ? marquerDepenseReparation(mettreEnReparation(outil, mvt), mvt.id, d.depense.id)
+      : mettreEnReparation(outil, mvt);
+    ecrire(remplacerOutil(fiche, apres),
+      `🧰 En réparation — ${outil.nom} chez ${repar.reparateur} (${repar.panne})${d.depense ? ` — dépense ${fmt(d.depense.montant)}` : ""} (${boutique})`,
+      d.depense ? { depenses: [d.depense, ...(db.depenses || [])], messages: [...(d.messages || []), ...(db.messages || [])] } : {});
     setRepar(null);
+  };
+
+  // 📥 Le retour d'un outil parti en réparation, quand le prix n'avait pas
+  // encore été enregistré : c'est LÀ qu'on le connaît.
+  const enregistrerRetourReparation = async () => {
+    if (garde()) return;
+    const outil = tous.find((o) => o.id === retourRep.outil_id);
+    if (!outil) { uAlert("Cet outil est introuvable."); return; }
+    const rep = reparationEnCours(outil);
+    if (!rep) { uAlert("Cet outil n'est plus en réparation."); return; }
+    const d = await depensePourReparation(retourRep, outil, rep, `Retour de réparation de « ${outil.nom} »`);
+    if (d === null) return;
+    const rendu = rendreOutil(outil, { id: uid(), le: jour, etat: "bon", note: "", par_id: profile.id, par: profile.nom });
+    const apres = d.depense ? marquerDepenseReparation(rendu, rep.id, d.depense.id) : rendu;
+    ecrire(remplacerOutil(fiche, apres),
+      `🧰 Revenu de réparation — ${outil.nom} rendu à ${profile.nom}${d.depense ? ` — dépense ${fmt(d.depense.montant)}` : ""} (${boutique})`,
+      d.depense ? { depenses: [d.depense, ...(db.depenses || [])], messages: [...(d.messages || []), ...(db.messages || [])] } : {});
+    setRetourRep(null);
   };
 
   // ---- ⚠ PERDU (décisions « b » et « c ») : on marque, on garde la valeur
@@ -305,6 +369,9 @@ export function Outillage({ db, save, profile }) {
     ? outilsDeLaVue(fiche, vue, jour).filter((o) => vue !== "tous" || !q.trim() || correspond(`${o.nom} ${o.numero || ""} ${o.categorie || ""}`, q))
     : [];
   const coutRep = fiche ? coutReparations(fiche, null) : 0;
+  // Les caisses proposables : les boutiques de l'espace regardé, comme dans
+  // 📤 Dépenses — « Payé avec » nomme CHAQUE caisse (règle du 13/09/2026).
+  const caisses = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   const pertes = fiche ? pertesDe(fiche, null) : [];
   const dejaFait = fiche ? appelDeLaSemaine(fiche, jour) : null;
 
@@ -403,13 +470,66 @@ export function Outillage({ db, save, profile }) {
                 <Field label="La panne"><input className={inputCls} value={repar.panne} onChange={(e) => setRepar({ ...repar, panne: e.target.value })} placeholder="Charbons usés" /></Field>
                 <Field label="Prix de réparation (F)"><input type="number" className={inputCls} value={repar.prix} onChange={(e) => setRepar({ ...repar, prix: e.target.value })} placeholder="Si déjà connu" /></Field>
               </div>
-              <div className="text-xs text-slate-500 mt-2">Le prix reste une information portée par l'outil : <b>aucune dépense n'est enregistrée</b>. Si vous voulez qu'elle passe dans 📤 Dépenses, dites-le-moi.</div>
+              {/* 💸 Timo, 18/09/2026 : « mets le prix de réparation dans les
+                  dépenses ». Dès qu'un prix est saisi, on demande AVEC QUOI
+                  c'est payé — une dépense ordinaire, validation du DG comprise. */}
+              {Number(repar.prix || 0) > 0 && (
+                <div className="grid md:grid-cols-2 gap-3 mt-3">
+                  <Field label="Moyen de paiement">
+                    <select className={inputCls} value={repar.paiement} onChange={(e) => setRepar({ ...repar, paiement: e.target.value })}>
+                      {MOYENS_ENCAISSEMENT.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Payé avec">
+                    <select className={inputCls} value={repar.paye_avec} onChange={(e) => setRepar({ ...repar, paye_avec: e.target.value })}>
+                      {optionsPayeAvec(caisses, boutique).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              )}
+              <div className="text-xs text-slate-500 mt-2">
+                {Number(repar.prix || 0) > 0
+                  ? <>Une dépense de <b>{fmt(Number(repar.prix))}</b> sera enregistrée en « {CATEGORIE_REPARATION_OUTIL} » — comme toute dépense : validation du DG au-delà de {fmt(SEUIL_VALIDATION_DEPENSE)}, et elle sort du tiroir si elle est payée en espèces sur la caisse.</>
+                  : <>Laissez le prix vide si vous ne le connaissez pas encore : <b>on vous le demandera au retour de l'outil</b>, et la dépense sera enregistrée à ce moment-là.</>}
+              </div>
               <div className="flex gap-2 mt-3">
                 <button onClick={enregistrerReparation} className={btnDark}>Enregistrer</button>
                 <button onClick={() => setRepar(null)} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Annuler</button>
               </div>
             </div>
           )}
+
+          {/* 📥 Le retour d'une réparation : le prix payé, enfin connu */}
+          {retourRep && (() => {
+            const o = tous.find((x) => x.id === retourRep.outil_id) || {};
+            const rep = reparationEnCours(o) || {};
+            return (
+              <div className="rounded-xl border-2 border-emerald-300 bg-white p-3 mb-3">
+                <div className="font-bold text-slate-800 mb-1">📥 « {o.nom} » revient de réparation</div>
+                <div className="text-xs text-slate-500 mb-2">Chez {rep.reparateur || "—"}{rep.panne ? ` · ${rep.panne}` : ""}{rep.le ? ` · déposé le ${dFR(rep.le)}` : ""}</div>
+                <div className="grid md:grid-cols-3 gap-3">
+                  <Field label="Combien a coûté la réparation ? (F)"><input type="number" className={inputCls} value={retourRep.prix} onChange={(e) => setRetourRep({ ...retourRep, prix: e.target.value })} autoFocus /></Field>
+                  {Number(retourRep.prix || 0) > 0 && <>
+                    <Field label="Moyen de paiement">
+                      <select className={inputCls} value={retourRep.paiement} onChange={(e) => setRetourRep({ ...retourRep, paiement: e.target.value })}>
+                        {MOYENS_ENCAISSEMENT.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Payé avec">
+                      <select className={inputCls} value={retourRep.paye_avec} onChange={(e) => setRetourRep({ ...retourRep, paye_avec: e.target.value })}>
+                        {optionsPayeAvec(caisses, boutique).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </Field>
+                  </>}
+                </div>
+                <div className="text-xs text-slate-500 mt-2">Laissez 0 si la réparation n'a rien coûté (garantie, geste du réparateur) : l'outil rentre, et aucune dépense n'est écrite.</div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={enregistrerRetourReparation} className={btnDark}>📥 Enregistrer le retour</button>
+                  <button onClick={() => setRetourRep(null)} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Annuler</button>
+                </div>
+              </div>
+            );
+          })()}
 
           {affichee.length === 0 ? (
             <div className="text-sm text-slate-500">{VIDE_VUE[vue]}</div>
@@ -484,8 +604,14 @@ export function Outillage({ db, save, profile }) {
                         </>}
 
                         <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          {jePeux && (etat === "sorti" || etat === "reparation") && <button title={etat === "reparation" ? "Revenu de réparation" : "Retour en boutique"} onClick={() => rendre(o)} className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>}
-                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "" })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
+                          {jePeux && (etat === "sorti" || etat === "reparation") && (
+                            <button title={etat === "reparation" ? "Revenu de réparation" : "Retour en boutique"}
+                              onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
+                                ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: `caisse:${boutique}` })
+                                : rendre(o))}
+                              className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>
+                          )}
+                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${boutique}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
                           {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")}>🗑</button>}
                         </td>

@@ -420,3 +420,21 @@ export const joursDeRetard = (outil, aujourdhui) => {
   if (Number.isNaN(a) || Number.isNaN(b)) return 0;
   return Math.max(0, Math.round((b - a) / 86400000));
 };
+
+// ---- 💸 LA RÉPARATION PASSE DANS LES DÉPENSES (Timo, 18/09/2026 : « oui,
+// mets le prix de réparation dans les dépenses »). ⚠ Elle passe par LA
+// fabrique des dépenses (`construireDepenseSaisie`) : validation du DG au-delà
+// du seuil, origine des fonds, blocage de clôture — rien de particulier.
+// Ici, seulement le LIEN entre l'outil et sa dépense, et la garantie qu'on ne
+// la crée JAMAIS deux fois.
+export const marquerDepenseReparation = (outil, mouvementId, depenseId) => ({
+  ...outil,
+  mouvements: mouvementsDe(outil).map((m) => (m.id === mouvementId ? { ...m, depense_id: depenseId } : m)),
+});
+// La réparation en cours a-t-elle déjà sa dépense ? (vide = pas encore)
+export const depenseDeLaReparation = (outil) => {
+  const r = reparationEnCours(outil);
+  return r && r.depense_id ? r.depense_id : "";
+};
+export const libelleDepenseReparation = (outil, rep) =>
+  `${outil?.nom || "Outil"}${outil?.numero ? ` (N° ${outil.numero})` : ""} — ${rep?.panne || "réparation"}${rep?.reparateur ? ` · ${rep.reparateur}` : ""}`;

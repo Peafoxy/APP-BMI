@@ -7270,10 +7270,19 @@ titre("Les catégories de dépenses demandées par Timo");
 {
   // Timo (13/09/2026) : « Livraison, le manger, le carburant, commande en Chine ».
   const cst = readFileSync("src/lib/constants.js", "utf8");
-  const m = cst.match(/export const CATEGORIES = \[([^\]]*)\];/);
-  const cats = m ? m[1].split(",").map((x) => x.trim().replace(/^"|"$/g, "")) : [];
-  test("★ CATEGORIES contient Livraison, Carburant, Nourriture, Commande en Chine, et garde « Autre » en dernier",
-    ["Livraison", "Carburant", "Nourriture", "Commande en Chine"].every((c) => cats.includes(c)) && cats[cats.length - 1] === "Autre" && new Set(cats).size === cats.length);
+  const sortieCat = join("node_modules", ".cache", `bmi-cats-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCat, logLevel: "silent" });
+  const Cats = await import(pathToFileURL(sortieCat).href);
+  unlinkSync(sortieCat);
+  // ⚠ On lit la VRAIE liste (module bundlé), pas son texte source : depuis le
+  // 18/09/2026 une catégorie y entre par une constante nommée, et lire le
+  // source rendait « CATEGORIE_REPARATION_OUTIL » au lieu de sa valeur — le
+  // contrôle aurait passé sans rien mesurer.
+  test("★ CATEGORIES contient Livraison, Carburant, Nourriture, Commande en Chine, la réparation d'outillage (18/09/2026), et garde « Autre » en dernier",
+    ["Livraison", "Carburant", "Nourriture", "Commande en Chine", "Réparation d'outillage"].every((c) => Cats.CATEGORIES.includes(c))
+    && Cats.CATEGORIES[Cats.CATEGORIES.length - 1] === "Autre"
+    && new Set(Cats.CATEGORIES).size === Cats.CATEGORIES.length
+    && /export const CATEGORIES = \[/.test(cst));
 }
 
 titre("Les notifications respectent le mur (13/09/2026) — le détail est dans tester-notifications");
@@ -8262,6 +8271,10 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
   {
     const sql23 = existsSync("supabase/securite-23-justifier-retard.sql")
       ? readFileSync("supabase/securite-23-justifier-retard.sql", "utf8") : "";
+    const sortieCsO = join("node_modules", ".cache", `bmi-cst-out-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCsO, logLevel: "silent" });
+    const Cs = await import(pathToFileURL(sortieCsO).href);
+    unlinkSync(sortieCsO);
     let a = Out.nouvelOutil({ id: "v1", nom: "Perceuse", le: "2026-09-10", par: "TIMO" });
     a = Out.sortirOutil(a, { id: "s1", le: "2026-09-15", user_id: "u1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-09-16", par_id: "c1", par: "CHEF" });
     let b = Out.nouvelOutil({ id: "v2", nom: "Meuleuse", le: "2026-09-10", par: "TIMO" });
@@ -8304,10 +8317,32 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && Out.reparationEnCours(b).panne === "Charbons usés" && Out.reparationEnCours(b).prix === 12000
       && Out.reparationEnCours(a) === null);
 
-    test("★ le prix d'une réparation est une INFORMATION portée par l'outil : il n'écrit AUCUNE dépense (l'écran le dit, et il ne fabrique ni dépense ni ajustement)",
+    // ⚠ RETOURNÉ le 18/09/2026 (Timo : « oui, mets le prix de réparation dans
+    // les dépenses »). Avant, le prix restait une information sur l'outil.
+    // Maintenant il devient une VRAIE dépense — et il passe par LA fabrique
+    // commune, donc par toutes les règles de l'argent, sans qu'aucune soit
+    // recopiée dans l'écran de l'outillage.
+    test("★ le prix d'une réparation DEVIENT une dépense, par LA fabrique commune (construireDepenseSaisie) : validation du DG au-delà du seuil, origine des fonds, et la limite du tiroir revérifiée comme à la saisie",
       Out.coutReparations(bqV, null) === 12000
-      && !/nouvelleDepense|depenses:/.test(ecrC)
-      && /aucune dépense n'est enregistrée/.test(ecrC));
+      && /construireDepenseSaisie\(db, profile, \{/.test(ecrC)
+      && /categorie: CATEGORIE_REPARATION_OUTIL/.test(ecrC)
+      && /const refusT = refusTiroir\(choix\.boutique, montant, libelleGeste\);/.test(ecrC)
+      && /critiqueSortieTiroir\(\{ tiroir: p\.montant \+ p\.resteFonds, fondsFixe: p\.resteFonds/.test(ecrC)
+      && /optionsPayeAvec\(caisses, boutique\)/.test(ecrC)
+      && !/nouvelleDepense\(/.test(ecrC));
+
+    test("★ la dépense d'une réparation n'est JAMAIS créée deux fois : le mouvement porte son `depense_id`, et le 📥 de retour ne redemande le prix que s'il n'y en a pas encore",
+      Out.depenseDeLaReparation(b) === ""
+      && Out.depenseDeLaReparation(Out.marquerDepenseReparation(b, "r1", "dep9")) === "dep9"
+      && /etat === "reparation" && !depenseDeLaReparation\(o\)/.test(ecrC)
+      && /marquerDepenseReparation\(mettreEnReparation\(outil, mvt\), mvt\.id, d\.depense\.id\)/.test(ecrC));
+
+    test("★ la dépense cite l'outil et la panne, et se range dans SA catégorie — une VRAIE charge de BMI, donc jamais dans CATEGORIES_HORS_CHARGES",
+      /Perceuse \(N° BMI-012\) — Charbons usés · ATELIER KODJO/.test(Out.libelleDepenseReparation({ nom: "Perceuse", numero: "BMI-012" }, { panne: "Charbons usés", reparateur: "ATELIER KODJO" }))
+      && Cs.CATEGORIES.includes(Cs.CATEGORIE_REPARATION_OUTIL)
+      && !Cs.CATEGORIES_HORS_CHARGES.includes(Cs.CATEGORIE_REPARATION_OUTIL)
+      && Cs.depensesComptees([{ categorie: Cs.CATEGORIE_REPARATION_OUTIL, montant: 12000 }]).length === 1
+      && /outil_id: outil\.id, outil_nom: outil\.nom, mouvement_id: rep\.id, auto: "reparation_outil"/.test(ecrC));
 
     // ---- ⏱ Le retard se justifie, par celui qui détient l'outil
     test("★ ⏰ EN RETARD : c'est le DÉTENTEUR qui doit justifier — pas un autre, pas si l'outil est à l'heure, et plus une fois qu'il a répondu",
