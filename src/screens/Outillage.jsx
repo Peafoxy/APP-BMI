@@ -35,6 +35,9 @@ import {
   rendreOutil, mettreEnReparation, critiquePerte, responsableDeLaPerte, valeurProposee, declarerPerdu,
   reformerOutil, retenuePourOutil, pertesDe, appelAFaire, appelDeLaSemaine, construireAppel,
   manquantsDuDernierAppel, resumeOutillage, propositionsOutils, outilSaisi, critiqueNouvelOutil, reformeDe,
+  contenuDe, estBoite, nbContenu, critiqueLigneContenu, ajouterLigneContenu, retirerLigneContenu,
+  dernierComptage, comptageDeLaSortie, critiqueComptage, compterBoite, manquesDuComptage, manquesEnCours,
+  peutCompterBoite, valeurDuManque, perteDuContenu, responsableDuComptage, manquesADeclarer,
   nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
@@ -109,6 +112,9 @@ const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_acha
 // ============================================================
 function MesOutils({ db, save, profile }) {
   const [texte, setTexte] = useState({});
+  // 🧰 DÉCISION 2b (Timo) : celui qui rend peut compter SA boîte, pour
+  // valider ce qu'il ramène. Le RETOUR reste le geste de son chef.
+  const [compte, setCompte] = useState(null); // { outil_id, valeurs }
   const jour = today();
   const boutiques = boutiquesVisibles(db, profile, db.boutiques || []);
   const lignes = mesOutils(boutiques, profile.id);
@@ -125,6 +131,20 @@ function MesOutils({ db, save, profile }) {
     }, `🏗 ${outil.nom} — chantier changé pour ${r.nom} par ${profile.nom}`);
   };
   const aJustifier = lignes.filter(({ outil }) => doitJustifier(outil, profile.id, jour));
+
+  const compterMaBoite = (b, outil) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!peutCompterBoite(outil, profile)) { uAlert("Vous ne détenez pas cette boîte."); return; }
+    const refus = critiqueComptage(outil, compte.valeurs);
+    if (refus) { uAlert(refus); return; }
+    const apres = compterBoite(outil, { id: uid(), le: jour, compte: compte.valeurs, par_id: profile.id, par: profile.nom });
+    const manques = manquesDuComptage(apres, dernierComptage(apres));
+    save({
+      ...db,
+      boutiques: (db.boutiques || []).map((x) => (x.id === b.id ? remplacerOutil(b, apres) : x)),
+    }, `🧰 Boîte comptée — ${outil.nom} par ${profile.nom} : ${manques.length ? `il manque ${manques.map((m) => `${m.manque} ${m.nom}`).join(", ")}` : "tout y était"} (${b.nom})`);
+    setCompte(null);
+  };
 
   const justifier = async (b, outil) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -167,12 +187,36 @@ function MesOutils({ db, save, profile }) {
                     {s.retour_prevu && <> · retour prévu le <b className={tard ? "text-red-700" : ""}>{dFR(s.retour_prevu)}</b></>}
                     {tard && <b className="text-red-700"> — en retard de {joursDeRetard(o, jour)} jour(s)</b>}
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <button onClick={() => changerLeChantier(b, o)} className="px-3 py-1.5 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-xs hover:bg-sky-50">
                       🏗 Changer le chantier
                     </button>
-                    <span className="text-xs text-slate-500 ml-2">Vous passez sur un autre chantier ? Pas besoin de ramener l'outil.</span>
+                    {estBoite(o) && compte?.outil_id !== o.id && (
+                      <button onClick={() => setCompte({ outil_id: o.id, valeurs: {} })} className="px-3 py-1.5 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-xs hover:bg-sky-50">
+                        🧰 Compter la boîte ({nbContenu(o)})
+                      </button>
+                    )}
+                    <span className="text-xs text-slate-500">Vous passez sur un autre chantier ? Pas besoin de ramener l'outil.</span>
                   </div>
+                  {estBoite(o) && (() => {
+                    const fait = comptageDeLaSortie(o);
+                    const manques = fait ? manquesDuComptage(o, fait) : [];
+                    return (
+                      <div className={`text-xs mt-2 ${fait ? (manques.length ? "text-red-700 font-bold" : "text-emerald-700") : "text-amber-800"}`}>
+                        {!fait
+                          ? "🧰 Cette boîte n'a pas encore été comptée : comptez-la avant de la rendre, elle ne rentre pas sans ça."
+                          : (manques.length
+                            ? `⚠ Compté le ${dFR(fait.le)} — il manque ${manques.map((m) => `${m.manque} ${m.nom}`).join(", ")}.`
+                            : `✓ Compté le ${dFR(fait.le)} — tout y était.`)}
+                      </div>
+                    );
+                  })()}
+                  {compte?.outil_id === o.id && (
+                    <div className="mt-2">
+                      <PanneauComptage outil={o} compte={compte.valeurs} setCompte={(v) => setCompte({ ...compte, valeurs: v })}
+                        pourRetour={false} onValider={() => compterMaBoite(b, o)} onAnnuler={() => setCompte(null)} />
+                    </div>
+                  )}
                   {justificationsDeLaSortie(o).map((j) => (
                     <div key={j.id} className="text-xs text-slate-600 mt-1">⏳ Vous avez dit le {dFR(j.le)} : « {j.texte} »</div>
                   ))}
@@ -189,6 +233,52 @@ function MesOutils({ db, save, profile }) {
             })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// 🧰 LE COMPTAGE D'UNE BOÎTE — écrit UNE fois, pour les DEUX interfaces :
+// celui qui tient le registre (au retour) et celui qui rend (décision 2b de
+// Timo, 18/09/2026 : « aussi celui qui rend, pour qu'il valide ce qu'il
+// ramène »). Une ligne par matériel, une case par quantité ; ce qui manque
+// s'affiche à mesure qu'on tape, devant les deux personnes.
+// ============================================================
+function PanneauComptage({ outil, compte, setCompte, pourRetour, onValider, onAnnuler }) {
+  const manques = manquesDuComptage(outil, { compte });
+  return (
+    <div className="rounded-xl border-2 border-sky-300 bg-sky-50 p-3 mb-3">
+      <div className="font-bold text-slate-800 mb-1">🧰 Ce qu'il y a dans « {outil.nom} »</div>
+      <div className="text-xs text-slate-600 mb-3">
+        {pourRetour
+          ? "Ouvrez la boîte et comptez, devant celui qui la rend : rien ne rentre sans être compté."
+          : "Comptez ce que vous ramenez : votre chef le verra en recevant la boîte."}
+      </div>
+      <div className="space-y-2">
+        {contenuDe(outil).map((l) => {
+          const v = compte[l.id];
+          const n = Number(v);
+          const manque = String(v ?? "") !== "" && n >= 0 ? Math.max(0, Number(l.quantite || 0) - n) : 0;
+          return (
+            <div key={l.id} className="flex items-center gap-3 flex-wrap">
+              <span className="font-semibold text-slate-800 min-w-[10rem]">{l.nom}</span>
+              <span className="text-xs text-slate-500">attendu : {l.quantite}</span>
+              <input type="number" min="0" className={`${inputCls} sm:w-24`} value={v ?? ""}
+                onChange={(e) => setCompte({ ...compte, [l.id]: e.target.value })} placeholder="combien ?" />
+              {manque > 0 && <span className="text-xs font-bold text-red-700">il en manque {manque}</span>}
+            </div>
+          );
+        })}
+      </div>
+      {manques.length > 0 && (
+        <div className="text-sm font-bold text-red-800 mt-3">
+          ⚠ Il manque : {manques.map((m) => `${m.manque} ${m.nom}`).join(", ")}.
+        </div>
+      )}
+      <div className="flex gap-2 mt-3">
+        <button onClick={onValider} className={btnDark}>{pourRetour ? "🧰 Compter et enregistrer le retour" : "🧰 Enregistrer le comptage"}</button>
+        <button onClick={onAnnuler} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Annuler</button>
       </div>
     </div>
   );
@@ -213,6 +303,10 @@ export function Outillage({ db, save, profile }) {
   // Le retour d'un outil parti en réparation SANS dépense encore posée :
   // c'est là qu'on connaît enfin le prix payé.
   const [retourRep, setRetourRep] = useState(null); // { outil_id, prix, paiement, paye_avec }
+  // 🧰 LES BOÎTES À OUTILS (Timo, 18/09/2026). Le comptage au retour est
+  // OBLIGATOIRE (décision 1a) ; la liste du contenu se règle par l'admin.
+  const [compter, setCompter] = useState(null);  // { outil_id, pourRetour, valeurs }
+  const [contenu, setContenu] = useState(null);  // { outil_id, nom, quantite, valeur }
   const jeSuisAdmin = profile.role === "admin";
   const jePeux = peutTenirOutillage(profile);
 
@@ -310,16 +404,55 @@ export function Outillage({ db, save, profile }) {
     return i < 0 ? null : lieux[i].nom;
   };
 
-  const rendre = async (outil) => {
-    if (garde()) return;
-    const refus = critiqueRetour(outil);
-    if (refus) { uAlert(refus); return; }
+  // `base` porte déjà le comptage quand il s'agit d'une boîte : les deux
+  // mouvements partent alors dans UNE seule écriture.
+  const poserRetour = async (outil, base, mention = "") => {
     const lieu = await lieuDuRetour(outil);
-    if (!lieu) return;
+    if (!lieu) return false;
     const etat = await uConfirm(`« ${outil.nom} » vous est rendu — reçu par ${profile.nom}, rangé à ${lieu}.\n\nRevient-il en bon état ?\n\nOK = bon état · Annuler = abîmé`);
     const note = etat ? "" : (await uPrompt("Qu'est-ce qui est abîmé ?", "")) || "";
-    const apres = rendreOutil(outil, { id: uid(), le: jour, etat: etat ? "bon" : "abime", note, lieu, par_id: profile.id, par: profile.nom });
-    ecrireOutil(outil, apres, `🧰 Retour — ${outil.nom} rendu à ${profile.nom}, rangé à ${lieu}${etat ? "" : ` (ABÎMÉ : ${note})`}`);
+    const apres = rendreOutil(base, { id: uid(), le: jour, etat: etat ? "bon" : "abime", note, lieu, par_id: profile.id, par: profile.nom });
+    ecrireOutil(outil, apres, `🧰 Retour — ${outil.nom} rendu à ${profile.nom}, rangé à ${lieu}${etat ? "" : ` (ABÎMÉ : ${note})`}${mention}`);
+    return true;
+  };
+
+  const rendre = async (outil) => {
+    if (garde()) return;
+    // ⚠ DÉCISION 1a : une boîte non comptée ne se refuse pas, elle
+    // s'OUVRE — le formulaire de comptage prend la place du refus.
+    if (estBoite(outil) && etatOutil(outil) === "sorti" && !comptageDeLaSortie(outil)) {
+      setCompter({ outil_id: outil.id, pourRetour: true, valeurs: {} });
+      return;
+    }
+    const refus = critiqueRetour(outil);
+    if (refus) { uAlert(refus); return; }
+    await poserRetour(outil, outil);
+  };
+
+  // 🧰 LE COMPTAGE — au retour (celui qui reçoit) ou seul. Il est revérifié
+  // DANS le geste, comme tout ce qui est réservé.
+  const validerComptage = async () => {
+    if (garde()) return;
+    const outil = tous.find((o) => o.id === compter.outil_id);
+    if (!outil) { setCompter(null); return; }
+    if (!peutCompterBoite(outil, profile)) { uAlert("Vous ne pouvez pas compter cette boîte."); return; }
+    const refus = critiqueComptage(outil, compter.valeurs);
+    if (refus) { uAlert(refus); return; }
+    const compté = compterBoite(outil, { id: uid(), le: jour, compte: compter.valeurs, par_id: profile.id, par: profile.nom });
+    const manques = manquesDuComptage(compté, dernierComptage(compté));
+    const dit = manques.length ? ` — il manque ${manques.map((m) => `${m.manque} ${m.nom}`).join(", ")}` : " — tout y était";
+    if (compter.pourRetour) {
+      const refus2 = critiqueRetour(compté, { compte: compter.valeurs });
+      if (refus2) { uAlert(refus2); return; }
+      const ok = await poserRetour(outil, compté, ` · boîte comptée${dit}`);
+      if (!ok) return;
+    } else {
+      ecrireOutil(outil, compté, `🧰 Boîte comptée — ${outil.nom} par ${profile.nom}${dit}`);
+    }
+    setCompter(null);
+    if (manques.length) {
+      await uAlert(`⚠ « ${outil.nom} » est incomplète :\n\n${manques.map((m) => `• ${m.manque} ${m.nom} (attendu ${m.attendu}, compté ${m.compte})`).join("\n")}\n\nLa boîte repartira incomplète tant que ce matériel n'est pas remplacé.${jeSuisAdmin ? "\n\nVous pouvez déclarer ce manque perdu depuis la ligne de la boîte (bouton ⚠)." : ""}`);
+    }
   };
 
   // ---- 🏗 CHANGER LE CHANTIER, sans ramener l'outil
@@ -412,6 +545,58 @@ export function Outillage({ db, save, profile }) {
   // ---- ⚠ PERDU (décisions « b » et « c ») : on marque, on garde la valeur
   // pour les pertes de l'année, et l'ADMINISTRATEUR peut poser une retenue
   // sur le salaire de la personne qui répondait de l'outil.
+  // ---- L'ARDOISE D'UNE PERTE, ÉCRITE UNE FOIS. Timo, 18/09/2026 : « pour
+  // les salariés, c'est une retenue sur le salaire ; pour les techniciens
+  // commission, c'est retenu sur commission ». Deux chemins, parce qu'il y a
+  // deux façons d'être payé. Elle reste PROPOSÉE, jamais imposée : refuser =
+  // la perte reste à la charge de BMI.
+  // ⚠ Les DEUX pertes y passent — l'outil entier, et le matériel manquant
+  // d'une boîte à outils (18/09/2026) : pas une deuxième copie de ces règles.
+  const demanderCombienDu = async (resp, valeur, quoi) => {
+    if (!(jeSuisAdmin && resp && valeur > 0)) return 0;
+    if (!await uConfirm(`Faire rembourser cette perte à ${resp.nom} ?\n\nElle sera retenue ${libelleRetenue(modeRetenue(resp))}${modeRetenue(resp) === "commission" ? " — sur ses prochaines parts d'installation, c'est son seul revenu" : ""}.\n\nOK = oui · Annuler = non, la perte reste à la charge de BMI.`)) return 0;
+    const saisie = await uPrompt(`Combien demander à ${resp.nom} ? (F)\n\nLa valeur de ${quoi} est ${fmt(valeur)} : vous pouvez demander moins.`, String(valeur));
+    return saisie === null ? 0 : Math.max(0, Number(saisie) || 0);
+  };
+
+  // `fiche` arrive DÉJÀ déclarée perdue. Rend ce qu'il faut écrire, ou null
+  // si la personne a abandonné en route.
+  const poserArdoise = async (fiche, { resp, du, nom, motif, valeur }) => {
+    const mode = modeRetenue(resp);
+    let users = db.users || [];
+    let mention = "";
+    let retenues = [];
+    let apres = fiche;
+    const perte = perteDe(fiche);
+
+    // Salarié : on peut retenir dès maintenant, en une fois ou par morceaux.
+    if (du > 0 && mode === "salaire") {
+      const saisieMain = await uPrompt(`Retenir combien dès maintenant sur le salaire de ${resp.nom} ? (F)\n\nLe reste pourra être retenu les mois suivants, depuis le carré « Perdus / Hors d'usage ».`, String(du));
+      const maintenant = saisieMain === null ? 0 : Math.max(0, Number(saisieMain) || 0);
+      const refusR = maintenant > 0 ? critiqueRetenue(perte, maintenant) : "";
+      if (refusR) { uAlert(refusR); return null; }
+      if (maintenant > 0) {
+        const mois = await demanderMois(`Sur quel mois de salaire retenir ${fmt(maintenant)} à ${resp.nom} ?`);
+        if (mois) {
+          const av = { ...retenuePourOutil({ id: uid(), mois, montant: maintenant, outil: nom, date: jour, par: profile.nom }), outil_id: fiche.id };
+          users = users.map((u) => (u.id === resp.id ? { ...u, avances: [...(u.avances || []), av] } : u));
+          apres = ajouterRetenue(fiche, perte.id, { id: uid(), le: jour, montant: maintenant, sur: "salaire", mois, ref: `Salaire ${mois}`, par: profile.nom });
+          retenues = [maintenant, mois];
+          mention = ` — retenue de ${fmt(maintenant)} sur le salaire de ${resp.nom} (${mois})`;
+        }
+      }
+    }
+    if (du > 0 && mode === "commission") mention = ` — ${fmt(du)} à retenir sur ses prochaines parts d'installation`;
+
+    const texteResp = `🧰 « ${nom} » a été déclaré PERDU le ${dFR(jour)} (${motif}).`
+      + (du <= 0 ? " La perte reste à la charge de BMI."
+        : mode === "commission" ? ` ${fmt(du)} vous seront retenus sur vos prochaines parts d'installation.`
+        : retenues.length ? ` ${fmt(retenues[0])} sont retenus sur votre salaire de ${retenues[1]}${du > retenues[0] ? `, et ${fmt(du - retenues[0])} restent à rembourser` : ""}.`
+        : ` ${fmt(du)} restent à rembourser sur votre salaire.`);
+    const messages = resp && resp.id !== profile.id ? [nouveauMessage(profile, { a_id: resp.id, texte: texteResp })] : [];
+    return { apres, mention, extra: { users, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) }, valeur };
+  };
+
   const perdre = async (outil) => {
     if (garde()) return;
     const resp = responsableDeLaPerte(outil);
@@ -424,54 +609,73 @@ export function Outillage({ db, save, profile }) {
     const valeur = Number(saisie) || 0;
     if (!await uConfirm(`Déclarer « ${outil.nom} » perdu ?\n\nMotif : ${motif}\nValeur : ${fmt(valeur)}${resp ? `\nResponsable : ${resp.nom}` : ""}\n\nUne perte déclarée ne se défait pas.`)) return;
 
-    // ---- L'ARDOISE. Timo, 18/09/2026 : « pour les salariés, c'est une
-    // retenue sur le salaire ; pour les techniciens commission, c'est retenu
-    // sur commission ». Deux chemins, parce qu'il y a deux façons d'être payé.
-    // Elle reste PROPOSÉE, jamais imposée : refuser = la perte reste à BMI.
-    const mode = modeRetenue(resp);
-    let du = 0;
-    let users = db.users || [];
-    let mention = "";
-    let retenues = [];
-    if (jeSuisAdmin && resp && valeur > 0
-        && await uConfirm(`Faire rembourser cette perte à ${resp.nom} ?\n\nElle sera retenue ${libelleRetenue(mode)}${mode === "commission" ? " — sur ses prochaines parts d'installation, c'est son seul revenu" : ""}.\n\nOK = oui · Annuler = non, la perte reste à la charge de BMI.`)) {
-      const saisieDu = await uPrompt(`Combien demander à ${resp.nom} ? (F)\n\nLa valeur de l'outil est ${fmt(valeur)} : vous pouvez demander moins.`, String(valeur));
-      du = saisieDu === null ? 0 : Math.max(0, Number(saisieDu) || 0);
+    const du = await demanderCombienDu(resp, valeur, "l'outil");
+    if (du === null) return;
+    const fiche = declarerPerdu(outil, { id: uid(), le: jour, motif, valeur, a_rembourser: du, user_id: resp ? resp.id : "", user: resp ? resp.nom : "", par_id: profile.id, par: profile.nom });
+    const r = await poserArdoise(fiche, { resp, du, nom: outil.nom, motif, valeur });
+    if (!r) return;
+    ecrireOutil(outil, r.apres, `🧰 PERDU — ${outil.nom} (${ou(outil)}) : ${motif} (${fmt(valeur)})${r.mention}`, r.extra);
+  };
+
+  // ---- ⚠ LE MATÉRIEL MANQUANT D'UNE BOÎTE DEVIENT UNE PERTE, par le
+  // mécanisme qui existe déjà : il naît comme SA PROPRE fiche, déjà déclarée
+  // perdue, sous le nom de qui détenait la boîte. Le carré « Perdus / Hors
+  // d'usage », l'ardoise, la retenue sur salaire et celle sur commission
+  // n'ont pas une ligne de plus à apprendre.
+  const perdreContenu = async (boite) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Déclarer perdu le matériel d'une boîte")) return;
+    const manques = manquesADeclarer(registre, boite);
+    if (!manques.length) {
+      uAlert(`Rien à déclarer pour « ${boite.nom} » : au dernier comptage, soit tout y était, soit ce qui manquait a déjà été déclaré perdu.`);
+      return;
     }
+    const libelles = manques.map((m) => `${m.manque} × ${m.nom} — ${fmt(valeurDuManque(m))}`);
+    const choix = libelles.length === 1 ? libelles[0] : await uChoix(`Quel matériel manquant de « ${boite.nom} » déclarer perdu ?`, libelles);
+    if (!choix) return;
+    const m = manques[libelles.indexOf(choix)];
+    if (!m) return;
 
-    const apres0 = declarerPerdu(outil, { id: uid(), le: jour, motif, valeur, a_rembourser: du, user_id: resp ? resp.id : "", user: resp ? resp.nom : "", par_id: profile.id, par: profile.nom });
-    let apres = apres0;
-    const perte = perteDe(apres0);
+    const resp = responsableDuComptage(boite);
+    const motif = await uPrompt(`Déclarer perdus : ${m.manque} × ${m.nom} (de « ${boite.nom} »).${resp ? `\n\nLa boîte était sous la responsabilité de ${resp.nom}.` : "\n\nLa boîte était rangée : personne n'en répondait."}\n\nQue s'est-il passé ?`, "");
+    if (motif === null) return;
+    if (!String(motif).trim()) { uAlert("Dites ce qui s'est passé : une perte sans motif ne s'explique à personne."); return; }
+    const saisie = await uPrompt("Valeur de ce qui manque (F) — elle entre dans les pertes de l'année :", String(valeurDuManque(m) || ""));
+    if (saisie === null) return;
+    const valeur = Number(saisie) || 0;
+    if (!await uConfirm(`Déclarer perdus ${m.manque} × ${m.nom} ?\n\nMotif : ${motif}\nValeur : ${fmt(valeur)}${resp ? `\nResponsable : ${resp.nom}` : ""}\n\nUne perte déclarée ne se défait pas.`)) return;
 
-    // Salarié : on peut retenir dès maintenant, en une fois ou par morceaux.
-    if (du > 0 && mode === "salaire") {
-      const saisieMain = await uPrompt(`Retenir combien dès maintenant sur le salaire de ${resp.nom} ? (F)\n\nLe reste pourra être retenu les mois suivants, depuis le carré « Perdus ».`, String(du));
-      const maintenant = saisieMain === null ? 0 : Math.max(0, Number(saisieMain) || 0);
-      const refusR = maintenant > 0 ? critiqueRetenue(perte, maintenant) : "";
-      if (refusR) { uAlert(refusR); return; }
-      if (maintenant > 0) {
-        const mois = await demanderMois(`Sur quel mois de salaire retenir ${fmt(maintenant)} à ${resp.nom} ?`);
-        if (mois) {
-          const av = { ...retenuePourOutil({ id: uid(), mois, montant: maintenant, outil: outil.nom, date: jour, par: profile.nom }), outil_id: outil.id };
-          users = users.map((u) => (u.id === resp.id ? { ...u, avances: [...(u.avances || []), av] } : u));
-          apres = ajouterRetenue(apres0, perte.id, { id: uid(), le: jour, montant: maintenant, sur: "salaire", mois, ref: `Salaire ${mois}`, par: profile.nom });
-          retenues = [maintenant, mois];
-          mention = ` — retenue de ${fmt(maintenant)} sur le salaire de ${resp.nom} (${mois})`;
-        }
-      }
-    }
-    if (du > 0 && mode === "commission") mention = ` — ${fmt(du)} à retenir sur ses prochaines parts d'installation`;
+    const du = await demanderCombienDu(resp, valeur, "ce matériel");
+    const c = dernierComptage(boite);
+    const fiche = perteDuContenu(boite, m, {
+      id: uid(), mouvement_id: uid(), comptage_id: c ? c.id : "", le: jour, motif, valeur, a_rembourser: du,
+      user_id: resp ? resp.id : "", user: resp ? resp.nom : "", lieu: lieuDeRangement(boite),
+      par_id: profile.id, par: profile.nom,
+    });
+    const r = await poserArdoise(fiche, { resp, du, nom: fiche.nom, motif, valeur });
+    if (!r) return;
+    const bq = ficheDe(boite);
+    if (!bq) { uAlert("Cette boîte n'est rattachée à aucune boutique connue."); return; }
+    ecrire(ajouterOutil(bq, r.apres), `🧰 PERDU — ${r.apres.nom} : ${motif} (${fmt(valeur)})${r.mention}`, r.extra);
+  };
 
-    const texteResp = `🧰 « ${outil.nom} » a été déclaré PERDU le ${dFR(jour)} (${motif}).`
-      + (du <= 0 ? " La perte reste à la charge de BMI."
-        : mode === "commission" ? ` ${fmt(du)} vous seront retenus sur vos prochaines parts d'installation.`
-        : retenues.length ? ` ${fmt(retenues[0])} sont retenus sur votre salaire de ${retenues[1]}${du > retenues[0] ? `, et ${fmt(du - retenues[0])} restent à rembourser` : ""}.`
-        : ` ${fmt(du)} restent à rembourser sur votre salaire.`);
-    const messages = resp && resp.id !== profile.id
-      ? [nouveauMessage(profile, { a_id: resp.id, texte: texteResp })]
-      : [];
-    ecrireOutil(outil, apres, `🧰 PERDU — ${outil.nom} (${ou(outil)}) : ${motif} (${fmt(valeur)})${mention}`,
-      { users, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) });
+  // ---- 🧰 CE QUE LA BOÎTE CONTIENT : la liste se règle par l'administrateur
+  // (c'est du matériel acheté, comme l'ajout d'un outil). Un outil qui porte
+  // une liste EST une boîte — pas de case à cocher de plus.
+  const ajouterAuContenu = (boite) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
+    const refus = critiqueLigneContenu(boite, contenu);
+    if (refus) { uAlert(refus); return; }
+    const apres = ajouterLigneContenu(boite, { id: uid(), nom: contenu.nom, quantite: contenu.quantite, valeur: contenu.valeur });
+    ecrireOutil(boite, apres, `🧰 ${boite.nom} — ${contenu.quantite} ${contenu.nom} ajouté(s) à la liste de la boîte`);
+    setContenu({ ...contenu, nom: "", quantite: "1", valeur: "" });
+  };
+  const retirerDuContenu = async (boite, ligne) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
+    if (!await uConfirm(`Retirer « ${ligne.nom} » de la liste de « ${boite.nom} » ?\n\nOn ne le comptera plus à chaque retour.`)) return;
+    ecrireOutil(boite, retirerLigneContenu(boite, ligne.id), `🧰 ${boite.nom} — ${ligne.nom} retiré de la liste de la boîte`);
   };
 
   // ---- ✏️ Combien lui demander : l'administrateur peut revoir l'ardoise
@@ -761,6 +965,68 @@ export function Outillage({ db, save, profile }) {
             );
           })()}
 
+          {/* 🧰 LE COMPTAGE D'UNE BOÎTE — décision 1a : au retour, obligatoire. */}
+          {compter && (() => {
+            const o = tous.find((x) => x.id === compter.outil_id);
+            if (!o) return null;
+            return (
+              <PanneauComptage outil={o} compte={compter.valeurs} setCompte={(v) => setCompter({ ...compter, valeurs: v })}
+                pourRetour={compter.pourRetour} onValider={validerComptage} onAnnuler={() => setCompter(null)} />
+            );
+          })()}
+
+          {/* 🧰 CE QUE LA BOÎTE CONTIENT : la liste que l'on comptera à chaque retour. */}
+          {contenu && (() => {
+            const o = tous.find((x) => x.id === contenu.outil_id);
+            if (!o) return null;
+            const fait = dernierComptage(o);
+            const manques = manquesEnCours(o);
+            const aDeclarer = manquesADeclarer(registre, o);
+            return (
+              <div className="rounded-xl border-2 border-slate-300 bg-slate-50 p-3 mb-3">
+                <div className="font-bold text-slate-800 mb-1">🧰 Ce que « {o.nom} » doit contenir</div>
+                <div className="text-xs text-slate-600 mb-3">
+                  C'est cette liste qu'on comptera à chaque retour. Le petit matériel n'a pas de numéro gravé : on compte des quantités, pas des identités.
+                </div>
+                {contenuDe(o).length === 0 ? (
+                  <div className="text-sm text-slate-500 mb-3">Aucun matériel listé : cet outil n'est pas encore une boîte.</div>
+                ) : (
+                  <div className="space-y-1 mb-3">
+                    {contenuDe(o).map((l) => (
+                      <div key={l.id} className="flex items-center gap-3 text-sm">
+                        <span className="font-semibold text-slate-800 min-w-[10rem]">{l.nom}</span>
+                        <span className="text-slate-600">× {l.quantite}</span>
+                        <span className="text-slate-500 text-xs">{l.valeur ? `${fmt(l.valeur)} pièce` : "valeur non renseignée"}</span>
+                        {jeSuisAdmin && <button onClick={() => retirerDuContenu(o, l)} className={boutonAction("border-red-300 text-red-700 hover:bg-red-50")} title="Retirer de la liste">🗑</button>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {jeSuisAdmin && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                    <Field label="Matériel"><input className={inputCls} value={contenu.nom} onChange={(e) => setContenu({ ...contenu, nom: e.target.value })} placeholder="Tournevis plat" /></Field>
+                    <Field label="Combien"><input type="number" min="1" className={inputCls} value={contenu.quantite} onChange={(e) => setContenu({ ...contenu, quantite: e.target.value })} /></Field>
+                    <Field label="Valeur d'une pièce (F)"><input type="number" min="0" className={inputCls} value={contenu.valeur} onChange={(e) => setContenu({ ...contenu, valeur: e.target.value })} placeholder="2000" /></Field>
+                    <button onClick={() => ajouterAuContenu(o)} className={btnDark}>➕ Ajouter à la liste</button>
+                  </div>
+                )}
+                {fait && (
+                  <div className={`text-sm mt-3 ${manques.length ? "text-red-800 font-bold" : "text-emerald-700"}`}>
+                    {manques.length
+                      ? `⚠ Dernier comptage le ${dFR(fait.le)} par ${fait.par || "—"} : il manque ${manques.map((m) => `${m.manque} ${m.nom}`).join(", ")}. La boîte repartira incomplète tant que ce matériel n'est pas remplacé.`
+                      : `✓ Dernier comptage le ${dFR(fait.le)} par ${fait.par || "—"} : tout y était.`}
+                  </div>
+                )}
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  {jeSuisAdmin && aDeclarer.length > 0 && (
+                    <button onClick={() => perdreContenu(o)} className="px-4 py-2 rounded-lg border-2 border-red-300 text-red-700 font-bold text-sm hover:bg-red-50">⚠ Déclarer ce manque perdu</button>
+                  )}
+                  <button onClick={() => setContenu(null)} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Fermer</button>
+                </div>
+              </div>
+            );
+          })()}
+
           {affichee.length === 0 ? (
             <div className="text-sm text-slate-500">{VIDE_VUE[vue]}</div>
           ) : (
@@ -809,7 +1075,8 @@ export function Outillage({ db, save, profile }) {
                       )}
                       <tr className={`cursor-pointer ${deplie ? classeLigneDepliable(true, i) : (vue !== "tous" && tard ? "bg-red-50 hover:bg-red-100" : classeLigneDepliable(false, i))}`}
                         onClick={() => setOutilDeplie(deplie ? "" : o.id)} title="Cliquez pour voir l'histoire de cet outil">
-                        <td className={`px-3 py-2 font-semibold ${celluleFigee(fond, deplie)}`}>{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}</td>
+                        <td className={`px-3 py-2 font-semibold ${celluleFigee(fond, deplie)}`}>{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}
+                          {estBoite(o) && <div className={`text-xs font-normal ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}</td>
 
                         {vue === "tous" && <>
                           <td className="px-3 py-2 text-slate-600">{o.numero || "—"}</td>
@@ -893,6 +1160,11 @@ export function Outillage({ db, save, profile }) {
                           {jePeux && etat === "sorti" && <button title="Changer le chantier (sans le ramener)" onClick={() => changerLeChantier(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🏗</button>}
                           {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
+                          {(estBoite(o) || jeSuisAdmin) && !["perdu", "reforme"].includes(etat) && (
+                            <button title={estBoite(o) ? "Ce que contient la boîte" : "En faire une boîte à outils"} onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })}
+                              className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🧰</button>
+                          )}
+                          {peutCompterBoite(o, profile) && etat === "sorti" && <button title="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🔢</button>}
                           {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")}>🗑</button>}
                         </td>
                       </tr>
@@ -988,7 +1260,9 @@ export function Outillage({ db, save, profile }) {
             <div className="text-xs text-slate-500 mt-2">
               {(() => {
                 const o = f.outil_id ? tous.find((x) => x.id === f.outil_id) : outilSaisi(registre, f.saisie);
-                if (o) return <>✓ <b>{o.nom}</b>{o.numero ? ` — N° ${o.numero}` : ""} · {libelleEtat(etatOutil(o))}</>;
+                if (o) return <>✓ <b>{o.nom}</b>{o.numero ? ` — N° ${o.numero}` : ""} · {libelleEtat(etatOutil(o))}
+                  {estBoite(o) && <> · 🧰 boîte de {nbContenu(o)} pièce(s)</>}
+                  {manquesEnCours(o).length > 0 && <div className="text-red-700 font-bold">⚠ Elle repart INCOMPLÈTE : il manque {manquesEnCours(o).map((m) => `${m.manque} ${m.nom}`).join(", ")}.</div>}</>;
                 if (f.saisie.trim()) return <span className="text-amber-700">Aucun outil du registre ne porte ce nom ni ce numéro — cliquez une proposition.</span>;
                 return "Un outil est toujours sous le nom de quelqu'un : c'est cette personne qui en répond.";
               })()}

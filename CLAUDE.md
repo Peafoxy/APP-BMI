@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1544 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1557 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -66,7 +66,7 @@ npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium 
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 113 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 118 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -1151,6 +1151,60 @@ lit mal est pire qu'un banc absent).
   colonne se sont élargis (« Qui / décidé par », « Le ») ; les colonnes
   d'argent n'ont pas bougé. Le banc mesure le classement, et le contrôle a
   été éprouvé en remettant la faute exprès : il tombe.
+- **🧰 LES BOÎTES À OUTILS — SUIVRE CE QU'IL Y A DEDANS** (Timo, 18/09/2026 :
+  « les boîtes à outils… comment suivre le matériel qui s'y trouve »). Une
+  boîte ne rentre pas dans le registre comme une perceuse : **personne
+  n'enregistrera quinze sorties chaque matin**, et on ne grave pas un numéro
+  sur une pince à 2 000 F. Donc : **LA BOÎTE EST UN OUTIL, et elle porte SA
+  LISTE** (champ `contenu` sur la fiche de l'outil — `rien à coller`). Elle
+  sort et elle rentre en UN geste, comme avant ; **c'est AU RETOUR qu'on
+  compte**, une fois et pas deux (elle a été comptée la fois d'avant, on sait
+  donc ce qu'elle contient en partant). Règles pures dans `lib/outillage.js`
+  (`contenuDe`, `estBoite`, `compterBoite`, `manquesDuComptage`…), panneau
+  `PanneauComptage` écrit **UNE fois** dans `screens/Outillage.jsx` pour les
+  deux interfaces.
+  - **DÉCISION 1a — RIEN NE RENTRE SANS ÊTRE COMPTÉ** : `critiqueRetour`
+    refuse le retour d'une boîte dont le comptage n'est pas posé APRÈS la
+    sortie en cours, et le formulaire de retour s'OUVRE sur le comptage au
+    lieu de crier un refus. Une perceuse, elle, rentre comme avant.
+  - **DÉCISION 2b — CELUI QUI REND PEUT COMPTER** (« pour qu'il valide ce
+    qu'il ramène ») : `peutCompterBoite` = celui qui tient le registre **et**
+    le détenteur, personne d'autre. Le détenteur compte depuis 🧰 Mes outils ;
+    **le RETOUR lui-même reste le geste de celui qui tient le registre** — un
+    technicien ne s'enregistre pas lui-même, sinon la trace ne vaut rien.
+  - ⚠ **Le comptage est TRANSPARENT** : `comptage` n'est PAS dans
+    `TYPES_ETAT`, sinon compter une boîte ferait croire qu'elle est rentrée
+    (exactement le piège du changement de chantier, réglé le matin même).
+  - ⚠ **QUI en répondait ne se lit PAS sur `detenteurOutil`** : au retour la
+    boîte est déjà rentrée, elle n'est plus chez personne. `responsableDuComptage`
+    remonte à la SORTIE qui précède le comptage — et si la boîte était rangée,
+    personne n'en répondait.
+  - **CE QUI MANQUE SE VOIT** : la ligne du registre le dit, la boîte
+    **repart INCOMPLÈTE et le formulaire de sortie l'annonce** tant que le
+    matériel n'est pas remplacé. La liste, elle, ne baisse pas toute seule :
+    le kit reste le kit (l'administrateur la corrige s'il renonce à remplacer).
+  - **UN MANQUE DEVIENT UNE PERTE par le mécanisme qui EXISTE** : le matériel
+    manquant naît comme **SA PROPRE fiche, déjà déclarée perdue**
+    (`perteDuContenu`), sous le nom de qui détenait la boîte. Le carré
+    « Perdus / Hors d'usage », l'ardoise, la retenue sur salaire et celle sur
+    commission n'ont **pas une ligne de plus à apprendre** — et `outilsVivants`
+    l'écarte du matériel de travail, de l'appel et des propositions de sortie.
+    L'ardoise a donc été écrite **UNE fois** (`demanderCombienDu` +
+    `poserArdoise`) : les deux pertes y passent. Une perte ne se déclare pas
+    deux fois — le trio **boîte + ligne + comptage** (`manquesADeclarer`)
+    l'empêche.
+  - ⚠ **Ce que ça ne fait PAS, et Timo le sait** : le petit matériel n'a pas
+    d'histoire individuelle. On saura « il manque 2 tournevis plats depuis le
+    chantier de MR ERIC », jamais « c'est LE tournevis n° 7 ».
+  - ⚠ **LE COUPLE : `securite-26`**. Le détenteur ne tient pas le registre :
+    sans ce script son comptage serait refusé par la base et **tout le lot
+    resterait coincé**. Il élargit sa porte d'UN cran — le registre débarrassé
+    des justifications, des chantiers **et des comptages**
+    (`outillage_sans_gestes_du_detenteur`) doit rester IDENTIQUE : il dit ce
+    qu'il ramène, il ne rend pas l'outil et ne baisse pas la liste de ce que la
+    boîte doit contenir. Il REPREND `securite-25` (donc `-24`, `-23`, `-22`)
+    en entier : **c'est le seul à coller**.
+
 - **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE ET PAR LIEU** (décision Timo,
   18/09/2026 : personne ne peut voir les outils de deux boutiques à la fois —
   **chaque boutique et le magasin font LEUR appel**, sur ce qui est rangé là).

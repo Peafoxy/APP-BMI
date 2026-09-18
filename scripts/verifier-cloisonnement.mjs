@@ -8172,9 +8172,14 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
   // le salaire ? » mais « Faire rembourser cette perte ? » — il y a désormais
   // DEUX façons d'être retenu (salaire, commission). Ce qu'il protège, lui,
   // n'a pas bougé : proposée, jamais imposée, administrateur seul.
+  // ⚠ CONTRÔLE RETOURNÉ le 18/09/2026 : ces lignes vivaient dans `perdre`.
+  // Elles ont été écrites UNE fois (`demanderCombienDu`) le jour où le
+  // matériel manquant d'une boîte à outils est devenu une perte lui aussi —
+  // une deuxième copie des règles d'argent aurait été la vraie faute.
   test("★ la retenue est proposée, jamais imposée, et à l'ADMINISTRATEUR seul (c'est de l'argent sur la paie de quelqu'un)",
-    /jeSuisAdmin && resp && valeur > 0\s*\n\s*&& await uConfirm\(`Faire rembourser cette perte à \$\{resp\.nom\} \?/.test(ecrC)
-    && /Elle sera retenue \$\{libelleRetenue\(mode\)\}/.test(ecrC)
+    /const demanderCombienDu = async \(resp, valeur, quoi\) => \{\s*\n\s*if \(!\(jeSuisAdmin && resp && valeur > 0\)\) return 0;/.test(ecrC)
+    && /await uConfirm\(`Faire rembourser cette perte à \$\{resp\.nom\} \?/.test(ecrC)
+    && /Elle sera retenue \$\{libelleRetenue\(modeRetenue\(resp\)\)\}/.test(ecrC)
     && /la perte reste à la charge de BMI/.test(ecrC));
 
   // ---- L'appel de la semaine
@@ -8397,6 +8402,135 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && /pour rendre l'outil : refusé.*"REFUSE"/.test(bh)
           && /pour repousser sa date de retour : refusé" "REFUSE"/.test(bh)
           && /la justification de securite-23 passe TOUJOURS.*"PERMIS"/.test(bh); })());
+  }
+
+  // ═══ 🧰 LES BOÎTES À OUTILS — SUIVRE CE QU'IL Y A DEDANS ═══
+  // Timo, 18/09/2026 : « les boîtes à outils… comment suivre le matériel qui
+  // s'y trouve ». Ses DEUX décisions : le comptage au retour est OBLIGATOIRE
+  // (1a) et il peut être fait AUSSI par celui qui rend (2b).
+  {
+    const sql26 = existsSync("supabase/securite-26-comptage-boite.sql")
+      ? readFileSync("supabase/securite-26-comptage-boite.sql", "utf8") : "";
+    const CHEF = { id: "c1", nom: "CHEF BMI", role: "technicien_bmi", chef_equipe: true };
+    const KOSSI = { id: "u1", nom: "KOSSI", role: "technicien" };
+    const VENDEUR = { id: "v1", nom: "AFI", role: "vendeur" };
+
+    // Une boîte : un outil qui porte une liste. Pas de case à cocher de plus.
+    let bte = Out.nouvelOutil({ id: "bt1", nom: "Boîte n°2", le: "2026-09-01", par: "TIMO", lieu: "DEMAKPOE" });
+    bte = Out.ajouterLigneContenu(bte, { id: "L1", nom: "Tournevis plat", quantite: 3, valeur: 2000 });
+    bte = Out.ajouterLigneContenu(bte, { id: "L2", nom: "Pince coupante", quantite: 1, valeur: 5000 });
+    const perceuse = Out.nouvelOutil({ id: "p1", nom: "Perceuse", le: "2026-09-01", par: "TIMO", lieu: "DEMAKPOE" });
+
+    test("★ UNE BOÎTE = un outil qui porte SA LISTE — pas une case à cocher de plus ; une perceuse n'en est pas une",
+      Out.estBoite(bte) && Out.nbContenu(bte) === 4 && Out.contenuDe(bte).length === 2
+      && !Out.estBoite(perceuse) && Out.nbContenu(perceuse) === 0
+      && /déjà dans la liste/.test(Out.critiqueLigneContenu(bte, { nom: "tournevis PLAT", quantite: 1 }))
+      && /Donnez un nom/.test(Out.critiqueLigneContenu(bte, { nom: " ", quantite: 1 }))
+      && /au moins 1/.test(Out.critiqueLigneContenu(bte, { nom: "Marteau", quantite: 0 }))
+      && Out.contenuDe(Out.retirerLigneContenu(bte, "L2")).length === 1);
+
+    const sortie = Out.sortirOutil(bte, { id: "s1", le: "2026-09-15", user_id: "u1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-09-17", par_id: "c1", par: "CHEF BMI" });
+
+    test("★ DÉCISION 1a — RIEN NE RENTRE SANS ÊTRE COMPTÉ : le retour d'une boîte non comptée est REFUSÉ, et il passe dès que le comptage arrive",
+      /rien ne rentre sans être compté/.test(Out.critiqueRetour(sortie))
+      && /Dites combien il y a de « Pince coupante »/.test(Out.critiqueRetour(sortie, { compte: { L1: 3 } }))
+      && Out.critiqueRetour(sortie, { compte: { L1: 3, L2: 1 } }) === ""
+      && Out.critiqueRetour(sortie, { compte: { L1: 0, L2: 0 } }) === ""   // 0 est une réponse
+      // …et une perceuse, elle, rentre comme avant : la règle ne vaut que pour les boîtes
+      && Out.critiqueRetour(Out.sortirOutil(perceuse, { id: "s9", le: "2026-09-15", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-17", par_id: "c1", par: "CHEF" })) === "");
+
+    const compté = Out.compterBoite(sortie, { id: "k1", le: "2026-09-18", compte: { L1: 2, L2: 1 }, par_id: "u1", par: "KOSSI" });
+
+    test("★ le COMPTAGE est TRANSPARENT : compter une boîte ne fait pas croire qu'elle est rentrée (le piège du changement de chantier, déjà réglé)",
+      Out.etatOutil(compté) === "sorti"
+      && !!Out.sortieEnCours(compté)
+      && String(Out.detenteurOutil(compté).nom) === "KOSSI"
+      && Out.TYPES_MOUVEMENT.includes("comptage")
+      && Out.critiqueRetour(compté) === "");           // le comptage posé, le retour passe
+
+    test("★ ce qui MANQUE se lit, et le comptage QUI COMPTE est celui posé APRÈS la sortie en cours",
+      Out.manquesDuComptage(compté, Out.dernierComptage(compté)).map((m) => `${m.manque} ${m.nom}`).join() === "1 Tournevis plat"
+      && Out.comptageDeLaSortie(compté).id === "k1"
+      && Out.manquesEnCours(compté).length === 1
+      // une NOUVELLE sortie redemande un comptage : l'ancien ne vaut plus
+      && Out.comptageDeLaSortie(Out.sortirOutil(Out.rendreOutil(compté, { id: "r1", le: "2026-09-18", etat: "bon", lieu: "DEMAKPOE", par: "CHEF" }), { id: "s2", le: "2026-09-19", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-25", par: "CHEF" })) === null);
+
+    test("★ DÉCISION 2b — QUI compte : celui qui tient le registre ET celui qui rend (« pour qu'il valide ce qu'il ramène »), personne d'autre",
+      Out.peutCompterBoite(sortie, CHEF) === true
+      && Out.peutCompterBoite(sortie, KOSSI) === true
+      && Out.peutCompterBoite(sortie, VENDEUR) === false
+      && Out.peutCompterBoite(sortie, { id: "u9", nom: "AUTRE", role: "technicien" }) === false
+      && Out.peutCompterBoite(perceuse, KOSSI) === false);   // une perceuse ne se compte pas
+
+    test("★ QUI en répondait : au retour la boîte n'est plus chez personne — on remonte à la SORTIE, pas au détenteur du moment",
+      (() => { const rentrée = Out.rendreOutil(compté, { id: "r1", le: "2026-09-18", etat: "bon", lieu: "DEMAKPOE", par: "CHEF BMI" });
+        const r = Out.responsableDuComptage(rentrée);
+        return Out.detenteurOutil(rentrée) === null && r && r.id === "u1" && r.nom === "KOSSI"; })());
+
+    // ---- LE MANQUE DEVIENT UNE PERTE, par le mécanisme qui existe déjà.
+    const manque = Out.manquesEnCours(compté)[0];
+    const fiche = Out.perteDuContenu(compté, manque, {
+      id: "x1", mouvement_id: "m1", comptage_id: "k1", le: "2026-09-18", motif: "Oublié sur le chantier",
+      valeur: 2000, a_rembourser: 2000, user_id: "u1", user: "KOSSI", lieu: "DEMAKPOE", par_id: "c1", par: "CHEF BMI",
+    });
+    const bqH = { id: "bh", nom: "DEMAKPOE", outillage: { outils: [compté, fiche], appels: [] } };
+
+    test("★ UN MANQUE DEVIENT UNE PERTE par le mécanisme qui EXISTE : la fiche naît déjà perdue, avec sa valeur et son ardoise — aucune règle d'argent recopiée",
+      Out.etatOutil(fiche) === "perdu"
+      && /Tournevis plat/.test(fiche.nom) && /Boîte n°2/.test(fiche.nom)
+      && fiche.boite_id === "bt1" && fiche.ligne_id === "L1" && fiche.comptage_id === "k1"
+      && Out.perteDe(fiche).user_id === "u1"
+      && Out.aRembourser(Out.perteDe(fiche)) === 2000 && Out.resteARetenir(Out.perteDe(fiche)) === 2000
+      && Out.valeurDuManque(manque) === 2000
+      && Out.valeurPerdue(bqH, null) === 2000
+      && Out.modeRetenue(KOSSI) === "commission",   // technicien à commission : sur sa part
+
+      `${fiche.nom} — ${Out.etatOutil(fiche)}`);
+
+    test("★ …et elle sort du matériel de travail : ni dans les outils vivants, ni proposée à une sortie, ni appelée — elle est dans « Perdus / Hors d'usage »",
+      Out.outilsVivants(bqH).map((o) => o.nom).join() === "Boîte n°2"
+      && !Out.propositionsOutils(bqH).some((x) => /Tournevis/.test(x.valeur))
+      && Out.resumeOutillage(bqH, "2026-09-18").total === 1
+      && Out.resumeOutillage(bqH, "2026-09-18").perdus === 1
+      && Out.outilsDeLaVue(bqH, "perdus", "2026-09-18").map((o) => o.nom).join() === fiche.nom);
+
+    test("★ une perte ne se déclare pas DEUX fois : le trio boîte + ligne + comptage l'empêche",
+      Out.manquesADeclarer({ id: "b", nom: "X", outillage: { outils: [compté], appels: [] } }, compté).length === 1
+      && Out.manquesADeclarer(bqH, compté).length === 0);
+
+    test("★ l'ÉCRAN : le panneau de comptage est écrit UNE fois pour les deux interfaces, le retour d'une boîte l'OUVRE au lieu de refuser, et la sortie DIT qu'elle repart incomplète",
+      /^function PanneauComptage\(/m.test(ecrC)
+      && (ecrC.match(/<PanneauComptage /g) || []).length === 2
+      && /if \(estBoite\(outil\) && etatOutil\(outil\) === "sorti" && !comptageDeLaSortie\(outil\)\) \{/.test(ecrC)
+      && /Elle repart INCOMPLÈTE/.test(ecrC)
+      && /rien ne rentre sans être compté/.test(ecrC)
+      && /refuserSaufAdmin\(profile, "Régler ce que contient une boîte"\)/.test(ecrC)
+      && /refuserSaufAdmin\(profile, "Déclarer perdu le matériel d'une boîte"\)/.test(ecrC)
+      && /peutCompterBoite\(outil, profile\)/.test(ecrC));
+
+    test("★ l'ardoise d'une perte est écrite UNE fois (demanderCombienDu + poserArdoise) : la perte d'un outil entier et celle du contenu d'une boîte y passent",
+      /const poserArdoise = async \(fiche, \{ resp, du, nom, motif, valeur \}\) => \{/.test(ecrC)
+      && (ecrC.match(/await poserArdoise\(/g) || []).length === 2       // les DEUX pertes y passent
+      && (ecrC.match(/await demanderCombienDu\(/g) || []).length === 2
+      && /const r = await poserArdoise\(fiche, \{ resp, du, nom: outil\.nom/.test(ecrC)
+      && /const r = await poserArdoise\(fiche, \{ resp, du, nom: fiche\.nom/.test(ecrC));
+
+    test("★ LE COUPLE : securite-26 élargit la porte du détenteur d'UN cran — le registre débarrassé des justifications, des chantiers ET des comptages doit rester IDENTIQUE —, et reprend securite-25 en entier",
+      /create or replace function public\.outillage_sans_gestes_du_detenteur/.test(sql26)
+      && /coalesce\(m ->> 'type', ''\) not in \('chantier', 'comptage'\)/.test(sql26)
+      && /e - 'justifications'/.test(sql26)
+      && /outillage_sans_gestes_du_detenteur\(avant -> 'outillage'\)\s*\n\s*is not distinct from public\.outillage_sans_gestes_du_detenteur\(new\.data -> 'outillage'\)/.test(sql26)
+      && /a_pouvoir_retenue_outil\(\)/.test(sql26) && /outillage_sans_retenues/.test(sql26)
+      && /a_pouvoir_outillage\(\)/.test(sql26) && /- 'demandes' - 'updated_at' - 'outillage'/.test(sql26)
+      && /doit afficher : true \| true \| true \| true \| true \| true/.test(sql26));
+
+    test("★ et le banc SQL le rejoue sur base jetable : il compte ce qu'il ramène, mais n'enregistre pas le retour et ne baisse pas la liste de la boîte",
+      (() => { const bh = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
+        return /securite-26-comptage-boite\.sql/.test(bh)
+          && /COMPTE ce qu'il ramène \(sinon tout le lot reste coincé\)" "PERMIS"/.test(bh)
+          && /pour enregistrer le retour : refusé.*"REFUSE"/.test(bh)
+          && /pour baisser ce que la boîte DOIT contenir : refusé" "REFUSE"/.test(bh)
+          && /compte ET enregistre le retour" "PERMIS"/.test(bh); })());
   }
 
   // ═══ 🔍 UNE SEULE RÈGLE POUR TOUTE LIGNE DE RECHERCHE ═══

@@ -48,6 +48,8 @@ echo "▸ Pose des verrous : supabase/securite-24-retenue-outil.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-24-retenue-outil.sql >/dev/null 2>&1 || echo "   ❌ securite-24 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-25-chantier-outil.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-25-chantier-outil.sql >/dev/null 2>&1 || echo "   ❌ securite-25 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-26-comptage-boite.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-26-comptage-boite.sql >/dev/null 2>&1 || echo "   ❌ securite-26 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -305,6 +307,22 @@ essai "★ un VENDEUR ne change aucun chantier (ce n'est pas un technicien)" "RE
 essai "★ le chef technicien, lui, peut tout : changer le chantier comme rendre" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "data || '$RENTRE'::jsonb" b1)"
 JUSTIF25='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"s1","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"}],"justifications":[{"id":"j1","texte":"bloque"}]}],"appels":[]}}'
 essai "★ la justification de securite-23 passe TOUJOURS (elle n'a pas été perdue en route)" "PERMIS" "$TECH" "$(MAJ boutiques "data || '$JUSTIF25'::jsonb" b1)"
+$P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
+
+echo
+echo "── 🧰 LE COMPTAGE D'UNE BOÎTE À OUTILS (securite-26) ──"
+# Décision 2b de Timo : celui qui REND compte ce qu'il ramène. Sa porte
+# s'élargit d'UN cran — il dit ce qu'il y a dans la boîte, et rien d'autre.
+BOITE='{"outillage":{"outils":[{"id":"o2","nom":"Boite 2","contenu":[{"id":"L1","nom":"Tournevis","quantite":3,"valeur":2000}],"mouvements":[{"id":"s2","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"}]}],"appels":[]}}'
+COMPTE='{"outillage":{"outils":[{"id":"o2","nom":"Boite 2","contenu":[{"id":"L1","nom":"Tournevis","quantite":3,"valeur":2000}],"mouvements":[{"id":"s2","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"},{"id":"k1","type":"comptage","compte":{"L1":2}}]}],"appels":[]}}'
+RENTRE2='{"outillage":{"outils":[{"id":"o2","nom":"Boite 2","contenu":[{"id":"L1","nom":"Tournevis","quantite":3,"valeur":2000}],"mouvements":[{"id":"s2","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"},{"id":"k1","type":"comptage","compte":{"L1":2}},{"id":"r2","type":"retour"}]}],"appels":[]}}'
+LISTE2='{"outillage":{"outils":[{"id":"o2","nom":"Boite 2","contenu":[{"id":"L1","nom":"Tournevis","quantite":1,"valeur":2000}],"mouvements":[{"id":"s2","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"},{"id":"k1","type":"comptage","compte":{"L1":2}}]}],"appels":[]}}'
+$P -c "update public.boutiques set data = data || '$BOITE'::jsonb where id='b1';" >/dev/null
+essai "★ le TECHNICIEN qui détient la boîte COMPTE ce qu'il ramène (sinon tout le lot reste coincé)" "PERMIS" "$TECH" "$(MAJ boutiques "data || '$COMPTE'::jsonb" b1)"
+essai "★ il en PROFITE pour enregistrer le retour : refusé (le retour reste le geste de son chef)" "REFUSE" "$TECH" "$(MAJ boutiques "data || '$RENTRE2'::jsonb" b1)"
+essai "★ il en PROFITE pour baisser ce que la boîte DOIT contenir : refusé" "REFUSE" "$TECH" "$(MAJ boutiques "data || '$LISTE2'::jsonb" b1)"
+essai "★ un VENDEUR ne compte aucune boîte (ce n'est pas un technicien)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '$COMPTE'::jsonb" b1)"
+essai "★ le chef technicien, lui, compte ET enregistre le retour" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "data || '$RENTRE2'::jsonb" b1)"
 $P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
 
 echo

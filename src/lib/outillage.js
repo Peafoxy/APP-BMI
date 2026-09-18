@@ -44,7 +44,7 @@ export const ETATS_OUTIL = {
   perdu:       { libelle: "Perdu",       teinte: "text-red-700 bg-red-50 border-red-200" },
   reforme:     { libelle: "Réformé",     teinte: "text-slate-600 bg-slate-100 border-slate-300" },
 };
-export const TYPES_MOUVEMENT = ["sortie", "retour", "reparation", "perdu", "reforme", "chantier"];
+export const TYPES_MOUVEMENT = ["sortie", "retour", "reparation", "perdu", "reforme", "chantier", "comptage"];
 
 export const mouvementsDe = (outil) => Array.isArray(outil?.mouvements) ? outil.mouvements : [];
 export const dernierMouvement = (outil) => {
@@ -208,12 +208,16 @@ export const critiqueSortie = (outil, { user_id, retour_prevu } = {}) => {
 export const sortirOutil = (outil, { id, le, user_id, user, chantier, retour_prevu, par_id, par }) =>
   ajouter(outil, { id, type: "sortie", le, user_id, user, chantier: chantier || "", retour_prevu, par_id, par });
 
-export const critiqueRetour = (outil) => {
+export const critiqueRetour = (outil, { compte } = {}) => {
   if (!outil) return "Choisissez d'abord un outil.";
   const etat = etatOutil(outil);
-  if (etat === "sorti" || etat === "reparation") return "";
   if (etat === "en_boutique") return `« ${outil.nom} » est déjà en boutique.`;
-  return `« ${outil.nom} » est ${libelleEtat(etat).toLowerCase()} : son retour ne se note plus ici.`;
+  if (etat !== "sorti" && etat !== "reparation") return `« ${outil.nom} » est ${libelleEtat(etat).toLowerCase()} : son retour ne se note plus ici.`;
+  // ⚠ DÉCISION 1a (Timo, 18/09/2026) : une BOÎTE ne rentre pas sans être
+  // comptée. Soit celui qui rend l'a déjà comptée (décision 2b) et le
+  // comptage est posté après SA sortie, soit il arrive avec le retour.
+  if (etat === "sorti" && estBoite(outil) && !comptageDeLaSortie(outil)) return critiqueComptage(outil, compte);
+  return "";
 };
 // ⚠ Le RETOUR porte le LIEU : c'est celui qui reçoit qui classe l'outil
 // (Timo, 18/09/2026). Sa boutique, le magasin — ou, s'il n'en a pas, le lieu
@@ -426,6 +430,15 @@ export const histoireOutil = (outil) => mouvementsDe(outil).map((m) => {
   };
   if (m.type === "reforme") return { id: m.id, le: m.le, quoi: "🗑 Réformé", role: "décidé par", qui: par, detail: m.motif || "" };
   if (m.type === "chantier") return { id: m.id, le: m.le, quoi: "🏗 Chantier", role: "part sur", qui: m.chantier || "—", detail: `changé par ${par}` };
+  if (m.type === "comptage") {
+    const manques = manquesDuComptage(outil, m);
+    return {
+      id: m.id, le: m.le, quoi: "🧰 Comptage", role: "compté par", qui: par,
+      detail: manques.length
+        ? `il manquait ${manques.map((x) => `${x.manque} ${x.nom}`).join(", ")}`
+        : "tout y était",
+    };
+  }
   return { id: m.id, le: m.le, quoi: String(m.type || ""), role: "par", qui: par, detail: "" };
 }).reverse();
 
@@ -723,4 +736,169 @@ export const appliquerRetenues = (boutiques, lignes, { id, le, sur, ref, par }) 
     });
     return { ...b, outillage: { ...reg, outils } };
   });
+};
+
+
+// ============================================================
+// 🧰 LES BOÎTES À OUTILS — SUIVRE LE MATÉRIEL QUI S'Y TROUVE
+// (Timo, 18/09/2026 : « les boîtes à outils… comment suivre le matériel qui
+// s'y trouve ».)
+//
+// Une boîte ne rentre pas dans le registre comme une perceuse : personne
+// n'enregistrera quinze sorties chaque matin, et on ne grave pas un numéro
+// sur une pince à 2 000 F. Donc : **LA BOÎTE EST UN OUTIL, et elle porte SA
+// LISTE.** Elle sort et elle rentre en UN geste, comme aujourd'hui ; c'est
+// AU RETOUR qu'on compte, une fois et pas deux (elle a été comptée la fois
+// d'avant, on sait donc ce qu'elle contient en partant).
+//
+// Les DEUX décisions de Timo :
+//   1a — le comptage au retour est OBLIGATOIRE : rien ne rentre sans être
+//        compté (`critiqueRetour`, revérifié DANS le geste) ;
+//   2b — il peut être fait AUSSI par CELUI QUI REND, « pour qu'il valide ce
+//        qu'il ramène » (`peutCompterBoite`). Le RETOUR lui-même reste le
+//        geste de celui qui tient le registre : un technicien ne
+//        s'enregistre pas lui-même, sinon la trace ne vaut rien.
+//
+// ⚠ Ce que ça ne fait PAS, et Timo le sait : le petit matériel n'a pas
+// d'histoire individuelle. On saura « il manque 2 tournevis plats depuis le
+// chantier de MR ERIC », jamais « c'est LE tournevis n° 7 ».
+// ============================================================
+
+// Une boîte, c'est un outil qui porte une liste — pas une case à cocher de
+// plus : on lui ajoute du matériel, elle devient une boîte.
+export const contenuDe = (outil) => (Array.isArray(outil?.contenu) ? outil.contenu : []);
+export const estBoite = (outil) => contenuDe(outil).length > 0;
+export const nbContenu = (outil) => contenuDe(outil).reduce((s, l) => s + Math.max(0, Number(l.quantite || 0)), 0);
+
+export const critiqueLigneContenu = (outil, { nom, quantite } = {}) => {
+  if (!String(nom || "").trim()) return "Donnez un nom à ce matériel.";
+  if (!(Number(quantite) >= 1)) return "Dites combien il y en a (au moins 1).";
+  const n = sansAccentsO(nom);
+  if (contenuDe(outil).some((l) => sansAccentsO(l.nom) === n)) {
+    return `« ${String(nom).trim()} » est déjà dans la liste : corrigez sa quantité plutôt que d'ajouter une deuxième ligne.`;
+  }
+  return "";
+};
+export const ajouterLigneContenu = (outil, { id, nom, quantite, valeur }) => ({
+  ...outil,
+  contenu: [...contenuDe(outil), {
+    id, nom: String(nom || "").trim(),
+    quantite: Math.max(1, Number(quantite || 1)),
+    valeur: Math.max(0, Number(valeur || 0)),
+  }],
+});
+export const changerLigneContenu = (outil, ligneId, champs) => ({
+  ...outil,
+  contenu: contenuDe(outil).map((l) => (l.id === ligneId
+    ? { ...l, ...champs, quantite: Math.max(1, Number((champs && champs.quantite) ?? l.quantite ?? 1)), valeur: Math.max(0, Number((champs && champs.valeur) ?? l.valeur ?? 0)) }
+    : l)),
+});
+export const retirerLigneContenu = (outil, ligneId) => ({ ...outil, contenu: contenuDe(outil).filter((l) => l.id !== ligneId) });
+
+// ---- LE COMPTAGE. C'est un mouvement — la trace ne rétrécit jamais —, mais
+// il est TRANSPARENT : il ne figure pas dans `TYPES_ETAT`, donc compter une
+// boîte ne fait pas croire qu'elle est rentrée (même piège que le changement
+// de chantier, réglé le 18/09/2026).
+export const dernierComptage = (outil) => {
+  const l = mouvementsDe(outil).filter((m) => m.type === "comptage");
+  return l.length ? l[l.length - 1] : null;
+};
+// Le comptage QUI COMPTE : celui posé APRÈS la sortie en cours. Une nouvelle
+// sortie en redemande un, comme une justification de retard.
+export const comptageDeLaSortie = (outil) => {
+  const s = sortieEnCours(outil);
+  const liste = mouvementsDe(outil);
+  if (!s) return dernierComptage(outil);
+  const i = liste.findIndex((m) => m.id === s.id);
+  const apres = liste.slice(i + 1).filter((m) => m.type === "comptage");
+  return apres.length ? apres[apres.length - 1] : null;
+};
+export const critiqueComptage = (outil, compte) => {
+  if (!outil) return "Choisissez d'abord une boîte.";
+  if (!estBoite(outil)) return `« ${outil.nom} » ne porte aucune liste de matériel : il n'y a rien à compter.`;
+  const c = compte && typeof compte === "object" ? compte : null;
+  if (!c) return "Comptez ce qu'il y a dans la boîte : rien ne rentre sans être compté.";
+  const oubli = contenuDe(outil).find((l) => {
+    const v = c[l.id];
+    return v === undefined || v === null || String(v).trim() === "" || !(Number(v) >= 0);
+  });
+  if (oubli) return `Dites combien il y a de « ${oubli.nom} » — même si la réponse est 0.`;
+  return "";
+};
+export const compterBoite = (outil, { id, le, compte, par_id, par }) => {
+  const c = compte || {};
+  const propre = {};
+  contenuDe(outil).forEach((l) => { propre[l.id] = Math.max(0, Number(c[l.id] || 0)); });
+  return ajouter(outil, { id, type: "comptage", le, compte: propre, par_id, par });
+};
+// Ce qui manque, ligne par ligne. Rien de stocké : on relit le comptage.
+export const manquesDuComptage = (outil, comptage) => {
+  const c = (comptage && comptage.compte) || null;
+  if (!c) return [];
+  return contenuDe(outil).map((l) => {
+    const attendu = Math.max(0, Number(l.quantite || 0));
+    const trouve = Math.max(0, Number(c[l.id] || 0));
+    return { id: l.id, nom: l.nom, attendu, compte: trouve, manque: Math.max(0, attendu - trouve), valeur: Math.max(0, Number(l.valeur || 0)) };
+  }).filter((x) => x.manque > 0);
+};
+// Ce qui manque AUJOURD'HUI dans la boîte : c'est ce qui la fera repartir
+// incomplète, et l'écran le DIT au moment de la sortie.
+export const manquesEnCours = (outil) => (estBoite(outil) ? manquesDuComptage(outil, dernierComptage(outil)) : []);
+
+// DÉCISION 2b : celui qui tient le registre, ET celui qui détient la boîte.
+export const peutCompterBoite = (outil, profile) => {
+  if (!estBoite(outil)) return false;
+  if (peutTenirOutillage(profile)) return true;
+  const s = sortieEnCours(outil);
+  return !!s && String(s.user_id || "") === String(profile?.id || "");
+};
+
+// ---- UN MANQUE DEVIENT UNE PERTE, par le mécanisme qui existe DÉJÀ.
+// On ne réinvente ni l'ardoise, ni la retenue sur salaire, ni celle sur
+// commission : le matériel manquant devient SA PROPRE fiche, née déjà
+// déclarée perdue, sous le nom de qui détenait la boîte. Elle n'entre ni
+// dans le matériel vivant, ni dans l'appel de la semaine, ni dans les
+// propositions de sortie — `outilsVivants` écarte tout ce qui est perdu.
+export const valeurDuManque = (m) => Math.max(0, Number(m?.valeur || 0)) * Math.max(1, Number(m?.manque || 1));
+
+// QUI répondait de la boîte au moment du comptage. ⚠ On ne peut pas le
+// demander à `detenteurOutil` : le comptage se fait AU RETOUR, la boîte est
+// déjà rentrée et elle n'est plus chez personne. Il faut remonter à la
+// sortie qui précède le comptage — et si la boîte était rangée, personne
+// n'en répondait, exactement comme un outil perdu en boutique.
+export const responsableDuComptage = (outil) => {
+  const c = dernierComptage(outil);
+  if (!c) return null;
+  const liste = mouvementsDe(outil);
+  const i = liste.findIndex((m) => m.id === c.id);
+  for (let k = i - 1; k >= 0; k -= 1) {
+    if (liste[k].type === "sortie") return liste[k].user_id ? { id: liste[k].user_id, nom: liste[k].user || "" } : null;
+    if (liste[k].type === "retour") return null;
+  }
+  return null;
+};
+
+// Ce qui manque ET n'a pas ENCORE été déclaré perdu : une perte ne se
+// déclare pas deux fois. La fiche née d'un manque porte sa boîte, sa ligne
+// et le comptage qui l'a révélé — c'est ce trio qui empêche le doublon.
+export const manquesADeclarer = (registre, boite) => {
+  const c = dernierComptage(boite);
+  if (!c) return [];
+  const deja = outilsDe(registre)
+    .filter((o) => String(o.boite_id || "") === String(boite.id) && String(o.comptage_id || "") === String(c.id))
+    .map((o) => String(o.ligne_id || ""));
+  return manquesDuComptage(boite, c).filter((m) => !deja.includes(String(m.id)));
+};
+export const perteDuContenu = (boite, manque, { id, mouvement_id, comptage_id, le, motif, valeur, a_rembourser, user_id, user, lieu, par_id, par }) => {
+  const n = Math.max(1, Number(manque?.manque || 1));
+  const fiche = {
+    ...nouvelOutil({
+      id, nom: `${manque.nom}${n > 1 ? ` ×${n}` : ""} — de ${boite.nom}`,
+      categorie: "Contenu de boîte à outils",
+      prix_achat: Math.max(0, Number(valeur || 0)),
+      lieu: lieu || "", le, par_id, par,
+    }),
+    boite_id: boite.id, boite_nom: boite.nom, ligne_id: manque.id, comptage_id: comptage_id || "", quantite: n,
+  };
+  return declarerPerdu(fiche, { id: mouvement_id, le, motif, valeur, a_rembourser, user_id, user, par_id, par });
 };
