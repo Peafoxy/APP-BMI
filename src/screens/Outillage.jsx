@@ -34,7 +34,7 @@ import {
   detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortie, sortirOutil, critiqueRetour,
   rendreOutil, mettreEnReparation, critiquePerte, responsableDeLaPerte, valeurProposee, declarerPerdu,
   reformerOutil, retenuePourOutil, pertesDe, appelAFaire, appelDeLaSemaine, construireAppel,
-  manquantsDuDernierAppel, resumeOutillage, propositionsOutils, outilSaisi, critiqueNouvelOutil,
+  manquantsDuDernierAppel, resumeOutillage, propositionsOutils, outilSaisi, critiqueNouvelOutil, reformeDe,
   nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
@@ -53,14 +53,14 @@ const TITRE_VUE = {
   dehors: "🧰 Ce qui est dehors",
   retard: "⏰ En retard",
   reparation: "🔧 En réparation",
-  perdus: "⚠ Ce qui a été perdu",
+  perdus: "⚠ Perdus et 🗑 hors d'usage",
 };
 const VIDE_VUE = {
   tous: "Aucun outil au registre.",
   dehors: "Tout le matériel est rentré.",
   retard: "Aucun outil en retard : tout ce qui est dehors doit encore revenir.",
   reparation: "Aucun outil chez un réparateur.",
-  perdus: "Aucun outil perdu. C'est le but du registre.",
+  perdus: "Aucun outil perdu, aucun outil hors d'usage. C'est le but du registre.",
 };
 // 🏗 CHANGER LE CHANTIER D'UN OUTIL SANS LE RAMENER (Timo, 18/09/2026 :
 // « aujourd'hui il finit le chantier A, il n'a pas besoin de ramener l'outil
@@ -588,7 +588,15 @@ export function Outillage({ db, save, profile }) {
             ["dehors", "Dehors", resume.dehors, resume.dehors ? "attente" : "neutre"],
             ["retard", "En retard", resume.retard, resume.retard ? "du" : "neutre"],
             ["reparation", "En réparation", resume.reparation, resume.reparation ? "attente" : "neutre"],
-            ["perdus", "Perdus", `${resume.perdus} · ${fmt(resume.valeurPerdue)}`, resume.perdus ? "du" : "neutre"],
+            // ⚠ UN SEUL carré pour les deux (Timo, 18/09/2026 : « pas un 6e carré…
+            // grouper avec perdu »). Le nombre du haut = tout ce qui est sorti du
+            // matériel de travail ; la ligne du dessous dit la part de chacun,
+            // parce que perdre un outil et l'user jusqu'au bout n'est pas pareil.
+            ["perdus", "Perdus / Hors d'usage", (
+              <>{resume.perdus + resume.reformes}
+                <div className="text-xs font-normal mt-0.5">{resume.perdus} perdu{resume.perdus > 1 ? "s" : ""}{resume.valeurPerdue ? ` · ${fmt(resume.valeurPerdue)}` : ""} · {resume.reformes} hors d'usage</div>
+              </>
+            ), resume.perdus ? "du" : "neutre"],
           ].map(([id, label, valeur, nature]) => (
             <button key={id} type="button" onClick={() => { setVue(id); setOutilDeplie(""); }}
               title={`Voir : ${label}`}
@@ -765,7 +773,7 @@ export function Outillage({ db, save, profile }) {
                     {vue === "dehors" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Chantier</th><th className="px-3 py-2">Depuis</th><th className="px-3 py-2">Retour prévu</th></>}
                     {vue === "retard" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Retour prévu</th><th className="px-3 py-2">Retard</th><th className="px-3 py-2">Pourquoi ce n'est pas rentré</th></>}
                     {vue === "reparation" && <><th className="px-3 py-2">Chez quel réparateur</th><th className="px-3 py-2">Son numéro</th><th className="px-3 py-2">La panne</th><th className="px-3 py-2 text-right">Prix</th><th className="px-3 py-2">Depuis</th></>}
-                    {vue === "perdus" && <><th className="px-3 py-2">Qui l'a perdu</th><th className="px-3 py-2">Perdu le</th><th className="px-3 py-2">Pourquoi</th><th className="px-3 py-2 text-right">Valeur</th><th className="px-3 py-2 text-right">À rembourser</th><th className="px-3 py-2 text-right">Déjà retenu</th><th className="px-3 py-2 text-right">Reste à payer</th></>}
+                    {vue === "perdus" && <><th className="px-3 py-2">Qui / décidé par</th><th className="px-3 py-2">Le</th><th className="px-3 py-2">Pourquoi</th><th className="px-3 py-2 text-right">Valeur</th><th className="px-3 py-2 text-right">À rembourser</th><th className="px-3 py-2 text-right">Déjà retenu</th><th className="px-3 py-2 text-right">Reste à payer</th></>}
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -779,6 +787,10 @@ export function Outillage({ db, save, profile }) {
                     const just = derniereJustification(o);
                     const ouLu = lieuOutil(o);
                     const perte = perteDe(o);
+                    const reforme = reformeDe(o);
+                    // Dans le carré « Perdus / Hors d'usage », une ligne de titre
+                    // ouvre chaque bloc : la liste arrive perdus PUIS réformés.
+                    const ouvreBloc = vue === "perdus" && (i === 0 || etatOutil(affichee[i - 1]) !== etat);
                     const qui = perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null;
                     const mode = modeRetenue(qui);
                     const tard = enRetard(o, jour);
@@ -786,6 +798,15 @@ export function Outillage({ db, save, profile }) {
                     const fond = deplie ? "bg-sky-200" : (vue !== "tous" && tard ? "bg-red-50" : (i % 2 ? "bg-slate-50/60" : "bg-white"));
                     return (
                       <Fragment key={o.id}>
+                      {ouvreBloc && (
+                        <tr className={etat === "perdu" ? "bg-red-100" : "bg-slate-100"}>
+                          <td colSpan={9} className={`px-3 py-1.5 text-xs font-bold ${etat === "perdu" ? "text-red-900" : "text-slate-700"}`}>
+                            {etat === "perdu"
+                              ? "⚠ Perdus — quelqu'un en répondait : il peut y avoir un remboursement"
+                              : "🗑 Hors d'usage — usés ou cassés : plus rien à rembourser de personne"}
+                          </td>
+                        </tr>
+                      )}
                       <tr className={`cursor-pointer ${deplie ? classeLigneDepliable(true, i) : (vue !== "tous" && tard ? "bg-red-50 hover:bg-red-100" : classeLigneDepliable(false, i))}`}
                         onClick={() => setOutilDeplie(deplie ? "" : o.id)} title="Cliquez pour voir l'histoire de cet outil">
                         <td className={`px-3 py-2 font-semibold ${celluleFigee(fond, deplie)}`}>{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}</td>
@@ -846,6 +867,17 @@ export function Outillage({ db, save, profile }) {
                             {resteARetenir(perte) ? fmt(resteARetenir(perte)) : (aRembourser(perte) ? "soldé ✅" : "—")}
                             {resteARetenir(perte) > 0 && mode === "commission" && <div className="text-xs font-normal text-slate-500">sur sa prochaine part</div>}
                           </td>
+                        </>}
+
+                        {vue === "perdus" && reforme && <>
+                          <td className="px-3 py-2 font-semibold">{reforme.par || "—"}</td>
+                          <td className="px-3 py-2 tabular-nums">{dFR(reforme.le)}</td>
+                          <td className="px-3 py-2 text-slate-600">{reforme.motif || "—"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{o.prix_achat ? fmt(o.prix_achat) : "—"}
+                            {o.prix_achat ? <div className="text-xs font-normal text-slate-500">prix d'achat</div> : null}</td>
+                          <td className="px-3 py-2 text-right text-slate-400">—</td>
+                          <td className="px-3 py-2 text-right text-slate-400">—</td>
+                          <td className="px-3 py-2 text-right text-slate-400">—</td>
                         </>}
 
                         <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>

@@ -8561,6 +8561,51 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && Out.outilsDeLaVue({ id: "b9", nom: "X", outillage: { outils: [Out.declarerPerdu(c, { id: "pz", le: "2026-09-18", motif: "Volée", valeur: 40000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" })], appels: [] } }, "perdus", "2026-09-18").length === 1
       && Out.VUES_OUTILLAGE.join() === "tous,dehors,retard,reparation,perdus");
 
+    // ═══ ⚠ PERDUS et 🗑 HORS D'USAGE : UN SEUL CARRÉ, DEUX BLOCS DEDANS ═══
+    // Timo, 18/09/2026 : « pas un 6e carré… grouper avec perdu. Donc carré
+    // perdu-hors d'usage. À l'intérieur on classe les perdus et les hors
+    // d'usage. » Le carré comptait les perdus SEULS et les réformés n'avaient
+    // AUCUN endroit où se lire : ils restaient noyés dans le registre.
+    {
+      const perdu = Out.declarerPerdu(Out.nouvelOutil({ id: "h1", nom: "Meuleuse", le: "2026-09-01", par: "TIMO" }),
+        { id: "p1", le: "2026-09-10", motif: "Volée sur le chantier", valeur: 30000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" });
+      const usé = Out.reformerOutil(Out.nouvelOutil({ id: "h2", nom: "Marteau", le: "2026-09-01", par: "TIMO", prix_achat: 8000 }),
+        { id: "f1", le: "2026-09-12", motif: "Manche cassé", par_id: "c1", par: "CHEF BMI" });
+      const vivant = Out.nouvelOutil({ id: "h3", nom: "Perceuse", le: "2026-09-01", par: "TIMO" });
+      // ⚠ Rangés dans le DÉSORDRE dans la fiche : c'est la vue qui classe.
+      const bqH = { id: "bh", nom: "DEMAKPOE", outillage: { outils: [usé, vivant, perdu], appels: [] } };
+      const vueH = Out.outilsDeLaVue(bqH, "perdus", "2026-09-18");
+      const res = Out.resumeOutillage(bqH, "2026-09-18");
+
+      test("★ UN SEUL carré « Perdus / Hors d'usage » : il compte les DEUX, et dit la part de chacun",
+        res.perdus === 1 && res.reformes === 1 && res.valeurPerdue === 30000
+        && res.total === 1                                  // le matériel vivant ne compte ni l'un ni l'autre
+        && Out.VUES_OUTILLAGE.length === 5,                 // pas de sixième carré (décision Timo)
+        `perdus ${res.perdus}, hors d'usage ${res.reformes}, vivants ${res.total}`);
+
+      test("★ à l'intérieur, on CLASSE : les perdus d'abord (il y a de l'argent en jeu), les hors d'usage ensuite",
+        vueH.map((o) => o.nom).join() === "Meuleuse,Marteau"
+        && vueH.map((o) => Out.etatOutil(o)).join() === "perdu,reforme"
+        && Out.outilsPerdus(bqH).map((o) => o.nom).join() === "Meuleuse"
+        && Out.outilsReformes(bqH).map((o) => o.nom).join() === "Marteau"
+        && Out.outilsHorsService(bqH).length === 2,
+        vueH.map((o) => `${o.nom}[${Out.etatOutil(o)}]`).join(" | "));
+
+      test("★ un outil hors d'usage se LIT : qui l'a décidé, quand, pourquoi — et il n'y a rien à rembourser de personne",
+        (() => { const r = Out.reformeDe(usé);
+          return r && r.par === "CHEF BMI" && r.le === "2026-09-12" && r.motif === "Manche cassé"
+            && Out.reformeDe(perdu) === null && Out.perteDe(usé) === null; })());
+
+      test("★ et l'écran montre les DEUX blocs, chacun titré, avec les colonnes d'un réformé (décidé par, le, pourquoi, prix d'achat)",
+        /⚠ Perdus — quelqu'un en répondait/.test(ecrC)
+        && /🗑 Hors d'usage — usés ou cassés : plus rien à rembourser de personne/.test(ecrC)
+        && /const ouvreBloc = vue === "perdus" && \(i === 0 \|\| etatOutil\(affichee\[i - 1\]\) !== etat\)/.test(ecrC)
+        && /\{vue === "perdus" && reforme && <>/.test(ecrC)
+        && /<th className="px-3 py-2">Qui \/ décidé par<\/th>/.test(ecrC)
+        && /Perdus \/ Hors d'usage/.test(ecrC)
+        && /hors d'usage<\/div>/.test(ecrC));
+    }
+
     // ⚠ Ce contrôle mesure L'ÉCRAN : les quatre colonnes que Timo a demandées
     // doivent exister, et le numéro du réparateur doit s'appeler par LA règle
     // WhatsApp commune (jamais un wa.me écrit à la main).
@@ -8775,13 +8820,18 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && /ret\.lignes\.map\(\(l\) => l\.outil\)\.join\(", "\)/.test(f)
           && /construirePaiementPrime\(db, profile, c, e, moyen, ret\)/.test(f)));
 
-      test("★ LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES (il était le seul à ne pas être un bouton) et montre SES colonnes : qui l'a perdu, quand, pourquoi, valeur, à rembourser, déjà retenu, reste à payer",
-        /\["perdus", "Perdus", `\$\{resume\.perdus\} · \$\{fmt\(resume\.valeurPerdue\)\}`/.test(ecrC)
+      // ⚠ CONTRÔLE RETOURNÉ le 18/09/2026 : le carré s'appelle désormais
+      // « Perdus / Hors d'usage » et porte les DEUX (décision Timo : « pas un
+      // 6e carré… grouper avec perdu »). Les colonnes d'argent sont les mêmes,
+      // seuls les deux premiers titres se sont élargis aux réformés. On le
+      // retourne, on ne le supprime pas : il garde la mesure de tout le reste.
+      test("★ LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES (il était le seul à ne pas être un bouton) et montre SES colonnes : qui, quand, pourquoi, valeur, à rembourser, déjà retenu, reste à payer",
+        /\["perdus", "Perdus \/ Hors d'usage", \(/.test(ecrC)
         && !/<Stat label="Perdus"/.test(ecrC)
-        && /<th className="px-3 py-2">Qui l'a perdu<\/th><th className="px-3 py-2">Perdu le<\/th><th className="px-3 py-2">Pourquoi<\/th><th className="px-3 py-2 text-right">Valeur<\/th><th className="px-3 py-2 text-right">À rembourser<\/th><th className="px-3 py-2 text-right">Déjà retenu<\/th><th className="px-3 py-2 text-right">Reste à payer<\/th>/.test(ecrC)
+        && /<th className="px-3 py-2">Qui \/ décidé par<\/th><th className="px-3 py-2">Le<\/th><th className="px-3 py-2">Pourquoi<\/th><th className="px-3 py-2 text-right">Valeur<\/th><th className="px-3 py-2 text-right">À rembourser<\/th><th className="px-3 py-2 text-right">Déjà retenu<\/th><th className="px-3 py-2 text-right">Reste à payer<\/th>/.test(ecrC)
         && /retenue \{libelleRetenue\(mode\)\}/.test(ecrC)
         && /💵 Ce qui a déjà été retenu à/.test(ecrC)
-        && /perdus: "⚠ Ce qui a été perdu"/.test(ecrC));
+        && /perdus: "⚠ Perdus et 🗑 hors d'usage"/.test(ecrC));
 
       test("★ le bouton 💵 « Retenir » n'est proposé QUE là où il agit : administrateur, mode SALAIRE, et seulement s'il reste quelque chose à payer — pour un technicien à commission l'écran DIT que ça se prend sur sa prochaine part, il ne fait pas semblant",
         /vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir\(perte\) > 0/.test(ecrC)

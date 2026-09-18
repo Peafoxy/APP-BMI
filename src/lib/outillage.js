@@ -147,6 +147,19 @@ export const appelsDe = (boutique) => registreDe(boutique).appels;
 export const outilsVivants = (boutique) => outilsDe(boutique).filter((o) => !["perdu", "reforme"].includes(etatOutil(o)));
 export const outilsDehors = (boutique) => outilsDe(boutique).filter((o) => etatOutil(o) === "sorti");
 
+// ---- ⚠ PERDUS et 🗑 HORS D'USAGE : UN SEUL CARRÉ, DEUX BLOCS DEDANS
+// Timo, 18/09/2026 : « pas un 6e carré… grouper avec perdu. Donc carré
+// perdu-hors d'usage. À l'intérieur on classe les perdus et les hors
+// d'usage. » Les PERDUS d'abord — il y a de l'argent en jeu, quelqu'un peut
+// devoir rembourser ; les RÉFORMÉS ensuite — usés ou cassés, plus rien à
+// rembourser de personne. Les deux sortent du matériel de travail
+// (`outilsVivants`), les deux gardent leur trace pour toujours.
+export const outilsPerdus = (boutique) => outilsDe(boutique).filter((o) => etatOutil(o) === "perdu");
+export const outilsReformes = (boutique) => outilsDe(boutique).filter((o) => etatOutil(o) === "reforme");
+export const outilsHorsService = (boutique) => [...outilsPerdus(boutique), ...outilsReformes(boutique)];
+// Le mouvement qui a mis l'outil hors d'usage : qui l'a décidé, quand, pourquoi.
+export const reformeDe = (outil) => (etatOutil(outil) === "reforme" ? dernierMouvementEtat(outil) : null);
+
 // ---- Le retard : la date de retour est passée et l'outil n'est pas rentré.
 export const enRetard = (outil, aujourdhui) => {
   const s = sortieEnCours(outil);
@@ -325,6 +338,7 @@ export const resumeOutillage = (boutique, aujourdhui) => {
     retard: dehors.filter((o) => enRetard(o, aujourdhui)).length,
     reparation: tous.filter((o) => etatOutil(o) === "reparation").length,
     perdus: tous.filter((o) => etatOutil(o) === "perdu").length,
+    reformes: tous.filter((o) => etatOutil(o) === "reforme").length,
     valeurPerdue: valeurPerdue(boutique, null),
   };
 };
@@ -431,7 +445,8 @@ export const outilsDeLaVue = (boutique, vue, jour) => {
   if (vue === "dehors") return outilsDehors(boutique);
   if (vue === "retard") return outilsDehors(boutique).filter((o) => enRetard(o, jour));
   if (vue === "reparation") return outilsDe(boutique).filter((o) => etatOutil(o) === "reparation");
-  if (vue === "perdus") return outilsDe(boutique).filter((o) => etatOutil(o) === "perdu");
+  // ⚠ UN SEUL carré pour les deux (Timo, 18/09/2026) : perdus PUIS réformés.
+  if (vue === "perdus") return outilsHorsService(boutique);
   return outilsDe(boutique);
 };
 

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1540 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1544 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1126,14 +1126,31 @@ lit mal est pire qu'un banc absent).
     a été retenu, ils ne sortent pas un outil, ne changent pas ce qui est dû.
     Il REPREND `securite-23` (donc `-22`) en entier : **c'est le seul à
     coller**. **Collé par Timo le 18/09/2026 (`true | true | true | true`).**
-- **LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES** (18/09/2026 : « dans
-  perdu quand on clique, la liste de tous les équipements perdus apparaît et
-  qui l'a perdu, combien a déjà été retenu sur son salaire ou commission,
-  combien il reste à payer etc… tout apparaît ») — il était le seul des cinq à
-  ne pas être un bouton. Colonnes : **outil / qui l'a perdu (et sur quoi il
-  est retenu) / perdu le / pourquoi / valeur / à rembourser / déjà retenu /
-  reste à payer** ; le détail de chaque retenue (montant, mois ou part, date,
-  par qui) s'ouvre AU CLIC, avec l'histoire de l'outil.
+- **LE CARRÉ « PERDUS / HORS D'USAGE » S'OUVRE COMME LES QUATRE AUTRES**
+  (18/09/2026 : « dans perdu quand on clique, la liste de tous les équipements
+  perdus apparaît et qui l'a perdu, combien a déjà été retenu sur son salaire
+  ou commission, combien il reste à payer etc… tout apparaît ») — il était le
+  seul des cinq à ne pas être un bouton. Colonnes : **outil / qui (et sur quoi
+  il est retenu) / le / pourquoi / valeur / à rembourser / déjà retenu / reste
+  à payer** ; le détail de chaque retenue (montant, mois ou part, date, par
+  qui) s'ouvre AU CLIC, avec l'histoire de l'outil.
+  ⚠ **ET IL PORTE AUSSI LES OUTILS HORS D'USAGE — PAS DE SIXIÈME CARRÉ**
+  (Timo, 18/09/2026 : « pas un 6e carré… grouper avec perdu. Donc carré
+  perdu-hors d'usage. À l'intérieur on classe les perdus et les hors
+  d'usage »). **Réformer** (bouton 🗑, administrateur seul, motif obligatoire)
+  existait et faisait déjà son travail — l'outil sort des propositions de
+  sortie, sort de l'appel, sort du carré « Outils » — mais **il ne se lisait
+  NULLE PART** : il restait noyé dans le registre avec une pastille grise, et
+  le carré comptait les perdus SEULS. Depuis : `outilsPerdus` /
+  `outilsReformes` / `outilsHorsService` / `reformeDe` (lib/outillage.js), le
+  carré compte les deux et dit la part de chacun dessous, et la vue affiche
+  **DEUX blocs titrés — les perdus d'abord** (il y a de l'argent en jeu),
+  **les hors d'usage ensuite** (usés ou cassés : les trois colonnes d'argent
+  y valent « — », il n'y a rien à rembourser de personne ; on lit qui l'a
+  décidé, quand, pourquoi, et le prix d'achat). Les deux premiers titres de
+  colonne se sont élargis (« Qui / décidé par », « Le ») ; les colonnes
+  d'argent n'ont pas bougé. Le banc mesure le classement, et le contrôle a
+  été éprouvé en remettant la faute exprès : il tombe.
 - **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE ET PAR LIEU** (décision Timo,
   18/09/2026 : personne ne peut voir les outils de deux boutiques à la fois —
   **chaque boutique et le magasin font LEUR appel**, sur ce qui est rangé là).
