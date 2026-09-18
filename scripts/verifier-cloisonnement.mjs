@@ -8599,6 +8599,42 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
       // ⚠ C'est `securite-22` qui porte `a_pouvoir_outillage` — securite-26 ne
       // fait que rouvrir la porte du détenteur. L'administrateur y est déjà.
+      test("★ ✏️ CORRIGER LA FICHE ELLE-MÊME — un numéro gravé faux ne se laisse pas ; il reste UNIQUE dans toute la maison, mais l'outil ne se gêne pas lui-même",
+        (() => {
+          const a = Out.nouvelOutil({ id: "fa", nom: "Perceuse", numero: "BMI-009", categorie: "Électroportatif", prix_achat: 45000, le: "2026-09-01", par: "T", lieu: "BMI DEMAKPOE" });
+          const b = Out.nouvelOutil({ id: "fb", nom: "Meuleuse", numero: "BMI-010", le: "2026-09-01", par: "T", lieu: "DEPOT MAISON" });
+          const reg = { id: "", nom: "", outillage: { outils: [a, b], appels: [] } };
+          const apres = Out.corrigerOutil(a, { nom: "Perceuse BOSCH", numero: "BMI-099", categorie: "Électroportatif", achete_le: "2026-08-01", prix_achat: 50000 });
+          return /déjà porté par un autre outil/.test(Out.critiqueCorrectionOutil(reg, a, { nom: "Perceuse", numero: "BMI-010" }))
+            && Out.critiqueCorrectionOutil(reg, a, { nom: "Perceuse", numero: "BMI-009" }) === ""   // le sien ne le gêne pas
+            && Out.critiqueCorrectionOutil(reg, a, { nom: "Perceuse", numero: "BMI-099" }) === ""
+            && /Donnez un nom/.test(Out.critiqueCorrectionOutil(reg, a, { nom: " ", numero: "" }))
+            && /est dehors/.test(Out.critiqueCorrectionOutil(reg, Out.sortirOutil(a, { id: "s", le: "2026-09-15", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-17", par: "C" }), { nom: "X", numero: "" }))
+            && Out.diffFiche(a, apres).map((c) => c.champ).join() === "nom,numero,achete_le,prix_achat"
+            && Out.mouvementsDe(apres).length === Out.mouvementsDe(a).length          // l'histoire ne bouge pas
+            && !("lieu" in Out.corrigerOutil(a, {}) && Out.corrigerOutil(a, {}).lieu !== a.lieu);  // le LIEU n'est pas corrigible ici
+        })());
+
+      // ⚠ L'ÉTIQUETTE MENTAIT (capture Timo, 18/09/2026, colonne État :
+      // « je ne comprends pas pourquoi on dit en boutique même si au
+      // magasin »). Un outil rangé au DÉPÔT affichait « En boutique ».
+      test("★ un outil RANGÉ se lit « Rangé », jamais « En boutique » — c'est la colonne « Où » qui nomme le lieu, boutique OU magasin",
+        (() => {
+          const auDepot = Out.nouvelOutil({ id: "d1", nom: "Échelle", le: "2026-09-01", par: "T", lieu: "DEPOT MAISON" });
+          return Out.libelleEtat(Out.etatOutil(auDepot)) === "Rangé"
+            && Out.lieuDeRangement(auDepot) === "DEPOT MAISON"
+            && /est déjà rentré : il est rangé à DEPOT MAISON/.test(Out.critiqueRetour(auDepot))
+            && !/libelle: "En boutique"/.test(readFileSync("src/lib/outillage.js", "utf8"))
+            && !/Retour en boutique/.test(ecrC);
+        })());
+
+      test("★ l'ÉCRAN : le ✏️ de la fiche n'est offert qu'à l'administrateur, sur un outil rangé, et il DIT que le lieu ne s'y corrige pas",
+        /refuserSaufAdmin\(profile, "Corriger la fiche d'un outil"\)/.test(ecrC)
+        && /\{jeSuisAdmin && vue === "tous" && outilRange\(o\) && \(/.test(ecrC)
+        && /<Field label="Numéro gravé"><input className=\{inputCls\} value=\{fiche\.numero\}/.test(ecrC)
+        && /Le lieu ne se corrige pas ici<\/b>/.test(ecrC)
+        && /critiqueCorrectionOutil\(registre, outil, fiche\)/.test(ecrC));
+
       test("★ et RIEN à coller pour ça : l'administrateur a déjà le pouvoir sur le registre, des DEUX côtés",
         Out.peutTenirOutillage({ role: "admin" }) === true
         && /role_jeton\(\) in \('magasinier', 'admin'\)/.test(readFileSync("supabase/securite-22-outillage.sql", "utf8")));

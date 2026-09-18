@@ -40,6 +40,7 @@ import {
   peutCompterBoite, valeurDuManque, perteDuContenu, responsableDuComptage, manquesADeclarer,
   outilRange, critiqueOutilRange, critiqueSuppressionOutil, supprimerOutil, restaurerOutil, mouvementsDe,
   supprimesDe, critiqueBasculeBoite, basculerBoite, changerLigneContenu,
+  critiqueCorrectionOutil, corrigerOutil, diffFiche,
   nouvelOutil, remplacerOutil, ajouterOutil, ajouterAppel, histoireOutil, dernierRetour,
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
@@ -309,6 +310,9 @@ export function Outillage({ db, save, profile }) {
   // OBLIGATOIRE (décision 1a) ; la liste du contenu se règle par l'admin.
   const [compter, setCompter] = useState(null);  // { outil_id, pourRetour, valeurs }
   const [contenu, setContenu] = useState(null);  // { outil_id, nom, quantite, valeur }
+  // ✏️ Corriger la FICHE elle-même (Timo, 18/09/2026 : « si numéro gravé
+  // est faussé, on ne peut pas laisser comme ça »).
+  const [fiche, setFiche] = useState(null);     // { outil_id, nom, numero, categorie, achete_le, prix_achat }
   const jeSuisAdmin = profile.role === "admin";
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
   const jePeux = peutTenirOutillage(profile);
@@ -690,6 +694,27 @@ export function Outillage({ db, save, profile }) {
     const bq = (db.boutiques || []).find((b) => b.id === outil._fiche);
     if (!bq) { uAlert("Cette fiche n'est rattachée à aucune boutique connue."); return; }
     ecrire(restaurerOutil(bq, outil.id), `🧰 Fiche remise au registre — ${outil.nom}`);
+  };
+
+  // ---- ✏️ CORRIGER LA FICHE : le nom, le NUMÉRO GRAVÉ, la catégorie, la
+  // date et le prix d'achat. Même condition : l'outil doit être rangé.
+  // ⚠ Le lieu n'y est pas : il est DÉDUIT (dernier retour, sinon création),
+  // et la fiche vit dans la boutique qui la garde — un retour le repose.
+  const enregistrerFiche = async () => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Corriger la fiche d'un outil")) return;
+    const outil = tous.find((o) => o.id === fiche.outil_id);
+    if (!outil) { setFiche(null); return; }
+    const refus = critiqueCorrectionOutil(registre, outil, fiche);
+    if (refus) { uAlert(refus); return; }
+    const apres = corrigerOutil(outil, fiche);
+    const change = diffFiche(outil, apres);
+    if (!change.length) { setFiche(null); return; }
+    const LIB = { nom: "nom", numero: "numéro gravé", categorie: "catégorie", achete_le: "date d'achat", prix_achat: "prix d'achat" };
+    const dit = change.map((c) => `${LIB[c.champ]} : ${c.avant || "—"} → ${c.apres || "—"}`).join(" · ");
+    if (!await uConfirm(`Corriger la fiche de « ${outil.nom} » ?\n\n${change.map((c) => `• ${LIB[c.champ]} : ${c.avant || "—"} → ${c.apres || "—"}`).join("\n")}\n\nSon histoire et ses mouvements ne bougent pas.`)) return;
+    ecrireOutil(outil, apres, `🧰 Fiche corrigée — ${outil.nom} : ${dit}`);
+    setFiche(null);
   };
 
   // ---- ✏️ MODIFIER UNE CAISSE : la case elle-même, et ses lignes.
@@ -1109,6 +1134,31 @@ export function Outillage({ db, save, profile }) {
             );
           })()}
 
+          {/* ✏️ CORRIGER LA FICHE — un numéro gravé faux ne se laisse pas. */}
+          {fiche && (() => {
+            const o = tous.find((x) => x.id === fiche.outil_id);
+            if (!o) return null;
+            return (
+              <div className="rounded-xl border-2 border-sky-300 bg-white p-3 mb-3">
+                <div className="font-bold text-slate-800 mb-2">✏️ Corriger la fiche de « {o.nom} »</div>
+                <div className="grid md:grid-cols-5 gap-3">
+                  <Field label="Nom de l'outil"><input className={inputCls} value={fiche.nom} onChange={(e) => setFiche({ ...fiche, nom: e.target.value })} autoFocus /></Field>
+                  <Field label="Numéro gravé"><input className={inputCls} value={fiche.numero} onChange={(e) => setFiche({ ...fiche, numero: e.target.value })} placeholder="BMI-012" /></Field>
+                  <Field label="Catégorie"><input className={inputCls} value={fiche.categorie} onChange={(e) => setFiche({ ...fiche, categorie: e.target.value })} /></Field>
+                  <Field label="Acheté le"><input type="date" className={inputCls} value={fiche.achete_le} onChange={(e) => setFiche({ ...fiche, achete_le: e.target.value })} /></Field>
+                  <Field label="Prix d'achat (F)"><input type="number" className={inputCls} value={fiche.prix_achat} onChange={(e) => setFiche({ ...fiche, prix_achat: e.target.value })} /></Field>
+                </div>
+                <div className="text-xs text-slate-500 mt-2">
+                  Son histoire, ses mouvements et sa liste ne bougent pas. <b>Le lieu ne se corrige pas ici</b> : il est déduit du dernier retour — enregistrez un retour pour le reposer. Il est rangé à <b>{lieuDeRangement(o) || "—"}</b>.
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={enregistrerFiche} className={btnDark}>Enregistrer la correction</button>
+                  <button onClick={() => setFiche(null)} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Annuler</button>
+                </div>
+              </div>
+            );
+          })()}
+
           {affichee.length === 0 ? (
             <div className="text-sm text-slate-500">{VIDE_VUE[vue]}</div>
           ) : (
@@ -1233,7 +1283,7 @@ export function Outillage({ db, save, profile }) {
                           {vue === "perdus" && jeSuisAdmin && perte && <button title="Combien lui demander ?" onClick={() => fixerMontant(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>✏️</button>}
                           {vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir(perte) > 0 && <button title="Retenir sur son salaire" onClick={() => retenir(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>💵</button>}
                           {jePeux && (etat === "sorti" || etat === "reparation") && (
-                            <button title={etat === "reparation" ? "Revenu de réparation" : "Retour en boutique"}
+                            <button title={etat === "reparation" ? "Revenu de réparation" : "Enregistrer le retour"}
                               onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
                                 ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })
                                 : rendre(o))}
@@ -1242,6 +1292,11 @@ export function Outillage({ db, save, profile }) {
                           {jePeux && etat === "sorti" && <button title="Changer le chantier (sans le ramener)" onClick={() => changerLeChantier(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🏗</button>}
                           {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
+                          {jeSuisAdmin && vue === "tous" && outilRange(o) && (
+                            <button title="Corriger la fiche (nom, numéro gravé, prix…)"
+                              onClick={() => setFiche({ outil_id: o.id, nom: o.nom || "", numero: o.numero || "", categorie: o.categorie || "", achete_le: o.achete_le || "", prix_achat: String(o.prix_achat || "") })}
+                              className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>✏️</button>
+                          )}
                           {estBoite(o) && !["perdu", "reforme"].includes(etat) && (
                             <button title="Ce que contient la boîte" onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })}
                               className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🧰</button>

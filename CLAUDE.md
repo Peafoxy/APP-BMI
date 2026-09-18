@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1562 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1565 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1241,6 +1241,18 @@ lit mal est pire qu'un banc absent).
     registre la remet d'un clic — **et la fiche revient PROPRE** (les quatre
     champs `supprime_*` et les marques du registre unifié sont retirés).
     La confirmation dit combien de mouvements partent avec elle.
+  - **✏️ CORRIGER LA FICHE ELLE-MÊME = l'administrateur**, outil rangé
+    (18/09/2026 : « sur la fiche elle-même aussi on doit pouvoir modifier…
+    **si numéro gravé est faussé, on ne peut pas laisser comme ça** ») : nom,
+    **numéro gravé**, catégorie, date et prix d'achat (`corrigerOutil`,
+    `critiqueCorrectionOutil`). Le numéro reste **UNIQUE dans toute la
+    maison**, mais ⚠ **l'outil ne se gêne pas lui-même** (`o.id !== outil.id`
+    — `critiqueNouvelOutil` l'aurait refusé, puisqu'il l'aurait trouvé).
+    L'histoire, les mouvements et la liste ne bougent pas ; le journal DIT ce
+    qui a changé, champ par champ (`diffFiche`). ⚠ **Le LIEU ne se corrige
+    PAS ici** : il est DÉDUIT (dernier retour, sinon création) et la fiche vit
+    physiquement dans la boutique qui la garde — le changer seul ferait mentir
+    `lieuDeRangement`. Un retour le repose, et l'écran le dit.
   - **MODIFIER UNE CAISSE = l'administrateur**, caisse rangée : ✏️ sur chaque
     ligne (nom, quantité, valeur — `changerLigneContenu` enfin employée),
     ajout et retrait gardés par la même condition, et **« ↩ Ce n'est plus une
@@ -1253,6 +1265,17 @@ lit mal est pire qu'un banc absent).
   - **Rien à coller** : `admin` est déjà dans `a_pouvoir_outillage`
     (`securite-22`) des deux côtés. Le banc le vérifie côté application ET
     dans le SQL.
+
+- ⚠ **« RANGÉ », JAMAIS « EN BOUTIQUE »** (capture Timo, 18/09/2026, colonne
+  État : « je ne comprends pas pourquoi on dit en boutique même si au
+  magasin ») — l'étiquette MENTAIT : une échelle rangée au DÉPÔT MAISON
+  s'affichait « En boutique », juste à côté d'une colonne « Où » qui disait
+  DEPOT MAISON. Un outil est rangé dans un **LIEU** — boutique OU magasin —,
+  et c'est « Où » qui le nomme. L'identifiant interne `en_boutique` ne bouge
+  pas (l'état est DÉRIVÉ, rien n'est stocké) ; seuls les MOTS ont changé :
+  l'étiquette, le refus d'un retour (« est déjà rentré : il est rangé à … »)
+  et l'infobulle du 📥 (« Enregistrer le retour »). Le banc l'éprouve en
+  remettant « En boutique » : il tombe.
 
 - **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE ET PAR LIEU** (décision Timo,
   18/09/2026 : personne ne peut voir les outils de deux boutiques à la fois —

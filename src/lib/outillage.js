@@ -38,7 +38,12 @@ export const peutTenirOutillage = (profile) => {
 // écrit à la main : deux vérités qui peuvent diverger, c'est une vérité de
 // moins.
 export const ETATS_OUTIL = {
-  en_boutique: { libelle: "En boutique", teinte: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  // ⚠ « RANGÉ », pas « En boutique » (capture Timo, 18/09/2026 : « je ne
+  // comprends pas pourquoi on dit en boutique même si au magasin »). L'outil
+  // est rangé dans un LIEU — boutique OU magasin —, et la colonne « Où » le
+  // nomme juste à côté. L'identifiant `en_boutique` ne bouge pas : il est
+  // interne, l'état est DÉRIVÉ, rien n'est stocké.
+  en_boutique: { libelle: "Rangé", teinte: "text-emerald-700 bg-emerald-50 border-emerald-200" },
   sorti:       { libelle: "Sorti",       teinte: "text-sky-800 bg-sky-50 border-sky-200" },
   reparation:  { libelle: "En réparation", teinte: "text-amber-700 bg-amber-50 border-amber-200" },
   perdu:       { libelle: "Perdu",       teinte: "text-red-700 bg-red-50 border-red-200" },
@@ -212,7 +217,7 @@ export const sortirOutil = (outil, { id, le, user_id, user, chantier, retour_pre
 export const critiqueRetour = (outil, { compte } = {}) => {
   if (!outil) return "Choisissez d'abord un outil.";
   const etat = etatOutil(outil);
-  if (etat === "en_boutique") return `« ${outil.nom} » est déjà en boutique.`;
+  if (etat === "en_boutique") return `« ${outil.nom} » est déjà rentré : il est rangé à ${lieuDeRangement(outil) || "son lieu"}.`;
   if (etat !== "sorti" && etat !== "reparation") return `« ${outil.nom} » est ${libelleEtat(etat).toLowerCase()} : son retour ne se note plus ici.`;
   // ⚠ DÉCISION 1a (Timo, 18/09/2026) : une BOÎTE ne rentre pas sans être
   // comptée. Soit celui qui rend l'a déjà comptée (décision 2b) et le
@@ -989,3 +994,34 @@ export const critiqueBasculeBoite = (outil, oui) => {
   return "";
 };
 export const basculerBoite = (outil, oui) => ({ ...outil, boite: !!oui });
+
+// ---- ✏️ CORRIGER LA FICHE ELLE-MÊME (Timo, 18/09/2026 : « sur la fiche elle
+// même aussi on doit pouvoir modifier… si numéro gravé est faussé, on ne peut
+// pas laisser comme ça »). Même condition : l'outil doit être RANGÉ.
+// ⚠ Le numéro reste UNIQUE dans toute la maison — mais l'outil ne se gêne pas
+// lui-même : `critiqueNouvelOutil` le refuserait, puisqu'il le trouverait.
+// ⚠ Le LIEU n'est PAS corrigible ici : il est DÉDUIT (dernier retour, sinon
+// création), et la fiche vit physiquement dans la boutique qui la garde —
+// le changer seul ferait mentir `lieuDeRangement`. Un retour le repose.
+export const critiqueCorrectionOutil = (registre, outil, { nom, numero } = {}) => {
+  const r = critiqueOutilRange(outil, "vous pourrez corriger sa fiche");
+  if (r) return r;
+  if (!String(nom || "").trim()) return "Donnez un nom à l'outil.";
+  const n = sansAccentsO(numero);
+  if (n && outilsDe(registre).some((o) => o.id !== outil.id && sansAccentsO(o.numero) === n)) {
+    return `Le numéro « ${String(numero).trim()} » est déjà porté par un autre outil de BMI.`;
+  }
+  return "";
+};
+export const corrigerOutil = (outil, { nom, numero, categorie, achete_le, prix_achat }) => ({
+  ...outil,
+  nom: String(nom || "").trim(),
+  numero: String(numero || "").trim(),
+  categorie: String(categorie || "").trim(),
+  achete_le: achete_le || "",
+  prix_achat: Math.max(0, Number(prix_achat || 0)),
+});
+// Ce qui a VRAIMENT changé, pour que le journal le dise en clair.
+export const diffFiche = (avant, apres) => ["nom", "numero", "categorie", "achete_le", "prix_achat"]
+  .filter((k) => String(avant?.[k] ?? "") !== String(apres?.[k] ?? ""))
+  .map((k) => ({ champ: k, avant: avant?.[k] ?? "", apres: apres?.[k] ?? "" }));
