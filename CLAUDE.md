@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1526 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1535 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -65,7 +65,7 @@ npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium 
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 107 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 113 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -990,6 +990,43 @@ lit mal est pire qu'un banc absent).
     banc le mesure.
   - **Un numéro gravé est unique dans TOUTE la maison**, plus seulement dans
     une boutique.
+  - **UN FILTRE PAR LIEU** (demande Timo, 18/09/2026) : une liste déroulante
+    « Lieu : Tous les lieux (N) » sur la ligne du titre, qui vaut pour les
+    CINQ vues, chaque lieu avec son compte. « Tous » d'office.
+- **🏗 LE CHANTIER D'UN OUTIL SE CHANGE SANS LE RAMENER** (Timo, 18/09/2026 :
+  « aujourd'hui il finit le chantier A, il n'a pas besoin de ramener l'outil
+  avant d'aller sur le chantier B… il peut juste changer le chantier DANS SON
+  ESPACE »).
+  - **Un mouvement de type `chantier`**, qui s'inscrit au registre (la trace
+    ne rétrécit jamais) mais qui est **TRANSPARENT** : l'outil reste sorti,
+    chez la même personne, avec la même date de retour et le même lieu de
+    rangement. ⚠ D'où `TYPES_ETAT` et `dernierMouvementEtat` : **l'état se lit
+    sur le dernier mouvement qui le CHANGE**, plus sur le dernier tout court —
+    sinon un changement de chantier ferait croire que l'outil est rentré.
+    `chantierEnCours` = le dernier changement POSTÉRIEUR à la sortie en cours,
+    sinon le chantier de la sortie ; une nouvelle sortie repart à zéro.
+  - **QUI** : `peutChangerChantier` = celui qui DÉTIENT l'outil (bouton
+    « 🏗 Changer le chantier » dans 🧰 Mes outils) **et** celui qui tient le
+    registre (bouton rond 🏗 sur la ligne d'un outil sorti). Personne d'autre,
+    et jamais sur un outil rangé.
+  - ⚠ **« Dès que le chantier est déclaré terminé, plus possible d'assigner un
+    chantier à un outil SAUF pour les chantiers saisie libre »** :
+    `chantiersOuvertsPourOutil` (calculs.js) = chantiers de devis au statut
+    `en_cours` (**terminé et réceptionné sont dehors**) + 🛠 travaux à crédit
+    non soldés, de l'espace regardé, rangés par ordre alphabétique français.
+    `critiqueChangementChantier` refuse un chantier CHOISI qui n'y est plus —
+    et laisse **toujours** passer un nom TAPÉ (`libre`), la porte de sortie.
+  - **La SORTIE aussi** (« saisie libre ET sélection de chantier en cours et
+    chantier à crédit ») : le champ Chantier passe par LE champ commun
+    `ChampSuggestions` avec la même liste — cliquer choisit, taper reste libre.
+  - ⚠ **LE COUPLE : `securite-25`**. Le détenteur ne tient pas le registre :
+    sans ce script son changement de chantier serait refusé et **tout le lot
+    resterait coincé**. Il élargit sa porte d'UN cran — le registre débarrassé
+    des justifications **et** des mouvements `chantier`
+    (`outillage_sans_justifs_ni_chantiers`) doit rester IDENTIQUE : il dit où
+    il travaille, il ne rend pas l'outil et ne repousse pas sa date de retour.
+    Il REPREND `securite-24` (donc `-23`, `-22`) en entier : **c'est le seul à
+    coller**.
 - **LA RÈGLE QUI EMPÊCHE LA PERTE : un outil est TOUJOURS sous le nom de
   QUELQU'UN.** Pas « sur le chantier de MR ERIC » — un chantier ne perd pas
   une perceuse, une personne la perd ; le chantier est noté à côté. L'état

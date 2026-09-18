@@ -28,7 +28,7 @@ import { correspond } from "../lib/suggestions";
 import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE } from "../lib/validationDepenses";
 import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constants";
-import { bloquerSiLecture, refuserSaufAdmin, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufAdmin, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles, chantiersOuvertsPourOutil } from "../lib/calculs";
 import {
   ETATS_OUTIL, peutTenirOutillage, outilsDe, outilsVivants, etatOutil, libelleEtat,
   detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortie, sortirOutil, critiqueRetour,
@@ -42,6 +42,7 @@ import {
   registreUnifie, lieuxDuRegistre, lieuDeRangement, lieuOutil, outilsDuLieu,
   lieuDeLaPersonne, lieuxSansAppel,
   perteDe, aRembourser, dejaRetenu, resteARetenir, retenuesDe, modeRetenue, libelleRetenue,
+  chantierEnCours, peutChangerChantier, critiqueChangementChantier, changerChantier, chantiersDeLaSortie,
   critiqueRetenue, critiqueARembourser, ajouterRetenue, fixerARembourser,
 } from "../lib/outillage";
 
@@ -61,6 +62,37 @@ const VIDE_VUE = {
   reparation: "Aucun outil chez un réparateur.",
   perdus: "Aucun outil perdu. C'est le but du registre.",
 };
+// 🏗 CHANGER LE CHANTIER D'UN OUTIL SANS LE RAMENER (Timo, 18/09/2026 :
+// « aujourd'hui il finit le chantier A, il n'a pas besoin de ramener l'outil
+// avant d'aller sur le chantier B… il peut juste changer le chantier dans son
+// espace »). Écrit UNE fois : le registre s'en sert, et l'espace du détenteur
+// aussi. Un chantier TERMINÉ n'est plus proposé ; un nom tapé passe toujours.
+const LIBRE = "✏️ Saisir un chantier (nom libre)";
+async function nouveauChantierPour(outil, ouverts, profile, jour) {
+  const noms = (ouverts || []).map((c) => `${c.type === "travaux" ? "🛠 " : ""}${c.nom}`);
+  const options = [...noms, LIBRE];
+  const actuel = chantierEnCours(outil);
+  const choix = await uChoix(
+    `🏗 « ${outil.nom} » part maintenant sur quel chantier ?${actuel ? `\n\nEn ce moment : ${actuel}` : ""}\n\nL'outil reste chez la même personne — pas besoin de le ramener.`,
+    options);
+  if (choix === null) return null;
+  let nom = "";
+  let libre = false;
+  if (choix === LIBRE) {
+    const tape = await uPrompt("Nom du chantier :", actuel || "");
+    if (tape === null) return null;
+    nom = String(tape).trim();
+    libre = true;
+  } else {
+    const i = noms.indexOf(choix);
+    if (i < 0) return null;
+    nom = ouverts[i].nom;
+  }
+  const refus = critiqueChangementChantier(outil, { chantier: nom, ouverts, libre });
+  if (refus) { uAlert(refus); return null; }
+  return { apres: changerChantier(outil, { id: uid(), le: jour, chantier: nom, par_id: profile.id, par: profile.nom }), nom };
+}
+
 const REFUS_ROLE = "🔒 Tenir le registre de l'outillage : réservé au chef des techniciens, au magasinier et à l'administrateur.";
 const sortieVide = { saisie: "", outil_id: "", user_id: "", chantier: "", retour_prevu: "" };
 const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_achat: "", lieu: "" };
@@ -80,6 +112,18 @@ function MesOutils({ db, save, profile }) {
   const jour = today();
   const boutiques = boutiquesVisibles(db, profile, db.boutiques || []);
   const lignes = mesOutils(boutiques, profile.id);
+  // 🏗 Il peut changer le chantier de SON outil sans le ramener (Timo).
+  const chantiersOuverts = chantiersOuvertsPourOutil(db, profile);
+  const changerLeChantier = async (b, outil) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!peutChangerChantier(outil, profile)) { uAlert("Vous ne détenez pas cet outil."); return; }
+    const r = await nouveauChantierPour(outil, chantiersOuverts, profile, jour);
+    if (!r) return;
+    save({
+      ...db,
+      boutiques: (db.boutiques || []).map((x) => (x.id === b.id ? remplacerOutil(b, r.apres) : x)),
+    }, `🏗 ${outil.nom} — chantier changé pour ${r.nom} par ${profile.nom}`);
+  };
   const aJustifier = lignes.filter(({ outil }) => doitJustifier(outil, profile.id, jour));
 
   const justifier = async (b, outil) => {
@@ -119,9 +163,15 @@ function MesOutils({ db, save, profile }) {
                 <div key={o.id} className={`rounded-xl border p-3 ${tard ? "border-red-300 bg-red-50" : "bg-slate-50"}`}>
                   <div className="font-bold text-slate-800">{o.nom}{o.numero ? ` — N° ${o.numero}` : ""} <span className="text-xs font-normal text-slate-500">(à rendre à {lieuDeRangement(o, b.nom)})</span></div>
                   <div className="text-sm text-slate-600 mt-1">
-                    Pris le <b>{dFR(s.le)}</b>{s.chantier ? <> pour <b>{s.chantier}</b></> : null} · remis par <b>{s.par || "—"}</b>
+                    Pris le <b>{dFR(s.le)}</b>{chantierEnCours(o) ? <> pour <b>{chantierEnCours(o)}</b></> : null} · remis par <b>{s.par || "—"}</b>
                     {s.retour_prevu && <> · retour prévu le <b className={tard ? "text-red-700" : ""}>{dFR(s.retour_prevu)}</b></>}
                     {tard && <b className="text-red-700"> — en retard de {joursDeRetard(o, jour)} jour(s)</b>}
+                  </div>
+                  <div className="mt-2">
+                    <button onClick={() => changerLeChantier(b, o)} className="px-3 py-1.5 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-xs hover:bg-sky-50">
+                      🏗 Changer le chantier
+                    </button>
+                    <span className="text-xs text-slate-500 ml-2">Vous passez sur un autre chantier ? Pas besoin de ramener l'outil.</span>
                   </div>
                   {justificationsDeLaSortie(o).map((j) => (
                     <div key={j.id} className="text-xs text-slate-600 mt-1">⏳ Vous avez dit le {dFR(j.le)} : « {j.texte} »</div>
@@ -158,6 +208,7 @@ export function Outillage({ db, save, profile }) {
   // chaque carré ouvre SA liste, avec les colonnes qui répondent à SA
   // question. « Dehors » d'office : c'est ce qu'on regarde tous les jours.
   const [vue, setVue] = useState("dehors");
+  const [lieuFiltre, setLieuFiltre] = useState(""); // "" = tous les lieux
   const [repar, setRepar] = useState(null); // { outil_id, reparateur, tel, panne, prix, paiement, paye_avec }
   // Le retour d'un outil parti en réparation SANS dépense encore posée :
   // c'est là qu'on connaît enfin le prix payé.
@@ -269,6 +320,16 @@ export function Outillage({ db, save, profile }) {
     const note = etat ? "" : (await uPrompt("Qu'est-ce qui est abîmé ?", "")) || "";
     const apres = rendreOutil(outil, { id: uid(), le: jour, etat: etat ? "bon" : "abime", note, lieu, par_id: profile.id, par: profile.nom });
     ecrireOutil(outil, apres, `🧰 Retour — ${outil.nom} rendu à ${profile.nom}, rangé à ${lieu}${etat ? "" : ` (ABÎMÉ : ${note})`}`);
+  };
+
+  // ---- 🏗 CHANGER LE CHANTIER, sans ramener l'outil
+  const changerLeChantier = async (outil) => {
+    if (garde()) return;
+    if (!peutChangerChantier(outil, profile)) { uAlert(`« ${outil.nom} » n'est pas sorti : il n'y a pas de chantier à changer.`); return; }
+    const r = await nouveauChantierPour(outil, chantiersOuverts, profile, jour);
+    if (!r) return;
+    const d = detenteurOutil(outil);
+    ecrireOutil(outil, r.apres, `🏗 ${outil.nom} — chantier changé pour ${r.nom}${d ? ` (chez ${d.nom})` : ""}`);
   };
 
   // ---- 🔧 RÉPARATION : chez QUI, son NUMÉRO, la PANNE, le PRIX (Timo,
@@ -492,12 +553,21 @@ export function Outillage({ db, save, profile }) {
 
   // La liste de la vue choisie ; la recherche ne s'applique qu'au registre.
   const affichee = outilsDeLaVue(registre, vue, jour)
+    // 🏗 Le filtre par LIEU (demande Timo, 18/09/2026) : il vaut pour TOUTES
+    // les vues. « Toutes » d'office — rien ne change tant qu'on n'y touche pas.
+    .filter((o) => !lieuFiltre || lieuDeRangement(o) === lieuFiltre)
     .filter((o) => vue !== "tous" || !q.trim() || correspond(`${o.nom} ${o.numero || ""} ${o.categorie || ""} ${lieuDeRangement(o)}`, q));
   const coutRep = coutReparations(registre, null);
   // Les caisses proposables : les boutiques de l'espace regardé, comme dans
   // 📤 Dépenses — « Payé avec » nomme CHAQUE caisse (règle du 13/09/2026).
   const caisses = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   const pertes = pertesDe(registre, null);
+  // 🏗 Les chantiers auxquels on peut encore affecter un outil : chantiers de
+  // devis EN COURS et 🛠 travaux à crédit non soldés, de l'espace regardé.
+  const chantiersOuverts = chantiersOuvertsPourOutil(db, profile);
+  const propositionsChantiers = chantiersOuverts.map((c) => ({
+    cle: c.id, valeur: c.nom, detail: c.type === "travaux" ? "🛠 Travaux à crédit" : "Chantier en cours",
+  }));
   // Les lieux dont l'appel de la semaine manque encore, et ce que le dernier
   // appel de chaque lieu a laissé de côté.
   const aAppeler = lieuxSansAppel(lieux, registre, jour);
@@ -576,6 +646,15 @@ export function Outillage({ db, save, profile }) {
         <div className="mt-5">
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <div className="font-bold text-slate-800">{TITRE_VUE[vue]} ({affichee.length})</div>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="font-semibold">Lieu :</span>
+              <select className={`${inputCls} max-w-[14rem]`} value={lieuFiltre} onChange={(e) => { setLieuFiltre(e.target.value); setOutilDeplie(""); }}>
+                <option value="">Tous les lieux ({outilsDeLaVue(registre, vue, jour).length})</option>
+                {lieux.map((b) => (
+                  <option key={b.id} value={b.nom}>{b.depot ? "🏭 " : ""}{b.nom} ({outilsDeLaVue(registre, vue, jour).filter((o) => lieuDeRangement(o) === b.nom).length})</option>
+                ))}
+              </select>
+            </label>
             {vue === "tous" && <input className={`${inputCls} max-w-xs`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un outil…" />}
             {vue === "tous" && jeSuisAdmin && !neuf && <button onClick={() => setNeuf(outilVide)} className="px-3 py-1.5 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-sm hover:bg-sky-50">➕ Ajouter un outil</button>}
             {vue === "reparation" && coutRep > 0 && <span className="text-xs text-slate-600">Réparations payées jusqu'ici : <b>{fmt(coutRep)}</b> — <i>chacune est une dépense de BMI, à retrouver dans 📤 Dépenses</i></span>}
@@ -726,7 +805,7 @@ export function Outillage({ db, save, profile }) {
 
                         {vue === "dehors" && <>
                           <td className="px-3 py-2 font-semibold">{so.user}<div className="text-xs font-normal text-slate-500">remis par {so.par || "—"}{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</div></td>
-                          <td className="px-3 py-2 text-slate-600">{so.chantier || "—"}</td>
+                          <td className="px-3 py-2 text-slate-600">{chantierEnCours(o) || "—"}{chantiersDeLaSortie(o).length > 0 && <div className="text-xs text-slate-400">changé {chantiersDeLaSortie(o).length} fois</div>}</td>
                           <td className="px-3 py-2 tabular-nums">{dFR(so.le)}<div className="text-xs text-slate-500">{joursDehors(o, jour)} j</div></td>
                           <td className={`px-3 py-2 tabular-nums ${tard ? "text-red-700 font-bold" : ""}`}>{so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard && <div className="text-xs">⚠ en retard</div>}</td>
                         </>}
@@ -780,6 +859,7 @@ export function Outillage({ db, save, profile }) {
                                 : rendre(o))}
                               className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>
                           )}
+                          {jePeux && etat === "sorti" && <button title="Changer le chantier (sans le ramener)" onClick={() => changerLeChantier(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🏗</button>}
                           {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
                           {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")}>🗑</button>}
@@ -858,8 +938,17 @@ export function Outillage({ db, save, profile }) {
                   {personnes.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}
                 </select>
               </Field>
+              {/* 🏗 Timo, 18/09/2026 : « saisie libre ET sélection de chantier
+                  en cours et chantier à crédit ». Un chantier TERMINÉ n'est
+                  plus proposé ; un nom tapé reste toujours possible. */}
               <Field label="Chantier (facultatif)">
-                <input className={inputCls} value={f.chantier} onChange={(e) => setF({ ...f, chantier: e.target.value })} placeholder="Où part l'outil" />
+                <ChampSuggestions
+                  valeur={f.chantier}
+                  onChange={(v) => setF({ ...f, chantier: v })}
+                  onChoisir={(p) => setF({ ...f, chantier: p.valeur })}
+                  suggestions={propositionsChantiers}
+                  placeholder="Où part l'outil — ou tapez librement"
+                />
               </Field>
               <Field label="Retour prévu le">
                 <input type="date" className={inputCls} value={f.retour_prevu} onChange={(e) => setF({ ...f, retour_prevu: e.target.value })} />

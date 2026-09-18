@@ -2360,6 +2360,23 @@ export const longueurRailBarre = (db) => {
 // Statut d'un chantier (par défaut : en cours)
 export const statutChantier = (c) => c.statut || "en_cours";
 
+// 🏗 LES CHANTIERS AUXQUELS ON PEUT AFFECTER UN OUTIL (Timo, 18/09/2026 :
+// « dès que le chantier est déclaré terminé, plus possible d'assigner un
+// chantier à un outil SAUF pour les chantiers saisie libre »). Deux sources,
+// les deux de l'espace REGARDÉ : les chantiers de devis encore EN COURS
+// (terminé et réceptionné sont fermés) et les 🛠 travaux à crédit non soldés.
+// Un nom TAPÉ à la main reste toujours possible : c'est la porte de sortie.
+export const chantiersOuvertsPourOutil = (db, profile) =>
+  chantiersDeLEspaceRegarde(db, profile)
+    .filter((c) => (c.travaux ? !travauxSolde(db, c) : statutChantier(c) === "en_cours"))
+    .map((c) => ({
+      id: c.id,
+      nom: `${c.prenom ? `${c.prenom} ` : ""}${c.nom || ""}`.trim() || "Chantier sans nom",
+      type: c.travaux ? "travaux" : "chantier",
+    }))
+    .filter((c) => c.nom)
+    .sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr"));
+
 // ============ VALIDATION DES TÂCHES ============
 // Cycle : à faire → terminée (déclarée par l'exécutant, plus modifiable par
 // lui) → validée OU rouverte avec motif par l'assignateur. L'admin voit

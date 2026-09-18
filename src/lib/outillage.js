@@ -44,15 +44,27 @@ export const ETATS_OUTIL = {
   perdu:       { libelle: "Perdu",       teinte: "text-red-700 bg-red-50 border-red-200" },
   reforme:     { libelle: "Réformé",     teinte: "text-slate-600 bg-slate-100 border-slate-300" },
 };
-export const TYPES_MOUVEMENT = ["sortie", "retour", "reparation", "perdu", "reforme"];
+export const TYPES_MOUVEMENT = ["sortie", "retour", "reparation", "perdu", "reforme", "chantier"];
 
 export const mouvementsDe = (outil) => Array.isArray(outil?.mouvements) ? outil.mouvements : [];
 export const dernierMouvement = (outil) => {
   const m = mouvementsDe(outil);
   return m.length ? m[m.length - 1] : null;
 };
+// ⚠ TOUS les mouvements ne changent pas l'ÉTAT. Depuis le 18/09/2026, un
+// outil peut CHANGER DE CHANTIER sans rentrer (Timo : « aujourd'hui il finit
+// le chantier A, il n'a pas besoin de ramener l'outil avant d'aller sur le
+// chantier B »). Ce mouvement-là est TRANSPARENT : il s'inscrit au registre,
+// mais l'outil reste sorti, chez la même personne, avec la même date de
+// retour. L'état se lit donc sur le dernier mouvement qui le CHANGE.
+const TYPES_ETAT = ["sortie", "retour", "reparation", "perdu", "reforme"];
+const dernierDeType = (outil, types) => {
+  const l = mouvementsDe(outil).filter((m) => types.includes(m?.type));
+  return l.length ? l[l.length - 1] : null;
+};
+export const dernierMouvementEtat = (outil) => dernierDeType(outil, TYPES_ETAT);
 export const etatOutil = (outil) => {
-  const d = dernierMouvement(outil);
+  const d = dernierMouvementEtat(outil);
   if (!d) return "en_boutique";
   if (d.type === "sortie") return "sorti";
   if (d.type === "reparation") return "reparation";
@@ -64,11 +76,10 @@ export const libelleEtat = (etat) => (ETATS_OUTIL[etat] || {}).libelle || String
 
 // Le DÉTENTEUR : qui répond de l'outil en ce moment. Vide s'il est rangé.
 export const detenteurOutil = (outil) => {
-  if (etatOutil(outil) !== "sorti") return null;
-  const d = dernierMouvement(outil);
+  const d = sortieEnCours(outil);
   return d && d.user_id ? { id: d.user_id, nom: d.user || "" } : null;
 };
-export const sortieEnCours = (outil) => (etatOutil(outil) === "sorti" ? dernierMouvement(outil) : null);
+export const sortieEnCours = (outil) => (etatOutil(outil) === "sorti" ? dernierMouvementEtat(outil) : null);
 
 // ---- Le registre d'une boutique. `outillage` = { outils, appels }.
 export const registreDe = (boutique) => {
@@ -400,6 +411,7 @@ export const histoireOutil = (outil) => mouvementsDe(outil).map((m) => {
     detail: [m.motif || "", m.valeur ? `valeur ${m.valeur}` : "", `déclaré par ${par}`].filter(Boolean).join(" — "),
   };
   if (m.type === "reforme") return { id: m.id, le: m.le, quoi: "🗑 Réformé", role: "décidé par", qui: par, detail: m.motif || "" };
+  if (m.type === "chantier") return { id: m.id, le: m.le, quoi: "🏗 Chantier", role: "part sur", qui: m.chantier || "—", detail: `changé par ${par}` };
   return { id: m.id, le: m.le, quoi: String(m.type || ""), role: "par", qui: par, detail: "" };
 }).reverse();
 
@@ -433,7 +445,7 @@ export const critiqueReparation = ({ reparateur, panne } = {}) => {
   if (!String(panne || "").trim()) return "Dites quelle est la panne.";
   return "";
 };
-export const reparationEnCours = (outil) => (etatOutil(outil) === "reparation" ? dernierMouvement(outil) : null);
+export const reparationEnCours = (outil) => (etatOutil(outil) === "reparation" ? dernierMouvementEtat(outil) : null);
 export const coutReparations = (boutique, periode) => {
   const du = periode && periode.du ? String(periode.du) : "";
   const au = periode && periode.au ? String(periode.au) : "";
@@ -478,6 +490,57 @@ export const justifierRetard = (outil, { id, le, texte, par_id, par }) => {
     id, le, texte: String(texte || "").trim(), par_id, par: par || "",
     sortie_id: s ? s.id : "", retour_prevu: s ? s.retour_prevu : "",
   }] };
+};
+
+// ---- 🏗 LE CHANTIER D'UN OUTIL SE CHANGE SANS LE RAMENER (Timo,
+// 18/09/2026 : « aujourd'hui il finit le chantier A, il n'a pas besoin de
+// ramener l'outil avant d'aller sur le chantier B… il peut juste changer le
+// chantier DANS SON ESPACE »). Le changement est un mouvement de plus — la
+// trace ne rétrécit jamais — mais il ne touche NI l'état, NI le détenteur,
+// NI la date de retour.
+//
+// ⚠ « Mais dès que le chantier est déclaré terminé, plus possible d'assigner
+// un chantier à un outil SAUF pour les chantiers saisie libre » : la liste
+// ne propose que les chantiers OUVERTS ; un nom tapé à la main reste
+// toujours possible, c'est la porte de sortie.
+export const chantierEnCours = (outil) => {
+  const s = sortieEnCours(outil);
+  if (!s) return "";
+  // Le dernier changement POSTÉRIEUR à la sortie en cours, sinon la sortie.
+  const mvts = mouvementsDe(outil);
+  const rang = mvts.findIndex((m) => m && m.id === s.id);
+  const apres = mvts.slice(rang + 1).filter((m) => m && m.type === "chantier");
+  return String((apres.length ? apres[apres.length - 1] : s).chantier || "");
+};
+// Peut-on changer le chantier de cet outil, et QUI ? Le détenteur depuis son
+// espace, et celui qui tient le registre.
+export const peutChangerChantier = (outil, profile) => {
+  const s = sortieEnCours(outil);
+  if (!s) return false;
+  if (peutTenirOutillage(profile)) return true;
+  return String(s.user_id || "") === String(profile?.id || "");
+};
+export const critiqueChangementChantier = (outil, { chantier, ouverts, libre } = {}) => {
+  if (!outil) return "Choisissez d'abord un outil.";
+  if (!sortieEnCours(outil)) return `« ${outil.nom} » n'est pas sorti : il n'y a pas de chantier à changer.`;
+  const nom = String(chantier || "").trim();
+  if (!nom) return "Dites sur quel chantier l'outil part maintenant.";
+  if (nom === chantierEnCours(outil)) return "C'est déjà le chantier de cet outil.";
+  // Un nom TAPÉ passe toujours ; un chantier CHOISI doit être encore ouvert.
+  if (!libre && Array.isArray(ouverts) && !ouverts.some((c) => String(c.nom || c) === nom)) {
+    return `« ${nom} » est terminé : on n'y affecte plus d'outil. Tapez un nom libre si le travail continue.`;
+  }
+  return "";
+};
+export const changerChantier = (outil, { id, le, chantier, par_id, par }) =>
+  ajouter(outil, { id, type: "chantier", le, chantier: String(chantier || "").trim(), par_id, par });
+// Les changements de chantier de la sortie en cours, pour les lire en clair.
+export const chantiersDeLaSortie = (outil) => {
+  const s = sortieEnCours(outil);
+  if (!s) return [];
+  const mvts = mouvementsDe(outil);
+  const rang = mvts.findIndex((m) => m && m.id === s.id);
+  return mvts.slice(rang + 1).filter((m) => m && m.type === "chantier");
 };
 
 // ---- CE QUE JE DÉTIENS, dans TOUTES les boutiques de mon espace : un

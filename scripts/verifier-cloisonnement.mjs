@@ -8289,6 +8289,113 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
         { nom: "Autre", numero: "bmi-012" })));
   }
 
+  // ═══ 🏗 LE CHANTIER D'UN OUTIL SE CHANGE SANS LE RAMENER ═══
+  // Timo, 18/09/2026 : « aujourd'hui il finit le chantier A, il n'a pas
+  // besoin de ramener l'outil avant d'aller sur le chantier B… il peut juste
+  // changer le chantier DANS SON ESPACE. Mais dès que le chantier est déclaré
+  // terminé, plus possible d'assigner un chantier à un outil SAUF pour les
+  // chantiers saisie libre. »
+  {
+    const sql25 = existsSync("supabase/securite-25-chantier-outil.sql")
+      ? readFileSync("supabase/securite-25-chantier-outil.sql", "utf8") : "";
+    let t = Out.nouvelOutil({ id: "k1", nom: "Perceuse", lieu: "DEMAKPOE", le: "2026-09-01", par: "TIMO" });
+    t = Out.sortirOutil(t, { id: "s1", le: "2026-09-10", user_id: "u1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-09-25", par_id: "c1", par: "CHEF" });
+    const ouverts = [{ id: "c9", nom: "MME AFI", type: "chantier" }, { id: "t9", nom: "ÉCOLE", type: "travaux" }];
+    const apres = Out.changerChantier(t, { id: "ch1", le: "2026-09-18", chantier: "MME AFI", par_id: "u1", par: "KOSSI" });
+
+    test("★ CHANGER DE CHANTIER NE RAMÈNE PAS L'OUTIL : l'état, le détenteur, le lieu de retour et la date promise ne bougent pas — seul le chantier change",
+      Out.chantierEnCours(t) === "MR ERIC"
+      && Out.chantierEnCours(apres) === "MME AFI"
+      && Out.etatOutil(apres) === "sorti"
+      && Out.detenteurOutil(apres).nom === "KOSSI"
+      && Out.sortieEnCours(apres).id === "s1"
+      && Out.sortieEnCours(apres).retour_prevu === "2026-09-25"
+      && Out.lieuDeRangement(apres) === "DEMAKPOE"
+      && Out.enRetard(apres, "2026-09-26") && !Out.enRetard(apres, "2026-09-24")
+      // deux changements de suite : c'est le DERNIER qui compte, et la trace reste
+      && (() => { const b = Out.changerChantier(apres, { id: "ch2", le: "2026-09-19", chantier: "ÉCOLE", par: "KOSSI" });
+        return Out.chantierEnCours(b) === "ÉCOLE" && Out.chantiersDeLaSortie(b).length === 2
+          // la trace ne rétrécit jamais : une sortie + deux changements
+          && Out.mouvementsDe(b).length === 3; })()
+      // une NOUVELLE sortie repart du chantier de cette sortie-là
+      && (() => { const rendu = Out.rendreOutil(apres, { id: "r1", le: "2026-09-20", etat: "bon", lieu: "DEMAKPOE", par: "MAG" });
+        const resorti = Out.sortirOutil(rendu, { id: "s2", le: "2026-09-21", user_id: "u2", user: "AFI", chantier: "MR ZOSSOU", retour_prevu: "2026-09-30", par: "CHEF" });
+        return Out.chantierEnCours(rendu) === "" && Out.chantierEnCours(resorti) === "MR ZOSSOU"
+          && Out.chantiersDeLaSortie(resorti).length === 0; })());
+
+    test("★ UN CHANTIER TERMINÉ NE S'ASSIGNE PLUS — sauf en SAISIE LIBRE, la porte de sortie voulue par Timo",
+      /est terminé : on n'y affecte plus d'outil/.test(Out.critiqueChangementChantier(t, { chantier: "VIEUX CHANTIER", ouverts, libre: false }))
+      && Out.critiqueChangementChantier(t, { chantier: "VIEUX CHANTIER", ouverts, libre: true }) === ""
+      && Out.critiqueChangementChantier(t, { chantier: "MME AFI", ouverts, libre: false }) === ""
+      && Out.critiqueChangementChantier(t, { chantier: "ÉCOLE", ouverts, libre: false }) === ""
+      && /Dites sur quel chantier/.test(Out.critiqueChangementChantier(t, { chantier: "  ", ouverts }))
+      && /déjà le chantier/.test(Out.critiqueChangementChantier(t, { chantier: "MR ERIC", ouverts, libre: true }))
+      && /n'est pas sorti/.test(Out.critiqueChangementChantier(Out.nouvelOutil({ id: "z", nom: "Échelle", le: "x", par: "T" }), { chantier: "MME AFI", ouverts })));
+
+    test("★ la LISTE des chantiers assignables : les chantiers de devis EN COURS et les 🛠 travaux à crédit NON soldés, de l'espace regardé — terminé et réceptionné sont dehors",
+      (() => {
+        const dbC = {
+          users: [{ id: "a1", nom: "TIMO", role: "admin", principal: true }],
+          boutiques: [{ id: "b1", nom: "DEMAKPOE" }],
+          dettes: [{ id: "d1", paye: 0, montant: 5000 }],
+          clients_installes: [
+            { id: "c1", nom: "ERIC", prenom: "MR", statut: "en_cours", boutique: "DEMAKPOE" },
+            { id: "c2", nom: "FINI", statut: "termine", boutique: "DEMAKPOE" },
+            { id: "c3", nom: "LIVRE", statut: "receptionne", boutique: "DEMAKPOE" },
+            { id: "c4", nom: "ÉCOLE", travaux: true, boutique: "DEMAKPOE", vente_id: "v1", dette_id: "d1" },
+            { id: "c5", nom: "SOLDÉ", travaux: true, boutique: "DEMAKPOE", vente_id: "v2" },
+          ],
+        };
+        const l = C.chantiersOuvertsPourOutil(dbC, dbC.users[0]);
+        return l.map((x) => x.nom).join() === "ÉCOLE,MR ERIC"
+          && l.find((x) => x.nom === "ÉCOLE").type === "travaux"
+          && l.find((x) => x.nom === "MR ERIC").type === "chantier"; })());
+
+    test("★ QUI peut changer : celui qui DÉTIENT l'outil (depuis son espace) et celui qui tient le registre — personne d'autre, et jamais sur un outil rangé",
+      Out.peutChangerChantier(t, { id: "u1", role: "technicien" })
+      && Out.peutChangerChantier(t, { id: "x", role: "magasinier" })
+      && Out.peutChangerChantier(t, { id: "x", role: "admin" })
+      && !Out.peutChangerChantier(t, { id: "u2", role: "technicien" })
+      && !Out.peutChangerChantier(t, { id: "x", role: "vendeur" })
+      && !Out.peutChangerChantier(Out.nouvelOutil({ id: "z", nom: "Échelle", le: "x", par: "T" }), { id: "x", role: "admin" }));
+
+    test("★ l'ÉCRAN : le bouton 🏗 sur un outil sorti, la même question dans « Mes outils », la saisie libre TOUJOURS proposée, et la colonne Chantier qui lit le chantier EN COURS",
+      /async function nouveauChantierPour\(outil, ouverts, profile, jour\)/.test(ecrC)
+      && /const LIBRE = "✏️ Saisir un chantier \(nom libre\)";/.test(ecrC)
+      && /jePeux && etat === "sorti" && <button title="Changer le chantier \(sans le ramener\)"/.test(ecrC)
+      && /🏗 Changer le chantier/.test(ecrC)
+      && /\{chantierEnCours\(o\) \|\| "—"\}/.test(ecrC)
+      && /chantiersOuvertsPourOutil\(db, profile\)/.test(ecrC));
+
+    test("★ la SORTIE propose les chantiers ouverts ET garde la saisie libre (LE champ commun, jamais une liste déroulante fermée)",
+      /suggestions=\{propositionsChantiers\}/.test(ecrC)
+      && /Où part l'outil — ou tapez librement/.test(ecrC)
+      && /detail: c\.type === "travaux" \? "🛠 Travaux à crédit" : "Chantier en cours"/.test(ecrC));
+
+    test("★ LE FILTRE PAR LIEU (demande Timo) : une liste déroulante, « Tous les lieux » d'office, qui vaut pour TOUTES les vues",
+      /<span className="font-semibold">Lieu :<\/span>/.test(ecrC)
+      && /Tous les lieux \(\{outilsDeLaVue\(registre, vue, jour\)\.length\}\)/.test(ecrC)
+      && /\.filter\(\(o\) => !lieuFiltre \|\| lieuDeRangement\(o\) === lieuFiltre\)/.test(ecrC)
+      && /const \[lieuFiltre, setLieuFiltre\] = useState\(""\)/.test(ecrC));
+
+    test("★ LE COUPLE : securite-25 élargit la porte du détenteur d'UN cran — le registre débarrassé des justifications ET des changements de chantier doit rester IDENTIQUE —, et reprend securite-24 en entier",
+      /create or replace function public\.outillage_sans_justifs_ni_chantiers/.test(sql25)
+      && /coalesce\(m ->> 'type', ''\) <> 'chantier'/.test(sql25)
+      && /e - 'justifications'/.test(sql25)
+      && /outillage_sans_justifs_ni_chantiers\(avant -> 'outillage'\)\s*\n\s*is not distinct from public\.outillage_sans_justifs_ni_chantiers\(new\.data -> 'outillage'\)/.test(sql25)
+      && /a_pouvoir_retenue_outil\(\)/.test(sql25) && /outillage_sans_retenues/.test(sql25)
+      && /a_pouvoir_outillage\(\)/.test(sql25) && /- 'demandes' - 'updated_at' - 'outillage'/.test(sql25)
+      && /doit afficher : true \| true \| true \| true \| true/.test(sql25));
+
+    test("★ et le banc SQL le rejoue sur base jetable : il change le chantier, mais ne rend pas l'outil et ne repousse pas sa date de retour",
+      (() => { const bh = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
+        return /securite-25-chantier-outil\.sql/.test(bh)
+          && /change son chantier \(sinon tout le lot reste coincé\)" "PERMIS"/.test(bh)
+          && /pour rendre l'outil : refusé.*"REFUSE"/.test(bh)
+          && /pour repousser sa date de retour : refusé" "REFUSE"/.test(bh)
+          && /la justification de securite-23 passe TOUJOURS.*"PERMIS"/.test(bh); })());
+  }
+
   // ---- Le registre, et ce qu'il ne fait PAS
   test("★ LE REGISTRE N'EST PAS DU STOCK : il vit dans le champ `outillage` de SA boutique — rien à coller pour créer une table —, et l'écran ne touche jamais db.produits ni un ajustement",
     /outillage: \{/.test(outC) && !/db\.produits/.test(ecrC) && !/ajustements/.test(ecrC)

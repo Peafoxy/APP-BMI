@@ -46,6 +46,8 @@ echo "▸ Pose des verrous : supabase/securite-23-justifier-retard.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-23-justifier-retard.sql >/dev/null 2>&1 || echo "   ❌ securite-23 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-24-retenue-outil.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-24-retenue-outil.sql >/dev/null 2>&1 || echo "   ❌ securite-24 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-25-chantier-outil.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-25-chantier-outil.sql >/dev/null 2>&1 || echo "   ❌ securite-25 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -285,6 +287,24 @@ essai "★ le vendeur en PROFITE pour sortir l'outil : refusé (ce n'est pas son
 essai "★ un technicien ORDINAIRE n'inscrit aucune retenue (il se solderait lui-même)" "REFUSE" "$TECH" "$(MAJ boutiques "data || '$RETENU'::jsonb" b1)"
 essai "★ le magasinier, lui, peut tout : c'est son registre" "PERMIS" "$MAGASINIER" "$(MAJ boutiques "data || '$SORTI_APRES'::jsonb" b1)"
 essai "★ le vendeur ne renomme toujours pas la boutique en glissant une retenue" "REFUSE" "$VENDEUR" "$(UPS boutiques b1 '{"nom":"AUTRE","outillage":{"outils":[],"appels":[]}}')"
+$P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
+
+echo
+echo "── 🏗 LE CHANTIER D'UN OUTIL SE CHANGE SANS LE RAMENER (securite-25) ──"
+# Le détenteur n'a pas le droit de tenir le registre : on élargit sa porte
+# d'UN cran — il dit sur quel chantier il part, et rien d'autre.
+SORTI='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"s1","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"}]}],"appels":[]}}'
+CHANTIER='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"s1","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"},{"id":"c1","type":"chantier","chantier":"MME AFI"}]}],"appels":[]}}'
+RENTRE='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"s1","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"},{"id":"r9","type":"retour"}]}],"appels":[]}}'
+TRICHE='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"s1","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-12-31"},{"id":"c1","type":"chantier","chantier":"MME AFI"}]}],"appels":[]}}'
+$P -c "update public.boutiques set data = data || '$SORTI'::jsonb where id='b1';" >/dev/null
+essai "★ le TECHNICIEN qui détient l'outil change son chantier (sinon tout le lot reste coincé)" "PERMIS" "$TECH" "$(MAJ boutiques "data || '$CHANTIER'::jsonb" b1)"
+essai "★ il en PROFITE pour rendre l'outil : refusé (ce n'est pas son geste)" "REFUSE" "$TECH" "$(MAJ boutiques "data || '$RENTRE'::jsonb" b1)"
+essai "★ il en PROFITE pour repousser sa date de retour : refusé" "REFUSE" "$TECH" "$(MAJ boutiques "data || '$TRICHE'::jsonb" b1)"
+essai "★ un VENDEUR ne change aucun chantier (ce n'est pas un technicien)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '$CHANTIER'::jsonb" b1)"
+essai "★ le chef technicien, lui, peut tout : changer le chantier comme rendre" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "data || '$RENTRE'::jsonb" b1)"
+JUSTIF25='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"s1","type":"sortie","user_id":"zt_tech","chantier":"MR ERIC","retour_prevu":"2026-09-20"}],"justifications":[{"id":"j1","texte":"bloque"}]}],"appels":[]}}'
+essai "★ la justification de securite-23 passe TOUJOURS (elle n'a pas été perdue en route)" "PERMIS" "$TECH" "$(MAJ boutiques "data || '$JUSTIF25'::jsonb" b1)"
 $P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
 
 echo
