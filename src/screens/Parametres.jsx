@@ -15,14 +15,18 @@ import { PALETTE } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace } from "../lib/calculs";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche } from "../components/ui";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
 import { barresDeRail } from "../lib/solaire";
 import { banquesReglees, ajouterBanque, retirerBanque, nettoyerNomBanque } from "../lib/banques";
 import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
+// 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
+import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
+import { motsDuNumero } from "../lib/clientsConnus";
+import { correspond } from "../lib/suggestions";
 
 // ============ PARAMÈTRES ============
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
@@ -125,6 +129,84 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (refuserSaufAdminPrincipal(db, profile, "Supprimer définitivement une fiche")) return;
     if (!await uConfirm(`Supprimer DÉFINITIVEMENT ${x.libelle.toLowerCase()} « ${nomDeLaFiche(x.table, x.fiche)} » ?\n\nCette fois, aucun retour possible.`)) return;
     save(supprimerDefinitivement(db, x.table, x.fiche.id), `Suppression définitive : ${x.libelle} « ${nomDeLaFiche(x.table, x.fiche)} » (corbeille) par ${profile.nom}`);
+  };
+
+  // ---- 🔒 DONNÉES PERSONNELLES : LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) ----
+  // « Mon app respecte déjà la législation togolaise sur cet aspect ? » — pas
+  // encore : l'article 18 de nos contrats promet au client la suppression de
+  // ses données, et l'application ne savait pas la faire. Elle le sait ici.
+  // Toute la règle vit dans lib/effacementClient.js ; cet écran ne fait que
+  // MONTRER ce qui va partir et demander le motif.
+  const [qEff, setQEff] = useState("");
+  const [cibleEff, setCibleEff] = useState(null);   // { nom, tel }
+  const [motifEff, setMotifEff] = useState("");
+
+  // ⚠ LE MUR : on ne construit le dossier QUE sur l'espace regardé. Les
+  // comptes passent par utilisateursDeLEspace (la table des comptes n'est PAS
+  // cloisonnée par le serveur), les lignes par filtreEspaceAffichage, les
+  // chantiers par chantiersDeLEspaceRegarde — jamais db.users ni db.ventes
+  // en entier.
+  const espaceEff = filtreEspaceAffichage(db, profile);
+  const chantiersEff = chantiersDeLEspaceRegarde(db, profile);
+  const comptesEff = utilisateursDeLEspace(db, profile);
+  const idsEspaceEff = new Set(comptesEff.map((u) => u.id));
+  const visibleEff = {
+    comptes: comptesEff,
+    ventes: (db.ventes || []).filter(espaceEff),
+    dettes: (db.dettes || []).filter(espaceEff),
+    proformas: (db.proformas || []).filter(espaceEff),
+    commandes: (db.commandes || []).filter(espaceEff),
+    // Un chantier mis à la corbeille porte encore le nom du client : il doit
+    // être effacé lui aussi, sinon il ressortirait nommé à la restauration.
+    chantiers: [...chantiersEff, ...(db.corbeille_clients_installes || [])],
+    // Les prospects portent leur propre marque d'espace (ils n'ont pas de
+    // boutique) : on compare à l'espace REGARDÉ, jamais à ce qu'EST le compte.
+    prospects: (db.prospects || []).filter((p) => !!p.formation === !!espaceDuCompte(db, profile)),
+    // ⚠ LE MUR sur les textes libres : un message appartient à l'espace des
+    // gens qui se parlent, une ligne de journal porte sa propre marque. Sans
+    // ces deux filtres, effacer en formation nettoierait le journal RÉEL.
+    messages: (db.messages || []).filter((m) => idsEspaceEff.has(m.de_id) || idsEspaceEff.has(m.a_id)),
+    audits: (db.audits || []).filter((a) => !!a.formation === !!espaceDuCompte(db, profile)),
+  };
+  const listeEff = clientsEffacables(visibleEff);
+  const listeEffFiltree = qEff.trim()
+    ? listeEff.filter((c) => correspond(`${c.nom} ${motsDuNumero(c.tel)}`, qEff))
+    : listeEff.slice(0, 40);
+  const dossierEff = cibleEff ? dossierClient(visibleEff, cibleEff) : null;
+  // Les noms que portent LES AUTRES : un mot qu'ils partagent n'est pas
+  // retiré des textes libres (voir motsSensibles). On le calcule ici parce
+  // que seule l'application connaît les gens.
+  const cleCibleEff = cibleEff ? cleDuClient(cibleEff.nom, cibleEff.tel) : null;
+  const autresNomsEff = dossierEff ? [
+    ...comptesEff.filter((u) => !dossierEff.compte || u.id !== dossierEff.compte.id).flatMap((u) => [u.nom, u.nom_base]),
+    ...listeEff.filter((c) => c.cle !== cleCibleEff).map((c) => c.nom),
+  ].filter(Boolean) : [];
+  const refusEff = dossierEff ? critiqueEffacement(dossierEff, fmt) : "";
+  const avertEff = dossierEff ? avertissementsEffacement(dossierEff, today(), autresNomsEff) : [];
+
+  const lancerEffacement = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    // Revérifié DANS le geste, comme tout geste réservé à un rôle.
+    if (refuserSaufAdminPrincipal(db, profile, "Effacer les données personnelles d'un client")) return;
+    if (!dossierEff) return;
+    const refus = critiqueEffacement(dossierEff, fmt);
+    if (refus) { uAlert(`🔒 Effacement impossible.\n\n${refus}`); return; }
+    const motif = motifEff.trim();
+    if (!motif) { uAlert("Le motif est obligatoire : c'est lui qui prouve, plus tard, pourquoi ces données ont été effacées."); return; }
+    const numero = prochainNumeroEffacement(db);
+    const ok = await uConfirm(
+      `Effacer les données personnelles de « ${cibleEff.nom} »${cibleEff.tel ? ` (${cibleEff.tel})` : ""} ?\n\n`
+      + `${dossierEff.total} enregistrement(s) sont concernés.\n`
+      + `Son nom sera remplacé partout par « ${pseudonyme(numero)} ».\n\n`
+      + `⚠ AUCUN RETOUR POSSIBLE : ni la corbeille, ni une restauration de sauvegarde antérieure ne le ramèneront tel quel.`
+    );
+    if (!ok) return;
+    save(
+      effacerClient(db, dossierEff, profile, { motif, numero, autresNoms: autresNomsEff }),
+      journalEffacement(dossierEff, profile, { motif, numero })
+    );
+    setCibleEff(null); setMotifEff(""); setQEff("");
+    uAlert(`✅ Données effacées.\n\nCe client s'appelle désormais « ${pseudonyme(numero)} » dans les ventes et les chantiers gardés par obligation comptable.\n\nConservez la demande écrite du client : le journal garde la trace de l'opération, pas la demande.`);
   };
 
   // ---- PERSONNALISATION DE L'ÉCRAN DE CONNEXION (fêtes, etc.) ----
@@ -1178,7 +1260,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           doivent pas être sur le chemin de tous les jours. */}
       <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
         {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["appareils", `🔌 Appareils${aClasser.length ? ` (${aClasser.length} à classer)` : ""}`], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"],
-          ...(jeSuisPrincipal ? [["corbeille", `🗑 Corbeille${corbeille.length ? ` (${corbeille.length})` : ""}`]] : []),
+          ...(jeSuisPrincipal ? [["donnees_perso", "🔒 Données personnelles"], ["corbeille", `🗑 Corbeille${corbeille.length ? ` (${corbeille.length})` : ""}`]] : []),
           ["securite", "🔐 Sécurité"]].map(([id, label]) => (
           <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
         ))}
@@ -1529,6 +1611,115 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           )}
         </div>
       </div>
+      {/* ⚠ 🔒 DONNÉES PERSONNELLES — LE DROIT À L'EFFACEMENT (Timo, 18/09/2026).
+          L'article 18 de nos contrats promet au client la suppression de ses
+          données « dans les conditions prévues par la loi ». Cet écran tient
+          la promesse, et DIT ce qu'il ne peut pas faire : une facture payée
+          ne se détruit pas, elle perd son nom. */}
+      <div className="space-y-4" style={{ display: onglet === "donnees_perso" ? undefined : "none" }}>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <div className="font-bold mb-1">🔒 Effacer les données d'un client</div>
+          <div className="text-xs text-slate-600 mb-3 space-y-1">
+            <p>
+              Quand un client demande que vous effaciez ses données, c'est ici. Vous seul pouvez le faire.
+              L'article 18 de vos contrats le lui promet — et cite la <b>loi n° 2019-014</b> sur la protection des données à caractère personnel.
+            </p>
+            <p className="text-slate-500">
+              <b>Ce qui part&nbsp;:</b> son compte, son numéro, son adresse, la position de son chantier, sa signature, ses messages, sa fiche de prospection.
+              {" "}<b>Ce qui reste&nbsp;:</b> ses ventes et ses chantiers — montants, articles, numéros de reçu —, parce que la loi commerciale vous oblige à les garder.
+              Son nom y est remplacé par une référence qui ne désigne personne.
+            </p>
+          </div>
+
+          <input className={champRecherche} placeholder="Rechercher un client (nom ou numéro)…" value={qEff} onChange={(e) => setQEff(e.target.value)} />
+
+          <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+            {listeEffFiltree.length === 0 ? (
+              <div className="p-3 text-sm text-slate-500">{qEff.trim() ? "Aucun client ne correspond." : "Aucun client dans cet espace."}</div>
+            ) : listeEffFiltree.map((c) => (
+              <button
+                key={c.cle}
+                onClick={() => { setCibleEff({ nom: c.nom, tel: c.tel }); setMotifEff(""); }}
+                className={`w-full text-left px-3 py-2 text-sm ${cleCibleEff === c.cle ? "bg-sky-50 border-l-4 border-sky-700 font-bold" : "hover:bg-slate-50"}`}
+              >
+                {c.nom}
+                <span className="block text-xs text-slate-500">{c.tel || "sans numéro"}</span>
+              </button>
+            ))}
+          </div>
+          {!qEff.trim() && listeEff.length > listeEffFiltree.length && (
+            <div className="mt-1 text-xs text-slate-500">{listeEff.length} clients en tout — tapez pour trouver le vôtre.</div>
+          )}
+        </div>
+
+        {dossierEff && (
+          <div className="rounded-xl p-4 bg-white border-2 border-slate-300 shadow-sm">
+            <div className="font-bold mb-2">Dossier de « {cibleEff.nom} »{cibleEff.tel ? ` — ${cibleEff.tel}` : ""}</div>
+
+            {refusEff ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800 whitespace-pre-line">🔒 {refusEff}</div>
+            ) : (
+              <>
+                {avertEff.map((a, i) => (
+                  <div key={i} className="mb-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">{a}</div>
+                ))}
+
+                <div className="grid sm:grid-cols-2 gap-3 mt-2">
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                    <div className="text-xs font-bold text-red-800 mb-1">CE QUI PART POUR DE BON</div>
+                    {resumeEffacement(dossierEff).part.length === 0 ? (
+                      <div className="text-xs text-slate-500">Rien qui n'appartienne qu'à lui.</div>
+                    ) : (
+                      <ul className="text-xs text-slate-700 list-disc pl-4 space-y-0.5">
+                        {resumeEffacement(dossierEff).part.map((x, i) => <li key={i}>{x}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                    <div className="text-xs font-bold text-slate-700 mb-1">CE QUI RESTE, SANS SON NOM</div>
+                    {resumeEffacement(dossierEff).reste.length === 0 ? (
+                      <div className="text-xs text-slate-500">Aucune écriture comptable à son nom.</div>
+                    ) : (
+                      <ul className="text-xs text-slate-700 list-disc pl-4 space-y-0.5">
+                        {resumeEffacement(dossierEff).reste.map((x, i) => <li key={i}>{x}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <Field label="Motif — pourquoi ces données sont effacées (obligatoire)">
+                    <input className={inputCls} placeholder="Ex. : demande écrite du client du 18/09/2026" value={motifEff} onChange={(e) => setMotifEff(e.target.value)} />
+                  </Field>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Le journal gardera la trace de l'opération — la date, vous, ce motif, et la référence — <b>sans jamais renommer ce client</b>.
+                    Gardez sa demande écrite de votre côté&nbsp;: c'est elle qui prouve qu'il l'a demandée.
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={lancerEffacement} className="px-5 py-2 rounded-lg bg-red-700 text-white font-bold text-sm hover:bg-red-800">
+                    🔒 Effacer les données de ce client
+                  </button>
+                  <button onClick={() => { setCibleEff(null); setMotifEff(""); }} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-50">
+                    Annuler
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="rounded-xl p-4 bg-slate-50 border border-slate-200">
+          <div className="font-bold text-sm mb-1">Ce que l'application ne peut pas faire à votre place</div>
+          <ul className="text-xs text-slate-600 list-disc pl-4 space-y-1">
+            <li>La déclaration de vos traitements auprès de l'<b>IPDCP</b> (l'autorité togolaise) — c'est une démarche, pas un réglage.</li>
+            <li>La question de l'<b>hébergement hors du Togo</b> : la base et le site sont à l'étranger.</li>
+            <li>Décider d'une <b>durée de conservation</b> : aujourd'hui, rien ne s'efface tout seul.</li>
+          </ul>
+        </div>
+      </div>
+
       <div className="space-y-4" style={{ display: onglet === "corbeille" ? undefined : "none" }}>
         <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
           <div className="font-bold mb-1">🗑 Corbeille</div>

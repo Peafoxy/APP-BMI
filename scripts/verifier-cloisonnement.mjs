@@ -152,6 +152,13 @@ await build({ entryPoints: ["src/lib/outillage.js"], bundle: true, format: "esm"
 const Out = await import(pathToFileURL(sortieOut).href);
 unlinkSync(sortieOut);
 
+// 🔒 Le droit à l'effacement d'un client (18/09/2026).
+const sortieEff = join("node_modules", ".cache", `bmi-effacement-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/effacementClient.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieEff, logLevel: "silent", loader: { ".js": "jsx" } });
+const Eff = await import(pathToFileURL(sortieEff).href);
+unlinkSync(sortieEff);
+
 // 👆 L'empreinte qui ouvre le verrou d'inactivité (16/09/2026).
 const sortieEmp = join("node_modules", ".cache", `bmi-empreinte-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/empreinte.js"], bundle: true, format: "esm",
@@ -3919,8 +3926,12 @@ titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurabl
   test("★ le geste Suppr. d'un chantier passe par la corbeille (plus de filter direct)",
     /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
   const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  // ⚠ RETOURNÉ le 18/09/2026 : « 🔒 Données personnelles » s'est glissée
+  // devant la corbeille dans la même liste réservée au principal. Le contrôle
+  // vérifie toujours la MÊME chose — l'onglet réservé, et les deux gestes
+  // gardés —, il ne présume plus qu'il est le premier de la liste.
   test("★ ⚙ Paramètres a l'onglet 🗑 Corbeille pour l'admin principal seul, avec Restaurer et Supprimer définitivement (gestes gardés)",
-    /jeSuisPrincipal \? \[\["corbeille"/.test(par) && /refuserSaufAdminPrincipal\(db, profile, "Restaurer une fiche de la corbeille"\)/.test(par)
+    /jeSuisPrincipal \? \[.*\["corbeille"/.test(par) && /refuserSaufAdminPrincipal\(db, profile, "Restaurer une fiche de la corbeille"\)/.test(par)
     && /refuserSaufAdminPrincipal\(db, profile, "Supprimer définitivement une fiche"\)/.test(par));
   test("★ la sauvegarde de secours emporte la corbeille", /fusionnerCorbeille\(db\)/.test(readFileSync("src/lib/sauvegarde.js", "utf8")));
   test("★ le serveur : mettre à la corbeille = admin ou son commercial (jamais un client), restaurer = principal",
@@ -7587,9 +7598,12 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("★ le mot part par la règle commune WhatsApp (envoyerWhatsApp), jamais un wa.me écrit dans l'écran",
     /envoyerWhatsApp\(telDigits\(u\.tel\), u\.role === "client"/.test(uNum) && !/wa\.me/.test(uNum));
 
-  const importeursCC = execSync("grep -rl 'clientsConnus' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).sort().join("|");
-  test("★ la règle n'est recopiée nulle part : seuls les CINQ écrans et son propre fichier la connaissent (👥 Utilisateurs depuis le 16/09/2026, pour chercher par numéro)",
-    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx");
+  // ⚠ RESSERRÉ le 18/09/2026 : la recherche portait sur le MOT, donc un
+  // simple commentaire qui cite le fichier voisin faisait tomber le contrôle.
+  // Ce qu'on surveille, c'est une RECOPIE de la règle — donc un vrai import.
+  const importeursCC = execSync("grep -rlE 'from \"[^\"]*clientsConnus' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).concat(["src/lib/clientsConnus.js"]).sort().join("|");
+  test("★ la règle n'est recopiée nulle part : seuls les SIX écrans et son propre fichier la connaissent (👥 Utilisateurs depuis le 16/09/2026 pour chercher par numéro, ⚙ Paramètres depuis le 18/09/2026 pour retrouver le client à effacer)",
+    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Parametres.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx");
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -8713,8 +8727,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
     const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
     const fenetres = execSync("grep -rn 'className={champRechercheFenetre}' src/screens src/components | wc -l").toString().trim();
-    test("★ les 10 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
-      Number(usages) === 9 && Number(fenetres) === 1
+    test("★ les 11 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
+      Number(usages) === 10 && Number(fenetres) === 1
       && lignes.length >= 8
       && lignes.every((x) => /className=\{champRecherche(Fenetre)?\}/.test(x.l))
       && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace(/champRecherche(Fenetre)?/g, "")))
@@ -9169,6 +9183,219 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     && !/db\.users\.filter|\(db\.users \|\| \[\]\)\.filter/.test(ecrC)
     && /correspond\(`\$\{o\.nom\}/.test(ecrC)
     && !/toLowerCase\(\)\.includes/.test(ecrC));
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🔒 LE DROIT À L'EFFACEMENT D'UN CLIENT (Timo, 18/09/2026)
+//
+// « Mon app respecte déjà la législation togolaise sur cet aspect ? » — pas
+// encore : l'article 18 de nos contrats promet la suppression des données du
+// client, et l'application ne savait pas la faire. Supprimer son compte
+// laissait son nom et son numéro sur chaque vente, chaque chantier, chaque
+// message et dans le journal : rien n'était effacé, mais tout avait l'air
+// fait. Le banc EXERCE la vraie règle — il ne lit pas le code.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("🔒 Le droit à l'effacement d'un client (18/09/2026)");
+
+  const monde = () => ({
+    users: [
+      { id: "cl1", role: "client", nom: "KOSSI", nom_base: "KOSSI MENSAH", tel: "+228 90 11 22 33", devis: [{ id: "dv1" }] },
+      { id: "v1", role: "vendeur", nom: "AMA" },
+    ],
+    ventes: [
+      { id: "ve1", client: "KOSSI MENSAH", tel: "90112233", boutique: "APESSITO", numero: "R-12", total: 50000, articles: [{ nom: "Panneau", qte: 2 }] },
+      { id: "ve2", client: "AUTRE CLIENT", tel: "90999999", boutique: "APESSITO" },
+    ],
+    dettes: [{ id: "de1", client: "KOSSI MENSAH", tel: "22890112233", montant: 30000, paye: 30000 }],
+    proformas: [], commandes: [],
+    clients_installes: [{
+      id: "ch1", nom: "MENSAH", prenom: "KOSSI", tel: "90112233", statut: "receptionne",
+      localisation: "Bè-Kpota", lat: 6.17, lng: 1.23, contrat_signature: "data:image/png;base64,AAA",
+      contrat_jeton: "JETON-SECRET", garantie_mois: 24, receptionne_le: "2024-01-01", frais: 120000,
+      observations: [{ id: "o1", texte: "KOSSI MENSAH a rappelé le 90112233" }],
+    }],
+    prospects: [{ id: "pr1", nom: "KOSSI MENSAH", tel: "90112233" }],
+    messages: [
+      { id: "m1", de_id: "cl1", a_id: "v1", texte: "bonjour" },
+      { id: "m2", de_id: "v1", a_id: "adm", texte: "🙋 Nouveau client : KOSSI MENSAH (90112233)." },
+      { id: "m3", de_id: "x", a_id: "y", texte: "message d'un AUTRE espace, citant KOSSI MENSAH" },
+    ],
+    audits: [
+      { id: "a1", action: "Nouveau client installé « KOSSI MENSAH » (solaire)" },
+      { id: "a2", action: "Vente réelle d'un AUTRE espace — KOSSI MENSAH" },
+    ],
+  });
+  // `visible` = ce que l'espace regardé laisse voir. m3 et a2 n'y sont PAS.
+  const vu = (d) => ({
+    comptes: d.users, ventes: d.ventes, dettes: d.dettes, proformas: [], commandes: [],
+    chantiers: d.clients_installes, prospects: d.prospects,
+    messages: d.messages.filter((m) => m.id !== "m3"),
+    audits: d.audits.filter((a) => a.id !== "a2"),
+  });
+  const cible = { nom: "KOSSI MENSAH", tel: "90112233" };
+
+  const d0 = monde();
+  const dos = Eff.dossierClient(vu(d0), cible);
+
+  test("★ le dossier ramasse TOUT ce que l'application sait de lui — son compte, ses ventes, ses dettes, ses chantiers, sa fiche de prospection et ses messages — en reconnaissant le même numéro écrit de trois façons (90112233 / +228 90 11 22 33 / 22890112233)",
+    !!dos.compte && dos.ventes.length === 1 && dos.dettes.length === 1 && dos.chantiers.length === 1
+    && dos.prospects.length === 1 && dos.messages.length === 1 && dos.total === 6
+    && !dos.ventes.some((v) => v.id === "ve2"));
+
+  test("★ LA PROMESSE TENUE : ce qui n'appartient qu'à lui PART (compte, devis, prospect, messages), ce que les livres doivent garder RESTE — la vente garde son numéro de reçu, son total et ses articles, et perd le nom et le numéro",
+    (() => {
+      const ap = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "demande du client", numero: 1 });
+      const v = ap.ventes.find((x) => x.id === "ve1");
+      return !ap.users.some((u) => u.id === "cl1")
+        && ap.prospects.length === 0
+        && !ap.messages.some((m) => m.id === "m1")
+        && v.client === "CLIENT EFFACÉ N° 1" && v.tel === ""
+        && v.numero === "R-12" && v.total === 50000 && v.articles.length === 1;
+    })());
+
+  test("★ une vente qui n'est PAS la sienne ne bouge pas d'un caractère",
+    (() => {
+      const ap = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "m", numero: 1 });
+      return JSON.stringify(ap.ventes.find((x) => x.id === "ve2")) === JSON.stringify(d0.ventes[1]);
+    })());
+
+  test("★ le chantier garde ses frais, son matériel et son équipe, et perd nom, numéro, adresse, POSITION GPS, signature — et le JETON de signature, qui est une clé d'accès à son dossier",
+    (() => {
+      const c = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "m", numero: 3 }).clients_installes[0];
+      return c.frais === 120000 && c.garantie_mois === 24
+        && c.nom === "CLIENT EFFACÉ N° 3" && c.prenom === "" && c.tel === ""
+        && c.localisation === "" && c.lat === null && c.lng === null
+        && c.contrat_signature === "" && c.contrat_jeton === "";
+    })());
+
+  test("★ LE NOM SE CACHE AUSSI DANS LES TEXTES LIBRES : journal, observations et messages d'équipe sont nettoyés — sinon l'effacement AURAIT L'AIR fait sans l'être",
+    (() => {
+      const ap = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "m", numero: 1, autresNoms: ["AMA"] });
+      return /CLIENT EFFACÉ N° 1/.test(ap.audits.find((a) => a.id === "a1").action)
+        && !/KOSSI/.test(ap.audits.find((a) => a.id === "a1").action)
+        && !/KOSSI|90112233/.test(ap.messages.find((m) => m.id === "m2").texte)
+        && !/KOSSI|90112233/.test(ap.clients_installes[0].observations[0].texte);
+    })());
+
+  test("★ un NUMÉRO ne devient pas la référence (« (90112233) » ne se lit pas « (CLIENT EFFACÉ N° 1) ») : il disparaît derrière sa propre marque",
+    (() => {
+      const ap = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "m", numero: 1, autresNoms: ["AMA"] });
+      return ap.messages.find((m) => m.id === "m2").texte === "🙋 Nouveau client : CLIENT EFFACÉ N° 1 (numéro effacé).";
+    })());
+
+  test("★⚠ LE MUR : le nettoyage des textes libres ne sort JAMAIS de l'espace regardé. L'administrateur PRINCIPAL charge les DEUX espaces — sans la portée, effacer un client d'ENTRAÎNEMENT nettoierait le journal RÉEL",
+    (() => {
+      const ap = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "m", numero: 1, autresNoms: ["AMA"] });
+      return ap.audits.find((a) => a.id === "a2").action === "Vente réelle d'un AUTRE espace — KOSSI MENSAH"
+        && ap.messages.find((m) => m.id === "m3").texte === "message d'un AUTRE espace, citant KOSSI MENSAH";
+    })());
+
+  test("★⚠ ON N'EFFACE PAS LE NOM DE QUELQU'UN D'AUTRE : à Lomé un prénom seul est porté par plusieurs personnes. Un mot que porte un employé ou un autre client est ÉCARTÉ du nettoyage — et l'écart est DIT, jamais silencieux",
+    (() => {
+      const mots = Eff.motsSensibles(dos, ["KOSSI MENSAH"]);
+      const ap = Eff.effacerClient(d0, dos, { nom: "TIMO" }, { motif: "m", numero: 1, autresNoms: ["KOSSI MENSAH"] });
+      return mots.ecartes.includes("KOSSI MENSAH")
+        && /ne sera PAS retiré des textes libres/.test(Eff.avertissementsEffacement(dos, "2025-01-01", ["KOSSI MENSAH"]).join(" "))
+        // …mais les COLONNES sont quand même effacées : la promesse tient.
+        && ap.ventes.find((x) => x.id === "ve1").client === "CLIENT EFFACÉ N° 1";
+    })());
+
+  test("★ et le contrôle est ÉPROUVÉ en remettant la faute : sans la liste des autres noms, le nom de l'employé serait balayé du journal",
+    (() => {
+      const d = monde();
+      d.audits.push({ id: "a3", action: "Clôture faite par AMANI" });
+      const v2 = vu(d); v2.audits = d.audits.filter((a) => a.id !== "a2");
+      const ds = Eff.dossierClient(v2, { nom: "AMANI", tel: "" });
+      const sansGarde = Eff.effacerClient(d, ds, {}, { motif: "m", numero: 1, autresNoms: [] });
+      const avecGarde = Eff.effacerClient(d, ds, {}, { motif: "m", numero: 1, autresNoms: ["AMANI"] });
+      return !/AMANI/.test(sansGarde.audits.find((a) => a.id === "a3").action)
+        && /AMANI/.test(avecGarde.audits.find((a) => a.id === "a3").action);
+    })());
+
+  test("★ LES DEUX PORTES FERMÉES : on n'efface pas les coordonnées de quelqu'un qui doit encore de l'argent (la dette ne se recouvrerait plus), ni celles d'un chantier non réceptionné (on a besoin de le joindre) — et le refus NOMME le montant",
+    (() => {
+      const d = monde();
+      const vd = vu(d); vd.dettes = [{ id: "de9", client: "KOSSI MENSAH", tel: "90112233", montant: 30000, paye: 5000 }];
+      const r1 = Eff.critiqueEffacement(Eff.dossierClient(vd, cible), (x) => `${x} F`);
+      const vc = vu(d); vc.chantiers = [{ id: "ch9", nom: "MENSAH", prenom: "KOSSI", tel: "90112233", statut: "en_cours" }];
+      const r2 = Eff.critiqueEffacement(Eff.dossierClient(vc, cible));
+      return /25000 F/.test(r1) && /dette/i.test(r1)
+        && /réceptionné/.test(r2)
+        && Eff.critiqueEffacement(dos) === "";
+    })());
+
+  test("★ LA RÉFÉRENCE NE REDESCEND JAMAIS : le prochain numéro est le plus grand déjà posé + 1 — deux effacements ne peuvent pas se confondre, et une ligne retrouvée dans une vieille sauvegarde n'en écrase pas une autre",
+    (() => {
+      const vide = Eff.prochainNumeroEffacement({ ventes: [] });
+      const apres = Eff.prochainNumeroEffacement({
+        ventes: [{ client: "CLIENT EFFACÉ N° 2" }], clients_installes: [{ nom: "CLIENT EFFACÉ N° 7" }],
+      });
+      return vide === 1 && apres === 8 && Eff.pseudonyme(8) === "CLIENT EFFACÉ N° 8" && Eff.estEfface("CLIENT EFFACÉ N° 8");
+    })());
+
+  test("★ un client déjà effacé ne se propose plus dans la liste (il n'y a plus personne derrière la référence)",
+    (() => {
+      const l = Eff.clientsEffacables({ ventes: [{ client: "CLIENT EFFACÉ N° 1", tel: "" }, { client: "VRAI CLIENT", tel: "90112233" }] });
+      return l.length === 1 && l[0].nom === "VRAI CLIENT";
+    })());
+
+  test("★ un chantier mis à la CORBEILLE porte encore son nom : l'effacement l'y suit, sinon il ressortirait nommé à la restauration",
+    (() => {
+      const d = monde();
+      d.corbeille_clients_installes = [{ id: "chc", nom: "MENSAH", prenom: "KOSSI", tel: "90112233", statut: "receptionne" }];
+      const v = vu(d); v.chantiers = [...d.clients_installes, ...d.corbeille_clients_installes];
+      const ds = Eff.dossierClient(v, cible);
+      const ap = Eff.effacerClient(d, ds, {}, { motif: "m", numero: 4 });
+      return ap.corbeille_clients_installes[0].nom === "CLIENT EFFACÉ N° 4" && ap.corbeille_clients_installes[0].tel === "";
+    })());
+
+  test("★ LA TRACE NE NOMME PERSONNE : le journal garde la date, l'auteur, le motif et la référence — jamais le nom du client, ce serait exactement ce qu'on vient d'effacer",
+    (() => {
+      const l = Eff.journalEffacement(dos, { nom: "TIMO" }, { motif: "demande écrite du 18/09/2026", numero: 5 });
+      return /CLIENT EFFACÉ N° 5/.test(l) && /demande écrite du 18\/09\/2026/.test(l) && /TIMO/.test(l)
+        && !/KOSSI|MENSAH|90112233/.test(l);
+    })());
+
+  test("★ LE RAPPORT SE LIT AVANT DE CLIQUER : il dit ce qui part pour de bon et ce qui reste sans son nom — on ne fait pas signer un geste sans retour sur une phrase générale",
+    (() => {
+      const r = Eff.resumeEffacement(dos);
+      return r.part.some((x) => /compte/i.test(x)) && r.part.some((x) => /message/i.test(x))
+        && r.reste.some((x) => /vente/i.test(x)) && r.reste.some((x) => /chantier/i.test(x));
+    })());
+
+  test("★ un client SANS numéro est rapproché sur le NOM SEUL : ce n'est pas interdit, c'est DIT — un homonyme partirait avec lui",
+    /rapprochement s'est fait sur le NOM seul/.test(
+      Eff.avertissementsEffacement(Eff.dossierClient({ ventes: [{ id: "z", client: "SANS NUMERO" }] }, { nom: "SANS NUMERO", tel: "" }), "2025-01-01").join(" ")));
+
+  {
+    const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+    test("★ le geste vit dans ⚙ Paramètres → 🔒 Données personnelles, réservé à l'administrateur PRINCIPAL — revérifié DANS le geste, pas seulement sur le bouton",
+      /\["donnees_perso", "🔒 Données personnelles"\]/.test(par)
+      && /jeSuisPrincipal \? \[\["donnees_perso"/.test(par)
+      && /refuserSaufAdminPrincipal\(db, profile, "Effacer les données personnelles d'un client"\)/.test(par));
+
+    test("★ le motif est OBLIGATOIRE (c'est lui qui prouve pourquoi ces données ont disparu), et la confirmation annonce qu'il n'y a aucun retour",
+      /Le motif est obligatoire/.test(par) && /AUCUN RETOUR POSSIBLE/.test(par));
+
+    test("★⚠ LE MUR dans l'écran : les personnes passent par utilisateursDeLEspace (la table des comptes n'est PAS cloisonnée par le serveur), les lignes par filtreEspaceAffichage, les chantiers par chantiersDeLEspaceRegarde — et les messages et le journal par leur propre filtre d'espace",
+      /comptesEff = utilisateursDeLEspace\(db, profile\)/.test(par)
+      && /filtreEspaceAffichage\(db, profile\)/.test(par)
+      && /chantiersDeLEspaceRegarde\(db, profile\)/.test(par)
+      && /messages: \(db\.messages \|\| \[\]\)\.filter\(\(m\) => idsEspaceEff\.has/.test(par)
+      && /audits: \(db\.audits \|\| \[\]\)\.filter/.test(par));
+
+    test("★ la ligne de recherche passe par LA règle commune (champRecherche) et LA règle de recherche (correspond), jamais un filtre maison",
+      /className=\{champRecherche\}/.test(par)
+      && /correspond\(`\$\{c\.nom\} \$\{motsDuNumero\(c\.tel\)\}`, qEff\)/.test(par));
+
+    test("★ l'écran DIT ce que l'application ne peut pas faire à sa place : la déclaration à l'IPDCP, l'hébergement hors du Togo, la durée de conservation — on ne laisse pas croire que tout est réglé",
+      /IPDCP/.test(par) && /hébergement hors du Togo/.test(par) && /durée de conservation/.test(par));
+
+    test("★ et le contrat, lui, disait déjà la vérité : loi n° 2019-014, droit d'accès, de rectification et de suppression",
+      (() => { const imp = readFileSync("src/lib/impression.js", "utf8");
+        return /loi n° 2019-014/.test(imp) && /droit d'accès, de rectification/.test(imp); })());
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

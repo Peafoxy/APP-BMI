@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1567 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1589 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1368,6 +1368,90 @@ lit mal est pire qu'un banc absent).
   s'affiche pour un technicien que s'il porte l'étoile ⭐~~ — **RETOURNÉ le
   18/09/2026** : tout technicien l'a, c'est l'ÉCRAN qui décide ce qu'il
   montre.
+
+### 🔒 PROTECTION DES DONNÉES : LE DROIT À L'EFFACEMENT (18/09/2026)
+- Timo : « protection des données à caractère personnel… mon app respecte
+  déjà la législation togolaise sur cet aspect ? » — réponse honnête : **en
+  partie**. L'article 18 de nos contrats (lib/impression.js, EspaceClient.jsx)
+  promettait déjà, nommément, la **loi n° 2019-014** et « un droit d'accès, de
+  rectification et, dans les conditions prévues par la loi, de suppression ».
+  **L'application ne savait pas tenir la promesse de suppression** : supprimer
+  le compte d'un client (👥 Utilisateurs) retirait son identifiant et son mot
+  de passe, et laissait son nom et son numéro sur chaque vente, chaque dette,
+  chaque chantier, chaque message et dans le journal. Rien n'était effacé,
+  mais tout avait l'air fait. « Lance le point 1. » → `lib/effacementClient.js`,
+  ⚙ **Paramètres → 🔒 Données personnelles** (administrateur PRINCIPAL seul,
+  revérifié DANS le geste).
+- ⚠ **ON NE DÉTRUIT PAS UNE FACTURE.** La loi commerciale oblige BMI à la
+  garder — et le contrat le dit déjà (« dans les conditions prévues par la
+  loi »). Donc **trois traitements, jamais un seul** :
+  **ce qui n'appartient qu'à lui PART** (compte + ses devis, fiche de
+  prospection, messages échangés) ; **ce que les livres gardent RESTE sans son
+  nom** (ventes, dettes, proformas, commandes, chantiers : montants, articles,
+  numéro de reçu, frais, équipe et matériel intacts) ; **son nom dans les
+  textes libres est REMPLACÉ** (journal, observations de chantier, messages
+  d'équipe).
+- **La référence numérotée n'est pas un caprice** : `CLIENT EFFACÉ N° 3`
+  (`pseudonyme`, `prochainNumeroEffacement` = le plus grand posé + 1, il ne
+  redescend JAMAIS — même principe que le numéro gravé d'un outil). Sans elle,
+  deux clients effacés deviendraient indiscernables et la comptabilité perdrait
+  le groupement de leurs achats. Elle relie des lignes, elle ne désigne
+  personne. Un client déjà effacé ne se propose plus (`clientsEffacables`).
+- **DEUX PORTES FERMÉES** (`critiqueEffacement`, refus qui NOMME le montant) :
+  une **dette non soldée** (sans son numéro, la dette ne se recouvre plus) et
+  un **chantier non réceptionné** (on a besoin de le joindre). Garder ce qui
+  sert un intérêt légitime EN COURS n'est pas refuser un droit, c'est
+  l'appliquer quand il s'ouvre. **Avertissements, pas refus** : garantie encore
+  en cours, client sans numéro (rapprochement sur le NOM seul — un homonyme
+  partirait avec lui), devis qui partent avec le compte.
+- ⚠⚠ **ON N'EFFACE JAMAIS LE NOM DE QUELQU'UN D'AUTRE.** À Lomé un prénom seul
+  (KOSSI, AMA, KOFFI) est porté par plusieurs personnes : remplacer ce mot
+  partout retirerait du journal le nom d'un VENDEUR — et **le journal est ce
+  qui dit qui a fait quoi**. `motsSensibles(dossier, autresNoms)` écarte tout
+  mot que porte encore quelqu'un d'autre (employé ou client resté), et **l'écart
+  est DIT dans le rapport**, jamais nettoyé en silence. Mots d'au moins 4
+  caractères, les plus LONGS d'abord (sinon « KOSSI » serait remplacé à
+  l'intérieur de « KOSSI MENSAH » et le nom de famille resterait planté là).
+  Un **numéro** disparaît derrière sa propre marque (`MARQUE_NUMERO`), pas
+  derrière la référence : « (90112233) » ne doit pas se lire
+  « (CLIENT EFFACÉ N° 1) ».
+- ⚠⚠ **LE MUR (défaut trouvé AU BANC, le jour même)** : le nettoyage des textes
+  libres parcourait `db.audits` et `db.messages` EN ENTIER. Un vendeur réel ne
+  télécharge que son espace — mais **l'administrateur PRINCIPAL charge les
+  DEUX**, et c'est lui qui efface : effacer un client d'ENTRAÎNEMENT aurait
+  nettoyé des lignes de journal RÉELLES. **Même leçon que
+  `retenueOutilPourPrime`** : une fonction pure qui reçoit une table entière et
+  la PARCOURT est un passage de mur en puissance. Le dossier porte donc sa
+  **`portee`** — les seules lignes que le geste a le droit de réécrire —, bâtie
+  sur les listes déjà filtrées. L'écran, lui, passe par `utilisateursDeLEspace`
+  (la table des comptes n'est PAS cloisonnée par le serveur),
+  `filtreEspaceAffichage`, `chantiersDeLEspaceRegarde`, et filtre messages et
+  journal par leur propre espace. Le contrôle a été éprouvé en remettant la
+  faute : il tombe.
+- **Ce qui part aussi, et qu'on oublierait** : le **jeton de signature** du PV
+  (`contrat_jeton`) est une CLÉ d'accès à son dossier, pas une coordonnée ; la
+  **position GPS** du chantier ; la **signature** du contrat et de l'avenant ;
+  et **le chantier mis à la CORBEILLE**, qui porte encore son nom et
+  ressortirait nommé à la restauration.
+- **LA TRACE NE NOMME PERSONNE** (`journalEffacement`) : date, auteur, motif
+  **obligatoire**, référence, nombre d'enregistrements — jamais le nom, ce
+  serait exactement ce qu'on vient d'effacer. **La demande écrite du client se
+  garde sur papier**, l'écran le dit. Un effacement ne se défait pas (ni
+  corbeille, ni restauration d'une sauvegarde antérieure) : la confirmation
+  l'annonce.
+- **Rien à coller dans Supabase** : aucun de ces champs n'est protégé par un
+  verrou, et l'administrateur principal les écrit déjà tous les jours.
+- **CE QUE L'APPLICATION NE PEUT PAS FAIRE, et l'écran le DIT** : la
+  **déclaration des traitements auprès de l'IPDCP** (l'autorité togolaise —
+  une démarche, pas un réglage), la question de l'**hébergement hors du Togo**
+  (Supabase et Vercel sont à l'étranger ; la loi encadre la sortie des
+  données), et la **durée de conservation** (aujourd'hui rien ne s'efface tout
+  seul). Ne jamais laisser croire que tout est réglé.
+- **Les quatre autres chantiers proposés, PAS ENCORE lancés** (décrits à Timo
+  le 18/09/2026, il a choisi le point 1) : donner au client tout ce qu'on a sur
+  lui (droit d'accès) ; une page « Vos données » dans l'espace client ; un mot
+  aux employés sur ce que l'application garde d'eux ; une durée de conservation
+  à décider par lui. Ne pas les construire sans sa demande.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
