@@ -19,8 +19,7 @@ import { Fragment, useState } from "react";
 import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } from "../lib/core";
 import { chiffresTel } from "../lib/identiteClient";
 import { ficheParId } from "../lib/banques";
-import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp } from "../components/ui";
-import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
 // ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
@@ -29,7 +28,7 @@ import { correspond } from "../lib/suggestions";
 import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE } from "../lib/validationDepenses";
 import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constants";
-import { bloquerSiLecture, refuserSaufAdmin, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufAdmin, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles } from "../lib/calculs";
 import {
   ETATS_OUTIL, peutTenirOutillage, outilsDe, outilsVivants, etatOutil, libelleEtat,
   detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortie, sortirOutil, critiqueRetour,
@@ -40,6 +39,8 @@ import {
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
   marquerDepenseReparation, depenseDeLaReparation, libelleDepenseReparation,
+  registreUnifie, lieuxDuRegistre, lieuDeRangement, lieuOutil, outilsDuLieu,
+  lieuDeLaPersonne, lieuxSansAppel,
   perteDe, aRembourser, dejaRetenu, resteARetenir, retenuesDe, modeRetenue, libelleRetenue,
   critiqueRetenue, critiqueARembourser, ajouterRetenue, fixerARembourser,
 } from "../lib/outillage";
@@ -62,7 +63,7 @@ const VIDE_VUE = {
 };
 const REFUS_ROLE = "🔒 Tenir le registre de l'outillage : réservé au chef des techniciens, au magasinier et à l'administrateur.";
 const sortieVide = { saisie: "", outil_id: "", user_id: "", chantier: "", retour_prevu: "" };
-const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_achat: "" };
+const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_achat: "", lieu: "" };
 
 // ============================================================
 // L'INTERFACE DU DÉTENTEUR (Timo, 18/09/2026) : « celui qui a un outil et
@@ -116,7 +117,7 @@ function MesOutils({ db, save, profile }) {
               const just = derniereJustification(o);
               return (
                 <div key={o.id} className={`rounded-xl border p-3 ${tard ? "border-red-300 bg-red-50" : "bg-slate-50"}`}>
-                  <div className="font-bold text-slate-800">{o.nom}{o.numero ? ` — N° ${o.numero}` : ""} <span className="text-xs font-normal text-slate-500">({b.nom})</span></div>
+                  <div className="font-bold text-slate-800">{o.nom}{o.numero ? ` — N° ${o.numero}` : ""} <span className="text-xs font-normal text-slate-500">(à rendre à {lieuDeRangement(o, b.nom)})</span></div>
                   <div className="text-sm text-slate-600 mt-1">
                     Pris le <b>{dFR(s.le)}</b>{s.chantier ? <> pour <b>{s.chantier}</b></> : null} · remis par <b>{s.par || "—"}</b>
                     {s.retour_prevu && <> · retour prévu le <b className={tard ? "text-red-700" : ""}>{dFR(s.retour_prevu)}</b></>}
@@ -144,13 +145,11 @@ function MesOutils({ db, save, profile }) {
 }
 
 export function Outillage({ db, save, profile }) {
-  const premiere = boutiqueParDefaut(db, profile, { ecran: "outillage" });
-  const [bq, setBq] = useState(profile.boutique || premiere);
-  const boutique = boutiqueRetenue(db, profile, bq, { ecran: "outillage" });
   const [f, setF] = useState(sortieVide);
   const [neuf, setNeuf] = useState(null);      // formulaire « ➕ Ajouter un outil »
   const [q, setQ] = useState("");
-  const [appel, setAppel] = useState(null);    // { vus: Set } pendant l'appel
+  // ⚠ L'appel se fait PAR LIEU (Timo, 18/09/2026) : { lieu, vus: Set }.
+  const [appel, setAppel] = useState(null);
   // ⚠ Timo, 18/09/2026 : « à qui on rend l'outil n'est pas mentionné ». La
   // personne était enregistrée mais invisible. UN clic sur la ligne ouvre
   // l'histoire de l'outil — la règle du dépliage de 💰 Ventes et 📋 Dettes.
@@ -170,24 +169,39 @@ export function Outillage({ db, save, profile }) {
   if (!jePeux && ["technicien", "technicien_bmi"].includes(profile.role)) {
     return <MesOutils db={db} save={save} profile={profile} />;
   }
-  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  // ⚠ LE REGISTRE EST CELUI DE TOUTE LA MAISON (Timo, 18/09/2026) : plus de
+  // pastille de boutique. Les LIEUX (boutiques + magasins de l'espace
+  // regardé) ne servent plus qu'à dire OÙ est chaque outil, et à faire
+  // l'appel. Le mur tient : « toute la maison » = tout l'espace REGARDÉ.
+  const lieux = lieuxDuRegistre(boutiquesVisibles(db, profile, db.boutiques || []));
+  if (!lieux.length) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
 
-  const fiche = (db.boutiques || []).find((b) => b.nom === boutique) || null;
+  const registre = registreUnifie(lieux);
   const jour = today();
-  const resume = fiche ? resumeOutillage(fiche, jour) : { total: 0, dehors: 0, retard: 0, reparation: 0, perdus: 0, valeurPerdue: 0 };
-  const tous = fiche ? outilsDe(fiche) : [];
-  const manquants = fiche ? manquantsDuDernierAppel(fiche) : [];
+  const resume = resumeOutillage(registre, jour);
+  const tous = outilsDe(registre);
+  // La fiche qui garde physiquement cet outil — c'est elle qu'on réécrit.
+  const ficheDe = (outil) => (db.boutiques || []).find((b) => b.id === outil?._fiche) || null;
   // Les personnes de l'espace regardé, actives : un outil sort au nom de
   // l'une d'elles, jamais d'un nom tapé à la main.
   const personnes = utilisateursDeLEspace(db, profile)
     .filter((u) => u.actif !== false && u.role !== "client")
     .sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr"));
 
-  // Une écriture du registre ne touche QUE la fiche de sa boutique.
+  // Une écriture ne touche QUE la fiche qui garde l'outil. L'écran réunit
+  // les registres ; la base, elle, ne bouge pas de place.
   const ecrire = (boutiqueApres, journal, extra = {}) => save({
     ...db, ...extra,
     boutiques: (db.boutiques || []).map((b) => (b.id === boutiqueApres.id ? boutiqueApres : b)),
   }, journal);
+  // Le geste courant : remplacer un outil dans SA fiche.
+  const ecrireOutil = (outil, apres, journal, extra = {}) => {
+    const bq = ficheDe(outil);
+    if (!bq) { uAlert("Cet outil n'est rattaché à aucune boutique connue."); return; }
+    ecrire(remplacerOutil(bq, apres), journal, extra);
+  };
+  // Où l'outil est rangé, en clair, pour les journaux.
+  const ou = (outil) => lieuDeRangement(outil) || "—";
 
   const garde = () => {
     if (bloquerSiLecture(db, profile)) return true;
@@ -200,17 +214,21 @@ export function Outillage({ db, save, profile }) {
   const ajouter = async () => {
     if (garde()) return;
     if (refuserSaufAdmin(profile, "Ajouter un outil au registre")) return;
-    const refus = critiqueNouvelOutil(fiche, neuf);
+    const refus = critiqueNouvelOutil(registre, neuf);
     if (refus) { uAlert(refus); return; }
+    // ⚠ Le lieu est DEMANDÉ (plus de pastille en haut) : une boutique ou un
+    // magasin — jamais « nulle part ».
+    const bq = lieux.find((b) => b.nom === neuf.lieu);
+    if (!bq) { uAlert("Dites où l'outil est rangé : une boutique ou un magasin."); return; }
     const o = nouvelOutil({ id: uid(), ...neuf, le: jour, par_id: profile.id, par: profile.nom });
-    ecrire(ajouterOutil(fiche, o), `🧰 Outil ajouté — ${o.nom}${o.numero ? ` (N° ${o.numero})` : ""} (${boutique})`);
+    ecrire(ajouterOutil(bq, o), `🧰 Outil ajouté — ${o.nom}${o.numero ? ` (N° ${o.numero})` : ""} — rangé à ${bq.nom}`);
     setNeuf(null);
   };
 
   // ---- 📤 SORTIE : l'outil part sous le nom de quelqu'un
   const sortir = async () => {
     if (garde()) return;
-    const outil = f.outil_id ? tous.find((o) => o.id === f.outil_id) : outilSaisi(fiche, f.saisie);
+    const outil = f.outil_id ? tous.find((o) => o.id === f.outil_id) : outilSaisi(registre, f.saisie);
     const refus = critiqueSortie(outil, { user_id: f.user_id, retour_prevu: f.retour_prevu });
     if (refus) { uAlert(refus); return; }
     const p = personnes.find((u) => u.id === f.user_id);
@@ -222,19 +240,35 @@ export function Outillage({ db, save, profile }) {
     const messages = p.id !== profile.id
       ? [nouveauMessage(profile, { a_id: p.id, texte: `🧰 Vous répondez de « ${outil.nom} »${outil.numero ? ` (N° ${outil.numero})` : ""}, sorti le ${dFR(jour)}${f.chantier ? ` pour ${f.chantier}` : ""}. Retour attendu le ${dFR(f.retour_prevu)}.` })]
       : [];
-    ecrire(remplacerOutil(fiche, apres), `🧰 Sortie — ${outil.nom} chez ${p.nom}, retour le ${dFR(f.retour_prevu)} (${boutique})`, messages.length ? { messages: [...(db.messages || []), ...messages] } : {});
+    ecrireOutil(outil, apres, `🧰 Sortie — ${outil.nom} (${ou(outil)}) chez ${p.nom}, retour le ${dFR(f.retour_prevu)}`, messages.length ? { messages: [...(db.messages || []), ...messages] } : {});
     setF(sortieVide);
   };
 
   // ---- 📥 RETOUR : dans quel état l'outil rentre-t-il
+  // ⚠ C'EST CELUI QUI REÇOIT QUI CLASSE L'OUTIL (Timo, 18/09/2026) : le
+  // gérant d'une boutique le range chez lui, le magasinier au magasin. S'il
+  // n'a pas de boutique attitrée (un administrateur, un chef technicien), on
+  // lui DEMANDE où — décision Timo, jamais un magasin d'office.
+  const lieuDuRetour = async (outil) => {
+    const sien = lieuDeLaPersonne(profile, lieux);
+    if (sien) return sien;
+    const noms = lieux.map((b) => `${b.depot ? "🏭 " : ""}${b.nom}`);
+    const choix = await uChoix(`📥 Où rangez-vous « ${outil.nom} » ?`, noms);
+    if (choix === null) return null;
+    const i = noms.indexOf(choix);
+    return i < 0 ? null : lieux[i].nom;
+  };
+
   const rendre = async (outil) => {
     if (garde()) return;
     const refus = critiqueRetour(outil);
     if (refus) { uAlert(refus); return; }
-    const etat = await uConfirm(`« ${outil.nom} » vous est rendu — reçu par ${profile.nom}.\n\nRevient-il en bon état ?\n\nOK = bon état · Annuler = abîmé`);
+    const lieu = await lieuDuRetour(outil);
+    if (!lieu) return;
+    const etat = await uConfirm(`« ${outil.nom} » vous est rendu — reçu par ${profile.nom}, rangé à ${lieu}.\n\nRevient-il en bon état ?\n\nOK = bon état · Annuler = abîmé`);
     const note = etat ? "" : (await uPrompt("Qu'est-ce qui est abîmé ?", "")) || "";
-    const apres = rendreOutil(outil, { id: uid(), le: jour, etat: etat ? "bon" : "abime", note, par_id: profile.id, par: profile.nom });
-    ecrire(remplacerOutil(fiche, apres), `🧰 Retour — ${outil.nom} rendu à ${profile.nom}${etat ? "" : ` (ABÎMÉ : ${note})`} (${boutique})`);
+    const apres = rendreOutil(outil, { id: uid(), le: jour, etat: etat ? "bon" : "abime", note, lieu, par_id: profile.id, par: profile.nom });
+    ecrireOutil(outil, apres, `🧰 Retour — ${outil.nom} rendu à ${profile.nom}, rangé à ${lieu}${etat ? "" : ` (ABÎMÉ : ${note})`}`);
   };
 
   // ---- 🔧 RÉPARATION : chez QUI, son NUMÉRO, la PANNE, le PRIX (Timo,
@@ -243,6 +277,12 @@ export function Outillage({ db, save, profile }) {
   // toucherait ses comptes.
   // Le tiroir : la même limite qu'à la saisie d'une dépense (Timo, 15/09/2026)
   // — le tiroir PLUS ce qu'il reste dans l'enveloppe.
+  // ⚠ Plus de « boutique regardée » : la caisse proposée pour une réparation
+  // est celle du LIEU de l'outil, et le choix « Payé avec » reste entier.
+  const caisseDe = (outil) => {
+    const l = lieuDeRangement(outil);
+    return caisses.includes(l) ? l : (lieuDeLaPersonne(profile, lieux) || caisses[0] || "");
+  };
   const refusTiroir = (nomBoutique, montant, geste) => {
     const p = fondsAVerser(db, nomBoutique, totalVente);
     return critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste, boutique: nomBoutique });
@@ -254,7 +294,8 @@ export function Outillage({ db, save, profile }) {
   const depensePourReparation = async ({ prix, paiement, paye_avec }, outil, rep, libelleGeste) => {
     const montant = Number(prix || 0);
     if (!montant) return { depense: null, messages: [], journal: "" };
-    const choix = interpreterPayeAvec(paye_avec, boutique);
+    const caisse = caisseDe(outil);
+    const choix = interpreterPayeAvec(paye_avec, caisse);
     const r = construireDepenseSaisie(db, profile, {
       ...choix, categorie: CATEGORIE_REPARATION_OUTIL,
       description: libelleDepenseReparation(outil, rep), montant, paiement,
@@ -265,8 +306,8 @@ export function Outillage({ db, save, profile }) {
       if (refusT) { uAlert(refusT); return null; }
     }
     const suite = r.aValider ? `\n\n⏳ ${fmt(montant)} atteint ${fmt(SEUIL_VALIDATION_DEPENSE)} : la dépense ira à la validation du DG et ne comptera qu'une fois validée.` : "";
-    const ailleurs = choix.boutique !== boutique ? `\n\n🏬 C'est la caisse de ${choix.boutique} qui paie : la dépense sera rangée sous ${choix.boutique}.` : "";
-    if (!await uConfirm(`${libelleGeste} : enregistrer une dépense de ${fmt(montant)} en « ${CATEGORIE_REPARATION_OUTIL} », payée avec ${libelleChoixPayeAvec(paye_avec, boutique)} ?${suite}${ailleurs}`)) return null;
+    const ailleurs = choix.boutique !== caisse ? `\n\n🏬 C'est la caisse de ${choix.boutique} qui paie : la dépense sera rangée sous ${choix.boutique}.` : "";
+    if (!await uConfirm(`${libelleGeste} : enregistrer une dépense de ${fmt(montant)} en « ${CATEGORIE_REPARATION_OUTIL} », payée avec ${libelleChoixPayeAvec(paye_avec, caisse)} ?${suite}${ailleurs}`)) return null;
     return { ...r, depense: { ...r.depense, outil_id: outil.id, outil_nom: outil.nom, mouvement_id: rep.id, auto: "reparation_outil" } };
   };
 
@@ -282,8 +323,8 @@ export function Outillage({ db, save, profile }) {
     const apres = d.depense
       ? marquerDepenseReparation(mettreEnReparation(outil, mvt), mvt.id, d.depense.id)
       : mettreEnReparation(outil, mvt);
-    ecrire(remplacerOutil(fiche, apres),
-      `🧰 En réparation — ${outil.nom} chez ${repar.reparateur} (${repar.panne})${d.depense ? ` — dépense ${fmt(d.depense.montant)}` : ""} (${boutique})`,
+    ecrireOutil(outil, apres,
+      `🧰 En réparation — ${outil.nom} (${ou(outil)}) chez ${repar.reparateur} (${repar.panne})${d.depense ? ` — dépense ${fmt(d.depense.montant)}` : ""}`,
       d.depense ? { depenses: [d.depense, ...(db.depenses || [])], messages: [...(d.messages || []), ...(db.messages || [])] } : {});
     setRepar(null);
   };
@@ -298,10 +339,11 @@ export function Outillage({ db, save, profile }) {
     if (!rep) { uAlert("Cet outil n'est plus en réparation."); return; }
     const d = await depensePourReparation(retourRep, outil, rep, `Retour de réparation de « ${outil.nom} »`);
     if (d === null) return;
-    const rendu = rendreOutil(outil, { id: uid(), le: jour, etat: "bon", note: "", par_id: profile.id, par: profile.nom });
+    const lieu = lieuDeRangement(outil);
+    const rendu = rendreOutil(outil, { id: uid(), le: jour, etat: "bon", note: "", lieu, par_id: profile.id, par: profile.nom });
     const apres = d.depense ? marquerDepenseReparation(rendu, rep.id, d.depense.id) : rendu;
-    ecrire(remplacerOutil(fiche, apres),
-      `🧰 Revenu de réparation — ${outil.nom} rendu à ${profile.nom}${d.depense ? ` — dépense ${fmt(d.depense.montant)}` : ""} (${boutique})`,
+    ecrireOutil(outil, apres,
+      `🧰 Revenu de réparation — ${outil.nom} rendu à ${profile.nom}, rangé à ${lieu}${d.depense ? ` — dépense ${fmt(d.depense.montant)}` : ""}`,
       d.depense ? { depenses: [d.depense, ...(db.depenses || [])], messages: [...(d.messages || []), ...(db.messages || [])] } : {});
     setRetourRep(null);
   };
@@ -312,7 +354,7 @@ export function Outillage({ db, save, profile }) {
   const perdre = async (outil) => {
     if (garde()) return;
     const resp = responsableDeLaPerte(outil);
-    const motif = await uPrompt(`Déclarer « ${outil.nom} » PERDU.${resp ? `\n\nIl était sous la responsabilité de ${resp.nom}.` : "\n\nIl était rangé en boutique : personne n'en répondait."}\n\nQue s'est-il passé ?`, "");
+    const motif = await uPrompt(`Déclarer « ${outil.nom} » PERDU.${resp ? `\n\nIl était sous la responsabilité de ${resp.nom}.` : "\n\nIl était rangé à ${ou(outil)} : personne n'en répondait."}\n\nQue s'est-il passé ?`, "");
     if (motif === null) return;
     const refus = critiquePerte(outil, { motif });
     if (refus) { uAlert(refus); return; }
@@ -367,7 +409,7 @@ export function Outillage({ db, save, profile }) {
     const messages = resp && resp.id !== profile.id
       ? [nouveauMessage(profile, { a_id: resp.id, texte: texteResp })]
       : [];
-    ecrire(remplacerOutil(fiche, apres), `🧰 PERDU — ${outil.nom} : ${motif} (${fmt(valeur)})${mention} (${boutique})`,
+    ecrireOutil(outil, apres, `🧰 PERDU — ${outil.nom} (${ou(outil)}) : ${motif} (${fmt(valeur)})${mention}`,
       { users, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) });
   };
 
@@ -383,8 +425,8 @@ export function Outillage({ db, save, profile }) {
     const montant = Math.max(0, Number(saisie) || 0);
     const refus = critiqueARembourser(perte, montant);
     if (refus) { uAlert(refus); return; }
-    ecrire(remplacerOutil(fiche, fixerARembourser(outil, perte.id, montant)),
-      `🧰 Outil perdu « ${outil.nom} » — à rembourser : ${fmt(montant)} (${boutique})`);
+    ecrireOutil(outil, fixerARembourser(outil, perte.id, montant),
+      `🧰 Outil perdu « ${outil.nom} » — à rembourser : ${fmt(montant)}`);
   };
 
   // ---- 💵 Retenir sur le salaire. Le technicien à COMMISSION n'a pas de
@@ -410,7 +452,7 @@ export function Outillage({ db, save, profile }) {
     const users = (db.users || []).map((u) => (u.id === qui.id ? { ...u, avances: [...(u.avances || []), av] } : u));
     const apres = ajouterRetenue(outil, perte.id, { id: uid(), le: jour, montant, sur: "salaire", mois, ref: `Salaire ${mois}`, par: profile.nom });
     const reste = resteARetenir(perteDe(apres));
-    ecrire(remplacerOutil(fiche, apres), `🧰 Retenue de ${fmt(montant)} sur le salaire de ${qui.nom} (${mois}) — outil perdu « ${outil.nom} » (${boutique})`,
+    ecrireOutil(outil, apres, `🧰 Retenue de ${fmt(montant)} sur le salaire de ${qui.nom} (${mois}) — outil perdu « ${outil.nom} »`,
       { users, messages: [...(db.messages || []), nouveauMessage(profile, { a_id: qui.id, texte: `💵 ${fmt(montant)} sont retenus sur votre salaire de ${mois} pour l'outil perdu « ${outil.nom} ».${reste > 0 ? ` Reste à rembourser : ${fmt(reste)}.` : " Cette perte est soldée."}` })] });
   };
 
@@ -420,43 +462,54 @@ export function Outillage({ db, save, profile }) {
     const motif = await uPrompt(`Réformer « ${outil.nom} » : il sort du matériel de travail (usé, cassé). Pourquoi ?`, "");
     if (motif === null || !motif.trim()) return;
     const apres = reformerOutil(outil, { id: uid(), le: jour, motif, par_id: profile.id, par: profile.nom });
-    ecrire(remplacerOutil(fiche, apres), `🧰 Réformé — ${outil.nom} : ${motif} (${boutique})`);
+    ecrireOutil(outil, apres, `🧰 Réformé — ${outil.nom} (${ou(outil)}) : ${motif}`);
   };
 
   // ---- 📋 L'APPEL DE LA SEMAINE
-  const ouvrirAppel = () => {
+  // ⚠ UN APPEL PAR LIEU (décision Timo, 18/09/2026) : personne ne peut voir
+  // les outils de deux boutiques à la fois. On n'appelle que ce qui est
+  // rangé LÀ.
+  const outilsVivantsDuLieu = (lieu) => outilsDuLieu(registre, lieu).filter((o) => !["perdu", "reforme"].includes(etatOutil(o)));
+  const ouvrirAppel = (lieu) => {
     if (garde()) return;
     // Ce qui est SORTI n'est pas sous la main : on ne le coche pas d'office.
-    setAppel({ vus: new Set(outilsVivants(fiche).filter((o) => etatOutil(o) === "en_boutique").map((o) => o.id)) });
+    setAppel({ lieu, vus: new Set(outilsVivantsDuLieu(lieu).filter((o) => etatOutil(o) === "en_boutique").map((o) => o.id)) });
   };
   const basculerVu = (id) => setAppel((a) => {
     const vus = new Set(a.vus);
     if (vus.has(id)) vus.delete(id); else vus.add(id);
-    return { vus };
+    return { ...a, vus };
   });
   const enregistrerAppel = async () => {
     if (garde()) return;
-    const a = construireAppel({ id: uid(), jour, presents: [...appel.vus], par_id: profile.id, par: profile.nom, boutique: fiche });
-    if (!await uConfirm(`Enregistrer l'appel de la semaine du ${dFR(a.semaine)} ?\n\n✅ Sous la main : ${a.presents.length}\n❓ Pas vus : ${a.absents.length}\n\nUn appel est une photo : il ne se corrige pas.`)) return;
-    ecrire(ajouterAppel(fiche, a), `🧰 Appel de l'outillage — semaine du ${dFR(a.semaine)} : ${a.presents.length} vus, ${a.absents.length} manquants (${boutique})`);
+    const bq = lieux.find((b) => b.nom === appel.lieu);
+    if (!bq) { uAlert("Ce lieu est introuvable."); return; }
+    const a = construireAppel({ id: uid(), jour, presents: [...appel.vus], par_id: profile.id, par: profile.nom, lieu: appel.lieu, outils: outilsVivantsDuLieu(appel.lieu) });
+    if (!await uConfirm(`Enregistrer l'appel de ${appel.lieu} — semaine du ${dFR(a.semaine)} ?\n\n✅ Sous la main : ${a.presents.length}\n❓ Pas vus : ${a.absents.length}\n\nUn appel est une photo : il ne se corrige pas.`)) return;
+    ecrire(ajouterAppel(bq, a), `🧰 Appel de l'outillage — ${appel.lieu}, semaine du ${dFR(a.semaine)} : ${a.presents.length} vus, ${a.absents.length} manquants`);
     setAppel(null);
   };
 
   // La liste de la vue choisie ; la recherche ne s'applique qu'au registre.
-  const affichee = fiche
-    ? outilsDeLaVue(fiche, vue, jour).filter((o) => vue !== "tous" || !q.trim() || correspond(`${o.nom} ${o.numero || ""} ${o.categorie || ""}`, q))
-    : [];
-  const coutRep = fiche ? coutReparations(fiche, null) : 0;
+  const affichee = outilsDeLaVue(registre, vue, jour)
+    .filter((o) => vue !== "tous" || !q.trim() || correspond(`${o.nom} ${o.numero || ""} ${o.categorie || ""} ${lieuDeRangement(o)}`, q));
+  const coutRep = coutReparations(registre, null);
   // Les caisses proposables : les boutiques de l'espace regardé, comme dans
   // 📤 Dépenses — « Payé avec » nomme CHAQUE caisse (règle du 13/09/2026).
   const caisses = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
-  const pertes = fiche ? pertesDe(fiche, null) : [];
-  const dejaFait = fiche ? appelDeLaSemaine(fiche, jour) : null;
+  const pertes = pertesDe(registre, null);
+  // Les lieux dont l'appel de la semaine manque encore, et ce que le dernier
+  // appel de chaque lieu a laissé de côté.
+  const aAppeler = lieuxSansAppel(lieux, registre, jour);
+  const appelsFaits = lieux
+    .map((b) => ({ b, fait: appelDeLaSemaine(b, jour), manquants: manquantsDuDernierAppel(b, registre) }))
+    .filter((x) => x.fait);
 
   return (
     <div className="space-y-4">
-      <BoutiqueTabs db={db} profile={profile} value={bq} onChange={setBq} ecran="outillage" />
-      <Panel boutique={boutique}>
+      <Panel>
+        <div className="font-bold text-slate-800 text-lg mb-1">🧰 Le matériel de travail de BMI</div>
+        <div className="text-xs text-slate-500 mb-3">Un outil n'appartient pas à une boutique : il est à la maison. C'est la personne qui le reçoit qui dit où il se range — sa boutique, ou le magasin.</div>
         {/* ⚠ Timo, 18/09/2026 : chaque carré s'OUVRE. Le carré choisi porte
             un cadre épais — on doit voir lequel on regarde. */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -476,24 +529,31 @@ export function Outillage({ db, save, profile }) {
         </div>
 
         {/* ---- L'appel de la semaine (décision Timo : chaque semaine) ---- */}
-        {jePeux && !appel && appelAFaire(fiche, jour) && (
-          <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3 flex flex-wrap items-center gap-3">
-            <div className="text-sm font-bold text-amber-900">📋 L'appel de l'outillage n'a pas encore été fait cette semaine.</div>
-            <button onClick={ouvrirAppel} className="px-4 py-2 rounded-lg bg-amber-600 text-white font-bold text-sm hover:bg-amber-700">Faire l'appel</button>
+        {jePeux && !appel && aAppeler.length > 0 && (
+          <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+            <div className="text-sm font-bold text-amber-900 mb-2">📋 L'appel de l'outillage n'a pas encore été fait cette semaine :</div>
+            <div className="flex flex-wrap gap-2">
+              {aAppeler.map((b) => (
+                <button key={b.id} onClick={() => ouvrirAppel(b.nom)} className="px-4 py-2 rounded-lg bg-amber-600 text-white font-bold text-sm hover:bg-amber-700">
+                  Faire l'appel de {b.depot ? "🏭 " : ""}{b.nom} ({outilsVivantsDuLieu(b.nom).length})
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-amber-800 mt-2">On ne coche que ce qu'on a physiquement sous la main : chaque lieu fait le sien.</div>
           </div>
         )}
-        {jePeux && !appel && dejaFait && (
-          <div className="mt-4 text-xs text-slate-500">
-            📋 Appel de la semaine fait le {dFR(dejaFait.le)} par {dejaFait.par} — {dejaFait.presents.length} sous la main, {dejaFait.absents.length} pas vus.
+        {jePeux && !appel && appelsFaits.map(({ b, fait, manquants }) => (
+          <div key={b.id} className="mt-2 text-xs text-slate-500">
+            📋 {b.depot ? "🏭 " : ""}<b>{b.nom}</b> — appel fait le {dFR(fait.le)} par {fait.par} : {fait.presents.length} sous la main, {fait.absents.length} pas vus.
             {manquants.length > 0 && <> Pas vus : <b className="text-red-700">{manquants.map((o) => o.nom).join(", ")}</b>.</>}
           </div>
-        )}
+        ))}
         {appel && (
           <div className="mt-4 rounded-xl border-2 border-amber-300 bg-white p-3">
-            <div className="font-bold text-slate-800 mb-1">📋 Appel de l'outillage — semaine du {dFR(jour)}</div>
-            <div className="text-xs text-slate-500 mb-3">Cochez ce que vous avez sous la main. Ce qui n'est pas coché reste dehors et se voit. Un outil sorti n'est pas coché d'office : il est chez quelqu'un.</div>
+            <div className="font-bold text-slate-800 mb-1">📋 Appel de l'outillage — {appel.lieu}, semaine du {dFR(jour)}</div>
+            <div className="text-xs text-slate-500 mb-3">Cochez ce que vous avez sous la main <b>à {appel.lieu}</b>. Ce qui n'est pas coché reste dehors et se voit. Un outil sorti n'est pas coché d'office : il est chez quelqu'un.</div>
             <div className="max-h-80 overflow-auto border rounded-lg divide-y">
-              {outilsVivants(fiche).map((o) => {
+              {outilsVivantsDuLieu(appel.lieu).map((o) => {
                 const d = detenteurOutil(o);
                 return (
                   <label key={o.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
@@ -526,6 +586,12 @@ export function Outillage({ db, save, profile }) {
               <div className="grid md:grid-cols-5 gap-3">
                 <Field label="Nom de l'outil"><input className={inputCls} value={neuf.nom} onChange={(e) => setNeuf({ ...neuf, nom: e.target.value })} placeholder="Perceuse BOSCH" autoFocus /></Field>
                 <Field label="Numéro gravé"><input className={inputCls} value={neuf.numero} onChange={(e) => setNeuf({ ...neuf, numero: e.target.value })} placeholder="BMI-012" /></Field>
+                <Field label="Où est-il rangé ?">
+                  <select className={inputCls} value={neuf.lieu} onChange={(e) => setNeuf({ ...neuf, lieu: e.target.value })}>
+                    <option value="">— Choisir —</option>
+                    {lieux.map((b) => <option key={b.id} value={b.nom}>{b.depot ? "🏭 " : ""}{b.nom}</option>)}
+                  </select>
+                </Field>
                 <Field label="Catégorie"><input className={inputCls} value={neuf.categorie} onChange={(e) => setNeuf({ ...neuf, categorie: e.target.value })} placeholder="Électroportatif" /></Field>
                 <Field label="Acheté le"><input type="date" className={inputCls} value={neuf.achete_le} onChange={(e) => setNeuf({ ...neuf, achete_le: e.target.value })} /></Field>
                 <Field label="Prix d'achat (F)"><input type="number" className={inputCls} value={neuf.prix_achat} onChange={(e) => setNeuf({ ...neuf, prix_achat: e.target.value })} /></Field>
@@ -560,7 +626,7 @@ export function Outillage({ db, save, profile }) {
                   </Field>
                   <Field label="Payé avec">
                     <select className={inputCls} value={repar.paye_avec} onChange={(e) => setRepar({ ...repar, paye_avec: e.target.value })}>
-                      {optionsPayeAvec(caisses, boutique).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      {optionsPayeAvec(caisses, caisseDe(tous.find((x) => x.id === repar.outil_id))).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </Field>
                 </div>
@@ -595,7 +661,7 @@ export function Outillage({ db, save, profile }) {
                     </Field>
                     <Field label="Payé avec">
                       <select className={inputCls} value={retourRep.paye_avec} onChange={(e) => setRetourRep({ ...retourRep, paye_avec: e.target.value })}>
-                        {optionsPayeAvec(caisses, boutique).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        {optionsPayeAvec(caisses, caisseDe(tous.find((x) => x.id === retourRep.outil_id))).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select>
                     </Field>
                   </>}
@@ -617,7 +683,7 @@ export function Outillage({ db, save, profile }) {
                 <thead className="bg-slate-100 sticky top-0 z-10">
                   <tr className="text-left">
                     <th className={`px-3 py-2 ${enTeteFige()}`}>Outil</th>
-                    {vue === "tous" && <><th className="px-3 py-2">N°</th><th className="px-3 py-2">Catégorie</th><th className="px-3 py-2">État</th><th className="px-3 py-2">Chez qui / rendu à</th><th className="px-3 py-2 text-right">Prix d'achat</th></>}
+                    {vue === "tous" && <><th className="px-3 py-2">N°</th><th className="px-3 py-2">Catégorie</th><th className="px-3 py-2">État</th><th className="px-3 py-2">Où</th><th className="px-3 py-2">Chez qui / rendu à</th><th className="px-3 py-2 text-right">Prix d'achat</th></>}
                     {vue === "dehors" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Chantier</th><th className="px-3 py-2">Depuis</th><th className="px-3 py-2">Retour prévu</th></>}
                     {vue === "retard" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Retour prévu</th><th className="px-3 py-2">Retard</th><th className="px-3 py-2">Pourquoi ce n'est pas rentré</th></>}
                     {vue === "reparation" && <><th className="px-3 py-2">Chez quel réparateur</th><th className="px-3 py-2">Son numéro</th><th className="px-3 py-2">La panne</th><th className="px-3 py-2 text-right">Prix</th><th className="px-3 py-2">Depuis</th></>}
@@ -633,6 +699,7 @@ export function Outillage({ db, save, profile }) {
                     const rep = reparationEnCours(o);
                     const rendu = dernierRetour(o);
                     const just = derniereJustification(o);
+                    const ouLu = lieuOutil(o);
                     const perte = perteDe(o);
                     const qui = perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null;
                     const mode = modeRetenue(qui);
@@ -649,12 +716,16 @@ export function Outillage({ db, save, profile }) {
                           <td className="px-3 py-2 text-slate-600">{o.numero || "—"}</td>
                           <td className="px-3 py-2 text-slate-600">{o.categorie || "—"}</td>
                           <td className="px-3 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span></td>
+                          <td className="px-3 py-2">{ouLu.type === "personne"
+                            ? <span className="text-sky-800 font-semibold">chez {ouLu.nom}</span>
+                            : <span className="text-slate-700">{ouLu.nom || "—"}</span>}
+                            {ouLu.type === "personne" && lieuDeRangement(o) && <div className="text-xs text-slate-500">revient à {lieuDeRangement(o)}</div>}</td>
                           <td className="px-3 py-2">{d ? <>{d.nom}</> : rendu ? <span className="text-slate-600">rendu à <b>{rendu.par || "—"}</b><div className="text-xs text-slate-500">le {dFR(rendu.le)}</div></span> : "—"}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{o.prix_achat ? fmt(o.prix_achat) : "—"}</td>
                         </>}
 
                         {vue === "dehors" && <>
-                          <td className="px-3 py-2 font-semibold">{so.user}<div className="text-xs font-normal text-slate-500">remis par {so.par || "—"}</div></td>
+                          <td className="px-3 py-2 font-semibold">{so.user}<div className="text-xs font-normal text-slate-500">remis par {so.par || "—"}{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</div></td>
                           <td className="px-3 py-2 text-slate-600">{so.chantier || "—"}</td>
                           <td className="px-3 py-2 tabular-nums">{dFR(so.le)}<div className="text-xs text-slate-500">{joursDehors(o, jour)} j</div></td>
                           <td className={`px-3 py-2 tabular-nums ${tard ? "text-red-700 font-bold" : ""}`}>{so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard && <div className="text-xs">⚠ en retard</div>}</td>
@@ -686,7 +757,7 @@ export function Outillage({ db, save, profile }) {
                         </>}
 
                         {vue === "perdus" && perte && <>
-                          <td className="px-3 py-2 font-semibold">{perte.user || <span className="font-normal text-slate-500">personne (rangé en boutique)</span>}
+                          <td className="px-3 py-2 font-semibold">{perte.user || <span className="font-normal text-slate-500">personne (il était rangé)</span>}
                             {perte.user && <div className="text-xs font-normal text-slate-500">retenue {libelleRetenue(mode)}</div>}</td>
                           <td className="px-3 py-2 tabular-nums">{dFR(perte.le)}<div className="text-xs text-slate-500">déclaré par {perte.par || "—"}</div></td>
                           <td className="px-3 py-2 text-slate-600">{perte.motif || "—"}</td>
@@ -705,11 +776,11 @@ export function Outillage({ db, save, profile }) {
                           {jePeux && (etat === "sorti" || etat === "reparation") && (
                             <button title={etat === "reparation" ? "Revenu de réparation" : "Retour en boutique"}
                               onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
-                                ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: `caisse:${boutique}` })
+                                ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })
                                 : rendre(o))}
                               className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>
                           )}
-                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${boutique}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
+                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
                           {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")}>🗑</button>}
                         </td>
@@ -777,7 +848,7 @@ export function Outillage({ db, save, profile }) {
                   valeur={f.saisie}
                   onChange={(v) => setF({ ...f, saisie: v, outil_id: "" })}
                   onChoisir={(p) => setF({ ...f, saisie: p.valeur, outil_id: p.outil_id })}
-                  suggestions={propositionsOutils(fiche)}
+                  suggestions={propositionsOutils(registre)}
                   placeholder="Nom ou numéro gravé…"
                 />
               </Field>
@@ -796,7 +867,7 @@ export function Outillage({ db, save, profile }) {
             </div>
             <div className="text-xs text-slate-500 mt-2">
               {(() => {
-                const o = f.outil_id ? tous.find((x) => x.id === f.outil_id) : outilSaisi(fiche, f.saisie);
+                const o = f.outil_id ? tous.find((x) => x.id === f.outil_id) : outilSaisi(registre, f.saisie);
                 if (o) return <>✓ <b>{o.nom}</b>{o.numero ? ` — N° ${o.numero}` : ""} · {libelleEtat(etatOutil(o))}</>;
                 if (f.saisie.trim()) return <span className="text-amber-700">Aucun outil du registre ne porte ce nom ni ce numéro — cliquez une proposition.</span>;
                 return "Un outil est toujours sous le nom de quelqu'un : c'est cette personne qui en répond.";

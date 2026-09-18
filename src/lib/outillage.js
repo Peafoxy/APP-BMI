@@ -76,6 +76,60 @@ export const registreDe = (boutique) => {
   return { outils: Array.isArray(o.outils) ? o.outils : [], appels: Array.isArray(o.appels) ? o.appels : [] };
 };
 export const outilsDe = (boutique) => registreDe(boutique).outils;
+
+// ---- ⚠ LE REGISTRE EST CELUI DE TOUTE LA MAISON (Timo, 18/09/2026 : « pour
+// l'outillage, ne pas classer par boutique… c'est une propriété générale de
+// toute l'entreprise. C'est qui reçoit l'outil qui peut le faire classer :
+// un gérant de boutique qui reçoit, c'est dans sa boutique ; un magasinier,
+// c'est au magasin »).
+//
+// Un marteau n'appartient pas à une boutique — il est à BMI. Ce qui change,
+// c'est OÙ il se trouve, et ça se DÉDUIT de la dernière personne qui l'a
+// reçu ; jamais d'une pastille en haut de l'écran.
+//
+// ⚠ Sous le capot, chaque outil reste écrit dans la fiche d'une boutique
+// (rien à coller, et securite-22/-23/-24 continuent de valoir). C'est
+// l'application qui les RÉUNIT : `registreUnifie` rend un registre unique,
+// où chaque outil porte discrètement la fiche qui le garde (`_fiche`) et le
+// nom de cette fiche (`_lieu_defaut`, pour les outils d'avant cette règle).
+// Toutes les règles qui lisaient « un registre » marchent telles quelles.
+const MARQUES = ["_fiche", "_lieu_defaut"];
+export const sansMarques = (outil) => {
+  const o = { ...(outil || {}) };
+  MARQUES.forEach((k) => delete o[k]);
+  return o;
+};
+export const registreUnifie = (boutiques) => ({
+  id: "", nom: "",
+  outillage: {
+    outils: (boutiques || []).flatMap((b) => outilsDe(b).map((o) => ({ ...o, _fiche: b?.id || "", _lieu_defaut: b?.nom || "" }))),
+    appels: [],
+  },
+});
+// Les LIEUX possibles : les boutiques et les magasins de l'espace regardé.
+// Jamais la caisse TERRAIN, qui ne range rien.
+export const lieuxDuRegistre = (boutiques) => (boutiques || []).filter((b) => !b?.terrain);
+// Le lieu où un outil est RANGÉ (même s'il est dehors : il y reviendra).
+export const lieuDeRangement = (outil, defaut) => {
+  const avecLieu = mouvementsDe(outil).filter((m) => m && m.lieu);
+  if (avecLieu.length) return String(avecLieu[avecLieu.length - 1].lieu);
+  return String(outil?.lieu || outil?._lieu_defaut || defaut || "");
+};
+// Le lieu tel qu'on le LIT : chez une personne tant qu'il est dehors.
+export const lieuOutil = (outil, defaut) => {
+  if (etatOutil(outil) === "sorti") {
+    const d = detenteurOutil(outil);
+    return { type: "personne", nom: d && d.nom ? d.nom : "—" };
+  }
+  return { type: "lieu", nom: lieuDeRangement(outil, defaut) };
+};
+export const outilsDuLieu = (registre, lieu) =>
+  outilsDe(registre).filter((o) => lieuDeRangement(o) === String(lieu || ""));
+// Le lieu d'une personne : sa boutique, si c'en est une du registre. Vide
+// pour un administrateur « Toutes » ou un technicien — on lui DEMANDE alors
+// où il range l'outil (décision Timo, 18/09/2026).
+export const lieuDeLaPersonne = (profile, lieux) =>
+  (lieux || []).some((b) => (b?.nom || b) === profile?.boutique) ? String(profile.boutique) : "";
 export const appelsDe = (boutique) => registreDe(boutique).appels;
 // Un outil RÉFORMÉ ou PERDU ne se sort plus : il reste au registre pour la
 // trace, jamais dans les listes de travail.
@@ -137,8 +191,11 @@ export const critiqueRetour = (outil) => {
   if (etat === "en_boutique") return `« ${outil.nom} » est déjà en boutique.`;
   return `« ${outil.nom} » est ${libelleEtat(etat).toLowerCase()} : son retour ne se note plus ici.`;
 };
-export const rendreOutil = (outil, { id, le, etat, note, par_id, par }) =>
-  ajouter(outil, { id, type: "retour", le, etat: etat || "bon", note: note || "", par_id, par });
+// ⚠ Le RETOUR porte le LIEU : c'est celui qui reçoit qui classe l'outil
+// (Timo, 18/09/2026). Sa boutique, le magasin — ou, s'il n'en a pas, le lieu
+// qu'on lui demande.
+export const rendreOutil = (outil, { id, le, etat, note, lieu, par_id, par }) =>
+  ajouter(outil, { id, type: "retour", le, etat: etat || "bon", note: note || "", lieu: String(lieu || ""), par_id, par });
 
 // 🔧 Réparation : chez QUI, son NUMÉRO, la PANNE, le PRIX (Timo, 18/09/2026).
 export const mettreEnReparation = (outil, { id, le, reparateur, tel, panne, prix, note, par_id, par }) =>
@@ -217,26 +274,34 @@ export const appelDeLaSemaine = (boutique, jour) => {
   const semaine = lundiDe(jour);
   return appelsDe(boutique).find((a) => a.semaine === semaine) || null;
 };
-// L'appel est à faire tant que la semaine en cours n'en porte pas — et
-// seulement s'il y a un outil à appeler.
-export const appelAFaire = (boutique, jour) => outilsVivants(boutique).length > 0 && !appelDeLaSemaine(boutique, jour);
-export const construireAppel = ({ id, jour, presents, par_id, par, boutique }) => {
+// ⚠ L'APPEL SE FAIT PAR LIEU (décision Timo, 18/09/2026) : personne ne peut
+// voir les outils de deux boutiques à la fois. Chaque boutique et le magasin
+// font LEUR appel ; il est rangé dans la fiche de CE lieu.
+// `outils` = les outils VIVANTS rangés là, pris dans le registre unifié.
+export const appelAFaire = (boutiqueDuLieu, outils, jour) =>
+  (outils || []).length > 0 && !appelDeLaSemaine(boutiqueDuLieu, jour);
+export const construireAppel = ({ id, jour, presents, par_id, par, lieu, outils }) => {
   const vus = new Set((presents || []).map(String));
-  const tous = outilsVivants(boutique);
+  const tous = outils || [];
   return {
     id, semaine: lundiDe(jour), le: String(jour).slice(0, 10), par_id, par: par || "",
+    lieu: String(lieu || ""),
     presents: tous.filter((o) => vus.has(String(o.id))).map((o) => o.id),
     absents: tous.filter((o) => !vus.has(String(o.id))).map((o) => o.id),
   };
 };
-// Ce que le dernier appel a laissé de côté, en clair.
-export const manquantsDuDernierAppel = (boutique) => {
-  const liste = appelsDe(boutique);
+// Ce que le dernier appel de CE lieu a laissé de côté, en clair — les outils
+// se cherchent dans tout le registre, pas seulement dans la fiche du lieu.
+export const manquantsDuDernierAppel = (boutiqueDuLieu, registre) => {
+  const liste = appelsDe(boutiqueDuLieu);
   const dernier = liste.length ? liste[liste.length - 1] : null;
   if (!dernier) return [];
   const ids = new Set((dernier.absents || []).map(String));
-  return outilsDe(boutique).filter((o) => ids.has(String(o.id)));
+  return outilsDe(registre || boutiqueDuLieu).filter((o) => ids.has(String(o.id)));
 };
+// Les lieux dont l'appel de la semaine manque encore.
+export const lieuxSansAppel = (boutiques, registre, jour) =>
+  lieuxDuRegistre(boutiques).filter((b) => appelAFaire(b, outilsDuLieu(registre, b.nom).filter((o) => !["perdu", "reforme"].includes(etatOutil(o))), jour));
 
 // ---- Le tableau du haut de l'écran.
 export const resumeOutillage = (boutique, aujourdhui) => {
@@ -276,14 +341,17 @@ export const critiqueNouvelOutil = (boutique, { nom, numero } = {}) => {
   if (!String(nom || "").trim()) return "Donnez un nom à l'outil.";
   const n = sansAccentsO(numero);
   if (n && outilsDe(boutique).some((o) => sansAccentsO(o.numero) === n)) {
-    return `Le numéro « ${String(numero).trim()} » est déjà porté par un autre outil de cette boutique.`;
+    return `Le numéro « ${String(numero).trim()} » est déjà porté par un autre outil de BMI.`;
   }
   return "";
 };
-export const nouvelOutil = ({ id, nom, numero, categorie, achete_le, prix_achat, le, par_id, par }) => ({
+export const nouvelOutil = ({ id, nom, numero, categorie, achete_le, prix_achat, lieu, le, par_id, par }) => ({
   id, nom: String(nom || "").trim(), numero: String(numero || "").trim(),
   categorie: String(categorie || "").trim(), achete_le: achete_le || "",
-  prix_achat: Number(prix_achat || 0), cree_le: le, cree_par: par || "", cree_par_id: par_id || "",
+  prix_achat: Number(prix_achat || 0),
+  // Où il est rangé au départ : une boutique ou un magasin, jamais « nulle part ».
+  lieu: String(lieu || ""),
+  cree_le: le, cree_par: par || "", cree_par_id: par_id || "",
   mouvements: [],
 });
 
@@ -296,10 +364,13 @@ export const poserRegistre = (boutique, { outils, appels }) => ({
     appels: appels !== undefined ? appels : appelsDe(boutique),
   },
 });
+// ⚠ `sansMarques` ici, et NULLE PART ailleurs : les deux champs que le
+// registre unifié pose sur un outil (`_fiche`, `_lieu_defaut`) ne doivent
+// jamais partir dans la base. Un seul endroit à ne pas oublier.
 export const remplacerOutil = (boutique, outil) =>
-  poserRegistre(boutique, { outils: outilsDe(boutique).map((o) => (o.id === outil.id ? outil : o)) });
+  poserRegistre(boutique, { outils: outilsDe(boutique).map((o) => (o.id === outil.id ? sansMarques(outil) : o)) });
 export const ajouterOutil = (boutique, outil) =>
-  poserRegistre(boutique, { outils: [...outilsDe(boutique), outil] });
+  poserRegistre(boutique, { outils: [...outilsDe(boutique), sansMarques(outil)] });
 export const ajouterAppel = (boutique, appel) =>
   poserRegistre(boutique, { appels: [...appelsDe(boutique), appel] });
 

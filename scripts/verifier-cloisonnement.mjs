@@ -8182,17 +8182,112 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     Out.lundiDe("2026-09-17") === "2026-09-14" && Out.lundiDe("2026-09-15") === "2026-09-14"
     && Out.lundiDe("2026-09-14") === "2026-09-14" && Out.lundiDe("2026-09-21") === "2026-09-21");
 
-  const appel = Out.construireAppel({ id: "a1", jour: "2026-09-17", presents: [], par_id: "c1", par: "CHEF", boutique: bqO });
+  // ⚠ CONTRÔLES RETOURNÉS le 18/09/2026 : l'appel ne se fait plus par
+  // BOUTIQUE mais par LIEU (« ne pas classer par boutique… c'est une
+  // propriété générale de toute l'entreprise »). Il prend donc la liste des
+  // outils rangés LÀ, pas le contenu d'une fiche. Ce qu'ils mesurent — la
+  // photo, les absents qui se voient, la semaine — n'a pas bougé.
+  const vivantsDuLieu = Out.outilsDuLieu(Out.registreUnifie([bqO]), "DEMAKPOE")
+    .filter((o) => !["perdu", "reforme"].includes(Out.etatOutil(o)));
+  const appel = Out.construireAppel({ id: "a1", jour: "2026-09-17", presents: [], par_id: "c1", par: "CHEF", lieu: "DEMAKPOE", outils: vivantsDuLieu });
   const bqApres = Out.ajouterAppel(bqO, appel);
   test("★ l'appel est une PHOTO : ce qui n'est pas coché reste dehors et SE VOIT ; une fois fait, il n'est plus réclamé de la semaine, et il revient la semaine suivante",
-    Out.appelAFaire(bqO, "2026-09-17") && appel.semaine === "2026-09-14"
+    Out.appelAFaire(bqO, vivantsDuLieu, "2026-09-17") && appel.semaine === "2026-09-14"
+    && appel.lieu === "DEMAKPOE"
     && appel.absents.length === 1 && appel.presents.length === 0
-    && Out.manquantsDuDernierAppel(bqApres).map((o) => o.nom).join() === "Échelle 6 m"
-    && !Out.appelAFaire(bqApres, "2026-09-18") && Out.appelAFaire(bqApres, "2026-09-21"));
+    && Out.manquantsDuDernierAppel(bqApres, Out.registreUnifie([bqApres])).map((o) => o.nom).join() === "Échelle 6 m"
+    && !Out.appelAFaire(bqApres, vivantsDuLieu, "2026-09-18") && Out.appelAFaire(bqApres, vivantsDuLieu, "2026-09-21"));
 
-  test("★ un outil PERDU n'est jamais appelé, et une boutique sans outil ne réclame aucun appel",
+  test("★ un outil PERDU n'est jamais appelé, et un lieu sans outil ne réclame aucun appel",
     !appel.presents.includes("o1") && !appel.absents.includes("o1")
-    && !Out.appelAFaire({ nom: "VIDE" }, "2026-09-17"));
+    && !Out.appelAFaire({ nom: "VIDE" }, [], "2026-09-17")
+    && Out.lieuxSansAppel([bqApres], Out.registreUnifie([bqApres]), "2026-09-18").length === 0
+    && Out.lieuxSansAppel([bqApres], Out.registreUnifie([bqApres]), "2026-09-21").map((b) => b.nom).join() === "DEMAKPOE");
+
+  // ═══ 🧰 LE REGISTRE EST CELUI DE TOUTE LA MAISON (Timo, 18/09/2026) ═══
+  // « Pour l'outillage, ne pas classer par boutique… c'est une propriété
+  // générale de toute l'entreprise. C'est qui reçoit l'outil qui peut le
+  // faire classer : un gérant de boutique qui reçoit, c'est dans sa
+  // boutique ; un magasinier, c'est au magasin. Donc soit boutique, soit
+  // magasin. »
+  {
+    const bqA = { id: "bA", nom: "DEMAKPOE", outillage: { outils: [
+      Out.nouvelOutil({ id: "t1", nom: "Perceuse", lieu: "DEMAKPOE", le: "2026-09-01", par: "TIMO" }),
+    ], appels: [] } };
+    const bqB = { id: "bB", nom: "MAGASIN", depot: true, outillage: { outils: [
+      Out.nouvelOutil({ id: "t2", nom: "Échelle", lieu: "MAGASIN", le: "2026-09-01", par: "TIMO" }),
+    ], appels: [] } };
+    // Un outil d'avant la règle : aucun `lieu`, il prend le nom de SA fiche.
+    const bqC = { id: "bC", nom: "APESSITO", outillage: { outils: [
+      { id: "t3", nom: "Meuleuse", mouvements: [] },
+    ], appels: [] } };
+    const reg = Out.registreUnifie([bqA, bqB, bqC]);
+
+    test("★ UN SEUL REGISTRE pour toute la maison : les outils des boutiques ET des magasins se lisent ensemble, et un outil d'avant la règle garde le nom de la fiche qui le gardait",
+      Out.outilsDe(reg).map((o) => o.nom).join() === "Perceuse,Échelle,Meuleuse"
+      && Out.resumeOutillage(reg, "2026-09-18").total === 3
+      && Out.lieuDeRangement(Out.outilsDe(reg)[0]) === "DEMAKPOE"
+      && Out.lieuDeRangement(Out.outilsDe(reg)[1]) === "MAGASIN"
+      && Out.lieuDeRangement(Out.outilsDe(reg)[2]) === "APESSITO");
+
+    test("★ et l'ÉCRAN n'a plus de pastille de boutique : il lit le registre unifié des LIEUX de l'espace regardé (le mur tient), montre la colonne « Où », et demande où ranger un outil neuf",
+      !/BoutiqueTabs/.test(ecrC)
+      && /const lieux = lieuxDuRegistre\(boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\);/.test(ecrC)
+      && /const registre = registreUnifie\(lieux\);/.test(ecrC)
+      && /<th className="px-3 py-2">Où<\/th>/.test(ecrC)
+      && /<Field label="Où est-il rangé \?">/.test(ecrC)
+      && /Dites où l'outil est rangé : une boutique ou un magasin\./.test(ecrC));
+
+    test("★ C'EST CELUI QUI REÇOIT QUI CLASSE : un retour pose le LIEU sur le mouvement, et l'outil change de place sans changer de fiche",
+      (() => {
+        const t = Out.outilsDe(reg)[0];
+        const sorti = Out.sortirOutil(t, { id: "s1", le: "2026-09-10", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-12", par_id: "c1", par: "CHEF" });
+        // tant qu'il est dehors : chez la personne, mais il revient à DEMAKPOE
+        const dehors = Out.lieuOutil(sorti);
+        const rendu = Out.rendreOutil(sorti, { id: "r1", le: "2026-09-13", etat: "bon", lieu: "MAGASIN", par_id: "m1", par: "MAGASINIER" });
+        return dehors.type === "personne" && dehors.nom === "KOSSI"
+          && Out.lieuDeRangement(sorti) === "DEMAKPOE"
+          && Out.lieuOutil(rendu).type === "lieu" && Out.lieuOutil(rendu).nom === "MAGASIN"
+          && Out.lieuDeRangement(rendu) === "MAGASIN"
+          // la fiche qui le garde n'a pas bougé : rien à migrer, le SQL reste valable
+          && rendu._fiche === "bA"; })());
+
+    test("★ et l'écran DEMANDE où quand celui qui reçoit n'a pas de boutique attitrée (décision Timo) — jamais un magasin d'office",
+      /const lieuDuRetour = async \(outil\) => \{\s*\n\s*const sien = lieuDeLaPersonne\(profile, lieux\);\s*\n\s*if \(sien\) return sien;/.test(ecrC)
+      && /Où rangez-vous « \$\{outil\.nom\} » \?/.test(ecrC)
+      && Out.lieuDeLaPersonne({ boutique: "DEMAKPOE" }, [bqA, bqB]) === "DEMAKPOE"
+      && Out.lieuDeLaPersonne({ boutique: "Toutes" }, [bqA, bqB]) === ""
+      && Out.lieuDeLaPersonne({}, [bqA, bqB]) === "");
+
+    test("★ L'APPEL SE FAIT PAR LIEU (décision Timo) : chacun n'appelle que ce qui est rangé chez lui, et l'appel est rangé dans la fiche de CE lieu",
+      Out.outilsDuLieu(reg, "DEMAKPOE").map((o) => o.nom).join() === "Perceuse"
+      && Out.outilsDuLieu(reg, "MAGASIN").map((o) => o.nom).join() === "Échelle"
+      && Out.lieuxSansAppel([bqA, bqB, bqC], reg, "2026-09-18").map((b) => b.nom).join() === "DEMAKPOE,MAGASIN,APESSITO"
+      && (() => {
+        const a = Out.construireAppel({ id: "ap1", jour: "2026-09-18", presents: ["t1"], par: "GÉRANT", lieu: "DEMAKPOE", outils: Out.outilsDuLieu(reg, "DEMAKPOE") });
+        const apres = Out.ajouterAppel(bqA, a);
+        // DEMAKPOE a fait le sien ; le magasin et APESSITO le doivent toujours
+        return Out.lieuxSansAppel([apres, bqB, bqC], Out.registreUnifie([apres, bqB, bqC]), "2026-09-18").map((b) => b.nom).join() === "MAGASIN,APESSITO"
+          && a.lieu === "DEMAKPOE" && a.presents.join() === "t1" && a.absents.length === 0; })()
+      && /ouvrirAppel\(b\.nom\)/.test(ecrC)
+      && /Faire l'appel de \{b\.depot \? "🏭 " : ""\}\{b\.nom\}/.test(ecrC));
+
+    test("★ ⚠ LES MARQUES DU REGISTRE UNIFIÉ NE PARTENT JAMAIS DANS LA BASE : `remplacerOutil` et `ajouterOutil` les retirent — un seul endroit à ne pas oublier",
+      (() => {
+        const marque = Out.outilsDe(reg)[0];
+        const ecrit = Out.outilsDe(Out.remplacerOutil(bqA, marque))[0];
+        const ajoute = Out.outilsDe(Out.ajouterOutil(bqB, marque))[1];
+        return marque._fiche === "bA" && marque._lieu_defaut === "DEMAKPOE"
+          && !("_fiche" in ecrit) && !("_lieu_defaut" in ecrit)
+          && !("_fiche" in ajoute) && !("_lieu_defaut" in ajoute)
+          && ecrit.nom === "Perceuse"; })());
+
+    test("★ un numéro gravé est unique dans TOUTE la maison, plus seulement dans une boutique",
+      /est déjà porté par un autre outil de BMI/.test(Out.critiqueNouvelOutil(
+        Out.registreUnifie([{ id: "b1", nom: "X", outillage: { outils: [Out.nouvelOutil({ id: "z", nom: "Perceuse", numero: "BMI-012", le: "x", par: "T" })], appels: [] } },
+                            { id: "b2", nom: "Y", outillage: { outils: [], appels: [] } }]),
+        { nom: "Autre", numero: "bmi-012" })));
+  }
 
   // ---- Le registre, et ce qu'il ne fait PAS
   test("★ LE REGISTRE N'EST PAS DU STOCK : il vit dans le champ `outillage` de SA boutique — rien à coller pour créer une table —, et l'écran ne touche jamais db.produits ni un ajustement",
@@ -8319,7 +8414,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ les quatre carrés sont des BOUTONS qui OUVRENT leur liste, et celui qu'on regarde se voit (cadre épais)",
       /onClick=\{\(\) => \{ setVue\(id\); setOutilDeplie\(""\); \}\}/.test(ecrC)
       && /vue === id \? "ring-4 ring-sky-600/.test(ecrC)
-      && /outilsDeLaVue\(fiche, vue, jour\)/.test(ecrC));
+      && /outilsDeLaVue\(registre, vue, jour\)/.test(ecrC));
     test("★ le réparateur et la panne sont EXIGÉS, le prix non (on ne le connaît pas toujours en déposant l'outil)",
       /Dites chez quel réparateur/.test(Out.critiqueReparation({ reparateur: " ", panne: "Charbons" }))
       && /Dites quelle est la panne/.test(Out.critiqueReparation({ reparateur: "ATELIER", panne: "" }))
@@ -8339,7 +8434,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /categorie: CATEGORIE_REPARATION_OUTIL/.test(ecrC)
       && /const refusT = refusTiroir\(choix\.boutique, montant, libelleGeste\);/.test(ecrC)
       && /critiqueSortieTiroir\(\{ tiroir: p\.montant \+ p\.resteFonds, fondsFixe: p\.resteFonds/.test(ecrC)
-      && /optionsPayeAvec\(caisses, boutique\)/.test(ecrC)
+      && /optionsPayeAvec\(caisses, caisseDe\(/.test(ecrC)
       && !/nouvelleDepense\(/.test(ecrC));
 
     test("★ la dépense d'une réparation n'est JAMAIS créée deux fois : le mouvement porte son `depense_id`, et le 📥 de retour ne redemande le prix que s'il n'y en a pas encore",

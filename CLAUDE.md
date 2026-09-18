@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1519 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1526 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -959,8 +959,37 @@ lit mal est pire qu'un banc absent).
   ne se vend pas, elle part et elle revient. Rangée dans 📦 Stocks, elle
   entrerait dans la valeur du stock et dans les alertes de
   réapprovisionnement, et une sortie ressemblerait à une vente. Le registre
-  vit dans le champ **`outillage`** de SA boutique (`{ outils, appels }`),
+  vit dans le champ **`outillage`** d'une boutique (`{ outils, appels }`),
   comme la liste des banques — **rien à coller pour créer une table**.
+- ⚠⚠ **LE REGISTRE EST CELUI DE TOUTE LA MAISON, PAS D'UNE BOUTIQUE**
+  (Timo, 18/09/2026, capture des pastilles : « pour l'outillage, ne pas
+  classer par boutique… c'est une propriété générale de toute l'entreprise.
+  C'est qui reçoit l'outil qui peut le faire classer : un gérant de boutique
+  qui reçoit, c'est dans sa boutique ; un magasinier, c'est au magasin. Donc
+  soit boutique, soit magasin »). Un marteau n'appartient pas à une boutique.
+  - **Plus de pastille de boutique** en haut de 🧰 Outillage : UN registre,
+    `registreUnifie(lieux)`, où `lieux` = les boutiques ET les magasins de
+    l'espace regardé (`lieuxDuRegistre`, jamais TERRAIN). **Le mur tient** :
+    « toute la maison » = tout l'espace REGARDÉ.
+  - **OÙ un outil se trouve est DÉDUIT**, jamais choisi dans un menu :
+    `lieuDeRangement` = le lieu posé par le dernier RETOUR, sinon celui de sa
+    création, sinon (outil d'avant la règle) le nom de la fiche qui le garde ;
+    `lieuOutil` dit « chez KOSSI » tant qu'il est dehors, et la colonne
+    **« Où »** ajoute « revient à … ». Le retour porte donc un `lieu`.
+  - **Celui qui reçoit classe** : sa boutique si c'en est une
+    (`lieuDeLaPersonne`) ; **sinon on lui DEMANDE** (décision Timo — un
+    administrateur « Toutes » n'a pas de boutique attitrée, et on ne range
+    jamais au magasin d'office). « ➕ Ajouter un outil » a sa case
+    **« Où est-il rangé ? »**.
+  - ⚠ **Sous le capot, rien ne bouge de place** : chaque outil reste écrit
+    dans la fiche de boutique qui le gardait — **rien à coller, rien à
+    migrer**, et `securite-22` / `-23` / `-24` restent valables (ils lisent le
+    RÔLE, pas la boutique). C'est l'écran qui réunit. Le registre unifié pose
+    deux marques sur chaque outil (`_fiche`, `_lieu_defaut`) ; **`remplacerOutil`
+    et `ajouterOutil` les retirent — le SEUL endroit à ne pas oublier**, et le
+    banc le mesure.
+  - **Un numéro gravé est unique dans TOUTE la maison**, plus seulement dans
+    une boutique.
 - **LA RÈGLE QUI EMPÊCHE LA PERTE : un outil est TOUJOURS sous le nom de
   QUELQU'UN.** Pas « sur le chantier de MR ERIC » — un chantier ne perd pas
   une perceuse, une personne la perd ; le chantier est noté à côté. L'état
@@ -1065,14 +1094,19 @@ lit mal est pire qu'un banc absent).
   est retenu) / perdu le / pourquoi / valeur / à rembourser / déjà retenu /
   reste à payer** ; le détail de chaque retenue (montant, mois ou part, date,
   par qui) s'ouvre AU CLIC, avec l'histoire de l'outil.
-- **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE** (décision Timo). Une bande
-  ambre le réclame tant que la semaine en cours n'a pas le sien ; on coche ce
-  qu'on a sous la main, **ce qui n'est pas coché reste dehors et SE VOIT**
-  (`manquantsDuDernierAppel`). **Un appel est une PHOTO : il ne se corrige
-  pas.** La semaine est nommée par son **LUNDI** (`lundiDe`) : deux personnes
-  qui appellent le mardi et le jeudi parlent de la même semaine. Un outil
-  sorti n'est pas coché d'office (il est chez quelqu'un), un outil perdu n'est
-  jamais appelé.
+- **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE ET PAR LIEU** (décision Timo,
+  18/09/2026 : personne ne peut voir les outils de deux boutiques à la fois —
+  **chaque boutique et le magasin font LEUR appel**, sur ce qui est rangé là).
+  Une bande ambre nomme les lieux qui n'ont pas encore le leur, avec un bouton
+  par lieu ; on coche ce qu'on a sous la main, **ce qui n'est pas coché reste
+  dehors et SE VOIT** (`manquantsDuDernierAppel`, qui cherche l'outil dans TOUT
+  le registre). **Un appel est une PHOTO : il ne se corrige pas**, il porte son
+  `lieu` et se range dans la fiche de CE lieu. La semaine est nommée par son
+  **LUNDI** (`lundiDe`) : deux personnes qui appellent le mardi et le jeudi
+  parlent de la même semaine. Un outil sorti n'est pas coché d'office (il est
+  chez quelqu'un), un outil perdu n'est jamais appelé. `appelAFaire` et
+  `construireAppel` prennent la LISTE des outils du lieu, plus une fiche de
+  boutique ; `lieuxSansAppel` rend les lieux en retard.
 - **LES QUATRE CARRÉS S'OUVRENT** (Timo, 18/09/2026, capture : « dans les
   cases outils, dehors, en retard, en réparation, lorsqu'on clique dessus ») :
   chacun ouvre SA liste, avec les colonnes qui répondent à SA question —
