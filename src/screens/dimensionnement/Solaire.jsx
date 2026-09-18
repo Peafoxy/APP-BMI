@@ -979,7 +979,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                 <td className="px-3 py-2 text-xs text-slate-500">
                   {cle === "supports" && article ? (
                     <div>
-                      <select className={`${inputCls} w-auto max-w-full`} value={article.id} onChange={(e) => setSupportId(e.target.value)} aria-label="Modèle de support" data-choix="support">
+                      <select className={`${inputCls} w-auto`} value={article.id} onChange={(e) => setSupportId(e.target.value)} aria-label="Modèle de support" data-choix="support">
                         {articlesSupportsStock.map((p) => <option key={p.id} value={p.id}>{p.nom} — {fmt(Number(p.prix_vente || 0))}</option>)}
                       </select>
                       <div className="mt-1">{calcul} · {articlesSupportsStock.length} support{articlesSupportsStock.length > 1 ? "s" : ""} dans le stock de {boutique}</div>

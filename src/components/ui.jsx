@@ -66,7 +66,7 @@ export const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 tex
 // w-48, w-52, w-56, w-64, max-w-xs, max-w-[220px] et trois en pleine largeur.
 // Pleine largeur sur TÉLÉPHONE (c'est là qu'on en a besoin), bridée sur
 // ordinateur : une ligne de recherche ne traverse pas l'écran.
-export const champRecherche = `${inputCls} sm:max-w-xs`;
+export const champRecherche = `${inputCls} sm:w-80`;
 
 // ---- UN champ libre qui GRANDIT avec le texte (14/09/2026) ----
 // Timo, devant la case Remarques de la clôture : « la ligne de la remarque

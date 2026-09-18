@@ -1043,7 +1043,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                 <div className="text-xs text-slate-600 mb-3">Fixez la date et composez l'équipe. Le chef ⭐ pourra ensuite déclarer les travaux terminés.</div>
 
                 <Field label="Date d'installation">
-                  <input type="date" className={inputCls + " max-w-xs"} value={progDe(c).date} onChange={(e) => setProgDe(c, { date: e.target.value })} />
+                  <input type="date" className={inputCls + " sm:w-80"} value={progDe(c).date} onChange={(e) => setProgDe(c, { date: e.target.value })} />
                 </Field>
 
                 <div className="mt-3">

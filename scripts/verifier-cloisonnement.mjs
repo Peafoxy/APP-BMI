@@ -8414,9 +8414,21 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       .map((l, i) => ({ f, n: i + 1, l }))
       .filter((x) => /placeholder="[^"]*echerch/.test(x.l) && /<input/.test(x.l)));
 
-    test("★ LA RÈGLE EXISTE et dit les deux choses : pleine largeur sur téléphone, bridée sur ordinateur",
-      /export const champRecherche = `\$\{inputCls\} sm:max-w-xs`;/.test(ui)
+    // ⚠ CONTRÔLE RETOURNÉ le 18/09/2026, et c'est la leçon du jour : il
+    // vérifiait `sm:max-w-xs`. La classe ÉTAIT là. Elle ne faisait RIEN —
+    // `index.css` écrase tout `max-width` sur un champ. Un contrôle qui lit
+    // une CLASSE ne mesure pas un EFFET : la largeur réelle se mesure
+    // maintenant dans Chromium (`npm run verifier-champs`).
+    test("★ LA RÈGLE EXISTE et pose une LARGEUR, jamais un plafond (un `max-w-*` sur un champ ne commande rien)",
+      /export const champRecherche = `\$\{inputCls\} sm:w-\d+`;/.test(ui)
+      && !/champRecherche = `\$\{inputCls\} sm:max-w/.test(ui)
       && /UNE RÈGLE POUR TOUTE LIGNE DE RECHERCHE/.test(ui));
+    test("★ et sa largeur RÉELLE est mesurée dans un vrai navigateur, pas seulement lue dans le code",
+      (() => { const b = readFileSync("scripts/verifier-champs.mjs", "utf8");
+        return /getBoundingClientRect\(\)\.width/.test(b)
+          && /viewport: \{ width: largeur/.test(b)
+          && /un contrôle qui lit une CLASSE ne mesure pas un EFFET|Un contrôle qui lit une CLASSE ne mesure pas un EFFET/i.test(b)
+          && /verifier-champs/.test(readFileSync("package.json", "utf8")); })());
 
     const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
     test("★ les 10 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",

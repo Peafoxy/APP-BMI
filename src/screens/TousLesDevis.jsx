@@ -522,7 +522,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
               {!d.pose_seule && (
                 <div className="mb-3 flex items-center gap-2 flex-wrap text-sm">
                   <span className="font-semibold text-slate-700">Le client paiera à :</span>
-                  <select className={inputCls + " max-w-[240px]"} value={signature.boutique} onChange={(e) => setSignature({ ...signature, boutique: e.target.value })}>
+                  <select className={inputCls + " sm:w-60"} value={signature.boutique} onChange={(e) => setSignature({ ...signature, boutique: e.target.value })}>
                     <option value="">— choisir —</option>
                     {boutiquesPaiement.map((b) => <option key={b.nom} value={b.nom}>{b.nom}</option>)}
                   </select>
@@ -543,9 +543,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                   {plan.type === "mensuel" && (
                     <div className="mt-2 pl-6 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <input type="number" inputMode="numeric" className={inputCls + " max-w-[140px]"} placeholder="Montant" value={plan.montant_mensuel} onChange={(e) => setPlan({ ...plan, montant_mensuel: e.target.value })} />
+                        <input type="number" inputMode="numeric" className={inputCls + " sm:w-36"} placeholder="Montant" value={plan.montant_mensuel} onChange={(e) => setPlan({ ...plan, montant_mensuel: e.target.value })} />
                         <span className="text-sm text-slate-600">F, à partir du</span>
-                        <input type="date" className={inputCls + " max-w-[170px]"} value={plan.premiere_echeance} onChange={(e) => setPlan({ ...plan, premiere_echeance: e.target.value })} />
+                        <input type="date" className={inputCls + " sm:w-44"} value={plan.premiere_echeance} onChange={(e) => setPlan({ ...plan, premiere_echeance: e.target.value })} />
                       </div>
                       {lignes.length > 0 && <div className="text-xs font-semibold text-amber-900">→ {lignes.length} versement(s), le dernier de {fmt(lignes[lignes.length - 1].montant)} F le {dFR(lignes[lignes.length - 1].date)}</div>}
                     </div>

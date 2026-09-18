@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1539 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1540 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -61,6 +61,7 @@ npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
+npm run verifier-champs          # 7   : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; le témoin qui prouve qu'un max-w ne commande rien)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1818,8 +1819,11 @@ lit mal est pire qu'un banc absent).
   coexistaient pour le même geste (`w-48`, `w-52`, `w-56`, `w-64`, `max-w-xs`,
   `max-w-[220px]` et trois en pleine largeur). `champRecherche`
   (components/ui.jsx, à côté d'`inputCls`) = **pleine largeur sur téléphone**
-  — c'est là qu'on en a besoin — **et bridée sur ordinateur** (`sm:max-w-xs`) :
-  une ligne de recherche ne traverse pas l'écran. Les **10** lignes de
+  — c'est là qu'on en a besoin — **et bridée sur ordinateur** (`sm:w-80`,
+  320 px **mesurés dans Chromium**) : une ligne de recherche ne traverse pas
+  l'écran. ⚠ **`sm:max-w-xs` a été essayé et NE MARCHAIT PAS** (voir le piège
+  du `max-width` au § 5) : Timo l'a vu tout de suite — « la ligne de recherche
+  est toujours trop longue… rien n'est fait ». Les **10** lignes de
   l'application y passent (Clients, Clients installés, Historique, Outillage,
   Prospects, Stocks, Tous les devis, Utilisateurs, Ventes, sélecteur
   d'article) ; **le banc compte les usages et interdit toute largeur écrite à
@@ -1873,6 +1877,23 @@ lit mal est pire qu'un banc absent).
   « 50/000 F »). Tout texte venu des données passe par `texteSurPdf`
   (src/pdf.js) avant d'être écrit : rapports génériques, relevé. Les accents
   restent.
+- ⚠⚠ **`max-w-*` NE COMMANDE RIEN SUR UN CHAMP DE SAISIE** (18/09/2026, Timo,
+  deux fois : « réduire la ligne rechercher un outil, trop long », puis
+  **« la ligne de recherche est toujours trop longue… rien n'est fait. Ou bien
+  tu as fait autre chose que ce que je demande ? »**). `src/index.css` porte,
+  depuis longtemps et pour une VRAIE raison (un champ qui débordait d'une
+  grille), la règle globale `input, select, textarea { max-width: 100%; }`,
+  écrite **APRÈS `@import "tailwindcss"`** — donc plus forte que toute classe
+  utilitaire. **DIX `max-w-*` posés sur des champs ne commandaient rien** et
+  personne ne s'en était aperçu. Sur un champ, on pose une **LARGEUR**
+  (`sm:w-80`, `sm:w-44`…), jamais un plafond. Ne pas retirer la règle globale :
+  elle empêche un vrai débordement.
+  ⚠ **Et la leçon plus large** : le premier correctif POSAIT la bonne classe,
+  et un contrôle du banc vérifiait qu'elle était là. Elle était là. **Un
+  contrôle qui lit une CLASSE ne mesure pas un EFFET.** Depuis,
+  `npm run verifier-champs` monte le vrai CSS construit dans Chromium et LIT
+  LA LARGEUR OBTENUE — avec un **témoin** (un `max-w-xs` sur un input) qui
+  prouve à chaque passage que ce piège existe toujours.
 - **Un cadre confié à une bibliothèque extérieure (Leaflet) n'a JAMAIS
   d'enfant React** : div auto-fermé, textes dans un frère (carte blanche
   du 02/09, trouvée par mesure après trois correctifs à côté).

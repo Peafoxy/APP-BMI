@@ -647,7 +647,7 @@ export function Outillage({ db, save, profile }) {
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <div className="font-bold text-slate-800">{TITRE_VUE[vue]} ({affichee.length})</div>
             <label className="flex items-center gap-2 text-sm text-slate-600">
-              <select className={`${inputCls} max-w-[14rem]`} value={lieuFiltre} onChange={(e) => { setLieuFiltre(e.target.value); setOutilDeplie(""); }}>
+              <select className={`${inputCls} sm:w-56`} value={lieuFiltre} onChange={(e) => { setLieuFiltre(e.target.value); setOutilDeplie(""); }}>
                 <option value="">Tous les lieux ({outilsDeLaVue(registre, vue, jour).length})</option>
                 {lieux.map((b) => (
                   <option key={b.id} value={b.nom}>{b.depot ? "🏭 " : ""}{b.nom} ({outilsDeLaVue(registre, vue, jour).filter((o) => lieuDeRangement(o) === b.nom).length})</option>

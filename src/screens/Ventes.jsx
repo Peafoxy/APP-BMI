@@ -1224,7 +1224,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               (Ventes et Proformas — une proforma a aussi une date), contrairement
               au filtre de paiement (Crédit/Espèces...) qui n'a pas de sens pour
               une proforma, simple offre de prix jamais réellement encaissée. */}
-          <select value={periodeIndex === null ? "" : periodeIndex} onChange={(e) => setPeriodeIndex(e.target.value === "" ? null : Number(e.target.value))} className={`${inputCls} max-w-[160px]`}>
+          <select value={periodeIndex === null ? "" : periodeIndex} onChange={(e) => setPeriodeIndex(e.target.value === "" ? null : Number(e.target.value))} className={`${inputCls} sm:w-40`}>
             <option value="">Toute période</option>
             {periodes().slice(0, 4).map(([label], idx) => (
               <option key={label} value={idx}>{label}</option>

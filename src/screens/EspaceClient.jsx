@@ -979,10 +979,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
                     {plan.type === "mensuel" && (
                       <div className="mt-2 pl-6 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <input type="number" inputMode="numeric" className={inputCls + " max-w-[140px]"} placeholder="Montant"
+                          <input type="number" inputMode="numeric" className={inputCls + " sm:w-36"} placeholder="Montant"
                             value={plan.montant_mensuel} onChange={(e) => setPlan({ ...plan, montant_mensuel: e.target.value })} />
                           <span className="text-sm text-slate-600">F, à partir du</span>
-                          <input type="date" className={inputCls + " max-w-[170px]"}
+                          <input type="date" className={inputCls + " sm:w-44"}
                             value={plan.premiere_echeance} onChange={(e) => setPlan({ ...plan, premiere_echeance: e.target.value })} />
                         </div>
                         {lignes.length > 0 && (
