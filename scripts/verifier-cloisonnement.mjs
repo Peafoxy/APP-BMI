@@ -4646,9 +4646,9 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×5 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu, 17/09/2026), demanderDate ×4 (dont la date réelle d'une remise de fonds)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026), demanderDate ×4 (dont la date réelle d'une remise de fonds)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
-    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "5"
+    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "6"
     && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "4");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -4683,8 +4683,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 26 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "26"
+  test("★ nouveauMessage sert aux 27 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "27"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
@@ -8168,8 +8168,13 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
         && /avances: \[\.\.\.\(u\.avances \|\| \[\]\), av\]/.test(ecrC)
         && /const net = base \+ primes - avances/.test(calO); })());
 
+  // ⚠ CONTRÔLE RETOURNÉ le 18/09/2026 : la question n'est plus « Retenir X sur
+  // le salaire ? » mais « Faire rembourser cette perte ? » — il y a désormais
+  // DEUX façons d'être retenu (salaire, commission). Ce qu'il protège, lui,
+  // n'a pas bougé : proposée, jamais imposée, administrateur seul.
   test("★ la retenue est proposée, jamais imposée, et à l'ADMINISTRATEUR seul (c'est de l'argent sur la paie de quelqu'un)",
-    /jeSuisAdmin && resp && valeur > 0\s*\n\s*&& await uConfirm\(`Retenir /.test(ecrC)
+    /jeSuisAdmin && resp && valeur > 0\s*\n\s*&& await uConfirm\(`Faire rembourser cette perte à \$\{resp\.nom\} \?/.test(ecrC)
+    && /Elle sera retenue \$\{libelleRetenue\(mode\)\}/.test(ecrC)
     && /la perte reste à la charge de BMI/.test(ecrC));
 
   // ---- L'appel de la semaine
@@ -8283,12 +8288,18 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     const bqV = { id: "b1", nom: "DEMAKPOE", outillage: { outils: [a, b, c], appels: [] } };
     const noms = (v, j) => Out.outilsDeLaVue(bqV, v, j).map((o) => o.nom).join();
 
-    test("★ les QUATRE vues rendent chacune SA liste : tous, dehors, en retard, en réparation",
+    // ⚠ CONTRÔLE RETOURNÉ le 18/09/2026 : les carrés sont passés de QUATRE à
+    // CINQ — « Perdus » s'ouvre aussi (« dans perdu quand on clique, la liste
+    // de tous les équipements perdus apparaît »). On le retourne, on ne le
+    // supprime pas : il garde la mesure des quatre premières vues.
+    test("★ les CINQ vues rendent chacune SA liste : tous, dehors, en retard, en réparation, perdus",
       noms("tous", "2026-09-18") === "Perceuse,Meuleuse,Échelle"
       && noms("dehors", "2026-09-18") === "Perceuse"
       && noms("retard", "2026-09-18") === "Perceuse" && noms("retard", "2026-09-16") === ""
       && noms("reparation", "2026-09-18") === "Meuleuse"
-      && Out.VUES_OUTILLAGE.join() === "tous,dehors,retard,reparation");
+      && noms("perdus", "2026-09-18") === ""
+      && Out.outilsDeLaVue({ id: "b9", nom: "X", outillage: { outils: [Out.declarerPerdu(c, { id: "pz", le: "2026-09-18", motif: "Volée", valeur: 40000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" })], appels: [] } }, "perdus", "2026-09-18").length === 1
+      && Out.VUES_OUTILLAGE.join() === "tous,dehors,retard,reparation,perdus");
 
     // ⚠ Ce contrôle mesure L'ÉCRAN : les quatre colonnes que Timo a demandées
     // doivent exister, et le numéro du réparateur doit s'appeler par LA règle
@@ -8381,6 +8392,147 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /outillage_sans_justifs\(avant -> 'outillage'\)\s*\n\s*is not distinct from public\.outillage_sans_justifs\(new\.data -> 'outillage'\)/.test(sql23)
       && /a_pouvoir_outillage\(\)/.test(sql23) && /- 'demandes' - 'updated_at' - 'outillage'/.test(sql23)
       && /doit afficher : true \| true \| true/.test(sql23));
+
+    // ═══ ⚠ L'ARDOISE D'UNE PERTE (Timo, 18/09/2026) ═══
+    // « Pour les salariés, c'est une retenue sur le salaire. Pour les
+    // techniciens commission, c'est retenu sur commission. Dans perdu quand
+    // on clique, la liste de tous les équipements perdus apparaît et qui l'a
+    // perdu, combien a déjà été retenu sur son salaire ou commission, combien
+    // il reste à payer. »
+    {
+      const calP = readFileSync("src/lib/calculs.js", "utf8");
+      const ciP = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+      const prP = readFileSync("src/screens/PrimesRemises.jsx", "utf8");
+
+      test("★ DEUX CHEMINS, selon la façon d'être payé : le technicien à COMMISSION et le commercial sont retenus sur la commission ; tous les autres (technicien BMI salarié, magasinier, gérant…) sur le salaire",
+        Out.modeRetenue({ role: "technicien" }) === "commission"
+        && Out.modeRetenue({ role: "commercial" }) === "commission"
+        && Out.modeRetenue({ role: "technicien_bmi" }) === "salaire"
+        && Out.modeRetenue({ role: "magasinier" }) === "salaire"
+        && Out.modeRetenue({ role: "gerant" }) === "salaire"
+        && Out.modeRetenue(null) === "salaire"
+        && Out.libelleRetenue("commission") === "sur la commission"
+        && Out.libelleRetenue("salaire") === "sur le salaire");
+
+      // Une perte à 80 000, dont 30 000 sont demandés à KOSSI.
+      const perdu0 = Out.declarerPerdu(Out.nouvelOutil({ id: "o9", nom: "Perceuse", le: "2026-09-01", par: "TIMO" }),
+        { id: "p9", le: "2026-09-18", motif: "Volée sur le chantier", valeur: 80000, a_rembourser: 30000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" });
+
+      test("★ l'ardoise SE CALCULE : à rembourser − déjà retenu = reste à payer, jamais négatif ; une perte à la charge de BMI (0) ne doit rien",
+        Out.aRembourser(Out.perteDe(perdu0)) === 30000
+        && Out.dejaRetenu(Out.perteDe(perdu0)) === 0
+        && Out.resteARetenir(Out.perteDe(perdu0)) === 30000
+        && (() => { const u = Out.ajouterRetenue(perdu0, "p9", { id: "r1", le: "2026-09-18", montant: 12000, sur: "salaire", mois: "2026-09", par: "TIMO" });
+          return Out.dejaRetenu(Out.perteDe(u)) === 12000 && Out.resteARetenir(Out.perteDe(u)) === 18000; })()
+        && Out.resteARetenir(Out.perteDe(Out.declarerPerdu(Out.nouvelOutil({ id: "o8", nom: "Échelle", le: "2026-09-01", par: "TIMO" }),
+          { id: "p8", le: "2026-09-18", motif: "Cassée", valeur: 50000, a_rembourser: 0, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" }))) === 0);
+
+      test("★ on ne retient jamais plus qu'il ne reste dû, ni zéro, ni sur une perte soldée ; et on ne demande jamais MOINS que ce qui a déjà été pris",
+        /plus qu'il ne reste dû/.test(Out.critiqueRetenue(Out.perteDe(perdu0), 30001))
+        && Out.critiqueRetenue(Out.perteDe(perdu0), 0) !== ""
+        && Out.critiqueRetenue(Out.perteDe(perdu0), 30000) === ""
+        && (() => { const u = Out.ajouterRetenue(perdu0, "p9", { id: "r1", le: "2026-09-18", montant: 30000, sur: "salaire", mois: "2026-09", par: "TIMO" });
+          return /entièrement remboursée/.test(Out.critiqueRetenue(Out.perteDe(u), 1000))
+            && /On ne peut pas demander moins/.test(Out.critiqueARembourser(Out.perteDe(u), 20000))
+            && Out.critiqueARembourser(Out.perteDe(u), 30000) === ""
+            && Out.aRembourser(Out.perteDe(Out.fixerARembourser(u, "p9", 45000))) === 45000; })());
+
+      // Deux boutiques, deux pertes de la même personne : la plus ANCIENNE
+      // se solde en premier, et on ne prend jamais plus que ce qui est payé.
+      const bqA = { id: "bA", nom: "DEMAKPOE", outillage: { outils: [Out.declarerPerdu(Out.nouvelOutil({ id: "oA", nom: "Perceuse", le: "2026-08-01", par: "TIMO" }),
+        { id: "pA", le: "2026-08-20", motif: "Volée", valeur: 40000, a_rembourser: 10000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" })], appels: [] } };
+      const bqB = { id: "bB", nom: "APESSITO", outillage: { outils: [Out.declarerPerdu(Out.nouvelOutil({ id: "oB", nom: "Meuleuse", le: "2026-09-01", par: "TIMO" }),
+        { id: "pB", le: "2026-09-18", motif: "Perdue", valeur: 60000, a_rembourser: 25000, user_id: "u1", user: "KOSSI", par_id: "c1", par: "CHEF" })], appels: [] } };
+
+      test("★ LA RETENUE SUR COMMISSION ne dépasse JAMAIS ce qui est payé (une part d'installation ne devient pas une dette), solde la perte la PLUS ANCIENNE d'abord, et cherche dans TOUTES les boutiques",
+        (() => { const r = Out.retenueSurPaiement([bqA, bqB], "u1", 15000);
+          return r.montant === 15000 && r.lignes.length === 2
+            && r.lignes[0].outil === "Perceuse" && r.lignes[0].montant === 10000
+            && r.lignes[1].outil === "Meuleuse" && r.lignes[1].montant === 5000; })()
+        && Out.retenueSurPaiement([bqA, bqB], "u1", 5000).montant === 5000
+        && Out.retenueSurPaiement([bqA, bqB], "u1", 500000).montant === 35000
+        && Out.retenueSurPaiement([bqA, bqB], "u2", 50000).montant === 0
+        && Out.resteDeLaPersonne([bqA, bqB], "u1") === 35000);
+
+      test("★ et elle S'ÉCRIT sur les pertes concernées, dans leurs boutiques respectives : sans cette écriture, l'argent partait mais RIEN ne pouvait s'afficher",
+        (() => { const r = Out.retenueSurPaiement([bqA, bqB], "u1", 15000);
+          const apres = Out.appliquerRetenues([bqA, bqB], r.lignes, { id: "z1", le: "2026-09-18", sur: "commission", ref: "Part d'installation — MR ERIC", par: "TIMO" });
+          const pA = Out.perteDe(Out.outilsDe(apres[0])[0]);
+          const pB = Out.perteDe(Out.outilsDe(apres[1])[0]);
+          return Out.dejaRetenu(pA) === 10000 && Out.resteARetenir(pA) === 0
+            && Out.dejaRetenu(pB) === 5000 && Out.resteARetenir(pB) === 20000
+            && Out.retenuesDe(pA)[0].sur === "commission" && /MR ERIC/.test(Out.retenuesDe(pA)[0].ref)
+            && Out.resteDeLaPersonne(apres, "u1") === 20000
+            // une boutique que rien ne touche est rendue TELLE QUELLE
+            && Out.appliquerRetenues([bqA, bqB], [], { id: "z2", le: "x", sur: "commission", par: "T" })[0] === bqA; })());
+
+      test("★ LE CHEMIN RÉEL : la part d'installation d'un technicien à COMMISSION sort de la caisse DIMINUÉE de la retenue — la dépense, le message et la fiche disent le net ; tout retenu = AUCUNE dépense (rien ne sort de la caisse)",
+        /export function retenueOutilPourPrime\(db, user_id, montant\)/.test(calP)
+        && /if \(!u \|\| modeRetenue\(u\) !== "commission"\) return \{ montant: 0, lignes: \[\] \};/.test(calP)
+        && /const net = Number\(e\.montant \|\| 0\) - pris;/.test(calP)
+        && /const dep = net > 0 \? nouvelleDepense\(/.test(calP)
+        && /montant: net, moyen, auto: "installation"/.test(calP)
+        && /retenue_outil: pris \|\| 0, montant_verse: net/.test(calP)
+        && /appliquerRetenues\(db\.boutiques \|\| \[\], retenue\.lignes/.test(calP)
+        && /Retenue pour outil perdu : \$\{fmt\(pris\)\}/.test(calP)
+        && /net > 0 \? messagesNotifSortieCaisse/.test(calP));
+
+      test("★ elle est ANNONCÉE, jamais silencieuse : les DEUX écrans qui paient une part (🏠 Clients installés et 💰 Primes remises) nomment la retenue, l'outil et le net AVANT de confirmer",
+        [ciP, prP].every((f) => /const ret = retenueOutilPourPrime\(db, e\.user_id, e\.montant\);/.test(f)
+          && /const net = e\.montant - ret\.montant;/.test(f)
+          && /🧰 Retenue pour outil perdu/.test(f)
+          && /ret\.lignes\.map\(\(l\) => l\.outil\)\.join\(", "\)/.test(f)
+          && /construirePaiementPrime\(db, profile, c, e, moyen, ret\)/.test(f)));
+
+      test("★ LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES (il était le seul à ne pas être un bouton) et montre SES colonnes : qui l'a perdu, quand, pourquoi, valeur, à rembourser, déjà retenu, reste à payer",
+        /\["perdus", "Perdus", `\$\{resume\.perdus\} · \$\{fmt\(resume\.valeurPerdue\)\}`/.test(ecrC)
+        && !/<Stat label="Perdus"/.test(ecrC)
+        && /<th className="px-3 py-2">Qui l'a perdu<\/th><th className="px-3 py-2">Perdu le<\/th><th className="px-3 py-2">Pourquoi<\/th><th className="px-3 py-2 text-right">Valeur<\/th><th className="px-3 py-2 text-right">À rembourser<\/th><th className="px-3 py-2 text-right">Déjà retenu<\/th><th className="px-3 py-2 text-right">Reste à payer<\/th>/.test(ecrC)
+        && /retenue \{libelleRetenue\(mode\)\}/.test(ecrC)
+        && /💵 Ce qui a déjà été retenu à/.test(ecrC)
+        && /perdus: "⚠ Ce qui a été perdu"/.test(ecrC));
+
+      test("★ le bouton 💵 « Retenir » n'est proposé QUE là où il agit : administrateur, mode SALAIRE, et seulement s'il reste quelque chose à payer — pour un technicien à commission l'écran DIT que ça se prend sur sa prochaine part, il ne fait pas semblant",
+        /vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir\(perte\) > 0/.test(ecrC)
+        && /est payé à la commission : la retenue se prend toute seule sur sa prochaine part d'installation/.test(ecrC)
+        && /sur sa prochaine part/.test(ecrC)
+        && /refuserSaufAdmin\(profile, "Retenir sur un salaire"\)/.test(ecrC)
+        && /refuserSaufAdmin\(profile, "Fixer ce qu'un outil perdu doit rembourser"\)/.test(ecrC));
+
+      test("★ la RETENUE SUR SALAIRE passe toujours par le mécanisme qui existe (une AVANCE du mois, que paieMois soustrait du net sans toucher la base CNSS) et s'écrit AUSSI sur la perte",
+        /retenuePourOutil\(\{ id: uid\(\), mois, montant, outil: outil\.nom, date: jour, par: profile\.nom \}\), outil_id: outil\.id \}/.test(ecrC)
+        && /avances: \[\.\.\.\(u\.avances \|\| \[\]\), av\]/.test(ecrC)
+        && /ajouterRetenue\(outil, perte\.id, \{ id: uid\(\), le: jour, montant, sur: "salaire", mois/.test(ecrC)
+        && Out.retenuePourOutil({ id: "a1", mois: "2026-09", montant: 12000, outil: "Perceuse", date: "2026-09-18", par: "TIMO" }).auto === "outil_perdu"
+        && /const net = base \+ primes - avances - retenueCredit - retenueCNSS;/.test(calP));
+
+      test("★ LE COUPLE : securite-24 ouvre au PAYEUR d'une part (vendeur, gérant) exactement une porte — inscrire la retenue —, le registre débarrassé des retenues devant rester IDENTIQUE ; sans lui, le geste du vendeur serait refusé par la base et TOUT LE LOT resterait coincé",
+        (() => { const sql24 = existsSync("supabase/securite-24-retenue-outil.sql")
+            ? readFileSync("supabase/securite-24-retenue-outil.sql", "utf8") : "";
+          return /create or replace function public\.outillage_sans_retenues/.test(sql24)
+            && /m - 'retenues'/.test(sql24)
+            && /in \('admin', 'gerant', 'vendeur'\)/.test(sql24)
+            && /outillage_sans_retenues\(avant -> 'outillage'\)\s*\n\s*is not distinct from public\.outillage_sans_retenues\(new\.data -> 'outillage'\)/.test(sql24)
+            // il REPREND securite-23 (et donc -22) : rien ne doit disparaître
+            && /outillage_sans_justifs\(avant -> 'outillage'\)/.test(sql24)
+            && /a_pouvoir_outillage\(\)/.test(sql24)
+            && /- 'demandes' - 'updated_at' - 'outillage'/.test(sql24)
+            && /doit afficher : true \| true \| true \| true/.test(sql24); })());
+
+      test("★ et le banc SQL le rejoue sur base jetable : le vendeur inscrit la retenue, mais n'efface pas ce qui est dû, ne sort pas l'outil, et un technicien ordinaire ne se solde pas lui-même",
+        (() => { const bh = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
+          return /securite-24-retenue-outil\.sql/.test(bh)
+            && /le VENDEUR qui paie la part inscrit la retenue.*"PERMIS"/.test(bh)
+            && /pour effacer ce qui est dû : refusé" "REFUSE"/.test(bh)
+            && /pour sortir l'outil : refusé.*"REFUSE"/.test(bh)
+            && /un technicien ORDINAIRE n'inscrit aucune retenue.*"REFUSE"/.test(bh); })());
+
+      test("★ la personne EST PRÉVENUE dans les deux cas, et une perte à la charge de BMI le dit aussi",
+        /vous seront retenus sur vos prochaines parts d'installation/.test(ecrC)
+        && /sont retenus sur votre salaire de/.test(ecrC)
+        && /La perte reste à la charge de BMI\./.test(ecrC)
+        && /sont retenus sur votre salaire de \$\{mois\} pour l'outil perdu/.test(ecrC));
+    }
 
     test("★ le banc SQL rejoue securite-23 et mesure la porte ET son cadre (justifier passe, rendre l'outil ne passe pas, un vendeur ne justifie rien)",
       (() => { const bh = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");

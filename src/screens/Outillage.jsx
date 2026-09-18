@@ -18,6 +18,7 @@
 import { Fragment, useState } from "react";
 import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } from "../lib/core";
 import { chiffresTel } from "../lib/identiteClient";
+import { ficheParId } from "../lib/banques";
 import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -39,21 +40,25 @@ import {
   outilsDeLaVue, critiqueReparation, reparationEnCours, doitJustifier, critiqueJustification,
   justifierRetard, derniereJustification, justificationsDeLaSortie, mesOutils, coutReparations, joursDeRetard,
   marquerDepenseReparation, depenseDeLaReparation, libelleDepenseReparation,
+  perteDe, aRembourser, dejaRetenu, resteARetenir, retenuesDe, modeRetenue, libelleRetenue,
+  critiqueRetenue, critiqueARembourser, ajouterRetenue, fixerARembourser,
 } from "../lib/outillage";
 
-// Les quatre vues de Timo (18/09/2026), leurs titres et ce qu'on dit quand
+// Les CINQ vues de Timo (18/09/2026), leurs titres et ce qu'on dit quand
 // elles sont vides.
 const TITRE_VUE = {
   tous: "📒 Le registre",
   dehors: "🧰 Ce qui est dehors",
   retard: "⏰ En retard",
   reparation: "🔧 En réparation",
+  perdus: "⚠ Ce qui a été perdu",
 };
 const VIDE_VUE = {
   tous: "Aucun outil au registre.",
   dehors: "Tout le matériel est rentré.",
   retard: "Aucun outil en retard : tout ce qui est dehors doit encore revenir.",
   reparation: "Aucun outil chez un réparateur.",
+  perdus: "Aucun outil perdu. C'est le but du registre.",
 };
 const REFUS_ROLE = "🔒 Tenir le registre de l'outillage : réservé au chef des techniciens, au magasinier et à l'administrateur.";
 const sortieVide = { saisie: "", outil_id: "", user_id: "", chantier: "", retour_prevu: "" };
@@ -316,24 +321,97 @@ export function Outillage({ db, save, profile }) {
     const valeur = Number(saisie) || 0;
     if (!await uConfirm(`Déclarer « ${outil.nom} » perdu ?\n\nMotif : ${motif}\nValeur : ${fmt(valeur)}${resp ? `\nResponsable : ${resp.nom}` : ""}\n\nUne perte déclarée ne se défait pas.`)) return;
 
-    const apres = declarerPerdu(outil, { id: uid(), le: jour, motif, valeur, user_id: resp ? resp.id : "", user: resp ? resp.nom : "", par_id: profile.id, par: profile.nom });
+    // ---- L'ARDOISE. Timo, 18/09/2026 : « pour les salariés, c'est une
+    // retenue sur le salaire ; pour les techniciens commission, c'est retenu
+    // sur commission ». Deux chemins, parce qu'il y a deux façons d'être payé.
+    // Elle reste PROPOSÉE, jamais imposée : refuser = la perte reste à BMI.
+    const mode = modeRetenue(resp);
+    let du = 0;
     let users = db.users || [];
     let mention = "";
-    // La retenue : administrateur seul, jamais imposée — on la propose.
+    let retenues = [];
     if (jeSuisAdmin && resp && valeur > 0
-        && await uConfirm(`Retenir ${fmt(valeur)} sur le salaire de ${resp.nom} ?\n\nOK = oui · Annuler = non, la perte reste à la charge de BMI.`)) {
-      const mois = await demanderMois(`Sur quel mois de salaire retenir ${fmt(valeur)} à ${resp.nom} ?`);
-      if (mois) {
-        const av = { ...retenuePourOutil({ id: uid(), mois, montant: valeur, outil: outil.nom, date: jour, par: profile.nom }), outil_id: outil.id };
-        users = users.map((u) => (u.id === resp.id ? { ...u, avances: [...(u.avances || []), av] } : u));
-        mention = ` — retenue de ${fmt(valeur)} sur le salaire de ${resp.nom} (${mois})`;
+        && await uConfirm(`Faire rembourser cette perte à ${resp.nom} ?\n\nElle sera retenue ${libelleRetenue(mode)}${mode === "commission" ? " — sur ses prochaines parts d'installation, c'est son seul revenu" : ""}.\n\nOK = oui · Annuler = non, la perte reste à la charge de BMI.`)) {
+      const saisieDu = await uPrompt(`Combien demander à ${resp.nom} ? (F)\n\nLa valeur de l'outil est ${fmt(valeur)} : vous pouvez demander moins.`, String(valeur));
+      du = saisieDu === null ? 0 : Math.max(0, Number(saisieDu) || 0);
+    }
+
+    const apres0 = declarerPerdu(outil, { id: uid(), le: jour, motif, valeur, a_rembourser: du, user_id: resp ? resp.id : "", user: resp ? resp.nom : "", par_id: profile.id, par: profile.nom });
+    let apres = apres0;
+    const perte = perteDe(apres0);
+
+    // Salarié : on peut retenir dès maintenant, en une fois ou par morceaux.
+    if (du > 0 && mode === "salaire") {
+      const saisieMain = await uPrompt(`Retenir combien dès maintenant sur le salaire de ${resp.nom} ? (F)\n\nLe reste pourra être retenu les mois suivants, depuis le carré « Perdus ».`, String(du));
+      const maintenant = saisieMain === null ? 0 : Math.max(0, Number(saisieMain) || 0);
+      const refusR = maintenant > 0 ? critiqueRetenue(perte, maintenant) : "";
+      if (refusR) { uAlert(refusR); return; }
+      if (maintenant > 0) {
+        const mois = await demanderMois(`Sur quel mois de salaire retenir ${fmt(maintenant)} à ${resp.nom} ?`);
+        if (mois) {
+          const av = { ...retenuePourOutil({ id: uid(), mois, montant: maintenant, outil: outil.nom, date: jour, par: profile.nom }), outil_id: outil.id };
+          users = users.map((u) => (u.id === resp.id ? { ...u, avances: [...(u.avances || []), av] } : u));
+          apres = ajouterRetenue(apres0, perte.id, { id: uid(), le: jour, montant: maintenant, sur: "salaire", mois, ref: `Salaire ${mois}`, par: profile.nom });
+          retenues = [maintenant, mois];
+          mention = ` — retenue de ${fmt(maintenant)} sur le salaire de ${resp.nom} (${mois})`;
+        }
       }
     }
+    if (du > 0 && mode === "commission") mention = ` — ${fmt(du)} à retenir sur ses prochaines parts d'installation`;
+
+    const texteResp = `🧰 « ${outil.nom} » a été déclaré PERDU le ${dFR(jour)} (${motif}).`
+      + (du <= 0 ? " La perte reste à la charge de BMI."
+        : mode === "commission" ? ` ${fmt(du)} vous seront retenus sur vos prochaines parts d'installation.`
+        : retenues.length ? ` ${fmt(retenues[0])} sont retenus sur votre salaire de ${retenues[1]}${du > retenues[0] ? `, et ${fmt(du - retenues[0])} restent à rembourser` : ""}.`
+        : ` ${fmt(du)} restent à rembourser sur votre salaire.`);
     const messages = resp && resp.id !== profile.id
-      ? [nouveauMessage(profile, { a_id: resp.id, texte: `🧰 « ${outil.nom} » a été déclaré PERDU le ${dFR(jour)} (${motif}).${mention ? ` Une retenue de ${fmt(valeur)} est portée sur votre salaire.` : ""}` })]
+      ? [nouveauMessage(profile, { a_id: resp.id, texte: texteResp })]
       : [];
     ecrire(remplacerOutil(fiche, apres), `🧰 PERDU — ${outil.nom} : ${motif} (${fmt(valeur)})${mention} (${boutique})`,
       { users, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) });
+  };
+
+  // ---- ✏️ Combien lui demander : l'administrateur peut revoir l'ardoise
+  // (jamais en dessous de ce qui a déjà été pris).
+  const fixerMontant = async (outil) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Fixer ce qu'un outil perdu doit rembourser")) return;
+    const perte = perteDe(outil);
+    if (!perte) { uAlert("Cet outil n'est pas déclaré perdu."); return; }
+    const saisie = await uPrompt(`Combien ${perte.user || "la personne"} doit-il rembourser pour « ${outil.nom} » ? (F)\n\nValeur de l'outil : ${fmt(perte.valeur)}\nDéjà retenu : ${fmt(dejaRetenu(perte))}\n\n0 = la perte reste à la charge de BMI.`, String(aRembourser(perte) || perte.valeur || 0));
+    if (saisie === null) return;
+    const montant = Math.max(0, Number(saisie) || 0);
+    const refus = critiqueARembourser(perte, montant);
+    if (refus) { uAlert(refus); return; }
+    ecrire(remplacerOutil(fiche, fixerARembourser(outil, perte.id, montant)),
+      `🧰 Outil perdu « ${outil.nom} » — à rembourser : ${fmt(montant)} (${boutique})`);
+  };
+
+  // ---- 💵 Retenir sur le salaire. Le technicien à COMMISSION n'a pas de
+  // salaire : sa retenue se prend toute seule sur sa prochaine part — on ne
+  // lui propose donc pas ce bouton, et on ne fait jamais semblant.
+  const retenir = async (outil) => {
+    if (garde()) return;
+    if (refuserSaufAdmin(profile, "Retenir sur un salaire")) return;
+    const perte = perteDe(outil);
+    if (!perte) { uAlert("Cet outil n'est pas déclaré perdu."); return; }
+    const qui = perte.user_id ? ficheParId(db.users, perte.user_id) : null;
+    if (!qui) { uAlert("Personne ne répondait de cet outil : il n'y a rien à retenir."); return; }
+    if (modeRetenue(qui) === "commission") { uAlert(`${qui.nom} est payé à la commission : la retenue se prend toute seule sur sa prochaine part d'installation. Rien à faire ici.`); return; }
+    const saisie = await uPrompt(`Retenir combien sur le salaire de ${qui.nom} ? (F)\n\nReste à payer : ${fmt(resteARetenir(perte))}`, String(resteARetenir(perte)));
+    if (saisie === null) return;
+    const montant = Math.max(0, Number(saisie) || 0);
+    const refus = critiqueRetenue(perte, montant);
+    if (refus) { uAlert(refus); return; }
+    const mois = await demanderMois(`Sur quel mois de salaire retenir ${fmt(montant)} à ${qui.nom} ?`);
+    if (!mois) return;
+    if (!await uConfirm(`Retenir ${fmt(montant)} sur le salaire de ${qui.nom} (${mois}) pour « ${outil.nom} » ?\n\nUne retenue enregistrée ne se défait pas.`)) return;
+    const av = { ...retenuePourOutil({ id: uid(), mois, montant, outil: outil.nom, date: jour, par: profile.nom }), outil_id: outil.id };
+    const users = (db.users || []).map((u) => (u.id === qui.id ? { ...u, avances: [...(u.avances || []), av] } : u));
+    const apres = ajouterRetenue(outil, perte.id, { id: uid(), le: jour, montant, sur: "salaire", mois, ref: `Salaire ${mois}`, par: profile.nom });
+    const reste = resteARetenir(perteDe(apres));
+    ecrire(remplacerOutil(fiche, apres), `🧰 Retenue de ${fmt(montant)} sur le salaire de ${qui.nom} (${mois}) — outil perdu « ${outil.nom} » (${boutique})`,
+      { users, messages: [...(db.messages || []), nouveauMessage(profile, { a_id: qui.id, texte: `💵 ${fmt(montant)} sont retenus sur votre salaire de ${mois} pour l'outil perdu « ${outil.nom} ».${reste > 0 ? ` Reste à rembourser : ${fmt(reste)}.` : " Cette perte est soldée."}` })] });
   };
 
   const reformer = async (outil) => {
@@ -387,6 +465,7 @@ export function Outillage({ db, save, profile }) {
             ["dehors", "Dehors", resume.dehors, resume.dehors ? "attente" : "neutre"],
             ["retard", "En retard", resume.retard, resume.retard ? "du" : "neutre"],
             ["reparation", "En réparation", resume.reparation, resume.reparation ? "attente" : "neutre"],
+            ["perdus", "Perdus", `${resume.perdus} · ${fmt(resume.valeurPerdue)}`, resume.perdus ? "du" : "neutre"],
           ].map(([id, label, valeur, nature]) => (
             <button key={id} type="button" onClick={() => { setVue(id); setOutilDeplie(""); }}
               title={`Voir : ${label}`}
@@ -394,7 +473,6 @@ export function Outillage({ db, save, profile }) {
               <Stat label={label} value={valeur} nature={nature} />
             </button>
           ))}
-          <Stat label="Perdus" value={`${resume.perdus} · ${fmt(resume.valeurPerdue)}`} nature={resume.perdus ? "du" : "neutre"} />
         </div>
 
         {/* ---- L'appel de la semaine (décision Timo : chaque semaine) ---- */}
@@ -440,7 +518,7 @@ export function Outillage({ db, save, profile }) {
             <div className="font-bold text-slate-800">{TITRE_VUE[vue]} ({affichee.length})</div>
             {vue === "tous" && <input className={`${inputCls} max-w-xs`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un outil…" />}
             {vue === "tous" && jeSuisAdmin && !neuf && <button onClick={() => setNeuf(outilVide)} className="px-3 py-1.5 rounded-lg border-2 border-sky-700 text-sky-800 font-bold text-sm hover:bg-sky-50">➕ Ajouter un outil</button>}
-            {vue === "reparation" && coutRep > 0 && <span className="text-xs text-slate-600">Réparations payées jusqu'ici : <b>{fmt(coutRep)}</b> — <i>pour information : aucune dépense n'est enregistrée</i></span>}
+            {vue === "reparation" && coutRep > 0 && <span className="text-xs text-slate-600">Réparations payées jusqu'ici : <b>{fmt(coutRep)}</b> — <i>chacune est une dépense de BMI, à retrouver dans 📤 Dépenses</i></span>}
           </div>
 
           {vue === "tous" && neuf && (
@@ -543,6 +621,7 @@ export function Outillage({ db, save, profile }) {
                     {vue === "dehors" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Chantier</th><th className="px-3 py-2">Depuis</th><th className="px-3 py-2">Retour prévu</th></>}
                     {vue === "retard" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Retour prévu</th><th className="px-3 py-2">Retard</th><th className="px-3 py-2">Pourquoi ce n'est pas rentré</th></>}
                     {vue === "reparation" && <><th className="px-3 py-2">Chez quel réparateur</th><th className="px-3 py-2">Son numéro</th><th className="px-3 py-2">La panne</th><th className="px-3 py-2 text-right">Prix</th><th className="px-3 py-2">Depuis</th></>}
+                    {vue === "perdus" && <><th className="px-3 py-2">Qui l'a perdu</th><th className="px-3 py-2">Perdu le</th><th className="px-3 py-2">Pourquoi</th><th className="px-3 py-2 text-right">Valeur</th><th className="px-3 py-2 text-right">À rembourser</th><th className="px-3 py-2 text-right">Déjà retenu</th><th className="px-3 py-2 text-right">Reste à payer</th></>}
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -554,6 +633,9 @@ export function Outillage({ db, save, profile }) {
                     const rep = reparationEnCours(o);
                     const rendu = dernierRetour(o);
                     const just = derniereJustification(o);
+                    const perte = perteDe(o);
+                    const qui = perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null;
+                    const mode = modeRetenue(qui);
                     const tard = enRetard(o, jour);
                     const deplie = outilDeplie === o.id;
                     const fond = deplie ? "bg-sky-200" : (vue !== "tous" && tard ? "bg-red-50" : (i % 2 ? "bg-slate-50/60" : "bg-white"));
@@ -603,7 +685,23 @@ export function Outillage({ db, save, profile }) {
                           <td className="px-3 py-2 tabular-nums">{rep ? dFR(rep.le) : "—"}</td>
                         </>}
 
+                        {vue === "perdus" && perte && <>
+                          <td className="px-3 py-2 font-semibold">{perte.user || <span className="font-normal text-slate-500">personne (rangé en boutique)</span>}
+                            {perte.user && <div className="text-xs font-normal text-slate-500">retenue {libelleRetenue(mode)}</div>}</td>
+                          <td className="px-3 py-2 tabular-nums">{dFR(perte.le)}<div className="text-xs text-slate-500">déclaré par {perte.par || "—"}</div></td>
+                          <td className="px-3 py-2 text-slate-600">{perte.motif || "—"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{fmt(perte.valeur)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{aRembourser(perte) ? fmt(aRembourser(perte)) : <span className="text-slate-500">à la charge de BMI</span>}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-emerald-700 font-semibold">{dejaRetenu(perte) ? fmt(dejaRetenu(perte)) : "—"}</td>
+                          <td className={`px-3 py-2 text-right tabular-nums font-bold ${resteARetenir(perte) ? "text-red-700" : "text-emerald-700"}`}>
+                            {resteARetenir(perte) ? fmt(resteARetenir(perte)) : (aRembourser(perte) ? "soldé ✅" : "—")}
+                            {resteARetenir(perte) > 0 && mode === "commission" && <div className="text-xs font-normal text-slate-500">sur sa prochaine part</div>}
+                          </td>
+                        </>}
+
                         <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          {vue === "perdus" && jeSuisAdmin && perte && <button title="Combien lui demander ?" onClick={() => fixerMontant(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>✏️</button>}
+                          {vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir(perte) > 0 && <button title="Retenir sur son salaire" onClick={() => retenir(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>💵</button>}
                           {jePeux && (etat === "sorti" || etat === "reparation") && (
                             <button title={etat === "reparation" ? "Revenu de réparation" : "Retour en boutique"}
                               onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
@@ -618,7 +716,7 @@ export function Outillage({ db, save, profile }) {
                       </tr>
                       {deplie && (
                         <tr className="bg-sky-50">
-                          <td colSpan={7} className="px-4 py-3">
+                          <td colSpan={10} className="px-4 py-3">
                             <div className="text-xs font-bold text-sky-900 mb-2">🕘 Histoire de « {o.nom} »{o.numero ? ` — N° ${o.numero}` : ""}</div>
                             {o.categorie || o.achete_le || o.prix_achat ? (
                               <div className="text-xs text-slate-600 mb-2">
@@ -627,6 +725,15 @@ export function Outillage({ db, save, profile }) {
                                 {o.prix_achat ? <>prix d'achat <b>{fmt(o.prix_achat)}</b></> : null}
                               </div>
                             ) : null}
+                            {perte && retenuesDe(perte).length > 0 && (
+                              <div className="text-sm mb-2">
+                                <div className="text-xs font-bold text-sky-900 mb-1">💵 Ce qui a déjà été retenu à {perte.user || "—"}</div>
+                                {retenuesDe(perte).map((r) => (
+                                  <div key={r.id} className="text-slate-700">— {fmt(r.montant)} {libelleRetenue(r.sur)}{r.mois ? ` (${r.mois})` : ""}{r.ref ? ` · ${r.ref}` : ""} · le {dFR(r.le)}{r.par ? ` · par ${r.par}` : ""}</div>
+                                ))}
+                                <div className="text-slate-800 font-bold mt-1">Reste à payer : {fmt(resteARetenir(perte))}</div>
+                              </div>
+                            )}
                             {justificationsDeLaSortie(o).length > 0 && (
                               <div className="text-sm mb-2">
                                 {justificationsDeLaSortie(o).map((j) => (

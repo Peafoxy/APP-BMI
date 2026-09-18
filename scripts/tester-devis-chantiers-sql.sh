@@ -44,6 +44,8 @@ echo "▸ Pose des verrous : supabase/securite-22-outillage.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-22-outillage.sql >/dev/null 2>&1 || echo "   ❌ securite-22 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-23-justifier-retard.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-23-justifier-retard.sql >/dev/null 2>&1 || echo "   ❌ securite-23 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-24-retenue-outil.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-24-retenue-outil.sql >/dev/null 2>&1 || echo "   ❌ securite-24 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -263,6 +265,26 @@ essai "★ le TECHNICIEN qui détient l'outil justifie son retard" "PERMIS" "$TE
 essai "★ le même technicien en PROFITE pour rendre l'outil : refusé (ce n'est pas son geste)" "REFUSE" "$TECH" "$(MAJ boutiques "$RENDU" b1)"
 essai "★ un VENDEUR ne justifie rien (ce n'est pas un technicien)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "$JUSTIF" b1)"
 essai "★ le chef technicien, lui, peut tout : justifier comme rendre" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "$RENDU" b1)"
+$P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
+
+echo
+echo "── 💵 LA RETENUE POUR UN OUTIL PERDU (securite-24) ──"
+# La retenue sur COMMISSION se prend quand on paie la part d'installation du
+# technicien — et ce paiement peut être fait par le VENDEUR de la boutique ou
+# par le GÉRANT, qui ne tiennent pas le registre. Sans cette porte, leur geste
+# serait refusé et TOUT LE LOT resterait coincé dans la file d'attente.
+PERTE='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"p1","type":"perdu","user_id":"zt_tech","valeur":80000,"a_rembourser":30000,"retenues":[]}]}],"appels":[]}}'
+RETENU='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"p1","type":"perdu","user_id":"zt_tech","valeur":80000,"a_rembourser":30000,"retenues":[{"id":"r1","montant":10000,"sur":"commission"}]}]}],"appels":[]}}'
+MOINS_DU='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"p1","type":"perdu","user_id":"zt_tech","valeur":80000,"a_rembourser":0,"retenues":[]}]}],"appels":[]}}'
+SORTI_APRES='{"outillage":{"outils":[{"id":"o1","nom":"Perceuse","mouvements":[{"id":"p1","type":"perdu","user_id":"zt_tech","valeur":80000,"a_rembourser":30000,"retenues":[{"id":"r1","montant":10000,"sur":"commission"}]},{"id":"s9","type":"sortie","user_id":"zt_tech"}]}],"appels":[]}}'
+$P -c "update public.boutiques set data = data || '$PERTE'::jsonb where id='b1';" >/dev/null
+essai "★ le VENDEUR qui paie la part inscrit la retenue (sinon tout le lot reste coincé)" "PERMIS" "$VENDEUR" "$(MAJ boutiques "data || '$RETENU'::jsonb" b1)"
+essai "★ le GÉRANT aussi (il paie une part depuis 🏠 Clients installés)" "PERMIS" "$GERANT" "$(MAJ boutiques "data || '$RETENU'::jsonb" b1)"
+essai "★ le vendeur en PROFITE pour effacer ce qui est dû : refusé" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '$MOINS_DU'::jsonb" b1)"
+essai "★ le vendeur en PROFITE pour sortir l'outil : refusé (ce n'est pas son geste)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '$SORTI_APRES'::jsonb" b1)"
+essai "★ un technicien ORDINAIRE n'inscrit aucune retenue (il se solderait lui-même)" "REFUSE" "$TECH" "$(MAJ boutiques "data || '$RETENU'::jsonb" b1)"
+essai "★ le magasinier, lui, peut tout : c'est son registre" "PERMIS" "$MAGASINIER" "$(MAJ boutiques "data || '$SORTI_APRES'::jsonb" b1)"
+essai "★ le vendeur ne renomme toujours pas la boutique en glissant une retenue" "REFUSE" "$VENDEUR" "$(UPS boutiques b1 '{"nom":"AUTRE","outillage":{"outils":[],"appels":[]}}')"
 $P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
 
 echo

@@ -18,6 +18,9 @@ import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois 
 // compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
 import { chiffresTel, memeNumero, numeroComparable } from "./identiteClient";
 import { estCompteFormation as estCompteFormationRegle } from "./espace";
+// 🧰 Un outil perdu se rembourse. Pour un technicien à COMMISSION, il n'y a
+// pas de salaire à amputer : la retenue se prend sur sa part d'installation.
+import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -766,28 +769,53 @@ export function primeDejaPayee(db, c, e) {
   return !!part?.paye;
 }
 
-export function construirePaiementPrime(db, profile, c, e, moyen) {
+// 🧰 LA RETENUE POUR UN OUTIL PERDU, sur la part d'installation d'un
+// technicien à COMMISSION (Timo, 18/09/2026 : « pour les techniciens
+// commissions, c'est retenu sur commission »). Le salarié, lui, est retenu
+// sur son salaire — ce chemin-là ne le concerne pas et rend 0.
+// ⚠ On ne retient jamais plus que ce qui est payé : une part d'installation
+// ne devient pas une dette.
+export function retenueOutilPourPrime(db, user_id, montant) {
+  const u = ficheParId(db.users, user_id);
+  if (!u || modeRetenue(u) !== "commission") return { montant: 0, lignes: [] };
+  return retenueSurPaiement(db.boutiques || [], user_id, montant);
+}
+
+export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
   const bq = e.prime_boutique;
-  const dep = nouvelleDepense(profile, {
+  const pris = Math.max(0, Math.min(Number(retenue?.montant || 0), Number(e.montant || 0)));
+  const net = Number(e.montant || 0) - pris;
+  const mentionOutil = pris > 0 ? ` — retenue outil perdu : ${fmt(pris)}` : "";
+  // Tout est retenu : rien ne sort de la caisse, donc aucune dépense. Écrire
+  // une dépense de 0 F ferait mentir le journal.
+  const dep = net > 0 ? nouvelleDepense(profile, {
     boutique: bq, categorie: "Prime d'installation",
-    description: `Installation ${c.nom} — ${e.nom}${e.chef ? " (chef de chantier)" : ""} · ${e.pct} %`,
-    montant: e.montant, moyen, auto: "installation", user_id: e.user_id,
+    description: `Installation ${c.nom} — ${e.nom}${e.chef ? " (chef de chantier)" : ""} · ${e.pct} %${mentionOutil}`,
+    montant: net, moyen, auto: "installation", user_id: e.user_id,
     // Payée par virement : la dépense garde la banque du technicien, telle
     // qu'elle était ce jour-là (Timo, 14/09/2026).
     ...mentionVirement(ficheParId(db.users, e.user_id), moyen),
-  });
+  }) : null;
   return {
     ...db,
     clients_installes: db.clients_installes.map((x) => (x.id === c.id
-      ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep.id, demande_prime: false, validee_par: profile.nom } : y)) }
+      ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep ? dep.id : "", retenue_outil: pris || 0, montant_verse: net, demande_prime: false, validee_par: profile.nom } : y)) }
       : x)),
-    depenses: [dep, ...db.depenses],
+    ...(pris > 0 ? {
+      boutiques: appliquerRetenues(db.boutiques || [], retenue.lignes, {
+        id: uid(), le: today(), sur: "commission",
+        ref: `Part d'installation — ${c.nom}`, par: profile.nom,
+      }),
+    } : {}),
+    depenses: dep ? [dep, ...db.depenses] : db.depenses,
     messages: [
       ...(e.user_id ? [nouveauMessage(profile, {
         a_id: e.user_id,
-        texte: `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « 💰 Primes reçues ».`,
+        texte: pris > 0
+          ? `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} : ${fmt(e.montant)}. Retenue pour outil perdu : ${fmt(pris)}. Vous recevez ${fmt(net)}${net > 0 ? ` (${normPaiement(moyen)})` : ""}. Retrouvez le détail dans « 💰 Primes reçues ».`
+          : `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « 💰 Primes reçues ».`,
       })] : []),
-      ...messagesNotifSortieCaisse(db, profile, bq, e.nom, e.montant, "Prime d'installation payée à"),
+      ...(net > 0 ? messagesNotifSortieCaisse(db, profile, bq, e.nom, net, "Prime d'installation payée à") : []),
     ],
   };
 }

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1504 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1517 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -65,7 +65,7 @@ npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium 
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 100 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 107 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -1008,6 +1008,50 @@ lit mal est pire qu'un banc absent).
   une **AVANCE du mois** (`u.avances`), que `paieMois` soustrait du net sans
   toucher à la base CNSS — **aucun champ neuf, rien à coller**. Une perte
   déclarée ne se défait pas ; la personne reçoit un message.
+- **💵 UN OUTIL PERDU SE REMBOURSE PAR DEUX CHEMINS** (Timo, 18/09/2026 :
+  « pour les salariés, c'est une retenue sur le salaire ; pour les techniciens
+  commission, c'est retenu sur commission »), parce qu'il y a deux façons
+  d'être payé chez BMI. `modeRetenue` (lib/outillage.js) : technicien à
+  commission et commercial → **commission** ; tous les autres (technicien BMI,
+  magasinier, gérant…) → **salaire**.
+  - **L'ardoise vit SUR LA PERTE** : `a_rembourser` (ce qu'on demande — proposé
+    = la valeur de l'outil, l'administrateur peut demander moins, **0 = à la
+    charge de BMI**) et `retenues`, une liste qui ne rétrécit jamais.
+    `resteARetenir = a_rembourser − dejaRetenu`. **Sans cette écriture,
+    l'argent partait bien mais RIEN ne pouvait s'afficher** — c'est
+    exactement ce qui manquait.
+  - **SALAIRE** : le mécanisme qui existe déjà, une **AVANCE du mois**
+    (`u.avances`, que `paieMois` soustrait du net sans toucher la base CNSS).
+    Se pose à la déclaration, **puis mois après mois** depuis le carré
+    « Perdus » (bouton 💵, administrateur seul).
+  - **COMMISSION** : le technicien à commission n'a pas de salaire à amputer.
+    Sa retenue se prend **sur sa PROCHAINE part d'installation**
+    (`retenueOutilPourPrime` → `construirePaiementPrime`) : la dépense sort de
+    la caisse **diminuée**, la fiche garde `retenue_outil` et `montant_verse`,
+    **tout retenu = AUCUNE dépense** (rien ne sort de la caisse, une dépense de
+    0 F ferait mentir le journal). On ne retient **jamais plus que ce qui est
+    payé** — une part d'installation ne devient pas une dette — ni plus qu'il
+    ne reste dû ; les pertes les plus **anciennes** se soldent en premier, dans
+    **toutes** les boutiques. Elle est **ANNONCÉE** dans les deux écrans qui
+    paient une part (🏠 Clients installés, 💰 Primes remises) : l'outil, le
+    montant retenu, le net. Le bouton 💵 n'est **pas** proposé pour elle —
+    l'écran DIT que ça se prend tout seul, il ne fait pas semblant.
+  - ⚠ **LE COUPLE : `securite-24`**. Le vendeur et le gérant PAIENT une part,
+    et ne tiennent pas le registre : sans ce script leur écriture serait
+    refusée par la base et **tout le lot resterait coincé**. Il leur ouvre
+    EXACTEMENT une porte — le registre débarrassé des retenues
+    (`outillage_sans_retenues`) doit rester IDENTIQUE : ils inscrivent ce qui
+    a été retenu, ils ne sortent pas un outil, ne changent pas ce qui est dû.
+    Il REPREND `securite-23` (donc `-22`) en entier : **c'est le seul à
+    coller**.
+- **LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES** (18/09/2026 : « dans
+  perdu quand on clique, la liste de tous les équipements perdus apparaît et
+  qui l'a perdu, combien a déjà été retenu sur son salaire ou commission,
+  combien il reste à payer etc… tout apparaît ») — il était le seul des cinq à
+  ne pas être un bouton. Colonnes : **outil / qui l'a perdu (et sur quoi il
+  est retenu) / perdu le / pourquoi / valeur / à rembourser / déjà retenu /
+  reste à payer** ; le détail de chaque retenue (montant, mois ou part, date,
+  par qui) s'ouvre AU CLIC, avec l'histoire de l'outil.
 - **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE** (décision Timo). Une bande
   ambre le réclame tant que la semaine en cours n'a pas le sien ; on coche ce
   qu'on a sous la main, **ce qui n'est pas coché reste dehors et SE VOIT**

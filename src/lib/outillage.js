@@ -161,14 +161,22 @@ export const critiquePerte = (outil, { motif } = {}) => {
 // était rangé en boutique (perdu dans la boutique, personne n'en répond).
 export const responsableDeLaPerte = (outil) => detenteurOutil(outil);
 export const valeurProposee = (outil) => Number(outil?.prix_achat || 0);
-export const declarerPerdu = (outil, { id, le, motif, valeur, user_id, user, par_id, par }) =>
-  ajouter(outil, { id, type: "perdu", le, motif: String(motif || "").trim(), valeur: Number(valeur || 0), user_id: user_id || "", user: user || "", par_id, par });
+export const declarerPerdu = (outil, { id, le, motif, valeur, a_rembourser, user_id, user, par_id, par }) =>
+  ajouter(outil, {
+    id, type: "perdu", le, motif: String(motif || "").trim(), valeur: Number(valeur || 0),
+    // Ce qu'on demande à la personne (0 = la perte reste à la charge de BMI),
+    // et ce qui lui a déjà été retenu : c'est l'ardoise de la perte.
+    a_rembourser: Math.max(0, Number(a_rembourser || 0)), retenues: [],
+    user_id: user_id || "", user: user || "", par_id, par,
+  });
 export const reformerOutil = (outil, { id, le, motif, par_id, par }) =>
   ajouter(outil, { id, type: "reforme", le, motif: String(motif || "").trim(), par_id, par });
 
-// La RETENUE sur salaire (décision « b ») : elle passe par le mécanisme qui
+// La RETENUE sur SALAIRE (décision « b ») : elle passe par le mécanisme qui
 // existe déjà — une AVANCE du mois, que `paieMois` soustrait du net sans
 // toucher à la base CNSS (ce n'est pas une rémunération). Aucun champ neuf.
+// ⚠ Pour un technicien à COMMISSION, ce chemin ne mène nulle part : il n'a
+// pas de salaire. Le sien est plus bas — `retenueSurPaiement`.
 export const retenuePourOutil = ({ id, mois, montant, outil, date, par }) => ({
   id, mois, montant: Number(montant || 0),
   motif: `Outil perdu : ${outil || ""}`.trim(),
@@ -335,18 +343,20 @@ export const dernierRetour = (outil) => {
 // clique dessus » — Outils, Dehors, En retard, En réparation. Chaque carré
 // ouvre SA liste, avec les colonnes qui répondent à SA question.
 // ============================================================
-export const VUES_OUTILLAGE = ["tous", "dehors", "retard", "reparation"];
+export const VUES_OUTILLAGE = ["tous", "dehors", "retard", "reparation", "perdus"];
 export const outilsDeLaVue = (boutique, vue, jour) => {
   if (vue === "dehors") return outilsDehors(boutique);
   if (vue === "retard") return outilsDehors(boutique).filter((o) => enRetard(o, jour));
   if (vue === "reparation") return outilsDe(boutique).filter((o) => etatOutil(o) === "reparation");
+  if (vue === "perdus") return outilsDe(boutique).filter((o) => etatOutil(o) === "perdu");
   return outilsDe(boutique);
 };
 
 // ---- 🔧 LA RÉPARATION : chez QUI, son NUMÉRO, la PANNE, le PRIX.
-// ⚠ Le prix est une INFORMATION portée par l'outil : il n'écrit AUCUNE
-// dépense. Créer une charge sans que Timo l'ait demandé toucherait ses
-// comptes — on le lui dit, on ne le décide pas.
+// ⚠ Le prix EST une dépense de BMI depuis le 18/09/2026 (« oui, mets le prix
+// de réparation dans les dépenses ») : il passe par la fabrique commune
+// `construireDepenseSaisie`, jamais par une écriture d'ici. Voir plus bas
+// `marquerDepenseReparation`, qui porte le lien outil ↔ dépense.
 export const critiqueReparation = ({ reparateur, panne } = {}) => {
   if (!String(reparateur || "").trim()) return "Dites chez quel réparateur part l'outil.";
   if (!String(panne || "").trim()) return "Dites quelle est la panne.";
@@ -438,3 +448,136 @@ export const depenseDeLaReparation = (outil) => {
 };
 export const libelleDepenseReparation = (outil, rep) =>
   `${outil?.nom || "Outil"}${outil?.numero ? ` (N° ${outil.numero})` : ""} — ${rep?.panne || "réparation"}${rep?.reparateur ? ` · ${rep.reparateur}` : ""}`;
+
+// ---- ⚠ L'ARDOISE D'UNE PERTE (Timo, 18/09/2026 : « pour les salariés,
+// c'est une retenue sur le salaire ; pour les techniciens commission, c'est
+// retenu sur commission… dans perdu quand on clique, la liste de tous les
+// équipements perdus apparaît et qui l'a perdu, combien a déjà été retenu sur
+// son salaire ou commission, combien il reste à payer »).
+//
+// DEUX CHEMINS, parce qu'il y a DEUX façons d'être payé chez BMI :
+//   • SALARIÉ    → une AVANCE du mois, que `paieMois` soustrait du net.
+//   • COMMISSION → sa PROCHAINE part d'installation est diminuée d'autant
+//                  (c'est son seul revenu : il n'a pas de salaire à amputer).
+// Dans les deux cas la retenue est ÉCRITE SUR LA PERTE : c'est elle qui sait
+// combien a été pris et combien reste à payer. Sans cette écriture, l'argent
+// partait bien mais RIEN ne pouvait s'afficher.
+// ⚠ Une retenue ne s'efface jamais (liste qui ne rétrécit pas), comme un
+// mouvement d'outil ou une reprise de vente.
+export const ROLES_RETENUE_COMMISSION = ["technicien", "commercial"];
+export const modeRetenue = (user) =>
+  ROLES_RETENUE_COMMISSION.includes(String(user?.role || "")) ? "commission" : "salaire";
+export const LIBELLE_RETENUE = { salaire: "sur le salaire", commission: "sur la commission" };
+export const libelleRetenue = (mode) => LIBELLE_RETENUE[mode] || LIBELLE_RETENUE.salaire;
+
+// La perte d'un outil = son dernier mouvement « perdu ».
+export const perteDe = (outil) => {
+  const l = mouvementsDe(outil).filter((m) => m.type === "perdu");
+  return l.length ? l[l.length - 1] : null;
+};
+export const aRembourser = (perte) => Math.max(0, Number(perte?.a_rembourser || 0));
+export const retenuesDe = (perte) => (Array.isArray(perte?.retenues) ? perte.retenues : []);
+export const dejaRetenu = (perte) => retenuesDe(perte).reduce((s, r) => s + Number(r.montant || 0), 0);
+export const resteARetenir = (perte) => Math.max(0, aRembourser(perte) - dejaRetenu(perte));
+
+// Ce qu'on demande à la personne : proposé = la valeur de l'outil, mais
+// l'administrateur peut décider moins (ou rien : la perte reste à BMI).
+export const critiqueARembourser = (perte, montant) => {
+  if (!perte) return "Cet outil n'est pas déclaré perdu.";
+  const m = Number(montant || 0);
+  if (m < 0) return "Un montant à rembourser ne peut pas être négatif.";
+  if (m < dejaRetenu(perte)) return `Déjà retenu : ${dejaRetenu(perte)} F. On ne peut pas demander moins que ce qui a déjà été pris.`;
+  return "";
+};
+export const fixerARembourser = (outil, perteId, montant) => ({
+  ...outil,
+  mouvements: mouvementsDe(outil).map((m) => (m.id === perteId ? { ...m, a_rembourser: Math.max(0, Number(montant || 0)) } : m)),
+});
+
+export const critiqueRetenue = (perte, montant) => {
+  if (!perte) return "Cet outil n'est pas déclaré perdu.";
+  const m = Number(montant || 0);
+  if (!(m > 0)) return "Le montant à retenir doit être supérieur à zéro.";
+  const reste = resteARetenir(perte);
+  if (reste <= 0) return "Cette perte est entièrement remboursée : il n'y a plus rien à retenir.";
+  if (m > reste) return `On ne retient pas plus qu'il ne reste dû (${reste} F).`;
+  return "";
+};
+export const ajouterRetenue = (outil, perteId, { id, le, montant, sur, mois, ref, par }) => ({
+  ...outil,
+  mouvements: mouvementsDe(outil).map((m) => (m.id === perteId
+    ? {
+      ...m,
+      retenues: [...(Array.isArray(m.retenues) ? m.retenues : []), {
+        id, le, montant: Math.max(0, Number(montant || 0)),
+        sur: sur === "commission" ? "commission" : "salaire",
+        mois: mois || "", ref: ref || "", par: par || "",
+      }],
+    }
+    : m)),
+});
+
+// La liste du carré « Perdus » : tout ce que Timo a demandé, sur une ligne.
+const ligneArdoise = (boutique, outil) => {
+  const p = perteDe(outil);
+  return {
+    boutique_id: boutique?.id || "", boutique: boutique?.nom || "",
+    outil, perte: p, perte_id: p?.id || "",
+    nom: outil?.nom || "", numero: outil?.numero || "",
+    le: String(p?.le || "").slice(0, 10), motif: p?.motif || "",
+    valeur: Number(p?.valeur || 0), user_id: p?.user_id || "", user: p?.user || "",
+    a_rembourser: aRembourser(p), deja: dejaRetenu(p), reste: resteARetenir(p),
+    retenues: retenuesDe(p),
+  };
+};
+export const ardoisesPerdus = (boutique) => outilsDe(boutique)
+  .filter((o) => etatOutil(o) === "perdu")
+  .map((o) => ligneArdoise(boutique, o))
+  .sort((a, b) => String(b.le).localeCompare(String(a.le)));
+// Les mêmes ardoises, pour UNE personne, dans TOUTES les boutiques de son
+// espace (un technicien n'a pas de boutique) : les plus anciennes d'abord,
+// c'est celles-là qu'on solde en premier.
+export const ardoisesDeLaPersonne = (boutiques, userId) => {
+  const liste = [];
+  (boutiques || []).forEach((b) => outilsDe(b).forEach((o) => {
+    if (etatOutil(o) !== "perdu") return;
+    const l = ligneArdoise(b, o);
+    if (String(l.user_id || "") === String(userId || "")) liste.push(l);
+  }));
+  return liste.sort((a, b) => String(a.le).localeCompare(String(b.le)));
+};
+export const resteDeLaPersonne = (boutiques, userId) =>
+  ardoisesDeLaPersonne(boutiques, userId).reduce((s, l) => s + l.reste, 0);
+
+// ---- LA RETENUE SUR COMMISSION : ce qu'on prend sur un paiement.
+// On ne prend JAMAIS plus que ce qui est payé (une part d'installation ne
+// devient pas une dette), ni plus qu'il ne reste dû ; les pertes les plus
+// anciennes se soldent en premier.
+export const retenueSurPaiement = (boutiques, userId, montantPaye) => {
+  let reste = Math.max(0, Number(montantPaye || 0));
+  const lignes = [];
+  ardoisesDeLaPersonne(boutiques, userId).forEach((a) => {
+    if (reste <= 0 || a.reste <= 0) return;
+    const pris = Math.min(reste, a.reste);
+    lignes.push({ boutique_id: a.boutique_id, outil_id: a.outil.id, outil: a.nom, perte_id: a.perte_id, montant: pris });
+    reste -= pris;
+  });
+  return { montant: lignes.reduce((s, l) => s + l.montant, 0), lignes };
+};
+// Écrit ces retenues dans les boutiques concernées. Rend un NOUVEAU tableau
+// de boutiques ; celles que rien ne touche sont rendues telles quelles.
+export const appliquerRetenues = (boutiques, lignes, { id, le, sur, ref, par }) => {
+  if (!lignes || !lignes.length) return boutiques || [];
+  return (boutiques || []).map((b) => {
+    const miennes = lignes.filter((l) => String(l.boutique_id) === String(b?.id));
+    if (!miennes.length) return b;
+    const reg = registreDe(b);
+    let outils = reg.outils;
+    miennes.forEach((l, i) => {
+      outils = outils.map((o) => (o.id === l.outil_id
+        ? ajouterRetenue(o, l.perte_id, { id: `${id}-${i}`, le, montant: l.montant, sur, ref, par })
+        : o));
+    });
+    return { ...b, outillage: { ...reg, outils } };
+  });
+};

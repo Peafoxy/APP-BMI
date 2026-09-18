@@ -15,7 +15,7 @@ import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
@@ -748,13 +748,21 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
     const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
     if (moyen === null) return;
-    if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`)) return;
+    // 🧰 Outil perdu : pour un technicien à COMMISSION, la retenue se prend ici
+    // — c'est son seul revenu. Elle est ANNONCÉE, jamais silencieuse.
+    const ret = retenueOutilPourPrime(db, e.user_id, e.montant);
+    const net = e.montant - ret.montant;
+    if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?${ret.montant > 0
+      ? `\n\n🧰 Retenue pour outil perdu : ${fmt(ret.montant)} (${ret.lignes.map((l) => l.outil).join(", ")})\nIl reçoit : ${fmt(net)}\n\nSortie de caisse ${e.prime_boutique} : ${fmt(net)}`
+      : `\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`}`)) return;
     // Deuxième lecture APRÈS les questions : entre l'ouverture de la fenêtre
     // et la confirmation, une synchronisation a pu ramener le paiement fait
     // par quelqu'un d'autre (l'admin et le vendeur peuvent payer tous les deux).
     if (primeDejaPayee(db, c, e)) { uAlert(`⚠ La part de ${e.nom} vient d'être payée par quelqu'un d'autre.\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois.`); return; }
-    save(construirePaiementPrime(db, profile, c, e, moyen), `Part d'installation payée : ${fmt(e.montant)} à ${e.nom} (chantier ${c.nom})`);
-    uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`);
+    save(construirePaiementPrime(db, profile, c, e, moyen, ret), `Part d'installation payée : ${fmt(net)} à ${e.nom} (chantier ${c.nom})${ret.montant > 0 ? ` — retenue outil perdu ${fmt(ret.montant)}` : ""}`);
+    uAlert(ret.montant > 0
+      ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu). Sortie de caisse : ${e.prime_boutique}.`
+      : `✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`);
   };
 
   const modifierEntretien = async (c) => {

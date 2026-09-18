@@ -7,7 +7,7 @@ import { useState } from "react";
 import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { ficheParId } from "../lib/banques";
-import { bloquerSiLecture, primesEnAttente, construirePaiementPrime, primeDejaPayee } from "../lib/calculs";
+import { bloquerSiLecture, primesEnAttente, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime } from "../lib/calculs";
 
 export function PrimesRemises({ db, save, profile }) {
   const isAdmin = profile.role === "admin";
@@ -37,11 +37,16 @@ export function PrimesRemises({ db, save, profile }) {
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : la caisse n'est pas débitée une seconde fois.`); return; }
     const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
     if (moyen === null) return;
-    if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ${c.prenom || ""} ?\n\nSortie de caisse ${boutique} : ${fmt(e.montant)}`)) return;
+    // 🧰 Outil perdu : retenue sur la part d'un technicien à commission.
+    const ret = retenueOutilPourPrime(db, e.user_id, e.montant);
+    const net = e.montant - ret.montant;
+    if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ${c.prenom || ""} ?${ret.montant > 0
+      ? `\n\n🧰 Retenue pour outil perdu : ${fmt(ret.montant)} (${ret.lignes.map((l) => l.outil).join(", ")})\nIl reçoit : ${fmt(net)}\n\nSortie de caisse ${boutique} : ${fmt(net)}`
+      : `\n\nSortie de caisse ${boutique} : ${fmt(e.montant)}`}`)) return;
     // Relecture après les questions : une synchronisation a pu arriver entre-temps.
     if (primeDejaPayee(db, c, e)) { uAlert(`⚠ La part de ${e.nom} vient d'être payée par quelqu'un d'autre.\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois.`); return; }
-    save(construirePaiementPrime(db, profile, c, e, moyen), `Prime d'installation validée et payée — ${e.nom} · ${fmt(e.montant)} · ${boutique}`);
-    uAlert(`✅ ${fmt(e.montant)} payés à ${e.nom}.`);
+    save(construirePaiementPrime(db, profile, c, e, moyen, ret), `Prime d'installation validée et payée — ${e.nom} · ${fmt(net)} · ${boutique}${ret.montant > 0 ? ` — retenue outil perdu ${fmt(ret.montant)}` : ""}`);
+    uAlert(ret.montant > 0 ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu).` : `✅ ${fmt(e.montant)} payés à ${e.nom}.`);
   };
 
   return (
