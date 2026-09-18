@@ -1050,6 +1050,13 @@ lit mal est pire qu'un banc absent).
   le registre débarrassé des justifications (`outillage_sans_justifs`) doit
   rester IDENTIQUE. Il ajoute une phrase ; il ne sort pas un outil, ne le rend
   pas, ne le déclare pas perdu. `securite-22` n'est pas touché.
+  **`securite-23` collé par Timo le 18/09/2026 (`true | true | true`) — il
+  contient `securite-22`, qui n'a donc pas eu à être collé à part.**
+  ⚠ Au premier essai, le tableau de bord Supabase a répondu **« JWT failed
+  verification »** : ce n'est ni la base ni le script, c'est la SESSION de la
+  page Supabase qui a expiré — la demande n'arrive jamais jusqu'à la base.
+  On recharge la page (F5), on se reconnecte, on recolle : c'est passé. Tous
+  nos scripts étant en `create or replace`, les relancer est sans danger.
 - L'onglet **🧰 Outillage** est listé dans `ONGLETS_ROLE` pour admin,
   magasinier, technicien et technicien BMI (donc retirable dans 🔐 Pouvoirs —
   et le serveur lit ce retrait, `pouvoirs_off ? 'outillage'`). ~~Il ne
