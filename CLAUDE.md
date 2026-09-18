@@ -1204,6 +1204,7 @@ lit mal est pire qu'un banc absent).
     qu'il ramène, il ne rend pas l'outil et ne baisse pas la liste de ce que la
     boîte doit contenir. Il REPREND `securite-25` (donc `-24`, `-23`, `-22`)
     en entier : **c'est le seul à coller**.
+    **Collé par Timo le 18/09/2026 (`true | true | true | true | true | true`).**
 
 - **📋 L'APPEL DE L'OUTILLAGE, CHAQUE SEMAINE ET PAR LIEU** (décision Timo,
   18/09/2026 : personne ne peut voir les outils de deux boutiques à la fois —
