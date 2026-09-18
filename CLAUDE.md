@@ -1043,7 +1043,7 @@ lit mal est pire qu'un banc absent).
     (`outillage_sans_retenues`) doit rester IDENTIQUE : ils inscrivent ce qui
     a été retenu, ils ne sortent pas un outil, ne changent pas ce qui est dû.
     Il REPREND `securite-23` (donc `-22`) en entier : **c'est le seul à
-    coller**.
+    coller**. **Collé par Timo le 18/09/2026 (`true | true | true | true`).**
 - **LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES** (18/09/2026 : « dans
   perdu quand on clique, la liste de tous les équipements perdus apparaît et
   qui l'a perdu, combien a déjà été retenu sur son salaire ou commission,
