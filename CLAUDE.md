@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1662 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1667 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2483,6 +2483,25 @@ lit mal est pire qu'un banc absent).
 - **Le banc mesure, il ne présume pas** : bundler le module (esbuild) et
   exercer la vraie fonction plutôt que lire le code ; un contrôle qui rassure
   sans protéger est pire qu'absent.
+- ⚠⚠ **UN ARGUMENT OUBLIÉ = ÉCRAN BLANC, ET LE BANC PEUT EXIGER LA FAUTE**
+  (capture Timo, 19/09/2026 : un client tape son mot de passe et tombe sur du
+  BLANC ; ça durait depuis la 2.101.267). `boutiquesVisibles(db, profile,
+  **liste**)` était appelée à DEUX arguments à deux endroits (l'espace client,
+  et ⚙ Paramètres sur le dossier d'un employé — celui-là pas encore vu) :
+  `undefined.filter(...)` lève au rendu, React ne dessine rien. `npm run
+  verifier-imports` ne voit RIEN (le nom existe), `npm run build` non plus.
+  ⚠ **Et le contrôle du banc EXIGEAIT la forme fautive** : il cherchait le
+  TEXTE `/boutiquesVisibles\(db, profile\)/` et le trouvait — il garantissait
+  donc le défaut. **Le pire cas possible.** Depuis : `scripts/_rendu-espace-client.jsx`
+  MONTE et REND l'écran du client dans le banc, avec **deux bases** — une
+  garnie, et **la vraie base d'un téléphone de client** (les politiques du
+  serveur ne lui descendent QUE ses données : ni boutiques, ni produits) ;
+  le banc interdit tout appel à deux arguments ; et `boutiquesVisibles` rend
+  une liste vide au lieu de lever — **le banc attrape l'oubli, l'utilisateur
+  ne le paie pas**. Six contrôles tombent quand on remet la faute.
+  **Règle générale : un écran qui PRÉSUME une table est un écran blanc en
+  puissance** ; et le seul contrôle qui attrape un écran blanc est celui qui
+  REND l'écran.
 
 ---
 

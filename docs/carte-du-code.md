@@ -122,7 +122,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/screens/` | Un écran par onglet |
 | `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin |
 | `supabase/securite-*.sql` | Les verrous côté base — **Timo les colle lui-même**, jamais nous |
-| `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable) |
+| `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable). Les `_rendu-*.jsx` MONTENT un vrai écran pour le mesurer — seul moyen d'attraper un écran blanc |
 
 ---
 
