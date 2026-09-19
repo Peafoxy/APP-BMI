@@ -119,7 +119,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/db.js` | La base locale (Dexie / IndexedDB) et les tables |
 | `src/pdf.js` | Les PDF fabriqués (devis commercial, relevés, rapports) |
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
-| `src/screens/` | Un écran par onglet |
+| `src/screens/` | Un écran par onglet (dont `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages) |
 | `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin |
 | `supabase/securite-*.sql` | Les verrous côté base — **Timo les colle lui-même**, jamais nous |
 | `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable). Les `_rendu-*.jsx` MONTENT un vrai écran pour le mesurer — seul moyen d'attraper un écran blanc |

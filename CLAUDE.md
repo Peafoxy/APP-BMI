@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1667 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1670 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1521,6 +1521,28 @@ lit mal est pire qu'un banc absent).
   d'entraînement.
 - ⚠ **On n'écrit AUCUNE durée en années** : elle n'est pas tranchée (point 5).
   Un chiffre inventé serait pire que le silence.
+- ⚠⚠ **« MES données », ET UN ONGLET À CÔTÉ DE 💬 MESSAGES** (Timo,
+  19/09/2026 : « au lieu de vos données personnelles, dire mes données
+  personnelles et ramener ça en onglet à côté de message »). **Les deux
+  demandes se tiennent** : un PANNEAU au bas de 🏠 Mon espace, c'est BMI qui
+  montre au client ce qu'elle détient (« VOS ») ; un ONGLET à lui, c'est le
+  client qui vient chercher ce qui le concerne (« MES »). **Le mot suit la
+  place.** Écran `screens/MesDonnees.jsx`, onglet `mes_donnees` = « 🔒 Mes
+  données », placé **juste après Messages** dans `ONGLETS_ROLE.client` — donc
+  retirable dans 🔐 Pouvoirs.
+  - **Rien d'autre n'a bougé** : même `dossierClient` → `dossierPersonnel` →
+    `genererDossierPersonnel`, mêmes mentions, même document. Seuls le titre
+    et l'emplacement changent.
+  - ⚠ **Dans les MENTIONS, « vous » RESTE** : là c'est BMI qui s'adresse à lui
+    (« vous disposez d'un droit d'accès… »). Le titre est à LUI, le texte de
+    loi est de NOUS.
+  - **Le panneau a QUITTÉ 🏠 Mon espace**, et son bloc de calcul avec lui —
+    une règle qui ne commande plus rien ne reste pas ; six imports devenus
+    muets sont partis dans le même geste. Le banc vérifie qu'il n'est plus là
+    en double.
+  - **Le banc REND le nouvel écran** (base garnie et base nue) et MESURE le
+    mot : « Mes », jamais « Vos ». Éprouvé en remettant « Vos » : il tombe.
+
 - **Rien à coller dans Supabase.**
 
 #### 👥 ET LES EMPLOYÉS ? (question de Timo, 18/09/2026)

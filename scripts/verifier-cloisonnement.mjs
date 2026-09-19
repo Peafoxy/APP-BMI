@@ -9628,7 +9628,11 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     /corriger/.test(Dos.texteDemandeDonnees("X", "n_importe_quoi")));
 
   {
-    const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+    // ⚠ RETOURNÉ le 19/09/2026 : Timo a voulu ce panneau en ONGLET à côté de
+    // 💬 Messages (« au lieu de vos données personnelles, dire mes données
+    // personnelles et ramener ça en onglet »). Il vit donc dans son propre
+    // écran ; les contrôles le suivent, ils ne disparaissent pas.
+    const ec = readFileSync("src/screens/MesDonnees.jsx", "utf8");
 
     test("★ UNE SEULE SOURCE : l'espace client passe par le MÊME dossierClient et le MÊME dossierPersonnel que ⚙ Paramètres — sinon le client verrait la différence entre ce qu'il télécharge et ce que BMI lui remet",
       /dossierClient\(\{/.test(ec) && /dossierPersonnel\(monDossier, \{ fmt, dFR, duree: dureeConservation\(db\) \}\)/.test(ec)
@@ -9665,8 +9669,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ le document du client porte le bandeau de FORMATION quand son compte est d'entraînement — un document d'essai ne doit jamais passer pour un vrai",
       /formation: estCompteFormation\(db, profile\)/.test(ec));
 
-    test("★ l'espace client ne refiltre RIEN : sur son appareil la base ne contient que ses données, les politiques du serveur sont la seule barrière (règle posée depuis toujours) — et l'écran le DIT au lieu de le laisser deviner",
-      /seule barrière/.test(ec) && /ne contient QUE ses données/.test(ec));
+    test("★ l'écran ne refiltre RIEN : sur l'appareil du client la base ne contient que ses données, les politiques du serveur sont la seule barrière (règle posée depuis toujours) — et le code le DIT au lieu de le laisser deviner",
+      /seule barrière/.test(ec) && /ne contient que ses données/i.test(ec));
   }
 }
 
@@ -9687,9 +9691,27 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
   test("★★⚠ …ET AVEC LA VRAIE BASE D'UN TÉLÉPHONE DE CLIENT : presque rien (ni boutiques, ni produits) — les politiques du serveur ne lui descendent QUE ses données, un écran qui présume une table est un écran blanc en puissance",
     !!ecranClient && ecranClient.htmlNu.length > 500, ecranClientErreur);
 
-  test("★ et il a vraiment son contenu (ce n'est pas une page vide qui « ne lève pas »)",
-    !!ecranClient && /Vos données personnelles/.test(ecranClient.htmlNu)
-    && /Vos données personnelles/.test(ecranClient.htmlGarni));
+  test("★★⚠ LE NOUVEL ONGLET 🔒 Mes données SE REND AUSSI, base garnie ET base nue — c'est un écran de plus, donc un écran blanc de plus en puissance",
+    !!ecranClient && ecranClient.htmlDonnees.length > 300 && ecranClient.htmlDonneesNu.length > 300,
+    ecranClientErreur);
+
+  test("★★ il dit « MES données personnelles », JAMAIS « VOS » (Timo, 19/09/2026) : un panneau au bas d'un autre écran, c'est BMI qui montre ; un onglet à lui, c'est le client qui vient chercher. Le mot suit la place.",
+    !!ecranClient && /Mes données personnelles/.test(ecranClient.htmlDonnees)
+    && !/Vos données personnelles/.test(ecranClient.htmlDonnees)
+    // …et il a bien son contenu, ce n'est pas une page vide qui « ne lève pas »
+    && /Télécharger mes données/.test(ecranClient.htmlDonnees));
+
+  test("★ …et le panneau a QUITTÉ 🏠 Mon espace : il n'y est plus en double (deux endroits finiraient par se contredire)",
+    !!ecranClient && !/données personnelles/i.test(ecranClient.htmlGarni));
+
+  test("★★ l'onglet est À CÔTÉ DE 💬 Messages, dans cet ordre, et il est LISTÉ dans ONGLETS_ROLE — donc retirable dans 🔐 Pouvoirs (un onglet qu'on ne peut pas retirer est un pouvoir qui échappe à l'administrateur)",
+    (() => {
+      const calc = readFileSync("src/lib/calculs.js", "utf8");
+      const app = readFileSync("src/App.jsx", "utf8");
+      return /client: \["espace_client", "messages", "mes_donnees", "mes_contrats"\]/.test(calc)
+        && /mes_donnees: "🔒 Mes données"/.test(calc)
+        && /\["messages", labelMessages\], \["mes_donnees", "🔒 Mes données"\]/.test(app);
+    })());
 
   // ⚠ LA RÈGLE GÉNÉRALE, pour que ça ne revienne pas par un autre écran.
   {

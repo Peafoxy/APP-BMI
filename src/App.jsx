@@ -22,6 +22,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./screens/dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
 import { Prospects } from "./screens/Prospects";
 import { EspaceClient } from "./screens/EspaceClient";
+import { MesDonnees } from "./screens/MesDonnees";
 import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
 import { ClientsInstalles } from "./screens/ClientsInstalles";
 import { Travaux } from "./screens/Travaux";
@@ -62,7 +63,7 @@ const memoEcran = (C) => React.memo(C, propsEcranEgales);
 const M = Object.fromEntries(Object.entries({
   Dashboard, Ventes, NouvelleCommande, CommandesRecues, Depenses, ChezComptable,
   Dettes, CreerClient, Clients, Caisse, DemandeRavitaillement, DemandesTransfertRecues, Stocks,
-  Dimensionnement, TousLesDevis, Prospects, EspaceClient, Messagerie,
+  Dimensionnement, TousLesDevis, Prospects, EspaceClient, MesDonnees, Messagerie,
   ClientsInstalles, PrimesRemises, PrimesRecues, ContratsInstallation,
   Commerciaux, MesTaches, Rentabilite, SalairesAdmin, Salaire, MonEquipe,
   MaCommission, Fournisseurs, Users, Historique, Parametres, Travaux, Outillage,
@@ -1097,7 +1098,7 @@ export default function App() {
     : isGerant
     ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
     : isClient
-    ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages]]
+    ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages], ["mes_donnees", "🔒 Mes données"]]
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
     // un vendeur doit pouvoir encaisser un chantier "pose seule" payé en
     // boutique (cas rare), ce qui exige d'atteindre cette fiche.
@@ -1448,6 +1449,11 @@ export default function App() {
       {ongletsVisites.espace_client && isClient && (
         <div style={{ display: tab === "espace_client" ? "block" : "none" }}>
           <M.EspaceClient db={db} profile={profile} save={save} setTab={setTab} />
+        </div>
+      )}
+      {ongletsVisites.mes_donnees && isClient && (
+        <div style={{ display: tab === "mes_donnees" ? "block" : "none" }}>
+          <M.MesDonnees db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.prospects && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (

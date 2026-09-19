@@ -24,12 +24,19 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EspaceClient } from "../src/screens/EspaceClient.jsx";
+// ⚠ 🔒 Mes données est un ÉCRAN à part depuis le 19/09/2026 (Timo : « ramener
+// ça en onglet à côté de message ») : il se rend donc ici aussi, sinon le
+// contrôle qui attrape les écrans blancs ne le couvrirait pas.
+import { MesDonnees } from "../src/screens/MesDonnees.jsx";
 
 const profile = { id: "c1", role: "client", nom: "KOSSI", tel: "90112233" };
 const moi = { id: "c1", role: "client", nom: "KOSSI", tel: "90112233", devis: [] };
 
 const rendre = (db) => renderToStaticMarkup(
   React.createElement(EspaceClient, { db, profile, save: () => {}, setTab: () => {} })
+);
+const rendreDonnees = (db) => renderToStaticMarkup(
+  React.createElement(MesDonnees, { db, profile })
 );
 
 // 1. Une base garnie, comme chez un client qui a déjà acheté.
@@ -44,3 +51,13 @@ export const htmlGarni = rendre({
 
 // 2. LA VRAIE base d'un téléphone de client : presque rien.
 export const htmlNu = rendre({ users: [moi], messages: [] });
+
+// 3. Et le nouvel onglet 🔒 Mes données, dans les deux mêmes cas.
+const dbGarni = {
+  users: [moi],
+  boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", tel: "90000000" }],
+  ventes: [{ id: "v1", client: "KOSSI", tel: "90112233", date: "2026-09-01", total: 120000, boutique: "BMI DEMAKPOE" }],
+  dettes: [], proformas: [], commandes: [], clients_installes: [], messages: [],
+};
+export const htmlDonnees = rendreDonnees(dbGarni);
+export const htmlDonneesNu = rendreDonnees({ users: [moi], messages: [] });

@@ -1871,6 +1871,9 @@ export const LIBELLE_ONGLET = {
   nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
   primes_remises: "💰 Primes remises", primes_recues: "💰 Primes reçues",
   contrats: "📄 Contrats", mes_contrats: "📄 Mes contrats", outillage: "🧰 Outillage",
+  // ⚠ « MES » données, pas « VOS » (Timo, 19/09/2026) : c'est le client qui
+  // vient chercher ce qui le concerne. Le mot suit la place.
+  mes_donnees: "🔒 Mes données",
 };
 
 export const ONGLETS_ROLE = {
@@ -1893,7 +1896,11 @@ export const ONGLETS_ROLE = {
   gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats", "travaux"],
   vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats", "travaux"],
   comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
-  client: ["espace_client", "messages", "mes_contrats"],
+  // ⚠ « ramener ça en onglet À CÔTÉ DE MESSAGE » (Timo, 19/09/2026) : le
+  // droit d'accès n'est plus un panneau au bas de 🏠 Mon espace, c'est un
+  // onglet à lui. Listé ici, donc retirable dans 🔐 Pouvoirs — un onglet
+  // qu'on ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
+  client: ["espace_client", "messages", "mes_donnees", "mes_contrats"],
 };
 
 // Pouvoirs d'action (au-delà des onglets)
