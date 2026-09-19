@@ -1750,6 +1750,24 @@ lit mal est pire qu'un banc absent).
     saisie (mesurée sur la caisse QUI PAIE), la validation du DG, et le
     remboursement d'une avance de frais en espèces. Le refus nomme les
     montants et la porte de sortie (« une avance personnelle »).
+    ⚠ **UNE BOUTIQUE À ZÉRO VENTE PEUT TOUJOURS CHOISIR SA CAISSE** —
+    vérifié à sa demande le 19/09/2026 (« vérifie voir si une boutique avec
+    zéro vente peut toujours choisir la caisse de la boutique pour les
+    dépenses »), en exerçant les vraies règles : `optionsPayeAvec` **ne
+    regarde JAMAIS le tiroir**, « La caisse de X » est donc toujours dans la
+    liste ; c'est le GESTE qui refuse. Zéro vente et aucun fonds → refus
+    (« … : 0 F. Attendez une recette. Sinon, choisissez une avance
+    personnelle ») ; zéro vente avec un fonds de 50 000 → une dépense de
+    3 000 **passe**, prise sur l'enveloppe ; 60 000 → refus. C'est exactement
+    la règle du 15/09, rien à corriger.
+    **« Laisse comme c'est » (19/09/2026)** : proposé de GRISER l'option sur
+    une caisse vide — refusé. Le refus explique mieux qu'une option absente,
+    et il donne la porte de sortie. **Ne pas le reproposer.**
+    ⚠ À savoir, et c'est voulu : le choix explicite « Le fonds de caisse »
+    reste réservé au gérant et à l'admin (`fondsProposable`), mais **l'argent
+    de l'enveloppe sort quand même** pour les autres rôles qui saisissent une
+    dépense — « le choix ne change pas le partage, il le rend voulu et
+    visible ».
   - ⚠ **Un fonds réglé sans remise enregistrée ne retient rien** :
     `manqueRemises` le mesure, le RÉSUMÉ de 🔒 Caisse le dit en rouge
     (« réglé X, jamais remis »), et « Régulariser » comble le trou de
