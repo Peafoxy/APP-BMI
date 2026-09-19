@@ -1,6 +1,9 @@
-# WhatsApp depuis le numéro BMI — état au 06/09/2026 (EN PAUSE)
+# WhatsApp depuis le numéro BMI — état au 19/09/2026 (REPRIS par Timo)
 
-Déplacé de CLAUDE.md le 06/09/2026, mot pour mot. Ne pas relancer Timo ; reprendre quand il le demandera, au point exact décrit ici.
+Déplacé de CLAUDE.md le 06/09/2026, mot pour mot. **Timo a REPRIS le sujet
+lui-même le 19/09/2026** (« je suis revenu sur ycloud pour scanner ») — la
+consigne « ne pas relancer » est donc levée, mais **rien ne se construit dans
+l'application sans son feu vert**.
 
 - **WhatsApp depuis le numéro BMI (envoi automatique)** — CADRÉ le
   02/09/2026, PAS ENCORE CONSTRUIT. Demande Timo : « que ce soit le numéro
@@ -46,3 +49,36 @@ Déplacé de CLAUDE.md le 06/09/2026, mot pour mot. Ne pas relancer Timo ; repre
   Coexistence → Get started, téléphone BMI en main (WhatsApp Business à
   jour, internet). Côté app, rien n'a été construit. **Ne pas relancer
   Timo ; reprendre quand il le demandera**, au point exact ci-dessus.
+
+
+---
+
+## 19/09/2026 — Timo reprend : « je suis revenu sur ycloud pour scanner »
+
+Capture de sa console YCloud (`ycloud.com/console/#/app/getStarted`), compte
+**BMI Togo**, formule **Free**. Il est sur la page d'ACCUEIL : le raccordement
+ne s'y trouve pas. Chemin redonné : **menu de gauche → WhatsApp → WhatsApp
+accounts → Coexistence → Get started**, puis le QR se scanne **depuis le
+téléphone BMI** (WhatsApp Business → Paramètres → Appareils connectés →
+Connecter un appareil). Seul l'appareil PRINCIPAL du numéro peut scanner.
+
+**DEUX CHOSES VUES SUR SA CAPTURE, dites honnêtement :**
+
+1. ⚠ **Bandeau YCloud : « Service messages will be billed — Effective
+   October 1, 2026 ».** À partir du 1er octobre 2026, les messages de
+   « service » (les réponses dans la fenêtre de 24 h ouverte par le client)
+   **ne sont plus gratuits** : ils passent au tarif des messages « Utility »,
+   avec **1 000 messages de service gratuits par numéro et par mois**. La
+   fenêtre de 24 h gratuite disparaît. Ça ne change RIEN au raccordement,
+   mais ça change le coût : il faut le lui dire, pas le découvrir sur une
+   facture.
+
+2. ⚠ **Portefeuille YCloud : 0,5 USD.** De quoi essayer, pas de quoi servir.
+   Le raccordement et le scan ne coûtent rien ; ce sont les messages ENVOYÉS
+   qui se paient. À créditer quand l'envoi partira pour de vrai.
+
+**RIEN N'A CHANGÉ CÔTÉ APPLICATION** : scanner le QR ne fera partir aucun
+message depuis BMI-Gestion. C'est une étape d'infrastructure. Tout ce qui est
+décrit plus haut (`api/whatsapp.js`, remplacement des ouvertures `wa.me` avec
+repli, journal des envois, file hors ligne, **verrou formation**) reste À
+CONSTRUIRE, et **seulement quand il le demandera**.

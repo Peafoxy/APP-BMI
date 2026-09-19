@@ -2535,7 +2535,7 @@ s'est arrêté, mot pour mot.
 | Sujet | État | Fichier |
 |---|---|---|
 | Chantiers en attente du feu vert de Timo : **mots de passe clients** (3 voies proposées, pas tranché), **mode superviseur** (cadré, « pas pour le moment »), **corbeille** (faite pour les chantiers ; prospects / articles / ventes possibles) | À sa demande | `docs/etat-chantiers-en-attente.md` |
-| **WhatsApp depuis le numéro BMI** (coexistence, YCloud créé, arrêté au QR) | En pause, ne pas relancer | `docs/etat-whatsapp-numero-bmi.md` |
+| **WhatsApp depuis le numéro BMI** (coexistence, YCloud créé, arrêté au QR) — **REPRIS par Timo le 19/09/2026** (« je suis revenu sur ycloud pour scanner ») : le chemin exact, et les deux avertissements de sa capture (facturation des messages de service au 01/10/2026, portefeuille à 0,5 USD) sont dans le fichier. **Rien n'est construit côté application** | Repris — raccordement en cours | `docs/etat-whatsapp-numero-bmi.md` |
 | **Doublons** : les 17 points du relevé (A1–A12, B1–B5) sont unifiés, 2.101.64 → 2.101.81 (« lance tout », 08/09/2026) ; le fichier dit où vit chaque règle | Clos | `docs/doublons-2026-09.md` |
 | Vague 3 — verrous serveur entre employés | Terminée, tout collé | `docs/etat-vague-3-verrous-serveur.md` |
 | Vague 2 — lecture des comptes clients (histoire ESSO close) | Terminée, tout collé | `docs/etat-vague-2-lecture-client.md` |
