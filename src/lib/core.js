@@ -508,6 +508,11 @@ export const nouvelleDepense = (profile, { boutique, categorie, description, mon
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
 export const today = () => new Date().toISOString().slice(0, 10);
 export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
+// L'heure du geste, « 14:12 » — l'heure de l'appareil, comme partout dans
+// l'application (une vente porte déjà son heure). Elle sert aux traces qui
+// se lisent dans la journée : deux relances du même jour ne se confondent
+// pas.
+export const heureCourte = () => new Date().toTimeString().slice(0, 5);
 
 // ============ LE NOM DES DOCUMENTS (impression et téléchargement) ============
 // ⚠ UNE SEULE RÈGLE (demande Timo, 04/09/2026 : « que le nom du client fasse

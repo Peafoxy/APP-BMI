@@ -307,13 +307,45 @@ catégories correctes, aucun secret dedans :
 
 (`devis_pret`, refusé, ne sert plus à rien — il n'envoie rien et ne coûte rien.)
 
-⚠ **ET APRÈS ? RIEN N'EST ENCORE CONSTRUIT.** Des modèles approuvés ne font
-PAS partir un message : ils rendent l'envoi POSSIBLE. L'application, elle,
-ouvre toujours WhatsApp à la main (`envoyerWhatsApp`) et n'a aucune idée de
-l'existence de YCloud. Le chantier « l'application envoie elle-même » reste
-entier, et **ne démarre pas sans la demande de Timo** (plan du 02/09, rappelé
-plus haut : `api/whatsapp.js`, clé en variable Vercel, repli sur l'ouverture
-manuelle, journal des envois, file hors ligne, verrou formation).
+## ✅ 19/09/2026 — L'ÉTAPE 1 EST CONSTRUITE (« lance l'étape 1 »)
+
+Timo a demandé l'explication d'abord (« explique-moi d'abord ce que ça change
+à l'écran »), puis : **« lance l'étape 1 »** — l'ENVOI seul. Détail des règles
+dans CLAUDE.md § « WhatsApp depuis le numéro BMI ». Ce qui existe :
+
+| Fichier | Ce qu'il fait |
+|---|---|
+| `src/lib/whatsappModeles.js` | Les 4 modèles et **l'ordre exact de leurs trous** (sans import : le serveur le lit tel quel) |
+| `src/whatsapp.js` | **Le seul chemin** d'un envoi — et le repli sur l'ouverture WhatsApp |
+| `api/whatsapp.js` | Remet le message à YCloud ; **garde la clé**, revérifie le mur |
+| `scripts/verifier-whatsapp.mjs` | **71 contrôles** (`npm run verifier-whatsapp`) |
+
+**Les écrans touchés** : 📋 Tous les devis (📲 Relancer) et le partage d'un
+devis (Dimensionnement). 📋 Dettes n'a PAS bougé : `rappel_echeance` attend un
+plan de règlement (voir plus haut).
+
+### ⚠⚠ CE QU'IL RESTE À FAIRE, ET SANS QUOI RIEN NE PART
+
+**Deux variables sur Vercel** (Settings → Environment Variables), à poser par
+Timo, **jamais préfixées `VITE_`** :
+
+| Nom | Valeur |
+|---|---|
+| `YCLOUD_API_KEY` | la clé d'API de la console YCloud |
+| `WHATSAPP_NUMERO_BMI` | `+22899968488` |
+
+Puis un redéploiement. **Tant qu'elles manquent, rien ne casse** : l'envoi
+automatique est refusé proprement et WhatsApp s'ouvre comme avant.
+
+### CE QUI N'EST PAS FAIT, ET QUI A ÉTÉ DIT
+
+- **« Livré » et « lu » ne s'affichent pas.** Il faudrait que Meta nous
+  rappelle (une adresse de retour, un webhook), et que ce retour sache
+  retrouver le devis pour y écrire. C'est un chantier à part. La trace dit
+  donc « envoyé du numéro BMI », jamais « lu » — le banc l'impose.
+- **L'étape 2 (la RÉCEPTION)** : les réponses des clients dans 💬 Messages, la
+  fenêtre de 24 h affichée, qui a le droit de répondre, le partage avec le
+  téléphone BMI. **Rien n'est construit, et rien ne le sera sans sa demande.**
 
 ### Les quatre suivants
 

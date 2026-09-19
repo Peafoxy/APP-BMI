@@ -1,0 +1,197 @@
+// ============================================================
+// scripts/verifier-whatsapp.mjs — L'ENVOI WHATSAPP DEPUIS LE NUMÉRO BMI
+//
+//   npm run verifier-whatsapp
+//
+// ⚠ POURQUOI CE BANC EXISTE. Un message qui part au nom de BMI ne se
+// rattrape pas : il est chez le client. Trois fautes seraient silencieuses
+// et graves — (1) les trous d'un modèle remplis DANS LE MAUVAIS ORDRE (le
+// client lirait son montant à la place de son nom), (2) un message parti
+// d'un devis d'ENTRAÎNEMENT vers un vrai client, (3) un mot de passe glissé
+// dans un modèle, que Meta refuse et qui promènerait une clé.
+//
+// Le banc exerce les VRAIES fonctions (le module est sans import, Node le
+// lit tel quel) et LIT le code des écrans pour les règles qui ne se
+// mesurent pas autrement (un seul chemin, aucun secret, la trace).
+// ============================================================
+import { readFileSync } from "node:fs";
+import * as M from "../src/lib/whatsappModeles.js";
+
+let ok = 0, ko = 0;
+const test = (nom, cond) => { if (cond) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}`); } };
+const titre = (t) => console.log(`\n${t}`);
+const lire = (f) => readFileSync(f, "utf8");
+
+const fmt = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
+const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
+
+// ──────────────────────────────────────────────────────────────
+titre("① LES QUATRE MODÈLES, ET L'ORDRE DE LEURS TROUS");
+// ⚠ Ces nombres sont ceux des modèles SOUMIS À META le 19/09/2026. Changer
+// l'ordre ou le nombre ici sans le changer chez Meta enverrait le montant à
+// la place du nom — et Meta ne s'en plaindrait pas.
+const ATTENDU = {
+  devis_disponible: { categorie: "marketing", n: 3 },
+  relance_devis: { categorie: "marketing", n: 4 },
+  devis_valide_paiement: { categorie: "utility", n: 4 },
+  rappel_echeance: { categorie: "utility", n: 5 },
+};
+test("les quatre modèles approuvés sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+for (const [nom, a] of Object.entries(ATTENDU)) {
+  test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
+    M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
+}
+test("un devis est du MARKETING (leçon des refus du 19/09)",
+  M.MODELES.devis_disponible.categorie === "marketing" && M.MODELES.relance_devis.categorie === "marketing");
+test("un contrat signé est de l'UTILITY",
+  M.MODELES.devis_valide_paiement.categorie === "utility" && M.MODELES.rappel_echeance.categorie === "utility");
+test("★ rappel_echeance n'est PAS en service (une dette n'a pas de date d'échéance)",
+  !M.MODELES_EN_SERVICE.includes("rappel_echeance"));
+test("les trois autres le sont", ["devis_disponible", "relance_devis", "devis_valide_paiement"].every((n) => M.MODELES_EN_SERVICE.includes(n)));
+
+// ──────────────────────────────────────────────────────────────
+titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
+// Meta range tout identifiant de connexion dans sa catégorie
+// « authentication » et refuse le modèle. Et un message qui promène un mot
+// de passe est une clé qui se promène.
+const MOTS_SECRETS = ["motdepasse", "mot_de_passe", "pwd", "identifiant", "mdp"];
+const tousLesTrous = Object.values(M.MODELES).flatMap((m) => m.variables).join(" ").toLowerCase();
+test("★ aucun trou de modèle ne s'appelle mot de passe ou identifiant",
+  !MOTS_SECRETS.some((s) => tousLesTrous.includes(s)));
+const srcPartages = lire("src/screens/dimensionnement/Partages.jsx");
+const srcDevis = lire("src/screens/TousLesDevis.jsx");
+test("★ aucun écran ne passe un mot de passe à l'envoi automatique",
+  !/envoyerModele\([^)]*motDePasse/s.test(srcPartages) && !/envoyerModele\([^)]*motDePasse/s.test(srcDevis));
+
+// ──────────────────────────────────────────────────────────────
+titre("③ CE QU'ON MET DANS UN TROU (Meta refuse un retour à la ligne)");
+test("un retour à la ligne devient une espace", M.texteVariable("KOSSI\nMENSAH") === "KOSSI MENSAH");
+test("une tabulation aussi", M.texteVariable("A\tB") === "A B");
+test("quatre espaces de suite sont ramenées à une", M.texteVariable("A    B") === "A B");
+test("les bords sont rognés", M.texteVariable("  AMA  ") === "AMA");
+test("un texte trop long est coupé", M.texteVariable("x".repeat(500)).length === M.LONGUEUR_MAX_VARIABLE);
+test("rien du tout rend une chaîne vide", M.texteVariable(null) === "");
+
+// ──────────────────────────────────────────────────────────────
+titre("④ LE REFUS DIT POURQUOI, EN FRANÇAIS");
+test("un modèle inconnu est refusé", !!M.critiqueModele("inconnu", []));
+test("★ trop peu d'informations est refusé", !!M.critiqueModele("devis_disponible", ["AMA", "solaire"]));
+test("★ trop d'informations aussi", !!M.critiqueModele("devis_disponible", ["AMA", "solaire", "1 F", "en trop"]));
+test("un trou vide est refusé, et le refus le NOMME",
+  (M.critiqueModele("devis_disponible", ["AMA", "", "1 F"]) || "").includes("domaine"));
+test("trois informations justes passent", M.critiqueModele("devis_disponible", ["AMA", "solaire", "1 000 F"]) === "");
+
+// ──────────────────────────────────────────────────────────────
+titre("⑤ LE MUR — un devis de formation n'écrit jamais à un vrai client");
+const bon = { modele: "relance_devis", variables: ["AMA", "solaire", "1 F", "12/09/2026"], tel: "90112233" };
+test("★ espace formation : refusé", M.critiqueEnvoiAuto({ ...bon, espaceFormation: true }) === M.MOTIF_FORMATION);
+test("espace réel : accepté", M.critiqueEnvoiAuto({ ...bon, espaceFormation: false }) === "");
+test("★ premier contact : refusé (le message porte ses identifiants)",
+  M.critiqueEnvoiAuto({ ...bon, espaceFormation: false, premierContact: true }) === M.MOTIF_PREMIER_CONTACT);
+test("sans numéro : refusé", !!M.critiqueEnvoiAuto({ ...bon, tel: "", espaceFormation: false }));
+test("hors ligne : refusé (pas de file d'attente, une relance en retard est une faute)",
+  !!M.critiqueEnvoiAuto({ ...bon, espaceFormation: false, enLigne: false }));
+test("un modèle pas encore en service est refusé",
+  !!M.critiqueEnvoiAuto({ ...bon, modele: "rappel_echeance", variables: ["a", "b", "c", "d", "e"], espaceFormation: false }));
+
+// ──────────────────────────────────────────────────────────────
+titre("⑥ LE NUMÉRO, TEL QUE WHATSAPP LE VEUT");
+test("8 chiffres → indicatif togolais", M.numeroWhatsApp("90112233") === "+22890112233");
+test("écrit avec des espaces et un +", M.numeroWhatsApp("+228 90 11 22 33") === "+22890112233");
+test("écrit en 00228", M.numeroWhatsApp("0022890112233") === "+22890112233");
+test("un numéro étranger est gardé tel quel", M.numeroWhatsApp("+33612345678") === "+33612345678");
+test("pas de numéro → rien", M.numeroWhatsApp("") === "");
+
+// ──────────────────────────────────────────────────────────────
+titre("⑦ LE DOCUMENT PARLE LA LANGUE DU CLIENT");
+test("★ « garage » se dit PORTAIL au client (jamais le mot du code)", M.domaineDevis({ type_devis: "garage" }) === "portail");
+test("le solaire se dit solaire", M.domaineDevis({ type_devis: "solaire" }) === "solaire");
+test("un devis sans type est solaire", M.domaineDevis({}) === "solaire");
+test("un devis « autre » prend le besoin du client", M.domaineDevis({ type_devis: "autre", besoins: { categorie: "Vidéo surveillance" } }) === "Vidéo surveillance");
+test("★ un devis « autre » SANS besoin n'est jamais vide (Meta refuse un trou vide)",
+  M.domaineDevis({ type_devis: "autre" }) === "installation");
+
+// ──────────────────────────────────────────────────────────────
+titre("⑧ LA RELANCE CHOISIT SON MODÈLE SELON LE STATUT");
+const client = { nom: "KOSSI90112233", nom_base: "KOSSI MENSAH", tel: "90112233" };
+const propose = { id: "d1", statut: "propose", type_devis: "solaire", total: 1250000, date: "2026-09-12" };
+const valide = { id: "d2", statut: "valide", total: 1250000, contrat_numero: "CT-2026-014", boutique_paiement: "BMI DEMAKPOE" };
+const r1 = M.envoiRelanceDevis({ devis: propose, compte: client, fmt, dFR });
+test("★ un devis PROPOSÉ part en relance_devis", r1.modele === "relance_devis");
+test("…avec nom, domaine, montant, date, dans CET ordre",
+  r1.variables[0] === "KOSSI MENSAH" && r1.variables[1] === "solaire" && r1.variables[2] === fmt(1250000) && r1.variables[3] === "12/09/2026");
+test("…et il passe le contrôle", M.critiqueModele(r1.modele, r1.variables) === "");
+const r2 = M.envoiRelanceDevis({ devis: valide, compte: client, fmt, dFR });
+test("★ un devis VALIDÉ part en devis_valide_paiement", r2.modele === "devis_valide_paiement");
+test("…avec nom, montant, contrat, boutique",
+  r2.variables[1] === fmt(1250000) && r2.variables[2] === "CT-2026-014" && r2.variables[3] === "BMI DEMAKPOE");
+test("…et il passe le contrôle", M.critiqueModele(r2.modele, r2.variables) === "");
+test("un devis validé SANS numéro de contrat ne laisse pas un trou vide",
+  M.critiqueModele("devis_valide_paiement", M.envoiRelanceDevis({ devis: { statut: "valide", total: 1 }, compte: client, fmt, dFR }).variables) === "");
+test("★ un devis PAYÉ ne se relance pas (règle du 09/09/2026)", M.envoiRelanceDevis({ devis: { statut: "paye" }, compte: client, fmt, dFR }) === null);
+test("★ un devis REJETÉ non plus", M.envoiRelanceDevis({ devis: { statut: "rejete" }, compte: client, fmt, dFR }) === null);
+
+// ──────────────────────────────────────────────────────────────
+titre("⑨ LE PREMIER MESSAGE PART TOUJOURS À LA MAIN");
+test("★ un client tout neuf est un premier contact", !M.clientDejaContacte({ nom: "AMA" }, "d1"));
+test("un client qui n'a QUE ce devis-ci aussi", !M.clientDejaContacte({ devis: [{ id: "d1" }] }, "d1"));
+test("★ un client qui porte un AUTRE devis a déjà ses codes", M.clientDejaContacte({ devis: [{ id: "d0" }, { id: "d1" }] }, "d1"));
+test("★ un client qui a déjà ouvert l'application aussi", M.clientDejaContacte({ info_donnees_le: "2026-09-01" }, "d1"));
+test("pas de compte du tout : premier contact", !M.clientDejaContacte(null, "d1"));
+
+// ──────────────────────────────────────────────────────────────
+titre("⑩ LA TRACE DIT CE QU'ELLE SAIT, ET RIEN DE PLUS");
+const t = M.traceEnvoi({ modele: "relance_devis", par: "AKOSSIWA", quand: "2026-09-19", heure: "14:12", id: "msg_1" });
+test("elle nomme qui, quand, et par quel modèle", t.par === "AKOSSIWA" && t.le === "2026-09-19" && t.modele === "relance_devis");
+const lisible = M.libelleTrace(t);
+test("elle se lit en français", lisible.includes("AKOSSIWA") && lisible.includes("14:12"));
+test("★ elle ne prétend JAMAIS que le client a LU (on ne le sait pas encore)",
+  !/\blu\b|livré|reçu par/i.test(lisible) && !/\blu\b|livré/i.test(JSON.stringify(t)));
+test("une trace vide ne s'affiche pas", M.libelleTrace(null) === "" && M.libelleTrace({}) === "");
+
+// ──────────────────────────────────────────────────────────────
+titre("⑪ UN SEUL CHEMIN, ET LA CLÉ N'EST NULLE PART DANS L'APPLICATION");
+const srcWhatsapp = lire("src/whatsapp.js");
+const apiWhatsapp = lire("api/whatsapp.js");
+const fichiers = [
+  "src/screens/TousLesDevis.jsx", "src/screens/dimensionnement/Partages.jsx",
+  "src/screens/Dettes.jsx", "src/screens/Ventes.jsx", "src/screens/Clients.jsx",
+  "src/screens/ClientsInstalles.jsx", "src/screens/Utilisateurs.jsx", "src/App.jsx",
+];
+test("★ seul src/whatsapp.js appelle le serveur (whatsappEnLigne)",
+  srcWhatsapp.includes("whatsappEnLigne") && fichiers.every((f) => !lire(f).includes("whatsappEnLigne")));
+test("★ aucun écran n'appelle /api/whatsapp lui-même",
+  fichiers.every((f) => !lire(f).includes("/api/whatsapp")));
+test("★ la clé YCloud n'existe que dans la fonction serveur",
+  apiWhatsapp.includes("YCLOUD_API_KEY")
+  && !fichiers.some((f) => lire(f).includes("YCLOUD"))
+  && !srcWhatsapp.includes("YCLOUD") && !lire("src/lib/whatsappModeles.js").includes("YCLOUD"));
+test("★★ elle n'est JAMAIS préfixée VITE_ (Vite l'embarquerait dans le navigateur)",
+  !apiWhatsapp.includes("VITE_YCLOUD") && !apiWhatsapp.includes("VITE_WHATSAPP"));
+test("★ le serveur IMPORTE la liste des modèles, il ne la recopie pas",
+  /import\s*\{[^}]*MODELES[^}]*\}\s*from\s*["']\.\.\/src\/lib\/whatsappModeles\.js["']/.test(apiWhatsapp)
+  && !/const\s+MODELES\s*=/.test(apiWhatsapp));
+test("★ le serveur revérifie le mur lui-même", apiWhatsapp.includes("estCompteFormation"));
+test("★ le serveur refuse un compte client ou bloqué", /role === "client"/.test(apiWhatsapp) && /actif === false/.test(apiWhatsapp));
+test("la règle pure ne dépend de rien (le serveur la lit telle quelle)",
+  !/^\s*import\s/m.test(lire("src/lib/whatsappModeles.js")));
+
+// ──────────────────────────────────────────────────────────────
+titre("⑫ RIEN N'EST JAMAIS PERDU EN SILENCE");
+test("★ tout refus ramène l'ouverture WhatsApp d'aujourd'hui",
+  /const repli = async[\s\S]*envoyerWhatsApp\(tel, texteRepli/.test(srcWhatsapp));
+test("★ une panne du serveur aussi", /catch[\s\S]*return repli\(/.test(srcWhatsapp));
+test("★ une réponse en erreur aussi", /reponse\.error[\s\S]*return repli\(/.test(srcWhatsapp));
+test("★ aucune file d'attente (une relance en retard est une faute)",
+  !/localStorage/.test(srcWhatsapp) && !/setTimeout/.test(srcWhatsapp));
+test("★ les écrans passent TOUJOURS un texte de repli",
+  (srcDevis.match(/envoyerModele\(\{/g) || []).length === (srcDevis.match(/texteRepli:/g) || []).length
+  && (srcPartages.match(/envoyerModele\(\{/g) || []).length === (srcPartages.match(/texteRepli:/g) || []).length);
+test("★ la trace ne s'écrit QUE si le message est vraiment parti du n° BMI",
+  /if \(r\.auto\)/.test(srcPartages) && /r\.auto \? traceEnvoi/.test(srcDevis));
+test("★ les écrans passent l'espace du DEVIS, jamais celui de la personne",
+  /espaceFormation: espaceDuDevis\(db, d, profile\)/.test(srcDevis)
+  && /espaceFormation: !!espaceDeLaFiche\(devisMarque\)/.test(srcPartages));
+
+console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
+process.exit(ko === 0 ? 0 : 1);

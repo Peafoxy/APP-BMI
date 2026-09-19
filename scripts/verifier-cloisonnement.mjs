@@ -4517,7 +4517,7 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     execSync("grep -rln 'window.open(.*wa\\.me\\|https://wa' src || true").toString().trim() === "src/lib/core.js");
   for (const [f, fn] of [
     ["src/lib/comptesClients.js", "envoyerWhatsApp"], ["src/lib/impression.js", "envoyerWhatsApp"], ["src/screens/Dettes.jsx", "envoyerWhatsApp"],
-    ["src/screens/Ventes.jsx", "envoyerWhatsApp"], ["src/screens/Clients.jsx", "envoyerWhatsApp"], ["src/screens/dimensionnement/Partages.jsx", "envoyerWhatsApp"],
+    ["src/screens/Ventes.jsx", "envoyerWhatsApp"], ["src/screens/Clients.jsx", "envoyerWhatsApp"],
     ["src/screens/EspaceClient.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
   ]) {
     const src = readFileSync(f, "utf8");
@@ -4526,9 +4526,22 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
   }
   test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
     (readFileSync("src/lib/comptesClients.js", "utf8").match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length === 4);
-  test("★ devis (Partages) et filleul (EspaceClient) gardent le bouton de secours si le navigateur bloque (uConfirm transmis)",
-    /await envoyerWhatsApp\(compte\.tel \|\| nouvClient\.tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8"))
-    && /await envoyerWhatsApp\(tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+  // ⚠ CONTRÔLE RETOURNÉ LE 19/09/2026 (« lance l'étape 1 ») : le devis ne
+  // passe plus par `envoyerWhatsApp` EN DIRECT — il passe par `envoyerModele`
+  // (src/whatsapp.js), qui envoie du numéro BMI et REPLIE sur `envoyerWhatsApp`
+  // au moindre refus. Le bouton de secours n'a donc pas disparu : il a
+  // reculé d'un cran, et le contrôle le suit là où il est. Le filleul
+  // (EspaceClient), lui, n'a pas de modèle et n'a pas bougé.
+  {
+    const srcPartages = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+    test("★ le devis (Partages) part du numéro BMI par le chemin unique, avec le texte d'aujourd'hui en repli et le bouton de secours (uConfirm transmis)",
+      /import \{ envoyerModele \} from "\.\.\/\.\.\/whatsapp";/.test(srcPartages)
+      && /texteRepli: lignesMsg\.join\("\\n"\),/.test(srcPartages)
+      && /demanderConfirmation: uConfirm,/.test(srcPartages)
+      && !/envoyerWhatsApp\(/.test(srcPartages));
+    test("★ le filleul (EspaceClient) garde le bouton de secours si le navigateur bloque (uConfirm transmis)",
+      /await envoyerWhatsApp\(tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+  }
 }
 
 titre("Contrat et PV : UN fichier (lib/contrat.js) — numéros, plan de règlement signé, champs du lien PV (doublons A1, A2, A11, A12)");
@@ -5055,13 +5068,21 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     /export const SEUIL_RELANCE_JOURS = 15;/.test(rappels) && /export const joursSansReponse = \(devis, aujourdhui\) => joursEntre\(devis\.relance_le \|\| devis\.date, aujourdhui\);/.test(rappels)
     && /export const devisARelancer = \(devis, aujourdhui\) => devisRelancable\(devis\) && joursSansReponse\(devis, aujourdhui\) >= SEUIL_RELANCE_JOURS;/.test(rappels)
     && /const enAttenteDeRelance = \(d\) => devisARelancer\(d, today\(\)\);/.test(tld) && !/const SEUIL_RELANCE_JOURS = 15;/.test(tld) && !/function joursDepuis/.test(tld));
-  test("★ le bouton 📲 Relancer sur WhatsApp passe par envoyerWhatsApp (lib/core, jamais wa.me), avec le mot de passe recalculé (motDePasseConnu) et le nom du vendeur ; la date, l'auteur et le nombre de relances sont notés sur le devis",
+  // ⚠ CONTRÔLE RETOURNÉ LE 19/09/2026 : la relance part du NUMÉRO BMI, par un
+  // modèle approuvé par Meta (`envoyerModele`, src/whatsapp.js). Le texte
+  // d'aujourd'hui (`texteRelanceDevis`, avec le mot de passe recalculé) reste
+  // écrit et devient le REPLI : si l'envoi automatique est refusé ou tombe,
+  // c'est lui qui s'ouvre dans WhatsApp, entier. Rien n'a été retiré.
+  test("★ le bouton 📲 Relancer part du numéro BMI (envoyerModele, jamais wa.me), garde le texte d'aujourd'hui en repli avec le mot de passe recalculé (motDePasseConnu), et note date, auteur et nombre de relances sur le devis",
     /texteRelanceDevis\(\{ devis: d, compte: d\.client, motDePasse: motDePasseConnu\(d\.client\), vendeur: profile\.nom, formaterMontant: fmt \}\)/.test(tld)
-    && /await envoyerWhatsApp\(d\.client\.tel, texte, uConfirm\)/.test(tld) && !/wa\.me/.test(tld)
+    && /import \{ envoyerModele \} from "\.\.\/whatsapp";/.test(tld)
+    && /texteRepli: texte,/.test(tld) && /demanderConfirmation: uConfirm,/.test(tld) && !/wa\.me/.test(tld)
     && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
     && /\{devisRelancable\(d\) && \(\s*<button onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) && /bloquerSiLecture\(db, profile\)\) return;\n    const texte = texteRelanceDevis/.test(tld));
-  test("★ rien n'est noté si WhatsApp ne s'est pas ouvert ; un client sans téléphone est refusé avec son motif",
-    /const parti = await envoyerWhatsApp[^\n]*\n    if \(!parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
+  test("★ rien n'est noté si le client n'a rien reçu (ni du numéro BMI, ni par WhatsApp) ; un client sans téléphone est refusé avec son motif",
+    /if \(!r\.parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
+  test("★ la trace « du n° BMI » ne s'écrit QUE si le message est vraiment parti tout seul — une ouverture WhatsApp ne prouve rien",
+    /const trace = r\.auto \? traceEnvoi\(/.test(tld) && /\.\.\.\(trace \? \{ envoi_whatsapp: trace \} : \{\}\)/.test(tld));
   test("★ la liste montre « Sans réponse depuis N j » (N depuis la dernière relance) et « 📲 Relancé le … » une fois relancé ; le bandeau parle des proposés ou validés non payés",
     /⚠️ Sans réponse depuis \{joursSansReponse\(d\)\} j/.test(tld) && /📲 Relancé le \{dFR\(d\.relance_le\)\}/.test(tld) && /validé\{nbARelancer > 1 \? "s" : ""\} non payé/.test(tld));
 }

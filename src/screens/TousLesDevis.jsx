@@ -8,12 +8,14 @@ import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
-import { fmt, dFR, today, envoyerWhatsApp } from "../lib/core";
+import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
+import { envoyerModele } from "../whatsapp";
+import { envoiRelanceDevis, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche } from "../components/ui";
-import { normNom, espaceDuCompte, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
+import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
@@ -146,14 +148,34 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     const texte = texteRelanceDevis({ devis: d, compte: d.client, motDePasse: motDePasseConnu(d.client), vendeur: profile.nom, formaterMontant: fmt });
     if (!texte) { uAlert("Ce devis n'est plus à relancer."); return; }
     if (!d.client?.tel) { uAlert("Ce client n'a pas de numéro de téléphone enregistré."); return; }
-    const parti = await envoyerWhatsApp(d.client.tel, texte, uConfirm);
-    if (!parti) return;
+
+    // 📲 Depuis le 19/09/2026 le message part du NUMÉRO BMI, tout seul, par
+    // un modèle approuvé par Meta (relance d'un devis proposé, ou rappel de
+    // règlement sur un devis validé). ⚠ Tout refus et toute panne ramènent
+    // l'ouverture WhatsApp d'aujourd'hui, avec son texte complet : un
+    // message ne se perd jamais en silence (src/whatsapp.js).
+    // ⚠ C'est l'espace du DEVIS qui décide, jamais celui de la personne qui
+    // clique — l'administrateur principal est un compte réel même quand il
+    // regarde la formation.
+    const envoi = envoiRelanceDevis({ devis: d, compte: d.client, fmt, dFR });
+    const r = await envoyerModele({
+      tel: d.client.tel,
+      modele: envoi?.modele,
+      variables: envoi?.variables,
+      espaceFormation: espaceDuDevis(db, d, profile),
+      texteRepli: texte,
+      demanderConfirmation: uConfirm,
+    });
+    if (!r.parti) return;
+    const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, quand: today(), heure: heureCourte(), id: r.id }) : null;
     save({
       ...db,
       users: db.users.map((u) => (u.id === d.client?.id
-        ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, relance_le: today(), relance_par: profile.nom, nb_relances: (x.nb_relances || 0) + 1 } : x)) }
+        ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
+            ? { ...x, relance_le: today(), relance_par: profile.nom, nb_relances: (x.nb_relances || 0) + 1, ...(trace ? { envoi_whatsapp: trace } : {}) }
+            : x)) }
         : u)),
-    }, `Devis ${STATUT_DEVIS[d.statut || "propose"][0]} de ${d.client?.nom_base || d.client?.nom} (${fmt(d.total)}) relancé par WhatsApp — ${profile.nom}`);
+    }, `Devis ${STATUT_DEVIS[d.statut || "propose"][0]} de ${d.client?.nom_base || d.client?.nom} (${fmt(d.total)}) relancé ${r.auto ? "du numéro BMI" : "par WhatsApp"} — ${profile.nom}`);
   };
 
   // Base pour les compteurs des onglets de statut : tous les AUTRES filtres
@@ -378,8 +400,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                     </span>
                   )}
                   {d.relance_le && devisRelancable(d) && !enAttenteDeRelance(d) && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-50 text-slate-600 border-slate-300" title={`Relancé par ${d.relance_par || "?"}`}>
-                      📲 Relancé le {dFR(d.relance_le)}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${d.envoi_whatsapp ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}
+                      title={d.envoi_whatsapp ? libelleTrace(d.envoi_whatsapp) : `Relancé par ${d.relance_par || "?"}`}>
+                      📲 Relancé le {dFR(d.relance_le)}{d.envoi_whatsapp ? " — du n° BMI" : ""}
                     </span>
                   )}
                   {demandeModifEnCours(d) && (

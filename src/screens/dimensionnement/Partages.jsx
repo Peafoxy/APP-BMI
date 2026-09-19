@@ -6,7 +6,9 @@
 import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
-import { fmt, telDigits, col, envoyerWhatsApp, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today } from "../../lib/core";
+import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
+import { envoyerModele } from "../../whatsapp";
+import { envoiDevisDisponible, clientDejaContacte, traceEnvoi } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
@@ -33,7 +35,7 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, estBoutiqueFormation, stockActuel } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel } from "../../lib/calculs";
 import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock } from "./devisCommun";
 
 // ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
@@ -600,9 +602,43 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  // Si le navigateur bloque l'ouverture, on le DIT et on propose un bouton :
-  // sans cela, le devis partait enregistré mais le client n'était jamais
-  // prévenu, et personne ne le savait.
-  await envoyerWhatsApp(compte.tel || nouvClient.tel, lignesMsg.join("\n"), uConfirm);
+  // 📲 19/09/2026 — LE DEVIS PEUT PARTIR DU NUMÉRO BMI, TOUT SEUL.
+  //
+  // ⚠⚠ MAIS JAMAIS LE PREMIER MESSAGE D'UN CLIENT. Celui-là porte ses
+  // IDENTIFIANTS, et un modèle approuvé par Meta ne peut PAS les porter :
+  // tout mot de passe est rangé d'office dans sa catégorie
+  // « authentication » et le modèle est refusé (trois refus le 19/09/2026).
+  // Tant que le client n'a pas reçu ses codes, WhatsApp s'ouvre comme avant
+  // et c'est le vendeur qui envoie — sinon on lui enverrait un lien vers un
+  // espace où il ne saurait pas entrer.
+  //
+  // ⚠ Si le navigateur bloque l'ouverture, on le DIT et on propose un
+  // bouton : sans cela, le devis partait enregistré mais le client n'était
+  // jamais prévenu, et personne ne le savait. Le repli garde ce texte-ci
+  // mot pour mot.
+  const idDevis = idAReprendre || devisMarque.id;
+  const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
+  const r = await envoyerModele({
+    tel: compte.tel || nouvClient.tel,
+    modele: envoi.modele,
+    variables: envoi.variables,
+    espaceFormation: !!espaceDeLaFiche(devisMarque),
+    premierContact: !clientDejaContacte(compte, idDevis),
+    texteRepli: lignesMsg.join("\n"),
+    demanderConfirmation: uConfirm,
+  });
+  // La trace se pose seulement si le message est VRAIMENT parti du numéro
+  // BMI : une ouverture WhatsApp ne prouve rien (personne ne sait si le
+  // vendeur a appuyé sur envoyer), et l'écrire serait rassurer à tort.
+  if (r.auto) {
+    save({
+      ...dbFinal,
+      users: dbFinal.users.map((u) => (u.id === compte.id
+        ? { ...u, devis: (u.devis || []).map((x) => (x.id === idDevis
+            ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, quand: today(), heure: heureCourte(), id: r.id }) }
+            : x)) }
+        : u)),
+    });
+  }
   return true;
 }

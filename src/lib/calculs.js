@@ -1500,6 +1500,16 @@ export const techniciensDeLEspace = (db, liste, espaceFormation) =>
 // travail a été fait), la boutique ensuite (fiches anciennes, sans marque),
 // l'espace regardé en dernier recours.
 export const espaceDeLaFiche = (c) => (c && Object.prototype.hasOwnProperty.call(c, "formation") ? !!c.formation : null);
+// L'espace d'un DEVIS — il n'appartient à aucune boutique, il porte donc sa
+// marque (`formation`), posée à sa naissance. Sans marque (devis ancien),
+// c'est l'espace REGARDÉ qui décide, jamais ce qu'EST le compte : règle du
+// 14/09/2026, et elle compte ici, car c'est elle qui empêche un vrai
+// message WhatsApp de partir d'un devis d'entraînement.
+export const espaceDuDevis = (db, d, profile) => {
+  const marque = espaceDeLaFiche(d);
+  return marque !== null ? marque : espaceDuCompte(db, profile);
+};
+
 export const espaceDuChantier = (db, c, profile) => {
   const marque = espaceDeLaFiche(c);
   if (marque !== null) return marque;

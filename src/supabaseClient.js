@@ -148,6 +148,14 @@ async function appelAvecJeton(urlFonction, corps) {
 export const abonnerPushEnLigne = ({ abonnement, appareil, retirer = false }) => appelAvecJeton(URL_ABONNER_PUSH, { abonnement, appareil, retirer });
 export const notifierEnLigne = (envois) => appelAvecJeton(URL_NOTIFIER, { envois });
 
+// ---- WhatsApp depuis le numéro BMI (19/09/2026) ----
+// ⚠ La clé YCloud n'est PAS ici : elle ne vit que dans une variable Vercel,
+// côté serveur (api/whatsapp.js). Ce que l'application envoie, c'est le nom
+// d'un modèle approuvé et les mots qui remplissent ses trous — rien de
+// secret. `src/whatsapp.js` est le SEUL à appeler cette fonction.
+const URL_WHATSAPP = BASE ? `${BASE}/api/whatsapp` : "/api/whatsapp";
+export const whatsappEnLigne = ({ tel, modele, variables }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables });
+
 // Identifiants de la session en cours, gardés EN MÉMOIRE uniquement (jamais
 // écrits sur le disque) : ils servent à rétablir la session si elle expire
 // pendant que l'application est ouverte.

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1670 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1671 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,6 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
+npm run verifier-whatsapp        # 71  : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1755,6 +1756,82 @@ lit mal est pire qu'un banc absent).
   fermée, mot d'information, durée de conservation. Ne restent que les deux
   démarches HORS application, déjà dites à Timo et affichées dans l'écran :
   la déclaration à l'**IPDCP**, et l'**hébergement hors du Togo**.
+
+### 📲 WHATSAPP DEPUIS LE NUMÉRO BMI — L'ENVOI (étape 1, 19/09/2026)
+- Timo, après avoir raccordé le numéro **+228 99 96 84 88** chez YCloud
+  (coexistence, le téléphone garde tout) et fait approuver les modèles :
+  **« lance l'étape 1 »**. L'étape 1 est l'**ENVOI** — le message part du
+  numéro BMI sans que personne n'ouvre WhatsApp, et la trace reste sur le
+  devis. La RÉCEPTION (les réponses dans 💬 Messages, la fenêtre de 24 h) est
+  l'étape 2 : **elle n'est pas construite, et ne démarre pas sans sa demande.**
+- **Hors de la fenêtre de 24 h ouverte par le client, Meta n'accepte QUE des
+  MODÈLES approuvés.** Nos relances partent quand NOUS le décidons : elles
+  passent donc toutes par un modèle. `lib/whatsappModeles.js` (sans import)
+  les liste, avec **l'ORDRE EXACT de leurs trous** — intervertir deux lignes
+  enverrait le montant à la place du nom, et Meta ne s'en plaindrait pas.
+  ⚠ **LE COUPLE** : `api/whatsapp.js` **IMPORTE** ce fichier ; deux listes
+  finiraient par diverger en silence. Le banc mesure les deux côtés.
+- **CE QUE TROIS REFUS DE META ONT APPRIS**, et qu'on ne réapprendra pas :
+  **(1) un DEVIS est une OFFRE → catégorie *marketing***, jamais *utility*
+  (`INCORRECT_CATEGORY`) ; un contrat SIGNÉ, lui, est de l'utility.
+  **(2) UN MOT DE PASSE NE VOYAGE JAMAIS DANS UN MODÈLE** : Meta range tout
+  identifiant de connexion dans sa catégorie *authentication* (format rigide,
+  un code et rien d'autre) et refuse, **quelle que soit la case cochée**. Le
+  soupçon du départ était bon ; c'est la façon dont Meta le DIT qui trompait.
+  **(3) le nom ET la catégorie se figent à la création** — *Edit* ne rouvre
+  que le contenu. Se tromper oblige à un NOUVEAU modèle sous un NOUVEAU nom,
+  et **on ne supprime pas le refusé** (Meta réserve son nom ~1 mois ; un
+  modèle refusé n'envoie rien et ne coûte rien). Seule exception : un modèle
+  mal NOMMÉ (YCloud pré-remplit le champ) se supprime et se recrée.
+- **Les quatre modèles** : `devis_disponible` (marketing, 3 trous),
+  `relance_devis` (marketing, 4), `devis_valide_paiement` (utility, 4),
+  `rappel_echeance` (utility, 5). ⚠ **`rappel_echeance` est approuvé mais PAS
+  en service** (`MODELES_EN_SERVICE`) : une dette ordinaire n'a pas de date
+  d'échéance (le retard se compte à 30 jours, lib/rappels.js). Il servira le
+  jour où on relancera sur un PLAN DE RÈGLEMENT, qui a de vraies échéances.
+  Le banc vérifie qu'aucun écran ne l'emploie d'ici là.
+- **UN SEUL CHEMIN : `src/whatsapp.js`** (`envoyerModele`), comme `src/push.js`
+  pour les notifications — aucun écran n'appelle le serveur lui-même, le banc
+  l'interdit. ⚠ Il charge `supabaseClient` **au moment de l'envoi** (import
+  dynamique) : en statique, il entraînait `import.meta.env` dans la suite de
+  Partages.jsx et **le banc ne pouvait plus monter l'écran** — or un écran que
+  le banc ne peut pas monter est un écran blanc en puissance (19/09/2026).
+- **RIEN N'EST JAMAIS PERDU EN SILENCE** : tout refus, toute panne, tout
+  numéro illisible RAMÈNE l'ouverture WhatsApp d'aujourd'hui, avec son texte
+  complet (`texteRepli`, celui de `texteRelanceDevis` mot pour mot). ⚠ **Pas
+  de file d'attente, et c'est VOULU** — contrairement aux notifications : une
+  notification en retard reste juste, une relance partie trois jours plus
+  tard, alors que le client est déjà passé payer, est une faute.
+- ⚠⚠ **LE MUR, DEUX BARRIÈRES QUI NE PROTÈGENT PAS LA MÊME CHOSE.** L'écran
+  passe **l'espace du DEVIS** (`espaceDuDevis`, calculs.js — la marque de la
+  fiche, sinon l'espace REGARDÉ), jamais celui de la personne qui clique :
+  l'administrateur principal est un compte RÉEL même quand il regarde la
+  formation (leçon de `retenueOutilPourPrime`, 18/09). Le serveur, lui,
+  revérifie ce qu'EST le compte appelant (`estCompteFormation`) et refuse un
+  compte client ou bloqué. **La barrière qui compte pour le principal est
+  celle de l'écran** — on le dit plutôt que de laisser croire que le serveur
+  suffit.
+- ⚠ **LE PREMIER MESSAGE D'UN CLIENT PART TOUJOURS À LA MAIN**
+  (`clientDejaContacte`) : il porte ses IDENTIFIANTS, qu'un modèle ne peut pas
+  porter. « Il les a déjà » se lit sur deux traces, une suffit — il porte un
+  AUTRE devis, ou il a déjà ouvert l'application (`info_donnees_le`). Sans
+  cette règle, un nouveau client recevrait un lien vers un espace où il ne
+  saurait pas entrer.
+- **LA TRACE NE DIT QUE CE QU'ELLE SAIT** (`traceEnvoi`, `libelleTrace`,
+  champ `envoi_whatsapp` sur le devis) : qui, quand, quel modèle — **jamais
+  « livré » ni « lu »**. Le savoir demande que Meta nous rappelle (une adresse
+  de retour qui n'existe pas encore) ; l'écrire serait rassurer à tort. Et
+  elle ne s'écrit **que si le message est parti du numéro BMI** : une
+  ouverture WhatsApp ne prouve rien (personne ne sait si le vendeur a appuyé).
+  La pastille de 📋 Tous les devis passe au vert et dit « du n° BMI ».
+- **RIEN À COLLER DANS SUPABASE.** Deux variables Vercel, côté serveur
+  seulement : **`YCLOUD_API_KEY`** et **`WHATSAPP_NUMERO_BMI`**. ⚠ **Jamais
+  préfixées `VITE_`** (Vite les embarquerait dans le paquet du navigateur) —
+  le banc le mesure. Sans elles, l'application se replie sur l'ouverture
+  WhatsApp d'aujourd'hui et ne casse rien.
+- **CE QUE ÇA COÛTE, et il faut le dire** : environ **14 F** un message
+  marketing (devis, relance), **4 F** un utility. C'était gratuit avant (le
+  forfait du vendeur). Quelques centaines de francs par mois au volume de BMI.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
