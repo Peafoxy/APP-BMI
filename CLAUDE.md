@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1608 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1618 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1490,10 +1490,69 @@ lit mal est pire qu'un banc absent).
   mesure qu'aucune ligne ne sort en lettres espacées.
 - **Rien à coller dans Supabase** : on ne fait que lire.
 
-- **Les trois autres chantiers proposés, PAS ENCORE lancés** (décrits à Timo
-  le 18/09/2026 ; il a lancé le point 1 puis le point 2) : une page « Vos
-  données » dans l'espace client ; un mot aux employés sur ce que l'application
-  garde d'eux ; une durée de conservation à décider par lui. Ne pas les
+
+#### 🔒 « VOS DONNÉES » DANS L'ESPACE CLIENT — le point 3 (18/09/2026)
+- **Le client se sert LUI-MÊME.** Accorder un droit d'accès en obligeant le
+  client à appeler la boutique, c'est ne l'accorder qu'à moitié. Panneau
+  **🔒 Vos données personnelles** dans son espace : son résumé, le bouton
+  **« 🖨 Télécharger mes données (PDF) »**, ses droits en toutes lettres, et
+  deux boutons **« Demander une correction » / « Demander la suppression »**.
+- **UNE SEULE SOURCE, trois écrans** : `dossierClient` → `dossierPersonnel` →
+  `genererDossierPersonnel`, les mêmes que ⚙ Paramètres. **Les MÊMES
+  `MENTIONS_DOSSIER` s'affichent à l'écran et s'impriment** — pas un second
+  texte à maintenir. Sinon le client verrait la différence entre ce qu'il
+  télécharge et ce que BMI lui remet.
+- **Les familles VIDES ne s'affichent PAS à l'écran** (`resumePourLeClient`) :
+  sur son écran, une liste de « aucun / aucune » n'apprend rien. **Elles
+  restent dans le DOCUMENT**, où elles prouvent qu'on a regardé partout.
+- **La demande part par la règle commune WhatsApp** (`texteDemandeDonnees`,
+  texte qu'il RELIT avant d'envoyer — WhatsApp n'envoie jamais tout seul), vers
+  **la boutique de son chantier, sinon de son dernier achat** ; **jamais un
+  numéro codé en dur**. Sans numéro réglé, on le DIT et on renvoie vers
+  💬 Messages au lieu de faire semblant. ⚠ Un `quoi` inconnu retombe sur la
+  CORRECTION, jamais sur la suppression : devant un doute, on ne propose pas
+  d'effacer.
+- ⚠ **L'espace client ne refiltre RIEN** : sur son appareil la base ne contient
+  que ses données, les politiques du serveur sont la seule barrière (règle
+  posée depuis toujours) — et le code le DIT au lieu de le laisser deviner.
+  Le document porte le **bandeau de formation** si son compte est
+  d'entraînement.
+- ⚠ **On n'écrit AUCUNE durée en années** : elle n'est pas tranchée (point 5).
+  Un chiffre inventé serait pire que le silence.
+- **Rien à coller dans Supabase.**
+
+#### 👥 ET LES EMPLOYÉS ? (question de Timo, 18/09/2026)
+- Mot pour mot : « je veux savoir et les employés dans cette histoire, leurs
+  données ne sont-elles pas protégées… parmi les utilisateurs, le personnel
+  n'y figure pas ». **Il a raison, et c'est un vrai trou** : les trois points
+  livrés ne couvrent QUE les clients, alors qu'un employé est un sujet de
+  données exactement comme eux — et que l'application en sait BIEN plus sur lui.
+- **Ce qui EST déjà protégé, et solidement** : la fiche de **PAIE vit dans une
+  table à part** (`lib/paie.js`, `supabase/paie-1-table.sql`) que seuls
+  l'admin, le comptable et l'intéressé peuvent lire — salaire, primes, avances,
+  virements, crédits, pièce d'identité, matricule CNSS. Un appareil qui n'y a
+  pas droit ne la reçoit **pas du tout**. Mot de passe en PBKDF2, empreinte =
+  une clé jamais un doigt, **année de naissance jamais demandée** (calculs.js :
+  « publier l'âge de chacun »), champs de gestion réservés à l'admin
+  (`securite-18`), rôle au principal (`securite-9`).
+- ⚠⚠ **LE TROU MESURÉ, à lui signaler** : **`banque` et `compte_bancaire` ne
+  sont PAS dans `CHAMPS_PAIE`** — ils restent sur la fiche employé, que TOUS
+  les appareils connectés téléchargent. `securite-18` n'en protège que
+  l'ÉCRITURE ; la LECTURE est ouverte. Le numéro est masqué à l'affichage
+  (`compteMasque`) — **mais masquer n'est pas protéger.** Le remède est celui
+  qui existe déjà : les faire passer dans `CHAMPS_PAIE` (la table et ses règles
+  existent, **rien à coller**). **Proposé à Timo le 18/09/2026, PAS ENCORE
+  lancé.**
+- **Ce qui manque encore pour eux** : aucune entrée dans 🔒 Données
+  personnelles, aucun dossier d'accès, aucune information à l'embauche.
+  ⚠ **L'effacement, lui, ne leur est PAS transposable** : la paie et les
+  déclarations CNSS se conservent par obligation légale — pour un employé,
+  c'est le droit d'ACCÈS qui compte, pas celui d'effacer.
+
+- **Ce qui reste, PAS ENCORE lancé** (décrit à Timo le 18/09/2026 ; il a lancé
+  les points 1, 2 et 3) : **fermer la lecture de `banque` / `compte_bancaire`**
+  (ci-dessus) ; un dossier d'accès et un mot d'information **pour les
+  employés** ; une **durée de conservation** à décider par lui. Ne pas les
   construire sans sa demande.
 
 ### Versement des fonds (09/09/2026)

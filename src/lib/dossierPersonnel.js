@@ -145,6 +145,55 @@ export const critiqueDossier = (dossier) => {
 };
 
 // ---------------------------------------------------------------
+// 🔒 LA PAGE « VOS DONNÉES » DE L'ESPACE CLIENT (point 3, 18/09/2026)
+// ---------------------------------------------------------------
+// Le client se sert LUI-MÊME : il voit ce qu'on garde, il télécharge son
+// dossier, et il demande une correction ou une suppression sans avoir à
+// passer par un coup de fil. **Même document, même mentions** que celui que
+// BMI lui remet depuis ⚙ Paramètres — sinon les deux finiraient par se
+// contredire, et c'est le client qui verrait la différence.
+//
+// ⚠ Ce qu'on NE promet PAS : une durée de conservation en années. Elle n'est
+// pas tranchée (point 5). Écrire un chiffre inventé serait pire que de se
+// taire : on dit ce qui est vrai — la durée de la relation commerciale, et
+// les obligations comptables pour les factures.
+
+// Ce que le client lit en une ligne par famille : « 3 achats », « 1 dette »…
+// Une famille vide n'est PAS affichée ici (sur son écran, une liste de
+// « aucun / aucune » n'apprend rien) — mais elle reste dans le document,
+// où elle prouve qu'on a regardé partout.
+export function resumePourLeClient(vue) {
+  return (vue?.sections || [])
+    .filter((s) => s.lignes.length)
+    .map((s) => ({ titre: s.titre, nb: s.lignes.length }));
+}
+
+// Le message qu'il envoie à BMI pour faire corriger ou effacer ses données.
+// Il part par la règle commune WhatsApp (envoyerWhatsApp, lib/core.js — aucun
+// écran n'ouvre WhatsApp lui-même), et **WhatsApp n'envoie jamais tout seul** :
+// le texte arrive dans sa case de saisie, il le relit avant d'appuyer.
+export const MOTIFS_DEMANDE = {
+  correction: "corriger",
+  suppression: "supprimer",
+};
+export function texteDemandeDonnees(nom, quoi) {
+  const verbe = MOTIFS_DEMANDE[quoi] || MOTIFS_DEMANDE.correction;
+  return [
+    `Bonjour,`,
+    ``,
+    `Je suis ${String(nom || "").toUpperCase()}, client chez BMI TOGO.`,
+    quoi === "suppression"
+      ? `Je vous demande de ${verbe} les données personnelles que vous conservez à mon sujet.`
+      : `Je vous demande de ${verbe} les données personnelles que vous conservez à mon sujet.`,
+    ``,
+    `Précisions :`,
+    `(indiquez ici ce qui doit être corrigé, ou la raison de votre demande)`,
+    ``,
+    `Merci.`,
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------
 // LE CSV : les mêmes sections, mises à plat pour un tableur
 // ---------------------------------------------------------------
 // Un seul fichier, les sections les unes sous les autres, séparées par une

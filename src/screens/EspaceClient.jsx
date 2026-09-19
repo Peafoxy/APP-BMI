@@ -16,6 +16,13 @@ import { imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { demandeModifEnCours, devisCorrige, repondreDemandeModif, accepterDevisCorrige, refuserDevisCorrige } from "../lib/modifDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
+// 🔒 VOS DONNÉES (point 3, 18/09/2026) — le client se sert lui-même.
+// MÊME dossier, MÊMES mentions, MÊME document que celui remis depuis
+// ⚙ Paramètres : une seule source, sinon le client verrait la différence.
+import { dossierClient } from "../lib/effacementClient";
+import { dossierPersonnel, resumePourLeClient, texteDemandeDonnees, MENTIONS_DOSSIER } from "../lib/dossierPersonnel";
+import { genererDossierPersonnel } from "../pdf";
+import { LOGO } from "../lib/constants";
 
 // ============ ESPACE CLIENT (rôle client) ============
 export function EspaceClient({ db, profile, save, setTab }) {
@@ -399,6 +406,49 @@ export function EspaceClient({ db, profile, save, setTab }) {
     .map((l) => (db.produits || []).find((p) => p.id === l.produit_id))
     .filter((p) => p?.garantie_fabricant)
     .map((p) => `${p.nom} : garantie fabricant ${p.garantie_fabricant}${p.conditions_garantie ? ` (${p.conditions_garantie})` : ""}`);
+
+  // ---- 🔒 VOS DONNÉES : le client télécharge son propre dossier ----
+  // ⚠ Sur SON appareil, la base ne contient QUE ses données : les politiques
+  // du serveur sont la seule barrière, et c'est voulu depuis toujours. On ne
+  // refiltre donc rien ici — on assemble ce qu'il a déjà.
+  const monDossier = dossierClient({
+    comptes: [{ ...moi, role: "client" }],
+    ventes: db.ventes || [],
+    dettes: db.dettes || [],
+    proformas: db.proformas || [],
+    commandes: db.commandes || [],
+    chantiers: db.clients_installes || [],
+    prospects: [],
+    messages: db.messages || [],
+    audits: [],
+  }, { nom: moi.nom_base || profile.nom, tel: moi.tel || profile.tel });
+  const maVue = dossierPersonnel(monDossier, { fmt, dFR });
+
+  const telecharderMesDonnees = () => {
+    genererDossierPersonnel(maVue, {
+      logo: LOGO,
+      formation: estCompteFormation(db, profile),
+      edite: dFR(today()),
+      client: moi.nom_base || profile.nom,
+    });
+  };
+
+  // À qui écrire : la boutique de son chantier, sinon celle de son dernier
+  // achat, sinon la première qui porte un numéro. On ne code JAMAIS un numéro
+  // en dur — il se règle dans ⚙ Paramètres comme tout le reste.
+  const boutiqueContact = (() => {
+    const toutes = boutiquesVisibles(db, profile);
+    const nom = fiche?.boutique || (db.ventes || [])[0]?.boutique;
+    return toutes.find((b) => b.nom === nom && b.tel) || toutes.find((b) => b.tel) || null;
+  })();
+
+  const demanderSurMesDonnees = (quoi) => {
+    if (!boutiqueContact?.tel) {
+      uAlert("Le numéro de votre boutique n'est pas encore renseigné.\n\nÉcrivez-nous depuis l'onglet 💬 Messages : votre demande arrivera de la même façon.");
+      return;
+    }
+    envoyerWhatsApp(boutiqueContact.tel, texteDemandeDonnees(moi.nom_base || profile.nom, quoi));
+  };
 
   return (
     <div className="space-y-4">
@@ -872,6 +922,52 @@ export function EspaceClient({ db, profile, save, setTab }) {
         <div className="text-xs text-slate-500 mb-3">Vous pouvez le changer à tout moment. Ne le partagez avec personne.</div>
         <button onClick={changerMonMotDePasse} className="px-4 py-2 rounded-lg bg-slate-800 text-white font-bold text-sm hover:bg-slate-900">Changer mon mot de passe</button>
       </Panel>
+      {/* ═══════ 🔒 VOS DONNÉES (point 3, 18/09/2026) ═══════
+          L'article 18 de nos contrats promet au client un droit d'accès. Le
+          lui accorder en le laissant appeler la boutique, c'est ne l'accorder
+          qu'à moitié : ici il se sert lui-même. */}
+      <Panel>
+        <div className="font-bold mb-1">🔒 Vos données personnelles</div>
+        <div className="text-xs text-slate-500 mb-3">
+          Voici exactement ce que BMI Togo conserve à votre sujet. Vous pouvez le télécharger, et demander à tout moment
+          qu'on le corrige ou qu'on l'efface.
+        </div>
+
+        {resumePourLeClient(maVue).length === 0 ? (
+          <div className="text-sm text-slate-500 mb-3">
+            En dehors de votre compte, nous ne conservons encore rien à votre sujet.
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-2 mb-3">
+            {resumePourLeClient(maVue).map((x) => (
+              <div key={x.titre} className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                <b>{x.nb}</b> <span className="text-slate-600">{x.titre.replace(/^Vos?\s+/i, "").replace(/^Votre\s+/i, "")}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={telecharderMesDonnees} className="px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">
+          🖨 Télécharger mes données (PDF)
+        </button>
+
+        <div className="mt-4 rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 space-y-1.5">
+          {MENTIONS_DOSSIER.map((m, i) => <p key={i}>{m}</p>)}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={() => demanderSurMesDonnees("correction")} className="px-4 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50">
+            Demander une correction
+          </button>
+          <button onClick={() => demanderSurMesDonnees("suppression")} className="px-4 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">
+            Demander la suppression
+          </button>
+        </div>
+        <div className="text-[11px] text-slate-400 mt-2">
+          Votre demande part par WhatsApp vers votre boutique — vous la relisez avant de l'envoyer. Vous pouvez aussi nous écrire depuis l'onglet 💬 Messages.
+        </div>
+      </Panel>
+
       <div className="text-xs text-slate-400">Utilisez l'onglet 💬 Messages pour écrire à nos équipes.</div>
 
       {/* ═══════ CONTRAT D'INSTALLATION — lecture + signature obligatoires

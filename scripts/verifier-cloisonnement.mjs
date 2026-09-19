@@ -9552,5 +9552,77 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// 🔒 « VOS DONNÉES » DANS L'ESPACE CLIENT — le point 3 (18/09/2026)
+//
+// Timo : « lance le point 3 ». Accorder un droit d'accès en obligeant le
+// client à appeler la boutique, c'est ne l'accorder qu'à moitié. Ici il se
+// sert LUI-MÊME : il voit ce qu'on garde, il télécharge son dossier, il
+// demande une correction ou une suppression.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("🔒 « Vos données » dans l'espace client — le point 3 (18/09/2026)");
+
+  const vueC = Dos.dossierPersonnel({
+    cible: { nom: "KOSSI MENSAH", tel: "90112233" },
+    compte: { id: "cl1", nom: "KOSSI", nom_base: "KOSSI MENSAH", tel: "90112233", devis: [] },
+    ventes: [{ id: "v1", date: "2026-09-01", numero: "R-12", total: 50000, articles: [{ nom: "Panneau", qte: 1 }] },
+             { id: "v2", date: "2026-09-05", numero: "R-13", total: 20000, articles: [] }],
+    dettes: [{ id: "d1", date: "2026-09-02", montant: 300000, paye: 100000 }],
+    proformas: [], commandes: [], chantiers: [], messages: [], prospects: [], total: 4,
+  }, { fmt: (x) => `${x} F`, dFR: (x) => String(x) });
+
+  test("★ le client lit SON résumé en une ligne par famille, et les familles VIDES n'y figurent pas — sur son écran, une liste de « aucun / aucune » n'apprend rien (elles restent dans le document, où elles prouvent qu'on a regardé partout)",
+    (() => {
+      const r = Dos.resumePourLeClient(vueC);
+      return r.length === 2
+        && r.find((x) => x.titre === "Vos achats")?.nb === 2
+        && r.find((x) => x.titre === "Vos dettes et règlements")?.nb === 1
+        && !r.some((x) => /proforma|commande|chantier/i.test(x.titre))
+        // …alors que le DOCUMENT, lui, les porte toutes
+        && vueC.sections.length === 8;
+    })());
+
+  test("★ il demande une correction ou une suppression en son NOM, par un texte qu'il relit avant d'envoyer — et les deux demandes sont distinctes",
+    (() => {
+      const c = Dos.texteDemandeDonnees("kossi mensah", "correction");
+      const sup = Dos.texteDemandeDonnees("kossi mensah", "suppression");
+      return /KOSSI MENSAH/.test(c) && /corriger/.test(c) && !/supprimer/.test(c)
+        && /supprimer/.test(sup) && !/corriger/.test(sup)
+        && /BMI TOGO/.test(c);
+    })());
+
+  test("★ un `quoi` inconnu retombe sur la correction, jamais sur la suppression : devant un doute, on ne propose pas d'effacer",
+    /corriger/.test(Dos.texteDemandeDonnees("X", "n_importe_quoi")));
+
+  {
+    const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+
+    test("★ UNE SEULE SOURCE : l'espace client passe par le MÊME dossierClient et le MÊME dossierPersonnel que ⚙ Paramètres — sinon le client verrait la différence entre ce qu'il télécharge et ce que BMI lui remet",
+      /dossierClient\(\{/.test(ec) && /dossierPersonnel\(monDossier, \{ fmt, dFR \}\)/.test(ec)
+      && /genererDossierPersonnel\(maVue/.test(ec));
+
+    test("★ les MÊMES mentions s'affichent à l'écran et s'impriment dans le document (MENTIONS_DOSSIER, écrites UNE fois) — pas un second texte à maintenir",
+      /MENTIONS_DOSSIER\.map/.test(ec) && !/loi n° 2019-014/.test(ec.split("MENTIONS_DOSSIER")[0]));
+
+    test("★ il télécharge le document LUI-MÊME (« 🖨 Télécharger mes données (PDF) ») : un droit d'accès qui oblige à appeler la boutique n'est accordé qu'à moitié",
+      /Télécharger mes données \(PDF\)/.test(ec) && /telecharderMesDonnees/.test(ec));
+
+    test("★ la demande part par la règle commune WhatsApp, jamais un lien écrit dans l'écran, et le numéro vient de la BOUTIQUE (jamais codé en dur)",
+      /envoyerWhatsApp\(boutiqueContact\.tel, texteDemandeDonnees\(/.test(ec)
+      && /boutiquesVisibles\(db, profile\)/.test(ec)
+      && !/wa\.me|\+228\d/.test(ec));
+
+    test("★ sans numéro de boutique, on ne fait pas semblant : on le DIT et on renvoie vers 💬 Messages, où la demande arrive quand même",
+      /numéro de votre boutique n'est pas encore renseigné/.test(ec) && /onglet 💬 Messages/.test(ec));
+
+    test("★ le document du client porte le bandeau de FORMATION quand son compte est d'entraînement — un document d'essai ne doit jamais passer pour un vrai",
+      /formation: estCompteFormation\(db, profile\)/.test(ec));
+
+    test("★ l'espace client ne refiltre RIEN : sur son appareil la base ne contient que ses données, les politiques du serveur sont la seule barrière (règle posée depuis toujours) — et l'écran le DIT au lieu de le laisser deviner",
+      /seule barrière/.test(ec) && /ne contient QUE ses données/.test(ec));
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
