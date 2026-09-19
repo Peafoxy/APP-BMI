@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
+import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES } from "./constants";
 import { mettreAuPanier } from "./panier";
@@ -2289,6 +2289,40 @@ export function periodes() {
     ["Cette année", `${t.slice(0, 4)}-01-01`, t],
     ["Depuis le début", "0000-01-01", "9999-12-31"]
   ];
+}
+
+// ---------------------------------------------------------------
+// ✏️ UNE PÉRIODE À SOI
+// ---------------------------------------------------------------
+// Timo, 19/09/2026, devant le filtre de 💰 Ventes : « pour filtrer les ventes
+// ou proforma, il n'y a pas personnaliser… ajouter ». Les cinq périodes
+// toutes faites ne répondent pas à « du 3 au 12 » — qui est pourtant la
+// question qu'on se pose devant un client, ou quand on cherche une vente
+// dont on ne se rappelle que la semaine.
+export const PERIODE_PERSO = "perso";
+
+// Les deux bornes à donner à `inP`. ⚠ Une borne laissée VIDE reste OUVERTE :
+// on ne force personne à saisir deux dates quand il n'en cherche qu'une
+// (« depuis le 3 », « jusqu'au 12 »).
+// ⚠ Et deux dates à l'envers ne refusent rien : on les remet dans l'ordre.
+// Un filtre n'est pas un geste d'argent ; « du 18 au 12 » veut visiblement
+// dire « entre le 12 et le 18 », et un refus ici n'apprendrait rien.
+export function bornesPersonnalisees(du, au) {
+  const a = String(du || "").slice(0, 10);
+  const b = String(au || "").slice(0, 10);
+  if (a && b) return a <= b ? [a, b] : [b, a];
+  return [a || "0000-01-01", b || "9999-12-31"];
+}
+
+// ⚠ Ce que l'écran ÉCRIT à côté des deux cases. Il le faut : sans lui, deux
+// dates remises dans l'ordre le seraient en SILENCE, et on ne saurait pas
+// quelle période est réellement appliquée.
+export function libellePeriodePersonnalisee(du, au) {
+  const [a, b] = bornesPersonnalisees(du, au);
+  if (!String(du || "") && !String(au || "")) return "Toute période";
+  if (a === "0000-01-01") return `Jusqu'au ${dFR(b)}`;
+  if (b === "9999-12-31") return `Depuis le ${dFR(a)}`;
+  return `Du ${dFR(a)} au ${dFR(b)}`;
 }
 
 // ============ REÇU CLIENT ============

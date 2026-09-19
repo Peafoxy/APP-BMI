@@ -19,7 +19,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -988,7 +988,18 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // cohérent avec le reste de l'app. "Tout" = pas de filtre (comportement
   // d'origine préservé par défaut).
   const [periodeIndex, setPeriodeIndex] = useState(null);
+  // ✏️ Personnaliser (Timo, 19/09/2026) : deux dates à soi, en plus des cinq
+  // périodes toutes faites. Une borne vide reste ouverte (lib/calculs.js).
+  const [perioDu, setPerioDu] = useState("");
+  const [perioAu, setPerioAu] = useState("");
   const [filtrePaiement, setFiltrePaiement] = useState("");
+  // Les deux bornes appliquées, quelle que soit la façon dont on les a
+  // choisies — null = aucun filtre de période. UN seul calcul, lu par les
+  // deux listes (ventes ET proformas), pour qu'elles ne puissent pas
+  // diverger.
+  const bornesPeriode = periodeIndex === PERIODE_PERSO
+    ? bornesPersonnalisees(perioDu, perioAu)
+    : (periodeIndex === null ? null : [periodes()[periodeIndex][1], periodes()[periodeIndex][2]]);
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
   // ⚠ RELEVÉ LE 05/09/2026 (question de Timo : « les ventes et les proformas
   // sont-ils cloisonnés ? ») : cette liste lisait db.proformas BRUT. Le
@@ -1006,11 +1017,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // (numero_avant_collision) reste cherchable — c'est LUI qui figure sur le
   // reçu papier déjà remis au client avant la réparation.
   const listeFiltree = (!qListe ? liste : liste.filter((x) => correspond(`${numeroRecu(x)} ${x.numero_avant_collision || ""} ${x.client || ""} ${x.tel || ""}`, qListe)))
-    .filter((x) => periodeIndex === null || inP(x.date, periodes()[periodeIndex][1], periodes()[periodeIndex][2]))
+    .filter((x) => !bornesPeriode || inP(x.date, bornesPeriode[0], bornesPeriode[1]))
     .filter((x) => !filtrePaiement || x.paiement === filtrePaiement)
     .slice().sort(triDesc);
   const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => correspond(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`, qListe)))
-    .filter((x) => periodeIndex === null || inP(x.date, periodes()[periodeIndex][1], periodes()[periodeIndex][2]))
+    .filter((x) => !bornesPeriode || inP(x.date, bornesPeriode[0], bornesPeriode[1]))
     .slice().sort(triDesc);
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
@@ -1224,12 +1235,29 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               (Ventes et Proformas — une proforma a aussi une date), contrairement
               au filtre de paiement (Crédit/Espèces...) qui n'a pas de sens pour
               une proforma, simple offre de prix jamais réellement encaissée. */}
-          <select value={periodeIndex === null ? "" : periodeIndex} onChange={(e) => setPeriodeIndex(e.target.value === "" ? null : Number(e.target.value))} className={`${inputCls} sm:w-40`}>
+          <select value={periodeIndex === null ? "" : periodeIndex}
+            onChange={(e) => {
+              const v = e.target.value;
+              setPeriodeIndex(v === "" ? null : (v === PERIODE_PERSO ? PERIODE_PERSO : Number(v)));
+            }} className={`${inputCls} sm:w-40`}>
             <option value="">Toute période</option>
             {periodes().slice(0, 4).map(([label], idx) => (
               <option key={label} value={idx}>{label}</option>
             ))}
+            <option value={PERIODE_PERSO}>✏️ Personnaliser…</option>
           </select>
+          {/* ⚠ Les deux cases n'apparaissent QUE si on les a demandées : le
+              filtre reste aussi simple qu'avant pour qui n'en a pas besoin.
+              Et la phrase à droite DIT la période réellement appliquée —
+              deux dates saisies à l'envers sont remises dans l'ordre, et on
+              ne le fait pas en silence. */}
+          {periodeIndex === PERIODE_PERSO && (
+            <>
+              <input type="date" value={perioDu} onChange={(e) => setPerioDu(e.target.value)} className={`${inputCls} sm:w-40`} title="Du" />
+              <input type="date" value={perioAu} onChange={(e) => setPerioAu(e.target.value)} className={`${inputCls} sm:w-40`} title="Au" />
+              <span className="text-xs font-bold text-sky-800 self-center">{libellePeriodePersonnalisee(perioDu, perioAu)}</span>
+            </>
+          )}
         </div>
         {vueListe === "ventes" && (
           <div className="px-4 py-2 border-b border-slate-100 bg-white flex gap-1.5 flex-wrap">

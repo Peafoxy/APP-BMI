@@ -10080,5 +10080,48 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// ✏️ UNE PÉRIODE À SOI DANS 💰 VENTES (Timo, 19/09/2026)
+// « Pour filtrer les ventes ou proforma, il n'y a pas personnaliser…
+//  ajouter. » Les cinq périodes toutes faites ne répondent pas à « du 3 au
+// 12 ». ⚠ Le vrai risque n'est pas la règle (trois lignes) : c'est que le
+// filtre s'applique aux VENTES et pas aux PROFORMAS, ou l'inverse — l'écran
+// afficherait alors une période pour une liste et pas pour l'autre, sans que
+// rien ne le dise.
+// ═══════════════════════════════════════════════════════════
+titre("✏️ Personnaliser la période (💰 Ventes)");
+{
+  const b = C.bornesPersonnalisees;
+  test("deux dates dans l'ordre sont gardées telles quelles",
+    b("2026-09-12", "2026-09-18").join("|") === "2026-09-12|2026-09-18");
+  test("★ deux dates À L'ENVERS sont remises dans l'ordre (un filtre n'est pas un geste d'argent)",
+    b("2026-09-18", "2026-09-12").join("|") === "2026-09-12|2026-09-18");
+  test("★ seul « du » : la fin reste OUVERTE", b("2026-09-12", "").join("|") === "2026-09-12|9999-12-31");
+  test("★ seul « au » : le début reste OUVERT", b("", "2026-09-18").join("|") === "0000-01-01|2026-09-18");
+  test("rien des deux : tout passe", b("", "").join("|") === "0000-01-01|9999-12-31");
+  test("une borne est bornée au jour (une date horodatée ne casse rien)",
+    b("2026-09-12T10:30:00", "2026-09-18").join("|") === "2026-09-12|2026-09-18");
+
+  const L = C.libellePeriodePersonnalisee;
+  test("★ l'écran DIT la période appliquée", L("2026-09-12", "2026-09-18") === "Du 12/09/2026 au 18/09/2026");
+  test("★ …y compris quand les dates ont été remises dans l'ordre (jamais en silence)",
+    L("2026-09-18", "2026-09-12") === "Du 12/09/2026 au 18/09/2026");
+  test("une seule borne se lit en français", L("2026-09-12", "") === "Depuis le 12/09/2026" && L("", "2026-09-18") === "Jusqu'au 18/09/2026");
+  test("deux cases vides ne mentent pas", L("", "") === "Toute période");
+
+  const v = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ l'option « Personnaliser » est proposée après les cinq périodes",
+    /<option value=\{PERIODE_PERSO\}>✏️ Personnaliser…<\/option>/.test(v));
+  test("★ les deux cases n'apparaissent QUE si on les demande",
+    /\{periodeIndex === PERIODE_PERSO && \(/.test(v) && (v.match(/type="date"/g) || []).length >= 2);
+  test("★★ UN SEUL calcul de bornes, lu par les DEUX listes — ventes et proformas ne peuvent pas diverger",
+    /const bornesPeriode = periodeIndex === PERIODE_PERSO/.test(v)
+    && (v.match(/!bornesPeriode \|\| inP\(x\.date, bornesPeriode\[0\], bornesPeriode\[1\]\)/g) || []).length === 2);
+  test("★ l'ancien filtre « une période toute faite » marche toujours (index numérique)",
+    /periodes\(\)\[periodeIndex\]\[1\], periodes\(\)\[periodeIndex\]\[2\]/.test(v));
+  test("la règle vit dans lib/calculs.js, pas dans l'écran",
+    !/function bornesPersonnalisees/.test(v) && /export function bornesPersonnalisees/.test(readFileSync("src/lib/calculs.js", "utf8")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

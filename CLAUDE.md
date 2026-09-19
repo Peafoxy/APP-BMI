@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1671 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1686 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -759,6 +759,30 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+
+### ✏️ UNE PÉRIODE À SOI DANS 💰 VENTES (19/09/2026)
+- Timo, devant le filtre : « pour filtrer les ventes ou proforma, il n'y a
+  pas personnaliser… ajouter ». Les cinq périodes toutes faites ne répondent
+  pas à « du 3 au 12 » — la question qu'on se pose devant un client, ou quand
+  on ne se rappelle que la semaine d'une vente. Option **« ✏️ Personnaliser… »**
+  après les cinq, et DEUX cases de date qui n'apparaissent **que si on les
+  demande** : le filtre reste aussi simple qu'avant pour qui n'en a pas besoin.
+- Règle pure `bornesPersonnalisees` / `libellePeriodePersonnalisee`
+  (lib/calculs.js, à côté de `periodes()`). **Une borne vide reste OUVERTE**
+  (« depuis le 3 », « jusqu'au 12 ») : on ne force personne à saisir deux
+  dates pour en chercher une seule. **Deux dates à l'envers sont remises dans
+  l'ordre** — un filtre n'est pas un geste d'argent, et un refus n'apprendrait
+  rien — ⚠ **mais jamais en silence** : l'écran ÉCRIT à côté la période
+  réellement appliquée (« Du 12/09/2026 au 18/09/2026 »).
+- ⚠⚠ **LE VRAI RISQUE N'EST PAS LA RÈGLE, C'EST LA DIVERGENCE** : le filtre
+  vaut pour les ventes ET les proformas. Un seul calcul (`bornesPeriode`) est
+  lu par les deux listes ; le banc compte les deux usages, et le contrôle a
+  été éprouvé en ne filtrant qu'une des deux : il tombe.
+- Le sélecteur d'origine (index numérique dans `periodes()`) n'a pas bougé :
+  **rien ne change pour qui ne touche pas à la nouvelle option.**
+- Écrite dans calculs.js pour que d'autres écrans puissent la reprendre —
+  **mais posée dans 💰 Ventes SEULEMENT**, parce que c'est ce qui a été
+  demandé. Le tableau de bord et 🔒 Caisse gardent leur sélecteur tel quel.
 
 ### 🏦 Les banques, et le moyen de paiement en BOUTONS (15/09/2026)
 - Timo, dans l'ordre : **« et si ce mode était à sélectionner ? »** (la
