@@ -1,4 +1,4 @@
-# WhatsApp depuis le numéro BMI — état au 19/09/2026 (REPRIS par Timo)
+# WhatsApp depuis le numéro BMI — état au 19/09/2026 (RACCORDÉ ✅)
 
 Déplacé de CLAUDE.md le 06/09/2026, mot pour mot. **Timo a REPRIS le sujet
 lui-même le 19/09/2026** (« je suis revenu sur ycloud pour scanner ») — la
@@ -104,3 +104,48 @@ des messages »**, avec une liste de trois choix :
 pour qu'on ne se repose plus la question. ⚠ Il doit être celui du TÉLÉPHONE
 qu'on a en main au moment de scanner : seul l'appareil principal du numéro
 peut scanner le QR.
+
+### ✅ 19/09/2026 — LE RACCORDEMENT EST FAIT (« Connected »)
+
+Capture Timo, YCloud → **WhatsApp accounts** :
+
+| | |
+|---|---|
+| Compte | **bmi togo** |
+| WABA ID | **885440708797061** (identifiant de compte, PAS un secret) |
+| Propriétaire | BM : BMI Togo |
+| Numéro | **+228 99 96 84 88** |
+| **Statut** | **● Connected** |
+| Limite | **250 clients distincts / jour** |
+| Qualité | Unknown (normal : aucun message envoyé) |
+
+Le parcours a été : YCloud → WhatsApp accounts → Coexistence → fenêtre Meta →
+choix du numéro DÉJÀ ENREGISTRÉ (jamais « saisir un nouveau numéro ») → QR
+scanné depuis le téléphone BMI → « Votre compte est associé à YCloud » →
+Terminer. **La coexistence tient** : le numéro reste sur WhatsApp Business
+dans le téléphone (appels, discussions, réponses des clients).
+
+**CE QUI RESTE, ET QUI N'EST PAS RIEN :**
+
+1. ⚠ **La limite de 250 clients distincts par jour** est celle d'un compte non
+   vérifié — c'était prévu (voir plus haut) et c'est large pour BMI. La
+   vérification d'entreprise la lève ; un petit triangle ⚠ à côté de
+   « Owned by BM: BMI Togo » le rappelle sur la console.
+2. ⚠⚠ **LES MODÈLES DE MESSAGES (« templates ») SONT LE VRAI PASSAGE OBLIGÉ.**
+   Hors de la fenêtre de 24 h ouverte par le client, Meta n'accepte QUE des
+   messages écrits d'avance et APPROUVÉS par elle. Or c'est précisément notre
+   cas : un devis prêt, des identifiants, un lien de PV, une relance partent
+   quand NOUS le décidons, pas en réponse au client. **Sans modèle approuvé,
+   rien ne part.** Ils s'écrivent dans YCloud (bouton « Manage Template ») et
+   Meta les valide (quelques heures à 1 jour). À écrire AVEC Timo : le texte
+   est commercial, pas technique.
+3. **Côté application, RIEN n'est construit** — et rien ne le sera sans sa
+   demande. Le plan reste celui du 02/09 : `api/whatsapp.js` (**clé YCloud en
+   variable Vercel, JAMAIS dans le code ni préfixée `VITE_`**), remplacement
+   des ouvertures `wa.me` **avec repli** sur l'ouverture WhatsApp actuelle si
+   le serveur refuse (un message n'est jamais perdu en silence), journal des
+   envois (envoyé / livré / lu / échec + motif), file hors ligne, et
+   **verrou formation : un compte d'entraînement n'envoie JAMAIS un vrai
+   WhatsApp**.
+4. Meta a annoncé qu'elle **examine l'entreprise** et recontacte **sous 24 h
+   s'il y a un problème**.
