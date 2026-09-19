@@ -82,3 +82,25 @@ message depuis BMI-Gestion. C'est une étape d'infrastructure. Tout ce qui est
 décrit plus haut (`api/whatsapp.js`, remplacement des ouvertures `wa.me` avec
 repli, journal des envois, file hors ligne, **verrou formation**) reste À
 CONSTRUIRE, et **seulement quand il le demandera**.
+
+### Le même jour, l'étape suivante : « sous quelle identité envoyer ? »
+
+Capture Timo dans la fenêtre Meta (« Embedded Signup »,
+`business.facebook.com/…/dialog/oauth`) : **« Ajoutez votre numéro de
+téléphone WhatsApp — Choisissez sous quelle identité vous souhaitez envoyer
+des messages »**, avec une liste de trois choix :
+
+1. « Saisir un nouveau numéro de téléphone » — **coché d'office, et c'est un
+   piège** : il créerait un canal sur un numéro NEUF, c'est-à-dire la voie (2)
+   que Timo a REFUSÉE le 02/09 (« les clients appellent sur WhatsApp, un
+   numéro API ne reçoit pas d'appel »).
+2. « Utiliser un nom affiché avec un numéro virtuel à la place » — pas son
+   numéro du tout.
+3. ✅ **« bmi togo · +228 99 96 84 88 · BMI Togo »**, marqué *Enregistré* —
+   **LE BON**. C'est le vrai numéro BMI, déjà sur WhatsApp Business ; c'est
+   lui qui ouvre la COEXISTENCE, donc le code QR.
+
+**LE NUMÉRO BMI EST +228 99 96 84 88** (nom affiché « BMI Togo ») — noté ici
+pour qu'on ne se repose plus la question. ⚠ Il doit être celui du TÉLÉPHONE
+qu'on a en main au moment de scanner : seul l'appareil principal du numéro
+peut scanner le QR.
