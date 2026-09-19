@@ -10,6 +10,7 @@ import { uAlert, uConfirm } from "../../components/ui";
 import { bloquerSiLecture } from "../../lib/calculs";
 import { brouillonsDe, retirerBrouillon } from "./devisCommun";
 import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp } from "./Partages";
+import { messageDevisEnvoye } from "../../lib/whatsappModeles";
 
 export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
   const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
@@ -41,14 +42,14 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
       dbApres: retirerBrouillon(dbApres, profile.id, b.id), compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`],
     });
-    if (envoye) uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
+    if (envoye) uAlert(messageDevisEnvoye(compte.nom, envoye.auto));
   };
 
   return (
     <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
       <div className="font-bold mb-1">📝 Mes brouillons</div>
       <div className="text-xs text-slate-500 mb-3">
-        Des devis enregistrés sans être envoyés. Reprendre rouvre le volet avec tout ce qui avait été saisi ; Envoyer les dépose dans l'espace du client et ouvre WhatsApp.
+        Des devis enregistrés sans être envoyés. Reprendre rouvre le volet avec tout ce qui avait été saisi ; Envoyer les dépose dans l'espace du client et l'en prévient par WhatsApp.
         Une fois envoyé ou converti en vente, le brouillon disparaît.
       </div>
       {liste.length === 0 ? (

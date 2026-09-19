@@ -103,6 +103,18 @@ export const MOTIF_FORMATION = "Espace formation : aucun vrai message WhatsApp n
 // le motif le dit, pour qu'on ne le prenne pas pour un défaut.
 export const MOTIF_PREMIER_CONTACT = "Premier message à ce client : il porte ses identifiants, il part de votre WhatsApp.";
 
+// ⚠⚠ DEUX SORTES DE MOTIFS, ET ILS NE SE DISENT PAS PAREIL (19/09/2026,
+// Timo : « quand je clique sur relancer, ça ouvre le WhatsApp sur
+// l'ordinateur »). Le repli marchait — mais le motif était CALCULÉ puis JETÉ,
+// donc personne ne pouvait savoir si c'était voulu ou si quelque chose
+// n'allait pas. **Un repli muet ressemble à une panne.**
+//   • ATTENDU (formation, premier contact) : c'est la règle qui joue, tout
+//     va bien, on ne dérange personne avec une fenêtre.
+//   • TOUT LE RESTE (serveur pas configuré, modèle pas encore approuvé,
+//     réseau, numéro illisible) : ça SE DIT, sinon on cherche à l'aveugle.
+export const MOTIFS_ATTENDUS = [MOTIF_FORMATION, MOTIF_PREMIER_CONTACT];
+export const motifAttendu = (motif) => MOTIFS_ATTENDUS.includes(String(motif || ""));
+
 export function critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact = false, enLigne = true }) {
   if (espaceFormation) return MOTIF_FORMATION;
   if (premierContact) return MOTIF_PREMIER_CONTACT;
@@ -219,6 +231,23 @@ export const MOTIF_ECHEC = {
 export function motifEchecWhatsApp({ statut, erreur } = {}) {
   return MOTIF_ECHEC[statut] || String(erreur || "L'envoi automatique n'a pas abouti.");
 }
+
+// La phrase exacte que l'écran montre quand l'envoi du numéro BMI n'a pas eu
+// lieu pour une raison qui n'était PAS prévue. Elle dit aussi ce qui s'est
+// passé à la place — sinon on croit que rien n'est parti.
+// ⚠ Ce que l'écran annonce APRÈS l'envoi d'un devis. Il ne peut plus dire
+// « WhatsApp s'ouvre » dans tous les cas : quand le message part du numéro
+// BMI, WhatsApp ne s'ouvre PAS. Une phrase qui décrit autre chose que ce qui
+// vient de se passer fait douter de tout le reste. Écrite UNE fois, pour les
+// deux endroits qui envoient un devis (le volet, et Mes brouillons).
+export const messageDevisEnvoye = (nomClient, auto) =>
+  `✅ Devis envoyé dans l'espace de ${nomClient}.\n\n`
+  + (auto
+      ? "Le client a reçu un message WhatsApp du numéro BMI."
+      : "WhatsApp s'ouvre avec ses identifiants et le lien.");
+
+export const messageRepli = (motif) =>
+  `📲 Le message n'est pas parti du numéro BMI.\n\n${motif}\n\nWhatsApp s'ouvre avec le texte complet : vous pouvez l'envoyer vous-même, comme avant.`;
 
 // ---------------------------------------------------------------
 // LE NUMÉRO, TEL QUE WHATSAPP LE VEUT

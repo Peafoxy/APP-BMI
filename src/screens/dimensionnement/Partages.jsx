@@ -8,7 +8,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
 import { envoyerModele } from "../../whatsapp";
-import { envoiDevisDisponible, clientDejaContacte, traceEnvoi } from "../../lib/whatsappModeles";
+import { envoiDevisDisponible, clientDejaContacte, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
@@ -341,7 +341,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
-    uAlert(`✅ Devis envoyé dans l'espace de ${compte.nom}.\n\nWhatsApp s'ouvre avec ses identifiants et le lien.`);
+    uAlert(messageDevisEnvoye(compte.nom, envoye.auto));
   };
 
   const convertir = (panier, pctRemise) => {
@@ -422,7 +422,7 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         </div>
       )}
       <div className="text-xs text-slate-500 mb-3">
-        Le devis est déposé dans son espace client, et WhatsApp s'ouvre avec ses identifiants et le lien. S'il n'a pas encore de compte, il est créé automatiquement : le nom et le numéro suffisent.
+        Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI, ou depuis votre WhatsApp pour son tout premier message, qui porte ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom et le numéro suffisent.
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 items-end">
         <Field label="Client destinataire">
@@ -627,6 +627,9 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     texteRepli: lignesMsg.join("\n"),
     demanderConfirmation: uConfirm,
   });
+  // ⚠ Un repli muet ressemble à une panne : on DIT pourquoi, sauf quand le
+  // motif est attendu (formation, premier message qui porte les identifiants).
+  if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
   // La trace se pose seulement si le message est VRAIMENT parti du numéro
   // BMI : une ouverture WhatsApp ne prouve rien (personne ne sait si le
   // vendeur a appuyé sur envoyer), et l'écrire serait rassurer à tort.
@@ -640,5 +643,9 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
         : u)),
     });
   }
-  return true;
+  // ⚠ On rend CE QUI S'EST PASSÉ, pas seulement « c'est parti » : l'écran doit
+  // pouvoir dire la vérité ensuite (WhatsApp s'est ouvert, ou le client a
+  // reçu le message du numéro BMI). Un objet reste « vrai » pour les deux
+  // appelants, qui testent simplement `if (envoye)`.
+  return { ok: true, auto: !!r.auto };
 }

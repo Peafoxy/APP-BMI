@@ -10,7 +10,7 @@ import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
 import { envoyerModele } from "../whatsapp";
-import { envoiRelanceDevis, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
+import { envoiRelanceDevis, traceEnvoi, libelleTrace, motifAttendu, messageRepli } from "../lib/whatsappModeles";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
@@ -166,6 +166,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       texteRepli: texte,
       demanderConfirmation: uConfirm,
     });
+    // ⚠ UN REPLI MUET RESSEMBLE À UNE PANNE. Si l'envoi du numéro BMI n'a pas
+    // eu lieu pour une raison qu'on n'attendait pas (serveur pas encore
+    // configuré, modèle pas encore approuvé, réseau), on le DIT. Les motifs
+    // attendus — formation, premier message d'un client — ne dérangent
+    // personne : c'est la règle qui joue, et elle est connue.
+    if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
     if (!r.parti) return;
     const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, quand: today(), heure: heureCourte(), id: r.id }) : null;
     save({

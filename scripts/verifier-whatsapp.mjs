@@ -193,5 +193,36 @@ test("★ les écrans passent l'espace du DEVIS, jamais celui de la personne",
   /espaceFormation: espaceDuDevis\(db, d, profile\)/.test(srcDevis)
   && /espaceFormation: !!espaceDeLaFiche\(devisMarque\)/.test(srcPartages));
 
+// ──────────────────────────────────────────────────────────────
+titre("⑬ UN REPLI MUET RESSEMBLE À UNE PANNE (Timo, 19/09/2026)");
+// « Quand je clique sur relancer, ça ouvre le WhatsApp sur l'ordinateur » —
+// le repli marchait, mais le motif était CALCULÉ PUIS JETÉ : impossible de
+// savoir si c'était voulu ou si quelque chose n'allait pas.
+test("★ formation et premier contact sont ATTENDUS : aucune fenêtre",
+  M.motifAttendu(M.MOTIF_FORMATION) && M.motifAttendu(M.MOTIF_PREMIER_CONTACT));
+test("★ un serveur pas configuré SE DIT", !M.motifAttendu(M.MOTIF_ECHEC[500]));
+test("★ une session expirée aussi", !M.motifAttendu(M.MOTIF_ECHEC[401]));
+test("★ un refus de WhatsApp aussi (motif rendu tel quel)", !M.motifAttendu("Template not approved"));
+test("un motif vide n'est pas « attendu » par défaut", !M.motifAttendu("") && !M.motifAttendu(null));
+test("★ le message de repli DIT ce qui s'est passé à la place",
+  /WhatsApp s'ouvre avec le texte complet/.test(M.messageRepli("peu importe"))
+  && M.messageRepli("PANNE X").includes("PANNE X"));
+test("★ les deux écrans montrent le motif, et seulement s'il n'est pas attendu",
+  /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\);/.test(srcDevis)
+  && /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\);/.test(srcPartages));
+
+titre("⑭ L'ÉCRAN NE DÉCRIT JAMAIS AUTRE CHOSE QUE CE QUI VIENT DE SE PASSER");
+test("★ parti du numéro BMI → on ne promet pas que WhatsApp s'ouvre",
+  !/WhatsApp s'ouvre/.test(M.messageDevisEnvoye("AMA", true)) && /numéro BMI/.test(M.messageDevisEnvoye("AMA", true)));
+test("★ envoi à la main → WhatsApp s'ouvre, comme avant",
+  /WhatsApp s'ouvre/.test(M.messageDevisEnvoye("AMA", false)));
+test("les deux nomment le client", ["AMA"].every((n) => M.messageDevisEnvoye(n, true).includes(n) && M.messageDevisEnvoye(n, false).includes(n)));
+test("★ les DEUX endroits qui envoient un devis passent par cette phrase — aucune copie",
+  /uAlert\(messageDevisEnvoye\(compte\.nom, envoye\.auto\)\)/.test(srcPartages)
+  && /uAlert\(messageDevisEnvoye\(compte\.nom, envoye\.auto\)\)/.test(lire("src/screens/dimensionnement/Brouillons.jsx"))
+  && !/WhatsApp s'ouvre avec ses identifiants/.test(srcPartages)
+  && !/WhatsApp s'ouvre avec ses identifiants/.test(lire("src/screens/dimensionnement/Brouillons.jsx")));
+test("★ l'envoi rend CE QUI S'EST PASSÉ, pas un simple oui", /return \{ ok: true, auto: !!r\.auto \};/.test(srcPartages));
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

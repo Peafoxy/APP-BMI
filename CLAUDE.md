@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 71  : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence)
+npm run verifier-whatsapp        # 83  : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1824,6 +1824,19 @@ lit mal est pire qu'un banc absent).
   elle ne s'écrit **que si le message est parti du numéro BMI** : une
   ouverture WhatsApp ne prouve rien (personne ne sait si le vendeur a appuyé).
   La pastille de 📋 Tous les devis passe au vert et dit « du n° BMI ».
+- ⚠⚠ **UN REPLI MUET RESSEMBLE À UNE PANNE** (Timo, 19/09/2026, dès le
+  premier essai : « quand je clique sur relancer, ça ouvre le WhatsApp sur
+  l'ordinateur »). Le repli FAISAIT son travail — mais le motif était calculé
+  **puis JETÉ** : impossible de savoir si c'était voulu ou si quelque chose
+  n'allait pas. Depuis, `motifAttendu` sépare les deux : **formation et
+  premier contact ne dérangent personne** (c'est la règle qui joue) ; **tout
+  le reste SE DIT** (`messageRepli` : serveur pas configuré, modèle pas encore
+  approuvé, réseau, numéro illisible), avec ce qui s'est passé à la place.
+  ⚠ **Et l'écran ne décrit jamais autre chose que ce qui vient de se passer** :
+  « WhatsApp s'ouvre avec ses identifiants » était écrit en dur à DEUX endroits
+  (le volet et Mes brouillons) plus dans une ligne d'aide — faux dès que le
+  message part du numéro BMI. UNE phrase, `messageDevisEnvoye(nom, auto)`, et
+  `envoyerDevisEtOuvrirWhatsApp` rend `{ ok, auto }` au lieu de `true`.
 - **RIEN À COLLER DANS SUPABASE.** Deux variables Vercel, côté serveur
   seulement : **`YCLOUD_API_KEY`** et **`WHATSAPP_NUMERO_BMI`**. ⚠ **Jamais
   préfixées `VITE_`** (Vite les embarquerait dans le paquet du navigateur) —
