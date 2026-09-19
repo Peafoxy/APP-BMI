@@ -7,7 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { uid, normPaiement, lignesVente, caVente, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
+import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES } from "./constants";
 import { mettreAuPanier } from "./panier";
@@ -2323,6 +2323,42 @@ export function libellePeriodePersonnalisee(du, au) {
   if (a === "0000-01-01") return `Jusqu'au ${dFR(b)}`;
   if (b === "9999-12-31") return `Depuis le ${dFR(a)}`;
   return `Du ${dFR(a)} au ${dFR(b)}`;
+}
+
+// ---------------------------------------------------------------
+// 💰 LA RECETTE DE CE QUI EST AFFICHÉ
+// ---------------------------------------------------------------
+// Timo, 19/09/2026, juste après la période à soi : « à côté des dates,
+// ajouter recette : total des ventes sur la période choisie ».
+//
+// ⚠ ELLE SE CALCULE SUR LA LISTE AFFICHÉE, jamais sur autre chose. Un total
+// qui ne serait pas la somme de ce qu'on a sous les yeux serait invérifiable,
+// et donc incroyable : il suffirait d'une ligne pour qu'on cesse de s'y fier.
+// Elle suit donc TOUS les filtres — période, moyen de paiement, recherche —
+// et c'est ce qui la rend utile (« recette espèces du 3 au 12 »).
+//
+// ⚠ ET ELLE SE LIT EN DEUX TEMPS QUAND IL Y A EU UNE REPRISE. `totalVente`
+// est ce que le client a payé — la colonne TOTAL de la liste, celle qu'on
+// additionne des yeux. Mais un article repris a été REMBOURSÉ : l'argent
+// n'est plus dans la caisse. On donne donc les deux, jamais un seul :
+// le brut (qui correspond à la colonne) ET le net. Afficher le net tout seul
+// ferait mentir l'addition ; afficher le brut tout seul ferait mentir la
+// caisse.
+export function recetteDesVentes(ventes) {
+  const l = Array.isArray(ventes) ? ventes : [];
+  const brut = l.reduce((s, v) => s + totalVente(v), 0);
+  const repris = l.reduce((s, v) => s + montantRepris(v), 0);
+  return { nb: l.length, brut, repris, net: Math.max(0, brut - repris) };
+}
+
+// ⚠ UNE PROFORMA N'EST PAS UNE RECETTE — c'est une offre de prix, que
+// personne n'a encaissée. L'écran le dit déjà en haut de la liste
+// (« non comptabilisées dans le chiffre d'affaires ») ; le total porte donc
+// un AUTRE mot, et cette fonction séparée est là pour qu'on ne puisse pas
+// les confondre en réutilisant l'autre par distraction.
+export function totalDesProformas(liste) {
+  const l = Array.isArray(liste) ? liste : [];
+  return { nb: l.length, total: l.reduce((s, pf) => s + Number(pf.total || 0), 0) };
 }
 
 // ============ REÇU CLIENT ============

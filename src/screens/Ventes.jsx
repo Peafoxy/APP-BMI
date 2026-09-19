@@ -19,7 +19,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -1258,6 +1258,32 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               <span className="text-xs font-bold text-sky-800 self-center">{libellePeriodePersonnalisee(perioDu, perioAu)}</span>
             </>
           )}
+          {/* 💰 LA RECETTE, à côté des dates (Timo, 19/09/2026).
+              ⚠ Elle est la somme de ce qui est AFFICHÉ — elle suit donc aussi
+              le moyen de paiement et la recherche, pas seulement la période.
+              Un total qu'on ne peut pas retrouver en additionnant les lignes
+              sous ses yeux ne serait pas vérifiable, donc pas croyable.
+              ⚠ Et s'il y a eu une reprise, on donne les DEUX chiffres : le
+              brut correspond à la colonne TOTAL, le net à ce qui est resté
+              dans la caisse. */}
+          {vueListe === "ventes" ? (() => {
+            const r = recetteDesVentes(listeFiltree);
+            return (
+              <span className="text-sm font-bold text-sky-800 self-center ml-auto">
+                💰 Recette : {fmt(r.brut)} <span className="font-semibold text-slate-500">· {r.nb} vente{r.nb > 1 ? "s" : ""}</span>
+                {r.repris > 0 && (
+                  <span className="font-semibold text-amber-700"> — dont {fmt(r.repris)} repris, net {fmt(r.net)}</span>
+                )}
+              </span>
+            );
+          })() : (() => {
+            const t = totalDesProformas(proformasFiltres);
+            return (
+              <span className="text-sm font-bold text-slate-600 self-center ml-auto">
+                Total des proformas : {fmt(t.total)} <span className="font-semibold text-slate-500">· {t.nb}</span>
+              </span>
+            );
+          })()}
         </div>
         {vueListe === "ventes" && (
           <div className="px-4 py-2 border-b border-slate-100 bg-white flex gap-1.5 flex-wrap">

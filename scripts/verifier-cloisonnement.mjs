@@ -10123,5 +10123,62 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
     !/function bornesPersonnalisees/.test(v) && /export function bornesPersonnalisees/.test(readFileSync("src/lib/calculs.js", "utf8")));
 }
 
+// ═══════════════════════════════════════════════════════════
+// 💰 LA RECETTE À CÔTÉ DES DATES (Timo, 19/09/2026)
+// « À côté des dates, ajouter recette : total des ventes sur la période
+//  choisie. » ⚠ Le danger d'un total affiché n'est pas le calcul : c'est
+// qu'il porte sur AUTRE CHOSE que ce qu'on a sous les yeux. Un chiffre qu'on
+// ne peut pas retrouver en additionnant les lignes visibles est invérifiable,
+// donc on cesse de s'y fier — et on cesse aussi de se fier au reste.
+// ═══════════════════════════════════════════════════════════
+titre("💰 La recette de ce qui est affiché (💰 Ventes)");
+{
+  const vente = (n, total, repris) => ({
+    id: `v${n}`, date: "2026-09-18",
+    articles: [{ article: "Article", qte: 1, pu: total }],
+    ...(repris ? { reprises: [{ montant: repris }] } : {}),
+  });
+  const R = C.recetteDesVentes;
+  test("la recette additionne ce qu'ont payé les clients", R([vente(1, 38500), vente(2, 71000)]).brut === 109500);
+  test("…et compte les ventes", R([vente(1, 1000), vente(2, 2000), vente(3, 3000)]).nb === 3);
+  test("une liste vide vaut zéro, jamais un vide à l'écran", R([]).brut === 0 && R([]).nb === 0);
+  test("une liste absente ne casse rien", R(null).brut === 0 && R(undefined).nb === 0);
+  test("★★ une REPRISE se voit : le brut reste celui de la colonne TOTAL…",
+    R([vente(1, 38500), vente(2, 71000, 12000)]).brut === 109500);
+  test("★★ …et le NET dit ce qui est resté dans la caisse",
+    R([vente(1, 38500), vente(2, 71000, 12000)]).net === 97500 && R([vente(1, 38500), vente(2, 71000, 12000)]).repris === 12000);
+  test("sans reprise, brut et net sont le même chiffre (pas de second nombre pour rien)",
+    R([vente(1, 50000)]).brut === R([vente(1, 50000)]).net && R([vente(1, 50000)]).repris === 0);
+  test("une reprise plus grande que la vente ne rend jamais un négatif", R([vente(1, 1000, 9999)]).net === 0);
+
+  const T = C.totalDesProformas;
+  test("★ une PROFORMA a son propre total, séparé — ce n'est pas une recette",
+    T([{ total: 1000 }, { total: 2000 }]).total === 3000 && T([]).total === 0);
+
+  const v = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★★ la recette est calculée sur la liste AFFICHÉE (listeFiltree), jamais sur la liste entière",
+    /recetteDesVentes\(listeFiltree\)/.test(v) && !/recetteDesVentes\(liste\)/.test(v));
+  test("★ le total des proformas aussi (proformasFiltres)",
+    /totalDesProformas\(proformasFiltres\)/.test(v) && !/totalDesProformas\(proformasListe\)/.test(v));
+  // ⚠ CE CONTRÔLE A ÉTÉ REFAIT LE 19/09/2026, le jour même : la première
+  // version cherchait deux textes et les trouvait tous les deux même quand on
+  // collait « Recette » DEVANT le total des proformas. Elle rassurait sans
+  // protéger. On compte donc les occurrences : le mot ne s'écrit QU'UNE fois
+  // dans tout l'écran, et jamais du côté des proformas.
+  test("★★ le mot « Recette » ne s'écrit QU'UNE fois, et jamais sur les proformas",
+    (v.match(/Recette/g) || []).length === 1
+    && /💰 Recette :/.test(v)
+    && /Total des proformas :/.test(v)
+    // ⚠ On regarde la LIGNE du total des proformas, pas le fichier entier :
+    // une recherche trop large retombait sur le nom des fonctions importées
+    // (`recetteDesVentes, totalDesProformas`) et criait à tort.
+    && !/recette/i.test(v.split("\n").find((l) => l.includes("Total des proformas :")) || ""));
+  test("★ le montant repris s'affiche seulement s'il y en a un",
+    /\{r\.repris > 0 && \(/.test(v));
+  test("les deux règles vivent dans lib/calculs.js",
+    /export function recetteDesVentes/.test(readFileSync("src/lib/calculs.js", "utf8"))
+    && /export function totalDesProformas/.test(readFileSync("src/lib/calculs.js", "utf8")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

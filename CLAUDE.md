@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1686 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1700 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -783,6 +783,29 @@ lit mal est pire qu'un banc absent).
 - Écrite dans calculs.js pour que d'autres écrans puissent la reprendre —
   **mais posée dans 💰 Ventes SEULEMENT**, parce que c'est ce qui a été
   demandé. Le tableau de bord et 🔒 Caisse gardent leur sélecteur tel quel.
+- **💰 LA RECETTE À CÔTÉ DES DATES** (le jour même : « à côté des dates,
+  ajouter recette : total des ventes sur la période choisie »).
+  `recetteDesVentes` / `totalDesProformas` (calculs.js).
+  ⚠⚠ **ELLE PORTE SUR CE QUI EST AFFICHÉ**, jamais sur autre chose : elle suit
+  donc AUSSI le moyen de paiement et la recherche, pas seulement la période
+  (« recette espèces du 3 au 12 »). Un total qu'on ne peut pas retrouver en
+  additionnant les lignes sous ses yeux est invérifiable — donc on cesse de
+  s'y fier, et on cesse de se fier au reste. Le banc l'éprouve en la faisant
+  porter sur la liste entière : il tombe.
+  ⚠ **UNE REPRISE DONNE DEUX CHIFFRES, jamais un seul** : le brut correspond à
+  la colonne TOTAL (ce que les clients ont payé), le net à ce qui est resté
+  dans la caisse. Le net seul ferait mentir l'addition ; le brut seul ferait
+  mentir la caisse. Le second ne s'affiche que s'il y a eu une reprise.
+  ⚠ **« Recette » ne s'écrit JAMAIS sur les proformas** — une offre de prix
+  n'est pas encaissée : c'est « Total des proformas », et une fonction
+  SÉPARÉE, pour qu'on ne puisse pas les confondre par distraction.
+  ⚠⚠ **Le premier contrôle de ce point NE PROTÉGEAIT PAS** : il cherchait deux
+  textes et les trouvait tous les deux même quand on collait « Recette »
+  devant le total des proformas. Refait le jour même — on compte les
+  occurrences et on regarde LA LIGNE du total, pas le fichier entier (une
+  recherche trop large retombait sur le nom des fonctions importées et criait
+  à tort). **Un contrôle s'éprouve en remettant la faute, sinon on ne sait pas
+  s'il tient.**
 
 ### 🏦 Les banques, et le moyen de paiement en BOUTONS (15/09/2026)
 - Timo, dans l'ordre : **« et si ce mode était à sélectionner ? »** (la
