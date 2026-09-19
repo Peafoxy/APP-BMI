@@ -36,6 +36,14 @@ update public.users set data = data || '{\"salaire_base\":120000,\"virements\":[
 update public.users set data = data || '{\"salaire_base\":400000,\"primes\":[{\"mois\":\"2026-08\",\"montant\":25000}]}'::jsonb where id = 'TIMO';
 update public.users set data = data || '{\"nom\":\"CLIENTE\",\"role\":\"client\"}'::jsonb where id = 'SANSAUTH';
 insert into public.users (id, data) values ('CLI1', '{\"nom\":\"CLI1\",\"role\":\"client\"}');
+-- 18/09/2026 : la banque ET le numéro de compte, tels qu'ils étaient AVANT
+-- paie-2 — c'est-à-dire sur la fiche que tous les appareils téléchargent.
+update public.users set data = data || '{\"banque\":\"BTCI\",\"compte_bancaire\":\"0123456789\"}'::jsonb where id = 'KOSSI';
+update public.users set data = data || '{\"banque\":\"ECOBANK\",\"compte_bancaire\":\"999\"}'::jsonb where id = 'TIMO';
+-- Et une dépense « par virement », qui recopiait le numéro EN ENTIER.
+insert into public.depenses (id, data) values
+  ('DEP-VIR', '{\"boutique\":\"APESSITO\",\"categorie\":\"Commissions\",\"montant\":5000,\"moyen\":\"Virement bancaire\",\"banque\":\"BTCI\",\"compte_bancaire\":\"0123456789\"}'),
+  ('DEP-COURT', '{\"boutique\":\"APESSITO\",\"categorie\":\"Commissions\",\"montant\":100,\"banque\":\"ECOBANK\",\"compte_bancaire\":\"999\"}');
 " >/dev/null
 
 # ⚠ Supabase accorde AUTOMATIQUEMENT les droits sur toute table créée dans le
@@ -138,7 +146,40 @@ essai "il enregistre un virement" PASSE "$ADMIN" \
 essai "il crée une fiche de paie" PASSE "$ADMIN" "insert into public.paie (id, data) values ('AMA','{\"salaire_base\":90000}');"
 
 echo
-echo "▸ 6. Le retour en arrière remet tout en place"
+echo "▸ 6. paie-2 : le numéro de compte bancaire sort de la vue de tous"
+# ⚠ Timo, 18/09/2026 : « et les employés dans cette histoire, leurs données ne
+# sont-elles pas protégées ? ». Deux fuites du MÊME numéro — la fiche employé
+# que tous les appareils téléchargent, et la dépense d'un virement. Fermer
+# l'une sans l'autre n'aurait servi à rien.
+essai "AVANT : le numéro est bien sur la fiche employé (la fuite existe)" PASSE "$ADMIN" \
+  "select 1 from public.users where id = 'KOSSI' and data ->> 'compte_bancaire' = '0123456789';"
+essai "AVANT : et recopié EN ENTIER sur la dépense d'un virement" PASSE "$ADMIN" \
+  "select 1 from public.depenses where id = 'DEP-VIR' and data ->> 'compte_bancaire' = '0123456789';"
+
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/paie-2-compte-bancaire.sql >/dev/null 2>&1
+
+essai "★ APRÈS : plus AUCUN numéro sur une fiche employé" PASSE "$ADMIN" \
+  "select 1 where not exists (select 1 from public.users where data ? 'compte_bancaire');"
+essai "★ le numéro est retrouvé dans la fiche de PAIE, qui elle est protégée" PASSE "$ADMIN" \
+  "select 1 from public.paie where id = 'KOSSI' and data ->> 'compte_bancaire' = '0123456789';"
+essai "★ …et le déménagement n'a RIEN écrasé de ce qui s'y trouvait déjà" PASSE "$ADMIN" \
+  "select 1 from public.paie where id = 'KOSSI' and (data ->> 'salaire_base') = '120000' and data ? 'virements';"
+essai "★ LE NOM de la banque RESTE sur la fiche employé (voulu : un gérant qui paie une prime doit écrire vers quelle banque l'argent part)" PASSE "$ADMIN" \
+  "select 1 from public.users where id = 'KOSSI' and data ->> 'banque' = 'BTCI';"
+essai "★ la dépense ne garde que les quatre derniers chiffres" PASSE "$ADMIN" \
+  "select 1 from public.depenses where id = 'DEP-VIR' and data ->> 'compte_bancaire' = '…6789';"
+essai "★ un numéro déjà court n'est pas raccourci (ça n'apprendrait rien de plus)" PASSE "$ADMIN" \
+  "select 1 from public.depenses where id = 'DEP-COURT' and data ->> 'compte_bancaire' = '999';"
+essai "★ LE VENDEUR, lui, ne voit plus le numéro de son collègue nulle part" PASSE "$VEND" \
+  "select 1 where not exists (select 1 from public.paie where id = 'TIMO') and not exists (select 1 from public.users where data ? 'compte_bancaire');"
+essai "★ mais il voit toujours le SIEN (c'est sa donnée)" PASSE "$VEND" \
+  "select 1 from public.paie where id = 'KOSSI' and data ? 'compte_bancaire';"
+# Relancer un script doit rester sans danger : tous les nôtres le sont.
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/paie-2-compte-bancaire.sql >/dev/null 2>&1
+essai "★ relancer le script ne casse rien et ne raccourcit pas deux fois" PASSE "$ADMIN" \
+  "select 1 from public.depenses where id = 'DEP-VIR' and data ->> 'compte_bancaire' = '…6789';"
+
+echo "▸ 7. Le retour en arrière remet tout en place"
 # Bloc d'annulation extrait du fichier lui-même (lignes commençant par "--   ").
 sed -n '/EN CAS DE PROBLÈME/,/^-- ===/p' supabase/paie-1-table.sql \
   | grep '^--   ' | sed 's/^--   //' > "$D/rollback.sql"

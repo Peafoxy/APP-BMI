@@ -50,6 +50,20 @@ export const CHAMPS_PAIE = [
   "salaire_base", "taux_avancement", "evolutions_salaire", "primes", "avances",
   // Mouvements d'argent
   "virements", "credits",
+  // ⚠⚠ LE NUMÉRO DE COMPTE BANCAIRE (Timo, 18/09/2026 : « et les employés
+  // dans cette histoire, leurs données ne sont-elles pas protégées ? »).
+  // Il était resté sur la fiche employé — celle que TOUS les appareils
+  // connectés téléchargent. `securite-18` n'en protégeait que l'ÉCRITURE ;
+  // la LECTURE était ouverte, et l'écran le masquait (« …4321 »).
+  // **Masquer n'est pas protéger** : la donnée descendait quand même sur le
+  // téléphone de chacun, lisible par qui sait ouvrir une console.
+  //
+  // ⚠ Le NOM de la banque, lui, RESTE sur la fiche employé, volontairement :
+  // ce n'est pas un secret, et Timo a demandé le 14/09/2026 qu'un paiement
+  // par virement écrive VERS QUELLE BANQUE l'argent part. Or un gérant ou un
+  // chef d'équipe paient aussi des primes et des commissions : le lui retirer
+  // ferait tomber cette règle pour eux. Le numéro, lui, ne leur a jamais servi.
+  "compte_bancaire",
   // Pièces administratives et déclaratif CNSS
   "piece_type", "piece_num",
   "cnss_assujetti", "cnss_matricule", "cnss_numero_assurance", "cnss_mensuel",

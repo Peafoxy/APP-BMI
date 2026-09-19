@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1618 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1630 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -67,6 +67,7 @@ npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 118 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-paie              # 46  : la fiche de paie séparée, et le numéro de compte bancaire (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -1535,24 +1536,49 @@ lit mal est pire qu'un banc absent).
   une clé jamais un doigt, **année de naissance jamais demandée** (calculs.js :
   « publier l'âge de chacun »), champs de gestion réservés à l'admin
   (`securite-18`), rôle au principal (`securite-9`).
-- ⚠⚠ **LE TROU MESURÉ, à lui signaler** : **`banque` et `compte_bancaire` ne
-  sont PAS dans `CHAMPS_PAIE`** — ils restent sur la fiche employé, que TOUS
-  les appareils connectés téléchargent. `securite-18` n'en protège que
-  l'ÉCRITURE ; la LECTURE est ouverte. Le numéro est masqué à l'affichage
-  (`compteMasque`) — **mais masquer n'est pas protéger.** Le remède est celui
-  qui existe déjà : les faire passer dans `CHAMPS_PAIE` (la table et ses règles
-  existent, **rien à coller**). **Proposé à Timo le 18/09/2026, PAS ENCORE
-  lancé.**
+- ⚠⚠ **LE TROU, TROUVÉ ET FERMÉ (« lance le point 1 », 18/09/2026)** —
+  `compte_bancaire` n'était PAS dans `CHAMPS_PAIE` : il restait sur la fiche
+  employé, que TOUS les appareils connectés téléchargent. `securite-18` n'en
+  protégeait que l'ÉCRITURE ; la LECTURE était ouverte. L'écran le masquait
+  (`compteMasque`) — **mais masquer n'est pas protéger** : le numéro entier
+  descendait quand même sur le téléphone de chacun.
+  - ⚠⚠ **ET IL Y AVAIT UNE SECONDE PORTE, pire** : `mentionVirement`
+    recopiait le numéro **EN ENTIER** sur la dépense — et la table des
+    dépenses descend elle aussi sur tous les appareils (son filtre par
+    personne est côté application, jamais côté serveur). **Fermer la fiche
+    sans fermer ça n'aurait servi à rien.** Elle ne garde plus que les quatre
+    derniers chiffres (`compteMasque`), ce que l'écran affichait déjà — et
+    **rien ne lisait le numéro entier sur une dépense** : ni écran, ni export,
+    ni document (le banc le mesure, il ne le présume pas).
+  - ⚠ **LE NOM de la banque RESTE sur la fiche employé, volontairement** : ce
+    n'est pas un secret, et Timo a demandé le 14/09/2026 qu'un virement écrive
+    VERS QUELLE BANQUE l'argent part. Or **un gérant et un chef d'équipe
+    paient aussi** (prime d'installation, commission d'équipe) : le leur
+    retirer ferait tomber sa règle pour eux. Le numéro, lui, ne leur a jamais
+    servi.
+  - ⚠⚠ **UN CHANGEMENT DE CODE SEUL N'AURAIT RIEN DÉPLACÉ** : `sauvegarderDiff`
+    passe `prev` ET `next` par `separerPaie` avant de comparer — les deux sont
+    donc allégés à l'identique, la comparaison ne voit AUCUNE différence, et
+    rien ne part au serveur. Les numéros déjà écrits seraient restés en place.
+    D'où **`supabase/paie-2-compte-bancaire.sql`** : il déménage les numéros
+    existants vers la table `paie` et raccourcit ceux des dépenses.
+    ⚠ **L'horodatage y reste ACTIF**, à l'inverse de l'habitude : une ligne
+    nettoyée doit REDESCENDRE sur les téléphones, sinon leur copie locale
+    garderait le numéro. Quelques dizaines de lignes : négligeable.
+  - **Aucune nouvelle table, aucune nouvelle règle** : `paie` et ses politiques
+    existent depuis le 19/08/2026. **`npm run tester-paie`** (46 contrôles)
+    rejoue le script sur base jetable et prouve la fuite AVANT, sa fermeture
+    APRÈS, et qu'un vendeur ne voit plus le numéro de son collègue — mais
+    toujours le sien.
 - **Ce qui manque encore pour eux** : aucune entrée dans 🔒 Données
   personnelles, aucun dossier d'accès, aucune information à l'embauche.
   ⚠ **L'effacement, lui, ne leur est PAS transposable** : la paie et les
   déclarations CNSS se conservent par obligation légale — pour un employé,
   c'est le droit d'ACCÈS qui compte, pas celui d'effacer.
 
-- **Ce qui reste, PAS ENCORE lancé** (décrit à Timo le 18/09/2026 ; il a lancé
-  les points 1, 2 et 3) : **fermer la lecture de `banque` / `compte_bancaire`**
-  (ci-dessus) ; un dossier d'accès et un mot d'information **pour les
-  employés** ; une **durée de conservation** à décider par lui. Ne pas les
+- **Ce qui reste, PAS ENCORE lancé** : un dossier d'accès et un mot
+  d'information **pour les employés** (le trou du compte bancaire, lui, est
+  fermé) ; une **durée de conservation** à décider par lui. Ne pas les
   construire sans sa demande.
 
 ### Versement des fonds (09/09/2026)

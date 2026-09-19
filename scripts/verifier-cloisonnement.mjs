@@ -3589,8 +3589,12 @@ titre("🏦 Les banques : une liste dans Paramètres, la banque sur la fiche, le
   test("★ la banque d'une personne se lit « banque, compte …4321 » — le numéro n'est JAMAIS affiché en entier",
     Bq.libelleBanque(kossi) === "Ecobank, compte …4321" && Bq.compteMasque("TG0012345678904321") === "…4321" && Bq.compteMasque("12") === "12"
     && Bq.libelleBanque({ banque: "BTCI" }) === "BTCI" && Bq.libelleBanque({}) === "" && Bq.libelleBanque(null) === "");
-  test("★ un paiement PAR VIREMENT garde la banque du jour sur la dépense ; espèces ou fiche sans banque n'écrivent rien",
-    JSON.stringify(Bq.mentionVirement(kossi, "Virement bancaire")) === JSON.stringify({ banque: "Ecobank", compte_bancaire: "TG0012345678904321" })
+  // ⚠ RETOURNÉ le 18/09/2026 : la dépense gardait le numéro EN ENTIER, et la
+  // table des dépenses descend sur tous les appareils. Elle ne garde plus que
+  // les quatre derniers chiffres — ce que l'écran affichait déjà. La BANQUE,
+  // elle, n'a pas bougé : c'est la règle de Timo du 14/09/2026.
+  test("★ un paiement PAR VIREMENT garde la banque du jour sur la dépense, et le numéro RACCOURCI ; espèces ou fiche sans banque n'écrivent rien",
+    JSON.stringify(Bq.mentionVirement(kossi, "Virement bancaire")) === JSON.stringify({ banque: "Ecobank", compte_bancaire: "…4321" })
     && JSON.stringify(Bq.mentionVirement(kossi, "Espèces")) === "{}" && JSON.stringify(Bq.mentionVirement({ nom: "X" }, "Virement bancaire")) === "{}"
     && JSON.stringify(Bq.mentionVirement(null, "Virement bancaire")) === "{}"
     && Bq.ficheParId([kossi, { id: "u2" }], "u2")?.id === "u2" && Bq.ficheParId([], "u2") === null);
@@ -9621,6 +9625,91 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
     test("★ l'espace client ne refiltre RIEN : sur son appareil la base ne contient que ses données, les politiques du serveur sont la seule barrière (règle posée depuis toujours) — et l'écran le DIT au lieu de le laisser deviner",
       /seule barrière/.test(ec) && /ne contient QUE ses données/.test(ec));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🏦 LE NUMÉRO DE COMPTE D'UN EMPLOYÉ SORT DE LA VUE DE TOUS (18/09/2026)
+//
+// Timo : « et les employés dans cette histoire, leurs données ne sont-elles
+// pas protégées ? ». Deux fuites du MÊME numéro : la fiche employé, que tous
+// les appareils téléchargent, et la dépense d'un virement, qui le recopiait
+// EN ENTIER. Fermer l'une sans l'autre n'aurait servi à rien.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("🏦 Le numéro de compte d'un employé sort de la vue de tous (18/09/2026)");
+
+  test("★⚠ LE NUMÉRO DE COMPTE quitte la fiche employé pour la fiche de PAIE (que seuls l'admin, le comptable et l'intéressé reçoivent) — masquer à l'écran n'était PAS protéger : la donnée descendait quand même sur le téléphone de chacun",
+    Paie.CHAMPS_PAIE.includes("compte_bancaire"));
+
+  test("★ mais LE NOM de la banque RESTE sur la fiche employé, volontairement : ce n'est pas un secret, et un gérant ou un chef d'équipe qui paie une prime doit pouvoir écrire vers quelle banque l'argent part (règle Timo du 14/09/2026)",
+    !Paie.CHAMPS_PAIE.includes("banque"));
+
+  test("★ il DÉMÉNAGE vraiment : la règle le détache de la fiche employé et le range dans la fiche de paie — et la fiche employé garde tout le reste",
+    (() => {
+      const u = [{ id: "u1", nom: "KOSSI", role: "vendeur", banque: "BTCI", compte_bancaire: "0123456789", salaire_base: 120000 }];
+      const r = Paie.separerPaie(u, { id: "u1" });
+      return r.users[0].compte_bancaire === undefined
+        && r.users[0].banque === "BTCI" && r.users[0].nom === "KOSSI"
+        && r.paie[0].compte_bancaire === "0123456789";
+    })());
+
+  test("★ et il REVIENT à l'usage pour qui a le droit de le recevoir (l'écran continue de lire u.compte_bancaire sans rien savoir de la séparation)",
+    (() => {
+      const u = [{ id: "u1", nom: "KOSSI", banque: "BTCI" }];
+      return Paie.fusionnerPaie(u, [{ id: "u1", compte_bancaire: "0123456789" }])[0].compte_bancaire === "0123456789";
+    })());
+
+  test("★⚠ LA SECONDE PORTE : un paiement par virement recopiait le numéro EN ENTIER sur la dépense — et la table des dépenses descend, elle aussi, sur tous les appareils. Elle ne garde plus que les quatre derniers chiffres",
+    (() => {
+      const m = Bq.mentionVirement({ banque: "BTCI", compte_bancaire: "0123456789" }, "Virement bancaire");
+      return m.banque === "BTCI" && m.compte_bancaire === "…6789";
+    })());
+
+  test("★ et le contrôle est ÉPROUVÉ : le numéro entier ne doit JAMAIS ressortir de cette fonction, quelle que soit sa longueur",
+    (() => {
+      const long = Bq.mentionVirement({ banque: "B", compte_bancaire: "TG5310010100123456789012" }, "virement");
+      const court = Bq.mentionVirement({ banque: "B", compte_bancaire: "999" }, "virement");
+      return !/\d{5}/.test(long.compte_bancaire) && long.compte_bancaire === "…9012"
+        // ⚠ Un numéro de 4 caractères ou moins reste tel quel : le raccourcir
+        // n'apprendrait rien de plus à personne, et « …999 » serait un mensonge.
+        && court.compte_bancaire === "999";
+    })());
+
+  test("★ hors virement, rien n'est écrit du tout (espèces, Flooz : la banque n'a rien à y faire)",
+    Object.keys(Bq.mentionVirement({ banque: "BTCI", compte_bancaire: "0123456789" }, "Espèces")).length === 0
+    && Object.keys(Bq.mentionVirement({ compte_bancaire: "0123456789" }, "Virement")).length === 0);
+
+  test("★ AUCUN écran ne lit le numéro ENTIER : il ne se saisit que dans 👥 Utilisateurs (admin) et ne s'affiche que masqué (compteMasque) — le banc le mesure, il ne le présume pas",
+    (() => {
+      const lecteurs = execSync("grep -rln 'compteDe(\\|compte_bancaire' src/screens src/components || true")
+        .toString().trim().split("\n").filter(Boolean).sort().join("|");
+      return lecteurs === "src/screens/Utilisateurs.jsx";
+    })());
+
+  {
+    const sql = readFileSync("supabase/paie-2-compte-bancaire.sql", "utf8");
+    test("★ LE SCRIPT que Timo colle déménage les numéros DÉJÀ écrits, raccourcit ceux des dépenses, et NE TOUCHE PAS au nom de la banque — un changement de code seul n'aurait rien déplacé",
+      /data - 'compte_bancaire'/.test(sql)
+      && /insert into public\.paie/.test(sql)
+      && /update public\.depenses/.test(sql)
+      && !/data - 'banque'/.test(sql));
+
+    test("★⚠ l'horodatage reste ACTIF, à l'inverse de l'habitude : une ligne nettoyée doit REDESCENDRE sur les téléphones, sinon leur copie locale garderait le numéro",
+      !/disable trigger horodatage/.test(sql) && /doit REDESCENDRE sur les téléphones/.test(sql));
+
+    test("★ il porte sa vérification et son retour en arrière, comme tout script collé chez lui",
+      /aucun_numero_sur_une_fiche_employe/.test(sql)
+      && /aucun_numero_entier_sur_une_depense/.test(sql)
+      && /EN CAS DE PROBLÈME/.test(sql));
+
+    test("★ et le banc SQL le REJOUE sur base jetable : il prouve la fuite AVANT, sa fermeture APRÈS, et qu'un vendeur ne voit plus le numéro de son collègue",
+      (() => { const bh = readFileSync("scripts/tester-paie-sql.sh", "utf8");
+        return /paie-2-compte-bancaire\.sql/.test(bh)
+          && /AVANT : le numéro est bien sur la fiche employé/.test(bh)
+          && /APRÈS : plus AUCUN numéro sur une fiche employé/.test(bh)
+          && /ne voit plus le numéro de son collègue/.test(bh)
+          && /relancer le script ne casse rien/.test(bh); })());
   }
 }
 

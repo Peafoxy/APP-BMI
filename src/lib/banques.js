@@ -51,6 +51,16 @@ export const libelleBanque = (u) => {
 };
 // Ce qu'un paiement PAR VIREMENT garde de la fiche : la banque et le compte
 // du jour du paiement. La fiche peut changer plus tard, la trace reste juste.
+//
+// ⚠⚠ LE NUMÉRO EST MASQUÉ ICI (18/09/2026, trouvé en répondant à Timo sur les
+// données des employés). Cette fonction recopiait le numéro EN ENTIER sur la
+// dépense — et la table des dépenses descend sur tous les appareils (son
+// filtre par personne est côté application, jamais côté serveur). Fermer la
+// fiche employé sans fermer ça n'aurait servi à rien : le numéro aurait
+// continué de fuir par l'autre porte.
+// Les quatre derniers chiffres suffisent à reconnaître le bon compte — c'est
+// déjà ce que l'écran affiche —, et **rien ne lisait le numéro entier sur une
+// dépense** : ni écran, ni export, ni document.
 export const mentionVirement = (u, moyen) =>
-  (estVirement(moyen) && banqueDe(u) ? { banque: banqueDe(u), compte_bancaire: compteDe(u) } : {});
+  (estVirement(moyen) && banqueDe(u) ? { banque: banqueDe(u), compte_bancaire: compteMasque(compteDe(u)) } : {});
 export const ficheParId = (users, id) => (users || []).find((u) => u?.id === id) || null;
