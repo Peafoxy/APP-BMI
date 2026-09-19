@@ -295,7 +295,25 @@ et un modèle refusé ne coûte rien et n'envoie rien.
 | `rappel_echeance` | **Utility** | échéance d'un contrat en cours |
 | ~~`acces_espace_client`~~ | — | **abandonné** (secret) |
 
-**État au 19/09/2026 : `devis_disponible` — Marketing — *In review*.**
+**État au 19/09/2026, les QUATRE modèles sont soumis** — noms corrects,
+catégories correctes, aucun secret dedans :
+
+| Modèle | Catégorie | Statut |
+|---|---|---|
+| `devis_disponible` | Marketing | *In review* |
+| `relance_devis` | Marketing | *In review* |
+| `devis_valide_paiement` | Utility | *In review* |
+| `rappel_echeance` | Utility | *In review* |
+
+(`devis_pret`, refusé, ne sert plus à rien — il n'envoie rien et ne coûte rien.)
+
+⚠ **ET APRÈS ? RIEN N'EST ENCORE CONSTRUIT.** Des modèles approuvés ne font
+PAS partir un message : ils rendent l'envoi POSSIBLE. L'application, elle,
+ouvre toujours WhatsApp à la main (`envoyerWhatsApp`) et n'a aucune idée de
+l'existence de YCloud. Le chantier « l'application envoie elle-même » reste
+entier, et **ne démarre pas sans la demande de Timo** (plan du 02/09, rappelé
+plus haut : `api/whatsapp.js`, clé en variable Vercel, repli sur l'ouverture
+manuelle, journal des envois, file hors ligne, verrou formation).
 
 ### Les quatre suivants
 
