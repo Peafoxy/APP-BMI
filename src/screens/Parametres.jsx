@@ -16,12 +16,13 @@ import { PALETTE, LOGO } from "../lib/constants";
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
 import { barresDeRail } from "../lib/solaire";
 import { banquesReglees, ajouterBanque, retirerBanque, nettoyerNomBanque } from "../lib/banques";
+import { mesOutils, sortieEnCours } from "../lib/outillage";
 import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
@@ -29,6 +30,9 @@ import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
 import { dossierPersonnel, critiqueDossier, journalDossier, nomDossierPersonnel, lignesCsvDossier } from "../lib/dossierPersonnel";
 import { genererDossierPersonnel } from "../pdf";
+// 👥 LE DROIT D'ACCÈS D'UN EMPLOYÉ (Timo, 19/09/2026) — MÊME document, MÊME
+// dessinateur que celui d'un client : seules les données changent.
+import { dossierEmploye, critiqueDossierEmploye, journalDossierEmploye, nomDossierEmploye } from "../lib/dossierEmploye";
 import { exportCSV } from "../lib/export";
 import { correspond } from "../lib/suggestions";
 
@@ -216,6 +220,57 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     // Le journal garde la trace de la demande honorée — et il NOMME le
     // client : on n'efface rien ici, il faut pouvoir dire à qui on a remis.
     save(db, journalDossier(dossierEff, profile, { format }));
+  };
+
+  // ---- 👥 LE DROIT D'ACCÈS D'UN EMPLOYÉ (Timo, 19/09/2026) ----
+  // « Et les employés dans cette histoire ? » — les trois premiers chantiers
+  // ne couvraient QUE les clients. Ici, le MÊME document, dessiné par la MÊME
+  // fonction : seules les données changent.
+  // ⚠ AUCUN bouton d'effacement de ce côté, et ce n'est pas un oubli : la
+  // paie et les déclarations CNSS se conservent par obligation légale.
+  const [qEmp, setQEmp] = useState("");
+  const [cibleEmp, setCibleEmp] = useState(null); // l'id
+
+  // ⚠ LE MUR : les personnes passent par utilisateursDeLEspace (la table des
+  // comptes n'est PAS cloisonnée par le serveur), jamais par db.users.
+  const employesEff = comptesEff.filter((x) => x.role !== "client");
+  const employesFiltres = qEmp.trim()
+    ? employesEff.filter((x) => correspond(`${x.nom} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qEmp))
+    : employesEff.slice(0, 40);
+  const employeChoisi = cibleEmp ? employesEff.find((x) => x.id === cibleEmp) : null;
+
+  // Ce qu'il a fait, rassemblé dans l'espace regardé seulement.
+  const activiteEmp = employeChoisi ? {
+    evaluations: evaluationsDe(db, employeChoisi),
+    ventes: (db.ventes || []).filter(espaceEff).filter((v) => v.par === employeChoisi.nom),
+    depenses: (db.depenses || []).filter(espaceEff).filter((d) => d.par_id === employeChoisi.id || d.par === employeChoisi.nom),
+    chantiers: chantiersEff.filter((c) => (c.equipe || []).some((e) => e.user_id === employeChoisi.id)),
+    outils: mesOutils(boutiquesVisibles(db, profile), employeChoisi.id).map(({ outil }) => {
+      const sortie = sortieEnCours(outil) || {};
+      return { nom: outil.nom, numero: outil.numero, depuis: sortie.date, retour_prevu: sortie.retour_prevu };
+    }),
+    messages: (db.messages || []).filter((m) => m.de_id === employeChoisi.id || m.a_id === employeChoisi.id),
+  } : null;
+  const vueEmp = employeChoisi ? dossierEmploye(employeChoisi, activiteEmp, { fmt, dFR }) : null;
+
+  const remettreDossierEmploye = async (format) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Remettre à un employé le dossier de ses données")) return;
+    const refus = critiqueDossierEmploye(employeChoisi);
+    if (refus) { uAlert(refus); return; }
+    const nom = employeChoisi.nom_complet || employeChoisi.nom;
+    const ok = await uConfirm(
+      `Établir le dossier personnel de « ${nom} » (${format}) ?\n\n`
+      + `Il contient sa rémunération, ses avances, son déclaratif CNSS et sa banque.\n\n`
+      + `⚠ Ce document ne se remet qu'à LUI, en main propre.`
+    );
+    if (!ok) return;
+    if (format === "PDF") {
+      genererDossierPersonnel(vueEmp, { logo: LOGO, formation: enFormationEff, edite: dFR(today()), client: nom });
+    } else {
+      exportCSV(nomDossierEmploye(employeChoisi).toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+        ["", "", "", "", "", ""], lignesCsvDossier(vueEmp));
+    }
+    save(db, journalDossierEmploye(employeChoisi, profile, { format }));
   };
 
   const lancerEffacement = async () => {
@@ -1766,6 +1821,57 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             )}
           </div>
         )}
+
+        {/* ═══════ 👥 LE DOSSIER D'ACCÈS D'UN EMPLOYÉ (19/09/2026) ═══════
+            « Et les employés dans cette histoire ? » — ils sont des sujets de
+            données comme les clients, et l'application en sait plus sur eux.
+            ⚠ Pas d'effacement ici : la paie et la CNSS se gardent par la loi. */}
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <div className="font-bold mb-1">👥 Les données d'un employé</div>
+          <div className="text-xs text-slate-600 mb-3">
+            Quand un employé demande à voir ce que vous conservez sur lui. Le document reprend sa rémunération,
+            ses avances, son déclaratif CNSS, sa banque et son activité.
+            {" "}<b>Son mot de passe n'y figure pas</b>, et <b>son numéro de compte n'y figure que par ses 4 derniers chiffres</b>.
+            <br />
+            <span className="text-slate-500">
+              ⚠ Il n'y a pas de bouton « effacer » ici, et ce n'est pas un oubli : sa rémunération et ses déclarations
+              sociales doivent être conservées par obligation légale. Pour un employé, c'est le droit d'accès qui s'applique.
+            </span>
+          </div>
+
+          <input className={champRecherche} placeholder="Rechercher un employé (nom ou numéro)…" value={qEmp} onChange={(e) => setQEmp(e.target.value)} />
+
+          <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+            {employesFiltres.length === 0 ? (
+              <div className="p-3 text-sm text-slate-500">{qEmp.trim() ? "Aucun employé ne correspond." : "Aucun employé dans cet espace."}</div>
+            ) : employesFiltres.map((x) => (
+              <button
+                key={x.id}
+                onClick={() => setCibleEmp(x.id)}
+                className={`w-full text-left px-3 py-2 text-sm ${cibleEmp === x.id ? "bg-sky-50 border-l-4 border-sky-700 font-bold" : "hover:bg-slate-50"}`}
+              >
+                {x.nom_complet || x.nom}
+                <span className="block text-xs text-slate-500">{x.role} {x.boutique ? `· ${x.boutique}` : ""}</span>
+              </button>
+            ))}
+          </div>
+
+          {vueEmp && (
+            <div className="mt-3 rounded-lg bg-sky-50 border border-sky-200 p-3">
+              <div className="text-sm font-bold text-sky-900 mb-1">
+                Dossier de « {employeChoisi.nom_complet || employeChoisi.nom} »
+              </div>
+              <div className="text-xs text-slate-600 mb-2">
+                {vueEmp.sections.filter((x) => x.lignes.length).length} rubrique(s) renseignée(s) : {vueEmp.sections.filter((x) => x.lignes.length).map((x) => x.titre.replace(/^Vos?\s+|^Votre\s+|^Le\s+/i, "")).join(", ")}.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => remettreDossierEmploye("PDF")} className="px-4 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">🖨 Dossier personnel (PDF)</button>
+                <button onClick={() => remettreDossierEmploye("CSV")} className="px-4 py-1.5 rounded-lg border border-sky-700 text-sky-800 text-xs font-bold hover:bg-sky-100">Exporter (CSV)</button>
+                <button onClick={() => setCibleEmp(null)} className="px-4 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Annuler</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="rounded-xl p-4 bg-slate-50 border border-slate-200">
           <div className="font-bold text-sm mb-1">Ce que l'application ne peut pas faire à votre place</div>

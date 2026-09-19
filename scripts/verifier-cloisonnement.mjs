@@ -152,6 +152,13 @@ await build({ entryPoints: ["src/lib/outillage.js"], bundle: true, format: "esm"
 const Out = await import(pathToFileURL(sortieOut).href);
 unlinkSync(sortieOut);
 
+// 👥 Le droit d'accès d'un EMPLOYÉ (19/09/2026).
+const sortieDosEmp = join("node_modules", ".cache", `bmi-dossemp-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/dossierEmploye.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieDosEmp, logLevel: "silent", loader: { ".js": "jsx" } });
+const DosEmp = await import(pathToFileURL(sortieDosEmp).href);
+unlinkSync(sortieDosEmp);
+
 // 📄 Le droit d'accès : le dossier personnel d'un client (18/09/2026).
 const sortieDos = join("node_modules", ".cache", `bmi-dossier-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/dossierPersonnel.js"], bundle: true, format: "esm",
@@ -8750,8 +8757,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
     const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
     const fenetres = execSync("grep -rn 'className={champRechercheFenetre}' src/screens src/components | wc -l").toString().trim();
-    test("★ les 11 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
-      Number(usages) === 10 && Number(fenetres) === 1
+    test("★ les 12 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
+      Number(usages) === 11 && Number(fenetres) === 1
       && lignes.length >= 8
       && lignes.every((x) => /className=\{champRecherche(Fenetre)?\}/.test(x.l))
       && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace(/champRecherche(Fenetre)?/g, "")))
@@ -9710,6 +9717,142 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && /APRÈS : plus AUCUN numéro sur une fiche employé/.test(bh)
           && /ne voit plus le numéro de son collègue/.test(bh)
           && /relancer le script ne casse rien/.test(bh); })());
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 👥 LE DROIT D'ACCÈS D'UN EMPLOYÉ (19/09/2026)
+//
+// Timo : « et les employés dans cette histoire, leurs données ne sont-elles
+// pas protégées… parmi les utilisateurs, le personnel n'y figure pas », puis
+// « lance le dossier d'accès pour les employés ». Les trois premiers
+// chantiers ne couvraient QUE les clients, alors que l'application en sait
+// BIEN plus sur un employé.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("👥 Le droit d'accès d'un employé (19/09/2026)");
+
+  const fmtE = (x) => `${Number(x || 0)} F`;
+  const dFRE = (x) => String(x || "").slice(0, 10).split("-").reverse().join("/");
+  const employe = {
+    id: "u1", nom: "KOSSI", nom_complet: "KOSSI MENSAH", tel: "90112233", role: "gerant",
+    boutique: "DEMAKPOE", actif: true, anniv: "14/03", cree_par: "TIMO",
+    salaire_base: 120000, primes: [{ mois: "2026-08", motif: "Rendement", montant: 25000 }],
+    avances: [{ mois: "2026-09", motif: "Avance", montant: 10000 }],
+    virements: [{ mois: "2026-08", date: "2026-08-30", montant: 100000, statut: "accepte" }],
+    credits: [{ date: "2026-07-01", montant_demande: 200000, statut: "approuve", rembourse: 50000 }],
+    cnss_assujetti: true, cnss_matricule: "M-9", cnss_numero_assurance: "A-4421",
+    cnss_date_embauche: "2024-01-15", piece_type: "CNI", piece_num: "AB1234",
+    banque: "BTCI", compte_bancaire: "TG5310010100123456789012",
+    // ⚠ Tout ce qui suit DOIT rester hors du document.
+    pwd_hash2: "EMPREINTE-DU-MOT-DE-PASSE", pwd_salt: "GRAIN-DE-SEL",
+    empreintes: [{ appareil: "a1", cle: "CLE-WEBAUTHN-SECRETE" }],
+  };
+  const activite = {
+    evaluations: [{ date: "2026-08-10", accueil: 5, rapidite: 4, par_id: "u1" }, { date: "2026-09-01", par_id: "u1" }],
+    ventes: [{ id: "v1" }, { id: "v2" }], depenses: [{ id: "d1" }], chantiers: [{ id: "c1" }],
+    outils: [{ nom: "Perceuse Bosch", numero: "BMI-004", depuis: "2026-09-10", retour_prevu: "2026-09-20" }],
+    messages: [{ id: "m1" }, { id: "m2" }],
+  };
+  const vueE = DosEmp.dossierEmploye(employe, activite, { fmt: fmtE, dFR: dFRE });
+
+  test("★ LE DOSSIER D'UN EMPLOYÉ COUVRE CE QUE L'APPLICATION SAIT DE LUI — rémunération, primes, avances, virements, crédits, déclaratif CNSS, banque, évaluations, activité, outillage, messages : onze rubriques, aucune oubliée",
+    vueE.sections.length === 11
+    && ["Votre rémunération", "Vos avances sur salaire", "Votre déclaratif social (CNSS)", "Votre banque", "Le matériel de travail que vous détenez"]
+      .every((t) => vueE.sections.some((x) => x.titre === t)));
+
+  test("★⚠⚠ AUCUN SECRET N'Y ENTRE — mot de passe, grain de sel, CLÉS D'EMPREINTE : la même liste que pour un client (CHAMPS_INTERDITS), parce qu'un document qui traîne ne doit jamais être une clé",
+    (() => {
+      const tout = JSON.stringify(vueE);
+      return DosEmp.CHAMPS_INTERDITS.every((c) => !tout.includes(c))
+        && !/EMPREINTE-DU-MOT-DE-PASSE|GRAIN-DE-SEL|CLE-WEBAUTHN-SECRETE/.test(tout);
+    })());
+
+  test("★⚠ LE NUMÉRO DE COMPTE N'Y FIGURE QUE MASQUÉ, même vers son propriétaire — et le document DIT qu'il est masqué, sinon on laisserait croire qu'on ne détient que quatre chiffres",
+    (() => {
+      const b = vueE.sections.find((x) => x.titre === "Votre banque").lignes;
+      const compte = b.find(([l]) => l === "Compte")[1];
+      return !JSON.stringify(vueE).includes("TG5310010100123456789012")
+        && /…9012/.test(compte) && /4 derniers chiffres/.test(compte)
+        && b.find(([l]) => l === "Banque")[1] === "BTCI";
+    })());
+
+  test("★ L'ANNÉE DE NAISSANCE n'est jamais demandée par l'application — le document le DIT au lieu de laisser croire à un oubli",
+    /jour et mois seulement/.test(vueE.identite.find(([l]) => l === "Anniversaire")[1]));
+
+  test("★⚠ UNE ÉVALUATION DONNE LA NOTE, JAMAIS QUI L'A DONNÉE : ce serait la donnée d'un client, pas la sienne — et une évaluation sans aucun critère rempli vaut « non notée », jamais zéro",
+    (() => {
+      const ev = vueE.sections.find((x) => /évaluations/.test(x.titre));
+      return ev.lignes.length === 2 && ev.colonnes.length === 2
+        && ev.lignes[0][1] === "4,5" && ev.lignes[1][1] === "non notée"
+        && !JSON.stringify(ev).includes("par_id");
+    })());
+
+  test("★⚠⚠ LE DOCUMENT DIT CE QUI NE S'EFFACERA PAS : rémunération, déclarations sociales et pièces comptables se conservent par obligation légale. Laisser croire le contraire à un employé serait malhonnête — d'où AUCUN bouton d'effacement de ce côté",
+    vueE.mentions.some((m) => /ne peuvent pas être effacées à votre demande/.test(m))
+    && vueE.mentions.some((m) => /loi n° 2019-014/.test(m))
+    && vueE.mentions.some((m) => /droit d'accès et de rectification/.test(m))
+    && !readFileSync("src/screens/Parametres.jsx", "utf8").includes("effacerEmploye"));
+
+  test("★ un compte CLIENT est REFUSÉ ici et renvoyé vers son propre bloc : son dossier parle d'achats et de chantiers, pas de salaire",
+    /CLIENT/.test(DosEmp.critiqueDossierEmploye({ id: "x", role: "client" }))
+    && DosEmp.critiqueDossierEmploye(employe) === ""
+    && /Choisissez un employé/.test(DosEmp.critiqueDossierEmploye(null)));
+
+  test("★ une fiche de paie NON REÇUE par l'appareil ne fabrique pas de faux zéros : le document dit « non renseigné » (les champs valent undefined, jamais 0)",
+    (() => {
+      const nu = DosEmp.dossierEmploye({ id: "u9", nom: "AMA", role: "vendeur" }, {}, { fmt: fmtE, dFR: dFRE });
+      const r = nu.sections.find((x) => x.titre === "Votre rémunération").lignes;
+      return r.find(([l]) => l === "Salaire de base")[1] === "non renseigné"
+        && nu.sections.find((x) => x.titre === "Votre banque").lignes.find(([l]) => l === "Compte")[1] === "non renseigné";
+    })());
+
+  test("★ LA TRACE NOMME l'employé (on n'efface rien ici, il faut pouvoir dire à qui on a remis) et le fichier porte son nom",
+    /KOSSI MENSAH/.test(DosEmp.journalDossierEmploye(employe, { nom: "TIMO" }, { format: "PDF" }))
+    && /TIMO/.test(DosEmp.journalDossierEmploye(employe, { nom: "TIMO" }, {}))
+    && DosEmp.nomDossierEmploye(employe) === "Dossier personnel - KOSSI MENSAH");
+
+  // ---- LE PDF : on lit ce qui est RÉELLEMENT écrit dedans ----
+  {
+    const doc = PdfDos.genererDossierPersonnel(vueE, { edite: "19/09/2026", client: "KOSSI MENSAH" }, true);
+    const lu = [];
+    for (let pg = 1; pg <= doc.internal.getNumberOfPages(); pg++)
+      for (const ligne of doc.internal.pages[pg].join("\n").split("\n")) {
+        const m = ligne.match(/\((.*?)\)\s*Tj/);
+        if (m) lu.push(m[1]);
+      }
+    const ecrit = lu.join(" | ");
+
+    test("★ LE MÊME DESSINATEUR sert les deux dossiers (client et employé) : genererDossierPersonnel n'a pas eu UNE ligne de plus à apprendre — deux documents, un seul rendu",
+      /VOS DONNÉES PERSONNELLES/.test(ecrit) && /KOSSI MENSAH/.test(ecrit)
+      && /A-4421/.test(ecrit) && /Perceuse Bosch/.test(ecrit) && /2019-014/.test(ecrit));
+
+    test("★⚠ et le PDF de l'employé ne porte AUCUN secret non plus, ni son numéro de compte entier",
+      !/EMPREINTE-DU-MOT|GRAIN-DE-SEL|CLE-WEBAUTHN|pwd_|TG5310010100123456789012/.test(ecrit)
+      && /…9012|\.\.\.9012/.test(ecrit.replace(/\\(\d)/g, "$1")));
+
+    test("★ le piège de jsPDF est évité ici aussi : aucune ligne ne sort en lettres espacées",
+      !/ [A-Z] [a-z] [a-z] /.test(ecrit));
+  }
+
+  {
+    const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+    test("★ le geste vit dans le MÊME panneau 🔒 Données personnelles, réservé à l'administrateur PRINCIPAL — revérifié DANS le geste",
+      /refuserSaufAdminPrincipal\(db, profile, "Remettre à un employé le dossier de ses données"\)/.test(par)
+      && /Les données d'un employé/.test(par));
+
+    test("★⚠ LE MUR : les employés viennent de comptesEff (utilisateursDeLEspace), son activité est filtrée par l'espace regardé — jamais db.users ni db.ventes en entier",
+      /const employesEff = comptesEff\.filter/.test(par)
+      && /\(db\.ventes \|\| \[\]\)\.filter\(espaceEff\)/.test(par)
+      && /chantiersEff\.filter/.test(par));
+
+    test("★ l'écran DIT pourquoi il n'y a pas de bouton « effacer » — un manque expliqué n'est pas un oubli",
+      /pas de bouton « effacer » ici, et ce n'est pas un oubli/.test(par)
+      && /obligation légale/.test(par));
+
+    test("★ la ligne de recherche passe par LA règle commune (champRecherche) et LA règle de recherche (correspond), jamais un filtre maison",
+      /placeholder="Rechercher un employé[^"]*" value=\{qEmp\}/.test(par)
+      && /correspond\(`\$\{x\.nom\} \$\{x\.nom_complet \|\| ""\} \$\{motsDuNumero\(x\.tel\)\}`, qEmp\)/.test(par));
   }
 }
 

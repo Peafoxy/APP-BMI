@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1630 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1646 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1574,16 +1574,57 @@ lit mal est pire qu'un banc absent).
     (`true | true | true`)** : plus aucun numéro sur une fiche employé, plus
     aucun numéro entier sur une dépense, la fiche de paie toujours protégée.
     **Le trou est fermé pour de bon, sur les données existantes comprises.**
-- **Ce qui manque encore pour eux** : aucune entrée dans 🔒 Données
-  personnelles, aucun dossier d'accès, aucune information à l'embauche.
-  ⚠ **L'effacement, lui, ne leur est PAS transposable** : la paie et les
-  déclarations CNSS se conservent par obligation légale — pour un employé,
-  c'est le droit d'ACCÈS qui compte, pas celui d'effacer.
 
-- **Ce qui reste, PAS ENCORE lancé** : un dossier d'accès et un mot
-  d'information **pour les employés** (le trou du compte bancaire, lui, est
-  fermé) ; une **durée de conservation** à décider par lui. Ne pas les
-  construire sans sa demande.
+#### 👥 LE DOSSIER D'ACCÈS D'UN EMPLOYÉ (19/09/2026, « lance le dossier d'accès pour les employés »)
+- **Deuxième bloc de ⚙ Paramètres → 🔒 Données personnelles**, sous celui des
+  clients : on cherche l'employé, on lit ses rubriques renseignées, on remet
+  **« 🖨 Dossier personnel (PDF) »** ou **« Exporter (CSV) »**. Administrateur
+  PRINCIPAL seul, revérifié DANS le geste. Règle pure `lib/dossierEmploye.js`.
+- ⚠ **UN SEUL DESSINATEUR, DEUX DOCUMENTS** : `dossierEmploye` rend la MÊME
+  forme que `dossierPersonnel` (`{ identite, sections, mentions }`), donc
+  `genererDossierPersonnel` (PDF) et `lignesCsvDossier` (CSV) sont réutilisés
+  **sans une ligne de plus**. Seules les données changent.
+- **Onze rubriques** : rémunération, primes, avances, virements, crédits,
+  déclaratif CNSS, banque, évaluations reçues, ce qu'il a enregistré,
+  matériel de travail détenu, messages.
+- ⚠⚠ **AUCUN SECRET N'Y ENTRE** — la MÊME liste que pour un client
+  (`CHAMPS_INTERDITS`, importée, pas recopiée) : mot de passe, grain de sel, et
+  **les CLÉS D'EMPREINTE**. Un document qui traîne sur un bureau ne doit jamais
+  être une clé.
+- ⚠ **LE NUMÉRO DE COMPTE N'Y FIGURE QUE MASQUÉ**, même vers son propriétaire
+  (« …9012 ») — et **le document DIT qu'il est masqué**, sinon on laisserait
+  croire qu'on ne détient que quatre chiffres. Suite directe du 19/09 : le
+  numéro vit désormais dans la fiche de paie, il n'a pas à ressortir en entier
+  sur un papier.
+- **L'ANNÉE DE NAISSANCE n'est jamais demandée** : le document le DIT
+  (« jour et mois seulement ») au lieu de laisser croire à un oubli.
+- ⚠ **UNE ÉVALUATION DONNE LA NOTE, JAMAIS QUI L'A DONNÉE** : ce serait la
+  donnée d'un CLIENT, pas la sienne. Et une évaluation sans aucun critère
+  rempli vaut **« non notée »**, jamais zéro (`noteLisible`).
+- ⚠⚠ **PAS DE BOUTON « EFFACER » DE CE CÔTÉ, ET CE N'EST PAS UN OUBLI** : la
+  rémunération, les déclarations sociales et les pièces comptables se
+  conservent par obligation légale. **`MENTIONS_DOSSIER_EMPLOYE` le DIT** —
+  ce ne sont PAS les mentions des clients, laisser croire à un employé qu'il
+  peut faire effacer sa paie serait malhonnête. L'écran l'explique aussi.
+- **Une fiche de paie NON REÇUE ne fabrique pas de faux zéros** : « non
+  renseigné », jamais 0 F. Un compte CLIENT est refusé ici et renvoyé vers son
+  propre bloc.
+- ⚠ **LE MUR** : les employés viennent de `comptesEff`
+  (`utilisateursDeLEspace`), son activité est filtrée par l'espace regardé —
+  jamais `db.users` ni `db.ventes` en entier.
+- **LA TRACE NOMME l'employé** (`journalDossierEmploye`) : on n'efface rien
+  ici, il faut pouvoir dire à qui on a remis.
+- **Rien à coller dans Supabase** : on ne fait que lire. Le banc mesure la
+  règle ET **le PDF fabriqué** ; éprouvé en remettant la faute (numéro entier
+  + clé d'empreinte) : trois contrôles tombent.
+- **Ce qui reste pour eux, PAS ENCORE lancé** : un **mot d'information à
+  l'embauche**, et le **libre-service** (qu'il télécharge son dossier lui-même,
+  comme le client depuis son espace) — il faudrait un écran que TOUS les rôles
+  ont, 💵 Mon salaire ne valant que pour les salariés.
+
+- **Ce qui reste, PAS ENCORE lancé** : le mot d'information et le libre-service
+  pour les employés (ci-dessus) ; une **durée de conservation** à décider par
+  lui. Ne pas les construire sans sa demande.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

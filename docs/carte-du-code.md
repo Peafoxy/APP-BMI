@@ -63,6 +63,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/clientsConnus.js` | Les clients que la boutique connaît déjà (proposés dans Ventes, Dettes, Travaux) |
 | `lib/effacementClient.js` | 🔒 Le droit à l'effacement : ce qui part, ce que les livres gardent sans son nom |
 | `lib/dossierPersonnel.js` | 📄 Le droit d'accès : tout ce qu'on a sur un client, en un document — **jamais son mot de passe** |
+| `lib/dossierEmploye.js` | 👥 Le droit d'accès d'un EMPLOYÉ : paie, CNSS, banque masquée — **pas d'effacement, la loi l'interdit** |
 
 ## Les personnes, les espaces, la sécurité
 
