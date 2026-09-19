@@ -1570,6 +1570,10 @@ lit mal est pire qu'un banc absent).
     rejoue le script sur base jetable et prouve la fuite AVANT, sa fermeture
     APRÈS, et qu'un vendeur ne voit plus le numéro de son collègue — mais
     toujours le sien.
+    **`paie-2-compte-bancaire.sql` collé par Timo le 19/09/2026
+    (`true | true | true`)** : plus aucun numéro sur une fiche employé, plus
+    aucun numéro entier sur une dépense, la fiche de paie toujours protégée.
+    **Le trou est fermé pour de bon, sur les données existantes comprises.**
 - **Ce qui manque encore pour eux** : aucune entrée dans 🔒 Données
   personnelles, aucun dossier d'accès, aucune information à l'embauche.
   ⚠ **L'effacement, lui, ne leur est PAS transposable** : la paie et les
