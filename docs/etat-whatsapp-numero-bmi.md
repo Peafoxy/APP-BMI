@@ -149,3 +149,58 @@ dans le téléphone (appels, discussions, réponses des clients).
    WhatsApp**.
 4. Meta a annoncé qu'elle **examine l'entreprise** et recontacte **sous 24 h
    s'il y a un problème**.
+
+---
+
+## 📝 LES MODÈLES DE MESSAGES — les textes (19/09/2026)
+
+Écrits avec Timo, un par un, dans YCloud → **Manage Template** → *Add
+template*. On en soumet UN d'abord, on lit la réponse de Meta, et on n'envoie
+les suivants qu'après : cinq modèles refusés d'un coup n'apprennent rien.
+
+Réglages communs : **Category = Utility (Custom)**, **Language = French**,
+Footer et Buttons VIDES, **Message validity period DÉSACTIVÉ** (réglage par
+défaut = Meta réessaie jusqu'à 30 jours ; un devis doit arriver même si le
+téléphone était éteint).
+
+### 1. `devis_pret`
+
+⚠ **LES MOTS SONT CEUX DE TIMO** (19/09/2026) : « normalement on dit *votre
+devis (domaine) réalisé par BMI TOGO est prêt* ». Le DOMAINE (solaire,
+portail, forage, vidéo surveillance…) est donc une variable à part — une
+première version disait seulement « votre devis BMI TOGO est prêt », et le
+client ne savait pas DE QUOI on lui parle quand il a demandé deux choses.
+
+```
+Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.
+
+Montant : {{3}}
+
+Vous pouvez le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com
+
+Identifiant : {{4}}
+Mot de passe : {{5}}
+
+BMI TOGO — Les bâtiments modernes et intelligents
+```
+
+Exemples à donner à Meta : `KOSSI MENSAH` · `solaire` · `1 250 000 F` ·
+`kossi90112233` · `Bmi4827`.
+
+⚠ **SI META REFUSE À CAUSE DU MOT DE PASSE** (c'est le risque connu de ce
+modèle : un secret dans une catégorie *Utility*), on ne discute pas — on
+remplace les deux lignes `Identifiant` / `Mot de passe` par une seule phrase
+sans variable : **« Vos identifiants vous ont été remis par votre vendeur. »**
+
+⚠ **UN MODÈLE DÉJÀ SOUMIS NE SE CORRIGE PAS TOUT DE SUITE** : en attente
+(*Pending*) il est figé ; approuvé ou refusé, il s'ouvre par *Edit*. Et
+**supprimer ne libère pas le nom** (Meta le réserve ~30 jours) : on ne
+supprime jamais pour recréer sous le même nom, on ÉDITE.
+
+### Les quatre suivants, à écrire après
+
+`relance_devis`, `devis_valide_paiement`, `acces_espace_client`,
+`rappel_echeance` — textes à reprendre de ce que l'application écrit déjà
+(`texteRelanceDevis` dans lib/comptesClients.js, le partage de devis de
+`screens/dimensionnement/Partages.jsx`), pour que le client lise la même
+chose qu'aujourd'hui.
