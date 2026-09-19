@@ -197,10 +197,87 @@ sans variable : **« Vos identifiants vous ont été remis par votre vendeur. »
 **supprimer ne libère pas le nom** (Meta le réserve ~30 jours) : on ne
 supprime jamais pour recréer sous le même nom, on ÉDITE.
 
-### Les quatre suivants, à écrire après
+⚠ **UN PREMIER ENVOI A ÉCHOUÉ SUR « system error »** (19/09/2026) — message
+passe-partout de YCloud, PAS un refus de Meta (un refus s'affiche *Rejected*
+avec un motif). **Le renvoi immédiat est passé** : `French · Submitted`. À
+retenir : devant « system error », on clique **Modify** (jamais *Ignore*, qui
+jette le texte), on vérifie que CHAQUE variable a son exemple, puis on renvoie.
 
-`relance_devis`, `devis_valide_paiement`, `acces_espace_client`,
-`rappel_echeance` — textes à reprendre de ce que l'application écrit déjà
-(`texteRelanceDevis` dans lib/comptesClients.js, le partage de devis de
-`screens/dimensionnement/Partages.jsx`), pour que le client lise la même
-chose qu'aujourd'hui.
+### Les quatre suivants
+
+⚠ **ILS REPRENNENT CE QUE L'APPLICATION ÉCRIT DÉJÀ** (`texteRelanceDevis`,
+lib/comptesClients.js) : le client doit lire la même chose qu'aujourd'hui.
+Deux différences assumées, et il faut les connaître :
+- **le gras `*…*` a été retiré** (cosmétique ; un signe de moins à faire
+  accepter sur les premiers modèles) ;
+- **la relance ne porte plus les identifiants** : à ce stade le client a déjà
+  son compte, et un secret de moins dans un modèle est un risque de refus en
+  moins. L'ouverture WhatsApp manuelle d'aujourd'hui les garde.
+
+**Ordre d'envoi** : `relance_devis`, `devis_valide_paiement` et
+`rappel_echeance` ne contiennent AUCUN secret — ils partent tout de suite.
+`acces_espace_client` en porte un : on attend de voir si `devis_pret` passe
+avec son mot de passe avant de le soumettre.
+
+#### 2. `relance_devis` — devis proposé, sans réponse (seuil 15 jours)
+
+```
+Bonjour {{1}}, nous revenons vers vous au sujet du devis {{2}} de {{3}} que nous vous avons envoyé le {{4}}. Avez-vous pu l'examiner ?
+
+Vous pouvez le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com
+
+Nous restons à votre disposition pour toute question.
+
+BMI TOGO — Les bâtiments modernes et intelligents
+```
+
+Exemples : `KOSSI MENSAH` · `solaire` · `1 250 000 F` · `12/09/2026`
+
+#### 3. `devis_valide_paiement` — devis validé, pas encore payé
+
+```
+Bonjour {{1}}, merci d'avoir validé votre devis BMI TOGO de {{2}} (contrat {{3}}).
+
+Pour lancer votre installation, il ne reste plus qu'à passer régler à la boutique {{4}}.
+
+Dès votre règlement, nous programmons l'installation.
+
+BMI TOGO — Les bâtiments modernes et intelligents
+```
+
+Exemples : `KOSSI MENSAH` · `1 250 000 F` · `CT-2026-014` · `BMI DEMAKPOE`
+
+#### 4. `acces_espace_client` — l'ouverture du compte (⚠ porte un secret)
+
+```
+Bonjour {{1}}, votre espace client BMI TOGO est ouvert.
+
+Vous y retrouvez vos devis, vos factures et le suivi de vos travaux : https://gestion.bmitogo.com
+
+Identifiant : {{2}}
+Mot de passe : {{3}}
+
+BMI TOGO — Les bâtiments modernes et intelligents
+```
+
+Exemples : `KOSSI MENSAH` · `kossi90112233` · `Bmi4827`
+
+#### 5. `rappel_echeance` — une échéance du plan de règlement arrive
+
+⚠ **Aucun mot qui accuse** : ni « impayé », ni « retard », ni « vous devez ».
+Un rappel d'échéance est un service rendu, pas une mise en demeure — et Meta
+range les modèles comminatoires du mauvais côté.
+
+```
+Bonjour {{1}}, une échéance de votre règlement BMI TOGO arrive le {{2}}.
+
+Montant attendu : {{3}}
+Reste à régler : {{4}}
+
+Vous pouvez passer à la boutique {{5}}, ou répondre à ce message si vous avez une question.
+
+BMI TOGO — Les bâtiments modernes et intelligents
+```
+
+Exemples : `KOSSI MENSAH` · `30/09/2026` · `250 000 F` · `750 000 F` ·
+`BMI DEMAKPOE`
