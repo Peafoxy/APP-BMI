@@ -97,6 +97,10 @@ import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
 import { empreinteOuvreCeVerrou, empreinteDeLAppareil, poserEmpreinte, retirerEmpreinte } from "./lib/empreinte";
 import { idAppareil, nomDeCetAppareil, verifierEmpreinte } from "./empreinte";
 import { EcranVerrou } from "./components/EcranVerrou";
+// 👋 LE MOT D'INFORMATION, à la première ouverture (Timo, 19/09/2026 :
+// « faire en sorte que le message ne mette pas mal à l'aise »).
+import { MotInformation } from "./components/MotInformation";
+import { motAMontrer, motPour, marquerMotLu, CLE_VU_ICI } from "./lib/motInformation";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
   uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
@@ -1463,6 +1467,25 @@ export default function App() {
       empreinteOuvrable={empreinteOuvreCeVerrou(motifVerrou, etatAuth.sessionPerdue)}
       onEmpreinte={deverrouillerParEmpreinte} onRetirerEmpreinte={retirerEmpreinteIci}
       onDeconnecter={async () => { await deconnexion(true); setVerrouille(false); }} />}
+    {/* 👋 LE MOT D'INFORMATION — une seule fois, à la première ouverture.
+        ⚠ JAMAIS par-dessus le verrou : quelqu'un qui doit taper son mot de
+        passe n'a pas à lire un mot d'accueil d'abord. Il attend son tour. */}
+    {!verrouille && (() => {
+      const fiche = (db?.users || []).find((x) => x.id === profile?.id);
+      let vuIci = false;
+      try { vuIci = !!localStorage.getItem(CLE_VU_ICI + ":" + (profile?.id || "")); } catch { /* navigation privée */ }
+      if (!motAMontrer(fiche, vuIci)) return null;
+      return <MotInformation mot={motPour(fiche.role)} onCompris={() => {
+        // ⚠ On note D'ABORD dans le navigateur : un compte en LECTURE SEULE
+        // (le comptable) ne persiste rien, et le mot reviendrait à chaque
+        // ouverture — précisément ce qu'il ne faut pas.
+        try { localStorage.setItem(CLE_VU_ICI + ":" + fiche.id, "1"); } catch { /* ignoré */ }
+        // Puis sur la fiche, pour que ses AUTRES appareils le sachent aussi.
+        // Sans libellé : lire un mot n'est pas un geste de gestion, il n'a
+        // rien à faire dans le journal (comme la barre qu'on réarrange).
+        save(marquerMotLu(dbRef.current, fiche.id, today()), "");
+      }} />;
+    })()}
     {/* ⚠ Le voile du verrou est un FRÈRE de ce cadre, jamais un enfant.
         Plus de flou (filter) sur ce cadre (Timo, 09/09/2026 : « le mot de
         passe ne s'écrit pas ») : la fenêtre de verrou couvre tout l'écran

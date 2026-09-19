@@ -62,6 +62,7 @@ npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
+npm run verifier-mot-information # 33  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1617,10 +1618,57 @@ lit mal est pire qu'un banc absent).
 - **Rien à coller dans Supabase** : on ne fait que lire. Le banc mesure la
   règle ET **le PDF fabriqué** ; éprouvé en remettant la faute (numéro entier
   + clé d'empreinte) : trois contrôles tombent.
-- **Ce qui reste pour eux, PAS ENCORE lancé** : un **mot d'information à
-  l'embauche**, et le **libre-service** (qu'il télécharge son dossier lui-même,
-  comme le client depuis son espace) — il faudrait un écran que TOUS les rôles
-  ont, 💵 Mon salaire ne valant que pour les salariés.
+- **Ce qui reste pour eux, PAS ENCORE lancé** : le **libre-service** (qu'il
+  télécharge son dossier lui-même, comme le client depuis son espace) — il
+  faudrait un écran que TOUS les rôles ont, 💵 Mon salaire ne valant que pour
+  les salariés.
+
+#### 👋 LE MOT D'INFORMATION DE LA PREMIÈRE OUVERTURE (19/09/2026)
+- Timo : « Le mot d'information à l'embauche pour personnel et même chose pour
+  les clients pour la 1ère fois qu'il accède à l'app… **mais faire en sorte que
+  le message ne mette pas mal à l'aise le client ni le personnel** ». Cette
+  dernière phrase n'est pas une préférence de style, **c'est la demande** —
+  donc elle SE MESURE (`npm run verifier-mot-information`). Règles pures
+  `lib/motInformation.js` (sans import), fenêtre `components/MotInformation.jsx`
+  écrite **UNE fois pour les deux** : seuls les MOTS changent.
+- ⚠ **CE N'EST PAS UNE CASE À COCHER, ET C'EST TOUT LE POINT.** Un « J'accepte »
+  demanderait un consentement qu'on n'a pas besoin de demander (on tient les
+  livres d'un commerce, pas un fichier publicitaire) et ferait de l'accueil un
+  contrat qu'on fait signer à la sauvette. **UN seul bouton, large :
+  « J'ai compris »** — jamais « J'accepte », jamais une croix, jamais
+  « Refuser ». On n'attend RIEN de la personne.
+- **Le ton se mesure, pas se promet** : `MOTS_A_EVITER` (jargon —
+  « responsable de traitement », « finalité », « sous-traitant » —, et les mots
+  qui inquiètent — « surveill… », « obligatoire », « vous devez », « nous
+  collectons ») ; `motRassurant` refuse un texte qui en porte un. Le mot
+  **commence par CE QU'ON NE FAIT PAS** (on ne vend rien, on ne donne rien),
+  parce que c'est ça qui rassure, jamais la liste de ce qu'on garde. Un 👋, pas
+  un 🔒. Moins de 200 mots. Mesuré dans Chromium : **aucun rouge, aucun ⚠**,
+  un bandeau d'alerte donnerait le ton avant qu'on ait lu un mot.
+- ⚠ **Mais on ne rassure pas à tort** (règle du § 1) : les DEUX disent que la
+  loi peut obliger à transmettre — « sauf si la loi nous y oblige » côté
+  client, « sauf ce que la loi impose de déclarer, comme la CNSS » côté
+  employé. Et l'employé n'apprend PAS que ses collègues ne voient rien du
+  tout : **sa rémunération et ses déclarations sociales** seules sont
+  réservées à la direction et au comptable (c'est ce que fait la table `paie`,
+  rien de plus).
+- **Il se montre UNE fois, et la marque est DOUBLE** : d'abord dans le
+  navigateur (`CLE_VU_ICI` = `bmi_mot_donnees_vu:<id>`), **puis** sur la fiche
+  (`info_donnees_le`, champ personnel comme `ordre_onglets` — **rien à
+  coller**). ⚠ L'un sans l'autre échoue : la fiche seule le ferait revenir à
+  chaque ouverture pour un compte en **LECTURE SEULE** (le comptable, dont le
+  `save` ne persiste rien) ; le navigateur seul le reposerait sur chaque
+  appareil. **Sans ligne de journal** : lire un mot n'est pas un geste de
+  gestion.
+- ⚠ **Il ne passe JAMAIS par-dessus le verrou** (`!verrouille`) : quelqu'un qui
+  doit taper son mot de passe n'a pas à lire un mot d'accueil d'abord. Et il
+  lit la fiche VIVANTE (`db.users`), pas l'étiquette de connexion — celle-ci
+  n'est réécrite qu'à la connexion.
+- ⚠ **Le banc DÉFILE vraiment** (piège de flexbox) : une carte plus haute que
+  son cadre, centrée ou collée en bas, laisse son HAUT hors d'atteinte —
+  `my-auto` est ce qui l'évite. Éprouvé en le retirant : le haut tombe à
+  −53 px et le contrôle tombe. Mesurer une HAUTEUR n'aurait rien prouvé.
+- **Rien à coller dans Supabase.**
 
 - **Ce qui reste, PAS ENCORE lancé** : le mot d'information et le libre-service
   pour les employés (ci-dessus) ; une **durée de conservation** à décider par

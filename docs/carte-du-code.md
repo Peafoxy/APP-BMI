@@ -64,6 +64,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/effacementClient.js` | 🔒 Le droit à l'effacement : ce qui part, ce que les livres gardent sans son nom |
 | `lib/dossierPersonnel.js` | 📄 Le droit d'accès : tout ce qu'on a sur un client, en un document — **jamais son mot de passe** |
 | `lib/dossierEmploye.js` | 👥 Le droit d'accès d'un EMPLOYÉ : paie, CNSS, banque masquée — **pas d'effacement, la loi l'interdit** |
+| `lib/motInformation.js` | 👋 Le mot d'information de la première ouverture (client et employé) — **les mots qui mettent mal à l'aise y sont listés pour être évités** |
 
 ## Les personnes, les espaces, la sécurité
 
@@ -106,6 +107,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |
 | `RechercheGlobale.jsx` | La loupe du menu : recherche transversale (ventes, articles, devis, clients, prospects) |
+| `MotInformation.jsx` | 👋 LA fenêtre du mot d'information (une seule pour le client et l'employé, seuls les mots changent) |
 | `Carte.jsx` | La carte OpenStreetMap pour choisir une position — ⚠ **jamais d'enfant React dans le cadre de Leaflet** |
 
 ## Le reste
