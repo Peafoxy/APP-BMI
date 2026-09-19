@@ -1618,10 +1618,15 @@ lit mal est pire qu'un banc absent).
 - **Rien à coller dans Supabase** : on ne fait que lire. Le banc mesure la
   règle ET **le PDF fabriqué** ; éprouvé en remettant la faute (numéro entier
   + clé d'empreinte) : trois contrôles tombent.
-- **Ce qui reste pour eux, PAS ENCORE lancé** : le **libre-service** (qu'il
-  télécharge son dossier lui-même, comme le client depuis son espace) — il
-  faudrait un écran que TOUS les rôles ont, 💵 Mon salaire ne valant que pour
-  les salariés.
+- ⚠ **LE LIBRE-SERVICE DES EMPLOYÉS : « laisse comme c'est » (19/09/2026).**
+  Proposé — un écran où l'employé téléchargerait son dossier LUI-MÊME, comme
+  le client depuis son espace — et **refusé**. Un employé passe donc par la
+  direction (⚙ Paramètres → 🔒 Données personnelles), et c'est très bien : sa
+  fiche de paie est une donnée sensible, qu'elle sorte sous le contrôle de
+  l'administrateur vaut mieux qu'un bouton cliquable sur un téléphone posé au
+  comptoir. **La loi demande qu'il PUISSE l'obtenir, pas que ce soit en un
+  clic** — BMI est en règle. C'est d'ailleurs ce que le mot d'information dit
+  à l'employé : « Demandez-le à la direction ». **Ne pas le reproposer.**
 
 #### 👋 LE MOT D'INFORMATION DE LA PREMIÈRE OUVERTURE (19/09/2026)
 - Timo : « Le mot d'information à l'embauche pour personnel et même chose pour
@@ -1670,9 +1675,12 @@ lit mal est pire qu'un banc absent).
   −53 px et le contrôle tombe. Mesurer une HAUTEUR n'aurait rien prouvé.
 - **Rien à coller dans Supabase.**
 
-- **Ce qui reste, PAS ENCORE lancé** : le mot d'information et le libre-service
-  pour les employés (ci-dessus) ; une **durée de conservation** à décider par
-  lui. Ne pas les construire sans sa demande.
+- **Ce qui reste, PAS ENCORE lancé** : une seule chose — la **durée de
+  conservation** (combien d'années après le dernier achat), à décider par lui.
+  **On n'écrit aucun chiffre tant qu'il ne l'a pas tranché** : un délai
+  inventé serait pire que le silence. Ne pas le construire sans sa demande.
+  (Le mot d'information est livré ; le libre-service des employés est
+  « laisse comme c'est ».)
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
