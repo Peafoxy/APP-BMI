@@ -337,6 +337,25 @@ Timo, **jamais préfixées `VITE_`** :
 Puis un redéploiement. **Tant qu'elles manquent, rien ne casse** : l'envoi
 automatique est refusé proprement et WhatsApp s'ouvre comme avant.
 
+⚠⚠ **LES DEUX PIÈGES DE CE RÉGLAGE, tombés tous les deux le 19/09/2026** —
+l'application disait « Le serveur n'est pas encore configuré pour WhatsApp »
+alors que tout semblait posé :
+
+1. **LE NOM DOIT ÊTRE EXACT.** La variable avait été nommée `YCLOUD_API` au
+   lieu de `YCLOUD_API_KEY`. Le serveur cherche le nom qu'il cherche ; il ne
+   devine pas. ⚠ Et une variable « sensitive » ne se RENOMME pas : on la
+   retire et on la recrée avec la clé recollée.
+2. **L'ORDRE COMPTE : variables D'ABORD, redéploiement ENSUITE.** Vercel ne
+   lit les variables qu'au moment du déploiement. Le premier essai avait un
+   déploiement de **18 h 08** et des variables posées à **18 h 27** : le
+   serveur en service ne les avait jamais vues. Corrigé à 21 h 13 (clé) puis
+   21 h 14 (redéploiement) — **28 secondes d'écart, dans le bon sens**.
+
+⚠ **Comment on l'a trouvé, et c'est la leçon** : en LISANT les noms des
+variables du projet (jamais leurs valeurs — une clé « sensitive » ne ressort
+pas, et on ne la demande pas), puis en comparant l'HEURE du déploiement à
+celle des variables. **On mesure, on ne présume pas** — ici aussi.
+
 ### CE QUI N'EST PAS FAIT, ET QUI A ÉTÉ DIT
 
 - **« Livré » et « lu » ne s'affichent pas.** Il faudrait que Meta nous
