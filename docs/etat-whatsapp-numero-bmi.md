@@ -260,6 +260,22 @@ l'ouverture WhatsApp depuis l'application, à la main (`envoyerWhatsApp`), qui
 n'est pas un modèle et ne dépend d'aucune validation de Meta. Rien n'est
 perdu — c'est déjà la façon de faire. **Ne pas le reproposer.**
 
+### ⚠ LE NOM AUSSI SE FIGE — ET YCLOUD EN INVENTE UN
+
+Le champ *Template name* est **pré-rempli** par YCloud
+(`template_marketing_20260919052907`) : si on ne le remplace pas, c'est ce
+nom-là qui part chez Meta, et **il ne se corrige plus** (comme la catégorie).
+Arrivé le 19/09/2026 sur `relance_devis`.
+
+Ce n'est pas grave et **rien n'est perdu** : on **supprime** le modèle mal
+nommé et on le recrée sous le bon nom. La réservation d'un mois frappe alors
+le nom inventé — dont personne ne veut. ⚠ **C'est le seul cas où supprimer
+est la bonne idée** : partout ailleurs (un modèle REFUSÉ dont on veut garder
+le nom), on laisse dormir.
+
+⚠ **Le nom compte pour la suite** : c'est lui que le code citera pour envoyer.
+`relance_devis` se lit ; `template_marketing_20260919052907` ne se lit pas.
+
 ### ⚠ LA CATÉGORIE SE FIGE À LA CRÉATION
 
 *Edit* rouvre le CONTENU, jamais la catégorie (elle s'affiche en texte mort).
