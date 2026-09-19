@@ -180,6 +180,18 @@ await build({ entryPoints: ["src/lib/effacementClient.js"], bundle: true, format
 const Eff = await import(pathToFileURL(sortieEff).href);
 unlinkSync(sortieEff);
 
+// 🖥 L'ÉCRAN DU CLIENT, RENDU POUR DE VRAI (19/09/2026) — voir le fichier.
+const sortieEc = join("node_modules", ".cache", `bmi-ecranclient-${process.pid}.mjs`);
+await build({ entryPoints: ["scripts/_rendu-espace-client.jsx"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieEc, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+  define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+  external: ["react", "react-dom", "react-dom/server"] });
+globalThis.localStorage ||= { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+let ecranClient = null, ecranClientErreur = "";
+try { ecranClient = await import(pathToFileURL(sortieEc).href); }
+catch (e) { ecranClientErreur = String(e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : e); }
+unlinkSync(sortieEc);
+
 // ⏳ La durée de conservation des données d'un client (19/09/2026).
 const sortieCons = join("node_modules", ".cache", `bmi-conservation-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/conservation.js"], bundle: true, format: "esm",
@@ -9637,9 +9649,14 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ il télécharge le document LUI-MÊME (« 🖨 Télécharger mes données (PDF) ») : un droit d'accès qui oblige à appeler la boutique n'est accordé qu'à moitié",
       /Télécharger mes données \(PDF\)/.test(ec) && /telecharderMesDonnees/.test(ec));
 
-    test("★ la demande part par la règle commune WhatsApp, jamais un lien écrit dans l'écran, et le numéro vient de la BOUTIQUE (jamais codé en dur)",
+    // ⚠⚠ CONTRÔLE RETOURNÉ le 19/09/2026, et c'est le plus grave de la série :
+    // il exigeait `/boutiquesVisibles\(db, profile\)/` — c'est-à-dire l'appel
+    // SANS sa liste de boutiques, donc l'appel CASSÉ. Il a donc GARANTI un
+    // écran blanc à tout client qui se connectait (capture Timo). Un contrôle
+    // qui lit du TEXTE ne fait pas tourner une fonction.
+    test("★ la demande part par la règle commune WhatsApp, jamais un lien écrit dans l'écran, et le numéro vient de la BOUTIQUE (jamais codé en dur) — avec sa LISTE, sinon undefined.filter et écran blanc",
       /envoyerWhatsApp\(boutiqueContact\.tel, texteDemandeDonnees\(/.test(ec)
-      && /boutiquesVisibles\(db, profile\)/.test(ec)
+      && /boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)/.test(ec)
       && !/wa\.me|\+228\d/.test(ec));
 
     test("★ sans numéro de boutique, on ne fait pas semblant : on le DIT et on renvoie vers 💬 Messages, où la demande arrive quand même",
@@ -9651,6 +9668,41 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ l'espace client ne refiltre RIEN : sur son appareil la base ne contient que ses données, les politiques du serveur sont la seule barrière (règle posée depuis toujours) — et l'écran le DIT au lieu de le laisser deviner",
       /seule barrière/.test(ec) && /ne contient QUE ses données/.test(ec));
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🖥 L'ÉCRAN DU CLIENT S'AFFICHE — MESURÉ, PAS PRÉSUMÉ (19/09/2026)
+//
+// Capture Timo : un client tape son nom et son mot de passe, et tombe sur du
+// BLANC. Cause : `boutiquesVisibles(db, profile)` sans sa liste →
+// `undefined.filter(...)` → exception au rendu. Le banc lisait le TEXTE de
+// l'appel et le trouvait ; il exigeait même la forme fautive. Depuis, on REND.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("🖥 L'écran du client s'affiche — mesuré, pas présumé (19/09/2026)");
+
+  test("★★⚠ L'ÉCRAN DU CLIENT SE REND SANS LEVER — le défaut du 19/09/2026 (écran blanc à la connexion) tombe ici, et nulle part ailleurs",
+    !!ecranClient && ecranClient.htmlGarni.length > 500, ecranClientErreur);
+
+  test("★★⚠ …ET AVEC LA VRAIE BASE D'UN TÉLÉPHONE DE CLIENT : presque rien (ni boutiques, ni produits) — les politiques du serveur ne lui descendent QUE ses données, un écran qui présume une table est un écran blanc en puissance",
+    !!ecranClient && ecranClient.htmlNu.length > 500, ecranClientErreur);
+
+  test("★ et il a vraiment son contenu (ce n'est pas une page vide qui « ne lève pas »)",
+    !!ecranClient && /Vos données personnelles/.test(ecranClient.htmlNu)
+    && /Vos données personnelles/.test(ecranClient.htmlGarni));
+
+  // ⚠ LA RÈGLE GÉNÉRALE, pour que ça ne revienne pas par un autre écran.
+  {
+    const partout = execSync("grep -rn 'boutiquesVisibles(db, profile)' src --include=*.jsx --include=*.js || true").toString().trim();
+    test("★★ PLUS AUCUN `boutiquesVisibles(db, profile)` à DEUX arguments dans toute l'application : la liste est le troisième, et sans elle c'est un écran blanc. Deux s'étaient glissés (l'espace client, et ⚙ Paramètres sur le dossier d'un employé — celui-là n'avait pas encore été vu)",
+      partout === "", partout.split("\n").slice(0, 5).join("\n     "));
+  }
+
+  test("★ et la fonction elle-même ne peut PLUS rendre un écran blanc : une liste absente donne une liste vide, jamais une exception — le banc attrape l'oubli, l'utilisateur ne le paie pas",
+    (() => {
+      const src = readFileSync("src/lib/calculs.js", "utf8");
+      return /return \(liste \|\| \[\]\)\.filter/.test(src);
+    })());
 }
 
 // ═══════════════════════════════════════════════════════════

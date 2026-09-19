@@ -274,7 +274,13 @@ export const boutiquesVisibles = (db, profile, liste) => {
   const monEspace = estCompteFormation(db, profile)
     ? true
     : (voitLesDeuxEspaces(db, profile) ? regardeFormation : false);
-  return liste.filter((b) => !!b.formation === monEspace);
+  // ⚠⚠ `liste` EST OBLIGATOIRE — mais un oubli ne doit plus coûter un ÉCRAN
+  // BLANC (19/09/2026, capture Timo : un client se connectait et tombait sur
+  // du blanc ; `undefined.filter` levait au rendu). Deux appels à deux
+  // arguments s'étaient glissés dans l'application — et le banc EXIGEAIT la
+  // forme fautive, parce qu'il lisait le TEXTE de l'appel au lieu de le faire
+  // tourner. Le filet est ici ; le banc, lui, interdit désormais l'oubli.
+  return (liste || []).filter((b) => !!b.formation === monEspace);
 };
 
 // ⚠ TROU TROUVÉ LE 25/08/2026, à la question de Timo « transfert entre

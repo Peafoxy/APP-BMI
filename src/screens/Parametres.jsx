@@ -254,7 +254,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     ventes: (db.ventes || []).filter(espaceEff).filter((v) => v.par === employeChoisi.nom),
     depenses: (db.depenses || []).filter(espaceEff).filter((d) => d.par_id === employeChoisi.id || d.par === employeChoisi.nom),
     chantiers: chantiersEff.filter((c) => (c.equipe || []).some((e) => e.user_id === employeChoisi.id)),
-    outils: mesOutils(boutiquesVisibles(db, profile), employeChoisi.id).map(({ outil }) => {
+    outils: mesOutils(boutiquesVisibles(db, profile, db.boutiques || []), employeChoisi.id).map(({ outil }) => {
       const sortie = sortieEnCours(outil) || {};
       return { nom: outil.nom, numero: outil.numero, depuis: sortie.date, retour_prevu: sortie.retour_prevu };
     }),

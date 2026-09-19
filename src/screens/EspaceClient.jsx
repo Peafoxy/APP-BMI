@@ -440,7 +440,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // achat, sinon la première qui porte un numéro. On ne code JAMAIS un numéro
   // en dur — il se règle dans ⚙ Paramètres comme tout le reste.
   const boutiqueContact = (() => {
-    const toutes = boutiquesVisibles(db, profile);
+    // ⚠⚠ LA LISTE EST LE TROISIÈME ARGUMENT, ET ELLE EST OBLIGATOIRE.
+    // Sans elle, `boutiquesVisibles` faisait `undefined.filter(...)` : ÉCRAN
+    // BLANC pour tout client à la connexion (capture Timo, 19/09/2026).
+    const toutes = boutiquesVisibles(db, profile, db.boutiques || []);
     const nom = fiche?.boutique || (db.ventes || [])[0]?.boutique;
     return toutes.find((b) => b.nom === nom && b.tel) || toutes.find((b) => b.tel) || null;
   })();
