@@ -28,6 +28,9 @@
 // Ce fichier n'importe que des règles PURES : le banc l'exerce tel quel.
 // ============================================================
 import { estEfface } from "./effacementClient.js";
+// La durée de conservation et la phrase qui la dit vivent dans UN seul
+// fichier : ce document et l'écran du client ne peuvent pas se contredire.
+import { phraseConservation } from "./conservation.js";
 
 // Les champs qui ne sortent JAMAIS, quelle que soit la table d'où ils
 // viennent. Le banc vérifie que le document ne les contient pas.
@@ -45,7 +48,7 @@ const lignesArticles = (v) => (v?.articles || v?.panier || v?.lignes || [])
 // ---------------------------------------------------------------
 // `dossier` vient de dossierClient (lib/effacementClient.js) : mêmes données,
 // même mur, même façon de reconnaître le client. Une seule source.
-export function dossierPersonnel(dossier, { fmt = (x) => `${x} F`, dFR = (x) => String(x || "") } = {}) {
+export function dossierPersonnel(dossier, { fmt = (x) => `${x} F`, dFR = (x) => String(x || ""), duree } = {}) {
   const d = dossier || {};
   const c = d.compte || null;
 
@@ -105,7 +108,7 @@ export function dossierPersonnel(dossier, { fmt = (x) => `${x} F`, dFR = (x) => 
       "Aucune fiche de prospection."),
   ];
 
-  return { identite, sections, mentions: MENTIONS_DOSSIER, total: d.total || 0 };
+  return { identite, sections, mentions: mentionsDossier(duree), total: d.total || 0 };
 }
 
 // ---------------------------------------------------------------
@@ -114,11 +117,20 @@ export function dossierPersonnel(dossier, { fmt = (x) => `${x} F`, dFR = (x) => 
 // ⚠ Ce texte reprend l'article 18 des contrats mot pour mot dans son fond :
 // s'il change là-bas, il change ici. Ne rien promettre de plus que le
 // contrat — et rien de moins.
-export const MENTIONS_DOSSIER = [
+//
+// ⚠ C'est une FONCTION depuis le 19/09/2026, parce qu'elle porte la DURÉE DE
+// CONSERVATION, et que Timo a demandé de pouvoir la changer à tout moment
+// (« 6 ans après le dernier achat. On peut à tout moment changer cette
+// durée »). Une constante aurait figé le chiffre ; ici il suit le réglage,
+// sur l'écran du client comme sur le document imprimé.
+export const mentionsDossier = (duree) => [
   "Ce document rassemble toutes les données que BMI TOGO conserve à votre sujet dans son logiciel de gestion, à la date indiquée ci-dessus.",
   "Ces données sont utilisées exclusivement dans le cadre de nos contrats et de notre relation commerciale. Elles ne sont communiquées à aucun tiers sans votre accord, sauf obligation légale.",
   "Conformément à la loi n° 2019-014 relative à la protection des données à caractère personnel en République Togolaise, vous disposez d'un droit d'accès, de rectification et, dans les conditions prévues par la loi, de suppression de vos données.",
   "Pour exercer ces droits, adressez-vous à BMI TOGO. Certaines pièces — factures, reçus, contrats — doivent être conservées par obligation comptable et ne peuvent pas être détruites : votre nom peut en revanche en être retiré.",
+  // ⚠ LA DURÉE, écrite UNE fois dans lib/conservation.js. C'est la seule
+  // ligne de ce texte qui dépend d'un réglage — d'où la fonction.
+  phraseConservation(duree),
   "Votre mot de passe ne figure pas dans ce document, et ne figure nulle part en clair dans notre logiciel.",
 ];
 

@@ -45,8 +45,22 @@ test("★ mais on ne rassure pas à tort : les DEUX rappellent que la loi peut o
   /la loi nous y oblige/i.test(JSON.stringify(M.MOT_CLIENT))
   && /la loi impose de déclarer/i.test(JSON.stringify(M.MOT_EMPLOYE))
   && /rémunération et vos déclarations sociales ne sont visibles/i.test(JSON.stringify(M.MOT_EMPLOYE)));
+// ⚠ CONTRÔLE RETOURNÉ le 19/09/2026 : il comparait les OBJETS (motPour(...)
+// === MOT_CLIENT). Depuis que la DURÉE DE CONSERVATION s'écrit dans le mot du
+// client, motPour rend une COPIE remplie — l'égalité d'objet ne voulait plus
+// rien dire. Il compare maintenant les TEXTES, ce qui est ce qu'on voulait
+// vérifier depuis le début, et il vérifie en plus les deux choses neuves.
 test("★ un compte CLIENT reçoit le mot du client, tout autre rôle celui de l'employé",
-  M.motPour("client") === M.MOT_CLIENT && M.motPour("vendeur") === M.MOT_EMPLOYE && M.motPour("admin") === M.MOT_EMPLOYE);
+  M.motPour("client").titre === M.MOT_CLIENT.titre
+  && M.motPour("vendeur").titre === M.MOT_EMPLOYE.titre
+  && M.motPour("admin").titre === M.MOT_EMPLOYE.titre);
+test("★ la DURÉE annoncée au client suit le réglage : 6 ans écrit 6, 10 ans écrit 10 — jamais un chiffre gravé, et jamais le jeton laissé en place",
+  /gardons 6 ans après votre dernier achat/.test(JSON.stringify(M.motPour("client", 6)))
+  && /gardons 10 ans après votre dernier achat/.test(JSON.stringify(M.motPour("client", 10)))
+  && !JSON.stringify(M.motPour("client", 6)).includes(M.JETON_DUREE));
+test("★★ l'EMPLOYÉ n'a JAMAIS de durée, et ce n'est pas un oubli : sa paie et ses déclarations sociales se gardent par obligation légale, pas par ce réglage — lui annoncer la durée des clients serait faux",
+  !/\d+ ans/.test(JSON.stringify(M.motPour("vendeur", 6)))
+  && !JSON.stringify(M.motPour("vendeur", 6)).includes(M.JETON_DUREE));
 test("★ il ne se montre qu'UNE fois : marqué sur la fiche, et AUSSI dans le navigateur — sinon un compte en LECTURE SEULE (le comptable) le reverrait à chaque ouverture",
   M.motAMontrer({ id: "u1" }) === true
   && M.motAMontrer({ id: "u1", [M.CHAMP_VU]: "2026-09-19" }) === false
@@ -147,8 +161,11 @@ test("★ la marque part d'abord dans le NAVIGATEUR, puis sur la fiche — et sa
   /localStorage\.setItem\(CLE_VU_ICI/.test(app)
   && /save\(marquerMotLu\(dbRef\.current, fiche\.id, today\(\)\), ""\)/.test(app)
   && app.indexOf("localStorage.setItem(CLE_VU_ICI") < app.indexOf("save(marquerMotLu"));
-test("★ la fenêtre est écrite UNE fois pour les deux (un seul composant, les mots seuls changent)",
-  /motPour\(fiche\.role\)/.test(app)
+// ⚠ RETOURNÉ le 19/09/2026 : motPour prend maintenant la DURÉE en second
+// argument. On en profite pour exiger qu'elle vienne du RÉGLAGE — un chiffre
+// écrit là à la main serait exactement ce qu'on veut empêcher.
+test("★ la fenêtre est écrite UNE fois pour les deux (un seul composant, les mots seuls changent), et la durée vient du RÉGLAGE, jamais d'un chiffre écrit dans App.jsx",
+  /motPour\(fiche\.role, dureeConservation\(db\)\)/.test(app)
   && (readFileSync("src/components/MotInformation.jsx", "utf8").match(/export function/g) || []).length === 1);
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

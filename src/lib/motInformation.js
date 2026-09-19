@@ -72,7 +72,7 @@ export const MOT_CLIENT = {
     {
       icone: "📇",
       titre: "Ce que nous gardons",
-      texte: "Votre nom, votre numéro, et ce que vous achetez chez nous. C'est ce qu'il faut pour établir vos devis, vos reçus et vos contrats, et pour assurer le suivi après votre installation.",
+      texte: "Votre nom, votre numéro, et ce que vous achetez chez nous. C'est ce qu'il faut pour établir vos devis, vos reçus et vos contrats, et pour assurer le suivi après votre installation. Nous les gardons {duree} ans après votre dernier achat, puis nous les effaçons.",
     },
     {
       icone: "🔑",
@@ -123,7 +123,22 @@ export const MOT_EMPLOYE = {
   bouton: "J'ai compris",
 };
 
-export const motPour = (role) => (role === "client" ? MOT_CLIENT : MOT_EMPLOYE);
+// ⚠ LA DURÉE DE CONSERVATION S'ÉCRIT DANS LE MOT DU CLIENT (19/09/2026,
+// Timo : « 6 ans après le dernier achat. On peut à tout moment changer cette
+// durée ») : le chiffre suit le réglage de ⚙ Paramètres, il n'est pas gravé
+// dans le texte. D'où le jeton `{duree}` et cette petite fabrique — le même
+// principe que `{client}` dans le mot de fidélité.
+//
+// ⚠⚠ L'EMPLOYÉ N'EN A PAS, ET CE N'EST PAS UN OUBLI : sa rémunération et ses
+// déclarations sociales se conservent par OBLIGATION LÉGALE, pas par ce
+// réglage. Lui annoncer la durée des clients serait tout simplement faux.
+export const JETON_DUREE = "{duree}";
+const avecDuree = (mot, duree) => ({
+  ...mot,
+  blocs: mot.blocs.map((b) => ({ ...b, texte: b.texte.split(JETON_DUREE).join(String(duree)) })),
+});
+export const motPour = (role, duree = 6) =>
+  (role === "client" ? avecDuree(MOT_CLIENT, duree) : MOT_EMPLOYE);
 
 // ---------------------------------------------------------------
 // CE QUE LE BANC SURVEILLE DANS LES DEUX TEXTES

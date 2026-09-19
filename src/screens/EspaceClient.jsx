@@ -20,7 +20,8 @@ import { numeroContrat, planReglementSigne } from "../lib/contrat";
 // MÊME dossier, MÊMES mentions, MÊME document que celui remis depuis
 // ⚙ Paramètres : une seule source, sinon le client verrait la différence.
 import { dossierClient } from "../lib/effacementClient";
-import { dossierPersonnel, resumePourLeClient, texteDemandeDonnees, MENTIONS_DOSSIER } from "../lib/dossierPersonnel";
+import { dossierPersonnel, resumePourLeClient, texteDemandeDonnees } from "../lib/dossierPersonnel";
+import { dureeConservation } from "../lib/conservation";
 import { genererDossierPersonnel } from "../pdf";
 import { LOGO } from "../lib/constants";
 
@@ -422,7 +423,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
     messages: db.messages || [],
     audits: [],
   }, { nom: moi.nom_base || profile.nom, tel: moi.tel || profile.tel });
-  const maVue = dossierPersonnel(monDossier, { fmt, dFR });
+  // ⚠ La durée de conservation vient du réglage de la maison (⚙ Paramètres) :
+  // le client lit le chiffre en vigueur, jamais un chiffre gravé.
+  const maVue = dossierPersonnel(monDossier, { fmt, dFR, duree: dureeConservation(db) });
 
   const telecharderMesDonnees = () => {
     genererDossierPersonnel(maVue, {
@@ -952,7 +955,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
         </button>
 
         <div className="mt-4 rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 space-y-1.5">
-          {MENTIONS_DOSSIER.map((m, i) => <p key={i}>{m}</p>)}
+          {maVue.mentions.map((m, i) => <p key={i}>{m}</p>)}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">

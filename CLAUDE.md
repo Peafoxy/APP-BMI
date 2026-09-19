@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1646 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1662 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -62,7 +62,7 @@ npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
-npm run verifier-mot-information # 33  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
+npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1675,12 +1675,64 @@ lit mal est pire qu'un banc absent).
   −53 px et le contrôle tombe. Mesurer une HAUTEUR n'aurait rien prouvé.
 - **Rien à coller dans Supabase.**
 
-- **Ce qui reste, PAS ENCORE lancé** : une seule chose — la **durée de
-  conservation** (combien d'années après le dernier achat), à décider par lui.
-  **On n'écrit aucun chiffre tant qu'il ne l'a pas tranché** : un délai
-  inventé serait pire que le silence. Ne pas le construire sans sa demande.
-  (Le mot d'information est livré ; le libre-service des employés est
-  « laisse comme c'est ».)
+#### ⏳ LA DURÉE DE CONSERVATION — 6 ANS (19/09/2026, le dernier point)
+- Timo : **« 6 ans après le dernier achat. On peut à tout moment changer cette
+  durée. »** Jusque-là l'application se TAISAIT exprès (un chiffre inventé
+  aurait été pire que le silence) ; le document disait seulement « pour la
+  durée de la relation commerciale ». Désormais la durée S'ÉCRIT — et une
+  durée annoncée vaut mieux qu'un silence, c'est ce que la loi attend. Règle
+  pure `lib/conservation.js` (sans import).
+- ⚠⚠ **RIEN NE S'EFFACE TOUT SEUL** — sa décision, entre trois propositions :
+  **l'application PROPOSE, l'administrateur CONFIRME.** Un effacement ne se
+  défait pas ; un balayage automatique serait le premier geste de
+  l'application à détruire des données sans que personne ne regarde, et les
+  avertissements existants (un client sans numéro se rapproche sur le NOM
+  seul : un homonyme partirait avec lui) n'auraient plus personne à avertir.
+  `lib/conservation.js` ne contient donc **AUCUNE fonction qui efface** :
+  elle DIT qui dépasse. La liste ouvre un client à la fois, par le MÊME
+  chemin que l'effacement ordinaire — **aucun bouton « tout effacer »**. Le
+  banc le mesure, et le contrôle a été éprouvé en remettant la faute : il
+  tombe.
+- ⚠ **L'ARTICLE 18 DU CONTRAT N'A PAS BOUGÉ** (sa décision le même jour) : il
+  garde « conservées pour la durée nécessaire à cette finalité ». Ce n'est pas
+  faux, et un contrat SIGNÉ ne se met pas à jour — il garderait le chiffre du
+  jour de la signature alors que la durée est réglable. **Ne pas l'y écrire
+  sans qu'il le redemande.**
+- **Le réglage** : ⚙ Paramètres → 🔒 Données personnelles, administrateur
+  PRINCIPAL seul, champ `duree_conservation_ans` sur les boutiques comme le
+  mot de fidélité — **rien à coller**. ⚠ Il n'est **PAS cloisonné**, et c'est
+  voulu : ce n'est pas une donnée mais une POLITIQUE, et la lecture prend « la
+  première boutique qui le porte » — si le réel disait 6 et la formation 4, le
+  papier d'un client afficherait l'un ou l'autre selon l'ordre du chargement.
+- **UNE phrase, trois endroits** (`phraseConservation`) : le dossier imprimé,
+  l'espace du client, ⚙ Paramètres. ⚠ `MENTIONS_DOSSIER` est devenue la
+  FONCTION `mentionsDossier(duree)` — une constante aurait figé le chiffre ;
+  l'espace client affiche `maVue.mentions`, c'est-à-dire LITTÉRALEMENT le
+  texte du document qu'il télécharge. ⚠ Elle **ne promet pas une disparition
+  totale** : les factures restent (la loi commerciale l'oblige), le nom en est
+  retiré.
+- **Le mot d'accueil du client la dit aussi** (jeton `{duree}`, rempli par
+  `motPour(role, duree)`). ⚠⚠ **L'EMPLOYÉ N'EN A PAS, et ce n'est pas un
+  oubli** : sa rémunération et ses déclarations sociales se conservent par
+  OBLIGATION LÉGALE, pas par ce réglage — lui annoncer la durée des clients
+  serait faux.
+- **« Dernier achat »** vient de `clientsEffacables` (déjà écrit) : la plus
+  récente de ses ventes, dettes et chantiers — et, pour un compte créé JAMAIS
+  utilisé, **la date de création**. Sans ce repli il ne serait jamais
+  concerné. Un client sans aucune date n'est jamais emporté.
+- ⚠ **LE MUR** : `clientsDepasses` reçoit la LISTE déjà filtrée, jamais `db` —
+  une fonction pure qui reçoit une table entière et la PARCOURT est un passage
+  de mur en puissance (leçon payée deux fois le 18/09).
+- **Personne n'est concerné avant 2032** : l'application a commencé en 2026.
+  L'écran le DIT quand la liste est vide, au lieu de laisser croire à un
+  balayage.
+- **Rien à coller dans Supabase.**
+
+- **La protection des données est COMPLÈTE** : effacement, dossier d'accès
+  (client et employé), libre-service du client, fuite du numéro de compte
+  fermée, mot d'information, durée de conservation. Ne restent que les deux
+  démarches HORS application, déjà dites à Timo et affichées dans l'écran :
+  la déclaration à l'**IPDCP**, et l'**hébergement hors du Togo**.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

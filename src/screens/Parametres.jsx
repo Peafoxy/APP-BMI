@@ -26,6 +26,7 @@ import { mesOutils, sortieEnCours } from "../lib/outillage";
 import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
+import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
 import { dossierPersonnel, critiqueDossier, journalDossier, nomDossierPersonnel, lignesCsvDossier } from "../lib/dossierPersonnel";
@@ -147,6 +148,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // MONTRER ce qui va partir et demander le motif.
   const [qEff, setQEff] = useState("");
   const [cibleEff, setCibleEff] = useState(null);   // { nom, tel }
+  // ⏳ La durée de conservation (Timo, 19/09/2026 : « 6 ans après le dernier
+  // achat. On peut à tout moment changer cette durée »).
+  const [dureeSaisie, setDureeSaisie] = useState(String(dureeConservation(db)));
   const [motifEff, setMotifEff] = useState("");
 
   // ⚠ LE MUR : on ne construit le dossier QUE sur l'espace regardé. Les
@@ -197,7 +201,12 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // Même dossier que l'effacement (dossierClient), donc même mur et même
   // façon de le reconnaître — une seule source, sinon les deux finiraient
   // par se contredire.
-  const vueDossier = dossierEff ? dossierPersonnel(dossierEff, { fmt, dFR }) : null;
+  const dureeEnCours = dureeConservation(db);
+  const vueDossier = dossierEff ? dossierPersonnel(dossierEff, { fmt, dFR, duree: dureeEnCours }) : null;
+  // ⚠ La liste des dépassés part de `listeEff` — DÉJÀ filtrée par l'espace
+  // regardé — jamais de db : une fonction qui reçoit une table entière et la
+  // parcourt est un passage de mur en puissance (leçon du 18/09).
+  const depassesEff = clientsDepasses(listeEff, dureeEnCours, today());
   const refusDossier = dossierEff ? critiqueDossier(dossierEff) : "";
 
   const remettreDossier = async (format) => {
@@ -512,6 +521,22 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, message_fidelite: msgFid })) },
       "Mot de fidélité au client modifié");
     uAlert("✅ Enregistré. Ce mot est pré-rempli au clic sur WhatsApp, dans 👥 Utilisateurs, sur la fiche d'un client.");
+  };
+
+  // ---- ⏳ La durée de conservation des données d'un client (19/09/2026) ----
+  // Timo : « 6 ans après le dernier achat. On peut à tout moment changer cette
+  // durée. » Rangée sur les boutiques (`duree_conservation_ans`), comme le mot
+  // de fidélité : rien à coller dans Supabase. Administrateur PRINCIPAL seul —
+  // c'est lui qui répond de la promesse faite au client.
+  const enregistrerDuree = async () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Changer la durée de conservation des données")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueDuree(dureeSaisie);
+    if (refus) { await uAlert(refus); return; }
+    const ans = Number(dureeSaisie);
+    save({ ...db, boutiques: poserDureeConservation(db.boutiques, ans) },
+      `Durée de conservation des données : ${ans} ans`);
+    uAlert(`✅ Enregistré. À partir de maintenant, le dossier que vous remettez à un client et son espace annoncent ${ans} ans. Rien ne s'efface pour autant : c'est vous qui effacez, client par client.`);
   };
 
   const retablirMsgFidelite = async () => {
@@ -1873,12 +1898,84 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           )}
         </div>
 
+        {/* ⏳ LA DURÉE DE CONSERVATION (Timo, 19/09/2026 : « 6 ans après le
+            dernier achat. On peut à tout moment changer cette durée »).
+            ⚠ RIEN NE S'EFFACE TOUT SEUL — sa décision, entre trois
+            propositions : l'application PROPOSE, l'administrateur CONFIRME.
+            Un effacement ne se défait pas ; un balayage automatique serait le
+            premier geste de l'application à détruire sans que personne ne
+            regarde. La liste ci-dessous n'a donc AUCUN bouton « tout
+            effacer » : on ouvre un client, on lit ses avertissements, on
+            décide. */}
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <div className="font-bold mb-1">⏳ Combien de temps garder les données d'un client</div>
+          <div className="text-xs text-slate-600 mb-3">
+            C'est ce que vous annoncez au client : le chiffre s'écrit sur le dossier que vous lui remettez et dans son espace.
+            Vous pouvez le changer à tout moment — tout suit d'un coup.
+          </div>
+
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <div className="text-xs text-slate-500 mb-0.5">Durée (années)</div>
+              <input
+                type="number" min="1" inputMode="numeric"
+                className={`${inputCls} sm:w-24`}
+                value={dureeSaisie}
+                onChange={(e) => setDureeSaisie(e.target.value)}
+              />
+            </div>
+            <button onClick={enregistrerDuree} className="px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">
+              Enregistrer
+            </button>
+            {Number(dureeSaisie) !== dureeEnCours && (
+              <div className="text-xs text-amber-700 font-bold">En vigueur aujourd'hui : {dureeEnCours} ans.</div>
+            )}
+          </div>
+
+          <div className="mt-3 rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+            <div className="font-bold text-slate-700 mb-0.5">Ce que le client lit, mot pour mot :</div>
+            {phraseConservation(dureeEnCours)}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-200">
+            <div className="font-bold text-sm mb-1">
+              Clients dont la durée est dépassée {depassesEff.length > 0 && <span className="text-amber-700">({depassesEff.length})</span>}
+            </div>
+            {depassesEff.length === 0 ? (
+              <div className="text-xs text-slate-500">
+                Aucun pour le moment : aucun client n'est resté {dureeEnCours} ans sans rien acheter.
+                {" "}Quand il y en aura, ils apparaîtront ici — <b>rien ne s'effacera tout seul</b>, c'est vous qui déciderez, client par client.
+              </div>
+            ) : (
+              <>
+                <div className="text-xs text-slate-500 mb-2">
+                  Ouvrez-en un : vous verrez ce qu'il a chez vous, les avertissements, et le bouton pour effacer.
+                  <b> Rien ne part sans votre geste.</b>
+                </div>
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-amber-200 divide-y divide-amber-100">
+                  {depassesEff.map((c) => (
+                    <button
+                      key={c.cle}
+                      onClick={() => { setCibleEff({ nom: c.nom, tel: c.tel }); setMotifEff(""); }}
+                      className={`w-full text-left px-3 py-2 text-sm ${cleCibleEff === c.cle ? "bg-sky-50 border-l-4 border-sky-700 font-bold" : "bg-amber-50/50 hover:bg-amber-50"}`}
+                    >
+                      {c.nom}
+                      <span className="block text-xs text-slate-500">
+                        {c.tel || "sans numéro"} · rien depuis {libelleAnciennete(c.depuis)} ({dFR(c.derniere)})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="rounded-xl p-4 bg-slate-50 border border-slate-200">
           <div className="font-bold text-sm mb-1">Ce que l'application ne peut pas faire à votre place</div>
           <ul className="text-xs text-slate-600 list-disc pl-4 space-y-1">
             <li>La déclaration de vos traitements auprès de l'<b>IPDCP</b> (l'autorité togolaise) — c'est une démarche, pas un réglage.</li>
             <li>La question de l'<b>hébergement hors du Togo</b> : la base et le site sont à l'étranger.</li>
-            <li>Décider d'une <b>durée de conservation</b> : aujourd'hui, rien ne s'efface tout seul.</li>
           </ul>
         </div>
       </div>

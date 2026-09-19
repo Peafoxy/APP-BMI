@@ -101,6 +101,9 @@ import { EcranVerrou } from "./components/EcranVerrou";
 // « faire en sorte que le message ne mette pas mal à l'aise »).
 import { MotInformation } from "./components/MotInformation";
 import { motAMontrer, motPour, marquerMotLu, CLE_VU_ICI } from "./lib/motInformation";
+// La durée annoncée au client suit le réglage de ⚙ Paramètres — jamais un
+// chiffre gravé dans le texte.
+import { dureeConservation } from "./lib/conservation";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
   uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
@@ -1475,7 +1478,7 @@ export default function App() {
       let vuIci = false;
       try { vuIci = !!localStorage.getItem(CLE_VU_ICI + ":" + (profile?.id || "")); } catch { /* navigation privée */ }
       if (!motAMontrer(fiche, vuIci)) return null;
-      return <MotInformation mot={motPour(fiche.role)} onCompris={() => {
+      return <MotInformation mot={motPour(fiche.role, dureeConservation(db))} onCompris={() => {
         // ⚠ On note D'ABORD dans le navigateur : un compte en LECTURE SEULE
         // (le comptable) ne persiste rien, et le mot reviendrait à chaque
         // ouverture — précisément ce qu'il ne faut pas.

@@ -64,6 +64,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/effacementClient.js` | 🔒 Le droit à l'effacement : ce qui part, ce que les livres gardent sans son nom |
 | `lib/dossierPersonnel.js` | 📄 Le droit d'accès : tout ce qu'on a sur un client, en un document — **jamais son mot de passe** |
 | `lib/dossierEmploye.js` | 👥 Le droit d'accès d'un EMPLOYÉ : paie, CNSS, banque masquée — **pas d'effacement, la loi l'interdit** |
+| `lib/conservation.js` | ⏳ Combien de temps on garde les données d'un client (6 ans, réglable) — **il DIT qui dépasse, il n'efface JAMAIS** |
 | `lib/motInformation.js` | 👋 Le mot d'information de la première ouverture (client et employé) — **les mots qui mettent mal à l'aise y sont listés pour être évités** |
 
 ## Les personnes, les espaces, la sécurité

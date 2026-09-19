@@ -180,6 +180,13 @@ await build({ entryPoints: ["src/lib/effacementClient.js"], bundle: true, format
 const Eff = await import(pathToFileURL(sortieEff).href);
 unlinkSync(sortieEff);
 
+// ⏳ La durée de conservation des données d'un client (19/09/2026).
+const sortieCons = join("node_modules", ".cache", `bmi-conservation-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/conservation.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieCons, logLevel: "silent", loader: { ".js": "jsx" } });
+const Cons = await import(pathToFileURL(sortieCons).href);
+unlinkSync(sortieCons);
+
 // 👆 L'empreinte qui ouvre le verrou d'inactivité (16/09/2026).
 const sortieEmp = join("node_modules", ".cache", `bmi-empreinte-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/empreinte.js"], bundle: true, format: "esm",
@@ -9548,8 +9555,10 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       /refuserSaufAdminPrincipal\(db, profile, "Remettre à un client le dossier de ses données"\)/.test(par)
       && /Dossier personnel \(PDF\)/.test(par) && /Exporter \(CSV\)/.test(par));
 
+    // ⚠ RETOURNÉ le 19/09/2026 : le dossier porte maintenant la DURÉE DE
+    // CONSERVATION, qui vient du réglage. On exige les deux.
     test("★ UNE SEULE SOURCE : le dossier d'accès et le dossier d'effacement viennent du MÊME dossierClient — même mur, même façon de reconnaître le client, sinon les deux finiraient par se contredire",
-      /dossierPersonnel\(dossierEff, \{ fmt, dFR \}\)/.test(par));
+      /dossierPersonnel\(dossierEff, \{ fmt, dFR, duree: dureeEnCours \}\)/.test(par));
 
     test("★ le droit d'accès reste OUVERT même quand l'effacement est refusé : une dette non soldée n'empêche personne de demander ce qu'on a sur lui",
       par.indexOf("Lui remettre ses données") < par.indexOf("{refusEff ?"));
@@ -9610,11 +9619,20 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
 
     test("★ UNE SEULE SOURCE : l'espace client passe par le MÊME dossierClient et le MÊME dossierPersonnel que ⚙ Paramètres — sinon le client verrait la différence entre ce qu'il télécharge et ce que BMI lui remet",
-      /dossierClient\(\{/.test(ec) && /dossierPersonnel\(monDossier, \{ fmt, dFR \}\)/.test(ec)
+      /dossierClient\(\{/.test(ec) && /dossierPersonnel\(monDossier, \{ fmt, dFR, duree: dureeConservation\(db\) \}\)/.test(ec)
       && /genererDossierPersonnel\(maVue/.test(ec));
 
-    test("★ les MÊMES mentions s'affichent à l'écran et s'impriment dans le document (MENTIONS_DOSSIER, écrites UNE fois) — pas un second texte à maintenir",
-      /MENTIONS_DOSSIER\.map/.test(ec) && !/loi n° 2019-014/.test(ec.split("MENTIONS_DOSSIER")[0]));
+    // ⚠ RETOURNÉ le 19/09/2026 : les mentions PORTENT la durée, elles sont
+    // donc une fonction du réglage — la constante MENTIONS_DOSSIER a disparu.
+    // Le nouveau contrôle est PLUS FORT : il n'exige plus « la même
+    // constante des deux côtés » mais que l'écran affiche LITTÉRALEMENT le
+    // texte du document qu'il imprime (maVue.mentions).
+    test("★ les MÊMES mentions s'affichent à l'écran et s'impriment dans le document — l'écran affiche celles DU document (maVue.mentions), pas un second texte à maintenir",
+      /maVue\.mentions\.map/.test(ec) && !/MENTIONS_DOSSIER/.test(ec)
+      // ⚠ « loi n° 2019-014 » est cherchée dans le PANNEAU seulement :
+      // l'article 18 du CONTRAT, affiché plus bas au client, la cite
+      // légitimement — un contrôle qui crie à tort finit par ne plus être cru.
+      && !/loi n° 2019-014/.test(ec.split("maVue.mentions.map")[0].split("Vos données personnelles").pop()));
 
     test("★ il télécharge le document LUI-MÊME (« 🖨 Télécharger mes données (PDF) ») : un droit d'accès qui oblige à appeler la boutique n'est accordé qu'à moitié",
       /Télécharger mes données \(PDF\)/.test(ec) && /telecharderMesDonnees/.test(ec));
@@ -9632,6 +9650,117 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
     test("★ l'espace client ne refiltre RIEN : sur son appareil la base ne contient que ses données, les politiques du serveur sont la seule barrière (règle posée depuis toujours) — et l'écran le DIT au lieu de le laisser deviner",
       /seule barrière/.test(ec) && /ne contient QUE ses données/.test(ec));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ⏳ LA DURÉE DE CONSERVATION DES DONNÉES D'UN CLIENT (19/09/2026)
+//
+// Timo, le dernier point ouvert de la protection des données : « 6 ans après
+// le dernier achat. On peut à tout moment changer cette durée ».
+//
+// ⚠⚠ RIEN NE S'EFFACE TOUT SEUL — sa décision entre trois propositions :
+// l'application PROPOSE, l'administrateur CONFIRME. Le banc le MESURE, parce
+// que c'est la règle la plus facile à trahir sans s'en apercevoir.
+// ═══════════════════════════════════════════════════════════
+{
+  titre("⏳ La durée de conservation des données d'un client (19/09/2026)");
+
+  test("★ 6 ans est la valeur par défaut, et une maison qui n'a rien réglé l'annonce quand même — le document doit TOUJOURS pouvoir dire un chiffre, jamais « pas de durée »",
+    Cons.DUREE_CONSERVATION_DEFAUT === 6
+    && Cons.dureeConservation({ boutiques: [{ nom: "A" }] }) === 6
+    && Cons.dureeConservation({}) === 6
+    && Cons.dureeConservation({ boutiques: [{ nom: "A", duree_conservation_ans: 10 }] }) === 10);
+
+  test("★ elle se change à tout moment (sa demande) : le réglage s'écrit sur les boutiques, comme la liste des banques — rien à coller dans Supabase",
+    (() => {
+      const b = Cons.poserDureeConservation([{ nom: "A" }, { nom: "B", banques: ["BTCI"] }], 8);
+      return b.length === 2 && b[0].duree_conservation_ans === 8 && b[1].duree_conservation_ans === 8
+        && b[1].banques[0] === "BTCI"   // le reste de la fiche ne bouge pas
+        && Cons.dureeConservation({ boutiques: b }) === 8;
+    })());
+
+  test("★ une durée absurde est refusée en le DISANT : 0, une moitié d'année, ou 900 ans sur le papier d'un client",
+    !!Cons.critiqueDuree(0) && !!Cons.critiqueDuree(-3) && !!Cons.critiqueDuree(2.5)
+    && !!Cons.critiqueDuree("") && !!Cons.critiqueDuree("abc") && !!Cons.critiqueDuree(900)
+    && Cons.critiqueDuree(6) === "" && Cons.critiqueDuree(1) === "" && Cons.critiqueDuree(30) === "");
+
+  test("★ la date limite se calcule à l'année près : au 15/09/2026, 6 ans renvoient au 15/09/2020",
+    Cons.dateLimiteConservation(6, "2026-09-15") === "2020-09-15"
+    && Cons.dateLimiteConservation(10, "2026-01-02") === "2016-01-02");
+
+  test("★★ QUI dépasse : celui dont la dernière trace est ANTÉRIEURE à la limite, les plus anciens en tête — et le jour PILE des 6 ans ne dépasse pas encore",
+    (() => {
+      const clients = [
+        { cle: "a", nom: "VIEUX", tel: "90", derniere: "2018-03-01" },
+        { cle: "b", nom: "RECENT", tel: "91", derniere: "2026-01-10" },
+        { cle: "c", nom: "PILE", tel: "92", derniere: "2020-09-15" },
+        { cle: "d", nom: "LIMITE", tel: "93", derniere: "2020-09-14" },
+      ];
+      const r = Cons.clientsDepasses(clients, 6, "2026-09-15");
+      return r.length === 2 && r[0].nom === "VIEUX" && r[1].nom === "LIMITE";
+    })());
+
+  test("★ un client SANS aucune date n'est jamais emporté par erreur — devant un doute, on n'efface pas",
+    Cons.clientsDepasses([{ cle: "x", nom: "SANS DATE", derniere: "" }], 6, "2026-09-15").length === 0
+    && Cons.clientsDepasses([{ cle: "y", nom: "RIEN" }], 6, "2026-09-15").length === 0);
+
+  test("★ « dernier achat » vient de clientsEffacables, qui prend déjà la plus récente des ventes, dettes et chantiers — et, pour un compte créé JAMAIS utilisé, la date de création : sans ce repli il ne serait JAMAIS concerné",
+    (() => {
+      const l = Eff.clientsEffacables({
+        comptes: [{ id: "c1", role: "client", nom: "JAMAIS ACHETÉ", tel: "90111111", cree_le: "2017-05-02" }],
+        ventes: [{ client: "ACHETEUR", tel: "90222222", date: "2019-01-01" }],
+        dettes: [], chantiers: [],
+      });
+      const r = Cons.clientsDepasses(l, 6, "2026-09-15");
+      return r.length === 2 && r.some((c) => c.nom === "JAMAIS ACHETÉ");
+    })());
+
+  test("★ l'ancienneté se lit en français, pas en nombre à virgule",
+    Cons.libelleAnciennete(7.1) === "7 ans" && Cons.libelleAnciennete(1.0) === "1 an"
+    && Cons.libelleAnciennete(6.5) === "6 ans et demi" && Cons.libelleAnciennete(0.3) === "moins d'un an");
+
+  test("★★ LA PHRASE NE PROMET PAS UNE DISPARITION TOTALE : elle dit la durée, elle dit que le nom part, et elle dit que les FACTURES restent (la loi commerciale l'oblige) — promettre mieux serait une promesse qu'on ne tiendra pas",
+    /6 ans après votre dernier achat/.test(Cons.phraseConservation(6))
+    && /12 ans après votre dernier achat/.test(Cons.phraseConservation(12))
+    && /factures et les contrats, eux, restent/i.test(Cons.phraseConservation(6))
+    && /nom en est retiré/i.test(Cons.phraseConservation(6)));
+
+  test("★ elle est écrite UNE fois : le document du client la reprend telle quelle, l'écran aussi — deux textes finiraient par se contredire",
+    Dos.mentionsDossier(6).some((m) => m === Cons.phraseConservation(6))
+    && Dos.mentionsDossier(9).some((m) => /9 ans après votre dernier achat/.test(m)));
+
+  // ⚠⚠ LE CONTRÔLE LE PLUS IMPORTANT DE CE BLOC.
+  test("★★⚠ RIEN NE S'EFFACE TOUT SEUL (décision Timo, 19/09/2026) : lib/conservation.js ne contient AUCUNE fonction qui efface, et n'importe rien de l'effacement — il DIT qui dépasse, l'administrateur décide",
+    (() => {
+      const src = readFileSync("src/lib/conservation.js", "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      return !/effacerClient|journalEffacement|\bsave\s*\(/.test(src)
+        && !/^import /m.test(src)
+        && Object.keys(Cons).every((k) => !/^effacer/.test(k));
+    })());
+
+  {
+    const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+
+    test("★ le réglage est réservé à l'administrateur PRINCIPAL, revérifié DANS le geste — c'est lui qui répond de la promesse faite au client",
+      /refuserSaufAdminPrincipal\(db, profile, "Changer la durée de conservation des données"\)/.test(par)
+      && /poserDureeConservation\(db\.boutiques, ans\)/.test(par));
+
+    test("★★⚠ L'ÉCRAN NE PROPOSE AUCUN « TOUT EFFACER » : la liste des dépassés ouvre un client à la fois, par le MÊME chemin que l'effacement ordinaire (setCibleEff), avec ses avertissements",
+      /depassesEff\.map/.test(par) && /setCibleEff\(\{ nom: c\.nom, tel: c\.tel \}\)/.test(par)
+      && !/tout effacer|effacerTous|effacerLesDepasses/i.test(par));
+
+    test("★ la liste part de listeEff — DÉJÀ filtrée par l'espace regardé — jamais de db : une fonction qui reçoit une table entière et la parcourt est un passage de mur en puissance (leçon du 18/09)",
+      /clientsDepasses\(listeEff, dureeEnCours, today\(\)\)/.test(par));
+
+    test("★ l'écran DIT que rien ne partira tout seul, même quand la liste est vide — sinon on laisserait croire à un balayage automatique",
+      /rien ne s'effacera tout seul/i.test(par) && /Rien ne part sans votre geste/i.test(par));
+
+    test("★ et la ligne « décider d'une durée de conservation » a QUITTÉ la liste de ce que l'application ne peut pas faire : elle est décidée, une alerte qui ne commande plus rien se retire",
+      !/Décider d'une <b>durée de conservation<\/b>/.test(par)
+      // les deux autres, elles, tiennent toujours
+      && /IPDCP/.test(par) && /hébergement hors du Togo/.test(par));
   }
 }
 
