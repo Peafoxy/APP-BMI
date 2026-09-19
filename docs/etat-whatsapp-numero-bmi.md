@@ -187,10 +187,11 @@ BMI TOGO — Les bâtiments modernes et intelligents
 Exemples à donner à Meta : `KOSSI MENSAH` · `solaire` · `1 250 000 F` ·
 `kossi90112233` · `Bmi4827`.
 
-⚠ **SI META REFUSE À CAUSE DU MOT DE PASSE** (c'est le risque connu de ce
-modèle : un secret dans une catégorie *Utility*), on ne discute pas — on
-remplace les deux lignes `Identifiant` / `Mot de passe` par une seule phrase
-sans variable : **« Vos identifiants vous ont été remis par votre vendeur. »**
+⚠ **CE TEXTE A ÉTÉ REFUSÉ DEUX FOIS, ET IL A CHANGÉ** (voir plus bas) : les
+deux lignes `Identifiant` / `Mot de passe` sont REMPLACÉES par une phrase
+sans variable — **« Vos identifiants vous ont été remis par votre vendeur. »**
+Il ne reste que **3 variables**, et le modèle s'appelle désormais
+**`devis_disponible`**, en catégorie **Marketing**.
 
 ⚠ **UN MODÈLE DÉJÀ SOUMIS NE SE CORRIGE PAS TOUT DE SUITE** : en attente
 (*Pending*) il est figé ; approuvé ou refusé, il s'ouvre par *Edit*. Et
@@ -236,9 +237,49 @@ la note du compte (*Account Quality*), donc la capacité à envoyer.
   WhatsApp limite le marketing par personne. Un devis attendu passera ; il
   faut juste savoir que ce canal-là n'est pas garanti comme un utility.
 
-⚠ **UN SEUL CHANGEMENT À LA FOIS** : on rebascule la catégorie en Marketing
-**sans toucher au texte**. Si un second refus tombe sur le mot de passe, on
-saura que c'est LUI — et la version sans identifiants est prête (plus haut).
+### ⚠⚠ LE SECOND REFUS, ET LA VRAIE CAUSE : UN MOT DE PASSE NE VOYAGE PAS
+
+Passé en **Marketing** sans toucher au texte (un seul changement à la fois) :
+**refusé encore, même motif `INCORRECT_CATEGORY`.** Deux catégories, deux
+refus, un seul point commun — **le mot de passe**.
+
+**Meta a une TROISIÈME catégorie : `Authentication`**, réservée aux codes et
+identifiants de connexion. Dès qu'un modèle porte « Identifiant / Mot de
+passe », le classement automatique le range LÀ — donc ni utility, ni
+marketing, quoi qu'on coche. Et *Authentication* ne nous sert à rien : c'est
+un format rigide (un code à usage unique, rien d'autre), on n'y met pas un
+devis.
+
+**RÈGLE, définitive : aucun identifiant, aucun mot de passe dans un modèle.**
+Le soupçon du départ était le bon ; c'est la façon dont Meta le DIT qui
+trompait — il parle de catégorie, jamais de secret.
+
+⚠ **CONSÉQUENCE ACTÉE : le modèle `acces_espace_client` N'EXISTERA PAS.** Les
+identifiants d'un nouveau client continuent de partir **comme aujourd'hui** :
+l'ouverture WhatsApp depuis l'application, à la main (`envoyerWhatsApp`), qui
+n'est pas un modèle et ne dépend d'aucune validation de Meta. Rien n'est
+perdu — c'est déjà la façon de faire. **Ne pas le reproposer.**
+
+### ⚠ LA CATÉGORIE SE FIGE À LA CRÉATION
+
+*Edit* rouvre le CONTENU, jamais la catégorie (elle s'affiche en texte mort).
+Se tromper de catégorie oblige donc à un **nouveau modèle sous un NOUVEAU
+nom** — d'où `devis_pret` (utility, refusé, laissé à dormir) puis
+**`devis_disponible`** (marketing). ⚠ On ne supprime PAS le refusé pour
+reprendre son nom : Meta réserve le nom d'un modèle supprimé environ un mois,
+et un modèle refusé ne coûte rien et n'envoie rien.
+
+### 📌 LA CATÉGORIE DE CHAQUE MODÈLE
+
+| Modèle | Catégorie | Pourquoi |
+|---|---|---|
+| `devis_disponible` | **Marketing** | un devis est une OFFRE |
+| `relance_devis` | **Marketing** | relance d'une offre |
+| `devis_valide_paiement` | **Utility** | contrat DÉJÀ signé |
+| `rappel_echeance` | **Utility** | échéance d'un contrat en cours |
+| ~~`acces_espace_client`~~ | — | **abandonné** (secret) |
+
+**État au 19/09/2026 : `devis_disponible` — Marketing — *In review*.**
 
 ### Les quatre suivants
 
@@ -283,21 +324,6 @@ BMI TOGO — Les bâtiments modernes et intelligents
 ```
 
 Exemples : `KOSSI MENSAH` · `1 250 000 F` · `CT-2026-014` · `BMI DEMAKPOE`
-
-#### 4. `acces_espace_client` — l'ouverture du compte (⚠ porte un secret)
-
-```
-Bonjour {{1}}, votre espace client BMI TOGO est ouvert.
-
-Vous y retrouvez vos devis, vos factures et le suivi de vos travaux : https://gestion.bmitogo.com
-
-Identifiant : {{2}}
-Mot de passe : {{3}}
-
-BMI TOGO — Les bâtiments modernes et intelligents
-```
-
-Exemples : `KOSSI MENSAH` · `kossi90112233` · `Bmi4827`
 
 #### 5. `rappel_echeance` — une échéance du plan de règlement arrive
 
