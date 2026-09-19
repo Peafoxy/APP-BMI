@@ -203,6 +203,43 @@ avec un motif). **Le renvoi immédiat est passé** : `French · Submitted`. À
 retenir : devant « system error », on clique **Modify** (jamais *Ignore*, qui
 jette le texte), on vérifie que CHAQUE variable a son exemple, puis on renvoie.
 
+### ⚠⚠ LA LEÇON DU PREMIER REFUS : `INCORRECT_CATEGORY` (19/09/2026)
+
+`devis_pret` a été **refusé par Meta**, et **pas pour le mot de passe** —
+c'était le risque annoncé, ce n'était pas le bon. Motif écrit :
+**`INCORRECT_CATEGORY` — « This template contains content that does not match
+the category you selected. »**
+
+**Meta a raison, et il faut le comprendre une fois pour toutes :**
+
+| Catégorie | Ce que Meta y range |
+|---|---|
+| **Utility** | ce qui concerne une opération DÉJÀ engagée : confirmation de commande, reçu, échéance d'un contrat signé, suivi de livraison, rendez-vous. |
+| **Marketing** | **toute OFFRE** : promotion, relance commerciale… **et un DEVIS en est une.** |
+
+Un devis propose un prix pour emporter une affaire : c'est une offre
+commerciale, pas le suivi d'une opération en cours. **`devis_pret` et
+`relance_devis` sont donc du MARKETING.** `devis_valide_paiement` et
+`rappel_echeance`, eux, parlent d'un contrat DÉJÀ signé : ils restent
+**Utility**.
+
+⚠ **Ne pas tricher là-dessus.** Déguiser du marketing en utility se paie
+deux fois : le modèle est refusé, et les `INCORRECT_CATEGORY` répétés abîment
+la note du compte (*Account Quality*), donc la capacité à envoyer.
+
+**Ce que ça change en pratique :**
+- **le prix** — un message marketing coûte environ **14 F** contre **4 F**
+  pour un utility (ordre de grandeur « Reste de l'Afrique », à vérifier sur la
+  page *Pricing* de YCloud, qui fait foi). Au volume de BMI, l'écart reste de
+  l'ordre de quelques centaines de francs par mois ;
+- **le client peut refuser les messages commerciaux** d'une entreprise, et
+  WhatsApp limite le marketing par personne. Un devis attendu passera ; il
+  faut juste savoir que ce canal-là n'est pas garanti comme un utility.
+
+⚠ **UN SEUL CHANGEMENT À LA FOIS** : on rebascule la catégorie en Marketing
+**sans toucher au texte**. Si un second refus tombe sur le mot de passe, on
+saura que c'est LUI — et la version sans identifiants est prête (plus haut).
+
 ### Les quatre suivants
 
 ⚠ **ILS REPRENNENT CE QUE L'APPLICATION ÉCRIT DÉJÀ** (`texteRelanceDevis`,
