@@ -73,6 +73,33 @@ Connecter un appareil). Seul l'appareil PRINCIPAL du numéro peut scanner.
    mais ça change le coût : il faut le lui dire, pas le découvrir sur une
    facture.
 
+   **VÉRIFIÉ LE 20/09/2026**, Timo ayant envoyé le lien du billet YCloud
+   (`ycloud.com/blog/whatsapp-api-message-pricing-update-effective-october-1-2026`).
+   ⚠ **Ce lien n'est PAS ouvrable depuis l'environnement de travail**
+   (`EGRESS_BLOCKED`, comme tout `ycloud.com`) : le point a donc été recoupé
+   sur la documentation Meta et trois sources indépendantes, et **on le dit**
+   plutôt que de laisser croire qu'on a lu la page. Ce qui en ressort :
+   - **les tarifs des MODÈLES ne bougent pas.** *Marketing* et *utility*
+     étaient déjà payants ; leur prix est **inchangé**. Les 14 F / 4 F
+     annoncés à Timo **restent valables**.
+   - ce qui devient payant, c'est la **réponse libre dans la fenêtre de
+     24 h**, au tarif d'un *utility* du pays, **1 000 offertes par numéro et
+     par mois** (remise à zéro chaque mois, rien ne se reporte) ;
+   - et **l'exonération des modèles *utility* ENVOYÉS DANS la fenêtre de
+     24 h** (en place depuis juillet 2025) **prend fin** le même jour.
+   - ce qu'un client NOUS envoie reste gratuit, et la fenêtre de 72 h des
+     publicités « Click to WhatsApp » ne bouge pas.
+   - ⚠ **Un moyen de paiement doit être en place avant le 30/09/2026**,
+     sinon Meta cesse de délivrer les messages de service au 1er octobre.
+     Chez nous, c'est le **crédit YCloud** (Settings → Billing → Recharge).
+
+   **CE QUE ÇA VEUT DIRE POUR BMI**, en une phrase : **l'étape 1 n'est pas
+   concernée** — l'application n'envoie que des MODÈLES, jamais une réponse
+   libre. C'est **l'étape 2 (la réception)** que ça chiffre : répondre à un
+   client depuis 💬 Messages coûtera un *utility* au-delà des 1 000 du mois.
+   Au volume de BMI, les 1 000 couvrent large — mais il faut le savoir AVANT
+   de construire l'étape 2, pas après.
+
 2. ⚠ **Portefeuille YCloud : 0,5 USD.** De quoi essayer, pas de quoi servir.
    Le raccordement et le scan ne coûtent rien ; ce sont les messages ENVOYÉS
    qui se paient. À créditer quand l'envoi partira pour de vrai.
@@ -232,7 +259,9 @@ la note du compte (*Account Quality*), donc la capacité à envoyer.
 - **le prix** — un message marketing coûte environ **14 F** contre **4 F**
   pour un utility (ordre de grandeur « Reste de l'Afrique », à vérifier sur la
   page *Pricing* de YCloud, qui fait foi). Au volume de BMI, l'écart reste de
-  l'ordre de quelques centaines de francs par mois ;
+  l'ordre de quelques centaines de francs par mois. ⚠ **Le changement de
+  tarif du 1er octobre 2026 ne touche PAS ces deux-là** (vérifié le
+  20/09/2026, voir plus haut) ;
 - **le client peut refuser les messages commerciaux** d'une entreprise, et
   WhatsApp limite le marketing par personne. Un devis attendu passera ; il
   faut juste savoir que ce canal-là n'est pas garanti comme un utility.
@@ -365,6 +394,10 @@ celle des variables. **On mesure, on ne présume pas** — ici aussi.
 - **L'étape 2 (la RÉCEPTION)** : les réponses des clients dans 💬 Messages, la
   fenêtre de 24 h affichée, qui a le droit de répondre, le partage avec le
   téléphone BMI. **Rien n'est construit, et rien ne le sera sans sa demande.**
+  ⚠ **Et elle ne sera plus gratuite à partir du 1er octobre 2026** (voir le
+  point « Service messages will be billed » plus haut) : chaque réponse libre
+  au-delà des 1 000 du mois coûte un *utility*. À dire à Timo le jour où il
+  demande l'étape 2, avant d'écrire une ligne.
 
 ### Les quatre suivants
 

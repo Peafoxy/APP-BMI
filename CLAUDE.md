@@ -1892,6 +1892,19 @@ lit mal est pire qu'un banc absent).
 - **CE QUE ÇA COÛTE, et il faut le dire** : environ **14 F** un message
   marketing (devis, relance), **4 F** un utility. C'était gratuit avant (le
   forfait du vendeur). Quelques centaines de francs par mois au volume de BMI.
+  ⚠ **LE CHANGEMENT DE TARIF DU 1er OCTOBRE 2026 NE TOUCHE PAS L'ÉTAPE 1**
+  (vérifié le 20/09/2026 sur la documentation Meta et trois sources
+  indépendantes, le blog YCloud étant inaccessible depuis ici) : les modèles
+  *marketing* et *utility* gardent leur tarif, ils étaient déjà payants. Ce
+  qui devient payant, c'est la **réponse libre dans la fenêtre de 24 h**
+  (message dit « de service »), au tarif d'un *utility*, avec **1 000 par
+  numéro et par mois offerts**. L'application n'envoie que des MODÈLES :
+  **rien ne change pour elle.** ⚠ **Mais ça chiffre l'ÉTAPE 2** (la
+  réception) : répondre à un client dans 💬 Messages ne sera plus gratuit —
+  à dire à Timo le jour où il la demandera. Au volume de BMI les 1 000
+  offerts couvrent large. ⚠ Et **un moyen de paiement doit être en place
+  avant le 30/09/2026**, sinon Meta cesse de délivrer les messages de service
+  — chez nous c'est le crédit YCloud, à recharger dans sa console.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
