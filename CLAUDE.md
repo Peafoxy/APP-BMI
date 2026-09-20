@@ -2457,9 +2457,23 @@ lit mal est pire qu'un banc absent).
   aurait ouvert la photo d'une conversation qu'il n'a pas le droit de lire —
   la porte fermée d'un côté, rouverte de l'autre.
 - ⚠ **CONSÉQUENCE À DIRE, PAS À CACHER : WhatsApp efface ses fichiers au bout
-  de 30 JOURS.** Passé ce délai la photo n'existe plus nulle part, et l'écran
-  le DIT au lieu d'afficher un cadre vide. Les garder demanderait un espace
-  de stockage — **à sa demande, pas de moi-même**.
+  de 30 JOURS.** Passé ce délai la photo n'existe plus nulle part côté
+  application, et l'écran le DIT au lieu d'afficher un cadre vide.
+- ⚠⚠ **ON NE RANGE PAS LES FICHIERS DANS SUPABASE — sa décision, 20/09/2026**
+  (« on ne va pas ranger les photos dans notre base de données… on risque de
+  la saturer rapidement et passer en mode payant. On va pas le faire »).
+  Proposé — un espace de fichiers Supabase, 1 Go offert, les photos gardées
+  pour toujours — et **refusé**. **Ne pas le reproposer**, et surtout ne pas
+  le construire « au cas où ».
+  - Ce qui reste vrai, et qu'il sait : **la photo reste sur le TÉLÉPHONE BMI**
+    (coexistence — WhatsApp Business reçoit tout, sans délai de 30 jours).
+    Ce sont deux choses différentes : le téléphone garde SA copie, Meta
+    efface la sienne au bout de 30 jours, et c'est celle-là que
+    `api/whatsapp-media.js` va chercher.
+  - ⚠ **Mais un téléphone n'est pas une archive**, et ça lui a été dit :
+    téléchargement automatique coupé → rien n'est descendu ; conversation
+    vidée, téléphone changé ou perdu → tout part ; et il faut l'appareil en
+    main, la photo n'est pas dans le dossier du client.
 - **Une photo s'affiche toute seule ; une vidéo, un son, un document
   attendent un clic** — on ne fait pas payer dix mégaoctets de forfait à
   quelqu'un qui ouvre une conversation.
