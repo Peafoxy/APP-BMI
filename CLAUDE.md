@@ -61,7 +61,7 @@ npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
-npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
+npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
 npm run verifier-whatsapp        # 102 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
@@ -2731,6 +2731,25 @@ lit mal est pire qu'un banc absent).
   commune `correspond`). Les propositions d'outils enregistrés vivent sur le
   champ **« Outil » de 📤 Sortir un outil** (`ChampSuggestions` +
   `propositionsOutils`) — intactes.
+- **🖥 LA LARGEUR DE L'ÉCRAN : 1600 px, PAS 1152** (capture Timo, 20/09/2026,
+  💰 Ventes sur son XPS : « pourquoi ces marges des 2 côtés ? », puis « ces
+  marges c'est sur ordinateur », puis **« b »** entre quatre propositions).
+  **UNE ligne**, le cadre de l'application dans `App.jsx` : `max-w-6xl`
+  bridait TOUT à 1152 px et `mx-auto` partageait le reste en deux marges —
+  la liste des ventes se tassait pendant qu'il y avait ~300 px de blanc de
+  chaque côté. ⚠ **Le TÉLÉPHONE n'a jamais été concerné**, par construction :
+  son écran fait moins que la limite, elle ne l'a donc jamais rogné — c'est
+  ce qui rendait le changement sans risque pour l'équipe.
+  ⚠ **La limite RESTE** (elle n'est pas retirée) : sur un moniteur de
+  2560 px, un formulaire à quatre colonnes ne doit pas s'étaler d'un bord à
+  l'autre. Les options « plein écran » et « pleine largeur sur les écrans à
+  tableaux seulement » ont été proposées et écartées.
+  ⚠ **Ici `max-w-*` COMMANDE** — c'est un bloc ; le piège du § 5 ne vaut que
+  pour les **champs de saisie**. Et le banc **MESURE la largeur obtenue dans
+  Chromium** (`verifier-champs`, qui LIT la classe dans App.jsx au lieu de la
+  recopier) : 1600 px sur un grand écran, tout l'écran sur 1400 px, **rien de
+  changé sur téléphone et tablette**. Éprouvé en remettant `max-w-6xl` : deux
+  contrôles tombent, et ils affichent « mesuré : 1152 px ».
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 - **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**

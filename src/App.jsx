@@ -1631,7 +1631,20 @@ export default function App() {
           </div>
         </div>
 
-        <main className="w-full max-w-6xl mx-auto px-4 py-5">
+        {/* ⚠ LA LARGEUR DE TOUT L'ÉCRAN (Timo, 20/09/2026, capture de 💰 Ventes
+            sur son XPS : « pourquoi ces marges des 2 côtés ? », puis « ces
+            marges c'est sur ordinateur » — et « b »). C'était `max-w-6xl`,
+            soit 1152 px : tout ce qui dépassait partait en marges égales, et
+            la liste des ventes se tassait pendant qu'il y avait 300 px de
+            blanc de chaque côté. Élargi à 1600 px.
+            ⚠ Le TÉLÉPHONE n'est pas concerné, par construction : son écran
+            fait moins que la limite, elle ne l'a donc jamais rogné — ni avant,
+            ni maintenant. La limite reste, pour qu'un formulaire à quatre
+            colonnes ne s'étale pas sur un moniteur de 2560 px.
+            ⚠ Ici `max-w-*` COMMANDE (c'est un bloc) — le piège du § 5 ne vaut
+            que pour les champs de saisie. Le banc MESURE la largeur obtenue
+            dans Chromium, il ne lit pas la classe. */}
+        <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
           {contenu}
         </main>
       </div>

@@ -37,6 +37,14 @@ const suffixe = ui.match(/export const champRecherche = `\$\{inputCls\} ([^`]+)`
 const mf = ui.match(/export const champRechercheFenetre = (?:`\$\{inputCls\}([^`]*)`|inputCls);/);
 const fenetre = (mf && mf[1] ? mf[1] : "").trim();
 
+// ⚠ On LIT la classe du cadre dans App.jsx — jamais on ne la recopie ici :
+// deux écritures finiraient par diverger, et le banc mesurerait autre chose
+// que ce que l'application fait.
+const app = readFileSync("src/App.jsx", "utf8");
+const mc = app.match(/<main className="(w-full max-w-[^"]+)">/);
+if (!mc) { console.log("❌ Le cadre <main> d'App.jsx n'a pas la forme attendue."); process.exit(1); }
+const cadreCls = mc[1];
+
 const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0];
 if (!css) { console.log("❌ Pas de CSS construit — lancez `npm run build` d'abord."); process.exit(1); }
 
@@ -59,6 +67,10 @@ writeFileSync(page, `<!doctype html><html><head><meta charset="utf-8">
   <button id="btemoin" class="px-4 py-2 temoin-transition">Témoin : transition sur un bouton</button>
   <span id="stemoin" class="temoin-transition">Témoin : la même classe hors bouton</span>
 </div>
+<!-- ⚠ LE CADRE DE L'APPLICATION (20/09/2026) : la classe est LUE dans
+     App.jsx et posée telle quelle, pour que le banc mesure ce que Timo voit
+     et non ce que je crois avoir écrit. -->
+<main id="cadre" class="${cadreCls}"><div id="dedans" style="width:100%"></div></main>
 <!-- La fenêtre du sélecteur d'article, telle qu'elle s'ouvre vraiment -->
 <div class="fixed inset-0 flex items-end sm:items-center justify-center">
   <div id="panneau" class="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
@@ -84,10 +96,12 @@ const mesurer = async (largeur) => {
     spanTransition: getComputedStyle(document.getElementById("stemoin")).transitionProperty,
     dansFenetre: Math.round(document.getElementById("dansFenetre").getBoundingClientRect().width),
     listeFenetre: Math.round(document.getElementById("listeFenetre").getBoundingClientRect().width),
+    cadre: Math.round(document.getElementById("cadre").getBoundingClientRect().width),
   }));
   await p.close();
   return r;
 };
+const grandEcran = await mesurer(1920);
 const pc = await mesurer(1400);
 const tablette = await mesurer(700);
 const tel = await mesurer(390);
@@ -115,6 +129,24 @@ test("★ dans la fenêtre du sélecteur d'article (448 px), la ligne fait TOUTE
 test("★ et sur TÉLÉPHONE (390 px) elle remplit son panneau de la même façon (les deux règles se rejoignent)",
   tel.listeFenetre - tel.dansFenetre <= 30 && tel.dansFenetre >= 340,
   `mesuré : ligne ${tel.dansFenetre} px dans un panneau de ${tel.listeFenetre} px`);
+
+// ⚠⚠ LA LARGEUR DE L'ÉCRAN (Timo, 20/09/2026 : « pourquoi ces marges des 2
+// côtés ? », puis « ces marges c'est sur ordinateur », puis « b »). Le cadre
+// était bridé à 1152 px : sur son XPS, la liste des ventes se tassait pendant
+// qu'il y avait 300 px de blanc de chaque côté.
+// ⚠ On MESURE la largeur obtenue, on ne lit pas la classe — c'est toute la
+// leçon de ce banc.
+console.log("\n── 🖥 LA LARGEUR DU CADRE DE L'APPLICATION ──");
+test("★★ sur un GRAND écran (1920 px), le cadre va jusqu'à 1600 px — plus les 1152 px d'avant",
+  grandEcran.cadre >= 1560 && grandEcran.cadre <= 1600,
+  `mesuré : ${grandEcran.cadre} px`);
+test("★ sur un ordinateur ordinaire (1400 px), le cadre prend TOUT — aucune marge perdue",
+  pc.cadre >= 1360, `mesuré : ${pc.cadre} px pour 1400 px d'écran`);
+test("★★ sur TÉLÉPHONE (390 px) RIEN ne change : la limite n'a jamais rogné un téléphone",
+  tel.cadre >= 380 && tel.cadre <= 390, `mesuré : ${tel.cadre} px`);
+test("★ et sur tablette non plus", tablette.cadre >= 690 && tablette.cadre <= 700, `mesuré : ${tablette.cadre} px`);
+test("★ la limite EXISTE quand même : un moniteur immense n'étale pas un formulaire sur toute sa largeur",
+  grandEcran.cadre < 1920);
 
 console.log("\n── ⚠ LE PIÈGE, GRAVÉ : `max-w-*` NE COMMANDE RIEN SUR UN CHAMP ──");
 test("★ le TÉMOIN le prouve : un `max-w-xs` posé sur un input ne bride RIEN (la règle globale d'index.css l'écrase)",
