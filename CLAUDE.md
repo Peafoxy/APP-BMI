@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1769 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1771 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1082,6 +1082,20 @@ lit mal est pire qu'un banc absent).
   cran plus loin : **un champ qu'on saisit et qui ne s'enregistre pas est pire
   qu'un champ absent.** ⚠ Les articles saisis AVANT le correctif sont restés
   vides : il faut rouvrir leur fiche et réenregistrer une fois.
+- ⚠⚠ **ET LA PHRASE DE CONFIRMATION MENTAIT DEUX FOIS** (capture Timo, le
+  jour même : « Puissance (kW) : 0 F → 1 F · Profondeur max (m) : 0 F → 130 F ·
+  Débit max (m³/h) : 0 F → **2** F » pour 1,5 saisi). `fmt` est **LE format de
+  L'ARGENT** : il colle « F » **et ARRONDIT au franc**. Le récapitulatif s'en
+  servait pour tout ce qui est chiffré — donc une mesure sortait en francs, et
+  1,5 m³/h devenait « 2 F ». ⚠ La valeur ENREGISTRÉE était juste : **c'est la
+  phrase qui mentait**, ce qui est pire — on valide en croyant avoir lu.
+  Depuis : `nombreFr(n, unite)` (lib/core.js, **à côté de `fmt`** pour qu'on
+  voie les deux), deux décimales au plus, virgule française, et
+  **CHAQUE champ porte SON unité** en quatrième mot de `CHAMPS_CORRIGEABLES` —
+  « F » réservé aux deux PRIX, « kW », « m », « m³/h », « V », et rien pour une
+  quantité (le seuil et la quantité initiale s'écrivaient eux aussi en francs).
+  Le banc exerce la règle ET lit la table des champs ; éprouvé en remettant
+  « F » sur le débit, et en faisant arrondir `nombreFr` : les deux tombent.
 - ⚠ **L'OPTION « C » RESTE OUVERTE, et c'est sa décision** : saisir 3 à 5 points
   de la vraie courbe par MODÈLE (à 20 m → 2,1 m³/h, à 40 m → 1,4…) permettrait
   d'annoncer un débit pour de bon. « Avec le temps on peut implémenter le C.

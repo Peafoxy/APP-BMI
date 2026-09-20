@@ -6,7 +6,7 @@
 // ============================================================
 import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
-import { uid, fmt, today, dFR } from "../lib/core";
+import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -280,17 +280,21 @@ export function Stocks({ db, save, profile }) {
     ["domaine", "Domaine", "texte"],
     ["categorie", "Catégorie", "texte"],
     ["code", "Code-barres", "texte"],
-    ["tension", "Tension", "texte"],
-    ["initial", "Quantité initiale", "nombre"],
-    ["seuil", "Seuil d'alerte", "nombre"],
-    ["prix_achat", "Prix d'achat", "nombre"],
-    ["prix_vente", "Prix de vente", "nombre"],
+    // ⚠ LE QUATRIÈME MOT EST L'UNITÉ, et « F » est réservé à L'ARGENT
+    // (défaut trouvé par Timo, 20/09/2026 : « Débit max : 0 F → 2 F » pour
+    // 1,5 m³/h saisi — fausse unité ET arrondi au franc). Une mesure passe
+    // par `nombreFr`, qui garde les décimales.
+    ["tension", "Tension", "nombre", "V"],
+    ["initial", "Quantité initiale", "nombre", ""],
+    ["seuil", "Seuil d'alerte", "nombre", ""],
+    ["prix_achat", "Prix d'achat", "nombre", "F"],
+    ["prix_vente", "Prix de vente", "nombre", "F"],
     ["garantie_boutique", "Garantie boutique", "texte"],
     ["garantie_fabricant", "Garantie fabricant", "texte"],
     ["conditions_garantie", "Conditions de garantie", "texte"],
-    ["puissance_kw", "Puissance (kW)", "nombre"],
-    ["profondeur_max_m", "Profondeur max (m)", "nombre"],
-    ["debit_max_m3h", "Débit max (m³/h)", "nombre"],
+    ["puissance_kw", "Puissance", "nombre", "kW"],
+    ["profondeur_max_m", "Profondeur max", "nombre", "m"],
+    ["debit_max_m3h", "Débit max", "nombre", "m\u00b3/h"],
     ["hybride", "Hybride (solaire + secteur)", "case"],
     ["fiche_technique", "Fiche technique", "texte"],
     ["notes", "Notes internes", "texte"],
@@ -383,15 +387,17 @@ export function Stocks({ db, save, profile }) {
       : genre === "nombre"
         ? Number(a || 0) === Number(b || 0)
         : String(a ?? "").trim() === String(b ?? "").trim();
-    const lisible = (v, genre) => genre === "case"
+    const lisible = (v, genre, unite) => genre === "case"
       ? (v ? "Oui" : "Non")
-      : genre === "nombre" ? fmt(Number(v || 0)) : (String(v ?? "").trim() || "—");
+      : genre === "nombre"
+        ? (unite === "F" ? fmt(Number(v || 0)) : nombreFr(Number(v || 0), unite))
+        : (String(v ?? "").trim() || "—");
     const changements = CHAMPS_CORRIGEABLES
       .filter(([cle, , genre]) => !memeValeur(avant[cle], apres[cle], genre))
-      .map(([cle, libelle, genre]) => ({
+      .map(([cle, libelle, genre, unite]) => ({
         cle, libelle,
-        de: lisible(avant[cle], genre),
-        vers: lisible(apres[cle], genre),
+        de: lisible(avant[cle], genre, unite),
+        vers: lisible(apres[cle], genre, unite),
       }));
     if (!changements.length) { uAlert("Rien n'a été modifié."); return; }
 

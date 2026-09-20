@@ -506,6 +506,18 @@ export const nouvelleDepense = (profile, { boutique, categorie, description, mon
   ...reste,
 });
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
+// ⚠ `fmt` est LE format de L'ARGENT : il arrondit au franc et colle « F ».
+// Une MESURE ne s'écrit jamais comme ça (défaut trouvé par Timo, 20/09/2026,
+// capture : « Débit max : 0 F → 2 F » alors qu'il avait tapé 1,5 — la valeur
+// était juste dans la fiche, c'est la PHRASE qui mentait, deux fois : la
+// fausse unité et l'arrondi). `nombreFr` garde les décimales (deux au plus,
+// virgule française) et pose l'unité qu'on lui donne — « 1,5 m³/h », « 130 m »,
+// « 48 V », ou rien du tout pour une quantité.
+export const nombreFr = (n, unite = "") => {
+  if (n === "" || n === null || n === undefined || Number.isNaN(Number(n))) return "—";
+  const texte = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(Number(n));
+  return unite ? `${texte} ${unite}` : texte;
+};
 export const today = () => new Date().toISOString().slice(0, 10);
 export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
 // L'heure du geste, « 14:12 » — l'heure de l'appareil, comme partout dans

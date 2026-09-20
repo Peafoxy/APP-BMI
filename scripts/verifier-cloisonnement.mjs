@@ -10420,6 +10420,26 @@ titre("💧 LES POMPES : CE QU'ON EN SAIT, ET CE QU'ON NE PROMET PAS (Timo, 20/0
     test("★★ la CORRECTION d'un article ENREGISTRE les quatre renseignements de la pompe, pas seulement la tension",
       ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "hybride", "tension"]
         .every((c) => new RegExp(`\\n\\s*${c}:`).test(blocApres)));
+    // ⚠⚠ ET LA PHRASE DE CONFIRMATION MENTAIT DEUX FOIS (capture Timo,
+    // 20/09/2026 : « Débit max (m³/h) : 0 F → 2 F » alors qu'il avait tapé
+    // 1,5). `fmt` est le format de L'ARGENT : il colle « F » et ARRONDIT au
+    // franc. Une mesure — et même une quantité — n'a rien à y faire.
+    test("★★ seuls les PRIX s'écrivent en « F » dans le récapitulatif ; une mesure porte SON unité et garde ses décimales",
+      /\["prix_achat", "Prix d'achat", "nombre", "F"\]/.test(stocks)
+      && /\["prix_vente", "Prix de vente", "nombre", "F"\]/.test(stocks)
+      && /\["puissance_kw", "Puissance", "nombre", "kW"\]/.test(stocks)
+      && /\["profondeur_max_m", "Profondeur max", "nombre", "m"\]/.test(stocks)
+      && /\["debit_max_m3h", "Débit max", "nombre", "m\\u00b3\/h"\]/.test(stocks)
+      && /\["tension", "Tension", "nombre", "V"\]/.test(stocks)
+      && /\["initial", "Quantité initiale", "nombre", ""\]/.test(stocks)
+      && /unite === "F" \? fmt\(Number\(v \|\| 0\)\) : nombreFr\(Number\(v \|\| 0\), unite\)/.test(stocks));
+    test("★ `nombreFr` garde les décimales et ne colle jamais « F » — `fmt` reste le format de l'argent, seul à arrondir",
+      Core.nombreFr(1.5, "m³/h") === "1,5 m³/h"
+      && Core.nombreFr(130, "m") === "130 m"
+      && Core.nombreFr(15, "") === "15"
+      && Core.nombreFr("", "m") === "—"
+      && Core.fmt(1.5) === "2 F");
+
     test("★ la case « hybride » compte comme un changement (sans elle, la cocher seule répondait « Rien n'a été modifié ») et se raconte en Oui / Non, jamais en nombre",
       /\["hybride", "Hybride \(solaire \+ secteur\)", "case"\]/.test(stocks)
       && /genre === "case"\s*\n\s*\? !!a === !!b/.test(stocks)
