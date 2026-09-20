@@ -2372,11 +2372,16 @@ lit mal est pire qu'un banc absent).
     un contrôle qui ne regarde qu'un bout ne protège pas.**
   - **La ligne de la conversation est devenue une ligne de TABLEAU** (le
     composant d'archivage en pose un) — écrite UNE fois pour les deux blocs.
-  - ⚠ **LA RÉPARTITION AUTOMATIQUE N'EST PAS FAITE** : un client qui écrit le
-    premier va toujours au SUPPORT (sa décision « c »). Lui donner un
-    propriétaire d'office demande de choisir QUI — le vendeur de sa dernière
-    vente, un responsable par boutique, ou chacun son tour. **C'est son
-    organisation, pas de la technique : la question lui a été posée.**
+  - ⚠⚠ **LA RÉPARTITION AUTOMATIQUE : « laisser au support comme aujourd'hui »
+    (20/09/2026).** La question lui a été posée devant quatre propositions —
+    le vendeur de sa dernière vente, un responsable désigné par boutique,
+    chacun son tour, ou rien — et il a choisi **RIEN**. Un client qui écrit le
+    premier reste donc au SUPPORT : tout le personnel salarié le voit, le
+    premier disponible répond, l'administrateur peut confier avec « 🔁 Confier ».
+    C'est la confirmation de sa décision « c » du matin même.
+    **Ne pas le reproposer** — et surtout ne pas le construire « au cas où » :
+    attribuer un client à la mauvaise personne ferait partir des messages
+    d'argent à côté, ce qu'il avait déjà refusé le 20/09 sur les rôles.
   - **À FAIRE PAR TIMO** : créer le modèle chez YCloud sous le nom
     `prise_de_contact`, catégorie **marketing**, langue **fr**, avec ce texte
     exact. ⚠ Le nom ET la catégorie se figent à la création. Tant que Meta ne
