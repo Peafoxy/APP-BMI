@@ -275,5 +275,100 @@ test("★ la phrase anglaise part dans la CONSOLE, jamais à l'écran",
   /console\.info\("\[whatsapp\] refus :"/.test(srcWhatsapp)
   && !/uAlert\([^)]*reponse\.error/.test(srcWhatsapp));
 
+
+// ──────────────────────────────────────────────────────────────
+titre("⑨ ÉTAPE 2 — LES RÉPONSES DU CLIENT DANS 💬 MESSAGES (20/09/2026)");
+// Les trois décisions de Timo : (1) voient TOUT = « tous les salariés à
+// BMI » ; (2) un client qui écrit le premier → support, visible par tout
+// le personnel ; (3) l'administrateur réattribue.
+const C = await import("../src/lib/whatsappConversations.js");
+const entrant = lire("api/whatsapp-entrant.js");
+const messagerie = lire("src/screens/Messagerie.jsx");
+
+const filDe = (heures) => [{ ts: new Date(Date.now() - heures * 3600e3).toISOString(), wa_entrant: true, texte: "bonjour" }];
+
+test("★★ la fenêtre de 24 h s'ouvre sur le dernier message DU CLIENT, et se ferme après",
+  C.fenetre(filDe(1)).ouverte === true
+  && C.fenetre(filDe(23.5)).ouverte === true
+  && C.fenetre(filDe(25)).ouverte === false
+  && C.fenetre([]).jamais === true);
+test("★★ NOTRE propre réponse ne prolonge PAS la fenêtre — seul le client la rouvre",
+  C.fenetre([...filDe(25), { ts: new Date().toISOString(), texte: "on vous répond" }]).ouverte === false);
+test("★ la phrase de la fenêtre est écrite UNE fois, et dit ce qu'il reste",
+  /Il reste 2 h 00/.test(C.libelleFenetre(C.fenetre(filDe(22))))
+  && /plus qu'un modèle approuvé/.test(C.libelleFenetre(C.fenetre(filDe(30))))
+  && (messagerie.match(/libelleFenetre\(/g) || []).length >= 1);
+
+// ── QUI VOIT QUOI
+const conv = (p) => ({ proprietaire_id: p });
+test("★★ décision 1 : TOUS LES SALARIÉS voient toutes les conversations — l'administrateur aussi",
+  ["admin", "vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial", "comptable"]
+    .every((role) => C.peutVoirConversation({ id: "x", role }, conv("autre"))));
+test("★★ décision 1 (l'autre moitié) : un COMMERCIAL et un TECHNICIEN À COMMISSION ne voient QUE ce qu'ils ont engagé",
+  ["commercial", "technicien"].every((role) =>
+    C.peutVoirConversation({ id: "moi", role }, conv("moi")) === true
+    && C.peutVoirConversation({ id: "moi", role }, conv("autre")) === false));
+test("★★ décision 2 « c » : une conversation que PERSONNE n'a engagée est du support — tout le personnel la voit",
+  ["commercial", "technicien", "vendeur"].every((role) => C.peutVoirConversation({ id: "moi", role }, conv(""))));
+test("★★ un CLIENT ne voit jamais une conversation WhatsApp : c'est la sienne, elle est sur son téléphone",
+  C.peutVoirConversation({ id: "c1", role: "client" }, conv("")) === false
+  && C.peutVoirConversation({ id: "c1", role: "client" }, conv("c1")) === false);
+test("★★ décision 3 « a » : seul l'ADMINISTRATEUR confie une conversation à quelqu'un d'autre",
+  C.peutReattribuer({ role: "admin" }) === true
+  && ["gerant", "resp_commercial", "commercial", "vendeur"].every((role) => !C.peutReattribuer({ role })));
+
+// ── LA LISTE, FILTRÉE
+const msgs = [
+  { canal: "whatsapp", wa_tel: "90112233", wa_entrant: true, ts: "2026-09-20T10:00:00Z", texte: "a", proprietaire_id: "u1", proprietaire_nom: "KOSSI" },
+  { canal: "whatsapp", wa_tel: "90445566", wa_entrant: true, ts: "2026-09-20T11:00:00Z", texte: "b" },
+  { canal: "support", client_id: "c9", ts: "2026-09-20T12:00:00Z", texte: "pas whatsapp" },
+];
+test("★★ le commercial ne reçoit QUE la sienne et le support — jamais celle d'un collègue",
+  C.conversationsWa(msgs, { id: "u2", role: "commercial" }).map((c) => c.cle).join(",") === "90445566"
+  && C.conversationsWa(msgs, { id: "u1", role: "commercial" }).map((c) => c.cle).sort().join(",") === "90112233,90445566"
+  && C.conversationsWa(msgs, { id: "u9", role: "gerant" }).length === 2);
+test("★ une conversation est rangée sous le NUMÉRO, pas sous un compte (un prospect n'en a pas)",
+  C.cleConversation("+228 90 11 22 33") === "90112233" && C.cleConversation("90112233") === "90112233" && C.cleConversation("") === "");
+
+// ── LE REFUS, REVÉRIFIÉ DANS LE GESTE
+const convOuverte = { proprietaire_id: "u1", fil: filDe(1), fenetre: C.fenetre(filDe(1)), tel: "90112233" };
+const convFermee = { proprietaire_id: "u1", fil: filDe(30), fenetre: C.fenetre(filDe(30)), tel: "90112233" };
+test("★★ une réponse hors fenêtre est REFUSÉE, et le refus DIT pourquoi",
+  /plus qu'un modèle approuvé/.test(C.critiqueReponse({ profile: { id: "u1", role: "commercial" }, conv: convFermee, texte: "salut" }))
+  && C.critiqueReponse({ profile: { id: "u1", role: "commercial" }, conv: convOuverte, texte: "salut" }) === ""
+  && /ne vous appartient pas/.test(C.critiqueReponse({ profile: { id: "u2", role: "commercial" }, conv: convOuverte, texte: "salut" }))
+  && /connexion/.test(C.critiqueReponse({ profile: { id: "u1", role: "commercial" }, conv: convOuverte, texte: "salut", enLigne: false })));
+
+// ── LE SERVEUR : TROIS BARRIÈRES QUI NE SE CROIENT PAS SUR PAROLE
+test("★★ l'adresse d'arrivée n'accepte QUE les appels qui portent le secret",
+  /WHATSAPP_WEBHOOK_SECRET/.test(entrant) && /donne !== attendu\) return res\.status\(401\)/.test(entrant));
+test("★★ le secret n'est JAMAIS préfixé VITE_ (Vite l'embarquerait chez tout le monde)",
+  !/VITE_WHATSAPP_WEBHOOK_SECRET/.test(entrant) && !/VITE_YCLOUD/.test(lire("api/whatsapp.js")));
+test("★★ le serveur RECALCULE la fenêtre sur la base avant d'envoyer une réponse libre",
+  /if \(reponseLibre\) \{[\s\S]{0,600}fenetre\(fil\)/.test(lire("api/whatsapp.js"))
+  && /return res\.status\(403\)\.json\(\{ error: libelleFenetre\(f\) \}\)/.test(lire("api/whatsapp.js")));
+test("★ le même message reçu deux fois ne s'écrit qu'une fois (YCloud réessaie)",
+  /m\.wa_id === id/.test(entrant) && /deja: true/.test(entrant));
+test("★★ un paquet illisible répond 200 et DIT ce qu'il n'a pas su lire (sinon YCloud le renvoie sans fin)",
+  /status\(200\)\.json\(\{ ignore: true/.test(entrant) && /pourquoi: "numéro illisible"/.test(entrant));
+test("★ `updated_at` est posé sur la ligne : sans lui le message n'arriverait jamais sur les téléphones",
+  /updated_at: ligne\.ts/.test(entrant));
+test("★★ le propriétaire vient du DEVIS envoyé du numéro BMI — la trace de l'étape 1, pas une invention",
+  /envoi_whatsapp\.par_id/.test(entrant) && /proprietaire = \{ id: dernier\.envoi_whatsapp\.par_id/.test(entrant));
+test("★ l'arrivée d'un message PRÉVIENT son propriétaire (le save de l'application ne le voit jamais passer)",
+  /envoyerAuxPersonnes\(admin, \[\{/.test(entrant) && /ecran: "messages"/.test(entrant));
+
+// ── L'ÉCRAN
+test("★★ l'écran passe par LE seul chemin (src/whatsapp.js), jamais par le serveur lui-même",
+  /from "\.\.\/whatsapp"/.test(messagerie) && !/supabaseClient/.test(messagerie));
+test("★★ RIEN n'est écrit dans la base tant que le message n'est pas PARTI (un fil qui ment est pire qu'un fil vide)",
+  /if \(!r\.parti\) \{ uAlert\(r\.motif[\s\S]{0,40}return; \}[\s\S]{0,600}save\(/.test(messagerie));
+test("★ répondre ne s'approprie PAS une conversation : seul « 🔁 Confier » change le propriétaire",
+  /peutReattribuer\(profile\)/.test(messagerie)
+  && /proprietaire_id: u\.id, proprietaire_nom: u\.nom/.test(messagerie)
+  && !/proprietaire_id: profile\.id/.test(messagerie));
+test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
+  /!convWaOuverte\.fenetre\.ouverte \?/.test(messagerie) && /Tous les devis/.test(messagerie));
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -158,7 +158,10 @@ export const notifierEnLigne = (envois) => appelAvecJeton(URL_NOTIFIER, { envois
 // d'un modèle approuvé et les mots qui remplissent ses trous — rien de
 // secret. `src/whatsapp.js` est le SEUL à appeler cette fonction.
 const URL_WHATSAPP = BASE ? `${BASE}/api/whatsapp` : "/api/whatsapp";
-export const whatsappEnLigne = ({ tel, modele, variables }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables });
+// ⚠ DEUX FORMES, UNE SEULE PORTE : un MODÈLE approuvé, ou une RÉPONSE
+// LIBRE (`texte`) dans la fenêtre de 24 h — c'est le serveur qui revérifie
+// la fenêtre sur la base, jamais l'écran.
+export const whatsappEnLigne = ({ tel, modele, variables, texte }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables, texte });
 
 // Identifiants de la session en cours, gardés EN MÉMOIRE uniquement (jamais
 // écrits sur le disque) : ils servent à rétablir la session si elle expire

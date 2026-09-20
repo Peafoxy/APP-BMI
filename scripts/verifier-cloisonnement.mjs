@@ -4771,8 +4771,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 27 fabrications (les quatre de la validation des dépenses, 12/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "27"
+  test("★ nouveauMessage sert aux 29 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp et la réattribution d'une conversation, 20/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "29"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont

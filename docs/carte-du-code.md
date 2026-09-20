@@ -68,6 +68,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/conservation.js` | ⏳ Combien de temps on garde les données d'un client (6 ans, réglable) — **il DIT qui dépasse, il n'efface JAMAIS** |
 | `lib/motInformation.js` | 👋 Le mot d'information de la première ouverture (client et employé) — **les mots qui mettent mal à l'aise y sont listés pour être évités** |
 | `lib/whatsappModeles.js` | 📲 Les modèles de messages WhatsApp approuvés par Meta et l'ordre de leurs trous — **le serveur lit CE fichier**, et aucun mot de passe n'y entre |
+| `lib/whatsappConversations.js` | 📲 Les réponses du client dans 💬 Messages : à qui est une conversation, qui a le droit de la voir, et la fenêtre de 24 h de Meta — **le serveur lit CE fichier** (webhook et envoi) |
 
 ## Les personnes, les espaces, la sécurité
 

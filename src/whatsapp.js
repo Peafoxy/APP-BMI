@@ -70,3 +70,29 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
   }
   return { auto: true, parti: true, motif: "", id: reponse.id || "" };
 }
+
+// ---------------------------------------------------------------
+// 💬 RÉPONDRE À UN CLIENT DANS LA FENÊTRE DE 24 H (étape 2, 20/09/2026)
+// ---------------------------------------------------------------
+// ⚠ AUCUN REPLI ICI, et c'est VOULU — au contraire d'un modèle. Une
+// relance qui n'est pas partie du numéro BMI peut finir à la main : le
+// texte est le même, le client reçoit la même chose. Une RÉPONSE, non :
+// elle doit arriver DANS la conversation WhatsApp qu'il a ouverte, sous
+// le numéro BMI. L'ouvrir sur le téléphone du vendeur ferait partir le
+// message d'un AUTRE numéro, et le client ne saurait pas qui lui écrit.
+// Donc : ça part, ou ça ne part pas et on DIT pourquoi.
+export async function repondreWhatsApp({ tel, texte }) {
+  if (!enLigne()) return { parti: false, motif: "Pas de connexion : le message ne peut pas partir du numéro BMI." };
+  let reponse;
+  try {
+    const { whatsappEnLigne } = await import("./supabaseClient");
+    reponse = await whatsappEnLigne({ tel, texte });
+  } catch (e) {
+    return { parti: false, motif: motifEchecWhatsApp({ erreur: e?.message }) };
+  }
+  if (!reponse || reponse.error) {
+    if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
+    return { parti: false, motif: motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }) };
+  }
+  return { parti: true, motif: "", id: reponse.id || "" };
+}

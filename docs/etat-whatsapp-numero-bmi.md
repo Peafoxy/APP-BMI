@@ -478,3 +478,61 @@ BMI TOGO — Les bâtiments modernes et intelligents
 
 Exemples : `KOSSI MENSAH` · `30/09/2026` · `250 000 F` · `750 000 F` ·
 `BMI DEMAKPOE`
+
+
+---
+
+## ÉTAPE 2 — LES RÉPONSES DU CLIENT (construite le 20/09/2026)
+
+**Demandée par Timo**, et il a tranché les trois questions : (1) voient tout =
+**tous les salariés BMI** ; (2) un client qui écrit le premier → **support,
+visible par tout le personnel** ; (3) **l'administrateur réattribue**.
+
+### CE QUI RESTE À FAIRE PAR TIMO — deux gestes, dans cet ordre
+
+**1. La variable Vercel** (Settings → Environment Variables, projet BMI) :
+
+| Nom | Valeur |
+|---|---|
+| `WHATSAPP_WEBHOOK_SECRET` | une longue suite de lettres et de chiffres qu'il invente (30 caractères au moins) |
+
+⚠ **Jamais préfixée `VITE_`.** Après l'avoir ajoutée, **redéployer** (Vercel →
+Deployments → ⋯ → Redeploy) : une variable posée ne prend effet qu'au
+déploiement suivant.
+
+**2. L'adresse d'arrivée, dans la console YCloud** (Settings → Webhooks, ou
+Developers → Webhooks) :
+
+```
+https://<le domaine de l'application>/api/whatsapp-entrant?cle=LE_SECRET
+```
+
+Événement à cocher : **message entrant** (`whatsapp.inbound_message.received`
+ou son équivalent dans la liste).
+
+### CE QU'ON NE SAIT PAS ENCORE, ET QU'IL FAUDRA AJUSTER
+
+La **forme exacte du paquet** envoyé par YCloud n'a pas pu être vérifiée
+(documentation injoignable depuis le poste de développement). `lireEntrant`
+accepte les formes connues ; si le premier vrai message n'arrive pas,
+**le journal Vercel dira ce qu'elle n'a pas su lire** (`ignore: true` +
+les clés reçues) — c'est ce qui permettra de l'ajuster en une ligne.
+
+### CE QUE ÇA FAIT, UNE FOIS BRANCHÉ
+
+- Le client répond sur WhatsApp → la conversation apparaît dans **💬 Messages**,
+  bloc **📲 WhatsApp**, en tête de liste.
+- Son **propriétaire** est celui qui lui a envoyé le dernier devis du numéro BMI.
+  Il reçoit une **notification**.
+- La **fenêtre de 24 h** s'affiche ; fermée, la case de saisie disparaît et
+  l'écran renvoie vers 📋 Tous les devis.
+- **🔁 Confier** (administrateur) donne la conversation à quelqu'un d'autre,
+  avec la trace dans le fil.
+
+### CE QUI N'EST PAS FAIT, ET QUI N'A PAS ÉTÉ DEMANDÉ
+
+- Les **images, audios et documents** envoyés par le client : le message est
+  rangé mais son contenu vaut `[image]`, `[audio]`… Il faut ouvrir WhatsApp
+  sur le téléphone pour le voir.
+- **« Livré » / « lu »** : toujours pas. Il faudrait écouter un second
+  événement de Meta, et l'écrire serait rassurer à tort tant qu'on ne l'a pas.

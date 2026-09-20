@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 102 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français)
+npm run verifier-whatsapp        # 125 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -2146,6 +2146,79 @@ lit mal est pire qu'un banc absent).
   offerts couvrent large. ⚠ Et **un moyen de paiement doit être en place
   avant le 30/09/2026**, sinon Meta cesse de délivrer les messages de service
   — chez nous c'est le crédit YCloud, à recharger dans sa console.
+
+### 📲 WHATSAPP — LES RÉPONSES DU CLIENT DANS L'APPLICATION (étape 2, 20/09/2026)
+- Timo : « il faut donner la possibilité à un commercial de discuter avec ses
+  clients quand eux ils répondent au message depuis WhatsApp… le personnel lui
+  répond depuis l'application BMI et les réponses vont directement dans
+  l'espace du personnel qui a écrit… sauf le personnel qui peut voir toutes
+  les discussions… mais un technicien commission ou un commercial n'a pas
+  droit de voir les conversations qu'il n'a pas engagées. » Règle pure
+  `lib/whatsappConversations.js`, webhook `api/whatsapp-entrant.js`.
+- **SES TROIS DÉCISIONS, mot pour mot** : **(1)** voient TOUT = **« tous les
+  salariés à BMI »** (`SALARIES` + l'administrateur — donc **pas** le
+  technicien à commission, **pas** le commercial) ; **(2) « c »** — un client
+  qui écrit le PREMIER va au **support**, « donc visible par tout le personnel
+  BMI » ; **(3) « a »** — **l'administrateur réattribue** (« 🔁 Confier »), et
+  ça laisse une trace.
+  ⚠ **Le comptable est un salarié** : il voit donc toutes les conversations,
+  par application stricte de sa règle. Dit à Timo le jour même ; un mot de lui
+  suffit à l'en retirer.
+- ⚠⚠ **C'EST UN FILTRE D'AFFICHAGE, PAS UNE BARRIÈRE DU SERVEUR.** La table
+  `messages` n'est PAS cloisonnée par personne (comme les dépenses d'un
+  technicien, comme la table des comptes) : la conversation ne s'affiche pas
+  chez qui n'y a pas droit, **mais sa copie locale la contient**. Dit à Timo,
+  jamais présenté autrement. Fermer la porte pour de bon demanderait une
+  politique Supabase de plus — **à sa demande**.
+- **UNE CONVERSATION EST RANGÉE SOUS LE NUMÉRO**, jamais sous un compte
+  (`cleConversation` = les 8 derniers chiffres, la règle de `numeroComparable`) :
+  un prospect qui répond n'a pas de compte BMI, et sa conversation doit exister
+  quand même.
+- **LE PROPRIÉTAIRE vient de la trace de l'étape 1** (`envoi_whatsapp.par_id`
+  du dernier devis parti du numéro BMI), sinon de ce que le fil porte déjà,
+  sinon personne → support. ⚠ **Répondre ne s'approprie PAS une conversation** :
+  sinon le premier qui répond à un client du support le ferait disparaître pour
+  tous les autres. Seul « 🔁 Confier » change le propriétaire, **en POSANT une
+  ligne de plus** — un message ne se réécrit jamais après coup.
+- ⏳ **LA FENÊTRE DE 24 H SE VOIT, TOUJOURS** (bandeau vert / ambre, le temps
+  restant en clair). ⚠ **Seul un message ENTRANT la rouvre** — nos réponses ne
+  la prolongent pas d'une minute, et le banc l'éprouve. Fermée, la case de
+  saisie disparaît et l'écran dit par où relancer (📋 Tous les devis, un modèle
+  approuvé). **Sans ça, le vendeur tape un message qui ne partira jamais.**
+- ⚠⚠ **TROIS BARRIÈRES, ET LA DERNIÈRE EST LA BASE** : l'écran calcule la
+  fenêtre pour prévenir, `critiqueReponse` la revérifie DANS le geste, et
+  **`api/whatsapp.js` la RECALCULE sur les messages de la base** avant
+  d'envoyer. Un écran resté ouvert deux heures croit encore la fenêtre ouverte.
+- ⚠ **AUCUN REPLI sur une réponse, et c'est VOULU** (au contraire d'un modèle) :
+  une relance peut finir à la main, le client reçoit le même texte. Une RÉPONSE
+  doit arriver **dans la conversation qu'il a ouverte, sous le numéro BMI** —
+  l'ouvrir sur le téléphone du vendeur la ferait partir d'un AUTRE numéro. Donc
+  ça part, ou ça ne part pas et **on dit pourquoi**.
+- ⚠ **RIEN N'EST ÉCRIT DANS LA BASE TANT QUE LE MESSAGE N'EST PAS PARTI** :
+  un fil qui ment est pire qu'un fil vide.
+- **L'ADRESSE D'ARRIVÉE EST PUBLIQUE** : elle n'accepte que les appels qui
+  portent le secret (**`WHATSAPP_WEBHOOK_SECRET`**, variable Vercel, **jamais
+  préfixée VITE_**) — sans lui, n'importe qui fabriquerait un faux message d'un
+  vrai client dans la base de BMI. Elle répond **200 même sur un paquet
+  illisible** (sinon YCloud le renvoie sans fin) **en disant ce qu'elle n'a pas
+  su lire**, et le même message reçu deux fois ne s'écrit qu'une fois (`wa_id`).
+  ⚠ **`updated_at` est posé à la main sur la ligne** : sans lui le message
+  existerait dans la base sans jamais descendre sur les téléphones.
+- **🔔 L'ARRIVÉE PRÉVIENT SON PROPRIÉTAIRE** (`api/_push.js`, comme la tournée
+  du matin) : le message n'arrive PAS par le `save()` de l'application, donc
+  `envoisDepuisSave` ne le verra jamais — c'est au webhook de le faire. ⚠ Sans
+  propriétaire, on prévient **les administrateurs**, pas « tout le personnel » :
+  la conversation reste visible par tous, mais faire vibrer quinze téléphones
+  pour un message de support rendrait les notifications inutiles en une semaine.
+- ⚠ **CE QUI N'A PAS PU ÊTRE VÉRIFIÉ D'ICI** : la FORME exacte du paquet que
+  YCloud envoie (leur documentation n'est pas joignable depuis ce poste). La
+  lecture accepte les formes connues et **dit ce qu'elle n'a pas su lire** au
+  lieu de deviner — à ajuster au premier vrai message.
+- **RIEN À COLLER DANS SUPABASE.** Deux gestes pour Timo : la variable Vercel
+  `WHATSAPP_WEBHOOK_SECRET`, et l'adresse d'arrivée à coller dans la console
+  YCloud.
+- **LE COÛT** : ~4 F la réponse libre à partir du 1er octobre 2026, **1 000
+  offertes par mois et par numéro**. Au volume de BMI, largement couvert.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

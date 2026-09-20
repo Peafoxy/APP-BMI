@@ -29,6 +29,7 @@ import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable } from "../src/lib/whatsappModeles.js";
+import { CANAL_WA, cleConversation, fenetre, libelleFenetre } from "../src/lib/whatsappConversations.js";
 
 const URL_YCLOUD = "https://api.ycloud.com/v2/whatsapp/messages";
 
@@ -40,15 +41,26 @@ export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
-  const { jeton, tel, modele, variables } = req.body || {};
+  const { jeton, tel, modele, variables, texte } = req.body || {};
   if (!jeton) return res.status(401).json({ error: "Reconnectez-vous." });
+
+  // ⚠ DEUX FORMES, UNE SEULE PORTE (étape 2, 20/09/2026) : un MODÈLE
+  // approuvé (le seul qui parte quand on veut), ou une RÉPONSE LIBRE dans
+  // la fenêtre de 24 h ouverte par le client. La réponse libre ne porte
+  // aucune variable : c'est du texte, écrit par une personne.
+  const reponseLibre = !modele && typeof texte === "string";
+  const motReponse = String(texte || "").trim();
+  if (reponseLibre && !motReponse) return res.status(400).json({ error: "Écrivez d'abord votre message." });
+  if (reponseLibre && motReponse.length > 4000) return res.status(400).json({ error: "Message trop long pour WhatsApp." });
 
   // ⚠ On borne AVANT de regarder quoi que ce soit d'autre : un corps de
   // requête vient du dehors, il ne se croit pas sur parole.
   const nom = String(modele || "");
   const valeurs = (Array.isArray(variables) ? variables : []).map(texteVariable);
-  const refus = critiqueModele(nom, valeurs);
-  if (refus) return res.status(400).json({ error: refus });
+  if (!reponseLibre) {
+    const refus = critiqueModele(nom, valeurs);
+    if (refus) return res.status(400).json({ error: refus });
+  }
   const destinataire = numeroWhatsApp(tel);
   if (!destinataire) return res.status(400).json({ error: "Numéro de téléphone absent ou illisible." });
 
@@ -80,16 +92,34 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Espace formation : aucun vrai message WhatsApp ne part d'ici." });
     }
 
-    const corps = {
-      from: expediteur,
-      to: destinataire,
-      type: "template",
-      template: {
-        name: nom,
-        language: { code: LANGUE_MODELES },
-        components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }],
-      },
-    };
+    // ⚠⚠ LA FENÊTRE DE 24 H SE REVÉRIFIE SUR LA BASE, jamais sur parole.
+    // L'écran la calcule pour prévenir la personne ; ici on la RECALCULE
+    // sur les messages réellement reçus. Un écran resté ouvert deux heures
+    // croit encore la fenêtre ouverte alors qu'elle s'est fermée — et
+    // WhatsApp, lui, facturerait un refus que personne ne comprendrait.
+    if (reponseLibre) {
+      const cleFil = cleConversation(tel);
+      const { data: lignes, error: errMsg } = await admin.from("messages").select("data");
+      if (errMsg) throw errMsg;
+      const fil = (lignes || []).map((l) => l.data || {})
+        .filter((m) => m.canal === CANAL_WA && m.wa_tel === cleFil)
+        .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+      const f = fenetre(fil);
+      if (!f.ouverte) return res.status(403).json({ error: libelleFenetre(f) });
+    }
+
+    const corps = reponseLibre
+      ? { from: expediteur, to: destinataire, type: "text", text: { body: motReponse } }
+      : {
+        from: expediteur,
+        to: destinataire,
+        type: "template",
+        template: {
+          name: nom,
+          language: { code: LANGUE_MODELES },
+          components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }],
+        },
+      };
     const reponse = await fetch(URL_YCLOUD, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-Key": cle },
@@ -107,7 +137,7 @@ export default async function handler(req, res) {
       const code = resultat?.error?.code ?? resultat?.code ?? "";
       return res.status(502).json({ error: motif, statut_whatsapp: reponse.status, code_whatsapp: code });
     }
-    return res.status(200).json({ ok: true, id: resultat?.id || "", statut: resultat?.status || "envoye", modele: nom });
+    return res.status(200).json({ ok: true, id: resultat?.id || "", statut: resultat?.status || "envoye", modele: reponseLibre ? "" : nom });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
