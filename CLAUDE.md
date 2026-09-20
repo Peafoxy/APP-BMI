@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 144 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 151 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -2342,6 +2342,41 @@ lit mal est pire qu'un banc absent).
   - **LA FENÊTRE NE SE PROLONGE JAMAIS PAR NOS RÉPONSES** — à dire à
     l'équipe : elle court depuis le DERNIER message ENTRANT du client, pas
     depuis notre dernière réponse. Répondre dix fois ne gagne pas une minute.
+- **🔍 CHERCHER ET 📁 ARCHIVER DANS 📲 WHATSAPP** (20/09/2026, « lance les 3 »,
+  après sa question « si 1000 personnes nous écrivent en premier, ça ne dérange
+  en rien qu'on leur réponde à tous ? »). **Côté Meta, non** : répondre n'est
+  jamais limité en nombre (la limite de 250/jour porte sur ce qu'on INITIE).
+  ⚠ **Le coût, lui, se compte en MESSAGES ENVOYÉS, pas en conversations** —
+  1 000 offerts par numéro et par mois à partir du 1er octobre, puis ~4 F
+  (vérifié le jour même : Meta, Landbot). **Le vrai souci était le NÔTRE** :
+  une liste de 1000 lignes sans recherche, et tout sur chaque téléphone.
+  - **UNE ligne de recherche** (`champRecherche`, la 12e de l'application),
+    qui passe par **la règle commune `correspond`** et cherche le NOM comme le
+    NUMÉRO (`motsDuNumero`). ⚠⚠ **Elle cherche dans TOUT, archives
+    comprises** : une recherche qui ne regarde que l'affiché ment — et c'est
+    justement une vieille conversation qu'on cherche.
+  - **L'archivage est CELUI DE TIMO** (13/09/2026), par SON composant
+    `HistoriqueArchive` : 10 lignes puis on défile, et au-delà des 20 plus
+    récentes une conversation sans activité depuis 3 mois passe dans
+    « 📁 Conversations anciennes ». Aucun tri, aucun `slice` maison.
+  - ⚠⚠ **UNE CONVERSATION NON LUE N'EST JAMAIS ARCHIVÉE**, même vieille de
+    huit mois : un client qui ATTEND une réponse ne disparaît pas derrière un
+    bouton. `separerNonLues` sort les non lues d'abord, l'archivage ne voit
+    que le reste. **Le banc exerce la composition des deux règles pures ET
+    lit que l'écran passe bien `lues` seules** — la règle juste ne suffit pas
+    si l'écran s'en sert mal.
+  - ⚠ **DEUX CONTRÔLES ÉCRITS CE JOUR-LÀ NE PROTÉGEAIENT PAS**, trouvés en
+    remettant la faute : l'un se contentait d'un PRÉFIXE (`? tousConvs`
+    passait encore avec `? tousConvs.slice(0, 10)`), l'autre n'exerçait que
+    la règle sans regarder l'écran. **La leçon du jour, deux fois de plus :
+    un contrôle qui ne regarde qu'un bout ne protège pas.**
+  - **La ligne de la conversation est devenue une ligne de TABLEAU** (le
+    composant d'archivage en pose un) — écrite UNE fois pour les deux blocs.
+  - ⚠ **LA RÉPARTITION AUTOMATIQUE N'EST PAS FAITE** : un client qui écrit le
+    premier va toujours au SUPPORT (sa décision « c »). Lui donner un
+    propriétaire d'office demande de choisir QUI — le vendeur de sa dernière
+    vente, un responsable par boutique, ou chacun son tour. **C'est son
+    organisation, pas de la technique : la question lui a été posée.**
   - **À FAIRE PAR TIMO** : créer le modèle chez YCloud sous le nom
     `prise_de_contact`, catégorie **marketing**, langue **fr**, avec ce texte
     exact. ⚠ Le nom ET la catégorie se figent à la création. Tant que Meta ne

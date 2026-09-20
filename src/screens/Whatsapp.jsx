@@ -21,9 +21,11 @@
 // cet écran ne fait que les montrer. Rien n'a changé d'elles en déménageant.
 // ============================================================
 import React, { useState } from "react";
-import { dFR, nouveauMessage } from "../lib/core";
-import { Field, inputCls, uAlert, uChoix, uConfirm } from "../components/ui";
+import { dFR, today, nouveauMessage } from "../lib/core";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
+import { HistoriqueArchive } from "../components/HistoriqueArchive";
+import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
@@ -65,6 +67,7 @@ export function Whatsapp({ db, save, profile }) {
   const [texte, setTexte] = useState("");
   const [envoi, setEnvoi] = useState(false);
   const [contact, setContact] = useState(null);
+  const [recherche, setRecherche] = useState("");
 
   // ⚠ Ce que la règle rend est DÉJÀ filtré : un commercial ou un technicien
   // à commission n'y trouve que ce qu'il a engagé, plus le support que
@@ -79,7 +82,16 @@ export function Whatsapp({ db, save, profile }) {
     .filter((u) => u.role === "client" && u.actif !== false && String(u.tel || "").trim())
     .map((u) => ({ valeur: u.nom_base || u.nom, tel: u.tel, mots: motsDuNumero(u.tel), detail: u.tel }));
 
-  const convs = profile.role === "client" ? [] : conversationsWa(messages, profile);
+  const tousConvs = profile.role === "client" ? [] : conversationsWa(messages, profile);
+  // ⚠ LA RÈGLE COMMUNE `correspond` (lib/suggestions.js), comme partout
+  // ailleurs — jamais un filtre maison. Elle cherche le NOM et le NUMÉRO :
+  // « 90112233 », « +228 90 11 22 33 » et « 228 » trouvent la même
+  // conversation (`motsDuNumero`, la règle des 16/09 et 18/09).
+  // ⚠⚠ ET ELLE CHERCHE DANS TOUT, ARCHIVES COMPRISES : une recherche qui
+  // ne regarde que ce qui est affiché ment — on chercherait justement une
+  // vieille conversation qu'on ne voit plus.
+  const convs = !recherche.trim() ? tousConvs
+    : tousConvs.filter((c) => correspond(`${c.nom || ""} ${motsDuNumero(c.tel).join(" ")}`, recherche));
   const ouverte = convs.find((c) => c.cle === cleOuverte) || null;
   const fil = ouverte ? filWa(messages, ouverte.cle) : [];
 
@@ -95,6 +107,12 @@ export function Whatsapp({ db, save, profile }) {
     (conv) => { const c = convs.find((x) => x.cle === conv.id); return c ? nonLusPour(c) : 0; },
     (conv) => { const c = convs.find((x) => x.cle === conv.id); return c ? derniereActivite(c) : ""; }
   );
+  // ⚠⚠ L'ARCHIVAGE NE TOUCHE QUE LES CONVERSATIONS LUES. `separerNonLues`
+  // a déjà sorti celles qui portent un non lu : un client qui attend une
+  // réponse ne doit JAMAIS disparaître derrière un bouton « archives »,
+  // même si son message a trois mois. C'est le point le plus important de
+  // ce point-ci, et le banc l'éprouve.
+  const lues = liste.sections[0]?.items || [];
 
   const ouvrir = (c) => {
     setCleOuverte(c.cle);
@@ -258,22 +276,47 @@ export function Whatsapp({ db, save, profile }) {
             </div>
           </div>
         )}
-        <div className="max-h-[60vh] overflow-y-auto">
+        {tousConvs.length > 0 && (
+          <div className="px-3 py-2 border-b border-slate-100">
+            <input className={champRecherche} value={recherche} onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher une conversation..." />
+          </div>
+        )}
+        <div>
           {liste.nonLues.length > 0 && (
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-red-700 uppercase bg-red-50" data-whatsapp="nouveaux">🔴 Nouveaux messages</div>
-              {liste.nonLues.map((it) => <LigneWa key={"nouveau" + it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />)}
+              <table className="w-full"><tbody>
+                {liste.nonLues.map((it) => <LigneWa key={"nouveau" + it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />)}
+              </tbody></table>
             </>
           )}
-          {liste.sections[0]?.items.length > 0 && (
+          {lues.length > 0 && (
             <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50" data-whatsapp="conversations">Conversations</div>
           )}
-          {liste.sections[0]?.items.map((it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />)}
-          {convs.length === 0 && (
+          {/* ⚠ LA RÈGLE D'ARCHIVAGE EST CELLE DE TIMO (13/09/2026), par SON
+              composant : 10 lignes puis on défile, et au-delà des 20 plus
+              récentes une conversation sans activité depuis 3 mois passe
+              dans « 📁 Archives ». Aucun tri, aucun `slice` maison ici. */}
+          {lues.length > 0 && (
+            <HistoriqueArchive
+              lignes={lues}
+              dateDe={(it) => derniereActivite(it.conv)}
+              aujourdhui={today()}
+              titreArchives="Conversations anciennes"
+              rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />}
+              vide="Aucune conversation."
+              classeTable="w-full"
+            />
+          )}
+          {tousConvs.length === 0 && (
             <div className="px-4 py-6 text-sm text-slate-400 text-center">
               Aucune conversation WhatsApp pour l'instant.
               <div className="mt-2 text-xs">Elles apparaissent ici dès qu'un client répond à un message parti du numéro BMI.</div>
             </div>
+          )}
+          {tousConvs.length > 0 && convs.length === 0 && (
+            <div className="px-4 py-6 text-sm text-slate-400 text-center">Aucune conversation ne correspond à « {recherche} ».</div>
           )}
         </div>
       </div>
@@ -346,9 +389,13 @@ export function Whatsapp({ db, save, profile }) {
 }
 
 // Une ligne de la liste — écrite UNE fois, comme LigneConversation de 💬 Messages.
+// ⚠ C'est une LIGNE DE TABLEAU : le composant commun d'archivage dessine un
+// <table>, et le bloc des non lues en pose un aussi. UNE seule ligne pour les
+// deux — deux façons de dessiner la même chose finiraient par diverger.
 function LigneWa({ item, cleOuverte, ouvrir }) {
   const c = item.wa;
   return (
+    <tr><td className="p-0">
     <button onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
       <span className="text-sm">
         <span className="font-semibold">{c.nom || c.tel}</span>
@@ -359,5 +406,6 @@ function LigneWa({ item, cleOuverte, ouvrir }) {
       </span>
       {item.nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{item.nb}</span>}
     </button>
+    </td></tr>
   );
 }

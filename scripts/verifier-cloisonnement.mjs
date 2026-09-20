@@ -8871,8 +8871,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
     const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
     const fenetres = execSync("grep -rn 'className={champRechercheFenetre}' src/screens src/components | wc -l").toString().trim();
-    test("★ les 12 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
-      Number(usages) === 11 && Number(fenetres) === 1
+    test("★ les 13 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
+      Number(usages) === 12 && Number(fenetres) === 1
       && lignes.length >= 8
       && lignes.every((x) => /className=\{champRecherche(Fenetre)?\}/.test(x.l))
       && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace(/champRecherche(Fenetre)?/g, "")))

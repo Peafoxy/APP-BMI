@@ -442,6 +442,46 @@ test("★ les personnes proposées passent par le filtre d'espace, jamais db.use
 test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
   /!ouverte\.fenetre\.ouverte \?/.test(ecranWa) && /Tous les devis/.test(ecranWa));
 
+// ── 🔍 CHERCHER ET ARCHIVER DANS 📲 WHATSAPP (20/09/2026, « lance les 3 »)
+const Arch = await import("../src/lib/archivage.js");
+const Conv = await import("../src/lib/conversations.js");
+test("★★ la recherche passe par LA règle commune et cherche le NOM comme le NUMÉRO",
+  /correspond\(`\$\{c\.nom \|\| ""\} \$\{motsDuNumero\(c\.tel\)\.join\(" "\)\}`, recherche\)/.test(ecranWa)
+  && !/toLowerCase\(\)\.includes/.test(ecranWa));
+test("★★ elle cherche dans TOUTES les conversations, archives comprises — une recherche qui ne voit que l'affiché ment",
+  /const convs = !recherche\.trim\(\) \? tousConvs\n/.test(ecranWa)
+  && /: tousConvs\.filter\(/.test(ecranWa));
+test("★ la ligne de recherche passe par la règle commune des largeurs",
+  /className=\{champRecherche\}/.test(ecranWa));
+test("★★ l'archivage passe par LE composant commun (la règle de Timo), jamais un slice maison",
+  /<HistoriqueArchive/.test(ecranWa) && !/\.slice\(0, ?\d+\)/.test(codeWa));
+
+// ⚠⚠ LE POINT LE PLUS IMPORTANT, ET IL S'EXERCE : un client qui ATTEND une
+// réponse ne doit jamais tomber dans les archives, même après trois mois de
+// silence de NOTRE côté. L'écran compose `separerNonLues` PUIS l'archivage
+// sur ce qui reste : on rejoue exactement cette composition.
+const vieux = "2026-01-05T09:00:00.000Z";
+const itemsTest = [
+  { cle: "vieux-non-lu", conv: { type: "wa", id: "vieux-non-lu" } },
+  ...Array.from({ length: 25 }, (_, i) => ({ cle: `r${i}`, conv: { type: "wa", id: `r${i}` } })),
+  { cle: "vieux-lu", conv: { type: "wa", id: "vieux-lu" } },
+];
+const activiteTest = (conv) => (String(conv.id).startsWith("vieux") ? vieux : `2026-09-${String(10 + (Number(String(conv.id).slice(1)) % 10)).padStart(2, "0")}T09:00:00.000Z`);
+const sep = Conv.separerNonLues(
+  [{ cle: "whatsapp", items: itemsTest }],
+  (conv) => (conv.id === "vieux-non-lu" ? 2 : 0),
+  activiteTest
+);
+const archTest = Arch.separerArchives(sep.sections[0].items, { aujourdhui: "2026-09-20", dateDe: (it) => activiteTest(it.conv) });
+test("★★ une conversation NON LUE n'est JAMAIS archivée, même vieille de 8 mois (le client attend)",
+  sep.nonLues.some((it) => it.cle === "vieux-non-lu")
+  && !archTest.archives.some((it) => it.cle === "vieux-non-lu")
+  && !archTest.visibles.some((it) => it.cle === "vieux-non-lu"));
+test("★ une conversation LUE et sans activité depuis 3 mois passe bien aux archives, au-delà des 20 récentes",
+  archTest.archives.some((it) => it.cle === "vieux-lu"));
+test("★★ et l'ÉCRAN ne donne QUE les lues à l'archivage — la règle juste ne suffit pas si l'écran s'en sert mal",
+  /lignes=\{lues\}/.test(ecranWa) && !/lignes=\{\[\.\.\.liste\.nonLues/.test(ecranWa));
+
 // ── LA SÉPARATION (décision « b » de Timo, 20/09/2026)
 const calculs = lire("src/lib/calculs.js");
 const app = lire("src/App.jsx");
