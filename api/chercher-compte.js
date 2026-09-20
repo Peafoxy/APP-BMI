@@ -34,6 +34,7 @@ import { poserCors } from "./_cors.js";
 import {
   adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
 } from "./_verrouillage.js";
+import { cleIdentifiant, memeIdentifiant, MAX_HOMONYMES } from "../src/lib/identiteClient.js";
 
 // Doivent rester IDENTIQUES à hacher() / hacherFort() de src/lib/core.js.
 function hacherServeur(txt) {
@@ -77,7 +78,7 @@ export default async function handler(req, res) {
   if (!url || !cleService) return res.status(500).json({ error: "Serveur mal configuré" });
 
   const admin = createClient(url, cleService, { auth: { persistSession: false } });
-  const recherche = String(nom).trim().toLowerCase();
+  const recherche = cleIdentifiant(nom);
   // Trois compteurs : cet appareil sur ce compte, cet appareil en général,
   // ce compte depuis partout. Voir api/_verrouillage.js pour le détail.
   const verrous = clesDeControle("recherche", recherche, adresseAppelant(req));
@@ -97,9 +98,18 @@ export default async function handler(req, res) {
     const { data: lignes, error } = await admin
       .from("users").select("id, data").ilike("data->>nom", echapperJokers(recherche));
     if (error) throw error;
-    const ligne = (lignes || []).find(
-      (l) => String(l.data?.nom || "").trim().toLowerCase() === recherche
-    );
+    // ⚠⚠ TOUS LES COMPTES DE CET IDENTIFIANT, PAS LE PREMIER (20/09/2026).
+    // Un `.find()` prenait la première ligne venue et ne testait QUE son mot
+    // de passe : avec un employé ESSO et un client ESSO, l'un des deux ne
+    // pouvait JAMAIS entrer — et la requête n'ayant aucun ordre imposé, ce
+    // n'était même pas toujours le même. C'est le MOT DE PASSE qui départage.
+    // ⚠ Le mur ne s'applique PAS ici, et c'est voulu : un compte de formation
+    // et un compte réel peuvent porter le même nom, la connexion doit
+    // retrouver le bon des deux.
+    const candidats = (lignes || [])
+      .filter((l) => memeIdentifiant(l.data?.nom, recherche))
+      .slice(0, MAX_HOMONYMES);
+    const ligne = candidats.find((l) => motDePasseCorrect(l.data || {}, motDePasse));
 
     // ⚠ Réponse VOLONTAIREMENT identique que le compte existe ou non : sinon
     // cette fonction deviendrait un annuaire — on pourrait deviner qui
@@ -109,10 +119,12 @@ export default async function handler(req, res) {
       await enregistrerEchec(admin, verrous, verrou.etats);
       return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
     };
+    // Aucun candidat, ou aucun dont le mot de passe soit le bon : même
+    // réponse dans les deux cas — cette fonction ne doit jamais devenir un
+    // annuaire.
     if (!ligne) return await echec();
 
     const champs = ligne.data || {};
-    if (!motDePasseCorrect(champs, motDePasse)) return await echec();
     if (champs.actif === false) {
       return res.status(403).json({ error: "Ce compte a été bloqué par l'administrateur." });
     }

@@ -32,8 +32,8 @@ export const ADRESSE_APP = "https://gestion.bmitogo.com";
 // le réexport. « export { x } from "y" » ne crée AUCUNE variable locale : les
 // fonctions de ce fichier appelaient alors un motDePasseClient inexistant, et
 // la création d'un compte client plantait. Le banc de parrainage l'a vu.
-import { chiffresTel, lettresNom, motDePasseClient } from "./identiteClient.js";
-export { chiffresTel, lettresNom, motDePasseClient };
+import { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant } from "./identiteClient.js";
+export { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant };
 
 // Choisit un mot de passe qui n'entre en conflit avec AUCUN compte existant.
 // Essaie d'abord plusieurs mélanges à 6 caractères (variantes 0 à 9) ; ce
@@ -99,6 +99,53 @@ export function identifiantClient(db, nom, tel) {
   let i = 2;
   while (pris(base + d.slice(0, 2) + i)) i++;
   return base + d.slice(0, 2) + i;
+}
+
+// ---------------------------------------------------------------
+// ⚠⚠ UN IDENTIFIANT D'EMPLOYÉ NE SE PREND PAS DEUX FOIS (20/09/2026)
+// ---------------------------------------------------------------
+// Timo : « il y a un client qui s'appelle ESSO mais ce n'est pas le même mot
+// de passe » — et le technicien ESSO ne pouvait plus se connecter.
+// La cause n'était pas la connexion seule : **un CLIENT vérifiait que son nom
+// était libre** (`identifiantClient`, sept endroits), **un EMPLOYÉ ne
+// vérifiait RIEN**. On créait donc ESSO par-dessus ESSO sans un mot.
+// La connexion sait maintenant départager deux homonymes par leur mot de
+// passe — mais un doublon reste une confusion pour l'équipe, alors on n'en
+// fabrique plus.
+//
+// ⚠ ON REGARDE LES DEUX ESPACES, ET C'EST VOULU. Le mur sépare les DONNÉES ;
+// la connexion, elle, cherche dans toute la maison. Un ESSO d'entraînement et
+// un ESSO réel se gêneraient donc pour de vrai.
+export function comptesDeLIdentifiant(db, nom) {
+  return (db?.users || []).filter((u) => memeIdentifiant(u.nom, nom));
+}
+
+// Rend "" si le nom est libre, sinon la phrase à montrer — qui DIT qui le
+// détient déjà, sinon on ne sait pas quoi corriger.
+export function critiqueIdentifiantEmploye(db, nom) {
+  const vise = String(nom || "").trim();
+  if (!vise) return "Entrez le nom de connexion de ce compte.";
+  const pris = comptesDeLIdentifiant(db, vise)[0];
+  if (!pris) return "";
+  const quoi = pris.role === "client" ? "un compte client" : `celui ${roleAvecArticle(pris.role)}`;
+  return `« ${vise.toUpperCase()} » est déjà l'identifiant de ${quoi}`
+    + `${pris.formation ? " (espace formation)" : ""}.`
+    + ` Deux comptes ne peuvent pas porter le même nom de connexion : choisissez-en un autre.`;
+}
+
+// Le nom libre le plus proche, à proposer dans le refus. Le PRÉNOM d'abord
+// (« ESSO KOSSI ») — c'est ce qui distingue deux personnes pour de vrai ;
+// sinon les chiffres du numéro, comme pour un client.
+export function propositionIdentifiant(db, nom, prenom, tel) {
+  const base = String(nom || "").trim().toUpperCase();
+  const libre = (n) => !!n && comptesDeLIdentifiant(db, n).length === 0;
+  const avecPrenom = `${base} ${String(prenom || "").trim().toUpperCase()}`.trim();
+  if (avecPrenom !== base && libre(avecPrenom)) return avecPrenom;
+  const d = chiffresTel(tel);
+  for (const n of [base + d.slice(0, 2), base + d.slice(0, 4)]) if (libre(n)) return n;
+  let i = 2;
+  while (!libre(`${base}${i}`) && i < 100) i++;
+  return `${base}${i}`;
 }
 
 // Crée le compte client et renvoie { user, motDePasse }. Le rôle est IMPOSÉ.

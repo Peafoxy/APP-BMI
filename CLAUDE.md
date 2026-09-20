@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1700 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1725 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1803,6 +1803,64 @@ lit mal est pire qu'un banc absent).
   fermée, mot d'information, durée de conservation. Ne restent que les deux
   démarches HORS application, déjà dites à Timo et affichées dans l'écran :
   la déclaration à l'**IPDCP**, et l'**hébergement hors du Togo**.
+
+### 👥 DEUX COMPTES DU MÊME NOM — L'HISTOIRE DES DEUX ESSO (20/09/2026)
+- Timo, capture de l'écran de connexion (« Ce compte n'existe plus, ou le mot
+  de passe a changé ») : **« je suis souvent confronté à ce problème… il y a
+  un client qui s'appelle ESSO mais ce n'est pas le même mot de passe »**. Son
+  technicien ESSO ne pouvait plus entrer. Ce n'était pas son mot de passe.
+- ⚠⚠ **LA CAUSE : la connexion prenait LE PREMIER compte de ce nom et ne
+  testait QUE son mot de passe.** L'autre ESSO ne pouvait donc **jamais**
+  entrer, quel que soit son mot de passe. Et la requête du serveur n'imposant
+  **aucun ordre**, ce n'était même pas toujours le même des deux qui gagnait :
+  d'où le « souvent », qui ressemblait à un défaut capricieux.
+- **LE TROU QUI L'A PERMIS, et il était net** : un **CLIENT** vérifiait que
+  son nom était libre (`identifiantClient`, sept endroits, et fabrique
+  « ESSO99 » si besoin) ; un **EMPLOYÉ** ne vérifiait **RIEN DU TOUT**. On
+  créait ESSO par-dessus ESSO sans un mot.
+- **LE REMÈDE, deux gestes** (« lance 1 et 2 ») :
+  - **C'est le MOT DE PASSE qui départage**, des DEUX côtés : `candidats` =
+    tous les comptes de cet identifiant, puis celui dont le mot de passe est
+    le bon (`api/chercher-compte.js` et `screens/Connexion.jsx`). ⚠ Le nombre
+    d'essais est **borné** (`MAX_HOMONYMES` = 5) : vérifier un mot de passe
+    coûte 150 000 tours, une boucle sans limite serait une porte pour épuiser
+    le serveur. ⚠ La réponse du serveur reste **identique que le compte
+    existe ou non** — cette fonction ne doit jamais devenir un annuaire.
+  - **Un identifiant d'employé ne se prend plus deux fois**
+    (`critiqueIdentifiantEmploye`, revérifié DANS le geste) : le refus **NOMME
+    qui le détient** et **propose un nom libre** (`propositionIdentifiant` —
+    le PRÉNOM d'abord, « ESSO KOSSI », sinon les chiffres du numéro).
+- ⚠⚠ **LE MUR NE PROTÈGE PAS DE ÇA, ET C'EST VOULU DES DEUX FAÇONS** : un ESSO
+  de FORMATION et un ESSO réel se gêneraient pour de vrai, puisque la connexion
+  cherche dans toute la maison. Donc (a) le garde-fou regarde les DEUX espaces,
+  (b) la connexion, elle, ne cloisonne pas — sinon elle ne retrouverait pas le
+  bon des deux. Le banc mesure les deux points.
+- ⚠ **UNE RECOPIE RETIRÉE AU PASSAGE** : `String(nom).trim().toLowerCase()`
+  vivait en double, dans l'écran ET dans la fonction serveur, avec un
+  commentaire disant « EXACTEMENT comme l'écran de connexion » — c'est-à-dire
+  l'aveu qu'une divergence était possible. `cleIdentifiant` / `memeIdentifiant`
+  vivent maintenant dans **`lib/identiteClient.js`**, qui est déjà chargé des
+  deux côtés (et **ne doit toujours rien importer**).
+- ⚠ **Un contrôle a été RETOURNÉ, pas supprimé** : « efface la copie périmée
+  gardée sur l'appareil » décrivait `if (u) await oublierCompteLocal(u.id)` —
+  avec deux homonymes, ç'aurait jeté la fiche de quelqu'un d'autre. On n'oublie
+  plus que la copie qui aurait **vraiment** laissé entrer.
+- **🧑 LE PRÉNOM À LA CRÉATION D'UN EMPLOYÉ** (demandé le même jour) : une
+  ligne « Prénom » dans 👥 Utilisateurs, employés seulement. ⚠ **Ce n'est PAS
+  un champ de plus** : il remplit **`nom_complet`**, qui existe déjà et qui
+  commande DÉJÀ le bulletin de paie, la déclaration CNSS (`separerNomPrenoms` :
+  premier mot = nom, le reste = prénoms) et le dossier personnel. Un second
+  champ serait une deuxième source pour la même chose, et les deux finiraient
+  par se contredire. 🆔 Identité continue de le corriger, et la liste
+  l'affichait déjà sous le nom. ⚠ **Il ne change PAS l'identifiant de
+  connexion** : on tape toujours son nom — c'est le garde-fou ci-dessus qui
+  règle les doublons, pas le prénom.
+- **Rien à coller dans Supabase** : `nom_complet` est déjà dans la liste
+  « gestion » que l'administrateur écrit tous les jours.
+- ⚠ **Ce que ça ne fait PAS** : les doublons DÉJÀ créés restent en place. Ils
+  fonctionnent (le mot de passe départage), mais deux ESSO dans une liste
+  restent une confusion pour l'équipe. **Renommer l'un des deux touche ses
+  vraies données : c'est sa décision, à sa demande explicite.**
 
 ### 📲 WHATSAPP DEPUIS LE NUMÉRO BMI — L'ENVOI (étape 1, 19/09/2026)
 - Timo, après avoir raccordé le numéro **+228 99 96 84 88** chez YCloud

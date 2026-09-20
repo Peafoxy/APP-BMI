@@ -395,8 +395,15 @@ titre("Un compte supprimé ne peut plus se reconnecter");
   test("le serveur est consulté DÈS QU'IL Y A DU RÉSEAU, pas seulement si le compte manque",
     /if \(navigator\.onLine\)\s*\{[\s\S]{0,400}chercherCompteEnLigne/.test(cnx));
   test("un refus du serveur bloque la connexion", /if \(r\.refuse\)/.test(cnx));
+  // ⚠ RETOURNÉ le 20/09/2026 : le geste existe toujours, mais il ne jette
+  // plus « le compte trouvé » — avec deux comptes du même nom (l'histoire des
+  // deux ESSO), ç'aurait été la fiche de quelqu'un d'autre. On n'oublie que
+  // la copie qui aurait VRAIMENT laissé entrer. La fourchette passe à 400 :
+  // la boucle sur les homonymes est plus longue que l'ancienne ligne.
   test("…et efface la copie périmée gardée sur l'appareil",
-    /r\.refuse[\s\S]{0,200}oublierCompteLocal/.test(cnx));
+    /r\.refuse[\s\S]{0,400}oublierCompteLocal/.test(cnx));
+  test("★ et elle seule : jamais « le premier compte de ce nom »",
+    !/if \(u\) await oublierCompteLocal\(u\.id\);/.test(cnx));
   test("un serveur INJOIGNABLE n'est pas un refus (sinon plus personne ne travaille hors réseau)",
     /const refuse = reponse\.status === 401 \|\| reponse\.status === 403;/.test(cli));
   test("la connexion hors réseau reste possible sur un appareil déjà utilisé",
@@ -10178,6 +10185,83 @@ titre("💰 La recette de ce qui est affiché (💰 Ventes)");
   test("les deux règles vivent dans lib/calculs.js",
     /export function recetteDesVentes/.test(readFileSync("src/lib/calculs.js", "utf8"))
     && /export function totalDesProformas/.test(readFileSync("src/lib/calculs.js", "utf8")));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("👥 DEUX COMPTES DU MÊME NOM : C'EST LE MOT DE PASSE QUI DÉPARTAGE (Timo, 20/09/2026)");
+{
+  const lit = (f) => readFileSync(f, "utf8");
+  const conn = lit("src/screens/Connexion.jsx");
+  const serveur = lit("api/chercher-compte.js");
+  const util = lit("src/screens/Utilisateurs.jsx");
+  const identite = lit("src/lib/identiteClient.js");
+
+  // Sa base : un TECHNICIEN ESSO et un CLIENT ESSO.
+  const dbEsso = { users: [
+    { id: "u_cli_esso", nom: "ESSO", role: "client", tel: "90112233" },
+    { id: "u_tech_esso", nom: "ESSO", role: "technicien", tel: "99968488" },
+  ] };
+
+  test("★ la comparaison d'identifiant ignore espaces et majuscules",
+    Cli.memeIdentifiant(" Esso ", "ESSO") && Cli.memeIdentifiant("esso", "ESSO"));
+  test("un identifiant vide ne correspond à rien",
+    !Cli.memeIdentifiant("", "") && !Cli.memeIdentifiant("  ", "ESSO"));
+  test("★★ les DEUX ESSO sont retrouvés, pas le premier seul",
+    Cli.comptesDeLIdentifiant(dbEsso, "esso").length === 2);
+
+  // ── Le garde-fou : on n'en fabrique plus.
+  const refus = Cli.critiqueIdentifiantEmploye(dbEsso, "esso");
+  test("★★ créer un employé ESSO est REFUSÉ", !!refus);
+  test("★ et le refus DIT qui le détient déjà (sinon on ne sait pas quoi corriger)",
+    /client/i.test(refus) && /ESSO/.test(refus));
+  test("un nom libre passe", Cli.critiqueIdentifiantEmploye(dbEsso, "KOSSI") === "");
+  test("un nom vide est refusé", !!Cli.critiqueIdentifiantEmploye(dbEsso, "   "));
+  // ⚠ Le mur ne protège PAS de ça : la connexion cherche dans toute la maison.
+  const dbForm = { users: [{ id: "u_f", nom: "ESSO", role: "vendeur", formation: true }] };
+  test("★★ un ESSO de FORMATION gêne un ESSO réel — la connexion, elle, ne cloisonne pas",
+    !!Cli.critiqueIdentifiantEmploye(dbForm, "ESSO")
+    && /formation/i.test(Cli.critiqueIdentifiantEmploye(dbForm, "ESSO")));
+
+  // ── La proposition : le PRÉNOM d'abord, c'est ce qui distingue deux gens.
+  test("★ la proposition prend le prénom quand il y en a un",
+    Cli.propositionIdentifiant(dbEsso, "ESSO", "Kossi", "99968488") === "ESSO KOSSI");
+  test("★ sans prénom, elle retombe sur les chiffres du numéro",
+    Cli.propositionIdentifiant(dbEsso, "ESSO", "", "99968488") === "ESSO99");
+  test("★ et ce qu'elle propose est TOUJOURS libre",
+    Cli.comptesDeLIdentifiant(dbEsso, Cli.propositionIdentifiant(dbEsso, "ESSO", "", "99968488")).length === 0
+    && Cli.comptesDeLIdentifiant(dbEsso, Cli.propositionIdentifiant(dbEsso, "ESSO", "Kossi", "")).length === 0);
+
+  // ── LA CONNEXION, les deux côtés.
+  test("★★ l'appareil ne prend plus le PREMIER compte du nom",
+    !/db\.users\.find\(\(x\) => x\.nom/.test(conn) && /db\.users\.filter\(\(x\) => memeIdentifiant\(x\.nom, saisie\)\)/.test(conn));
+  test("★★ hors réseau, c'est le mot de passe qui départage",
+    /!venuDuServeur && candidats\.length > 1/.test(conn) && /verifierMotDePasse\(c, pwd\)\)\.ok\) \{ u = c; break; \}/.test(conn));
+  test("★ une copie périmée n'est oubliée que si elle aurait laissé entrer",
+    /for \(const c of candidats\)[\s\S]{0,160}oublierCompteLocal\(c\.id\)/.test(conn));
+  test("★★ le serveur ne prend plus le premier non plus",
+    !/\(lignes \|\| \[\]\)\.find\(/.test(serveur)
+    && /const candidats = \(lignes \|\| \[\]\)\s*\n\s*\.filter\(\(l\) => memeIdentifiant/.test(serveur));
+  test("★★ et c'est le mot de passe qui choisit, côté serveur aussi",
+    /const ligne = candidats\.find\(\(l\) => motDePasseCorrect\(/.test(serveur));
+  test("★ le nombre d'essais est BORNÉ (un mot de passe coûte 150 000 tours)",
+    /slice\(0, MAX_HOMONYMES\)/.test(serveur) && /export const MAX_HOMONYMES = \d+;/.test(identite));
+  test("★★ LE COUPLE : les deux côtés lisent LA MÊME règle, aucune recopie",
+    /from "\.\.\/src\/lib\/identiteClient\.js"/.test(serveur)
+    && /memeIdentifiant/.test(serveur) && /memeIdentifiant/.test(conn)
+    && !/String\(nom\)\.trim\(\)\.toLowerCase\(\)/.test(serveur));
+  test("★ la réponse du serveur reste la même que le compte existe ou non",
+    /if \(!ligne\) return await echec\(\);/.test(serveur));
+  test("★ un compte bloqué se dit toujours bloqué", /champs\.actif === false/.test(serveur));
+
+  // ── LE PRÉNOM (demande du même jour).
+  test("★ le formulaire d'un employé porte une ligne Prénom",
+    /<Field label="Prénom">/.test(util) && /prenom: ""/.test(util));
+  test("★★ le prénom remplit nom_complet — PAS un champ de plus qui dirait la même chose",
+    /nom_complet: `\$\{f\.nom\.trim\(\)\} \$\{f\.prenom\.trim\(\)\}`/.test(util)
+    && !/prenom: f\.prenom/.test(util));
+  test("★ le garde-fou est revérifié DANS le geste, avant toute écriture",
+    /const refusNom = critiqueIdentifiantEmploye\(db, f\.nom\);[\s\S]{0,200}return;/.test(util));
+  test("★ et le refus propose un nom libre", /propositionIdentifiant\(db, f\.nom, f\.prenom, f\.tel\)/.test(util));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

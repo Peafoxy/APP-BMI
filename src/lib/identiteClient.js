@@ -16,6 +16,32 @@
 // recevrait un mot de passe qui ne le connecterait pas.
 // ============================================================
 
+// ---------------------------------------------------------------
+// ⚠⚠ L'IDENTIFIANT DE CONNEXION — LA COMPARAISON, ÉCRITE UNE FOIS
+// ---------------------------------------------------------------
+// Elle vivait en DOUBLE : `String(nom).trim().toLowerCase()` dans l'écran de
+// connexion, et la même ligne recopiée dans api/chercher-compte.js, avec un
+// commentaire disant « EXACTEMENT comme l'écran de connexion » — c'est-à-dire
+// l'aveu qu'une divergence était possible. Ce fichier est chargé des DEUX
+// côtés : elle est donc écrite ICI, et lue par les deux.
+export const cleIdentifiant = (nom) => String(nom || "").trim().toLowerCase();
+export const memeIdentifiant = (a, b) => {
+  const x = cleIdentifiant(a);
+  return !!x && x === cleIdentifiant(b);
+};
+
+// ⚠⚠ DEUX COMPTES PEUVENT PORTER LE MÊME IDENTIFIANT — défaut trouvé par Timo
+// le 20/09/2026 (« il y a un client qui s'appelle ESSO mais ce n'est pas le
+// même mot de passe » ; capture : « Ce compte n'existe plus »). La connexion
+// prenait LE PREMIER compte de ce nom et ne testait QUE son mot de passe :
+// l'autre ne pouvait JAMAIS entrer. Et comme la base ne garantit aucun ordre,
+// ça marchait un jour et pas le lendemain.
+// Depuis : **c'est le MOT DE PASSE qui départage**, des deux côtés.
+// ⚠ Le nombre d'essais est borné : vérifier un mot de passe est un calcul
+// volontairement LENT (150 000 tours), et une boucle sans limite serait une
+// porte ouverte pour épuiser le serveur.
+export const MAX_HOMONYMES = 5;
+
 export const chiffresTel = (tel) => String(tel || "").replace(/\D/g, "");
 export const lettresNom = (nom) => String(nom || "").replace(/[^A-Za-zÀ-ÿ]/g, "").toUpperCase();
 

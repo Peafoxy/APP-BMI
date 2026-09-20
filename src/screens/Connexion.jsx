@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { LOGO, VERSION } from "../lib/constants";
 import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
+import { memeIdentifiant } from "../lib/identiteClient.js";
 import { Field, inputCls } from "../components/ui";
 import { souhaitsDuJour } from "../lib/calculs";
 import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
@@ -27,7 +28,13 @@ export function Login({ db, apparence, onLogin, save }) {
     demanderPermissionPush();
     const saisie = nomSaisi.trim().toLowerCase();
     if (!saisie) { setErr("Entrez votre nom d'utilisateur."); return; }
-    let u = db.users.find((x) => x.nom.trim().toLowerCase() === saisie);
+    // ⚠⚠ TOUS LES COMPTES DE CET IDENTIFIANT, PAS LE PREMIER (20/09/2026,
+    // défaut trouvé par Timo : un employé ESSO et un client ESSO). C'est le
+    // MOT DE PASSE qui départage — voir memeIdentifiant, lib/identiteClient.js,
+    // la même règle que le serveur emploie.
+    const candidats = db.users.filter((x) => memeIdentifiant(x.nom, saisie));
+    let u = candidats[0];
+    let venuDuServeur = false;
     // ⚠ ÉTAPE 2 de la fermeture du « trou n° 1 » : la table des comptes n'est
     // plus téléchargée à l'avance (elle était lisible par n'importe qui). Un
     // appareil NEUF ne connaît donc encore personne : on demande au serveur
@@ -55,12 +62,18 @@ export function Login({ db, apparence, onLogin, save }) {
       const r = await chercherCompteEnLigne(nomSaisi.trim(), pwd);
       setConnexionEnCours(false);
       if (r.refuse) {
-        if (u) await oublierCompteLocal(u.id);
+        // ⚠ On n'oublie QUE la copie périmée qui aurait laissé entrer : avec
+        // deux comptes du même nom, jeter le premier venu effacerait la fiche
+        // de quelqu'un d'autre.
+        for (const c of candidats) {
+          if ((await verifierMotDePasse(c, pwd)).ok) await oublierCompteLocal(c.id);
+        }
         setErr("Ce compte n'existe plus, ou le mot de passe a changé. Rapprochez-vous de l'administrateur.");
         return;
       }
       if (r.user) {
         u = r.user;
+        venuDuServeur = true;
         // La fiche est rangée en local : les connexions suivantes se feront
         // sans réseau. On n'utilise volontairement pas save() — ce n'est pas
         // une action de l'utilisateur, et personne n'est encore connecté.
@@ -72,6 +85,13 @@ export function Login({ db, apparence, onLogin, save }) {
         ? "Utilisateur introuvable."
         : "Première connexion sur cet appareil : connectez-vous au réseau une fois. Ensuite, l'application fonctionnera hors ligne.");
       return;
+    }
+    // Hors réseau (ou serveur injoignable), c'est à nous de départager les
+    // homonymes : le serveur n'a rien tranché.
+    if (!venuDuServeur && candidats.length > 1) {
+      for (const c of candidats) {
+        if ((await verifierMotDePasse(c, pwd)).ok) { u = c; break; }
+      }
     }
     if (u.actif === false) { setErr("Ce compte a été bloqué par l'administrateur."); return; }
     const { ok, aMigrer } = await verifierMotDePasse(u, pwd);

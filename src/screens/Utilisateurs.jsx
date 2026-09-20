@@ -7,7 +7,7 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
+import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
@@ -80,7 +80,7 @@ export function Users({ db, save, profile }) {
     // compte. Le filtre reste `correspond` : UNE règle pour toute recherche tapée.
     ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
     : utilisateursVisibles.filter((x) => x.role === roleAffiche);
-  const vide = { nom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
+  const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
   // Les boutiques réellement proposables pour le compte en cours de
   // création : celles de l'espace coché, jamais TERRAIN (caisse virtuelle,
@@ -131,6 +131,14 @@ export function Users({ db, save, profile }) {
 
     if (refuserSaufAdmin(profile, "Créer un compte employé")) return;
     if (!f.nom || f.pwd.length < 6) { setMsg("Remplissez le nom et un mot de passe (6 caractères minimum, exigé par la sécurisation Supabase)."); return; }
+    // ⚠⚠ LE NOM DOIT ÊTRE LIBRE (20/09/2026, l'histoire des deux ESSO). Un
+    // CLIENT passait déjà par `identifiantClient`, qui écarte les doublons ;
+    // un EMPLOYÉ ne vérifiait rien du tout. Revérifié DANS le geste.
+    const refusNom = critiqueIdentifiantEmploye(db, f.nom);
+    if (refusNom) {
+      setMsg(`${refusNom} Proposition : ${propositionIdentifiant(db, f.nom, f.prenom, f.tel)}`);
+      return;
+    }
     const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
     // ⚠ Dernier verrou : un compte rattaché à une boutique ne peut pas être
     // créé sans boutique VALIDE de son espace. Sans ce contrôle, cocher
@@ -148,7 +156,16 @@ export function Users({ db, save, profile }) {
     // UNE fois à lui envoyer ses identifiants par WhatsApp, puis était JETÉ :
     // il n'était écrit nulle part sur sa fiche. D'où un écran Utilisateurs
     // qui n'affichait le numéro que des clients. Il est gardé maintenant.
+    // ⚠ LE PRÉNOM N'EST PAS UN CHAMP DE PLUS (Timo, 20/09/2026 : « pour les
+    // employés, ajouter la ligne Prénom lors de la création du compte »). Il
+    // remplit `nom_complet`, qui existe déjà et qui commande DÉJÀ le bulletin
+    // de paie, la déclaration CNSS (`separerNomPrenoms` : premier mot = nom,
+    // le reste = prénoms) et le dossier personnel. Un second champ serait une
+    // deuxième source pour la même chose — et les deux finiraient par se
+    // contredire. 🆔 Identité continue de le corriger.
+    // ⚠ Il ne change PAS l'identifiant de connexion : on tape toujours son nom.
     const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!espaceCree,
+      ...(f.prenom.trim() ? { nom_complet: `${f.nom.trim()} ${f.prenom.trim()}`.trim() } : {}),
       ...(chiffresTel(f.tel).length >= 4 ? { tel: f.tel.trim() } : {}) };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
@@ -953,6 +970,9 @@ export function Users({ db, save, profile }) {
             <Field label="Numéro de téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           ) : (
             <Field label="Mot de passe"><input className={inputCls} value={f.pwd} onChange={(e) => setF({ ...f, pwd: e.target.value })} /></Field>
+          )}
+          {f.role !== "client" && (
+            <Field label="Prénom"><input className={inputCls} placeholder="Prénom(s), comme sur la pièce" value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
           )}
           {f.role !== "client" && (
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
