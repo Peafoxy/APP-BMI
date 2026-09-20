@@ -431,6 +431,12 @@ test("★★ le MUR : l'espace du DESTINATAIRE décide quand on le connaît, jam
 // sur la phrase « Jamais `db.users` en entier » écrite juste au-dessus de la
 // bonne ligne. Un contrôle qui lit du français au lieu du code se trompe.
 const codeWa = ecranWa.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+// ⚠ DÉFAUT DU 20/09/2026 : fenêtre fermée, l'écran envoyait le vendeur vers
+// 📋 Tous les devis — où un client SANS devis n'est pas. Un écran qui donne
+// une issue qui n'existe pas est pire qu'un écran muet.
+test("★★ fenêtre fermée : l'écran donne une issue qui MARCHE (écrire un modèle depuis ici), pas seulement un renvoi ailleurs",
+  /Lui écrire quand même/.test(ecranWa)
+  && /setContact\(\{ nom: ouverte\.nom \|\| "", tel: ouverte\.tel \|\| "", sujet: "" \}\); setCleOuverte\(null\);/.test(ecranWa));
 test("★ les personnes proposées passent par le filtre d'espace, jamais db.users en entier",
   /utilisateursDeLEspace\(db, profile\)/.test(codeWa) && !/db\.users/.test(codeWa));
 test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",

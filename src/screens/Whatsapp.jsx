@@ -316,8 +316,21 @@ export function Whatsapp({ db, save, profile }) {
               ))}
             </div>
             {!ouverte.fenetre.ouverte ? (
-              <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
-                WhatsApp n'accepte plus de réponse libre ici. Pour relancer ce client, passez par 📋 Tous les devis : un modèle approuvé part quand on veut.
+              // ⚠ DÉFAUT RÉPARÉ LE 20/09/2026 : cette phrase envoyait le
+              // vendeur vers 📋 Tous les devis — or un client SANS devis n'y
+              // est pas, et c'est justement lui qu'on n'arrive pas à
+              // joindre (question de Timo). Depuis `prise_de_contact`, la
+              // réponse est UN BOUTON au-dessus, dans le même écran : on la
+              // donne ici. « L'écran ne décrit jamais autre chose que ce qui
+              // est possible » (règle du 19/09).
+              <div className="p-3 border-t border-slate-200 text-xs text-slate-500 space-y-2">
+                <div>WhatsApp n'accepte plus de réponse libre : la fenêtre s'est fermée. Seul un message approuvé peut repartir — et dès que le client y répond, vous pourrez lui écrire librement pendant 24 h.</div>
+                <button
+                  onClick={() => { setContact({ nom: ouverte.nom || "", tel: ouverte.tel || "", sujet: "" }); setCleOuverte(null); }}
+                  className="px-3 py-1.5 rounded-lg bg-sky-800 text-white font-bold text-xs hover:bg-sky-900">
+                  ✍️ Lui écrire quand même
+                </button>
+                <div>Pour relancer un DEVIS en attente, passez plutôt par 📋 Tous les devis.</div>
               </div>
             ) : (
               <div className="p-3 border-t border-slate-200 flex gap-2">

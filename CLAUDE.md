@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 143 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 144 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -2329,6 +2329,19 @@ lit mal est pire qu'un banc absent).
     en entier », écrit juste au-dessus de la bonne ligne) : on retire les
     commentaires avant de chercher. Même famille que le 19/09 — un contrôle
     qui lit du français au lieu du code se trompe.
+  - ⚠⚠ **LE DÉFAUT RÉPARÉ DANS LA FOULÉE** (sa question le jour même :
+    « après 24 h, même un client à qui on a répondu, on ne peut plus lui
+    écrire librement ? » — **oui**, et notre écran répondait mal) : fenêtre
+    fermée, il envoyait vers **📋 Tous les devis**, où un client SANS devis
+    n'est pas — c'est-à-dire précisément celui qu'on n'arrive pas à joindre.
+    Depuis `prise_de_contact`, l'issue est UN BOUTON dans le même écran :
+    **« ✍️ Lui écrire quand même »**, qui ouvre le formulaire pré-rempli de
+    son nom et de son numéro. **Un écran qui donne une issue qui n'existe
+    pas est pire qu'un écran muet.** Le renvoi vers 📋 Tous les devis reste,
+    mais pour ce qu'il sait faire : relancer un DEVIS.
+  - **LA FENÊTRE NE SE PROLONGE JAMAIS PAR NOS RÉPONSES** — à dire à
+    l'équipe : elle court depuis le DERNIER message ENTRANT du client, pas
+    depuis notre dernière réponse. Répondre dix fois ne gagne pas une minute.
   - **À FAIRE PAR TIMO** : créer le modèle chez YCloud sous le nom
     `prise_de_contact`, catégorie **marketing**, langue **fr**, avec ce texte
     exact. ⚠ Le nom ET la catégorie se figent à la création. Tant que Meta ne
