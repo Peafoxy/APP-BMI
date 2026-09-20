@@ -51,12 +51,29 @@ export const MODELES = {
   // vraies échéances. Le laisser ici n'est pas un oubli : le banc vérifie
   // qu'aucun écran ne l'emploie tant que la règle n'existe pas.
   rappel_echeance: { categorie: "utility", variables: ["client", "date", "montant", "reste", "boutique"] },
+  // « Bonjour {{1}}, c'est {{2}} de BMI Togo. Nous revenons vers vous
+  //   concernant {{3}}. Répondez simplement à ce message et nous
+  //   poursuivrons notre échange ici. Merci et à bientôt. BMI Togo »
+  //
+  // ⚠⚠ LE SEUL MODÈLE QUI NE PARLE PAS D'UN DEVIS — c'est exactement sa
+  // raison d'être (Timo, 20/09/2026 : « comment engager une 1re discussion
+  // WhatsApp avec quelqu'un qui n'a jamais écrit à BMI depuis
+  // l'application »). Les quatre autres citent tous un devis : sans celui-ci
+  // on ne pouvait PAS écrire le premier à un client qui n'en a pas, et Meta
+  // n'accepte qu'un modèle approuvé hors de la fenêtre de 24 h.
+  // ⚠ CATÉGORIE MARKETING, jamais utility : un premier contact n'est lié à
+  // aucune transaction en cours (leçon du refus `INCORRECT_CATEGORY`).
+  // ⚠ `{{2}}` EST LE NOM DE L'UTILISATEUR qui écrit (sa précision, mot pour
+  // mot le jour même), jamais le nom de la boutique ni celui de BMI.
+  // ⚠ `{{3}}` est TAPÉ par le vendeur (« votre installation solaire ») : il
+  // n'y a aucune donnée à aller chercher, donc rien à deviner de travers.
+  prise_de_contact: { categorie: "marketing", variables: ["client", "auteur", "sujet"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
 
 // Les modèles qu'un écran a le droit d'envoyer aujourd'hui.
-export const MODELES_EN_SERVICE = ["devis_disponible", "relance_devis", "devis_valide_paiement"];
+export const MODELES_EN_SERVICE = ["devis_disponible", "relance_devis", "devis_valide_paiement", "prise_de_contact"];
 
 // ---------------------------------------------------------------
 // CE QU'ON A LE DROIT DE METTRE DANS UN TROU
@@ -204,6 +221,22 @@ export function clientDejaContacte(compte, devisId) {
 // aucune conversation ne trouvait son propriétaire. Un nom est un
 // affichage, un identifiant est une personne — et deux employés peuvent
 // porter le même nom (l'histoire des deux ESSO, le matin même).
+// ---------------------------------------------------------------
+// LE MÊME TEXTE, QUAND LE NUMÉRO BMI N'A PAS PU L'ENVOYER
+// ---------------------------------------------------------------
+// ⚠ MOT POUR MOT celui du modèle approuvé : le client doit recevoir la
+// MÊME chose, que le message parte du numéro BMI ou du téléphone du
+// vendeur. Deux textes finiraient par diverger, et c'est le client qui
+// verrait la différence.
+export function texteContact({ client, auteur, sujet }) {
+  return [
+    `Bonjour ${String(client || "").trim() || "cher client"}, c'est ${String(auteur || "").trim()} de BMI Togo.`,
+    `Nous revenons vers vous concernant ${String(sujet || "").trim()}.`,
+    "Répondez simplement à ce message et nous poursuivrons notre échange ici.",
+    "Merci et à bientôt. BMI Togo",
+  ].join("\n");
+}
+
 export function traceEnvoi({ modele, par, par_id, quand, heure, id }) {
   return {
     modele: String(modele || ""),

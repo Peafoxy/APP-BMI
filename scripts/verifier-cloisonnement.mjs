@@ -4771,8 +4771,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 29 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp et la réattribution d'une conversation, 20/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "29"
+  test("★ nouveauMessage sert aux 30 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "30"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
@@ -7687,8 +7687,8 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // simple commentaire qui cite le fichier voisin faisait tomber le contrôle.
   // Ce qu'on surveille, c'est une RECOPIE de la règle — donc un vrai import.
   const importeursCC = execSync("grep -rlE 'from \"[^\"]*clientsConnus' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).concat(["src/lib/clientsConnus.js"]).sort().join("|");
-  test("★ la règle n'est recopiée nulle part : seuls les SIX écrans et son propre fichier la connaissent (👥 Utilisateurs depuis le 16/09/2026 pour chercher par numéro, ⚙ Paramètres depuis le 18/09/2026 pour retrouver le client à effacer)",
-    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Parametres.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx");
+  test("★ la règle n'est recopiée nulle part : seuls les SEPT écrans et son propre fichier la connaissent (👥 Utilisateurs depuis le 16/09/2026 pour chercher par numéro, ⚙ Paramètres depuis le 18/09/2026 pour retrouver le client à effacer, 📲 WhatsApp depuis le 20/09/2026 pour proposer à qui écrire)",
+    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Parametres.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx|src/screens/Whatsapp.jsx");
 }
 
 // ═══════════════════════════════════════════════════════════

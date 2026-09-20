@@ -35,8 +35,11 @@ const ATTENDU = {
   relance_devis: { categorie: "marketing", n: 4 },
   devis_valide_paiement: { categorie: "utility", n: 4 },
   rappel_echeance: { categorie: "utility", n: 5 },
+  // ⚠ LE CINQUIÈME (20/09/2026) : le SEUL qui ne parle pas d'un devis —
+  // c'est ce qui permet d'écrire le premier à quelqu'un qui n'en a pas.
+  prise_de_contact: { categorie: "marketing", n: 3 },
 };
-test("les quatre modèles approuvés sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les cinq modèles approuvés sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -396,10 +399,40 @@ test("★★ l'écran passe par LE seul chemin (src/whatsapp.js), jamais par le 
   /from "\.\.\/whatsapp"/.test(ecranWa) && !/supabaseClient/.test(ecranWa));
 test("★★ RIEN n'est écrit dans la base tant que le message n'est pas PARTI (un fil qui ment est pire qu'un fil vide)",
   /if \(!r\.parti\) \{ uAlert\(r\.motif[\s\S]{0,40}return; \}[\s\S]{0,600}save\(/.test(ecranWa));
-test("★ répondre ne s'approprie PAS une conversation : seul « 🔁 Confier » change le propriétaire",
+// ⚠ AFFÛTÉ, PAS ASSOUPLI (20/09/2026) : il lisait le FICHIER entier, ce qui
+// marchait tant que personne d'autre ne posait un propriétaire. Depuis qu'on
+// peut écrire le PREMIER à un client, l'auteur de ce message-là devient
+// légitimement le propriétaire. La règle protégée n'a pas bougé — « RÉPONDRE
+// ne s'approprie pas » —, alors on découpe le corps de la réponse et on ne
+// regarde QUE lui.
+const corpsReponse = ecranWa.slice(ecranWa.indexOf("const envoyer = async"), ecranWa.indexOf("const envoyerContact = async"));
+test("★★ répondre ne s'approprie PAS une conversation : seul « 🔁 Confier » change le propriétaire",
   /peutReattribuer\(profile\)/.test(ecranWa)
   && /proprietaire_id: u\.id, proprietaire_nom: u\.nom/.test(ecranWa)
-  && !/proprietaire_id: profile\.id/.test(ecranWa));
+  && corpsReponse.length > 200
+  && !/proprietaire_id: profile\.id/.test(corpsReponse));
+
+// ── ✍️ ÉCRIRE LE PREMIER (20/09/2026)
+test("★★ un modèle qui ne parle d'AUCUN devis existe — sans lui on ne peut pas écrire à qui n'en a pas",
+  M.MODELES.prise_de_contact.variables.join(",") === "client,auteur,sujet"
+  && M.MODELES_EN_SERVICE.includes("prise_de_contact"));
+test("★★ le texte de repli est MOT POUR MOT celui du modèle (le client reçoit la même chose des deux côtés)",
+  M.texteContact({ client: "ESSO", auteur: "TIMO", sujet: "votre pompe" })
+    === "Bonjour ESSO, c'est TIMO de BMI Togo.\nNous revenons vers vous concernant votre pompe.\nRépondez simplement à ce message et nous poursuivrons notre échange ici.\nMerci et à bientôt. BMI Togo");
+test("★★ « {{2}} » est le NOM DE L'UTILISATEUR qui écrit, jamais la boutique (sa précision, 20/09/2026)",
+  /variables: \[nom \|\| client\?\.nom \|\| "cher client", profile\.nom, sujet\]/.test(ecranWa));
+test("★★ écrire le premier DONNE la conversation à son auteur — c'est là que « dans l'espace du personnel qui a écrit » se joue",
+  /proprietaire_id: profile\.id, proprietaire_nom: profile\.nom/.test(ecranWa));
+test("★★ rien n'est écrit dans le fil si le message n'est PAS parti du numéro BMI (une ouverture WhatsApp part d'un autre numéro)",
+  /if \(!r\.auto\) \{[\s\S]{0,400}return;\n {4}\}/.test(ecranWa));
+test("★★ le MUR : l'espace du DESTINATAIRE décide quand on le connaît, jamais celui de qui clique",
+  /espaceFormation: client \? estCompteFormation\(db, client\) : espaceDuCompte\(db, profile\)/.test(ecranWa));
+// ⚠ On retire les COMMENTAIRES avant de chercher : ce contrôle a crié à tort
+// sur la phrase « Jamais `db.users` en entier » écrite juste au-dessus de la
+// bonne ligne. Un contrôle qui lit du français au lieu du code se trompe.
+const codeWa = ecranWa.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+test("★ les personnes proposées passent par le filtre d'espace, jamais db.users en entier",
+  /utilisateursDeLEspace\(db, profile\)/.test(codeWa) && !/db\.users/.test(codeWa));
 test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
   /!ouverte\.fenetre\.ouverte \?/.test(ecranWa) && /Tous les devis/.test(ecranWa));
 

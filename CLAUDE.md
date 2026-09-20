@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 135 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 143 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -2279,6 +2279,61 @@ lit mal est pire qu'un banc absent).
     assouplis**, et trois s'y ajoutent (💬 Messages ne porte plus rien de
     WhatsApp ; l'onglet jamais chez un client ; le compteur). Éprouvés en
     remettant les trois fautes : les trois tombent.
+- **✍️ ÉCRIRE LE PREMIER À QUELQU'UN — LE CINQUIÈME MODÈLE** (Timo,
+  20/09/2026 : « comment engager une 1re discussion WhatsApp avec quelqu'un
+  qui n'a jamais écrit à BMI depuis l'application »). **Ce n'était PAS
+  possible**, et il fallait le dire : hors de la fenêtre de 24 h Meta
+  n'accepte qu'un modèle approuvé, et **les quatre modèles parlaient tous
+  d'un devis**. Sans devis, aucun ne convenait.
+  - **`prise_de_contact`** (marketing, 3 trous), **texte écrit par Timo, mot
+    pour mot** : « Bonjour {{1}}, c'est {{2}} de BMI Togo. Nous revenons vers
+    vous concernant {{3}}. Répondez simplement à ce message et nous
+    poursuivrons notre échange ici. Merci et à bientôt. BMI Togo ».
+    ⚠ **`{{2}}` est le NOM DE L'UTILISATEUR qui écrit** (sa précision le jour
+    même), jamais la boutique ni « BMI ». ⚠ **`{{3}}` est TAPÉ par le
+    vendeur** (« votre installation solaire ») : aucune donnée à aller
+    chercher, donc rien à deviner de travers.
+  - **MARKETING, jamais utility** : un premier contact n'est lié à aucune
+    transaction en cours (leçon du refus `INCORRECT_CATEGORY`, 19/09).
+  - **Le bouton « ✍️ Écrire » vit dans 📲 WhatsApp** : à qui (champ commun
+    `ChampSuggestions` sur les clients de l'espace regardé, le numéro suit),
+    de quoi il s'agit, **l'aperçu du message lui-même** — on ne fait jamais
+    partir au nom de BMI un texte que personne n'a relu.
+  - ⚠⚠ **C'EST L'ENVOI QUI DONNE LA CONVERSATION À SON AUTEUR** : le message
+    sortant porte `proprietaire_id`, donc la réponse du client arrive « dans
+    l'espace du personnel qui a écrit » **sans attendre une trace de devis**.
+    C'est le second chemin vers sa demande de l'étape 2, et le seul pour un
+    client qui n'a pas de devis.
+  - ⚠ **La règle « premier contact » ne s'applique PAS ici**, et c'est tout
+    le point : elle existe parce que le premier message d'un client porte ses
+    IDENTIFIANTS, qu'un modèle ne peut pas porter. Celui-ci n'en porte aucun.
+  - ⚠ **Le fil ne s'écrit QUE si le message est parti du numéro BMI**
+    (`r.auto`) : une ouverture WhatsApp part d'un AUTRE numéro — le client
+    répondrait au vendeur, pas à BMI, et la conversation mentirait. L'écran
+    le DIT au lieu de laisser croire.
+  - ⚠ **La fenêtre de 24 h n'est PAS ouverte par notre message** : seul un
+    message ENTRANT l'ouvre. La conversation apparaît « fenêtre fermée » tant
+    que le client n'a pas répondu, et l'écran l'annonce avant l'envoi.
+  - ⚠ **LE MUR** : c'est l'espace du DESTINATAIRE qui décide quand on le
+    connaît (`estCompteFormation(db, client)`), l'espace REGARDÉ sur un
+    numéro libre — jamais celui de la personne qui clique.
+  - **Le texte de repli est MOT POUR MOT celui du modèle** (`texteContact`) :
+    le client reçoit la même chose des deux côtés.
+  - ⚠⚠ **UN CONTRÔLE A ÉTÉ AFFÛTÉ, PAS ASSOUPLI** : « répondre ne
+    s'approprie pas une conversation » lisait le FICHIER entier, ce qui
+    marchait tant que personne d'autre ne posait un propriétaire. Or écrire
+    le premier en pose un, légitimement. Le contrôle découpe maintenant le
+    corps de la RÉPONSE et ne regarde que lui — la règle protégée n'a pas
+    bougé d'un mot. Éprouvé en remettant la faute : il tombe.
+  - ⚠ **Un contrôle a crié à tort sur un COMMENTAIRE** (« Jamais `db.users`
+    en entier », écrit juste au-dessus de la bonne ligne) : on retire les
+    commentaires avant de chercher. Même famille que le 19/09 — un contrôle
+    qui lit du français au lieu du code se trompe.
+  - **À FAIRE PAR TIMO** : créer le modèle chez YCloud sous le nom
+    `prise_de_contact`, catégorie **marketing**, langue **fr**, avec ce texte
+    exact. ⚠ Le nom ET la catégorie se figent à la création. Tant que Meta ne
+    l'a pas approuvé, l'envoi se replie sur l'ouverture WhatsApp **et le
+    refus se dit en français** (« pas encore approuvé »).
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

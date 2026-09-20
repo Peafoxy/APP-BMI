@@ -22,11 +22,14 @@
 // ============================================================
 import React, { useState } from "react";
 import { dFR, nouveauMessage } from "../lib/core";
-import { inputCls, uAlert, uChoix } from "../components/ui";
-import { utilisateursDeLEspace } from "../lib/calculs";
+import { Field, inputCls, uAlert, uChoix, uConfirm } from "../components/ui";
+import { ChampSuggestions } from "../components/ChampSuggestions";
+import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
+import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, CANAL_WA } from "../lib/whatsappConversations";
-import { repondreWhatsApp } from "../whatsapp";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
+import { texteContact } from "../lib/whatsappModeles";
+import { envoyerModele, repondreWhatsApp } from "../whatsapp";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
 // 💬 Messages — un rôle ne se nomme pas de deux façons dans l'application.
@@ -61,12 +64,21 @@ export function Whatsapp({ db, save, profile }) {
   const [cleOuverte, setCleOuverte] = useState(null);
   const [texte, setTexte] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  const [contact, setContact] = useState(null);
 
   // ⚠ Ce que la règle rend est DÉJÀ filtré : un commercial ou un technicien
   // à commission n'y trouve que ce qu'il a engagé, plus le support que
   // personne n'a engagé (décision « c » de Timo). ⚠ Mais c'est un filtre
   // d'AFFICHAGE : la table des messages n'est pas cloisonnée par personne
   // côté serveur — c'est dit à Timo, ce n'est pas caché.
+  // ⚠ LE MUR : les personnes passent par `utilisateursDeLEspace` — la table
+  // des comptes n'est PAS cloisonnée par le serveur, ce filtre est la SEULE
+  // barrière. Jamais `db.users` en entier.
+  const comptesEspace = profile.role === "client" ? [] : utilisateursDeLEspace(db, profile);
+  const aQui = comptesEspace
+    .filter((u) => u.role === "client" && u.actif !== false && String(u.tel || "").trim())
+    .map((u) => ({ valeur: u.nom_base || u.nom, tel: u.tel, mots: motsDuNumero(u.tel), detail: u.tel }));
+
   const convs = profile.role === "client" ? [] : conversationsWa(messages, profile);
   const ouverte = convs.find((c) => c.cle === cleOuverte) || null;
   const fil = ouverte ? filWa(messages, ouverte.cle) : [];
@@ -120,6 +132,69 @@ export function Whatsapp({ db, save, profile }) {
     setTexte("");
   };
 
+  // ---- ✍️ ÉCRIRE LE PREMIER À QUELQU'UN (20/09/2026) ----
+  // Timo : « comment engager une 1re discussion WhatsApp avec quelqu'un qui
+  // n'a jamais écrit à BMI depuis l'application ». Hors de la fenêtre de
+  // 24 h, Meta n'accepte QU'UN MODÈLE APPROUVÉ — et les quatre premiers
+  // parlent tous d'un devis. D'où `prise_de_contact`, qui n'en parle pas.
+  //
+  // ⚠⚠ ET C'EST L'ENVOI QUI DONNE LA CONVERSATION À SON AUTEUR : le message
+  // sortant porte `proprietaire_id`, donc la réponse du client arrivera
+  // « dans l'espace du personnel qui a écrit » (sa demande de l'étape 2, mot
+  // pour mot) sans attendre une trace de devis.
+  // ⚠ La fenêtre de 24 h N'EST PAS ouverte par notre message : seul un
+  // message ENTRANT l'ouvre. La conversation apparaît donc « fenêtre
+  // fermée » tant que le client n'a pas répondu — et l'écran le dit, plutôt
+  // que de laisser croire qu'on peut enchaîner.
+  const envoyerContact = async () => {
+    const nom = String(contact?.nom || "").trim();
+    const tel = String(contact?.tel || "").trim();
+    const sujet = String(contact?.sujet || "").trim();
+    if (!tel) { uAlert("Dites à quel numéro écrire."); return; }
+    if (!sujet) { uAlert("Dites de quoi il s'agit : c'est ce que le client lira après « concernant »."); return; }
+    if (contact.envoi) return;
+    const client = comptesEspace.find((u) => u.role === "client" && cleConversation(u.tel) === cleConversation(tel));
+    const message = texteContact({ client: nom || client?.nom, auteur: profile.nom, sujet });
+    if (!(await uConfirm(`Envoyer ce message du numéro BMI à ${nom || tel} ?\n\n${message}`))) return;
+    setContact((c) => ({ ...c, envoi: true }));
+    // ⚠ LE MUR : c'est l'espace du DESTINATAIRE qui décide quand on le
+    // connaît — l'administrateur principal est un compte RÉEL même quand il
+    // regarde la formation (leçon de `retenueOutilPourPrime`, 18/09). Sur un
+    // numéro libre, on retombe sur l'espace REGARDÉ.
+    const r = await envoyerModele({
+      tel,
+      modele: "prise_de_contact",
+      variables: [nom || client?.nom || "cher client", profile.nom, sujet],
+      espaceFormation: client ? estCompteFormation(db, client) : espaceDuCompte(db, profile),
+      // ⚠ PAS de `premierContact` ici, et c'est tout le point : cette règle
+      // existe parce que le premier message d'un client porte ses
+      // IDENTIFIANTS, qu'un modèle ne peut pas porter. Celui-ci n'en porte
+      // aucun — il n'y a donc rien à protéger.
+      texteRepli: message,
+      demanderConfirmation: uConfirm,
+    });
+    setContact((c) => (c ? { ...c, envoi: false } : c));
+    if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
+    // ⚠ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI (règle de
+    // l'étape 2) — et on n'écrit le fil QUE s'il est parti du numéro BMI :
+    // une ouverture WhatsApp part d'un AUTRE numéro, le client ne répondrait
+    // pas à BMI et la conversation mentirait.
+    if (!r.auto) {
+      uAlert(`${r.motif ? r.motif + "\n\n" : ""}WhatsApp s'est ouvert avec le texte : le message part de VOTRE numéro, la réponse du client n'arrivera donc pas ici.`);
+      setContact(null);
+      return;
+    }
+    const m = nouveauMessage(profile, {
+      canal: CANAL_WA, wa_tel: cleConversation(tel), wa_numero: tel,
+      ...(nom || client?.nom ? { wa_nom: nom || client.nom } : {}),
+      wa_id: r.id || "", texte: message,
+      proprietaire_id: profile.id, proprietaire_nom: profile.nom,
+    });
+    save({ ...db, messages: [m, ...messages] }, `📲 WhatsApp — premier message à ${nom || tel} par ${profile.nom}`);
+    setContact(null);
+    setCleOuverte(cleConversation(tel));
+  };
+
   // ---- 🔁 CONFIER LA CONVERSATION À QUELQU'UN D'AUTRE (décision « a ») ----
   // ⚠ RIEN N'EST RÉÉCRIT : on POSE une ligne de plus, qui porte le nouveau
   // propriétaire et se lit dans le fil. Un message ne se modifie jamais
@@ -151,7 +226,38 @@ export function Whatsapp({ db, save, profile }) {
     <div className="grid lg:grid-cols-[280px_1fr] gap-4">
       {/* Liste des conversations (sur mobile : masquée quand un fil est ouvert) */}
       <div className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ${ouverte ? "hidden lg:block" : ""}`}>
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">📲 WhatsApp</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+          <span>📲 WhatsApp</span>
+          <button onClick={() => setContact(contact ? null : { nom: "", tel: "", sujet: "" })}
+            className="text-xs font-bold text-sky-800 underline whitespace-nowrap">{contact ? "Annuler" : "✍️ Écrire"}</button>
+        </div>
+        {contact && (
+          <div className="border-b border-slate-200 bg-sky-50/60 p-3 space-y-2">
+            <Field label="À qui ?">
+              <ChampSuggestions valeur={contact.nom} onChange={(v) => setContact({ ...contact, nom: v })}
+                onChoisir={(c) => setContact({ ...contact, nom: c.valeur, tel: c.tel || contact.tel })}
+                suggestions={aQui} placeholder="Nom du client" />
+            </Field>
+            <Field label="Numéro">
+              <input className={inputCls} type="tel" value={contact.tel} onChange={(e) => setContact({ ...contact, tel: e.target.value })} placeholder="+228 ..." />
+            </Field>
+            <Field label="De quoi s'agit-il ?">
+              <input className={inputCls} value={contact.sujet} onChange={(e) => setContact({ ...contact, sujet: e.target.value })} placeholder="votre installation solaire" />
+            </Field>
+            {/* ⚠ L'APERÇU EST LE MESSAGE LUI-MÊME : on ne fait jamais partir
+                au nom de BMI un texte que personne n'a relu. */}
+            <div className="rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-600 whitespace-pre-line">
+              {texteContact({ client: contact.nom, auteur: profile.nom, sujet: contact.sujet || "…" })}
+            </div>
+            <button onClick={envoyerContact} disabled={contact.envoi || !contact.tel.trim() || !contact.sujet.trim()}
+              className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
+              {contact.envoi ? "Envoi…" : "Envoyer du numéro BMI"}
+            </button>
+            <div className="text-[11px] text-slate-500">
+              Le client pourra répondre ici. Tant qu'il n'a pas répondu, WhatsApp n'accepte pas d'autre message libre.
+            </div>
+          </div>
+        )}
         <div className="max-h-[60vh] overflow-y-auto">
           {liste.nonLues.length > 0 && (
             <>
