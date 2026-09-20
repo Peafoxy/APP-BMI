@@ -284,6 +284,10 @@ titre("⑨ ÉTAPE 2 — LES RÉPONSES DU CLIENT DANS 💬 MESSAGES (20/09/2026)"
 const C = await import("../src/lib/whatsappConversations.js");
 const entrant = lire("api/whatsapp-entrant.js");
 const messagerie = lire("src/screens/Messagerie.jsx");
+// ⚠ 20/09/2026, décision « b » de Timo : les conversations WhatsApp ont
+// QUITTÉ 💬 Messages pour leur propre écran. Les contrôles ci-dessous ne
+// sont pas assouplis — ils sont RETOURNÉS vers le fichier qui commande.
+const ecranWa = lire("src/screens/Whatsapp.jsx");
 
 const filDe = (heures) => [{ ts: new Date(Date.now() - heures * 3600e3).toISOString(), wa_entrant: true, texte: "bonjour" }];
 
@@ -297,7 +301,7 @@ test("★★ NOTRE propre réponse ne prolonge PAS la fenêtre — seul le clien
 test("★ la phrase de la fenêtre est écrite UNE fois, et dit ce qu'il reste",
   /Il reste 2 h 00/.test(C.libelleFenetre(C.fenetre(filDe(22))))
   && /plus qu'un modèle approuvé/.test(C.libelleFenetre(C.fenetre(filDe(30))))
-  && (messagerie.match(/libelleFenetre\(/g) || []).length >= 1);
+  && (ecranWa.match(/libelleFenetre\(/g) || []).length >= 1);
 
 // ── QUI VOIT QUOI
 const conv = (p) => ({ proprietaire_id: p });
@@ -385,19 +389,33 @@ test("★★ le serveur ne recopie pas la règle : il l'IMPORTE (deux copies fin
   /proprietaireDepuisDevis/.test(entrant) && /proprietaire = proprietaireDepuisDevis\(client, employes\)/.test(entrant)
   && !/envoi_whatsapp\.par_id/.test(entrant));
 test("★ l'arrivée d'un message PRÉVIENT son propriétaire (le save de l'application ne le voit jamais passer)",
-  /envoyerAuxPersonnes\(admin, \[\{/.test(entrant) && /ecran: "messages"/.test(entrant));
+  /envoyerAuxPersonnes\(admin, \[\{/.test(entrant) && /ecran: "whatsapp"/.test(entrant));
 
 // ── L'ÉCRAN
 test("★★ l'écran passe par LE seul chemin (src/whatsapp.js), jamais par le serveur lui-même",
-  /from "\.\.\/whatsapp"/.test(messagerie) && !/supabaseClient/.test(messagerie));
+  /from "\.\.\/whatsapp"/.test(ecranWa) && !/supabaseClient/.test(ecranWa));
 test("★★ RIEN n'est écrit dans la base tant que le message n'est pas PARTI (un fil qui ment est pire qu'un fil vide)",
-  /if \(!r\.parti\) \{ uAlert\(r\.motif[\s\S]{0,40}return; \}[\s\S]{0,600}save\(/.test(messagerie));
+  /if \(!r\.parti\) \{ uAlert\(r\.motif[\s\S]{0,40}return; \}[\s\S]{0,600}save\(/.test(ecranWa));
 test("★ répondre ne s'approprie PAS une conversation : seul « 🔁 Confier » change le propriétaire",
-  /peutReattribuer\(profile\)/.test(messagerie)
-  && /proprietaire_id: u\.id, proprietaire_nom: u\.nom/.test(messagerie)
-  && !/proprietaire_id: profile\.id/.test(messagerie));
+  /peutReattribuer\(profile\)/.test(ecranWa)
+  && /proprietaire_id: u\.id, proprietaire_nom: u\.nom/.test(ecranWa)
+  && !/proprietaire_id: profile\.id/.test(ecranWa));
 test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
-  /!convWaOuverte\.fenetre\.ouverte \?/.test(messagerie) && /Tous les devis/.test(messagerie));
+  /!ouverte\.fenetre\.ouverte \?/.test(ecranWa) && /Tous les devis/.test(ecranWa));
+
+// ── LA SÉPARATION (décision « b » de Timo, 20/09/2026)
+const calculs = lire("src/lib/calculs.js");
+const app = lire("src/App.jsx");
+test("★★ 💬 Messages ne porte plus AUCUNE conversation WhatsApp (sinon on aurait séparé d'un côté et remélangé de l'autre)",
+  !/CANAL_WA|conversationsWa|convWaOuverte|whatsappConversations/.test(messagerie));
+test("★★ l'onglet 📲 WhatsApp existe, et JAMAIS pour un compte client (c'est LUI qui est au bout du fil)",
+  /whatsapp: "📲 WhatsApp"/.test(calculs)
+  && /client: \[[^\]]*\]/.test(calculs) && !/client: \[[^\]]*"whatsapp"/.test(calculs));
+test("★★ le compteur de l'onglet compte les non lus WhatsApp — sans lui, une fenêtre de 24 h se fermerait derrière un onglet qu'on ne regarde pas",
+  /compterNonLusWa\(db, profile\)/.test(app) && /labelWhatsapp = `📲 WhatsApp\$\{nonLusWa/.test(app)
+  && /\["whatsapp", labelWhatsapp\]/.test(app));
+test("★ le classement « nouveaux messages d'abord » passe par LA règle commune, pas par un tri maison",
+  /separerNonLues\(/.test(ecranWa) && !/\.sort\(\(a, b\) => b\./.test(ecranWa));
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

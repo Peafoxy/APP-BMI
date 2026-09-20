@@ -18,10 +18,11 @@
 // voulu ; `nonLusPour(conv)` compte les non lus ; `derniereActivite(conv)`
 // rend l'horodatage du dernier message (pour classer le bloc du haut).
 // ============================================================
-// ⚠ « whatsapp » en TÊTE depuis le 20/09/2026 (étape 2) : une conversation
-// WhatsApp a un compte à rebours de 24 h — les autres attendent, celle-ci
-// se ferme.
-export const ORDRE_SECTIONS = ["whatsapp", "equipe", "groupes", "clients_ecrit", "clients_chef", "support"];
+// ⚠ « whatsapp » N'EST PLUS UN BLOC D'ICI (20/09/2026, décision « b » de
+// Timo) : les conversations WhatsApp ont leur propre écran. Cette règle,
+// elle, sert aux DEUX — le bloc « 🔴 Nouveaux messages » se calcule de la
+// même façon des deux côtés, sinon les deux écrans classeraient autrement.
+export const ORDRE_SECTIONS = ["equipe", "groupes", "clients_ecrit", "clients_chef", "support"];
 
 export function separerNonLues(sections, nonLusPour, derniereActivite = () => "") {
   const nonLues = [];

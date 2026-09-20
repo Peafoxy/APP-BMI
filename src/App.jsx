@@ -24,6 +24,7 @@ import { Prospects } from "./screens/Prospects";
 import { EspaceClient } from "./screens/EspaceClient";
 import { MesDonnees } from "./screens/MesDonnees";
 import { Messagerie, peutVoirFilClient } from "./screens/Messagerie";
+import { Whatsapp, compterNonLusWa } from "./screens/Whatsapp";
 import { ClientsInstalles } from "./screens/ClientsInstalles";
 import { Travaux } from "./screens/Travaux";
 import { Outillage } from "./screens/Outillage";
@@ -63,7 +64,7 @@ const memoEcran = (C) => React.memo(C, propsEcranEgales);
 const M = Object.fromEntries(Object.entries({
   Dashboard, Ventes, NouvelleCommande, CommandesRecues, Depenses, ChezComptable,
   Dettes, CreerClient, Clients, Caisse, DemandeRavitaillement, DemandesTransfertRecues, Stocks,
-  Dimensionnement, TousLesDevis, Prospects, EspaceClient, MesDonnees, Messagerie,
+  Dimensionnement, TousLesDevis, Prospects, EspaceClient, MesDonnees, Messagerie, Whatsapp,
   ClientsInstalles, PrimesRemises, PrimesRecues, ContratsInstallation,
   Commerciaux, MesTaches, Rentabilite, SalairesAdmin, Salaire, MonEquipe,
   MaCommission, Fournisseurs, Users, Historique, Parametres, Travaux, Outillage,
@@ -1025,6 +1026,14 @@ export default function App() {
 
   const nonLus = compterNonLus(db, profile);
   const labelMessages = `💬 Messages${nonLus ? ` (${nonLus})` : ""}`;
+  // ⚠⚠ LE COMPTEUR EST CE QUI REND LA SÉPARATION SANS DANGER (20/09/2026) :
+  // une conversation WhatsApp se FERME toute seule au bout de 24 h. Derrière
+  // un onglet qu'on ne regarde pas, la fenêtre passerait sans que personne
+  // le sache. ⚠ Et il compte ce que CETTE personne a le droit de voir — un
+  // commercial n'a pas de pastille pour une conversation qu'il ne peut même
+  // pas ouvrir.
+  const nonLusWa = compterNonLusWa(db, profile);
+  const labelWhatsapp = `📲 WhatsApp${nonLusWa ? ` (${nonLusWa})` : ""}`;
   const nouveauxDevis = compterNouveauxDevis(db, profile);
   const labelTousDevis = (
     <span className="inline-flex items-center gap-1.5">
@@ -1084,19 +1093,19 @@ export default function App() {
   const labelUsers = `👥 Utilisateurs${demandesCredit ? ` (${demandesCredit})` : ""}`;
 
   const tabs = isAdmin
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage], ["messages", labelMessages], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", labelStocksAdmin], ["fournisseurs", "🚚 Fournisseurs"], ["commerciaux", "🎯 Commerciaux"], ["equipe", labelEquipe], ["prospects", "🧲 Prospects"], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["salaires", "💵 Salaires"], ["users", labelUsers], ["historique", "🕘 Historique"], ["parametres", "⚙ Paramètres"]]
     : isComptable
-    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
-    ? [["equipe", labelMonEquipe], ["ventes", "💰 Ventes"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
+    ? [["equipe", labelMonEquipe], ["ventes", "💰 Ventes"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ["parc", labelParc], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["commission", "💵 Ma commission"], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"]]
     : (isCommercial || isTechnicien)
-    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["outillage", labelOutillage]] : []), ...(isTechnicien ? [["depenses", "📤 Dépenses"]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : []), ["contrats", "📄 Contrats"]]
+    ? [["commande", "🛒 Nouvelle commande"], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["prospects", "🧲 Prospects"], ["parc", "🏠 Clients installés"], ["taches", labelTaches], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["commission", "💵 Ma commission"], ["nouveau_client", "🙋 Créer un client"], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ...(isTechnicien ? [["outillage", labelOutillage]] : []), ...(isTechnicien ? [["depenses", "📤 Dépenses"]] : []), ...(isTechnicien ? [["primes_recues", "💰 Primes reçues"]] : []), ["contrats", "📄 Contrats"]]
     : isTechnicienBMI
-    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ["outillage", labelOutillage], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"], ["depenses", "📤 Dépenses"]]
+    ? [["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["parc", "🏠 Clients installés"], ["prospects", "🧲 Prospects"], ["taches", labelTaches], ...(estChefEquipe(db, profile) ? [["equipe", labelMonEquipe]] : []), ["outillage", labelOutillage], ["commission", "💵 Ma commission"], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["salaire", labelSalaire], ["nouveau_client", "🙋 Créer un client"], ["depenses", "📤 Dépenses"]]
     : isMagasinier
-    ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage]]
+    ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages], ["mes_donnees", "🔒 Mes données"]]
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
@@ -1111,7 +1120,7 @@ export default function App() {
     // ne fait jamais le versement ni dépense ; ici c'est le gérant aussi qui
     // vend ». Il garde 🔒 Caisse : la clôture reste son geste (règle du
     // 09/09/2026, « comment la clôture peut être impossible à un vendeur ? »).
-    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
+    : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
   const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
@@ -1429,6 +1438,11 @@ export default function App() {
       {ongletsVisites.messages && (
         <div style={{ display: tab === "messages" ? "block" : "none" }}>
           <M.Messagerie db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.whatsapp && (
+        <div style={{ display: tab === "whatsapp" ? "block" : "none" }}>
+          <M.Whatsapp db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.ravitaillement && profile.boutique && (

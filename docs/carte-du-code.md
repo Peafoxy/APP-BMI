@@ -123,7 +123,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/pdf.js` | Les PDF fabriqués (devis commercial, relevés, rapports) |
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
 | `src/whatsapp.js` | 📲 L'envoi d'un message du numéro BMI — **le seul endroit** qui appelle le serveur WhatsApp, et qui replie sur l'ouverture WhatsApp si ça rate |
-| `src/screens/` | Un écran par onglet (dont `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages) |
+| `src/screens/` | Un écran par onglet (dont `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; et `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026) |
 | `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin, envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud) |
 | `supabase/securite-*.sql` | Les verrous côté base — **Timo les colle lui-même**, jamais nous |
 | `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable). Les `_rendu-*.jsx` MONTENT un vrai écran pour le mesurer — seul moyen d'attraper un écran blanc |

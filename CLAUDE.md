@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 131 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 135 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -2245,6 +2245,40 @@ lit mal est pire qu'un banc absent).
     protéger.** Le banc exerce maintenant la règle pour de vrai, des deux
     côtés ; éprouvé en retirant `par_id`, puis en faisant deviner entre deux
     homonymes : les deux tombent.
+- **📲 UN ÉCRAN À PART, PLUS UN BLOC DE 💬 MESSAGES** (Timo, 20/09/2026,
+  capture de la liste des conversations : « dans conversation, on peut séparer
+  WhatsApp et message interne à l'app ? » → **décision « b »**, un ÉCRAN, pas
+  deux onglets dans la même liste). Sur sa capture, **ESSO le CLIENT WhatsApp
+  et ESSO le TECHNICIEN se suivaient dans la même liste** — la confusion des
+  deux ESSO du matin, à l'écran cette fois.
+  - **`screens/Whatsapp.jsx`**, onglet `whatsapp` = « 📲 WhatsApp », placé
+    **juste après 💬 Messages** dans `ONGLETS_ROLE` — donc retirable dans
+    🔐 Pouvoirs. ⚠ **Jamais pour un compte CLIENT** : c'est LUI qui est au
+    bout du fil.
+  - ⚠⚠ **LE COMPTEUR DANS LE NOM DE L'ONGLET EST CE QUI REND LA SÉPARATION
+    SANS DANGER** : une conversation WhatsApp se FERME toute seule au bout de
+    24 h — derrière un onglet qu'on ne regarde pas, la fenêtre passerait sans
+    que personne le sache. `compterNonLusWa` **passe par `conversationsWa`** :
+    on ne met pas de pastille rouge à quelqu'un pour une conversation qu'il
+    n'a pas le droit d'ouvrir.
+  - ⚠ **Et ça FERMAIT un trou** : `compterNonLus` (💬 Messages) ne comptait
+    AUCUN message WhatsApp — un entrant n'a ni `a_id`, ni canal support ou
+    groupe. L'arrivée d'un message de client ne faisait donc bouger aucun
+    chiffre dans la barre.
+  - **Le classement passe par LA règle commune** (`separerNonLues`) : un bloc
+    « 🔴 Nouveaux messages » en tête des deux côtés. Un second tri maison
+    finirait par classer autrement d'un écran à l'autre. `ORDRE_SECTIONS` ne
+    porte plus « whatsapp » — une règle qui ne commande plus rien ne reste pas.
+  - **La notification vise le nouvel écran** (`ecran: "whatsapp"` dans
+    `api/whatsapp-entrant.js`) : un clic qui ouvre le mauvais écran, c'est une
+    notification qui ne sert à rien.
+  - **Aucune règle n'a changé en déménageant** : qui voit quoi, la fenêtre de
+    24 h, le refus revérifié dans le geste, les trois barrières, « 🔁 Confier »
+    — tout vient toujours de `lib/whatsappConversations.js` et `src/whatsapp.js`.
+    Les contrôles du banc ont été **RETOURNÉS vers le nouveau fichier, pas
+    assouplis**, et trois s'y ajoutent (💬 Messages ne porte plus rien de
+    WhatsApp ; l'onglet jamais chez un client ; le compteur). Éprouvés en
+    remettant les trois fautes : les trois tombent.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

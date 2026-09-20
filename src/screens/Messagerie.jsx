@@ -5,11 +5,9 @@
 import React, { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
-import { Field, inputCls, btnDark, uConfirm, uAlert, uChoix } from "../components/ui";
+import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
 import { utilisateursDeLEspace, refuserSaufAdmin, peutVoirFilClient } from "../lib/calculs";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, CANAL_WA } from "../lib/whatsappConversations";
-import { repondreWhatsApp } from "../whatsapp";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
@@ -79,7 +77,6 @@ export function Messagerie({ db, save, profile }) {
 
   const messagesDe = (c) => {
     if (!c) return [];
-    if (c.type === "wa") return messages.filter((m) => m.canal === CANAL_WA && m.wa_tel === c.id).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
     if (c.type === "client") return messages.filter((m) => m.canal === "support" && m.client_id === c.id).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
     if (c.type === "groupe") return messages.filter((m) => m.canal === "groupe" && m.groupe_id === c.id).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
     return messages.filter((m) => !m.canal && ((m.de_id === profile.id && m.a_id === c.id) || (m.de_id === c.id && m.a_id === profile.id))).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
@@ -94,27 +91,7 @@ export function Messagerie({ db, save, profile }) {
   // plus récente en premier).
   const derniereActivite = (c) => { const f = messagesDe(c); return f.length ? String(f[f.length - 1].ts || "") : ""; };
 
-  // ---- 📲 LES CONVERSATIONS WHATSAPP (étape 2, 20/09/2026) ----
-  // ⚠ Ce que la règle rend est DÉJÀ filtré : un commercial ou un technicien
-  // à commission n'y trouve que ce qu'il a engagé, plus le support que
-  // personne n'a engagé (sa décision « c »). ⚠ Mais c'est un filtre
-  // d'AFFICHAGE : la table des messages n'est pas cloisonnée par personne
-  // côté serveur — c'est dit à Timo, ce n'est pas caché.
-  const convsWa = estClient ? [] : conversationsWa(messages, profile);
-  const convWaOuverte = conv?.type === "wa" ? convsWa.find((c) => c.cle === conv.id) : null;
-
   const sectionsBrutes = estClient ? [] : [
-    // ⚠ EN TÊTE, et c'est voulu : une conversation WhatsApp a un COMPTE À
-    // REBOURS (24 h). Les autres attendent ; celle-ci se ferme.
-    { cle: "whatsapp", titre: "📲 WhatsApp", items: convsWa.map((c) => ({ cle: c.cle, conv: { type: "wa", id: c.cle }, libelle: (
-      <span className="text-sm">
-        <span className="font-semibold">{c.nom || c.tel}</span>
-        <span className="block text-xs text-slate-400">
-          {c.proprietaire_nom ? c.proprietaire_nom : "🛟 Support — personne ne l'a engagée"}
-          {c.fenetre.ouverte ? "" : " · fenêtre fermée"}
-        </span>
-      </span>
-    ) })) },
     { cle: "equipe", titre: "👤 Équipe", items: contacts.map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="text-sm"><span className="font-semibold">{u.nom}</span> <span className="text-xs text-slate-400">{libelleRole(u.role)}</span></span> })) },
     { cle: "groupes", titre: "👥 Groupes", toujours: true, items: mesGroupes.map((g) => ({ cle: g.id, conv: { type: "groupe", id: g.id }, libelle: <span className="text-sm"><span className="font-semibold">{g.nom}</span> <span className="text-xs text-slate-400">({(g.membres || []).length})</span></span> })) },
     { cle: "clients_ecrit", titre: "👤 Clients qui vous ont écrit", items: clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="font-semibold text-sm">{u.nom_base || u.nom}</span> })) },
@@ -137,66 +114,10 @@ export function Messagerie({ db, save, profile }) {
   const envoyer = async () => {
     const t = texte.trim();
     if (!t || !conv) return;
-    // ---- 📲 WHATSAPP : le message part du numéro BMI, pas de la base ----
-    if (conv.type === "wa") return repondreSurWhatsApp(t);
     const base = nouveauMessage(profile, { texte: t });
     const m = conv.type === "client" ? { ...base, canal: "support", client_id: conv.id } : conv.type === "groupe" ? { ...base, canal: "groupe", groupe_id: conv.id } : { ...base, a_id: conv.id };
     save({ ...db, messages: [m, ...messages] });
     setTexte("");
-  };
-
-  // ---- 📲 RÉPONDRE À UN CLIENT SUR WHATSAPP (étape 2, 20/09/2026) ----
-  // ⚠ REVÉRIFIÉ DANS LE GESTE, comme toute règle de l'application : la
-  // fenêtre de 24 h a pu se fermer pendant que l'écran était ouvert. Et le
-  // serveur la revérifie une troisième fois sur la base — c'est lui qui a
-  // le dernier mot, parce que l'écran peut se tromper, la base non.
-  // ⚠ ON N'ÉCRIT DANS LA BASE QUE SI LE MESSAGE EST PARTI. Écrire d'abord
-  // ferait croire au vendeur qu'il a répondu alors que le client n'a rien
-  // reçu : un fil qui ment est pire qu'un fil vide.
-  const [envoiWa, setEnvoiWa] = useState(false);
-  const repondreSurWhatsApp = async (t) => {
-    if (envoiWa) return;
-    const refus = critiqueReponse({ profile, conv: convWaOuverte, texte: t, enLigne: navigator.onLine !== false });
-    if (refus) { uAlert(refus); return; }
-    setEnvoiWa(true);
-    const r = await repondreWhatsApp({ tel: convWaOuverte.tel, texte: t });
-    setEnvoiWa(false);
-    if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
-    const m = nouveauMessage(profile, {
-      canal: CANAL_WA, wa_tel: convWaOuverte.cle, wa_numero: convWaOuverte.tel,
-      ...(convWaOuverte.nom ? { wa_nom: convWaOuverte.nom } : {}),
-      wa_id: r.id || "", texte: t,
-      ...(convWaOuverte.proprietaire_id ? { proprietaire_id: convWaOuverte.proprietaire_id, proprietaire_nom: convWaOuverte.proprietaire_nom } : {}),
-    });
-    save({ ...db, messages: [m, ...messages] });
-    setTexte("");
-  };
-
-  // ---- 🔁 CONFIER LA CONVERSATION À QUELQU'UN D'AUTRE (décision « a ») ----
-  // ⚠ RIEN N'EST RÉÉCRIT : on POSE une ligne de plus, qui porte le nouveau
-  // propriétaire et se lit dans le fil. Un message ne se modifie jamais
-  // après coup — c'est la trace, et elle ne rétrécit pas.
-  // ⚠ Répondre ne s'approprie PAS une conversation : seul ce geste-ci
-  // change le propriétaire. Sinon le premier qui répond à un client du
-  // support le ferait disparaître pour tous les autres.
-  const reattribuer = async () => {
-    if (!convWaOuverte) return;
-    if (!peutReattribuer(profile)) { uAlert("Seul un administrateur peut confier une conversation à quelqu'un d'autre."); return; }
-    const gens = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && u.role !== "client");
-    if (!gens.length) { uAlert("Aucun membre de l'équipe à qui la confier."); return; }
-    const noms = gens.map((u) => `${u.nom} — ${libelleRole(u.role)}`);
-    const choix = await uChoix(`📲 Confier la conversation de ${convWaOuverte.nom || convWaOuverte.tel} à qui ?`, noms);
-    if (choix === null) return;
-    const u = gens[noms.indexOf(choix)];
-    if (!u) return;
-    const m = nouveauMessage(profile, {
-      canal: CANAL_WA, wa_tel: convWaOuverte.cle, wa_numero: convWaOuverte.tel,
-      ...(convWaOuverte.nom ? { wa_nom: convWaOuverte.nom } : {}),
-      wa_systeme: true,
-      texte: `🔁 Conversation confiée à ${u.nom} par ${profile.nom}.`,
-      proprietaire_id: u.id, proprietaire_nom: u.nom,
-    });
-    save({ ...db, messages: [m, ...messages] }, `📲 WhatsApp — conversation de ${convWaOuverte.nom || convWaOuverte.tel} confiée à ${u.nom} par ${profile.nom}`);
   };
 
   // ---- Gestion des groupes (admin uniquement) ----
@@ -230,9 +151,7 @@ export function Messagerie({ db, save, profile }) {
   const fil = messagesDe(conv);
   const groupeOuvert = conv?.type === "groupe" ? groupes.find((g) => g.id === conv.id) : null;
   const nomConv = conv
-    ? conv.type === "wa"
-      ? `📲 ${convWaOuverte?.nom || convWaOuverte?.tel || "WhatsApp"}`
-      : conv.type === "client"
+    ? conv.type === "client"
       ? `Support — ${db.users.find((u) => u.id === conv.id)?.nom || "Client"}`
       : conv.type === "groupe"
       ? `👥 ${groupeOuvert?.nom || "Groupe"}`
@@ -300,9 +219,6 @@ export function Messagerie({ db, save, profile }) {
                   <button onClick={() => supprimerGroupe(groupeOuvert)} className="text-xs font-bold text-red-600 underline whitespace-nowrap">Supprimer</button>
                 </>
               )}
-              {convWaOuverte && peutReattribuer(profile) && (
-                <button onClick={reattribuer} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">🔁 Confier</button>
-              )}
             </div>
             {groupeOuvert && gestionMembres && isAdmin && (
               <div className="border-b border-slate-200 bg-slate-50 p-3 max-h-48 overflow-y-auto">
@@ -329,22 +245,6 @@ export function Messagerie({ db, save, profile }) {
             {groupeOuvert && !isAdmin && (
               <div className="border-b border-slate-100 px-4 py-1.5 text-xs text-slate-400">Membres : {(groupeOuvert.membres || []).map((id) => db.users.find((u) => u.id === id)?.nom).filter(Boolean).join(", ")}</div>
             )}
-            {convWaOuverte && (
-              // ⏳ LA FENÊTRE DE 24 H SE VOIT, TOUJOURS. Sans ce bandeau, le
-              // vendeur tape un message qui ne partira jamais et ne comprend
-              // pas pourquoi — c'est la règle de Meta, pas la nôtre, mais
-              // c'est à nous de la DIRE.
-              <div className={`border-b px-4 py-2 text-xs ${convWaOuverte.fenetre.ouverte ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-amber-50 border-amber-100 text-amber-800"}`}>
-                <div className="font-bold">{libelleFenetre(convWaOuverte.fenetre)}</div>
-                <div className="mt-0.5 text-slate-500">
-                  {convWaOuverte.tel}
-                  {" · "}
-                  {convWaOuverte.proprietaire_nom
-                    ? `Conversation de ${convWaOuverte.proprietaire_nom}`
-                    : "🛟 Support — personne ne l'a engagée, tout le personnel la voit"}
-                </div>
-              </div>
-            )}
             <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
               {fil.length === 0 && <div className="text-center text-slate-400 text-sm py-8">Aucun message pour l'instant. Écrivez le premier !</div>}
               {fil.map((m) => (
@@ -355,16 +255,10 @@ export function Messagerie({ db, save, profile }) {
                 </div>
               ))}
             </div>
-            {convWaOuverte && !convWaOuverte.fenetre.ouverte ? (
-              <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
-                WhatsApp n'accepte plus de réponse libre ici. Pour relancer ce client, passez par 📋 Tous les devis : un modèle approuvé part quand on veut.
-              </div>
-            ) : (
-              <div className="p-3 border-t border-slate-200 flex gap-2">
-                <input className={inputCls} placeholder={convWaOuverte ? "Votre réponse, envoyée du numéro BMI..." : "Votre message..."} value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
-                <button onClick={envoyer} disabled={envoiWa} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 whitespace-nowrap disabled:opacity-50">{envoiWa ? "Envoi…" : "Envoyer"}</button>
-              </div>
-            )}
+            <div className="p-3 border-t border-slate-200 flex gap-2">
+              <input className={inputCls} placeholder="Votre message..." value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
+              <button onClick={envoyer} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 whitespace-nowrap">Envoyer</button>
+            </div>
           </>
         )}
       </div>

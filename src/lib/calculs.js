@@ -1885,13 +1885,17 @@ export const LIBELLE_ONGLET = {
   // ⚠ « MES » données, pas « VOS » (Timo, 19/09/2026) : c'est le client qui
   // vient chercher ce qui le concerne. Le mot suit la place.
   mes_donnees: "🔒 Mes données",
+  // ⚠ Un écran À PART de 💬 Messages (Timo, 20/09/2026, décision « b ») :
+  // une conversation WhatsApp a un compte à rebours de 24 h, les internes
+  // non. Ce qui se ferme tout seul ne se range pas avec ce qui attend.
+  whatsapp: "📲 WhatsApp",
 };
 
 export const ONGLETS_ROLE = {
-  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "salaires", "users", "historique", "parametres", "travaux", "outillage"],
-  commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "contrats"],
-  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses", "outillage"],
-  resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "commission", "salaire", "nouveau_client"],
+  admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "whatsapp", "salaires", "users", "historique", "parametres", "travaux", "outillage"],
+  commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "whatsapp", "commission", "equipe", "nouveau_client", "contrats"],
+  technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "whatsapp", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses", "outillage"],
+  resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "whatsapp", "commission", "salaire", "nouveau_client"],
   // ⚠ CHEF TECHNICIEN (17/09/2026, Timo : « ouvre le rôle technicien BMI »).
   // Le chef des techniciens de BMI est un SALARIÉ : le seul rôle qui lui
   // convient est « technicien BMI ». Or ce rôle ne pouvait même pas être
@@ -1902,11 +1906,11 @@ export const ONGLETS_ROLE = {
   // listé ici pour que l'administrateur puisse le lui retirer dans 🔐 Pouvoirs.
   // « taches » y manquait alors qu'App.jsx le donnait déjà : un onglet qu'on
   // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
-  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
-  magasinier: ["stocks", "salaire", "messages", "nouveau_client", "travaux", "outillage"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "nouveau_client", "contrats", "travaux"],
-  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "nouveau_client", "primes_remises", "contrats", "travaux"],
-  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
+  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "whatsapp", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
+  magasinier: ["stocks", "salaire", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux"],
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats", "travaux"],
+  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "whatsapp", "salaire", "nouveau_client"],
   // ⚠ « ramener ça en onglet À CÔTÉ DE MESSAGE » (Timo, 19/09/2026) : le
   // droit d'accès n'est plus un panneau au bas de 🏠 Mon espace, c'est un
   // onglet à lui. Listé ici, donc retirable dans 🔐 Pouvoirs — un onglet

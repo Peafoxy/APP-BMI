@@ -149,7 +149,11 @@ export default async function handler(req, res) {
           destinataires,
           titre: `📲 ${client?.nom || from}`,
           texte: texte.slice(0, 200),
-          ecran: "messages",
+          // ⚠ L'écran VISÉ, et il a changé le 20/09/2026 : les
+          // conversations WhatsApp ont quitté 💬 Messages pour leur
+          // propre onglet. Un clic qui ouvre le mauvais écran, c'est une
+          // notification qui ne sert à rien.
+          ecran: "whatsapp",
           tag: `wa-${cle}`,
         }]);
       }
