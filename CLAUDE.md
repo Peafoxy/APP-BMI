@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1767 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1769 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1064,6 +1064,24 @@ lit mal est pire qu'un banc absent).
     courtes sont **écartées en le disant**, jamais escamotées.
   - **L'étude ne s'enregistre pas** : elle aide à choisir, le vendeur ajoute
     ensuite la pompe comme un article ordinaire.
+- ⚠⚠ **LE DÉFAUT DU LENDEMAIN : ON SAISISSAIT DANS LE VIDE, ENCORE** (capture
+  Timo, 20/09/2026 : « dans stock rien que la tension qui s'affiche… même
+  chose dans vente »). Il saisit 0,4 kW / 95 m / 1,5 m³/h dans **✏️ Corriger**,
+  et seule la TENSION ressortait. Les champs étaient au formulaire et relus à
+  l'ouverture — mais `enregistrerCorrection` ne recopiait PAS les quatre
+  nouveaux dans l'article : ils repartaient avec `avant`, donc vides.
+  `tension` y était depuis toujours : **c'est exactement ce qui rendait le
+  symptôme lisible**. Corrigé le jour même ; **la case « hybride » manquait
+  aussi à la liste des changements** — la cocher seule répondait « Rien n'a
+  été modifié » (nouveau genre `case`, raconté en Oui / Non).
+  ⚠ **Une CRÉATION écrivait bien les quatre** : seule la correction les
+  perdait, et c'est le chemin qu'on prend pour renseigner des pompes DÉJÀ au
+  stock — donc le seul qui servait vraiment. **Le banc lit désormais le bloc
+  `apres` lui-même** et exige les cinq clés ; éprouvé en retirant la
+  profondeur : il tombe. La leçon du 20/09 est celle du 20/09 au matin, d'un
+  cran plus loin : **un champ qu'on saisit et qui ne s'enregistre pas est pire
+  qu'un champ absent.** ⚠ Les articles saisis AVANT le correctif sont restés
+  vides : il faut rouvrir leur fiche et réenregistrer une fois.
 - ⚠ **L'OPTION « C » RESTE OUVERTE, et c'est sa décision** : saisir 3 à 5 points
   de la vraie courbe par MODÈLE (à 20 m → 2,1 m³/h, à 40 m → 1,4…) permettrait
   d'annoncer un débit pour de bon. « Avec le temps on peut implémenter le C.

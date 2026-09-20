@@ -10408,6 +10408,24 @@ titre("💧 LES POMPES : CE QU'ON EN SAIT, ET CE QU'ON NE PROMET PAS (Timo, 20/0
   test("★ les cinq renseignements sont là", ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "f.tension", "f.hybride"].every((c) => stocks.includes(c)));
   test("★ et `tension` est RÉUTILISÉE, pas doublée", !/tension_pompe|voltage/.test(lit("src/lib/pompes.js")));
 
+  // ⚠⚠ DÉFAUT TROUVÉ PAR TIMO (20/09/2026, capture) : il saisit 0,4 kW / 95 m
+  // / 1,5 m³/h dans « ✏️ Corriger », et SEULE la tension s'affichait ensuite
+  // dans 📦 Stocks et dans 💰 Ventes. Les champs étaient dans le formulaire et
+  // relus à l'ouverture — mais la CORRECTION ne les recopiait pas dans
+  // l'article. `tension` y était depuis toujours : d'où le « rien que la
+  // tension ». **Un champ qu'on saisit et qui ne s'enregistre pas est pire
+  // qu'un champ absent** : on croit avoir noté.
+  {
+    const blocApres = (stocks.split("const apres = {")[1] || "").split("\n    };")[0];
+    test("★★ la CORRECTION d'un article ENREGISTRE les quatre renseignements de la pompe, pas seulement la tension",
+      ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "hybride", "tension"]
+        .every((c) => new RegExp(`\\n\\s*${c}:`).test(blocApres)));
+    test("★ la case « hybride » compte comme un changement (sans elle, la cocher seule répondait « Rien n'a été modifié ») et se raconte en Oui / Non, jamais en nombre",
+      /\["hybride", "Hybride \(solaire \+ secteur\)", "case"\]/.test(stocks)
+      && /genre === "case"\s*\n\s*\? !!a === !!b/.test(stocks)
+      && /\? \(v \? "Oui" : "Non"\)/.test(stocks));
+  }
+
   // ── LES DEUX CHAMPS QUI DORMAIENT DEPUIS TOUJOURS.
   test("★★ « Fiche technique » se lit enfin (elle était écrite dans le vide)",
     /p\.fiche_technique && <a href=\{p\.fiche_technique\}/.test(stocks));

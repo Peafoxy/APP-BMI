@@ -291,6 +291,7 @@ export function Stocks({ db, save, profile }) {
     ["puissance_kw", "Puissance (kW)", "nombre"],
     ["profondeur_max_m", "Profondeur max (m)", "nombre"],
     ["debit_max_m3h", "Débit max (m³/h)", "nombre"],
+    ["hybride", "Hybride (solaire + secteur)", "case"],
     ["fiche_technique", "Fiche technique", "texte"],
     ["notes", "Notes internes", "texte"],
   ];
@@ -355,6 +356,18 @@ export function Stocks({ db, save, profile }) {
       conditions_garantie: (f.conditions_garantie || "").trim(),
       fiche_technique: (f.fiche_technique || "").trim(),
       notes: (f.notes || "").trim(),
+      // ⚠ LES QUATRE RENSEIGNEMENTS DE LA POMPE (défaut trouvé par Timo,
+      // 20/09/2026, capture : il saisit 0,4 kW / 95 m / 1,5 m³/h et SEULE la
+      // tension s'affichait dans 📦 Stocks et dans 💰 Ventes). Ils étaient
+      // bien dans le formulaire, bien relus à l'ouverture — mais la
+      // correction ne les recopiait PAS ici : ils repartaient avec `avant`,
+      // c'est-à-dire vides. `tension`, elle, y était depuis toujours : d'où
+      // le « rien que la tension ». **Un champ qu'on saisit et qui ne
+      // s'enregistre pas est pire qu'un champ absent.**
+      puissance_kw: f.puissance_kw ? Number(f.puissance_kw) : "",
+      profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
+      debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "",
+      hybride: !!f.hybride,
       // ⚠ « entrees » n'est PAS dans ce formulaire : il se nourrit des
       // réceptions (+ Entrée). L'écraser ici effacerait tout le
       // ravitaillement de l'article.
@@ -365,15 +378,20 @@ export function Stocks({ db, save, profile }) {
       apres.prix_vente = Number(f.prix_vente || 0);
     }
 
-    const memeValeur = (a, b, genre) => genre === "nombre"
-      ? Number(a || 0) === Number(b || 0)
-      : String(a ?? "").trim() === String(b ?? "").trim();
+    const memeValeur = (a, b, genre) => genre === "case"
+      ? !!a === !!b
+      : genre === "nombre"
+        ? Number(a || 0) === Number(b || 0)
+        : String(a ?? "").trim() === String(b ?? "").trim();
+    const lisible = (v, genre) => genre === "case"
+      ? (v ? "Oui" : "Non")
+      : genre === "nombre" ? fmt(Number(v || 0)) : (String(v ?? "").trim() || "—");
     const changements = CHAMPS_CORRIGEABLES
       .filter(([cle, , genre]) => !memeValeur(avant[cle], apres[cle], genre))
       .map(([cle, libelle, genre]) => ({
         cle, libelle,
-        de: genre === "nombre" ? fmt(Number(avant[cle] || 0)) : (String(avant[cle] ?? "").trim() || "—"),
-        vers: genre === "nombre" ? fmt(Number(apres[cle] || 0)) : (String(apres[cle] ?? "").trim() || "—"),
+        de: lisible(avant[cle], genre),
+        vers: lisible(apres[cle], genre),
       }));
     if (!changements.length) { uAlert("Rien n'a été modifié."); return; }
 
