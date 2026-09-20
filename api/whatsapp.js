@@ -101,7 +101,11 @@ export default async function handler(req, res) {
       // « ce client a refusé les messages commerciaux »… L'écran a besoin de
       // le DIRE, sinon personne ne peut comprendre pourquoi rien ne part.
       const motif = resultat?.error?.message || resultat?.message || `WhatsApp a répondu ${reponse.status}.`;
-      return res.status(502).json({ error: motif, statut_whatsapp: reponse.status });
+      // ⚠ Le CODE de Meta part avec (132001, 131050…) : c'est lui qui permet
+      // de traduire le refus en français sans deviner d'après une phrase
+      // anglaise que Meta peut réécrire quand elle veut.
+      const code = resultat?.error?.code ?? resultat?.code ?? "";
+      return res.status(502).json({ error: motif, statut_whatsapp: reponse.status, code_whatsapp: code });
     }
     return res.status(200).json({ ok: true, id: resultat?.id || "", statut: resultat?.status || "envoye", modele: nom });
   } catch (e) {

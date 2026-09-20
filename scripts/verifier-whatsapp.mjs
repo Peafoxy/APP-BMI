@@ -224,5 +224,56 @@ test("★ les DEUX endroits qui envoient un devis passent par cette phrase — a
   && !/WhatsApp s'ouvre avec ses identifiants/.test(lire("src/screens/dimensionnement/Brouillons.jsx")));
 test("★ l'envoi rend CE QUI S'EST PASSÉ, pas un simple oui", /return \{ ok: true, auto: !!r\.auto \};/.test(srcPartages));
 
+// ──────────────────────────────────────────────────────────────
+titre("⑮ LE REFUS DE WHATSAPP SE DIT EN FRANÇAIS (Timo, 20/09/2026)");
+// Meta refuse EN ANGLAIS, et tel quel. « The template is unavailable,
+// status: PENDING » n'apprend rien à une vendeuse de Lomé — et un message
+// qu'on ne comprend pas ressemble à une panne.
+test("★★ le motif qu'il a VU se dit en français",
+  M.motifEchecWhatsApp({ statut: 502, erreur: "The template is unavailable, status: PENDING" })
+    === "Ce modèle de message n'est pas encore approuvé par WhatsApp. Il faut attendre la réponse de Meta.");
+test("★ un CODE de Meta se traduit sans lire la phrase",
+  /commerciaux/.test(M.motifEchecWhatsApp({ statut: 502, erreur: "User is not eligible", code: 131050 })));
+test("★ le code PRIME sur les mots (Meta peut réécrire ses phrases)",
+  M.traduireMotifWhatsApp("template is unavailable", 131050) === M.traduireMotifWhatsApp("", 131050));
+test("★ un code en texte (« 132001 ») marche aussi", /pas en français/.test(M.traduireMotifWhatsApp("", "132001")));
+test("★ le crédit YCloud épuisé dit OÙ recharger",
+  /Recharge/.test(M.motifEchecWhatsApp({ statut: 502, erreur: "Insufficient balance in wallet" })));
+
+// ⚠⚠ LE POINT LE PLUS IMPORTANT : ce qu'on ne connaît pas reste ENTIER.
+const inconnu = "Totally new refusal nobody has ever seen";
+const renduInconnu = M.motifEchecWhatsApp({ statut: 502, erreur: inconnu });
+test("★★ un motif INCONNU n'est jamais deviné : la phrase d'origine reste, entière",
+  renduInconnu.includes(inconnu) && renduInconnu.startsWith(M.PREFIXE_REFUS_WHATSAPP));
+test("★★ et le préfixe ne ment pas : une panne de CHEZ NOUS n'est pas un refus de WhatsApp",
+  M.motifEchecWhatsApp({ erreur: "Serveur injoignable : failed to fetch" }) === "Serveur injoignable : failed to fetch");
+test("★ un refus sans phrase ni code ne reste pas muet",
+  M.motifEchecWhatsApp({ statut: 502 }) === "L'envoi automatique n'a pas abouti.");
+
+// ⚠ Une règle à mots exige TOUS ses mots : « template » seul attraperait
+// n'importe quel refus parlant d'un modèle, et on traduirait de travers.
+test("★★ un seul mot ne suffit jamais à reconnaître un motif",
+  M.traduireMotifWhatsApp("the template was sent", 0) === "");
+test("majuscules et accents ne gênent pas", M.traduireMotifWhatsApp("INSUFFICIENT BALANCE", 0) !== "");
+test("★ les mots-repères sont écrits en minuscules sans accent (sinon ils ne trouveraient JAMAIS rien)",
+  M.MOTIFS_WHATSAPP.every((r) => (r.marques || []).every((m) => m === M.normaliseMotif(m))));
+test("★ chaque règle a soit un code, soit des mots", M.MOTIFS_WHATSAPP.every((r) => r.code || (r.marques || []).length));
+test("★ aucune phrase ne promet « livré » ni « lu » (on ne le sait pas)",
+  M.MOTIFS_WHATSAPP.every((r) => !/\blivré|\blu\b/i.test(r.dit)));
+test("★ un motif traduit n'est jamais « attendu » : il DOIT s'afficher",
+  !M.motifAttendu(M.motifEchecWhatsApp({ statut: 502, erreur: "The template is unavailable" })));
+test("nos propres statuts n'ont pas bougé",
+  M.motifEchecWhatsApp({ statut: 500 }) === M.MOTIF_ECHEC[500] && M.motifEchecWhatsApp({ statut: 401 }) === M.MOTIF_ECHEC[401]);
+
+// ⚠⚠ LA CHAÎNE : le code de Meta traverse TROIS fichiers. S'il est jeté en
+// route, la traduction retombe sur les mots et personne ne le voit.
+test("★★ le serveur rend le code de refus de WhatsApp", /code_whatsapp: code/.test(apiWhatsapp));
+test("★★ le transport ne le jette pas en route",
+  /if \(!reponse\.ok\) return \{ \.\.\.resultat,/.test(lire("src/supabaseClient.js")));
+test("★★ le seul chemin le passe à la règle", /code: reponse\?\.code_whatsapp/.test(srcWhatsapp));
+test("★ la phrase anglaise part dans la CONSOLE, jamais à l'écran",
+  /console\.info\("\[whatsapp\] refus :"/.test(srcWhatsapp)
+  && !/uAlert\([^)]*reponse\.error/.test(srcWhatsapp));
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

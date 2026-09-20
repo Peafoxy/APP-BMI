@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 13  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 83  : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence)
+npm run verifier-whatsapp        # 102 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -1889,6 +1889,40 @@ lit mal est pire qu'un banc absent).
   préfixées `VITE_`** (Vite les embarquerait dans le paquet du navigateur) —
   le banc le mesure. Sans elles, l'application se replie sur l'ouverture
   WhatsApp d'aujourd'hui et ne casse rien.
+- ⚠⚠ **LE REFUS DE WHATSAPP SE DIT EN FRANÇAIS** (20/09/2026, « lance la
+  traduction des motifs en français »). Meta refuse EN ANGLAIS et tel quel
+  (« The template is unavailable, status: PENDING ») : une vendeuse de Lomé
+  n'a aucune raison de le comprendre, et **un message qu'on ne comprend pas
+  ressemble à une panne** — la leçon du repli muet, d'un cran plus loin.
+  `MOTIFS_WHATSAPP` / `traduireMotifWhatsApp` (lib/whatsappModeles.js).
+  - **DEUX façons de reconnaître un refus, et la première vaut mieux** : le
+    **CODE** de Meta (132001, 131050…), un FAIT qui ne bouge pas quand Meta
+    réécrit ses phrases ; puis les **MOTS**, repli pour YCloud (qui a ses
+    propres messages) et pour les refus sans code. Le code PRIME. ⚠ Une
+    règle à mots exige **TOUS** ses mots : « template » seul attraperait
+    n'importe quoi et on traduirait de travers.
+  - ⚠⚠ **CE QU'ON NE CONNAÎT PAS RESTE EN ANGLAIS, EN ENTIER**, précédé de
+    « WhatsApp a refusé le message : ». Deviner la traduction d'un motif
+    inconnu, ce serait **inventer une explication**. ⚠ Et le préfixe ne ment
+    pas : il n'est posé que sur un **502** (WhatsApp a répondu et a refusé) —
+    une panne de réseau vient de chez nous, elle ne s'annonce pas comme un
+    refus de WhatsApp.
+  - **La phrase anglaise part TOUJOURS dans la console**, jamais à l'écran
+    (le diagnostic affiché a déjà été retiré une fois : Timo, 16/09/2026).
+  - ⚠ **LE CODE TRAVERSE TROIS FICHIERS** : `api/whatsapp.js` le rend
+    (`code_whatsapp`), `appelAvecJeton` ne le jette plus (`{ ...resultat }`
+    — `error` et `statut` restent les seuls champs sur lesquels on compte),
+    `src/whatsapp.js` le passe à la règle. Jeté en route, la traduction
+    retomberait sur les mots **sans que personne le voie** : le banc mesure
+    les trois maillons, et le contrôle a été éprouvé en remettant la faute.
+  - ⚠ **La liste ne s'allonge qu'avec un motif VU pour de vrai** (capture,
+    journal) : une règle écrite « au cas où » est une règle jamais éprouvée.
+  - ⚠ **Deux fautes de rédaction ont été trouvées PAR LE BANC** le jour même :
+    « n'a pas délivré » portait le mot « livré » (on ne dit jamais livré ni
+    lu — on ne le sait pas), et une phrase nommait la variable Vercel
+    `YCLOUD_API_KEY` à l'écran (jargon, et le contrôle « la clé n'existe que
+    dans la fonction serveur » est tombé). **Les deux contrôles existaient
+    déjà** : ils n'ont pas été assouplis, les phrases ont été réécrites.
 - **CE QUE ÇA COÛTE, et il faut le dire** : environ **14 F** un message
   marketing (devis, relance), **4 F** un utility. C'était gratuit avant (le
   forfait du vendeur). Quelques centaines de francs par mois au volume de BMI.

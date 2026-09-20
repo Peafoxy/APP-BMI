@@ -228,8 +228,106 @@ export const MOTIF_ECHEC = {
   500: "Le serveur n'est pas encore configuré pour WhatsApp.",
 };
 
-export function motifEchecWhatsApp({ statut, erreur } = {}) {
-  return MOTIF_ECHEC[statut] || String(erreur || "L'envoi automatique n'a pas abouti.");
+// ---------------------------------------------------------------
+// ⚠⚠ ET QUAND C'EST WHATSAPP QUI REFUSE : ON TRADUIT (20/09/2026)
+// ---------------------------------------------------------------
+// Le refus de Meta arrive EN ANGLAIS, et tel quel : « The template is
+// unavailable, status: PENDING », « User is not eligible to receive
+// marketing messages »… Une vendeuse de Lomé n'a aucune raison de le
+// comprendre, et un message qu'on ne comprend pas ressemble à une panne
+// (même leçon que le repli muet du 19/09). On le dit donc en français.
+//
+// ⚠ DEUX FAÇONS DE RECONNAÎTRE UN REFUS, et la première vaut mieux :
+//   • le CODE de Meta (un nombre : 132001, 131050…) — un FAIT, qui ne
+//     change pas quand Meta réécrit ses phrases ;
+//   • les MOTS de la phrase — un repli, pour YCloud (qui a ses propres
+//     messages) et pour les refus sans code.
+// Le code est essayé d'abord. Les `marques` d'une règle doivent TOUTES se
+// trouver dans la phrase : un seul mot (« template ») attraperait n'importe
+// quoi et on finirait par traduire de travers.
+//
+// ⚠⚠ CE QU'ON NE CONNAÎT PAS RESTE EN ANGLAIS, EN ENTIER. C'est la règle
+// la plus importante du point : deviner la traduction d'un motif inconnu,
+// ce serait inventer une explication — exactement ce qu'on ne fait pas.
+// Un motif non reconnu s'affiche donc précédé de « WhatsApp a refusé le
+// message : », et la phrase d'origine dessous, mot pour mot.
+//
+// ⚠ Cette liste n'a pas vocation à tout couvrir. Ne l'allonger qu'avec un
+// motif VU pour de vrai (capture, journal) : une règle écrite « au cas où »
+// est une règle qu'on n'a jamais éprouvée.
+export const PREFIXE_REFUS_WHATSAPP = "WhatsApp a refusé le message :";
+
+export const MOTIFS_WHATSAPP = [
+  // — Le modèle lui-même —
+  // (celui que BMI verra le plus tant que Meta n'a pas fini son examen)
+  { marques: ["template", "unavailable"], dit: "Ce modèle de message n'est pas encore approuvé par WhatsApp. Il faut attendre la réponse de Meta." },
+  { marques: ["template", "pending"], dit: "Ce modèle de message est encore en cours d'examen chez WhatsApp." },
+  { marques: ["template", "rejected"], dit: "Ce modèle de message a été refusé par WhatsApp." },
+  { code: 132001, dit: "Ce modèle de message n'existe pas chez WhatsApp, ou pas en français." },
+  { code: 132015, dit: "Ce modèle de message est suspendu par WhatsApp (trop de personnes l'ont signalé)." },
+  { code: 132016, dit: "Ce modèle de message a été désactivé par WhatsApp." },
+  { code: 132000, dit: "Le message n'a pas le bon nombre d'informations : c'est un défaut de l'application, à signaler." },
+
+  // — Le client —
+  { code: 131050, dit: "Ce client a demandé à ne plus recevoir de messages commerciaux sur WhatsApp." },
+  { code: 131049, dit: "WhatsApp n'a pas remis ce message : elle limite les messages commerciaux qu'une même personne reçoit. Envoyez-le vous-même, ou réessayez plus tard." },
+  { code: 131026, dit: "Ce numéro ne peut pas recevoir de message WhatsApp (pas de compte WhatsApp, ou un réglage l'en empêche)." },
+  { code: 131047, dit: "Plus de 24 h se sont écoulées depuis le dernier message du client : WhatsApp n'accepte plus qu'un modèle approuvé." },
+  { marques: ["invalid", "phone"], dit: "Ce numéro n'est pas un numéro WhatsApp valide." },
+
+  // — Le compte BMI, et le raccordement —
+  { code: 130429, dit: "Trop de messages d'un coup : WhatsApp demande d'attendre un moment." },
+  { marques: ["rate limit"], dit: "Trop de messages d'un coup : WhatsApp demande d'attendre un moment." },
+  { code: 131031, dit: "Le compte WhatsApp de BMI est restreint par Meta en ce moment." },
+  { code: 368, dit: "Le compte WhatsApp de BMI est restreint par Meta en ce moment." },
+  { code: 133010, dit: "Le numéro BMI n'est pas (ou plus) raccordé chez WhatsApp." },
+  { code: 190, dit: "Le raccordement WhatsApp a expiré : il faut le refaire dans la console YCloud." },
+
+  // — YCloud, qui facture et qui relaie —
+  { marques: ["insufficient", "balance"], dit: "Le crédit YCloud est épuisé : rechargez le portefeuille (Settings → Billing → Recharge)." },
+  { marques: ["balance", "not enough"], dit: "Le crédit YCloud est épuisé : rechargez le portefeuille (Settings → Billing → Recharge)." },
+  { marques: ["api key"], dit: "Le serveur n'est pas reconnu par YCloud : la clé du raccordement est à revoir dans sa console." },
+  { marques: ["unauthorized"], dit: "YCloud a refusé la demande du serveur : la clé n'est pas (ou plus) valable." },
+];
+
+// Sans accents, sans majuscules, espaces resserrés : « Rate  Limit » et
+// « rate limit » sont le même motif.
+export const normaliseMotif = (texte) =>
+  String(texte || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Rend la phrase française, ou "" si ce motif-là n'est pas connu.
+export function traduireMotifWhatsApp(texte, code) {
+  const n = normaliseMotif(texte);
+  const c = Number(code) || 0;
+  for (const r of MOTIFS_WHATSAPP) {
+    if (r.code && c && r.code === c) return r.dit;
+  }
+  if (!n) return "";
+  for (const r of MOTIFS_WHATSAPP) {
+    const marques = r.marques || [];
+    if (marques.length && marques.every((m) => n.includes(m))) return r.dit;
+  }
+  return "";
+}
+
+// ⚠ `statut` est ce que NOTRE serveur a répondu, `code` ce que WhatsApp a
+// dit. 502 = WhatsApp a répondu et a refusé — c'est le seul cas où l'on
+// préfixe « WhatsApp a refusé le message », parce que c'est le seul où
+// c'est vrai (une panne de réseau, elle, vient de chez nous).
+export const STATUT_REFUS_WHATSAPP = 502;
+
+export function motifEchecWhatsApp({ statut, erreur, code } = {}) {
+  if (MOTIF_ECHEC[statut]) return MOTIF_ECHEC[statut];
+  const traduit = traduireMotifWhatsApp(erreur, code);
+  if (traduit) return traduit;
+  const brut = String(erreur || "");
+  if (!brut) return "L'envoi automatique n'a pas abouti.";
+  return Number(statut) === STATUT_REFUS_WHATSAPP ? `${PREFIXE_REFUS_WHATSAPP}\n${brut}` : brut;
 }
 
 // La phrase exacte que l'écran montre quand l'envoi du numéro BMI n'a pas eu

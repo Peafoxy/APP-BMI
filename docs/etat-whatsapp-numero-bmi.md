@@ -394,6 +394,15 @@ celle des variables. **On mesure, on ne présume pas** — ici aussi.
 
 ### CE QUI N'EST PAS FAIT, ET QUI A ÉTÉ DIT
 
+- **Le refus de WhatsApp se dit en français** — **FAIT le 20/09/2026**
+  (« lance la traduction des motifs en français », 2.101.278). Meta refuse en
+  anglais ; `MOTIFS_WHATSAPP` / `traduireMotifWhatsApp` traduisent, d'abord
+  sur le CODE de Meta (un fait), ensuite sur les mots (un repli). **Un motif
+  inconnu reste en anglais, entier**, précédé de « WhatsApp a refusé le
+  message : » — on n'invente jamais une explication. La phrase d'origine part
+  dans la console. ⚠ **La liste ne s'allonge qu'avec un motif VU pour de
+  vrai** : quand un refus tombe en anglais chez Timo, on l'ajoute, et on
+  éprouve le contrôle en remettant la faute.
 - **« Livré » et « lu » ne s'affichent pas.** Il faudrait que Meta nous
   rappelle (une adresse de retour, un webhook), et que ce retour sache
   retrouver le devis pour y écrire. C'est un chantier à part. La trace dit

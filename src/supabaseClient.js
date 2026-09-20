@@ -139,7 +139,11 @@ async function appelAvecJeton(urlFonction, corps) {
       body: JSON.stringify({ jeton, ...corps }),
     });
     const resultat = await reponse.json().catch(() => ({}));
-    if (!reponse.ok) return { error: resultat?.error || `Le serveur a répondu ${reponse.status}.`, statut: reponse.status };
+    // ⚠ On garde ce que la fonction serveur a mis en plus (le code de refus
+    // de WhatsApp, par exemple) : `error` et `statut` restent les seuls
+    // champs sur lesquels on compte, mais un appelant qui sait lire le reste
+    // ne doit pas le trouver jeté en route.
+    if (!reponse.ok) return { ...resultat, error: resultat?.error || `Le serveur a répondu ${reponse.status}.`, statut: reponse.status };
     return resultat;
   } catch (e) {
     return { error: `Serveur injoignable : ${e?.message || e}`, reseau: true };

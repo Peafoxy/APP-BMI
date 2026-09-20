@@ -59,7 +59,14 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     return repli(motifEchecWhatsApp({ erreur: e?.message }));
   }
   if (!reponse || reponse.error) {
-    return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error }));
+    // ⚠ LE REFUS DE WHATSAPP ARRIVE EN ANGLAIS : `motifEchecWhatsApp` le
+    // traduit quand il le reconnaît, et le laisse entier quand il ne le
+    // reconnaît pas (on n'invente jamais une explication). La phrase
+    // d'origine part TOUJOURS dans la console — pour dépanner, jamais à
+    // l'écran : le diagnostic affiché a déjà été retiré une fois (Timo,
+    // 16/09/2026, « je n'aime plus voir ça »).
+    if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
+    return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }));
   }
   return { auto: true, parti: true, motif: "", id: reponse.id || "" };
 }
