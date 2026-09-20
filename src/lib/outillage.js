@@ -197,7 +197,10 @@ export const parDetenteur = (boutique) => {
 // mouvement, la liste ne rétrécit jamais.
 const ajouter = (outil, mvt) => ({ ...outil, mouvements: [...mouvementsDe(outil), mvt] });
 
-export const critiqueSortie = (outil, { user_id, retour_prevu } = {}) => {
+// L'ÉTAT d'un outil, seul : peut-il partir sur un chantier aujourd'hui ?
+// Écrit à part parce qu'il se demande à DEUX moments — quand on ajoute
+// l'outil à la liste, et quand on enregistre la sortie.
+const critiqueEtatSortie = (outil) => {
   if (!outil) return "Choisissez d'abord un outil.";
   const etat = etatOutil(outil);
   if (etat === "sorti") {
@@ -207,10 +210,45 @@ export const critiqueSortie = (outil, { user_id, retour_prevu } = {}) => {
   if (etat === "reparation") return `« ${outil.nom} » est en réparation : il ne peut pas partir sur un chantier.`;
   if (etat === "perdu") return `« ${outil.nom} » est déclaré perdu.`;
   if (etat === "reforme") return `« ${outil.nom} » est réformé : il ne fait plus partie du matériel de travail.`;
+  return "";
+};
+
+// ⚠⚠ UNE SORTIE PEUT PORTER PLUSIEURS OUTILS (Timo, 20/09/2026 : « on
+// choisit plusieurs outils, ensuite qui le prend, quel chantier et retour
+// prévu ») — MAIS SEULE LA SAISIE EST GROUPÉE, JAMAIS LA TRACE : le lot
+// écrit UN mouvement de sortie par outil, sur SA fiche. C'est ce qui permet
+// à la perceuse de rentrer pendant que l'échelle reste dehors, change de
+// chantier toute seule ou part en réparation. Un lot d'un seul outil se
+// comporte exactement comme avant.
+export const critiqueSortieLot = (outils, { user_id, retour_prevu } = {}) => {
+  const lot = (Array.isArray(outils) ? outils : []).filter(Boolean);
+  if (!lot.length) return "Choisissez d'abord un outil.";
+  for (const o of lot) {
+    const refus = critiqueEtatSortie(o);
+    if (refus) return refus;
+  }
   if (!user_id) return "Dites qui prend l'outil : un outil est toujours sous le nom de quelqu'un.";
   if (!retour_prevu) return "Dites quand l'outil doit revenir.";
   return "";
 };
+// Un outil seul : exactement la MÊME règle, jamais une copie.
+export const critiqueSortie = (outil, options) => critiqueSortieLot(outil ? [outil] : [], options);
+// Le refus se dit AU MOMENT où on ajoute l'outil à la liste, pas au dernier
+// moment : on ne laisse personne saisir la personne, le chantier et la date
+// pour rien.
+export const critiqueAjoutLot = (outil, choisis = []) => {
+  const refus = critiqueEtatSortie(outil);
+  if (refus) return refus;
+  if ((choisis || []).some((o) => o && o.id === outil.id)) return `« ${outil.nom} » est déjà dans la liste.`;
+  return "";
+};
+// Les outils d'un lot, nommés à UN seul endroit : le message à la personne
+// et la ligne de journal disent la MÊME chose.
+export const nommerLot = (outils) =>
+  (Array.isArray(outils) ? outils : [])
+    .filter(Boolean)
+    .map((o) => `« ${o.nom} »${o.numero ? ` (N° ${o.numero})` : ""}`)
+    .join(", ");
 export const sortirOutil = (outil, { id, le, user_id, user, chantier, retour_prevu, par_id, par }) =>
   ajouter(outil, { id, type: "sortie", le, user_id, user, chantier: chantier || "", retour_prevu, par_id, par });
 

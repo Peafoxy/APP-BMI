@@ -31,7 +31,7 @@ import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constant
 import { bloquerSiLecture, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles, chantiersOuvertsPourOutil } from "../lib/calculs";
 import {
   ETATS_OUTIL, peutTenirOutillage, outilsDe, outilsVivants, etatOutil, libelleEtat,
-  detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortie, sortirOutil, critiqueRetour,
+  detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortieLot, critiqueAjoutLot, nommerLot, sortirOutil, critiqueRetour,
   rendreOutil, mettreEnReparation, critiquePerte, responsableDeLaPerte, valeurProposee, declarerPerdu,
   reformerOutil, retenuePourOutil, pertesDe, appelAFaire, appelDeLaSemaine, construireAppel,
   manquantsDuDernierAppel, resumeOutillage, propositionsOutils, outilSaisi, critiqueNouvelOutil, reformeDe,
@@ -100,7 +100,7 @@ async function nouveauChantierPour(outil, ouverts, profile, jour) {
 }
 
 const REFUS_ROLE = "🔒 Tenir le registre de l'outillage : réservé au chef des techniciens, au magasinier et à l'administrateur.";
-const sortieVide = { saisie: "", outil_id: "", user_id: "", chantier: "", retour_prevu: "" };
+const sortieVide = { saisie: "", outil_id: "", lot: [], user_id: "", chantier: "", retour_prevu: "" };
 const outilVide = { nom: "", numero: "", categorie: "", achete_le: "", prix_achat: "", lieu: "", boite: false };
 
 // ============================================================
@@ -377,22 +377,50 @@ export function Outillage({ db, save, profile }) {
     setNeuf(null);
   };
 
-  // ---- 📤 SORTIE : l'outil part sous le nom de quelqu'un
+  // ---- 📤 SORTIE : les outils partent sous le nom de quelqu'un
+  // Le refus se dit dès qu'on ajoute l'outil à la liste — pas après avoir
+  // saisi la personne, le chantier et la date pour rien.
+  const ajouterAuLot = (outil) => {
+    const refus = critiqueAjoutLot(outil, f.lot);
+    if (refus) { uAlert(refus); return; }
+    setF({ ...f, lot: [...f.lot, outil], saisie: "", outil_id: "" });
+  };
+  const retirerDuLot = (id) => setF({ ...f, lot: f.lot.filter((o) => o.id !== id) });
+
   const sortir = async () => {
     if (garde()) return;
-    const outil = f.outil_id ? tous.find((o) => o.id === f.outil_id) : outilSaisi(registre, f.saisie);
-    const refus = critiqueSortie(outil, { user_id: f.user_id, retour_prevu: f.retour_prevu });
+    // ⚠ Revérifié DANS le geste, sur l'état FRAIS de chaque outil : si l'un
+    // d'eux n'est plus sortable entre-temps, RIEN ne part et le refus dit
+    // lequel.
+    const lot = f.lot.map((o) => tous.find((x) => x.id === o.id)).filter(Boolean);
+    const refus = critiqueSortieLot(lot, { user_id: f.user_id, retour_prevu: f.retour_prevu });
     if (refus) { uAlert(refus); return; }
     const p = personnes.find((u) => u.id === f.user_id);
     if (!p) { uAlert("Cette personne est introuvable dans l'espace regardé."); return; }
-    const apres = sortirOutil(outil, {
-      id: uid(), le: jour, user_id: p.id, user: p.nom,
-      chantier: f.chantier, retour_prevu: f.retour_prevu, par_id: profile.id, par: profile.nom,
-    });
+    // ⚠ UN mouvement de sortie PAR OUTIL, sur SA fiche — seule la saisie est
+    // groupée, jamais la trace. Et UNE seule écriture pour tout le lot : les
+    // outils peuvent appartenir à des fiches différentes (le registre est
+    // celui de toute la maison).
+    let boutiques = db.boutiques || [];
+    for (const outil of lot) {
+      const bq = boutiques.find((b) => b.id === outil._fiche);
+      if (!bq) { uAlert(`« ${outil.nom} » n'est rattaché à aucune boutique connue.`); return; }
+      const apres = sortirOutil(outil, {
+        id: uid(), le: jour, user_id: p.id, user: p.nom,
+        chantier: f.chantier, retour_prevu: f.retour_prevu, par_id: profile.id, par: profile.nom,
+      });
+      const bqApres = remplacerOutil(bq, apres);
+      boutiques = boutiques.map((b) => (b.id === bqApres.id ? bqApres : b));
+    }
+    // UN seul message, qui liste les outils : on ne fait pas vibrer cinq fois
+    // le téléphone de la même personne pour un seul geste.
     const messages = p.id !== profile.id
-      ? [nouveauMessage(profile, { a_id: p.id, texte: `🧰 Vous répondez de « ${outil.nom} »${outil.numero ? ` (N° ${outil.numero})` : ""}, sorti le ${dFR(jour)}${f.chantier ? ` pour ${f.chantier}` : ""}. Retour attendu le ${dFR(f.retour_prevu)}.` })]
+      ? [nouveauMessage(profile, { a_id: p.id, texte: `🧰 Vous répondez de ${nommerLot(lot)}, ${lot.length > 1 ? "sortis" : "sorti"} le ${dFR(jour)}${f.chantier ? ` pour ${f.chantier}` : ""}. Retour attendu le ${dFR(f.retour_prevu)}.` })]
       : [];
-    ecrireOutil(outil, apres, `🧰 Sortie — ${outil.nom} (${ou(outil)}) chez ${p.nom}, retour le ${dFR(f.retour_prevu)}`, messages.length ? { messages: [...(db.messages || []), ...messages] } : {});
+    save(
+      { ...db, boutiques, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) },
+      `🧰 Sortie — ${nommerLot(lot)} chez ${p.nom}, retour le ${dFR(f.retour_prevu)}`,
+    );
     setF(sortieVide);
   };
 
@@ -1384,13 +1412,13 @@ export function Outillage({ db, save, profile }) {
         {/* ---- Sortir un outil ---- */}
         {jePeux && (
           <div className="mt-5 rounded-xl border bg-slate-50 p-3">
-            <div className="font-bold text-slate-800 mb-2">📤 Sortir un outil</div>
+            <div className="font-bold text-slate-800 mb-2">📤 Sortir un ou plusieurs outils</div>
             <div className="grid md:grid-cols-4 gap-3">
               <Field label="Outil">
                 <ChampSuggestions
                   valeur={f.saisie}
                   onChange={(v) => setF({ ...f, saisie: v, outil_id: "" })}
-                  onChoisir={(p) => setF({ ...f, saisie: p.valeur, outil_id: p.outil_id })}
+                  onChoisir={(p) => ajouterAuLot(tous.find((o) => o.id === p.outil_id))}
                   suggestions={propositionsOutils(registre)}
                   placeholder="Nom ou numéro gravé…"
                 />
@@ -1417,17 +1445,42 @@ export function Outillage({ db, save, profile }) {
                 <input type="date" className={inputCls} value={f.retour_prevu} onChange={(e) => setF({ ...f, retour_prevu: e.target.value })} />
               </Field>
             </div>
+            {/* Un nom tapé EXACTEMENT : on l'ajoute sans obliger à cliquer
+                une proposition — mais jamais par ressemblance. */}
             <div className="text-xs text-slate-500 mt-2">
               {(() => {
-                const o = f.outil_id ? tous.find((x) => x.id === f.outil_id) : outilSaisi(registre, f.saisie);
-                if (o) return <>✓ <b>{o.nom}</b>{o.numero ? ` — N° ${o.numero}` : ""} · {libelleEtat(etatOutil(o))}
-                  {estBoite(o) && <> · 🧰 boîte de {nbContenu(o)} pièce(s)</>}
-                  {manquesEnCours(o).length > 0 && <div className="text-red-700 font-bold">⚠ Elle repart INCOMPLÈTE : il manque {manquesEnCours(o).map((m) => `${m.manque} ${m.nom}`).join(", ")}.</div>}</>;
+                const o = outilSaisi(registre, f.saisie);
+                if (o) return <button onClick={() => ajouterAuLot(o)} className="text-sky-800 font-bold underline">＋ Ajouter « {o.nom} »{o.numero ? ` (N° ${o.numero})` : ""}</button>;
                 if (f.saisie.trim()) return <span className="text-amber-700">Aucun outil du registre ne porte ce nom ni ce numéro — cliquez une proposition.</span>;
                 return "Un outil est toujours sous le nom de quelqu'un : c'est cette personne qui en répond.";
               })()}
             </div>
-            <button onClick={sortir} className={`${btnDark} mt-3`}>📤 Enregistrer la sortie</button>
+            {/* ---- 📋 LA CASE « Outils assignés » (Timo, 20/09/2026 : « en bas
+                de la ligne outils, on ajoute une case outils assigné… quand on
+                choisit, l'outil s'ajoute dans cette case »). Chaque outil garde
+                SA pastille, avec son numéro gravé et une ✕ pour le retirer.
+                ⚠ « Sans outils, la case ne sera pas affichée, et la taille de
+                la case s'agrandit au fur et à mesure que les outils
+                s'ajoutent » (le jour même) : aucune hauteur imposée — la case
+                naît avec le premier outil et suit son contenu. */}
+            {f.lot.length > 0 && (
+              <div className="mt-2 rounded-lg border bg-white p-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase mb-1">Outils assignés ({f.lot.length})</div>
+                <div className="flex flex-wrap gap-2">
+                  {f.lot.map((o) => (
+                    <span key={o.id} className="inline-flex items-center gap-2 rounded-full bg-sky-50 border border-sky-200 px-3 py-1 text-xs">
+                      <span>
+                        <b>{o.nom}</b>{o.numero ? ` — N° ${o.numero}` : ""}
+                        {estBoite(o) && <> · 🧰 {nbContenu(o)} pièce(s)</>}
+                        {manquesEnCours(o).length > 0 && <div className="text-red-700 font-bold">⚠ Elle repart INCOMPLÈTE : il manque {manquesEnCours(o).map((m) => `${m.manque} ${m.nom}`).join(", ")}.</div>}
+                      </span>
+                      <button onClick={() => retirerDuLot(o.id)} className="text-slate-500 font-bold" title="Retirer de la liste">✕</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button onClick={sortir} disabled={!f.lot.length} className={`${btnDark} mt-3 disabled:opacity-50`}>📤 Enregistrer la sortie{f.lot.length > 1 ? ` (${f.lot.length})` : ""}</button>
           </div>
         )}
 

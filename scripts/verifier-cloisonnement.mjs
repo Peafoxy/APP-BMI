@@ -8236,6 +8236,65 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     Out.etatOutil(perceuse) === "sorti" && Out.detenteurOutil(perceuse).nom === "KOSSI"
     && /déjà sorti — il est chez KOSSI/.test(Out.critiqueSortie(perceuse, { user_id: "u2", retour_prevu: "2026-09-30" })));
 
+  // ---- 📤 PLUSIEURS OUTILS EN UNE SORTIE (Timo, 20/09/2026)
+  // ⚠ Seule la SAISIE est groupée, jamais la TRACE.
+  {
+    const marteau = Out.nouvelOutil({ id: "o9", nom: "Marteau", numero: "BMI-009", le: "2026-09-10", par: "TIMO" });
+    const scie = Out.nouvelOutil({ id: "o10", nom: "Scie", numero: "BMI-010", le: "2026-09-10", par: "TIMO" });
+    test("★ un LOT d'outils se refuse pour les mêmes raisons qu'un outil seul, et la règle d'un seul outil N'EST PAS une copie (critiqueSortie passe par critiqueSortieLot)",
+      /un outil est toujours sous le nom de quelqu'un/.test(Out.critiqueSortieLot([marteau, scie], { retour_prevu: "2026-09-25" }))
+      && /quand l'outil doit revenir/.test(Out.critiqueSortieLot([marteau, scie], { user_id: "u1" }))
+      && Out.critiqueSortieLot([marteau, scie], { user_id: "u1", retour_prevu: "2026-09-25" }) === ""
+      && Out.critiqueSortieLot([], { user_id: "u1", retour_prevu: "2026-09-25" }) === "Choisissez d'abord un outil."
+      && /critiqueSortie = \(outil, options\) => critiqueSortieLot/.test(outC));
+
+    // ⚠ L'outil fautif est mis en DEUXIÈME position, et aussi en première :
+    // un contrôle qui ne le regarde qu'en tête laisserait passer une règle
+    // qui ne vérifie que le premier outil du lot (éprouvé : elle tombe).
+    {
+      const sorti = Out.sortirOutil(marteau, { id: "m9", le: "2026-09-15", user_id: "u1", user: "KOSSI", retour_prevu: "2026-09-16", par: "CHEF" });
+      const opts = { user_id: "u2", retour_prevu: "2026-09-25" };
+      test("★ UN SEUL outil du lot qui ne peut plus partir REFUSE tout le lot, en le NOMMANT, à QUELQUE place qu'il soit — rien ne part à moitié",
+        /« Marteau » est déjà sorti — il est chez KOSSI/.test(Out.critiqueSortieLot([sorti, scie], opts))
+        && /« Marteau » est déjà sorti — il est chez KOSSI/.test(Out.critiqueSortieLot([scie, sorti], opts))
+        && Out.critiqueSortieLot([scie, marteau], opts) === "");
+    }
+
+    test("★ le refus se dit AU MOMENT où on ajoute l'outil à la case, et un outil déjà dans la case est refusé en le disant",
+      Out.critiqueAjoutLot(marteau, []) === ""
+      && Out.critiqueAjoutLot(marteau, [scie]) === ""
+      && /« Marteau » est déjà dans la liste/.test(Out.critiqueAjoutLot(marteau, [scie, marteau]))
+      && /déclaré perdu/.test(Out.critiqueAjoutLot(Out.declarerPerdu(marteau, { id: "mp", le: "2026-09-17", motif: "perdu", valeur: 1000, par: "CHEF" }), []))
+      && /Choisissez d'abord un outil/.test(Out.critiqueAjoutLot(null, [])));
+
+    test("★ le message à la personne et la ligne de journal nomment les outils au MÊME endroit (nommerLot), avec le numéro gravé",
+      Out.nommerLot([marteau, scie]) === "« Marteau » (N° BMI-009), « Scie » (N° BMI-010)"
+      && Out.nommerLot([{ nom: "Pince" }]) === "« Pince »"
+      && Out.nommerLot([]) === ""
+      && (ecrC.match(/nommerLot\(lot\)/g) || []).length === 2);
+
+    test("★ la TRACE n'est jamais groupée : UN mouvement de sortie par outil, sur SA fiche — l'écran boucle sur le lot et remplace chaque outil dans la sienne",
+      /for \(const outil of lot\)/.test(ecrC)
+      && /boutiques\.find\(\(b\) => b\.id === outil\._fiche\)/.test(ecrC)
+      && /remplacerOutil\(bq, apres\)/.test(ecrC)
+      && (ecrC.match(/sortirOutil\(outil, \{/g) || []).length === 1);
+
+    test("★ l'état de chaque outil du lot est RELU au moment d'enregistrer (revérifié DANS le geste), et le lot part en UNE seule écriture",
+      /f\.lot\.map\(\(o\) => tous\.find\(\(x\) => x\.id === o\.id\)\)/.test(ecrC)
+      && (ecrC.match(/critiqueSortieLot\(lot, \{/g) || []).length === 1
+      && /save\(\s*\{ \.\.\.db, boutiques,/.test(ecrC));
+
+    test("★ UN seul message pour tout le lot : on ne fait pas vibrer cinq fois le téléphone de la même personne pour un seul geste",
+      (ecrC.match(/nouveauMessage\(profile, \{ a_id: p\.id, texte: `🧰 Vous répondez de \$\{nommerLot\(lot\)\}/g) || []).length === 1);
+
+    test("★ la case « Outils assignés » ne s'affiche PAS tant qu'elle est vide, n'impose AUCUNE hauteur (elle grandit avec les outils), et chaque outil porte sa ✕",
+      /\{f\.lot\.length > 0 && \(/.test(ecrC)
+      && /Outils assignés \(\{f\.lot\.length\}\)/.test(ecrC)
+      && !/min-h-\[\d+px\]/.test(ecrC)
+      && /retirerDuLot\(o\.id\)/.test(ecrC)
+      && /disabled=\{!f\.lot\.length\}/.test(ecrC));
+  }
+
   test("★ le RETARD se mesure sur la date de retour promise, et les jours dehors se comptent depuis la sortie",
     Out.enRetard(perceuse, "2026-09-17") && !Out.enRetard(perceuse, "2026-09-16")
     && Out.joursDehors(perceuse, "2026-09-17") === 2);

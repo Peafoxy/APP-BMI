@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1759 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1767 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1163,6 +1163,40 @@ lit mal est pire qu'un banc absent).
     il travaille, il ne rend pas l'outil et ne repousse pas sa date de retour.
     Il REPREND `securite-24` (donc `-23`, `-22`) en entier : **c'est le seul à
     coller**. **Collé par Timo le 18/09/2026 (`true | true | true | true | true`).**
+- **📤 PLUSIEURS OUTILS EN UNE SEULE SORTIE** (Timo, 20/09/2026, après
+  « d'après le code, plusieurs outils peuvent être assignés à une personne à
+  une seule sortie ? » — non, et il en voulait une : « on choisit plusieurs
+  outils, ensuite qui le prend, quel chantier et retour prévu… en bas de la
+  ligne outils, on ajoute une case outils assigné ; quand on choisit, l'outil
+  s'ajoute dans cette case »).
+  - ⚠⚠ **SEULE LA SAISIE EST GROUPÉE, JAMAIS LA TRACE** : le lot écrit **UN
+    mouvement de sortie par outil, sur SA fiche**. C'est ce qui permet à la
+    perceuse de rentrer pendant que l'échelle reste dehors, change de chantier
+    toute seule ou part en réparation. Un lot d'un seul outil se comporte
+    exactement comme avant. Un mouvement groupé aurait fait perdre, au premier
+    retour, la réponse à « lequel est revenu ? ».
+  - **La case « Outils assignés »** sous la ligne Outil : une pastille par
+    outil (nom, numéro gravé, ✕ pour le retirer), l'avertissement rouge d'une
+    boîte incomplète sur SA pastille. ⚠ **Elle ne s'affiche pas tant qu'elle
+    est vide** et **n'impose aucune hauteur** — elle naît avec le premier outil
+    et grandit avec eux (sa demande, le jour même). Le bouton reste éteint tant
+    qu'elle est vide et compte les outils.
+  - **Le refus se dit AU MOMENT où on ajoute** (`critiqueAjoutLot`) : déjà
+    sorti, perdu, réformé, en réparation, ou déjà dans la case — jamais après
+    avoir saisi la personne, le chantier et la date pour rien.
+  - ⚠ **Revérifié DANS le geste sur l'état FRAIS de chaque outil**
+    (`critiqueSortieLot`) : si un seul du lot n'est plus sortable, **rien ne
+    part** et le refus le NOMME. ⚠ Le banc met l'outil fautif en **deuxième**
+    position : un contrôle qui ne le regarde qu'en tête laisse passer une règle
+    qui ne vérifie que le premier (éprouvé — elle tombe).
+  - ⚠ **UNE seule écriture pour tout le lot**, même si les outils appartiennent
+    à des fiches différentes (le registre est celui de toute la maison) ; et
+    **UN seul message** à la personne, qui liste les outils — on ne fait pas
+    vibrer cinq fois le même téléphone pour un geste. Le message et la ligne de
+    journal les nomment au MÊME endroit (`nommerLot`).
+  - ⚠ **La règle d'un outil seul N'EST PAS une copie** : `critiqueSortie`
+    passe par `critiqueSortieLot`. Deux listes de refus finiraient par diverger.
+  - **Rien à coller** : `securite-22` couvre déjà cette écriture.
 - **LA RÈGLE QUI EMPÊCHE LA PERTE : un outil est TOUJOURS sous le nom de
   QUELQU'UN.** Pas « sur le chantier de MR ERIC » — un chantier ne perd pas
   une perceuse, une personne la perd ; le chantier est noté à côté. L'état
