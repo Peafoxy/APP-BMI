@@ -353,8 +353,37 @@ test("★★ un paquet illisible répond 200 et DIT ce qu'il n'a pas su lire (si
   /status\(200\)\.json\(\{ ignore: true/.test(entrant) && /pourquoi: "numéro illisible"/.test(entrant));
 test("★ `updated_at` est posé sur la ligne : sans lui le message n'arriverait jamais sur les téléphones",
   /updated_at: ligne\.ts/.test(entrant));
-test("★★ le propriétaire vient du DEVIS envoyé du numéro BMI — la trace de l'étape 1, pas une invention",
-  /envoi_whatsapp\.par_id/.test(entrant) && /proprietaire = \{ id: dernier\.envoi_whatsapp\.par_id/.test(entrant));
+// ⚠⚠ LE DÉFAUT DU 20/09/2026, ET POURQUOI LE BANC NE L'AVAIT PAS VU. Le
+// contrôle d'ici vérifiait que le serveur LISAIT `envoi_whatsapp.par_id` —
+// il le lisait bien. Personne ne l'ÉCRIVAIT. Un contrôle qui ne regarde
+// qu'un bout d'un couple rassure sans protéger : on exerce maintenant la
+// règle POUR DE VRAI, sur les deux bouts.
+test("★★ la trace d'un envoi porte l'identifiant de l'envoyeur, pas seulement son nom",
+  M.traceEnvoi({ modele: "relance_devis", par: "KOSSI", par_id: "u7", quand: "2026-09-20", heure: "18:08", id: "wamid" }).par_id === "u7");
+test("★★ les DEUX écrans qui envoient du numéro BMI le passent (sinon la trace ne sert à rien)",
+  /traceEnvoi\(\{ modele: envoi\.modele, par: profile\.nom, par_id: profile\.id,/.test(lire("src/screens/TousLesDevis.jsx"))
+  && /traceEnvoi\(\{ modele: envoi\.modele, par: profile\.nom, par_id: profile\.id,/.test(lire("src/screens/dimensionnement/Partages.jsx")));
+const EMPLOYES = [
+  { id: "u7", nom: "KOSSI", role: "commercial" },
+  { id: "u8", nom: "AMA", role: "vendeur" },
+  { id: "u9", nom: "AMA", role: "gerant" },
+];
+const devisDe = (traces) => ({ devis: traces.map((t, i) => ({ id: `d${i}`, envoi_whatsapp: t })) });
+test("★★ le propriétaire vient du DERNIER devis parti du numéro BMI — la trace de l'étape 1, pas une invention",
+  C.proprietaireDepuisDevis(devisDe([
+    { le: "2026-09-11", par: "AMA", par_id: "u8" },
+    { le: "2026-09-20", par: "KOSSI", par_id: "u7" },
+  ]), EMPLOYES).id === "u7");
+test("★★ un devis parti AVANT le correctif (le nom seul) retrouve quand même son envoyeur",
+  C.proprietaireDepuisDevis(devisDe([{ le: "2026-09-20", par: "KOSSI" }]), EMPLOYES).id === "u7");
+test("★★ mais deux employés du même nom ne se devinent PAS : au support, jamais au mauvais",
+  C.proprietaireDepuisDevis(devisDe([{ le: "2026-09-20", par: "AMA" }]), EMPLOYES).id === "");
+test("★ un client sans aucun devis parti du numéro BMI va au support",
+  C.proprietaireDepuisDevis({ devis: [{ id: "d1" }] }, EMPLOYES).id === ""
+  && C.proprietaireDepuisDevis(null, EMPLOYES).id === "");
+test("★★ le serveur ne recopie pas la règle : il l'IMPORTE (deux copies finissent par diverger)",
+  /proprietaireDepuisDevis/.test(entrant) && /proprietaire = proprietaireDepuisDevis\(client, employes\)/.test(entrant)
+  && !/envoi_whatsapp\.par_id/.test(entrant));
 test("★ l'arrivée d'un message PRÉVIENT son propriétaire (le save de l'application ne le voit jamais passer)",
   /envoyerAuxPersonnes\(admin, \[\{/.test(entrant) && /ecran: "messages"/.test(entrant));
 

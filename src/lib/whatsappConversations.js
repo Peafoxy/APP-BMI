@@ -26,7 +26,7 @@
 // `constants.js` : il est lu par l'application ET par la fonction serveur
 // api/whatsapp-entrant.js, donc ses imports portent leur « .js ».
 // ============================================================
-import { numeroComparable } from "./identiteClient.js";
+import { numeroComparable, cleIdentifiant } from "./identiteClient.js";
 import { SALARIES } from "./constants.js";
 
 export const CANAL_WA = "whatsapp";
@@ -94,6 +94,48 @@ export function proprietaireDe(fil) {
   for (let i = (fil || []).length - 1; i >= 0; i--) {
     const p = fil[i]?.proprietaire_id;
     if (p) return { id: p, nom: fil[i].proprietaire_nom || "" };
+  }
+  return { id: "", nom: "" };
+}
+
+// ---------------------------------------------------------------
+// ... ET QUAND LE FIL NE DIT ENCORE RIEN : LE DERNIER DEVIS PARTI
+// ---------------------------------------------------------------
+// C'est ce qui répond à sa demande mot pour mot : « les réponses vont
+// directement dans l'espace du personnel qui a écrit ». Le personnel qui a
+// écrit, c'est celui dont la trace `envoi_whatsapp` est posée sur le devis
+// (étape 1, 19/09/2026).
+//
+// ⚠⚠ LE DÉFAUT DU 20/09/2026, TROUVÉ SUR UNE CAPTURE DE TIMO : la trace
+// portait le NOM de l'envoyeur (`par`) et PAS son identifiant (`par_id`),
+// pendant que la fonction serveur, elle, ne regardait QUE `par_id`. Le
+// filtre vidait donc la liste à tous les coups : AUCUNE conversation ne
+// trouvait jamais son propriétaire, toutes tombaient au support — ce qui
+// vide sa demande de sa substance. `traceEnvoi` écrit maintenant les deux.
+// ⚠ Et le contrôle du banc ne protégeait pas : il vérifiait que le serveur
+// LISAIT `par_id`, jamais que quelqu'un l'ÉCRIVAIT. Un contrôle qui ne
+// regarde qu'un bout d'un couple rassure sans protéger.
+//
+// ⚠ LE REPLI PAR LE NOM est là pour les devis partis AVANT le correctif
+// (celui d'ESSO, 18:08 le 20/09/2026) : sans lui, ces conversations-là
+// resteraient au support pour toujours. Mais il ne devine JAMAIS entre
+// deux homonymes (l'histoire des deux ESSO, le matin même) : attribuer la
+// conversation au mauvais employé serait pire que le support, où tout le
+// personnel la voit.
+export function proprietaireDepuisDevis(client, employes = []) {
+  const devis = (client?.devis || [])
+    .filter((d) => d && d.envoi_whatsapp && d.envoi_whatsapp.le)
+    .slice()
+    .sort((a, b) => String(a.envoi_whatsapp.le || "").localeCompare(String(b.envoi_whatsapp.le || "")));
+  for (let i = devis.length - 1; i >= 0; i--) {
+    const t = devis[i].envoi_whatsapp;
+    if (t.par_id) return { id: t.par_id, nom: t.par || "" };
+    const nom = cleIdentifiant(t.par);
+    if (!nom) continue;
+    const memes = (employes || []).filter(
+      (u) => u && u.role !== "client" && cleIdentifiant(u.nom) === nom
+    );
+    if (memes.length === 1) return { id: memes[0].id, nom: memes[0].nom || t.par || "" };
   }
   return { id: "", nom: "" };
 }

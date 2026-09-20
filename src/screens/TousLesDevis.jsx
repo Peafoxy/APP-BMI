@@ -173,7 +173,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     // personne : c'est la règle qui joue, et elle est connue.
     if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
     if (!r.parti) return;
-    const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, quand: today(), heure: heureCourte(), id: r.id }) : null;
+    const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) : null;
     save({
       ...db,
       users: db.users.map((u) => (u.id === d.client?.id

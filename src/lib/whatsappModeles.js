@@ -198,12 +198,19 @@ export function clientDejaContacte(compte, devisId) {
 // ⚠ Elle dit « remis à WhatsApp », PAS « lu ». Savoir qu'un client a lu
 // demande que Meta nous rappelle (une adresse de retour qui n'existe pas
 // encore) : l'écrire aujourd'hui serait rassurer à tort.
-export function traceEnvoi({ modele, par, quand, heure, id }) {
+// ⚠⚠ ELLE PORTE L'IDENTIFIANT DE L'ENVOYEUR, PAS SEULEMENT SON NOM
+// (défaut du 20/09/2026). L'étape 2 s'en sert pour ranger la réponse du
+// client « dans l'espace du personnel qui a écrit » : avec le nom seul,
+// aucune conversation ne trouvait son propriétaire. Un nom est un
+// affichage, un identifiant est une personne — et deux employés peuvent
+// porter le même nom (l'histoire des deux ESSO, le matin même).
+export function traceEnvoi({ modele, par, par_id, quand, heure, id }) {
   return {
     modele: String(modele || ""),
     le: String(quand || ""),
     heure: String(heure || ""),
     par: String(par || ""),
+    par_id: String(par_id || ""),
     id: String(id || ""),
     canal: "whatsapp_bmi",
   };

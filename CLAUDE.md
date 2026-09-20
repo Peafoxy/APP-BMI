@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 125 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 131 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
@@ -2219,6 +2219,32 @@ lit mal est pire qu'un banc absent).
   YCloud.
 - **LE COÛT** : ~4 F la réponse libre à partir du 1er octobre 2026, **1 000
   offertes par mois et par numéro**. Au volume de BMI, largement couvert.
+- ⚠⚠ **LE DÉFAUT DU PREMIER VRAI MESSAGE — LA CONVERSATION TOMBAIT TOUJOURS AU
+  SUPPORT** (capture Timo, 20/09/2026, une heure après la mise en service : la
+  réponse d'ESSO s'affichait « 🛟 Support — personne ne l'a engagée » alors
+  qu'une relance lui était partie du numéro BMI le jour même à 18:08).
+  `traceEnvoi` écrivait le NOM de l'envoyeur (`par`) et **PAS son identifiant**
+  (`par_id`), pendant que la fonction serveur ne regardait QUE `par_id` : le
+  filtre vidait la liste à tous les coups. **Aucune** conversation ne pouvait
+  trouver son propriétaire — c'est-à-dire exactement ce qu'il avait demandé,
+  mot pour mot (« les réponses vont directement dans l'espace du personnel qui
+  a écrit »), qui ne marchait pour personne.
+  - **Un nom est un affichage, un identifiant est une personne.** La trace
+    porte les deux depuis, et les DEUX écrans qui envoient du numéro BMI
+    (📋 Tous les devis, le volet du devis) passent `par_id: profile.id`.
+  - **Le repli par le NOM reste**, pour les devis partis AVANT le correctif —
+    sinon ces conversations-là resteraient au support pour toujours. ⚠ **Mais
+    il ne devine JAMAIS entre deux homonymes** (l'histoire des deux ESSO, le
+    matin même) : au support, jamais au mauvais employé.
+  - **La règle vit dans `lib/whatsappConversations.js`** (`proprietaireDepuisDevis`),
+    que la fonction serveur IMPORTE au lieu de refaire le tri elle-même.
+  - ⚠⚠ **ET LE CONTRÔLE DU BANC NE PROTÉGEAIT PAS** : il vérifiait que le
+    serveur LISAIT `par_id` — il le lisait bien. **Personne ne l'ÉCRIVAIT.**
+    Même famille que le 19/09 (un contrôle qui EXIGEAIT la forme fautive) :
+    **un contrôle qui ne regarde qu'un bout d'un couple rassure sans
+    protéger.** Le banc exerce maintenant la règle pour de vrai, des deux
+    côtés ; éprouvé en retirant `par_id`, puis en faisant deviner entre deux
+    homonymes : les deux tombent.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

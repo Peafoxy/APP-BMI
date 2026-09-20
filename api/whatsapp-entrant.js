@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, proprietaireDepuisDevis } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
@@ -97,12 +97,12 @@ export default async function handler(req, res) {
       .map((l) => ({ ...(l.data || {}), id: l.id }))
       .find((u) => u.role === "client" && numeroComparable(u.tel) === cle);
 
+    // ⚠ LA RÈGLE VIT DANS lib/whatsappConversations.js, elle n'est pas
+    // recopiée ici : le banc l'exerce pour de vrai, et une règle écrite à
+    // deux endroits finit par dire deux choses.
     if (!proprietaire.id && client) {
-      const devis = [...(client.devis || [])]
-        .filter((d) => d?.envoi_whatsapp?.par_id)
-        .sort((a, b) => String(a.envoi_whatsapp.le || "").localeCompare(String(b.envoi_whatsapp.le || "")));
-      const dernier = devis[devis.length - 1];
-      if (dernier) proprietaire = { id: dernier.envoi_whatsapp.par_id, nom: dernier.envoi_whatsapp.par || "" };
+      const employes = (comptes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
+      proprietaire = proprietaireDepuisDevis(client, employes);
     }
 
     const ligne = {

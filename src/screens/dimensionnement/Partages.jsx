@@ -638,7 +638,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
       ...dbFinal,
       users: dbFinal.users.map((u) => (u.id === compte.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === idDevis
-            ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, quand: today(), heure: heureCourte(), id: r.id }) }
+            ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) }
             : x)) }
         : u)),
     });
