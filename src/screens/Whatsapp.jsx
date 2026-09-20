@@ -20,7 +20,7 @@
 // (qui voit quoi, la fenêtre, le refus) et l'envoi dans src/whatsapp.js —
 // cet écran ne fait que les montrer. Rien n'a changé d'elles en déménageant.
 // ============================================================
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
 import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -29,9 +29,9 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
 import { texteContact } from "../lib/whatsappModeles";
-import { envoyerModele, repondreWhatsApp } from "../whatsapp";
+import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
 // 💬 Messages — un rôle ne se nomme pas de deux façons dans l'application.
@@ -53,7 +53,7 @@ export const filWa = (messages, cle) =>
 // les a déjà filtrées). Un commercial ne doit pas voir une pastille rouge
 // pour une conversation qu'il ne peut même pas ouvrir.
 export function compterNonLusWa(db, profile) {
-  if (!profile || profile.role === "client") return 0;
+  if (!aAccesWhatsapp(profile)) return 0;
   const messages = db.messages || [];
   return conversationsWa(messages, profile).reduce(
     (n, c) => n + filWa(messages, c.cle).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id)).length,
@@ -77,12 +77,12 @@ export function Whatsapp({ db, save, profile }) {
   // ⚠ LE MUR : les personnes passent par `utilisateursDeLEspace` — la table
   // des comptes n'est PAS cloisonnée par le serveur, ce filtre est la SEULE
   // barrière. Jamais `db.users` en entier.
-  const comptesEspace = profile.role === "client" ? [] : utilisateursDeLEspace(db, profile);
+  const comptesEspace = aAccesWhatsapp(profile) ? utilisateursDeLEspace(db, profile) : [];
   const aQui = comptesEspace
     .filter((u) => u.role === "client" && u.actif !== false && String(u.tel || "").trim())
     .map((u) => ({ valeur: u.nom_base || u.nom, tel: u.tel, mots: motsDuNumero(u.tel), detail: u.tel }));
 
-  const tousConvs = profile.role === "client" ? [] : conversationsWa(messages, profile);
+  const tousConvs = aAccesWhatsapp(profile) ? conversationsWa(messages, profile) : [];
   // ⚠ LA RÈGLE COMMUNE `correspond` (lib/suggestions.js), comme partout
   // ailleurs — jamais un filtre maison. Elle cherche le NOM et le NUMÉRO :
   // « 90112233 », « +228 90 11 22 33 » et « 228 » trouvent la même
@@ -353,7 +353,8 @@ export function Whatsapp({ db, save, profile }) {
               {fil.map((m) => (
                 <div key={m.id} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
                   {!m.wa_systeme && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
-                  <div>{m.texte}</div>
+                  {m.wa_media && <MediaWa message={m} />}
+                  {m.texte ? <div>{m.texte}</div> : null}
                   <div className={`text-[10px] mt-1 ${m.de_id === profile.id ? "text-sky-200" : "text-slate-400"}`}>{dFR(m.date)} {String(m.ts || "").slice(11, 16)}</div>
                 </div>
               ))}
@@ -408,4 +409,59 @@ function LigneWa({ item, cleOuverte, ouvrir }) {
     </button>
     </td></tr>
   );
+}
+
+// ---- 📷 CE QUE LE CLIENT A ENVOYÉ QUI N'EST PAS DU TEXTE (20/09/2026) ----
+// ⚠ LE FICHIER NE VIENT PAS DE WHATSAPP DIRECTEMENT : son lien exige la clé
+// YCloud, qui n'existe que côté serveur. On passe donc par notre fonction
+// `api/whatsapp-media.js`, qui revérifie que CETTE personne a le droit de
+// voir CETTE conversation avant d'aller chercher le fichier. Le navigateur
+// ne voit jamais la clé, et rien n'est stocké chez nous.
+// ⚠ UNE PHOTO S'AFFICHE TOUTE SEULE (c'est ce qui a été demandé) ; une
+// vidéo, un son ou un document attendent un clic — on ne fait pas payer
+// dix mégaoctets de forfait à quelqu'un qui ouvre une conversation.
+const MEDIA_AUTO = ["image", "sticker"];
+
+export function MediaWa({ message }) {
+  const media = message.wa_media || {};
+  const [url, setUrl] = useState("");
+  const [charge, setCharge] = useState(false);
+  const [motif, setMotif] = useState("");
+
+  const ouvrir = async () => {
+    if (charge) return;
+    setCharge(true);
+    const r = await chargerMediaWa(message.id);
+    if (r.url) setUrl(r.url); else setMotif(r.motif || "Fichier indisponible.");
+  };
+
+  useEffect(() => {
+    if (MEDIA_AUTO.includes(media.type)) ouvrir();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id]);
+
+  // ⚠ On rend la mémoire du navigateur quand la conversation se ferme :
+  // sans ça, chaque photo ouverte resterait accrochée jusqu'au F5.
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+
+  const nom = libelleMedia(media);
+
+  if (motif) {
+    // ⚠ ON DIT POURQUOI. WhatsApp efface ses fichiers au bout de 30 jours :
+    // un cadre vide laisserait croire à une panne de l'application.
+    return <div className="text-xs italic opacity-80">{nom} — {motif}</div>;
+  }
+  if (!url) {
+    return (
+      <button onClick={ouvrir} disabled={charge} className="text-xs font-bold underline disabled:opacity-60">
+        {charge ? `${nom} — ouverture…` : `${nom} — ouvrir`}
+      </button>
+    );
+  }
+  if (media.type === "image" || media.type === "sticker") {
+    return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={nom} className="rounded-lg max-w-full" style={{ maxHeight: 260 }} /></a>;
+  }
+  if (media.type === "video") return <video src={url} controls className="rounded-lg max-w-full" style={{ maxHeight: 260 }} />;
+  if (media.type === "audio" || media.type === "voice") return <audio src={url} controls className="w-full" />;
+  return <a href={url} download={media.nom || "document"} className="text-xs font-bold underline">{nom} — enregistrer</a>;
 }

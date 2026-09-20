@@ -63,8 +63,9 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 151 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 180 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
+npm run tester-conversations     # 22  : qui REÇOIT quelle conversation WhatsApp (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
@@ -2161,15 +2162,22 @@ lit mal est pire qu'un banc absent).
   qui écrit le PREMIER va au **support**, « donc visible par tout le personnel
   BMI » ; **(3) « a »** — **l'administrateur réattribue** (« 🔁 Confier »), et
   ça laisse une trace.
-  ⚠ **Le comptable est un salarié** : il voit donc toutes les conversations,
-  par application stricte de sa règle. Dit à Timo le jour même ; un mot de lui
-  suffit à l'en retirer.
-- ⚠⚠ **C'EST UN FILTRE D'AFFICHAGE, PAS UNE BARRIÈRE DU SERVEUR.** La table
-  `messages` n'est PAS cloisonnée par personne (comme les dépenses d'un
-  technicien, comme la table des comptes) : la conversation ne s'affiche pas
-  chez qui n'y a pas droit, **mais sa copie locale la contient**. Dit à Timo,
-  jamais présenté autrement. Fermer la porte pour de bon demanderait une
-  politique Supabase de plus — **à sa demande**.
+  ⚠ **Le comptable EST SORTI le 20/09/2026** (décision « 2a »). La règle du
+  matin disait « tous les salariés » — il en est un, donc il voyait tout. Ça
+  lui a été dit le jour même (« un mot et je l'en retire ») ; il l'a dit le
+  soir. Il garde 💬 Messages, il n'a plus 📲 WhatsApp du tout.
+  ⚠ Et la liste ne se DÉDUIT plus de `SALARIES` : elle est écrite en toutes
+  lettres (`ROLES_TOUTES_CONVERSATIONS`). Faire dépendre « qui lit les
+  clients » de « qui est sur le bulletin de salaire », c'était lier deux
+  choses qui n'ont aucune raison de rester d'accord.
+- ⚠⚠ **C'ÉTAIT un filtre d'AFFICHAGE — LA PORTE SE FERME AVEC `securite-27`**
+  (écrit le 20/09/2026, sa décision « 1a » ; ⚠ **tant qu'il ne l'a pas collé,
+  rien n'a changé côté base** — voir plus bas). Avant ce
+  script, la conversation ne s'AFFICHAIT pas chez qui n'y avait pas droit
+  **mais sa copie locale la contenait**, la table `messages` n'étant pas
+  cloisonnée par personne (comme les dépenses d'un technicien, comme la
+  table des comptes). Ça lui a été dit le jour même, jamais présenté
+  autrement — et c'est ce qui a permis de le lui proposer.
 - **UNE CONVERSATION EST RANGÉE SOUS LE NUMÉRO**, jamais sous un compte
   (`cleConversation` = les 8 derniers chiffres, la règle de `numeroComparable`) :
   un prospect qui répond n'a pas de compte BMI, et sa conversation doit exister
@@ -2387,6 +2395,95 @@ lit mal est pire qu'un banc absent).
     exact. ⚠ Le nom ET la catégorie se figent à la création. Tant que Meta ne
     l'a pas approuvé, l'envoi se replie sur l'ouverture WhatsApp **et le
     refus se dit en français** (« pas encore approuvé »).
+
+### 📲 WHATSAPP — LES TROIS AVERTISSEMENTS LEVÉS (20/09/2026, « 1a · 2a · 3a »)
+- Timo, capture d'écran de mon propre message du matin : **« on revient
+  ici… c'était sauté »**. Les trois ⚠ que je lui avais écrits en livrant
+  l'étape 2 étaient restés sans réponse. Il a tranché les trois d'un coup.
+  **Une réserve qu'on écrit et qu'on n'y revient jamais ne vaut rien** : la
+  poser, c'est s'engager à la reposer.
+
+#### « 1a » — LA PORTE SE FERME POUR DE BON (`securite-27`, à coller)
+- Le filtre de 📲 WhatsApp était un filtre d'**AFFICHAGE** : un commercial ne
+  VOYAIT que ses conversations, mais **sa copie locale les contenait toutes**.
+  La table `messages` n'est pas cloisonnée par personne côté serveur.
+  **`supabase/securite-27-conversations-whatsapp.sql`** ajoute une règle
+  `restrictive` de LECTURE : ce qui ne le regarde pas ne DESCEND plus.
+- ⚠⚠ **C'EST LA TABLE DE TOUS LES MESSAGES**, 💬 Messages compris. La règle
+  commence par écarter tout ce qui n'est pas du canal `whatsapp` — une ligne
+  interne n'est même pas examinée. Une règle mal écrite ici et **plus
+  personne ne reçoit rien** : d'où un banc sur base jetable,
+  **`npm run tester-conversations`** (22 contrôles), qui vérifie D'ABORD que
+  la messagerie interne n'a pas bougé d'un pouce, et qui a été éprouvé en
+  remettant trois fautes (le comptable remis, le canal oublié, « sa » propre
+  conversation oubliée) : les trois tombent — et la troisième fait AUSSI
+  tomber l'écriture, ce qui coincerait tout le lot.
+- ⚠ **SECURITY DEFINER, et il le faut** : savoir à qui est une conversation
+  demande de relire la table des messages — depuis une règle POSÉE sur cette
+  table. Sans ça, PostgreSQL tournerait en rond. La fonction est fermée au
+  visiteur anonyme (Supabase accorde les droits par défaut à `anon` sur toute
+  nouvelle FONCTION, pas seulement sur toute nouvelle table).
+- ⚠ **LE COUPLE** : `ROLES_TOUTES_CONVERSATIONS` / `aAccesWhatsapp`
+  (lib/whatsappConversations.js) et les deux listes de `securite-27` doivent
+  dire la MÊME chose. L'application filtre ce qui s'AFFICHE, la base ce qui
+  DESCEND ; si les deux divergent, un employé lit un écran vide sans
+  comprendre — ou pire, l'inverse. Le banc compare les deux côtés.
+- ⚠ **Ce qui est DÉJÀ sur les téléphones part tout seul** : à la première
+  reconnexion, `reconcilierMiroir` (src/sync.js) supprime toute ligne locale
+  que le serveur ne montre plus. Rien à lancer.
+- **`securite-27` est le SEUL à coller.** Il ne reprend aucun script
+  antérieur et n'en touche aucun. ⚠ **Écrire ici qu'il est collé tant qu'il
+  ne l'est pas serait exactement le genre de fausse assurance qu'on ne se
+  permet pas** : la ligne se met à jour le jour où il renvoie le `true`.
+
+#### « 2a » — LE COMPTABLE SORT DE 📲 WHATSAPP
+- Il garde 💬 Messages ; l'onglet 📲 WhatsApp lui est retiré, et la base ne
+  lui envoie plus aucune conversation. Voir le § « qui voit quoi » plus haut.
+
+#### « 3a » — UNE PHOTO, UNE NOTE VOCALE, UN DOCUMENT S'OUVRENT DANS LE FIL
+- ⚠⚠ **AVANT, C'ÉTAIT PERDU EN SILENCE** : le webhook refusait tout message
+  « sans texte ». Le client envoyait la photo de son compteur, **personne ne
+  voyait rien et personne ne savait qu'elle avait existé**. Un fil qui perd
+  des messages est pire qu'un fil vide.
+- **On ne garde PAS le fichier** : on garde le LIEN que WhatsApp donne
+  (`wa_media` sur la ligne du message, règle pure `lireMedia`), et
+  **`api/whatsapp-media.js`** va le chercher avec la clé YCloud quand
+  quelqu'un l'ouvre. Rien de secret ne descend dans le navigateur, rien n'est
+  stocké chez nous. ⚠ Le jeton de session voyage dans le CORPS de la requête,
+  jamais dans l'adresse (les journaux du serveur gardent les adresses) — donc
+  pas de `<img src>` direct : le fichier est chargé puis affiché.
+- ⚠⚠ **LE MUR Y EST REVÉRIFIÉ DANS LE GESTE** : `peutVoirConversation` est
+  IMPORTÉE par la fonction serveur, jamais recopiée. Sans ça, un commercial
+  aurait ouvert la photo d'une conversation qu'il n'a pas le droit de lire —
+  la porte fermée d'un côté, rouverte de l'autre.
+- ⚠ **CONSÉQUENCE À DIRE, PAS À CACHER : WhatsApp efface ses fichiers au bout
+  de 30 JOURS.** Passé ce délai la photo n'existe plus nulle part, et l'écran
+  le DIT au lieu d'afficher un cadre vide. Les garder demanderait un espace
+  de stockage — **à sa demande, pas de moi-même**.
+- **Une photo s'affiche toute seule ; une vidéo, un son, un document
+  attendent un clic** — on ne fait pas payer dix mégaoctets de forfait à
+  quelqu'un qui ouvre une conversation.
+- ⚠ **Un type qu'on ne sait pas lire (une position, une fiche contact) n'est
+  plus jeté** : la ligne s'écrit avec le nom du type. On ne comprend pas, on
+  ne perd pas.
+- **Rien à coller pour ce point** : `wa_media` est un champ de plus sur une
+  ligne de message.
+
+#### CE QUE LE BANC A APPRIS CE JOUR-LÀ
+- ⚠⚠ **L'ÉCRAN 📲 WhatsApp EST MAINTENANT MONTÉ POUR DE BON**
+  (`scripts/_rendu-whatsapp.jsx`), sur une base garnie ET sur une **base
+  NUE** — la leçon du 19/09 (`boutiquesVisibles` à deux arguments : le client
+  tapait son mot de passe et tombait sur du blanc). `npm run build` et
+  `verifier-imports` ne voient RIEN d'une table présumée. Éprouvé en faisant
+  lire `db.users` en entier à l'écran : deux contrôles tombent.
+  ⚠ **Le rendu est exporté en FONCTIONS, pas en valeurs** : un rendu qui lève
+  doit donner un ✗ lisible, pas arrêter le banc sur une pile d'erreurs — un
+  banc illisible est un banc qu'on cesse de lire.
+- ⚠ **DEUX contrôles ont crié à tort sur des COMMENTAIRES** (la phrase
+  française qui EXPLIQUE la règle contient les mots de la faute : « SALARIES »,
+  « whatsapp-media »). On retire les commentaires avant de chercher. **Même
+  famille que le 20/09 au matin, troisième fois** : un contrôle qui lit du
+  français au lieu du code se trompe.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

@@ -22,24 +22,29 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, proprietaireDepuisDevis } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, proprietaireDepuisDevis, lireMedia, libelleMedia } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 
 // Les formes que YCloud peut donner à un message entrant. On cherche le
 // numéro, le texte et l'identifiant — le reste ne nous sert pas.
-function lireEntrant(corps) {
+export function lireEntrant(corps) {
   const c = corps || {};
   const m = c.whatsappInboundMessage || c.inboundMessage || c.message || c.data || c;
   const from = m.from || m.wa_id || m.sender || c.from || "";
-  const texte =
-    (typeof m.text === "string" ? m.text : m.text?.body) ||
-    m.body ||
-    (m.type && m.type !== "text" ? `[${m.type}]` : "");
+  // ⚠ LA RÈGLE DU FICHIER VIT DANS lib/whatsappConversations.js : elle est
+  // exercée par le banc, elle n'est pas recopiée ici.
+  const media = lireMedia(m);
+  const ecrit = (typeof m.text === "string" ? m.text : m.text?.body) || m.body || "";
+  // Une photo porte souvent sa légende : c'est ELLE le texte du message.
+  // ⚠ Et si le type ne nous dit rien (une position, une fiche contact…),
+  // on écrit quand même la ligne, avec le nom du type : un message perdu
+  // en silence est pire qu'un message qu'on ne sait pas afficher.
+  const texte = ecrit || (media ? media.legende : "") || (!media && m.type && m.type !== "text" ? `[${m.type}]` : "");
   const id = m.id || m.messageId || m.sid || "";
   const ts = m.timestamp || m.createTime || m.sendTime || "";
-  return { from: String(from || ""), texte: String(texte || ""), id: String(id || ""), ts: String(ts || "") };
+  return { from: String(from || ""), texte: String(texte || ""), media, id: String(id || ""), ts: String(ts || "") };
 }
 
 const horodatage = (brut) => {
@@ -58,12 +63,16 @@ export default async function handler(req, res) {
   const donne = String(req.query?.cle || req.headers["x-bmi-cle"] || "");
   if (!attendu || donne !== attendu) return res.status(401).json({ error: "Appel non reconnu." });
 
-  const { from, texte, id, ts } = lireEntrant(req.body);
+  const { from, texte, media, id, ts } = lireEntrant(req.body);
   const cle = cleConversation(from);
   // ⚠ 200, jamais une erreur : YCloud renverrait le paquet en boucle. On
   // DIT ce qu'on n'a pas su lire — c'est ce qui permettra de l'ajuster.
   if (!cle) return res.status(200).json({ ignore: true, pourquoi: "numéro illisible", vu: Object.keys(req.body || {}) });
-  if (!texte) return res.status(200).json({ ignore: true, pourquoi: "message sans texte (image, audio…)", de: cle });
+  // ⚠ 20/09/2026, décision « 3a » : une photo, une note vocale ou un
+  // document ne sont PLUS refusés à l'entrée. Avant ce jour, le client
+  // envoyait la photo de son compteur et personne ne savait qu'elle avait
+  // existé. On ne refuse plus que ce qui ne porte RIEN du tout.
+  if (!texte && !media) return res.status(200).json({ ignore: true, pourquoi: "message vide", de: cle, vu: Object.keys(req.body || {}) });
 
   const url = process.env.VITE_SUPABASE_URL;
   const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -118,6 +127,10 @@ export default async function handler(req, res) {
       de_id: null,
       de_nom: client?.nom || String(from),
       texte,
+      // ⚠ ON GARDE LE LIEN, PAS LE FICHIER : il ne s'ouvre qu'avec la clé
+      // YCloud, côté serveur (api/whatsapp-media.js). WhatsApp efface ses
+      // fichiers au bout de 30 jours — l'écran le DIT le jour venu.
+      ...(media ? { wa_media: media } : {}),
       lu_par: [],
       ...(proprietaire.id ? { proprietaire_id: proprietaire.id, proprietaire_nom: proprietaire.nom } : {}),
     };
@@ -148,7 +161,7 @@ export default async function handler(req, res) {
         await envoyerAuxPersonnes(admin, [{
           destinataires,
           titre: `📲 ${client?.nom || from}`,
-          texte: texte.slice(0, 200),
+          texte: (texte || libelleMedia(media)).slice(0, 200),
           // ⚠ L'écran VISÉ, et il a changé le 20/09/2026 : les
           // conversations WhatsApp ont quitté 💬 Messages pour leur
           // propre onglet. Un clic qui ouvre le mauvais écran, c'est une

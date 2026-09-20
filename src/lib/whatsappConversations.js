@@ -27,7 +27,6 @@
 // api/whatsapp-entrant.js, donc ses imports portent leur « .js ».
 // ============================================================
 import { numeroComparable, cleIdentifiant } from "./identiteClient.js";
-import { SALARIES } from "./constants.js";
 
 export const CANAL_WA = "whatsapp";
 
@@ -141,17 +140,36 @@ export function proprietaireDepuisDevis(client, employes = []) {
 }
 
 // ---------------------------------------------------------------
-// QUI VOIT QUOI — les trois décisions de Timo
+// QUI VOIT QUOI — les décisions de Timo
 // ---------------------------------------------------------------
-// ⚠ `SALARIES` ne contient PAS l'administrateur (c'est une liste de paie) :
-// on l'ajoute ici, la direction voit forcément tout. Et elle ne contient
-// ni le technicien à COMMISSION ni le commercial — c'est exactement ce
-// qu'il a demandé.
+// ⚠⚠ LA LISTE EST ÉCRITE EN TOUTES LETTRES, elle ne se DÉDUIT plus de
+// `SALARIES` (20/09/2026, décision « 2a »). Le 20/09 au matin, la règle
+// était « tous les salariés » — donc le COMPTABLE, qui en est un. Je lui
+// avais dit le jour même (« si ce n'était pas votre intention, un mot et
+// je l'en retire ») ; il a répondu de le retirer.
+//   → le comptable garde 💬 Messages et n'a plus 📲 WhatsApp du tout.
+// Déduire la liste d'une liste de PAIE, c'était faire dépendre « qui lit
+// les clients » de « qui est sur le bulletin de salaire » : deux choses
+// qui n'ont aucune raison de rester d'accord. Elle est donc nommée ici.
+//
+// ⚠ LE COUPLE : cette liste et `supabase/securite-27-conversations-whatsapp.sql`
+// doivent dire la MÊME chose — l'application filtre l'AFFICHAGE, la base
+// filtre ce qui DESCEND sur le téléphone. Le banc compare les deux côtés.
+export const ROLES_TOUTES_CONVERSATIONS = [
+  "admin", "vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial",
+];
+
+// Qui a le droit d'ouvrir 📲 WhatsApp, quelle que soit la conversation.
+// ⚠ Le CLIENT est au bout du fil : c'est de lui qu'on parle.
+// ⚠ Le COMPTABLE est en dehors depuis le 20/09/2026 (sa décision).
+export const aAccesWhatsapp = (profile) =>
+  !!profile && profile.role !== "client" && profile.role !== "comptable";
+
 export const voitToutesLesConversations = (profile) =>
-  !!profile && profile.role !== "client" && (profile.role === "admin" || SALARIES.includes(profile.role));
+  aAccesWhatsapp(profile) && ROLES_TOUTES_CONVERSATIONS.includes(profile.role);
 
 export function peutVoirConversation(profile, conv) {
-  if (!profile || profile.role === "client") return false;
+  if (!aAccesWhatsapp(profile)) return false;
   if (voitToutesLesConversations(profile)) return true;
   // Décision « c » : une conversation que personne n'a engagée est du
   // SUPPORT — tout le personnel BMI la voit, et peut donc y répondre.
@@ -206,4 +224,60 @@ export function critiqueReponse({ profile, conv, texte, enLigne = true, maintena
   const f = conv.fenetre || fenetre(conv.fil, maintenant);
   if (!f.ouverte) return libelleFenetre(f);
   return "";
+}
+
+// ---------------------------------------------------------------
+// 📷 CE QUE LE CLIENT ENVOIE QUI N'EST PAS DU TEXTE (20/09/2026)
+// ---------------------------------------------------------------
+// Décision « 3a » de Timo. Jusqu'ici une photo, une note vocale ou un
+// document étaient REFUSÉS À L'ENTRÉE (« message sans texte ») : le client
+// envoyait la photo de son compteur, personne ne la voyait, et personne ne
+// savait même qu'elle existait. Un fil qui perd des messages en silence est
+// pire qu'un fil vide.
+//
+// ⚠ ON NE GARDE PAS L'IMAGE : on garde le LIEN que WhatsApp donne, et
+// c'est la fonction serveur qui va la chercher avec la clé YCloud quand
+// quelqu'un l'ouvre (`api/whatsapp-media.js`). Rien de secret ne descend
+// dans le navigateur, et rien n'est stocké chez nous.
+// ⚠⚠ CONSÉQUENCE À DIRE, PAS À CACHER : WhatsApp efface ses fichiers au
+// bout de 30 JOURS. Passé ce délai la photo n'existe plus nulle part, et
+// l'écran le DIT au lieu d'afficher un cadre vide. La garder pour toujours
+// demanderait un espace de stockage — à sa demande, pas de moi-même.
+export const TYPES_MEDIA = ["image", "video", "audio", "voice", "sticker", "document"];
+
+// Rend { type, lien, media_id, mime, nom, legende } — ou null si le message
+// ne porte aucun fichier. ⚠ On lit le TYPE annoncé d'abord, et on ne se
+// rabat sur la recherche d'une clé connue que s'il ne dit rien : un jour
+// YCloud ajoutera un type, et on ne veut pas le prendre pour un autre.
+export function lireMedia(m) {
+  const objet = m && typeof m === "object" ? m : {};
+  const annonce = String(objet.type || "").toLowerCase();
+  const type = TYPES_MEDIA.includes(annonce)
+    ? annonce
+    : TYPES_MEDIA.find((t) => objet[t] && typeof objet[t] === "object") || "";
+  if (!type) return null;
+  const bloc = objet[type] && typeof objet[type] === "object" ? objet[type] : {};
+  const lien = String(bloc.link || bloc.url || "");
+  const media_id = String(bloc.id || "");
+  if (!lien && !media_id) return null;
+  return {
+    type,
+    lien,
+    media_id,
+    mime: String(bloc.mime_type || bloc.mimeType || ""),
+    nom: String(bloc.filename || bloc.fileName || ""),
+    legende: String(bloc.caption || ""),
+  };
+}
+
+// Ce qu'on écrit quand il n'y a pas un mot de texte : une notification
+// vide ne dit rien, et une ligne vide dans le fil non plus.
+export function libelleMedia(media) {
+  if (!media || !media.type) return "";
+  if (media.type === "image") return "📷 Photo";
+  if (media.type === "video") return "🎬 Vidéo";
+  if (media.type === "voice") return "🎤 Note vocale";
+  if (media.type === "audio") return "🎵 Son";
+  if (media.type === "sticker") return "🙂 Autocollant";
+  return media.nom ? `📄 Document : ${media.nom}` : "📄 Document";
 }

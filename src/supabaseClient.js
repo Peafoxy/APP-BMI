@@ -163,6 +163,33 @@ const URL_WHATSAPP = BASE ? `${BASE}/api/whatsapp` : "/api/whatsapp";
 // la fenêtre sur la base, jamais l'écran.
 export const whatsappEnLigne = ({ tel, modele, variables, texte }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables, texte });
 
+// ---- 📷 LE FICHIER QU'UN CLIENT A ENVOYÉ (20/09/2026) ----
+// ⚠ Ce n'est PAS du JSON qui revient, c'est le fichier lui-même : cette
+// fonction ne peut donc pas passer par `appelAvecJeton`. Le jeton reste
+// dans le CORPS de la requête, comme partout ailleurs — jamais dans
+// l'adresse, qui se retrouverait dans les journaux du serveur.
+const URL_WHATSAPP_MEDIA = BASE ? `${BASE}/api/whatsapp-media` : "/api/whatsapp-media";
+export async function mediaWaEnLigne(messageId) {
+  if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return { error: "Hors ligne." };
+  try {
+    const { data } = await supabase.auth.getSession();
+    const jeton = data?.session?.access_token;
+    if (!jeton) return { error: "Pas de session sécurisée." };
+    const reponse = await fetch(URL_WHATSAPP_MEDIA, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jeton, message: messageId }),
+    });
+    if (!reponse.ok) {
+      const resultat = await reponse.json().catch(() => ({}));
+      return { error: resultat?.error || `Le serveur a répondu ${reponse.status}.`, statut: reponse.status };
+    }
+    return { blob: await reponse.blob() };
+  } catch (e) {
+    return { error: `Serveur injoignable : ${e?.message || e}` };
+  }
+}
+
 // Identifiants de la session en cours, gardés EN MÉMOIRE uniquement (jamais
 // écrits sur le disque) : ils servent à rétablir la session si elle expire
 // pendant que l'application est ouverte.

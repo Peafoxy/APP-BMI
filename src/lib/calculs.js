@@ -1910,7 +1910,9 @@ export const ONGLETS_ROLE = {
   magasinier: ["stocks", "salaire", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
   gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux"],
   vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats", "travaux"],
-  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "whatsapp", "salaire", "nouveau_client"],
+  // ⚠ Le comptable N'A PLUS 📲 WhatsApp (20/09/2026, décision « 2a » de Timo) :
+  // il garde 💬 Messages. Voir `aAccesWhatsapp` dans lib/whatsappConversations.js.
+  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
   // ⚠ « ramener ça en onglet À CÔTÉ DE MESSAGE » (Timo, 19/09/2026) : le
   // droit d'accès n'est plus un panneau au bas de 🏠 Mon espace, c'est un
   // onglet à lui. Listé ici, donc retirable dans 🔐 Pouvoirs — un onglet

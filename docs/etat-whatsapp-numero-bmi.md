@@ -520,19 +520,26 @@ les clés reçues) — c'est ce qui permettra de l'ajuster en une ligne.
 
 ### CE QUE ÇA FAIT, UNE FOIS BRANCHÉ
 
-- Le client répond sur WhatsApp → la conversation apparaît dans **💬 Messages**,
-  bloc **📲 WhatsApp**, en tête de liste.
+- Le client répond sur WhatsApp → la conversation apparaît dans son propre
+  écran **📲 WhatsApp** (séparé de 💬 Messages le 20/09/2026), en tête de liste.
 - Son **propriétaire** est celui qui lui a envoyé le dernier devis du numéro BMI.
   Il reçoit une **notification**.
 - La **fenêtre de 24 h** s'affiche ; fermée, la case de saisie disparaît et
-  l'écran renvoie vers 📋 Tous les devis.
+  l'écran propose **« ✍️ Lui écrire quand même »** (modèle `prise_de_contact`),
+  et renvoie vers 📋 Tous les devis pour relancer un DEVIS.
 - **🔁 Confier** (administrateur) donne la conversation à quelqu'un d'autre,
   avec la trace dans le fil.
 
 ### CE QUI N'EST PAS FAIT, ET QUI N'A PAS ÉTÉ DEMANDÉ
 
-- Les **images, audios et documents** envoyés par le client : le message est
-  rangé mais son contenu vaut `[image]`, `[audio]`… Il faut ouvrir WhatsApp
-  sur le téléphone pour le voir.
+- ~~Les **images, audios et documents** envoyés par le client~~ — **FAIT le
+  20/09/2026** (sa décision « 3a ») : la photo s'affiche dans le fil, la note
+  vocale s'écoute, le document s'enregistre. ⚠ **WhatsApp efface ses fichiers
+  au bout de 30 jours** : passé ce délai l'écran le DIT. Les garder pour
+  toujours demanderait un espace de stockage — pas demandé.
+- ~~La conversation descend sur tous les téléphones~~ — **FERMÉ le 20/09/2026**
+  (décision « 1a », `supabase/securite-27-conversations-whatsapp.sql`, **à
+  coller par Timo**) : ce qui ne regarde pas quelqu'un ne descend plus chez lui.
+- Le **comptable** n'a plus 📲 WhatsApp (décision « 2a », le même jour).
 - **« Livré » / « lu »** : toujours pas. Il faudrait écouter un second
   événement de Meta, et l'écrire serait rassurer à tort tant qu'on ne l'a pas.

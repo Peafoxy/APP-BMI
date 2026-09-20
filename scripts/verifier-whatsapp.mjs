@@ -14,7 +14,10 @@
 // lit tel quel) et LIT le code des écrans pour les règles qui ne se
 // mesurent pas autrement (un seul chemin, aucun secret, la trace).
 // ============================================================
-import { readFileSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { build } from "esbuild";
 import * as M from "../src/lib/whatsappModeles.js";
 
 let ok = 0, ko = 0;
@@ -308,8 +311,12 @@ test("★ la phrase de la fenêtre est écrite UNE fois, et dit ce qu'il reste",
 
 // ── QUI VOIT QUOI
 const conv = (p) => ({ proprietaire_id: p });
-test("★★ décision 1 : TOUS LES SALARIÉS voient toutes les conversations — l'administrateur aussi",
-  ["admin", "vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial", "comptable"]
+// ⚠ CONTRÔLE RETOURNÉ LE 20/09/2026, PAS ASSOUPLI : il exigeait que le
+// COMPTABLE voie tout (la règle du matin, « tous les salariés »). Timo l'en
+// a retiré le soir même (« 2a ») — la liste ne se déduit plus d'une liste de
+// PAIE, elle est écrite en toutes lettres.
+test("★★ décision 1 : l'administrateur et les salariés de terrain voient toutes les conversations",
+  ["admin", "vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial"]
     .every((role) => C.peutVoirConversation({ id: "x", role }, conv("autre"))));
 test("★★ décision 1 (l'autre moitié) : un COMMERCIAL et un TECHNICIEN À COMMISSION ne voient QUE ce qu'ils ont engagé",
   ["commercial", "technicien"].every((role) =>
@@ -495,6 +502,147 @@ test("★★ le compteur de l'onglet compte les non lus WhatsApp — sans lui, u
   && /\["whatsapp", labelWhatsapp\]/.test(app));
 test("★ le classement « nouveaux messages d'abord » passe par LA règle commune, pas par un tri maison",
   /separerNonLues\(/.test(ecranWa) && !/\.sort\(\(a, b\) => b\./.test(ecranWa));
+
+// ──────────────────────────────────────────────────────────────
+titre("⑨ LE COMPTABLE EST SORTI, ET LA BASE FERME LA PORTE (20/09/2026, « 1a » et « 2a »)");
+// ⚠ Timo, le 20/09/2026 au soir, devant les trois avertissements que je lui
+// avais écrits le matin : « 1a, 2a, 3a ». Trois décisions, trois familles de
+// contrôles ci-dessous.
+const sql27 = lire("supabase/securite-27-conversations-whatsapp.sql");
+const apiMedia = lire("api/whatsapp-media.js");
+
+// ── « 2a » : LE COMPTABLE N'A PLUS WHATSAPP DU TOUT
+test("★★ le comptable ne voit plus AUCUNE conversation — pas même le support",
+  C.aAccesWhatsapp({ role: "comptable" }) === false
+  && C.peutVoirConversation({ id: "cpt", role: "comptable" }, conv("")) === false
+  && C.peutVoirConversation({ id: "cpt", role: "comptable" }, conv("cpt")) === false
+  && C.voitToutesLesConversations({ role: "comptable" }) === false);
+test("★ …et il garde 💬 Messages : c'est 📲 WhatsApp qu'il perd, pas la messagerie",
+  /comptable: \[[^\]]*"messages"/.test(calculs) && !/comptable: \[[^\]]*"whatsapp"/.test(calculs));
+// ⚠ ON RETIRE LES COMMENTAIRES AVANT DE CHERCHER : la phrase française qui
+// EXPLIQUE la règle contient les mots de la faute. Un contrôle qui lit du
+// français au lieu du code se trompe — leçon déjà payée le 20/09 au matin.
+const codeRegle = lire("src/lib/whatsappConversations.js")
+  .replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+test("★ la liste ne se DÉDUIT plus de SALARIES (une liste de paie ne dit pas qui lit les clients)",
+  !/SALARIES/.test(codeRegle) && /ROLES_TOUTES_CONVERSATIONS = \[/.test(codeRegle));
+test("★ un commercial et un technicien à commission, eux, gardent l'accès",
+  C.aAccesWhatsapp({ role: "commercial" }) && C.aAccesWhatsapp({ role: "technicien" })
+  && C.aAccesWhatsapp({ role: "client" }) === false);
+
+// ── « 1a » : LE COUPLE APPLICATION / BASE
+// ⚠ L'application filtre ce qui s'AFFICHE, la base filtre ce qui DESCEND.
+// Si les deux divergent, un employé lit un écran vide sans comprendre — ou
+// pire, la conversation redescend sur son téléphone alors qu'on croit
+// l'avoir fermée. Le banc compare les deux côtés, comme pour `ROLES_TACHES`.
+const rolesSql = (sql27.match(/public\.wa_role\(\) in \(([^)]*)\)/) || ["", ""])[1]
+  .split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean).sort();
+test("★★ LE COUPLE : la liste « voit tout » est la MÊME des deux côtés",
+  rolesSql.join(",") === [...C.ROLES_TOUTES_CONVERSATIONS].sort().join(","));
+const exclusSql = (sql27.match(/public\.wa_role\(\) not in \(([^)]*)\)/) || ["", ""])[1]
+  .split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean).sort();
+test("★★ LE COUPLE (l'autre moitié) : les deux rôles exclus sont les mêmes des deux côtés",
+  exclusSql.join(",") === "client,comptable"
+  && exclusSql.every((role) => C.aAccesWhatsapp({ role }) === false));
+test("★★ la règle de la base ne touche QUE les lignes WhatsApp — c'est la table de TOUS les messages",
+  /coalesce\(data ->> 'canal', ''\) <> 'whatsapp'/.test(sql27));
+test("★ elle s'AJOUTE aux règles existantes (restrictive), elle n'en remplace aucune",
+  /as restrictive for select to authenticated/.test(sql27));
+test("★ la lecture du propriétaire est en SECURITY DEFINER (sinon PostgreSQL tournerait en rond)",
+  /security definer/.test(sql27) && /revoke all on function public\.wa_proprietaire\(text\) from public, anon/.test(sql27));
+test("★ le propriétaire lu par la base est le DERNIER qui en porte un — comme `proprietaireDe`",
+  /order by m\.data ->> 'ts' desc/.test(sql27)
+  && C.proprietaireDe([
+    { ts: "2026-09-20T10:00:00Z", proprietaire_id: "a" },
+    { ts: "2026-09-20T11:00:00Z", proprietaire_id: "b" },
+    { ts: "2026-09-20T12:00:00Z" },
+  ]).id === "b");
+
+// ── « 3a » : CE QUE LE CLIENT ENVOIE QUI N'EST PAS DU TEXTE
+// ⚠ Les formes sont celles de la documentation YCloud (consultée le
+// 20/09/2026) : un bloc portant le TYPE du message, avec `link`, `id`,
+// `mime_type`, et `caption` / `filename` selon les cas.
+const photo = C.lireMedia({ type: "image", image: { link: "https://x/y.jpg", id: "m1", mime_type: "image/jpeg", caption: "mon compteur" } });
+test("★★ une photo est reconnue, avec son lien, son type et sa légende",
+  photo && photo.type === "image" && photo.lien === "https://x/y.jpg" && photo.mime === "image/jpeg" && photo.legende === "mon compteur");
+test("★ une note vocale et un document aussi, le document avec son nom",
+  C.lireMedia({ type: "voice", voice: { link: "https://x/v.ogg", id: "m2" } })?.type === "voice"
+  && C.lireMedia({ type: "document", document: { link: "https://x/f.pdf", filename: "facture.pdf" } })?.nom === "facture.pdf");
+test("★★ un message de TEXTE ne porte aucun fichier — et un type inconnu non plus",
+  C.lireMedia({ type: "text", text: { body: "bonjour" } }) === null
+  && C.lireMedia({ type: "location", location: { latitude: 6.1 } }) === null
+  && C.lireMedia(null) === null);
+test("★ un bloc sans lien NI identifiant ne compte pas pour un fichier",
+  C.lireMedia({ type: "image", image: { mime_type: "image/jpeg" } }) === null);
+test("★ chaque sorte a son mot, en français — une notification vide ne dit rien",
+  C.libelleMedia(photo) === "📷 Photo"
+  && C.libelleMedia({ type: "voice" }) === "🎤 Note vocale"
+  && C.libelleMedia({ type: "document", nom: "facture.pdf" }) === "📄 Document : facture.pdf"
+  && C.libelleMedia(null) === "");
+
+// ⚠ LE VRAI CONTRÔLE : la fonction d'ENTRÉE elle-même, exercée pour de vrai.
+// Avant le 20/09/2026 elle REFUSAIT un message sans texte : le client
+// envoyait la photo de son compteur, personne ne savait qu'elle avait existé.
+const E = await import("../api/whatsapp-entrant.js");
+const luPhoto = E.lireEntrant({ whatsappInboundMessage: { from: "+22890112233", type: "image", image: { link: "https://x/y.jpg", id: "m1", mime_type: "image/jpeg" }, id: "wamid.1" } });
+test("★★ une photo SANS légende est maintenant retenue (elle l'était perdue en silence)",
+  luPhoto.media !== null && luPhoto.media.type === "image" && luPhoto.from === "+22890112233");
+test("★★ la légende d'une photo devient le texte du message",
+  E.lireEntrant({ type: "image", image: { link: "https://x/y.jpg", caption: "mon compteur" } }).texte === "mon compteur");
+test("★ un message de texte n'a pas changé d'un mot",
+  E.lireEntrant({ whatsappInboundMessage: { from: "90112233", type: "text", text: { body: "bonjour" } } }).texte === "bonjour");
+test("★ un type qu'on ne sait pas lire est écrit quand même, avec son nom",
+  E.lireEntrant({ type: "location", location: { latitude: 6.1 } }).texte === "[location]");
+test("★★ et l'entrée ne refuse plus que ce qui ne porte RIEN",
+  /if \(!texte && !media\)/.test(entrant) && /wa_media: media/.test(entrant));
+
+// ── LE FICHIER NE S'OUVRE QU'AVEC LA CLÉ, ET QUE POUR QUI Y A DROIT
+test("★★ la clé YCloud n'existe QUE dans la fonction serveur — jamais dans le navigateur",
+  /process\.env\.YCLOUD_API_KEY/.test(apiMedia)
+  && !/YCLOUD/.test(lire("src/whatsapp.js").replace(/\/\/[^\n]*/g, "")) && !/YCLOUD/.test(codeWa)
+  && !/VITE_YCLOUD/.test(apiMedia));
+test("★★ le mur est REVÉRIFIÉ DANS LE GESTE : la règle est importée, jamais recopiée",
+  /import \{[^}]*peutVoirConversation[^}]*\} from "\.\.\/src\/lib\/whatsappConversations\.js"/.test(apiMedia)
+  && /if \(!peutVoirConversation\(compte, \{ proprietaire_id: prop\.id \}\)\)/.test(apiMedia));
+test("★ un fichier effacé par WhatsApp (30 jours) se DIT, il n'affiche pas un cadre vide",
+  /30 jours/.test(apiMedia) && /30 jours|n'est plus disponible/.test(ecranWa + apiMedia));
+test("★★ UN SEUL CHEMIN : l'écran passe par src/whatsapp.js, il n'appelle pas le serveur lui-même",
+  /chargerMediaWa/.test(codeWa) && !/whatsapp-media/.test(codeWa)
+  && /whatsapp-media/.test(lire("src/supabaseClient.js")));
+test("★ le jeton reste dans le CORPS de la requête, jamais dans l'adresse (les journaux la gardent)",
+  !/whatsapp-media\?[^"']*jeton/.test(lire("src/supabaseClient.js")));
+
+
+// ──────────────────────────────────────────────────────────────
+titre("⑩ L'ÉCRAN EST MONTÉ POUR DE BON — sur une base garnie ET sur une base NUE");
+// ⚠ « Un écran qui PRÉSUME une table est un écran blanc en puissance », et
+// le seul contrôle qui attrape un écran blanc est celui qui REND l'écran
+// (leçon du 19/09/2026). `npm run build` et `verifier-imports` ne voient
+// RIEN d'un argument oublié ou d'une table absente.
+const sortie = join("node_modules", ".cache", `bmi-wa-${process.pid}.mjs`);
+await build({
+  entryPoints: ["scripts/_rendu-whatsapp.jsx"], bundle: true, format: "esm", platform: "node",
+  outfile: sortie, logLevel: "silent", jsx: "automatic",
+  external: ["react", "react-dom", "react-dom/server"],
+});
+const V = await import(pathToFileURL(sortie).href);
+unlinkSync(sortie);
+
+// ⚠ Un rendu qui LÈVE doit donner un ✗ lisible, pas une pile d'erreurs :
+// c'est exactement ce que voit l'utilisateur (un écran blanc), et le banc
+// doit le NOMMER.
+const monte = (f) => { try { return f(); } catch (e) { return `⛔ ${e?.message || e}`; } };
+const vuAdmin = monte(V.htmlAdmin), vuNu = monte(V.htmlNu), vuCpt = monte(V.htmlComptable);
+test("★★ l'écran se monte sur une base garnie, et la conversation s'y voit",
+  vuAdmin.includes("ESSO") && vuAdmin.includes("Rechercher"));
+test("★★ une PHOTO, une note vocale, un document : chacun se dessine avec SON mot",
+  monte(V.htmlPhoto).includes("📷 Photo") && monte(V.htmlVocale).includes("🎤 Note vocale")
+  && monte(V.htmlDoc).includes("📄 Document : facture.pdf"));
+test("★★ l'écran se monte sur une base NUE sans rien présumer (le cas de l'écran blanc)",
+  !vuNu.startsWith("⛔") && vuNu.length > 0);
+test("★★ le comptable, lui, n'y trouve AUCUNE conversation",
+  !vuCpt.startsWith("⛔") && !vuCpt.includes("ESSO"));
+
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

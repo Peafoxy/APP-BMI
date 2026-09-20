@@ -68,7 +68,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/conservation.js` | ⏳ Combien de temps on garde les données d'un client (6 ans, réglable) — **il DIT qui dépasse, il n'efface JAMAIS** |
 | `lib/motInformation.js` | 👋 Le mot d'information de la première ouverture (client et employé) — **les mots qui mettent mal à l'aise y sont listés pour être évités** |
 | `lib/whatsappModeles.js` | 📲 Les modèles de messages WhatsApp approuvés par Meta et l'ordre de leurs trous — **le serveur lit CE fichier**, et aucun mot de passe n'y entre |
-| `lib/whatsappConversations.js` | 📲 Les réponses du client dans 💬 Messages : à qui est une conversation, qui a le droit de la voir, et la fenêtre de 24 h de Meta — **le serveur lit CE fichier** (webhook et envoi) |
+| `lib/whatsappConversations.js` | 📲 Les réponses du client dans 📲 WhatsApp : à qui est une conversation, qui a le droit de la voir (le comptable non, depuis le 20/09/2026), la fenêtre de 24 h de Meta, et ce qu'on lit d'une photo reçue — **le serveur lit CE fichier** (webhook, envoi, fichiers) |
 
 ## Les personnes, les espaces, la sécurité
 
@@ -124,7 +124,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
 | `src/whatsapp.js` | 📲 L'envoi d'un message du numéro BMI — **le seul endroit** qui appelle le serveur WhatsApp, et qui replie sur l'ouverture WhatsApp si ça rate |
 | `src/screens/` | Un écran par onglet (dont `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; et `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026) |
-| `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin, envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud) |
+| `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin, envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud), réception (`whatsapp-entrant.js`) et ouverture d'un fichier reçu (`whatsapp-media.js`) |
 | `supabase/securite-*.sql` | Les verrous côté base — **Timo les colle lui-même**, jamais nous |
 | `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable). Les `_rendu-*.jsx` MONTENT un vrai écran pour le mesurer — seul moyen d'attraper un écran blanc |
 

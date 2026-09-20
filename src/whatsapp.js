@@ -96,3 +96,26 @@ export async function repondreWhatsApp({ tel, texte }) {
   }
   return { parti: true, motif: "", id: reponse.id || "" };
 }
+
+// ---------------------------------------------------------------
+// 📷 OUVRIR UN FICHIER REÇU (photo, note vocale, document) — 20/09/2026
+// ---------------------------------------------------------------
+// ⚠ MÊME RÈGLE QUE LE RESTE DU FICHIER : un seul chemin. L'écran n'appelle
+// pas le serveur lui-même, il passe par ici — et le banc l'impose.
+// ⚠ La clé YCloud n'est pas dans le navigateur : c'est la fonction serveur
+// qui va chercher le fichier chez WhatsApp, après avoir revérifié que cette
+// personne a le droit de voir cette conversation.
+export async function chargerMediaWa(messageId) {
+  if (!enLigne()) return { url: "", motif: "Pas de connexion : le fichier ne peut pas être ouvert." };
+  let reponse;
+  try {
+    const { mediaWaEnLigne } = await import("./supabaseClient");
+    reponse = await mediaWaEnLigne(messageId);
+  } catch (e) {
+    return { url: "", motif: `Serveur injoignable : ${e?.message || e}` };
+  }
+  if (!reponse || reponse.error || !reponse.blob) {
+    return { url: "", motif: reponse?.error || "Fichier indisponible." };
+  }
+  return { url: URL.createObjectURL(reponse.blob), motif: "" };
+}
