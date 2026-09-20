@@ -1511,6 +1511,18 @@ export const espaceDuDevis = (db, d, profile) => {
   return marque !== null ? marque : espaceDuCompte(db, profile);
 };
 
+// 📋 L'espace d'une DETTE — même charpente que celle d'un chantier
+// (20/09/2026, la relance du numéro BMI). ⚠ C'est l'espace de la DONNÉE qui
+// décide, jamais celui de la personne qui clique : l'administrateur
+// principal est un compte RÉEL même quand il regarde la formation (leçon de
+// `retenueOutilPourPrime`, 18/09). Sans ça, une dette d'ENTRAÎNEMENT
+// enverrait un vrai message WhatsApp à un vrai numéro.
+export const espaceDeLaDette = (db, d, profile) => {
+  const marque = espaceDeLaFiche(d);
+  if (marque !== null) return marque;
+  return d?.boutique ? estBoutiqueFormation(db, d.boutique) : espaceDuCompte(db, profile);
+};
+
 export const espaceDuChantier = (db, c, profile) => {
   const marque = espaceDeLaFiche(c);
   if (marque !== null) return marque;

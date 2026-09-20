@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 180 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 196 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 22  : qui REÇOIT quelle conversation WhatsApp (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2038,13 +2038,14 @@ lit mal est pire qu'un banc absent).
   et **on ne supprime pas le refusé** (Meta réserve son nom ~1 mois ; un
   modèle refusé n'envoie rien et ne coûte rien). Seule exception : un modèle
   mal NOMMÉ (YCloud pré-remplit le champ) se supprime et se recrée.
-- **Les quatre modèles** : `devis_disponible` (marketing, 3 trous),
+- **Les modèles** : `devis_disponible` (marketing, 3 trous),
   `relance_devis` (marketing, 4), `devis_valide_paiement` (utility, 4),
-  `rappel_echeance` (utility, 5). ⚠ **`rappel_echeance` est approuvé mais PAS
-  en service** (`MODELES_EN_SERVICE`) : une dette ordinaire n'a pas de date
-  d'échéance (le retard se compte à 30 jours, lib/rappels.js). Il servira le
-  jour où on relancera sur un PLAN DE RÈGLEMENT, qui a de vraies échéances.
-  Le banc vérifie qu'aucun écran ne l'emploie d'ici là.
+  `rappel_echeance` (utility, 5), `prise_de_contact` (marketing, 3),
+  `rappel_dette` (utility, 4). ⚠ **`rappel_echeance` a dormi jusqu'au
+  20/09/2026** : une dette ordinaire n'a pas de date d'échéance (le retard se
+  compte à 30 jours, lib/rappels.js). Il est en service depuis la relance des
+  dettes, et **seulement sur un PLAN DE RÈGLEMENT accepté**, qui a de vraies
+  échéances — voir le § « La relance d'une dette » plus bas.
 - **UN SEUL CHEMIN : `src/whatsapp.js`** (`envoyerModele`), comme `src/push.js`
   pour les notifications — aucun écran n'appelle le serveur lui-même, le banc
   l'interdit. ⚠ Il charge `supabaseClient` **au moment de l'envoi** (import
@@ -2500,6 +2501,70 @@ lit mal est pire qu'un banc absent).
   « whatsapp-media »). On retire les commentaires avant de chercher. **Même
   famille que le 20/09 au matin, troisième fois** : un contrôle qui lit du
   français au lieu du code se trompe.
+
+### 📋 LA RELANCE D'UNE DETTE PART DU NUMÉRO BMI (20/09/2026, décision « c »)
+- Capture Timo, 📋 Dettes : **« la relance de dette ouvre encore le WhatsApp
+  sur l'ordinateur »**. ⚠ **Ce n'était pas un défaut — ça n'avait jamais été
+  construit** : l'étape 1 du 19/09 ne portait que sur les DEVIS, et il fallait
+  le dire tel quel plutôt que de chercher une panne. Devant quatre
+  propositions, il a choisi **« c » : les deux**.
+- **`rappel_dette`** (utility, 4 trous — client, date, reste, total), texte
+  proposé et accepté sans retouche. ⚠ **UTILITY, et c'est juste** : un rappel
+  de paiement porte sur une transaction EN COURS, au contraire d'un devis qui
+  est une OFFRE (leçon du refus `INCORRECT_CATEGORY`, 19/09).
+- ⚠⚠ **DEUX MODÈLES, UNE SEULE RÈGLE POUR CHOISIR** (`envoiRappelDette`,
+  lib/whatsappModeles.js) : une dette ORDINAIRE part avec `rappel_dette` ; une
+  dette adossée à un **plan de règlement ACCEPTÉ** part avec `rappel_echeance`,
+  qui dormait depuis le 19/09. **Inventer une date d'échéance à une dette qui
+  n'en a pas, ce serait écrire une date fausse dans un message à un client** —
+  c'est exactement pourquoi ce modèle n'avait pas été branché plus tôt.
+  ⚠ Un plan **proposé mais pas encore accepté** ne compte pas : il n'engage
+  personne, annoncer sa date reviendrait à promettre un échéancier qui n'existe
+  pas.
+- ⚠ **L'échéance est cherchée par l'ÉCRAN**, pas par la règle pure : la chaîne
+  est dette → chantier (`dette_id`) → devis (`devis_id`) → son plan, puis
+  `prochaineEcheance` (lib/reglement.js). La règle reçoit une date et un
+  montant, **jamais la base** — une fonction pure qui reçoit une table entière
+  et la PARCOURT est un passage de mur en puissance (leçon payée deux fois le
+  18/09). Le banc le mesure.
+- **Une dette SOLDÉE ne se relance pas** (`envoiRappelDette` rend `null`) : on
+  ne réclame pas un argent déjà reçu. L'écran le dit au lieu de ne rien faire.
+- ⚠ **LE MUR** : l'écran passe **`espaceDeLaDette`** (calculs.js, même
+  charpente qu'`espaceDuChantier` — la marque de la fiche, sinon la boutique,
+  sinon l'espace regardé), **jamais** l'espace de la personne qui clique :
+  l'administrateur principal est un compte RÉEL même quand il regarde la
+  formation. Sans ça, une dette d'ENTRAÎNEMENT enverrait un vrai message à un
+  vrai numéro.
+- **LA TRACE** (`envoi_whatsapp` sur la dette, `traceEnvoi` avec **`par_id`**,
+  le défaut du matin même) ne s'écrit **que si le message est parti du numéro
+  BMI**, et **elle SE LIT sous la ligne** (« 📲 … ») — une trace qu'on ne voit
+  nulle part ne sert à rien (leçon du registre d'outillage, 18/09). Jamais
+  « livré » ni « lu ».
+- **Le texte de repli est celui du modèle, mot pour mot** (`texteRappel`, qui
+  suit le même aiguillage) : deux textes qui divergent, c'est un client qui
+  reçoit deux versions de la même relance selon le jour. ⚠ L'ancien texte
+  (« nous vous rappelons gentiment votre solde… ») est donc REMPLACÉ.
+  ⚠ **Le texte approuvé de `rappel_echeance` chez Meta n'a pas pu être relu
+  d'ici** : `texteRappelEcheance` en reprend la forme connue. Si le texte
+  réel diffère, il faut aligner le repli — à demander à Timo.
+- ⚠ **`rappel_dette` est EN SERVICE avant l'accord de Meta**, volontairement :
+  d'ici là l'envoi se replie sur l'ouverture WhatsApp et **le refus se dit en
+  français** (« pas encore approuvé », règle du 20/09 au matin). Le mettre en
+  service tout de suite évite un second déploiement le jour de l'accord.
+- ⚠ **La conversation ne change PAS de propriétaire** : la relance n'écrit
+  aucune ligne dans le fil de 📲 WhatsApp. Si le client répond, les règles de
+  l'étape 2 s'appliquent (trace de devis → son auteur, sinon support).
+  Écrire un propriétaire ici reviendrait à s'approprier une conversation qui
+  appartient peut-être déjà à quelqu'un — ce que « 🔁 Confier » est seul à
+  faire.
+- **À FAIRE PAR TIMO** : créer le modèle chez YCloud sous le nom
+  **`rappel_dette`**, catégorie **utility**, langue **fr**, avec le texte
+  ci-dessous. ⚠ Le nom ET la catégorie se figent à la création.
+  > Bonjour {{1}}, ici BMI Togo. Concernant votre achat du {{2}}, il reste
+  > {{3}} à régler sur un total de {{4}}. Vous pouvez passer en boutique ou
+  > répondre directement à ce message. Merci de votre confiance. BMI Togo
+- **Rien à coller dans Supabase** : `envoi_whatsapp` est un champ de plus sur
+  une ligne de dette.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

@@ -29,7 +29,7 @@ const fmt = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
 const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
 
 // ──────────────────────────────────────────────────────────────
-titre("① LES QUATRE MODÈLES, ET L'ORDRE DE LEURS TROUS");
+titre("① LES SIX MODÈLES, ET L'ORDRE DE LEURS TROUS");
 // ⚠ Ces nombres sont ceux des modèles SOUMIS À META le 19/09/2026. Changer
 // l'ordre ou le nombre ici sans le changer chez Meta enverrait le montant à
 // la place du nom — et Meta ne s'en plaindrait pas.
@@ -38,11 +38,15 @@ const ATTENDU = {
   relance_devis: { categorie: "marketing", n: 4 },
   devis_valide_paiement: { categorie: "utility", n: 4 },
   rappel_echeance: { categorie: "utility", n: 5 },
+  // ⚠ LE SIXIÈME (20/09/2026, décision « c ») : la relance d'une DETTE
+  // ordinaire. UTILITY — un rappel de paiement porte sur une transaction en
+  // cours, au contraire d'un devis qui est une OFFRE.
+  rappel_dette: { categorie: "utility", n: 4 },
   // ⚠ LE CINQUIÈME (20/09/2026) : le SEUL qui ne parle pas d'un devis —
   // c'est ce qui permet d'écrire le premier à quelqu'un qui n'en a pas.
   prise_de_contact: { categorie: "marketing", n: 3 },
 };
-test("les cinq modèles approuvés sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les six modèles sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -51,9 +55,17 @@ test("un devis est du MARKETING (leçon des refus du 19/09)",
   M.MODELES.devis_disponible.categorie === "marketing" && M.MODELES.relance_devis.categorie === "marketing");
 test("un contrat signé est de l'UTILITY",
   M.MODELES.devis_valide_paiement.categorie === "utility" && M.MODELES.rappel_echeance.categorie === "utility");
-test("★ rappel_echeance n'est PAS en service (une dette n'a pas de date d'échéance)",
-  !M.MODELES_EN_SERVICE.includes("rappel_echeance"));
-test("les trois autres le sont", ["devis_disponible", "relance_devis", "devis_valide_paiement"].every((n) => M.MODELES_EN_SERVICE.includes(n)));
+// ⚠ CONTRÔLE RETOURNÉ LE 20/09/2026, PAS SUPPRIMÉ : il exigeait que
+// `rappel_echeance` NE SOIT PAS employé, parce qu'aucune règle ne savait
+// quand une dette a une vraie échéance. Cette règle existe depuis
+// `envoiRappelDette` — il est donc en service, mais SEULEMENT sur un plan
+// de règlement. Ce qui est protégé n'a pas changé d'un mot : on n'écrit
+// jamais une date d'échéance à un client qui n'en a pas.
+test("★★ rappel_echeance est en service, et ne part QUE sur une échéance réelle",
+  M.MODELES_EN_SERVICE.includes("rappel_echeance")
+  && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, fmt, dFR }).modele === "rappel_dette"
+  && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, echeance: { date: "" }, fmt, dFR }).modele === "rappel_dette");
+test("les six sont en service", M.NOMS_MODELES.every((n) => M.MODELES_EN_SERVICE.includes(n)));
 
 // ──────────────────────────────────────────────────────────────
 titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
@@ -97,8 +109,11 @@ test("★ premier contact : refusé (le message porte ses identifiants)",
 test("sans numéro : refusé", !!M.critiqueEnvoiAuto({ ...bon, tel: "", espaceFormation: false }));
 test("hors ligne : refusé (pas de file d'attente, une relance en retard est une faute)",
   !!M.critiqueEnvoiAuto({ ...bon, espaceFormation: false, enLigne: false }));
+// ⚠ CONTRÔLE RETOURNÉ LE 20/09/2026 : il s'appuyait sur `rappel_echeance`,
+// qui est en service depuis la relance des dettes. La GARDE, elle, n'a pas
+// bougé d'un mot — elle est éprouvée sur un nom qui n'est dans aucune liste.
 test("un modèle pas encore en service est refusé",
-  !!M.critiqueEnvoiAuto({ ...bon, modele: "rappel_echeance", variables: ["a", "b", "c", "d", "e"], espaceFormation: false }));
+  /pas encore en service/.test(M.critiqueEnvoiAuto({ ...bon, modele: "modele_pas_encore_approuve", variables: ["a"], espaceFormation: false })));
 
 // ──────────────────────────────────────────────────────────────
 titre("⑥ LE NUMÉRO, TEL QUE WHATSAPP LE VEUT");
@@ -642,6 +657,63 @@ test("★★ l'écran se monte sur une base NUE sans rien présumer (le cas de l
   !vuNu.startsWith("⛔") && vuNu.length > 0);
 test("★★ le comptable, lui, n'y trouve AUCUNE conversation",
   !vuCpt.startsWith("⛔") && !vuCpt.includes("ESSO"));
+
+
+// ──────────────────────────────────────────────────────────────
+titre("⑪ 📋 LA RELANCE D'UNE DETTE PART DU NUMÉRO BMI (20/09/2026, « c »)");
+// Capture Timo : « la relance de dette ouvre encore le WhatsApp sur
+// l'ordinateur ». Ce n'était pas un défaut — ça n'avait jamais été construit.
+const ecranDettes = lire("src/screens/Dettes.jsx");
+const codeDettes = ecranDettes.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+const detteSimple = { id: "t1", client: "MR ERIC", tel: "90112233", boutique: "BMI DEMAKPOE", date: "2026-09-14", montant: 1000000, paye: 0 };
+const dettePlan = { id: "t2", client: "AMA", tel: "90114455", boutique: "BMI APESSITO", date: "2026-09-11", montant: 232800, paye: 150000 };
+
+const rd = M.envoiRappelDette({ dette: detteSimple, compte: { nom_base: "MR ERIC" }, fmt, dFR });
+test("★★ une dette ORDINAIRE part avec `rappel_dette` — jamais une date d'échéance inventée",
+  rd.modele === "rappel_dette" && rd.variables.length === 4
+  && rd.variables[0] === "MR ERIC" && rd.variables[1] === "14/09/2026"
+  && rd.variables[2] === fmt(1000000) && rd.variables[3] === fmt(1000000));
+
+const re = M.envoiRappelDette({ dette: dettePlan, compte: null, echeance: { date: "2026-10-31", montant: 60000 }, fmt, dFR });
+test("★★ une dette adossée à un PLAN part avec `rappel_echeance`, et le RESTE est juste",
+  re.modele === "rappel_echeance" && re.variables.length === 5
+  && re.variables[1] === "31/10/2026" && re.variables[2] === fmt(60000)
+  && re.variables[3] === fmt(82800) && re.variables[4] === "BMI APESSITO");
+test("★★ une dette SOLDÉE ne se relance pas — on ne réclame pas un argent déjà reçu",
+  M.envoiRappelDette({ dette: { montant: 5000, paye: 5000 }, compte: null, fmt, dFR }) === null
+  && M.envoiRappelDette({ dette: { montant: 5000, paye: 9000 }, compte: null, fmt, dFR }) === null);
+test("★ sans compte client, le nom de la dette suffit (un prospect n'a pas de fiche)",
+  M.envoiRappelDette({ dette: { ...detteSimple }, compte: null, fmt, dFR }).variables[0] === "MR ERIC");
+test("★ aucun trou ne part vide — Meta refuse une variable vide",
+  M.critiqueModele(rd.modele, rd.variables) === "" && M.critiqueModele(re.modele, re.variables) === "");
+
+// ── LE TEXTE DE REPLI DIT LA MÊME CHOSE QUE LE MODÈLE
+const replDette = M.texteRappel({ dette: detteSimple, compte: null, fmt, dFR });
+const replEch = M.texteRappel({ dette: dettePlan, compte: null, echeance: { date: "2026-10-31", montant: 60000 }, fmt, dFR });
+test("★★ le repli porte les MÊMES chiffres que le modèle (deux textes qui divergent = deux relances différentes)",
+  replDette.includes(fmt(1000000)) && replDette.includes("14/09/2026")
+  && replEch.includes(fmt(60000)) && replEch.includes(fmt(82800)) && replEch.includes("31/10/2026"));
+test("★ et le repli suit le MÊME aiguillage que le modèle",
+  replEch.includes("échéance") && !replDette.includes("échéance"));
+
+// ── L'ÉCRAN
+test("★★ LE MUR : l'écran passe l'espace de la DETTE, jamais celui de qui clique",
+  /espaceFormation: espaceDeLaDette\(db, d, profile\)/.test(codeDettes));
+test("★★ la trace porte l'IDENTIFIANT, pas seulement le nom (le défaut du 20/09 au matin)",
+  /traceEnvoi\(\{ modele: envoi\.modele, par: profile\.nom, par_id: profile\.id/.test(codeDettes));
+test("★★ elle ne s'écrit QUE si le message est parti du numéro BMI",
+  /if \(!r\.auto\)/.test(codeDettes) && codeDettes.indexOf("if (!r.auto)") < codeDettes.indexOf("traceEnvoi("));
+test("★★ …et elle SE LIT sous la ligne — une trace qu'on ne voit pas ne sert à rien",
+  /libelleTrace\(d\.envoi_whatsapp\)/.test(ecranDettes));
+test("★★ UN SEUL CHEMIN : l'écran passe par envoyerModele, il n'ouvre plus WhatsApp lui-même pour une relance",
+  /envoyerModele\(\{/.test(codeDettes) && !/const relancer[\s\S]{0,400}envoyerWhatsApp\(/.test(codeDettes));
+test("★ un repli qui n'est pas la règle SE DIT (un repli muet ressemble à une panne)",
+  /if \(r\.motif\) uAlert\(/.test(codeDettes));
+test("★★ un plan PROPOSÉ mais pas encore accepté ne donne aucune échéance",
+  /plan\.statut !== PLAN_ACCEPTE/.test(codeDettes) && /return null/.test(codeDettes));
+test("★ l'échéance est cherchée par l'ÉCRAN, la règle pure ne reçoit jamais la base",
+  !/db\b/.test(M.envoiRappelDette.toString()) && /prochaineEcheance\(plan,/.test(codeDettes));
 
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

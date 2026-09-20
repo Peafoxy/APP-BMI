@@ -4,15 +4,18 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, envoyerWhatsApp, lignesDette } from "../lib/core";
+import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels";
+import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
+import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
+import { envoyerModele } from "../whatsapp";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
@@ -186,10 +189,59 @@ export function Dettes({ db, save, profile }) {
       `Réservation de ${r.client} ANNULÉE (${fmt(r.paye || 0)} déjà versés)`);
   };
 
-  const relancer = (d) => {
-    const reste = Math.max(0, d.montant - d.paye);
-    const txt = `Bonjour ${d.client}, nous vous rappelons gentiment votre solde de ${fmt(reste)} chez ${d.boutique}${d.motif ? ` (${d.motif})` : ""}. Merci de passer régulariser quand vous pouvez. Bonne journée !`;
-    envoyerWhatsApp(d.tel, txt);
+  // ---- 📲 RELANCER UNE DETTE, DU NUMÉRO BMI (20/09/2026, décision « c ») ----
+  // Capture Timo : « la relance de dette ouvre encore le WhatsApp sur
+  // l'ordinateur ». Ce n'était pas un défaut, ça n'avait jamais été
+  // construit — l'étape 1 du 19/09 ne portait que sur les devis.
+  //
+  // ⚠ L'ÉCHÉANCE SE CHERCHE ICI, pas dans la règle pure : la règle reçoit
+  // une date et un montant, jamais la base entière (leçon du 18/09). La
+  // chaîne est dette → chantier (`dette_id`) → devis (`devis_id`) → son plan.
+  const echeanceDeLaDette = (d) => {
+    const chantier = (db.clients_installes || []).find((c) => c.dette_id === d.id);
+    if (!chantier?.devis_id) return null;
+    const compte = (db.users || []).find((u) => u.id === chantier.user_id);
+    const devis = (compte?.devis || []).find((x) => x.id === chantier.devis_id);
+    const plan = devis?.plan_reglement;
+    // ⚠ UN PLAN SEULEMENT S'IL EST ACCEPTÉ : un plan proposé mais pas encore
+    // validé par l'administrateur n'engage personne, et annoncer sa date au
+    // client reviendrait à lui promettre un échéancier qui n'existe pas.
+    if (!plan || plan.statut !== PLAN_ACCEPTE) return null;
+    return prochaineEcheance(plan, soldeApresAcompte(devis), Number(d.paye || 0));
+  };
+
+  const relancer = async (d) => {
+    const compte = compteClientPour(db, d);
+    const echeance = echeanceDeLaDette(d);
+    const envoi = envoiRappelDette({ dette: d, compte, echeance, fmt, dFR });
+    // Une dette soldée ne se relance pas — la règle le dit, l'écran le répète.
+    if (!envoi) { uAlert("Cette dette est soldée : il n'y a rien à relancer."); return; }
+    const texte = texteRappel({ dette: d, compte, echeance, fmt, dFR });
+    // ⚠ LE MUR : c'est l'espace de la DETTE qui décide, jamais celui de la
+    // personne qui clique — l'administrateur principal est un compte RÉEL
+    // même quand il regarde la formation.
+    const r = await envoyerModele({
+      tel: d.tel,
+      modele: envoi.modele,
+      variables: envoi.variables,
+      espaceFormation: espaceDeLaDette(db, d, profile),
+      texteRepli: texte,
+      demanderConfirmation: uConfirm,
+    });
+    if (!r.auto) {
+      // ⚠ UN REPLI MUET RESSEMBLE À UNE PANNE (leçon du 19/09) : on dit
+      // POURQUOI le message n'est pas parti du numéro BMI, sauf quand c'est
+      // la règle qui joue (formation) — là, personne n'a rien à apprendre.
+      if (r.motif) uAlert(`${r.motif}\n\nWhatsApp s'est ouvert avec le texte : le message part de VOTRE numéro.`);
+      return;
+    }
+    // ⚠ LA TRACE NE S'ÉCRIT QUE SI LE MESSAGE EST PARTI DU NUMÉRO BMI : une
+    // ouverture WhatsApp ne prouve rien, personne ne sait si le vendeur a
+    // appuyé sur envoyer.
+    const trace = traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id });
+    save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)) },
+      `Relance de la dette de ${d.client} (${fmt(Math.max(0, d.montant - d.paye))}) envoyée du numéro BMI — ${d.boutique}`);
+    uAlert(`✅ Message envoyé du numéro BMI à ${d.client}.`);
   };
 
   const supprimerDette = async (d) => {
@@ -386,6 +438,10 @@ export function Dettes({ db, save, profile }) {
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
                     <div className={`text-xs mt-0.5 ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</div>
+                    {/* ⚠ Une trace qui ne se lit nulle part ne sert à rien (leçon du
+                        registre d'outillage, 18/09). Elle dit qui, quand — jamais
+                        « livré » ni « lu », qu'on ne sait pas. */}
+                    {d.envoi_whatsapp && <div className="text-xs mt-0.5 text-emerald-700">📲 {libelleTrace(d.envoi_whatsapp)}</div>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1">

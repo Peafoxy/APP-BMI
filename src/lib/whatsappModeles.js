@@ -45,12 +45,18 @@ export const MODELES = {
   devis_valide_paiement: { categorie: "utility", variables: ["client", "montant", "contrat", "boutique"] },
   // « Bonjour {{1}}, une échéance … arrive le {{2}}. Montant attendu : {{3}}
   //   Reste à régler : {{4}} … boutique {{5}}. »
-  // ⚠ SOUMIS ET APPROUVÉ, MAIS PAS ENCORE EMPLOYÉ : une dette ordinaire n'a
-  // pas de date d'échéance (le retard se compte à 30 jours, lib/rappels.js).
-  // Il servira le jour où on relancera sur un PLAN DE RÈGLEMENT, qui a de
-  // vraies échéances. Le laisser ici n'est pas un oubli : le banc vérifie
-  // qu'aucun écran ne l'emploie tant que la règle n'existe pas.
+  // ⚠ EN SERVICE DEPUIS LE 20/09/2026 (décision « c » de Timo) — il ne
+  // servait à rien tant qu'on ne relançait que des dettes ORDINAIRES, qui
+  // n'ont pas d'échéance (le retard se compte à 30 jours, lib/rappels.js).
+  // Il ne part QUE sur une dette adossée à un PLAN DE RÈGLEMENT accepté,
+  // qui a de vraies dates. Sur une dette ordinaire, c'est `rappel_dette`.
   rappel_echeance: { categorie: "utility", variables: ["client", "date", "montant", "reste", "boutique"] },
+  // « Bonjour {{1}}, ici BMI Togo. Concernant votre achat du {{2}}, il reste
+  //   {{3}} à régler sur un total de {{4}}. … »
+  // ⚠ UTILITY, et c'est juste : un rappel de paiement porte sur une
+  // transaction EN COURS — au contraire d'un devis, qui est une OFFRE et
+  // que Meta range dans marketing (leçon du refus `INCORRECT_CATEGORY`).
+  rappel_dette: { categorie: "utility", variables: ["client", "date", "reste", "total"] },
   // « Bonjour {{1}}, c'est {{2}} de BMI Togo. Nous revenons vers vous
   //   concernant {{3}}. Répondez simplement à ce message et nous
   //   poursuivrons notre échange ici. Merci et à bientôt. BMI Togo »
@@ -73,7 +79,15 @@ export const MODELES = {
 export const NOMS_MODELES = Object.keys(MODELES);
 
 // Les modèles qu'un écran a le droit d'envoyer aujourd'hui.
-export const MODELES_EN_SERVICE = ["devis_disponible", "relance_devis", "devis_valide_paiement", "prise_de_contact"];
+export const MODELES_EN_SERVICE = [
+  "devis_disponible", "relance_devis", "devis_valide_paiement", "prise_de_contact",
+  // 📋 Dettes, 20/09/2026 (décision « c ») : la relance d'une dette part
+  // enfin du numéro BMI. ⚠ `rappel_dette` doit encore être APPROUVÉ par
+  // Meta ; d'ici là l'envoi se replie sur l'ouverture WhatsApp et le refus
+  // se dit en français (« pas encore approuvé »). Le mettre en service tout
+  // de suite évite un second déploiement le jour de l'accord.
+  "rappel_echeance", "rappel_dette",
+];
 
 // ---------------------------------------------------------------
 // CE QU'ON A LE DROIT DE METTRE DANS UN TROU
@@ -190,6 +204,84 @@ export function envoiRelanceDevis({ devis, compte, fmt, dFR }) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------
+// 📋 LA RELANCE D'UNE DETTE (20/09/2026, décision « c » de Timo)
+// ---------------------------------------------------------------
+// Capture Timo, 20/09/2026 : « la relance de dette ouvre encore le WhatsApp
+// sur l'ordinateur ». Ce n'était pas un défaut — ça n'avait jamais été
+// construit : l'étape 1 du 19/09 ne portait que sur les DEVIS. Il a tranché
+// « c » : un modèle pour une dette ordinaire, ET `rappel_echeance` branché
+// sur les plans de règlement.
+//
+// ⚠⚠ DEUX MODÈLES, UNE SEULE RÈGLE POUR CHOISIR — et c'est tout l'intérêt.
+// Une dette ORDINAIRE n'a pas d'échéance : lui en inventer une serait
+// écrire une date fausse dans un message à un client. Une dette adossée à
+// un PLAN DE RÈGLEMENT accepté en a de vraies : c'est là, et seulement là,
+// que `rappel_echeance` a un sens.
+//
+// ⚠ L'échéance est CALCULÉE PAR L'ÉCRAN (lib/reglement.js, `prochaineEcheance`)
+// et passée ici. Cette fonction ne va chercher ni devis ni chantier : une
+// règle pure qui reçoit une table entière et la PARCOURT est un passage de
+// mur en puissance (leçon payée deux fois le 18/09).
+export function envoiRappelDette({ dette, compte, echeance, fmt, dFR }) {
+  const total = Number(dette?.montant || 0);
+  const reste = Math.max(0, total - Number(dette?.paye || 0));
+  // Une dette soldée ne se relance pas : ce serait réclamer de l'argent déjà reçu.
+  if (reste <= 0) return null;
+  const nom = nomPourClient(compte) || texteVariable(dette?.client);
+  if (echeance && echeance.date) {
+    return {
+      modele: "rappel_echeance",
+      variables: [
+        nom,
+        texteVariable(dFR(echeance.date)),
+        texteVariable(fmt(echeance.montant)),
+        texteVariable(fmt(reste)),
+        texteVariable(dette?.boutique) || "BMI TOGO",
+      ],
+    };
+  }
+  return {
+    modele: "rappel_dette",
+    variables: [nom, texteVariable(dFR(dette?.date)), texteVariable(fmt(reste)), texteVariable(fmt(total))],
+  };
+}
+
+// ⚠ LE TEXTE DE REPLI EST CELUI DU MODÈLE, MOT POUR MOT : quand l'envoi
+// automatique ne passe pas, le client doit recevoir EXACTEMENT la même
+// chose par l'ouverture WhatsApp. Deux textes qui divergent, c'est un
+// client qui reçoit deux versions de la même relance selon le jour.
+export function texteRappelDette({ dette, compte, fmt, dFR }) {
+  const total = Number(dette?.montant || 0);
+  const reste = Math.max(0, total - Number(dette?.paye || 0));
+  const nom = nomPourClient(compte) || texteVariable(dette?.client);
+  return [
+    `Bonjour ${nom}, ici BMI Togo.`,
+    `Concernant votre achat du ${dFR(dette?.date)}, il reste ${fmt(reste)} à régler sur un total de ${fmt(total)}.`,
+    `Vous pouvez passer en boutique ou répondre directement à ce message.`,
+    `Merci de votre confiance. BMI Togo`,
+  ].join("\n");
+}
+
+export function texteRappelEcheance({ dette, compte, echeance, fmt, dFR }) {
+  const reste = Math.max(0, Number(dette?.montant || 0) - Number(dette?.paye || 0));
+  const nom = nomPourClient(compte) || texteVariable(dette?.client);
+  return [
+    `Bonjour ${nom}, une échéance de votre plan de règlement BMI TOGO arrive le ${dFR(echeance?.date)}.`,
+    `Montant attendu : ${fmt(echeance?.montant)}`,
+    `Reste à régler : ${fmt(reste)}`,
+    `Vous pouvez régler à la boutique ${dette?.boutique || "BMI TOGO"} ou répondre à ce message.`,
+    `Merci de votre confiance. BMI Togo`,
+  ].join("\n");
+}
+
+// Le texte de repli qui correspond au modèle choisi — écrit UNE fois, pour
+// qu'aucun écran n'ait à savoir lequel des deux part.
+export const texteRappel = ({ dette, compte, echeance, fmt, dFR }) =>
+  (echeance && echeance.date)
+    ? texteRappelEcheance({ dette, compte, echeance, fmt, dFR })
+    : texteRappelDette({ dette, compte, fmt, dFR });
 
 // ---------------------------------------------------------------
 // LE PREMIER MESSAGE PART TOUJOURS À LA MAIN

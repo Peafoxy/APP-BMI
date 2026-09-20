@@ -4531,7 +4531,7 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
   test("★ plus aucun écran n'ouvre WhatsApp lui-même (window.open vers wa.me) ni n'encode un message à la main pour cela",
     execSync("grep -rln 'window.open(.*wa\\.me\\|https://wa' src || true").toString().trim() === "src/lib/core.js");
   for (const [f, fn] of [
-    ["src/lib/comptesClients.js", "envoyerWhatsApp"], ["src/lib/impression.js", "envoyerWhatsApp"], ["src/screens/Dettes.jsx", "envoyerWhatsApp"],
+    ["src/lib/comptesClients.js", "envoyerWhatsApp"], ["src/lib/impression.js", "envoyerWhatsApp"],
     ["src/screens/Ventes.jsx", "envoyerWhatsApp"], ["src/screens/Clients.jsx", "envoyerWhatsApp"],
     ["src/screens/EspaceClient.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
   ]) {
@@ -4556,6 +4556,18 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
       && !/envoyerWhatsApp\(/.test(srcPartages));
     test("★ le filleul (EspaceClient) garde le bouton de secours si le navigateur bloque (uConfirm transmis)",
       /await envoyerWhatsApp\(tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+    // ⚠ CONTRÔLE RETOURNÉ LE 20/09/2026 (décision « c ») : 📋 Dettes non plus
+    // n'ouvre WhatsApp en direct — la relance part du numéro BMI par le
+    // chemin unique, et REPLIE sur l'ouverture WhatsApp au moindre refus.
+    // Ce qui est protégé n'a pas bougé : aucun écran n'écrit `wa.me`.
+    {
+      const srcD = readFileSync("src/screens/Dettes.jsx", "utf8");
+      test("★ la relance d'une dette part du numéro BMI par le chemin unique, avec le texte du modèle en repli",
+        /import \{ envoyerModele \} from "\.\.\/whatsapp";/.test(srcD)
+        && /texteRepli: texte,/.test(srcD)
+        && /demanderConfirmation: uConfirm,/.test(srcD)
+        && !/envoyerWhatsApp\(/.test(srcD));
+    }
   }
 }
 
