@@ -11,6 +11,8 @@ import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estComp
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
+import { etudePompe, pompesDuStock, ficheLisible } from "../../lib/pompes.js";
+import { pertesTuyauPct } from "../../lib/calculs";
 
 // ⚠ La recherche par RESSEMBLANCE du besoin écrit (correspondancesBesoin) a
 // été retirée le 11/09/2026 : Timo a demandé deux listes déroulantes —
@@ -275,6 +277,10 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
         ...lignesDevis.filter((l) => l.produit).map((l) => ({
           categorie: l.besoin.categorie || categorieChoisie, article: l.produit.nom, qte: l.qte,
           pu: l.produit.prix_vente, total: l.sousTotal, hors_boutique: !!l.besoin.hors_boutique,
+          // ⚠ La fiche d'une pompe part SUR LA LIGNE du devis : le PDF ne voit
+          // que le devis, il ne peut pas retourner chercher l'article. Vide
+          // pour tout le reste — aucune ligne ne grandit sans raison.
+          ...(ficheLisible(l.produit) ? { fiche: ficheLisible(l.produit) } : {}),
         })),
   ];
 
@@ -298,6 +304,14 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
 
   const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
 
+  // ⚠⚠ QUELLE POMPE POUR CE FORAGE — l'étape 2, option « A » (Timo,
+  // 20/09/2026). Le panneau n'apparaît QUE si le métier ouvert a des pompes
+  // en stock : aucun réglage à faire, et rien à l'écran là où ça n'a pas de
+  // sens. ⚠ Ces hooks sont posés AVANT tout return anticipé — un hook après
+  // un `return` donne un écran blanc (§ 5).
+  const [pompe, setPompe] = useState({ niveauDynamique: "", hauteurReservoir: "", longueurTuyau: "", litresParJour: "" });
+  const [pompeOuvert, setPompeOuvert] = useState(false);
+
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
@@ -314,6 +328,101 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
           est donc proposé ci-dessous. Rattachez vos articles dans <b>📦 Stocks</b> pour n'avoir plus que les bons.
         </div>
       )}
+
+      {/* ⚠⚠ QUELLE POMPE POUR CE FORAGE (option « A », 20/09/2026). Il PROPOSE,
+          il ne choisit jamais — et il ne promet AUCUN débit à la hauteur
+          calculée : ça demanderait la courbe du fabricant (option « C »,
+          « avec le temps… mais pas aujourd'hui »). */}
+      {pompesDuStock(produitsBoutique.filter((p) => !domaine || p.domaine === domaine.id)).length > 0 && (() => {
+        const pompesIci = pompesDuStock(produitsBoutique.filter((p) => !domaine || p.domaine === domaine.id));
+        const e = etudePompe(pompesIci, { ...pompe, pctPertes: pertesTuyauPct(db) });
+        return (
+          <div className="rounded-xl border border-sky-200 bg-sky-50 overflow-hidden">
+            <button type="button" onClick={() => setPompeOuvert(!pompeOuvert)}
+              className="w-full text-left px-4 py-3 font-bold text-sky-900 flex items-center justify-between">
+              <span>💧 Quelle pompe pour ce forage ?</span>
+              <span className="text-xs font-normal">{pompeOuvert ? "▲ Replier" : "▼ Ouvrir"}</span>
+            </button>
+            {pompeOuvert && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Field label="Niveau dynamique (m)">
+                    <input type="number" step="1" className={inputCls} value={pompe.niveauDynamique}
+                      onChange={(ev) => setPompe({ ...pompe, niveauDynamique: ev.target.value })} placeholder="45" />
+                  </Field>
+                  <Field label="Hauteur du réservoir (m)">
+                    <input type="number" step="1" className={inputCls} value={pompe.hauteurReservoir}
+                      onChange={(ev) => setPompe({ ...pompe, hauteurReservoir: ev.target.value })} placeholder="8" />
+                  </Field>
+                  <Field label="Longueur de tuyau (m)">
+                    <input type="number" step="1" className={inputCls} value={pompe.longueurTuyau}
+                      onChange={(ev) => setPompe({ ...pompe, longueurTuyau: ev.target.value })} placeholder="60" />
+                  </Field>
+                  <Field label="Besoin en eau (litres / jour)">
+                    <input type="number" step="100" className={inputCls} value={pompe.litresParJour}
+                      onChange={(ev) => setPompe({ ...pompe, litresParJour: ev.target.value })} placeholder="3000" />
+                  </Field>
+                </div>
+                <div className="text-xs text-slate-600">
+                  ⚠ <b>Le niveau dynamique</b>, pas la profondeur du forage : la profondeur à laquelle l'eau se stabilise <b>pendant</b> le pompage. C'est le foreur qui le donne.
+                </div>
+
+                {e.refus ? (
+                  <div className="rounded-lg bg-white border border-slate-200 p-3 text-sm text-slate-600">{e.refus}</div>
+                ) : (
+                  <>
+                    <div className="rounded-lg bg-white border border-sky-200 p-3 text-sm">
+                      <div className="font-bold text-sky-900">Hauteur totale à vaincre : {String(e.hmt).replace(".", ",")} m</div>
+                      <div className="text-xs text-slate-600">
+                        {String(e.eau).replace(".", ",")} m (l'eau) + {String(e.reservoir).replace(".", ",")} m (le réservoir)
+                        + {String(e.pertes).replace(".", ",")} m (frottements, <b>estimés</b> à {pertesTuyauPct(db)} % du tuyau)
+                      </div>
+                      <div className="font-bold text-sky-900 mt-1">Débit nécessaire : {String(e.debit).replace(".", ",")} m³/h</div>
+                      <div className="text-xs text-slate-600">{pompe.litresParJour} litres ÷ 6 heures de soleil</div>
+                    </div>
+
+                    <div className="rounded-lg bg-amber-50 border border-amber-300 p-3 text-xs text-amber-900">
+                      ⚠ <b>{e.avertissement}</b>
+                    </div>
+
+                    <div className="rounded-lg bg-white border border-slate-200 overflow-x-auto">
+                      <div className="px-3 py-2 text-sm font-bold border-b border-slate-200">
+                        Pompes de {boutique} qui montent à {String(e.hmt).replace(".", ",")} m ou plus — {e.conviennent.length}
+                      </div>
+                      {e.conviennent.length === 0 ? (
+                        <div className="px-3 py-3 text-sm text-slate-500">Aucune pompe renseignée de cette boutique ne monte aussi haut.</div>
+                      ) : e.conviennent.map((p) => (
+                        <div key={p.id} className="px-3 py-2 border-b border-slate-100 flex justify-between gap-3 text-sm">
+                          <span>
+                            <b>{p.nom}</b>
+                            <span className="block text-xs text-sky-800">{ficheLisible(p)}</span>
+                          </span>
+                          <span className="whitespace-nowrap text-xs text-slate-500">{fmt(p.prix_vente)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {e.tropCourtes.length > 0 && (
+                      <div className="text-xs text-slate-500">
+                        Écartées, elles ne montent pas assez haut : {e.tropCourtes.map((p) => `${p.nom} (${p.profondeur_max_m} m)`).join(", ")}.
+                      </div>
+                    )}
+                    {e.sansFiche.length > 0 && (
+                      <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+                        ⚠ {e.sansFiche.length} pompe(s) ne sont pas renseignées et <b>ne peuvent donc pas être proposées</b> :
+                        {" "}{e.sansFiche.map((p) => p.nom).join(", ")}. Complétez leur profondeur maximale dans <b>📦 Stocks</b>.
+                      </div>
+                    )}
+                    <div className="text-xs text-slate-500">
+                      Cette étude ne s'enregistre pas : elle vous aide à choisir. Ajoutez la pompe retenue dans la liste ci-dessous, comme un article ordinaire.
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock {domaine ? `domaine ${domaine.nom}` : "de la boutique"} — {boutique})</div>

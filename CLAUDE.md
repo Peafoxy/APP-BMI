@@ -52,12 +52,12 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1725 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1759 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 77  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
-npm run verifier-ecran-stocks    # 17  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
+npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
@@ -1014,6 +1014,67 @@ lit mal est pire qu'un banc absent).
   Quantité / Prix payé (F) / Prix facturé (F) pour le HB ; **la ligne d'aide
   (« ✓ N en stock ») est SOUS la grille**, sinon la case Quantité s'étirait à
   sa hauteur (« la ligne de quantité s'élargit ») — le banc mesure la hauteur.
+
+### 💧 LES POMPES : CE QU'ON EN SAIT, ET CE QU'ON NE PROMET PAS (20/09/2026)
+- Timo : « j'ai mis les modèles de pompe mais **pour un commun des mortels,
+  impossible de savoir la puissance, la profondeur, le débit et la tension** ».
+  Puis : « il manque si la pompe est **hybride** ou non » (**case à cocher**,
+  sa décision — la ligne à trois choix a été proposée et écartée), « **les 2** »
+  (les deux étapes), « on part sur **A** ; avec le temps on peut implémenter le
+  C, mais pas aujourd'hui », et « les pompes sont rangées dans **domaine
+  forage, catégorie pompe** ». Règle pure `lib/pompes.js` (sans import).
+- ⚠⚠ **CE QUI A ÉTÉ TROUVÉ EN CHERCHANT, ET QUI EST PIRE QUE LE MANQUE** : la
+  fiche d'un article portait DÉJÀ **`tension`**, **`fiche_technique`** (un
+  lien) et **`notes`** — **et AUCUN des trois ne s'affichait nulle part**. Ni
+  dans le tableau 📦 Stocks, ni dans la fenêtre « Rechercher un article », ni
+  sur un devis. On les remplissait **dans le vide** : on croit avoir noté.
+  Les trois se lisent maintenant. `tension` est **RÉUTILISÉE**, jamais doublée.
+- ⚠⚠ **LA DIFFICULTÉ QUI COMMANDE TOUT LE RESTE — LA COURBE.** Une pompe **ne
+  donne PAS son débit maximal à sa profondeur maximale** : une « 60 m · 3 m³/h »
+  fait 3 m³/h EN SURFACE, et peut-être 0,8 m³/h à 55 m. Dire au client « cette
+  pompe vous donnera 3 m³/h à 56 m » serait un **mensonge**, et l'installation
+  serait ratée. Donc : **l'application ne promet JAMAIS un débit à une hauteur
+  donnée** — elle dit quelles pompes MONTENT assez haut et renvoie à la fiche
+  du fabricant. Le banc interdit toute fonction qui prétendrait le calculer.
+- **ÉTAPE 1 — les cinq renseignements** : puissance (kW), profondeur max (m),
+  débit max (m³/h), tension (V), **case « hybride »**. ⚠ Ils n'apparaissent
+  **QUE sur une pompe** — pas question de demander sa profondeur maximale à un
+  tournevis. **C'est la CATÉGORIE qui décide**, jamais le nom : sinon un
+  « tuyau de pompe » deviendrait une pompe (le banc l'éprouve). La fiche se lit
+  **partout où on choisit un article** — tableau 📦 Stocks, fenêtre de 💰 Ventes,
+  champ à suggestions — **et sur le devis du client**, sous la ligne.
+  ⚠ Une ligne ordinaire ne porte rien et **ne grandit donc pas** dans le PDF :
+  la mise en page du bas du devis est mesurée au millimètre, et elle est restée
+  au vert.
+- **ÉTAPE 2 — « 💧 Quelle pompe pour ce forage ? »** (option « A »), dans le
+  volet du devis, **affiché seulement si le métier ouvert a des pompes en
+  stock** : aucun réglage à faire, rien à l'écran là où ça n'a pas de sens.
+  - Quatre questions : **niveau dynamique**, hauteur du réservoir, longueur de
+    tuyau, besoin en litres/jour. ⚠⚠ **LE NIVEAU DYNAMIQUE, PAS LA PROFONDEUR
+    DU FORAGE** — la profondeur à laquelle l'eau se stabilise PENDANT le
+    pompage. **C'est le foreur qui le donne** ; sans lui on refuse de calculer,
+    et le refus le DIT.
+  - Le calcul : 45 m (l'eau) + 8 m (le réservoir) + 3 m (frottements) = **56 m**,
+    et 3 000 L ÷ 6 h = **0,5 m³/h**. ⚠ Les frottements sont une **ESTIMATION**
+    (ils dépendent du diamètre du tuyau, qu'on ne demande pas) : l'écran écrit
+    « estimés », et le pourcentage se règle dans ⚙ Paramètres à côté du rail
+    (`pertes_tuyau_pct`, admin — **rien à coller**).
+  - ⚠ **Une pompe NON RENSEIGNÉE est invisible au calcul, et l'écran le DIT** —
+    sinon le vendeur croit qu'aucune pompe ne convient. Celles qui sont trop
+    courtes sont **écartées en le disant**, jamais escamotées.
+  - **L'étude ne s'enregistre pas** : elle aide à choisir, le vendeur ajoute
+    ensuite la pompe comme un article ordinaire.
+- ⚠ **L'OPTION « C » RESTE OUVERTE, et c'est sa décision** : saisir 3 à 5 points
+  de la vraie courbe par MODÈLE (à 20 m → 2,1 m³/h, à 40 m → 1,4…) permettrait
+  d'annoncer un débit pour de bon. « Avec le temps on peut implémenter le C.
+  **Mais pas aujourd'hui.** » Ne pas le construire sans sa demande.
+- ⚠ **Un contrôle a été RETOURNÉ, pas assoupli** : la colonne figée de 📦 Stocks
+  exigeait le TEXTE `…celluleFigee(…)}`}>{p.nom}</td>` — la cellule porte
+  maintenant la fiche, le lien et les notes. Ce qui est MESURÉ n'a pas bougé
+  (la cellule reste collée à gauche avec son fond), et **un contrôle de plus**
+  vérifie que la fiche est DANS la cellule figée, donc qu'elle défile avec elle.
+- **Rien à coller dans Supabase** : tous ces champs vivent sur la fiche d'un
+  article et sur les boutiques, que l'administrateur écrit déjà.
 
 ### 🧰 Le matériel de travail (17/09/2026)
 - Timo : « le matériel de travail… comment faire le suivi, pour éviter la

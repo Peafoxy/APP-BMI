@@ -7,6 +7,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES } from "./constants";
@@ -2448,6 +2449,15 @@ export const LONGUEUR_RAIL_DEFAUT = 4.2;
 export const longueurRailBarre = (db) => {
   const b = (db?.boutiques || []).find((x) => Number(x.longueur_rail) > 0);
   return b ? Number(b.longueur_rail) : LONGUEUR_RAIL_DEFAUT;
+};
+
+// ⚠ LES FROTTEMENTS DANS LE TUYAU D'UN FORAGE — une ESTIMATION, jamais un
+// chiffre exact : ils dépendent du diamètre du tuyau, que nous ne demandons
+// pas. Réglable comme la longueur d'une barre de rail (sur les boutiques,
+// aucune table nouvelle). La règle du calcul vit dans lib/pompes.js.
+export const pertesTuyauPct = (db) => {
+  const b = (db?.boutiques || []).find((x) => Number(x.pertes_tuyau_pct) > 0);
+  return b ? Number(b.pertes_tuyau_pct) : PERTES_PCT_DEFAUT;
 };
 
 // Statut d'un chantier (par défaut : en cours)

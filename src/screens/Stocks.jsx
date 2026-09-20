@@ -7,6 +7,7 @@
 import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { uid, fmt, today, dFR } from "../lib/core";
+import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
@@ -34,7 +35,7 @@ export function Stocks({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const bq = boutiqueRetenue(db, profile, bqSel, { ecran: "stocks" });
-  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
   // un article mal saisi ne se corrigeait pas. On pouvait changer son
@@ -287,6 +288,9 @@ export function Stocks({ db, save, profile }) {
     ["garantie_boutique", "Garantie boutique", "texte"],
     ["garantie_fabricant", "Garantie fabricant", "texte"],
     ["conditions_garantie", "Conditions de garantie", "texte"],
+    ["puissance_kw", "Puissance (kW)", "nombre"],
+    ["profondeur_max_m", "Profondeur max (m)", "nombre"],
+    ["debit_max_m3h", "Débit max (m³/h)", "nombre"],
     ["fiche_technique", "Fiche technique", "texte"],
     ["notes", "Notes internes", "texte"],
   ];
@@ -311,6 +315,8 @@ export function Stocks({ db, save, profile }) {
       tension: p.tension ?? "", garantie_boutique: p.garantie_boutique || "",
       garantie_fabricant: p.garantie_fabricant || "", conditions_garantie: p.conditions_garantie || "",
       fiche_technique: p.fiche_technique || "", notes: p.notes || "",
+      puissance_kw: p.puissance_kw || "", profondeur_max_m: p.profondeur_max_m || "",
+      debit_max_m3h: p.debit_max_m3h || "", hybride: !!p.hybride,
     });
     // Le volet des garanties s'ouvre tout seul s'il contient déjà quelque
     // chose : sinon on corrigerait à l'aveugle un champ qu'on ne voit pas.
@@ -322,7 +328,7 @@ export function Stocks({ db, save, profile }) {
 
   const annulerCorrection = () => {
     setEnEdition(null);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
   };
 
   const enregistrerCorrection = async () => {
@@ -469,8 +475,10 @@ export function Stocks({ db, save, profile }) {
       uAlert(`« ${dejaDansCetteBoutique.nom} » existe déjà dans ${bq}.\n\nPour modifier sa fiche, utilisez ✏️ Corriger dans la liste ci-dessous. Pour créer un article différent, changez son nom.`);
       return;
     }
-    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "", garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "",
+      puissance_kw: f.puissance_kw ? Number(f.puissance_kw) : "", profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
+      debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
     uAlert("Article ajouté !");
   };
 
@@ -1112,6 +1120,32 @@ export function Stocks({ db, save, profile }) {
         <button type="button" onClick={() => setAutresInfosOuvert(!autresInfosOuvert)} className="mt-3 text-xs font-bold text-sky-800 underline">
           {autresInfosOuvert ? "▾" : "▸"} Autres informations (garanties, notes...)
         </button>
+        {/* ⚠ LES CINQ RENSEIGNEMENTS D'UNE POMPE (Timo, 20/09/2026). Ils
+            n'apparaissent QUE sur une pompe — pas question de demander sa
+            profondeur maximale à un tournevis. C'est la CATÉGORIE qui décide
+            (« les pompes sont rangées dans domaine forage, catégorie pompe »).
+            ⚠ `tension` existe depuis toujours sur une fiche article : on la
+            réutilise, on n'en crée pas une deuxième. */}
+        {estPompe({ categorie: f.categorie }) && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3 p-3 rounded-lg bg-sky-50 border border-sky-200">
+            <div className="sm:col-span-2 lg:col-span-5 text-xs text-slate-600">
+              💧 <b>Caractéristiques de la pompe</b> — elles s'afficheront sous le nom partout où on choisit l'article, et sur le devis du client.
+            </div>
+            <Field label="Puissance (kW)"><input type="number" step="0.01" className={inputCls} value={f.puissance_kw} onChange={(e) => setF({ ...f, puissance_kw: e.target.value })} placeholder="1.1" /></Field>
+            <Field label="Profondeur max (m)"><input type="number" step="1" className={inputCls} value={f.profondeur_max_m} onChange={(e) => setF({ ...f, profondeur_max_m: e.target.value })} placeholder="60" /></Field>
+            <Field label="Débit max (m³/h)"><input type="number" step="0.1" className={inputCls} value={f.debit_max_m3h} onChange={(e) => setF({ ...f, debit_max_m3h: e.target.value })} placeholder="3" /></Field>
+            <Field label="Tension (V)"><input type="number" step="1" className={inputCls} value={f.tension} onChange={(e) => setF({ ...f, tension: e.target.value })} placeholder="220" /></Field>
+            <Field label="Alimentation">
+              <label className="flex items-center gap-2 text-sm h-10">
+                <input type="checkbox" checked={!!f.hybride} onChange={(e) => setF({ ...f, hybride: e.target.checked })} />
+                Hybride (solaire + secteur)
+              </label>
+            </Field>
+            <div className="sm:col-span-2 lg:col-span-5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+              ⚠ Le débit maximal est celui <b>en surface</b>. Une pompe ne donne pas son débit maximal à sa profondeur maximale — le débit réel à une hauteur donnée se lit sur la fiche du fabricant.
+            </div>
+          </div>
+        )}
         {autresInfosOuvert && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
             <Field label="🏪 Garantie boutique — affichée sur reçu/facture">
@@ -1259,7 +1293,21 @@ export function Stocks({ db, save, profile }) {
               const vendu = stockVendu(db, p.id), aj = stockAjuste(db, p.id), actuel = stockActuel(db, p), al = actuel <= Number(p.seuil);
               return (
                 <tr key={p.id} className={`border-t border-slate-100 ${al ? "bg-red-50" : ""}`}>
-                  <td className={`px-3 py-2 font-semibold ${celluleFigee(al ? "bg-red-50" : "bg-white")}`}>{p.nom}</td>
+                  {/* ⚠ CE QUI ÉTAIT ENREGISTRÉ ET NE SE LISAIT NULLE PART (20/09/2026) :
+                      les caractéristiques d'une pompe, le lien de la fiche technique et
+                      les notes internes. Trois champs qu'on remplissait dans le vide —
+                      « on croit l'avoir noté ». Ils se lisent maintenant sous le nom. */}
+                  <td className={`px-3 py-2 font-semibold ${celluleFigee(al ? "bg-red-50" : "bg-white")}`}>
+                    {p.nom}
+                    {ficheLisible(p) && <div className="text-xs font-normal text-sky-800">{ficheLisible(p)}</div>}
+                    {(p.fiche_technique || p.notes) && (
+                      <div className="text-xs font-normal text-slate-500">
+                        {p.fiche_technique && <a href={p.fiche_technique} target="_blank" rel="noopener noreferrer" className="text-sky-700 underline">🔗 Fiche technique</a>}
+                        {p.fiche_technique && p.notes ? " · " : ""}
+                        {p.notes && <span title={p.notes}>📝 {p.notes}</span>}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <button onClick={() => changerFournisseur(p)} className={`text-xs font-semibold underline ${p.fournisseur ? "text-slate-600" : "text-slate-400"}`}>
                       {p.fournisseur || "— Définir —"}

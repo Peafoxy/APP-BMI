@@ -419,7 +419,11 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
 const ligneEquipement = (l) => {
   const style = Number(l.total) < 0 ? { textColor: [185, 28, 28] } : {};
   return [
-    { content: String(l.article), styles: style },
+    // ⚠ La fiche technique (une pompe : « 1,1 kW · 60 m · 3 m³/h · 220 V »)
+    // se lit SOUS le nom — c'est ce que le client veut savoir avant de
+    // signer. Une ligne ordinaire ne porte rien et ne grandit donc pas :
+    // la mise en page du bas du devis est mesurée au millimètre (§ 4).
+    { content: l.fiche ? `${String(l.article)}\n${String(l.fiche)}` : String(l.article), styles: style },
     { content: String(l.qte), styles: { halign: "center", ...style } },
     { content: `${fmtMontant(l.pu)} F`, styles: { halign: "right", ...style } },
     { content: `${fmtMontant(l.total)} F`, styles: { halign: "right", fontStyle: "bold", ...style } },

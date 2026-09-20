@@ -29,6 +29,7 @@ import { uid, today, fmt, totalVente } from "./core";
 import { stockActuel, resteAPayer, travauxSolde } from "./calculs";
 import { sansAccents } from "./suggestions";
 import { dansLEspaceRegarde, totalDepensesChantier } from "./depensesChantier";
+import { ficheLisible } from "./pompes.js";
 
 export const STATUT_TRAVAUX = "travaux";
 export const TYPE_SORTIE_TRAVAUX = "sortie_travaux";
@@ -81,7 +82,13 @@ export const nouveauTravail = (profile, { nom, prenom, tel, lieu, boutique, desc
 // un nom tapé ne le lie que s'il correspond EXACTEMENT (sans accents ni
 // majuscules) — jamais par ressemblance : on ne sort pas un autre câble.
 export const propositionsStock = (db, produits) =>
-  (produits || []).map((p) => ({ cle: p.id, produit_id: p.id, valeur: p.nom, detail: `${stockActuel(db, p)} en stock · ${fmt(p.prix_vente)}` }));
+  (produits || []).map((p) => {
+    // ⚠ La fiche d'une pompe s'ajoute au détail (20/09/2026) — même raison
+    // qu'ailleurs : on choisit ici, on doit lire ici.
+    const fiche = ficheLisible(p);
+    return { cle: p.id, produit_id: p.id, valeur: p.nom,
+      detail: `${stockActuel(db, p)} en stock · ${fmt(p.prix_vente)}${fiche ? ` · ${fiche}` : ""}` };
+  });
 export const produitSaisi = (produits, saisie) => {
   const q = sansAccents(saisie);
   if (!q) return null;

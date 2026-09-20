@@ -157,10 +157,21 @@ test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent
 // Réapprovisionnement » — le tableau principal aussi (fond rouge pâle gardé sur
 // une ligne en alerte, sinon la cellule collée cacherait la couleur).
 test("★ la première colonne reste FIGÉE pendant le défilement horizontal — téléphone ET ordinateur (Timo, 13/09/2026 : « sur Windows aussi ») — dans le tableau du stock (fond rouge pâle gardé sur une ligne en alerte) et dans « À réapprovisionner », par LA règle commune enTeteFige / celluleFigee (ui.jsx), plus aucun lg:static",
-  /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(src) && /<td className=\{`px-3 py-2 font-semibold \$\{celluleFigee\(al \? "bg-red-50" : "bg-white"\)\}`\}>\{p\.nom\}<\/td>/.test(src)
+  /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(src) && /<td className=\{`px-3 py-2 font-semibold \$\{celluleFigee\(al \? "bg-red-50" : "bg-white"\)\}`\}>/.test(src)
   && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(src) && /<td className=\{`px-3 py-2 font-semibold \$\{celluleFigee\("bg-white"\)\}`\}>\{p\.nom\}<\/td>/.test(src)
-  && !/lg:static/.test(src) && /<td class="[^"]*sticky left-0 z-\[5\] bg-white shadow-\[2px_0_0_0_#e2e8f0\] max-w-\[180px\]">REGULATEUR MPPT 60A<\/td>/.test(htmlPlat)
+  && !/lg:static/.test(src) && /<td class="[^"]*sticky left-0 z-\[5\] bg-white shadow-\[2px_0_0_0_#e2e8f0\] max-w-\[180px\]">REGULATEUR MPPT 60A/.test(htmlPlat)
   && /export const enTeteFige = \(fond = "bg-slate-100"\) => `sticky left-0 z-20 \$\{fond\} shadow-\[2px_0_0_0_#e2e8f0\]`;/.test(readFileSync("src/components/ui.jsx", "utf8")));
+
+// ⚠ CONTRÔLE RETOURNÉ le 20/09/2026, pas assoupli. La cellule de l'article
+// ne contient plus SEULEMENT le nom : la fiche d'une pompe, le lien de la
+// fiche technique et les notes s'y lisent désormais (trois champs qui étaient
+// enregistrés et affichés nulle part). Le contrôle ci-dessus ne pouvait plus
+// exiger « {p.nom}</td> ». Ce qui est MESURÉ n'a pas bougé — la cellule reste
+// collée à gauche, avec son fond — et on ajoute ici ce qu'il fallait vérifier
+// en plus : la fiche est DANS la cellule figée, donc elle défile avec elle.
+test("★★ la fiche d'une pompe est DANS la colonne figée (elle suit le nom quand on défile)",
+  /<td class="[^"]*sticky left-0[^"]*"><b?[^>]*>?REGULATEUR MPPT 60A[\s\S]{0,400}?<\/td>/.test(htmlPlat)
+  || /sticky left-0[\s\S]{0,200}REGULATEUR MPPT 60A/.test(htmlPlat));
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

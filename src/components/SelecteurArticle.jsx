@@ -11,6 +11,7 @@ import { fmt } from "../lib/core";
 // recherches ») : sans accents ni majuscules, chaque mot tapé dans
 // n'importe quel ordre, un mot court doit commencer un mot.
 import { correspond } from "../lib/suggestions";
+import { ficheLisible } from "../lib/pompes.js";
 
 // ============ SÉLECTEUR D'ARTICLE (recherche tactile, sans menu natif) ============
 // `prix` (facultatif) : une fonction qui rend le prix à montrer sur chaque
@@ -49,7 +50,12 @@ export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, ca
                   {filtres.filter((p) => (p.categorie || "Autre") === c).map((p) => (
                     <button key={p.id} type="button" onClick={() => { onChoisir(p.id); setOuvert(false); setRecherche(""); }}
                       className="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between">
-                      <span className="font-medium">{p.nom}</span>
+                      {/* ⚠ La fiche d'une pompe SOUS le nom (Timo, 20/09/2026) : c'est ici
+                          qu'on choisit devant le client, c'est donc ici qu'il faut la lire. */}
+                      <span className="font-medium">
+                        {p.nom}
+                        {ficheLisible(p) && <span className="block text-xs font-normal text-sky-800">{ficheLisible(p)}</span>}
+                      </span>
                       <span className="text-xs whitespace-nowrap ml-2">{prix ? <span className="font-bold text-sky-800" data-prix={p.id}>{fmt(prix(p))}</span> : null}{prix ? <span className="text-slate-400"> · </span> : null}<span className="text-slate-400">dispo : {dispoRestant(p)}</span></span>
                     </button>
                   ))}

@@ -16,7 +16,8 @@ import { PALETTE, LOGO } from "../lib/constants";
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche } from "../components/ui";
-import { tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
+import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
+import { pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
@@ -439,6 +440,20 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, longueur_rail: v })) },
       `Longueur d'une barre de rail fixée à ${v} m`);
     uAlert(`✅ Une barre de rail fait désormais ${v} m.\n\nLe dimensionnement compte les mètres, arrondit aux barres entamées et facture ces barres au prix du mètre ; le stock perd ce nombre de barres à l'encaissement. S'applique aux PROCHAINS devis.`);
+  };
+
+  // ⚠ LES FROTTEMENTS DANS LE TUYAU D'UN FORAGE (20/09/2026) — une ESTIMATION,
+  // pas un chiffre exact : ils dépendent du diamètre du tuyau, que nous ne
+  // demandons pas. Réglable comme la longueur d'une barre de rail.
+  const [pertesTuyau, setPertesTuyau] = useState(String(pertesTuyauPct(db)));
+  const enregistrerPertesTuyau = () => {
+    if (refuserSaufAdmin(profile, "Modifier l'estimation des frottements")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const v = Number(String(pertesTuyau).replace(",", "."));
+    if (Number.isNaN(v) || v <= 0 || v > 50) { uAlert("Entrez un pourcentage entre 1 et 50 (par exemple 5)."); return; }
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, pertes_tuyau_pct: v })) },
+      `Frottements dans le tuyau estimés à ${v} % de sa longueur`);
+    uAlert(`✅ Les frottements sont désormais estimés à ${v} % de la longueur du tuyau.\n\nC'est une ESTIMATION : le chiffre exact dépend du diamètre du tuyau. Elle sert au calcul « 💧 Quelle pompe pour ce forage ? » du devis.`);
   };
 
   const enregistrerPrixRail = () => {
@@ -1595,6 +1610,18 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
         <div className="text-xs text-slate-500 mt-2">
           Le stock compte des barres : le devis arrondit les mètres calculés aux barres entamées, le client paie ces barres au prix du mètre, et le stock perd ce nombre de barres à l'encaissement.
+        </div>
+        <div className="flex gap-2 items-end flex-wrap mt-4 pt-3 border-t border-slate-200" data-reglage="pertes-tuyau">
+          <Field label="💧 Forage — frottements dans le tuyau (%)">
+            <input type="number" min="1" max="50" step="1" className={inputCls + " w-36"} value={pertesTuyau} onChange={(e) => setPertesTuyau(e.target.value)} />
+          </Field>
+          <button onClick={enregistrerPertesTuyau} className={btnDark}>✅ Enregistrer</button>
+          <div className="text-xs text-slate-500 pb-2">
+            Exemple : 60 m de tuyau → <b>{Math.round(60 * (Number(pertesTuyau) || PERTES_PCT_DEFAUT)) / 100} m</b> ajoutés à la hauteur à vaincre.
+          </div>
+        </div>
+        <div className="text-xs text-slate-500 mt-2">
+          ⚠ C'est une <b>estimation</b> : le chiffre exact dépend du diamètre du tuyau, que l'application ne demande pas. Elle sert au calcul « 💧 Quelle pompe pour ce forage ? » dans le devis.
         </div>
         {Number(prixRail) !== PRIX_RAIL_DEFAUT && (
           <button

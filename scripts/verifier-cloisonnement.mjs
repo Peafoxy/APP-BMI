@@ -123,6 +123,14 @@ await build({ entryPoints: ["src/lib/comptesClients.js"], bundle: true, format: 
   external: ["react", "react-dom"] });
 const Cli = await import(pathToFileURL(sortieCli).href);
 unlinkSync(sortieCli);
+// Les pompes (20/09/2026) : règle pure, exercée — jamais lue.
+const sortiePmp = join("node_modules", ".cache", `bmi-pmp-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/pompes.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortiePmp, logLevel: "silent", loader: { ".js": "jsx" },
+  external: ["react", "react-dom"] });
+const Pmp = await import(pathToFileURL(sortiePmp).href);
+unlinkSync(sortiePmp);
+
 // La modification d'un devis DÉJÀ SIGNÉ (11/09/2026) : règles pures, exercées.
 const sortieMod = join("node_modules", ".cache", `bmi-modif-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/modifDevis.js"], bundle: true, format: "esm",
@@ -10262,6 +10270,98 @@ titre("👥 DEUX COMPTES DU MÊME NOM : C'EST LE MOT DE PASSE QUI DÉPARTAGE (Ti
   test("★ le garde-fou est revérifié DANS le geste, avant toute écriture",
     /const refusNom = critiqueIdentifiantEmploye\(db, f\.nom\);[\s\S]{0,200}return;/.test(util));
   test("★ et le refus propose un nom libre", /propositionIdentifiant\(db, f\.nom, f\.prenom, f\.tel\)/.test(util));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("💧 LES POMPES : CE QU'ON EN SAIT, ET CE QU'ON NE PROMET PAS (Timo, 20/09/2026)");
+{
+  const lit = (f) => readFileSync(f, "utf8");
+  const stocks = lit("src/screens/Stocks.jsx");
+  const autre = lit("src/screens/dimensionnement/Autre.jsx");
+  const pdf = lit("src/pdf.js");
+
+  // Son stock : deux pompes renseignées, une pompe oubliée, et un tuyau.
+  const stock = [
+    { id: "p60", nom: "POMPE SP 3-25", categorie: "Pompes", puissance_kw: 1.1, profondeur_max_m: 60, debit_max_m3h: 3, tension: 220 },
+    { id: "p120", nom: "POMPE SP 5-40", categorie: "Pompes", puissance_kw: 2.2, profondeur_max_m: 120, debit_max_m3h: 5, tension: 380, hybride: true },
+    { id: "p40", nom: "POMPE 4SR", categorie: "Pompes", profondeur_max_m: 40 },
+    { id: "poubli", nom: "POMPE SANS FICHE", categorie: "Pompes" },
+    { id: "t", nom: "Tuyau de pompe PE 40", categorie: "Tuyaux" },
+  ];
+
+  // ── CE QU'EST UNE POMPE : la CATÉGORIE, jamais le nom.
+  test("★★ un « Tuyau de pompe » n'est PAS une pompe (c'est la catégorie qui décide)",
+    !Pmp.estPompe(stock[4]) && Pmp.estPompe(stock[0]));
+  test("★ les accents et majuscules ne gênent pas", Pmp.estPompe({ categorie: "POMPES IMMERGÉES" }));
+  test("le stock rend ses 4 pompes, pas le tuyau", Pmp.pompesDuStock(stock).length === 4);
+
+  // ── LA FICHE LISIBLE — le point de départ de la demande de Timo.
+  test("★★ la fiche se lit d'un coup d'œil",
+    Pmp.ficheLisible(stock[0]) === "1,1 kW · 60 m · 3 m³/h · 220 V");
+  test("★ « hybride » se dit quand la case est cochée (sa décision du 20/09)",
+    /hybride/.test(Pmp.ficheLisible(stock[1])) && !/hybride/.test(Pmp.ficheLisible(stock[0])));
+  test("★ une pompe sans rien ne fabrique PAS une ligne vide", Pmp.ficheLisible(stock[3]) === "");
+  test("un article qui n'est pas une pompe non plus", Pmp.ficheLisible(stock[4]) === "");
+
+  // ── LE CALCUL — son exemple exact.
+  const e = Pmp.etudePompe(stock, { niveauDynamique: 45, hauteurReservoir: 8, longueurTuyau: 60, litresParJour: 3000 });
+  test("★★ 45 m d'eau + 8 m de réservoir + 3 m de frottements = 56 m", e.hmt === 56 && e.pertes === 3);
+  test("★★ 3 000 litres sur 6 heures de soleil = 0,5 m³/h", e.debit === 0.5);
+  test("★ le pourcentage de frottements se règle",
+    Pmp.hauteurManometrique({ niveauDynamique: 45, hauteurReservoir: 8, longueurTuyau: 60, pctPertes: 10 }).pertes === 6);
+
+  // ── CE QU'ON PROPOSE, ET CE QU'ON ÉCARTE EN LE DISANT.
+  test("★★ les pompes qui montent à 56 m, la plus juste d'abord",
+    e.conviennent.map((p) => p.id).join(",") === "p60,p120");
+  test("★★ celle de 40 m est ÉCARTÉE, et on dit pourquoi", e.tropCourtes.map((p) => p.id).join(",") === "p40");
+  test("★★ une pompe NON RENSEIGNÉE est invisible au calcul — et l'écran le DIT",
+    e.conviennent.every((p) => p.id !== "poubli") && e.sansFiche.map((p) => p.id).join(",") === "poubli");
+
+  // ⚠⚠ LE POINT LE PLUS IMPORTANT : on ne promet AUCUN débit à la hauteur.
+  test("★★ l'avertissement sur la COURBE est toujours là",
+    /ne donne pas son débit maximal à sa profondeur maximale/.test(e.avertissement)
+    && /fiche du fabricant/.test(e.avertissement));
+  test("★★ AUCUNE fonction ne prétend calculer un débit à une hauteur donnée",
+    !/debitALaHauteur|debitAHmt|courbe\s*\(/.test(lit("src/lib/pompes.js")));
+  test("★ l'écran affiche cet avertissement", /e\.avertissement/.test(autre));
+  test("★ et il dit que les frottements sont ESTIMÉS", /estimés<\/b> à \{pertesTuyauPct\(db\)\}/.test(autre));
+
+  // ── LE NIVEAU DYNAMIQUE : sans lui, on ne calcule rien.
+  test("★★ sans niveau dynamique, on REFUSE — et on explique que c'est le foreur qui le donne",
+    /foreur/.test(Pmp.critiqueCalculPompe({ litresParJour: 3000 }))
+    && /pendant le pompage|PENDANT le pompage/i.test(Pmp.critiqueCalculPompe({ litresParJour: 3000 })));
+  test("★ sans besoin en eau non plus", !!Pmp.critiqueCalculPompe({ niveauDynamique: 45 }));
+  test("★ un refus ne propose RIEN (pas de liste trompeuse)",
+    Pmp.etudePompe(stock, { litresParJour: 3000 }).conviennent.length === 0);
+
+  // ── OÙ ÇA SE LIT — c'était tout le problème.
+  test("★★ la fiche se lit dans le tableau 📦 Stocks", /ficheLisible\(p\)/.test(stocks));
+  test("★★ dans la fenêtre « Rechercher un article » de 💰 Ventes",
+    /ficheLisible\(p\)/.test(lit("src/components/SelecteurArticle.jsx")));
+  test("★★ dans le champ à suggestions du stock", /ficheLisible\(p\)/.test(lit("src/lib/travaux.js")));
+  test("★★ et sur le devis du client", /l\.fiche \?/.test(pdf) && /fiche: ficheLisible\(l\.produit\)/.test(autre));
+  test("★ une ligne ordinaire ne grandit pas dans le PDF (la mise en page est mesurée au mm)",
+    /l\.fiche \? `\$\{String\(l\.article\)\}\\n/.test(pdf));
+
+  // ── LES CHAMPS N'APPARAISSENT QUE SUR UNE POMPE.
+  test("★★ le formulaire ne demande sa profondeur qu'à une POMPE",
+    /\{estPompe\(\{ categorie: f\.categorie \}\) && \(/.test(stocks));
+  test("★ les cinq renseignements sont là", ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "f.tension", "f.hybride"].every((c) => stocks.includes(c)));
+  test("★ et `tension` est RÉUTILISÉE, pas doublée", !/tension_pompe|voltage/.test(lit("src/lib/pompes.js")));
+
+  // ── LES DEUX CHAMPS QUI DORMAIENT DEPUIS TOUJOURS.
+  test("★★ « Fiche technique » se lit enfin (elle était écrite dans le vide)",
+    /p\.fiche_technique && <a href=\{p\.fiche_technique\}/.test(stocks));
+  test("★★ « Notes internes » aussi", /p\.notes && <span/.test(stocks));
+
+  // ── LE PANNEAU N'APPARAÎT QUE LÀ OÙ IL A UN SENS.
+  test("★★ « Quelle pompe pour ce forage ? » ne s'affiche que si le métier a des pompes",
+    /pompesDuStock\(produitsBoutique\.filter\(\(p\) => !domaine \|\| p\.domaine === domaine\.id\)\)\.length > 0/.test(autre));
+  test("★ l'étude ne s'enregistre pas : elle aide à choisir",
+    /Cette étude ne s'enregistre pas/.test(autre) && !/save\(\{[^}]*pompe/.test(autre));
+  test("★ le réglage des frottements est réservé à l'administrateur",
+    /refuserSaufAdmin\(profile, "Modifier l'estimation des frottements"\)/.test(lit("src/screens/Parametres.jsx")));
+  test("la règle pure ne dépend de rien", !/^\s*import\s/m.test(lit("src/lib/pompes.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
