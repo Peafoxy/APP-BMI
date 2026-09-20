@@ -538,8 +538,8 @@ les clés reçues) — c'est ce qui permettra de l'ajuster en une ligne.
   au bout de 30 jours** : passé ce délai l'écran le DIT. Les garder pour
   toujours demanderait un espace de stockage — pas demandé.
 - ~~La conversation descend sur tous les téléphones~~ — **FERMÉ le 20/09/2026**
-  (décision « 1a », `supabase/securite-27-conversations-whatsapp.sql`, **à
-  coller par Timo**) : ce qui ne regarde pas quelqu'un ne descend plus chez lui.
+  (décision « 1a », `supabase/securite-27-conversations-whatsapp.sql`, **collé
+  par Timo le 20/09/2026, `true | true | true`**) : ce qui ne regarde pas quelqu'un ne descend plus chez lui.
 - Le **comptable** n'a plus 📲 WhatsApp (décision « 2a », le même jour).
 - **« Livré » / « lu »** : toujours pas. Il faudrait écouter un second
   événement de Meta, et l'écrire serait rassurer à tort tant qu'on ne l'a pas.

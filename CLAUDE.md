@@ -2170,9 +2170,9 @@ lit mal est pire qu'un banc absent).
   lettres (`ROLES_TOUTES_CONVERSATIONS`). Faire dépendre « qui lit les
   clients » de « qui est sur le bulletin de salaire », c'était lier deux
   choses qui n'ont aucune raison de rester d'accord.
-- ⚠⚠ **C'ÉTAIT un filtre d'AFFICHAGE — LA PORTE SE FERME AVEC `securite-27`**
-  (écrit le 20/09/2026, sa décision « 1a » ; ⚠ **tant qu'il ne l'a pas collé,
-  rien n'a changé côté base** — voir plus bas). Avant ce
+- ⚠⚠ **C'ÉTAIT un filtre d'AFFICHAGE — LA PORTE EST FERMÉE POUR DE BON**
+  (`securite-27`, sa décision « 1a », **collé par Timo le 20/09/2026**
+  — `true | true | true`). Avant ce
   script, la conversation ne s'AFFICHAIT pas chez qui n'y avait pas droit
   **mais sa copie locale la contenait**, la table `messages` n'étant pas
   cloisonnée par personne (comme les dépenses d'un technicien, comme la
@@ -2403,7 +2403,7 @@ lit mal est pire qu'un banc absent).
   **Une réserve qu'on écrit et qu'on n'y revient jamais ne vaut rien** : la
   poser, c'est s'engager à la reposer.
 
-#### « 1a » — LA PORTE SE FERME POUR DE BON (`securite-27`, à coller)
+#### « 1a » — LA PORTE EST FERMÉE POUR DE BON (`securite-27`, collé)
 - Le filtre de 📲 WhatsApp était un filtre d'**AFFICHAGE** : un commercial ne
   VOYAIT que ses conversations, mais **sa copie locale les contenait toutes**.
   La table `messages` n'est pas cloisonnée par personne côté serveur.
@@ -2431,10 +2431,12 @@ lit mal est pire qu'un banc absent).
 - ⚠ **Ce qui est DÉJÀ sur les téléphones part tout seul** : à la première
   reconnexion, `reconcilierMiroir` (src/sync.js) supprime toute ligne locale
   que le serveur ne montre plus. Rien à lancer.
-- **`securite-27` est le SEUL à coller.** Il ne reprend aucun script
-  antérieur et n'en touche aucun. ⚠ **Écrire ici qu'il est collé tant qu'il
-  ne l'est pas serait exactement le genre de fausse assurance qu'on ne se
-  permet pas** : la ligne se met à jour le jour où il renvoie le `true`.
+- **`securite-27` était le SEUL à coller.** Il ne reprend aucun script
+  antérieur et n'en touche aucun.
+  **Collé par Timo le 20/09/2026 (`true | true | true`).**
+  ⚠ **Effet à la prochaine reconnexion de chacun** : c'est à ce moment que
+  l'appareil retélécharge ce que le serveur lui accorde et SUPPRIME le
+  reste (`reconcilierMiroir`).
 
 #### « 2a » — LE COMPTABLE SORT DE 📲 WHATSAPP
 - Il garde 💬 Messages ; l'onglet 📲 WhatsApp lui est retiré, et la base ne
