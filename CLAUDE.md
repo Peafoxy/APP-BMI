@@ -886,6 +886,28 @@ lit mal est pire qu'un banc absent).
   redescend dans son bloc). UNE ligne, `LigneConversation` ; plus de tri
   maison par bloc. Le client connecté ne voit toujours que son fil.
 
+- ⚠ **LE RÔLE RESTE VISIBLE DANS 💬 MESSAGES — « a », c'est-à-dire « laisse
+  comme c'est » (20/09/2026).** Timo, capture de la liste des conversations :
+  « masquer les rôles des utilisateurs pour les autres utilisateurs… sauf pour
+  les admin », **puis « ou bien ce n'est pas une bonne idée ? »**, et enfin
+  **« a »** devant quatre propositions. **Ne pas le reproposer.**
+  - **Ce qui a été MESURÉ avant de répondre** (à ne pas re-chercher) : 👥
+    Utilisateurs est **réservé à l'administrateur** (`ONGLETS_ROLE`), et 👑 Mon
+    équipe **n'écrit pas les rôles** (juste 🔧 pour les techniciens). **💬
+    Messages est donc bien le SEUL écran où un employé lit le rôle de toute
+    l'équipe** — sa demande tenait debout, elle n'était pas une méprise.
+  - **Pourquoi on ne le masque pas, quand même** : dans la liste, le rôle est
+    un **panneau indicateur** — il dit à qui on écrit. Le retirer ferait partir
+    des messages (dettes, clients, argent) à la mauvaise personne, sans
+    protéger quoi que ce soit : chez BMI tout le monde sait déjà qui est
+    gérant. **Ce qui méritait d'être protégé l'EST** (salaire, compte
+    bancaire, pièce d'identité — table `paie`, 19/09/2026). Un rôle est une
+    fonction de travail, pas une donnée sensible.
+  - ⚠ **Si le sujet revient un jour**, le rôle s'écrit à **TROIS endroits**
+    dans `screens/Messagerie.jsx` (`libelleRole` : la liste des
+    conversations, le choix des membres d'un groupe, la nouvelle
+    conversation) : les trois ou aucun, sinon la règle mentirait.
+
 ### Petites dépenses d'un chantier de devis (13/09/2026)
 - Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,
   nourriture] peuvent être rattachées au devis en question, et à la fin ces
