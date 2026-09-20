@@ -103,6 +103,13 @@ Connecter un appareil). Seul l'appareil PRINCIPAL du numéro peut scanner.
 2. ⚠ **Portefeuille YCloud : 0,5 USD.** De quoi essayer, pas de quoi servir.
    Le raccordement et le scan ne coûtent rien ; ce sont les messages ENVOYÉS
    qui se paient. À créditer quand l'envoi partira pour de vrai.
+   → **FAIT le 20/09/2026** : Timo a rechargé, le portefeuille est à
+   **20,5 USD** (« Total Deducted : 0 USD » — rien n'est encore parti, aucun
+   modèle n'étant approuvé). Ordre de grandeur : **de quoi envoyer environ
+   800 messages marketing, ou près de 3 000 utility** (sur la base des 14 F /
+   4 F, à confirmer sur la page *Pricing* de YCloud, qui fait foi). Le crédit
+   est PRÉPAYÉ : rien n'est prélevé tant qu'aucun message ne part, et il
+   répond à l'exigence Meta d'un moyen de paiement avant le 30/09/2026.
 
 **RIEN N'A CHANGÉ CÔTÉ APPLICATION** : scanner le QR ne fera partir aucun
 message depuis BMI-Gestion. C'est une étape d'infrastructure. Tout ce qui est
