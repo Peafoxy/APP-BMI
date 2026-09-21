@@ -1,5 +1,13 @@
 // ============================================================
-// lib/cloture.js — LA CLÔTURE DE CAISSE, ET LE BLOCAGE DES VENTES
+// lib/cloture.js — LA CLÔTURE DU JOUR, ET LE BLOCAGE DES VENTES
+//
+// ⚠ Elle s'appelait « clôture de caisse » jusqu'au 21/09/2026. Timo :
+// « en réalité on clôture les ventes… donc tout type de paiement confondu
+// doit apparaître ». Le geste fait DEUX choses — il arrête la journée de
+// vente (tous moyens, `ventesParMoyen`) ET il compte le tiroir (espèces
+// seules, l'écart). D'où « Clôture du jour », qui dit les deux : « clôture
+// des ventes » seul aurait fait oublier le comptage des billets, la seule
+// chose qui attrape un manque.
 //
 // Décision Timo (09/09/2026) : « Un blocage est mieux… s'il y a des ventes
 // un jour et la caisse n'a pas été clôturée, le lendemain, impossible de
@@ -19,7 +27,10 @@
 // d'avant la mise en place ne bloquent personne.
 // ============================================================
 
-import { CATEGORIE_VERSEMENT, estFondsCaisseRemis, deuxPoches, etatFondsCaisse } from "./versements.js";
+import { CATEGORIE_VERSEMENT, estFondsCaisseRemis, deuxPoches, etatFondsCaisse, montantEncaisseVente } from "./versements.js";
+// L'ordre des moyens de paiement : celui de la liste de l'application, pour
+// que le bloc « Ventes du jour » se lise toujours dans le même ordre.
+import { PAIEMENTS } from "./constants.js";
 // Timo (12/09/2026) : une dépense en attente de validation ne compte pas dans
 // le tiroir ; une avance personnelle ou l'argent du DG n'en sortent jamais.
 import { compteDansLaCaisse } from "./validationDepenses.js";
@@ -51,6 +62,63 @@ export const soldeEspecesFinDeJour = (db, boutique, date, totalVente) =>
   deuxPoches(db, boutique, totalVente, { du: "", au: String(date).slice(0, 10) }).recette;
 
 // Les chiffres de caisse d'une journée, pour une boutique.
+// ---- 📊 LES VENTES DU JOUR, TOUS MOYENS CONFONDUS (Timo, 21/09/2026) ----
+// Mot pour mot : « en réalité on clôture les ventes… donc tout type de
+// paiement confondu doit apparaître dans la clôture du jour ». Il a raison :
+// le geste arrête une JOURNÉE DE VENTE, pas seulement un tiroir.
+//
+// ⚠⚠ DEUX COLONNES, ET ELLES NE DISENT PAS LA MÊME CHOSE :
+//   • VENDU    — ce qui a été vendu ce jour-là, crédit compris. C'est
+//     l'activité du magasin.
+//   • ENCAISSÉ — ce qui est réellement ENTRÉ ce jour-là : les ventes payées,
+//     plus les règlements de dettes reçus. Une vente à crédit n'y met rien ;
+//     son avance y entre sous le moyen dont elle a été payée.
+// Les additionner donnerait un total que personne ne peut vérifier.
+//
+// ⚠ ET LA LIGNE « ESPÈCES » DE LA COLONNE ENCAISSÉ EST, AU FRANC PRÈS, LA
+// RECETTE DE LA CLÔTURE (`especesVentes + especesReglements`) : c'est cette
+// égalité qui permet au vendeur de vérifier lui-même. Le banc la mesure.
+//
+// ⚠ L'ÉCART, LUI, NE REGARDE QUE LES BILLETS. Faire entrer le Mixx dans le
+// montant attendu dans le tiroir ferait réclamer chaque soir un argent qui
+// n'a jamais été dans le tiroir. Les autres moyens S'AFFICHENT, ils ne se
+// comptent pas — leur solde se lit dans les carrés 📱 de 🔒 Caisse.
+const CREDIT = "Crédit (dette)";
+export function ventesParMoyen(ventesDuJour, reglementsDuJour, totalVente) {
+  const par = {};
+  const ligne = (moyen) => (par[moyen] ||= { moyen, nbVentes: 0, vendu: 0, encaisse: 0 });
+  (ventesDuJour || []).forEach((v) => {
+    const moyen = v.paiement || "Espèces";
+    const m = montantEncaisseVente(v, totalVente);
+    const l = ligne(moyen);
+    l.nbVentes += 1;
+    l.vendu += m;
+    // Une vente à crédit ne fait rentrer aucun argent : son avance arrive par
+    // le règlement de dette du même jour, avec SON moyen.
+    if (moyen !== CREDIT) l.encaisse += m;
+  });
+  (reglementsDuJour || []).forEach((p) => {
+    const l = ligne(p.paiement || "Espèces");
+    l.encaisse += Number(p.montant || 0);
+  });
+  const rang = (moyen) => { const i = PAIEMENTS.indexOf(moyen); return i < 0 ? PAIEMENTS.length : i; };
+  const lignes = Object.values(par).sort((a, b) => rang(a.moyen) - rang(b.moyen) || a.moyen.localeCompare(b.moyen));
+  return {
+    lignes,
+    totalVendu: lignes.reduce((s, l) => s + l.vendu, 0),
+    totalEncaisse: lignes.reduce((s, l) => s + l.encaisse, 0),
+    // Ce qui est entré AUTREMENT qu'en billets : c'est ce chiffre qui explique
+    // au vendeur pourquoi son tiroir ne contient pas le total de ses ventes.
+    encaisseHorsEspeces: lignes.filter((l) => l.moyen !== "Espèces").reduce((s, l) => s + l.encaisse, 0),
+  };
+}
+
+// La phrase que le vendeur doit pouvoir lire d'un coup d'œil (ChatGPT l'avait
+// bien formulée, Timo l'a validée) : « j'ai fait 2 000 000 F de ventes, mais
+// je dois avoir 300 000 F dans mon tiroir ».
+export const phraseDuJour = (totalVendu, attenduTiroir, fmt = (x) => String(x)) =>
+  `Ventes du jour : ${fmt(totalVendu)} — mais le tiroir ne doit contenir que ${fmt(attenduTiroir)} : le reste n'est jamais passé par les billets.`;
+
 export function activiteDuJour(db, boutique, date, totalVente) {
   const d0 = String(date).slice(0, 10);
   const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date).slice(0, 10) === d0);
@@ -85,12 +153,20 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   // lit aussi PAR PERSONNE : ventes (tout moyen), espèces encaissées (ventes
   // + règlements de dettes), autres moyens. Du plus gros encaisseur au plus petit.
   const parPersonne = {};
-  const ligneDe = (nom) => (parPersonne[nom] ||= { nom, nbVentes: 0, especes: 0, autresMoyens: 0, encaissements: 0 });
+  const ligneDe = (nom) => (parPersonne[nom] ||= { nom, nbVentes: 0, especes: 0, autresMoyens: 0, encaissements: 0, parMoyen: {} });
   ventesDuJour.forEach((v) => {
     const l = ligneDe(v.par || "?");
-    const montant = totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+    // ⚠ La MÊME formule que le tiroir et que le bloc « tous moyens » : elle
+    // était recopiée ici, c'est-à-dire un troisième endroit où elle pouvait
+    // se mettre à dire autre chose (21/09/2026).
+    const montant = montantEncaisseVente(v, totalVente);
+    const moyen = v.paiement || "Espèces";
     l.nbVentes += 1;
-    if (v.paiement === "Espèces") l.especes += montant; else l.autresMoyens += montant;
+    // Timo (21/09/2026) : « tout type de paiement confondu doit apparaître ».
+    // La colonne « Autres moyens » disait UN chiffre pour Flooz + Mixx +
+    // virement + crédit : on ne pouvait pas dire combien par Mixx.
+    if (moyen !== "Espèces") l.parMoyen[moyen] = (l.parMoyen[moyen] || 0) + montant;
+    if (moyen === "Espèces") l.especes += montant; else l.autresMoyens += montant;
   });
   detailReglements.forEach((p) => {
     const l = ligneDe(p.par || "?");
@@ -113,6 +189,8 @@ export function activiteDuJour(db, boutique, date, totalVente) {
     date: d0,
     nbVentes: ventesDuJour.length,
     especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements,
+    // 📊 Les ventes du jour, tous moyens (Timo, 21/09/2026).
+    moyens: ventesParMoyen(ventesDuJour, detailReglements, totalVente),
     recetteDuJour, sortiesJustifiees, recetteParPersonne,
     // L'enveloppe (jamais additionnée au tiroir).
     fondsPlafond: finDuJour.plafond, fondsReste: etatFonds.reste, fondsEntame: etatFonds.entame, fondsIntact: etatFonds.intact,
@@ -211,6 +289,6 @@ export function motifBlocageVente(db, boutique, aujourdhui, totalVente, dFR = (x
   if (!jours.length) return "";
   const liste = jours.map(dFR).join(", ");
   return jours.length === 1
-    ? `🔒 Vente impossible : la caisse de ${boutique} du ${liste} n'a pas été clôturée. Clôturez-la dans 🔒 Caisse, puis revenez vendre.`
-    : `🔒 Vente impossible : la caisse de ${boutique} n'a pas été clôturée les ${liste}. Clôturez chaque jour dans 🔒 Caisse, puis revenez vendre.`;
+    ? `🔒 Vente impossible : la journée du ${liste} de ${boutique} n'a pas été clôturée. Faites la clôture du jour dans 🔒 Caisse, puis revenez vendre.`
+    : `🔒 Vente impossible : les journées du ${liste} de ${boutique} n'ont pas été clôturées. Faites la clôture de chaque jour dans 🔒 Caisse, puis revenez vendre.`;
 }

@@ -3794,7 +3794,10 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
     ["src/screens/Depenses.jsx", ["Supprimer une dépense", "Supprimer une dépense", "Annuler un pointage du comptable"]],
     ["src/screens/Stocks.jsx", ["Servir un bon de ravitaillement", "Refuser une demande de ravitaillement", "Faire l'inventaire", "Valider l'inventaire",
       "Enregistrer une entrée de stock", "Ajuster le stock", "Transférer du stock", "Statuer sur un article défectueux", "Statuer sur un article défectueux"]],
-    ["src/screens/Caisse.jsx", ["Clôturer la caisse"]],
+    // ⚠ RETOURNÉ le 21/09/2026 : « Clôturer la caisse » → « Faire la clôture du
+    // jour » (Timo : « en réalité on clôture les ventes »). La GARDE, elle, n'a
+    // pas bougé : le geste revérifie toujours son rôle.
+    ["src/screens/Caisse.jsx", ["Faire la clôture du jour"]],
     ["src/screens/Commerciaux.jsx", ["Créer un agent commercial", "Modifier un agent commercial", "Activer ou désactiver un agent commercial", "Supprimer un agent commercial"]],
     ["src/screens/Fournisseurs.jsx", ["Créer un fournisseur", "Régler un fournisseur", "Enregistrer une dette fournisseur", "Supprimer un fournisseur"]],
     ["src/screens/Ravitaillement.jsx", ["Servir une demande de transfert", "Refuser une demande de transfert"]],
@@ -6201,7 +6204,10 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     && Cl.joursAClôturer(dbc, "B", "2026-09-12", tv).join("|") === "2026-09-10" && Cl.joursAClôturer(dbc, "C", "2026-09-12", tv).length === 0);
   test("★ motifBlocageVente : vide quand tout est clôturé, sinon le message nomme la boutique et le ou les jours",
     Cl.motifBlocageVente({ ...dbc, clotures: [...dbc.clotures, { boutique: "A", date: "2026-09-09" }, { boutique: "A", date: "2026-09-10" }] }, "A", "2026-09-12", tv) === ""
-    && /caisse de B du 2026-09-10 n'a pas été clôturée/.test(Cl.motifBlocageVente(dbc, "B", "2026-09-12", tv)) && /les 09\/09\/2026, 10\/09\/2026/.test(Cl.motifBlocageVente(dbc, "A", "2026-09-12", tv, (x) => x.split("-").reverse().join("/"))));
+    // ⚠ RETOURNÉ le 21/09/2026 : « la caisse de B du … » → « la journée du … de
+    // B ». Ce qui est protégé est le même : le message NOMME la boutique et le
+    // ou les jours, sinon personne ne sait quoi clôturer.
+    && /journée du 2026-09-10 de B n'a pas été clôturée/.test(Cl.motifBlocageVente(dbc, "B", "2026-09-12", tv)) && /journées du 09\/09\/2026, 10\/09\/2026 de A/.test(Cl.motifBlocageVente(dbc, "A", "2026-09-12", tv, (x) => x.split("-").reverse().join("/"))));
   const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ Ventes : encaisser est refusé tant qu'un jour reste à clôturer (message affiché en tête ET au clic)",
     /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && <div/.test(vt));
@@ -10667,6 +10673,115 @@ titre("📱 FLOOZ ET MIXX/T-MONEY : LE SOLDE D'UN COMPTE MOBILE (Timo, 21/09/202
   test("★ le moyen écrit sur une vente et celui du compte sont LE MÊME mot",
     lit("src/lib/constants.js").includes('moyen: "Mobile Money (Flooz)"') && lit("src/lib/constants.js").includes('moyen: "Mobile Money (Mixx/T-Money)"')
     && lit("src/lib/constants.js").includes('export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)"'));
+}
+
+
+titre("📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS DE PAIEMENT APPARAISSENT (Timo, 21/09/2026)");
+{
+  // Mot pour mot : « en réalité on clôture les ventes… donc tout type de
+  // paiement confondu doit apparaître dans la clôture du jour ». Il a raison :
+  // le geste arrête une JOURNÉE DE VENTE, pas seulement un tiroir. Les
+  // paiements mobiles étaient là, mais NOYÉS dans une colonne « Autres
+  // moyens » qui additionnait Flooz + Mixx + virement + crédit.
+  // Le nom : décision « c » — « Clôture du jour », parce que le geste fait les
+  // DEUX choses (arrêter les ventes ET compter le tiroir).
+  const lit = (f) => readFileSync(f, "utf8");
+  const sortieCj = join("node_modules", ".cache", `bmi-cloture-moyens-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCj, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Cj = await import(pathToFileURL(sortieCj).href);
+  unlinkSync(sortieCj);
+  const MIXX = "Mobile Money (Mixx/T-Money)";
+  const FLOOZ = "Mobile Money (Flooz)";
+  const tvJ = (v) => (v.articles || []).reduce((s, l) => s + l.qte * l.pu, 0);
+  const art = (pu) => [{ qte: 1, pu, article: "Batterie" }];
+  const J = "2026-09-21";
+
+  const ventesJ = [
+    { id: "s1", boutique: "DEMAKPOE", date: J, paiement: "Espèces", articles: art(140000), par: "ANGELE" },
+    { id: "s2", boutique: "DEMAKPOE", date: J, paiement: MIXX, articles: art(160000), par: "ANGELE" },
+    { id: "s3", boutique: "DEMAKPOE", date: J, paiement: "Crédit (dette)", articles: art(500000), par: "TIMO" },
+    { id: "s4", boutique: "DEMAKPOE", date: J, paiement: FLOOZ, articles: art(20000), par: "TIMO" },
+  ];
+  // L'avance d'une vente à crédit est un RÈGLEMENT de dette, avec SON moyen.
+  const reglJ = [
+    { montant: 15000, paiement: "Espèces", par: "ANGELE" },
+    { montant: 50000, paiement: MIXX, par: "TIMO" },
+  ];
+  const m = Cj.ventesParMoyen(ventesJ, reglJ, tvJ);
+  const parM = (x) => m.lignes.find((l) => l.moyen === x) || { vendu: 0, encaisse: 0, nbVentes: 0 };
+
+  // ── SA DEMANDE : TOUT APPARAÎT.
+  test("★★ les QUATRE moyens de la journée apparaissent, crédit compris",
+    m.lignes.map((l) => l.moyen).join(" | ") === `Espèces | ${FLOOZ} | ${MIXX} | Crédit (dette)`);
+  test("★ l'ordre est celui de la liste de l'application, pas l'ordre d'arrivée",
+    m.lignes[0].moyen === "Espèces" && m.lignes[3].moyen === "Crédit (dette)");
+
+  // ── VENDU ET ENCAISSÉ NE DISENT PAS LA MÊME CHOSE.
+  test("★★ une vente à CRÉDIT est VENDUE (500 000) mais n'ENCAISSE rien",
+    parM("Crédit (dette)").vendu === 500000 && parM("Crédit (dette)").encaisse === 0);
+  test("★★ son avance figure sous le moyen dont elle a été payée, jamais sous « Crédit »",
+    parM(MIXX).encaisse === 160000 + 50000 && parM(MIXX).vendu === 160000);
+  test("★★ les deux totaux sont DIFFÉRENTS et ne s'additionnent jamais",
+    m.totalVendu === 820000 && m.totalEncaisse === 385000);
+  test("★ « encaissé autrement qu'en billets » est ce qui explique le tiroir",
+    m.encaisseHorsEspeces === 230000);
+
+  // ── ⚠⚠ L'ANCRE : la ligne « Espèces » EST la recette de la clôture.
+  {
+    const dbJ = { ventes: ventesJ, clotures: [], depenses: [],
+      dettes: [{ id: "d1", boutique: "DEMAKPOE", client: "MR ERIC",
+        paiements: reglJ.map((p, i) => ({ ...p, id: `p${i}`, date: J })) }],
+      boutiques: [{ id: "b", nom: "DEMAKPOE" }] };
+    const j = Cj.activiteDuJour(dbJ, "DEMAKPOE", J, tvJ);
+    test("★★ LA LIGNE « ESPÈCES » DE LA COLONNE ENCAISSÉ EST, AU FRANC PRÈS, LA RECETTE DE LA CLÔTURE — c'est elle qui permet au vendeur de vérifier lui-même",
+      j.moyens.lignes.find((l) => l.moyen === "Espèces").encaisse === j.especesVentes + j.especesReglements
+      && j.especesVentes + j.especesReglements === 155000);
+    test("★★ L'ÉCART NE REGARDE QUE LES BILLETS : 820 000 F vendus, 155 000 F attendus dans le tiroir",
+      j.theorique === 155000 && j.moyens.totalVendu === 820000);
+    test("★★ éprouvé : retirer TOUTES les ventes mobiles ne change PAS le montant attendu dans le tiroir", (() => {
+      const sansMobile = { ...dbJ, ventes: ventesJ.filter((v) => v.paiement === "Espèces" || v.paiement === "Crédit (dette)"),
+        dettes: [{ ...dbJ.dettes[0], paiements: dbJ.dettes[0].paiements.filter((p) => p.paiement === "Espèces") }] };
+      return Cj.activiteDuJour(sansMobile, "DEMAKPOE", J, tvJ).theorique === 155000;
+    })());
+    test("★★ la phrase du vendeur dit les deux chiffres, et ce qu'il doit comprendre",
+      (() => { const p = Cj.phraseDuJour(j.moyens.totalVendu, j.theorique, (x) => `${x} F`);
+        return /820000 F/.test(p) && /155000 F/.test(p) && /tiroir/.test(p) && /Ventes du jour/.test(p); })());
+    test("★ le détail par vendeur ne dit plus « autres moyens » d'un seul bloc",
+      j.recetteParPersonne.find((r) => r.nom === "TIMO").parMoyen[FLOOZ] === 20000
+      && j.recetteParPersonne.find((r) => r.nom === "ANGELE").parMoyen[MIXX] === 160000
+      && !j.recetteParPersonne.find((r) => r.nom === "ANGELE").parMoyen["Espèces"]);
+    test("★ une journée sans aucune vente ne fabrique pas de bloc vide",
+      Cj.activiteDuJour({ ventes: [], dettes: [], depenses: [], clotures: [] }, "DEMAKPOE", J, tvJ).moyens.lignes.length === 0);
+  }
+
+  // ── LA FORMULE DU MONTANT EST ÉCRITE UNE FOIS.
+  test("★★ le montant d'une vente est calculé par UNE fonction, jamais recopiée (elle l'était à trois endroits)",
+    /export const montantEncaisseVente = \(v, totalVente\) =>/.test(lit("src/lib/versements.js"))
+    && (lit("src/lib/cloture.js").match(/montantEncaisseVente\(/g) || []).length >= 2
+    && !/const montant = totalVente\(v\) \+ Number\(v\.frais_installation/.test(lit("src/lib/cloture.js")));
+
+  // ── L'ÉCRAN : la règle juste ne suffit pas si l'écran s'en sert mal.
+  const cs = lit("src/screens/Caisse.jsx");
+  test("★★ 🔒 Caisse : le bloc « tous moyens » existe et lit la règle",
+    /data-bloc="ventes-tous-moyens"/.test(cs) && /moyens\.lignes\.map\(\(l\) => \(/.test(cs)
+    && /\{fmt\(moyens\.totalVendu\)\}/.test(cs) && /\{fmt\(moyens\.totalEncaisse\)\}/.test(cs));
+  test("★★ 🔒 Caisse : les DEUX colonnes sont nommées, et l'écran DIT qu'elles ne s'additionnent pas",
+    />Vendu<\/th>/.test(cs) && />Encaissé ce jour<\/th>/.test(cs) && /ne s'additionnent pas/.test(cs));
+  test("★ 🔒 Caisse : la phrase du vendeur ne s'affiche que s'il y a eu autre chose que des billets",
+    /\{moyens\.encaisseHorsEspeces > 0 && \(/.test(cs) && /phraseDuJour\(moyens\.totalVendu, theorique, fmt\)/.test(cs));
+  test("★ 🔒 Caisse : le détail des autres moyens s'affiche par vendeur",
+    /Object\.entries\(r\.parMoyen\)\.map/.test(cs));
+
+  // ── LE NOM : décision « c » (21/09/2026).
+  test("★★ « Clôture du jour » partout où on le lit — plus « clôture de caisse »",
+    />Clôture du jour \{t === aujourdhui/.test(cs) && />Clôturer le jour<\/button>/.test(cs)
+    && /refuserSaufRoles\(profile, ROLES_CAISSE, "Faire la clôture du jour"\)/.test(cs)
+    && !/Clôturer la caisse/.test(cs) && !/>Clôture de caisse /.test(cs));
+  test("★ le blocage des ventes et la tournée du matin parlent de la JOURNÉE, plus de « la caisse »",
+    /la journée du \$\{liste\} de \$\{boutique\} n'a pas été clôturée/.test(lit("src/lib/cloture.js"))
+    && /La journée du \$\{premier\} de \$\{b\.nom\} n'a pas été clôturée/.test(lit("src/lib/rappels.js")));
+  test("★ le journal nomme la clôture du jour", /RECLÔTURE" : "Clôture"\} du jour \$\{boutique\}/.test(cs)
+    && /clotures: "une clôture du jour"/.test(lit("src/lib/calculs.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

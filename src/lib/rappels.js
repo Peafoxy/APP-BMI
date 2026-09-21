@@ -83,8 +83,8 @@ export function rappelsDuMatin(db, aujourdhui) {
     const formation = !!b.formation;
     const premier = dFR(jours[0]);
     const texte = jours.length === 1
-      ? `La caisse de ${b.nom} du ${premier} n'a pas été clôturée : les ventes y sont bloquées jusqu'à la clôture.`
-      : `La caisse de ${b.nom} n'a pas été clôturée le ${premier} (et ${jours.length - 1} autre${jours.length > 2 ? "s" : ""} jour${jours.length > 2 ? "s" : ""}) : les ventes y sont bloquées jusqu'à la clôture.`;
+      ? `La journée du ${premier} de ${b.nom} n'a pas été clôturée : les ventes y sont bloquées jusqu'à la clôture du jour.`
+      : `La journée du ${premier} de ${b.nom} n'a pas été clôturée (et ${jours.length - 1} autre${jours.length > 2 ? "s" : ""} jour${jours.length > 2 ? "s" : ""}) : les ventes y sont bloquées jusqu'à la clôture du jour.`;
     envois.push(fabriquerEnvoi({
       destinataires: [...idsDeLaBoutique(db, b.nom, ["vendeur", "gerant"]), ...idsAdmins(db, formation)],
       titre: `🔒 Caisse non clôturée — ${b.nom}`, texte, ecran: "caisse", tag: `cloture:${b.nom}`, formation,

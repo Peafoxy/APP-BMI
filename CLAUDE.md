@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1807 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1827 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -3184,7 +3184,75 @@ lit mal est pire qu'un banc absent).
   remis sur un retrait interne, une dépense en attente comptée) : à chaque fois
   des contrôles tombent.
 
-### Clôture de caisse (09/09/2026)
+### 📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS APPARAISSENT (21/09/2026)
+- Timo, après mon explication trop étroite (je lui avais parlé du TIROIR) :
+  **« en réalité on clôture les ventes… donc tout type de paiement confondu
+  doit apparaître dans la clôture de caisse du jour, qui devrait revenir
+  clôture de vente du jour »**. Il a raison : le geste arrête une **journée de
+  vente**, pas seulement un tiroir.
+- **Ce qui manquait** : les paiements mobiles n'étaient pas absents, ils
+  étaient **NOYÉS** — une colonne « Autres moyens » additionnait Flooz + Mixx
+  + virement + crédit en UN chiffre. Impossible de dire « combien par Mixx ».
+- **UN bloc en tête de la clôture** : « 📊 Ventes du {date} — tous moyens de
+  paiement », une ligne par moyen, avec **DEUX colonnes qui ne disent pas la
+  même chose et ne s'additionnent JAMAIS** (`ventesParMoyen`, lib/cloture.js) :
+  - **VENDU** = ce qui a été vendu ce jour-là, **crédit compris**. L'activité.
+  - **ENCAISSÉ** = ce qui est réellement ENTRÉ : ventes payées + règlements de
+    dettes. ⚠ Une vente à crédit n'y met **rien** ; **son avance y figure sous
+    le moyen dont elle a été payée** (elle arrive par le règlement de dette du
+    même jour). Les additionner donnerait un total invérifiable.
+- ⚠⚠ **L'ANCRE QUI REND LE BLOC VÉRIFIABLE** : la ligne « Espèces » de la
+  colonne ENCAISSÉ est, **au franc près**, la recette de la clôture
+  (`especesVentes + especesReglements`). C'est elle qui permet au vendeur de
+  vérifier lui-même. Le banc la MESURE.
+- ⚠⚠ **L'ÉCART NE REGARDE QUE LES BILLETS, et ça ne changera pas.** Faire
+  entrer le Mixx dans le montant attendu dans le tiroir ferait réclamer chaque
+  soir un argent qui n'y a jamais été, et la vendeuse serait en écart tous les
+  jours. **Les autres moyens S'AFFICHENT, ils ne se comptent pas** — leur solde
+  se lit dans les carrés 📱 (§ précédent). Éprouvé au banc : retirer toutes les
+  ventes mobiles ne change pas d'un franc le montant attendu.
+- **La phrase du vendeur** (`phraseDuJour`, formulée par ChatGPT, validée par
+  Timo), affichée seulement s'il y a eu autre chose que des billets :
+  « Ventes du jour : 820 000 F — mais le tiroir ne doit contenir que 155 000 F :
+  le reste n'est jamais passé par les billets. »
+- **Le détail par vendeur** : « Autres moyens » garde son total et écrit
+  dessous le détail (« Mixx 160 000 · Flooz 20 000 »).
+- **LE NOM — décision « c »** : partout **« Clôture du jour »**, jamais
+  « clôture de caisse » ni « clôture des ventes » seul. ⚠ **Le geste fait les
+  DEUX choses** : il arrête la journée de vente ET il compte le tiroir — ne
+  garder que « ventes » aurait fait oublier le comptage des billets, la seule
+  chose qui attrape un manque. Renommés : le titre, le bouton (« Clôturer le
+  jour »), la garde de rôle, la ligne de journal, le message de blocage des
+  ventes et la tournée du matin (« la journée du … de X n'a pas été
+  clôturée »). ⚠ L'onglet reste **🔒 Caisse** : c'est le LIEU, pas le geste.
+- ⚠ **UNE formule, pas trois** : le montant d'une vente (`montantEncaisseVente`,
+  lib/versements.js, exportée) était recopié à **trois** endroits — le tiroir,
+  le détail par vendeur, et le nouveau bloc. Trois copies finissent par donner
+  trois chiffres pour la même vente.
+- **L'AVIS DE ChatGPT, trié par Timo (21/09/2026)** — il confirmait la même
+  structure. Ce qu'on en a **pris** : les deux blocs séparés, et sa phrase pour
+  le vendeur. Ce qu'on a **écarté**, et pourquoi :
+  - son tableau de clôture **oublie l'enveloppe** (fonds de caisse gardé à
+    part, et ce que la recette lui rend) — il serait faux dès qu'un fonds a été
+    entamé ;
+  - il ajoute un moyen **« chèque »** qui n'existe pas chez BMI (une option que
+    personne n'utilise finit par être choisie par erreur) ;
+  - il range le mobile sous **un seul compte maison** (`TMoney_BMI`), alors que
+    Timo a tranché **1b** la veille : un numéro par boutique ;
+  - il veut **ÉCRIRE** dans chaque transaction où l'argent doit aller
+    (`compte_destination`). L'application le **DÉDUIT** du moyen de paiement et
+    de « Payé avec » : le stocker en plus créerait une **deuxième source pour
+    la même chose**, exactement le doublon retiré le 08/09.
+  - Et quatre de ses recommandations étaient **déjà en place** : une vente
+    mobile n'augmente pas la caisse espèces, une commission mobile ne la
+    diminue pas, le paiement d'une commission demande son moyen ET sa caisse,
+    et la commission reste due tant que la vente n'est pas soldée.
+- **Rien à coller dans Supabase.** Le banc (19 contrôles de plus) a été éprouvé
+  en remettant quatre fautes : le crédit compté comme encaissé, le Mixx ajouté
+  au tiroir attendu, la formule recopiée, l'ancien nom du bouton. La deuxième
+  fait aussi tomber **douze** contrôles plus anciens de la clôture.
+
+### La clôture du jour — le comptage du tiroir (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :
   « un blocage est mieux »). Une journée PASSÉE avec au moins une vente (tout
   moyen) ou un encaissement espèces, sans clôture, bloque l'encaissement dans

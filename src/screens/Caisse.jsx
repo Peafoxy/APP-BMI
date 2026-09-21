@@ -1,5 +1,6 @@
 // ============================================================
-// screens/Caisse.jsx — Clôture de caisse du jour.
+// screens/Caisse.jsx — La clôture du jour (Timo, 21/09/2026 : « en réalité
+// on clôture les ventes… tout type de paiement confondu doit apparaître »).
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
@@ -12,7 +13,7 @@ import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARem
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE, periodes } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
-import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
+import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee, phraseDuJour } from "../lib/cloture";
 import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, DEST_TIROIR, SOURCE_ESPECES, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
 import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
@@ -56,7 +57,7 @@ export function Caisse({ db, save, profile }) {
   const t = jourChoisi && (enRetard.includes(jourChoisi) || jourReclôturable(jourChoisi) || jourChoisi === aujourdhui) ? jourChoisi : (enRetard[0] || aujourdhui);
   // Les chiffres du jour : UNE règle (activiteDuJour), la même que le blocage.
   const jour = activiteDuJour(db, boutique, t, totalVente);
-  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne, fondsPlafond, fondsReste, fondsEntame, fondsIntact } = jour;
+  const { especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements, theorique, recetteDuJour, sortiesJustifiees, fondsHier, recetteParPersonne, fondsPlafond, fondsReste, fondsEntame, fondsIntact, moyens } = jour;
   // Le piège de la capture du 09/09/2026 (écart 1 400) : la recette saisie à la place du tiroir.
   const alerteRecette = alerteSaisieRecette(compte, jour, fmt);
   // ⚠ Timo (15/09/2026), après avoir essayé le comptage obligatoire : « enlève
@@ -76,7 +77,7 @@ export function Caisse({ db, save, profile }) {
   const rejets = rejetsDuJour(db, boutique, t);
 
   const cloturer = async () => {
-    if (refuserSaufRoles(profile, ROLES_CAISSE, "Clôturer la caisse")) return;
+    if (refuserSaufRoles(profile, ROLES_CAISSE, "Faire la clôture du jour")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (blocageCloture) { uAlert(blocageCloture); return; }
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
@@ -101,7 +102,7 @@ export function Caisse({ db, save, profile }) {
     const fiche = { id: ancienne?.id || uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui,
       ...(ancienne ? { precedentes: [...(ancienne.precedentes || []), { theorique: ancienne.theorique, compte: ancienne.compte, par: ancienne.par, cloture_le: ancienne.cloture_le, notes: ancienne.notes || "" }] } : {}) };
     save({ ...db, clotures: [fiche, ...db.clotures.filter((c) => !(c.boutique === boutique && String(c.date) === t))] },
-      `${ancienne ? "RECLÔTURE" : "Clôture"} caisse ${boutique} du ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui && !ancienne ? " — clôturée en retard" : ""}`);
+      `${ancienne ? "RECLÔTURE" : "Clôture"} du jour ${boutique} — ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui && !ancienne ? " — clôturée en retard" : ""}`);
     setCompte(""); setNotes(""); setJourChoisi("");
     uAlert(`Clôture du ${dFR(t)} enregistrée !`);
   };
@@ -466,7 +467,7 @@ export function Caisse({ db, save, profile }) {
         </Panel>
       )}
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3 flex items-center gap-2">Clôture de caisse {t === aujourdhui ? "du jour" : `du ${dFR(t)}`} <Badge boutique={boutique} /></div>
+        <div className="font-bold mb-3 flex items-center gap-2">Clôture du jour {t === aujourdhui ? "" : `— ${dFR(t)}`} <Badge boutique={boutique} /></div>
         {enRetard.length > 0 && (
           <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
             <div className="font-bold">🔒 {enRetard.length === 1 ? "Une journée" : `${enRetard.length} journées`} sans clôture : {enRetard.map(dFR).join(", ")}</div>
@@ -501,13 +502,53 @@ export function Caisse({ db, save, profile }) {
           </div>
         )}
         {dejaCloturee && !aReclôturer ? (
-          <div className="text-sm font-semibold text-green-700">✓ La caisse du {dFR(t)} a déjà été clôturée.</div>
+          <div className="text-sm font-semibold text-green-700">✓ La journée du {dFR(t)} a déjà été clôturée.</div>
         ) : (
           <>
             {aReclôturer && (
               <div className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
                 <div className="font-bold">🔁 Cette journée est à RECLÔTURER</div>
                 <div className="mt-1">{messageClotureDepassee(aReclôturer, fmt, dFR)}</div>
+              </div>
+            )}
+            {/* ---- 📊 LES VENTES DU JOUR, TOUS MOYENS (Timo, 21/09/2026) ----
+                « En réalité on clôture les ventes… donc tout type de paiement
+                confondu doit apparaître dans la clôture du jour. » Il a raison :
+                le geste arrête une JOURNÉE DE VENTE, pas seulement un tiroir.
+                ⚠ VENDU et ENCAISSÉ ne disent pas la même chose, et ne
+                s'additionnent jamais : une vente à crédit ne fait rentrer aucun
+                argent, un règlement de dette en fait rentrer sans être une vente.
+                ⚠ L'ÉCART, lui, ne regarde que les billets (plus bas). */}
+            {moyens.lignes.length > 0 && (
+              <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-x-auto" data-bloc="ventes-tous-moyens">
+                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">📊 Ventes du {dFR(t)} — tous moyens de paiement</div>
+                <table className="w-full text-sm min-w-[520px]">
+                  <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Moyen de paiement</th><th className="text-left px-3 py-1.5">Ventes</th><th className="text-right px-3 py-1.5">Vendu</th><th className="text-right px-3 py-1.5">Encaissé ce jour</th></tr></thead>
+                  <tbody>
+                    {moyens.lignes.map((l) => (
+                      <tr key={l.moyen} className="border-t border-slate-100">
+                        <td className="px-3 py-1.5 font-semibold">{l.moyen}</td>
+                        <td className="px-3 py-1.5 tabular-nums text-slate-500">{l.nbVentes || "—"}</td>
+                        <td className="px-3 py-1.5 tabular-nums text-right">{l.vendu > 0 ? fmt(l.vendu) : "—"}</td>
+                        <td className={`px-3 py-1.5 tabular-nums text-right font-bold ${l.encaisse > 0 ? "text-emerald-700" : "text-slate-400"}`}>{l.encaisse > 0 ? fmt(l.encaisse) : "—"}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-slate-300 bg-slate-50">
+                      <td className="px-3 py-1.5 font-bold" colSpan={2}>TOTAL</td>
+                      <td className="px-3 py-1.5 tabular-nums text-right font-bold">{fmt(moyens.totalVendu)}</td>
+                      <td className="px-3 py-1.5 tabular-nums text-right font-bold text-emerald-700">{fmt(moyens.totalEncaisse)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="px-3 py-2 text-xs text-slate-500 border-t border-slate-100">
+                  <b>Vendu</b> = ce qui a été vendu ce jour-là, crédit compris. <b>Encaissé</b> = ce qui est réellement entré (ventes payées + règlements de dettes) ; une vente à crédit n'y met rien, son avance y figure sous le moyen dont elle a été payée. Les deux colonnes ne s'additionnent pas.
+                </div>
+              </div>
+            )}
+            {/* La phrase que le vendeur doit lire d'un coup d'œil. */}
+            {moyens.encaisseHorsEspeces > 0 && (
+              <div className="mb-3 rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-sm text-sky-900" data-phrase="tiroir">
+                {phraseDuJour(moyens.totalVendu, theorique, fmt)} <span className="text-xs">({fmt(moyens.encaisseHorsEspeces)} encaissés autrement qu'en billets — le solde de ces comptes se lit plus haut.)</span>
               </div>
             )}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
@@ -553,7 +594,13 @@ export function Caisse({ db, save, profile }) {
                         <td className="px-3 py-1.5 font-semibold">{r.nom}</td>
                         <td className="px-3 py-1.5 tabular-nums">{r.nbVentes}</td>
                         <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(r.especes)}{r.encaissements > 0 ? <span className="text-xs text-slate-400 font-normal"> (dont dettes {fmt(r.encaissements)})</span> : null}</td>
-                        <td className="px-3 py-1.5 tabular-nums text-slate-500">{r.autresMoyens > 0 ? fmt(r.autresMoyens) : "—"}</td>
+                        <td className="px-3 py-1.5 tabular-nums text-slate-500">{r.autresMoyens > 0 ? fmt(r.autresMoyens) : "—"}
+                          {/* Timo (21/09/2026) : un seul chiffre pour Flooz + Mixx + virement
+                              + crédit ne répondait pas à « combien par Mixx ? ». */}
+                          {Object.keys(r.parMoyen || {}).length > 0 && (
+                            <div className="text-[11px] text-slate-400 font-normal">{Object.entries(r.parMoyen).map(([m, v]) => `${m} ${fmt(v)}`).join(" · ")}</div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -619,7 +666,7 @@ export function Caisse({ db, save, profile }) {
                 )}
               </div>
             )}
-            <button onClick={cloturer} disabled={!!blocageCloture} className={`mt-3 ${btnDark}${blocageCloture ? " opacity-50 cursor-not-allowed" : ""}`}>Clôturer la caisse</button>
+            <button onClick={cloturer} disabled={!!blocageCloture} className={`mt-3 ${btnDark}${blocageCloture ? " opacity-50 cursor-not-allowed" : ""}`}>Clôturer le jour</button>
           </>
         )}
       </Panel>

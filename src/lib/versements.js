@@ -348,10 +348,18 @@ export const remisesFondsDe = (db, boutique) => (db?.depenses || []).filter((d) 
 //      pour ce que le tiroir ne couvre pas (« que si pas de vente ») ;
 //   3. un VERSEMENT ne sort QUE du tiroir — on ne verse jamais le fonds ;
 //   4. une REMISE du DG va dans l'enveloppe, jamais dans le tiroir.
+// Ce que le client remet pour une vente : la vente, plus les frais qui partent
+// avec elle. ⚠ EXPORTÉE : lib/cloture.js s'en sert pour le bloc « Ventes du
+// jour, tous moyens » (Timo, 21/09/2026). Deux formules finiraient par donner
+// deux chiffres différents pour la même vente — et la ligne « Espèces » du
+// bloc DOIT être exactement celle de la clôture, sinon plus rien ne se
+// vérifie. `totalVente` est passée par l'appelant (lib/core.js).
+export const montantEncaisseVente = (v, totalVente) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+
 const mouvementsEspeces = (db, boutique, totalVente) => {
   const out = [];
   const quand = (x) => `${String(x.date || "").slice(0, 10)} ${x.heure || ""}`;
-  const montantVente = (v) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+  const montantVente = (v) => montantEncaisseVente(v, totalVente);
   (db?.ventes || []).forEach((v) => {
     if (v.boutique === boutique && v.paiement === "Espèces") out.push({ q: quand(v), date: String(v.date).slice(0, 10), type: "vente", montant: montantVente(v) });
   });

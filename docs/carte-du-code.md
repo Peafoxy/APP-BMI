@@ -21,7 +21,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | Fichier | À quoi il sert |
 |---|---|
 | `lib/versements.js` | Le versement des fonds par les boutiques, et **le fonds de caisse** (l'enveloppe, à part du tiroir) |
-| `lib/cloture.js` | La clôture de caisse, et le blocage des ventes du lendemain |
+| `lib/cloture.js` | La clôture du jour (les ventes tous moyens, et le comptage du tiroir), et le blocage des ventes du lendemain |
 | `lib/validationDepenses.js` | La validation des dépenses par le DG, l'origine des fonds (« Payé avec »), les avances de frais |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |

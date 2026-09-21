@@ -2195,7 +2195,7 @@ export const messageEcritureRefusee = (infraction, monEspace) => {
   const LIB = {
     ventes: "une vente", depenses: "une dépense", dettes: "une dette ou une réservation",
     produits: "un article de stock", ajustements: "un mouvement de stock",
-    clotures: "une clôture de caisse", commandes: "une commande",
+    clotures: "une clôture du jour", commandes: "une commande",
     proformas: "une proforma", clients_installes: "un chantier",
     fournisseurs: "un fournisseur", commerciaux: "un commercial",
   };
