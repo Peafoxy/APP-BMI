@@ -808,14 +808,27 @@ test("★★ une ligne grisée ne porte NI pastille de non-lus, NI compteur d'on
   /!verrou && item\.nb > 0/.test(codeEcranWa) && /c\.verrouillee \? 0 :/.test(codeEcranWa));
 
 // ── LA FICHE EST POSÉE PARTOUT OÙ LA CONVERSATION BOUGE
-test("★★ les TROIS gestes de l'écran posent la fiche : répondre, écrire le premier, confier",
-  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 3);
+test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, et le rattrapage",
+  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 4);
 test("★★★ …et le WEBHOOK aussi, par UPSERT (sinon la ligne grisée resterait figée)",
   /construireEntete\(\{/.test(codeEntrant)
   && /\.upsert\(\{ id: fiche\.id, data: fiche, updated_at: fiche\.ts \}\)/.test(codeEntrant));
 test("★ une fiche qui ne se pose pas ne fait JAMAIS perdre le message du client",
   /console\.error\("whatsapp-entrant : fiche de conversation non posée"/.test(entrant)
   && entrant.indexOf("insert({ id: ligne.id") < entrant.indexOf("construireEntete({"));
+
+// ── LES CONVERSATIONS D'AVANT : ELLES NE DISPARAISSENT PAS
+// ⚠⚠ SANS CE RATTRAPAGE LA RÈGLE MENTIRAIT LE PREMIER JOUR : une
+// conversation qui existait avant la fiche légère n'en a pas, donc elle
+// disparaîtrait chez les autres au lieu d'être grisée — ce que Timo a
+// justement refusé. Éprouvé en retirant le rattrapage : ce contrôle tombe.
+test("★★★ l'administrateur POSE les fiches manquantes des conversations d'avant",
+  /rattrape\.current/.test(codeEcranWa)
+  && /!messages\.some\(\(m\) => m\.id === idEntete\(c\.cle\)\)/.test(codeEcranWa));
+test("★★ …lui seul (il est le seul à toutes les voir), et une seule fois par ouverture",
+  /if \(rattrape\.current \|\| !peutReattribuer\(profile\)\) return;/.test(codeEcranWa));
+test("★ …et seulement s'il en manque : rien à écrire, rien n'est écrit",
+  /if \(!manquantes\.length\) return;/.test(codeEcranWa));
 
 // ── L'ÉCRAN, MONTÉ POUR DE BON
 const vuVend = monte(V.htmlVendeur);

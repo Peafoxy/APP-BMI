@@ -20,7 +20,7 @@
 // (qui voit quoi, la fenêtre, le refus) et l'envoi dans src/whatsapp.js —
 // cet écran ne fait que les montrer. Rien n'a changé d'elles en déménageant.
 // ============================================================
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
 import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -29,7 +29,7 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
 import { texteContact } from "../lib/whatsappModeles";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 
@@ -122,6 +122,33 @@ export function Whatsapp({ db, save, profile }) {
   // même si son message a trois mois. C'est le point le plus important de
   // ce point-ci, et le banc l'éprouve.
   const lues = liste.sections[0]?.items || [];
+
+  // ---- 🔒 LES CONVERSATIONS D'AVANT LA FICHE LÉGÈRE (21/09/2026) ----
+  // ⚠⚠ SANS CE RATTRAPAGE, LA RÈGLE MENTIRAIT LE PREMIER JOUR : les
+  // conversations qui existaient déjà n'ont pas de fiche, donc elles
+  // DISPARAÎTRAIENT chez les autres au lieu d'apparaître grisées — c'est
+  // exactement ce que Timo a refusé (« pas juste la faire disparaître »).
+  // Elles ne reviendraient qu'au message suivant.
+  // ⚠ C'est l'ADMINISTRATEUR qui les pose, et lui seul : il est le seul à
+  // voir TOUTES les conversations, donc le seul à pouvoir en poser un jeu
+  // complet. Une fois par ouverture d'écran, et seulement s'il en manque.
+  const rattrape = useRef(false);
+  useEffect(() => {
+    if (rattrape.current || !peutReattribuer(profile)) return;
+    const manquantes = tousConvs.filter((c) => !c.verrouillee && !messages.some((m) => m.id === idEntete(c.cle)));
+    if (!manquantes.length) return;
+    rattrape.current = true;
+    let liste = messages;
+    manquantes.forEach((c) => {
+      liste = messagesAvecEntete(liste, {
+        cle: c.cle, tel: c.tel, nom: c.nom,
+        proprietaire_id: c.proprietaire_id, proprietaire_nom: c.proprietaire_nom,
+        derniere: c.derniere,
+      });
+    });
+    save({ ...db, messages: liste });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tousConvs.length]);
 
   const ouvrir = (c) => {
     // ⚠ REVÉRIFIÉ DANS LE GESTE, comme partout : l'écran grise la ligne,

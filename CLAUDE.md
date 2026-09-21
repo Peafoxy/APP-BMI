@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 222 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée)
+npm run verifier-whatsapp        # 225 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 36  : qui REÇOIT quelle conversation WhatsApp, et la fiche légère qui ne porte rien (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2432,6 +2432,14 @@ lit mal est pire qu'un banc absent).
   upsert, `updated_at` à la main). ⚠ Une fiche qui ne se pose pas ne fait
   **jamais** perdre le message du client : il est déjà écrit, on le dit dans
   le journal du serveur et on ne lève pas.
+- ⚠⚠ **ET LES CONVERSATIONS D'AVANT ? Sans rattrapage, la règle aurait menti
+  le premier jour** : elles n'ont pas de fiche, donc elles auraient
+  **DISPARU** chez les autres au lieu d'apparaître grisées — exactement ce
+  qu'il a refusé —, et ne seraient revenues qu'au message suivant.
+  L'ADMINISTRATEUR les pose en ouvrant 📲 WhatsApp (lui seul les voit
+  toutes, donc lui seul peut en poser un jeu complet), une fois par
+  ouverture et seulement s'il en manque. Éprouvé en le retirant : le
+  contrôle tombe.
 - ⚠⚠ **LE GARDE-FOU QUI MANQUAIT D'UN CHEVEU** : « non » voulant désormais
   dire « grisée » et non plus « absente », `conversationsWa` SANS un
   `if (!aAccesWhatsapp(profile)) return []` en tête aurait montré **toute la
