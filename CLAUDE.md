@@ -2464,6 +2464,10 @@ lit mal est pire qu'un banc absent).
   éprouvé en remettant trois fautes (le vendeur rendu à « voit tout », la
   clause de la fiche oubliée, une fiche qui porte du texte) : les trois
   tombent.
+  **Collé par Timo le 21/09/2026 (`true | true | true`).**
+  ⚠ **Effet à la prochaine reconnexion de chacun** : c'est à ce moment que
+  l'appareil retélécharge ce que le serveur lui accorde et SUPPRIME le reste
+  (`reconcilierMiroir`, src/sync.js). Rien à lancer.
 - **Les notifications NE BOUGENT PAS** (sa décision le jour même : « garder
   les notifications pour les administrateurs pour le moment comme
   aujourd'hui ») : conversation confiée → son propriétaire ; sans

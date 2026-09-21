@@ -568,7 +568,8 @@ n'est rien d'autre que ses messages. Pour qu'elle SE VOIE sans se lire, une
 numéro, nom du client, propriétaire, date du dernier message, **et rien
 d'autre**. Elle descend chez tout le personnel ; les messages, non.
 
-**À COLLER PAR TIMO : `supabase/securite-28-conversations-confiees.sql`.**
+**`supabase/securite-28-conversations-confiees.sql` — COLLÉ PAR TIMO LE
+21/09/2026 (`true | true | true`).**
 Il reprend `securite-27` en entier, c'est le seul à coller. Sans lui, l'écran
 grise la ligne pendant que le contenu continue de descendre sur les
 téléphones — c'est-à-dire le trou fermé la veille, rouvert.
