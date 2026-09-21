@@ -2513,6 +2513,8 @@ lit mal est pire qu'un banc absent).
     cacher** : la moitié du geste, invisible. Le banc l'éprouve en retirant
     la clause — deux contrôles tombent — et vérifie que les deux côtés
     nomment le MÊME mot.
+    **Collé par Timo le 21/09/2026 (`true | true | true`).**
+    ⚠ Effet à la prochaine reconnexion de chacun.
   - **La fiche légère suit, sans propriétaire** : la ligne cesse d'être
     grisée chez les autres.
 - **Rien d'autre n'a changé** : la fenêtre de 24 h, le refus revérifié dans

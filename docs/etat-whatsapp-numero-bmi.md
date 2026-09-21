@@ -589,7 +589,8 @@ en congé n'avait aucune porte de sortie. Bouton **« 🔓 Rendre à tous »**
 conversation confiée) : elle retombe au **support**, tout le personnel la voit
 et peut y répondre. On peut la reconfier ensuite.
 
-**À COLLER PAR TIMO : `supabase/securite-29-rendre-a-tous.sql`.** Il reprend
+**`supabase/securite-29-rendre-a-tous.sql` — COLLÉ PAR TIMO LE 21/09/2026
+(`true | true | true`).** Il reprend
 `securite-28` en entier, c'est le seul à coller. Sans lui, l'écran rendrait la
 conversation à tout le monde pendant que la base continuerait de la cacher.
 Le script se termine par `true | true | true`.
