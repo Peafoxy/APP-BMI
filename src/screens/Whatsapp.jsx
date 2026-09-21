@@ -29,7 +29,7 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
 import { texteContact } from "../lib/whatsappModeles";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 
@@ -298,6 +298,37 @@ export function Whatsapp({ db, save, profile }) {
     }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} confiée à ${u.nom} par ${profile.nom}`);
   };
 
+  // ---- 🔓 RENDRE LA CONVERSATION À TOUT LE MONDE (21/09/2026) ----
+  // Timo : « donner la possibilité à l'administrateur de rendre la
+  // discussion déjà confiée à redevenir accessible à tous les
+  // utilisateurs ». Une conversation confiée à quelqu'un qui part en congé
+  // n'avait aucune porte de sortie — on ne pouvait que la donner à un autre.
+  // ⚠ RIEN N'EST RÉÉCRIT : on pose une ligne qui porte la MARQUE, et
+  // `proprietaireDe` s'y arrête en remontant. L'histoire reste entière, on
+  // lit encore à qui elle avait été confiée et par qui.
+  const rendreATous = async () => {
+    if (!ouverte) return;
+    if (!peutReattribuer(profile)) { uAlert("Seul un administrateur peut rendre une conversation à tout le monde."); return; }
+    // ⚠ Un bouton qui ne commande rien ne s'affiche pas : sans propriétaire,
+    // il n'y a rien à rendre. Revérifié ici, comme partout.
+    if (!ouverte.proprietaire_id) { uAlert("Cette conversation n'est confiée à personne : tout le personnel la voit déjà."); return; }
+    const qui = ouverte.proprietaire_nom || "quelqu'un";
+    if (!(await uConfirm(`Rendre la conversation de ${ouverte.nom || ouverte.tel} à tout le personnel ?\n\nElle n'appartiendra plus à ${qui} : chacun pourra l'ouvrir et y répondre, comme un client du support.`))) return;
+    const m = nouveauMessage(profile, {
+      canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
+      ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
+      wa_systeme: true,
+      texte: `🔓 Conversation rendue à tout le personnel par ${profile.nom}.`,
+      [MARQUE_RENDUE]: true,
+    });
+    // ⚠ LA FICHE LÉGÈRE SUIT : sans propriétaire, la ligne cesse d'être
+    // grisée chez les autres. Elle est REMPLACÉE (même id), donc l'ancien
+    // propriétaire n'y reste pas.
+    save({ ...db, messages: messagesAvecEntete([m, ...messages], {
+      cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom, derniere: m.ts,
+    }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} rendue à tout le personnel par ${profile.nom}`);
+  };
+
   return (
     <div className="grid lg:grid-cols-[280px_1fr] gap-4">
       {/* Liste des conversations (sur mobile : masquée quand un fil est ouvert) */}
@@ -388,6 +419,9 @@ export function Whatsapp({ db, save, profile }) {
             <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
               <button onClick={() => setCleOuverte(null)} className="lg:hidden text-sky-800 font-bold text-lg leading-none" aria-label="Retour">←</button>
               <span className="flex-1">📲 {ouverte.nom || ouverte.tel}</span>
+              {peutReattribuer(profile) && ouverte.proprietaire_id && (
+                <button onClick={rendreATous} className="text-xs font-bold text-slate-600 underline whitespace-nowrap" title="Tout le personnel pourra l'ouvrir et y répondre">🔓 Rendre à tous</button>
+              )}
               {peutReattribuer(profile) && (
                 <button onClick={reattribuer} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">🔁 Confier</button>
               )}

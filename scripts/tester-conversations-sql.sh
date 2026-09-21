@@ -191,14 +191,41 @@ compte "sa conversation compte bien le nouveau message" "$COM1" \
   "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
 
 echo
-echo "▸ 6. La porte de derrière reste fermée"
+echo "▸ 6. 🔓 RENDRE UNE CONVERSATION À TOUT LE MONDE (securite-29)"
+# La conversation de KOSSI (wa3) : le commercial ne la voit pas.
+compte "avant : le commercial ne voit pas la conversation de KOSSI" "$COM1" \
+  "select count(*) from public.messages where id = 'wa3';" "0"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-29-rendre-a-tous.sql >/dev/null 2>&1
+compte "…et tant que rien n'est posé, il ne la voit toujours pas" "$COM1" \
+  "select count(*) from public.messages where id = 'wa3';" "0"
+# L'administrateur pose la ligne « rendue à tous ».
+essai "l'administrateur rend la conversation à tout le personnel" PASSE "$ADMIN" \
+  "insert into public.messages (id, data) values ('wa3b','{\"canal\":\"whatsapp\",\"wa_tel\":\"90116677\",\"ts\":\"2026-09-21T09:00:00Z\",\"wa_systeme\":true,\"proprietaire_efface\":true,\"texte\":\"rendue a tous\"}');"
+compte "★ APRÈS : le commercial voit la conversation entière" "$COM1" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90116677' and data->>'canal' = 'whatsapp';" "2"
+compte "…un autre commercial aussi" "$COM2" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90116677' and data->>'canal' = 'whatsapp';" "2"
+# ⚠ ET ON PEUT LA RECONFIER APRÈS : la marque ne grave rien dans le marbre.
+essai "l'administrateur la reconfie à COM2" PASSE "$ADMIN" \
+  "insert into public.messages (id, data) values ('wa3c','{\"canal\":\"whatsapp\",\"wa_tel\":\"90116677\",\"ts\":\"2026-09-21T10:00:00Z\",\"wa_systeme\":true,\"proprietaire_id\":\"COM2\",\"proprietaire_nom\":\"COM2\",\"texte\":\"confiee\"}');"
+compte "★ le premier commercial ne la voit PLUS" "$COM1" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90116677' and data->>'canal' = 'whatsapp';" "0"
+compte "…et COM2, à qui elle est confiée, la voit" "$COM2" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90116677' and data->>'canal' = 'whatsapp';" "3"
+# ⚠ Ce qui n'a PAS bougé : la conversation de COM1 reste la sienne.
+compte "la conversation de COM1 n'a pas bougé d'un pouce" "$VEND" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "0"
+compte "…et la messagerie interne non plus" "$COM1" "$INT" "4"
+
+echo
+echo "▸ 7. La porte de derrière reste fermée"
 verite "le visiteur anonyme ne peut pas appeler la fonction" \
   "select not has_function_privilege('anon','public.wa_proprietaire(text)','execute');"
 verite "la règle est bien posée sur la table des messages" \
   "select count(*) = 1 from pg_policies where tablename='messages' and policyname='wa_conversations_visibles';"
 # ⚠ Tous nos scripts sont en « create or replace » : les relancer doit être
 # sans danger. On le VÉRIFIE au lieu de le supposer.
-psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-28-conversations-confiees.sql >/dev/null 2>&1
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-29-rendre-a-tous.sql >/dev/null 2>&1
 compte "après un second passage, le commercial voit toujours les siennes" "$COM1" \
   "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
 compte "…et toujours pas celle du vendeur"  "$COM1" \

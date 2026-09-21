@@ -580,3 +580,17 @@ l'appareil retélécharge ce que le serveur lui accorde et supprime le reste.
 **💬 Messages ne bouge pas** (sa décision « a » du 21/09) : il est déjà
 cloisonné, et plus sévèrement — un vendeur, un gérant, un magasinier n'y
 voient aucun fil de client (règle posée par l'audit du 29/08/2026).
+
+### 🔓 Rendre une conversation à tout le monde (21/09/2026)
+
+Demande de Timo le même jour : une conversation confiée à quelqu'un qui part
+en congé n'avait aucune porte de sortie. Bouton **« 🔓 Rendre à tous »**
+(administrateur seul, à côté de « 🔁 Confier », affiché seulement sur une
+conversation confiée) : elle retombe au **support**, tout le personnel la voit
+et peut y répondre. On peut la reconfier ensuite.
+
+**À COLLER PAR TIMO : `supabase/securite-29-rendre-a-tous.sql`.** Il reprend
+`securite-28` en entier, c'est le seul à coller. Sans lui, l'écran rendrait la
+conversation à tout le monde pendant que la base continuerait de la cacher.
+Le script se termine par `true | true | true`.
+⚠ Effet à la prochaine reconnexion de chacun.

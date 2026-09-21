@@ -149,10 +149,32 @@ export function libelleFenetre(f) {
 // Le propriétaire est posé sur les messages ; on lit le DERNIER qui en
 // porte un, pour qu'une réattribution (décision « a ») prenne effet sans
 // réécrire l'histoire — un message ne se modifie jamais après coup.
+// ---------------------------------------------------------------
+// 🔓 RENDRE UNE CONVERSATION À TOUT LE MONDE (21/09/2026)
+// ---------------------------------------------------------------
+// Timo : « donner la possibilité à l'administrateur de rendre la discussion
+// déjà confiée à redevenir accessible à tous les utilisateurs ». Sans ça,
+// une conversation confiée à quelqu'un qui part en congé n'a AUCUNE porte de
+// sortie : l'administrateur peut la donner à un autre, jamais la rouvrir.
+//
+// ⚠⚠ ON NE RÉÉCRIT RIEN — on POSE une ligne de plus, comme « 🔁 Confier ».
+// Mais une ligne SANS propriétaire n'efface rien : `proprietaireDe` remonte
+// le fil jusqu'au dernier message qui en PORTE un, et le retrouverait.
+// D'où une MARQUE explicite, `proprietaire_efface`, que la remontée regarde
+// au même titre qu'un propriétaire : la première des deux qu'elle rencontre
+// en remontant décide. Poser la marque, c'est dire « à partir d'ici,
+// personne », et l'histoire d'avant reste lisible.
+//
+// ⚠ LE COUPLE : `wa_proprietaire` (securite-29) doit s'arrêter sur la MÊME
+// marque. Sans le SQL, l'écran rendrait la conversation à tous pendant que
+// la base continuerait de la cacher — la moitié du geste, invisible.
+export const MARQUE_RENDUE = "proprietaire_efface";
+
 export function proprietaireDe(fil) {
   for (let i = (fil || []).length - 1; i >= 0; i--) {
-    const p = fil[i]?.proprietaire_id;
-    if (p) return { id: p, nom: fil[i].proprietaire_nom || "" };
+    const m = fil[i] || {};
+    if (m[MARQUE_RENDUE]) return { id: "", nom: "" };
+    if (m.proprietaire_id) return { id: m.proprietaire_id, nom: m.proprietaire_nom || "" };
   }
   return { id: "", nom: "" };
 }
@@ -245,6 +267,9 @@ export function peutVoirConversation(profile, conv) {
 }
 
 // Décision « a » : seul l'administrateur redonne une conversation.
+// ⚠ Rendre à tous passe par LE MÊME droit (21/09/2026) : deux listes pour
+// deux gestes voisins finiraient par diverger, et c'est le même pouvoir —
+// décider à qui appartient une conversation, ou à personne.
 export const peutReattribuer = (profile) => profile?.role === "admin";
 
 // ---------------------------------------------------------------

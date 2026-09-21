@@ -63,9 +63,9 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 225 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée)
+npm run verifier-whatsapp        # 236 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, et le retour au support)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
-npm run tester-conversations     # 36  : qui REÇOIT quelle conversation WhatsApp, et la fiche légère qui ne porte rien (serveur, base jetable)
+npm run tester-conversations     # 46  : qui REÇOIT quelle conversation WhatsApp, et la fiche légère qui ne porte rien (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
@@ -2459,7 +2459,7 @@ lit mal est pire qu'un banc absent).
   réduit à l'admin, et le canal `whatsapp_entete` descend chez tout le
   personnel. Sans lui, l'écran grise la ligne pendant que le contenu
   continue de descendre : exactement le trou fermé la veille. Le banc
-  (`npm run tester-conversations`, **36 contrôles** sur base jetable) rejoue
+  (`npm run tester-conversations`, **46 contrôles** sur base jetable) rejoue
   `-27` PUIS `-28`, vérifie D'ABORD que 💬 Messages n'a pas bougé, et a été
   éprouvé en remettant trois fautes (le vendeur rendu à « voit tout », la
   clause de la fiche oubliée, une fiche qui porte du texte) : les trois
@@ -2489,6 +2489,32 @@ lit mal est pire qu'un banc absent).
   cloisonnement, pas resserré. Trois propositions lui ont été faites (laisser
   · griser seulement · aligner vraiment) ; il a choisi **laisser**.
   **Ne pas le reproposer.**
+- **🔓 ET ELLE SE REND À TOUT LE MONDE** (demande de Timo le jour même :
+  « donner la possibilité à l'administrateur de rendre la discussion déjà
+  confiée à redevenir accessible à tous les utilisateurs »). Sans ça, une
+  conversation confiée à quelqu'un qui part en congé n'avait **aucune porte
+  de sortie** : on pouvait la donner à un autre, jamais la rouvrir.
+  - Bouton **« 🔓 Rendre à tous »** à côté de « 🔁 Confier », **même droit**
+    (`peutReattribuer`, l'administrateur) — deux listes pour deux gestes
+    voisins finiraient par diverger, et c'est le même pouvoir : décider à qui
+    appartient une conversation, ou à personne. ⚠ Il ne s'affiche **que si
+    elle est confiée** (un bouton qui ne commande rien ne s'affiche pas), et
+    le geste le revérifie.
+  - ⚠⚠ **UNE LIGNE SANS PROPRIÉTAIRE N'EFFACE RIEN** : `proprietaireDe`
+    remonte le fil jusqu'au dernier message qui en PORTE un, et retrouverait
+    l'ancien. D'où une MARQUE explicite, **`MARQUE_RENDUE`**
+    (`proprietaire_efface`), que la remontée regarde **au même titre** qu'un
+    propriétaire : la première des deux rencontrée décide. On POSE, on ne
+    réécrit jamais — l'histoire reste lisible, et **on peut reconfier après**.
+  - ⚠ **LE COUPLE : `securite-29`**, **le SEUL à coller** — il reprend
+    `securite-28` (donc `-27`) en entier et ne change QUE `wa_proprietaire`,
+    qui s'arrête sur la même marque. **Sans lui, l'écran rendrait la
+    conversation à tout le monde pendant que la base continuerait de la
+    cacher** : la moitié du geste, invisible. Le banc l'éprouve en retirant
+    la clause — deux contrôles tombent — et vérifie que les deux côtés
+    nomment le MÊME mot.
+  - **La fiche légère suit, sans propriétaire** : la ligne cesse d'être
+    grisée chez les autres.
 - **Rien d'autre n'a changé** : la fenêtre de 24 h, le refus revérifié dans
   le geste, les trois barrières, « 🔁 Confier » réservé à l'admin, la
   recherche et l'archivage — tout vient toujours de
@@ -2511,7 +2537,7 @@ lit mal est pire qu'un banc absent).
   commence par écarter tout ce qui n'est pas du canal `whatsapp` — une ligne
   interne n'est même pas examinée. Une règle mal écrite ici et **plus
   personne ne reçoit rien** : d'où un banc sur base jetable,
-  **`npm run tester-conversations`** (36 contrôles), qui vérifie D'ABORD que
+  **`npm run tester-conversations`** (46 contrôles), qui vérifie D'ABORD que
   la messagerie interne n'a pas bougé d'un pouce, et qui a été éprouvé en
   remettant trois fautes (le comptable remis, le canal oublié, « sa » propre
   conversation oubliée) : les trois tombent — et la troisième fait AUSSI

@@ -808,8 +808,8 @@ test("★★ une ligne grisée ne porte NI pastille de non-lus, NI compteur d'on
   /!verrou && item\.nb > 0/.test(codeEcranWa) && /c\.verrouillee \? 0 :/.test(codeEcranWa));
 
 // ── LA FICHE EST POSÉE PARTOUT OÙ LA CONVERSATION BOUGE
-test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, et le rattrapage",
-  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 4);
+test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, rendre à tous, et le rattrapage",
+  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 5);
 test("★★★ …et le WEBHOOK aussi, par UPSERT (sinon la ligne grisée resterait figée)",
   /construireEntete\(\{/.test(codeEntrant)
   && /\.upsert\(\{ id: fiche\.id, data: fiche, updated_at: fiche\.ts \}\)/.test(codeEntrant));
@@ -841,6 +841,55 @@ test("★★ RENDU : la ligne grisée est marquée comme telle, et l'autre non",
   /data-wa-verrou="1"/.test(vuVend) && /data-wa-verrou="0"/.test(vuVend));
 test("★★ RENDU : l'administrateur, lui, n'a aucune ligne grisée",
   !/data-wa-verrou="1"/.test(vuAdmin) && vuAdmin.includes("AYOKO"));
+
+
+// ──────────────────────────────────────────────────────────────
+titre("⑬ 🔓 RENDRE UNE CONVERSATION À TOUT LE MONDE (21/09/2026)");
+// Timo : « donner la possibilité à l'administrateur de rendre la discussion
+// déjà confiée à redevenir accessible à tous les utilisateurs ». Sans ça,
+// une conversation confiée à quelqu'un qui part en congé n'avait aucune
+// porte de sortie — on ne pouvait que la donner à quelqu'un d'autre.
+const sql29 = lire("supabase/securite-29-rendre-a-tous.sql");
+const filConfie = [
+  { ts: "1", proprietaire_id: "u1", proprietaire_nom: "KOSSI" },
+  { ts: "2", texte: "bonjour" },
+];
+const filRendu = [...filConfie, { ts: "3", wa_systeme: true, [C.MARQUE_RENDUE]: true }];
+
+test("★★★ la MARQUE rend la conversation au support — sans rien effacer du fil",
+  C.proprietaireDe(filConfie).id === "u1"
+  && C.proprietaireDe(filRendu).id === ""
+  && filRendu.length === 3);
+test("★★ et on peut la RECONFIER après : la marque ne grave rien dans le marbre",
+  C.proprietaireDe([...filRendu, { ts: "4", proprietaire_id: "u2", proprietaire_nom: "AMA" }]).id === "u2");
+test("★★★ une fois rendue, TOUT le personnel peut l'ouvrir — c'est ce qui était demandé",
+  ["vendeur", "gerant", "commercial", "technicien", "magasinier"].every((role) =>
+    C.peutVoirConversation({ id: "zz", role }, { proprietaire_id: C.proprietaireDe(filRendu).id })));
+test("★ …et ni le client ni le comptable, eux, n'y gagnent rien",
+  ["client", "comptable"].every((role) =>
+    C.peutVoirConversation({ id: "zz", role }, { proprietaire_id: "" }) === false));
+
+// ── LE COUPLE : l'écran et la base s'arrêtent sur LE MÊME MOT
+test("★★★ LE COUPLE : `securite-29` s'arrête sur la MÊME marque que la règle",
+  sql29.includes(`'${C.MARQUE_RENDUE}'`)
+  && /or coalesce\(m\.data ->> 'proprietaire_efface', ''\) = 'true'/.test(sql29));
+test("★★ …et il REPREND `securite-28` en entier : c'est le seul à coller",
+  ["public.wa_role()", "public.wa_moi()", "wa_conversations_visibles", "whatsapp_entete", "messages_wa_tel_idx"]
+    .every((bout) => sql29.includes(bout)));
+
+// ── LE GESTE, DANS L'ÉCRAN
+test("★★ le bouton est réservé à l'ADMINISTRATEUR, revérifié DANS le geste",
+  /if \(!peutReattribuer\(profile\)\) \{ uAlert\("Seul un administrateur peut rendre une conversation à tout le monde\./.test(codeEcranWa)
+  && /peutReattribuer\(profile\) && ouverte\.proprietaire_id && \(/.test(codeEcranWa));
+test("★★ un bouton qui ne commanderait rien ne s'affiche pas : sans propriétaire, rien à rendre",
+  /if \(!ouverte\.proprietaire_id\) \{ uAlert\(/.test(codeEcranWa));
+test("★★★ le geste POSE la marque, il ne réécrit aucun message",
+  /\[MARQUE_RENDUE\]: true,/.test(codeEcranWa)
+  && /wa_systeme: true,[\s\S]{0,200}\[MARQUE_RENDUE\]/.test(codeEcranWa));
+test("★★ la fiche légère suit, SANS propriétaire (la ligne cesse d'être grisée)",
+  /messagesAvecEntete\(\[m, \.\.\.messages\], \{\s*cle: ouverte\.cle, tel: ouverte\.tel, nom: ouverte\.nom, derniere: m\.ts,\s*\}\)/.test(codeEcranWa));
+test("★ le geste laisse sa ligne de journal, comme « Confier »",
+  /rendue à tout le personnel par \$\{profile\.nom\}/.test(codeEcranWa));
 
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
