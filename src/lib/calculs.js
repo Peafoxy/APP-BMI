@@ -1334,6 +1334,41 @@ export const venteSoldee = (db, v) => resteDuSurVente(db, v) === 0;
 export const partParrainBloquee = (v, db) => !!(v.apporteur && v.apporteur.a_la_reception)
   || (db !== undefined && !venteSoldee(db, v));
 
+// ---- 📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE (Timo, 21/09/2026) ----
+// Capture de la fenêtre « Moyen de paiement pour FIFO » : **« on demande encore
+// le moyen de paiement »**. Devant deux propositions (déduire le moyen du
+// compte qui paie · le mémoriser sur la fiche de l'apporteur), il a choisi
+// **« b »** : on le retient, on ne le redemande plus.
+// ⚠ Un apporteur externe n'a PAS de fiche à lui — il n'existe que sur les
+// ventes qu'il a amenées (`v.apporteur`). Sa « fiche », c'est donc l'ensemble
+// de ces lignes : le moyen s'écrit sur toutes, et se relit sur la plus
+// récente qui en porte un. Rien à coller dans Supabase.
+export const cleApporteur = (nom, tel) => `${String(nom || "").trim()}|${String(tel || "").trim()}`;
+export const memeApporteur = (app, nom, tel) => !!app && cleApporteur(app.nom, app.tel) === cleApporteur(nom, tel);
+// ⚠ LE MUR : la règle reçoit les ventes DE CET APPORTEUR, déjà filtrées par
+// l'espace regardé — jamais `db.ventes` en entier. Une fonction pure qui
+// reçoit une table entière et la PARCOURT est un passage de mur en puissance
+// (leçon payée deux fois le 18/09/2026).
+export function moyenHabituelApporteur(sesVentes) {
+  let quand = "", moyen = "";
+  (sesVentes || []).forEach((v) => {
+    const m = v && v.apporteur && v.apporteur.moyen_habituel;
+    if (!m) return;
+    const q = `${v.date || ""} ${v.heure || ""}`;
+    if (q >= quand) { quand = q; moyen = String(m); }
+  });
+  return moyen;
+}
+// On écrit le moyen sur les lignes DÉSIGNÉES (leurs identifiants), jamais sur
+// « toutes les ventes qui portent ce nom » : deux personnes du même nom dans
+// deux espaces ne doivent pas se mélanger.
+export const poserMoyenApporteur = (ventes, ids, moyen) => {
+  const cibles = new Set(ids || []);
+  return (ventes || []).map((v) => (cibles.has(v.id) && v.apporteur
+    ? { ...v, apporteur: { ...v.apporteur, moyen_habituel: String(moyen || "") } }
+    : v));
+};
+
 // ---- Réception d'un chantier : déblocage des commissions + notification ----
 // Utilisé par les TROIS chemins de réception : le client dans son espace,
 // le constat par BMI, et la réception automatique à J+7. Retourne les

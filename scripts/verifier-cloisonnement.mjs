@@ -4742,8 +4742,8 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
     !/LISTE_MOYENS_SAISIE/.test(ui) && execSync("grep -rl 'Espèces / Flooz / Mixx / Virement bancaire' src || true").toString().trim() === ""
     && /export const demanderMoyenPaiement = \(complement = "", defaut = "Espèces", libelle = "Moyen de paiement", beneficiaire = null\) =>\n  uChoix\(/.test(ui)
     && /moyensProposes\(defaut\)\)/.test(ui) && !/uPrompt\(`\$\{libelle\}/.test(ui));
-  test("★ les 13 questions passent par demanderMoyenPaiement (plus aucun uPrompt « Moyen de … »)",
-    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib | wc -l").toString().trim() === "13"
+  test("★ les 14 questions passent par demanderMoyenPaiement (la 14e : ✏️ Moyen d'un apporteur, 21/09/2026 ; plus aucun uPrompt « Moyen de … »)",
+    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib | wc -l").toString().trim() === "14"
     && execSync("grep -rl 'uPrompt(.Moyen de' src || true").toString().trim() === "");
   // 12/09/2026 : le remboursement d'une avance de frais « avec le salaire » (Caisse.jsx) demande son mois — ×4.
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
@@ -10782,6 +10782,91 @@ titre("📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS DE PAIEMENT APPARAISSENT (Timo
     && /La journée du \$\{premier\} de \$\{b\.nom\} n'a pas été clôturée/.test(lit("src/lib/rappels.js")));
   test("★ le journal nomme la clôture du jour", /RECLÔTURE" : "Clôture"\} du jour \$\{boutique\}/.test(cs)
     && /clotures: "une clôture du jour"/.test(lit("src/lib/calculs.js")));
+}
+
+
+titre("📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE — ON NE LE REDEMANDE PLUS (Timo, 21/09/2026)");
+{
+  // Capture de la fenêtre « Moyen de paiement pour FIFO » : **« on demande
+  // encore le moyen de paiement »**. Devant deux propositions (déduire le
+  // moyen du compte qui paie · le mémoriser sur la fiche de l'apporteur), il a
+  // choisi **« b »**.
+  // ⚠ Un apporteur externe n'a PAS de fiche : il n'existe que sur les ventes
+  // qu'il a amenées. Sa « fiche », ce sont ces lignes-là.
+  const lit = (f) => readFileSync(f, "utf8");
+  const sortieAp = join("node_modules", ".cache", `bmi-apporteur-moyen-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/calculs.js"], bundle: true, format: "esm", platform: "node", outfile: sortieAp, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, external: ["react", "react-dom"] });
+  const Ap = await import(pathToFileURL(sortieAp).href);
+  unlinkSync(sortieAp);
+  const FLOOZ = "Mobile Money (Flooz)";
+  const MIXX = "Mobile Money (Mixx/T-Money)";
+
+  const ventesAp = [
+    { id: "a1", date: "2026-09-10", apporteur: { nom: "FIFO", tel: "90112233" } },
+    { id: "a2", date: "2026-09-15", heure: "10:00", apporteur: { nom: "FIFO", tel: "90112233", moyen_habituel: "Espèces" } },
+    { id: "a3", date: "2026-09-18", heure: "09:00", apporteur: { nom: "FIFO", tel: "90112233", moyen_habituel: FLOOZ } },
+    { id: "a4", date: "2026-09-20", apporteur: { nom: "RERO", tel: "91130511", moyen_habituel: "Virement bancaire" } },
+    // ⚠ LE MÊME NOM, LE MÊME NUMÉRO, MAIS DANS L'AUTRE ESPACE (le banc l'appelle
+    // par son id : la règle ne doit jamais l'attraper « par le nom »).
+    { id: "aF", date: "2026-09-21", apporteur: { nom: "FIFO", tel: "90112233", moyen_habituel: "Espèces" } },
+  ];
+  const sien = (n, t) => ventesAp.filter((v) => Ap.memeApporteur(v.apporteur, n, t));
+  // ⚠ L'écran passe les ventes DE SON ESPACE, déjà filtrées : c'est ce que le
+  // banc reproduit ici (a1–a3). `aF` porte le MÊME nom et le MÊME numéro dans
+  // l'autre espace — il n'entre jamais dans cette liste.
+  const fifoReel = ventesAp.filter((v) => ["a1", "a2", "a3"].includes(v.id));
+
+  test("★★ SON CAS : le moyen retenu est le PLUS RÉCENT qu'on a employé pour lui",
+    Ap.moyenHabituelApporteur(fifoReel) === FLOOZ);
+  test("★★ LE MUR, À LA LECTURE : la ligne du même nom dans l'autre espace ferait mentir la mémoire — l'écran ne la passe jamais",
+    Ap.moyenHabituelApporteur(sien("FIFO", "90112233")) === "Espèces"
+    && Ap.moyenHabituelApporteur(fifoReel) === FLOOZ);
+  test("★★ un apporteur qu'on n'a jamais payé n'a AUCUN moyen — la question sera donc posée, une fois",
+    Ap.moyenHabituelApporteur([{ id: "x", date: "2026-09-01", apporteur: { nom: "NEUF", tel: "" } }]) === ""
+    && Ap.moyenHabituelApporteur([]) === "" && Ap.moyenHabituelApporteur(undefined) === "");
+  test("★ deux apporteurs ne se mélangent pas",
+    Ap.moyenHabituelApporteur(sien("RERO", "91130511")) === "Virement bancaire");
+  test("★ la clé est le nom ET le numéro, espaces rognés",
+    Ap.cleApporteur(" FIFO ", " 90112233 ") === "FIFO|90112233"
+    && Ap.memeApporteur({ nom: "FIFO", tel: "90112233" }, "FIFO", "90112233")
+    && !Ap.memeApporteur({ nom: "FIFO", tel: "90112233" }, "FIFO", "99999999"));
+
+  // ── L'ÉCRITURE : les lignes DÉSIGNÉES, jamais « toutes celles de ce nom ».
+  {
+    const apres = Ap.poserMoyenApporteur(ventesAp, ["a1", "a2", "a3"], MIXX);
+    test("★★ la mémoire s'écrit sur TOUTES ses lignes désignées, même celles qui n'en portaient pas",
+      apres.find((v) => v.id === "a1").apporteur.moyen_habituel === MIXX
+      && Ap.moyenHabituelApporteur(apres.filter((v) => ["a1", "a2", "a3"].includes(v.id))) === MIXX);
+    test("★★ LE MUR : la ligne du MÊME NOM dans l'autre espace n'est PAS touchée — on écrit par identifiant, jamais par nom",
+      apres.find((v) => v.id === "aF").apporteur.moyen_habituel === "Espèces");
+    test("★ un autre apporteur n'est jamais touché", apres.find((v) => v.id === "a4").apporteur.moyen_habituel === "Virement bancaire");
+    test("★ une vente sans apporteur traverse sans être réécrite", (() => {
+      const avec = [...ventesAp, { id: "sansApp", date: "2026-09-21" }];
+      const r = Ap.poserMoyenApporteur(avec, ["sansApp"], MIXX);
+      return !("apporteur" in r.find((v) => v.id === "sansApp"));
+    })());
+  }
+
+  // ── L'ÉCRAN : la règle juste ne suffit pas si l'écran s'en sert mal.
+  const eq = lit("src/screens/MonEquipe.jsx");
+  test("★★ LA QUESTION N'EST POSÉE QUE S'IL N'Y A PAS DE MÉMOIRE — c'est sa demande, mot pour mot",
+    /const moyen = a\.moyenHabituel \|\| await demanderMoyenPaiement\(`pour \$\{a\.nom\}`\);/.test(eq));
+  test("★★ ne plus DEMANDER n'est pas ne plus DIRE : la confirmation nomme le moyen en toutes lettres",
+    /💳 Moyen : \$\{moyen\}\$\{a\.moyenHabituel \? " — son moyen habituel/.test(eq));
+  test("★★ le paiement ÉCRIT la mémoire, sinon la question reviendrait au paiement suivant",
+    /ventes: poserMoyenApporteur\(db\.ventes\.map\(\(v\) => \(ids\.has\(v\.id\)/.test(eq)
+    && /\), a\.ids, moyen\),/.test(eq));
+  test("★★ le moyen est cherché sur TOUTES ses ventes de l'espace, pas sur la période — sinon la question revient au changement de mois",
+    /const siennes = ventesDeMonEspace\.filter\(\(v\) => v\.apporteur && cleApporteur\(v\.apporteur\.nom, v\.apporteur\.tel\) === cle\);/.test(eq)
+    && /l\.moyenHabituel = moyenHabituelApporteur\(siennes\);/.test(eq));
+  test("★★ la SEULE porte de sortie existe : ✏️ Moyen, avec la même garde que payer, revérifiée DANS le geste",
+    /const changerMoyenApporteur = async \(a\) => \{/.test(eq)
+    && /if \(!aDroit\(db, profile, "act_commission"\)\) \{ uAlert\(/.test(eq)
+    && /onClick=\{\(\) => changerMoyenApporteur\(a\)\}/.test(eq));
+  test("★ le moyen retenu SE LIT sur la ligne de l'apporteur (on ne le demande plus : il doit se voir)",
+    /data-moyen-apporteur=\{a\.moyenHabituel \|\| ""\}/.test(eq)
+    && /moyen non retenu — il sera demandé au premier paiement/.test(eq));
+  test("★ le geste de changement est refusé à un compte en lecture seule", /const changerMoyenApporteur = async \(a\) => \{\s*\n\s*if \(bloquerSiLecture\(db, profile\)\) return;/.test(eq));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

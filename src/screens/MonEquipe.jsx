@@ -10,7 +10,7 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, poserMoyenApporteur} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -173,6 +173,15 @@ export function MonEquipe({ db, save, profile }) {
         if (!v.apporteur.a_la_reception) g[cle].attentePaiement = (g[cle].attentePaiement || 0) + m;
       } else { g[cle].due += m; g[cle].ventes.push(v.id); }
     });
+    // ---- 📌 SON MOYEN HABITUEL (Timo, 21/09/2026, décision « b ») ----
+    // ⚠ Cherché sur TOUTES ses ventes de l'espace, pas seulement celles de la
+    // période regardée : sinon, au changement de mois, la question reviendrait
+    // — c'est-à-dire exactement ce qu'il a demandé de supprimer.
+    Object.entries(g).forEach(([cle, l]) => {
+      const siennes = ventesDeMonEspace.filter((v) => v.apporteur && cleApporteur(v.apporteur.nom, v.apporteur.tel) === cle);
+      l.ids = siennes.map((v) => v.id);
+      l.moyenHabituel = moyenHabituelApporteur(siennes);
+    });
     return Object.values(g).sort((a, b) => b.due - a.due);
   })();
 
@@ -299,11 +308,17 @@ export function MonEquipe({ db, save, profile }) {
   const payerApporteur = async (a) => {
     if (bloquerSiLecture(db, profile)) return;
     if (a.due <= 0) { uAlert("Aucune commission en attente pour " + a.nom + "."); return; }
-    const moyen = await demanderMoyenPaiement(`pour ${a.nom}`);
+    // ⚠ Timo, 21/09/2026, capture de la fenêtre « Moyen de paiement pour
+    // FIFO » : « on demande ENCORE le moyen de paiement ». Décision « b » :
+    // on retient son moyen habituel et on ne le redemande plus. La première
+    // fois seulement, on demande — et la réponse devient sa mémoire.
+    const moyen = a.moyenHabituel || await demanderMoyenPaiement(`pour ${a.nom}`);
     if (moyen === null) return;
     const bq = await choisirBoutiqueDebitG(db, {}, `Commission de ${fmt(a.due)} à l'apporteur ${a.nom}`, profile);
     if (bq === null) return;
-    if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n${a.ventes.length} vente(s) concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
+    // ⚠ On ne pose plus la question — la confirmation NOMME donc le moyen en
+    // toutes lettres : ne pas demander n'est pas la même chose que ne pas dire.
+    if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n💳 Moyen : ${moyen}${a.moyenHabituel ? " — son moyen habituel (✏️ sur sa ligne pour en changer)" : ""}\n\n${a.ventes.length} vente(s) concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
     if (dejaReglees(new Set(a.ventes), (v) => v.apporteur?.payee)) return;
     const ids = new Set(a.ventes);
     const dep = nouvelleDepense(profile, {
@@ -313,11 +328,24 @@ export function MonEquipe({ db, save, profile }) {
     });
     save({
       ...db,
-      ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : v)),
+      // Le paiement pose AUSSI le moyen habituel : la prochaine fois, plus de question.
+      ventes: poserMoyenApporteur(db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : v)), a.ids, moyen),
       depenses: [dep, ...db.depenses],
       messages: [...messagesNotifPaiementCommission(db, profile, bq, a.nom, a.due), ...(db.messages || [])],
     }, `Commission de ${fmt(a.due)} payée à l'apporteur externe ${a.nom}`);
     uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée — sortie de caisse : ${bq}.`);
+  };
+
+  // ✏️ Changer le moyen habituel d'un apporteur — la seule porte pour en
+  // sortir, puisque le paiement ne le demande plus. Même droit que payer.
+  const changerMoyenApporteur = async (a) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!aDroit(db, profile, "act_commission")) { uAlert("Seule une personne autorisée à payer les commissions peut changer le moyen de paiement d'un apporteur."); return; }
+    const m = await demanderMoyenPaiement(`pour ${a.nom}`, a.moyenHabituel || "Espèces");
+    if (m === null) return;
+    save({ ...db, ventes: poserMoyenApporteur(db.ventes, a.ids, m) },
+      `Moyen de paiement habituel de l'apporteur ${a.nom}${a.tel ? ` (${a.tel})` : ""} : ${m}`);
+    uAlert(`${a.nom} sera payé par ${m}. La question ne sera plus posée.`);
   };
 
   // Assigner une tâche à un agent (stockée dans sa fiche : visible dans son onglet ✅ Mes tâches)
@@ -592,7 +620,10 @@ export function MonEquipe({ db, save, profile }) {
                     {clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <div className="text-xs font-bold text-amber-600">🎖 Éligible commercial</div>}
                     {dejaUtilisateur(a) && <div className="text-xs font-bold text-green-700">✅ Déjà commercial</div>}
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{a.tel || "—"}</td>
+                  <td className="px-3 py-2 text-slate-600">{a.tel || "—"}
+                    {/* Son moyen habituel se LIT : on ne le demande plus, il doit donc se voir. */}
+                    <div className="text-xs text-slate-400" data-moyen-apporteur={a.moyenHabituel || ""}>💳 {a.moyenHabituel || "moyen non retenu — il sera demandé au premier paiement"}</div>
+                  </td>
                   <td className="px-3 py-2">
                     <span className={`tabular-nums font-bold ${clientsApportes(a) >= SEUIL_COMMERCIAL ? "text-amber-600" : "text-slate-700"}`}>{clientsApportes(a)}</span>
                     <span className="text-xs text-slate-400"> / {SEUIL_COMMERCIAL}</span>
@@ -603,6 +634,7 @@ export function MonEquipe({ db, save, profile }) {
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(a.payee)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {a.due > 0 && aDroit(db, profile, "act_commission") && <button onClick={() => payerApporteur(a)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900 mr-1">✓ Payer</button>}
+                    {aDroit(db, profile, "act_commission") && <button title="Changer son moyen de paiement habituel" onClick={() => changerMoyenApporteur(a)} className="text-xs font-bold text-sky-800 underline mr-1">✏️ Moyen</button>}
                     {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <button onClick={() => promouvoir(a)} className="text-xs font-bold text-white bg-amber-600 rounded px-2 py-1 hover:bg-amber-700">🎖 Promouvoir commercial</button>}
                   </td>
                 </tr>

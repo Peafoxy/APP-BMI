@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1827 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1843 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -3183,6 +3183,47 @@ lit mal est pire qu'un banc absent).
   interne non revérifiée, le mur ouvert, la sortie repassée en espèces, le DG
   remis sur un retrait interne, une dépense en attente comptée) : à chaque fois
   des contrôles tombent.
+
+### 📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE (21/09/2026)
+- Timo, capture de la fenêtre « Moyen de paiement pour FIFO : » —
+  **« on demande ENCORE le moyen de paiement »**. ⚠ Ma première réponse était
+  à côté : j'avais compris « le moyen est mal enregistré » (il l'était bien) ;
+  il disait **« ne me posez plus cette question »**. Deux lectures lui ont été
+  soumises — déduire le moyen du COMPTE qui paie · le mémoriser sur la fiche
+  de l'apporteur — et il a choisi **« b »**.
+- ⚠ **UN APPORTEUR EXTERNE N'A PAS DE FICHE** : il n'existe que sur les ventes
+  qu'il a amenées (`v.apporteur`, qui porte aussi le PARRAIN d'un filleul). Sa
+  « fiche », ce sont donc ces lignes-là : le moyen s'écrit sur toutes
+  (`moyen_habituel`), et se relit sur la plus récente qui en porte un.
+  **Rien à coller dans Supabase.**
+- **Le geste** : 👑 Mon équipe → Apporteurs externes → ✓ Payer.
+  **Plus de question si on connaît son moyen** ; la première fois seulement on
+  demande, et la réponse devient sa mémoire. Le paiement la REPOSE à chaque
+  fois — sans ça, la question reviendrait au paiement suivant.
+- ⚠ **NE PLUS DEMANDER N'EST PAS NE PLUS DIRE** : la confirmation NOMME le
+  moyen en toutes lettres (« 💳 Moyen : Mobile Money (Flooz) — son moyen
+  habituel »). De l'argent ne part jamais sur une hypothèse tue.
+- **La porte de sortie : ✏️ Moyen** sur sa ligne (même droit que payer,
+  `act_commission`, revérifié DANS le geste). Sans elle, un moyen retenu une
+  fois serait devenu définitif — une règle qu'on ne peut pas défaire n'est pas
+  une règle, c'est un piège. Le moyen retenu **SE LIT** sous son numéro.
+- ⚠ **Cherché sur TOUTES ses ventes de l'espace, jamais sur la période
+  regardée** : sinon, au changement de mois, la question reviendrait — c'est-à-dire
+  exactement ce qu'il a demandé de supprimer. Le banc le mesure.
+- ⚠⚠ **LE MUR, DES DEUX CÔTÉS.** `poserMoyenApporteur` écrit sur les lignes
+  **DÉSIGNÉES par leur identifiant**, jamais « toutes les ventes qui portent ce
+  nom » : un FIFO de formation et un FIFO réel, même nom et même numéro, ne se
+  mélangent pas. Et à la LECTURE, c'est l'écran qui passe les ventes déjà
+  filtrées par l'espace (`ventesDeMonEspace`) — la règle ne reçoit jamais
+  `db.ventes` en entier (leçon payée deux fois le 18/09). Le banc met exprès
+  la ligne jumelle de l'autre espace dans le jeu d'essai.
+- ⚠ **Ce que ça coûte, et c'est assumé** : un paiement ponctuel par un autre
+  moyen demande de passer par ✏️ Moyen d'abord. C'est le prix de « on ne
+  demande plus ».
+- **Rien à coller dans Supabase.** Le banc (14 contrôles) a été éprouvé en
+  remettant cinq fautes : la question reposée malgré la mémoire, l'écriture
+  par le NOM au lieu de l'identifiant, le paiement qui n'écrit plus la
+  mémoire, la recherche limitée à la période, et le ✏️ débranché.
 
 ### 📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS APPARAISSENT (21/09/2026)
 - Timo, après mon explication trop étroite (je lui avais parlé du TIROIR) :
