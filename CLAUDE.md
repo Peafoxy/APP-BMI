@@ -2531,15 +2531,24 @@ lit mal est pire qu'un banc absent).
   en un clic, et le fait qu'aujourd'hui le mot de passe reste en clair dans la
   conversation POUR TOUJOURS). **Ne pas le reproposer, et surtout ne pas le
   construire « au cas où ».**
-- **📝 LE TEXTE DU MESSAGE EST LE SIEN** (21/09/2026, quatre versions
-  successives, la dernière retenue) : « Votre **espace** BMI TOGO (Technicien)
-  a été créé », puis **« Ouvrez votre espace avec : / AGBEKO  et  ADUM@S9628 »**
-  à la place de « 👤 Identifiant / 🔑 Mot de passe », qu'il trouvait trop long.
-  ⚠ **Le MÊME bloc sert au client et à l'employé** : deux façons d'écrire la
-  même chose finiraient par diverger, et l'équipe ne saurait plus laquelle est
-  la bonne. ⚠ L'espacement autour du « et » est le sien, et il sert : il
-  sépare les deux valeurs à l'œil quand on recopie un mot de passe qui porte
-  un `@` et des chiffres.
+- **📝 DEUX TEXTES, ET C'EST VOULU** (21/09/2026, sa décision : « je veux que
+  les 2 existent — le nouveau chez Meta… et l'ancien reste dans l'app au cas
+  où on passe par l'ancienne méthode »).
+  - **L'ENVOI À LA MAIN garde le texte d'origine** : « 👤 Identifiant : *X* /
+    🔑 Mot de passe : *Y* ». Il a été remplacé par une version plus courte
+    pendant dix minutes (2.101.294), puis REMIS (2.101.295). Les deux
+    étiquettes servent : sur téléphone, WhatsApp sélectionne **ligne par
+    ligne** — on appuie longuement et on copie le mot de passe SEUL.
+  - **Le texte court qu'il a écrit ce jour-là part chez META**, dans un
+    modèle : « Ouvrez votre espace avec : {{3}} et {{4}} ».
+  - ⚠⚠ **LA PHRASE D'UN MODÈLE VIT CHEZ META, PAS DANS NOTRE CODE.** On
+    n'envoie pas un texte, on envoie le NOM du modèle et les mots qui
+    remplissent ses trous. L'application n'a donc jamais deux textes à tenir
+    pour le même envoi — c'est ce qui rend sa demande réalisable sans
+    divergence.
+  - ⚠ **Conséquence assumée, et dite** : le jour où le modèle serait approuvé,
+    un client recevrait une formulation selon le chemin emprunté. C'est son
+    choix, pas un oubli.
 - **DONC, ET C'EST STABLE** : les identifiants continuent de partir **à la
   main**, par l'ouverture WhatsApp depuis le téléphone du vendeur
   (`envoyerIdentifiantsWhatsApp` / `envoyerIdentifiantsEmployeWhatsApp`,

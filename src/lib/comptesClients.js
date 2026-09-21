@@ -161,8 +161,8 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
     // ⚠ LE MÊME BLOC QUE POUR UN EMPLOYÉ : deux façons d'écrire la même
     // chose finiraient par diverger, et l'équipe ne saurait plus laquelle
     // est la bonne.
-    `Ouvrez votre espace avec :`,
-    ` ${identifiant}  et  ${motDePasse}`,
+    `👤 Identifiant : *${identifiant}*`,
+    `🔑 Mot de passe : *${motDePasse}*`,
     ``,
     `🔒 Pour votre confidentialité, nous vous recommandons de changer ce mot de passe dès votre première connexion (rubrique "🔑 Mon mot de passe" de votre espace).`,
     ``,
@@ -233,16 +233,18 @@ export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motD
   const lignes = [
     `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
     ``,
-    `Votre espace BMI TOGO (${libelleRole}) a été créé. Voici votre espace personnel :`,
+    `Votre compte BMI TOGO (${libelleRole}) a été créé. Voici votre espace personnel :`,
     ADRESSE_APP,
     ``,
-    // ⚠ TEXTE ÉCRIT PAR TIMO, mot pour mot (21/09/2026, quatre versions
-    // successives). Il remplace « 👤 Identifiant / 🔑 Mot de passe », jugé
-    // trop long. L'espacement autour du « et » est le sien : il sépare les
-    // deux valeurs à l'œil, ce qui compte quand on recopie un mot de passe
-    // qui porte un @ et des chiffres.
-    `Ouvrez votre espace avec :`,
-    ` ${identifiant}  et  ${motDePasse}`,
+    // ⚠ CE TEXTE-CI EST CELUI DE L'ENVOI À LA MAIN, et il y reste
+    // (décision Timo, 21/09/2026 : « l'ancien reste dans l'app au cas où on
+    // passe par l'ancienne méthode »). Les deux étiquettes servent : sur
+    // téléphone, WhatsApp sélectionne LIGNE PAR LIGNE — on appuie longuement
+    // et on copie le mot de passe seul. Le texte plus court qu'il a écrit le
+    // même jour part chez Meta, dans un MODÈLE : la phrase d'un modèle vit
+    // là-bas, pas ici.
+    `👤 Identifiant : *${identifiant}*`,
+    `🔑 Mot de passe : *${motDePasse}*`,
     ``,
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
