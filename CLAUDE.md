@@ -2502,6 +2502,44 @@ lit mal est pire qu'un banc absent).
   famille que le 20/09 au matin, troisième fois** : un contrôle qui lit du
   français au lieu du code se trompe.
 
+### 🔑 LES IDENTIFIANTS NE PARTENT PAS DU NUMÉRO BMI — ET PAS DE LIEN D'ACTIVATION (21/09/2026)
+- Timo a cherché à faire partir **les comptes clients et employés du numéro
+  BMI**, en reformulant le message trois fois pour que Meta l'accepte
+  (« Connectez-vous avec : AGBEKO / ADUM@S9628 », puis « Accéder à votre
+  espace avec », puis « Ouvrez votre espace avec »). Il a aussi posé la vraie
+  question : **« ce n'était pas refusé à cause des codes mais à cause de la
+  catégorie »**.
+- ⚠⚠ **IL A RAISON SUR CE QUE META A DIT, et la note du 19/09 a raison sur
+  POURQUOI.** Les deux se rejoignent : un message qui porte un code de
+  connexion appartient à la catégorie *authentication* ; posé en *utility* ou
+  *marketing*, Meta le reclasse ou le refuse — **et le motif affiché parle de
+  la CATÉGORIE**. C'est exactement ce qu'il avait vu.
+- ⚠ **Et cocher « authentication » ne réglerait rien** (vérifié le 21/09/2026
+  sur la documentation Meta) : ce format a un **corps imposé** — un code, et
+  rien d'autre. Ni lien, ni emoji, ni « Bonjour AGBEKO », variables limitées à
+  15 caractères. Avec les codes, **aucune catégorie n'accepte notre message** :
+  *utility* refuse le contenu, *authentication* refuse la forme. Ce n'est pas
+  une prudence, c'est un mur de format.
+- ⚠⚠ **MASQUER NE SERT À RIEN, et c'est la première chose à lui dire si le
+  sujet revient** : l'identifiant EST son nom (pas un secret, et il en a
+  besoin), et un mot de passe masqué est inutilisable. Meta ne lit pas les
+  étiquettes, il lit ce que le message FAIT.
+- ⚠⚠ **LE LIEN D'ACTIVATION : « le lien je veux vraiment pas » (21/09/2026).**
+  Proposé — un message sans aucun code, juste un lien personnel, le client ou
+  l'employé choisissant son mot de passe à l'arrivée — et **refusé, net**.
+  Les arguments avaient été donnés (usage unique, un lien mort qui se renvoie
+  en un clic, et le fait qu'aujourd'hui le mot de passe reste en clair dans la
+  conversation POUR TOUJOURS). **Ne pas le reproposer, et surtout ne pas le
+  construire « au cas où ».**
+- **DONC, ET C'EST STABLE** : les identifiants continuent de partir **à la
+  main**, par l'ouverture WhatsApp depuis le téléphone du vendeur
+  (`envoyerIdentifiantsWhatsApp` / `envoyerIdentifiantsEmployeWhatsApp`,
+  lib/comptesClients.js). **Le parrainage aussi, et c'est voulu** : le message
+  du filleul part du téléphone du PARRAIN — c'est lui qui recommande, et c'est
+  ce qui lui donne du poids. Il ne passe donc jamais par le numéro BMI.
+- ⚠ **La règle `clientDejaContacte` reste donc entière** : le premier message
+  d'un client part toujours à la main, puisqu'il porte ses identifiants.
+
 ### 📋 LA RELANCE D'UNE DETTE PART DU NUMÉRO BMI (20/09/2026, décision « c »)
 - Capture Timo, 📋 Dettes : **« la relance de dette ouvre encore le WhatsApp
   sur l'ordinateur »**. ⚠ **Ce n'était pas un défaut — ça n'avait jamais été
