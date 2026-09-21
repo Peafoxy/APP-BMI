@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Rejoue supabase/securite-27-conversations-whatsapp.sql sur un PostgreSQL
+# Rejoue supabase/securite-27 PUIS securite-28 sur un PostgreSQL
 # local jetable, dans un environnement qui reproduit celui de Supabase
 # (mêmes tables, mêmes rôles, même auth.jwt(), mêmes politiques de départ,
 # ET la règle des comptes clients déjà posée — client-1-fermer-annuaire).
@@ -59,6 +59,17 @@ insert into public.messages (id, data) values
   ('wa3',  '{\"canal\":\"whatsapp\",\"wa_tel\":\"90116677\",\"ts\":\"2026-09-20T12:00:00Z\",\"proprietaire_id\":\"KOSSI\",\"texte\":\"a KOSSI\"}');
 " >/dev/null
 
+# ---- 🔒 LES FICHES LÉGÈRES (21/09/2026, décision « B ») ----
+# Une par conversation. ⚠ AUCUNE ne porte de `texte` : c'est ce qui permet
+# de les envoyer à tout le personnel sans rien lui livrer du contenu. Le
+# banc le VÉRIFIE plus bas, il ne le suppose pas.
+$P -c "
+insert into public.messages (id, data) values
+  ('waent_90112233', '{\"canal\":\"whatsapp_entete\",\"wa_tel\":\"90112233\",\"wa_numero\":\"+22890112233\",\"wa_nom\":\"ESSO\",\"proprietaire_id\":\"COM1\",\"proprietaire_nom\":\"COM1\",\"derniere\":\"2026-09-20T10:05:00Z\",\"ts\":\"2026-09-20T10:05:00Z\"}'),
+  ('waent_90114455', '{\"canal\":\"whatsapp_entete\",\"wa_tel\":\"90114455\",\"wa_numero\":\"+22890114455\",\"derniere\":\"2026-09-20T11:00:00Z\",\"ts\":\"2026-09-20T11:00:00Z\"}'),
+  ('waent_90116677', '{\"canal\":\"whatsapp_entete\",\"wa_tel\":\"90116677\",\"wa_numero\":\"+22890116677\",\"wa_nom\":\"AYOKO\",\"proprietaire_id\":\"KOSSI\",\"proprietaire_nom\":\"KOSSI\",\"derniere\":\"2026-09-20T12:00:00Z\",\"ts\":\"2026-09-20T12:00:00Z\"}');
+" >/dev/null
+
 # ⚠ Supabase accorde AUTOMATIQUEMENT les droits sur toute table ET toute
 # fonction nouvelle, au visiteur anonyme compris. Sans reproduire ce
 # réglage, le banc validerait un script qui laisse pourtant une porte
@@ -101,19 +112,29 @@ COMPTA='{"email":"COMPTA@bmi.internal","app_metadata":{"role":"comptable","espac
 CLIENT='{"email":"CLI1@bmi.internal","app_metadata":{"role":"client","espace":"reel","ecriture":true}}'
 
 WA="select count(*) from public.messages where data->>'canal' = 'whatsapp';"
+ENT="select count(*) from public.messages where data->>'canal' = 'whatsapp_entete';"
 INT="select count(*) from public.messages where data->>'canal' is null;"
 
 echo
-echo "▸ 0. AVANT le script : tout descend chez tout le monde (c'est le défaut)"
+echo "▸ 0. AVANT tout script : tout descend chez tout le monde (c'est le défaut)"
 compte "un commercial reçoit les 4 lignes WhatsApp"  "$COM1"  "$WA" "4"
 compte "le comptable aussi"                          "$COMPTA" "$WA" "4"
 
 echo
-echo "▸ Application de securite-27-conversations-whatsapp.sql"
+echo "▸ Application de securite-27 (ce qui tourne en production depuis le 20/09)"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-27-conversations-whatsapp.sql >/dev/null 2>&1
 
 echo
-echo "▸ 1. La messagerie INTERNE n'a pas bougé d'un pouce"
+echo "▸ 1. CE QUE TIMO A VU LE 21/09 : le vendeur reçoit une conversation"
+echo "     confiée à quelqu'un d'autre — c'était la règle du 20/09."
+compte "le vendeur reçoit les 4 lignes, celle de COM1 comprise" "$VEND" "$WA" "4"
+
+echo
+echo "▸ Application de securite-28-conversations-confiees.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-28-conversations-confiees.sql >/dev/null 2>&1
+
+echo
+echo "▸ 2. La messagerie INTERNE n'a pas bougé d'un pouce (sa décision « a »)"
 compte "l'administrateur lit les 3 messages internes" "$ADMIN"  "$INT" "3"
 compte "le vendeur aussi"                             "$VEND"   "$INT" "3"
 compte "le commercial aussi"                          "$COM1"   "$INT" "3"
@@ -121,40 +142,68 @@ compte "le comptable aussi"                           "$COMPTA" "$INT" "3"
 compte "le client lit le sien, et lui seul"           "$CLIENT" "$INT" "1"
 
 echo
-echo "▸ 2. WhatsApp : qui reçoit quoi"
+echo "▸ 3. WhatsApp : le CONTENU ne descend plus que chez qui y a droit"
 compte "l'administrateur reçoit tout"                          "$ADMIN"  "$WA" "4"
-compte "un vendeur (salarié) reçoit tout"                      "$VEND"   "$WA" "4"
+# ⚠⚠ LE CONTRÔLE RETOURNÉ : hier il disait « un vendeur reçoit tout ».
+compte "le vendeur : SA conversation + le support, rien de plus" "$VEND"  "$WA" "2"
+compte "…et pas celle confiée à COM1"  "$VEND" \
+  "select count(*) from public.messages where id in ('wa1a','wa1b');" "0"
 compte "le commercial : SA conversation + le support"          "$COM1"   "$WA" "3"
 compte "…et pas celle du vendeur"  "$COM1" \
   "select count(*) from public.messages where id = 'wa3';" "0"
 compte "un autre commercial : le support, rien de plus"        "$COM2"   "$WA" "1"
-compte "le comptable ne reçoit PLUS RIEN de WhatsApp"          "$COMPTA" "$WA" "0"
+compte "le comptable ne reçoit RIEN de WhatsApp"               "$COMPTA" "$WA" "0"
 compte "un compte client non plus"                             "$CLIENT" "$WA" "0"
 
 echo
-echo "▸ 3. Écrire reste possible — sinon tout le lot resterait coincé"
+echo "▸ 4. 🔒 LA FICHE LÉGÈRE : la ligne grisée se voit, le contenu non"
+compte "l'administrateur reçoit les 3 fiches"        "$ADMIN"  "$ENT" "3"
+compte "le vendeur aussi — c'est sa ligne grisée"    "$VEND"   "$ENT" "3"
+compte "le commercial aussi"                         "$COM1"   "$ENT" "3"
+compte "un commercial sans aucune conversation aussi" "$COM2"  "$ENT" "3"
+compte "le comptable n'en reçoit AUCUNE"             "$COMPTA" "$ENT" "0"
+compte "un compte client non plus"                   "$CLIENT" "$ENT" "0"
+# ⚠⚠ LE CONTRÔLE QUI COMPTE VRAIMENT : une fiche ne porte pas un mot du
+# contenu. Si elle en portait, la ligne grisée serait une fuite déguisée.
+verite "aucune fiche ne porte de texte" \
+  "select count(*) = 0 from public.messages where data->>'canal' = 'whatsapp_entete' and data ? 'texte';"
+compte "le vendeur voit à QUI la conversation de COM1 est confiée" "$VEND" \
+  "select data->>'proprietaire_nom' from public.messages where id = 'waent_90112233';" "COM1"
+compte "…sans pouvoir en lire une seule ligne" "$VEND" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "0"
+
+echo
+echo "▸ 5. Écrire reste possible — sinon tout le lot resterait coincé"
 essai "le commercial répond dans SA conversation" PASSE "$COM1" \
   "insert into public.messages (id, data) values ('wa1c','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-09-20T13:00:00Z\",\"proprietaire_id\":\"COM1\",\"texte\":\"encore\"}');"
 essai "…et par UPSERT, comme le fait l'application" PASSE "$COM1" \
   "insert into public.messages (id, data) values ('wa1c', (select data from public.messages where id='wa1c')) on conflict (id) do update set data = excluded.data;"
+# ⚠ L'APPLICATION RÉÉCRIT LA FICHE À CHAQUE MESSAGE (même id, upsert) :
+# sans ce droit, la réponse partirait mais la ligne grisée des autres
+# resterait figée sur une vieille date.
+essai "…et il rafraîchit la fiche légère de sa conversation" PASSE "$COM1" \
+  "insert into public.messages (id, data) values ('waent_90112233', (select data from public.messages where id='waent_90112233')) on conflict (id) do update set data = excluded.data;"
+essai "l'administrateur confie la conversation : il réécrit la fiche" PASSE "$ADMIN" \
+  "insert into public.messages (id, data) values ('waent_90116677', '{\"canal\":\"whatsapp_entete\",\"wa_tel\":\"90116677\",\"proprietaire_id\":\"COM2\",\"proprietaire_nom\":\"COM2\"}') on conflict (id) do update set data = excluded.data;"
 essai "le commercial écrit un message interne"      PASSE "$COM1" \
   "insert into public.messages (id, data) values ('int4','{\"de_id\":\"COM1\",\"a_id\":\"TIMO\",\"texte\":\"bonjour\"}');"
 compte "sa conversation compte bien le nouveau message" "$COM1" \
-  "select count(*) from public.messages where data->>'wa_tel' = '90112233';" "3"
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
 
 echo
-echo "▸ 4. La porte de derrière reste fermée"
+echo "▸ 6. La porte de derrière reste fermée"
 verite "le visiteur anonyme ne peut pas appeler la fonction" \
   "select not has_function_privilege('anon','public.wa_proprietaire(text)','execute');"
 verite "la règle est bien posée sur la table des messages" \
   "select count(*) = 1 from pg_policies where tablename='messages' and policyname='wa_conversations_visibles';"
 # ⚠ Tous nos scripts sont en « create or replace » : les relancer doit être
 # sans danger. On le VÉRIFIE au lieu de le supposer.
-psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-27-conversations-whatsapp.sql >/dev/null 2>&1
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-28-conversations-confiees.sql >/dev/null 2>&1
 compte "après un second passage, le commercial voit toujours les siennes" "$COM1" \
-  "select count(*) from public.messages where data->>'wa_tel' = '90112233';" "3"
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
 compte "…et toujours pas celle du vendeur"  "$COM1" \
   "select count(*) from public.messages where id = 'wa3';" "0"
+compte "…et il reçoit toujours les 3 fiches"  "$COM1" "$ENT" "3"
 
 echo
 echo "──────────────────────────────────────────"

@@ -63,9 +63,9 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 196 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée)
+npm run verifier-whatsapp        # 222 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
-npm run tester-conversations     # 22  : qui REÇOIT quelle conversation WhatsApp (serveur, base jetable)
+npm run tester-conversations     # 36  : qui REÇOIT quelle conversation WhatsApp, et la fiche légère qui ne porte rien (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
@@ -2397,6 +2397,91 @@ lit mal est pire qu'un banc absent).
     l'a pas approuvé, l'envoi se replie sur l'ouverture WhatsApp **et le
     refus se dit en français** (« pas encore approuvé »).
 
+### 🔒 UNE CONVERSATION CONFIÉE NE SE LIT PLUS QUE PAR SON PROPRIÉTAIRE — ET ELLE SE VOIT, GRISÉE (21/09/2026)
+- Timo, capture de 📲 WhatsApp : **« assigné à TIMO1 mais ANGELE écrit encore
+  au client »**. Puis, en toutes lettres :
+  `assigned_to = null → visible à tous` · `assigned_to = TIMO1 → visible à
+  TIMO1 + admin` · `l'admin voit tout et lui seul confie / réassigne`.
+  ⚠ **Ce n'était PAS un défaut** : c'était sa règle du 20/09 (« tous les
+  salariés voient tout »), et il l'a RETOURNÉE le lendemain. Il ne reste
+  donc que l'ADMINISTRATEUR dans `ROLES_TOUTES_CONVERSATIONS` — qui **reste
+  une liste**, parce que c'est elle que le banc compare au SQL.
+- ⚠⚠ **« GRISÉ, PAS DISPARU »** (sa précision, et c'est elle qui commande
+  tout le reste) : « on peut voir la discussion mais grisé. Impossible
+  d'ouvrir par les autres. Pas juste la faire disparaître. »
+  **Or une conversation n'est RIEN D'AUTRE que ses messages** — il n'existe
+  pas de fiche « conversation » rangée à part. Pour qu'ANGELE VOIE une ligne
+  grisée, il faut que son téléphone ait reçu quelque chose. Deux façons lui
+  ont été présentées, et il a choisi **« B »** :
+  - **A** — la ligne grisée, mais le contenu descend quand même. Simple, et
+    « grisé » n'aurait été **qu'une politesse, pas un verrou** — c'est-à-dire
+    rouvrir ce que `securite-27` venait de fermer la veille.
+  - **B** — une **FICHE LÉGÈRE** par conversation (`construireEntete`, canal
+    `whatsapp_entete`) : le numéro, le nom du client, à qui elle est confiée,
+    la date du dernier message. **PAS UN MOT DU CONTENU.** Elle descend chez
+    tout le personnel et dessine la ligne grisée ; les MESSAGES, eux, restent
+    verrouillés par la base.
+- ⚠ **LA FICHE EST UN PANNEAU INDICATEUR, JAMAIS UNE SOURCE DE VÉRITÉ** : le
+  propriétaire se lit sur les MESSAGES (le dernier qui en porte un, posé par
+  « 🔁 Confier ») ; `wa_proprietaire` (SQL) ne regarde que le canal
+  `whatsapp`. Réécrire une fiche n'ouvre donc aucune porte. Son id est
+  **DÉRIVÉ de la clé** (`waent_<clé>`) : un upsert la remplace, il n'en
+  empile pas une par message.
+- **Elle est posée aux QUATRE endroits où la conversation bouge** : répondre,
+  écrire le premier, confier (écran), et le message entrant (webhook, par
+  upsert, `updated_at` à la main). ⚠ Une fiche qui ne se pose pas ne fait
+  **jamais** perdre le message du client : il est déjà écrit, on le dit dans
+  le journal du serveur et on ne lève pas.
+- ⚠⚠ **LE GARDE-FOU QUI MANQUAIT D'UN CHEVEU** : « non » voulant désormais
+  dire « grisée » et non plus « absente », `conversationsWa` SANS un
+  `if (!aAccesWhatsapp(profile)) return []` en tête aurait montré **toute la
+  liste en lignes grisées au comptable et au client**. Éprouvé en le
+  retirant : le contrôle tombe.
+- ⚠ **Une ligne grisée ne porte RIEN** : `fil` vide, `nonLus` à zéro, aucune
+  pastille rouge, aucun compte dans l'onglet. Le banc le mesure **en mettant
+  exprès les messages de la conversation confiée dans la base** — le pire
+  cas : si la règle les laissait ressortir, on le verrait. Éprouvé en les
+  laissant passer : il tombe.
+- **Le refus NOMME la personne** (`motifVerrouillee`, revérifié DANS le
+  geste) et dit la porte de sortie — ⚠ sans jamais écrire « lui » ni
+  « elle » : on ne connaît pas la personne. Un bouton mort n'apprend rien ;
+  le clic sur une ligne grisée EXPLIQUE.
+- ⚠ **LE COUPLE : `securite-28`**, **le SEUL à coller** — il REPREND
+  `securite-27` en entier et n'en change que la politique : « voit tout » se
+  réduit à l'admin, et le canal `whatsapp_entete` descend chez tout le
+  personnel. Sans lui, l'écran grise la ligne pendant que le contenu
+  continue de descendre : exactement le trou fermé la veille. Le banc
+  (`npm run tester-conversations`, **36 contrôles** sur base jetable) rejoue
+  `-27` PUIS `-28`, vérifie D'ABORD que 💬 Messages n'a pas bougé, et a été
+  éprouvé en remettant trois fautes (le vendeur rendu à « voit tout », la
+  clause de la fiche oubliée, une fiche qui porte du texte) : les trois
+  tombent.
+- **Les notifications NE BOUGENT PAS** (sa décision le jour même : « garder
+  les notifications pour les administrateurs pour le moment comme
+  aujourd'hui ») : conversation confiée → son propriétaire ; sans
+  propriétaire → les administrateurs. ⚠ Sa première formulation disait
+  « notifs à TIMO1 + admin » et « à tous » pour le support ; il a préféré
+  laisser en l'état. **Ne pas y toucher sans un mot de lui.**
+- ⚠ **LE COÛT DE LA RÈGLE, dit avant de la poser** : une conversation
+  confiée à quelqu'un d'absent ne peut plus être reprise que par
+  l'administrateur, et la fenêtre de 24 h court pendant ce temps. La sortie
+  existe — « 🔁 Confier » — mais il faut que quelqu'un s'en aperçoive.
+- ⚠⚠ **ET 💬 MESSAGES NE BOUGE PAS — « a » (21/09/2026).** Il a demandé que
+  la règle vaille aussi pour la messagerie interne. **Vérifié dans le code
+  avant de répondre** : 💬 Messages est DÉJÀ cloisonné, et plus sévèrement —
+  employé ↔ employé privé, groupe réservé à ses membres, et le fil d'un
+  client réservé à l'admin, au technicien **de l'équipe du chantier** et au
+  commercial **apporteur** (`peutVoirFilClient`, posé par l'audit du
+  29/08/2026). Un vendeur, un gérant, un magasinier n'y voient **aucun** fil
+  de client. Y appliquer la règle de WhatsApp aurait **DESSERRÉ** le
+  cloisonnement, pas resserré. Trois propositions lui ont été faites (laisser
+  · griser seulement · aligner vraiment) ; il a choisi **laisser**.
+  **Ne pas le reproposer.**
+- **Rien d'autre n'a changé** : la fenêtre de 24 h, le refus revérifié dans
+  le geste, les trois barrières, « 🔁 Confier » réservé à l'admin, la
+  recherche et l'archivage — tout vient toujours de
+  `lib/whatsappConversations.js` et `src/whatsapp.js`.
+
 ### 📲 WHATSAPP — LES TROIS AVERTISSEMENTS LEVÉS (20/09/2026, « 1a · 2a · 3a »)
 - Timo, capture d'écran de mon propre message du matin : **« on revient
   ici… c'était sauté »**. Les trois ⚠ que je lui avais écrits en livrant
@@ -2414,7 +2499,7 @@ lit mal est pire qu'un banc absent).
   commence par écarter tout ce qui n'est pas du canal `whatsapp` — une ligne
   interne n'est même pas examinée. Une règle mal écrite ici et **plus
   personne ne reçoit rien** : d'où un banc sur base jetable,
-  **`npm run tester-conversations`** (22 contrôles), qui vérifie D'ABORD que
+  **`npm run tester-conversations`** (36 contrôles), qui vérifie D'ABORD que
   la messagerie interne n'a pas bougé d'un pouce, et qui a été éprouvé en
   remettant trois fautes (le comptable remis, le canal oublié, « sa » propre
   conversation oubliée) : les trois tombent — et la troisième fait AUSSI

@@ -15,12 +15,14 @@
 //      visible par tout le personnel BMI » ;
 //   3. un commercial absent → « a », l'administrateur réattribue, avec la trace.
 //
-// ⚠⚠ CE FILTRE EST CELUI DE L'APPLICATION, PAS DU SERVEUR. La table des
-// messages n'est pas cloisonnée par personne (comme les dépenses d'un
-// technicien, comme la table des comptes) : la conversation ne s'AFFICHE
-// pas chez qui n'y a pas droit, mais sa copie locale la contient. C'est dit
-// à Timo, ce n'est pas caché. Fermer cette porte pour de bon demanderait
-// une politique de plus côté Supabase — à sa demande.
+// ⚠⚠ LA PORTE EST FERMÉE POUR DE BON — ce n'est plus un filtre d'affichage.
+// Jusqu'au 20/09/2026 la conversation ne s'AFFICHAIT pas chez qui n'y avait
+// pas droit, mais sa copie locale la contenait (la table des messages n'est
+// pas cloisonnée par personne, comme les dépenses d'un technicien). Ça lui a
+// été dit tel quel, et c'est ce qui a permis de lui proposer `securite-27`,
+// puis `securite-28` le 21/09 : ce qui ne regarde pas quelqu'un ne DESCEND
+// plus sur son téléphone. L'application filtre ce qui s'AFFICHE, la base ce
+// qui DESCEND — les deux doivent dire la même chose, et le banc les compare.
 //
 // ⚠ Ce fichier n'importe que `identiteClient.js` (qui n'importe rien) et
 // `constants.js` : il est lu par l'application ET par la fonction serveur
@@ -29,6 +31,64 @@
 import { numeroComparable, cleIdentifiant } from "./identiteClient.js";
 
 export const CANAL_WA = "whatsapp";
+
+// ---------------------------------------------------------------
+// 🔒 LA FICHE LÉGÈRE D'UNE CONVERSATION — « grisée, pas disparue »
+// ---------------------------------------------------------------
+// Timo, 21/09/2026, devant une conversation confiée à TIMO1 dans laquelle
+// ANGELE écrivait encore : « assigned_to = TIMO1 → visible à TIMO1 + admin ».
+// Puis, sur la façon : « on peut voir la discussion mais grisé. Impossible
+// d'ouvrir par les autres. Pas juste la faire disparaître. »
+//
+// ⚠⚠ ET C'EST LÀ QUE ÇA SE COMPLIQUE, PARCE QU'UNE CONVERSATION N'EST RIEN
+// D'AUTRE QUE SES MESSAGES. Il n'existe pas de fiche « conversation »
+// rangée à part : pour qu'ANGELE VOIE une ligne grisée, il faut que son
+// téléphone ait reçu quelque chose. Or ce qu'on vient de fermer le
+// 20/09 (`securite-27`), c'est justement la descente des messages.
+//   → décision « B » de Timo : on ajoute une FICHE LÉGÈRE par conversation,
+//     qui ne porte QUE le numéro, le nom, le propriétaire et la date du
+//     dernier message. PAS UN MOT DU CONTENU. C'est elle qui descend sur
+//     tous les téléphones et qui dessine la ligne grisée ; les messages,
+//     eux, restent verrouillés par la base (`securite-28`).
+//
+// ⚠ ELLE EST UN PANNEAU INDICATEUR, JAMAIS UNE SOURCE DE VÉRITÉ. Le vrai
+// propriétaire se lit sur les MESSAGES (le dernier qui en porte un, posé
+// par « 🔁 Confier ») — la fiche n'en est que le reflet. Quelqu'un qui la
+// réécrirait ne s'ouvrirait aucune porte : c'est la base qui décide ce qui
+// descend, pas elle.
+// ⚠ Son id est DÉRIVÉ de la clé (jamais tiré au hasard) : c'est ce qui la
+// remplace au lieu de l'empiler à chaque message — une fiche par
+// conversation, pas une de plus par mot échangé.
+export const CANAL_WA_ENTETE = "whatsapp_entete";
+
+export const estEnteteWa = (m) => !!m && m.canal === CANAL_WA_ENTETE;
+export const idEntete = (cle) => `waent_${cle}`;
+
+// ⚠ AUCUN `texte`, aucun `de_id`, aucun `lu_par` : ce qui n'est pas là ne
+// peut pas fuir. Le banc le MESURE, il ne le présume pas.
+export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere } = {}) {
+  const k = String(cle || "");
+  if (!k) return null;
+  return {
+    id: idEntete(k),
+    canal: CANAL_WA_ENTETE,
+    wa_tel: k,
+    wa_numero: String(tel || k),
+    ...(nom ? { wa_nom: String(nom) } : {}),
+    ...(proprietaire_id ? { proprietaire_id, proprietaire_nom: proprietaire_nom || "" } : {}),
+    derniere: String(derniere || ""),
+    ts: String(derniere || ""),
+  };
+}
+
+// Poser la fiche dans la liste des messages : on REMPLACE celle qui existe
+// (même id), on n'en empile jamais une seconde.
+export function messagesAvecEntete(messages, infos) {
+  const fiche = construireEntete(infos);
+  const liste = Array.isArray(messages) ? messages : [];
+  if (!fiche) return liste;
+  return [fiche, ...liste.filter((m) => m && m.id !== fiche.id)];
+}
 
 // ---------------------------------------------------------------
 // LA CLÉ D'UNE CONVERSATION : LE NUMÉRO, PAS LE COMPTE
@@ -155,9 +215,16 @@ export function proprietaireDepuisDevis(client, employes = []) {
 // ⚠ LE COUPLE : cette liste et `supabase/securite-27-conversations-whatsapp.sql`
 // doivent dire la MÊME chose — l'application filtre l'AFFICHAGE, la base
 // filtre ce qui DESCEND sur le téléphone. Le banc compare les deux côtés.
-export const ROLES_TOUTES_CONVERSATIONS = [
-  "admin", "vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial",
-];
+// ⚠⚠ RETOURNÉE LE 21/09/2026, PAS ASSOUPLIE. La liste portait six rôles —
+// « tous les salariés voient tout », sa décision du 20/09. Il l'a vue à
+// l'œuvre le lendemain, sur une capture : une conversation confiée à TIMO1
+// dans laquelle ANGELE (vendeuse) écrivait encore. Sa nouvelle règle, mot
+// pour mot : « assigned_to = null → visible à tous ; assigned_to = TIMO1 →
+// visible à TIMO1 + admin ». Il ne reste donc que l'ADMINISTRATEUR.
+// ⚠ Elle reste une LISTE, et pas un `role === "admin"` écrit à la main :
+// c'est elle que le banc compare, mot pour mot, aux rôles de `securite-28`.
+// Un couple se surveille mieux quand les deux côtés ont la même forme.
+export const ROLES_TOUTES_CONVERSATIONS = ["admin"];
 
 // Qui a le droit d'ouvrir 📲 WhatsApp, quelle que soit la conversation.
 // ⚠ Le CLIENT est au bout du fil : c'est de lui qu'on parle.
@@ -186,28 +253,63 @@ export const peutReattribuer = (profile) => profile?.role === "admin";
 // Rend, de la plus récente à la plus ancienne :
 //   { cle, tel, nom, proprietaire_id, proprietaire_nom, fil, fenetre, derniere, nonLus }
 export function conversationsWa(messages, profile, maintenant = new Date().toISOString()) {
+  // ⚠⚠ CE GARDE-FOU EST INDISPENSABLE DEPUIS LE 21/09/2026, et il n'est pas
+  // une précaution de style : sans lui, un compte qui n'a AUCUN droit sur
+  // 📲 WhatsApp (le client, le comptable) verrait toutes les conversations
+  // en lignes GRISÉES — `peutVoirConversation` lui répond non, et « non »
+  // veut désormais dire « grisée », plus « absente ».
+  if (!aAccesWhatsapp(profile)) return [];
   const parCle = new Map();
+  const fiches = new Map();
   (Array.isArray(messages) ? messages : []).forEach((m) => {
-    if (!estMessageWa(m) || !m.wa_tel) return;
+    if (!m || !m.wa_tel) return;
+    if (estEnteteWa(m)) { fiches.set(m.wa_tel, m); return; }
+    if (!estMessageWa(m)) return;
     if (!parCle.has(m.wa_tel)) parCle.set(m.wa_tel, []);
     parCle.get(m.wa_tel).push(m);
   });
   const sorties = [];
-  parCle.forEach((liste, cle) => {
-    const fil = liste.sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
-    const prop = proprietaireDe(fil);
-    if (!peutVoirConversation(profile, { proprietaire_id: prop.id })) return;
+  new Set([...parCle.keys(), ...fiches.keys()]).forEach((cle) => {
+    const fil = (parCle.get(cle) || []).sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+    const fiche = fiches.get(cle) || null;
+    // Le propriétaire se lit sur les MESSAGES quand on les a ; la fiche
+    // légère ne sert que quand on ne les a pas — c'est un reflet, jamais
+    // la source.
+    const prop = fil.length
+      ? proprietaireDe(fil)
+      : { id: fiche?.proprietaire_id || "", nom: fiche?.proprietaire_nom || "" };
+    if (!peutVoirConversation(profile, { proprietaire_id: prop.id })) {
+      // ⚠ « Pas juste la faire disparaître » : la ligne se voit, GRISÉE.
+      // ⚠⚠ MAIS ELLE NE PORTE RIEN — `fil` vide, `nonLus` à zéro. Même si
+      // un message avait échappé à la base, il ne ressortirait pas par ici.
+      // Et sans fiche légère, on ne la connaît pas du tout : rien à montrer.
+      if (!fiche) return;
+      sorties.push({
+        cle,
+        tel: String(fiche.wa_numero || cle),
+        nom: String(fiche.wa_nom || ""),
+        proprietaire_id: prop.id,
+        proprietaire_nom: prop.nom,
+        fil: [],
+        fenetre: fenetre([], maintenant),
+        derniere: String(fiche.derniere || fiche.ts || ""),
+        nonLus: 0,
+        verrouillee: true,
+      });
+      return;
+    }
     const dernier = fil[fil.length - 1] || {};
     sorties.push({
       cle,
-      tel: fil.find((m) => m.wa_numero)?.wa_numero || cle,
-      nom: [...fil].reverse().find((m) => m.wa_nom)?.wa_nom || "",
+      tel: fil.find((m) => m.wa_numero)?.wa_numero || String(fiche?.wa_numero || cle),
+      nom: [...fil].reverse().find((m) => m.wa_nom)?.wa_nom || String(fiche?.wa_nom || ""),
       proprietaire_id: prop.id,
       proprietaire_nom: prop.nom,
       fil,
       fenetre: fenetre(fil, maintenant),
-      derniere: String(dernier.ts || ""),
+      derniere: String(dernier.ts || fiche?.derniere || ""),
       nonLus: fil.filter((m) => m.wa_entrant && !(m.lu_par || []).includes(profile?.id)).length,
+      verrouillee: false,
     });
   });
   return sorties.sort((a, b) => b.derniere.localeCompare(a.derniere));
@@ -216,9 +318,19 @@ export function conversationsWa(messages, profile, maintenant = new Date().toISO
 // ---------------------------------------------------------------
 // LE REFUS D'UNE RÉPONSE — revérifié DANS le geste
 // ---------------------------------------------------------------
+// ⚠ LE REFUS NOMME LA PERSONNE, et dit la porte de sortie : sinon celui qui
+// tombe sur une ligne grisée ne sait ni pourquoi, ni à qui demander. Une
+// règle qu'on ne comprend pas ressemble à une panne (leçon du repli muet,
+// 19/09/2026).
+// ⚠ On ne dit jamais « lui » ni « elle » : on ne connaît pas la personne.
+export const motifVerrouillee = (conv) =>
+  conv?.proprietaire_nom
+    ? `Cette conversation est confiée à ${conv.proprietaire_nom}. Seule cette personne, ou un administrateur, peut l'ouvrir.`
+    : "Cette conversation ne vous est pas accessible.";
+
 export function critiqueReponse({ profile, conv, texte, enLigne = true, maintenant } = {}) {
   if (!conv) return "Choisissez d'abord une conversation.";
-  if (!peutVoirConversation(profile, conv)) return "Cette conversation ne vous appartient pas.";
+  if (!peutVoirConversation(profile, conv)) return motifVerrouillee(conv);
   if (!String(texte || "").trim()) return "Écrivez d'abord votre message.";
   if (!enLigne) return "Pas de connexion : le message ne peut pas partir du numéro BMI.";
   const f = conv.fenetre || fenetre(conv.fil, maintenant);

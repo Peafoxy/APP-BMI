@@ -29,7 +29,7 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
 import { texteContact } from "../lib/whatsappModeles";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 
@@ -56,7 +56,10 @@ export function compterNonLusWa(db, profile) {
   if (!aAccesWhatsapp(profile)) return 0;
   const messages = db.messages || [];
   return conversationsWa(messages, profile).reduce(
-    (n, c) => n + filWa(messages, c.cle).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id)).length,
+    // ⚠ UNE CONVERSATION GRISÉE NE COMPTE POUR RIEN (21/09/2026) : mettre
+    // une pastille rouge à quelqu'un pour un message qu'il ne peut pas
+    // ouvrir, c'est lui demander d'aller voir ailleurs.
+    (n, c) => n + (c.verrouillee ? 0 : filWa(messages, c.cle).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id)).length),
     0
   );
 }
@@ -95,8 +98,14 @@ export function Whatsapp({ db, save, profile }) {
   const ouverte = convs.find((c) => c.cle === cleOuverte) || null;
   const fil = ouverte ? filWa(messages, ouverte.cle) : [];
 
-  const nonLusPour = (c) => filWa(messages, c.cle).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id)).length;
-  const derniereActivite = (c) => { const f = filWa(messages, c.cle); return f.length ? String(f[f.length - 1].ts || "") : ""; };
+  // ⚠ Une conversation GRISÉE ne porte ni fil ni non-lus : sa date vient de
+  // sa fiche légère (`c.derniere`), la seule chose qu'on ait d'elle.
+  const nonLusPour = (c) => (c.verrouillee ? 0 : filWa(messages, c.cle).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id)).length);
+  const derniereActivite = (c) => {
+    if (c.verrouillee) return String(c.derniere || "");
+    const f = filWa(messages, c.cle);
+    return f.length ? String(f[f.length - 1].ts || "") : String(c.derniere || "");
+  };
 
   // ⚠ LE MÊME CLASSEMENT QUE 💬 MESSAGES, par LA règle commune (14/09/2026,
   // « un nouveau message apparaît en tête ») : un bloc « 🔴 Nouveaux
@@ -115,6 +124,10 @@ export function Whatsapp({ db, save, profile }) {
   const lues = liste.sections[0]?.items || [];
 
   const ouvrir = (c) => {
+    // ⚠ REVÉRIFIÉ DANS LE GESTE, comme partout : l'écran grise la ligne,
+    // mais c'est ici qu'on refuse — et le refus NOMME la personne à qui la
+    // conversation est confiée, pour qu'on sache à qui la demander.
+    if (c.verrouillee) { uAlert(motifVerrouillee(c)); return; }
     setCleOuverte(c.cle);
     const aLire = filWa(messages, c.cle).filter((m) => m.de_id !== profile.id && !(m.lu_par || []).includes(profile.id));
     if (aLire.length > 0) {
@@ -146,7 +159,14 @@ export function Whatsapp({ db, save, profile }) {
       wa_id: r.id || "", texte: t,
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
-    save({ ...db, messages: [m, ...messages] });
+    // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
+    // conversation qui n'a jamais reçu de message entrant depuis le
+    // correctif resterait invisible aux autres au lieu d'apparaître grisée.
+    save({ ...db, messages: messagesAvecEntete([m, ...messages], {
+      cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
+      proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom,
+      derniere: m.ts,
+    }) });
     setTexte("");
   };
 
@@ -208,7 +228,11 @@ export function Whatsapp({ db, save, profile }) {
       wa_id: r.id || "", texte: message,
       proprietaire_id: profile.id, proprietaire_nom: profile.nom,
     });
-    save({ ...db, messages: [m, ...messages] }, `📲 WhatsApp — premier message à ${nom || tel} par ${profile.nom}`);
+    save({ ...db, messages: messagesAvecEntete([m, ...messages], {
+      cle: cleConversation(tel), tel, nom: nom || client?.nom,
+      proprietaire_id: profile.id, proprietaire_nom: profile.nom,
+      derniere: m.ts,
+    }) }, `📲 WhatsApp — premier message à ${nom || tel} par ${profile.nom}`);
     setContact(null);
     setCleOuverte(cleConversation(tel));
   };
@@ -237,7 +261,14 @@ export function Whatsapp({ db, save, profile }) {
       texte: `🔁 Conversation confiée à ${u.nom} par ${profile.nom}.`,
       proprietaire_id: u.id, proprietaire_nom: u.nom,
     });
-    save({ ...db, messages: [m, ...messages] }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} confiée à ${u.nom} par ${profile.nom}`);
+    // ⚠ C'EST LE GESTE QUI FERME LA PORTE : à partir de cette ligne, les
+    // autres ne verront plus que la fiche légère — le nom du client, et à
+    // qui la conversation est confiée. Rien du contenu.
+    save({ ...db, messages: messagesAvecEntete([m, ...messages], {
+      cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
+      proprietaire_id: u.id, proprietaire_nom: u.nom,
+      derniere: m.ts,
+    }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} confiée à ${u.nom} par ${profile.nom}`);
   };
 
   return (
@@ -395,17 +426,28 @@ export function Whatsapp({ db, save, profile }) {
 // deux — deux façons de dessiner la même chose finiraient par diverger.
 function LigneWa({ item, cleOuverte, ouvrir }) {
   const c = item.wa;
+  // ⚠⚠ « ON PEUT VOIR LA DISCUSSION MAIS GRISÉ… PAS JUSTE LA FAIRE
+  // DISPARAÎTRE » (Timo, 21/09/2026). La ligne reste à sa place, en gris,
+  // avec un cadenas et le nom de la personne à qui elle est confiée : on
+  // sait qu'elle existe et à qui la demander. Le clic ne l'ouvre pas — il
+  // EXPLIQUE (`ouvrir` refuse et nomme). Un bouton mort n'apprend rien.
+  // ⚠ Elle ne porte NI aperçu, NI pastille de non-lus : il n'y a rien à
+  // montrer, et la règle ne lui a donné aucun message.
+  const verrou = !!c.verrouillee;
   return (
     <tr><td className="p-0">
-    <button onClick={() => ouvrir(c)} className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-sky-50 flex items-center justify-between ${cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
+    <button onClick={() => ouvrir(c)} data-wa-verrou={verrou ? "1" : "0"}
+      className={`w-full text-left px-4 py-3 border-b border-slate-100 flex items-center justify-between ${verrou ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "hover:bg-sky-50"} ${!verrou && cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
       <span className="text-sm">
-        <span className="font-semibold">{c.nom || c.tel}</span>
+        <span className={verrou ? "font-semibold text-slate-500" : "font-semibold"}>{verrou ? "🔒 " : ""}{c.nom || c.tel}</span>
         <span className="block text-xs text-slate-400">
-          {c.proprietaire_nom ? c.proprietaire_nom : "🛟 Support — personne ne l'a engagée"}
-          {c.fenetre.ouverte ? "" : " · fenêtre fermée"}
+          {verrou
+            ? `Confiée à ${c.proprietaire_nom || "quelqu'un d'autre"} — vous ne pouvez pas l'ouvrir`
+            : c.proprietaire_nom ? c.proprietaire_nom : "🛟 Support — personne ne l'a engagée"}
+          {verrou || c.fenetre.ouverte ? "" : " · fenêtre fermée"}
         </span>
       </span>
-      {item.nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{item.nb}</span>}
+      {!verrou && item.nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{item.nb}</span>}
     </button>
     </td></tr>
   );

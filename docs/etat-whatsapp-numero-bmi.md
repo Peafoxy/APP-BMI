@@ -543,3 +543,39 @@ les clés reçues) — c'est ce qui permettra de l'ajuster en une ligne.
 - Le **comptable** n'a plus 📲 WhatsApp (décision « 2a », le même jour).
 - **« Livré » / « lu »** : toujours pas. Il faudrait écouter un second
   événement de Meta, et l'écrire serait rassurer à tort tant qu'on ne l'a pas.
+
+---
+
+## 🔒 UNE CONVERSATION CONFIÉE (21/09/2026, décision « B »)
+
+**Ce qu'il a vu** : une conversation confiée à TIMO1, et ANGELE (vendeuse)
+qui y écrivait encore. Ce n'était pas un défaut — c'était sa règle du 20/09
+(« tous les salariés voient tout »), qu'il a retournée le lendemain.
+
+**La règle en vigueur :**
+
+| | Qui la VOIT en entier | Qui la voit GRISÉE | Qui est prévenu |
+|---|---|---|---|
+| Conversation **sans propriétaire** (support) | tout le personnel (pas le client, pas le comptable) | — | les administrateurs |
+| Conversation **confiée à quelqu'un** | son propriétaire + l'administrateur | tout le reste du personnel | son propriétaire |
+
+⚠ Les **notifications n'ont pas bougé** : « garder les notifications pour les
+administrateurs pour le moment comme aujourd'hui ».
+
+**La ligne grisée**, et pourquoi elle a demandé du travail : une conversation
+n'est rien d'autre que ses messages. Pour qu'elle SE VOIE sans se lire, une
+**fiche légère** (canal `whatsapp_entete`) est posée par conversation —
+numéro, nom du client, propriétaire, date du dernier message, **et rien
+d'autre**. Elle descend chez tout le personnel ; les messages, non.
+
+**À COLLER PAR TIMO : `supabase/securite-28-conversations-confiees.sql`.**
+Il reprend `securite-27` en entier, c'est le seul à coller. Sans lui, l'écran
+grise la ligne pendant que le contenu continue de descendre sur les
+téléphones — c'est-à-dire le trou fermé la veille, rouvert.
+Le script se termine par `true | true | true`.
+⚠ Effet **à la prochaine reconnexion de chacun** : c'est à ce moment que
+l'appareil retélécharge ce que le serveur lui accorde et supprime le reste.
+
+**💬 Messages ne bouge pas** (sa décision « a » du 21/09) : il est déjà
+cloisonné, et plus sévèrement — un vendeur, un gérant, un magasinier n'y
+voient aucun fil de client (règle posée par l'audit du 29/08/2026).

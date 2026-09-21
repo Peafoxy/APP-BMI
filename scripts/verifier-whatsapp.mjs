@@ -326,13 +326,19 @@ test("★ la phrase de la fenêtre est écrite UNE fois, et dit ce qu'il reste",
 
 // ── QUI VOIT QUOI
 const conv = (p) => ({ proprietaire_id: p });
-// ⚠ CONTRÔLE RETOURNÉ LE 20/09/2026, PAS ASSOUPLI : il exigeait que le
-// COMPTABLE voie tout (la règle du matin, « tous les salariés »). Timo l'en
-// a retiré le soir même (« 2a ») — la liste ne se déduit plus d'une liste de
-// PAIE, elle est écrite en toutes lettres.
-test("★★ décision 1 : l'administrateur et les salariés de terrain voient toutes les conversations",
-  ["admin", "vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial"]
-    .every((role) => C.peutVoirConversation({ id: "x", role }, conv("autre"))));
+// ⚠ CONTRÔLE RETOURNÉ DEUX FOIS, JAMAIS ASSOUPLI. Le 20/09 au matin il
+// exigeait que le COMPTABLE voie tout (« tous les salariés ») ; Timo l'en a
+// retiré le soir (« 2a »). Le 21/09, devant ANGELE écrivant dans une
+// conversation confiée à TIMO1, il a retiré TOUS LES AUTRES : « assigned_to
+// = TIMO1 → visible à TIMO1 + admin ». Il ne reste que l'administrateur.
+test("★★ décision du 21/09 : SEUL l'administrateur voit une conversation confiée à quelqu'un d'autre",
+  C.peutVoirConversation({ id: "x", role: "admin" }, conv("autre")) === true
+  && ["vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial", "commercial", "technicien"]
+    .every((role) => C.peutVoirConversation({ id: "x", role }, conv("autre")) === false)
+  && C.ROLES_TOUTES_CONVERSATIONS.join(",") === "admin");
+test("★★ …et le propriétaire, lui, garde la sienne",
+  ["vendeur", "gerant", "commercial", "technicien"]
+    .every((role) => C.peutVoirConversation({ id: "moi", role }, conv("moi")) === true));
 test("★★ décision 1 (l'autre moitié) : un COMMERCIAL et un TECHNICIEN À COMMISSION ne voient QUE ce qu'ils ont engagé",
   ["commercial", "technicien"].every((role) =>
     C.peutVoirConversation({ id: "moi", role }, conv("moi")) === true
@@ -354,8 +360,12 @@ const msgs = [
 ];
 test("★★ le commercial ne reçoit QUE la sienne et le support — jamais celle d'un collègue",
   C.conversationsWa(msgs, { id: "u2", role: "commercial" }).map((c) => c.cle).join(",") === "90445566"
-  && C.conversationsWa(msgs, { id: "u1", role: "commercial" }).map((c) => c.cle).sort().join(",") === "90112233,90445566"
-  && C.conversationsWa(msgs, { id: "u9", role: "gerant" }).length === 2);
+  && C.conversationsWa(msgs, { id: "u1", role: "commercial" }).map((c) => c.cle).sort().join(",") === "90112233,90445566");
+// ⚠ RETOURNÉ LE 21/09/2026 : le gérant voyait les DEUX (règle du 20/09).
+// Sans fiche légère il ne voit plus que le support — une conversation qu'on
+// ne connaît pas ne se devine pas.
+test("★★ un gérant ne voit plus la conversation d'un collègue, et sans fiche il n'en sait rien",
+  C.conversationsWa(msgs, { id: "u9", role: "gerant" }).map((c) => c.cle).join(",") === "90445566");
 test("★ une conversation est rangée sous le NUMÉRO, pas sous un compte (un prospect n'en a pas)",
   C.cleConversation("+228 90 11 22 33") === "90112233" && C.cleConversation("90112233") === "90112233" && C.cleConversation("") === "");
 
@@ -365,7 +375,7 @@ const convFermee = { proprietaire_id: "u1", fil: filDe(30), fenetre: C.fenetre(f
 test("★★ une réponse hors fenêtre est REFUSÉE, et le refus DIT pourquoi",
   /plus qu'un modèle approuvé/.test(C.critiqueReponse({ profile: { id: "u1", role: "commercial" }, conv: convFermee, texte: "salut" }))
   && C.critiqueReponse({ profile: { id: "u1", role: "commercial" }, conv: convOuverte, texte: "salut" }) === ""
-  && /ne vous appartient pas/.test(C.critiqueReponse({ profile: { id: "u2", role: "commercial" }, conv: convOuverte, texte: "salut" }))
+  && /Seule cette personne, ou un administrateur/.test(C.critiqueReponse({ profile: { id: "u2", role: "commercial" }, conv: { ...convOuverte, proprietaire_nom: "KOSSI" }, texte: "salut" }))
   && /connexion/.test(C.critiqueReponse({ profile: { id: "u1", role: "commercial" }, conv: convOuverte, texte: "salut", enLigne: false })));
 
 // ── LE SERVEUR : TROIS BARRIÈRES QUI NE SE CROIENT PAS SUR PAROLE
@@ -524,6 +534,10 @@ titre("⑨ LE COMPTABLE EST SORTI, ET LA BASE FERME LA PORTE (20/09/2026, « 1a 
 // avais écrits le matin : « 1a, 2a, 3a ». Trois décisions, trois familles de
 // contrôles ci-dessous.
 const sql27 = lire("supabase/securite-27-conversations-whatsapp.sql");
+// ⚠ LE COUPLE REGARDE MAINTENANT `securite-28` (21/09/2026) : il REPREND le
+// -27 en entier et n'en change que la politique. Le -27 reste lu pour une
+// seule chose — vérifier que le -28 le contient bien.
+const sql28 = lire("supabase/securite-28-conversations-confiees.sql");
 const apiMedia = lire("api/whatsapp-media.js");
 
 // ── « 2a » : LE COMPTABLE N'A PLUS WHATSAPP DU TOUT
@@ -550,23 +564,29 @@ test("★ un commercial et un technicien à commission, eux, gardent l'accès",
 // Si les deux divergent, un employé lit un écran vide sans comprendre — ou
 // pire, la conversation redescend sur son téléphone alors qu'on croit
 // l'avoir fermée. Le banc compare les deux côtés, comme pour `ROLES_TACHES`.
-const rolesSql = (sql27.match(/public\.wa_role\(\) in \(([^)]*)\)/) || ["", ""])[1]
+const rolesSql = (sql28.match(/public\.wa_role\(\) in \(([^)]*)\)/) || ["", ""])[1]
   .split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean).sort();
 test("★★ LE COUPLE : la liste « voit tout » est la MÊME des deux côtés",
   rolesSql.join(",") === [...C.ROLES_TOUTES_CONVERSATIONS].sort().join(","));
-const exclusSql = (sql27.match(/public\.wa_role\(\) not in \(([^)]*)\)/) || ["", ""])[1]
+const exclusSql = (sql28.match(/public\.wa_role\(\) not in \(([^)]*)\)/) || ["", ""])[1]
   .split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean).sort();
 test("★★ LE COUPLE (l'autre moitié) : les deux rôles exclus sont les mêmes des deux côtés",
   exclusSql.join(",") === "client,comptable"
   && exclusSql.every((role) => C.aAccesWhatsapp({ role }) === false));
+// ⚠⚠ RETOURNÉ LE 21/09/2026, PAS ASSOUPLI : la règle épargne désormais DEUX
+// canaux (les messages ET leur fiche légère). Ce qui est protégé n'a pas
+// bougé d'un mot — une ligne de 💬 Messages n'est toujours pas examinée.
 test("★★ la règle de la base ne touche QUE les lignes WhatsApp — c'est la table de TOUS les messages",
-  /coalesce\(data ->> 'canal', ''\) <> 'whatsapp'/.test(sql27));
+  /coalesce\(data ->> 'canal', ''\) not in \('whatsapp', 'whatsapp_entete'\)/.test(sql28));
+test("★★ …et `securite-28` REPREND `securite-27` en entier : c'est le seul à coller",
+  ["public.wa_role()", "public.wa_moi()", "public.wa_proprietaire(cle text)", "messages_wa_tel_idx"]
+    .every((bout) => sql27.includes(bout) && sql28.includes(bout)));
 test("★ elle s'AJOUTE aux règles existantes (restrictive), elle n'en remplace aucune",
-  /as restrictive for select to authenticated/.test(sql27));
+  /as restrictive for select to authenticated/.test(sql28));
 test("★ la lecture du propriétaire est en SECURITY DEFINER (sinon PostgreSQL tournerait en rond)",
-  /security definer/.test(sql27) && /revoke all on function public\.wa_proprietaire\(text\) from public, anon/.test(sql27));
+  /security definer/.test(sql28) && /revoke all on function public\.wa_proprietaire\(text\) from public, anon/.test(sql28));
 test("★ le propriétaire lu par la base est le DERNIER qui en porte un — comme `proprietaireDe`",
-  /order by m\.data ->> 'ts' desc/.test(sql27)
+  /order by m\.data ->> 'ts' desc/.test(sql28)
   && C.proprietaireDe([
     { ts: "2026-09-20T10:00:00Z", proprietaire_id: "a" },
     { ts: "2026-09-20T11:00:00Z", proprietaire_id: "b" },
@@ -714,6 +734,100 @@ test("★★ un plan PROPOSÉ mais pas encore accepté ne donne aucune échéanc
   /plan\.statut !== PLAN_ACCEPTE/.test(codeDettes) && /return null/.test(codeDettes));
 test("★ l'échéance est cherchée par l'ÉCRAN, la règle pure ne reçoit jamais la base",
   !/db\b/.test(M.envoiRappelDette.toString()) && /prochaineEcheance\(plan,/.test(codeDettes));
+
+
+// ──────────────────────────────────────────────────────────────
+titre("⑫ 🔒 UNE CONVERSATION CONFIÉE SE VOIT, GRISÉE, ET NE S'OUVRE PAS (21/09/2026)");
+// Timo, capture de 📲 WhatsApp : une conversation confiée à TIMO1 dans
+// laquelle ANGELE écrivait encore. Sa règle, mot pour mot : « assigned_to =
+// null → visible à tous ; assigned_to = TIMO1 → visible à TIMO1 + admin ».
+// Et sur la façon : « on peut voir la discussion mais GRISÉ. Impossible
+// d'ouvrir par les autres. PAS JUSTE LA FAIRE DISPARAÎTRE. » (décision « B »)
+const codeEcranWa = ecranWa.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+const codeEntrant = entrant.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+// ── LA FICHE LÉGÈRE NE PORTE RIEN
+const fiche = C.construireEntete({
+  cle: "90114455", tel: "+22890114455", nom: "AYOKO",
+  proprietaire_id: "u1", proprietaire_nom: "COM1", derniere: "2026-09-21T09:00:00Z",
+});
+test("★★★ LA FICHE NE PORTE PAS UN MOT DU CONTENU — c'est tout l'intérêt",
+  !("texte" in fiche) && !("de_id" in fiche) && !("lu_par" in fiche) && !("wa_media" in fiche)
+  && JSON.stringify(fiche).includes("AYOKO") === true);
+test("★★ son id est DÉRIVÉ de la clé : on la REMPLACE, on n'en empile pas une par message",
+  fiche.id === C.idEntete("90114455")
+  && C.construireEntete({ cle: "90114455", derniere: "2026-09-22T00:00:00Z" }).id === fiche.id);
+test("★ elle dit à qui la conversation est confiée, et depuis quand",
+  fiche.proprietaire_nom === "COM1" && fiche.derniere === "2026-09-21T09:00:00Z" && fiche.wa_numero === "+22890114455");
+test("★ sans clé, pas de fiche (on ne fabrique jamais une ligne vide)",
+  C.construireEntete({}) === null && C.construireEntete() === null);
+const avecDeux = C.messagesAvecEntete(C.messagesAvecEntete([], { cle: "90114455", derniere: "a" }), { cle: "90114455", derniere: "b" });
+test("★★ `messagesAvecEntete` remplace la fiche, il n'en laisse jamais deux",
+  avecDeux.filter((m) => m.id === fiche.id).length === 1 && avecDeux[0].derniere === "b");
+
+// ── LA LISTE : GRISÉE, ET VIDE DE TOUT CONTENU
+// ⚠⚠ ON MET EXPRÈS LES MESSAGES DE LA CONVERSATION CONFIÉE DANS LA LISTE,
+// alors que la base ne les enverrait pas (`securite-28`). C'est le PIRE cas :
+// si la règle les laissait ressortir par une ligne grisée, on le verrait ici.
+const msgsConfiee = [
+  { canal: "whatsapp", wa_tel: "90114455", wa_entrant: true, ts: "2026-09-21T09:00:00Z", texte: "SECRET", proprietaire_id: "u1", proprietaire_nom: "COM1" },
+  fiche,
+  { canal: "whatsapp", wa_tel: "90445566", wa_entrant: true, ts: "2026-09-21T10:00:00Z", texte: "support" },
+];
+const vuVendeur = C.conversationsWa(msgsConfiee, { id: "u9", role: "vendeur" });
+const grisee = vuVendeur.find((c) => c.cle === "90114455");
+test("★★★ « PAS JUSTE LA FAIRE DISPARAÎTRE » : la ligne est là, et elle est VERROUILLÉE",
+  !!grisee && grisee.verrouillee === true && grisee.nom === "AYOKO" && grisee.proprietaire_nom === "COM1");
+test("★★★ …et elle ne porte AUCUN message, même si un message avait fuité jusqu'ici",
+  grisee.fil.length === 0 && grisee.nonLus === 0 && !JSON.stringify(grisee).includes("SECRET"));
+test("★★ le support, lui, s'ouvre normalement pour tout le personnel",
+  (vuVendeur.find((c) => c.cle === "90445566") || {}).verrouillee === false);
+test("★★ le propriétaire, lui, l'ouvre en entier",
+  (C.conversationsWa(msgsConfiee, { id: "u1", role: "commercial" }).find((c) => c.cle === "90114455") || {}).verrouillee === false);
+test("★★ l'administrateur aussi — il voit tout, c'est sa décision",
+  (C.conversationsWa(msgsConfiee, { id: "zz", role: "admin" }).find((c) => c.cle === "90114455") || {}).verrouillee === false);
+// ⚠⚠ LE GARDE-FOU QUI MANQUAIT D'UN CHEVEU : sans lui, « non » voulant
+// désormais dire « grisée », le comptable et le client auraient vu la liste
+// entière en lignes grisées. Éprouvé en le retirant : ce contrôle tombe.
+test("★★★ le comptable et un client ne voient RIEN — pas même une ligne grisée",
+  C.conversationsWa(msgsConfiee, { id: "cpt", role: "comptable" }).length === 0
+  && C.conversationsWa(msgsConfiee, { id: "c1", role: "client" }).length === 0);
+test("★★ une conversation confiée SANS fiche reste inconnue (on ne devine pas ce qu'on n'a pas)",
+  C.conversationsWa(msgsConfiee.filter((m) => m !== fiche), { id: "u9", role: "vendeur" })
+    .every((c) => c.cle !== "90114455"));
+
+// ── LE REFUS NOMME, ET L'ÉCRAN OBÉIT
+test("★★ le refus NOMME la personne et dit la porte de sortie",
+  /COM1/.test(C.motifVerrouillee({ proprietaire_nom: "COM1" }))
+  && /administrateur/.test(C.motifVerrouillee({ proprietaire_nom: "COM1" })));
+test("★ il ne dit jamais « lui » ni « elle » : on ne connaît pas la personne",
+  !/\b(lui|elle)\b/.test(C.motifVerrouillee({ proprietaire_nom: "COM1" })));
+test("★★ REVÉRIFIÉ DANS LE GESTE : l'écran refuse d'ouvrir une ligne grisée, et DIT pourquoi",
+  /if \(c\.verrouillee\) \{ uAlert\(motifVerrouillee\(c\)\); return; \}/.test(codeEcranWa));
+test("★★ une ligne grisée ne porte NI pastille de non-lus, NI compteur d'onglet",
+  /!verrou && item\.nb > 0/.test(codeEcranWa) && /c\.verrouillee \? 0 :/.test(codeEcranWa));
+
+// ── LA FICHE EST POSÉE PARTOUT OÙ LA CONVERSATION BOUGE
+test("★★ les TROIS gestes de l'écran posent la fiche : répondre, écrire le premier, confier",
+  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 3);
+test("★★★ …et le WEBHOOK aussi, par UPSERT (sinon la ligne grisée resterait figée)",
+  /construireEntete\(\{/.test(codeEntrant)
+  && /\.upsert\(\{ id: fiche\.id, data: fiche, updated_at: fiche\.ts \}\)/.test(codeEntrant));
+test("★ une fiche qui ne se pose pas ne fait JAMAIS perdre le message du client",
+  /console\.error\("whatsapp-entrant : fiche de conversation non posée"/.test(entrant)
+  && entrant.indexOf("insert({ id: ligne.id") < entrant.indexOf("construireEntete({"));
+
+// ── L'ÉCRAN, MONTÉ POUR DE BON
+const vuVend = monte(V.htmlVendeur);
+test("★★★ RENDU : le vendeur VOIT la ligne grisée, avec son cadenas et le nom",
+  !vuVend.startsWith("⛔") && vuVend.includes("AYOKO") && vuVend.includes("🔒")
+  && /Confiée à COM1/.test(vuVend));
+test("★★★ RENDU : et pas un mot du contenu de cette conversation",
+  !vuVend.includes("SECRET DE LA CONVERSATION"));
+test("★★ RENDU : la ligne grisée est marquée comme telle, et l'autre non",
+  /data-wa-verrou="1"/.test(vuVend) && /data-wa-verrou="0"/.test(vuVend));
+test("★★ RENDU : l'administrateur, lui, n'a aucune ligne grisée",
+  !/data-wa-verrou="1"/.test(vuAdmin) && vuAdmin.includes("AYOKO"));
 
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

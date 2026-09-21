@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, proprietaireDepuisDevis, lireMedia, libelleMedia } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, proprietaireDepuisDevis, lireMedia, libelleMedia, construireEntete } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
@@ -139,6 +139,30 @@ export default async function handler(req, res) {
     // dans la base sans jamais descendre sur les téléphones.
     const { error: errIns } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ligne.ts });
     if (errIns) throw errIns;
+
+    // ---- 🔒 LA FICHE LÉGÈRE DE LA CONVERSATION (21/09/2026) ----
+    // Décision « B » de Timo : une conversation confiée à quelqu'un ne
+    // descend plus sur les autres téléphones (`securite-28`) — mais elle
+    // doit s'y VOIR, grisée. Cette fiche est tout ce que les autres en
+    // recevront : le numéro, le nom, à qui elle est confiée, la date.
+    // ⚠ PAS UN MOT DU CONTENU, et c'est tout l'intérêt.
+    // ⚠ Son id est DÉRIVÉ de la clé : un `upsert` la remplace, il n'en
+    // empile pas une par message reçu.
+    // ⚠ `updated_at` à la main, comme pour le message : sans lui la fiche
+    // existerait dans la base sans jamais descendre sur les téléphones.
+    const fiche = construireEntete({
+      cle, tel: String(from), nom: client?.nom || "",
+      proprietaire_id: proprietaire.id, proprietaire_nom: proprietaire.nom,
+      derniere: ligne.ts,
+    });
+    if (fiche) {
+      const { error: errFiche } = await admin.from("messages")
+        .upsert({ id: fiche.id, data: fiche, updated_at: fiche.ts });
+      // ⚠ Une fiche qui ne se pose pas ne doit PAS perdre le message : il
+      // est déjà écrit, le client a bien été entendu. On le dit dans le
+      // journal du serveur, on ne lève pas.
+      if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);
+    }
 
     // ---- 🔔 PRÉVENIR, SINON LA FENÊTRE SE FERME SANS QUE PERSONNE LE SACHE ----
     // ⚠ La règle « liste A » (13/09/2026) veut qu'un message de 💬 Messages
