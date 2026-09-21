@@ -24,6 +24,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/cloture.js` | La clôture de caisse, et le blocage des ventes du lendemain |
 | `lib/validationDepenses.js` | La validation des dépenses par le DG, l'origine des fonds (« Payé avec »), les avances de frais |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
+| `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |

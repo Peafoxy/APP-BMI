@@ -10,6 +10,8 @@ import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
 // (lib/caissesCentrales.js).
 import { mouvementsDG, mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
+import { mouvementsMobile, MOYENS_MOBILES } from "../lib/caissesMobiles";
+import { mobileParCaisse } from "../lib/constants";
 import { CarteCaisse } from "../components/CarteCaisse";
 import { btnDark, Badge, Stat } from "../components/ui";
 import { exportCSV } from "../lib/export";
@@ -48,8 +50,21 @@ export function Dashboard({ db, profile }) {
   // COMPTABLE » — trois pastilles, réelles seulement ; DG et BANQUE pour
   // l'administrateur PRINCIPAL seul.
   const principal = estAdminPrincipal(db, profile);
-  const PASTILLES = [...NOMS, ...(terrainVu ? [terrainVu.nom] : []), ...(enFormation ? [] : [...(principal ? [CAISSE_DG, CAISSE_BANQUE] : []), NOM_CAISSE_COMPTABLE])];
   const nomsCaisses = [...NOMS, ...(terrainVu ? [terrainVu.nom] : [])];
+  // ---- 📱 FLOOZ ET MIXX/T-MONEY (Timo, 21/09/2026) ----
+  // « Comment savoir que sur T-Money il reste 120 mil et non 160 mil… et que
+  // l'administrateur aussi, sans sortir sa calculatrice, ait tout sous ses
+  // yeux. » Deux caisses LUES de plus, sur le modèle exact de 🏦 BANQUE.
+  // ⚠ Elles existent dans les DEUX espaces (au contraire de DG / BANQUE /
+  // COMPTABLE, réelles seulement) : une boutique de formation encaisse par
+  // Mixx comme une autre, et `nomsCaisses` cloisonne déjà.
+  // ⚠ Une pastille ne s'affiche que si le compte SERT — un mouvement, ou un
+  // numéro réglé sur une fiche de boutique. Un bouton qui ne commande rien
+  // ne s'affiche pas.
+  const bilansMobiles = MOYENS_MOBILES.map((m) => ({ ...m, bilan: mouvementsMobile(db, m.moyen, nomsCaisses),
+    regle: (db.boutiques || []).some((b) => nomsCaisses.includes(b.nom) && String(b[m.champ] || "").trim()) }));
+  const mobilesVus = bilansMobiles.filter((m) => m.bilan.mouvements.length > 0 || m.regle);
+  const PASTILLES = [...NOMS, ...(terrainVu ? [terrainVu.nom] : []), ...mobilesVus.map((m) => m.caisse), ...(enFormation ? [] : [...(principal ? [CAISSE_DG, CAISSE_BANQUE] : []), NOM_CAISSE_COMPTABLE])];
   const TOUTES = "__toutes__";
   const [bqChoisie, setBqChoisie] = useState(() => { const m = boutiqueMemorisee(profile, "dashboard"); return m && m !== TOUTES && PASTILLES.includes(m) ? m : ""; });
   const choisirBq = (nom) => { setBqChoisie(nom); memoriserBoutique(profile, "dashboard", nom || TOUTES); };
@@ -67,8 +82,12 @@ export function Dashboard({ db, profile }) {
   const comptableChoisi = bqChoisie === NOM_CAISSE_COMPTABLE;
   const dgChoisi = bqChoisie === CAISSE_DG;
   const banqueChoisi = bqChoisie === CAISSE_BANQUE;
-  // Chez le DG et BANQUE ne sont pas des boutiques : rien d'autre que leur caisse.
-  const caisseSeule = dgChoisi || banqueChoisi;
+  // Un compte mobile n'est pas une boutique non plus : rien d'autre que son relevé.
+  const mobileChoisi = bqChoisie ? mobileParCaisse(bqChoisie) : null;
+  const bilanMobileChoisi = mobileChoisi ? bilansMobiles.find((m) => m.caisse === mobileChoisi.caisse) : null;
+  // Chez le DG, BANQUE et les comptes mobiles ne sont pas des boutiques :
+  // rien d'autre que leur caisse.
+  const caisseSeule = dgChoisi || banqueChoisi || !!mobileChoisi;
   // Capture Timo (12/09/2026) : sous le relevé du comptable, « Total des
   // dépenses 0 F », un second « Période » et « Dépenses — cette semaine 0 F »
   // répétaient le relevé. Les trois caisses n'ont que leur relevé ; le
@@ -282,7 +301,7 @@ export function Dashboard({ db, profile }) {
         {bqChoisie && !sansVentes && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
         {depotChoisi && <span className="text-xs text-slate-500">🏭 Un dépôt ne vend pas : voici ses sorties et son stock.</span>}
         {comptableChoisi && <span className="text-xs text-slate-500">🧾 La caisse du comptable ne vend pas : voici ce qui y entre, ce qui en sort, et ses sorties.</span>}
-        {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤" : "🏦"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.</span>}
+        {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤" : banqueChoisi ? "🏦" : "📱"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.</span>}
       </div>
       {/* Timo (12/09/2026) : « séparer chacun… avoir les onglets DG, BANQUE et
           COMPTABLE ». Trois caisses LUES (rien d'écrit, lib/caissesCentrales.js),
@@ -298,6 +317,8 @@ export function Dashboard({ db, profile }) {
         note="Entre : les versements « Chez le DG » que vous avez validés. Sort : les dépenses payées avec de l'argent que vous avez remis (une fois qu'elles comptent), et les avances de frais que vous avez remboursées vous-même. Les dépenses restent des charges de leur boutique." />}
       {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} caisse={CAISSE_BANQUE} periode={getPeriod()[0]} releve={releve(mouvementsBanque(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
         note="Entre : les versements « BANQUE » validés (banque et bordereau). Sort : les dépenses payées par virement bancaire (salaires virés, fournisseurs, CNSS…). Les dépenses restent des charges de leur boutique." />}
+      {bilanMobileChoisi && <CarteCaisse titre={bilanMobileChoisi.pastille} caisse={bilanMobileChoisi.caisse} periode={getPeriod()[0]} releve={releve(bilanMobileChoisi.bilan, getPeriod()[1], getPeriod()[2])}
+        note={`Entre : les ventes et les règlements de dettes encaissés par ${bilanMobileChoisi.court}. Sort : les dépenses payées par ${bilanMobileChoisi.court}, et les versements partis de ce compte. Chaque boutique a son numéro (⚙ Paramètres → Boutiques → 📱 Comptes mobiles) ; la colonne Boutique dit lequel. ⚠ Ce solde découle des saisies, pas du solde lu sur le téléphone : s'ils diffèrent, c'est qu'un mouvement n'a pas été saisi.`} />}
       {comptableChoisi && (() => { const c = mouvementsComptable(db); return (
         <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} caisse={CAISSE_COMPTABLE} periode={getPeriod()[0]} releve={releve(c, getPeriod()[1], getPeriod()[2])}
           note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />

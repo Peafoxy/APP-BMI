@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1771 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1807 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -3097,6 +3097,92 @@ lit mal est pire qu'un banc absent).
   caisse - du au ») et **« Exporter (CSV) »** (mouvements puis les trois
   soldes). Le PDF reprend l'écran tel quel, même période, mêmes chiffres ;
   le banc MESURE le texte écrit.
+
+### 📱 FLOOZ ET MIXX/T-MONEY : LE SOLDE D'UN COMPTE MOBILE (21/09/2026)
+- Timo, après avoir encaissé 160 000 F par Mixx et payé 40 000 F de commission
+  au même moyen : **« avec le moyen de paiement mix ou flooz, le fond à verser
+  est 0 F… mais l'apporteur a pris son argent. Comment savoir que sur T-Money
+  il reste 120 mil et non 160 mil… et que l'administrateur aussi, sans sortir
+  sa calculatrice, ait tout sous ses yeux. »**
+- ⚠⚠ **C'ÉTAIT UN TROU, PAS UN RÉGLAGE.** L'application suivait QUATRE endroits
+  où l'argent dort — le tiroir de chaque boutique (**espèces seulement**), 👤 DG,
+  🏦 BANQUE, 🧾 COMPTABLE. **Flooz et Mixx n'avaient RIEN.** Une vente encaissée
+  par Mixx comptait dans la recette, le chiffre d'affaires et le résultat ; une
+  commission payée par Flooz comptait comme charge ; mais **aucun écran ne
+  donnait le SOLDE**. Sa question n'avait, ce jour-là, aucune réponse dans
+  l'application. ⚠ Et « Fonds à verser » ne pourra JAMAIS répondre : par
+  construction il ne compte que les billets (`sortDuTiroir`).
+- **Sa décision « 1b » : CHAQUE BOUTIQUE A SON NUMÉRO** (« on peut ajouter les
+  2 numéros dans la fiche de la boutique »). Les deux numéros vivent donc sur
+  la fiche (`numero_flooz`, `numero_mixx`), comme la liste des banques et le
+  prix du rail — **rien à coller dans Supabase**. ⚙ Paramètres → Boutiques →
+  **📱 Comptes mobiles** (admin). Le numéro ne COMMANDE rien : il dit quel
+  compte on regarde.
+- **Règle pure `lib/caissesMobiles.js`, et RIEN N'EST ÉCRIT** — le solde se LIT
+  dans ce qui existe déjà, exactement comme les trois caisses centrales :
+  **entre** les ventes et les règlements de dettes encaissés avec ce moyen,
+  **sort** les dépenses payées avec ce moyen et les versements partis de ce
+  compte. Les mêmes règles d'argent que partout : une dépense en attente du DG
+  ou rejetée ne descend rien, une avance personnelle non plus.
+- **DEUX endroits, parce que ce sont deux questions** : 🔒 **Caisse** porte
+  deux carrés (le solde de CETTE boutique, avec son numéro) — c'est là qu'est
+  le gérant ; le **tableau de bord** gagne deux pastilles **📱 FLOOZ** et
+  **📱 MIXX/T-MONEY** avec le relevé complet par LA carte commune
+  (`CarteCaisse`) et LA règle du relevé (`releve`), imprimable et exportable —
+  c'est ce qu'il demandait, « tout sous ses yeux ».
+  ⚠ **Une pastille et un carré ne s'affichent que si le compte SERT** (un
+  mouvement, ou un numéro réglé) : pas de carte à zéro sur une boutique qui
+  n'a pas Flooz.
+- ⚠ **Elles existent dans les DEUX espaces**, au contraire de DG / BANQUE /
+  COMPTABLE (réelles, sans jumelle) : une boutique de formation encaisse par
+  Mixx comme une autre. **Le mur tient par la liste** : `mouvementsMobile`
+  reçoit les NOMS des boutiques à regarder, jamais `db` en entier — une
+  fonction pure qui reçoit une table entière et la PARCOURT est un passage de
+  mur en puissance (leçon payée deux fois le 18/09).
+- **LE VERSEMENT : le même geste, avec une case de plus** (sa question :
+  « si on a des pastilles mix/flooz, le versement se fera comment ? »).
+  « 💸 Verser les fonds » gagne **« D'où part l'argent ? »** — le tiroir
+  (espèces, **d'office** : rien ne change pour qui n'y touche pas) ou un compte
+  mobile. ⚠⚠ **Rien n'a été inventé** : un versement est DÉJÀ écrit comme une
+  dépense qui porte son moyen de paiement ; en laissant ce moyen porter
+  « Mobile Money (Flooz) » au lieu d'« Espèces », la sortie **ne touche pas le
+  tiroir** et **descend le solde du compte**, reste **hors des charges** (un
+  versement n'est jamais une dépense) et garde sa validation, son rejet, sa
+  trace.
+  - ⚠ **Le montant ATTENDU suit le compte QUI SE VIDE** (`attenduVersement`) :
+    le tiroir pour les espèces, le solde du compte pour un versement mobile.
+    Sans ça, la justification obligatoire s'appuierait sur le mauvais chiffre.
+  - **UNE destination nouvelle, et elle est indispensable : « Le tiroir de la
+    boutique »** — le retrait au guichet. Elle n'existe QUE pour une source
+    mobile (revérifié DANS la règle, pas seulement dans la liste de l'écran).
+    Son **miroir** est une ligne d'espèces NÉGATIVE sur la MÊME boutique (la
+    convention de la caisse du comptable, réemployée telle quelle) : sans elle
+    l'argent quitterait le compte sans arriver nulle part. ⚠ `mouvementsEspeces`
+    la lit comme un **RETRAIT**, c'est-à-dire une ENTRÉE (elle rembourse
+    l'enveloppe entamée puis remplit le tiroir) — la traiter comme un
+    « versement » de signe inverse ferait mentir le carré « Sorties ».
+  - **Un retrait interne n'attend PERSONNE** : l'argent n'a pas quitté la
+    boutique, donc aucune validation du DG et **aucun message** (la règle le
+    dit, pas l'écran). Et s'il n'est pas arrivé dans le tiroir, **la clôture du
+    soir le trouvera en moins** — le contrôle existe déjà.
+- ⚠ **CE QUE ÇA NE FAIT PAS, et l'écran le DIT** : l'application ne parle ni à
+  Flooz ni à Moov. **Le solde affiché découle des SAISIES**, pas du solde lu sur
+  le téléphone. S'ils diffèrent, c'est qu'un mouvement n'a pas été saisi —
+  exactement comme l'écart de la clôture pour les billets. Ne jamais laisser
+  croire que le chiffre vient de l'opérateur.
+- ⚠ Pour le mobile on n'écrit **jamais « Fonds à verser »** mais **« Solde du
+  compte »** : les espèces doivent remonter (elles dorment dans un tiroir), le
+  T-Money peut légitimement rester sur le compte pour payer un fournisseur. On
+  PEUT verser, on n'y est pas obligé.
+- **La fabrique de bilan est écrite UNE fois** (`bilanCaisse`,
+  lib/caissesCentrales.js, exportée) et l'étiquette d'une pastille reste UNE
+  règle (`libellePastille` connaît aussi les comptes mobiles). Deux fabriques
+  finiraient par compter différemment.
+- **Rien à coller dans Supabase.** Le banc exerce la règle, mesure le tiroir
+  après un retrait, et a été éprouvé en remettant cinq fautes (la destination
+  interne non revérifiée, le mur ouvert, la sortie repassée en espèces, le DG
+  remis sur un retrait interne, une dépense en attente comptée) : à chaque fois
+  des contrôles tombent.
 
 ### Clôture de caisse (09/09/2026)
 - **Caisse non clôturée = ventes bloquées le lendemain** (décision Timo :

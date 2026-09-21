@@ -18,7 +18,7 @@
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core.js";
-import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements } from "./constants.js";
+import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
 
 // La catégorie vit dans constants.js (lue aussi par le journal comptable) :
@@ -28,12 +28,35 @@ export const DEST_DG = "Chez le DG";
 export const DEST_BANQUE = "BANQUE";
 export const DEST_COMPTABLE = "Chez le comptable";
 export const DESTINATIONS_VERSEMENT = [DEST_DG, DEST_BANQUE, DEST_COMPTABLE];
+// ---- 📱 D'OÙ PART L'ARGENT (Timo, 21/09/2026 : « si on a des pastilles
+// mix/flooz, le versement se fera comment ? ») ----
+// Le versement ne change pas de règle : c'est le MÊME geste, avec une case de
+// plus. `source` est le moyen de paiement du compte qui se vide — les espèces
+// du tiroir (comme avant, et c'est le défaut), ou un compte mobile.
+// ⚠ C'est ce qui rend la chose sans risque : un versement est DÉJÀ écrit
+// comme une dépense qui porte son moyen de paiement. En laissant ce moyen
+// porter « Mobile Money (Flooz) » au lieu d'« Espèces », la sortie ne touche
+// PAS le tiroir (`sortDuTiroir` ne connaît que les billets) et descend le
+// solde du compte mobile. Rien d'autre à inventer.
+export const SOURCE_ESPECES = "Espèces";
+// Une destination qui n'a de sens QUE pour un compte mobile : le retrait au
+// guichet. L'argent quitte T-Money et devient des billets dans le tiroir.
+// Sans elle, un retrait en liquide serait impossible à enregistrer.
+export const DEST_TIROIR = "Le tiroir de la boutique";
 // ⚠ Timo (09/09/2026) : « on va restreindre le versement au vendeur pour le
 // moment… c'est au gérant de faire le versement ». Serveur : securite-11.
 export const ROLES_VERSEMENT = ["gerant", "admin"];
 // La caisse « Chez le comptable » est RÉELLE et n'a pas de jumelle : un
 // compte de formation ne la voit jamais (règle du mur formation / réel).
-export const destinationsPour = (enFormation) => (enFormation ? DESTINATIONS_VERSEMENT.filter((d) => d !== DEST_COMPTABLE) : DESTINATIONS_VERSEMENT);
+export const destinationsPour = (enFormation, source = SOURCE_ESPECES) => {
+  const base = enFormation ? DESTINATIONS_VERSEMENT.filter((d) => d !== DEST_COMPTABLE) : DESTINATIONS_VERSEMENT;
+  // « Le tiroir de la boutique » n'existe que pour un compte mobile : on ne
+  // verse pas le tiroir dans lui-même.
+  return estMoyenMobile(source) ? [...base, DEST_TIROIR] : base;
+};
+// Toutes les destinations possibles, sources mobiles comprises — c'est cette
+// liste que le contrôle de forme regarde, jamais DESTINATIONS_VERSEMENT seul.
+export const TOUTES_DESTINATIONS = [...DESTINATIONS_VERSEMENT, DEST_TIROIR];
 
 // Le versement est-il bien formé ? Renvoie le motif du refus, ou "".
 // ⚠ Timo (09/09/2026, deuxième idée) : plus de « recette du … au … ». À la
@@ -42,10 +65,13 @@ export const destinationsPour = (enFormation) => (enFormation ? DESTINATIONS_VER
 export const montantDifferent = (montant, attendu) => Math.round(Number(montant) || 0) !== Math.round(Number(attendu) || 0);
 export const messageJustification = (attendu) => `Justifiez pourquoi le montant n'est pas ${fmt(Math.round(Number(attendu) || 0))}`;
 
-export function critiqueVersement({ montant, destination, banque, bordereau, attendu, note }) {
+export function critiqueVersement({ montant, destination, banque, bordereau, attendu, note, source = SOURCE_ESPECES }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant versé (supérieur à zéro).";
-  if (!DESTINATIONS_VERSEMENT.includes(destination)) return "Choisissez la destination : Chez le DG, BANQUE ou Chez le comptable.";
+  if (!TOUTES_DESTINATIONS.includes(destination)) return "Choisissez la destination : Chez le DG, BANQUE ou Chez le comptable.";
+  // ⚠ Revérifié DANS la règle, pas seulement dans la liste de l'écran : on ne
+  // verse pas le tiroir dans lui-même.
+  if (destination === DEST_TIROIR && !estMoyenMobile(source)) return "« Le tiroir de la boutique » n'est possible qu'en partant d'un compte mobile (Flooz, Mixx/T-Money).";
   if (destination === DEST_BANQUE) {
     if (!String(banque || "").trim()) return "Indiquez le nom de la banque.";
     if (!String(bordereau || "").trim()) return "Indiquez le numéro du bordereau de versement.";
@@ -68,12 +94,12 @@ export const libelleDestination = (v) => (v?.destination === DEST_BANQUE
 
 // Construit les écritures : { sortie, entree } — `entree` vaut null sauf
 // pour « Chez le comptable ». Les deux portent le même `versement.id`.
-export function construireVersement(profile, { boutique, montant, destination, banque = "", bordereau = "", note = "", attendu = null }) {
-  const refus = critiqueVersement({ montant, destination, banque, bordereau, attendu, note });
+export function construireVersement(profile, { boutique, montant, destination, banque = "", bordereau = "", note = "", attendu = null, source = SOURCE_ESPECES }) {
+  const refus = critiqueVersement({ montant, destination, banque, bordereau, attendu, note, source });
   if (refus) return { refus };
   const id = uid();
   const versement = {
-    id, destination,
+    id, destination, source,
     banque: destination === DEST_BANQUE ? String(banque).trim() : "",
     bordereau: destination === DEST_BANQUE ? String(bordereau).trim() : "",
     montant: Number(montant),
@@ -83,8 +109,15 @@ export function construireVersement(profile, { boutique, montant, destination, b
   const complement = [libelleEcart(versement), versement.note].filter(Boolean).join(" : ");
   const description = `Versement de fonds → ${libelleDestination(versement)}${complement ? ` (${complement})` : ""}`;
   // `par_id` : pour retrouver l'auteur si le versement est rejeté (message).
-  const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: "Espèces", versement, par_id: profile.id ?? null });
-  const entree = destination === DEST_COMPTABLE
+  const sortie = nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description, montant: Number(montant), moyen: source, versement, par_id: profile.id ?? null });
+  // ⚠ Le retrait d'un compte mobile vers le tiroir a lui aussi son miroir, sur
+  // la MÊME boutique : une ligne d'espèces NÉGATIVE, c'est-à-dire une entrée
+  // dans le tiroir (la convention de la caisse du comptable, réemployée telle
+  // quelle). Sans elle, l'argent quitterait le compte mobile sans arriver
+  // nulle part.
+  const entree = destination === DEST_TIROIR
+    ? nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description: `Retrait ${mobileParMoyen(source)?.court || source} du ${dFR(new Date().toISOString().slice(0, 10))} — entré dans le tiroir de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
+    : destination === DEST_COMPTABLE
     // Chez le comptable : « Versement du <date> reçu de … », l'écart et la
     // justification suivent — jamais un intervalle (Timo, 09/09/2026).
     ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement du ${dFR(new Date().toISOString().slice(0, 10))} reçu de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
@@ -98,6 +131,10 @@ export const estVersement = (dep) => !!dep?.versement && dep.categorie === CATEG
 // pointée (decaisse_le). DG / BANQUE : quand le DG l'a validé sur la sortie.
 export function validationVersement(db, dep) {
   if (!estVersement(dep) || estRejete(dep)) return null;
+  // ⚠ Un retrait vers le tiroir de la MÊME boutique ne se valide pas : l'argent
+  // n'a pas quitté la boutique. Et s'il n'est pas arrivé dans le tiroir, la
+  // clôture du soir le trouvera en moins — le contrôle existe déjà.
+  if (dep.versement.destination === DEST_TIROIR) return { le: dep.date, par: dep.par, interne: true };
   if (dep.versement.destination === DEST_COMPTABLE) {
     const entree = (db.depenses || []).find((x) => x.versement_id === dep.versement.id);
     return entree?.decaisse_le ? { le: entree.decaisse_le, par: entree.decaisse_par } : null;
@@ -330,6 +367,13 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
     if (x.boutique !== boutique || !compteDansLaCaisse(x)) return;
     const base = { q: quand(x), date: String(x.date).slice(0, 10) };
     if (estFondsCaisseRemis(x)) out.push({ ...base, type: "remise", montant: -Number(x.montant || 0) });
+    // ⚠ Une ligne de versement NÉGATIVE sur la boutique elle-même est un
+    // RETRAIT d'un compte mobile qui entre dans le tiroir (Timo, 21/09/2026).
+    // C'est de l'argent qui ARRIVE : elle se comporte comme une recette — elle
+    // rembourse l'enveloppe si elle est entamée, le reste va au tiroir. La
+    // traiter comme un « versement » de signe inverse ferait mentir le carré
+    // « Sorties ».
+    else if (x.categorie === CATEGORIE_VERSEMENT && Number(x.montant || 0) < 0) out.push({ ...base, type: "retrait", montant: -Number(x.montant || 0) });
     else if (x.categorie === CATEGORIE_VERSEMENT) out.push({ ...base, type: "versement", montant: Number(x.montant || 0) });
     else out.push({ ...base, type: "sortie", montant: Number(x.montant || 0) });
   });
@@ -340,7 +384,7 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
 // détail de ce qui s'est passé PENDANT la période.
 export function deuxPoches(db, boutique, totalVente, periode = null) {
   let recette = 0, fonds = 0, plafond = 0;
-  const d = { ventes: 0, reglements: 0, depenses: 0, surRecette: 0, surFonds: 0, versements: 0, remises: 0, rendu: 0 };
+  const d = { ventes: 0, reglements: 0, depenses: 0, surRecette: 0, surFonds: 0, versements: 0, remises: 0, rendu: 0, retraits: 0 };
   for (const m of mouvementsEspeces(db, boutique, totalVente)) {
     if (!avantFin(m.date, periode)) break;
     const dedans = dansPeriode(m.date, periode);
@@ -368,7 +412,7 @@ export function deuxPoches(db, boutique, totalVente, periode = null) {
       const rendu = Math.min(manque, m.montant);
       fonds += rendu;
       recette += m.montant - rendu;
-      if (dedans) { if (m.type === "vente") d.ventes += m.montant; else d.reglements += m.montant; d.rendu += rendu; }
+      if (dedans) { if (m.type === "vente") d.ventes += m.montant; else if (m.type === "retrait") d.retraits += m.montant; else d.reglements += m.montant; d.rendu += rendu; }
     }
   }
   return { recette: Math.round(recette), fonds: Math.round(fonds), plafond: Math.round(plafond), detail: d };
@@ -389,6 +433,8 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
     // fonds n'en fait plus partie, il n'y a plus rien à en retrancher.
     montant: p.recette, aVerser: Math.max(0, p.recette),
     ventes: p.detail.ventes, reglements: p.detail.reglements,
+    // Ce qui est entré dans le tiroir en venant d'un compte mobile (retraits).
+    retraits: p.detail.retraits,
     // « Sorties » = tout ce qui est sorti en espèces (dépenses + versements),
     // quelle que soit la poche ; `depensesSurFonds` dit la part de l'enveloppe.
     depenses: p.detail.depenses + p.detail.versements,
@@ -435,13 +481,13 @@ export function resumeCaisses(db, nomsBoutiques, totalVente, aujourdhui, periode
 // Les versements que le DG (administrateur principal) doit valider : DG et
 // BANQUE, sans validation, dans les boutiques données.
 export const versementsAValiderParDG = (db, nomsBoutiques) => (db.depenses || [])
-  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && !d.versement_valide_le && !estRejete(d) && nomsBoutiques.includes(d.boutique))
+  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && d.versement.destination !== DEST_TIROIR && !d.versement_valide_le && !estRejete(d) && nomsBoutiques.includes(d.boutique))
   .sort((a, b) => `${a.date} ${a.heure || ""}`.localeCompare(`${b.date} ${b.heure || ""}`));
 
 // Les versements DG / BANQUE déjà traités (validés OU rejetés), du plus
 // récent au plus ancien.
 export const versementsValidesParDG = (db, nomsBoutiques) => (db.depenses || [])
-  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && (!!d.versement_valide_le || estRejete(d)) && nomsBoutiques.includes(d.boutique))
+  .filter((d) => estVersement(d) && d.versement.destination !== DEST_COMPTABLE && d.versement.destination !== DEST_TIROIR && (!!d.versement_valide_le || estRejete(d)) && nomsBoutiques.includes(d.boutique))
   .sort((a, b) => `${b.versement_valide_le || b.versement_rejete_le} ${b.date}`.localeCompare(`${a.versement_valide_le || a.versement_rejete_le} ${a.date}`));
 
 // ============ LE REJET D'UN VERSEMENT (Timo, 10/09/2026) ============
@@ -494,6 +540,10 @@ export function rejeterVersement(db, profile, dep, motif, aujourdhui) {
 // principal) pour les deux autres. Même fabrique de message que partout.
 export function messagesVersement(db, profile, sortie) {
   const v = sortie.versement;
+  // ⚠ Un retrait vers le tiroir de la même boutique n'est « à valider » par
+  // personne : on ne fait pas vibrer le téléphone du DG pour ça. La règle le
+  // dit ici, pas l'écran — sinon un autre écran redemanderait la validation.
+  if (v.destination === DEST_TIROIR) return [];
   const texte = `💸 Versement de fonds : ${fmt(sortie.montant)} de ${sortie.boutique} → ${libelleDestination(v)}, par ${profile.nom}. À valider.`;
   const destinataires = v.destination === DEST_COMPTABLE
     ? (db.users || []).filter((u) => u.role === "comptable" && u.actif !== false)

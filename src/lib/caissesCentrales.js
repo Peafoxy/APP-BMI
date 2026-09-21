@@ -31,6 +31,9 @@
 // ============================================================
 import { DEST_DG, DEST_BANQUE, DEST_COMPTABLE, estVersement, estRejete, libelleDestination, estFondsCaisseRemis, libelleOrigineFonds } from "./versements";
 import { dFR } from "./core";
+// Les comptes mobiles viennent de constants.js (jamais de caissesMobiles.js :
+// c'est LUI qui lit ce fichier-ci, l'inverse tournerait en rond).
+import { mobileParCaisse } from "./constants";
 import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse, payeeParLeComptable } from "./validationDepenses";
 
 export const CAISSE_DG = DEST_DG;
@@ -39,7 +42,7 @@ export const CAISSE_COMPTABLE = DEST_COMPTABLE;
 // Le libellé d'une pastille du tableau de bord : « DG », « BANQUE »,
 // « COMPTABLE » pour les trois caisses (Timo), TERRAIN avec sa tente, une
 // boutique par son nom.
-export const libellePastille = (nom, nomTerrain) => (nom === CAISSE_DG ? "👤 DG" : nom === CAISSE_BANQUE ? "🏦 BANQUE" : nom === CAISSE_COMPTABLE ? "🧾 COMPTABLE" : nom === nomTerrain ? `🏕 ${nom}` : nom);
+export const libellePastille = (nom, nomTerrain) => (nom === CAISSE_DG ? "👤 DG" : nom === CAISSE_BANQUE ? "🏦 BANQUE" : nom === CAISSE_COMPTABLE ? "🧾 COMPTABLE" : mobileParCaisse(nom)?.pastille || (nom === nomTerrain ? `🏕 ${nom}` : nom));
 
 const parDateDesc = (a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`);
 const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) > 0;
@@ -79,7 +82,7 @@ export function mouvementsDG(db, nomsBoutiques) {
     }
     return lignes;
   }));
-  return bilan(entrees, sorties);
+  return bilanCaisse(entrees, sorties);
 }
 
 export function mouvementsBanque(db, nomsBoutiques) {
@@ -87,7 +90,7 @@ export function mouvementsBanque(db, nomsBoutiques) {
   const sorties = sortiesFondsRemis(db, DEST_BANQUE, nomsBoutiques).concat((db.depenses || [])
     .filter((d) => nomsBoutiques.includes(d.boutique) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compte(d))
     .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` })));
-  return bilan(entrees, sorties);
+  return bilanCaisse(entrees, sorties);
 }
 
 // La caisse du comptable : ce qu'il a réellement encaissé, ce qu'il a
@@ -103,7 +106,7 @@ export function mouvementsComptable(db) {
     .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie}${payeeParLeComptable(d) ? ` (dépense de ${d.boutique}, par ${d.par})` : ""} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const aEncaisser = lignes.filter((d) => Number(d.montant || 0) < 0 && !d.decaisse_le).reduce((s, d) => s - Number(d.montant), 0);
   const aRemettre = lignes.filter((d) => Number(d.montant || 0) > 0 && !d.decaisse_le).reduce((s, d) => s + Number(d.montant), 0);
-  return { ...bilan(entrees, sorties), aEncaisser, aRemettre };
+  return { ...bilanCaisse(entrees, sorties), aEncaisser, aRemettre };
 }
 
 // ---- LE RELEVÉ (Timo, 12/09/2026 : « Relevé… lance ») ----
@@ -122,7 +125,10 @@ export function releve(bilan, du, au) {
   return { du: d0, au: d1, soldeDebut, entrees, sorties, soldeFin: soldeDebut + entrees - sorties, mouvements: bilan.mouvements.filter(dedans) };
 }
 
-function bilan(entrees, sorties) {
+// ⚠ EXPORTÉE : lib/caissesMobiles.js s'en sert pour Flooz et Mixx/T-Money.
+// Deux fabriques de bilan finiraient par compter différemment — le banc
+// interdit la copie.
+export function bilanCaisse(entrees, sorties) {
   const totalEntrees = entrees.reduce((s, m) => s + m.montant, 0);
   const totalSorties = sorties.reduce((s, m) => s + m.montant, 0);
   return { entrees, sorties, totalEntrees, totalSorties, solde: totalEntrees - totalSorties, mouvements: [...entrees, ...sorties].sort(parDateDesc) };

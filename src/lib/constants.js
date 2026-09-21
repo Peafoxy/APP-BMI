@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.298";
+export const VERSION = "2.101.299";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -81,6 +81,30 @@ export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mix
 // crédit (on ne paie pas un salaire « à crédit »). Timo, 14/09/2026 : « et si
 // ce mode était à sélectionner ? » — la question devient quatre boutons.
 export const MOYENS_ENCAISSEMENT = PAIEMENTS.filter((p) => p !== "Crédit (dette)");
+
+// ---- 📱 LES COMPTES MOBILES : FLOOZ ET MIXX/T-MONEY (Timo, 21/09/2026) ----
+// Mot pour mot : « avec le moyen de paiement mix ou flooz, le fond à verser
+// est 0 F… mais l'apporteur a pris son argent. Comment savoir que sur T-Money
+// il reste 120 mil et non 160 mil… et que l'administrateur aussi, sans sortir
+// sa calculatrice, ait tout sous ses yeux. »
+// ⚠ Il avait raison, et c'était un TROU : l'argent encaissé par Flooz ou
+// T-Money comptait bien dans la recette, le chiffre d'affaires et le résultat,
+// mais AUCUN écran n'en donnait le SOLDE. Le tiroir, lui, ne pourra jamais
+// répondre — par construction il ne compte que les billets (`sortDuTiroir`).
+// Décision « 1b » (21/09/2026) : CHAQUE BOUTIQUE A SON NUMÉRO. Le solde se lit
+// donc boutique par boutique, et les deux numéros vivent sur la fiche de la
+// boutique (`numero_flooz`, `numero_mixx`), comme la liste des banques et le
+// prix du rail — RIEN À COLLER dans Supabase.
+// ⚠ `moyen` doit être EXACTEMENT la valeur écrite sur une vente ou une
+// dépense (voir PAIEMENTS ci-dessus) : c'est elle qui relie les deux.
+export const MOYENS_MOBILES = [
+  { moyen: "Mobile Money (Flooz)", caisse: "Flooz", pastille: "📱 FLOOZ", court: "Flooz", champ: "numero_flooz" },
+  { moyen: "Mobile Money (Mixx/T-Money)", caisse: "Mixx/T-Money", pastille: "📱 MIXX/T-MONEY", court: "Mixx/T-Money", champ: "numero_mixx" },
+];
+export const estMoyenMobile = (m) => MOYENS_MOBILES.some((x) => x.moyen === m);
+// Le compte mobile derrière un nom de pastille (« Flooz » → sa fiche), ou null.
+export const mobileParCaisse = (nom) => MOYENS_MOBILES.find((x) => x.caisse === nom) || null;
+export const mobileParMoyen = (moyen) => MOYENS_MOBILES.find((x) => x.moyen === moyen) || null;
 // Timo (13/09/2026) : « ajouter Livraison, le manger, le carburant, commande en Chine ».
 // ⚠ « Réparation d'outillage » (Timo, 18/09/2026 : « oui, mets le prix de
 // réparation dans les dépenses ») : c'est une VRAIE charge de BMI — elle

@@ -10,7 +10,7 @@ import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossi
 import { synchroniser, reinitialiserDistant } from "../sync";
 import { etatComptesAuth, supabaseConfigure } from "../supabaseClient";
 import { etatPermissionPush } from "../push";
-import { PALETTE, LOGO } from "../lib/constants";
+import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // Timo (14/09/2026) : « fonds de caisse, les deux ne peuvent jamais être deux
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
@@ -1217,6 +1217,25 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, depenses: db.depenses.map((x) => (x.id === d.id ? r.remise : x)) }, r.journal);
   };
 
+  // ---- 📱 LES COMPTES MOBILES D'UNE BOUTIQUE (Timo, 21/09/2026) ----
+  // Décision « 1b » : « chaque boutique a son numéro… on peut ajouter les 2
+  // numéros dans la fiche de la boutique ». Deux champs de plus sur la fiche
+  // (`numero_flooz`, `numero_mixx`), comme la liste des banques et le prix du
+  // rail — RIEN À COLLER dans Supabase. Le numéro ne COMMANDE rien : il dit
+  // quel compte on regarde, sur les carrés de 🔒 Caisse et sur le relevé.
+  const modifierComptesMobiles = async (b) => {
+    if (refuserSaufAdmin(profile, "Modifier les comptes mobiles d'une boutique")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const suite = {};
+    for (const m of MOYENS_MOBILES) {
+      const v = await uPrompt(`Numéro ${m.court} de ${b.nom} (laisser vide si cette boutique n'en a pas) :`, String(b[m.champ] || ""));
+      if (v === null) return;
+      suite[m.champ] = String(v).trim();
+    }
+    const dit = MOYENS_MOBILES.map((m) => `${m.court} : ${suite[m.champ] || "—"}`).join(" · ");
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, ...suite } : x)) }, `Comptes mobiles de ${b.nom} — ${dit}`);
+    uAlert(`Comptes mobiles de ${b.nom} : ${dit}`);
+  };
   const modifierInfos = async (b) => {
     if (refuserSaufAdmin(profile, "Modifier les informations d'une boutique")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -1498,6 +1517,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <button onClick={() => setPositionPour(b)} className={`text-xs font-bold underline mr-2 ${b.lat ? "text-green-700" : "text-sky-800"}`}>📌 {b.lat ? "Position GPS ✓" : "Position GPS"}</button>
                   <button onClick={() => setCouleurPour(b)} className="text-xs font-bold text-sky-800 underline mr-2">Couleur</button>
                   {!b.depot && <button onClick={() => modifierFondsFixe(b)} className={`text-xs font-bold underline mr-2 ${b.fonds_caisse_fixe > 0 ? "text-green-700" : "text-sky-800"}`}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>}
+                  {!b.depot && <button onClick={() => modifierComptesMobiles(b)} className={`text-xs font-bold underline mr-2 ${MOYENS_MOBILES.some((m) => b[m.champ]) ? "text-green-700" : "text-sky-800"}`}>📱 Comptes mobiles{MOYENS_MOBILES.filter((m) => b[m.champ]).length ? ` (${MOYENS_MOBILES.filter((m) => b[m.champ]).length})` : ""}</button>}
                   <button onClick={() => supprimer(b)} className="text-xs text-red-600 underline mr-2">Suppr.</button>
                   {utilisee(b.nom) && <button onClick={() => supprimerAvecDonnees(b)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-0.5 hover:bg-red-800">Suppr. avec ses données</button>}
                 </td>

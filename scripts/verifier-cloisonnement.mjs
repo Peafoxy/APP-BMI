@@ -4783,9 +4783,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 31 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026), nouvelleDepense aux 16 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026)",
+  test("★ nouveauMessage sert aux 31 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026), nouvelleDepense aux 17 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "31"
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "16");
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "17");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -4910,7 +4910,10 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
   test("★ les pastilles : les boutiques de l'espace regardé, la caisse TERRAIN de cet espace, et « Chez le comptable » seulement en réel (pas de jumelle de formation)",
     /const terrainVu = boutiqueTerrain\(db, enFormation\);/.test(dash)
     // (12/09/2026 : DG et BANQUE rejoignent la rangée, pour le principal, réelles seulement)
-    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dash));
+    // ⚠ RETOURNÉ le 21/09/2026 : les comptes mobiles (📱 Flooz, 📱 Mixx/T-Money)
+    // rejoignent la rangée — mais dans les DEUX espaces, et seulement s'ils
+    // SERVENT. `nomsCaisses` cloisonne déjà : le mur tient.
+    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.mobilesVus\.map\(\(m\) => m\.caisse\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dash));
   test("★ le choix est mémorisé par écran (« dashboard ») et jamais retenu s'il n'est plus dans les pastilles de l'espace regardé",
     /boutiqueMemorisee\(profile, "dashboard"\); return m && m !== TOUTES && PASTILLES\.includes\(m\) \? m : "";/.test(dash)
     && /memoriserBoutique\(profile, "dashboard", nom \|\| TOUTES\)/.test(dash));
@@ -5571,7 +5574,13 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     test("★ écran Caisse : le sélecteur de période (periodes(), « Depuis le début » d'office) est dans la rangée des boutiques devant RÉSUMÉ, vaut pour le résumé, l'historique ET les carrés de la boutique ; le montant ATTENDU du formulaire reste le solde depuis le début ; un clic sur une boutique REFERME le résumé",
       /const \[periodeIndex, setPeriodeIndex\] = useState\(listePeriodes\.length - 1\);/.test(csR) && /<select[^\n]*value=\{periodeIndex\} onChange=\{\(e\) => setPeriodeIndex\(Number\(e\.target\.value\)\)\}/.test(csR)
       && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR) && /const aVerserPeriode = fondsAVerser\(db, boutique, totalVente, periode\);/.test(csR) && /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR)
-      && /attendu: aVerser\.aVerser/.test(csR) && /montantDifferent\(vers\.montant, aVerser\.aVerser\)/.test(csR) && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR) /* 13/09/2026 : au-delà du fonds fixe, TOUJOURS depuis le début */
+      // ⚠ RETOURNÉ le 21/09/2026 : l'attendu passe par `attenduVersement`, qui
+      // vaut `aVerser.aVerser` tant qu'on part du tiroir et le solde du compte
+      // mobile sinon. Ce qui est protégé n'a pas bougé : le montant attendu du
+      // FORMULAIRE reste un solde DEPUIS LE DÉBUT, jamais celui d'une période.
+      && /attendu: attenduVersement/.test(csR) && /montantDifferent\(vers\.montant, attenduVersement\)/.test(csR)
+      && /const attenduVersement = mobileChoisi \? Math\.max\(0, mobileChoisi\.solde\) : aVerser\.aVerser;/.test(csR)
+      && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR) /* 13/09/2026 : au-delà du fonds fixe, TOUJOURS depuis le début */
       && /value=\{resume \? "" : bq\} onChange=\{\(nom\) => \{ setBq\(nom\); setResume\(false\); \}\}/.test(csR) /* en mode RÉSUMÉ, aucune boutique allumée (capture 13/09/2026) */ && /historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(\(d\) => !periode/.test(csR));
     test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes — plus « Fonds de caisse » depuis le 14/09/2026 —, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
       /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /Total versé\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période */
@@ -5627,7 +5636,12 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     const csF = readFileSync("src/screens/Caisse.jsx", "utf8");
     const paF = readFileSync("src/screens/Parametres.jsx", "utf8");
     test("★ écran Caisse : le montant ATTENDU du versement et la justification sont « au-delà du fonds fixe » (aVerser.aVerser, ×3) ; RETOURNÉ le 14/09/2026 (Timo : « il ne faut pas mélanger le fonds de caisse avec ce qu'on va verser ») : le carré « Fonds à verser » ne dit PLUS « fonds de caisse fixe … conservé » (faux quand le solde est à 0), le fonds a SON carré — et depuis le 15/09/2026 le carré dit que le fonds est gardé À PART, il n'est plus « au-delà » de quoi que ce soit ; ⚙ Paramètres → Boutiques : bouton « 💼 Fonds de caisse » (admin, refuserSaufAdmin + bloquerSiLecture, pas pour un dépôt, écrit fonds_caisse_fixe — depuis le 14/09/2026 par la fenêtre du geste unique, plan.fondsApres)",
-      (csF.match(/aVerser\.aVerser/g) || []).length === 3 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /le fonds de caisse est gardé à part : il n'est pas là-dedans/.test(csF) && !/au-delà du fonds de caisse/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
+      // ⚠ RETOURNÉ le 21/09/2026 : deux occurrences seulement — l'attendu passe
+      // par `attenduVersement` (le compte QUI SE VIDE), et `aVerser.aVerser`
+      // ne sert plus qu'à le calculer et à afficher le tiroir dans la liste
+      // « D'où part l'argent ? ». Ce qui est protégé est le même : jamais
+      // `aVerser.montant`, jamais le mot « conservé ».
+      (csF.match(/aVerser\.aVerser/g) || []).length === 2 && (csF.match(/attenduVersement/g) || []).length === 4 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /le fonds de caisse est gardé à part : il n'est pas là-dedans/.test(csF) && !/au-delà du fonds de caisse/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
       && /refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/.test(paF) && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: plan\.fondsApres \}/.test(paF));
   }
   // Timo (14/09/2026), captures d'APESSITO : 348 000 d'entrées, 50 000 de
@@ -5800,13 +5814,19 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && /^Versement du \d\d\/\d\d\/\d{4} reçu de APESSITO \(par KOSSI\) — attendu 200 000 F, écart − 50 000 F : fonds de caisse gardé$/.test(nz(re.entree.description))
     && Vs.libelleEcart(rc.versement) === "" && Vs.libelleVersementDu({ date: "2026-09-09" }) === "Versement du 09/09/2026");
   test("★ écran Caisse : la note n'apparaît que si le montant diffère de l'attendu, avec la mention rouge ; l'attendu (fondsAVerser) part avec le versement ; le DG voit « Versement du … »",
-    /\{vers\.montant !== "" && montantDifferent\(vers\.montant, aVerser\.aVerser\) && \(/.test(csV) && /text-red-600 mb-1">⚠ \{messageJustification\(aVerser\.aVerser\)\}/.test(csV)
-    && /construireVersement\(profile, \{ boutique, \.\.\.vers, attendu: aVerser\.aVerser \}\)/.test(csV) /* 13/09/2026 : l'attendu = au-delà du fonds de caisse fixe */ && /<b>\{libelleVersementDu\(d\)\}<\/b>/.test(csV) && (csV.match(/<Field label="Note[^"]*">/g) || []).length === 1);
+    // ⚠ RETOURNÉ le 21/09/2026 : `attenduVersement` a remplacé `aVerser.aVerser`
+    // aux trois endroits — il VAUT `aVerser.aVerser` quand on part du tiroir.
+    /\{vers\.montant !== "" && montantDifferent\(vers\.montant, attenduVersement\) && \(/.test(csV) && /text-red-600 mb-1">⚠ \{messageJustification\(attenduVersement\)\}/.test(csV)
+    && /construireVersement\(profile, \{ boutique, \.\.\.vers, attendu: attenduVersement \}\)/.test(csV) /* 13/09/2026 : l'attendu = au-delà du fonds de caisse fixe */ && /<b>\{libelleVersementDu\(d\)\}<\/b>/.test(csV) && (csV.match(/<Field label="Note[^"]*">/g) || []).length === 1);
   test("★ un compte de formation n'a jamais « Chez le comptable » (réelle, sans jumelle) parmi les destinations",
     Vs.destinationsPour(true).join("|") === "Chez le DG|BANQUE" && Vs.destinationsPour(false).join("|") === "Chez le DG|BANQUE|Chez le comptable");
   const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ écran Caisse : les destinations suivent l'espace REGARDÉ (destinationsPour(espaceDuCompte)), le geste refuse une destination hors liste, et « Chez le DG » est proposé d'office (Timo, 10/09/2026)",
-    /const destinations = destinationsPour\(espaceDuCompte\(db, profile\) === true\);/.test(cs) && /if \(!destinations\.includes\(vers\.destination\)\)/.test(cs) && !/DESTINATIONS_VERSEMENT/.test(cs)
+    // ⚠ RETOURNÉ le 21/09/2026 : la liste dépend AUSSI de la source (le tiroir
+    // ou un compte mobile) — « Le tiroir de la boutique » n'existe que pour un
+    // compte mobile. Le mur, lui, n'a pas bougé : c'est toujours l'espace
+    // REGARDÉ qui décide de « Chez le comptable ».
+    /const destinations = destinationsPour\(espaceDuCompte\(db, profile\) === true, vers\.source\);/.test(cs) && /if \(!destinations\.includes\(vers\.destination\)\)/.test(cs) && !/DESTINATIONS_VERSEMENT/.test(cs)
     && /const destinationDefaut = DEST_DG;/.test(cs) && !/\? DEST_COMPTABLE : DEST_DG/.test(cs));
   const s10 = readFileSync("supabase/securite-10-versements.sql", "utf8");
   const ta = readFileSync("scripts/tester-argent-sql.sh", "utf8");
@@ -5904,7 +5924,11 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
   test("★ la catégorie vit dans constants.js, réexportée par lib/versements.js (importée ET réexportée) ; horsVersements retire la sortie de la boutique ET l'entrée miroir, garde le reste, accepte une liste absente",
     K.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.CATEGORIE_VERSEMENT === "Versement de fonds" && Vk.horsVersements(deps).length === 1
     && K.horsVersements(deps).length === 1 && K.horsVersements(deps)[0].montant === 1 && K.horsVersements(undefined).length === 0
-    && /import \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
+    // ⚠ RETOURNÉ le 21/09/2026 : l'import porte aussi les comptes mobiles
+    // (`estMoyenMobile`, `mobileParMoyen`). Ce qui est protégé est le même :
+    // la catégorie est IMPORTÉE puis RÉEXPORTÉE — jamais `export { x } from`
+    // seul, qui ne crée aucune variable locale (piège touché deux fois).
+    && /import \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
   const dbJ = { ...base(), ventes: [], dettes: [],
     depenses: [{ id: "j1", boutique: "APESSITO", montant: 252299, date: "2026-09-10", categorie: "Versement de fonds", paiement: "Espèces", versement: { destination: "Chez le DG" } },
                { id: "j2", boutique: "APESSITO", montant: 1, date: "2026-09-10", categorie: "Transport", paiement: "Espèces" }] };
@@ -6547,7 +6571,10 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   const carteCg = readFileSync("src/components/CarteCaisse.jsx", "utf8");
   test("★ PLUS d'onglet à part (retiré d'App, d'ONGLETS_ROLE, plus d'écran CaissesDG) : TROIS pastilles du tableau de bord — DG et BANQUE pour le PRINCIPAL seul, réelles seulement, COMPTABLE pour qui voit l'écran —, chacune SA caisse par UNE carte commune, sur les boutiques de l'espace regardé ; DG et BANQUE n'affichent rien d'autre (ni ventes, ni dépenses, ni stock, ni exports) ; rien n'est écrit",
     !/dg_banque/.test(appCg) && !/dg_banque/.test(readFileSync("src/lib/calculs.js", "utf8")) && !existsSync("src/screens/CaissesDG.jsx") && !existsSync("src/lib/caissesDG.js")
-    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
+    // ⚠ RETOURNÉ le 21/09/2026 : les comptes mobiles rejoignent la rangée. Ce
+    // qui est protégé n'a pas bougé d'un mot : DG et BANQUE restent réservées
+    // au PRINCIPAL et au RÉEL, et chaque caisse passe par LA carte commune.
+    && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.mobilesVus\.map\(\(m\) => m\.caisse\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
     && /\{libellePastille\(nom, terrainVu\?\.nom\)\}/.test(dashCg) && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg)
     // « Relevé… lance » (12/09/2026) : chaque carte reçoit le RELEVÉ de la période du tableau de bord (getPeriod), le sélecteur est écrit UNE fois (selecteurPeriode) et affiché pour les caisses.
     && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} caisse=\{CAISSE_DG\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsDG\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
@@ -6556,8 +6583,11 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     && (dashCg.match(/<div className="font-bold text-slate-800">Période :<\/div>/g) || []).length === 1
     // Capture Timo (12/09/2026) : sous le relevé du comptable, cartes « Total des dépenses » / « Dépenses — période » et un second « Période » — retirés : les trois caisses n'ont que leur relevé, le comptable garde ses exports.
     && (() => { const i = dashCg.indexOf("{!caisseChoisie && (<>"); const j = dashCg.indexOf("{!caisseSeule && (<>"); const k = dashCg.indexOf("Exporter les données"); return i > 0 && j > i && k > j && dashCg.slice(i, j).includes("Total des dépenses") && dashCg.slice(i, j).includes("{selecteurPeriode}"); })()
-    && /\{comptableChoisi && \(\(\) => \{ const c = mouvementsComptable\(db\); return \(/.test(dashCg) && (dashCg.match(/<CarteCaisse /g) || []).length === 3
-    && /const caisseSeule = dgChoisi \|\| banqueChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseChoisie && \(<>/.test(dashCg) && /const caisseChoisie = caisseSeule \|\| comptableChoisi;/.test(dashCg) && /\{!caisseSeule && \(<>\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-2">Exporter les données/.test(dashCg)
+    && /\{comptableChoisi && \(\(\) => \{ const c = mouvementsComptable\(db\); return \(/.test(dashCg) // ⚠ RETOURNÉ le 21/09/2026 : QUATRE cartes — la quatrième est celle d'un
+    // compte mobile (📱 Flooz ou Mixx/T-Money), et un compte mobile n'est pas
+    // une boutique non plus : il entre donc dans `caisseSeule`.
+    && (dashCg.match(/<CarteCaisse /g) || []).length === 4
+    && /const caisseSeule = dgChoisi \|\| banqueChoisi \|\| !!mobileChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseChoisie && \(<>/.test(dashCg) && /const caisseChoisie = caisseSeule \|\| comptableChoisi;/.test(dashCg) && /\{!caisseSeule && \(<>\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-2">Exporter les données/.test(dashCg)
     && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /Les dépenses restent des charges de leur boutique/.test(dashCg)
     && /export function CarteCaisse\(\{ titre, caisse, note, releve: r, periode \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /Entrées de la période/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg));
   // Le relevé lui-même, exercé : avant / pendant / après, comme celui de la banque.
@@ -10471,6 +10501,172 @@ titre("💧 LES POMPES : CE QU'ON EN SAIT, ET CE QU'ON NE PROMET PAS (Timo, 20/0
   test("★ le réglage des frottements est réservé à l'administrateur",
     /refuserSaufAdmin\(profile, "Modifier l'estimation des frottements"\)/.test(lit("src/screens/Parametres.jsx")));
   test("la règle pure ne dépend de rien", !/^\s*import\s/m.test(lit("src/lib/pompes.js")));
+}
+
+
+titre("📱 FLOOZ ET MIXX/T-MONEY : LE SOLDE D'UN COMPTE MOBILE (Timo, 21/09/2026)");
+{
+  // Mot pour mot, après avoir encaissé 160 000 F par Mixx et payé 40 000 F de
+  // commission au même moyen : « avec le moyen de paiement mix ou flooz, le
+  // fond à verser est 0 F… mais l'apporteur a pris son argent. Comment savoir
+  // que sur T-Money il reste 120 mil et non 160 mil… et que l'administrateur
+  // aussi, sans sortir sa calculatrice, ait tout sous ses yeux. »
+  // ⚠ C'ÉTAIT UN TROU : l'argent mobile comptait dans la recette et le
+  // résultat, mais AUCUN écran n'en donnait le solde.
+  // Décision « 1b » : chaque boutique a son numéro.
+  const lit = (f) => readFileSync(f, "utf8");
+  const sortieCm = join("node_modules", ".cache", `bmi-caisses-mobiles-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/caissesMobiles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCm, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Cm = await import(pathToFileURL(sortieCm).href);
+  unlinkSync(sortieCm);
+  const sortieVm = join("node_modules", ".cache", `bmi-versements-mobile-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/versements.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVm, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Vm = await import(pathToFileURL(sortieVm).href);
+  unlinkSync(sortieVm);
+  const MIXX = "Mobile Money (Mixx/T-Money)";
+  const FLOOZ = "Mobile Money (Flooz)";
+  const ligne = (pu) => [{ qte: 1, pu, article: "Batterie" }];
+
+  const dbM = {
+    boutiques: [
+      { id: "b1", nom: "DEMAKPOE", numero_mixx: "91130511" },
+      { id: "b2", nom: "APESSITO" },
+      { id: "b3", nom: "FORMATION", formation: true, numero_mixx: "90000000" },
+    ],
+    ventes: [
+      { id: "v1", boutique: "DEMAKPOE", date: "2026-09-21", paiement: MIXX, articles: ligne(160000), client: "ESSO", par: "TIMO" },
+      { id: "v2", boutique: "DEMAKPOE", date: "2026-09-21", paiement: "Espèces", articles: ligne(140000) },
+      { id: "v3", boutique: "DEMAKPOE", date: "2026-09-20", paiement: FLOOZ, articles: ligne(30000) },
+      { id: "v4", boutique: "FORMATION", date: "2026-09-21", paiement: MIXX, articles: ligne(999999) },
+    ],
+    dettes: [{ id: "d1", boutique: "DEMAKPOE", client: "MR ERIC", paiements: [
+      { date: "2026-09-21", montant: 10000, paiement: MIXX, par: "ANGELE" },
+      { date: "2026-09-21", montant: 5000, paiement: "Espèces" },
+    ] }],
+    depenses: [
+      { id: "x1", boutique: "DEMAKPOE", categorie: "Commissions", description: "Commission apporteur externe — AKPEDJE", montant: 40000, paiement: MIXX, date: "2026-09-21", par: "TIMO" },
+      { id: "x2", boutique: "DEMAKPOE", categorie: "Transport", montant: 7000, paiement: MIXX, date: "2026-09-21", par: "TIMO", validation: { statut: "attente" } },
+      { id: "x3", boutique: "DEMAKPOE", categorie: "Transport", montant: 0, paiement: MIXX, date: "2026-09-21", par: "TIMO", validation: { statut: "rejetee", montant: 9000 } },
+      { id: "x4", boutique: "DEMAKPOE", categorie: "Loyer", montant: 6000, paiement: "Espèces", date: "2026-09-21", par: "TIMO" },
+      { id: "x5", boutique: "DEMAKPOE", categorie: "Transport", montant: 3000, paiement: MIXX, date: "2026-09-21", par: "TIMO", paye_avec: "avance" },
+    ],
+  };
+
+  // ── SON CAS EXACT.
+  const mixx = Cm.mouvementsMobile(dbM, MIXX, ["DEMAKPOE"]);
+  test("★★ SON CAS : 160 000 encaissés par Mixx, 40 000 de commission payés par Mixx, 10 000 d'un règlement de dette → il reste 130 000 sur le compte",
+    mixx.totalEntrees === 170000 && mixx.totalSorties === 40000 && mixx.solde === 130000);
+  test("★★ une vente EN ESPÈCES n'entre jamais dans le compte mobile (c'était tout le malentendu)",
+    !mixx.entrees.some((m) => m.montant === 140000) && !mixx.sorties.some((m) => m.montant === 6000));
+  test("★ le règlement d'une dette payé par Mixx compte, celui payé en espèces non",
+    mixx.entrees.some((m) => m.montant === 10000 && /Règlement de dette/.test(m.libelle)) && !mixx.entrees.some((m) => m.montant === 5000));
+  test("★ Flooz et Mixx ne se mélangent pas", Cm.mouvementsMobile(dbM, FLOOZ, ["DEMAKPOE"]).solde === 30000);
+
+  // ── LES MÊMES RÈGLES D'ARGENT QUE PARTOUT.
+  test("★★ une dépense EN ATTENTE du DG ne descend pas le compte (elle ne compte nulle part)",
+    !mixx.sorties.some((m) => m.montant === 7000));
+  test("★★ une dépense REJETÉE non plus (son montant est déjà à 0)",
+    !mixx.sorties.some((m) => m.id === "x3"));
+  test("★ une AVANCE personnelle payée par Mixx ne sort pas du compte de BMI",
+    !mixx.sorties.some((m) => m.montant === 3000));
+
+  // ── LE MUR : on passe la LISTE des boutiques, jamais `db` en entier.
+  test("★★ LE MUR : la vente de FORMATION n'entre pas dans le compte de DEMAKPOE",
+    !mixx.entrees.some((m) => m.boutique === "FORMATION") && Cm.mouvementsMobile(dbM, MIXX, ["FORMATION"]).solde === 999999);
+  test("★ aucune boutique donnée = aucun mouvement", Cm.mouvementsMobile(dbM, MIXX, []).mouvements.length === 0);
+  test("★ une base vide ne lève pas", Cm.mouvementsMobile({}, MIXX, ["DEMAKPOE"]).solde === 0);
+
+  // ── LE NUMÉRO, SUR LA FICHE DE LA BOUTIQUE (sa décision « 1b »).
+  test("★★ le numéro se lit sur la fiche de la boutique", Cm.numeroMobile(dbM.boutiques, "DEMAKPOE", MIXX) === "91130511");
+  test("★ une boutique sans numéro le dit, et dit où le régler",
+    Cm.numeroMobile(dbM.boutiques, "APESSITO", MIXX) === "" && /⚙ Paramètres → Boutiques → 📱 Comptes mobiles/.test(Cm.phraseNumeroMobile("")));
+  test("★ les deux comptes d'une boutique se lisent d'un coup (les carrés de 🔒 Caisse)", (() => {
+    const s = Cm.soldesMobiles(dbM, "DEMAKPOE");
+    return s.length === 2 && s.find((m) => m.moyen === MIXX).solde === 130000 && s.find((m) => m.moyen === FLOOZ).solde === 30000
+      && s.find((m) => m.moyen === MIXX).numero === "91130511";
+  })());
+
+  // ── LE VERSEMENT : LE MÊME GESTE, AVEC UNE CASE DE PLUS.
+  test("★★ « Le tiroir de la boutique » n'existe QUE pour un compte mobile",
+    Vm.destinationsPour(false, MIXX).includes(Vm.DEST_TIROIR) && !Vm.destinationsPour(false).includes(Vm.DEST_TIROIR)
+    && !Vm.destinationsPour(false, Vm.SOURCE_ESPECES).includes(Vm.DEST_TIROIR));
+  test("★★ et la RÈGLE le revérifie, pas seulement la liste de l'écran",
+    /n'est possible qu'en partant d'un compte mobile/.test(Vm.critiqueVersement({ montant: 1000, destination: Vm.DEST_TIROIR, attendu: 1000 }))
+    && Vm.critiqueVersement({ montant: 1000, destination: Vm.DEST_TIROIR, attendu: 1000, source: MIXX }) === "");
+  test("★ le mur tient sur les destinations : la formation n'a jamais « Chez le comptable »",
+    !Vm.destinationsPour(true, MIXX).includes(Vm.DEST_COMPTABLE) && Vm.destinationsPour(true, MIXX).includes(Vm.DEST_TIROIR));
+
+  const profM = { id: "u1", nom: "TIMO" };
+  const versDG = Vm.construireVersement(profM, { boutique: "DEMAKPOE", montant: 130000, destination: Vm.DEST_DG, attendu: 130000, source: MIXX });
+  test("★★ un versement parti du compte mobile porte CE moyen — donc il ne touche pas le tiroir et descend le compte",
+    versDG.sortie.paiement === MIXX && versDG.versement.source === MIXX && versDG.entree === null);
+  {
+    const apres = Cm.mouvementsMobile({ ...dbM, depenses: [versDG.sortie, ...dbM.depenses] }, MIXX, ["DEMAKPOE"]);
+    test("★★ après le versement, le compte mobile tombe à 0 et le versement se lit dans ses sorties",
+      apres.solde === 0 && apres.sorties.some((m) => /Versement de DEMAKPOE → Chez le DG/.test(m.libelle)));
+  }
+
+  const versTiroir = Vm.construireVersement(profM, { boutique: "DEMAKPOE", montant: 50000, destination: Vm.DEST_TIROIR, attendu: 130000, note: "retrait au guichet", source: MIXX });
+  test("★★ le RETRAIT au guichet a son miroir : une ligne d'espèces NÉGATIVE sur la même boutique — sinon l'argent quitterait le compte sans arriver nulle part",
+    versTiroir.sortie.paiement === MIXX && versTiroir.sortie.montant === 50000
+    && versTiroir.entree && versTiroir.entree.boutique === "DEMAKPOE" && versTiroir.entree.paiement === "Espèces" && versTiroir.entree.montant === -50000
+    && versTiroir.entree.versement_id === versTiroir.versement.id);
+  test("★★ et le TIROIR monte vraiment de 50 000 (mesuré, pas présumé)", (() => {
+    const tv = (v) => (v.articles || []).reduce((s, l) => s + l.qte * l.pu, 0);
+    const avant = Vm.fondsAVerser(dbM, "DEMAKPOE", tv).montant;
+    const apres = Vm.fondsAVerser({ ...dbM, depenses: [versTiroir.sortie, versTiroir.entree, ...dbM.depenses] }, "DEMAKPOE", tv);
+    return apres.montant === avant + 50000 && apres.retraits === 50000;
+  })());
+  test("★★ un retrait interne n'attend la validation de PERSONNE, et ne fait vibrer aucun téléphone",
+    Vm.versementsAValiderParDG({ depenses: [versTiroir.sortie] }, ["DEMAKPOE"]).length === 0
+    && Vm.versementsValidesParDG({ depenses: [versTiroir.sortie] }, ["DEMAKPOE"]).length === 0
+    && Vm.validationVersement({ depenses: [versTiroir.sortie] }, versTiroir.sortie).interne === true
+    && Vm.messagesVersement({ users: [{ id: "a", role: "admin", admin_principal: true }] }, profM, versTiroir.sortie).length === 0);
+  test("★ un versement ordinaire, lui, attend toujours le DG et le prévient",
+    Vm.versementsAValiderParDG({ depenses: [versDG.sortie] }, ["DEMAKPOE"]).length === 1
+    && Vm.messagesVersement({ users: [{ id: "a", role: "admin", admin_principal: true, actif: true }] }, profM, versDG.sortie).length === 1);
+  test("★ un versement mobile REJETÉ compte comme jamais parti : le compte le retrouve", (() => {
+    const rej = { ...versDG.sortie, montant: 0, versement_rejete_le: "2026-09-22", versement: { ...versDG.versement, montant: 130000 } };
+    return Cm.mouvementsMobile({ ...dbM, depenses: [rej, ...dbM.depenses] }, MIXX, ["DEMAKPOE"]).solde === 130000;
+  })());
+
+  // ── LES ÉCRANS : la règle juste ne suffit pas si l'écran s'en sert mal.
+  const caisse = lit("src/screens/Caisse.jsx");
+  test("★★ 🔒 Caisse : le montant ATTENDU suit le compte qui se vide, pas le tiroir",
+    /const attenduVersement = mobileChoisi \? Math\.max\(0, mobileChoisi\.solde\) : aVerser\.aVerser;/.test(caisse)
+    && /attendu: attenduVersement/.test(caisse) && /montantDifferent\(vers\.montant, attenduVersement\)/.test(caisse)
+    && /messageJustification\(attenduVersement\)/.test(caisse));
+  test("★★ 🔒 Caisse : les destinations dépendent de la source",
+    /destinationsPour\(espaceDuCompte\(db, profile\) === true, vers\.source\)/.test(caisse));
+  test("★ 🔒 Caisse : les espèces restent le défaut — rien ne change pour qui n'y touche pas",
+    /source: SOURCE_ESPECES, destination: destinationDefaut/.test(caisse));
+  test("★ 🔒 Caisse : les carrés lisent la règle, et pas de carré à zéro sur une boutique sans compte mobile",
+    /const mobiles = soldesMobiles\(db, boutique\);/.test(caisse) && /mobiles\.filter\(\(m\) => m\.mouvements > 0 \|\| m\.numero\)\.map/.test(caisse));
+  const dash = lit("src/screens/Dashboard.jsx");
+  test("★★ tableau de bord : les pastilles mobiles existent dans les DEUX espaces (au contraire de DG / BANQUE / COMPTABLE)",
+    /\.\.\.mobilesVus\.map\(\(m\) => m\.caisse\), \.\.\.\(enFormation \? \[\]/.test(dash));
+  test("★★ tableau de bord : un compte mobile n'est pas une boutique — rien d'autre que son relevé",
+    /const caisseSeule = dgChoisi \|\| banqueChoisi \|\| !!mobileChoisi;/.test(dash));
+  test("★ tableau de bord : le relevé passe par LA carte commune et LA règle du relevé",
+    /<CarteCaisse titre=\{bilanMobileChoisi\.pastille\}[^>]*releve=\{releve\(bilanMobileChoisi\.bilan/.test(dash));
+  test("★ tableau de bord : une pastille ne s'affiche que si le compte SERT",
+    /bilansMobiles\.filter\(\(m\) => m\.bilan\.mouvements\.length > 0 \|\| m\.regle\)/.test(dash));
+  test("★★ le relevé DIT ce qu'il ne sait pas : le solde vient des saisies, pas du téléphone",
+    /ce solde découle des saisies, pas du solde lu sur le téléphone/i.test(dash));
+  const params = lit("src/screens/Parametres.jsx");
+  test("★★ les deux numéros se règlent sur la fiche de la boutique, par l'administrateur",
+    /refuserSaufAdmin\(profile, "Modifier les comptes mobiles d'une boutique"\)/.test(params)
+    && /modifierComptesMobiles\(b\)/.test(params));
+
+  // ── L'ÉTIQUETTE ET LA FABRIQUE : écrites UNE fois.
+  test("★★ la fabrique de bilan n'est pas recopiée : caissesMobiles lit celle de caissesCentrales",
+    /import \{ bilanCaisse \} from "\.\/caissesCentrales\.js";/.test(lit("src/lib/caissesMobiles.js"))
+    && !/const totalEntrees = entrees\.reduce/.test(lit("src/lib/caissesMobiles.js")));
+  test("★ l'étiquette d'une pastille reste UNE règle (libellePastille connaît aussi les comptes mobiles)",
+    /mobileParCaisse\(nom\)\?\.pastille/.test(lit("src/lib/caissesCentrales.js")));
+  test("★ le moyen écrit sur une vente et celui du compte sont LE MÊME mot",
+    lit("src/lib/constants.js").includes('moyen: "Mobile Money (Flooz)"') && lit("src/lib/constants.js").includes('moyen: "Mobile Money (Mixx/T-Money)"')
+    && lit("src/lib/constants.js").includes('export const PAIEMENTS = ["Espèces", "Mobile Money (Flooz)", "Mobile Money (Mixx/T-Money)"'));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

@@ -13,7 +13,8 @@ import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut,
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
+import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, DEST_TIROIR, SOURCE_ESPECES, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
+import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
 
 // ============ CAISSE ============
@@ -113,16 +114,28 @@ export function Caisse({ db, save, profile }) {
   // Chez le comptable : pointés « Encaissé » par le comptable.
   // ⚠ Cloisonnement : « Chez le comptable » (réelle, sans jumelle) n'est
   // proposée qu'en regardant le réel — jamais à un compte de formation.
-  const destinations = destinationsPour(espaceDuCompte(db, profile) === true);
   // Timo (10/09/2026) : « Destination de versement reste sur DG par défaut ».
   const destinationDefaut = DEST_DG;
-  const [vers, setVers] = useState({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+  // ---- 📱 D'OÙ PART L'ARGENT (Timo, 21/09/2026) ----
+  // « Si on a des pastilles mix/flooz, le versement se fera comment ? » — le
+  // MÊME geste, avec une case de plus. Les espèces d'office : rien ne change
+  // pour qui n'y touche pas.
+  const [vers, setVers] = useState({ montant: "", source: SOURCE_ESPECES, destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+  const destinations = destinationsPour(espaceDuCompte(db, profile) === true, vers.source);
+  // Les deux comptes mobiles de CETTE boutique (décision « 1b » : chaque
+  // boutique a son numéro), lus — rien n'est écrit.
+  const mobiles = soldesMobiles(db, boutique);
+  const mobileChoisi = mobiles.find((m) => m.moyen === vers.source) || null;
   // ⚠ Le montant ATTENDU par le formulaire de versement est toujours le solde
   // depuis le début (un solde ne dépend pas d'une période) ; les carrés, eux,
   // suivent la période choisie.
   const aVerser = fondsAVerser(db, boutique, totalVente);
   const aVerserPeriode = fondsAVerser(db, boutique, totalVente, periode);
   const verse = totalVerse(db, boutique, aujourdhui, periode);
+  // ⚠ Le montant ATTENDU dépend du compte qui se vide : le tiroir pour les
+  // espèces, le solde du compte pour un versement mobile. Sans ça, la
+  // justification obligatoire s'appuierait sur le mauvais chiffre.
+  const attenduVersement = mobileChoisi ? Math.max(0, mobileChoisi.solde) : aVerser.aVerser;
   // Les boutiques de la rangée (vente + TERRAIN, espace regardé) : celles du RÉSUMÉ.
   const boutiquesResume = boutiquesVisibles(db, profile, [...boutiquesVente(db), ...(db.boutiques || []).filter((b) => b.terrain)]).map((b) => b.nom);
   const leResume = resume ? resumeCaisses(db, boutiquesResume, totalVente, aujourdhui, periode) : null;
@@ -134,16 +147,20 @@ export function Caisse({ db, save, profile }) {
     if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!destinations.includes(vers.destination)) { uAlert("Cette destination n'est pas disponible dans l'espace regardé."); return; }
-    const r = construireVersement(profile, { boutique, ...vers, attendu: aVerser.aVerser });
+    const r = construireVersement(profile, { boutique, ...vers, attendu: attenduVersement });
     if (r.refus) { uAlert(r.refus); return; }
-    if (!await uConfirm(`Enregistrer le versement de ${fmt(Number(vers.montant))} de ${boutique} → ${libelleDestination(r.versement)} ?\n\nIl restera « en attente » jusqu'à sa validation par ${vers.destination === DEST_COMPTABLE ? "le comptable" : "le DG"}.`)) return;
+    const interne = vers.destination === DEST_TIROIR;
+    const depuis = mobileChoisi ? `du compte ${mobileChoisi.court} de ${boutique}` : `de ${boutique}`;
+    if (!await uConfirm(`Enregistrer le versement de ${fmt(Number(vers.montant))} ${depuis} → ${libelleDestination(r.versement)} ?\n\n${interne
+      ? "L'argent quitte le compte mobile et entre dans le tiroir : aucune validation n'est demandée, et la clôture du soir le verra."
+      : `Il restera « en attente » jusqu'à sa validation par ${vers.destination === DEST_COMPTABLE ? "le comptable" : "le DG"}.`}`)) return;
     save({
       ...db,
       depenses: [r.sortie, ...(r.entree ? [r.entree] : []), ...(db.depenses || [])],
       messages: [...messagesVersement(db, profile, r.sortie), ...(db.messages || [])],
     }, `Versement de fonds ${fmt(Number(vers.montant))} : ${boutique} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
-    setVers({ montant: "", destination: destinationDefaut, banque: "", bordereau: "", note: "" });
-    uAlert("Versement enregistré — en attente de validation.");
+    setVers({ montant: "", source: SOURCE_ESPECES, destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+    uAlert(interne ? "Retrait enregistré : l'argent est passé du compte mobile au tiroir." : "Versement enregistré — en attente de validation.");
   };
   // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
   // boutiques de l'espace regardé.
@@ -332,10 +349,37 @@ export function Caisse({ db, save, profile }) {
           {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">{depuisLeDebut ? `ce mois ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</div></div>
           <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerserPeriode.ventes + aVerserPeriode.reglements)}</div>{aVerserPeriode.fondsRemis > 0 && <div className="text-xs text-slate-400">hors fonds de caisse remis {fmt(aVerserPeriode.fondsRemis)} (il va dans l'enveloppe)</div>}</div>
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris){depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">− {fmt(aVerserPeriode.depenses)}</div></div>
+          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris){depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">− {fmt(aVerserPeriode.depenses)}</div>{aVerserPeriode.retraits > 0 && <div className="text-xs text-slate-400">dont {fmt(aVerserPeriode.retraits)} entrés depuis un compte mobile (comptés en Entrées)</div>}</div>
+          {/* ---- 📱 LES COMPTES MOBILES (Timo, 21/09/2026) ----
+              « Comment savoir que sur T-Money il reste 120 mil et non 160 mil…
+              et que l'administrateur aussi, sans sortir sa calculatrice, ait
+              tout sous ses yeux. » Le solde se LIT, rien n'est écrit. Un carré
+              ne s'affiche que si le compte SERT (un mouvement, ou un numéro
+              réglé) : pas de carte à zéro sur une boutique qui n'a pas Flooz. */}
+          {mobiles.filter((m) => m.mouvements > 0 || m.numero).map((m) => (
+            <div key={m.caisse} className="bg-white rounded-lg p-3 border border-slate-200" data-carre={`mobile-${m.champ}`}>
+              <div className="text-xs text-slate-500">📱 {m.court}</div>
+              <div className={`font-bold tabular-nums ${m.solde < 0 ? "text-red-600" : ""}`}>{fmt(m.solde)}</div>
+              <div className="text-xs text-slate-400">{phraseNumeroMobile(m.numero)} · ce qui reste sur le compte, d'après les saisies</div>
+            </div>
+          ))}
         </div>
         {ROLES_VERSEMENT.includes(profile.role) && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* ⚠ La case n'apparaît que si la boutique A un compte mobile qui
+                sert : sur une boutique qui n'encaisse qu'en espèces, le
+                formulaire reste exactement celui d'avant. */}
+            {mobiles.some((m) => m.mouvements > 0 || m.numero) && (
+              <Field label="D'où part l'argent ?">
+                <select className={inputCls} value={vers.source} data-choix="source-versement"
+                  onChange={(e) => setVers({ ...vers, source: e.target.value, destination: destinationDefaut, banque: "", bordereau: "", note: "" })}>
+                  <option value={SOURCE_ESPECES}>Le tiroir (espèces) — {fmt(aVerser.aVerser)}</option>
+                  {mobiles.filter((m) => m.mouvements > 0 || m.numero).map((m) => (
+                    <option key={m.moyen} value={m.moyen}>📱 {m.court} — {fmt(m.solde)}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label="Montant versé (F)"><input type="number" inputMode="numeric" className={inputCls} value={vers.montant} onChange={(e) => setVers({ ...vers, montant: e.target.value })} /></Field>
             <Field label="Destination">
               <select className={inputCls} value={vers.destination} onChange={(e) => setVers({ ...vers, destination: e.target.value })}>
@@ -365,9 +409,9 @@ export function Caisse({ db, save, profile }) {
             )}
             {/* Timo (09/09/2026) : la Note n'apparaît que si le montant versé
                 diffère du montant attendu — avec, en rouge, la raison à donner. */}
-            {vers.montant !== "" && montantDifferent(vers.montant, aVerser.aVerser) && (
+            {vers.montant !== "" && montantDifferent(vers.montant, attenduVersement) && (
               <div className="sm:col-span-2 lg:col-span-4">
-                <div className="text-sm font-bold text-red-600 mb-1">⚠ {messageJustification(aVerser.aVerser)}</div>
+                <div className="text-sm font-bold text-red-600 mb-1">⚠ {messageJustification(attenduVersement)}</div>
                 <Field label="Note (justification)"><input className={inputCls} value={vers.note} onChange={(e) => setVers({ ...vers, note: e.target.value })} /></Field>
               </div>
             )}
@@ -375,7 +419,7 @@ export function Caisse({ db, save, profile }) {
           </div>
         )}
         {!ROLES_VERSEMENT.includes(profile.role) && <div className="text-sm text-slate-500">Le versement des fonds est fait par le gérant.</div>}
-        <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente. Un versement rejeté compte comme jamais versé : l'argent reste dans la caisse de la boutique.</div>
+        <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente. Un versement rejeté compte comme jamais versé : l'argent reste dans la caisse de la boutique.{mobileChoisi ? ` « ${DEST_TIROIR} » est le retrait au guichet : l'argent quitte ${mobileChoisi.court} et devient des billets dans le tiroir — aucune validation, et la clôture du soir le verra.` : ""}</div>
         {mesVersements.length > 0 && (
           <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
             {/* Timo (10/09/2026) : « je n'arrive pas à défiler de droite à gauche » — le cadre défile, le tableau garde sa largeur. */}
