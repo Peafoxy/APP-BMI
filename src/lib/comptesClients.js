@@ -158,8 +158,11 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
     `Bienvenue chez BMI TOGO ! Voici votre espace personnel pour suivre votre installation solaire :`,
     ADRESSE_APP,
     ``,
-    `👤 Identifiant : *${identifiant}*`,
-    `🔑 Mot de passe : *${motDePasse}*`,
+    // ⚠ LE MÊME BLOC QUE POUR UN EMPLOYÉ : deux façons d'écrire la même
+    // chose finiraient par diverger, et l'équipe ne saurait plus laquelle
+    // est la bonne.
+    `Ouvrez votre espace avec :`,
+    ` ${identifiant}  et  ${motDePasse}`,
     ``,
     `🔒 Pour votre confidentialité, nous vous recommandons de changer ce mot de passe dès votre première connexion (rubrique "🔑 Mon mot de passe" de votre espace).`,
     ``,
@@ -230,11 +233,16 @@ export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motD
   const lignes = [
     `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
     ``,
-    `Votre compte BMI TOGO (${libelleRole}) a été créé. Voici votre espace personnel :`,
+    `Votre espace BMI TOGO (${libelleRole}) a été créé. Voici votre espace personnel :`,
     ADRESSE_APP,
     ``,
-    `👤 Identifiant : *${identifiant}*`,
-    `🔑 Mot de passe : *${motDePasse}*`,
+    // ⚠ TEXTE ÉCRIT PAR TIMO, mot pour mot (21/09/2026, quatre versions
+    // successives). Il remplace « 👤 Identifiant / 🔑 Mot de passe », jugé
+    // trop long. L'espacement autour du « et » est le sien : il sépare les
+    // deux valeurs à l'œil, ce qui compte quand on recopie un mot de passe
+    // qui porte un @ et des chiffres.
+    `Ouvrez votre espace avec :`,
+    ` ${identifiant}  et  ${motDePasse}`,
     ``,
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,

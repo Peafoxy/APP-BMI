@@ -2531,6 +2531,15 @@ lit mal est pire qu'un banc absent).
   en un clic, et le fait qu'aujourd'hui le mot de passe reste en clair dans la
   conversation POUR TOUJOURS). **Ne pas le reproposer, et surtout ne pas le
   construire « au cas où ».**
+- **📝 LE TEXTE DU MESSAGE EST LE SIEN** (21/09/2026, quatre versions
+  successives, la dernière retenue) : « Votre **espace** BMI TOGO (Technicien)
+  a été créé », puis **« Ouvrez votre espace avec : / AGBEKO  et  ADUM@S9628 »**
+  à la place de « 👤 Identifiant / 🔑 Mot de passe », qu'il trouvait trop long.
+  ⚠ **Le MÊME bloc sert au client et à l'employé** : deux façons d'écrire la
+  même chose finiraient par diverger, et l'équipe ne saurait plus laquelle est
+  la bonne. ⚠ L'espacement autour du « et » est le sien, et il sert : il
+  sépare les deux valeurs à l'œil quand on recopie un mot de passe qui porte
+  un `@` et des chiffres.
 - **DONC, ET C'EST STABLE** : les identifiants continuent de partir **à la
   main**, par l'ouverture WhatsApp depuis le téléphone du vendeur
   (`envoyerIdentifiantsWhatsApp` / `envoyerIdentifiantsEmployeWhatsApp`,
