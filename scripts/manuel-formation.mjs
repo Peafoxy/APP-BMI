@@ -219,11 +219,11 @@ function ficheValidation(ch) {
       ] })),
     ], { largeurs: [LARGEUR - 3000, 1500, 1500], bordures: BORDURES_FINES }),
     vide(240),
-    table([new TableRow({ height: { value: 1700, rule: HeightRule.ATLEAST }, children: [cellule([
+    table([new TableRow({ height: { value: 1400, rule: HeightRule.ATLEAST }, children: [cellule([
       new Paragraph({ children: [new TextRun({ text: "Observations du formateur", bold: true, color: GRIS, size: 19 })] }),
     ], { largeur: LARGEUR })] })], { largeurs: [LARGEUR], bordures: BORDURES_FINES }),
     vide(240),
-    new Paragraph({ children: [new TextRun({ text: "Formation validée :   ☐  Oui        ☐  À refaire le  ______ / ______ / ________", size: 21, bold: true, color: ENCRE })], spacing: { after: 300 } }),
+    new Paragraph({ children: [new TextRun({ text: "Formation validée :   ☐  Oui        ☐  À refaire le  ______ / ______ / ________", size: 21, bold: true, color: ENCRE })], spacing: { after: 240 }, keepNext: true }),
     table([new TableRow({ height: { value: 1300, rule: HeightRule.ATLEAST }, children: [
       cellule([new Paragraph({ children: [new TextRun({ text: "Signature de la personne formée", bold: true, color: GRIS, size: 19 })] })], { largeur: LARGEUR / 2 }),
       cellule([new Paragraph({ children: [new TextRun({ text: "Signature du formateur", bold: true, color: GRIS, size: 19 })] })], { largeur: LARGEUR / 2 }),
