@@ -73,11 +73,15 @@ export function CreerClient({ db, save, profile }) {
       messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])],
     }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}${aussiProspect ? " (+ prospect à relancer)" : ""}`);
 
-    setDernier({ nom, identifiant, motDePasse, tel });
     setF({ nom: "", tel: "" });
     // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
     const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
     const m = messageIdentifiants(nom, r); if (m) uAlert(m);
+    // Le cadre vert dit PAR OÙ les accès sont partis : il écrivait « WhatsApp
+    // s'est ouvert » en dur, faux depuis que le message part du numéro BMI
+    // (22/09/2026 — la règle du 19/09 : l'écran ne décrit que ce qui vient de
+    // se passer).
+    setDernier({ nom, identifiant, motDePasse, tel, auto: !!(r && r.auto) });
   };
 
   const renvoyer = async (c) => {
@@ -145,7 +149,9 @@ export function CreerClient({ db, save, profile }) {
         {dernier && (
           <div className="mt-3 rounded-lg bg-white border-2 border-green-300 p-3 text-sm">
             ✅ <b>{dernier.nom.toUpperCase()}</b> créé — 👤 {dernier.identifiant} · 🔑 {dernier.motDePasse}
-            <div className="text-xs text-slate-500 mt-1">WhatsApp s'est ouvert avec le message. Si rien ne s'est passé, vérifiez que WhatsApp est installé.</div>
+            <div className="text-xs text-slate-500 mt-1">{dernier.auto
+              ? "Ses identifiants sont partis du numéro BMI."
+              : "WhatsApp s'est ouvert avec le message : il part de votre numéro. Si rien ne s'est passé, vérifiez que WhatsApp est installé."}</div>
           </div>
         )}
       </Panel>

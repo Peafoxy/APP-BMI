@@ -82,7 +82,7 @@ export const CHAPITRE = {
       ["h3", "C. Créer un compte de client"],
       ["etapes", [
         { titre: "Rôle « Client »", texte: "Le formulaire se réduit à **« Nom »** et **« Numéro de téléphone »**. Rien d'autre à taper." },
-        { titre: "Le mot de passe se fabrique tout seul", texte: "Les **4 derniers chiffres du numéro + les 2 premières lettres du nom**. L'identifiant, c'est le nom ; si un autre client le porte déjà, l'application y accole des chiffres du numéro. Les deux s'affichent en bleu avant même de cliquer." },
+        { titre: "Le mot de passe se fabrique tout seul", texte: "**6 caractères pris dans les chiffres de son numéro et les lettres de son nom**, mélangés toujours de la même façon pour ce client — donc recalculables, jamais écrits en clair. L'identifiant, c'est le nom ; si un autre client le porte déjà, l'application y accole des chiffres du numéro. Les deux s'affichent en bleu avant même de cliquer." },
         { titre: "« Créer », puis la confirmation", texte: "« Créer le compte client de … ? 👤 Identifiant … 🔑 Mot de passe … Remettez-lui ces identifiants. » Puis : « Envoyer ces identifiants au client par WhatsApp ? »" },
       ]],
       ["note", "Parce qu'il est fabriqué par une règle, le mot de passe d'un client **se retrouve** : « 👁 Voir le mot de passe » (administrateur principal) le recalcule et vous pouvez le lui renvoyer. Celui d'un employé, non : il faut en poser un nouveau avec 🔑."],

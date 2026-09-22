@@ -102,9 +102,12 @@ export function Users({ db, save, profile }) {
   const creer = async () => {
     if (bloquerSiLecture(db, profile)) return;
     // ══════ DEUX RÈGLES, ET DEUX SEULEMENT ══════
-    // 1. CLIENT  → mot de passe GÉNÉRÉ (4 derniers chiffres du téléphone +
-    //    2 premières lettres du nom). Il est donc recalculable : on peut le lui
-    //    renvoyer à tout moment, sans jamais le stocker en clair.
+    // 1. CLIENT  → mot de passe GÉNÉRÉ (6 caractères pris dans les chiffres du
+    //    téléphone et les lettres du nom, mélange déterministe — lib/identiteClient.js).
+    //    Il est donc recalculable : on peut le lui renvoyer à tout moment, sans
+    //    jamais le stocker en clair. ⚠ La phrase à l'écran disait encore « 4 derniers
+    //    chiffres + 2 premières lettres » (l'algorithme d'AVANT la 2.98.68) : corrigée
+    //    le 22/09/2026 en écrivant le chapitre 3 du manuel.
     // 2. EMPLOYÉ → mot de passe SAISI À LA MAIN par l'administrateur.
     // Aucun mélange : un compte client créé avec un mot de passe manuel serait
     // irrécupérable, personne ne pourrait le lui renvoyer.
@@ -961,7 +964,7 @@ export function Users({ db, save, profile }) {
 
         {f.role === "client" && (
           <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs text-slate-700">
-            🔑 <b>Compte client</b> : le mot de passe est <b>généré automatiquement</b> (4 derniers chiffres du numéro + 2 premières lettres du nom).
+            🔑 <b>Compte client</b> : le mot de passe est <b>généré automatiquement</b> (6 caractères pris dans son numéro et son nom, mélangés).
             Il reste ainsi recalculable — vous pourrez le lui renvoyer à tout moment.
             {f.nom.trim() && chiffresTel(f.tel).length >= 4 && (
               <div className="mt-1 font-bold text-sky-900">
