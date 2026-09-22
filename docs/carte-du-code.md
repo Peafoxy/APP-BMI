@@ -69,7 +69,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/conservation.js` | ⏳ Combien de temps on garde les données d'un client (6 ans, réglable) — **il DIT qui dépasse, il n'efface JAMAIS** |
 | `lib/motInformation.js` | 👋 Le mot d'information de la première ouverture (client et employé) — **les mots qui mettent mal à l'aise y sont listés pour être évités** |
 | `lib/whatsappModeles.js` | 📲 Les modèles de messages WhatsApp approuvés par Meta et l'ordre de leurs trous, y compris le choix entre un rappel de dette ordinaire et un rappel d'échéance — **le serveur lit CE fichier**, et aucun mot de passe n'y entre |
-| `lib/whatsappConversations.js` | 📲 Les réponses du client dans 📲 WhatsApp : à qui est une conversation, qui a le droit de la voir (le comptable non depuis le 20/09/2026 ; depuis le 21/09 une conversation confiée n'est lue que par son propriétaire et l'admin, les autres n'en voient qu'une **fiche légère** sans un mot du contenu), la fenêtre de 24 h de Meta, et ce qu'on lit d'une photo reçue — **le serveur lit CE fichier** (webhook, envoi, fichiers) |
+| `lib/whatsappConversations.js` | 📲 Les réponses du client dans 📲 WhatsApp : à qui est une conversation, qui a le droit de la voir (le comptable non depuis le 20/09/2026 ; depuis le 21/09 une conversation confiée n'est lue que par son propriétaire et l'admin, les autres n'en voient qu'une **fiche légère** sans un mot du contenu), la fenêtre de 24 h de Meta, ce qu'on lit d'une photo reçue, et RIEN en formation (`MOTIF_WA_FORMATION`, 22/09/2026 ; couple `securite-30`) — **le serveur lit CE fichier** (webhook, envoi, fichiers) |
 
 ## Les personnes, les espaces, la sécurité
 

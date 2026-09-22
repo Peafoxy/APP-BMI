@@ -82,10 +82,11 @@ export const NOMS_MODELES = Object.keys(MODELES);
 export const MODELES_EN_SERVICE = [
   "devis_disponible", "relance_devis", "devis_valide_paiement", "prise_de_contact",
   // 📋 Dettes, 20/09/2026 (décision « c ») : la relance d'une dette part
-  // enfin du numéro BMI. ⚠ `rappel_dette` doit encore être APPROUVÉ par
-  // Meta ; d'ici là l'envoi se replie sur l'ouverture WhatsApp et le refus
-  // se dit en français (« pas encore approuvé »). Le mettre en service tout
-  // de suite évite un second déploiement le jour de l'accord.
+  // du numéro BMI. Mis en service AVANT l'accord de Meta (d'ici là, repli
+  // sur l'ouverture WhatsApp, refus dit en français) pour éviter un second
+  // déploiement le jour de l'accord — **approuvé par Meta le 22/09/2026**,
+  // avec `prise_de_contact` et le modèle `espace` (celui-ci volontairement
+  // NON branché : les identifiants partent à la main, décision du 21/09).
   "rappel_echeance", "rappel_dette",
 ];
 

@@ -29,7 +29,7 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION } from "../lib/whatsappConversations";
 import { texteContact } from "../lib/whatsappModeles";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 
@@ -55,7 +55,11 @@ export const filWa = (messages, cle) =>
 export function compterNonLusWa(db, profile) {
   if (!aAccesWhatsapp(profile)) return 0;
   const messages = db.messages || [];
-  return conversationsWa(messages, profile).reduce(
+  // 🎓 L'espace REGARDÉ (jamais celui du compte : l'administrateur principal
+  // est un compte réel même quand il regarde la formation). En formation, le
+  // compteur de l'onglet reste à zéro — décision « B », 22/09/2026.
+  const espaceFormation = espaceDuCompte(db, profile) === true;
+  return conversationsWa(messages, profile, undefined, { espaceFormation }).reduce(
     // ⚠ UNE CONVERSATION GRISÉE NE COMPTE POUR RIEN (21/09/2026) : mettre
     // une pastille rouge à quelqu'un pour un message qu'il ne peut pas
     // ouvrir, c'est lui demander d'aller voir ailleurs.
@@ -85,7 +89,11 @@ export function Whatsapp({ db, save, profile }) {
     .filter((u) => u.role === "client" && u.actif !== false && String(u.tel || "").trim())
     .map((u) => ({ valeur: u.nom_base || u.nom, tel: u.tel, mots: motsDuNumero(u.tel), detail: u.tel }));
 
-  const tousConvs = aAccesWhatsapp(profile) ? conversationsWa(messages, profile) : [];
+  // 🎓 LES CONVERSATIONS N'EXISTENT QU'EN RÉEL (décision « B », 22/09/2026) :
+  // c'est l'espace REGARDÉ qui décide, et la règle reçoit ce booléen — elle
+  // ne peut pas le calculer elle-même (le serveur la lit).
+  const regardeFormation = espaceDuCompte(db, profile) === true;
+  const tousConvs = aAccesWhatsapp(profile) ? conversationsWa(messages, profile, undefined, { espaceFormation: regardeFormation }) : [];
   // ⚠ LA RÈGLE COMMUNE `correspond` (lib/suggestions.js), comme partout
   // ailleurs — jamais un filtre maison. Elle cherche le NOM et le NUMÉRO :
   // « 90112233 », « +228 90 11 22 33 » et « 228 » trouvent la même
@@ -174,7 +182,7 @@ export function Whatsapp({ db, save, profile }) {
   const envoyer = async () => {
     const t = texte.trim();
     if (!t || !ouverte || envoi) return;
-    const refus = critiqueReponse({ profile, conv: ouverte, texte: t, enLigne: navigator.onLine !== false });
+    const refus = critiqueReponse({ profile, conv: ouverte, texte: t, enLigne: navigator.onLine !== false, espaceFormation: regardeFormation });
     if (refus) { uAlert(refus); return; }
     setEnvoi(true);
     const r = await repondreWhatsApp({ tel: ouverte.tel, texte: t });
@@ -328,6 +336,19 @@ export function Whatsapp({ db, save, profile }) {
       cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom, derniere: m.ts,
     }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} rendue à tout le personnel par ${profile.nom}`);
   };
+
+  // 🎓 En formation, l'écran le DIT au lieu d'afficher une liste vide qui
+  // ressemblerait à une panne. ⚠ Placé APRÈS tous les hooks : un retour
+  // anticipé avant un hook est un écran blanc (piège du § 5).
+  if (regardeFormation) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-center" data-whatsapp="formation">
+        <div className="font-bold text-slate-800">📲 WhatsApp</div>
+        <div className="mt-2 text-sm text-slate-600">{MOTIF_WA_FORMATION}</div>
+        <div className="mt-1 text-xs text-slate-400">Repassez en réel (⚙ Paramètres → 👁 Je regarde) pour retrouver les conversations.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid lg:grid-cols-[280px_1fr] gap-4">

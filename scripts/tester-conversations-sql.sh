@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Rejoue supabase/securite-27 PUIS securite-28 sur un PostgreSQL
+# Rejoue supabase/securite-27, -28, -29 PUIS -30 sur un PostgreSQL
 # local jetable, dans un environnement qui reproduit celui de Supabase
 # (mêmes tables, mêmes rôles, même auth.jwt(), mêmes politiques de départ,
 # ET la règle des comptes clients déjà posée — client-1-fermer-annuaire).
@@ -38,7 +38,9 @@ insert into public.users (id, data) values
   ('COM1',   '{\"nom\":\"COM1\",\"role\":\"commercial\"}'),
   ('COM2',   '{\"nom\":\"COM2\",\"role\":\"commercial\"}'),
   ('COMPTA', '{\"nom\":\"COMPTA\",\"role\":\"comptable\"}'),
-  ('CLI1',   '{\"nom\":\"CLI1\",\"role\":\"client\"}');
+  ('CLI1',   '{\"nom\":\"CLI1\",\"role\":\"client\"}'),
+  ('FORMA',  '{\"nom\":\"FORMA\",\"role\":\"admin\",\"formation\":true}'),
+  ('FORMV',  '{\"nom\":\"FORMV\",\"role\":\"vendeur\",\"formation\":true}');
 " >/dev/null
 
 # ---- LES MESSAGES ----
@@ -110,6 +112,10 @@ COM1='{"email":"COM1@bmi.internal","app_metadata":{"role":"commercial","espace":
 COM2='{"email":"COM2@bmi.internal","app_metadata":{"role":"commercial","espace":"reel","ecriture":true}}'
 COMPTA='{"email":"COMPTA@bmi.internal","app_metadata":{"role":"comptable","espace":"reel","ecriture":false}}'
 CLIENT='{"email":"CLI1@bmi.internal","app_metadata":{"role":"client","espace":"reel","ecriture":true}}'
+# 🎓 Les comptes de FORMATION : le jeton porte `espace = formation`
+# (api/sync-auth.js), exactement comme pour les politiques espace_cloisonnement.
+FORMA='{"email":"FORMA@bmi.internal","app_metadata":{"role":"admin","espace":"formation","ecriture":true}}'
+FORMV='{"email":"FORMV@bmi.internal","app_metadata":{"role":"vendeur","espace":"formation","ecriture":true}}'
 
 WA="select count(*) from public.messages where data->>'canal' = 'whatsapp';"
 ENT="select count(*) from public.messages where data->>'canal' = 'whatsapp_entete';"
@@ -231,6 +237,39 @@ compte "après un second passage, le commercial voit toujours les siennes" "$COM
 compte "…et toujours pas celle du vendeur"  "$COM1" \
   "select count(*) from public.messages where id = 'wa3';" "0"
 compte "…et il reçoit toujours les 3 fiches"  "$COM1" "$ENT" "3"
+
+echo
+echo "▸ 8. 🎓 LES CONVERSATIONS N'EXISTENT QU'EN RÉEL (securite-30, décision « B »)"
+# ⚠⚠ D'ABORD LE TROU, tel qu'il est en production avec securite-29 : un
+# administrateur DE FORMATION reçoit les vraies conversations, et leur contenu.
+compte "AVANT : un administrateur de formation reçoit TOUT WhatsApp (le trou)" "$FORMA" "$WA" "7"
+compte "…et les 3 fiches légères"                                           "$FORMA" "$ENT" "3"
+compte "…un vendeur de formation reçoit le support (le trou, en plus petit)" "$FORMV" \
+  "select count(*) from public.messages where id = 'wa2';" "1"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-30-whatsapp-reel-seulement.sql >/dev/null 2>&1
+compte "★★ APRÈS : l'administrateur de formation ne reçoit PLUS RIEN de WhatsApp" "$FORMA" "$WA" "0"
+compte "★★ …ni aucune fiche légère (pas même une ligne grisée)"                "$FORMA" "$ENT" "0"
+compte "★★ …le vendeur de formation non plus, support compris"                 "$FORMV" "$WA" "0"
+compte "…et pas de fiche non plus"                                              "$FORMV" "$ENT" "0"
+# ⚠ Ce qui ne doit PAS bouger : la messagerie interne, et les comptes réels.
+compte "la messagerie INTERNE d'un compte de formation n'a pas bougé" "$FORMA" "$INT" "4"
+compte "l'administrateur principal (espace « tous ») reçoit toujours tout" "$ADMIN" "$WA" "7"
+compte "…et toutes les fiches"                                              "$ADMIN" "$ENT" "3"
+compte "le commercial réel voit toujours SA conversation entière" "$COM1" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
+compte "…toujours pas celle du vendeur"  "$COM1" \
+  "select count(*) from public.messages where id = 'wa3';" "0"
+compte "…et toujours les 3 fiches"       "$COM1" "$ENT" "3"
+compte "le comptable et le client : toujours rien" "$COMPTA" "$WA" "0"
+verite "★ la politique porte bien la clause de formation" \
+  "select count(*) = 1 from pg_policies where tablename='messages' and policyname='wa_conversations_visibles' and qual like '%formation%';"
+verite "le visiteur anonyme ne peut toujours pas appeler la fonction" \
+  "select not has_function_privilege('anon','public.wa_proprietaire(text)','execute');"
+# Relancer doit être sans danger — on le VÉRIFIE.
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-30-whatsapp-reel-seulement.sql >/dev/null 2>&1
+compte "après un second passage, la formation ne reçoit toujours rien" "$FORMA" "$WA" "0"
+compte "…et le commercial réel voit toujours les siennes" "$COM1" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
 
 echo
 echo "──────────────────────────────────────────"

@@ -254,6 +254,25 @@ export const ROLES_TOUTES_CONVERSATIONS = ["admin"];
 export const aAccesWhatsapp = (profile) =>
   !!profile && profile.role !== "client" && profile.role !== "comptable";
 
+// ---------------------------------------------------------------
+// 🎓 LES CONVERSATIONS WHATSAPP N'EXISTENT QU'EN RÉEL (22/09/2026, « B »)
+// ---------------------------------------------------------------
+// Timo : « les messages WhatsApp sont-ils finalement bloqués sur l'espace
+// formation ? » — l'ENVOI par modèle l'était (quatre écrans passent l'espace
+// de la donnée, et le serveur refuse tout compte de formation). Mais la
+// RÉPONSE libre ne passait aucun espace, et la liste des conversations
+// n'était pas cloisonnée du tout : la table des messages est hors du
+// cloisonnement par espace depuis l'origine. Une conversation WhatsApp est
+// un VRAI client qui écrit sur le VRAI numéro BMI — il n'existe pas de
+// conversation « de formation ». Devant trois propositions il a choisi
+// **« B »** : en regardant la formation, 📲 WhatsApp est VIDE et le dit ;
+// répondre est refusé DANS le geste ; et `securite-30` empêche un compte de
+// formation de recevoir une seule ligne WhatsApp sur son appareil.
+// ⚠ DEUX BARRIÈRES QUI NE PROTÈGENT PAS LA MÊME CHOSE : la base ne sait pas
+// ce que l'administrateur principal REGARDE (son compte est réel) — c'est
+// l'écran qui le protège, lui ; la base protège un compte de FORMATION.
+export const MOTIF_WA_FORMATION = "Les conversations WhatsApp n'existent qu'en réel : rien ne s'affiche ni ne part depuis l'espace formation.";
+
 export const voitToutesLesConversations = (profile) =>
   aAccesWhatsapp(profile) && ROLES_TOUTES_CONVERSATIONS.includes(profile.role);
 
@@ -277,13 +296,18 @@ export const peutReattribuer = (profile) => profile?.role === "admin";
 // ---------------------------------------------------------------
 // Rend, de la plus récente à la plus ancienne :
 //   { cle, tel, nom, proprietaire_id, proprietaire_nom, fil, fenetre, derniere, nonLus }
-export function conversationsWa(messages, profile, maintenant = new Date().toISOString()) {
+export function conversationsWa(messages, profile, maintenant = new Date().toISOString(), { espaceFormation = false } = {}) {
   // ⚠⚠ CE GARDE-FOU EST INDISPENSABLE DEPUIS LE 21/09/2026, et il n'est pas
   // une précaution de style : sans lui, un compte qui n'a AUCUN droit sur
   // 📲 WhatsApp (le client, le comptable) verrait toutes les conversations
   // en lignes GRISÉES — `peutVoirConversation` lui répond non, et « non »
   // veut désormais dire « grisée », plus « absente ».
   if (!aAccesWhatsapp(profile)) return [];
+  // 🎓 En regardant la formation, il n'y a RIEN — pas même une ligne grisée
+  // (décision « B », 22/09/2026). `espaceFormation` est l'espace REGARDÉ,
+  // passé par l'écran : ce fichier est lu par le serveur et ne peut pas
+  // importer calculs.js pour le calculer lui-même.
+  if (espaceFormation) return [];
   const parCle = new Map();
   const fiches = new Map();
   (Array.isArray(messages) ? messages : []).forEach((m) => {
@@ -353,7 +377,10 @@ export const motifVerrouillee = (conv) =>
     ? `Cette conversation est confiée à ${conv.proprietaire_nom}. Seule cette personne, ou un administrateur, peut l'ouvrir.`
     : "Cette conversation ne vous est pas accessible.";
 
-export function critiqueReponse({ profile, conv, texte, enLigne = true, maintenant } = {}) {
+export function critiqueReponse({ profile, conv, texte, enLigne = true, maintenant, espaceFormation = false } = {}) {
+  // 🎓 Revérifié DANS le geste (22/09/2026) : même si l'écran se trompait,
+  // aucune réponse ne part pendant qu'on regarde la formation.
+  if (espaceFormation) return MOTIF_WA_FORMATION;
   if (!conv) return "Choisissez d'abord une conversation.";
   if (!peutVoirConversation(profile, conv)) return motifVerrouillee(conv);
   if (!String(texte || "").trim()) return "Écrivez d'abord votre message.";

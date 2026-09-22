@@ -6,7 +6,7 @@
 // arguments — le client tapait son mot de passe et tombait sur du blanc).
 // On le monte donc sur DEUX bases : une garnie, et une NUE.
 import { renderToStaticMarkup } from "react-dom/server";
-import { Whatsapp, MediaWa } from "../src/screens/Whatsapp.jsx";
+import { Whatsapp, MediaWa, compterNonLusWa } from "../src/screens/Whatsapp.jsx";
 
 const boutiques = [{ id: "b1", nom: "APESSITO" }];
 const users = [
@@ -51,6 +51,16 @@ export const htmlNu = () => rendre({}, users[0]);
 // d'AYOKO est confiée à COM1 (le cas exact de la capture de Timo, où
 // ANGELE écrivait encore dans une conversation confiée à TIMO1).
 export const htmlVendeur = () => rendre(garnie, users[2]);
+
+// 🎓 UN ADMINISTRATEUR DE FORMATION (22/09/2026, décision « B ») : son compte
+// EST de formation, donc l'espace regardé l'est aussi — l'écran doit être
+// vide et le dire, sans une ligne, pas même grisée. ⚠ On lui met exprès les
+// mêmes messages dans la base (le pire cas : en vrai, securite-30 ne les lui
+// enverrait pas ; si l'écran les laissait ressortir, le banc le verrait).
+const adminFormation = { id: "FORMA", nom: "FORMA", role: "admin", formation: true };
+export const htmlFormation = () => rendre(garnie, adminFormation);
+export const nonLusFormation = () => compterNonLusWa(garnie, adminFormation);
+export const nonLusReel = () => compterNonLusWa(garnie, users[0]);
 
 // ⚠ CE SONT DES FONCTIONS, pas des valeurs : si le rendu lève, le banc doit
 // afficher un ✗ lisible, pas s'arrêter net sur une pile d'erreurs.

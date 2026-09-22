@@ -892,5 +892,77 @@ test("★ le geste laisse sa ligne de journal, comme « Confier »",
   /rendue à tout le personnel par \$\{profile\.nom\}/.test(codeEcranWa));
 
 
+// ──────────────────────────────────────────────────────────────
+titre("⑯ 🎓 LES CONVERSATIONS WHATSAPP N'EXISTENT QU'EN RÉEL (22/09/2026, décision « B »)");
+// Timo : « les messages WhatsApp sont-ils finalement bloqués sur l'espace
+// formation ? ». L'envoi l'était ; la RÉPONSE libre et la LISTE, non. Il a
+// choisi « B » : écran vide et qui le dit, refus dans le geste, et
+// securite-30 pour qu'un compte de formation ne reçoive rien.
+const sql30 = lire("supabase/securite-30-whatsapp-reel-seulement.sql");
+const bancSql = lire("scripts/tester-conversations-sql.sh");
+const msgsReels = [
+  { id: "f1", canal: "whatsapp", wa_tel: "90112233", wa_nom: "ESSO", ts: "2026-09-22T08:00:00Z", wa_entrant: true, texte: "bonjour", lu_par: [] },
+  { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: "90112233", wa_nom: "ESSO", derniere: "2026-09-22T08:00:00Z", ts: "2026-09-22T08:00:00Z" },
+];
+test("★★★ SON CAS : en regardant la formation, la liste est VIDE — même pour l'administrateur, même avec des messages en base",
+  C.conversationsWa(msgsReels, { id: "TIMO", role: "admin" }).length === 1
+  && C.conversationsWa(msgsReels, { id: "TIMO", role: "admin" }, undefined, { espaceFormation: true }).length === 0
+  && C.conversationsWa(msgsReels, { id: "u1", role: "commercial" }, undefined, { espaceFormation: true }).length === 0);
+test("★★ pas même une ligne GRISÉE : la fiche légère ne ressort pas non plus en formation",
+  C.conversationsWa([msgsReels[1]], { id: "u9", role: "vendeur" }, undefined, { espaceFormation: true }).length === 0
+  && C.conversationsWa([msgsReels[1]], { id: "u9", role: "vendeur" }).length === 1);
+test("★★★ RÉPONDRE EST REFUSÉ DANS LE GESTE en formation, avant toute autre vérification",
+  C.critiqueReponse({ profile: { id: "TIMO", role: "admin" }, conv: convOuverte, texte: "salut", espaceFormation: true }) === C.MOTIF_WA_FORMATION
+  && C.critiqueReponse({ profile: { id: "TIMO", role: "admin" }, conv: convOuverte, texte: "salut" }) === "");
+test("★ le motif parle français et ne dit ni « RLS » ni « espace_cloisonnement »",
+  /formation/.test(C.MOTIF_WA_FORMATION) && !/RLS|cloisonnement|jwt/i.test(C.MOTIF_WA_FORMATION));
+
+// ── L'ÉCRAN : c'est l'espace REGARDÉ qui décide (jamais celui du compte)
+test("★★★ l'écran passe l'espace REGARDÉ (`espaceDuCompte`) à la liste, au compteur et au geste — jamais `estCompteFormation(db, profile)`",
+  /const regardeFormation = espaceDuCompte\(db, profile\) === true;/.test(codeEcranWa)
+  && /conversationsWa\(messages, profile, undefined, \{ espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
+  && /const espaceFormation = espaceDuCompte\(db, profile\) === true;\s*return conversationsWa\(messages, profile, undefined, \{ espaceFormation \}\)/.test(codeEcranWa)
+  && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, enLigne: navigator\.onLine !== false, espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
+  && !/estCompteFormation\(db, profile\)/.test(codeEcranWa));
+test("★★ l'écran vide le DIT, avec la porte de sortie (👁 Je regarde) — jamais une liste vide qui ressemble à une panne",
+  /if \(regardeFormation\) \{\s*return \(/.test(codeEcranWa)
+  && /data-whatsapp="formation"/.test(codeEcranWa) && /\{MOTIF_WA_FORMATION\}/.test(codeEcranWa)
+  && /Je regarde/.test(codeEcranWa));
+// ⚠ Un retour anticipé AVANT un hook est un écran blanc (piège du § 5) :
+// on vérifie que le retour est posé après le dernier hook du composant.
+{
+  const debut = codeEcranWa.indexOf("export function Whatsapp(");
+  const fin = codeEcranWa.indexOf("export function MediaWa(", debut);
+  const corps = codeEcranWa.slice(debut, fin);
+  const retour = corps.indexOf("if (regardeFormation) {");
+  const dernierHook = Math.max(corps.lastIndexOf("useState("), corps.lastIndexOf("useEffect("), corps.lastIndexOf("useRef("));
+  test("★★ le retour anticipé de la formation est posé APRÈS le dernier hook (sinon écran blanc)",
+    retour > 0 && dernierHook > 0 && retour > dernierHook);
+}
+// ── LE RENDU, POUR DE BON
+const vuFormation = monte(V.htmlFormation);
+test("★★★ MONTÉ : en formation l'écran se dessine, sans une seule conversation, et dit pourquoi",
+  !vuFormation.startsWith("⛔") && vuFormation.includes('data-whatsapp="formation"')
+  && !vuFormation.includes("ESSO") && !vuFormation.includes("AYOKO") && !vuFormation.includes("Rechercher"));
+test("★★ le compteur de l'onglet reste à ZÉRO en formation, et compte en réel",
+  V.nonLusFormation() === 0 && V.nonLusReel() > 0);
+
+// ── LE COUPLE : la base ferme la même porte, pour un compte de formation
+test("★★★ LE COUPLE : `securite-30` refuse `espace = formation` avec la revendication d'espace-3-politiques",
+  /and coalesce\(auth\.jwt\(\) -> 'app_metadata' ->> 'espace', 'reel'\) <> 'formation'/.test(sql30)
+  && /as formation_fermee;/.test(sql30));
+test("★★ …et il REPREND `securite-29` en entier : c'est le seul à coller",
+  ["public.wa_role()", "public.wa_moi()", "wa_conversations_visibles", "whatsapp_entete", "messages_wa_tel_idx", "proprietaire_efface"]
+    .every((bout) => sql30.includes(bout))
+  && sql30.includes(sql29.slice(sql29.indexOf("create or replace function public.wa_proprietaire"), sql29.indexOf("-- ⚠ Supabase accorde"))));
+test("★★ le banc SQL rejoue securite-30 sur un compte de formation, ET vérifie que la messagerie interne n'a pas bougé",
+  /securite-30-whatsapp-reel-seulement\.sql/.test(bancSql)
+  && /"espace":"formation"/.test(bancSql)
+  && /la messagerie INTERNE d'un compte de formation n'a pas bougé" "\$FORMA" "\$INT"/.test(bancSql));
+// ⚠ Ce que la base ne peut PAS faire, dit dans le SQL lui-même.
+test("★ le SQL DIT que la base ne protège pas l'administrateur principal qui regarde la formation — c'est l'écran",
+  /ne sait pas ce que\s*-- l'administrateur PRINCIPAL regarde/.test(sql30));
+
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

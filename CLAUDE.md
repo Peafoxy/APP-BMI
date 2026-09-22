@@ -63,9 +63,9 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 236 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, et le retour au support)
+npm run verifier-whatsapp        # 249 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
-npm run tester-conversations     # 46  : qui REÇOIT quelle conversation WhatsApp, et la fiche légère qui ne porte rien (serveur, base jetable)
+npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
@@ -2521,6 +2521,68 @@ lit mal est pire qu'un banc absent).
   le geste, les trois barrières, « 🔁 Confier » réservé à l'admin, la
   recherche et l'archivage — tout vient toujours de
   `lib/whatsappConversations.js` et `src/whatsapp.js`.
+
+### 🎓 LES CONVERSATIONS WHATSAPP N'EXISTENT QU'EN RÉEL (22/09/2026, décision « B »)
+- Timo : **« les messages WhatsApp sont-ils finalement bloqués sur l'espace
+  formation ? »** Réponse honnête, vérifiée dans le code : **en partie**.
+  L'ENVOI par modèle l'était (les quatre écrans passent l'espace de la
+  DONNÉE, et `api/whatsapp.js` refuse tout compte de formation, modèles ET
+  réponses). Mais **deux trous** : la RÉPONSE libre de 📲 WhatsApp ne passait
+  aucun espace — l'administrateur principal, compte RÉEL même en regardant la
+  formation, pouvait répondre à un vrai client en croyant s'entraîner — et la
+  LISTE n'était pas cloisonnée du tout : **la table des messages est hors du
+  cloisonnement par espace depuis l'origine** (`espace-1-colonne.sql`, « pas
+  de rattachement à une boutique »), donc un administrateur DE FORMATION
+  recevait les vraies conversations et leur contenu. Trois propositions
+  (a · fermer la réponse, b · en plus cacher la liste avec un SQL, c · laisser)
+  → **« c'est B »**.
+- **Une conversation WhatsApp est un VRAI client sur le VRAI numéro BMI : il
+  n'existe pas de conversation « de formation ».** Donc, en regardant la
+  formation, **RIEN** — pas même une ligne grisée. `MOTIF_WA_FORMATION`
+  (lib/whatsappConversations.js) ; `conversationsWa(…, { espaceFormation })`
+  rend `[]` ; `critiqueReponse({ …, espaceFormation })` refuse **DANS le
+  geste**, avant toute autre vérification.
+- ⚠⚠ **C'EST L'ESPACE REGARDÉ QUI DÉCIDE, jamais ce qu'EST le compte** :
+  l'écran passe `espaceDuCompte(db, profile) === true` à la liste, au
+  compteur de l'onglet et au geste — jamais `estCompteFormation(db,
+  profile)`, qui se trompe pour le principal (cinquième défaut, 14/09). Et la
+  règle REÇOIT ce booléen : le serveur lit ce fichier, il ne peut pas
+  importer calculs.js pour le calculer.
+- **L'écran le DIT** (`data-whatsapp="formation"`, avec la porte de sortie
+  « 👁 Je regarde ») au lieu d'une liste vide qui ressemblerait à une panne.
+  ⚠ Le retour anticipé est posé **APRÈS le dernier hook** (piège du § 5) — le
+  banc mesure sa position. **Le compteur de l'onglet reste à zéro** en
+  formation (`compterNonLusWa` passe par la même règle). Le banc MONTE
+  l'écran avec un administrateur de formation ET les messages exprès en base
+  (le pire cas) : rien ne ressort.
+- ⚠⚠ **DEUX BARRIÈRES QUI NE PROTÈGENT PAS LA MÊME CHOSE.** La base ne sait
+  pas ce que le principal REGARDE (son jeton dit `tous`) : **pour lui, c'est
+  l'écran**. La base protège un compte de FORMATION : **`securite-30`**
+  (`supabase/securite-30-whatsapp-reel-seulement.sql`) ajoute UNE clause à
+  la politique de `securite-29` — `app_metadata.espace <> 'formation'`, la
+  MÊME revendication que les politiques `espace_cloisonnement` — et rien
+  d'autre : les trois fonctions sont identiques mot pour mot (le banc compare
+  le texte de `wa_proprietaire`). Il REPREND `-29` (donc `-28`, `-27`) en
+  entier : **c'est le SEUL à coller**. Le banc SQL (`tester-conversations`,
+  **64 contrôles**) montre D'ABORD le trou (7 lignes et 3 fiches chez un
+  admin de formation), puis 0 et 0 après, la messagerie interne intacte, le
+  principal et les comptes réels inchangés, et le second passage sans danger.
+  ⚠ Effet à la prochaine reconnexion de chacun (`reconcilierMiroir`).
+- **Ce qui n'a PAS bougé** : l'envoi par modèle en formation (repli sur
+  l'ouverture WhatsApp, motif « formation » qui ne dérange personne), et le
+  refus serveur d'un compte de formation, déjà là depuis le 19/09.
+- Le banc a été éprouvé en remettant quatre fautes (la liste qui ignore la
+  formation, le geste qui ne revérifie plus, la clause SQL retirée, l'écran
+  qui lit ce qu'EST le compte) : à chaque fois des contrôles tombent.
+- ⚠ **`rappel_echeance` : DEUX textes, et c'est voulu (22/09/2026).** Le texte
+  approuvé chez Meta (« Bonjour {{1}}, une échéance de votre règlement BMI
+  TOGO arrive le {{2}}… BMI TOGO — Les bâtiments modernes et intelligents »)
+  et le repli de l'application (`texteRappelEcheance`) diffèrent par les mots
+  autour, pas par les chiffres ni l'ordre des cinq trous. Timo : « 2 versions
+  selon si par WhatsApp app BMI ou WhatsApp messenger, il n'y a pas de
+  souci ». **Ne pas aligner sans sa demande.** Les sept modèles sont
+  **approuvés par Meta le 22/09/2026** (« Active – Quality pending » =
+  approuvé, la note de qualité vient après) ; `espace` reste NON branché.
 
 ### 📲 WHATSAPP — LES TROIS AVERTISSEMENTS LEVÉS (20/09/2026, « 1a · 2a · 3a »)
 - Timo, capture d'écran de mon propre message du matin : **« on revient
