@@ -142,7 +142,7 @@ export const CONTENU = [
   h3("Un client qui veut un devis (solaire, portail, forage…)"),
   p("Je passe par " + T.dimensionnement + " : le volet **Solaire** calcule l'installation à partir des appareils du client ; **Portail** et **Autre** (vidéo surveillance, électricité, forage) listent le matériel. Je choisis le client, et « 📲 Envoyer ce devis au client ». Voir la Partie 2."),
   h3("Il manque un article"),
-  p("Dans " + T.ravitaillement + ", « 🚚 Demander un ravitaillement au magasin » : je liste ce qu'il me faut, « 📤 Envoyer la demande ». Quand le magasin livre, je pointe ce que je reçois et « ✅ Valider la réception ». Dans " + T.stocks + " (pour le gérant), l'encadré « ⚠ À réapprovisionner » prépare la liste tout seul."),
+  p("Dans " + T.ravitaillement + ", « 🚚 Demander un ravitaillement au magasin » : je choisis l'« Article souhaité » dans le catalogue du magasin, la « Quantité », « + Ajouter », puis « 📤 Envoyer la demande ». Je n'ai rien d'autre à faire : quand le magasinier valide le bon, la marchandise arrive avec son bon de ravitaillement et **le stock de ma boutique monte à ce moment-là**. Sous l'encadré, « Mes demandes » dit où en est chacune : ⏳ En attente (je peux encore « Annuler »), ✅ Servie avec le numéro du bon, ❌ Refusée avec le motif. Quand le magasin a répondu, l'onglet affiche « 🚚 Ravitaillement (1) »."),
   h3("Le soir — clôturer le jour"),
   ol(
     "Je clôture **en dernier**, quand la boutique ferme. Une vente faite après la clôture oblige à la refaire.",
@@ -178,8 +178,18 @@ export const CONTENU = [
   ul(
     "Dans " + T.stocks + " : « + Ajouter » un article, « + Entrée » quand la marchandise arrive, « ✏️ Corriger » une fiche, « 📋 Faire l'inventaire » puis « ✅ Valider l'inventaire ».",
     "« ⇄ Transfert » vers une autre boutique : **l'article ne bouge pas tant que l'autre boutique n'a pas validé la réception**. Et quand c'est moi qui reçois, je valide dans l'encadré « 📦 Transferts de stock à valider ».",
-    "« ⚠ À réapprovisionner » liste ce qui est au seuil ; « 🚚 Demander ce ravitaillement » prépare la demande au magasin."
+    "« ⚠ À réapprovisionner » liste ce qui est au seuil ou en dessous : c'est le point de départ du ravitaillement, ci-dessous."
   ),
+  h3("Le ravitaillement"),
+  p("Le gérant n'a pas l'onglet " + T.ravitaillement + " : il n'en a pas besoin, tout est dans " + T.stocks + ", sur sa boutique."),
+  ol(
+    "L'encadré « ⚠ À réapprovisionner » montre tout ce qui est au seuil ou en dessous, du plus urgent au moins urgent, avec le **manque** (seuil − reste). « 🚚 Demander ce ravitaillement » prépare la demande tout seul, avec ces articles et ces quantités ; je peux retirer une ligne ou en ajouter avant d'envoyer.",
+    "Sinon, en bas de l'écran, l'encadré « 🚚 Demander un ravitaillement au magasin » : « Article souhaité » (le catalogue du magasin), « Quantité », « + Ajouter ». Une note pour le magasinier si besoin (« urgent, chantier de vendredi »). Puis « 📤 Envoyer la demande » : le magasinier et l'administrateur sont prévenus.",
+    "« Mes demandes », sous l'encadré : ⏳ En attente (je peux encore « Annuler »), ✅ Servie avec le numéro du bon (RAV-…), ❌ Refusée avec le motif du magasinier.",
+    "C'est **le magasinier qui valide le bon**, et c'est à cet instant que le stock quitte le magasin et entre dans ma boutique. **Je n'ai rien à valider.** Je vérifie la marchandise reçue contre le bon de ravitaillement qui l'accompagne ; s'il manque quelque chose, j'écris au magasinier dans " + T.messages + ". Un article que ma boutique n'avait pas encore est créé dans mon stock tout seul, au prix du magasin.",
+    "Ensuite, une **« + Entrée »** ne se fait pas pour un ravitaillement : la quantité est déjà entrée. « + Entrée » sert quand la marchandise vient d'un fournisseur, pas du magasin."
+  ),
+  note("À ne pas confondre avec le **transfert de stock** entre deux boutiques (« ⇄ Transfert ») : là, c'est la boutique qui reçoit qui doit cliquer « ✅ Valider la réception », et rien ne bouge avant. Pour un ravitaillement venu du magasin, c'est le magasinier qui valide."),
   h3("Le SAV"),
   p("Un article défectueux sous garantie : sur la ligne de la vente, « 🔁 Retour / échange sous garantie ». L'échange n'est jamais une vente ; le défectueux part dans un stock SAV à part. Un **bon de retour** sort pour le client."),
   h3("Les travaux à crédit"),
@@ -196,7 +206,10 @@ export const CONTENU = [
   ),
   h3("Servir les boutiques"),
   ol(
-    "Une **demande de ravitaillement** arrive d'une boutique (notification). Je la prépare et je la marque livrée ; c'est la boutique qui valide la réception.",
+    "Une **demande de ravitaillement** arrive d'une boutique (notification « 🚚 Demande de ravitaillement »). Dans " + T.stocks + ", sur mon magasin, l'encadré « 📥 Demandes des boutiques » la montre : « 📋 Préparer le bon » charge les articles demandés dans « 🚚 Ravitailler une boutique », ou « Refuser » avec un motif que la boutique lira.",
+    "Si la boutique a nommé un article autrement que moi, ou s'il est à zéro chez moi, il apparaît dans « à associer » : je dis à quel article de mon magasin il correspond (« Associer »), ou « Ignorer ».",
+    "Je complète le bon s'il le faut (« Boutique à ravitailler », « Article du magasin », « Quantité », « + Ajouter au bon »), puis « ✅ Valider le ravitaillement » : **le stock quitte mon magasin et entre dans la boutique à cet instant**, le bon de ravitaillement (RAV-…) s'imprime et part avec la marchandise, la demande est marquée servie. La boutique n'a rien à valider.",
+    "Je peux aussi ravitailler **sans attendre une demande** : « ⚠ Alertes de stock dans les boutiques » me dit ce qui est passé sous le seuil chez chacune.",
     "Un **transfert de stock** que je reçois : je le valide dans « 📦 Transferts de stock à valider ». Tant que je ne l'ai pas fait, l'article n'a pas bougé.",
     "« ⇄ Transfert » : j'envoie un article vers une boutique ; c'est elle qui valide."
   ),
@@ -459,12 +472,14 @@ export const CONTENU = [
     "« + Entrée » quand la marchandise arrive ; « ✏️ Corriger » une fiche ; « 🖨 Étiquette » (60 × 30 mm, code-barres).",
     "« 📋 Faire l'inventaire » → comptez → « ✅ Valider l'inventaire » : les écarts sont enregistrés.",
     "« ⇄ Transfert » vers une autre boutique : rien ne bouge tant que **la boutique qui reçoit** n'a pas validé dans « 📦 Transferts de stock à valider ». Elle peut refuser.",
-    "« ⚠ À réapprovisionner » : tout ce qui est au seuil ou en dessous, du plus urgent au moins urgent ; « 🚚 Demander ce ravitaillement » prépare la demande au magasin.",
+    "« ⚠ À réapprovisionner » : tout ce qui est au seuil ou en dessous, du plus urgent au moins urgent ; « 🚚 Demander ce ravitaillement » prépare la demande au magasin. En bas de l'écran d'une boutique, « 🚚 Demander un ravitaillement au magasin » et « Mes demandes » (⏳ En attente / ✅ Servie / ❌ Refusée).",
+    "Sur un **magasin** : « 📥 Demandes des boutiques » (« 📋 Préparer le bon » / « Refuser »), « ⚠ Alertes de stock dans les boutiques », « 🚚 Ravitailler une boutique » puis « ✅ Valider le ravitaillement » — c'est là que le stock bouge, du magasin vers la boutique, et que le bon RAV-… s'imprime. « Derniers ravitaillements depuis ce magasin » en dessous.",
     "« 📥 Importer un fichier Excel » (une feuille par boutique ; nouveaux articles ou entrées), « 📤 Exporter »."
   ),
 
   h2(T.ravitaillement),
-  p("**Qui** : vendeur. « 🚚 Demander un ravitaillement au magasin » : la liste de ce qu'il faut, « 📤 Envoyer la demande ». À la livraison, « ✅ Valider la réception » : le stock de la boutique monte à ce moment-là."),
+  p("**Qui** : vendeur (le gérant et l'administrateur ont le même encadré en bas de " + T.stocks + "). « 🚚 Demander un ravitaillement au magasin » : « Article souhaité », « Quantité », « + Ajouter », une note si besoin, « 📤 Envoyer la demande ». « Mes demandes » suit chaque demande : ⏳ En attente (« Annuler » possible), ✅ Servie (numéro du bon), ❌ Refusée (motif)."),
+  note("La boutique **ne valide rien** pour un ravitaillement : c'est le magasinier qui valide le bon, et le stock de la boutique monte à cet instant. Le bouton « ✅ Valider la réception » n'existe que pour un **transfert de stock entre deux boutiques**."),
 
   h2(T.fournisseurs),
   p("**Qui** : gérant, administrateur. La liste des fournisseurs et leurs coordonnées, choisis à la création d'un article."),
