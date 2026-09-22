@@ -282,7 +282,7 @@ export function Prospects({ db, save, profile, isAdmin }) {
         <Panel>
           <div className="font-bold mb-3">Nouveau prospect</div>
           {categories.length === 0 ? (
-            <div className="text-sm text-slate-600">Aucune catégorie disponible. Demandez à l'administrateur d'en créer dans Paramètres.</div>
+            <div className="text-sm text-slate-600">Aucune catégorie disponible. Demandez à l'administrateur d'en créer : il le fait depuis cet écran 🧲 Prospects (cadre « Catégories de prospects »).</div>
           ) : (
             <>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
