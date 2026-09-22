@@ -10785,7 +10785,7 @@ titre("📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS DE PAIEMENT APPARAISSENT (Timo
 }
 
 
-titre("📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE — ON NE LE REDEMANDE PLUS (Timo, 21/09/2026)");
+titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/2026)");
 {
   // Capture de la fenêtre « Moyen de paiement pour FIFO » : **« on demande
   // encore le moyen de paiement »**. Devant deux propositions (déduire le
@@ -10847,25 +10847,79 @@ titre("📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE — ON NE LE REDEMANDE PLUS
     })());
   }
 
+  // ── 💳 LE MOYEN DU CLIENT (Timo, 21/09/2026 : « Sa devrai être
+  // automatique... Moyen utilisé avec le client, automatiquement utilisé pour
+  // payer l'apporteur externe »). L'argent ressort par où il est entré.
+  {
+    const CREDIT = "Crédit (dette)";
+    const lotComptant = [
+      { id: "c1", date: "2026-09-10", heure: "08:00", paiement: "Espèces" },
+      { id: "c2", date: "2026-09-12", heure: "16:30", paiement: MIXX },
+    ];
+    test("★★ SON CAS : le client a payé par Mixx → l'apporteur est payé par Mixx, sans une question",
+      Ap.moyenDuClientPourApporteur(lotComptant, []) === MIXX);
+    test("★★ la vente la PLUS RÉCENTE du lot décide (l'heure compte, pas seulement la date)",
+      Ap.moyenDuClientPourApporteur([
+        { id: "x1", date: "2026-09-12", heure: "18:00", paiement: FLOOZ },
+        { id: "x2", date: "2026-09-12", heure: "09:00", paiement: "Espèces" },
+      ], []) === FLOOZ);
+    // ⚠ Une vente à CRÉDIT n'encaisse rien le jour de la vente : l'argent entre
+    // par les règlements de SA dette — et la commission n'est due qu'une fois
+    // la dette soldée. C'est donc le dernier règlement qui dit par quoi payer.
+    const dettes = [{ id: "d1", vente_id: "k1", paiements: [
+      { date: "2026-09-14", heure: "10:00", paiement: "Espèces", montant: 10000 },
+      { date: "2026-09-19", heure: "11:00", paiement: FLOOZ, montant: 90000 },
+    ] }];
+    test("★★ UNE VENTE À CRÉDIT : on suit l'argent jusqu'au DERNIER règlement de sa dette",
+      Ap.moyenDuClientPourApporteur([{ id: "k1", date: "2026-09-13", paiement: CREDIT }], dettes) === FLOOZ);
+    test("★★ « Crédit (dette) » n'est JAMAIS proposé comme façon de payer quelqu'un",
+      Ap.moyenDuClientPourApporteur([{ id: "k9", date: "2026-09-13", paiement: CREDIT }], []) === ""
+      && Ap.moyenDuClientPourApporteur([{ id: "k8", date: "2026-09-13", paiement: CREDIT }],
+        [{ id: "d8", vente_id: "k8", paiements: [{ date: "2026-09-14", paiement: CREDIT }] }]) === "");
+    test("★★ une vente à crédit dont la dette n'a encore rien encaissé ne fabrique aucun moyen — la vente d'avant répond",
+      Ap.moyenDuClientPourApporteur([
+        { id: "k2", date: "2026-09-13", paiement: CREDIT },
+        { id: "k3", date: "2026-09-11", paiement: "Virement bancaire" },
+      ], [{ id: "d2", vente_id: "k2", paiements: [] }]) === "Virement bancaire");
+    test("★★ un moyen qu'on ne sait pas dépenser n'est pas proposé (on ne devine jamais un moyen de sortie)",
+      Ap.moyenDuClientPourApporteur([{ id: "z1", date: "2026-09-13", paiement: "Troc" }], []) === "");
+    test("★ rien à lire → rien de proposé, et la question revient (aucune levée)",
+      Ap.moyenDuClientPourApporteur([], []) === "" && Ap.moyenDuClientPourApporteur(undefined, undefined) === ""
+      && Ap.moyenDuClientPourApporteur([{ id: "n1", date: "2026-09-13" }], []) === "");
+    test("★★ LE MUR : la règle ne reçoit que des listes déjà filtrées — la dette d'un autre espace n'est jamais atteinte",
+      Ap.moyenDuClientPourApporteur([{ id: "k1", date: "2026-09-13", paiement: CREDIT }], []) === "");
+  }
+
   // ── L'ÉCRAN : la règle juste ne suffit pas si l'écran s'en sert mal.
   const eq = lit("src/screens/MonEquipe.jsx");
-  test("★★ LA QUESTION N'EST POSÉE QUE S'IL N'Y A PAS DE MÉMOIRE — c'est sa demande, mot pour mot",
-    /const moyen = a\.moyenHabituel \|\| await demanderMoyenPaiement\(`pour \$\{a\.nom\}`\);/.test(eq));
-  test("★★ ne plus DEMANDER n'est pas ne plus DIRE : la confirmation nomme le moyen en toutes lettres",
-    /💳 Moyen : \$\{moyen\}\$\{a\.moyenHabituel \? " — son moyen habituel/.test(eq));
-  test("★★ le paiement ÉCRIT la mémoire, sinon la question reviendrait au paiement suivant",
-    /ventes: poserMoyenApporteur\(db\.ventes\.map\(\(v\) => \(ids\.has\(v\.id\)/.test(eq)
-    && /\), a\.ids, moyen\),/.test(eq));
-  test("★★ le moyen est cherché sur TOUTES ses ventes de l'espace, pas sur la période — sinon la question revient au changement de mois",
+  test("★★ LA QUESTION N'EST PLUS POSÉE : le choix explicite, sinon le moyen du CLIENT — sa demande, mot pour mot",
+    /const moyen = a\.moyenHabituel \|\| a\.moyenClient \|\| await demanderMoyenPaiement\(`pour \$\{a\.nom\}`\);/.test(eq));
+  test("★★ ne plus DEMANDER n'est pas ne plus DIRE : la confirmation nomme le moyen ET D'OÙ IL VIENT",
+    /💳 Moyen : \$\{moyen\}\$\{origineMoyen\}/.test(eq)
+    && /le moyen par lequel le client a payé/.test(eq));
+  test("★★ LE PAIEMENT N'ÉCRIT PLUS DE MÉMOIRE — il figerait le moyen du jour et la déduction ne servirait jamais deux fois",
+    !/ventes: poserMoyenApporteur\(db\.ventes\.map\(/.test(eq)
+    && /ventes: db\.ventes\.map\(\(v\) => \(ids\.has\(v\.id\)/.test(eq));
+  test("★★ ✏️ Moyen reste le SEUL à écrire un choix explicite",
+    (eq.match(/poserMoyenApporteur\(/g) || []).length === 1
+    && /save\(\{ \.\.\.db, ventes: poserMoyenApporteur\(db\.ventes, a\.ids, m\) \}/.test(eq));
+  test("★★ le choix explicite est cherché sur TOUTES ses ventes de l'espace, pas sur la période — sinon la question revient au changement de mois",
     /const siennes = ventesDeMonEspace\.filter\(\(v\) => v\.apporteur && cleApporteur\(v\.apporteur\.nom, v\.apporteur\.tel\) === cle\);/.test(eq)
     && /l\.moyenHabituel = moyenHabituelApporteur\(siennes\);/.test(eq));
+  test("★★ le moyen du client est déduit du LOT qu'on paie maintenant, dettes de l'espace à l'appui",
+    /l\.moyenClient = moyenDuClientPourApporteur\(lot\.length \? lot : siennes, dettesDeMonEspace\);/.test(eq)
+    && /const lot = siennes\.filter\(\(v\) => dues\.has\(v\.id\)\);/.test(eq));
+  test("★★ LE MUR : les dettes passent par le filtre d'espace AVANT d'être remises à la règle pure",
+    /const dettesDeMonEspace = \(db\.dettes \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\);/.test(eq)
+    && !/moyenDuClientPourApporteur\([^)]*db\.dettes/.test(eq));
   test("★★ la SEULE porte de sortie existe : ✏️ Moyen, avec la même garde que payer, revérifiée DANS le geste",
     /const changerMoyenApporteur = async \(a\) => \{/.test(eq)
     && /if \(!aDroit\(db, profile, "act_commission"\)\) \{ uAlert\(/.test(eq)
     && /onClick=\{\(\) => changerMoyenApporteur\(a\)\}/.test(eq));
-  test("★ le moyen retenu SE LIT sur la ligne de l'apporteur (on ne le demande plus : il doit se voir)",
-    /data-moyen-apporteur=\{a\.moyenHabituel \|\| ""\}/.test(eq)
-    && /moyen non retenu — il sera demandé au premier paiement/.test(eq));
+  test("★ le moyen SE LIT sur la ligne, et la ligne dit D'OÙ il vient",
+    /data-moyen-apporteur=\{a\.moyenHabituel \|\| a\.moyenClient \|\| ""\}/.test(eq)
+    && /comme le client a payé/.test(eq)
+    && /aucun moyen lisible sur ses ventes — il sera demandé au paiement/.test(eq));
   test("★ le geste de changement est refusé à un compte en lecture seule", /const changerMoyenApporteur = async \(a\) => \{\s*\n\s*if \(bloquerSiLecture\(db, profile\)\) return;/.test(eq));
 }
 

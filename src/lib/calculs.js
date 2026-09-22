@@ -10,7 +10,7 @@
 import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { mentionVirement, ficheParId } from "./banques";
-import { SALARIES } from "./constants";
+import { SALARIES, MOYENS_ENCAISSEMENT } from "./constants";
 import { mettreAuPanier } from "./panier";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
@@ -1337,8 +1337,14 @@ export const partParrainBloquee = (v, db) => !!(v.apporteur && v.apporteur.a_la_
 // ---- 📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE (Timo, 21/09/2026) ----
 // Capture de la fenêtre « Moyen de paiement pour FIFO » : **« on demande encore
 // le moyen de paiement »**. Devant deux propositions (déduire le moyen du
-// compte qui paie · le mémoriser sur la fiche de l'apporteur), il a choisi
-// **« b »** : on le retient, on ne le redemande plus.
+// compte qui paie · le mémoriser sur la fiche de l'apporteur), il a d'abord
+// choisi **« b »** : on le retient, on ne le redemande plus.
+// ⚠ RETOURNÉ le jour même, sur sa capture du bouton ✓ Payer : « Sa devrai être
+// automatique... Moyen utilisé avec le client ». Le moyen proposé vient donc
+// de l'argent du CLIENT (`moyenDuClientPourApporteur`, plus bas) ; ce qui est
+// mémorisé ici n'est plus qu'un CHOIX EXPLICITE, posé par ✏️ Moyen et lui
+// seul — **le paiement ne l'écrit plus**, sinon le premier paiement figerait
+// le moyen pour toujours et la déduction ne servirait jamais deux fois.
 // ⚠ Un apporteur externe n'a PAS de fiche à lui — il n'existe que sur les
 // ventes qu'il a amenées (`v.apporteur`). Sa « fiche », c'est donc l'ensemble
 // de ces lignes : le moyen s'écrit sur toutes, et se relit sur la plus
@@ -1359,6 +1365,44 @@ export function moyenHabituelApporteur(sesVentes) {
   });
   return moyen;
 }
+// ---- 💳 LE MOYEN DU CLIENT, REPRIS D'OFFICE (Timo, 21/09/2026) ----
+// Correction de la veille, mot pour mot : « Quand on clique sur payer, les
+// moyens de paiement apparaissent encore... Je ne veux pas sa. Sa devrai être
+// automatique... **Moyen utilisé avec le client, automatiquement utilisé pour
+// payer l'apporteur externe**... Au cas où on veux changer, on clique sur
+// moyen ». Le moyen proposé ne vient donc PLUS d'une première réponse
+// mémorisée : il vient de l'argent que le CLIENT a versé sur les ventes qui
+// ont produit cette commission. L'argent ressort par où il est entré.
+// ⚠ On prend la vente la plus RÉCENTE du lot qui sache dire par quoi elle a
+// été payée — c'est ce que « le moyen utilisé avec le client » veut dire quand
+// un apporteur a amené plusieurs ventes. ✏️ Moyen reste la porte pour en
+// changer, et ce choix-là prime.
+// ⚠ Une vente à CRÉDIT n'a rien encaissé le jour de la vente : l'argent est
+// entré par les règlements de SA dette (et une commission n'est due qu'une
+// fois la dette soldée — `partParrainBloquee`). On lit donc le dernier
+// règlement qui porte un vrai moyen.
+// ⚠ « Crédit (dette) » n'est JAMAIS une façon de payer quelqu'un : seuls les
+// moyens d'encaissement sortent d'ici (`MOYENS_ENCAISSEMENT`).
+// ⚠ LE MUR : la règle reçoit les ventes DE CET APPORTEUR et les dettes DE
+// L'ESPACE, déjà filtrées — jamais `db.ventes` ni `db.dettes` en entier. Une
+// fonction pure qui reçoit une table entière et la PARCOURT est un passage de
+// mur en puissance (leçon payée deux fois le 18/09/2026).
+const quandLigne = (x) => `${x?.date || ""} ${x?.heure || ""}`;
+const duPlusRecent = (liste) => [...(liste || [])].sort((a, b) => quandLigne(b).localeCompare(quandLigne(a)));
+const moyenUtilisable = (m) => (MOYENS_ENCAISSEMENT.includes(String(m || "")) ? String(m) : "");
+export function moyenDuClientPourApporteur(sesVentes, dettes) {
+  for (const v of duPlusRecent(sesVentes)) {
+    const direct = moyenUtilisable(v && v.paiement);
+    if (direct) return direct;
+    const d = (dettes || []).find((x) => x.vente_id === v.id);
+    for (const p of duPlusRecent(d && d.paiements)) {
+      const m = moyenUtilisable(p && p.paiement);
+      if (m) return m;
+    }
+  }
+  return "";
+}
+
 // On écrit le moyen sur les lignes DÉSIGNÉES (leurs identifiants), jamais sur
 // « toutes les ventes qui portent ce nom » : deux personnes du même nom dans
 // deux espaces ne doivent pas se mélanger.
