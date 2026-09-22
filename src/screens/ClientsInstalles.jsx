@@ -8,8 +8,11 @@ import { useState, Fragment } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
+// 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
+import { envoyerIdentifiantsDuNumeroBmi } from "../whatsapp";
+import { messageIdentifiants } from "../lib/whatsappModeles";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
@@ -153,7 +156,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     setF((p) => ({ ...p, user_id: user.id }));
     // Envoi automatique des identifiants par WhatsApp.
     if (await uConfirm(`✅ Compte créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
-      envoyerIdentifiantsWhatsApp(nom, identifiant, motDePasse, tel);
+      // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
+      const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
+      const m = messageIdentifiants(nom, r); if (m) uAlert(m);
     }
   };
 

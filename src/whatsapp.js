@@ -23,7 +23,8 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { envoyerWhatsApp } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants } from "./lib/whatsappModeles";
+import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 
 const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
@@ -69,6 +70,27 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }));
   }
   return { auto: true, parti: true, motif: "", id: reponse.id || "" };
+}
+
+// ---------------------------------------------------------------
+// 🔑 LES IDENTIFIANTS D'UN COMPTE QU'ON VIENT DE CRÉER (22/09/2026)
+// ---------------------------------------------------------------
+// Capture Timo : « la création d'un compte redirige toujours vers le
+// WhatsApp du téléphone… le message ne passe pas par le numéro BMI ».
+// Depuis : le modèle `espace` part du numéro BMI, et l'ouverture WhatsApp
+// d'avant reste le REPLI, avec le texte d'avant mot pour mot (« je veux que
+// les 2 existent », 21/09). UNE fonction pour les six écrans qui créent ou
+// renvoient un compte — six copies finiraient par oublier le mur.
+// ⚠ LE MUR : `espaceFormation` est l'espace du COMPTE CRÉÉ (sa marque), jamais
+// celui de la personne qui clique.
+// ⚠ `premierContact` n'est pas passé : c'est CE message qui porte les
+// identifiants, la règle du premier contact ne le concerne pas.
+export async function envoyerIdentifiantsDuNumeroBmi({ nomAffiche, identifiant, motDePasse, tel, role, espaceFormation, demanderConfirmation }) {
+  const texteRepli = role && role !== "client"
+    ? texteIdentifiantsEmploye(nomAffiche, identifiant, motDePasse, role)
+    : texteIdentifiantsClient(nomAffiche, identifiant, motDePasse);
+  const { modele, variables } = envoiIdentifiants({ nomAffiche, identifiant, motDePasse });
+  return envoyerModele({ tel, modele, variables, espaceFormation: !!espaceFormation, texteRepli, demanderConfirmation });
 }
 
 // ---------------------------------------------------------------

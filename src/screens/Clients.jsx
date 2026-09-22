@@ -16,8 +16,11 @@ import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut,
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
-  envoyerIdentifiantsWhatsApp, motDePasseConnu, messagesNouveauClient,
+  motDePasseConnu, messagesNouveauClient,
 } from "../lib/comptesClients";
+// 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
+import { envoyerIdentifiantsDuNumeroBmi } from "../whatsapp";
+import { messageIdentifiants } from "../lib/whatsappModeles";
 
 // ============ CRÉER UN CLIENT (parrainage employé) ============
 // Onglet dédié, ouvert à tous les employés SAUF l'admin (qui a 👥 Utilisateurs)
@@ -72,14 +75,18 @@ export function CreerClient({ db, save, profile }) {
 
     setDernier({ nom, identifiant, motDePasse, tel });
     setF({ nom: "", tel: "" });
-    envoyerIdentifiantsWhatsApp(nom, identifiant, motDePasse, tel);
+    // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
+    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
+    const m = messageIdentifiants(nom, r); if (m) uAlert(m);
   };
 
-  const renvoyer = (c) => {
+  const renvoyer = async (c) => {
     const id = c.nom;
     const mdp = motDePasseConnu(c);
     if (!mdp) { uAlert("Ce compte a un mot de passe personnalisé, impossible de le régénérer ici."); return; }
-    envoyerIdentifiantsWhatsApp(c.nom_base || c.nom, id, mdp, c.tel);
+    // ⚠ LE MUR : l'espace de la FICHE, jamais celui de qui clique.
+    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: c.nom_base || c.nom, identifiant: id, motDePasse: mdp, tel: c.tel, role: "client", espaceFormation: !!c.formation, demanderConfirmation: uConfirm });
+    const m = messageIdentifiants(c.nom_base || c.nom, r); if (m) uAlert(m);
   };
 
   return (

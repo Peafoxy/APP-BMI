@@ -7,8 +7,11 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, envoyerIdentifiantsWhatsApp, envoyerIdentifiantsEmployeWhatsApp, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
+import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
+// 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
+import { envoyerIdentifiantsDuNumeroBmi } from "../whatsapp";
+import { messageIdentifiants } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
@@ -124,7 +127,9 @@ export function Users({ db, save, profile }) {
       setMsg(`✅ Client créé — identifiant : ${identifiant} · mot de passe : ${motDePasse}`);
       // Envoi automatique des identifiants par WhatsApp.
       if (await uConfirm(`✅ Client créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
-        envoyerIdentifiantsWhatsApp(nomCli, identifiant, motDePasse, telCli);
+        // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
+        const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nomCli, identifiant, motDePasse, tel: telCli, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
+        const m = messageIdentifiants(nomCli, r); if (m) uAlert(m);
       }
       return;
     }
@@ -204,7 +209,9 @@ export function Users({ db, save, profile }) {
     if (chiffresTel(f.tel).length >= 4) {
       const { nom: nomEmp, pwd: pwdEmp, role: roleEmp, tel: telEmp } = f;
       if (await uConfirm(`✅ Compte créé.\n\n👤 ${nomEmp}\n🔑 ${pwdEmp}\n\nEnvoyer ces identifiants à ${nomEmp} par WhatsApp ?`)) {
-        envoyerIdentifiantsEmployeWhatsApp(nomEmp, nomEmp, pwdEmp, roleEmp, telEmp);
+        // ⚠ LE MUR : l'espace du COMPTE CRÉÉ (`espaceCree`), jamais celui de qui clique.
+        const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nomEmp, identifiant: nomEmp, motDePasse: pwdEmp, tel: telEmp, role: roleEmp, espaceFormation: espaceCree === true, demanderConfirmation: uConfirm });
+        const m = messageIdentifiants(nomEmp, r); if (m) uAlert(m);
       }
     }
     setF(vide);

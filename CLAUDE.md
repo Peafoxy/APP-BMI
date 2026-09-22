@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 249 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
+npm run verifier-whatsapp        # 276 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2690,7 +2690,53 @@ lit mal est pire qu'un banc absent).
   famille que le 20/09 au matin, troisième fois** : un contrôle qui lit du
   français au lieu du code se trompe.
 
-### 🔑 LES IDENTIFIANTS NE PARTENT PAS DU NUMÉRO BMI — ET PAS DE LIEN D'ACTIVATION (21/09/2026)
+### 🔑 LES IDENTIFIANTS PARTENT DU NUMÉRO BMI DEPUIS LE 22/09/2026 — LE MODÈLE `espace`
+- Capture Timo (22/09/2026, création d'un compte administrateur) : **« la
+  création d'un compte redirige toujours vers le WhatsApp du téléphone… le
+  message ne passe pas par le numéro BMI »**. Le modèle `espace` était
+  **approuvé par Meta le matin même** et **volontairement pas branché**
+  (décision du 21/09, § suivant) : sa capture le branche.
+- **Le texte, écrit par Timo, mot pour mot chez Meta** (catégorie **utility**,
+  sa précision) : « Bonjour Mr/Mme {{1}}, BIENVENUE SUR
+  https://gestion.bmitogo.com votre espace avec : {{2}} et {{3}} À bientôt !
+  BMI TOGO — Les bâtiments modernes et intelligents ». **Trois trous : le
+  NOM, l'IDENTIFIANT, le MOT DE PASSE** — `envoiIdentifiants`
+  (lib/whatsappModeles.js), le banc mesure l'ordre (éprouvé en inversant
+  les deux derniers : deux contrôles tombent).
+- ⚠ **C'est le SEUL modèle qui porte un secret.** Le contrôle « aucun trou ne
+  s'appelle mot de passe » a été RETOURNÉ, pas supprimé : il vaut pour tous
+  les modèles SAUF `espace`, et un second contrôle exige qu'`espace` ne porte
+  que ces trois-là. Les modèles de devis et de relance restent sans secret.
+  ⚠ Ce que Meta avait refusé le 19/09, c'était un texte qui ÉCRIVAIT
+  « identifiant / mot de passe » ; le texte de Timo ne les nomme pas.
+- **UN SEUL CHEMIN : `envoyerIdentifiantsDuNumeroBmi`** (src/whatsapp.js),
+  pour les six endroits qui créent ou renvoient un compte (👥 Utilisateurs
+  client et employé, 🙋 Créer un client et son « Renvoyer », 🧲 Prospects
+  « Convertir », 🏠 Clients installés). Il passe par `envoyerModele`, donc
+  par le mur, le refus en français et le repli. **Le repli est le texte
+  d'avant, mot pour mot** (`texteIdentifiantsClient` /
+  `texteIdentifiantsEmploye`, lib/comptesClients.js) : « je veux que les 2
+  existent » (21/09) tient toujours — l'ancien texte sert quand le numéro
+  BMI ne peut pas envoyer (formation, réseau, refus), et **la phrase de
+  l'écran dit lequel des deux chemins a été pris** (`messageIdentifiants`,
+  UNE règle pour les six écrans ; formation → rien à dire).
+- ⚠ **LE MUR : l'espace du COMPTE CRÉÉ** (`!!user.formation`, `espaceCree`),
+  jamais celui de qui clique. Le banc lit chaque appel des quatre écrans et
+  l'a éprouvé en remettant `estCompteFormation(db, profile)` : il tombe.
+- ⚠ **`premierContact` ne s'applique pas** : c'est CE message qui porte les
+  identifiants. La règle `clientDejaContacte` des DEVIS n'a pas bougé : le
+  premier DEVIS d'un client non contacté part toujours à la main avec ses
+  codes — ⚠ l'envoi d'`espace` ne marque PAS le client comme contacté
+  (`info_donnees_le` ne se pose qu'à sa première ouverture). À dire à Timo
+  s'il voit un devis partir à la main juste après une création de compte.
+- **Aucune trace écrite sur la fiche** (au contraire d'un devis) : écrire
+  sur la fiche d'un client existant depuis « Renvoyer » (vendeur) pourrait
+  être refusé par `securite-18`. La phrase de l'écran dit ce qui s'est passé.
+- **Le parrainage part toujours du téléphone du PARRAIN**, c'est voulu ; le
+  banc vérifie que lib/comptesClients.js n'appelle jamais le numéro BMI.
+- Coût : ~4 F par compte créé (utility). **Rien à coller dans Supabase.**
+
+### 🔑 (ancien) LES IDENTIFIANTS NE PARTAIENT PAS DU NUMÉRO BMI — ET PAS DE LIEN D'ACTIVATION (21/09/2026 — RETOURNÉ le 22/09, voir ci-dessus ; ce qui suit reste vrai pour le LIEN d'activation et les deux textes)
 - Timo a cherché à faire partir **les comptes clients et employés du numéro
   BMI**, en reformulant le message trois fois pour que Meta l'accepte
   (« Connectez-vous avec : AGBEKO / ADUM@S9628 », puis « Accéder à votre
@@ -2737,10 +2783,11 @@ lit mal est pire qu'un banc absent).
   - ⚠ **Conséquence assumée, et dite** : le jour où le modèle serait approuvé,
     un client recevrait une formulation selon le chemin emprunté. C'est son
     choix, pas un oubli.
-- **DONC, ET C'EST STABLE** : les identifiants continuent de partir **à la
-  main**, par l'ouverture WhatsApp depuis le téléphone du vendeur
+- ~~**DONC, ET C'EST STABLE** : les identifiants continuent de partir **à la
+  main**~~ — **RETOURNÉ le 22/09/2026** (§ précédent) : ils partent du numéro
+  BMI par le modèle `espace`, l'envoi à la main
   (`envoyerIdentifiantsWhatsApp` / `envoyerIdentifiantsEmployeWhatsApp`,
-  lib/comptesClients.js). **Le parrainage aussi, et c'est voulu** : le message
+  lib/comptesClients.js) est le repli. **Le parrainage aussi, et c'est voulu** : le message
   du filleul part du téléphone du PARRAIN — c'est lui qui recommande, et c'est
   ce qui lui donne du poids. Il ne passe donc jamais par le numéro BMI.
 - ⚠ **La règle `clientDejaContacte` reste donc entière** : le premier message

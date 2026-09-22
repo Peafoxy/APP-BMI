@@ -23,7 +23,13 @@
 //   2. un mot de passe ne voyage JAMAIS dans un modèle — Meta le range
 //      d'office dans sa catégorie « authentication » et refuse, quelle que
 //      soit la case cochée. D'où « Vos identifiants vous ont été remis par
-//      votre vendeur » et AUCUNE variable secrète ici ;
+//      votre vendeur » dans les modèles de devis.
+//      ⚠ RETOURNÉ EN PARTIE le 22/09/2026 : le modèle `espace`, écrit par
+//      Timo SANS les mots « mot de passe » ni « identifiant » (« votre
+//      espace avec : {{2}} et {{3}} »), a été APPROUVÉ en utility. C'est
+//      donc le SEUL modèle qui porte un secret, et il ne sert qu'à remettre
+//      ses identifiants à un compte qu'on vient de créer — jamais à un
+//      devis. Les modèles de devis restent sans aucune variable secrète ;
 //   3. le nom et la catégorie se figent à la création. Renommer un modèle
 //      ci-dessous ne renomme rien chez Meta : il faut en créer un nouveau.
 // ============================================================
@@ -74,6 +80,23 @@ export const MODELES = {
   // ⚠ `{{3}}` est TAPÉ par le vendeur (« votre installation solaire ») : il
   // n'y a aucune donnée à aller chercher, donc rien à deviner de travers.
   prise_de_contact: { categorie: "marketing", variables: ["client", "auteur", "sujet"] },
+  // « Bonjour Mr/Mme {{1}}, BIENVENUE SUR https://gestion.bmitogo.com
+  //   votre espace avec : {{2}} et {{3}} À bientôt ! BMI TOGO — … »
+  //
+  // ⚠⚠ LES IDENTIFIANTS PARTENT DU NUMÉRO BMI (capture Timo, 22/09/2026 :
+  // « la création d'un compte redirige toujours vers le WhatsApp du
+  // téléphone… le message ne passe pas par le numéro BMI »). Le modèle
+  // était approuvé depuis le matin et volontairement PAS branché (décision
+  // du 21/09) ; sa capture le branche. Texte de Timo, mot pour mot, trois
+  // trous : {{1}} le NOM, {{2}} l'IDENTIFIANT, {{3}} le MOT DE PASSE.
+  // ⚠ UTILITY (sa précision) : la remise d'un accès à un compte qu'on vient
+  // de créer est liée à une relation en cours, pas une offre.
+  // ⚠ C'est le SEUL modèle qui porte un secret — voir le point 2 en tête.
+  // ⚠ `premierContact` ne s'applique PAS à lui : c'est précisément le
+  // message qui porte les identifiants. Le texte de repli (l'envoi à la
+  // main, lib/comptesClients.js) reste celui d'avant — décision Timo du
+  // 21/09 : « je veux que les 2 existent ».
+  espace: { categorie: "utility", variables: ["client", "identifiant", "mot_de_passe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -85,10 +108,39 @@ export const MODELES_EN_SERVICE = [
   // du numéro BMI. Mis en service AVANT l'accord de Meta (d'ici là, repli
   // sur l'ouverture WhatsApp, refus dit en français) pour éviter un second
   // déploiement le jour de l'accord — **approuvé par Meta le 22/09/2026**,
-  // avec `prise_de_contact` et le modèle `espace` (celui-ci volontairement
-  // NON branché : les identifiants partent à la main, décision du 21/09).
+  // avec `prise_de_contact` et le modèle `espace`.
   "rappel_echeance", "rappel_dette",
+  // ⚠ `espace` était volontairement NON branché (décision du 21/09 : les
+  // identifiants partent à la main). BRANCHÉ le 22/09/2026 au soir, sur sa
+  // capture : « le message ne passe pas par le numéro BMI ».
+  "espace",
 ];
+
+// ---------------------------------------------------------------
+// 🔑 LES IDENTIFIANTS D'UN COMPTE QU'ON VIENT DE CRÉER (22/09/2026)
+// ---------------------------------------------------------------
+// L'ordre des trous est celui du modèle `espace` chez Meta : le nom, puis
+// l'identifiant, puis le mot de passe. Intervertir les deux derniers
+// enverrait le mot de passe à la place de l'identifiant, et Meta ne s'en
+// plaindrait pas — d'où UNE fabrique, lue par le seul chemin d'envoi.
+export function envoiIdentifiants({ nomAffiche, identifiant, motDePasse }) {
+  return {
+    modele: "espace",
+    variables: [String(nomAffiche || "").toUpperCase(), String(identifiant || ""), String(motDePasse || "")],
+  };
+}
+
+// Ce que l'écran dit APRÈS l'envoi des identifiants — UNE phrase pour les
+// six écrans qui créent ou renvoient un compte. Un repli muet ressemble à
+// une panne (leçon du 19/09) : quand le message n'est pas parti du numéro
+// BMI, on dit pourquoi, sauf quand c'est la règle qui joue (formation).
+export function messageIdentifiants(nom, r) {
+  const qui = String(nom || "").toUpperCase();
+  if (r && r.auto) return `✅ Identifiants envoyés du numéro BMI à ${qui}.`;
+  const motif = r && r.motif ? String(r.motif) : "";
+  if (!motif || motif === MOTIF_FORMATION) return "";
+  return `${motif}\n\nWhatsApp s'est ouvert avec les identifiants : le message part de VOTRE numéro.`;
+}
 
 // ---------------------------------------------------------------
 // CE QU'ON A LE DROIT DE METTRE DANS UN TROU

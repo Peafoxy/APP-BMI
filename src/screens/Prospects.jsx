@@ -7,8 +7,11 @@ import { useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerIdentifiantsWhatsApp, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
+// 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
+import { envoyerIdentifiantsDuNumeroBmi } from "../whatsapp";
+import { messageIdentifiants } from "../lib/whatsappModeles";
 import { prospectAcquis } from "../lib/prospects";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
@@ -124,8 +127,11 @@ export function Prospects({ db, save, profile, isAdmin }) {
       messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])],
     }, `Prospect « ${p.nom} » CONVERTI en client par ${profile.nom}`);
 
-    envoyerIdentifiantsWhatsApp(p.nom, identifiant, motDePasse, p.tel);
-    uAlert(`✅ ${p.nom} est désormais client.\n\nWhatsApp s'ouvre avec ses identifiants.`);
+    // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
+    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: p.nom, identifiant, motDePasse, tel: p.tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
+    // ⚠ L'écran ne décrit jamais autre chose que ce qui vient de se passer
+    // (leçon du 19/09) : la phrase dépend du chemin réellement emprunté.
+    uAlert(`✅ ${p.nom} est désormais client.${messageIdentifiants(p.nom, r) ? `\n\n${messageIdentifiants(p.nom, r)}` : ""}`);
   };
 
   const archiver = async (p) => {

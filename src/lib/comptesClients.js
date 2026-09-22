@@ -148,10 +148,13 @@ export function propositionIdentifiant(db, nom, prenom, tel) {
   return `${base}${i}`;
 }
 
-// Crée le compte client et renvoie { user, motDePasse }. Le rôle est IMPOSÉ.
-// Ouvre WhatsApp avec les identifiants du client — un seul message, réutilisé
-// partout (Utilisateurs, Clients installés, Dimensionnement, Parrainage).
-export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse, tel) {
+// Le TEXTE des identifiants d'un client — un seul message, réutilisé partout
+// (Utilisateurs, Clients, Clients installés, Prospects, Parrainage).
+// ⚠ Depuis le 22/09/2026 il est le REPLI : l'envoi passe d'abord par le
+// numéro BMI (modèle `espace`, src/whatsapp.js) et ne revient à
+// l'ouverture WhatsApp que si ça ne part pas. Décision Timo du 21/09 :
+// « je veux que les 2 existent ».
+export function texteIdentifiantsClient(nomAffiche, identifiant, motDePasse) {
   const lignes = [
     `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
     ``,
@@ -169,7 +172,15 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  envoyerWhatsApp(tel, lignes.join("\n"));
+  return lignes.join("\n");
+}
+
+// L'envoi À LA MAIN (ouverture de WhatsApp sur l'appareil) — le chemin
+// d'avant le 22/09/2026, gardé tel quel : c'est le repli de src/whatsapp.js,
+// et le chemin du parrainage (le message du filleul part du téléphone du
+// PARRAIN, c'est voulu).
+export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse, tel, demanderConfirmation) {
+  return envoyerWhatsApp(tel, texteIdentifiantsClient(nomAffiche, identifiant, motDePasse), demanderConfirmation);
 }
 
 // Libellés lisibles des rôles employés — pour le message d'invitation
@@ -228,7 +239,7 @@ export const texteFidelite = (modele, { client, auteur, role } = {}) =>
 // pour un employé, ce n'est pas possible : seul l'administrateur PRINCIPAL
 // peut changer un mot de passe (voir Utilisateurs.jsx). Le rôle est précisé
 // pour que la personne sache tout de suite ce qu'elle vient de recevoir.
-export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motDePasse, role, tel) {
+export function texteIdentifiantsEmploye(nomAffiche, identifiant, motDePasse, role) {
   const libelleRole = LIBELLE_ROLE_EMPLOYE[role] || role;
   const lignes = [
     `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
@@ -249,7 +260,10 @@ export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motD
     `À bientôt !`,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  envoyerWhatsApp(tel, lignes.join("\n"));
+  return lignes.join("\n");
+}
+export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motDePasse, role, tel, demanderConfirmation) {
+  return envoyerWhatsApp(tel, texteIdentifiantsEmploye(nomAffiche, identifiant, motDePasse, role), demanderConfirmation);
 }
 
 // Simple accusé de prise de contact envoyé à un nouveau prospect — pas

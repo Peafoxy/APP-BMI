@@ -45,8 +45,13 @@ const ATTENDU = {
   // ⚠ LE CINQUIÈME (20/09/2026) : le SEUL qui ne parle pas d'un devis —
   // c'est ce qui permet d'écrire le premier à quelqu'un qui n'en a pas.
   prise_de_contact: { categorie: "marketing", n: 3 },
+  // ⚠ LE SEPTIÈME (22/09/2026, capture Timo : « le message ne passe pas
+  // par le numéro BMI ») : les identifiants d'un compte qu'on vient de
+  // créer. UTILITY (sa précision). Trois trous : nom, identifiant, mot de
+  // passe — le SEUL modèle qui porte un secret (voir la section ②).
+  espace: { categorie: "utility", n: 3 },
 };
-test("les six modèles sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les sept modèles sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -65,17 +70,26 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
   M.MODELES_EN_SERVICE.includes("rappel_echeance")
   && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, fmt, dFR }).modele === "rappel_dette"
   && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, echeance: { date: "" }, fmt, dFR }).modele === "rappel_dette");
-test("les six sont en service", M.NOMS_MODELES.every((n) => M.MODELES_EN_SERVICE.includes(n)));
+test("les sept sont en service", M.NOMS_MODELES.every((n) => M.MODELES_EN_SERVICE.includes(n)));
 
 // ──────────────────────────────────────────────────────────────
 titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
 // Meta range tout identifiant de connexion dans sa catégorie
 // « authentication » et refuse le modèle. Et un message qui promène un mot
 // de passe est une clé qui se promène.
+// ⚠ CONTRÔLE RETOURNÉ LE 22/09/2026, PAS SUPPRIMÉ : il exigeait qu'AUCUN
+// modèle ne porte un secret. Le modèle `espace`, écrit par Timo sans les
+// mots « mot de passe » ni « identifiant », a été APPROUVÉ par Meta et
+// branché sur sa capture (« le message ne passe pas par le numéro BMI »).
+// Ce qui est protégé n'a pas changé : les modèles de DEVIS et de RELANCE
+// ne portent aucun secret — `espace` est le SEUL, et il ne sert qu'à
+// remettre ses identifiants à un compte qu'on vient de créer.
 const MOTS_SECRETS = ["motdepasse", "mot_de_passe", "pwd", "identifiant", "mdp"];
-const tousLesTrous = Object.values(M.MODELES).flatMap((m) => m.variables).join(" ").toLowerCase();
-test("★ aucun trou de modèle ne s'appelle mot de passe ou identifiant",
-  !MOTS_SECRETS.some((s) => tousLesTrous.includes(s)));
+const trousHorsEspace = Object.entries(M.MODELES).filter(([n]) => n !== "espace").flatMap(([, m]) => m.variables).join(" ").toLowerCase();
+test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant",
+  !MOTS_SECRETS.some((s) => trousHorsEspace.includes(s)));
+test("★ `espace` est le SEUL modèle qui porte un secret, et il ne porte que ça",
+  M.MODELES.espace.variables.join(",") === "client,identifiant,mot_de_passe");
 const srcPartages = lire("src/screens/dimensionnement/Partages.jsx");
 const srcDevis = lire("src/screens/TousLesDevis.jsx");
 test("★ aucun écran ne passe un mot de passe à l'envoi automatique",
@@ -963,6 +977,66 @@ test("★★ le banc SQL rejoue securite-30 sur un compte de formation, ET véri
 test("★ le SQL DIT que la base ne protège pas l'administrateur principal qui regarde la formation — c'est l'écran",
   /ne sait pas ce que\s*-- l'administrateur PRINCIPAL regarde/.test(sql30));
 
+
+
+// ──────────────────────────────────────────────────────────────
+titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)");
+// Capture Timo : « la création d'un compte redirige toujours vers le
+// WhatsApp du téléphone… le message ne passe pas par le numéro BMI ». Le
+// modèle `espace` était approuvé et volontairement PAS branché (21/09) ;
+// sa capture le branche. L'envoi à la main reste le REPLI, mot pour mot.
+{
+  const env = M.envoiIdentifiants({ nomAffiche: "gaelle", identifiant: "GAELLE", motDePasse: "1234G@EL" });
+  test("★★ l'ORDRE des trous est celui du modèle chez Meta : nom, identifiant, mot de passe",
+    env.modele === "espace" && env.variables.join("|") === "GAELLE|GAELLE|1234G@EL");
+  test("★ le nom part en MAJUSCULES, l'identifiant et le mot de passe tels quels",
+    M.envoiIdentifiants({ nomAffiche: "ama", identifiant: "AMA99", motDePasse: "aB@c" }).variables.join("|") === "AMA|AMA99|aB@c");
+  test("★ `espace` est en service (sans ça, tout retomberait sur l'ouverture WhatsApp)",
+    M.MODELES_EN_SERVICE.includes("espace")
+    && M.critiqueEnvoiAuto({ modele: "espace", variables: env.variables, tel: "90112233", espaceFormation: false }) === "");
+  test("★★ LE MUR : un compte de formation n'écrit jamais à un vrai numéro",
+    M.critiqueEnvoiAuto({ modele: "espace", variables: env.variables, tel: "90112233", espaceFormation: true }) === M.MOTIF_FORMATION);
+  test("un mot de passe vide est refusé, et le refus le nomme",
+    (M.critiqueModele("espace", ["GAELLE", "GAELLE", ""]) || "").includes("mot_de_passe"));
+
+  // La phrase de l'écran : UNE règle pour six écrans.
+  test("★ parti du numéro BMI : l'écran le dit", /numéro BMI/.test(M.messageIdentifiants("gaelle", { auto: true })));
+  test("★ formation : RIEN à dire (c'est la règle qui joue, personne n'a rien à apprendre)",
+    M.messageIdentifiants("gaelle", { auto: false, motif: M.MOTIF_FORMATION }) === "");
+  test("★ tout autre repli SE DIT, avec ce qui s'est passé à la place",
+    /VOTRE numéro/.test(M.messageIdentifiants("gaelle", { auto: false, motif: "Pas de connexion : le message ne peut pas partir du numéro BMI." })));
+  test("★ « livré » et « lu » ne s'écrivent jamais",
+    !/livr|\blu\b/i.test(M.messageIdentifiants("x", { auto: true })));
+
+  // UN SEUL CHEMIN : les écrans passent par src/whatsapp.js, jamais par
+  // l'ouverture WhatsApp directe des identifiants.
+  const ecransComptes = ["src/screens/Utilisateurs.jsx", "src/screens/Clients.jsx", "src/screens/Prospects.jsx", "src/screens/ClientsInstalles.jsx"];
+  const sansCommentaires = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★★ src/whatsapp.js porte la fonction, et le repli est le TEXTE d'avant (lib/comptesClients)",
+    /export async function envoyerIdentifiantsDuNumeroBmi/.test(srcWhatsapp)
+    && /texteIdentifiantsEmploye\(/.test(srcWhatsapp) && /texteIdentifiantsClient\(/.test(srcWhatsapp)
+    && /envoiIdentifiants\(/.test(srcWhatsapp));
+  for (const f of ecransComptes) {
+    const src = sansCommentaires(lire(f));
+    test(`★★ ${f} : les identifiants partent par envoyerIdentifiantsDuNumeroBmi, jamais par l'ouverture directe`,
+      /envoyerIdentifiantsDuNumeroBmi\(\{/.test(src)
+      && !/envoyerIdentifiantsWhatsApp\(/.test(src) && !/envoyerIdentifiantsEmployeWhatsApp\(/.test(src));
+    // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
+    const appels = src.match(/envoyerIdentifiantsDuNumeroBmi\(\{[^}]*\}/g) || [];
+    test(`★★ ${f} : chaque envoi passe l'espace du COMPTE CRÉÉ (${appels.length} envoi(s))`,
+      appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|espaceCree === true)/.test(a)));
+    test(`★ ${f} : chaque envoi porte un texte de repli (la fonction le construit) et la phrase de l'écran`,
+      appels.length > 0 && (src.match(/messageIdentifiants\(/g) || []).length >= appels.length);
+  }
+  test("★ le texte d'avant existe toujours, mot pour mot (« je veux que les 2 existent », 21/09)",
+    /export function envoyerIdentifiantsWhatsApp/.test(lire("src/lib/comptesClients.js"))
+    && /export function envoyerIdentifiantsEmployeWhatsApp/.test(lire("src/lib/comptesClients.js"))
+    && /🔑 Mot de passe : \*\$\{motDePasse\}\*/.test(lire("src/lib/comptesClients.js")));
+  test("★ le parrainage part toujours du téléphone du PARRAIN (c'est voulu)",
+    !/envoyerIdentifiantsDuNumeroBmi/.test(lire("src/lib/comptesClients.js")));
+  test("★ « premierContact » n'est pas passé à cet envoi : c'est CE message qui porte les identifiants",
+    !/envoyerIdentifiantsDuNumeroBmi[\s\S]{0,900}premierContact/.test(srcWhatsapp.slice(srcWhatsapp.indexOf("envoyerIdentifiantsDuNumeroBmi"))));
+}
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

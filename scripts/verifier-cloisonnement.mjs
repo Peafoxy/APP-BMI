@@ -4542,8 +4542,19 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     // (13/09/2026 : lib/comptesClients.js écrit « ./core.js » — la chaîne lue par le serveur des notifications exige l'extension.)
     test(`★ ${f} passe par ${fn} de lib/core.js`, new RegExp(`import \\{[^}]*\\b${fn}\\b[^}]*\\} from "(\\.\\./)*(\\./)?(lib/)?core(\\.js)?"`).test(src) && src.includes(`${fn}(`));
   }
-  test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
-    (readFileSync("src/lib/comptesClients.js", "utf8").match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length === 4);
+  // ⚠ CONTRÔLE RETOURNÉ LE 22/09/2026 : les identifiants (client, employé)
+  // partent désormais du numéro BMI (src/whatsapp.js, modèle `espace`) et
+  // leur TEXTE vit à part (`texteIdentifiantsClient` / `texteIdentifiantsEmploye`)
+  // pour servir de repli. L'envoi à la main reste : ce sont ces deux
+  // fonctions-là qui passent par la règle commune, plus accueil et relance
+  // prospect qui n'ont pas bougé. Toujours QUATRE, toujours `envoyerWhatsApp`.
+  {
+    const srcCC = readFileSync("src/lib/comptesClients.js", "utf8");
+    const directs = (srcCC.match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length;
+    const parTexte = (srcCC.match(/return envoyerWhatsApp\(tel, texteIdentifiants(Client|Employe)\([^)]*\), demanderConfirmation\);/g) || []).length;
+    test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
+      directs === 2 && parTexte === 2);
+  }
   // ⚠ CONTRÔLE RETOURNÉ LE 19/09/2026 (« lance l'étape 1 ») : le devis ne
   // passe plus par `envoyerWhatsApp` EN DIRECT — il passe par `envoyerModele`
   // (src/whatsapp.js), qui envoie du numéro BMI et REPLIE sur `envoyerWhatsApp`
