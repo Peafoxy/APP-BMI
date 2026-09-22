@@ -2567,6 +2567,7 @@ lit mal est pire qu'un banc absent).
   **64 contrôles**) montre D'ABORD le trou (7 lignes et 3 fiches chez un
   admin de formation), puis 0 et 0 après, la messagerie interne intacte, le
   principal et les comptes réels inchangés, et le second passage sans danger.
+  **Collé par Timo le 22/09/2026 (`true | true | true | true`).**
   ⚠ Effet à la prochaine reconnexion de chacun (`reconcilierMiroir`).
 - **Ce qui n'a PAS bougé** : l'envoi par modèle en formation (repli sur
   l'ouverture WhatsApp, motif « formation » qui ne dérange personne), et le
