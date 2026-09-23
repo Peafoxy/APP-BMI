@@ -441,6 +441,41 @@ export function libelleTrace(trace) {
 }
 
 // ---------------------------------------------------------------
+// 📲 LA LIGNE D'UN ENVOI PAR MODÈLE DANS LA CONVERSATION (23/09/2026)
+// ---------------------------------------------------------------
+// Timo : « pourquoi les discussions de relance n'apparaissent pas comme
+// discussion récente ?… elles ne remontent pas ». Vérifié : un devis, une
+// relance de devis, un rappel de dette partaient du numéro BMI SANS écrire
+// une ligne dans la conversation — seule une trace sur le devis ou la
+// dette. Or 📲 WhatsApp classe une conversation par son DERNIER message :
+// elle ne bougeait pas, et celui qui l'ouvrait ne voyait même pas que la
+// relance était partie.
+//
+// Cette règle rend la phrase à écrire dans le fil, d'après le modèle et
+// les mots qui ont rempli ses trous (les mêmes que Meta a reçus, déjà
+// formatés). ⚠ JAMAIS UN SECRET : le modèle `espace` a SA règle (trous
+// masqués, `texteEspaceMasque`) et n'entre pas ici ; `prise_de_contact`
+// écrit déjà son vrai texte. Un modèle inconnu rend "" : on n'invente pas
+// une phrase. ⚠ La ligne DIT ce qui est parti, jamais « livré » ni « lu ».
+const LIGNES_ENVOI = {
+  devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
+  relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
+  devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
+  rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,
+  rappel_dette: ([client, date, reste, total]) => `Rappel de dette à ${client} : reste ${reste} à régler sur ${total} (achat du ${date}).`,
+};
+export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
+export const PREFIXE_LIGNE_ENVOI = "📲 Envoyé du numéro BMI — ";
+export function ligneEnvoiModele(modele, variables) {
+  const fabrique = LIGNES_ENVOI[String(modele || "")];
+  if (!fabrique) return "";
+  const v = (Array.isArray(variables) ? variables : []).map((x) => String(x == null ? "" : x).trim());
+  const attendu = (MODELES[modele] || {}).variables || [];
+  if (v.length !== attendu.length || v.some((x) => !x)) return "";
+  return PREFIXE_LIGNE_ENVOI + fabrique(v);
+}
+
+// ---------------------------------------------------------------
 // QUAND ÇA RATE
 // ---------------------------------------------------------------
 // ⚠ On ne perd JAMAIS un message en silence : tout échec ramène le bouton

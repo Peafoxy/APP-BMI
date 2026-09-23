@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
-import { envoyerModele } from "../../whatsapp";
+import { envoyerModele, messagesAvecLigneEnvoi } from "../../whatsapp";
 import { envoiDevisDisponible, clientDejaContacte, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 
@@ -633,15 +633,19 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // La trace se pose seulement si le message est VRAIMENT parti du numéro
   // BMI : une ouverture WhatsApp ne prouve rien (personne ne sait si le
   // vendeur a appuyé sur envoyer), et l'écrire serait rassurer à tort.
+  // 📲 23/09/2026 : le devis parti du numéro BMI s'écrit AUSSI dans la
+  // conversation du client (📲 WhatsApp), sinon elle ne remonte jamais
+  // (Timo). Sur l'état COURANT — le devis vient d'être enregistré au-dessus.
   if (r.auto) {
-    save({
-      ...dbFinal,
-      users: dbFinal.users.map((u) => (u.id === compte.id
+    save((etat) => ({
+      ...etat,
+      users: etat.users.map((u) => (u.id === compte.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === idDevis
             ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) }
             : x)) }
         : u)),
-    });
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: compte.tel || nouvClient.tel, nom: compte.nom_base || compte.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: idDevis } }) : etat.messages,
+    }));
   }
   // ⚠ On rend CE QUI S'EST PASSÉ, pas seulement « c'est parti » : l'écran doit
   // pouvoir dire la vérité ensuite (WhatsApp s'est ouvert, ou le client a

@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 291 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
+npm run verifier-whatsapp        # 310 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2926,6 +2926,51 @@ lit mal est pire qu'un banc absent).
   - **Rien à coller dans Supabase** : `wa_acces` est un champ de plus sur une
     ligne de message, et `securite-27/-28/-29/-30` décident déjà qui reçoit
     la conversation.
+
+### 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE (23/09/2026)
+- Timo : « pourquoi les discussions de relance n'apparaissent pas dans
+  WhatsApp comme discussion récente ? elles sont cachées toujours dans les
+  vieilles discussions, elles ne remontent pas… je ne sais pas si c'est
+  relance seul ou d'autres du type WhatsApp depuis l'app BMI font la même
+  chose ». **Vérifié dans le code avant de répondre** : 📲 WhatsApp classe
+  une conversation par son **DERNIER message du fil** (`conversationsWa`,
+  `derniere`), et un devis, une relance de devis, un rappel de dette
+  partaient du numéro BMI **sans écrire une ligne** dans le fil — seule la
+  trace `envoi_whatsapp` sur le devis ou la dette. **Tous les envois par
+  modèle faisaient pareil**, sauf « ✍️ Écrire » et la ligne d'accès `espace`.
+  Le « n'écrit aucune ligne » du 20/09 visait le PROPRIÉTAIRE (ne pas se
+  l'approprier), pas le fait de se taire. « Lance ».
+- **Règle pure `ligneEnvoiModele(modele, variables)`** (lib/whatsappModeles.js,
+  `LIGNES_ENVOI`, `MODELES_AVEC_LIGNE`, `PREFIXE_LIGNE_ENVOI` = « 📲 Envoyé du
+  numéro BMI — ») : une phrase en français par modèle, bâtie sur les MOTS qui
+  ont rempli les trous (ceux que Meta a reçus). ⚠ **Jamais un secret** :
+  `espace` n'y est pas (sa règle est celle des trous masqués),
+  `prise_de_contact` non plus (l'écran écrit déjà son vrai texte) ; un modèle
+  inconnu, un trou vide → "" (on n'invente pas une phrase). Jamais « livré »
+  ni « lu ».
+- **UNE fonction, `messagesAvecLigneEnvoi`** (src/whatsapp.js, même charpente
+  que `messagesAvecLigneAcces`), appelée par les TROIS écrans qui envoient un
+  modèle de devis ou de dette (Partages, Tous les devis, Dettes) dans le
+  `save((etat) => …)` qui pose déjà la trace : `messages: r.auto ? … :
+  etat.messages`. ⚠ **Seulement si le message est PARTI du numéro BMI**
+  (donc jamais en formation, jamais sur le repli). ⚠ **Le propriétaire ne
+  change pas** (règle du 20/09 : seul « 🔁 Confier » le fait) — la ligne ne
+  porte pas de `proprietaire_id`, la fiche légère garde le sien. La fenêtre
+  de 24 h ne s'ouvre pas, aucune pastille rouge (ce n'est pas un entrant).
+  La ligne porte `wa_modele` et `devis_id` / `dette_id`.
+- Le banc (`verifier-whatsapp`, section ⑱) exerce la règle, la VRAIE chaîne
+  (la conversation d'AYOKO, confiée à COM1, remonte en tête et reste à COM1),
+  et lit les trois écrans ; **éprouvé** en retirant la ligne d'un écran et en
+  faisant poser un propriétaire : les deux tombent. Trois contrôles de
+  `verifier-cloisonnement` ont été RETOURNÉS (l'import porte la fonction).
+- ⚠ **« Voir plus » sur le téléphone n'est PAS de nous** (captures Timo, le
+  jour même : un message court coupé dans WhatsApp avec « Voir plus »). C'est
+  WhatsApp lui-même qui replie une bulle ; l'application n'envoie que le nom
+  du modèle et les mots des trous (`api/whatsapp.js`), pas un caractère de
+  plus — le texte et ses retours à la ligne vivent chez Meta. Rien à corriger
+  dans l'application ; ne pas chercher une panne ici.
+- **Rien à coller dans Supabase** : une ligne de plus dans la table des
+  messages, que `securite-27` à `-30` savent déjà ranger.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

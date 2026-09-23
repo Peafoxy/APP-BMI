@@ -23,7 +23,7 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 
@@ -122,6 +122,45 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
   });
   return messagesAvecEntete([m, ...liste], {
     cle, tel, nom, derniere: m.ts,
+    proprietaire_id: entete.proprietaire_id, proprietaire_nom: entete.proprietaire_nom,
+  });
+}
+
+// ---------------------------------------------------------------
+// 📲 LA LIGNE D'UN ENVOI PAR MODÈLE DANS LA CONVERSATION (23/09/2026)
+// ---------------------------------------------------------------
+// Timo : « les discussions de relance ne remontent pas ». Un devis, une
+// relance de devis, un rappel de dette partaient du numéro BMI sans écrire
+// une ligne dans le fil : la conversation restait à la date de son dernier
+// vrai message, et personne n'y lisait que la relance était partie. UNE
+// fonction pour les trois écrans (Partages, Tous les devis, Dettes), même
+// charpente que `messagesAvecLigneAcces` :
+//   ⚠ seulement si le message est PARTI du numéro BMI (`r.auto`) — donc
+//     jamais en formation, jamais sur le repli ;
+//   ⚠ la phrase vient de `ligneEnvoiModele` (lib/whatsappModeles.js) :
+//     jamais un secret, jamais « livré » ni « lu » ; modèle inconnu → rien ;
+//   ⚠ la conversation ne change PAS de propriétaire (règle du 20/09 :
+//     seul « 🔁 Confier » le fait) — la fiche légère suit avec le sien ;
+//   ⚠ la fenêtre de 24 h ne s'ouvre pas (seul un message ENTRANT l'ouvre),
+//     aucune pastille rouge (la ligne n'est pas un entrant).
+// Appelée par `save((etat) => …)` : l'écran a déjà enregistré la trace sur
+// le devis ou la dette, on ne repart jamais d'un état périmé.
+export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {} }) {
+  const liste = Array.isArray(messages) ? messages : [];
+  const cle = cleConversation(tel);
+  const texte = ligneEnvoiModele(modele, variables);
+  if (!cle || !texte) return liste;
+  const nomClient = String(nom || "");
+  const entete = liste.find((x) => x && x.id === idEntete(cle)) || {};
+  const m = nouveauMessage(profile, {
+    canal: CANAL_WA, wa_tel: cle, wa_numero: tel, wa_nom: nomClient,
+    texte,
+    wa_modele: String(modele || ""),
+    ...(ref && ref.devis_id ? { devis_id: ref.devis_id } : {}),
+    ...(ref && ref.dette_id ? { dette_id: ref.dette_id } : {}),
+  });
+  return messagesAvecEntete([m, ...liste], {
+    cle, tel, nom: nomClient, derniere: m.ts,
     proprietaire_id: entete.proprietaire_id, proprietaire_nom: entete.proprietaire_nom,
   });
 }

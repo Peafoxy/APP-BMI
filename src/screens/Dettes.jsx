@@ -15,7 +15,7 @@ import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/
 import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels";
 import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
 import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
-import { envoyerModele } from "../whatsapp";
+import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
@@ -239,7 +239,14 @@ export function Dettes({ db, save, profile }) {
     // ouverture WhatsApp ne prouve rien, personne ne sait si le vendeur a
     // appuyé sur envoyer.
     const trace = traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id });
-    save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)) },
+    // 📲 23/09/2026 : la relance s'écrit AUSSI dans la conversation du client
+    // (📲 WhatsApp), sinon elle ne remonte jamais (Timo). État COURANT, et
+    // le propriétaire de la conversation ne change pas.
+    save((etat) => ({
+      ...etat,
+      dettes: etat.dettes.map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)),
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: d.tel, nom: compte?.nom_base || compte?.nom || d.client, modele: envoi.modele, variables: envoi.variables, ref: { dette_id: d.id } }) : etat.messages,
+    }),
       `Relance de la dette de ${d.client} (${fmt(Math.max(0, d.montant - d.paye))}) envoyée du numéro BMI — ${d.boutique}`);
     uAlert(`✅ Message envoyé du numéro BMI à ${d.client}.`);
   };

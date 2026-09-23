@@ -9,7 +9,7 @@ import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiqu
 import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
-import { envoyerModele } from "../whatsapp";
+import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { envoiRelanceDevis, traceEnvoi, libelleTrace, motifAttendu, messageRepli } from "../lib/whatsappModeles";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS } from "../lib/rappels";
@@ -174,14 +174,18 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
     if (!r.parti) return;
     const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) : null;
-    save({
-      ...db,
-      users: db.users.map((u) => (u.id === d.client?.id
+    // 📲 23/09/2026 : la relance partie du numéro BMI s'écrit AUSSI dans la
+    // conversation du client (📲 WhatsApp), sinon elle ne remonte jamais
+    // (Timo). Sur l'état COURANT, sans changer le propriétaire.
+    save((etat) => ({
+      ...etat,
+      users: etat.users.map((u) => (u.id === d.client?.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id
             ? { ...x, relance_le: today(), relance_par: profile.nom, nb_relances: (x.nb_relances || 0) + 1, ...(trace ? { envoi_whatsapp: trace } : {}) }
             : x)) }
         : u)),
-    }, `Devis ${STATUT_DEVIS[d.statut || "propose"][0]} de ${d.client?.nom_base || d.client?.nom} (${fmt(d.total)}) relancé ${r.auto ? "du numéro BMI" : "par WhatsApp"} — ${profile.nom}`);
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: d.client.tel, nom: d.client.nom_base || d.client.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: d.id } }) : etat.messages,
+    }), `Devis ${STATUT_DEVIS[d.statut || "propose"][0]} de ${d.client?.nom_base || d.client?.nom} (${fmt(d.total)}) relancé ${r.auto ? "du numéro BMI" : "par WhatsApp"} — ${profile.nom}`);
   };
 
   // Base pour les compteurs des onglets de statut : tous les AUTRES filtres

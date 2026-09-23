@@ -1096,5 +1096,79 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
     !/envoyerIdentifiantsDuNumeroBmi[\s\S]{0,900}premierContact/.test(srcWhatsapp.slice(srcWhatsapp.indexOf("envoyerIdentifiantsDuNumeroBmi"))));
 }
 
+// ──────────────────────────────────────────────────────────────
+titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE (23/09/2026)");
+{
+  // Timo : « pourquoi les discussions de relance n'apparaissent pas comme
+  // discussion récente ?… elles ne remontent pas ». La conversation est
+  // classée par son DERNIER message ; une relance n'en écrivait aucun.
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  // LA RÈGLE PURE : une phrase en français par modèle, jamais un secret.
+  const cas = {
+    devis_disponible: ["ESSO", "solaire", "1 250 000 F"],
+    relance_devis: ["ESSO", "solaire", "1 250 000 F", "15/09/2026"],
+    devis_valide_paiement: ["ESSO", "1 250 000 F", "C-0012", "DEMAKPOE"],
+    rappel_echeance: ["ESSO", "30/09/2026", "200 000 F", "600 000 F", "DEMAKPOE"],
+    rappel_dette: ["ESSO", "01/09/2026", "80 000 F", "200 000 F"],
+  };
+  for (const [modele, v] of Object.entries(cas)) {
+    const t = M.ligneEnvoiModele(modele, v);
+    test(`★ « ${modele} » donne une ligne en français qui dit ce qui est parti, avec le préfixe du numéro BMI, tous les mots des trous, jamais « livré » ni « lu »`,
+      t.startsWith(M.PREFIXE_LIGNE_ENVOI) && v.every((x) => t.includes(x)) && !/livr|\blu\b/i.test(t));
+  }
+  test("★★ le modèle `espace` (le seul qui porte un secret) n'a PAS de ligne ici : sa règle est celle des trous masqués",
+    M.ligneEnvoiModele("espace", ["KOFFI", "KOFFI", "abc123"]) === "" && !M.MODELES_AVEC_LIGNE.includes("espace"));
+  test("★ `prise_de_contact` n'en a pas non plus : l'écran écrit déjà son vrai texte",
+    M.ligneEnvoiModele("prise_de_contact", ["ESSO", "TIMO", "la dette"]) === "" && !M.MODELES_AVEC_LIGNE.includes("prise_de_contact"));
+  test("★ un modèle inconnu, un trou vide ou un nombre de trous faux → rien (on n'invente pas une phrase)",
+    M.ligneEnvoiModele("inconnu", ["a"]) === "" && M.ligneEnvoiModele("rappel_dette", ["ESSO", "", "80 000 F", "200 000 F"]) === ""
+    && M.ligneEnvoiModele("rappel_dette", ["ESSO", "01/09/2026", "80 000 F"]) === "");
+  test("★ les cinq modèles à ligne sont exactement ceux qui parlent d'un devis ou d'une dette",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,rappel_dette,rappel_echeance,relance_devis");
+
+  // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
+  // le propriétaire qui ne bouge pas.
+  const avant = monte(V.convsAvantEnvoi);
+  const liste = monte(V.ligneEnvoi);
+  const garnieTaille = Array.isArray(liste) ? liste.length - 1 : -1; // la ligne ajoutée ; la fiche légère est REMPLACÉE, pas empilée
+  const apres = monte(V.convsApresEnvoi);
+  const ligne = Array.isArray(liste) ? liste.find((x) => x && x.wa_modele === "relance_devis") : null;
+  test("★★ la ligne est une ligne de conversation WhatsApp SORTANTE (canal, clé du numéro, modèle, devis lié, auteur), jamais un entrant",
+    !!ligne && ligne.canal === "whatsapp" && ligne.wa_tel === "90114455" && ligne.devis_id === "DV1" && ligne.de_id === "KOSSI"
+    && !ligne.wa_entrant && ligne.texte.includes("1 250 000 F") && ligne.texte.startsWith("📲 Envoyé du numéro BMI"));
+  test("★★ AVANT l'envoi, la conversation d'AYOKO n'était pas en tête ; APRÈS, elle l'est (elle REMONTE)",
+    Array.isArray(avant) && Array.isArray(apres) && avant[0]?.cle !== "90114455" && apres[0]?.cle === "90114455");
+  test("★★ la conversation reste CONFIÉE à COM1 : l'envoi ne change jamais le propriétaire (seul « 🔁 Confier » le fait)",
+    Array.isArray(apres) && apres.find((c) => c.cle === "90114455")?.proprietaire_id === "COM1"
+    && (liste.find((x) => x && x.id === "waent_90114455") || {}).proprietaire_id === "COM1");
+  test("★ la ligne n'ouvre pas la fenêtre de 24 h et ne compte pas comme non lu",
+    Array.isArray(apres) && apres.find((c) => c.cle === "90114455")?.fenetre?.ouverte === false
+    && apres.find((c) => c.cle === "90114455")?.nonLus === 0);
+  test("★ sans numéro, rien ne s'écrit et la liste revient telle quelle",
+    Array.isArray(monte(V.ligneEnvoiSansTel)) && monte(V.ligneEnvoiSansTel).length === garnieTaille);
+
+  // LES TROIS ÉCRANS : chaque envoi par modèle qui a réussi (r.auto) écrit
+  // la ligne, sur l'état COURANT, par la fonction commune.
+  const ecrans = [
+    ["src/screens/TousLesDevis.jsx", "devis_id: d.id", "../whatsapp"],
+    ["src/screens/Dettes.jsx", "dette_id: d.id", "../whatsapp"],
+    ["src/screens/dimensionnement/Partages.jsx", "devis_id: idDevis", "../../whatsapp"],
+  ];
+  for (const [f, ref, chemin] of ecrans) {
+    const src = sansComm(lire(f));
+    const envois = (src.match(/await envoyerModele\(\{/g) || []).length;
+    const lignes = (src.match(/messages: r\.auto \? messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: [^}]*modele: envoi\.modele, variables: envoi\.variables, ref: \{ [a-z_]+: [\w.]+ \} \}\) : etat\.messages/g) || []);
+    test(`★★ ${f} : chaque envoi par modèle écrit la ligne dans 📲 WhatsApp si le message est parti du numéro BMI, par save((etat) => …) (${lignes.length}/${envois})`,
+      envois > 0 && lignes.length === envois && lignes.every((l) => l.includes(ref))
+      && new RegExp(`messagesAvecLigneEnvoi \\} from "${chemin.replace(/\./g, "\\.")}"`).test(src)
+      && /save\(\(etat\) => \(\{\s*\.\.\.etat,/.test(src));
+  }
+  test("★★ src/whatsapp.js porte la fonction, écrite UNE fois, qui passe par la règle pure et garde le propriétaire de la fiche légère",
+    /export function messagesAvecLigneEnvoi/.test(srcWhatsapp) && /ligneEnvoiModele\(modele, variables\)/.test(srcWhatsapp)
+    && (srcWhatsapp.match(/proprietaire_id: entete\.proprietaire_id/g) || []).length >= 2);
+  test("★ 📲 WhatsApp dessine cette ligne comme les autres (texteDuFil rend m.texte quand il n'y a pas d'accès à remplir)",
+    /if \(!m \|\| !m\.wa_acces\) return m \? m\.texte : "";/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

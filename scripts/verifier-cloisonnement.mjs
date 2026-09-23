@@ -4564,7 +4564,7 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
   {
     const srcPartages = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
     test("★ le devis (Partages) part du numéro BMI par le chemin unique, avec le texte d'aujourd'hui en repli et le bouton de secours (uConfirm transmis)",
-      /import \{ envoyerModele \} from "\.\.\/\.\.\/whatsapp";/.test(srcPartages)
+      /import \{ envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/\.\.\/whatsapp";/.test(srcPartages)
       && /texteRepli: lignesMsg\.join\("\\n"\),/.test(srcPartages)
       && /demanderConfirmation: uConfirm,/.test(srcPartages)
       && !/envoyerWhatsApp\(/.test(srcPartages));
@@ -4577,7 +4577,7 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     {
       const srcD = readFileSync("src/screens/Dettes.jsx", "utf8");
       test("★ la relance d'une dette part du numéro BMI par le chemin unique, avec le texte du modèle en repli",
-        /import \{ envoyerModele \} from "\.\.\/whatsapp";/.test(srcD)
+        /import \{ envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/whatsapp";/.test(srcD)
         && /texteRepli: texte,/.test(srcD)
         && /demanderConfirmation: uConfirm,/.test(srcD)
         && !/envoyerWhatsApp\(/.test(srcD));
@@ -5134,7 +5134,7 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
   // c'est lui qui s'ouvre dans WhatsApp, entier. Rien n'a été retiré.
   test("★ le bouton 📲 Relancer part du numéro BMI (envoyerModele, jamais wa.me), garde le texte d'aujourd'hui en repli avec le mot de passe recalculé (motDePasseConnu), et note date, auteur et nombre de relances sur le devis",
     /texteRelanceDevis\(\{ devis: d, compte: d\.client, motDePasse: motDePasseConnu\(d\.client\), vendeur: profile\.nom, formaterMontant: fmt \}\)/.test(tld)
-    && /import \{ envoyerModele \} from "\.\.\/whatsapp";/.test(tld)
+    && /import \{ envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/whatsapp";/.test(tld)
     && /texteRepli: texte,/.test(tld) && /demanderConfirmation: uConfirm,/.test(tld) && !/wa\.me/.test(tld)
     && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
     && /\{devisRelancable\(d\) && \(\s*<button onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) && /bloquerSiLecture\(db, profile\)\) return;\n    const texte = texteRelanceDevis/.test(tld));

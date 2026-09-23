@@ -7,7 +7,8 @@
 // On le monte donc sur DEUX bases : une garnie, et une NUE.
 import { renderToStaticMarkup } from "react-dom/server";
 import { Whatsapp, MediaWa, compterNonLusWa } from "../src/screens/Whatsapp.jsx";
-import { messagesAvecLigneAcces } from "../src/whatsapp.js";
+import { messagesAvecLigneAcces, messagesAvecLigneEnvoi } from "../src/whatsapp.js";
+import { conversationsWa } from "../src/lib/whatsappConversations.js";
 import { texteAccesAffiche } from "../src/lib/whatsappModeles.js";
 import { motDePasseConnu } from "../src/lib/comptesClients.js";
 
@@ -58,6 +59,18 @@ export const lectureAcces = (lecteur) => {
   return texteAccesAffiche(m, lecteur, { identifiant: clientAuto.nom, motDePasse: motDePasseConnu(clientAuto) });
 };
 export const lecteurAdmin = users[0], lecteurCreateur = users[2], lecteurAutre = users[1];
+
+// ---- 📲 LA LIGNE D'UNE RELANCE DANS LE FIL (23/09/2026) ----
+// La conversation d'AYOKO est CONFIÉE à COM1 et date du 21/09 ; KOSSI la
+// relance depuis 📋 Tous les devis : la ligne s'écrit, la conversation
+// remonte en tête chez l'administrateur, et elle reste à COM1.
+export const ligneEnvoi = () => messagesAvecLigneEnvoi(garnie.messages, {
+  profile: users[2], tel: "+22890114455", nom: "AYOKO", modele: "relance_devis",
+  variables: ["AYOKO", "solaire", "1 250 000 F", "15/09/2026"], ref: { devis_id: "DV1" },
+});
+export const convsApresEnvoi = () => conversationsWa(ligneEnvoi(), users[0]);
+export const convsAvantEnvoi = () => conversationsWa(garnie.messages, users[0]);
+export const ligneEnvoiSansTel = () => messagesAvecLigneEnvoi(garnie.messages, { profile: users[2], tel: "", nom: "X", modele: "relance_devis", variables: ["A", "b", "c", "d"] });
 
 export const htmlAdmin = () => rendre(garnie, users[0]);
 export const htmlComptable = () => rendre(garnie, { id: "CPT", nom: "COMPTA", role: "comptable" });
