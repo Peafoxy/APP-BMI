@@ -10,7 +10,7 @@ import { correspond } from "../lib/suggestions";
 // 💰 Ventes, 💳 Dettes et 🛠 Travaux proposent dans leur case Client
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus } from "../lib/clientsConnus";
-import { uid, fmt, today, dFR, telDigits, envoyerWhatsApp } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche } from "../components/ui";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -19,8 +19,8 @@ import {
   motDePasseConnu, messagesNouveauClient,
 } from "../lib/comptesClients";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
-import { messageIdentifiants } from "../lib/whatsappModeles";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, motifAttendu, messageRepli } from "../lib/whatsappModeles";
 
 // ============ CRÉER UN CLIENT (parrainage employé) ============
 // Onglet dédié, ouvert à tous les employés SAUF l'admin (qui a 👥 Utilisateurs)
@@ -175,7 +175,7 @@ export function CreerClient({ db, save, profile }) {
   );
 }
 
-export function Clients({ db, profile }) {
+export function Clients({ db, save, profile }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "clients" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -189,10 +189,43 @@ export function Clients({ db, profile }) {
   if (q) clients = clients.filter((c) => correspond(c.nom + " " + (c.tel || ""), q));
   const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
 
-  const contacter = (c) => {
+  // 💙 LE MOT DE FIDÉLITÉ PART DU NUMÉRO BMI (23/09/2026, nouveauté 1 de
+  // Timo). Avant : WhatsApp s'ouvrait VIDE sur le téléphone de l'employé.
+  // Depuis : un clic, une question, et le mot de fidélité (texte de Timo)
+  // part du numéro BMI — `mot_fidelite` si le numéro correspond à un compte
+  // client de l'espace regardé (il a un espace), `mot_fidelite_simple` sinon
+  // (décision « 2 »). ⚠ LE MUR : c'est l'espace de la BOUTIQUE regardée qui
+  // décide, jamais celui de la personne qui clique. Repli : WhatsApp s'ouvre
+  // avec le même texte, et l'écran dit pourquoi. Une ligne s'écrit dans
+  // 📲 WhatsApp, la conversation remonte et est DONNÉE à celui qui envoie,
+  // si elle n'est à personne.
+  const contacter = async (c) => {
     const num = telDigits(c.tel);
     if (!num) { uAlert("Aucun numéro enregistré pour ce client."); return; }
-    envoyerWhatsApp(num, "");
+    const compte = comptesAvecCeNumero(db, profile, c.tel).find((u) => u.role === "client") || null;
+    const nom = compte ? (compte.nom_base || compte.nom) : c.nom;
+    const envoi = envoiMotFidelite({ nom, avecCompte: !!compte });
+    // Une question avant l'envoi : un clic sur une ligne part vite, et un
+    // message au nom de BMI ne se rattrape pas.
+    if (!await uConfirm(`Envoyer le mot de fidélité à ${nom} du numéro BMI ?`)) return;
+    const bqRegardee = (db.boutiques || []).find((b) => b.nom === boutique) || {};
+    const r = await envoyerModele({
+      tel: c.tel,
+      modele: envoi.modele,
+      variables: envoi.variables,
+      espaceFormation: !!bqRegardee.formation,
+      texteRepli: texteMotFidelite({ nom, avecCompte: !!compte }),
+      demanderConfirmation: uConfirm,
+    });
+    if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+    if (!r.auto) return;
+    if (typeof save === "function") {
+      save((etat) => ({
+        ...etat,
+        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: c.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true }),
+      }), `Mot de fidélité envoyé du numéro BMI à ${nom} — ${profile.nom}`);
+    }
+    uAlert(`✅ Mot de fidélité envoyé du numéro BMI à ${nom}.`);
   };
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —

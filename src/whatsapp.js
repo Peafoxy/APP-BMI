@@ -37,11 +37,15 @@ const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== f
 //
 // `texteRepli` est le message d'aujourd'hui, mot pour mot : on ne le
 // remplace pas, on le garde sous la main.
-export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation }) {
+// ⚠ `sansRepli` (23/09/2026, le reçu automatique de 💰 Ventes) : quand le
+// numéro BMI ne peut pas envoyer, on NE fait PAS ouvrir WhatsApp — un vendeur
+// qui encaisse dix ventes ne doit pas le voir s'ouvrir dix fois. On rend le
+// motif, l'écran le dit discrètement, et le bouton du reçu reste là.
+export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false }) {
   const repli = async (motif) => ({
     auto: false,
     motif,
-    parti: await envoyerWhatsApp(tel, texteRepli, demanderConfirmation),
+    parti: sansRepli ? false : await envoyerWhatsApp(tel, texteRepli, demanderConfirmation),
   });
 
   const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne() });
@@ -145,23 +149,36 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
 //     aucune pastille rouge (la ligne n'est pas un entrant).
 // Appelée par `save((etat) => …)` : l'écran a déjà enregistré la trace sur
 // le devis ou la dette, on ne repart jamais d'un état périmé.
-export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {} }) {
+// ⚠ `donnerAuSender` (23/09/2026, le mot de fidélité de 📋 Clients) : comme
+// « ✍️ Écrire », le mot de fidélité DONNE la conversation à celui qui l'envoie
+// — sinon le vendeur écrit à son client et la réponse tombe au support. MAIS
+// seulement si elle n'est à PERSONNE : une conversation déjà confiée à un
+// collègue ne se prend pas au passage (seul « 🔁 Confier » le fait). Une
+// relance, un reçu de vente ne la donnent jamais (`donnerAuSender` absent).
+export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {}, donnerAuSender = false }) {
   const liste = Array.isArray(messages) ? messages : [];
   const cle = cleConversation(tel);
   const texte = ligneEnvoiModele(modele, variables);
   if (!cle || !texte) return liste;
   const nomClient = String(nom || "");
   const entete = liste.find((x) => x && x.id === idEntete(cle)) || {};
+  const libre = !entete.proprietaire_id || entete.proprietaire_id === profile?.id;
+  const prop = donnerAuSender && libre && profile?.id
+    ? { proprietaire_id: profile.id, proprietaire_nom: profile.nom || "" }
+    : {};
   const m = nouveauMessage(profile, {
     canal: CANAL_WA, wa_tel: cle, wa_numero: tel, wa_nom: nomClient,
     texte,
     wa_modele: String(modele || ""),
     ...(ref && ref.devis_id ? { devis_id: ref.devis_id } : {}),
     ...(ref && ref.dette_id ? { dette_id: ref.dette_id } : {}),
+    ...(ref && ref.vente_id ? { vente_id: ref.vente_id } : {}),
+    ...prop,
   });
   return messagesAvecEntete([m, ...liste], {
     cle, tel, nom: nomClient, derniere: m.ts,
-    proprietaire_id: entete.proprietaire_id, proprietaire_nom: entete.proprietaire_nom,
+    proprietaire_id: prop.proprietaire_id || entete.proprietaire_id,
+    proprietaire_nom: prop.proprietaire_nom || entete.proprietaire_nom,
   });
 }
 

@@ -25,6 +25,8 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
+import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { envoiRecuVente, motifAttendu } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
@@ -98,6 +100,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [cat, setCat] = useState("");
   const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   const [panier, setPanier] = useState(() => preRempli?.panier || []);
+  // 🧾 Le reçu WhatsApp automatique : ce qui s'est passé au dernier
+  // encaissement, dit discrètement sous le titre (jamais une fenêtre).
+  const [noteRecuWa, setNoteRecuWa] = useState("");
   // Une seule vente dépliée à la fois. Timo (12/09/2026) : « un seul clic pour
   // sélectionner une autre » — cliquer une autre ligne la déplie directement
   // (et replie la précédente) ; seul un clic sur la ligne ouverte la referme.
@@ -391,6 +396,42 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // ⚠ Décision Timo (09/09/2026) : une journée passée avec des ventes et
   // sans clôture de caisse BLOQUE les ventes de cette boutique (lib/cloture.js).
   const blocageCloture = motifBlocageVente(db, boutique, today(), totalVente, dFR);
+  // 🧾 LE REÇU PART DU NUMÉRO BMI, TOUT SEUL (23/09/2026, nouveauté 2 de
+  // Timo : « à chaque encaissement… automatiquement… sans validation »).
+  // Sept trous remplis depuis la vente (envoiRecuVente) ; à crédit, la
+  // formule dit l'avance et le reste, lus sur la dette qui vient de naître.
+  // ⚠ SANS REPLI : WhatsApp ne s'ouvre jamais ici (`sansRepli`) — dix ventes,
+  // dix fenêtres, non. Une vente sans numéro n'envoie rien et ne dit rien
+  // (c'est le cas normal au comptoir) ; la formation non plus ; tout autre
+  // motif se lit sous le titre, une fois. ⚠ LE MUR : l'espace de la BOUTIQUE
+  // qui a vendu. La ligne s'écrit dans 📲 WhatsApp sur l'état COURANT, sans
+  // donner la conversation au vendeur (une vente de comptoir ne fait pas
+  // d'un vendeur le propriétaire du client).
+  const envoyerRecuAutomatique = async (vente, apres) => {
+    const bq = infoBq(vente.boutique);
+    const dette = (apres.dettes || []).find((d) => d.vente_id === vente.id) || null;
+    const envoi = envoiRecuVente({
+      vente, boutique: bq,
+      avance: dette ? Number(dette.paye || 0) : 0,
+      reste: dette ? Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) : 0,
+      fmt, dFR,
+    });
+    if (!envoi) { setNoteRecuWa(""); return; }
+    const r = await envoyerModele({
+      tel: vente.tel, modele: envoi.modele, variables: envoi.variables,
+      espaceFormation: !!bq.formation, sansRepli: true,
+    });
+    if (r.auto) {
+      save((etat) => ({
+        ...etat,
+        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id } }),
+      }));
+      setNoteRecuWa(`📲 Reçu ${vente.numero} envoyé du numéro BMI à ${vente.client}.`);
+      return;
+    }
+    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.` : "");
+  };
+
   const encaisserVente = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (blocageCloture) { uAlert(blocageCloture); return; }
@@ -789,6 +830,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // l'encaissement et le reçu ne font qu'un geste. À crédit, c'est le reçu de
     // la dette qui vient d'être créée (elle est dans `next`) — 14/09/2026.
     try { imprimerRecuDeVente(next, vente, infoBq(boutique), db.produits); } catch {}
+    envoyerRecuAutomatique(vente, next);
     if (od) {
       setOrigineDevis(null); // consommé : une seule fiche d'installation par devis
       uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
@@ -1036,6 +1078,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
         {blocageCloture && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}
+        {noteRecuWa && <div data-recu-whatsapp className="mb-3 text-xs text-slate-600">{noteRecuWa}</div>}
         {produits.length === 0 ? (
           <div className="text-sm text-slate-600">Aucun article en stock. L'administrateur doit d'abord enregistrer les articles dans Stocks.</div>
         ) : (

@@ -97,6 +97,25 @@ export const MODELES = {
   // main, lib/comptesClients.js) reste celui d'avant — décision Timo du
   // 21/09 : « je veux que les 2 existent ».
   espace: { categorie: "utility", variables: ["client", "identifiant", "mot_de_passe"] },
+  // 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS (23/09/2026, nouveauté 1 de Timo :
+  // « lorsqu'on appuie sur WhatsApp sur la fiche client, qu'un message
+  // WhatsApp soit envoyé au client depuis le numéro BMI »). Texte écrit par
+  // Timo, mot pour mot (TEXTE_FIDELITE), UN trou : le nom. MARKETING (il
+  // fait de la promotion : « Découvrez nos services »). Décision « 2 » :
+  // DEUX modèles, le second SANS les deux lignes « Votre espace client » —
+  // un client sans compte n'a pas d'espace, on ne lui en annonce pas un.
+  mot_fidelite: { categorie: "marketing", variables: ["client"] },
+  mot_fidelite_simple: { categorie: "marketing", variables: ["client"] },
+  // 🧾 LE REÇU AUTOMATIQUE À L'ENCAISSEMENT (23/09/2026, nouveauté 2 : « à
+  // chaque encaissement lors d'une vente, qu'un message WhatsApp soit
+  // automatiquement envoyé au client… sans validation »). UTILITY : il porte
+  // sur UNE transaction (reçu, montant). Sept trous, tous remplis par
+  // l'application depuis la vente ; ⚠ le {{6}} porte TOUTE la formule du
+  // paiement (« payé en espèces », « à crédit : avance …, reste … »), parce
+  // que « payé par Espèces » se lisait mal ; ⚠ le {{7}} est le téléphone de
+  // la BOUTIQUE qui a vendu (sa décision), le numéro BMI principal si la
+  // fiche n'en a pas — Meta refuse un trou vide.
+  recu_vente: { categorie: "utility", variables: ["client", "date", "boutique", "recu", "montant", "paiement", "telephone"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -114,6 +133,10 @@ export const MODELES_EN_SERVICE = [
   // identifiants partent à la main). BRANCHÉ le 22/09/2026 au soir, sur sa
   // capture : « le message ne passe pas par le numéro BMI ».
   "espace",
+  // 23/09/2026 : les deux nouveautés de Timo. En service AVANT l'accord de
+  // Meta (d'ici là : repli sur l'ouverture WhatsApp pour le mot de
+  // fidélité ; RIEN pour le reçu de vente, qui ne dérange jamais le vendeur).
+  "mot_fidelite", "mot_fidelite_simple", "recu_vente",
 ];
 
 // ---------------------------------------------------------------
@@ -463,6 +486,9 @@ const LIGNES_ENVOI = {
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,
   rappel_dette: ([client, date, reste, total]) => `Rappel de dette à ${client} : reste ${reste} à régler sur ${total} (achat du ${date}).`,
+  mot_fidelite: ([client]) => `Mot de fidélité envoyé à ${client}.`,
+  mot_fidelite_simple: ([client]) => `Mot de fidélité envoyé à ${client}.`,
+  recu_vente: ([client, date, boutique, recu, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique}, ${montant}, ${paiement}.`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
 export const PREFIXE_LIGNE_ENVOI = "📲 Envoyé du numéro BMI — ";
@@ -622,4 +648,106 @@ export function numeroWhatsApp(tel) {
   if (d.startsWith("00")) d = d.slice(2);
   if (d.length === 8) d = INDICATIF_TOGO + d;
   return `+${d}`;
+}
+
+// ---------------------------------------------------------------
+// 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS (23/09/2026)
+// ---------------------------------------------------------------
+// Texte de Timo, mot pour mot. Le même sert de REPLI (WhatsApp ouvert sur le
+// téléphone de l'employé) : le client reçoit la même chose par les deux
+// chemins. ⚠ Les numéros BMI et les sites sont écrits EN DUR, comme chez
+// Meta : s'ils changent, c'est un nouveau modèle.
+export const NUMEROS_BMI = "+228 99 96 84 88 / +228 91 13 05 11";
+export const NUMERO_BMI_PRINCIPAL = "+228 99 96 84 88";
+const LIGNES_FIDELITE_DEBUT = [
+  "Bonjour {{1}},",
+  "🙏 Merci pour votre confiance !",
+  "Toute l'équipe de BMI TOGO vous remercie sincèrement pour la confiance que vous nous accordez.",
+  "Nous sommes heureux de vous accompagner dans vos projets en énergie solaire, automatisation de garage, ventilation et domotique industrielle.",
+  "🤝 Votre satisfaction est notre priorité. Nous restons à votre disposition pour vous accompagner dans vos prochains besoins.",
+  "🌐 Découvrez nos services :",
+  "bmitogo.com",
+];
+const LIGNES_FIDELITE_ESPACE = ["📋 Votre espace client :", "gestion.bmitogo.com"];
+const LIGNES_FIDELITE_FIN = [
+  `📞 ${NUMEROS_BMI}`,
+  "BMI TOGO — Les bâtiments modernes et intelligents",
+  "💙💚 Merci de faire partie de nos clients !",
+];
+export const TEXTE_FIDELITE = [...LIGNES_FIDELITE_DEBUT, ...LIGNES_FIDELITE_ESPACE, ...LIGNES_FIDELITE_FIN].join("\n");
+export const TEXTE_FIDELITE_SIMPLE = [...LIGNES_FIDELITE_DEBUT, ...LIGNES_FIDELITE_FIN].join("\n");
+
+// Le modèle et son trou. `avecCompte` : le numéro correspond à un compte
+// client de l'espace regardé → la version qui parle de son espace.
+export function envoiMotFidelite({ nom, avecCompte }) {
+  return {
+    modele: avecCompte ? "mot_fidelite" : "mot_fidelite_simple",
+    variables: [texteVariable(nom) || "cher client"],
+  };
+}
+// Le texte de repli, mot pour mot celui du modèle choisi.
+export function texteMotFidelite({ nom, avecCompte }) {
+  const t = avecCompte ? TEXTE_FIDELITE : TEXTE_FIDELITE_SIMPLE;
+  return t.replace("{{1}}", texteVariable(nom) || "cher client");
+}
+
+// ---------------------------------------------------------------
+// 🧾 LE REÇU AUTOMATIQUE À L'ENCAISSEMENT (23/09/2026)
+// ---------------------------------------------------------------
+// Texte de Timo, mot pour mot (les sept trous). Il n'a PAS de repli qui
+// ouvre WhatsApp : un vendeur qui encaisse dix ventes ne doit pas voir
+// WhatsApp s'ouvrir dix fois. Le bouton du reçu sur la ligne reste là.
+export const TEXTE_RECU_VENTE = [
+  "Bonjour {{1}},",
+  "Merci pour votre achat du {{2}} à {{3}}.",
+  "Reçu N° {{4}} : {{5}}, {{6}}.",
+  "Pour toute question veuillez contacter : {{7}}.",
+  "Merci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents",
+  "www.bmitogo.com",
+].join("\n");
+
+// La FORMULE du paiement (trou 6) — « payé par Espèces » se lisait mal.
+// `paiement` est le moyen normalisé de la vente ; `reste` et `avance` ne
+// servent qu'à crédit.
+export function formulePaiement({ paiement, avance = 0, reste = 0, fmt }) {
+  const p = String(paiement || "");
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  if (/cr[ée]dit/i.test(p)) {
+    return Number(avance) > 0
+      ? `à crédit : avance ${f(avance)}, reste ${f(reste)}`
+      : `à crédit : reste ${f(reste)}`;
+  }
+  if (/esp[èe]ces/i.test(p)) return "payé en espèces";
+  if (/flooz/i.test(p)) return "payé par Mobile Money (Flooz)";
+  if (/mixx|t-?money/i.test(p)) return "payé par Mobile Money (Mixx)";
+  if (/virement/i.test(p)) return "payé par virement bancaire";
+  return p ? `payé par ${p}` : "payé";
+}
+
+// Le modèle et ses sept trous, depuis la vente. Rend null sans numéro de
+// téléphone (rien à envoyer, et ce n'est pas une panne : la plupart des
+// ventes de comptoir n'en ont pas). ⚠ `telephoneBoutique` vide → le numéro
+// BMI principal, jamais un trou vide.
+export function envoiRecuVente({ vente, boutique, avance = 0, reste = 0, fmt, dFR }) {
+  if (!vente || !String(vente.tel || "").replace(/\D/g, "")) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  const nom = texteVariable(vente.client);
+  return {
+    modele: "recu_vente",
+    variables: [
+      !nom || /client non renseign/i.test(nom) ? "cher client" : nom,
+      d(vente.date) || "aujourd'hui",
+      texteVariable(vente.boutique) || "BMI TOGO",
+      texteVariable(vente.numero) || "—",
+      f(Number(vente.total) || 0),
+      formulePaiement({ paiement: vente.paiement, avance, reste, fmt: f }),
+      texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,
+    ],
+  };
+}
+// Le texte lisible (pour le fil, le banc, un jour un repli à la main).
+export function texteRecuVente(envoi) {
+  if (!envoi) return "";
+  return envoi.variables.reduce((t, v, i) => t.replace(`{{${i + 1}}}`, v), TEXTE_RECU_VENTE);
 }

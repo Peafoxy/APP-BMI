@@ -50,8 +50,17 @@ const ATTENDU = {
   // créer. UTILITY (sa précision). Trois trous : nom, identifiant, mot de
   // passe — le SEUL modèle qui porte un secret (voir la section ②).
   espace: { categorie: "utility", n: 3 },
+  // ⚠ LES TROIS DE TIMO (23/09/2026) : le mot de fidélité, MARKETING (il fait
+  // de la promotion), en DEUX textes — avec et sans les lignes de l'espace
+  // client (décision « 2 ») — un seul trou, le nom ; et le reçu de vente,
+  // UTILITY (une transaction), SEPT trous remplis depuis la vente.
+  mot_fidelite: { categorie: "marketing", n: 1 },
+  mot_fidelite_simple: { categorie: "marketing", n: 1 },
+  recu_vente: { categorie: "utility", n: 7 },
 };
-test("les sept modèles sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+// ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
+// avec et sans espace, reçu de vente) s'ajoutent aux sept.
+test("les dix modèles sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1079,7 +1088,7 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
     // save((etat) => …) — jamais depuis le `db` d'avant la création.
     const lignes = src.match(/if \(r && r\.auto\) save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages, \{ profile, client: \w+(, renvoi: true)? \}\) \}\)\);/g) || [];
     test(`★★ ${f} : chaque envoi d'un client écrit la ligne « accès envoyés » dans 📲 WhatsApp, seulement si le message est parti du numéro BMI, sur l'état COURANT (${lignes.length}/${appels.length})`,
-      appels.length > 0 && lignes.length === appels.length && /messagesAvecLigneAcces \} from "\.\.\/whatsapp"/.test(src));
+      appels.length > 0 && lignes.length === appels.length && /import \{[^}]*messagesAvecLigneAcces[^}]*\} from "\.\.\/whatsapp"/.test(src));
     // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
     test(`★★ ${f} : chaque envoi passe l'espace du COMPTE CRÉÉ (${appels.length} envoi(s))`,
       appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|espaceCree === true)/.test(a)));
@@ -1123,8 +1132,10 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   test("★ un modèle inconnu, un trou vide ou un nombre de trous faux → rien (on n'invente pas une phrase)",
     M.ligneEnvoiModele("inconnu", ["a"]) === "" && M.ligneEnvoiModele("rappel_dette", ["ESSO", "", "80 000 F", "200 000 F"]) === ""
     && M.ligneEnvoiModele("rappel_dette", ["ESSO", "01/09/2026", "80 000 F"]) === "");
-  test("★ les cinq modèles à ligne sont exactement ceux qui parlent d'un devis ou d'une dette",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,rappel_dette,rappel_echeance,relance_devis");
+  // ⚠ RETOURNÉ le 23/09/2026 : HUIT — le mot de fidélité (deux textes) et le
+  // reçu de vente s'écrivent aussi dans le fil.
+  test("★ les huit modèles à ligne : devis, dette, mot de fidélité, reçu de vente — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_vente,relance_devis");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -1165,9 +1176,111 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   }
   test("★★ src/whatsapp.js porte la fonction, écrite UNE fois, qui passe par la règle pure et garde le propriétaire de la fiche légère",
     /export function messagesAvecLigneEnvoi/.test(srcWhatsapp) && /ligneEnvoiModele\(modele, variables\)/.test(srcWhatsapp)
-    && (srcWhatsapp.match(/proprietaire_id: entete\.proprietaire_id/g) || []).length >= 2);
+    && (srcWhatsapp.match(/entete\.proprietaire_id/g) || []).length >= 3
+    && /proprietaire_id: prop\.proprietaire_id \|\| entete\.proprietaire_id/.test(srcWhatsapp));
   test("★ 📲 WhatsApp dessine cette ligne comme les autres (texteDuFil rend m.texte quand il n'y a pas d'accès à remplir)",
     /if \(!m \|\| !m\.wa_acces\) return m \? m\.texte : "";/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOMATIQUE À L'ENCAISSEMENT (23/09/2026)");
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const fmt = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
+  // LES TEXTES DE TIMO, mot pour mot.
+  test("★★ le mot de fidélité (compte) est le texte de Timo : Bonjour {{1}}, la confiance, les quatre métiers, les deux sites, les DEUX numéros BMI, la signature",
+    M.TEXTE_FIDELITE.startsWith("Bonjour {{1}},\n🙏 Merci pour votre confiance !")
+    && M.TEXTE_FIDELITE.includes("énergie solaire, automatisation de garage, ventilation et domotique industrielle.")
+    && M.TEXTE_FIDELITE.includes("🌐 Découvrez nos services :\nbmitogo.com\n📋 Votre espace client :\ngestion.bmitogo.com\n📞 +228 99 96 84 88 / +228 91 13 05 11\nBMI TOGO — Les bâtiments modernes et intelligents\n💙💚 Merci de faire partie de nos clients !")
+    && !M.TEXTE_FIDELITE.endsWith("\n") && !/  /.test(M.TEXTE_FIDELITE) && !/votre achat/.test(M.TEXTE_FIDELITE));
+  test("★★ la version SIMPLE est la même SANS les deux lignes de l'espace client (un client sans compte n'a pas d'espace)",
+    M.TEXTE_FIDELITE_SIMPLE === M.TEXTE_FIDELITE.replace("📋 Votre espace client :\ngestion.bmitogo.com\n", "")
+    && !M.TEXTE_FIDELITE_SIMPLE.includes("gestion.bmitogo.com"));
+  test("★ le modèle suit le compte : avec compte → mot_fidelite, sans → mot_fidelite_simple ; un seul trou, le nom (« cher client » à défaut)",
+    M.envoiMotFidelite({ nom: "ESSO", avecCompte: true }).modele === "mot_fidelite"
+    && M.envoiMotFidelite({ nom: "ESSO", avecCompte: false }).modele === "mot_fidelite_simple"
+    && M.envoiMotFidelite({ nom: "ESSO", avecCompte: true }).variables.join() === "ESSO"
+    && M.envoiMotFidelite({ nom: "", avecCompte: false }).variables.join() === "cher client");
+  test("★ le repli est le texte du modèle choisi, mot pour mot, le trou rempli",
+    M.texteMotFidelite({ nom: "ESSO", avecCompte: true }) === M.TEXTE_FIDELITE.replace("{{1}}", "ESSO")
+    && M.texteMotFidelite({ nom: "ESSO", avecCompte: false }) === M.TEXTE_FIDELITE_SIMPLE.replace("{{1}}", "ESSO"));
+  test("★★ le reçu de vente est le texte de Timo : sept trous, « veuillez contacter », le site en dernière ligne, rien après",
+    M.TEXTE_RECU_VENTE === "Bonjour {{1}},\nMerci pour votre achat du {{2}} à {{3}}.\nReçu N° {{4}} : {{5}}, {{6}}.\nPour toute question veuillez contacter : {{7}}.\nMerci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents\nwww.bmitogo.com");
+  test("★ les catégories : le mot de fidélité est MARKETING (il fait de la promotion), le reçu UTILITY (une transaction)",
+    M.MODELES.mot_fidelite.categorie === "marketing" && M.MODELES.mot_fidelite_simple.categorie === "marketing" && M.MODELES.recu_vente.categorie === "utility"
+    && M.MODELES_EN_SERVICE.includes("mot_fidelite") && M.MODELES_EN_SERVICE.includes("mot_fidelite_simple") && M.MODELES_EN_SERVICE.includes("recu_vente"));
+  // LA FORMULE DU PAIEMENT : « payé par Espèces » se lisait mal.
+  test("★★ la formule du trou 6 : espèces, Flooz, Mixx, virement, crédit avec ou sans avance",
+    M.formulePaiement({ paiement: "Espèces" }) === "payé en espèces"
+    && M.formulePaiement({ paiement: "Mobile Money (Flooz)" }) === "payé par Mobile Money (Flooz)"
+    && M.formulePaiement({ paiement: "Mobile Money (Mixx)" }) === "payé par Mobile Money (Mixx)"
+    && M.formulePaiement({ paiement: "Virement bancaire" }) === "payé par virement bancaire"
+    && M.formulePaiement({ paiement: "Crédit (dette)", avance: 50000, reste: 110000, fmt }) === `à crédit : avance ${fmt(50000)}, reste ${fmt(110000)}`
+    && M.formulePaiement({ paiement: "Crédit (dette)", avance: 0, reste: 160000, fmt }) === `à crédit : reste ${fmt(160000)}`);
+  const vente = { id: "V1", tel: "90112233", client: "ESSO", date: "2026-09-23", boutique: "BMI DEMAKPOE", numero: "DEM-0142", total: 160000, paiement: "Espèces" };
+  const e = M.envoiRecuVente({ vente, boutique: { tel: "+228 91 13 05 11" }, fmt, dFR });
+  test("★★ les sept trous viennent de la vente : nom, date, boutique, reçu, montant, formule, TÉLÉPHONE DE LA BOUTIQUE",
+    e && e.modele === "recu_vente" && e.variables.join("|") === `ESSO|23/09/2026|BMI DEMAKPOE|DEM-0142|${fmt(160000)}|payé en espèces|+228 91 13 05 11`);
+  test("★★ une boutique sans téléphone → le numéro BMI principal (Meta refuse un trou vide), jamais un trou vide",
+    M.envoiRecuVente({ vente, boutique: {}, fmt, dFR }).variables[6] === M.NUMERO_BMI_PRINCIPAL
+    && M.critiqueModele("recu_vente", M.envoiRecuVente({ vente, boutique: {}, fmt, dFR }).variables) === "");
+  test("★ « Client non renseigné » ou sans nom → « cher client » ; SANS numéro → null (rien à envoyer, pas une panne)",
+    M.envoiRecuVente({ vente: { ...vente, client: "Client non renseigné" }, boutique: {}, fmt, dFR }).variables[0] === "cher client"
+    && M.envoiRecuVente({ vente: { ...vente, tel: "" }, boutique: {}, fmt, dFR }) === null);
+  test("★ le texte lisible du reçu remplit les sept trous, dans l'ordre",
+    M.texteRecuVente(e) === `Bonjour ESSO,\nMerci pour votre achat du 23/09/2026 à BMI DEMAKPOE.\nReçu N° DEM-0142 : ${fmt(160000)}, payé en espèces.\nPour toute question veuillez contacter : +228 91 13 05 11.\nMerci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents\nwww.bmitogo.com`);
+  test("★ les trois modèles ont leur ligne dans le fil, sans secret, jamais « livré » ni « lu »",
+    /Mot de fidélité envoyé à ESSO/.test(M.ligneEnvoiModele("mot_fidelite", ["ESSO"])) && /Mot de fidélité envoyé à ESSO/.test(M.ligneEnvoiModele("mot_fidelite_simple", ["ESSO"]))
+    && /Reçu N° DEM-0142 envoyé à ESSO/.test(M.ligneEnvoiModele("recu_vente", e.variables)) && !/livr|\blu\b/i.test(M.ligneEnvoiModele("recu_vente", e.variables)));
+
+  // LA VRAIE CHAÎNE : à qui va la conversation.
+  const libre = monte(V.convsFideliteLibre), confiee = monte(V.convsFideliteConfiee), recu = monte(V.convsRecu);
+  const conv = (l, cle) => (Array.isArray(l) ? l.find((c) => c.cle === cle) : null);
+  test("★★ le mot de fidélité DONNE la conversation à celui qui l'envoie quand elle n'est à personne (ESSO, support → KOSSI)",
+    conv(libre, "90112233")?.proprietaire_id === "KOSSI" && conv(libre, "90112233")?.fil?.some((m) => m.wa_modele === "mot_fidelite" && m.proprietaire_id === "KOSSI"));
+  test("★★ …mais ne PREND JAMAIS une conversation déjà confiée à un collègue (AYOKO reste à COM1)",
+    conv(confiee, "90114455")?.proprietaire_id === "COM1");
+  test("★★ le reçu de vente n'en donne aucune : ESSO reste au support, la ligne porte la vente",
+    conv(recu, "90112233")?.proprietaire_id === "" && conv(recu, "90112233")?.fil?.some((m) => m.wa_modele === "recu_vente" && m.vente_id === "V1" && !m.proprietaire_id));
+  test("★ dans les trois cas la conversation remonte en tête",
+    libre[0]?.cle === "90112233" && confiee[0]?.cle === "90114455" && recu[0]?.cle === "90112233");
+
+  // 📋 CLIENTS : le bouton, la question, le compte, le mur, le repli, la ligne.
+  const cli = sansComm(lire("src/screens/Clients.jsx"));
+  const corps = (cli.match(/const contacter = async \(c\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ 📋 Clients : le bouton WhatsApp envoie le mot de fidélité du numéro BMI, après UNE question, le modèle choisi selon le compte (comptesAvecCeNumero, jamais db.users), l'espace de la BOUTIQUE regardée",
+    corps.length > 0 && /await uConfirm\(`Envoyer le mot de fidélité à \$\{nom\} du numéro BMI \?`\)/.test(corps)
+    && /comptesAvecCeNumero\(db, profile, c\.tel\)\.find\(\(u\) => u\.role === "client"\)/.test(corps)
+    && /envoiMotFidelite\(\{ nom, avecCompte: !!compte \}\)/.test(corps)
+    && /espaceFormation: !!bqRegardee\.formation/.test(corps) && !/estCompteFormation\(db, profile\)/.test(corps)
+    && /texteRepli: texteMotFidelite\(\{ nom, avecCompte: !!compte \}\)/.test(corps) && /demanderConfirmation: uConfirm/.test(corps)
+    && !/db\.users/.test(corps));
+  test("★★ 📋 Clients : la ligne s'écrit sur l'état COURANT, seulement si parti du numéro BMI, et DONNE la conversation (donnerAuSender) ; le repli se dit",
+    /if \(!r\.auto\) return;/.test(corps) && /save\(\(etat\) => \(\{\s*\.\.\.etat,\s*messages: messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: c\.tel, nom, modele: envoi\.modele, variables: envoi\.variables, donnerAuSender: true \}\)/.test(corps)
+    && /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\)/.test(corps)
+    && /<M\.Clients db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(lire("src/App.jsx")));
+  // 💰 VENTES : automatique, sans question, sans repli, le mur, la ligne sans propriétaire.
+  const ven = sansComm(lire("src/screens/Ventes.jsx"));
+  const auto = (ven.match(/const envoyerRecuAutomatique = async \(vente, apres\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ 💰 Ventes : le reçu part tout seul après l'encaissement (appelé après l'impression du reçu), SANS question, SANS repli (sansRepli), l'espace de la BOUTIQUE qui a vendu",
+    auto.length > 0 && /envoyerRecuAutomatique\(vente, next\);/.test(ven)
+    && /sansRepli: true/.test(auto) && !/demanderConfirmation/.test(auto) && !/uConfirm/.test(auto) && !/envoyerWhatsApp\(/.test(auto)
+    && /espaceFormation: !!bq\.formation/.test(auto) && !/estCompteFormation/.test(auto)
+    && /envoiRecuVente\(\{[\s\S]*?vente, boutique: bq,/.test(auto));
+  test("★★ 💰 Ventes : à crédit, l'avance et le reste viennent de la DETTE née de la vente ; la ligne s'écrit sur l'état courant, porte la vente et ne donne PAS la conversation",
+    /\(apres\.dettes \|\| \[\]\)\.find\(\(d\) => d\.vente_id === vente\.id\)/.test(auto)
+    && /save\(\(etat\) => \(\{\s*\.\.\.etat,\s*messages: messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \} \}\)/.test(auto)
+    && !/donnerAuSender/.test(auto));
+  test("★ 💰 Ventes : ce qui s'est passé se lit sous le titre, discrètement (jamais une fenêtre) ; sans numéro ou en formation, rien",
+    /setNoteRecuWa\(""\); return;/.test(auto) && /motifAttendu\(r\.motif\)/.test(auto) && !/uAlert\(/.test(auto)
+    && /data-recu-whatsapp/.test(ven));
+  test("★ src/whatsapp.js : `sansRepli` n'ouvre jamais WhatsApp, `donnerAuSender` ne donne qu'une conversation LIBRE",
+    /parti: sansRepli \? false : await envoyerWhatsApp\(tel, texteRepli, demanderConfirmation\)/.test(srcWhatsapp)
+    && /const libre = !entete\.proprietaire_id \|\| entete\.proprietaire_id === profile\?\.id;/.test(srcWhatsapp)
+    && /donnerAuSender && libre && profile\?\.id/.test(srcWhatsapp));
+  test("★ ⚙ Paramètres : une boutique sans téléphone est signalée (le reçu indiquerait le numéro BMI principal), et l'aide du mot de fidélité dit que 📋 Clients passe par Meta",
+    /Sans téléphone : le reçu WhatsApp automatique indiquera le numéro BMI principal/.test(lire("src/screens/Parametres.jsx"))
+    && /mot_fidelite_simple/.test(lire("src/screens/Parametres.jsx")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

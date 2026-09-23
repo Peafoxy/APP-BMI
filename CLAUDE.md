@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 310 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
+npm run verifier-whatsapp        # 336 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2971,6 +2971,82 @@ lit mal est pire qu'un banc absent).
   dans l'application ; ne pas chercher une panne ici.
 - **Rien à coller dans Supabase** : une ligne de plus dans la table des
   messages, que `securite-27` à `-30` savent déjà ranger.
+
+### 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOMATIQUE À L'ENCAISSEMENT (23/09/2026)
+- Timo : « 1 : dans l'onglet client, lorsqu'on appuie sur WhatsApp sur la
+  fiche client, qu'un message WhatsApp soit envoyé au client depuis le numéro
+  BMI ; 2 : à chaque encaissement lors d'une vente, qu'un message WhatsApp
+  soit automatiquement envoyé au client à travers le numéro BMI… sans
+  validation ». ⚠ « Onglet client » = **📋 Clients** (« on ne parle pas de
+  Utilisateurs »), la liste de ceux qui ont acheté, avec ou sans compte.
+- **La règle de Meta ne bouge pas** : hors des 24 h, un MODÈLE approuvé, trous
+  remplis. Ce que Meta n'impose pas, c'est QUI remplit : ici c'est
+  l'application, depuis la fiche ou la vente — **aucun trou tapé à la main**
+  (sa question du jour : « sans remplir aucun trou manuellement »). Le seul
+  modèle où l'on tape reste `prise_de_contact` (le sujet n'existe nulle part).
+- **Trois modèles à créer chez YCloud** (nom et catégorie figés à la
+  création) : **`mot_fidelite`** et **`mot_fidelite_simple`** (MARKETING —
+  « Découvrez nos services » est de la promotion ; en utility Meta refuse et
+  bloque le nom un mois), **`recu_vente`** (UTILITY — une transaction). Les
+  textes sont ceux de Timo, mot pour mot, dans `lib/whatsappModeles.js`
+  (`TEXTE_FIDELITE`, `TEXTE_FIDELITE_SIMPLE`, `TEXTE_RECU_VENTE`) ; le banc
+  les lit. Décisions du jour : « Bonjour » figé (un « Bonsoir » selon
+  l'heure demanderait un second modèle par message — proposé, il a dit ok
+  pour Bonjour seul) ; les **numéros BMI** (+228 99 96 84 88 / +228 91 13 05
+  11, `NUMEROS_BMI`) écrits en dur dans le mot de fidélité ; **décision « 2 »
+  : deux mots de fidélité** — avec les deux lignes « 📋 Votre espace client :
+  gestion.bmitogo.com » pour un client qui A un compte, sans elles pour un
+  client sans compte (« c'est la ligne de l'app ») ; « pour votre achat et »
+  retiré, « équipements » → « domotique industrielle ».
+- **📋 Clients — `contacter`** : le bouton WhatsApp ouvrait une conversation
+  VIDE sur le téléphone de l'employé. Depuis : **une question** (« Envoyer le
+  mot de fidélité à X du numéro BMI ? » — un clic sur une ligne part vite),
+  puis `envoyerModele` ; le modèle suit le compte (`comptesAvecCeNumero(db,
+  profile, tel)`, jamais `db.users`) ; ⚠ **le mur = l'espace de la BOUTIQUE
+  regardée** (`bqRegardee.formation`), jamais `estCompteFormation(db,
+  profile)` ; repli = le texte du modèle choisi (`texteMotFidelite`), et le
+  motif se dit sauf s'il est attendu. `Clients` reçoit désormais `save`
+  (App.jsx). **La ligne du fil DONNE la conversation à celui qui envoie**
+  (`donnerAuSender`, comme « ✍️ Écrire » — sinon la réponse tombe au
+  support) ⚠ **mais seulement si elle n'est à personne** : une conversation
+  confiée à un collègue ne se prend pas au passage (seul « 🔁 Confier »).
+  ⚙ Paramètres → 💬 Mot de fidélité commande toujours le bouton de 👥
+  Utilisateurs (inchangé, téléphone de l'employé), et l'aide DIT que 📋
+  Clients passe par le modèle figé chez Meta.
+- **💰 Ventes — `envoyerRecuAutomatique(vente, next)`**, appelé après
+  l'impression du reçu : `envoiRecuVente` remplit les **sept trous** — nom
+  (« cher client » si non renseigné), date, boutique, N° de reçu, montant,
+  **la FORMULE du paiement** (`formulePaiement` : « payé en espèces », « payé
+  par Mobile Money (Flooz) », « à crédit : avance …, reste … » — « payé par
+  Espèces » se lisait mal, sa question), **le TÉLÉPHONE DE LA BOUTIQUE qui a
+  vendu** (sa décision ; sans téléphone sur la fiche → `NUMERO_BMI_PRINCIPAL`,
+  Meta refuse un trou vide, et ⚙ Paramètres le signale en ambre à côté de la
+  boutique). À crédit, avance et reste se lisent sur la DETTE née de la vente
+  (`vente_id`). ⚠ **SANS QUESTION et SANS REPLI** (`sansRepli: true` dans
+  `envoyerModele`) : WhatsApp ne s'ouvre JAMAIS ici — dix ventes, dix
+  fenêtres, non. Une vente sans numéro n'envoie rien et ne dit rien (le cas
+  normal au comptoir), la formation non plus ; tout autre motif se lit **sous
+  le titre, discrètement** (`noteRecuWa`, `data-recu-whatsapp`), jamais une
+  fenêtre ; le bouton WhatsApp de la ligne reste là pour le reçu complet.
+  ⚠ Le mur = l'espace de la BOUTIQUE qui a vendu. La ligne du fil porte
+  `vente_id` et **ne donne PAS la conversation** au vendeur (une vente de
+  comptoir ne fait pas d'un vendeur le propriétaire du client) : si le client
+  répond, c'est le support, comme aujourd'hui.
+- **Le message de vente part aussi à un client SANS compte** (sa question) :
+  il vise le NUMÉRO tapé sur la vente, pas un compte. C'est pourquoi le texte
+  ne parle pas d'espace client.
+- **Coût** : ~14 F un mot de fidélité, ~4 F un reçu de vente avec numéro.
+- **Le banc** (`verifier-whatsapp`, section ⑲, 336 contrôles) exerce les
+  règles, la vraie chaîne (ESSO au support → donnée à KOSSI ; AYOKO confiée à
+  COM1 → reste à COM1 ; le reçu ne donne rien), lit les deux écrans et
+  Paramètres ; **éprouvé** en remettant trois fautes (le repli sur le reçu,
+  la conversation confiée prise, l'espace du compte) : cinq contrôles
+  tombent. Contrôles RETOURNÉS : « sept modèles » → dix, « cinq lignes » →
+  huit, « Clients.jsx passe par envoyerWhatsApp » → par `envoyerModele`.
+- **Rien à coller dans Supabase.** À faire par Timo : les trois modèles chez
+  YCloud. En attendant l'accord de Meta : le mot de fidélité se replie sur
+  l'ouverture WhatsApp (motif dit en français), le reçu de vente ne part pas
+  et le dit sous le titre.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

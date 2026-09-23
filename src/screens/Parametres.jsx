@@ -1505,7 +1505,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                       </span>
                     )}
                   </div>
-                  {b.tel && <div>Tél : {b.tel}</div>}
+                  {b.tel ? <div>Tél : {b.tel}</div> : <div className="text-amber-700">⚠ Sans téléphone : le reçu WhatsApp automatique indiquera le numéro BMI principal.</div>}
                   {b.email && <div>{b.email}</div>}
                 </td>
                 <td className="px-4 py-2"><span className="inline-flex items-center gap-2"><span className="w-4 h-4 rounded-full inline-block border border-slate-200" style={{ backgroundColor: b.couleur }}></span>{nomCouleur(b.couleur)}</span></td>
@@ -1684,6 +1684,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <div className="text-xs text-slate-500 mb-3">
           Pré-rempli dans WhatsApp quand on clique sur le logo vert d'un <b>client</b>, dans 👥 Utilisateurs (jamais sur la fiche d'un employé).
           WhatsApp <b>n'envoie jamais tout seul</b> : le mot arrive dans la case de saisie, chacun le complète ou l'efface avant d'appuyer.
+          ⚠ Dans 📋 Clients, le bouton WhatsApp envoie <b>du numéro BMI</b> le mot de fidélité approuvé par Meta (modèles <b>mot_fidelite</b> / <b>mot_fidelite_simple</b>, texte figé chez Meta) : ce réglage-ci ne le change pas.
         </div>
         <div className="text-xs text-slate-500 mb-2">
           Trois mots se remplacent tout seuls : <b>{"{client}"}</b> le nom du client · <b>{"{auteur}"}</b> celui qui écrit · <b>{"{role}"}</b> son rôle,

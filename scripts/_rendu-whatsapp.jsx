@@ -70,6 +70,20 @@ export const ligneEnvoi = () => messagesAvecLigneEnvoi(garnie.messages, {
 });
 export const convsApresEnvoi = () => conversationsWa(ligneEnvoi(), users[0]);
 export const convsAvantEnvoi = () => conversationsWa(garnie.messages, users[0]);
+// ---- 💙 LE MOT DE FIDÉLITÉ ET 🧾 LE REÇU DE VENTE (23/09/2026) ----
+// KOSSI envoie le mot de fidélité à ESSO (conversation au support) : elle
+// lui est DONNÉE. À AYOKO (confiée à COM1) : elle RESTE à COM1. Le reçu de
+// vente, lui, ne donne jamais la conversation.
+const fid = (tel, nom) => ({ profile: users[2], tel, nom, modele: "mot_fidelite", variables: [nom], donnerAuSender: true });
+export const ligneFideliteLibre = () => messagesAvecLigneEnvoi(garnie.messages, fid("+22890112233", "ESSO"));
+export const convsFideliteLibre = () => conversationsWa(ligneFideliteLibre(), users[0]);
+export const ligneFideliteConfiee = () => messagesAvecLigneEnvoi(garnie.messages, fid("+22890114455", "AYOKO"));
+export const convsFideliteConfiee = () => conversationsWa(ligneFideliteConfiee(), users[0]);
+export const ligneRecu = () => messagesAvecLigneEnvoi(garnie.messages, {
+  profile: users[2], tel: "+22890112233", nom: "ESSO", modele: "recu_vente",
+  variables: ["ESSO", "23/09/2026", "BMI DEMAKPOE", "DEM-0142", "160 000 F", "payé en espèces", "+228 91 13 05 11"], ref: { vente_id: "V1" },
+});
+export const convsRecu = () => conversationsWa(ligneRecu(), users[0]);
 export const ligneEnvoiSansTel = () => messagesAvecLigneEnvoi(garnie.messages, { profile: users[2], tel: "", nom: "X", modele: "relance_devis", variables: ["A", "b", "c", "d"] });
 
 export const htmlAdmin = () => rendre(garnie, users[0]);

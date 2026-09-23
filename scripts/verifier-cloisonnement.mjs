@@ -4535,12 +4535,21 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     execSync("grep -rln 'window.open(.*wa\\.me\\|https://wa' src || true").toString().trim() === "src/lib/core.js");
   for (const [f, fn] of [
     ["src/lib/comptesClients.js", "envoyerWhatsApp"], ["src/lib/impression.js", "envoyerWhatsApp"],
-    ["src/screens/Ventes.jsx", "envoyerWhatsApp"], ["src/screens/Clients.jsx", "envoyerWhatsApp"],
+    // ⚠ RETOURNÉ le 23/09/2026 : le bouton WhatsApp de 📋 Clients envoie le mot
+    // de fidélité DU NUMÉRO BMI (envoyerModele, src/whatsapp.js) — l'écran
+    // n'ouvre plus WhatsApp lui-même ; le repli passe par envoyerModele.
+    ["src/screens/Ventes.jsx", "envoyerWhatsApp"],
     ["src/screens/EspaceClient.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
   ]) {
     const src = readFileSync(f, "utf8");
     // (13/09/2026 : lib/comptesClients.js écrit « ./core.js » — la chaîne lue par le serveur des notifications exige l'extension.)
     test(`★ ${f} passe par ${fn} de lib/core.js`, new RegExp(`import \\{[^}]*\\b${fn}\\b[^}]*\\} from "(\\.\\./)*(\\./)?(lib/)?core(\\.js)?"`).test(src) && src.includes(`${fn}(`));
+  }
+  {
+    const src = readFileSync("src/screens/Clients.jsx", "utf8");
+    test("★ src/screens/Clients.jsx (📋 Clients) envoie le mot de fidélité par envoyerModele (src/whatsapp.js), jamais par envoyerWhatsApp ni wa.me lui-même",
+      /envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/whatsapp"/.test(src) && /await envoyerModele\(\{/.test(src)
+      && !/envoyerWhatsApp\(/.test(src) && !/wa\.me/.test(src));
   }
   // ⚠ CONTRÔLE RETOURNÉ LE 22/09/2026 : les identifiants (client, employé)
   // partent désormais du numéro BMI (src/whatsapp.js, modèle `espace`) et

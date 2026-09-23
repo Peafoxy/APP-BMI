@@ -1339,7 +1339,7 @@ export default function App() {
       )}
       {ongletsVisites.clients && (
         <div style={{ display: tab === "clients" ? "block" : "none" }}>
-          <M.Clients db={db} profile={profile} />
+          <M.Clients db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.nouveau_client && (
