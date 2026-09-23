@@ -2857,6 +2857,33 @@ lit mal est pire qu'un banc absent).
 - **Rien à coller dans Supabase** : `envoi_whatsapp` est un champ de plus sur
   une ligne de dette.
 
+### 🔑 LES CODES D'UN CLIENT : LE CRÉATEUR ET L'ADMINISTRATEUR, PERSONNE D'AUTRE (23/09/2026)
+- Timo, à propos du modèle `espace` : « celui qui crée le compte continue de
+  voir le code, mais un autre utilisateur ne peut pas — à part le créateur et
+  l'administrateur, personne ne verrait le message espace ».
+- **Vérifié dans le code avant de répondre** : ce message n'est écrit NULLE
+  PART dans l'application (ni 💬 Messages, ni 📲 WhatsApp) ; celui qui crée
+  voit les codes dans la fenêtre de confirmation et la ligne verte ; « ↻
+  Renvoyer ses accès » (🙋 Créer un client) n'apparaît que sur SES clients
+  (`amene_par_id`) ; l'administrateur les voit dans 👥 Utilisateurs. **La
+  règle était déjà en vigueur, à UNE exception** : le message du lien de
+  signature du PV (🏠 Clients installés, `construireMessagePv`) portait
+  l'identifiant ET le mot de passe recalculé, et il s'ouvre sur le téléphone
+  du CHEF DE CHANTIER — un tiers. « Lance avec l'exception du PV » :
+  **le message du PV ne porte plus aucun code** (« avec vos accès habituels »,
+  puis le lien sans compte) ; `motDePasseConnu` n'est plus importée par
+  l'écran ; le banc découpe le corps de la fonction et l'éprouve en remettant
+  les codes : il tombe. Rien à coller dans Supabase.
+- ⚠ **DEUX AUTRES ENDROITS PORTENT ENCORE LES CODES, et ils lui ont été
+  DITS** — pas touchés, ce sont d'autres règles, tranchées par lui : le
+  PREMIER devis d'un client non contacté (Partages.jsx, `clientDejaContacte`,
+  19/09 : « il porte ses identifiants, qu'un modèle ne peut pas porter ») et
+  le REPLI de la relance d'un devis (`texteRelanceDevis` avec
+  `motDePasseConnu`). Celui qui envoie le devis n'est pas forcément le
+  créateur du compte. Depuis le 22/09 les accès partent à la création par
+  `espace`, mais cet envoi ne marque PAS le client comme contacté. Ne
+  changer ni l'un ni l'autre sans sa décision.
+
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
   vendeur**, décision du 09/09/2026 ; serveur `securite-11`) :

@@ -8,7 +8,7 @@ import { useState, Fragment } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi } from "../whatsapp";
@@ -453,19 +453,22 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   // ---- LE CHEF DE CHANTIER DÉCLARE LES TRAVAUX TERMINÉS ----
-  // ⚠ Demande Timo : le message envoyé par WhatsApp propose maintenant DEUX
-  // façons de signer — directement dans l'app (avec les identifiants du
-  // client, si un compte existe) OU via le lien externe sans compte, comme
-  // avant. Le mot de passe n'est JAMAIS stocké en clair : motDePasseConnu()
-  // le RECALCULE de façon déterministe (comptesClients.js) — s'il renvoie
-  // null (compte changé de mot de passe manuellement, ou pas de compte du
-  // tout), seul le lien externe est proposé, sans bloc identifiants.
+  // ⚠ Demande Timo : le message envoyé par WhatsApp propose DEUX façons de
+  // signer — directement dans l'app (si un compte existe) OU via le lien
+  // externe sans compte, comme avant.
+  // ⚠⚠ SANS LES CODES DU CLIENT (Timo, 23/09/2026 : « à part le créateur et
+  // l'administrateur, personne ne verrait le message espace »). Ce message
+  // portait l'identifiant ET le mot de passe recalculé — et il s'ouvre sur
+  // le téléphone du CHEF DE CHANTIER, qui n'est en général ni celui qui a
+  // créé le compte ni l'administrateur : c'était le seul endroit de
+  // l'application où un tiers lisait les codes d'un client. Le client a reçu
+  // ses accès à la création (modèle `espace`, du numéro BMI) ; ici on lui
+  // rappelle seulement OÙ signer. Le banc l'impose (verifier-cloisonnement).
   const construireMessagePv = (c, lien) => {
     const compte = c.user_id ? (db.users || []).find((u) => u.id === c.user_id) : null;
-    const mdp = compte ? motDePasseConnu(compte) : null;
     const intro = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le procès-verbal.`;
-    if (compte && mdp) {
-      return `${intro}\n\n👉 Directement depuis votre espace client sur ${ADRESSE_APP} :\n👤 Identifiant : *${compte.nom}*\n🔑 Mot de passe : *${mdp}*\n\n👉 Ou sans compte, en cliquant sur ce lien :\n${lien}\n\nBMI Togo`;
+    if (compte) {
+      return `${intro}\n\n👉 Directement depuis votre espace client sur ${ADRESSE_APP}, avec vos accès habituels.\n\n👉 Ou sans compte, en cliquant sur ce lien :\n${lien}\n\nBMI Togo`;
     }
     return `${intro}\n\n${lien}\n\nBMI Togo`;
   };

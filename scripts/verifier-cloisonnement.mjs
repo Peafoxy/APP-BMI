@@ -4618,6 +4618,21 @@ titre("Contrat et PV : UN fichier (lib/contrat.js) — numéros, plan de règlem
     (readFileSync("src/screens/ClientsInstalles.jsx", "utf8").match(/\.\.\.champsLienPv\(jeton, numero\)/g) || []).length === 2
     && /const numero = numeroPv\(c\);/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
   test("le contrôle du plan (critiquePlan) reste fait AVANT, dans les deux chemins", ["src/screens/EspaceClient.jsx", "src/screens/TousLesDevis.jsx"].every((f) => /const souci = critiquePlan\(plan, solde\);/.test(readFileSync(f, "utf8"))));
+  // ⚠⚠ 23/09/2026 — Timo : « à part le créateur et l'administrateur, personne
+  // ne verrait le message espace ». Le message du lien de signature du PV
+  // portait l'identifiant ET le mot de passe recalculé du client, et il
+  // s'ouvre sur le téléphone du chef de chantier — un tiers. On découpe le
+  // corps de construireMessagePv et on exige qu'il ne porte ni mot de passe,
+  // ni identifiant, ni appel à motDePasseConnu — et que l'écran n'importe
+  // plus cette fonction du tout. Éprouvé en remettant les codes : il tombe.
+  {
+    const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+    const corps = (ci.match(/const construireMessagePv = \(c, lien\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+    test("★ le message du lien de signature du PV ne porte plus les codes du client (ni mot de passe, ni identifiant, ni motDePasseConnu) — seuls le créateur et l'administrateur lisent les codes",
+      corps.length > 0 && !/mot de passe/i.test(corps) && !/identifiant/i.test(corps) && !/motDePasseConnu/.test(corps)
+      && /avec vos accès habituels/.test(corps) && /Ou sans compte, en cliquant sur ce lien/.test(corps)
+      && !/motDePasseConnu/.test(ci));
+  }
 }
 
 titre("Doublons A5, A6, A7 : numéro de série, même fiche, code-barres et panier — UNE règle chacun (Timo : « lance tout », 08/09/2026)");
