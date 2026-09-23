@@ -1289,7 +1289,7 @@ export default function App() {
 
       {ongletsVisites.dashboard && (isAdmin || isComptable) && (
         <div style={{ display: tab === "dashboard" ? "block" : "none" }}>
-          <M.Dashboard db={db} profile={profile} />
+          <M.Dashboard db={db} profile={profile} save={save} />
         </div>
       )}
       {ongletsVisites.ventes && !isCommercial && (

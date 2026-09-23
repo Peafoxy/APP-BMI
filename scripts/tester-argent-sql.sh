@@ -54,6 +54,8 @@ echo "▸ La DATE d'une remise de fonds se corrige : supabase/securite-19-date-r
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-19-date-remise-fonds.sql >/dev/null 2>&1 || echo "   ❌ securite-19 refusé par la base"
 echo "▸ Le fonds de caisse se règle à la hausse ET à la baisse : supabase/securite-20-fonds-reprise.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-20-fonds-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-20 refusé par la base"
+echo "▸ Le compte de l'exploitant : supabase/securite-31-compte-exploitant.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-31-compte-exploitant.sql >/dev/null 2>&1 || echo "   ❌ securite-31 refusé par la base"
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -92,7 +94,7 @@ essai() {
   if [ $code -ne 0 ]; then obtenu="REFUSE";
   elif [ "$(echo "$sortie" | tail -1)" = "0" ]; then obtenu="REFUSE";
   else obtenu="PERMIS"; fi
-  if [ "$obtenu" = "$attendu" ]; then ok=$((ok+1)); echo "  ✓ $desc → $obtenu";
+  if [ "$obtenu" = "$attendu" ]; then ok=$((ok+1)); echo "  ✓ $desc → $obtenu"; if [ -n "${DEBUG:-}" ] && [ "$obtenu" = "REFUSE" ]; then echo "     $(echo "$sortie" | grep -v '^$' | tail -1)"; fi;
   else ko=$((ko+1)); echo "  ❌ $desc → $obtenu (attendu : $attendu)"; echo "     $(echo "$sortie" | grep -v '^$' | tail -1)"; fi
 }
 jeton() { echo "{\"role\":\"authenticated\",\"email\":\"$1@bmi.internal\",\"app_metadata\":{\"role\":\"$2\",\"ecriture\":$3,\"espace\":\"reel\",\"principal\":$4}}"; }
@@ -401,6 +403,26 @@ essai "★ le montant d'une reprise déjà enregistrée ne se modifie plus" "REF
 essai "★ l'admin supprime une remise (règle générale des dépenses : admin seul)" "PERMIS" "$ADMIN" "$(SUPPR depenses zfc0)"
 essai "★ un gérant supprime une remise" "REFUSE" "$GERANT" "$(SUPPR depenses zfc0)"
 essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord '{"id":"zd_ord","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
+
+echo
+echo "── LE COMPTE DE L'EXPLOITANT (securite-31, Timo 23/09/2026) : le DG seul, une ligne bien formée, rien ne se réécrit ──"
+# ⚠ L'apostrophe de « l'exploitant » se DOUBLE dans un littéral SQL.
+CAT_APPORT="Apport de l''exploitant"; CAT_PRELEV="Prélèvement de l''exploitant"
+APPORT="{\"id\":\"zex1\",\"boutique\":\"Chez le DG\",\"categorie\":\"$CAT_APPORT\",\"montant\":500000,\"paiement\":\"Espèces\",\"date\":\"2026-09-01\",\"par\":\"TIMO\",\"exploitant\":{\"sens\":\"apport\",\"note\":\"mise de départ\"}}"
+PRELEV="{\"id\":\"zex2\",\"boutique\":\"Chez le DG\",\"categorie\":\"$CAT_PRELEV\",\"montant\":100000,\"paiement\":\"Espèces\",\"date\":\"2026-09-20\",\"par\":\"TIMO\",\"exploitant\":{\"sens\":\"prelevement\",\"note\":\"école\"}}"
+essai "★ le DG enregistre un APPORT de 500 000 (mise de départ)" "PERMIS" "$ADMIN" "$(UPS depenses zex1 "$APPORT")"
+essai "★ le DG enregistre un PRÉLÈVEMENT de 100 000 (école)" "PERMIS" "$ADMIN" "$(UPS depenses zex2 "$PRELEV")"
+essai "★ un gérant enregistre un apport de l'exploitant" "REFUSE" "$GERANT" "$(UPS depenses zex3 "$(echo "$APPORT" | sed 's/zex1/zex3/')")"
+essai "★ un administrateur SECONDAIRE enregistre un prélèvement" "REFUSE" "$ADMIN2" "$(UPS depenses zex4 "$(echo "$PRELEV" | sed 's/zex2/zex4/')")"
+essai "★ un vendeur pose la catégorie « Prélèvement de l'exploitant » sur une dépense ordinaire (sans détail exploitant)" "REFUSE" "$VENDEUR" "$(UPS depenses zex5 "{\"id\":\"zex5\",\"boutique\":\"APESSITO\",\"categorie\":\"$CAT_PRELEV\",\"montant\":3000,\"paiement\":\"Espèces\",\"par\":\"KOSSI\"}")"
+essai "★ un apport dont la catégorie dit « prélèvement »" "REFUSE" "$ADMIN" "$(UPS depenses zex6 "$(echo "$APPORT" | sed "s/zex1/zex6/; s/$CAT_APPORT/$CAT_PRELEV/")")"
+essai "★ un apport à zéro" "REFUSE" "$ADMIN" "$(UPS depenses zex7 "$(echo "$APPORT" | sed 's/zex1/zex7/; s/\"montant\":500000/\"montant\":0/')")"
+essai "★ un prélèvement sans motif" "REFUSE" "$ADMIN" "$(UPS depenses zex8 "$(echo "$PRELEV" | sed 's/zex2/zex8/; s/\"note\":\"école\"/\"note\":\"\"/')")"
+essai "★ un apport posé sur une BOUTIQUE au lieu de « Chez le DG »" "REFUSE" "$ADMIN" "$(UPS depenses zex9 "$(echo "$APPORT" | sed 's/zex1/zex9/; s/\"Chez le DG\"/\"APESSITO\"/')")"
+essai "★ le montant d'un apport déjà enregistré ne se modifie plus (une erreur se corrige par le geste inverse)" "REFUSE" "$ADMIN" "$(UPS depenses zex1 "$APPORT") $(MAJ depenses "jsonb_set(data,'{montant}','999')" zex1)"
+essai "★ le motif d'un prélèvement déjà enregistré ne se modifie plus" "REFUSE" "$ADMIN" "$(UPS depenses zex2 "$PRELEV") $(MAJ depenses "jsonb_set(data,'{exploitant,note}','\"autre\"')" zex2)"
+essai "★ la même ligne renvoyée telle quelle (upsert de synchronisation) passe" "PERMIS" "$ADMIN" "$(UPS depenses zex1 "$APPORT")"
+essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien, securite-31 compris)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord2 '{"id":"zd_ord2","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
 
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"

@@ -4824,9 +4824,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 31 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026), nouvelleDepense aux 17 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026)",
+  test("★ nouveauMessage sert aux 31 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "31"
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "17");
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "18");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -6054,7 +6054,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   unlinkSync(sortieK2);
   test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
     // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
-    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis" /* 14/09/2026 : le fonds remis par le DG non plus */);
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant" /* 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
     /↩ Reprise de l'article par BMI<\/div>/.test(vs) && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
@@ -6621,7 +6621,10 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     && /const PASTILLES = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\), \.\.\.mobilesVus\.map\(\(m\) => m\.caisse\), \.\.\.\(enFormation \? \[\] : \[\.\.\.\(principal \? \[CAISSE_DG, CAISSE_BANQUE\] : \[\]\), NOM_CAISSE_COMPTABLE\]\)\];/.test(dashCg)
     && /\{libellePastille\(nom, terrainVu\?\.nom\)\}/.test(dashCg) && /const principal = estAdminPrincipal\(db, profile\);/.test(dashCg)
     // « Relevé… lance » (12/09/2026) : chaque carte reçoit le RELEVÉ de la période du tableau de bord (getPeriod), le sélecteur est écrit UNE fois (selecteurPeriode) et affiché pour les caisses.
-    && /\{dgChoisi && principal && <CarteCaisse titre=\{`👤 \$\{CAISSE_DG\}`\} caisse=\{CAISSE_DG\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsDG\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
+    // ⚠ RETOURNÉ le 23/09/2026 : la pastille 👤 DG se lit en DEUX parties (la
+    // caisse de BMI chez lui, le compte de l'exploitant) par le composant
+    // CompteExploitant, qui reçoit la MÊME période et les MÊMES boutiques.
+    && /\{dgChoisi && principal && <CompteExploitant db=\{db\} profile=\{profile\} save=\{save\} nomsCaisses=\{nomsCaisses\} periode=\{getPeriod\(\)\} \/>\}/.test(dashCg) && !/mouvementsDG/.test(dashCg)
     && /\{banqueChoisi && principal && <CarteCaisse titre=\{`🏦 \$\{CAISSE_BANQUE\}`\} caisse=\{CAISSE_BANQUE\} periode=\{getPeriod\(\)\[0\]\} releve=\{releve\(mouvementsBanque\(db, nomsCaisses\), getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg)
     && /releve=\{releve\(c, getPeriod\(\)\[1\], getPeriod\(\)\[2\]\)\}/.test(dashCg) && (dashCg.match(/\{selecteurPeriode\}/g) || []).length === 2 && /\{\(caisseSeule \|\| comptableChoisi\) && \(/.test(dashCg)
     && (dashCg.match(/<div className="font-bold text-slate-800">Période :<\/div>/g) || []).length === 1
@@ -6630,10 +6633,10 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     && /\{comptableChoisi && \(\(\) => \{ const c = mouvementsComptable\(db\); return \(/.test(dashCg) // ⚠ RETOURNÉ le 21/09/2026 : QUATRE cartes — la quatrième est celle d'un
     // compte mobile (📱 Flooz ou Mixx/T-Money), et un compte mobile n'est pas
     // une boutique non plus : il entre donc dans `caisseSeule`.
-    && (dashCg.match(/<CarteCaisse /g) || []).length === 4
+    && (dashCg.match(/<CarteCaisse /g) || []).length === 3 // ⚠ RETOURNÉ le 23/09/2026 : la carte du DG vit dans CompteExploitant.jsx (deux cartes là-bas)
     && /const caisseSeule = dgChoisi \|\| banqueChoisi \|\| !!mobileChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseChoisie && \(<>/.test(dashCg) && /const caisseChoisie = caisseSeule \|\| comptableChoisi;/.test(dashCg) && /\{!caisseSeule && \(<>\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-2">Exporter les données/.test(dashCg)
     && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /Les dépenses restent des charges de leur boutique/.test(dashCg)
-    && /export function CarteCaisse\(\{ titre, caisse, note, releve: r, periode \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /Entrées de la période/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg));
+    && /export function CarteCaisse\(\{ titre, caisse, note, releve: r, periode, mots = \{ entree: "ENTRÉE", sortie: "SORTIE" \}, phraseSolde = null \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /\{mots\.entree === "ENTRÉE" \? "Entrées"/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg)); // ⚠ RETOURNÉ le 23/09/2026 : le mot suit `mots` (APPORT / PRÉLÈVEMENT pour l'exploitant)
   // Le relevé lui-même, exercé : avant / pendant / après, comme celui de la banque.
   const bilanR = { entrees: [{ id: "e1", date: "2026-08-20", montant: 252299 }, { id: "e2", date: "2026-09-05", montant: 300000 }, { id: "e3", date: "2026-10-01", montant: 1 }],
     sorties: [{ id: "s1", date: "2026-08-25", montant: 2299 }, { id: "s2", date: "2026-09-12", montant: 45000 }], mouvements: [] };
@@ -6676,7 +6679,96 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   test("★ la carte porte « 🖨 Imprimer le relevé (PDF) » et « Exporter (CSV) » : le PDF reçoit le relevé affiché (même période, mêmes chiffres, logo, date d'édition), le CSV les mouvements dans l'ordre des dates puis les trois soldes ; le tableau de bord nomme la caisse de chaque carte",
     /genererReleve\(r, \{ caisse, periode, logo: LOGO, edite: dFR\(today\(\)\) \}\)/.test(carteR) && /🖨 Imprimer le relevé \(PDF\)/.test(carteR) && /Exporter \(CSV\)/.test(carteR)
     && /exportCSV\(`releve_\$\{/.test(carteR) && /\["Date", "Mouvement", "Boutique", "Entrée", "Sortie"\]/.test(carteR) && /"Total de la période", "", r\.entrees, r\.sorties/.test(carteR)
-    && (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/<CarteCaisse titre=\{`[^`]+`\} caisse=\{CAISSE_(DG|BANQUE|COMPTABLE)\}/g) || []).length === 3);
+    // ⚠ RETOURNÉ le 23/09/2026 : la carte du DG vit dans CompteExploitant.jsx, en DEUX cartes nommées (la caisse de BMI chez lui, le compte de l'exploitant).
+    && (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/<CarteCaisse titre=\{`[^`]+`\} caisse=\{CAISSE_(BANQUE|COMPTABLE)\}/g) || []).length === 2
+    && (readFileSync("src/components/CompteExploitant.jsx", "utf8").match(/<CarteCaisse titre=\{`[^`]+`\} caisse=\{(CAISSE_BMI_CHEZ_DG|COMPTE_EXPLOITANT)\}/g) || []).length === 2);
+}
+
+titre("📒 LE COMPTE DE L'EXPLOITANT : la caisse de BMI chez le DG, à part de ce que BMI lui doit (Timo, 23/09/2026)");
+{
+  // « D'après le code, le DG peut sortir l'argent plus qu'il n'en dispose ? »
+  // — oui, et le solde négatif ne se voyait nulle part. BMI est une
+  // ENTREPRISE INDIVIDUELLE : le compte de l'exploitant (104 OHADA). Deux
+  // soldes lus d'une seule marche, deux gestes (➕ Apport / ➖ Prélèvement)
+  // réservés au principal, un prélèvement n'est JAMAIS une charge.
+  const sortieEx = join("node_modules", ".cache", `bmi-exploitant-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/compteExploitant.js"], bundle: true, format: "esm", platform: "node", outfile: sortieEx, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Ex = await import(pathToFileURL(sortieEx).href);
+  unlinkSync(sortieEx);
+  const timo = { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true };
+  const dbE = { depenses: [
+    // Les boutiques lui versent 300 000 (validé le 10/09) ; une dépense « remis par le DG » de 20 000 le 12/09 ; une autre de 1 000 000 le 23/09 (la caisse n'en a que 280 000).
+    { id: "v1", boutique: "DEMAKPOE", categorie: "Versement de fonds", montant: 300000, paiement: "Espèces", date: "2026-09-09", par: "ALI", versement: { id: "a", destination: "Chez le DG" }, versement_valide_le: "2026-09-10" },
+    { id: "d1", boutique: "DEMAKPOE", categorie: "Achat marchandises", description: "câble", montant: 20000, paiement: "Espèces", date: "2026-09-12", par: "KOSSI", paye_avec: "dg", validation: { statut: "validee" } },
+    { id: "d2", boutique: "DEMAKPOE", categorie: "Commande en Chine", description: "conteneur", montant: 1000000, paiement: "Espèces", date: "2026-09-23", par: "TIMO", paye_avec: "dg", validation: { statut: "validee", auto: true } },
+    // Un versement validé le MÊME jour que la grosse dépense : compté AVANT elle.
+    { id: "v2", boutique: "APESSITO", categorie: "Versement de fonds", montant: 50000, paiement: "Espèces", date: "2026-09-22", par: "AMA", versement: { id: "b", destination: "Chez le DG" }, versement_valide_le: "2026-09-23" },
+    // Un versement d'une boutique HORS espace : jamais lu.
+    { id: "v3", boutique: "FORMATION", categorie: "Versement de fonds", montant: 999, paiement: "Espèces", date: "2026-09-09", par: "X", versement: { id: "c", destination: "Chez le DG" }, versement_valide_le: "2026-09-10" },
+  ] };
+  const noms = ["DEMAKPOE", "APESSITO"];
+  const c0 = Ex.compteExploitant(dbE, noms);
+  test("★ SANS aucun geste, le partage se fait tout seul : la caisse de BMI chez le DG reçoit 300 000 + 50 000, paie 20 000 puis 330 000 (ce qu'elle a) — solde 0, JAMAIS négatif ; les 670 000 que la dépense ne trouve pas sont un APPORT automatique (« payé de sa poche ») : BMI doit 670 000 à l'exploitant",
+    c0.caisse.totalEntrees === 350000 && c0.caisse.totalSorties === 350000 && c0.caisse.solde === 0
+    && c0.exploitant.totalEntrees === 670000 && c0.exploitant.totalSorties === 0 && c0.exploitant.solde === 670000 && c0.apportsAuto === 670000
+    && c0.exploitant.entrees[0].auto === true && /^Apport \(payé de sa poche\) : Commande en Chine — conteneur/.test(c0.exploitant.entrees[0].libelle) && c0.exploitant.entrees[0].date === "2026-09-23"
+    && /330 000 F pris sur la caisse de BMI, le reste de sa poche/.test(c0.caisse.sorties.find((m) => m.id === "d2").libelle) && c0.caisse.sorties.find((m) => m.id === "d2").montant === 330000
+    && !c0.caisse.entrees.some((m) => m.boutique === "FORMATION"));
+  test("★ le même jour, ce qui ENTRE est compté avant ce qui SORT (le versement validé le 23/09 couvre 50 000 de la dépense du 23/09) — éprouvé : sans lui, l'apport automatique serait de 720 000",
+    Ex.compteExploitant({ depenses: dbE.depenses.filter((d) => d.id !== "v2") }, noms).apportsAuto === 720000);
+  // Ses deux gestes.
+  const apport = Ex.construireMouvementExploitant(timo, { sens: Ex.SENS_APPORT, montant: 500000, date: "2026-09-01", note: "mise de départ" });
+  const prelev = Ex.construireMouvementExploitant(timo, { sens: Ex.SENS_PRELEVEMENT, montant: 100000, date: "2026-09-20", note: "école" });
+  test("★ un apport et un prélèvement sont des lignes de la table des dépenses, sur la caisse « Chez le DG », datées du jour CHOISI (un apport de départ parle du passé), avec leur détail `exploitant`, HORS CHARGES (constants.js) — un prélèvement ne baisse jamais le résultat",
+    apport.boutique === "Chez le DG" && apport.categorie === "Apport de l'exploitant" && apport.montant === 500000 && apport.date === "2026-09-01" && apport.exploitant.sens === "apport" && apport.exploitant.note === "mise de départ" && apport.par_id === "u_timo" && /Apport de l'exploitant le 01\/09\/2026 par TIMO — mise de départ/.test(apport.description)
+    && prelev.categorie === "Prélèvement de l'exploitant" && prelev.exploitant.sens === "prelevement" && prelev.date === "2026-09-20"
+    && Ex.estApport(apport) && Ex.estPrelevement(prelev) && !Ex.estMouvementExploitant({ categorie: "Apport de l'exploitant" })
+    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT\];/.test(K) && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
+  const c1 = Ex.compteExploitant({ depenses: [...dbE.depenses, apport, prelev] }, noms);
+  test("★ avec une mise de départ de 500 000 (le 01/09) et un prélèvement de 100 000 (le 20/09) : la caisse de BMI = 500 000 + 300 000 + 50 000 − 20 000 − 100 000 − 730 000 = 0 ; l'apport automatique tombe à 270 000 ; le compte de l'exploitant = 500 000 + 270 000 − 100 000 = 670 000 — les deux soldes se lisent par UNE marche",
+    c1.caisse.solde === 0 && c1.caisse.totalEntrees === 850000 && c1.caisse.totalSorties === 850000 && c1.apportsAuto === 270000
+    && c1.exploitant.totalEntrees === 770000 && c1.exploitant.totalSorties === 100000 && c1.exploitant.solde === 670000
+    && c1.exploitant.sorties[0].id === prelev.id && /Prélèvement de l'exploitant \(par TIMO\) — école/.test(c1.exploitant.sorties[0].libelle)
+    && c1.caisse.sorties.some((m) => m.id === prelev.id) && c1.caisse.entrees.some((m) => m.id === apport.id));
+  test("★ le compte de l'exploitant PEUT être négatif (il a retiré plus que mis — permis dans une entreprise individuelle), et la phrase le DIT ; la caisse de BMI, elle, ne l'est jamais",
+    (() => { const c = Ex.compteExploitant({ depenses: [dbE.depenses[0], Ex.construireMouvementExploitant(timo, { sens: Ex.SENS_PRELEVEMENT, montant: 250000, date: "2026-09-15", note: "loyer" })] }, noms); return c.exploitant.solde === -250000 && c.caisse.solde === 50000; })()
+    && /retiré 250 F de plus qu'il n'a mis/.test(Ex.phraseSoldeExploitant(-250)) && /BMI doit 10 F à l'exploitant/.test(Ex.phraseSoldeExploitant(10)) && /Rien n'est dû/.test(Ex.phraseSoldeExploitant(0)));
+  const cr = (x) => Ex.critiqueMouvementExploitant({ sens: Ex.SENS_PRELEVEMENT, montant: 100000, date: "2026-09-20", note: "école", caisse: 280000, aujourdhui: "2026-09-23", ...x });
+  test("★ le refus DIT ce qui manque : le sens, un montant > 0, la date (jamais dans le futur), le motif OBLIGATOIRE (apport comme prélèvement), et un prélèvement ne dépasse JAMAIS la caisse de BMI chez lui (le refus nomme le solde et la porte de sortie)",
+    cr({}) === null && /apport.*prélèvement/.test(cr({ sens: "x" })) && /supérieur à zéro/.test(cr({ montant: 0 })) && /AAAA-MM-JJ/.test(cr({ date: "20/09/2026" })) && /futur/.test(cr({ date: "2026-09-24" }))
+    && /motif du prélèvement/.test(cr({ note: " " })) && /mot sur cet apport/.test(cr({ sens: Ex.SENS_APPORT, note: "" }))
+    && /ne contient que 280 000 F.*on ne prélève pas ce qui n'y est pas.*versement ou un apport n'a pas été saisi/.test(cr({ montant: 280001, fmt: (n) => `${new Intl.NumberFormat("fr-FR").format(n).replace(/ /g, " ")} F` }))
+    && cr({ sens: Ex.SENS_APPORT, montant: 5000000, caisse: 0 }) === null);
+  // Le journal SYSCOHADA : 104, jamais un compte de charge.
+  const sortieJ = join("node_modules", ".cache", `bmi-journal-ex-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/core.js"], bundle: true, format: "esm", platform: "node", outfile: sortieJ, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const J = await import(pathToFileURL(sortieJ).href);
+  unlinkSync(sortieJ);
+  const lignesJ = J.lignesJournal({ boutiques: [], ventes: [], dettes: [], depenses: [apport, prelev] }, "2026-09-01", "2026-09-30");
+  test("★ le journal comptable (📒 SYSCOHADA) écrit un apport en 571 / 1041 et un prélèvement en 1048 / 571 (journal OD, pièce EXP-…), JAMAIS en compte de charge — et « Ce mois » de 📤 Dépenses, le tableau de bord et les exports les ignorent (horsVersements)",
+    lignesJ.length === 4 && lignesJ.some((l) => l[3] === "571" && l[6] === 500000 && /mise de départ/.test(l[5]) && l[1] === "OD" && /^EXP-/.test(l[2])) && lignesJ.some((l) => l[3] === "1041" && l[7] === 500000)
+    && lignesJ.some((l) => l[3] === "1048" && l[6] === 100000 && /école/.test(l[5])) && lignesJ.some((l) => l[3] === "571" && l[7] === 100000) && !lignesJ.some((l) => /^6/.test(String(l[3])))
+    && J.lignesJournal({ boutiques: [], ventes: [], dettes: [], depenses: [{ ...apport, exploitant: undefined }] }, "2026-09-01", "2026-09-30").length === 0);
+  // L'écran : le composant, ses gardes, ses deux cartes, le mur.
+  const cmpEx = readFileSync("src/components/CompteExploitant.jsx", "utf8").replace(/\/\/[^\n]*/g, "").replace(/\/\*[^]*?\*\//g, "");
+  test("★ CompteExploitant.jsx : le geste revérifie le PRINCIPAL et la lecture seule DANS le geste, passe par la règle (critiqueMouvementExploitant avec la caisse LUE, construireMouvementExploitant, journalMouvementExploitant), confirme en disant que ce n'est pas une dépense, et écrit UNE ligne ; les deux relevés passent par LA carte commune et LA règle du relevé (mots APPORT / PRÉLÈVEMENT, phrase du solde) ; jamais db.users",
+    /refuserSaufAdminPrincipal\(db, profile, `\$\{libelleSens\(sens\)\} de l'exploitant`\)/.test(cmpEx) && /if \(bloquerSiLecture\(db, profile\)\) return;/.test(cmpEx)
+    && /critiqueMouvementExploitant\(\{ sens, montant: f\.montant, date: f\.date, note: f\.note, caisse: c\.caisse\.solde, aujourdhui: today\(\), fmt \}\)/.test(cmpEx)
+    && /const ligne = construireMouvementExploitant\(profile, \{ sens, montant: m, date: f\.date, note: f\.note \}\);/.test(cmpEx) && /save\(\{ \.\.\.db, depenses: \[ligne, \.\.\.\(db\.depenses \|\| \[\]\)\] \}, journalMouvementExploitant\(/.test(cmpEx)
+    && /Ce n'est PAS une dépense : le résultat ne bouge pas/.test(cmpEx) && /Rien ne s'efface : une erreur se corrige par le geste inverse/.test(cmpEx)
+    && (cmpEx.match(/<CarteCaisse /g) || []).length === 2 && /releve=\{releve\(c\.caisse, du, au\)\}/.test(cmpEx) && /releve=\{releve\(c\.exploitant, du, au\)\}/.test(cmpEx)
+    && /mots=\{\{ entree: "APPORT", sortie: "PRÉLÈVEMENT" \}\} phraseSolde=\{\(s\) => phraseSoldeExploitant\(s, fmt\)\}/.test(cmpEx) && /const c = compteExploitant\(db, nomsCaisses\);/.test(cmpEx)
+    && !/db\.users/.test(cmpEx) && !/db\.depenses\.filter/.test(cmpEx));
+  const dashEx = readFileSync("src/screens/Dashboard.jsx", "utf8");
+  test("★ le tableau de bord donne au composant SES boutiques (nomsCaisses = l'espace regardé + TERRAIN), SA période et `save` (App.jsx le passe) ; la pastille reste réservée au PRINCIPAL et au RÉEL ; la carte du relevé lit les mots et la phrase qu'on lui donne et garde ENTRÉE / SORTIE d'office",
+    /export function Dashboard\(\{ db, profile, save \}\)/.test(dashEx) && /<M\.Dashboard db=\{db\} profile=\{profile\} save=\{save\} \/>/.test(readFileSync("src/App.jsx", "utf8"))
+    && /\{dgChoisi && principal && <CompteExploitant db=\{db\} profile=\{profile\} save=\{save\} nomsCaisses=\{nomsCaisses\} periode=\{getPeriod\(\)\} \/>\}/.test(dashEx)
+    && /import \{ CompteExploitant \} from "\.\.\/components\/CompteExploitant";/.test(dashEx)
+    && (() => { const C = readFileSync("src/components/CarteCaisse.jsx", "utf8"); return /\{mots\.entree\}/.test(C) && /\{mots\.sortie\}/.test(C) && /data-phrase-solde>\{phraseSolde\(r\.soldeFin\)\}/.test(C) && /mots = \{ entree: "ENTRÉE", sortie: "SORTIE" \}/.test(C); })());
+  test("★ LE COUPLE : securite-31 réserve un apport ou un prélèvement au PRINCIPAL, exige le sens, la catégorie qui va avec, un montant > 0, un motif, la caisse « Chez le DG », et refuse toute réécriture ; le banc SQL (tester-argent) le rejoue ; la carte du code cite la règle et le composant",
+    (() => { const S = readFileSync("supabase/securite-31-compte-exploitant.sql", "utf8"); return /l''administrateur principal \(le DG\)/.test(S) && /sens not in \('apport', 'prelevement'\)/.test(S) && /'Apport de l''exploitant', 'Prélèvement de l''exploitant'/.test(S) && /<> 'Chez le DG'/.test(S) && /geste inverse/.test(S) && /select d\.data into avant from public\.depenses d where d\.id = new\.id;/.test(S) && /revoke all on function public\.depenses_regles_exploitant\(\) from public, anon;/.test(S); })()
+    && /securite-31-compte-exploitant\.sql/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8")) && /le DG enregistre un APPORT/.test(readFileSync("scripts/tester-argent-sql.sh", "utf8"))
+    && /lib\/compteExploitant\.js/.test(readFileSync("docs/carte-du-code.md", "utf8")) && /CompteExploitant\.jsx/.test(readFileSync("docs/carte-du-code.md", "utf8")));
 }
 
 titre("📦 Le rapport de stocks est classé par boutique, par catégorie et par seuil (capture Timo, 12/09/2026)");

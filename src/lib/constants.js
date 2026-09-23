@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.311";
+export const VERSION = "2.101.312";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -158,7 +158,16 @@ export const CATEGORIE_REMBOURSEMENT_AVANCE = "Remboursement d'avance de frais";
 // convention des entrées de caisse) — ni une vente, ni une charge. Règle :
 // lib/versements.js (construireRemiseFonds).
 export const CATEGORIE_FONDS_CAISSE = "Fonds de caisse remis";
-export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE];
+// Le COMPTE DE L'EXPLOITANT (Timo, 23/09/2026 — BMI est une entreprise
+// individuelle, compte 104 du plan OHADA) : un APPORT = l'argent que Timo met
+// dans BMI (ou une dépense de BMI payée de sa poche) ; un PRÉLÈVEMENT =
+// l'argent de BMI qu'il prend pour lui. Ni l'un ni l'autre n'est une charge :
+// un prélèvement ne baisse jamais le résultat, il baisse le capital
+// personnel — c'est le comptable qui passe cette écriture en fin d'année.
+// Règle : lib/compteExploitant.js. Écrites ICI pour le journal (core.js).
+export const CATEGORIE_APPORT_EXPLOITANT = "Apport de l'exploitant";
+export const CATEGORIE_PRELEVEMENT_EXPLOITANT = "Prélèvement de l'exploitant";
+export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une
 // dépense en attente de la validation du DG (5 000 F et plus, saisie par un

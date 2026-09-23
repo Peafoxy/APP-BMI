@@ -25,6 +25,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/validationDepenses.js` | La validation des dépenses par le DG, l'origine des fonds (« Payé avec »), les avances de frais |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
+| `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
@@ -111,6 +112,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `EcranVerrou.jsx` | La fenêtre du verrou d'inactivité |
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |
+| `CompteExploitant.jsx` | La pastille 👤 DG en deux relevés (caisse de BMI chez lui, compte de l'exploitant) et ses gestes ➕ Apport / ➖ Prélèvement |
 | `RechercheGlobale.jsx` | La loupe du menu : recherche transversale (ventes, articles, devis, clients, prospects) |
 | `MotInformation.jsx` | 👋 LA fenêtre du mot d'information (une seule pour le client et l'employé, seuls les mots changent) |
 | `Carte.jsx` | La carte OpenStreetMap pour choisir une position — ⚠ **jamais d'enfant React dans le cadre de Leaflet** |

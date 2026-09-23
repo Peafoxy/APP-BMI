@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1854 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1865 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -67,7 +67,7 @@ npm run verifier-whatsapp        # 336 : l'envoi WhatsApp du numéro BMI (l'ordr
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 196 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 209 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 118 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-paie              # 46  : la fiche de paie séparée, et le numéro de compte bancaire (serveur)
@@ -3398,6 +3398,89 @@ lit mal est pire qu'un banc absent).
   caisse - du au ») et **« Exporter (CSV) »** (mouvements puis les trois
   soldes). Le PDF reprend l'écran tel quel, même période, mêmes chiffres ;
   le banc MESURE le texte écrit.
+
+### 📒 LE COMPTE DE L'EXPLOITANT : LA CAISSE DE BMI CHEZ LE DG, À PART DE CE QUE BMI LUI DOIT (23/09/2026)
+- Timo : **« d'après le code, le DG peut sortir l'argent plus qu'il n'en
+  dispose ? »** — oui : rien ne limitait « Chez le DG » (la seule limite de
+  l'application est celle du tiroir, `critiqueSortieTiroir`), et son solde
+  passait en négatif **sans que personne ne le voie**. Puis : « dans le
+  business, cet apport du responsable s'appelle comment ? documente-toi » →
+  **BMI est une ENTREPRISE INDIVIDUELLE** (sa réponse) : c'est le **compte de
+  l'exploitant**, compte **104** du plan OHADA (1041 apports, 1048
+  prélèvements…), que le comptable vide en fin d'année dans le **capital
+  personnel (103)**. « Lance ». Règle pure `lib/compteExploitant.js`,
+  composant `components/CompteExploitant.jsx`, serveur **`securite-31`**.
+- ⚠⚠ **LA PASTILLE 👤 DG MÉLANGEAIT DEUX CHOSES QUE LA COMPTABILITÉ SÉPARE** :
+  **(1) la caisse de BMI chez le DG** — ce que les boutiques lui ont versé,
+  moins ce qui en est sorti ; de l'argent de BMI dans ses mains, **JAMAIS
+  négative** ; **(2) le compte de l'exploitant** — ce que BMI lui doit : il
+  MONTE quand il paie une dépense de BMI de sa poche (apport) ou met de
+  l'argent dans BMI, il DESCEND quand il en prend pour lui (prélèvement).
+  **Un solde négatif y est PERMIS** (c'est son entreprise — l'interdit du
+  compte courant débiteur, art. 356 AUSCGIE, ne vaut que pour une société)
+  **et se LIT** (`phraseSoldeExploitant`, en rouge). Le « solde négatif » du
+  matin n'était rien d'autre qu'un apport qui n'avait pas de nom.
+- **LE PARTAGE SE FAIT TOUT SEUL** (`compteExploitant`, UNE marche dans
+  l'ordre du temps, le même jour ce qui ENTRE avant ce qui SORT) : une
+  dépense « payée avec de l'argent remis par le DG », un fonds de caisse
+  remis, une avance remboursée par lui sortent d'abord de la caisse de BMI
+  chez lui ; **ce qu'elle ne couvre pas est un APPORT automatique**, écrit
+  comme tel (« payé de sa poche »). **Aucune question nouvelle aux boutiques**,
+  rien ne change pour elles. C'est la règle du tiroir et de l'enveloppe,
+  appliquée au DG.
+- **DEUX GESTES, à lui seul** (administrateur PRINCIPAL, revérifié DANS le
+  geste) : **➕ Apport** et **➖ Prélèvement**, dans la pastille 👤 DG du
+  tableau de bord — montant, **date libre** (un apport de départ parle du
+  passé : « mise de départ » = ce qu'il avait déjà engagé avant
+  l'application, le solde d'ouverture que le « laisse » du 14/09 avait
+  écarté), **motif obligatoire** (une sortie sans motif ne s'explique à
+  personne — et le comptable range les prélèvements selon leur nature).
+  ⚠ **Un prélèvement ne dépasse JAMAIS la caisse de BMI chez lui** : on ne
+  prend pas ce qui n'y est pas ; le refus nomme le solde et la porte de
+  sortie (« un versement ou un apport n'a pas été saisi »). **Rien ne
+  s'efface** : une erreur se corrige par le geste inverse (le serveur refuse
+  toute réécriture).
+- ⚠⚠ **UN PRÉLÈVEMENT N'EST JAMAIS UNE CHARGE** : les deux catégories
+  (`CATEGORIE_APPORT_EXPLOITANT` / `CATEGORIE_PRELEVEMENT_EXPLOITANT`,
+  constants.js) sont dans `CATEGORIES_HORS_CHARGES` — tableau de bord,
+  résultat, « Ce mois » de 📤 Dépenses, exports les ignorent ; il baisse le
+  capital, pas le résultat. **Le journal SYSCOHADA les écrit en 104**
+  (`lignesJournal`, core.js : apport = 571 / 1041, prélèvement = 1048 / 571,
+  journal OD, pièce EXP-…), jamais en compte de charge. Une ligne de la
+  table des dépenses, **boutique « Chez le DG »** (réelle, sans jumelle,
+  comme la caisse du comptable — le serveur la classe `reel`).
+- **Deux relevés par LA carte commune** (`CarteCaisse`, qui reçoit désormais
+  `mots` — APPORT / PRÉLÈVEMENT — et `phraseSolde`) et LA règle du relevé :
+  imprimables, exportables, même période. **Ce que le comptable a besoin de
+  lire** pour son écriture de fin d'année. ⚠ **Ce que ça ne fait PAS, et
+  l'écran le dit** : le bilan, le capital personnel, l'impôt — c'est le
+  comptable. L'application tient le registre.
+- ⚠ **À dire à Timo** : un exploitant individuel **n'a pas de salaire** — ce
+  qu'il prend pour vivre est un prélèvement (1043). S'il est sur le bulletin
+  de paie de l'application, c'est faux comptablement (dit le 23/09, pas
+  tranché). Et la BANQUE n'a toujours **aucune limite** (une dépense par
+  virement n'est comparée à rien) : pas demandé, pas construit.
+- ⚠ **LE COUPLE : `securite-31`** (nouvelle fonction et nouveau déclencheur,
+  ne touche aucune règle existante) : créer un apport ou un prélèvement =
+  le PRINCIPAL seul ; ligne bien formée (`exploitant.sens`, la catégorie qui
+  va avec, montant > 0, motif, caisse « Chez le DG ») ; **rien ne se
+  réécrit**. ⚠ La limite « pas plus que la caisse » reste à l'APPLICATION :
+  la base ne connaît pas le solde (une lecture, jamais écrite). **C'est le
+  seul à coller.** Le banc SQL (`tester-argent`, **209** contrôles) le
+  rejoue par UPSERT — ⚠ deux de ses contrôles « rassuraient sans protéger »
+  au premier jet (la ligne à modifier n'existait pas dans leur transaction :
+  0 ligne touchée, pas un refus) ; refaits pour insérer PUIS modifier dans
+  le même essai, et `DEBUG=1` affiche désormais QUEL déclencheur a refusé.
+  ⚠ Dans ce banc, l'apostrophe de « l'exploitant » se DOUBLE dans le
+  littéral SQL (`CAT_APPORT="Apport de l''exploitant"`).
+- **Le banc** (`verifier-cloisonnement`, **1865** contrôles) exerce la
+  marche (partage automatique, même jour, mise de départ, solde négatif),
+  les refus, le journal 104, lit le composant, le tableau de bord, la carte,
+  le SQL et la carte du code ; **éprouvé** en inversant l'ordre du même jour
+  et en remettant le prélèvement dans les charges : cinq contrôles tombent.
+  Cinq contrôles RETOURNÉS (la carte DG devenue composant, `nouvelleDepense`
+  ×18, la liste hors charges, le mot « Entrées » qui suit `mots`, les cartes
+  nommées comptées dans deux fichiers).
 
 ### 📱 FLOOZ ET MIXX/T-MONEY : LE SOLDE D'UN COMPTE MOBILE (21/09/2026)
 - Timo, après avoir encaissé 160 000 F par Mixx et payé 40 000 F de commission

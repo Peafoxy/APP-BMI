@@ -14,7 +14,11 @@ import { genererReleve } from "../pdf";
 // solde au début, entrées et sorties de la période, solde à la fin, et les
 // mouvements de la période seulement. `periode` : son libellé.
 // `caisse` : le nom de la caisse (« Chez le DG »…), pour le PDF et le fichier.
-export function CarteCaisse({ titre, caisse, note, releve: r, periode }) {
+// `mots` (facultatif) : les mots des deux sens — « ENTRÉE / SORTIE » d'office,
+// « APPORT / PRÉLÈVEMENT » pour le compte de l'exploitant (23/09/2026).
+// `phraseSolde` (facultatif) : une phrase qui LIT le solde à la fin, sous la
+// case — c'est elle qui dit « BMI vous doit » ou « vous avez retiré plus ».
+export function CarteCaisse({ titre, caisse, note, releve: r, periode, mots = { entree: "ENTRÉE", sortie: "SORTIE" }, phraseSolde = null }) {
   const bilan = r;
   const depuisLeDebut = r.du <= "0000-01-01";
   // Timo (12/09/2026) : « pourquoi c'est impossible d'exporter pour
@@ -41,9 +45,9 @@ export function CarteCaisse({ titre, caisse, note, releve: r, periode }) {
       <div className="text-xs text-slate-500 mb-3">{note}</div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Solde au début{depuisLeDebut ? "" : ` (${dFR(r.du)})`}</div><div className={`font-bold tabular-nums ${r.soldeDebut < 0 ? "text-red-600" : ""}`}>{fmt(r.soldeDebut)}</div></div>
-        <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">+ Entrées de la période</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(r.entrees)}</div></div>
-        <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">− Sorties de la période</div><div className="font-bold tabular-nums">− {fmt(r.sorties)}</div></div>
-        <div className="bg-white rounded-lg p-3 border-2 border-slate-300"><div className="text-xs text-slate-500">Solde à la fin{r.au >= "9999-12-31" ? "" : ` (${dFR(r.au)})`}</div><div className={`font-bold tabular-nums text-lg ${r.soldeFin < 0 ? "text-red-600" : ""}`}>{fmt(r.soldeFin)}</div></div>
+        <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">+ {mots.entree === "ENTRÉE" ? "Entrées" : `${mots.entree.charAt(0)}${mots.entree.slice(1).toLowerCase()}s`} de la période</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(r.entrees)}</div></div>
+        <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">− {mots.sortie === "SORTIE" ? "Sorties" : `${mots.sortie.charAt(0)}${mots.sortie.slice(1).toLowerCase()}s`} de la période</div><div className="font-bold tabular-nums">− {fmt(r.sorties)}</div></div>
+        <div className="bg-white rounded-lg p-3 border-2 border-slate-300"><div className="text-xs text-slate-500">Solde à la fin{r.au >= "9999-12-31" ? "" : ` (${dFR(r.au)})`}</div><div className={`font-bold tabular-nums text-lg ${r.soldeFin < 0 ? "text-red-600" : ""}`}>{fmt(r.soldeFin)}</div>{phraseSolde && <div className={`text-[11px] mt-1 ${r.soldeFin < 0 ? "text-red-700" : "text-slate-500"}`} data-phrase-solde>{phraseSolde(r.soldeFin)}</div>}</div>
       </div>
       <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
         <table className="w-full text-sm min-w-[640px]">
@@ -53,7 +57,7 @@ export function CarteCaisse({ titre, caisse, note, releve: r, periode }) {
             {bilan.mouvements.slice(0, 100).map((m) => (
               <tr key={m.id} className="border-t border-slate-100">
                 <td className="px-3 py-1.5">{dFR(m.date)}</td>
-                <td className="px-3 py-1.5">{m.sens === "entree" ? <span className="text-xs font-bold text-emerald-700 mr-1">ENTRÉE</span> : <span className="text-xs font-bold text-red-700 mr-1">SORTIE</span>}{m.libelle}</td>
+                <td className="px-3 py-1.5">{m.sens === "entree" ? <span className="text-xs font-bold text-emerald-700 mr-1">{mots.entree}</span> : <span className="text-xs font-bold text-red-700 mr-1">{mots.sortie}</span>}{m.libelle}</td>
                 <td className="px-3 py-1.5">{m.boutique}</td>
                 <td className={`px-3 py-1.5 tabular-nums font-bold text-right ${m.sens === "entree" ? "text-emerald-700" : ""}`}>{m.sens === "entree" ? "+" : "−"} {fmt(m.montant)}</td>
               </tr>

@@ -8,7 +8,7 @@
 // modification de logique.
 // ============================================================
 
-import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT } from "./constants.js";
+import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT } from "./constants.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -80,6 +80,23 @@ export function lignesJournal(db, a, b) {
     } else {
       pousser(x.date, "AC", piece, cc, ic, lib, m, "", x.boutique);
       pousser(x.date, "AC", piece, ct, it, lib, "", m, x.boutique);
+    }
+  });
+
+  // Le compte de l'exploitant (Timo, 23/09/2026 — entreprise individuelle,
+  // compte 104 OHADA) : un APPORT = débit caisse / crédit 1041 ; un
+  // PRÉLÈVEMENT = débit 1048 / crédit caisse. Jamais une charge : le
+  // comptable vide le 104 dans le capital personnel (103) en fin d'année.
+  (db.depenses || []).filter((x) => !!x.exploitant && (x.categorie === CATEGORIE_APPORT_EXPLOITANT || x.categorie === CATEGORIE_PRELEVEMENT_EXPLOITANT) && inP(x.date, a, b)).forEach((x) => {
+    const piece = "EXP-" + String(x.id).slice(0, 6).toUpperCase();
+    const lib = `${x.categorie}${x.exploitant.note ? " — " + x.exploitant.note : ""}`;
+    const m = Number(x.montant);
+    if (x.categorie === CATEGORIE_APPORT_EXPLOITANT) {
+      pousser(x.date, "OD", piece, "571", "Caisse", lib, m, "", x.boutique);
+      pousser(x.date, "OD", piece, "1041", "Compte de l'exploitant — apports temporaires", lib, "", m, x.boutique);
+    } else {
+      pousser(x.date, "OD", piece, "1048", "Compte de l'exploitant — autres prélèvements", lib, m, "", x.boutique);
+      pousser(x.date, "OD", piece, "571", "Caisse", lib, "", m, x.boutique);
     }
   });
 

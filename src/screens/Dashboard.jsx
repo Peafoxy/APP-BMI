@@ -9,7 +9,8 @@ import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, 
 import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
 // (lib/caissesCentrales.js).
-import { mouvementsDG, mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
+import { mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
+import { CompteExploitant } from "../components/CompteExploitant";
 import { mouvementsMobile, MOYENS_MOBILES } from "../lib/caissesMobiles";
 import { mobileParCaisse } from "../lib/constants";
 import { CarteCaisse } from "../components/CarteCaisse";
@@ -22,7 +23,7 @@ import {
   boutiqueTerrain, NOM_CAISSE_COMPTABLE, memoriserBoutique, boutiqueMemorisee } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============
-export function Dashboard({ db, profile }) {
+export function Dashboard({ db, profile, save }) {
   // ⚠ TERRAIN (encaissements de terrain) ET les boutiques de FORMATION
   // (demande Timo — un nouveau commercial doit pouvoir s'entraîner sans
   // jamais fausser les vrais chiffres) sont exclues du tableau de bord.
@@ -301,7 +302,7 @@ export function Dashboard({ db, profile }) {
         {bqChoisie && !sansVentes && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
         {depotChoisi && <span className="text-xs text-slate-500">🏭 Un dépôt ne vend pas : voici ses sorties et son stock.</span>}
         {comptableChoisi && <span className="text-xs text-slate-500">🧾 La caisse du comptable ne vend pas : voici ce qui y entre, ce qui en sort, et ses sorties.</span>}
-        {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤" : banqueChoisi ? "🏦" : "📱"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.</span>}
+        {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤 Deux relevés : la caisse de BMI que vous gardez en main, et votre compte d'exploitant (ce que BMI vous doit, ou ce que vous avez retiré)." : `${banqueChoisi ? "🏦" : "📱"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.`}</span>}
       </div>
       {/* Timo (12/09/2026) : « séparer chacun… avoir les onglets DG, BANQUE et
           COMPTABLE ». Trois caisses LUES (rien d'écrit, lib/caissesCentrales.js),
@@ -313,8 +314,11 @@ export function Dashboard({ db, profile }) {
           <div className="flex flex-wrap items-center gap-3">{selecteurPeriode}</div>
         </div>
       )}
-      {dgChoisi && principal && <CarteCaisse titre={`👤 ${CAISSE_DG}`} caisse={CAISSE_DG} periode={getPeriod()[0]} releve={releve(mouvementsDG(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
-        note="Entre : les versements « Chez le DG » que vous avez validés. Sort : les dépenses payées avec de l'argent que vous avez remis (une fois qu'elles comptent), et les avances de frais que vous avez remboursées vous-même. Les dépenses restent des charges de leur boutique." />}
+      {/* Timo (23/09/2026) : BMI est une entreprise individuelle. La pastille
+          👤 DG se lit en DEUX parties — la caisse de BMI chez lui (jamais
+          négative) et le COMPTE DE L'EXPLOITANT (ce que BMI lui doit) —, avec
+          ses deux gestes ➕ Apport / ➖ Prélèvement (lib/compteExploitant.js). */}
+      {dgChoisi && principal && <CompteExploitant db={db} profile={profile} save={save} nomsCaisses={nomsCaisses} periode={getPeriod()} />}
       {banqueChoisi && principal && <CarteCaisse titre={`🏦 ${CAISSE_BANQUE}`} caisse={CAISSE_BANQUE} periode={getPeriod()[0]} releve={releve(mouvementsBanque(db, nomsCaisses), getPeriod()[1], getPeriod()[2])}
         note="Entre : les versements « BANQUE » validés (banque et bordereau). Sort : les dépenses payées par virement bancaire (salaires virés, fournisseurs, CNSS…). Les dépenses restent des charges de leur boutique." />}
       {bilanMobileChoisi && <CarteCaisse titre={bilanMobileChoisi.pastille} caisse={bilanMobileChoisi.caisse} periode={getPeriod()[0]} releve={releve(bilanMobileChoisi.bilan, getPeriod()[1], getPeriod()[2])}
