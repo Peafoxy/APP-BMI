@@ -159,7 +159,7 @@ export const CHAPITRE = {
         ["✏️ Corriger", "Ouvre la fiche dans le formulaire du haut."],
         ["Code / 🖨 Étiquette", "Poser ou retirer le code-barres ; imprimer l'étiquette 60 × 30 mm."],
         ["+ Entrée / ± Ajuster", "Marchandise reçue ; correction motivée dans les deux sens."],
-        ["⇄ Transfert", "Envoyer une quantité à une autre boutique **du même espace** : on choisit la boutique, la quantité (« disponible : N »), et l'envoi attend la validation de la boutique qui reçoit — l'article ne bouge pas avant (chapitre 9)."],
+        ["Transfert (le bouton de la ligne)", "Envoyer une quantité à une autre boutique **du même espace** : on choisit la boutique, la quantité (« disponible : N »), et l'envoi attend la validation de la boutique qui reçoit — l'article ne bouge pas avant (chapitre 9)."],
         ["Suppr.", "Administrateur seul ; refusé si l'article a des ventes (« Cet article a des ventes enregistrées : impossible de le supprimer. »). Un article qui ne se vend plus se met à 0 par ± Ajuster, il ne se supprime pas."],
         ["Derniers mouvements", "Les 20 derniers ajustements du site, avec leur motif et leur auteur : inventaire, ravitaillement, transfert, retour sous garantie, reprise, sortie de travaux…"],
       ]}],
