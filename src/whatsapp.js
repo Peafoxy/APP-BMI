@@ -22,8 +22,9 @@
 // déjà passé payer, est une faute. Hors ligne, on ouvre WhatsApp tout de
 // suite : la personne voit, décide, envoie.
 // ============================================================
-import { envoyerWhatsApp } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants } from "./lib/whatsappModeles";
+import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque } from "./lib/whatsappModeles";
+import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 
 const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== false;
@@ -91,6 +92,38 @@ export async function envoyerIdentifiantsDuNumeroBmi({ nomAffiche, identifiant, 
     : texteIdentifiantsClient(nomAffiche, identifiant, motDePasse);
   const { modele, variables } = envoiIdentifiants({ nomAffiche, identifiant, motDePasse });
   return envoyerModele({ tel, modele, variables, espaceFormation: !!espaceFormation, texteRepli, demanderConfirmation });
+}
+
+// ---------------------------------------------------------------
+// 🔑 LA LIGNE « ACCÈS ENVOYÉS » DANS LA CONVERSATION (23/09/2026)
+// ---------------------------------------------------------------
+// Décision Timo : le message `espace` se lit dans 📲 WhatsApp, en clair pour
+// le créateur et l'administrateur, masqué pour tout autre utilisateur.
+// ⚠ On n'écrit la ligne QUE si le message est PARTI du numéro BMI (`r.auto`)
+// — une ouverture WhatsApp part d'un autre numéro, le fil mentirait. Donc
+// jamais en formation. ⚠ Le mot de passe n'y est PAS : le texte rangé est
+// celui du modèle, trous masqués (lib/whatsappModeles.js), et c'est l'écran
+// qui remplit pour qui a le droit. La fiche légère de la conversation suit,
+// sans toucher à qui elle est confiée (seul « 🔁 Confier » le fait).
+// Cinq écrans s'en servent, par `save((etat) => …)` : l'écran a déjà
+// enregistré le compte avant d'envoyer, il ne doit pas réécrire un état
+// périmé (la création serait prise pour une suppression).
+export function messagesAvecLigneAcces(messages, { profile, client, renvoi = false }) {
+  const liste = Array.isArray(messages) ? messages : [];
+  const tel = client && client.tel;
+  const cle = cleConversation(tel);
+  if (!cle || !client) return liste;
+  const nom = client.nom_base || client.nom || "";
+  const entete = liste.find((x) => x && x.id === idEntete(cle)) || {};
+  const m = nouveauMessage(profile, {
+    canal: CANAL_WA, wa_tel: cle, wa_numero: tel, wa_nom: nom,
+    texte: texteEspaceMasque(nom),
+    wa_acces: { client_id: client.id, renvoi: !!renvoi },
+  });
+  return messagesAvecEntete([m, ...liste], {
+    cle, tel, nom, derniere: m.ts,
+    proprietaire_id: entete.proprietaire_id, proprietaire_nom: entete.proprietaire_nom,
+  });
 }
 
 // ---------------------------------------------------------------

@@ -130,6 +130,45 @@ export function envoiIdentifiants({ nomAffiche, identifiant, motDePasse }) {
   };
 }
 
+// ---------------------------------------------------------------
+// 🔑 LE MESSAGE `espace` DANS LA CONVERSATION 📲 WHATSAPP (23/09/2026)
+// ---------------------------------------------------------------
+// Timo : « lorsqu'un utilisateur crée un utilisateur dont les infos sont
+// envoyées par le WhatsApp BMI à travers l'app, le message ne devrait pas
+// être visible pour tout le monde… seuls le créateur et l'administrateur
+// peuvent voir le message en clair dans les discussions WhatsApp de BMI ».
+// ⚠⚠ LE MOT DE PASSE N'EST JAMAIS ÉCRIT DANS LA CONVERSATION. La ligne
+// rangée dans le fil porte le texte du modèle avec ses deux trous MASQUÉS
+// (`texteEspaceMasque`) et l'identifiant du compte concerné (`wa_acces`) ;
+// c'est l'ÉCRAN qui remplit les trous à l'affichage, pour le créateur et
+// l'administrateur seulement, en RECALCULANT le mot de passe depuis la
+// fiche (motDePasseConnu, comme « ↻ Renvoyer »). Un simple masque posé sur
+// un texte complet aurait laissé le mot de passe descendre sur le téléphone
+// de chaque personne qui voit la conversation — masquer n'est pas protéger
+// (leçon du numéro de compte, 19/09).
+// Le texte est celui du modèle `espace` chez Meta, écrit par Timo.
+export const MASQUE_ACCES = "••••••";
+export const TEXTE_ESPACE = "Bonjour Mr/Mme {{1}},\n\nBIENVENUE SUR\nhttps://gestion.bmitogo.com\n\nvotre espace avec :\n{{2}} et\n{{3}}\n\nÀ bientôt !\nBMI TOGO — Les bâtiments modernes et intelligents";
+export function texteEspace({ nomAffiche, identifiant, motDePasse }) {
+  return TEXTE_ESPACE
+    .replace("{{1}}", String(nomAffiche || "").toUpperCase())
+    .replace("{{2}}", String(identifiant || MASQUE_ACCES))
+    .replace("{{3}}", String(motDePasse || MASQUE_ACCES));
+}
+export const texteEspaceMasque = (nomAffiche) => texteEspace({ nomAffiche, identifiant: MASQUE_ACCES, motDePasse: MASQUE_ACCES });
+// Qui lit les codes en clair : l'administrateur, et celui qui a envoyé la
+// ligne (le créateur du compte, ou celui qui a cliqué « ↻ Renvoyer »).
+export const peutLireAcces = (m, lecteur) => !!(m && m.wa_acces && lecteur
+  && (lecteur.role === "admin" || (lecteur.id != null && m.de_id === lecteur.id)));
+// Ce que l'écran affiche pour une ligne du fil. `acces` = { identifiant,
+// motDePasse } recalculés par l'écran depuis la fiche du client — la règle
+// ne reçoit jamais la base. Sans droit, ou sans fiche, le texte masqué.
+export function texteAccesAffiche(m, lecteur, acces) {
+  if (!m || !m.wa_acces) return m ? m.texte : "";
+  if (!peutLireAcces(m, lecteur) || !acces || !acces.identifiant || !acces.motDePasse) return m.texte;
+  return texteEspace({ nomAffiche: m.wa_nom, identifiant: acces.identifiant, motDePasse: acces.motDePasse });
+}
+
 // Ce que l'écran dit APRÈS l'envoi des identifiants — UNE phrase pour les
 // six écrans qui créent ou renvoient un compte. Un repli muet ressemble à
 // une panne (leçon du 19/09) : quand le message n'est pas parti du numéro

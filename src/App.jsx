@@ -732,6 +732,11 @@ export default function App() {
   // réseau), puis mise en file pour Supabase.
   // Toute action sensible est tracée dans le journal d'audit (onglet Historique)
   const save = async (next, action, options = {}) => {
+    // Un écran qui a DÉJÀ enregistré (la création d'un compte) et veut
+    // ajouter une ligne juste après (les accès partis du numéro BMI,
+    // 23/09/2026) passe une FONCTION de l'état courant : repartir de son
+    // `db` d'avant prendrait la création pour une suppression.
+    if (typeof next === "function") next = next(dbRef.current);
     // ---- VERROU LECTURE SEULE À LA SOURCE ----
     // TOUTE écriture de l'application passe par ici : un compte privé du
     // pouvoir « act_ecriture » ne peut rien persister, quel que soit l'écran

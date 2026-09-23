@@ -30,7 +30,8 @@ import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../li
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION } from "../lib/whatsappConversations";
-import { texteContact } from "../lib/whatsappModeles";
+import { texteContact, texteAccesAffiche } from "../lib/whatsappModeles";
+import { motDePasseConnu } from "../lib/comptesClients";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
@@ -179,6 +180,17 @@ export function Whatsapp({ db, save, profile }) {
   // ⚠ ON N'ÉCRIT DANS LA BASE QUE SI LE MESSAGE EST PARTI. Écrire d'abord
   // ferait croire au vendeur qu'il a répondu alors que le client n'a rien
   // reçu : un fil qui ment est pire qu'un fil vide.
+  // 🔑 LA LIGNE « ACCÈS ENVOYÉS » (23/09/2026) : le texte rangé porte ses deux
+  // trous masqués ; le créateur et l'administrateur les voient remplis, à
+  // partir de la fiche du client (le mot de passe est RECALCULÉ, jamais lu
+  // dans la conversation). Les autres lisent « •••••• ». La fiche vient de
+  // l'espace regardé, jamais de db.users en entier.
+  const texteDuFil = (m) => {
+    if (!m || !m.wa_acces) return m ? m.texte : "";
+    const client = utilisateursDeLEspace(db, profile).find((u) => u.id === m.wa_acces.client_id);
+    return texteAccesAffiche(m, profile, client ? { identifiant: client.nom, motDePasse: motDePasseConnu(client) } : null);
+  };
+
   const envoyer = async () => {
     const t = texte.trim();
     if (!t || !ouverte || envoi) return;
@@ -467,7 +479,7 @@ export function Whatsapp({ db, save, profile }) {
                 <div key={m.id} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
                   {!m.wa_systeme && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
                   {m.wa_media && <MediaWa message={m} />}
-                  {m.texte ? <div>{m.texte}</div> : null}
+                  {m.texte ? <div className="whitespace-pre-line">{texteDuFil(m)}</div> : null}
                   <div className={`text-[10px] mt-1 ${m.de_id === profile.id ? "text-sky-200" : "text-slate-400"}`}>{dFR(m.date)} {String(m.ts || "").slice(11, 16)}</div>
                 </div>
               ))}

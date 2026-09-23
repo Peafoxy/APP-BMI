@@ -684,6 +684,52 @@ const monte = (f) => { try { return f(); } catch (e) { return `⛔ ${e?.message 
 const vuAdmin = monte(V.htmlAdmin), vuNu = monte(V.htmlNu), vuCpt = monte(V.htmlComptable);
 test("★★ l'écran se monte sur une base garnie, et la conversation s'y voit",
   vuAdmin.includes("ESSO") && vuAdmin.includes("Rechercher"));
+
+// ──────────────────────────────────────────────────────────────
+titre("⑫ LE MESSAGE `espace` DANS 📲 WHATSAPP : EN CLAIR POUR LE CRÉATEUR ET L'ADMIN, MASQUÉ POUR LES AUTRES (23/09/2026)");
+{
+  const mdp = monte(V.mdpClient);
+  const liste = monte(V.ligneAcces);
+  const ligne = Array.isArray(liste) ? liste.find((x) => x && x.wa_acces) : null;
+  test("★★ la ligne écrite dans le fil ne porte JAMAIS le mot de passe, ni l'identifiant : ses deux trous sont masqués",
+    !!ligne && typeof mdp === "string" && mdp.length >= 6 && !ligne.texte.includes(mdp) && !ligne.texte.includes("KOFFI et")
+    && (ligne.texte.match(/••••••/g) || []).length === 2 && /BIENVENUE SUR/.test(ligne.texte) && !JSON.stringify(ligne).includes(mdp));
+  test("★ la ligne est une ligne de conversation WhatsApp sortante (canal, clé du numéro, fiche du compte, auteur = le créateur), jamais un entrant",
+    !!ligne && ligne.canal === "whatsapp" && ligne.wa_tel === "90117788" && ligne.wa_acces?.client_id === "CLI3"
+    && ligne.de_id === "KOSSI" && !ligne.wa_entrant);
+  test("★ la fiche légère de la conversation suit (une ligne grisée chez qui n'y a pas droit, jamais une conversation absente)",
+    Array.isArray(liste) && liste.some((x) => x && x.id === "waent_90117788" && x.canal === "whatsapp_entete" && !("texte" in x && x.texte)));
+  const clairAdmin = monte(() => V.lectureAcces(V.lecteurAdmin));
+  const clairCreateur = monte(() => V.lectureAcces(V.lecteurCreateur));
+  const masqueAutre = monte(() => V.lectureAcces(V.lecteurAutre));
+  test("★★ l'ADMINISTRATEUR lit le message en clair : identifiant et mot de passe remplis",
+    typeof clairAdmin === "string" && clairAdmin.includes(`KOFFI et\n${mdp}`) && !clairAdmin.includes("••••••"));
+  test("★★ le CRÉATEUR du compte lit le message en clair",
+    typeof clairCreateur === "string" && clairCreateur.includes(mdp) && !clairCreateur.includes("••••••"));
+  test("★★ TOUT AUTRE utilisateur lit les deux trous masqués — jamais le mot de passe",
+    typeof masqueAutre === "string" && !masqueAutre.includes(mdp) && (masqueAutre.match(/••••••/g) || []).length === 2);
+  test("★ sans fiche du client (compte parti), même l'administrateur ne lit que le texte masqué : rien n'est inventé",
+    M.texteAccesAffiche(ligne, V.lecteurAdmin, null) === ligne.texte);
+  test("★ le texte de la ligne est celui du modèle `espace` écrit par Timo, trous 2 et 3 masqués",
+    M.texteEspaceMasque("koffi") === "Bonjour Mr/Mme KOFFI,\n\nBIENVENUE SUR\nhttps://gestion.bmitogo.com\n\nvotre espace avec :\n•••••• et\n••••••\n\nÀ bientôt !\nBMI TOGO — Les bâtiments modernes et intelligents");
+  // L'ÉCRAN : le fil passe par la règle, et ne dessine jamais m.texte brut.
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const ecran = sansComm(lire("src/screens/Whatsapp.jsx"));
+  test("★★ 📲 WhatsApp dessine chaque ligne du fil par texteAccesAffiche (texteDuFil), jamais m.texte brut, et recalcule le mot de passe depuis la fiche de l'espace regardé",
+    /texteDuFil\(m\)/.test(ecran) && !/<div>\{m\.texte\}<\/div>/.test(ecran)
+    && /texteAccesAffiche\(m, profile, client \? \{ identifiant: client\.nom, motDePasse: motDePasseConnu\(client\) \} : null\)/.test(ecran)
+    && /utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.id === m\.wa_acces\.client_id\)/.test(ecran));
+  // LE SAVE : une fonction de l'état COURANT, sinon la création d'un compte
+  // serait reprise pour une suppression par le second enregistrement.
+  test("★★ save() accepte une fonction de l'état courant (dbRef.current), AVANT tout le reste",
+    /const save = async \(next, action, options = \{\}\) => \{[\s\S]{0,600}?if \(typeof next === "function"\) next = next\(dbRef\.current\);/.test(lire("src/App.jsx")));
+  // L'EMPLOYÉ : jamais le numéro BMI, jamais une ligne dans le fil.
+  const util = sansComm(lire("src/screens/Utilisateurs.jsx"));
+  const blocEmp = (util.match(/if \(chiffresTel\(f\.tel\)\.length >= 4\) \{[\s\S]*?\n    \}\n/) || [""])[0];
+  test("★★ un EMPLOYÉ reçoit ses accès depuis le téléphone de l'administrateur (envoyerIdentifiantsEmployeWhatsApp), jamais du numéro BMI, et rien ne s'écrit dans 📲 WhatsApp",
+    blocEmp.length > 0 && /envoyerIdentifiantsEmployeWhatsApp\(nomEmp, nomEmp, pwdEmp, roleEmp, telEmp, uConfirm\)/.test(blocEmp)
+    && !/envoyerIdentifiantsDuNumeroBmi/.test(blocEmp) && !/messagesAvecLigneAcces/.test(blocEmp) && /VOTRE numéro/.test(blocEmp));
+}
 test("★★ une PHOTO, une note vocale, un document : chacun se dessine avec SON mot",
   monte(V.htmlPhoto).includes("📷 Photo") && monte(V.htmlVocale).includes("🎤 Note vocale")
   && monte(V.htmlDoc).includes("📄 Document : facture.pdf"));
@@ -1018,11 +1064,23 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
     && /envoiIdentifiants\(/.test(srcWhatsapp));
   for (const f of ecransComptes) {
     const src = sansCommentaires(lire(f));
-    test(`★★ ${f} : les identifiants partent par envoyerIdentifiantsDuNumeroBmi, jamais par l'ouverture directe`,
-      /envoyerIdentifiantsDuNumeroBmi\(\{/.test(src)
-      && !/envoyerIdentifiantsWhatsApp\(/.test(src) && !/envoyerIdentifiantsEmployeWhatsApp\(/.test(src));
-    // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
+    // ⚠ CONTRÔLE RETOURNÉ LE 23/09/2026 (décision Timo) : un EMPLOYÉ ne passe
+    // plus par le numéro BMI — WhatsApp s'ouvre sur le téléphone de
+    // l'administrateur (envoyerIdentifiantsEmployeWhatsApp), et rien ne
+    // s'écrit dans 📲 WhatsApp. Seuls les CLIENTS partent du numéro BMI.
     const appels = src.match(/envoyerIdentifiantsDuNumeroBmi\(\{[^}]*\}/g) || [];
+    const employeIci = f === "src/screens/Utilisateurs.jsx";
+    test(`★★ ${f} : les identifiants d'un CLIENT partent par envoyerIdentifiantsDuNumeroBmi, jamais par l'ouverture directe`,
+      /envoyerIdentifiantsDuNumeroBmi\(\{/.test(src) && appels.every((a) => /role: "client"/.test(a))
+      && !/envoyerIdentifiantsWhatsApp\(/.test(src)
+      && (employeIci ? /envoyerIdentifiantsEmployeWhatsApp\(nomEmp, nomEmp, pwdEmp, roleEmp, telEmp, uConfirm\)/.test(src) : !/envoyerIdentifiantsEmployeWhatsApp\(/.test(src)));
+    // 🔑 LA LIGNE DU FIL (23/09/2026) : après CHAQUE envoi d'un client, si le
+    // message est PARTI du numéro BMI (r.auto), la ligne s'écrit par
+    // save((etat) => …) — jamais depuis le `db` d'avant la création.
+    const lignes = src.match(/if \(r && r\.auto\) save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages, \{ profile, client: \w+(, renvoi: true)? \}\) \}\)\);/g) || [];
+    test(`★★ ${f} : chaque envoi d'un client écrit la ligne « accès envoyés » dans 📲 WhatsApp, seulement si le message est parti du numéro BMI, sur l'état COURANT (${lignes.length}/${appels.length})`,
+      appels.length > 0 && lignes.length === appels.length && /messagesAvecLigneAcces \} from "\.\.\/whatsapp"/.test(src));
+    // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
     test(`★★ ${f} : chaque envoi passe l'espace du COMPTE CRÉÉ (${appels.length} envoi(s))`,
       appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|espaceCree === true)/.test(a)));
     test(`★ ${f} : chaque envoi porte un texte de repli (la fonction le construit) et la phrase de l'écran`,

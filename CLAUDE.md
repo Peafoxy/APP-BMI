@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 276 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
+npm run verifier-whatsapp        # 291 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2883,6 +2883,49 @@ lit mal est pire qu'un banc absent).
   créateur du compte. Depuis le 22/09 les accès partent à la création par
   `espace`, mais cet envoi ne marque PAS le client comme contacté. Ne
   changer ni l'un ni l'autre sans sa décision.
+- ⚠⚠ **CE QU'IL VOULAIT VRAIMENT, compris au troisième échange (« apparemment
+  tu ne m'as pas compris… c'est dans le message WhatsApp Business dans
+  l'application BMI, et non dans les interfaces ») : LE MESSAGE `espace` SE
+  LIT DANS 📲 WHATSAPP, en clair pour le créateur et l'administrateur, masqué
+  pour tout autre utilisateur.** Il n'y était PAS écrit du tout — c'est ce
+  qui me faisait tourner en rond. « Lance » (2.101.308) :
+  - **Une ligne s'écrit dans la conversation du client** après CHAQUE envoi
+    d'accès d'un CLIENT parti du numéro BMI (`r.auto` — donc jamais en
+    formation, jamais sur le repli) : les quatre écrans de création et
+    « ↻ Renvoyer ses accès », par **`messagesAvecLigneAcces`** (src/whatsapp.js,
+    UNE fonction), avec la fiche légère qui suit sans toucher au
+    propriétaire.
+  - ⚠⚠ **LE MOT DE PASSE N'EST JAMAIS ÉCRIT DANS LA CONVERSATION.** Le texte
+    rangé est celui du modèle `espace` (écrit par Timo, `TEXTE_ESPACE`) avec
+    ses trous 2 et 3 **masqués** (`texteEspaceMasque`, « •••••• »), plus
+    `wa_acces: { client_id }`. C'est **l'écran qui remplit** à l'affichage
+    (`texteAccesAffiche`, lib/whatsappModeles.js, sans import) pour qui a le
+    droit (`peutLireAcces` : administrateur, ou `de_id` = le lecteur), en
+    **RECALCULANT** le mot de passe depuis la fiche (`motDePasseConnu`, la
+    fiche prise dans `utilisateursDeLEspace`, jamais `db.users`). Un masque
+    sur un texte complet aurait fait descendre le mot de passe sur chaque
+    téléphone — masquer n'est pas protéger (19/09).
+  - ⚠ **`save()` accepte une FONCTION de l'état courant** (App.jsx,
+    `typeof next === "function"`) : l'écran a DÉJÀ enregistré le compte
+    avant d'envoyer ; repartir de son `db` d'avant aurait pris la création
+    pour une suppression (le report `__v` ne voit pas un état local périmé).
+  - **UN EMPLOYÉ NE PASSE PLUS PAR LE NUMÉRO BMI** (sa décision : « pour les
+    employés, le message passe directement par le numéro WhatsApp installé
+    sur le téléphone de l'administrateur ») : 👥 Utilisateurs ouvre WhatsApp
+    sur le téléphone de l'administrateur (`envoyerIdentifiantsEmployeWhatsApp`,
+    le texte d'avant), rien ne s'écrit dans 📲 WhatsApp. Pourquoi : son mot
+    de passe est choisi à la main, l'application ne sait pas le recalculer —
+    le montrer plus tard obligerait à l'écrire dans la conversation. Le
+    contrôle « les six endroits passent par envoyerIdentifiantsDuNumeroBmi »
+    a été RETOURNÉ (clients seulement, `role: "client"` sur chaque appel).
+  - Le banc (`verifier-whatsapp`, section ⑪) exerce la VRAIE chaîne
+    (`scripts/_rendu-whatsapp.jsx` : KOSSI crée KOFFI → TIMO et KOSSI lisent
+    le mot de passe recalculé, COM1 lit « •••••• »), lit que la ligne ne
+    porte jamais le mot de passe, que l'écran passe par `texteDuFil`, et que
+    l'employé reste sur le téléphone de l'administrateur.
+  - **Rien à coller dans Supabase** : `wa_acces` est un champ de plus sur une
+    ligne de message, et `securite-27/-28/-29/-30` décident déjà qui reçoit
+    la conversation.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

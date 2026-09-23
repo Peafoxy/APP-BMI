@@ -7,6 +7,9 @@
 // On le monte donc sur DEUX bases : une garnie, et une NUE.
 import { renderToStaticMarkup } from "react-dom/server";
 import { Whatsapp, MediaWa, compterNonLusWa } from "../src/screens/Whatsapp.jsx";
+import { messagesAvecLigneAcces } from "../src/whatsapp.js";
+import { texteAccesAffiche } from "../src/lib/whatsappModeles.js";
+import { motDePasseConnu } from "../src/lib/comptesClients.js";
 
 const boutiques = [{ id: "b1", nom: "APESSITO" }];
 const users = [
@@ -41,6 +44,20 @@ const fiches = [
 const garnie = { boutiques, users, messages: [...messages, ...confiee, ...fiches], produits: [], ventes: [] };
 
 const rendre = (db, profile) => renderToStaticMarkup(<Whatsapp db={db} save={() => {}} profile={profile} />);
+
+// ---- 🔑 LA LIGNE « ACCÈS ENVOYÉS » (23/09/2026) : la VRAIE chaîne ----
+// KOSSI (vendeur) crée le compte de KOFFI et les accès partent du numéro
+// BMI : la ligne s'écrit dans le fil ; TIMO (admin) et KOSSI la lisent en
+// clair, COM1 lit les trous masqués. Le mot de passe est celui que
+// l'application RECALCULE depuis la fiche (mdp_auto), jamais écrit.
+const clientAuto = { id: "CLI3", nom: "KOFFI", role: "client", tel: "90117788", mdp_auto: true, mdp_variante: 2, mdp_longueur: 6 };
+export const mdpClient = () => motDePasseConnu(clientAuto);
+export const ligneAcces = () => messagesAvecLigneAcces(garnie.messages, { profile: users[2], client: clientAuto });
+export const lectureAcces = (lecteur) => {
+  const m = ligneAcces().find((x) => x && x.wa_acces);
+  return texteAccesAffiche(m, lecteur, { identifiant: clientAuto.nom, motDePasse: motDePasseConnu(clientAuto) });
+};
+export const lecteurAdmin = users[0], lecteurCreateur = users[2], lecteurAutre = users[1];
 
 export const htmlAdmin = () => rendre(garnie, users[0]);
 export const htmlComptable = () => rendre(garnie, { id: "CPT", nom: "COMPTA", role: "comptable" });
