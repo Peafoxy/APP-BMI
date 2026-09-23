@@ -31,7 +31,7 @@ export function Fournisseurs({ db, save, profile }) {
     const m = Number(s);
     if (!s || isNaN(m) || m <= 0) return;
     if (m > resteDu) {
-      uAlert(`Le montant dépasse le reste dû à ${fo.nom} (${fmt(resteDu)}).\n\nSi vous lui devez plus que ce qui est enregistré, ajoutez d'abord la dette (« + Dette »), puis réglez.`);
+      uAlert(`Le montant dépasse le reste dû à ${fo.nom} (${fmt(resteDu)}).\n\nSi vous lui devez plus que ce qui est enregistré, enregistrez d'abord la commande (« + Commande »), puis réglez.`);
       return;
     }
     // ⚠ Trouvé en audit général (2.99.65) : un règlement fournisseur ne

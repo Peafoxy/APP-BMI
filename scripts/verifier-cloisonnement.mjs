@@ -3260,8 +3260,11 @@ titre("Les sept petits defauts de l'audit, fermes le 29/08/2026");
     apis.every((n) => /console\.error\(/.test(readFileSync(`api/${n}.js`, "utf8"))));
 
   // 5. Le plafond au reglement fournisseur.
-  test("★ regler PLUS que le reste du a un fournisseur est refuse",
-    /if \(m > resteDu\) \{/.test(fo) && /ajoutez d'abord la dette/.test(fo));
+  // ⚠ RETOURNÉ le 23/09/2026 (chapitre 10 du manuel) : la phrase renvoyait à
+  // un bouton « + Dette » qui n'existe pas — il s'appelle « + Commande ». Le
+  // contrôle EXIGEAIT la phrase fautive ; il exige maintenant le vrai nom.
+  test("★ regler PLUS que le reste du a un fournisseur est refuse, et le refus nomme le VRAI bouton (« + Commande »)",
+    /if \(m > resteDu\) \{/.test(fo) && /enregistrez d'abord la commande \(« \+ Commande »\)/.test(fo) && !/\+ Dette/.test(fo));
 
   // 6. La Messagerie : chacun ses chantiers. Depuis les notifications
   // (13/09/2026), la règle peutVoirFilClient vit dans lib/calculs.js et
