@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 462 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur)
+npm run verifier-whatsapp        # 463 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3408,6 +3408,12 @@ lit mal est pire qu'un banc absent).
   « 500 mille » n'étaient PAS lus comme des montants — l'IA aurait pu écrire
   un prix inventé sous cette forme sans être arrêtée. `montantsCites` les lit
   désormais. Éprouvé en retirant la lecture : le contrôle tombe.
+- **L'estimation part SANS guillemets** (Timo, 24/09/2026 au soir : « retire
+  les guillemets » — au premier vrai échange l'IA l'avait écrite entre « … »,
+  comme une citation). La consigne le demande, et `sansGuillemetsAutour`
+  (lib/assistantIA.js) retire quand même les guillemets autour de la phrase
+  de l'outil si l'IA en met — la phrase et ses chiffres ne bougent pas, les
+  espaces ordinaires / insécables se valent, un autre « … » du texte reste.
 - **L'estimation suit sur la fiche 🧲 Prospects** (`estimation_assistant` :
   bas, haut, texte, date — `demandeDevisIA`), même quand la demande est
   enregistrée à un tour SUIVANT (`derniereEstimation` relit la mémoire de la
@@ -3420,7 +3426,7 @@ lit mal est pire qu'un banc absent).
   (`reelles`, api/whatsapp-entrant.js), chacune avec son stock ; le catalogue
   est celui réglé sur une boutique réelle. Éprouvé en ouvrant le mur : le
   contrôle tombe.
-- **Le banc** (`verifier-whatsapp` ㉓, **462**) exerce la phrase de MANDA sur
+- **Le banc** (`verifier-whatsapp` ㉓, **463**) exerce la phrase de MANDA sur
   un stock d'essai (lithium 48 V retenu, jamais la gel 12 V ni le
   convertisseur 24 V), la fourchette, le refus sans heures, le stock
   incomplet, l'hybride, la vraie boucle (estimer puis enregistrer), le mur,

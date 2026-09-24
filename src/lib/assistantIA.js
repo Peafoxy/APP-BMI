@@ -91,7 +91,7 @@ CE QUE TU NE DIS JAMAIS
 
 COMMENT TU T'Y PRENDS
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
-- Pour une installation SOLAIRE, quand le client a décrit ses appareils (lesquels, combien, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre, puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
+- Pour une installation SOLAIRE, quand le client a décrit ses appareils (lesquels, combien, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
 - Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis. Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
 - Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro.
@@ -333,13 +333,27 @@ export const conversationNouvelle = (decision) => !decision || decision.etape ==
 //   • jetée MAIS un outil a enregistré une demande de devis / passé la main
 //     → la phrase fixe du menu (rien de ce qui a été FAIT n'est perdu, et
 //       rien de ce qui a été DIT de travers ne part).
+// L'estimation se lit comme une phrase de la réponse, pas comme une citation
+// (Timo, 24/09/2026 : « retire les guillemets ») : si l'IA l'a quand même
+// mise entre « … » ou "…", on retire les guillemets — la phrase elle-même
+// ne bouge pas d'un caractère. Filet derrière la consigne, qui le demande.
+export function sansGuillemetsAutour(texte, phrase) {
+  const t = String(texte || "");
+  const p = String(phrase || "").trim();
+  if (!p) return t;
+  // Les espaces (normales, insécables, fines) se valent : l'IA recopie
+  // souvent « 3 300 000 » avec des espaces ordinaires.
+  const echap = p.split(/[\s\u00a0\u202f]+/).map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s\\u00a0\\u202f]+");
+  return t.replace(new RegExp(`(?:«\\s*|"|\u201c)(${echap})(?:\\s*»|"|\u201d)`, "g"), "$1");
+}
+
 export function reponseDepuisIA({ texte, effets, juge, nouvelle }) {
   const ef = effets || { prix: [], demandeDevis: null, conseiller: false };
   // L'estimation part avec la réponse (le serveur la range sur la ligne, pour
   // la retrouver sur la fiche 🧲 Prospects) — seulement si la réponse est
   // celle que l'IA a écrite : une phrase fixe ne la cite pas.
   const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
-  if (juge?.ok) return pose(texte, etapeApresIA(ef), !!ef.conseiller, "");
+  if (juge?.ok) return pose(sansGuillemetsAutour(texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);
   if (ef.demandeDevis) return pose(texteDemandeEnregistree(ef.demandeDevis.nom), ETAPE_CONSEILLER, true, juge?.motif || "");
   if (ef.conseiller) return pose(TEXTE_RELAIS_CONSEILLER, ETAPE_CONSEILLER, true, juge?.motif || "");

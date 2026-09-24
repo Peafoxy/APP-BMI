@@ -1965,6 +1965,17 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
   test("★ 🧲 Prospects montre au vendeur l'estimation donnée au client ; ⚙ Paramètres la décrit (solaire seulement, ± 15 %, réglages d'office)",
     /data-estimation-assistant/.test(prospectsS) && /entre \{fmt\(p\.estimation_assistant\.bas\)\} et \{fmt\(p\.estimation_assistant\.haut\)\}/.test(prospectsS)
     && /<b>solaire seulement<\/b>/.test(paramS) && /± 15 %/.test(paramS));
+  // 24/09/2026 au soir, Timo : « retire les guillemets ».
+  {
+    const phrase = "Pour environ 18,6 kWh par jour : 12 panneaux. Comptez entre 3\u202f300\u202f000 F et 4\u00a0550\u00a0000 F.";
+    const avec = "Voici l'estimation ⚡\n\n« Pour environ 18,6 kWh par jour : 12 panneaux. Comptez entre 3 300 000 F et 4 550 000 F. »\n\nVoulez-vous un devis ?";
+    const juge = I.garderReponse(avec, { prixConnus: [3300000, 4550000] });
+    const r = I.reponseDepuisIA({ texte: avec, effets: { prix: [3300000, 4550000], estimation: { bas: 3300000, haut: 4550000, texte: phrase } }, juge, nouvelle: false });
+    test("★★ l'estimation part SANS guillemets (« retire les guillemets ») : la consigne le dit, et la réponse est nettoyée même si l'IA en met — la phrase et ses chiffres ne bougent pas, un autre « … » du texte reste",
+      /SANS guillemets autour/.test(I.CONSIGNE_IA) && !!r && !/[«»]/.test(r.texte) && r.texte.includes("Comptez entre 3 300 000 F et 4 550 000 F.")
+      && I.sansGuillemetsAutour('x "' + phrase + '" y', phrase) === "x " + phrase + " y"
+      && I.sansGuillemetsAutour("Écrivez « conseiller ». " + phrase, phrase) === "Écrivez « conseiller ». " + phrase);
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
