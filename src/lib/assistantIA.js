@@ -60,6 +60,34 @@ export const PHRASE_PRESENTATION = "👋 Bonjour et bienvenue chez BMI TOGO !\n\
 // on ne cherche pas à reformuler : une phrase fixe, et une personne.
 export const REPONSE_SUJET_RESERVE = `Pour tout ce qui concerne un paiement, un règlement ou votre compte client, un conseiller BMI TOGO vous répond sur ce numéro. Vous pouvez aussi consulter votre espace client sur gestion.bmitogo.com.\n\n${SIGNATURE_BMI}`;
 
+// ---- « QUE FAITES-VOUS ? » — LE TEXTE DE TIMO, MOT POUR MOT (24/09/2026) ----
+// Quand le client demande ce que fait BMI TOGO, l'IA répond avec CE texte,
+// tel quel. Il passe le juge comme toute réponse (aucun montant, aucun sujet
+// réservé, moins de 1 500 caractères — le banc le vérifie).
+export const TEXTE_QUE_FAISONS_NOUS = `🏢 BMI TOGO — Les bâtiments modernes et intelligents
+
+Nous proposons des solutions dans plusieurs domaines :
+
+☀️ Énergie solaire
+• Étude et dimensionnement de systèmes solaires
+• Installation photovoltaïque
+• Solutions autonomes et hybrides
+• Vente de panneaux solaires, batteries et onduleurs
+• Maintenance et assistance technique
+
+🏠 Automatisation des bâtiments
+• Automatisation et équipements intelligents
+• Motorisation de portes et portails
+• Motorisation de volets roulants
+• Solutions pour garages et accès
+
+🛒 Vente d’équipements
+Nous commercialisons également différents équipements et accessoires liés à l’énergie solaire et à l’automatisation.
+
+📍 Nos équipes sont disponibles pour vous conseiller et vous orienter vers la solution adaptée à votre besoin.
+
+👤 Si vous souhaitez parler directement à un conseiller, écrivez simplement « conseiller ».`;
+
 // ---- LA CONSIGNE (le « system prompt ») ----
 const activites = LIGNES_MENU.filter((l) => l.activite).map((l) => `- ${l.titre}${l.detail ? ` : ${l.detail}` : ""}`).join("\n");
 export const CONSIGNE_IA = `Tu es « ${NOM_ASSISTANT} », l'assistant virtuel de BMI TOGO (Les bâtiments modernes et intelligents), une entreprise de Lomé, au Togo. Tu réponds aux clients qui écrivent au numéro WhatsApp de BMI TOGO.
@@ -90,6 +118,10 @@ CE QUE TU NE DIS JAMAIS
 - Une opinion sur un concurrent, une information sur un autre client, un avis médical, juridique ou financier.
 
 COMMENT TU T'Y PRENDS
+- Si le client demande ce que fait BMI TOGO (« que faites-vous ? », « vos services ? », « vous faites quoi ? ») : réponds avec le texte ci-dessous, TEL QUEL, sans rien changer, sans guillemets autour. C'est la seule réponse qui peut dépasser 6 lignes.
+---
+${TEXTE_QUE_FAISONS_NOUS}
+---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
 - Pour une installation SOLAIRE, quand le client a décrit ses appareils (lesquels, combien, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.

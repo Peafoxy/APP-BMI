@@ -1965,6 +1965,12 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
   test("★ 🧲 Prospects montre au vendeur l'estimation donnée au client ; ⚙ Paramètres la décrit (solaire seulement, ± 15 %, réglages d'office)",
     /data-estimation-assistant/.test(prospectsS) && /entre \{fmt\(p\.estimation_assistant\.bas\)\} et \{fmt\(p\.estimation_assistant\.haut\)\}/.test(prospectsS)
     && /<b>solaire seulement<\/b>/.test(paramS) && /± 15 %/.test(paramS));
+  // 24/09/2026 au soir, Timo : « si le client demande « Que faites-vous ? », il peut répondre : … ».
+  test("★ « Que faites-vous ? » : le texte de Timo, mot pour mot, est dans la consigne avec l'ordre de le recopier tel quel ; il passe le juge (aucun montant, aucun sujet réservé, sous la limite) et garde la porte « conseiller »",
+    I.TEXTE_QUE_FAISONS_NOUS.startsWith("🏢 BMI TOGO — Les bâtiments modernes et intelligents") && /• Motorisation de volets roulants/.test(I.TEXTE_QUE_FAISONS_NOUS)
+    && I.TEXTE_QUE_FAISONS_NOUS.endsWith("écrivez simplement « conseiller ».")
+    && I.CONSIGNE_IA.includes(I.TEXTE_QUE_FAISONS_NOUS) && /ce que fait BMI TOGO[^\n]*TEL QUEL/.test(I.CONSIGNE_IA)
+    && I.garderReponse(I.TEXTE_QUE_FAISONS_NOUS, {}).ok === true && I.TEXTE_QUE_FAISONS_NOUS.length < I.MAX_LONGUEUR_REPONSE);
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
   {
     const phrase = "Pour environ 18,6 kWh par jour : 12 panneaux. Comptez entre 3\u202f300\u202f000 F et 4\u00a0550\u00a0000 F.";

@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 463 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur)
+npm run verifier-whatsapp        # 464 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3299,6 +3299,17 @@ lit mal est pire qu'un banc absent).
   le menu reprend** (panne, réponse jetée) sur une nouvelle conversation, le
   menu part avec la mention quand même (`avecMention`, `essaiIA`) : le
   message est parti hors du Togo, on ne le cache pas.
+- **« QUE FAITES-VOUS ? » : LE TEXTE DE TIMO, MOT POUR MOT** (24/09/2026 au
+  soir, « si le client demande « Que faites-vous ? », il peut répondre : … »).
+  `TEXTE_QUE_FAISONS_NOUS` (lib/assistantIA.js) — 🏢 BMI TOGO, ☀️ Énergie
+  solaire, 🏠 Automatisation des bâtiments, 🛒 Vente d'équipements, 📍, 👤
+  « conseiller » — est DANS la consigne avec l'ordre de le recopier TEL QUEL
+  (seule réponse qui peut dépasser 6 lignes). Il passe le juge (aucun
+  montant, aucun sujet réservé, 860 caractères). ⚠ C'est une CONSIGNE, pas
+  une phrase posée par le serveur : l'IA le recopie, le banc ne peut pas
+  garantir qu'elle ne changera jamais un mot. ⚠ Il ne cite pas la VMC (son
+  texte) ; la consigne la garde dans les activités. ⚠ En mode 🔢 menu à
+  chiffres, « que faites-vous » n'a pas ce texte (le menu montre ses lignes).
 - **LES RÈGLES DE SILENCE NE BOUGENT PAS** : c'est le MÊME `decisionAssistant`
   (conversation confiée, employé qui a répondu il y a moins de 24 h,
   conseiller demandé, réglage coupé) qui décide UNE fois, AVANT l'IA ; le
@@ -3426,7 +3437,7 @@ lit mal est pire qu'un banc absent).
   (`reelles`, api/whatsapp-entrant.js), chacune avec son stock ; le catalogue
   est celui réglé sur une boutique réelle. Éprouvé en ouvrant le mur : le
   contrôle tombe.
-- **Le banc** (`verifier-whatsapp` ㉓, **463**) exerce la phrase de MANDA sur
+- **Le banc** (`verifier-whatsapp` ㉓, **464**) exerce la phrase de MANDA sur
   un stock d'essai (lithium 48 V retenu, jamais la gel 12 V ni le
   convertisseur 24 V), la fourchette, le refus sans heures, le stock
   incomplet, l'hybride, la vraie boucle (estimer puis enregistrer), le mur,
