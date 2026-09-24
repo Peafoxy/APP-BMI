@@ -30,8 +30,9 @@ import { poserCors } from "./_cors.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable } from "../src/lib/whatsappModeles.js";
 import { CANAL_WA, cleConversation, fenetre, libelleFenetre } from "../src/lib/whatsappConversations.js";
-
-const URL_YCLOUD = "https://api.ycloud.com/v2/whatsapp/messages";
+// ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
+// du webhook envoie par la même — la clé et la lecture du refus y vivent.
+import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 
 // Les rôles qui n'écrivent jamais au nom de BMI : un client (il a son fil
 // dans 💬 Messages) et un compte bloqué.
@@ -64,8 +65,8 @@ export default async function handler(req, res) {
   const destinataire = numeroWhatsApp(tel);
   if (!destinataire) return res.status(400).json({ error: "Numéro de téléphone absent ou illisible." });
 
-  const cle = process.env.YCLOUD_API_KEY;
-  const expediteur = numeroWhatsApp(process.env.WHATSAPP_NUMERO_BMI);
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
   if (!cle || !expediteur) {
     return res.status(500).json({ error: "WhatsApp n'est pas encore configuré sur le serveur (YCLOUD_API_KEY, WHATSAPP_NUMERO_BMI)." });
   }
@@ -109,7 +110,7 @@ export default async function handler(req, res) {
     }
 
     const corps = reponseLibre
-      ? { from: expediteur, to: destinataire, type: "text", text: { body: motReponse } }
+      ? corpsTexte(expediteur, destinataire, motReponse)
       : {
         from: expediteur,
         to: destinataire,
@@ -120,24 +121,17 @@ export default async function handler(req, res) {
           components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }],
         },
       };
-    const reponse = await fetch(URL_YCLOUD, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": cle },
-      body: JSON.stringify(corps),
-    });
-    const resultat = await reponse.json().catch(() => ({}));
-    if (!reponse.ok) {
+    const resultat = await envoyerYCloud(cle, corps);
+    if (!resultat.ok) {
       // ⚠ On rend le motif de WhatsApp tel quel : « modèle non approuvé »,
       // « ce client a refusé les messages commerciaux »… L'écran a besoin de
       // le DIRE, sinon personne ne peut comprendre pourquoi rien ne part.
-      const motif = resultat?.error?.message || resultat?.message || `WhatsApp a répondu ${reponse.status}.`;
       // ⚠ Le CODE de Meta part avec (132001, 131050…) : c'est lui qui permet
       // de traduire le refus en français sans deviner d'après une phrase
       // anglaise que Meta peut réécrire quand elle veut.
-      const code = resultat?.error?.code ?? resultat?.code ?? "";
-      return res.status(502).json({ error: motif, statut_whatsapp: reponse.status, code_whatsapp: code });
+      return res.status(502).json({ error: resultat.motif, statut_whatsapp: resultat.statut_whatsapp, code_whatsapp: resultat.code_whatsapp });
     }
-    return res.status(200).json({ ok: true, id: resultat?.id || "", statut: resultat?.status || "envoye", modele: reponseLibre ? "" : nom });
+    return res.status(200).json({ ok: true, id: resultat.id, statut: resultat.statut, modele: reponseLibre ? "" : nom });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

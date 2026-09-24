@@ -11,6 +11,7 @@ import { messagesAvecLigneAcces, messagesAvecLigneEnvoi } from "../src/whatsapp.
 import { conversationsWa } from "../src/lib/whatsappConversations.js";
 import { texteAccesAffiche } from "../src/lib/whatsappModeles.js";
 import { motDePasseConnu } from "../src/lib/comptesClients.js";
+import { ligneAssistant, ETAPE_MENU } from "../src/lib/assistantWhatsapp.js";
 
 const boutiques = [{ id: "b1", nom: "APESSITO" }];
 const users = [
@@ -115,3 +116,11 @@ export const htmlVocale = () => renderToStaticMarkup(
   <MediaWa message={{ id: "wa2", wa_media: { type: "voice", lien: "https://x/v.ogg", mime: "audio/ogg" } }} />);
 export const htmlDoc = () => renderToStaticMarkup(
   <MediaWa message={{ id: "wa3", wa_media: { type: "document", lien: "https://x/f.pdf", nom: "facture.pdf" } }} />);
+
+// ---- 🤖 L'ASSISTANT (24/09/2026) : sa ligne dans le fil d'ESSO ----
+export const renduAvecAssistant = () => {
+  try {
+    const ligne = ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "👋 Bonjour et bienvenue chez BMI TOGO !", etape: ETAPE_MENU, ts: new Date(Date.now() + 1000).toISOString() });
+    return rendre({ ...garnie, messages: [...garnie.messages, ligne] }, users[0]);
+  } catch (e) { return `ERREUR ${e?.message || e}`; }
+};

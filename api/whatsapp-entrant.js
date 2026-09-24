@@ -22,9 +22,14 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, proprietaireDepuisDevis, lireMedia, libelleMedia, construireEntete } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
+import { numeroWhatsApp } from "../src/lib/whatsappModeles.js";
+// 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
+// ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
+import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
+import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 
 // Les formes que YCloud peut donner à un message entrant. On cherche le
@@ -95,10 +100,15 @@ export default async function handler(req, res) {
     // personnel (décision « c » de Timo).
     const fil = messages.filter((m) => m.canal === CANAL_WA && m.wa_tel === cle)
       .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
-    let proprietaire = { id: "", nom: "" };
-    for (let i = fil.length - 1; i >= 0 && !proprietaire.id; i--) {
-      if (fil[i].proprietaire_id) proprietaire = { id: fil[i].proprietaire_id, nom: fil[i].proprietaire_nom || "" };
-    }
+    // ⚠ DÉFAUT RÉPARÉ LE 24/09/2026 : cette boucle était écrite ici à la main
+    // et ne connaissait pas la marque « rendue à tous » (`MARQUE_RENDUE`,
+    // 21/09) : au message suivant du client, l'ANCIEN propriétaire était
+    // reposé sur la ligne — la conversation se reconfiait toute seule, en
+    // silence. On lit LA règle (`proprietaireDe`), qui s'arrête sur la marque.
+    let proprietaire = proprietaireDe(fil);
+    // Et le repli par le devis ne joue que si le fil n'a JAMAIS rien dit :
+    // une conversation rendue à tous ne se redonne pas à l'auteur du devis.
+    const filMuet = !fil.some((m) => m.proprietaire_id || m[MARQUE_RENDUE]);
 
     const { data: comptes, error: errU } = await admin.from("users").select("id, data");
     if (errU) throw errU;
@@ -109,7 +119,7 @@ export default async function handler(req, res) {
     // ⚠ LA RÈGLE VIT DANS lib/whatsappConversations.js, elle n'est pas
     // recopiée ici : le banc l'exerce pour de vrai, et une règle écrite à
     // deux endroits finit par dire deux choses.
-    if (!proprietaire.id && client) {
+    if (!proprietaire.id && filMuet && client) {
       const employes = (comptes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
       proprietaire = proprietaireDepuisDevis(client, employes);
     }
@@ -164,6 +174,22 @@ export default async function handler(req, res) {
       if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);
     }
 
+    // ---- 🤖 L'ASSISTANT RÉPOND, S'IL A QUELQUE CHOSE À DIRE (24/09/2026) ----
+    // La règle entière (quand il se tait, ce qu'il dit) vit dans
+    // lib/assistantWhatsapp.js. Ici : on lui donne la conversation et les
+    // listes RÉELLES dont il a besoin, on envoie par la porte commune, et
+    // RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI.
+    const { data: bqs } = await admin.from("boutiques").select("data");
+    const boutiques = (bqs || []).map((b) => b.data || {});
+    let assistant = { repondu: false, conseiller: false };
+    try {
+      assistant = await repondreParAssistant({ admin, boutiques, fil: [...fil, ligne], proprietaireId: proprietaire.id, cle, from, client, ligne });
+    } catch (e) {
+      // Un assistant qui trébuche ne perd JAMAIS le message du client : il
+      // est déjà écrit, une personne le verra.
+      console.error("[whatsapp-entrant] assistant", e?.message || e);
+    }
+
     // ---- 🔔 PRÉVENIR, SINON LA FENÊTRE SE FERME SANS QUE PERSONNE LE SACHE ----
     // ⚠ La règle « liste A » (13/09/2026) veut qu'un message de 💬 Messages
     // prévienne son destinataire. Ici le message n'arrive PAS par le
@@ -174,17 +200,21 @@ export default async function handler(req, res) {
     // personnel » : la conversation reste VISIBLE par tous (décision « c »),
     // mais faire vibrer quinze téléphones pour un message de support
     // rendrait les notifications inutiles en une semaine.
+    // ⚠ Quand l'ASSISTANT a répondu et garde la main (menu, prix, besoin en
+    // cours), personne n'est dérangé : le message est dans 📲 WhatsApp, et
+    // faire vibrer un téléphone pour « 5 » tapé par un client rendrait les
+    // notifications inutiles. Dès qu'il PASSE LA MAIN (conseiller, SAV,
+    // demande de devis) ou qu'il se tait, on prévient comme avant.
     try {
-      const { data: bqs } = await admin.from("boutiques").select("data");
-      const boutiques = (bqs || []).map((b) => b.data || {});
       const tous = (comptes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
       const destinataires = proprietaire.id
         ? [proprietaire.id]
         : tous.filter((u) => u.role === "admin" && u.actif !== false && !estCompteFormation({ users: tous, boutiques }, u)).map((u) => u.id);
-      if (destinataires.length && configurerWebPush()) {
+      const aPrevenir = !assistant.repondu || assistant.conseiller;
+      if (aPrevenir && destinataires.length && configurerWebPush()) {
         await envoyerAuxPersonnes(admin, [{
           destinataires,
-          titre: `📲 ${client?.nom || from}`,
+          titre: assistant.devis ? `🧾 Demande de devis — ${assistant.nom || client?.nom || from}` : assistant.conseiller ? `👨‍💼 Demande un conseiller — ${client?.nom || from}` : `📲 ${client?.nom || from}`,
           texte: (texte || libelleMedia(media)).slice(0, 200),
           // ⚠ L'écran VISÉ, et il a changé le 20/09/2026 : les
           // conversations WhatsApp ont quitté 💬 Messages pour leur
@@ -200,11 +230,80 @@ export default async function handler(req, res) {
       console.error("[whatsapp-entrant] notification", e?.message || e);
     }
 
-    return res.status(200).json({ ok: true, de: cle, proprietaire: proprietaire.id || "support" });
+    return res.status(200).json({ ok: true, de: cle, proprietaire: proprietaire.id || "support", assistant: assistant.repondu ? assistant.etape : `silence : ${assistant.pourquoi || ""}` });
   } catch (e) {
     // ⚠ On répond 200 quand même : sinon YCloud renvoie le paquet sans fin.
     // Le motif part dans le journal Vercel, pas dans la réponse.
     console.error("[whatsapp-entrant]", e?.message || e);
     return res.status(200).json({ ok: false, erreur: "enregistrement impossible" });
   }
+}
+
+// ---- 🤖 L'ASSISTANT, DU CÔTÉ SERVEUR ----
+// Rend { repondu, conseiller, devis, etape } ou { repondu: false, pourquoi }.
+// ⚠ LE MUR : les articles viennent des boutiques RÉELLES seulement
+// (`articlesPourAssistant` les filtre sur la fiche de boutique) ; une
+// demande de devis naît réelle. Les listes ne sont chargées QUE si l'étape
+// en a besoin (chercher un article) : un « 5 » tapé ne lit pas les ventes.
+async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle, from, client, ligne }) {
+  const decision = decisionAssistant({ fil, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
+  if (!decision.repondre) return { repondu: false, pourquoi: decision.pourquoi };
+
+  let articles = [];
+  if (decision.etape === ETAPE_PRODUIT) {
+    const [{ data: prods }, { data: vts }, { data: ajs }] = await Promise.all([
+      admin.from("produits").select("id, data"),
+      admin.from("ventes").select("id, data"),
+      admin.from("ajustements").select("data"),
+    ]);
+    articles = articlesPourAssistant({
+      produits: (prods || []).map((l) => ({ ...(l.data || {}), id: l.id })),
+      boutiques,
+      ventes: (vts || []).map((l) => ({ ...(l.data || {}), id: l.id })),
+      ajustements: (ajs || []).map((l) => l.data || {}),
+    });
+  }
+
+  const r = reponseAssistant({
+    etape: decision.etape, texte: ligne.texte, media: ligne.wa_media || null,
+    client: client ? { nom: client.nom } : null, articles, memoire: decision.memoire || {},
+  });
+  if (!r) return { repondu: false, pourquoi: "rien à dire" };
+
+  const { cle: cleYCloud, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  const destinataire = numeroWhatsApp(from);
+  if (!cleYCloud || !expediteur || !destinataire) return { repondu: false, pourquoi: "WhatsApp non configuré sur le serveur" };
+  const envoi = await envoyerYCloud(cleYCloud, corpsTexte(expediteur, destinataire, r.texte));
+  if (!envoi.ok) {
+    // ⚠ Le motif part dans le journal du serveur (en anglais, tel que Meta
+    // l'a dit) ; rien n'est écrit dans le fil : un fil qui ment est pire
+    // qu'un fil vide.
+    console.error("[whatsapp-entrant] assistant : WhatsApp a refusé", envoi.code_whatsapp, envoi.motif);
+    return { repondu: false, pourquoi: `refus WhatsApp ${envoi.code_whatsapp || ""}` };
+  }
+
+  // La réponse se range APRÈS le message du client (une seconde plus tard
+  // au moins), sinon le fil la lirait avant la question.
+  const ts = new Date(Math.max(Date.now(), Date.parse(ligne.ts) + 1000)).toISOString();
+  const ligneR = ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: r.memoire || null });
+  const { error: errIns } = await admin.from("messages").insert({ id: ligneR.id, data: ligneR, updated_at: ligneR.ts });
+  if (errIns) throw errIns;
+
+  let nom = "";
+  if (r.demandeDevis) {
+    const p = construireDemandeDevis({ cle, tel: from, nom: r.demandeDevis.nom, besoin: r.demandeDevis.besoin, ts });
+    nom = p.nom;
+    const { error: errP } = await admin.from("prospects").insert({ id: p.id, data: p, updated_at: ts });
+    if (errP) console.error("[whatsapp-entrant] assistant : demande de devis non enregistrée", errP);
+  }
+
+  // La fiche légère suit (dernier message), SANS propriétaire : l'assistant
+  // ne s'approprie rien.
+  const fiche = construireEntete({ cle, tel: String(from), nom: client?.nom || "", proprietaire_id: "", proprietaire_nom: "", derniere: ts });
+  if (fiche) {
+    const { error: errFiche } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: fiche.ts });
+    if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);
+  }
+  return { repondu: true, conseiller: !!r.conseiller, devis: !!r.demandeDevis, nom, etape: r.etape };
 }

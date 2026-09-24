@@ -206,12 +206,20 @@ test("★ seul src/whatsapp.js appelle le serveur (whatsappEnLigne)",
   srcWhatsapp.includes("whatsappEnLigne") && fichiers.every((f) => !lire(f).includes("whatsappEnLigne")));
 test("★ aucun écran n'appelle /api/whatsapp lui-même",
   fichiers.every((f) => !lire(f).includes("/api/whatsapp")));
-test("★ la clé YCloud n'existe que dans la fonction serveur",
-  apiWhatsapp.includes("YCLOUD_API_KEY")
+// ⚠ RETOURNÉ le 24/09/2026 : la porte vers YCloud est écrite UNE fois
+// (api/_ycloud.js), parce que l'assistant du webhook envoie lui aussi. La
+// clé n'est LUE que là (et dans api/whatsapp-media.js, qui va chercher un
+// fichier) ; api/whatsapp.js passe par la porte, il ne lit plus la clé.
+test("★ la clé YCloud n'existe que dans la fonction serveur (api/_ycloud.js), et api/whatsapp.js passe par cette porte",
+  /process\.env\.YCLOUD_API_KEY/.test(lire("api/_ycloud.js"))
+  && !/process\.env\.YCLOUD/.test(apiWhatsapp)
+  && /import \{[^}]*envoyerYCloud[^}]*\} from "\.\/_ycloud\.js"/.test(apiWhatsapp)
   && !fichiers.some((f) => lire(f).includes("YCLOUD"))
   && !srcWhatsapp.includes("YCLOUD") && !lire("src/lib/whatsappModeles.js").includes("YCLOUD"));
 test("★★ elle n'est JAMAIS préfixée VITE_ (Vite l'embarquerait dans le navigateur)",
-  !apiWhatsapp.includes("VITE_YCLOUD") && !apiWhatsapp.includes("VITE_WHATSAPP"));
+  !apiWhatsapp.includes("VITE_YCLOUD") && !apiWhatsapp.includes("VITE_WHATSAPP")
+  // (on retire les commentaires avant de chercher : la phrase qui EXPLIQUE la règle contient le mot)
+  && !lire("api/_ycloud.js").replace(/\/\/[^\n]*/g, "").includes("VITE_"));
 test("★ le serveur IMPORTE la liste des modèles, il ne la recopie pas",
   /import\s*\{[^}]*MODELES[^}]*\}\s*from\s*["']\.\.\/src\/lib\/whatsappModeles\.js["']/.test(apiWhatsapp)
   && !/const\s+MODELES\s*=/.test(apiWhatsapp));
@@ -311,7 +319,10 @@ test("nos propres statuts n'ont pas bougé",
 
 // ⚠⚠ LA CHAÎNE : le code de Meta traverse TROIS fichiers. S'il est jeté en
 // route, la traduction retombe sur les mots et personne ne le voit.
-test("★★ le serveur rend le code de refus de WhatsApp", /code_whatsapp: code/.test(apiWhatsapp));
+// ⚠ RETOURNÉ le 24/09/2026 : le code est LU par la porte commune (_ycloud.js)
+// et RENDU tel quel par api/whatsapp.js — deux maillons, les deux mesurés.
+test("★★ le serveur rend le code de refus de WhatsApp",
+  /code_whatsapp: code/.test(lire("api/_ycloud.js")) && /code_whatsapp: resultat\.code_whatsapp/.test(apiWhatsapp));
 test("★★ le transport ne le jette pas en route",
   /if \(!reponse\.ok\) return \{ \.\.\.resultat,/.test(lire("src/supabaseClient.js")));
 test("★★ le seul chemin le passe à la règle", /code: reponse\?\.code_whatsapp/.test(srcWhatsapp));
@@ -1281,6 +1292,191 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
   test("★ ⚙ Paramètres : une boutique sans téléphone est signalée (le reçu indiquerait le numéro BMI principal), et l'aide du mot de fidélité dit que 📋 Clients passe par Meta",
     /Sans téléphone : le reçu WhatsApp automatique indiquera le numéro BMI principal/.test(lire("src/screens/Parametres.jsx"))
     && /mot_fidelite_simple/.test(lire("src/screens/Parametres.jsx")));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
+// Timo a écrit lui-même les lignes du menu, ce que l'assistant a le droit
+// de dire, et le message d'accueil. Ce qui est protégé ici : ses mots, le
+// silence du robot quand une personne parle, jamais une dette, jamais une
+// quantité, jamais une invention, le mur, et « rien n'est écrit tant que le
+// message n'est pas parti ».
+{
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const codeA = lire("src/lib/assistantWhatsapp.js").replace(/\/\/[^\n]*/g, "");
+  // ⚠ Les commentaires partent avant de chercher un mot — mais PAS avant de
+  // chercher l'adresse : « https:// » ressemble à un commentaire.
+  const ycloudBrut = lire("api/_ycloud.js");
+  const ycloud = ycloudBrut.replace(/\/\/[^\n]*/g, "");
+  const entrantA = lire("api/whatsapp-entrant.js").replace(/\/\/[^\n]*/g, "");
+  const ecranA = lire("src/screens/Whatsapp.jsx").replace(/\/\/[^\n]*/g, "");
+  const param = lire("src/screens/Parametres.jsx");
+  const il = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+  const entrant = (texte, h = 0, extra = {}) => ({ id: `e${h}`, canal: "whatsapp", wa_tel: "90112233", wa_entrant: true, ts: il(h), texte, ...extra });
+  const humain = (h) => ({ id: `h${h}`, canal: "whatsapp", wa_tel: "90112233", ts: il(h), texte: "Bonjour, je vous réponds", de_id: "KOSSI", de_nom: "KOSSI" });
+  const robot = (etape, h, memoire) => A.ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "", texte: "…", etape, ts: il(h), memoire });
+
+  // ── SES MOTS
+  test("★★ le message d'accueil est celui de Timo, mot pour mot (les 8 lignes, la consigne, la signature)",
+    A.TEXTE_ACCUEIL.startsWith("👋 Bonjour et bienvenue chez BMI TOGO !")
+    && A.TEXTE_ACCUEIL.includes("Je suis l'assistant virtuel de BMI TOGO. Je peux vous aider à trouver un produit, connaître son prix, vérifier sa disponibilité, demander un devis ou obtenir une assistance.")
+    && ["1️⃣ Énergie solaire", "2️⃣ Automatisation de garage", "3️⃣ Domotique & automatisation", "4️⃣ VMC & ventilation", "5️⃣ Produits & équipements", "6️⃣ Demander un devis", "7️⃣ SAV & assistance technique", "8️⃣ Parler à un conseiller"].every((l) => A.TEXTE_ACCUEIL.includes(l))
+    && A.TEXTE_ACCUEIL.includes("👉 Répondez simplement avec le numéro correspondant à votre demande.")
+    && A.TEXTE_ACCUEIL.trimEnd().endsWith("BMI TOGO — Les bâtiments modernes et intelligents"));
+  test("★ les huit lignes du menu, dans son ordre, avec ses mots",
+    A.LIGNES_MENU.length === 8 && A.LIGNES_MENU.every((l, i) => l.n === i + 1)
+    && A.LIGNES_MENU.map((l) => l.id).join(",") === "solaire,garage,domotique,vmc,produits,devis,sav,conseiller"
+    && A.LIGNES_MENU[0].detail === "panneaux, onduleurs, batteries et installations"
+    && A.LIGNES_MENU[1].detail === "moteurs, portes, portails et accessoires"
+    && A.LIGNES_MENU[2].detail === "solutions pour bâtiments intelligents"
+    && A.LIGNES_MENU[4].detail === "prix, disponibilité et caractéristiques");
+  test("★ garage, domotique, VMC sont PRÉSENTÉS (pas des métiers de l'application : rien n'est cherché dans la base pour eux)",
+    A.LIGNES_MENU.slice(0, 4).every((l) => l.activite) && A.LIGNES_MENU.slice(4).every((l) => !l.activite));
+
+  // ── CE QUE LE CLIENT TAPE
+  test("★ un chiffre seul est un choix (avec ou sans son emoji), « menu » et « 0 » ramènent à l'accueil, le reste est du texte",
+    A.interpreterEntree("5").chiffre === 5 && A.interpreterEntree("5️⃣").chiffre === 5 && A.interpreterEntree(" 8. ").chiffre === 8
+    && A.interpreterEntree("Menu").menu && A.interpreterEntree("0").menu
+    && A.interpreterEntree("bonjour 5").chiffre === null && A.interpreterEntree("9").chiffre === null
+    && A.interpreterEntree("").vide);
+
+  // ── QUAND IL RÉPOND, QUAND IL SE TAIT
+  test("★ une conversation neuve : il accueille", A.decisionAssistant({ fil: [entrant("bonjour")] }).repondre === true && A.decisionAssistant({ fil: [entrant("bonjour")] }).etape === null);
+  test("★★ coupé dans ⚙ Paramètres : silence", A.decisionAssistant({ fil: [entrant("bonjour")], actif: false }).repondre === false);
+  test("★★ une conversation CONFIÉE à quelqu'un n'a pas d'assistant (c'est à cette personne que le client parle)",
+    A.decisionAssistant({ fil: [entrant("bonjour")], proprietaireId: "COM1" }).repondre === false);
+  test("★★ un EMPLOYÉ a répondu il y a moins de 24 h : silence — passé 24 h, nouvelle conversation, il accueille",
+    A.decisionAssistant({ fil: [entrant("prix ?", 3), humain(2), entrant("merci", 0)] }).repondre === false
+    && A.decisionAssistant({ fil: [entrant("prix ?", 30), humain(26), entrant("re-bonjour", 0)] }).repondre === true
+    && A.decisionAssistant({ fil: [entrant("prix ?", 30), humain(26), entrant("re-bonjour", 0)] }).etape === null);
+  test("★★ un MODÈLE parti de l'application (relance, accès) compte comme une personne : silence",
+    A.decisionAssistant({ fil: [{ id: "m", canal: "whatsapp", wa_tel: "90112233", ts: il(1), texte: "📲 Envoyé du numéro BMI — …", wa_modele: "relance_devis" }, entrant("ok", 0)] }).repondre === false);
+  test("★ après « conseiller » : silence, sauf si le client redemande le menu",
+    A.decisionAssistant({ fil: [entrant("8", 1), robot(A.ETAPE_CONSEILLER, 1), entrant("j'attends", 0)] }).repondre === false
+    && A.decisionAssistant({ fil: [entrant("8", 1), robot(A.ETAPE_CONSEILLER, 1), entrant("menu", 0)] }).repondre === true);
+  test("★ il reprend à l'étape où il en était, avec sa mémoire",
+    A.decisionAssistant({ fil: [entrant("6", 1), robot(A.ETAPE_DEVIS_NOM, 1, { besoin: "3 clims" }), entrant("KOFFI", 0)] }).etape === A.ETAPE_DEVIS_NOM
+    && A.decisionAssistant({ fil: [entrant("6", 1), robot(A.ETAPE_DEVIS_NOM, 1, { besoin: "3 clims" }), entrant("KOFFI", 0)] }).memoire.besoin === "3 clims");
+  test("★ une ligne système (confier, rendre à tous) n'est pas « un mot de BMI »",
+    A.decisionAssistant({ fil: [entrant("bonjour", 2), { id: "s", canal: "whatsapp", wa_tel: "90112233", ts: il(1), wa_systeme: true, texte: "rendue à tous" }, entrant("re", 0)] }).repondre === true);
+
+  // ── CE QU'IL DIT
+  const r0 = A.reponseAssistant({ etape: null, texte: "Bonjour, je veux un prix" });
+  test("★ premier message, quel qu'il soit → l'accueil, et on attend un chiffre", r0.texte === A.TEXTE_ACCUEIL && r0.etape === A.ETAPE_MENU);
+  const choix = (n) => A.reponseAssistant({ etape: A.ETAPE_MENU, texte: String(n) });
+  test("★ 1 à 4 présentent l'activité dans ses mots et proposent 5, 6, 8",
+    [1, 2, 3, 4].every((n) => choix(n).etape === A.ETAPE_MENU && choix(n).texte.includes(A.LIGNES_MENU[n - 1].titre) && /5️⃣[\s\S]*6️⃣[\s\S]*8️⃣/.test(choix(n).texte))
+    && choix(1).texte.includes("panneaux, onduleurs, batteries et installations"));
+  test("★ 5 demande le nom d'un produit, 6 le besoin, 7 et 8 passent la main",
+    choix(5).etape === A.ETAPE_PRODUIT && choix(6).etape === A.ETAPE_DEVIS_BESOIN
+    && choix(7).etape === A.ETAPE_CONSEILLER && choix(7).conseiller && choix(8).etape === A.ETAPE_CONSEILLER && choix(8).conseiller);
+  test("★ un texte qu'il ne comprend pas : il le DIT et redonne le menu court, sans changer d'étape",
+    A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "blabla" }).texte.includes("Je n'ai pas compris") && A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "blabla" }).etape === A.ETAPE_MENU);
+  test("★ une photo sans un mot : une personne regarde (conseiller)",
+    A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "", media: { type: "image" } }).conseiller === true
+    && A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "" }) === null);
+  test("★ un chiffre à n'importe quelle étape est un choix du menu", A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "8" }).conseiller === true);
+
+  // ── LES ARTICLES : le mur, jamais la quantité
+  const boutiquesA = [{ nom: "DEMAKPOE" }, { nom: "ECOLE", formation: true }];
+  const produitsA = [
+    { id: "p1", nom: "Panneau solaire 400 W", categorie: "Panneaux", boutique: "DEMAKPOE", prix_vente: 85000, initial: 10, entrees: 2 },
+    { id: "p2", nom: "Batterie lithium 5 kWh", categorie: "Batteries", boutique: "DEMAKPOE", prix_vente: 900000, initial: 1, tension: "48 V" },
+    { id: "p3", nom: "Panneau solaire 400 W", categorie: "Panneaux", boutique: "ECOLE", prix_vente: 1, initial: 99 },
+  ];
+  const ventesA = [{ id: "v1", articles: [{ produit_id: "p2", qte: 1 }, { produit_id: "p1", qte: 3 }] }, { id: "v2", produit_id: "p1", qte: 2 }];
+  const ajustementsA = [{ produit_id: "p1", qte: -1 }];
+  const articles = A.articlesPourAssistant({ produits: produitsA, boutiques: boutiquesA, ventes: ventesA, ajustements: ajustementsA });
+  test("★★ LE MUR : un article d'une boutique de FORMATION n'est jamais cité",
+    articles.length === 2 && articles.every((a) => a.boutique === "DEMAKPOE"));
+  test("★★ un article cité ne porte QUE nom, catégorie, boutique, prix, disponible (oui/non), tension — JAMAIS une quantité",
+    articles.every((a) => Object.keys(a).sort().join(",") === "boutique,categorie,disponible,nom,prix,tension")
+    && articles.find((a) => a.nom.startsWith("Panneau")).disponible === true
+    && articles.find((a) => a.nom.startsWith("Batterie")).disponible === false);
+  test("★ le stock se calcule comme lib/calculs.js : initial + entrées − vendu + ajustements (10 + 2 − 5 − 1 = 6 ; 1 − 1 = 0)",
+    A.stockDepuisLignes(produitsA[0], ventesA, ajustementsA) === 6 && A.stockDepuisLignes(produitsA[1], ventesA, ajustementsA) === 0);
+  const rP = A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "panneau 400", articles });
+  test("★ « panneau 400 » → le prix, « disponible », la boutique — par LA règle commune de recherche",
+    rP.trouves === 1 && rP.texte.includes("Panneau solaire 400 W") && rP.texte.includes("85 000 F") && rP.texte.includes("disponible (DEMAKPOE)") && rP.etape === A.ETAPE_PRODUIT);
+  test("★ « batterie » → « sur commande » (plus rien en stock), avec sa tension",
+    A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "batterie", articles }).texte.includes("Batterie lithium 5 kWh (48 V) — 900 000 F — sur commande"));
+  test("★ un article introuvable : il le DIT et propose un conseiller, il n'invente rien",
+    A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "onduleur", articles }).texte.startsWith("Je ne trouve pas « onduleur »") && A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "onduleur", articles }).texte.includes("tapez 8"));
+  test("★ au plus 6 articles cités, les disponibles d'abord",
+    A.chercherArticles(Array.from({ length: 9 }, (_, i) => ({ nom: `Câble ${i}`, categorie: "", boutique: "D", prix: 1, disponible: i % 2 === 0 })), "cable").length === 6
+    && A.chercherArticles(Array.from({ length: 9 }, (_, i) => ({ nom: `Câble ${i}`, categorie: "", boutique: "D", prix: 1, disponible: i % 2 === 0 })), "cable")[0].disponible === true);
+
+  // ── LA DEMANDE DE DEVIS : une fiche prospect, RÉELLE, jamais un devis
+  const rD1 = A.reponseAssistant({ etape: A.ETAPE_DEVIS_BESOIN, texte: "3 clims et une maison à Agoè", client: { nom: "ESSO" } });
+  test("★ client connu : le besoin suffit, la demande est enregistrée et une personne prend le relais",
+    rD1.demandeDevis.nom === "ESSO" && rD1.demandeDevis.besoin === "3 clims et une maison à Agoè" && rD1.etape === A.ETAPE_CONSEILLER && rD1.texte.includes("Merci ESSO"));
+  const rD2 = A.reponseAssistant({ etape: A.ETAPE_DEVIS_BESOIN, texte: "un portail", client: null });
+  const rD3 = A.reponseAssistant({ etape: A.ETAPE_DEVIS_NOM, texte: "KOFFI", memoire: rD2.memoire });
+  test("★ numéro inconnu : il demande le nom, garde le besoin en mémoire, puis enregistre",
+    rD2.etape === A.ETAPE_DEVIS_NOM && rD2.memoire.besoin === "un portail" && !rD2.demandeDevis
+    && rD3.demandeDevis.nom === "KOFFI" && rD3.demandeDevis.besoin === "un portail");
+  const fiche = A.construireDemandeDevis({ cle: "90112233", tel: "+22890112233", nom: "KOFFI", besoin: "un portail", ts: "2026-09-24T10:00:00.000Z" });
+  test("★★ la fiche 🧲 Prospects naît RÉELLE (aucune marque formation), au nom de l'assistant, avec le numéro et le besoin",
+    !("formation" in fiche) && fiche.commercial === A.NOM_ASSISTANT && fiche.categorie === "Assistant WhatsApp" && fiche.tel === "+22890112233" && fiche.nature === "un portail" && fiche.nom === "KOFFI" && fiche.date === "2026-09-24" && fiche.statut === "Favorable");
+  test("★★ aucun texte de l'assistant ne parle de dette, de crédit ni de solde",
+    [A.TEXTE_ACCUEIL, ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => choix(n).texte), rP.texte, rD1.texte, rD2.texte, A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "x" }).texte]
+      .every((t) => !/dette|cr[ée]dit|solde|mot de passe|identifiant/i.test(t)));
+  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et son seul import est la règle commune de recherche",
+    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 1 && /from "\.\/suggestions\.js"/.test(codeA));
+
+  // ── LA LIGNE QU'IL ÉCRIT
+  const lg = A.ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "…", etape: A.ETAPE_MENU, ts: "2026-09-24T10:00:01.000Z" });
+  test("★★ sa ligne est SORTANTE, sans propriétaire, signée par lui, avec son étape",
+    lg.wa_entrant === false && !("proprietaire_id" in lg) && lg.de_id === A.ID_ASSISTANT && lg.de_nom === A.NOM_ASSISTANT && lg.wa_assistant.etape === A.ETAPE_MENU && lg.canal === "whatsapp" && A.estLigneAssistant(lg));
+  test("★★ elle n'ouvre PAS la fenêtre de 24 h et ne compte pas comme non lue",
+    C.fenetre([entrant("x", 25), { ...lg, ts: il(0) }]).ouverte === false
+    && C.conversationsWa([entrant("x", 1), { ...lg, ts: il(0) }], { id: "TIMO", role: "admin" })[0].nonLus === 1);
+  test("★ le réglage : allumé tant que personne ne l'a coupé, coupé sur toutes les boutiques d'un coup",
+    A.assistantActif([]) === true && A.assistantActif([{ nom: "A" }]) === true && A.assistantActif([{ nom: "A", assistant_wa: false }]) === false
+    && A.poserAssistant([{ nom: "A" }, { nom: "B" }], false).every((b) => b.assistant_wa === false));
+
+  // ── LE SERVEUR
+  test("★★ le webhook IMPORTE la règle et la porte YCloud commune, il ne recopie rien",
+    /import \{[^}]*decisionAssistant[^}]*reponseAssistant[^}]*\} from "\.\.\/src\/lib\/assistantWhatsapp\.js"/.test(entrantA)
+    && /import \{ configYCloud, envoyerYCloud, corpsTexte \} from "\.\/_ycloud\.js"/.test(entrantA));
+  const corpsR = entrantA.slice(entrantA.indexOf("async function repondreParAssistant"));
+  test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI : l'envoi précède l'écriture, et un refus sort avant",
+    corpsR.indexOf("envoyerYCloud(") > 0 && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("messages").insert(')
+    && /if \(!envoi\.ok\) \{[\s\S]{0,400}return \{ repondu: false/.test(corpsR));
+  test("★★ il reçoit le PROPRIÉTAIRE de la conversation et le réglage — le silence est décidé par la règle",
+    /decisionAssistant\(\{ fil, proprietaireId, actif: assistantActif\(boutiques\)/.test(corpsR)
+    && /repondreParAssistant\(\{[^}]*proprietaireId: proprietaire\.id/.test(entrantA));
+  test("★ les ventes ne sont lues QUE pour chercher un article (un « 5 » tapé ne charge rien)",
+    /if \(decision\.etape === ETAPE_PRODUIT\) \{[\s\S]{0,200}from\("produits"\)/.test(corpsR));
+  test("★ sa ligne et la demande de devis partent avec `updated_at`, la fiche légère suit SANS propriétaire",
+    /insert\(\{ id: ligneR\.id, data: ligneR, updated_at: ligneR\.ts \}\)/.test(corpsR)
+    && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR)
+    && /construireEntete\(\{ cle, tel: String\(from\), nom: client\?\.nom \|\| "", proprietaire_id: "", proprietaire_nom: ""/.test(corpsR));
+  test("★ une personne n'est prévenue que si l'assistant s'est tu ou a passé la main",
+    /const aPrevenir = !assistant\.repondu \|\| assistant\.conseiller;/.test(entrantA) && /aPrevenir && destinataires\.length/.test(entrantA));
+  test("★ un assistant qui trébuche ne perd jamais le message (try/catch autour, le message déjà écrit)",
+    /assistant = await repondreParAssistant\(/.test(entrantA) && entrantA.indexOf("assistant = await repondreParAssistant(") > entrantA.indexOf('from("messages").insert({ id: ligne.id'));
+  test("★★ DÉFAUT RÉPARÉ : le webhook lit le propriétaire par LA règle (marque « rendue à tous » comprise), et le repli par le devis ne rejoue pas sur une conversation rendue",
+    /let proprietaire = proprietaireDe\(fil\);/.test(entrantA) && /const filMuet = !fil\.some\(\(m\) => m\.proprietaire_id \|\| m\[MARQUE_RENDUE\]\);/.test(entrantA)
+    && /if \(!proprietaire\.id && filMuet && client\)/.test(entrantA) && !/for \(let i = fil\.length - 1; i >= 0 && !proprietaire\.id; i--\)/.test(entrantA));
+  test("★ la porte YCloud : une seule adresse, la clé jamais préfixée VITE_, le refus rendu avec son code",
+    /URL_YCLOUD = "https:\/\/api\.ycloud\.com\/v2\/whatsapp\/messages"/.test(ycloudBrut) && !/VITE_/.test(ycloud) && /code_whatsapp: code/.test(ycloud)
+    && !/api\.ycloud\.com/.test(apiWhatsapp) && !/api\.ycloud\.com/.test(entrantA));
+
+  // ── L'ÉCRAN ET LE RÉGLAGE
+  test("★ 📲 WhatsApp montre la réponse du robot COMME telle (étiquette, cadre clair, `data-assistant`)",
+    /import \{ estLigneAssistant, NOM_ASSISTANT \} from "\.\.\/lib\/assistantWhatsapp"/.test(ecranA)
+    && /data-assistant=\{estLigneAssistant\(m\) \? "oui" : undefined\}/.test(ecranA)
+    && /🤖 \{NOM_ASSISTANT\}/.test(ecranA));
+  test("★ ⚙ Paramètres : le réglage existe, PRINCIPAL seul, revérifié dans le geste, et montre le mot d'accueil de Timo tel quel",
+    /data-reglage="assistant-whatsapp"/.test(param)
+    && /const basculerAssistant = async \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile/.test(param)
+    && /poserAssistant\(db\.boutiques, suivant\)/.test(param) && /\{TEXTE_ACCUEIL\}/.test(param)
+    && /Il ne parle <b>jamais<\/b> d'une dette ni d'un crédit/.test(param));
+  // Le rendu : la liste avec une ligne du robot en dernier ne fait pas d'écran blanc.
+  const htmlA = V.renduAvecAssistant();
+  test("★ l'écran 📲 WhatsApp se rend avec une réponse de l'assistant dans le fil (pas d'écran blanc)",
+    typeof htmlA === "string" && htmlA.includes("ESSO") && !htmlA.startsWith("ERREUR"));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

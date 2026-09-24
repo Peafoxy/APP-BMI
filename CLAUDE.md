@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 336 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation)
+npm run verifier-whatsapp        # 381 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3047,6 +3047,94 @@ lit mal est pire qu'un banc absent).
   YCloud. En attendant l'accord de Meta : le mot de fidélité se replie sur
   l'ouverture WhatsApp (motif dit en français), le reçu de vente ne part pas
   et le dit sous le titre.
+
+### 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI — SANS IA, BRANCHÉ SUR LA BASE (24/09/2026)
+- Timo : « on peut implémenter un assistant aussi avec les API WhatsApp avec
+  ce même numéro ? », puis les recommandations de ChatGPT (trois niveaux),
+  puis **« Lance »** avec les trois décisions ÉCRITES PAR LUI : les **huit
+  lignes du menu** (☀️ solaire · 🚪 garage · 🏠 domotique · 🌬️ VMC · 🛒
+  produits · 🧾 devis · 🔧 SAV · 👨‍💼 conseiller), **ce que l'assistant a le
+  droit de dire** (prix et disponibilité quand la base les connaît,
+  caractéristiques de la fiche, préparer une demande de devis ; « il ne doit
+  jamais inventer un prix, un stock, un délai ») et **le message d'accueil,
+  mot pour mot** (`TEXTE_ACCUEIL`). Règle pure **`lib/assistantWhatsapp.js`**
+  (un seul import : la règle commune de recherche `correspond`), lue par le
+  serveur `api/whatsapp-entrant.js` ; porte YCloud écrite UNE fois
+  (`api/_ycloud.js`, la clé n'est lue que là et dans whatsapp-media).
+- **C'EST LE NIVEAU « MENU À CHIFFRES », PAS L'IA** — on lui a proposé l'IA
+  ensuite, « une fois qu'on aura vu ce que les clients écrivent vraiment ».
+  Rien ne sort du Togo : aucun service extérieur ne lit le message du client.
+  Ne pas construire l'IA sans sa demande.
+- ⚠⚠ **DEUX RÉSERVES DITES AVANT DE CONSTRUIRE, et tenues** : (1) **la DETTE
+  n'est JAMAIS communiquée** — ChatGPT voulait « une authentification
+  préalable », ce qui voudrait dire faire circuler un identifiant ou un mot
+  de passe dans WhatsApp ; le client a son espace, l'assistant l'y renvoie ;
+  (2) **garage, domotique, VMC ne sont pas des métiers de l'application** :
+  l'assistant PRÉSENTE l'activité (ses mots) et propose 5 / 6 / 8, il ne
+  cherche rien dans la base pour elles. Le banc interdit les mots « dette »,
+  « crédit », « solde », « mot de passe » dans TOUT ce qu'il dit.
+- ⚠⚠ **QUAND IL SE TAIT** (`decisionAssistant`, la règle qui empêche un robot
+  de parler à la place d'une personne) : réglage coupé ; **conversation qui A
+  UN PROPRIÉTAIRE** (confiée, ou née d'un devis parti du numéro BMI — c'est à
+  cette personne que le client parle, décision de l'étape 2) ; **un EMPLOYÉ
+  a répondu il y a moins de 24 h** (réponse libre OU modèle parti de
+  l'application) ; **conseiller / SAV / demande de devis posés il y a moins
+  de 24 h**. Passé 24 h sans un mot de BMI = nouvelle conversation, il
+  accueille à nouveau ; « menu » ou « 0 » le fait toujours revenir. ⚠ À
+  dire à l'équipe : un client qui répond DEUX JOURS après un employé reçoit
+  l'accueil du robot — c'est le prix de « il revient tout seul ».
+- **Ce qu'il fait** : accueil → chiffre ; **5** : le nom d'un article →
+  `articlesPourAssistant` (boutiques **RÉELLES seulement**, le mur), recherche
+  par LA règle commune, au plus 6 lignes, **« disponible » ou « sur
+  commande », JAMAIS la quantité** (un article cité ne porte que nom,
+  catégorie, boutique, prix, oui/non, tension — le banc lit les clés) ; le
+  stock se calcule comme `stockActuel` (`stockDepuisLignes`, calculs.js
+  n'est pas lisible par le serveur — le banc exerce la même formule) ; **6** :
+  le besoin en un message (+ le nom si le numéro est inconnu), puis **une
+  fiche 🧲 Prospects** (`construireDemandeDevis`, catégorie « Assistant
+  WhatsApp », commercial = l'assistant, **RÉELLE : aucune marque formation**)
+  — **jamais un devis** (il engage BMI, il est signé) ; **7** et **8** : il
+  passe la main. Une photo sans un mot → une personne regarde. Un texte
+  incompris → « je n'ai pas compris » + le menu court, même étape.
+- **Sa ligne dans le fil** (`ligneAssistant`) : SORTANTE, `de_id` =
+  `assistant-bmi`, **sans propriétaire** (il ne s'approprie rien — seul
+  « 🔁 Confier »), `wa_assistant.etape` = SA mémoire (c'est là que la règle
+  relit où l'on en est, plus `memoire.besoin` entre le besoin et le nom) ;
+  elle **n'ouvre pas la fenêtre de 24 h** et **ne compte pas comme non lue**.
+  📲 WhatsApp la montre du côté de BMI mais **pas comme une personne** :
+  cadre clair, étiquette « 🤖 Assistant BMI TOGO » (`data-assistant`).
+- ⚠⚠ **RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI** (`repondreParAssistant`) :
+  l'envoi précède l'écriture, un refus de WhatsApp part dans le journal du
+  serveur et rien ne s'écrit ; un assistant qui trébuche ne perd jamais le
+  message du client (déjà écrit). Les ventes ne sont lues QUE pour chercher
+  un article. **Notifications** : personne n'est prévenu tant que le robot
+  garde la main (menu, prix) ; dès qu'il PASSE LA MAIN ou se tait, on
+  prévient comme avant (titre « 👨‍💼 Demande un conseiller » / « 🧾 Demande
+  de devis »).
+- ⚠⚠ **DÉFAUT RÉPARÉ AU PASSAGE (21/09 → 24/09)** : le webhook lisait le
+  propriétaire par une boucle MAISON qui ignorait la marque « rendue à
+  tous » (`MARQUE_RENDUE`) — au message suivant du client, l'ANCIEN
+  propriétaire était reposé, **la conversation se reconfiait toute seule**.
+  Il lit maintenant LA règle (`proprietaireDe`), et le repli par le devis ne
+  rejoue pas sur une conversation rendue (`filMuet`). Dit à Timo.
+- **Le réglage** : ⚙ Paramètres → 🤖 Assistant du numéro WhatsApp BMI,
+  administrateur PRINCIPAL seul, champ `assistant_wa` sur les boutiques (une
+  politique, comme la durée de conservation — **rien à coller**), **allumé
+  tant que personne ne l'a coupé**. L'écran montre son mot d'accueil tel quel.
+- **Coût** : ~4 F par réponse (1 000 offertes par mois à partir du 1er
+  octobre 2026) — un client qui parcourt le menu coûte trois ou quatre
+  messages. **Rien à coller dans Supabase** : des lignes de plus dans
+  `messages` et `prospects`, que `securite-27` à `-30` savent déjà ranger.
+- **Le banc** (`verifier-whatsapp` ⑳, 381) exerce la règle, lit le serveur,
+  l'écran, le réglage, et REND l'écran avec une ligne du robot ; **éprouvé**
+  en remettant quatre fautes (conversation confiée ignorée, mur des boutiques
+  de formation ouvert, écriture avant l'envoi, boucle maison du
+  propriétaire) : à chaque fois des contrôles tombent. Trois contrôles
+  RETOURNÉS (la clé et le code de refus vivent dans `_ycloud.js`). ⚠ Deux
+  contrôles ont crié à tort le jour même : le mot « VITE_ » dans un
+  COMMENTAIRE (on retire les commentaires avant de chercher — quatrième
+  fois), et **« https:// » ressemble à un commentaire** : l'adresse se
+  cherche dans le fichier BRUT.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

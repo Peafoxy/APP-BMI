@@ -27,6 +27,7 @@ import { mesOutils, sortieEnCours } from "../lib/outillage";
 import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
+import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
 import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
@@ -552,6 +553,21 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: poserDureeConservation(db.boutiques, ans) },
       `Durée de conservation des données : ${ans} ans`);
     uAlert(`✅ Enregistré. À partir de maintenant, le dossier que vous remettez à un client et son espace annoncent ${ans} ans. Rien ne s'efface pour autant : c'est vous qui effacez, client par client.`);
+  };
+
+  // ---- 🤖 L'assistant du numéro WhatsApp BMI (24/09/2026) ----
+  // Une politique, pas une donnée : rangée sur les boutiques (`assistant_wa`),
+  // comme la durée de conservation — rien à coller. Administrateur PRINCIPAL
+  // seul : c'est le numéro de la maison qui parle.
+  const assistantOn = assistantActif(db.boutiques);
+  const basculerAssistant = async () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Couper ou remettre l'assistant WhatsApp")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const suivant = !assistantOn;
+    if (!await uConfirm(suivant
+      ? "Remettre l'assistant ? Il répondra tout seul aux clients qui écrivent au numéro BMI (conversations sans propriétaire seulement)."
+      : "Couper l'assistant ? Les messages des clients continueront d'arriver dans 📲 WhatsApp, mais plus aucune réponse automatique ne partira.")) return;
+    save({ ...db, boutiques: poserAssistant(db.boutiques, suivant) }, suivant ? "Assistant WhatsApp remis en service" : "Assistant WhatsApp coupé");
   };
 
   const retablirMsgFidelite = async () => {
@@ -1704,6 +1720,27 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <button onClick={enregistrerMsgFidelite} className={btnDark}>✅ Enregistrer le mot</button>
           <button onClick={retablirMsgFidelite} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">↺ Rétablir le texte d'origine</button>
         </div>
+      </div>
+
+      {/* 🤖 L'assistant du numéro WhatsApp BMI (Timo, 24/09/2026 : « Lance »,
+          avec ses lignes de menu, ce qu'il a le droit de dire, et son mot
+          d'accueil). Règle pure lib/assistantWhatsapp.js, lue par le serveur. */}
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="assistant-whatsapp">
+        <div className="font-bold mb-1">🤖 Assistant du numéro WhatsApp BMI</div>
+        <div className="text-xs text-slate-500 mb-3">
+          Quand un client écrit au numéro BMI et que la conversation n'est à personne, l'assistant répond tout seul : accueil, menu à chiffres,
+          prix et disponibilité d'un article (jamais la quantité en stock), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller.
+          <b> Il se tait</b> sur une conversation confiée, dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.
+          Il ne parle <b>jamais</b> d'une dette ni d'un crédit. Chaque réponse coûte environ 4 F (1 000 offertes par mois à partir du 1er octobre 2026).
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className={`text-sm font-bold ${assistantOn ? "text-emerald-700" : "text-slate-500"}`} data-assistant-etat={assistantOn ? "actif" : "coupe"}>{assistantOn ? "● En service" : "○ Coupé"}</span>
+          {jeSuisPrincipal && <button onClick={basculerAssistant} className={btnDark}>{assistantOn ? "Couper l'assistant" : "Remettre l'assistant"}</button>}
+        </div>
+        <details className="mt-2">
+          <summary className="text-xs text-slate-500 cursor-pointer">Le message d'accueil (votre texte, figé dans l'application)</summary>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap mt-1 rounded-lg bg-slate-50 border border-slate-200 p-3">{TEXTE_ACCUEIL}</div>
+        </details>
       </div>
 
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">

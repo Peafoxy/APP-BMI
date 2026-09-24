@@ -29,6 +29,7 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
+import { estLigneAssistant, NOM_ASSISTANT } from "../lib/assistantWhatsapp";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche } from "../lib/whatsappModeles";
 import { motDePasseConnu } from "../lib/comptesClients";
@@ -475,9 +476,14 @@ export function Whatsapp({ db, save, profile }) {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
               {fil.length === 0 && <div className="text-center text-slate-400 text-sm py-8">Aucun message pour l'instant.</div>}
+              {/* 🤖 Une réponse de l'assistant (24/09/2026) se voit du côté
+                  de BMI, mais PAS comme celle d'une personne : cadre clair,
+                  étiquette « Assistant » — le personnel doit savoir ce que
+                  le robot a dit au client. */}
               {fil.map((m) => (
-                <div key={m.id} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
-                  {!m.wa_systeme && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
+                <div key={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : estLigneAssistant(m) ? "ml-auto bg-sky-50 border border-sky-200 text-slate-800" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
+                  {estLigneAssistant(m) && <div className="text-xs font-bold mb-0.5 text-sky-800">🤖 {NOM_ASSISTANT}</div>}
+                  {!m.wa_systeme && !estLigneAssistant(m) && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
                   {m.wa_media && <MediaWa message={m} />}
                   {m.texte ? <div className="whitespace-pre-line">{texteDuFil(m)}</div> : null}
                   <div className={`text-[10px] mt-1 ${m.de_id === profile.id ? "text-sky-200" : "text-slate-400"}`}>{dFR(m.date)} {String(m.ts || "").slice(11, 16)}</div>
