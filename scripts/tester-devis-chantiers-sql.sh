@@ -36,6 +36,11 @@ for f in supabase/securite-4-argent.sql supabase/securite-5-comptes.sql; do
 done
 echo "▸ Pose des verrous : supabase/securite-6-devis-chantiers.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-6-devis-chantiers.sql >/dev/null 2>&1
+echo "▸ La demande de l'assistant se prend en charge : supabase/securite-32-prendre-demande-assistant.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-32-prendre-demande-assistant.sql >/dev/null 2>&1 || echo "   ❌ securite-32 refusé par la base"
+# ⚠ On LIT la phrase de vérification (leçon de securite-31, 24/09/2026).
+VERIF32=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-32-prendre-demande-assistant.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF32" = "t|t" ]; then echo "   ✓ la phrase de vérification de securite-32 répond true | true"; else echo "   ❌ la phrase de vérification de securite-32 répond : $VERIF32"; exit 1; fi
 echo "▸ Pose du verrou de la corbeille : supabase/securite-7-corbeille.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-7-corbeille.sql >/dev/null 2>&1
 echo "▸ Correctif upsert : supabase/securite-8-correctif-upsert.sql"
@@ -70,7 +75,9 @@ insert into public.clients_installes (id, data) values
   ('zch1', '{\"id\":\"zch1\",\"nom\":\"AMA\",\"commercial\":\"COM\",\"user_id\":\"zc_ama\",\"statut\":\"en_cours\",\"date_installation\":\"2026-09-10\",\"adresse_contrat\":\"Rue 1\",\"garantie_mois\":24,\"photos\":[{\"id\":\"ph1\",\"data\":\"x\"}],\"observations\":[],\"equipe\":[{\"user_id\":\"zt_tech\",\"nom\":\"TECH\",\"chef\":true,\"pct\":0,\"montant\":0,\"paye\":false},{\"user_id\":\"zt_tech2\",\"nom\":\"TECH2\",\"chef\":false,\"pct\":0,\"montant\":0,\"paye\":false}]}'),
   ('zch2', '{\"id\":\"zch2\",\"nom\":\"KOFFI\",\"commercial\":\"COM2\",\"statut\":\"termine\",\"frais_installation\":50000,\"equipe\":[{\"user_id\":\"zt_tech\",\"nom\":\"TECH\",\"chef\":true,\"pct\":60,\"montant\":30000,\"paye\":false,\"demande_prime\":true,\"prime_boutique\":\"APESSITO\",\"prime_demandee_par\":\"TIMO\"}]}');
 insert into public.prospects (id, data) values
-  ('zpr1', '{\"id\":\"zpr1\",\"nom\":\"PROSPECT A\",\"tel\":\"91000000\",\"commercial\":\"COM\",\"contacts\":[],\"relance\":\"2026-09-20\"}');
+  ('zpr1', '{\"id\":\"zpr1\",\"nom\":\"PROSPECT A\",\"tel\":\"91000000\",\"commercial\":\"COM\",\"contacts\":[],\"relance\":\"2026-09-20\"}'),
+  ('zpr80', '{\"id\":\"zpr80\",\"nom\":\"MANDA\",\"tel\":\"99021319\",\"commercial\":\"Assistant BMI TOGO\",\"source\":\"assistant_whatsapp\",\"nature\":\"2 clim\"}'),
+  ('zpr81', '{\"id\":\"zpr81\",\"nom\":\"AKOSSIWA\",\"tel\":\"99021320\",\"commercial\":\"COM\",\"source\":\"assistant_whatsapp\",\"pris_le\":\"2026-09-24\"}');
 insert into public.categories_prospects (id, data) values ('zcat1', '{\"id\":\"zcat1\",\"nom\":\"Particulier\",\"actif\":true}');
 insert into public.groupes (id, data) values ('zg1', '{\"id\":\"zg1\",\"nom\":\"Techniciens\",\"membres\":[\"za_timo\",\"zt_tech\"]}');
 " >/dev/null
@@ -202,6 +209,12 @@ essai "le chef d'équipe (pouvoir en place) réassigne" "PERMIS" "$COM" "$(MAJ p
 essai "le même chef, pouvoir « Réaffecter » RETIRÉ" "REFUSE" "$COM_SANS_REAFFECTER" "$(MAJ prospects "$(SET commercial '"COM2"')" zpr1)"
 essai "un commercial qui n'est pas chef réassigne" "REFUSE" "$COM2" "$(MAJ prospects "$(SET commercial '"COM2"')" zpr1)"
 essai "le responsable commercial réassigne" "PERMIS" "$RESP" "$(MAJ prospects "$(SET commercial '"COM2"')" zpr1)"
+# 🤖 securite-32 (24/09/2026) : une demande de l'assistant se prend POUR SOI, une fois.
+essai "un commercial PREND pour lui une demande de l'assistant (personne ne l'avait)" "PERMIS" "$COM2" "$(MAJ prospects "data || '{\"commercial\":\"COM2\",\"pris_le\":\"2026-09-24\"}'" zpr80)"
+essai "un technicien prend pour lui une demande de l'assistant" "PERMIS" "$TECH" "$(MAJ prospects "data || '{\"commercial\":\"TECH\",\"pris_le\":\"2026-09-24\"}'" zpr80)"
+essai "un commercial prend une demande de l'assistant POUR UN AUTRE" "REFUSE" "$COM2" "$(MAJ prospects "data || '{\"commercial\":\"COM\",\"pris_le\":\"2026-09-24\"}'" zpr80)"
+essai "une demande DÉJÀ prise ne se reprend pas (la règle ordinaire joue)" "REFUSE" "$COM2" "$(MAJ prospects "data || '{\"commercial\":\"COM2\"}'" zpr81)"
+essai "un prospect ordinaire ne se prend pas « pour soi » par ce chemin" "REFUSE" "$COM2" "$(MAJ prospects "data || '{\"commercial\":\"COM2\",\"pris_le\":\"2026-09-24\"}'" zpr1)"
 essai "un vendeur marque le prospect converti à l'encaissement (le quotidien passe)" "PERMIS" "$VENDEUR" "$(MAJ prospects "data || '{\"converti\":true,\"statut\":\"Client acquis\"}'" zpr1)"
 essai "un technicien crée un prospect" "PERMIS" "$TECH" "$(INS prospects zpr9 '{"id":"zpr9","nom":"Y","commercial":"TECH"}')"
 

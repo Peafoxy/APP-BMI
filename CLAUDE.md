@@ -63,13 +63,13 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 388 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti)
+npm run verifier-whatsapp        # 403 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 209 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 118 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-paie              # 46  : la fiche de paie séparée, et le numéro de compte bancaire (serveur)
 ```
 
@@ -3155,6 +3155,78 @@ lit mal est pire qu'un banc absent).
   COMMENTAIRE (on retire les commentaires avant de chercher — quatrième
   fois), et **« https:// » ressemble à un commentaire** : l'adresse se
   cherche dans le fichier BRUT.
+
+### 🧲 LA DEMANDE DE L'ASSISTANT SE PREND EN CHARGE, ET SON DEVIS SOLAIRE SE PRÉPARE (24/09/2026, « 1 et 2 »)
+- Timo, capture de la fiche de MANDA (« 2 clim de 1,5hp 8h par jour 10
+  ampoule de 15w toute la nuit Un congélateur de 200w branché h24 ») :
+  **« comment reprendre ce devis ? et est-ce pas possible d'utiliser l'outil
+  de dimensionnement pour envoyer un devis solaire au client en même
+  temps ? »** Trois niveaux proposés ; il a dit **« 1 et 2 »**. Le 3 —
+  l'estimation automatique envoyée dans WhatsApp par le robot — **n'est pas
+  construit** ; le devis officiel (cachet, signature « Pour BMI Togo ») ne
+  part JAMAIS sans qu'une personne l'ait relu. Ne pas le construire sans lui.
+- ⚠⚠ **LE DÉFAUT TROUVÉ EN RÉPONDANT** : la fiche créée par l'assistant
+  porte « Assistant BMI TOGO » comme commercial — **qui n'est personne**. Un
+  commercial ne voit que SES fiches (`p.commercial === profile.nom`) : il ne
+  la voyait même pas ; et « Convertir » (admin ou commercial rattaché) n'était
+  possible qu'à l'administrateur. Pire que ce que j'avais dit.
+- **« 🙋 Prendre en charge »** (règle pure lib/prospects.js :
+  `estDemandeAssistant`, `critiquePriseEnCharge`, `prendreEnCharge`) : une
+  demande de l'assistant (`source` = `assistant_whatsapp`, pas de `pris_le`)
+  se voit de TOUS ceux qui ont l'onglet, dans l'espace regardé ; le premier
+  qui clique en devient le commercial (`pris_le`, `pris_par_id`), **une seule
+  fois** — ensuite c'est une fiche ordinaire. Badge violet « 🤖 Demande de
+  l'assistant WhatsApp » sous le nom.
+  ⚠ **LE COUPLE : `securite-32`** — securite-6 refuse tout changement de
+  commercial hors admin / resp. com / chef avec le pouvoir ; sans ce script le
+  clic partait, la base disait non, **tout le lot restait coincé**. Il
+  REPREND la fonction des prospects de securite-6 en entier et n'ouvre qu'UNE
+  porte (`prise_pour_soi` : source assistant, pas encore prise, le nouveau
+  commercial = `nom_jeton()`). **C'est le seul à coller.** Le banc SQL
+  (`tester-devis-chantiers`, **123**) le rejoue, LIT sa phrase de
+  vérification (`VERIF32`, sans apostrophe), et éprouve les refus (pour un
+  autre, déjà prise, un prospect ordinaire) ; éprouvé en ouvrant la porte à
+  tout prospect : deux essais tombent. **À coller par Timo.**
+- **« 🔆 Préparer le devis »** (sur sa fiche : admin ou commercial rattaché,
+  `refuserSaufProprietaire` revérifié dans le geste) : les appareils sont
+  **LUS dans le besoin** par la règle pure **`lib/besoinSolaire.js`**
+  (`lireAppareils`, avec le VRAI catalogue `catalogueAppareils(db, profile)`),
+  et le volet solaire s'ouvre **pré-rempli**, par le chemin d'un devis repris
+  (`onPreparerDevis` → `setDevisAReprendre` + onglet dimensionnement, comme
+  « Transformer en devis » de 💰 Ventes) ; le client = son compte s'il existe
+  (**`comptesAvecCeNumero`, le mur — jamais db.users**), sinon nom + numéro,
+  créé à l'envoi. La fenêtre de confirmation DIT ce qui a été lu et ce qui ne
+  l'a pas été (`resumeLecture`). **C'est un pré-remplissage, jamais un
+  devis** : le vendeur relit, corrige, envoie.
+  - La lecture, sur la phrase de MANDA : 2 × Climatiseur 1,5 CV (variante du
+    catalogue par les chevaux), 8 h · 10 × Ampoule LED **15 W (la puissance
+    ÉCRITE prime sur celle du catalogue)**, « toute la nuit » = 12 h · 1 ×
+    Congélateur 200 W, « h24 » = 24 h. Un nombre n'est une QUANTITÉ qu'en
+    tête ou devant un mot du catalogue (« télé 55 pouces » n'ouvre pas un
+    appareil « pouces ») ; « jour et nuit » / 24h / en continu = 24.
+  - ⚠⚠ **RIEN D'INVENTÉ** : un segment que le catalogue ne connaît pas n'est
+    un appareil que s'il porte une puissance (« 2 machines bizarres 300w »,
+    marqué non reconnu) ; « électrifier une maison 4 pièces » donne une liste
+    VIDE, et la phrase le dit. Heures ou puissance absentes = case vide, pas
+    un chiffre deviné. Éprouvé en gardant les inconnus sans puissance : le
+    contrôle tombe.
+- **À l'envoi du devis**, la fiche du prospect garde le compte et le devis
+  (`prospectAvecDevis`, dans `useEnvoiDevis` APRÈS que le message est parti)
+  **sans être marquée client** — il n'a pas dit oui ; c'est « Convertir » ou
+  l'encaissement qui le fait. ⚠ Et **« Convertir » sur un numéro qui a DÉJÀ
+  un compte** (créé au devis, par exemple) **rattache la fiche** au lieu de
+  s'arrêter sur « Rien n'a été recréé » — avant, le prospect restait dans la
+  file pour toujours.
+- **Le banc** (`verifier-whatsapp` ㉑, 403) exerce la lecture sur la phrase
+  de Timo, la prise en charge, le couple (le mot `assistant_whatsapp` dans
+  l'assistant, la règle et le SQL ; la porte unique du SQL), lit l'écran,
+  App.jsx et Partages.jsx ; **éprouvé** en remettant trois fautes (les
+  demandes invisibles, l'inconnu sans puissance gardé, la porte SQL ouverte à
+  tout prospect) : à chaque fois des contrôles tombent. `lib/prospects.js`
+  et `lib/appareils.js` ne sont pas lisibles par Node : `scripts/_entree-prospects.mjs`
+  les réunit par esbuild.
+- **Rien à coller à part `securite-32`** : `source`, `pris_le`, `pris_par_id`,
+  `client_user_id`, `devis_id` sont des champs de la fiche prospect.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

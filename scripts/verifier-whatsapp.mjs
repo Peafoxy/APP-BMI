@@ -1514,5 +1514,97 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
     typeof htmlA === "string" && htmlA.includes("ESSO") && !htmlA.startsWith("ERREUR"));
 }
 
+// ──────────────────────────────────────────────────────────────
+titre("㉑ 🧲 LA DEMANDE DE L'ASSISTANT SE PREND EN CHARGE, ET SON DEVIS SE PRÉPARE (24/09/2026, « 1 et 2 »)");
+// Timo, capture de MANDA : « comment reprendre ce devis ? ». Deux gestes :
+// « 🙋 Prendre en charge » (la fiche de l'assistant n'était à personne, donc
+// invisible aux commerciaux et convertible par le seul administrateur) et
+// « 🔆 Préparer le devis » (les appareils LUS dans le besoin ouvrent le volet
+// solaire pré-rempli — le vendeur vérifie et envoie).
+{
+  const sortieB = join(process.cwd(), "scripts", "_bundle-prospects.tmp.mjs");
+  await build({
+    entryPoints: ["scripts/_entree-prospects.mjs"], bundle: true, format: "esm", platform: "node",
+    outfile: sortieB, logLevel: "silent", jsx: "automatic", external: ["react", "react-dom", "react-dom/server"],
+  });
+  const P = await import(pathToFileURL(sortieB).href);
+  unlinkSync(sortieB);
+  const B = await import("../src/lib/besoinSolaire.js");
+  const CAT = P.CATALOGUE_APPAREILS;
+  const prospectsJsx = lire("src/screens/Prospects.jsx").replace(/\/\/[^\n]*/g, "");
+  const partagesJsx = lire("src/screens/dimensionnement/Partages.jsx").replace(/\/\/[^\n]*/g, "");
+  const sql32 = lire("supabase/securite-32-prendre-demande-assistant.sql");
+  const bancSql = lire("scripts/tester-devis-chantiers-sql.sh");
+
+  // ── LA PHRASE DE TIMO, mot pour mot
+  const phrase = "2 clim de 1,5hp 8h par jour 10 ampoule de 15w toute la nuit Un congélateur de 200w branché h24";
+  const lus = B.lireAppareils(phrase, CAT);
+  test("★★ la phrase de MANDA donne TROIS appareils : 2 clim 1,5 CV 8 h, 10 ampoules 15 W 12 h, 1 congélateur 200 W 24 h",
+    lus.length === 3
+    && lus[0].nom.startsWith("Climatiseur 1,5") && lus[0].qte === "2" && lus[0].heures === "8" && lus[0].puissance === "1500"
+    && lus[1].nom === "Ampoule LED" && lus[1].qte === "10" && lus[1].puissance === "15" && lus[1].heures === "12"
+    && lus[2].nom.startsWith("Congélateur") && lus[2].qte === "1" && lus[2].puissance === "200" && lus[2].heures === "24"
+    && lus.every((a) => a.reconnu));
+  const divers = B.lireAppareils("3 ventilateurs 6h, une télé 55 pouces le soir, un frigo jour et nuit, 2 machines bizarres 300w", CAT);
+  test("★ « télé 55 pouces » n'ouvre pas un appareil « pouces » ; « jour et nuit » = 24 h ; « 6h » = 6 h ; un inconnu à 300 W est gardé comme tel",
+    divers.length === 4 && divers[0].heures === "6" && divers[1].nom.includes("55") && divers[2].heures === "24"
+    && divers[3].reconnu === false && divers[3].puissance === "300" && divers[3].qte === "2");
+  test("★★ « électrifier une maison 4 pièces » ne fabrique AUCUN appareil (rien d'inventé), et la phrase le DIT",
+    B.lireAppareils("électrifier une maison 4 pièces", CAT).length === 0
+    && B.resumeLecture([]).startsWith("Aucun appareil reconnu"));
+  test("★ le résumé compte les lignes lues et nomme les inconnus",
+    /3 appareil\(s\) lu\(s\)/.test(B.resumeLecture(lus)) && /Non reconnus[^.]*Machines bizarres/.test(B.resumeLecture(divers)));
+  test("★ la règle ne reçoit jamais `db` : le catalogue lui est passé, et son seul import est la règle commune",
+    !/\bdb\b/.test(lire("src/lib/besoinSolaire.js").replace(/\/\/[^\n]*/g, ""))
+    && (lire("src/lib/besoinSolaire.js").match(/^import /mg) || []).length === 1);
+
+  // ── PRENDRE EN CHARGE
+  const demande = { id: "p1", nom: "MANDA", tel: "+22899021319", commercial: "Assistant BMI TOGO", source: "assistant_whatsapp" };
+  const moi = { id: "COM2", nom: "COM2", role: "commercial" };
+  test("★★ une demande de l'assistant n'est à personne ; prise, elle devient la fiche de celui qui a cliqué, une seule fois",
+    P.estDemandeAssistant(demande) === true
+    && P.critiquePriseEnCharge(demande, moi) === null
+    && P.prendreEnCharge(demande, moi).commercial === "COM2" && !!P.prendreEnCharge(demande, moi).pris_le
+    && P.estDemandeAssistant(P.prendreEnCharge(demande, moi)) === false
+    && /déjà été prise en charge par COM2/.test(P.critiquePriseEnCharge(P.prendreEnCharge(demande, moi), { nom: "COM" }))
+    && /pas une demande de l'assistant/.test(P.critiquePriseEnCharge({ id: "x", commercial: "COM" }, moi)));
+  test("★ le devis préparé lie le compte et le devis à la fiche SANS la marquer client",
+    P.prospectAvecDevis(demande, { client_user_id: "c1", devis_id: "d1" }).client_user_id === "c1"
+    && !P.prospectAvecDevis(demande, { client_user_id: "c1" }).converti);
+  test("★★ LE COUPLE : le mot « assistant_whatsapp » est le MÊME dans l'assistant, la règle des prospects et le SQL",
+    P.SOURCE_ASSISTANT === "assistant_whatsapp"
+    && /source: "assistant_whatsapp"/.test(lire("src/lib/assistantWhatsapp.js"))
+    && /'assistant_whatsapp'/.test(sql32));
+  test("★★ securite-32 n'ouvre QU'UNE porte : source assistant, pas encore prise, prise POUR SOI — et reprend la règle de securite-6",
+    /prise_pour_soi := coalesce\(old\.data ->> 'source', ''\) = 'assistant_whatsapp'\s*and \(old\.data ->> 'pris_le'\) is null\s*and coalesce\(new\.data ->> 'commercial', ''\) = public\.nom_jeton\(\);/.test(sql32)
+    && /and not prise_pour_soi\s*and not \(\(r in \('admin', 'resp_commercial'\)/.test(sql32)
+    && /foreach champ in array array\['archive', 'archive_motif', 'archive_le', 'contacts'\]/.test(sql32)
+    && !/like '%[^%']*''[^%']*%'/.test(sql32));
+  test("★ le banc SQL rejoue securite-32, LIT sa phrase de vérification, et éprouve les deux refus (pour un autre, déjà prise)",
+    /securite-32-prendre-demande-assistant\.sql/.test(bancSql) && /VERIF32/.test(bancSql) && /"t\|t"/.test(bancSql)
+    && /POUR UN AUTRE" "REFUSE"/.test(bancSql) && /DÉJÀ prise ne se reprend pas[^"]*" "REFUSE"/.test(bancSql)
+    && /personne ne l'avait\)" "PERMIS"/.test(bancSql));
+
+  // ── L'ÉCRAN 🧲 PROSPECTS
+  test("★★ un commercial VOIT les demandes de l'assistant (elles ne sont à personne), et le bouton « Prendre en charge » revérifie la règle",
+    /base\.filter\(\(p\) => p\.commercial === profile\.nom \|\| estDemandeAssistant\(p\)\)/.test(prospectsJsx)
+    && /const refus = critiquePriseEnCharge\(p, profile\);\s*if \(refus\) \{ uAlert\(refus\); return; \}/.test(prospectsJsx)
+    && /prendreEnCharge\(x, profile\)/.test(prospectsJsx) && /🙋 Prendre en charge/.test(prospectsJsx) && /data-demande-assistant/.test(prospectsJsx));
+  test("★★ « Préparer le devis » : le droit revérifié, les appareils LUS par la règle avec le VRAI catalogue, le compte cherché par le mur (jamais db.users)",
+    /const preparerDevis = async \(p\) => \{\s*if \(refuserSaufProprietaire\(profile, p\.commercial/.test(prospectsJsx)
+    && /lireAppareils\(p\.nature \|\| "", catalogueAppareils\(db, profile\)\)/.test(prospectsJsx)
+    && /comptesAvecCeNumero\(db, profile, p\.tel\)\.find\(\(u\) => u\.role === "client"\)/.test(prospectsJsx)
+    && /resumeLecture\(appareils\)/.test(prospectsJsx)
+    && /devis: \{ type_devis: "solaire", besoins: \{ appareils:/.test(prospectsJsx) && /prospect_id: p\.id/.test(prospectsJsx));
+  test("★ App.jsx donne le chemin : la fiche part au dimensionnement comme un devis repris",
+    /<M\.Prospects [^>]*onPreparerDevis=\{\(pseudoDevis\) => \{ setDevisAReprendre\(pseudoDevis\); setTab\("dimensionnement"\); \}\}/.test(lire("src/App.jsx")));
+  test("★ à l'envoi, la fiche du prospect garde le compte et le devis — après que le message est PARTI, jamais marquée client ici",
+    /if \(!envoye\) return;[\s\S]{0,700}if \(devisAReprendre\?\.prospect_id\) \{[\s\S]{0,400}prospectAvecDevis\(x, \{ client_user_id: compte\.id, devis_id: devis\.id \}\)/.test(partagesJsx)
+    && !/prospectAcquis/.test(partagesJsx)
+    && /import \{ prospectAvecDevis \} from "\.\.\/\.\.\/lib\/prospects"/.test(partagesJsx));
+  test("★ « Convertir » sur un numéro qui a DÉJÀ un compte rattache la fiche au lieu de s'arrêter",
+    /prospectAcquis\(x, \{ client_user_id: existant\.id \}\)/.test(prospectsJsx) && !/Rien n'a été recréé\.`\);\s*return;/.test(prospectsJsx));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

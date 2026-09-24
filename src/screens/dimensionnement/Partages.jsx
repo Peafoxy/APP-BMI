@@ -10,6 +10,7 @@ import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, 
 import { envoyerModele, messagesAvecLigneEnvoi } from "../../whatsapp";
 import { envoiDevisDisponible, clientDejaContacte, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
+import { prospectAvecDevis } from "../../lib/prospects";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
 // Demande Timo (02/09/2026) : « tous les écrans du dimensionnement doivent
@@ -337,6 +338,14 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
       compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre,
     });
     if (!envoye) return;
+    // 🧲 Un devis préparé depuis la fiche d'un prospect (24/09/2026) : la
+    // fiche garde le compte et le devis — SANS être marquée client, il n'a
+    // pas encore dit oui (c'est « Convertir » ou l'encaissement qui le fait).
+    // `save` reçoit une FONCTION de l'état courant : l'envoi vient d'écrire.
+    if (devisAReprendre?.prospect_id) {
+      const pid = devisAReprendre.prospect_id;
+      save((etat) => ({ ...etat, prospects: (etat.prospects || []).map((x) => (x.id === pid ? prospectAvecDevis(x, { client_user_id: compte.id, devis_id: devis.id }) : x)) }));
+    }
     setClientDevis("");
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();

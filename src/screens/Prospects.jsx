@@ -12,12 +12,14 @@ import { uid, fmt, today, dFR, col } from "../lib/core";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
 import { messageIdentifiants } from "../lib/whatsappModeles";
-import { prospectAcquis } from "../lib/prospects";
+import { prospectAcquis, estDemandeAssistant, prendreEnCharge, critiquePriseEnCharge } from "../lib/prospects";
+import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
+import { catalogueAppareils } from "../lib/appareils";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
-export function Prospects({ db, save, profile, isAdmin }) {
+export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
   const estChef = !!profile.chef_equipe;
   const voitTout = isAdmin || estChef || profile.role === "resp_commercial";
   const categories = db.categories_prospects.filter((c) => c.actif !== false);
@@ -88,6 +90,37 @@ export function Prospects({ db, save, profile, isAdmin }) {
     }, `📞 ${p.nom} contacté par ${profile.nom}${note.trim() ? " — " + note.trim() : ""}`);
   };
 
+  // ---- 🤖 UNE DEMANDE DE L'ASSISTANT WHATSAPP SE PREND EN CHARGE (24/09/2026) ----
+  // Le premier qui clique en devient le commercial ; règle pure
+  // lib/prospects.js, revérifiée DANS le geste ; serveur securite-32.
+  const prendre = async (p) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiquePriseEnCharge(p, profile);
+    if (refus) { uAlert(refus); return; }
+    if (!await uConfirm(`Prendre en charge la demande de « ${p.nom} » (${p.tel}) ?\n\nVous en devenez le commercial : relance, devis et conversion vous reviennent.`)) return;
+    save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? prendreEnCharge(x, profile) : x)) },
+      `Demande de l'assistant « ${p.nom} » prise en charge par ${profile.nom}`);
+  };
+
+  // ---- 🔆 PRÉPARER LE DEVIS SOLAIRE DEPUIS LA FICHE (24/09/2026) ----
+  // Les appareils sont LUS dans le besoin (règle pure lib/besoinSolaire.js)
+  // et le volet solaire s'ouvre pré-rempli — le vendeur vérifie et envoie.
+  // ⚠ LE MUR : le compte du client est cherché par `comptesAvecCeNumero`
+  // (l'espace regardé), jamais dans db.users en entier.
+  const preparerDevis = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Préparer le devis d'un prospect")) return;
+    if (!onPreparerDevis) return;
+    const appareils = lireAppareils(p.nature || "", catalogueAppareils(db, profile));
+    const compte = p.tel ? comptesAvecCeNumero(db, profile, p.tel).find((u) => u.role === "client") : null;
+    if (!await uConfirm(`Préparer le devis solaire de « ${p.nom} » ?\n\n${resumeLecture(appareils)}\n\n${compte ? `Client : le compte ${compte.nom}.` : "Le client n'a pas encore de compte : il sera créé à l'envoi du devis."}`)) return;
+    onPreparerDevis({
+      depuis_prospect: true,
+      prospect_id: p.id,
+      client: compte ? compte : { nom: p.nom, tel: p.tel },
+      devis: { type_devis: "solaire", besoins: { appareils: appareils.map(({ nom, puissance, heures, qte }) => ({ nom, puissance, heures, qte })) } },
+    });
+  };
+
   // ---- ARCHIVER (sans supprimer) ----
   // Le motif est obligatoire : sans lui, l'archivage ne vous apprend rien.
   // Au bout d'un an, ces motifs vous diront POURQUOI vos prospects meurent.
@@ -104,7 +137,13 @@ export function Prospects({ db, save, profile, isAdmin }) {
     // « 90112233 » sont la MÊME personne (voir lib/identiteClient.js).
     const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, p.tel));
     if (existant) {
-      uAlert(`Un compte client existe déjà pour ce numéro (${existant.nom}).\n\nRien n'a été recréé.`);
+      // ⚠ 24/09/2026 : avant, on s'arrêtait là (« Rien n'a été recréé ») et
+      // le prospect restait dans la file pour toujours. Un compte qui
+      // existe déjà (créé au devis, par exemple) se RATTACHE : même fiche
+      // acquise, aucun compte en double.
+      if (!await uConfirm(`Un compte client existe déjà pour ce numéro (${existant.nom}).\n\nRattacher « ${p.nom} » à ce compte et le marquer client ? Aucun compte ne sera recréé.`)) return;
+      save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? prospectAcquis(x, { client_user_id: existant.id }) : x)) },
+        `Prospect « ${p.nom} » rattaché au compte client ${existant.nom} par ${profile.nom}`);
       return;
     }
 
@@ -227,7 +266,9 @@ export function Prospects({ db, save, profile, isAdmin }) {
   const totalPerimetre = perimetre.actifs.length + perimetre.archives.length + perimetre.acquis.length;
   const tauxConversion = totalPerimetre > 0 ? Math.round((perimetre.acquis.length / totalPerimetre) * 100) : 0;
 
-  let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom);
+  // 🤖 Une demande de l'assistant n'est à personne : tout le monde la voit,
+  // jusqu'à ce que quelqu'un la prenne en charge.
+  let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom || estDemandeAssistant(p));
   if (filtreRelance) liste = liste.filter((p) => p.relance && p.relance <= today());
   if (q) liste = liste.filter((p) => correspond(p.nom + " " + p.tel + " " + p.localisation, q));
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
@@ -384,7 +425,10 @@ export function Prospects({ db, save, profile, isAdmin }) {
               return (
                 <tr key={p.id} className={`border-t border-slate-100 hover:bg-sky-50 ${enRetard ? "bg-orange-50" : ""}`}>
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
-                  <td className="px-3 py-2 font-semibold">{p.nom}</td>
+                  <td className="px-3 py-2 font-semibold">
+                    {p.nom}
+                    {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700 whitespace-nowrap" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
+                  </td>
                   <td className="px-3 py-2">{p.tel}</td>
                   <td className="px-3 py-2 text-slate-500">{p.categorie}</td>
                   <td className="px-3 py-2">
@@ -423,6 +467,12 @@ export function Prospects({ db, save, profile, isAdmin }) {
                       <button onClick={() => relancerWhatsApp(p)} className="text-xs font-bold text-white bg-orange-600 rounded px-2 py-0.5 hover:bg-orange-700 mr-2">📱 Relancer</button>
                     )}
                     {voitTout && aDroit(db, profile, "act_reaffecter") && <button onClick={() => reassigner(p)} className="text-xs font-bold text-sky-800 underline mr-2">Réassigner</button>}
+                    {estDemandeAssistant(p) && !p.archive && (
+                      <button onClick={() => prendre(p)} className="text-xs font-bold text-white bg-violet-700 rounded px-2 py-0.5 hover:bg-violet-800 mr-2">🙋 Prendre en charge</button>
+                    )}
+                    {!p.archive && !p.converti && onPreparerDevis && (isAdmin || p.commercial === profile.nom) && (
+                      <button onClick={() => preparerDevis(p)} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-0.5 hover:bg-sky-900 mr-2" title="Ouvre le dimensionnement solaire avec les appareils lus dans le besoin">🔆 Préparer le devis</button>
+                    )}
                     {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
                       <button onClick={() => contacte(p)} className="text-xs text-sky-700 underline font-semibold" title={`Dernière activité : ${dFR(derniereActivite(p))}`}>📞 Contacté</button>
                     )}

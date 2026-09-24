@@ -1477,7 +1477,8 @@ export default function App() {
       )}
       {ongletsVisites.prospects && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
         <div style={{ display: tab === "prospects" ? "block" : "none" }}>
-          <M.Prospects db={db} save={save} profile={profile} isAdmin={isAdmin} />
+          <M.Prospects db={db} save={save} profile={profile} isAdmin={isAdmin}
+            onPreparerDevis={(pseudoDevis) => { setDevisAReprendre(pseudoDevis); setTab("dimensionnement"); }} />
         </div>
       )}
       {ongletsVisites.parametres && isAdmin && (

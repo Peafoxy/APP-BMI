@@ -26,3 +26,41 @@ export const prospectAcquis = (prospect, { vente_id, client_user_id } = {}) => (
   ...(vente_id ? { vente_id } : {}),
   ...(client_user_id ? { client_user_id } : {}),
 });
+
+// ============================================================
+// 🤖 LA DEMANDE DE DEVIS VENUE DE L'ASSISTANT WHATSAPP (Timo, 24/09/2026 :
+// « comment reprendre ce devis ? » → « 1 et 2 »)
+//
+// L'assistant crée une fiche au nom « Assistant BMI TOGO » — qui n'est
+// PERSONNE : aucun commercial ne la voyait dans sa liste, et « Convertir »
+// (réservé à l'administrateur ou au commercial rattaché) n'était possible
+// qu'à l'administrateur. « 🙋 Prendre en charge » : le premier qui clique
+// devient le commercial de la fiche, comme s'il l'avait créée — ensuite
+// tout est comme d'habitude. Une demande ne se prend qu'UNE fois.
+//
+// ⚠ LE COUPLE : `securite-32` laisse passer ce seul changement de
+// commercial (une demande de l'assistant, pas encore prise, prise POUR
+// SOI) ; sans lui la base refuserait et tout le lot resterait coincé.
+// `SOURCE_ASSISTANT` est le mot que l'assistant écrit (lib/assistantWhatsapp.js)
+// et que le SQL lit : le banc compare les trois.
+// ============================================================
+export const SOURCE_ASSISTANT = "assistant_whatsapp";
+export const estDemandeAssistant = (p) => !!p && p.source === SOURCE_ASSISTANT && !p.pris_le && !p.converti;
+export const critiquePriseEnCharge = (p, profile) => {
+  if (!p || p.source !== SOURCE_ASSISTANT) return "Cette fiche n'est pas une demande de l'assistant : elle a déjà un commercial.";
+  if (p.pris_le) return `Cette demande a déjà été prise en charge par ${p.commercial || "quelqu'un"}.`;
+  if (!profile?.nom) return "Compte sans nom : impossible de prendre en charge.";
+  return null;
+};
+export const prendreEnCharge = (p, profile) => ({
+  ...p, commercial: profile.nom, pris_le: today(), pris_par_id: profile.id ?? null, maj_le: today(),
+});
+// Le devis préparé depuis la fiche : le prospect garde le compte et le
+// devis, SANS être marqué client (il n'a pas encore dit oui — c'est
+// « Convertir » qui le fait, ou l'encaissement).
+export const prospectAvecDevis = (p, { client_user_id, devis_id } = {}) => ({
+  ...p,
+  ...(client_user_id ? { client_user_id } : {}),
+  ...(devis_id ? { devis_id } : {}),
+  devis_prepare_le: today(), maj_le: today(),
+});
