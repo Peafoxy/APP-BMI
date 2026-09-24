@@ -48,11 +48,14 @@ export const MAX_TOKENS_REPONSE = 600;
 
 // ---- LA PHRASE DE PRÉSENTATION D'UNE NOUVELLE CONVERSATION ----
 // Posée PAR LE SERVEUR devant la première réponse (jamais confiée à l'IA,
-// qui pourrait l'oublier) : qui parle (un programme, pas une personne — sa
-// décision 3), et que les messages sont lus par un service hors du Togo
-// (sa décision 1 : le client doit le savoir).
-export const MENTION_SERVICE_EXTERIEUR = "Pour vous répondre, vos messages sont lus par un service informatique situé hors du Togo.";
-export const PHRASE_PRESENTATION = `👋 Bonjour ! Je suis l'assistant virtuel de BMI TOGO — un programme, pas une personne. ${MENTION_SERVICE_EXTERIEUR} À tout moment, écrivez « conseiller » pour parler à quelqu'un de BMI TOGO.`;
+// qui pourrait l'oublier). TEXTE DE TIMO, MOT POUR MOT (24/09/2026, « dis
+// plutôt… »). Elle dit qui parle — un assistant VIRTUEL, jamais une personne
+// (sa décision 3) — et la porte « conseiller ».
+// ⚠ La mention « vos messages sont lus par un service situé hors du Togo »
+// a été RETIRÉE à sa demande le même soir (« je ne veux pas le texte de
+// traité hors du Togo »), après qu'on lui a rappelé que c'était sa décision
+// du matin. La démarche IPDCP est de son côté. Ne pas la remettre sans lui.
+export const PHRASE_PRESENTATION = "👋 Bonjour et bienvenue chez BMI TOGO !\n\n🤖 Je suis l’assistant virtuel de BMI TOGO, conçu pour vous renseigner et vous orienter.\n\n👤 À tout moment, écrivez « conseiller » pour parler directement à un membre de notre équipe.\n\nComment puis-je vous aider aujourd’hui ?";
 // Quand l'IA touche à un sujet qui lui est fermé (dette, crédit, compte),
 // on ne cherche pas à reformuler : une phrase fixe, et une personne.
 export const REPONSE_SUJET_RESERVE = `Pour tout ce qui concerne un paiement, un règlement ou votre compte client, un conseiller BMI TOGO vous répond sur ce numéro. Vous pouvez aussi consulter votre espace client sur gestion.bmitogo.com.\n\n${SIGNATURE_BMI}`;
@@ -321,9 +324,6 @@ export const etapeApresIA = (effets) => (effets?.conseiller ? ETAPE_CONSEILLER :
 // rend l'étape null) reçoit la présentation devant la réponse.
 export const avecPresentation = (texte, { nouvelle }) => (nouvelle ? `${PHRASE_PRESENTATION}\n\n${texte}` : texte);
 export const conversationNouvelle = (decision) => !decision || decision.etape === null || decision.etape === undefined;
-// Le menu qui reprend APRÈS un essai d'IA sur une nouvelle conversation :
-// le message a été lu par le service, le client doit le savoir quand même.
-export const avecMention = (texte, { nouvelle }) => (nouvelle ? `ℹ️ ${MENTION_SERVICE_EXTERIEUR}\n\n${texte}` : texte);
 
 // ---- CE QU'ON ENVOIE, D'APRÈS LE VERDICT DU JUGE ----
 // Rend la réponse à envoyer { texte, etape, conseiller, demandeDevis, ia,

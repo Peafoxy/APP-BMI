@@ -3270,8 +3270,26 @@ lit mal est pire qu'un banc absent).
   ce qui a été FAIT n'est perdu, rien de ce qui a été DIT de travers ne
   part) ; jetée sans effet → `null`, **le menu reprend**. Le juge s'applique
   aussi à nos phrases fixes (le banc les passe toutes).
+- ⚠⚠ **LE TEXTE D'ACCUEIL EST CELUI DE TIMO, ET IL NE DIT PLUS « HORS DU TOGO »
+  (24/09/2026 au soir)**. Sa capture du premier vrai échange : « dis plutôt
+  👋 Bonjour et bienvenue chez BMI TOGO ! / 🤖 Je suis l'assistant virtuel… /
+  👤 À tout moment, écrivez « conseiller »… / Comment puis-je vous aider
+  aujourd'hui ? » — mot pour mot dans `PHRASE_PRESENTATION`. On lui a rappelé
+  que la mention « lus par un service hors du Togo » venait de SA décision du
+  matin ; réponse : **« je ne veux pas le texte de traité hors du Togo »**.
+  Retirée partout côté client (présentation ET le menu de repli —
+  `MENTION_SERVICE_EXTERIEUR` et `avecMention` sont partis) ; ⚙ Paramètres dit
+  à l'administrateur que le client n'en est pas informé. **Ne pas la remettre
+  sans lui.** ⚠ La question finale s'affiche aussi quand le client a déjà posé
+  la sienne (la réponse suit juste dessous) : dit, laissé tel quel.
+  ⚠ **Premier vrai échange (ESSO, 22:39 → 22:43) : tout a marché** — articles,
+  heures demandées, estimation 18,6 kWh juste au calcul près. **Mais « Okay »
+  et « Comment vous allez » (22:40) sont restés SANS réponse**, cause NON
+  trouvée : les journaux Vercel (offre Hobby) ne se gardent qu'UNE heure, et
+  le code lu ne montre pas de cause certaine (piste : la limite de 60 s). Au
+  prochain silence, capturer **Vercel → Logs dans l'heure**.
 - ⚠⚠ **LA PRÉSENTATION EST POSÉE PAR LE SERVEUR, jamais confiée à l'IA**
-  (`PHRASE_PRESENTATION`, devant la première réponse d'une conversation
+  (`PHRASE_PRESENTATION`, ~~avec la mention hors du Togo~~ retirée le soir même, devant la première réponse d'une conversation
   NOUVELLE — `conversationNouvelle(decision)`, l'étape null de
   `decisionAssistant`) : « un programme, pas une personne », **« vos
   messages sont lus par un service informatique situé hors du Togo »**

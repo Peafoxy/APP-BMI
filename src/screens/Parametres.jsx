@@ -579,7 +579,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (bloquerSiLecture(db, profile)) return;
     if (mode === assistantMode) return;
     if (!await uConfirm(mode === "ia"
-      ? "Faire discuter l'assistant par l'intelligence artificielle ? Les messages des clients seront lus par un service situé hors du Togo pour préparer la réponse (le client en est informé au premier message). Le menu à chiffres reprend tout seul si le service ne répond pas."
+      ? "Faire discuter l'assistant par l'intelligence artificielle ? Les messages des clients seront lus par un service situé hors du Togo pour préparer la réponse (le client n'en est pas informé : décision du 24/09/2026). Le menu à chiffres reprend tout seul si le service ne répond pas."
       : "Revenir au menu à chiffres ? Plus aucun message de client ne sera lu par le service d'IA.")) return;
     save({ ...db, boutiques: poserModeAssistant(db.boutiques, mode) }, mode === "ia" ? "Assistant WhatsApp : conversation par IA" : "Assistant WhatsApp : menu à chiffres");
   };

@@ -32,7 +32,7 @@ import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssist
 // 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
 // qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
 // la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
-import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, avecMention, modeAssistant, demandeDevisIA, derniereEstimation } from "../src/lib/assistantIA.js";
+import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation } from "../src/lib/assistantIA.js";
 // L'estimation solaire lit LA règle du vendeur et LA liste des appareils.
 import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } from "../src/lib/choixSolaire.js";
 import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
@@ -312,10 +312,8 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   // (`garderReponse`) avant de partir. Tout ce qui échoue — réseau, refus du
   // service, réponse jetée — retombe sur le menu, en le disant au journal.
   let r = null;
-  let essaiIA = false;
   const ia = configIA();
   if (modeAssistant(boutiques) === "ia" && ia.pret) {
-    essaiIA = true;
     try {
       const conv = await converserAvecIA({
         consigne: consignePour({ client: clientIA }),
@@ -349,9 +347,6 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
       client: clientIA, articles, memoire: decision.memoire || {},
     });
     if (!r) return { repondu: false, pourquoi: "rien à dire" };
-    // Le message a été LU par le service d'IA avant que le menu ne reprenne :
-    // sur une nouvelle conversation, le client doit le savoir quand même.
-    if (essaiIA) r = { ...r, texte: avecMention(r.texte, { nouvelle }) };
   }
 
   const { cle: cleYCloud, expediteurBrut } = configYCloud();

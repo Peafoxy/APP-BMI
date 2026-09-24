@@ -1653,9 +1653,13 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     A.LIGNES_MENU.filter((l) => l.activite).every((l) => I.CONSIGNE_IA.includes(l.titre) && (!l.detail || I.CONSIGNE_IA.includes(l.detail))));
   test("★ un client connu est nommé à l'IA ; un numéro inconnu → elle doit demander le nom avant d'enregistrer",
     /il s'appelle ESSO/.test(I.consignePour({ client: { nom: "ESSO" } })) && /son nom est inconnu/.test(I.consignePour({})));
-  test("★★ LA PRÉSENTATION est posée par le serveur, pas confiée à l'IA : un programme, pas une personne ; lu par un service hors du Togo ; « conseiller » pour une personne",
-    /un programme, pas une personne/.test(I.PHRASE_PRESENTATION) && I.PHRASE_PRESENTATION.includes(I.MENTION_SERVICE_EXTERIEUR)
-    && /hors du Togo/.test(I.MENTION_SERVICE_EXTERIEUR) && /écrivez « conseiller »/.test(I.PHRASE_PRESENTATION)
+  // ⚠ RETOURNÉ le 24/09/2026 au soir : le texte est celui de Timo, mot pour
+  // mot, et la mention « hors du Togo » a été RETIRÉE à sa demande.
+  test("★★ LA PRÉSENTATION est posée par le serveur, pas confiée à l'IA : le texte de Timo mot pour mot — un assistant VIRTUEL, « conseiller » pour une personne — et plus la mention « hors du Togo » (retirée à sa demande)",
+    I.PHRASE_PRESENTATION.startsWith("👋 Bonjour et bienvenue chez BMI TOGO !") && /🤖 Je suis l’assistant virtuel de BMI TOGO, conçu pour vous renseigner et vous orienter\./.test(I.PHRASE_PRESENTATION)
+    && /👤 À tout moment, écrivez « conseiller » pour parler directement à un membre de notre équipe\./.test(I.PHRASE_PRESENTATION)
+    && I.PHRASE_PRESENTATION.endsWith("Comment puis-je vous aider aujourd’hui ?")
+    && !/hors du Togo/.test(I.PHRASE_PRESENTATION) && !("MENTION_SERVICE_EXTERIEUR" in I) && !("avecMention" in I)
     && /le serveur ajoute la phrase de présentation/.test(I.CONSIGNE_IA)
     && I.avecPresentation("x", { nouvelle: true }).startsWith(I.PHRASE_PRESENTATION) && I.avecPresentation("x", { nouvelle: false }) === "x"
     && I.conversationNouvelle({ etape: null }) === true && I.conversationNouvelle({ etape: A.ETAPE_MENU }) === false);
@@ -1724,7 +1728,7 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
         && r4.texte.startsWith(I.PHRASE_PRESENTATION) && r4.etape === I.ETAPE_IA && r4.ia === true;
     })());
   test("★★ aucune phrase fixe de l'IA ne parle de dette, de crédit, de solde, de mot de passe (le juge s'applique aussi à ce qu'on écrit nous-mêmes)",
-    [I.PHRASE_PRESENTATION, I.REPONSE_SUJET_RESERVE, I.MENTION_SERVICE_EXTERIEUR, A.TEXTE_RELAIS_CONSEILLER, A.texteDemandeEnregistree("X")].every((t) => I.garderReponse(t, {}).ok === true));
+    [I.PHRASE_PRESENTATION, I.REPONSE_SUJET_RESERVE, A.TEXTE_RELAIS_CONSEILLER, A.texteDemandeEnregistree("X")].every((t) => I.garderReponse(t, {}).ok === true));
 
   // ── LA VRAIE BOUCLE, avec un faux service
   const joue = (reponses) => { let n = 0; const vus = []; return { vus, appeler: async (corps) => { vus.push(corps); return reponses[Math.min(n++, reponses.length - 1)]; } }; };
@@ -1792,10 +1796,9 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     (corpsR.match(/envoyerYCloud\(/g) || []).length === 1
     && corpsR.indexOf("converserAvecIA(") < corpsR.indexOf("envoyerYCloud(") && corpsR.indexOf("reponseAssistant(") < corpsR.indexOf("envoyerYCloud(")
     && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("messages").insert(') && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("prospects").insert('));
-  test("★★ une IA qui trébuche (réseau, refus, réponse jetée) ne laisse jamais le client sans réponse : try/catch, journal, et le menu ; et sur une nouvelle conversation le client est prévenu que le service a lu son message",
+  test("★★ une IA qui trébuche (réseau, refus, réponse jetée) ne laisse jamais le client sans réponse : try/catch, journal, et le menu — sans la mention « hors du Togo », retirée à la demande de Timo (RETOURNÉ le 24/09/2026)",
     /try \{\s*const conv = await converserAvecIA/.test(corpsR) && /catch \(e\) \{\s*console\.error\("\[whatsapp-entrant\] IA indisponible, le menu reprend/.test(corpsR)
-    && /if \(essaiIA\) r = \{ \.\.\.r, texte: avecMention\(r\.texte, \{ nouvelle \}\) \};/.test(corpsR)
-    && I.avecMention("x", { nouvelle: true }).includes(I.MENTION_SERVICE_EXTERIEUR) && I.avecMention("x", { nouvelle: false }) === "x");
+    && !/avecMention|MENTION_SERVICE_EXTERIEUR/.test(corpsR));
   test("★ la ligne écrite porte la marque `ia`, la demande de devis part par la même écriture qu'avant, la fiche légère suit sans propriétaire",
     // ⚠ RETOURNÉ le 24/09/2026 : la mémoire porte aussi l'estimation donnée.
     /ligneAssistant\(\{ cle, tel: from, nom: client\?\.nom \|\| "", texte: r\.texte, etape: r\.etape, ts, memoire: memoireR, ia: !!r\.ia \}\)/.test(corpsR)
