@@ -3473,6 +3473,9 @@ lit mal est pire qu'un banc absent).
   le même essai, et `DEBUG=1` affiche désormais QUEL déclencheur a refusé.
   ⚠ Dans ce banc, l'apostrophe de « l'exploitant » se DOUBLE dans le
   littéral SQL (`CAT_APPORT="Apport de l''exploitant"`).
+  **Collé par Timo le 24/09/2026** — sa première capture disait
+  `true | false | true` : la phrase de vérification, pas le déclencheur (voir
+  le piège au § 5) ; la ligne corrigée a répondu `true` sur sa base.
 - **Le banc** (`verifier-cloisonnement`, **1865** contrôles) exerce la
   marche (partage automatique, même jour, mise de départ, solde négatif),
   les refus, le journal 104, lit le composant, le tableau de bord, la carte,
