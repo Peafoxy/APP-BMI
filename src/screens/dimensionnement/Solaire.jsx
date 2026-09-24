@@ -11,30 +11,17 @@ import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from ".
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
+import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
+// Réexportés : d'autres fichiers et le banc les lisent ici depuis toujours.
+export { SOLEIL_DEFAUT, TENSION_DEFAUT, supportsDuStock };
 
 
 
-// ⚠ Demande Timo (18/08/2026) : « MPPT » dans le nom d'un CONVERTISSEUR
-// signifie qu'il l'a intégré, au même titre que « hybride ». Sans cela, un
-// convertisseur nommé « SOSEN 5.5KVA MPPT » faisait ajouter au devis un
-// régulateur que le client avait déjà payé dedans.
-// Aucun risque de confusion avec le RÔLE « Régulateur MPPT » : cette
-// fonction n'est appliquée qu'au convertisseur retenu, jamais au stock
-// entier — et un article nommé « RÉGULATEUR MPPT » n'est jamais retenu
-// comme convertisseur (il lui faudrait convertisseur/onduleur/inverter
-// dans son nom).
-const estHybrideTexte = (texte) => /hybride|hybrid|mppt/i.test(texte || "");
 // ⚠ Le prix du rail n'est plus figé ici : il se règle dans ⚙ Paramètres
 // (prixRailMetre), pour que Timo puisse le changer lui-même quand son
 // fournisseur bouge. Le repli intégré vaut l'ancien 5 500 F, donc une base
 // qui n'a jamais touché au réglage calcule exactement comme avant.
 
-const ROLES_EQUIPEMENT = [
-  { id: "panneau", label: "Panneaux solaires", mots: ["panneau", "panel", "photovolta", "pv "], unites: ["w", "wc"] },
-  { id: "batterie", label: "Batteries", mots: ["batterie", "battery", "lifepo4", "lithium"], unites: ["ah"] },
-  { id: "convertisseur", label: "Convertisseur", mots: ["convertisseur", "onduleur", "inverter", "inverseur"], unites: ["w", "va"] },
-  { id: "regulateur", label: "Régulateur MPPT", mots: ["régulateur", "regulateur", "mppt", "chargeur solaire", "controller"], unites: ["a"] },
-];
 
 // Réglages par défaut du volet solaire (demande Timo, 06/09/2026).
 // Reprise d'un devis : les supports de rail et les étriers reviennent avec
@@ -70,7 +57,6 @@ export const supportDepuisLignes = (lignes, articles) => {
 // le devis — les supports seulement, jamais tout le stock (Timo, 14/09/2026 :
 // « une liste déroulante dans laquelle seuls les supports sont
 // sélectionnables, et non tous les articles »).
-export const supportsDuStock = (produits) => (produits || []).filter((p) => (/support/i.test(p.nom) || /support/i.test(p.categorie || "")) && !/[ée]trier/i.test(p.nom));
 // UN seul lien pour revenir au calcul, partout où une ligne s'en écarte
 // (Timo, 08/09/2026 : « prendre la règle existante — revenir à la sélection
 // automatique ») : article ou quantité choisis à la main, rails, supports,
@@ -78,8 +64,6 @@ export const supportsDuStock = (produits) => (produits || []).filter((p) => (/su
 const LienAuto = ({ onClick }) => (
   <button onClick={onClick} className="text-xs text-slate-500 underline whitespace-nowrap">Annuler (revenir à la sélection automatique)</button>
 );
-export const SOLEIL_DEFAUT = "5";
-export const TENSION_DEFAUT = "48";
 
 export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, devisAReprendre, onDevisRepriseConsomme, bq, setBq }) {
   // ⚠ bq/setBq viennent du conteneur (index.jsx) : UNE seule boutique pour
@@ -189,12 +173,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // donc de classe 24 V) était classé 48 V. Chaque convertisseur étiqueté en
   // VA montait d'un cran et se voyait proposé sur le mauvais système.
   // On lui passe désormais des WATTS UTILES, comme partout ailleurs.
-  const tensionInfereeConvertisseur = (w) => {
-    const kw = w / 1000;
-    if (kw <= 2.5) return 12;
-    if (kw <= 4.5) return 24;
-    return 48;
-  };
 
   // Batterie : la tension est presque toujours écrite en toutes lettres
   // dans le nom (ex. « BATERIE 25.6V300AH ») — on la lit directement plutôt
@@ -204,15 +182,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // n'est trouvée dans le nom, on reste permissif (on ne bloque pas sur du
   // flou) — signalé par Timo après une batterie 25,6V proposée à tort sur
   // un système 48V.
-  const tensionInfereeBatterie = (nomTexte) => {
-    const m = String(nomTexte || "").match(/(\d+(?:[.,]\d+)?)\s*V(?!A)/i);
-    if (!m) return null;
-    const v = Number(m[1].replace(",", "."));
-    if (v >= 10 && v <= 15) return 12;
-    if (v >= 20 && v <= 30) return 24;
-    if (v >= 40 && v <= 56) return 48;
-    return null;
-  };
 
   // Type de batterie (Lithium/Gel/Plomb) lu dans le nom — un article dont
   // le nom mentionne clairement un autre type que celui choisi est exclu ;
@@ -223,18 +192,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // toujours choisie même en sélectionnant Lithium. "Plomb / AGM" retiré du
   // choix (demande Timo) — un article de ce type reste malgré tout exclu de
   // partout, puisqu'il ne correspond jamais ni à "lifepo4" ni à "gel".
-  const MOTS_TYPE_BATTERIE = {
-    lifepo4: ["lifepo4", "lithium", "li-ion", "lifep04"],
-    gel: ["gel"],
-    plomb: ["plomb", "agm", "acide"],
-  };
-  const typeBatterieInfere = (nomTexte) => {
-    const t = nomTexte.toLowerCase();
-    for (const [type, mots] of Object.entries(MOTS_TYPE_BATTERIE)) {
-      if (mots.some((m) => t.includes(m))) return type;
-    }
-    return "lifepo4"; // rien de mentionné → considéré Lithium par défaut
-  };
 
   // ⚠ Dire POURQUOI (relevé par Timo, 18/08/2026) — l'écran se contentait de
   // « Aucun article correspondant ». Timo avait trois batteries sous les yeux,
@@ -253,7 +210,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // par son nom, exactement comme avant. Le nouveau système ne peut donc que
   // faire mieux là où il s'applique ; il ne peut jamais rendre un article
   // invisible.
-  const idDomaineSolaire = (domainesDefinis(db).find((d) => d.calcul === "solaire") || {}).id || "solaire";
+  const idDomaineSolaire = idDomaineSolaireDes(db.boutiques);
 
   const examiner = (role) => produitsBoutique.map((p) => {
     const texte = p.nom + " " + (p.categorie || "");
@@ -330,42 +287,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     return `${liste.length} article${liste.length > 1 ? "s" : ""} en stock écarté${liste.length > 1 ? "s" : ""} (nom illisible ou caractéristiques différentes).`;
   };
 
-  const candidats = (role) => produitsBoutique
-    .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
-    .filter(({ p, spec }) => {
-      const texte = (p.nom + " " + (p.categorie || "")).toLowerCase();
-      // Même règle que examiner() : le rangement d'abord, le nom en repli.
-      const motCorrespond = p.domaine
-        ? (p.domaine === idDomaineSolaire && memeFamille(p.categorie, role.label))
-        : contientLeMot(p.nom + " " + (p.categorie || ""), role.mots);
-      const uniteOk = spec && role.unites.includes(spec.unite);
-      // Tension : ne jamais proposer un convertisseur 48V pour un système
-      // réglé sur 24V, ou l'inverse. Priorité à une tension EXPLICITEMENT
-      // taguée en stock ; à défaut, on l'infère (batterie : lue dans le
-      // nom ; convertisseur : déduite de la puissance) ; si même
-      // l'inférence ne trouve rien de clair, on reste permissif.
-      let tensionOk = true;
-      if (role.id === "batterie") {
-        tensionOk = p.tension
-          ? Number(p.tension) === Number(tension)
-          : (() => { const dev = tensionInfereeBatterie(p.nom); return dev === null || dev === Number(tension); })();
-      } else if (role.id === "convertisseur") {
-        tensionOk = p.tension
-          ? Number(p.tension) === Number(tension)
-          : (!spec || tensionInfereeConvertisseur(puissanceUtileW(spec)) === Number(tension));
-      }
-      let typeOk = true;
-      if (role.id === "batterie") {
-        typeOk = typeBatterieInfere(p.nom) === typeBatterie;
-      }
-      return motCorrespond && uniteOk && tensionOk && typeOk;
-    });
+  // La règle vit dans lib/choixSolaire.js (24/09/2026) : le serveur la lit
+  // aussi, pour l'estimation que l'assistant WhatsApp donne au client.
+  const candidats = (role) => candidatsSolaire(produitsBoutique, role, { tension, typeBatterie, idDomaineSolaire });
 
   // Panneaux/batteries : le plus gros calibre dispo (on empile plusieurs unités).
   // Convertisseur/régulateur : le plus PETIT modèle qui couvre le besoin (un seul article,
   // inutile de payer un calibre surdimensionné) ; si aucun ne suffit seul, on prend le plus
   // gros dispo et on complète avec plusieurs unités.
-  const empilable = (roleId) => roleId === "panneau" || roleId === "batterie";
 
   // Mode Libre : pas de stock à chercher, on propose directement la
   // caractéristique complète nécessaire (aucun prix — aucun article réel
@@ -401,27 +330,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   const meilleurChoix = (role) => {
     if (modeLibre) return specLibre(role);
-    // ⚠ On compare TOUJOURS des watts utiles : un convertisseur « 5000VA »
-    // ne délivre que 4 000 W (voir puissanceUtileW). Le tri, le choix et la
-    // quantité passent donc par valeurUtile(), jamais par le chiffre brut
-    // inscrit dans le nom de l'article.
-    const valeurUtile = (o) => (role.id === "convertisseur" ? puissanceUtileW(o.spec) : o.spec.valeur);
-    const options = candidats(role).sort((a, b) => valeurUtile(a) - valeurUtile(b));
-    const besoin = besoinParRole[role.id];
-    if (options.length === 0 || besoin <= 0) return null;
-
-    if (!empilable(role.id)) {
-      const suffisant = options.find((o) => valeurUtile(o) >= besoin);
-      if (suffisant) return { type: "stock", produit_id: suffisant.p.id, qte: 1 };
-      // Aucun modèle seul ne suffit : on prend le plus gros et on complète en quantité
-      const plusGros = options[options.length - 1];
-      const qte = quantiteNecessaire(besoin, valeurUtile(plusGros));
-      return { type: "stock", produit_id: plusGros.p.id, qte };
-    }
-
-    const meilleur = options[options.length - 1];
-    const qte = quantiteNecessaire(besoin, valeurUtile(meilleur));
-    return { type: "stock", produit_id: meilleur.p.id, qte };
+    // Watts utiles, plus petit modèle suffisant ou empilement : la règle
+    // vit dans lib/choixSolaire.js (choixDuStock), lue aussi par le serveur.
+    return choixDuStock(produitsBoutique, role, besoinParRole[role.id], { tension, typeBatterie, idDomaineSolaire });
   };
 
   // choix[roleId] = { type: "stock", produit_id, qte } OU { type: "manuel", nom, prix, qte }
@@ -610,7 +521,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // La CATÉGORIE de la ligne reste « Rails de fixation » : c'est la clé qui
   // permet de retrouver cette ligne quand on reprend un ancien devis.
   const nombrePanneaux = choix.panneau?.qte || 0;
-  const railsCalcules = (n) => (n > 0 ? Math.ceil(n * 2.2) : 0);
+  const railsCalcules = metresRailPourPanneaux;
   // Si un article "Rails de fixation" existe réellement en stock, on relie
   // la ligne à lui — la VRAIE quantité calculée sera alors déduite du stock
   // à la vente. Le prix, lui, reste TOUJOURS celui calculé ici (5 500 F),
@@ -659,7 +570,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const [supportId, setSupportId] = useState(() =>
     (lignesReprises.length ? supportDepuisLignes(lignesReprises, produitsBoutique)?.id : (choixDuBrouillon ? brouillon.supportId : null)) || null);
   const articleSupportsStock = articlesSupportsStock.find((p) => p.id === supportId) || articlesSupportsStock[0] || null;
-  const articleEtriersStock = produitsBoutique.find((p) => /[ée]trier/i.test(p.nom) || /[ée]trier/i.test(p.categorie || ""));
+  const articleEtriersStock = etrierDuStock(produitsBoutique);
   // Chaque ligne a sa case de quantité (demande Timo, 08/09/2026) : la
   // valeur calculée est proposée, on peut la corriger ou la mettre à 0 pour
   // s'en passer. Une correction est mémorisée AVEC la base qui l'a produite

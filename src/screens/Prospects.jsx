@@ -437,6 +437,9 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                       <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" className="ml-1 text-sky-700 underline text-xs whitespace-nowrap">📍 Voir sur la carte</a>
                     )}
                     {p.nature && <div className="text-xs text-slate-500 mt-1 italic">🔧 {p.nature}</div>}
+                    {/* L'estimation que l'assistant a donnée au client (24/09/2026) :
+                        le vendeur doit savoir quel chiffre le client a en tête. */}
+                    {p.estimation_assistant && <div className="text-xs text-violet-800 mt-1" data-estimation-assistant>🤖 Estimation donnée au client le {dFR(p.estimation_assistant.le)} : entre {fmt(p.estimation_assistant.bas)} et {fmt(p.estimation_assistant.haut)} (indicative, pose comprise)</div>}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.statut === "Favorable" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{p.statut}</span>

@@ -1744,7 +1744,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <div className="text-xs text-slate-500 mb-3">
           Quand un client écrit au numéro BMI et que la conversation n'est à personne, l'assistant répond tout seul.
           <b> En conversation par IA</b>, il discute en phrases et pose ses questions ; tout ce qu'il affirme vient de l'application :
-          prix et disponibilité d'un article (jamais la quantité en stock), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller.
+          prix et disponibilité d'un article (jamais la quantité en stock), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller,
+          et pour le <b>solaire seulement</b> une <b>estimation indicative en fourchette</b> (± 15 %, pose comprise, calculée avec les réglages d'office — 1 jour d'autonomie, 5 h de soleil, 48 V, lithium — et le stock réel des boutiques), notée sur la fiche du prospect.
           Il n'invente <b>jamais</b> un prix, un délai ni une caractéristique, ne parle <b>jamais</b> d'une dette ni d'un crédit, ne se fait jamais passer pour une personne ; une réponse qui sortirait de ces règles est jetée avant de partir.
           <b> En menu à chiffres</b>, il propose les huit choix de votre mot d'accueil.
           <b> Il se tait</b> dans les deux cas sur une conversation confiée, dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.

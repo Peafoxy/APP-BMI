@@ -2946,10 +2946,16 @@ titre("Un convertisseur en VA n'est plus classe une tension trop haut");
   // (facteur 0,8) et s'en sert pour le dimensionnement. Un « 5000VA »
   // (4 000 W reels, classe 24 V) etait classe 48 V.
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  // ⚠ RETOURNÉ le 24/09/2026 : le choix du matériel a quitté l'écran pour
+  // lib/choixSolaire.js (le serveur le lit aussi, pour l'estimation de
+  // l'assistant). Les deux endroits sont donc l'écran (examiner) ET la règle
+  // (candidatsSolaire) — toujours deux, toujours des watts utiles.
+  const libChoix = readFileSync("src/lib/choixSolaire.js", "utf8");
   test("★ les deux endroits passent des WATTS UTILES, plus la valeur brute",
-    (sol.match(/tensionInfereeConvertisseur\(puissanceUtileW\(spec\)\)/g) || []).length === 2);
+    (sol.match(/tensionInfereeConvertisseur\(puissanceUtileW\(spec\)\)/g) || []).length === 1
+    && (libChoix.match(/tensionInfereeConvertisseur\(puissanceUtileW\(spec\)\)/g) || []).length === 1);
   test("★ plus aucun appel avec spec.valeur",
-    !/tensionInfereeConvertisseur\(spec\.valeur\)/.test(sol));
+    !/tensionInfereeConvertisseur\(spec\.valeur\)/.test(sol) && !/tensionInfereeConvertisseur\(spec\.valeur\)/.test(libChoix));
 
   // La regle de Timo, en kW : 0-2,5 → 12V ; 2,6-4,5 → 24V ; au-dela → 48V.
   const tension = (w) => { const kw = w / 1000; return kw <= 2.5 ? 12 : kw <= 4.5 ? 24 : 48; };
@@ -4081,8 +4087,14 @@ titre("Dimensionnement solaire : 5 h de soleil et 48 V par défaut, et les artic
   // l'écran. Une seule ligne grise ; et le stock étant en 48 V, le système
   // démarre en 48 V, avec 5 h de soleil.
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  // ⚠ RETOURNÉ le 24/09/2026 : les réglages d'office vivent dans
+  // lib/choixSolaire.js (ce sont aussi les « valeurs par défaut » de
+  // l'estimation de l'assistant, décision « 1 » de Timo) ; l'écran les
+  // importe et les réexporte.
+  const libChoixD = readFileSync("src/lib/choixSolaire.js", "utf8");
   test("★ SOLEIL_DEFAUT = 5 h et TENSION_DEFAUT = 48 V, utilisés par l'écran",
-    /export const SOLEIL_DEFAUT = "5";/.test(sol) && /export const TENSION_DEFAUT = "48";/.test(sol)
+    /export const SOLEIL_DEFAUT = "5";/.test(libChoixD) && /export const TENSION_DEFAUT = "48";/.test(libChoixD)
+    && /import \{[^}]*SOLEIL_DEFAUT, TENSION_DEFAUT[^}]*\} from "\.\.\/\.\.\/lib\/choixSolaire"/.test(sol)
     && /brouillon\?\.soleil \?\? SOLEIL_DEFAUT/.test(sol) && /brouillon\?\.tension \?\? TENSION_DEFAUT/.test(sol));
   test("★ les écartés tiennent en une ligne (ligneEcartes), plus de liste article par article",
     /const ligneEcartes = \(role\) =>/.test(sol) && !/article\(s\) écarté\(s\) :/.test(sol) && !/<li key=\{x\.p\.id\}>/.test(sol));
@@ -4266,7 +4278,10 @@ titre("Solaire : UN lien « revenir à la sélection automatique », sur chaque 
     /const ecarte = !enLibre && !enManuel && \(!!rolesManuels\[l\.role\.id\] \|\| \(auto \? \(!c \|\| c\.type !== "stock" \|\| c\.produit_id !== auto\.produit_id \|\| c\.qte !== auto\.qte\) : !!c\)\);/.test(sol)
     && /\{ecarte && <LienAuto onClick=\{\(\) => annulerManuel\(l\.role\.id\)\} \/>\}/.test(sol));
   test("★ rails : le lien apparaît quand les mètres saisis diffèrent du calcul (panneaux × 2,2) et y reviennent",
-    /const railsCalcules = \(n\) => \(n > 0 \? Math\.ceil\(n \* 2\.2\) : 0\);/.test(sol)
+    // ⚠ RETOURNÉ le 24/09/2026 : la règle panneaux × 2,2 vit dans
+    // lib/choixSolaire.js (metresRailPourPanneaux), que l'écran nomme.
+    /const railsCalcules = metresRailPourPanneaux;/.test(sol)
+    && /export const metresRailPourPanneaux = \(n\) => \(n > 0 \? Math\.ceil\(n \* 2\.2\) : 0\);/.test(readFileSync("src/lib/choixSolaire.js", "utf8"))
     && /\{railsQte !== railsCalcules\(nombrePanneaux\) && <div className="mt-1"><LienAuto onClick=\{\(\) => setRailsQte\(railsCalcules\(nombrePanneaux\)\)\} \/><\/div>\}/.test(sol));
   test("★ supports / étriers : le lien apparaît quand une correction est active et la retire (retour au calcul)",
     /const annulerFixation = \(cle\) => setFixationManuelle\(\(f\) => \{ const n = \{ \.\.\.f \}; delete n\[cle\]; return n; \}\);/.test(sol)

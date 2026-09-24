@@ -32,7 +32,10 @@ import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssist
 // 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
 // qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
 // la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
-import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, avecMention, modeAssistant } from "../src/lib/assistantIA.js";
+import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, avecMention, modeAssistant, demandeDevisIA, derniereEstimation } from "../src/lib/assistantIA.js";
+// L'estimation solaire lit LA règle du vendeur et LA liste des appareils.
+import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } from "../src/lib/choixSolaire.js";
+import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
 import { configIA, appelerIA } from "./_assistantIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
@@ -260,20 +263,47 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   // UNE fois : quand l'IA appelle chercher_article, ou quand le menu peut
   // viser un article.
   let articlesCharges = null;
+  let produitsBruts = null;
+  const chargerProduits = async () => {
+    if (!produitsBruts) {
+      const { data: prods } = await admin.from("produits").select("id, data");
+      produitsBruts = (prods || []).map((l) => ({ ...(l.data || {}), id: l.id }));
+    }
+    return produitsBruts;
+  };
   const chargerArticles = async () => {
     if (articlesCharges) return articlesCharges;
-    const [{ data: prods }, { data: vts }, { data: ajs }] = await Promise.all([
-      admin.from("produits").select("id, data"),
+    const [produits, { data: vts }, { data: ajs }] = await Promise.all([
+      chargerProduits(),
       admin.from("ventes").select("id, data"),
       admin.from("ajustements").select("data"),
     ]);
     articlesCharges = articlesPourAssistant({
-      produits: (prods || []).map((l) => ({ ...(l.data || {}), id: l.id })),
+      produits,
       boutiques,
       ventes: (vts || []).map((l) => ({ ...(l.data || {}), id: l.id })),
       ajustements: (ajs || []).map((l) => l.data || {}),
     });
     return articlesCharges;
+  };
+  // ⚠ LE MUR : l'estimation ne regarde que les boutiques RÉELLES (une
+  // boutique de formation a des prix d'entraînement) ; chacune chiffre avec
+  // SON stock. Le catalogue des appareils est celui réglé sur une boutique
+  // réelle, sinon la liste d'origine.
+  const reelles = boutiques.filter((b) => b && b.nom && !b.formation);
+  const contexteSolaire = async () => {
+    const produits = await chargerProduits();
+    const perso = (reelles.find((b) => Array.isArray(b.appareils_catalogue)) || {}).appareils_catalogue || [];
+    return {
+      catalogue: fusionnerCatalogue(perso),
+      boutiquesSolaire: reelles.map((b) => ({
+        nom: b.nom,
+        produits: produits.filter((p) => p.boutique === b.nom),
+        prixRail: prixRailDesBoutiques(reelles),
+        longueurRail: longueurRailDesBoutiques(reelles),
+        idDomaineSolaire: idDomaineSolaireDes(reelles),
+      })),
+    };
   };
 
   // ---- 🤖 D'ABORD L'IA, si elle est choisie ET configurée ----
@@ -294,6 +324,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
         executer: async (nom, entree) => executerOutil(nom, entree, {
           articles: nom === "chercher_article" ? await chargerArticles() : [],
           client: clientIA,
+          ...(nom === "estimer_solaire" ? await contexteSolaire() : {}),
         }),
       });
       const juge = garderReponse(conv.texte, { prixConnus: conv.effets.prix });
@@ -339,13 +370,18 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   // La réponse se range APRÈS le message du client (une seconde plus tard
   // au moins), sinon le fil la lirait avant la question.
   const ts = new Date(Math.max(Date.now(), Date.parse(ligne.ts) + 1000)).toISOString();
-  const ligneR = ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: r.memoire || null, ia: !!r.ia });
+  // L'estimation donnée se range dans la mémoire de la ligne : la demande de
+  // devis d'un tour suivant la retrouve (derniereEstimation).
+  const memoireR = r.estimation ? { ...(r.memoire || {}), estimation: r.estimation } : (r.memoire || null);
+  const ligneR = ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: memoireR, ia: !!r.ia });
   const { error: errIns } = await admin.from("messages").insert({ id: ligneR.id, data: ligneR, updated_at: ligneR.ts });
   if (errIns) throw errIns;
 
   let nom = "";
   if (r.demandeDevis) {
-    const p = construireDemandeDevis({ cle, tel: from, nom: r.demandeDevis.nom, besoin: r.demandeDevis.besoin, ts });
+    const p = r.ia
+      ? demandeDevisIA({ cle, tel: from, demandeDevis: r.demandeDevis, ts, estimation: r.estimation || derniereEstimation(fil) })
+      : construireDemandeDevis({ cle, tel: from, nom: r.demandeDevis.nom, besoin: r.demandeDevis.besoin, ts });
     nom = p.nom;
     const { error: errP } = await admin.from("prospects").insert({ id: p.id, data: p, updated_at: ts });
     if (errP) console.error("[whatsapp-entrant] assistant : demande de devis non enregistrée", errP);

@@ -32,6 +32,11 @@
 // `db` — des listes déjà filtrées (les articles des boutiques RÉELLES).
 // ============================================================
 import { NOM_ASSISTANT, SIGNATURE_BMI, LIGNES_MENU, chercherArticles, construireDemandeDevis, ETAPE_CONSEILLER, texteDemandeEnregistree, TEXTE_RELAIS_CONSEILLER } from "./assistantWhatsapp.js";
+// L'estimation solaire (24/09/2026, décisions « 1 valeur par défaut, 2 en
+// fourchette, 3 solaire ») : la lecture des appareils et le calcul sont
+// LES règles de l'application, jamais une copie.
+import { lireAppareils } from "./besoinSolaire.js";
+import { estimationSolaire, texteEstimation } from "./choixSolaire.js";
 
 // L'étape que porte une ligne écrite par l'IA : la mémoire est le fil
 // lui-même, il n'y a pas de « menu » ni de « produit » à retenir.
@@ -65,6 +70,7 @@ CE QUE FAIT BMI TOGO
 ${activites}
 - 🛒 Vente de produits et d'équipements (prix, disponibilité, caractéristiques) — par l'outil chercher_article.
 - 🧾 Devis, établis par un vendeur de BMI TOGO — tu enregistres la DEMANDE par l'outil enregistrer_demande_devis.
+- ☀️ Pour le solaire seulement, une ESTIMATION indicative en fourchette — par l'outil estimer_solaire.
 - 🔧 SAV et assistance technique, et 👨‍💼 conseillers — par l'outil passer_conseiller.
 
 CE QUE TU AS LE DROIT DE DIRE
@@ -82,6 +88,8 @@ CE QUE TU NE DIS JAMAIS
 
 COMMENT TU T'Y PRENDS
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
+- Pour une installation SOLAIRE, quand le client a décrit ses appareils (lesquels, combien, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre, puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
+- Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
 - Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis. Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
 - Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro.
 - Une photo, un document ou un message vocal : tu ne peux pas les lire ; dis-le et appelle passer_conseiller.
@@ -115,6 +123,15 @@ export const OUTILS_IA = [
         besoin: { type: "string", description: "Le besoin, avec les mots du client : appareils, heures d'utilisation, lieu, type de projet" },
       },
       required: ["besoin"],
+    },
+  },
+  {
+    name: "estimer_solaire",
+    description: "Pour une installation solaire uniquement : calcule avec les règles et le stock de BMI TOGO une estimation INDICATIVE en fourchette (nombre de panneaux, batteries, convertisseur, prix entre X et Y, pose comprise). Donner les mots du client tels quels : appareils, quantités, puissance si connue, heures d'utilisation par jour. Refuse s'il manque une puissance ou des heures, et dit quoi demander.",
+    input_schema: {
+      type: "object",
+      properties: { description: { type: "string", description: "Les appareils décrits par le client, avec ses mots : « 2 clims 1,5 CV 8 h par jour, 10 ampoules toute la nuit, un congélateur 24 h sur 24 »" } },
+      required: ["description"],
     },
   },
   {
@@ -184,6 +201,23 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
       effets: { prix: [], demandeDevis: { nom: nomClient, besoin }, conseiller: true, type: "devis" },
     };
   }
+  if (nom === "estimer_solaire") {
+    const description = String(e.description || "").trim();
+    const appareils = lireAppareils(description, contexte.catalogue || []);
+    const inconnus = appareils.filter((a) => !a.reconnu).map((a) => a.nom);
+    const est = estimationSolaire(appareils, contexte.boutiquesSolaire || []);
+    if (!est.ok) {
+      return {
+        resultat: `Pas d'estimation. ${est.motif}${inconnus.length ? ` Appareils non reconnus : ${inconnus.join(", ")}.` : ""} Ne donner AUCUN chiffre.`,
+        effets: { prix: [], demandeDevis: null, conseiller: false },
+      };
+    }
+    const phrase = texteEstimation(est);
+    return {
+      resultat: `Estimation calculée par l'application. Recopier cette phrase telle quelle, sans changer un chiffre : « ${phrase} » Puis proposer d'enregistrer une demande de devis.`,
+      effets: { prix: [est.bas, est.haut], demandeDevis: null, conseiller: false, estimation: { bas: est.bas, haut: est.haut, texte: phrase, appareils: description } },
+    };
+  }
   if (nom === "passer_conseiller") {
     const type = ["conseiller", "sav", "paiement"].includes(e.type) ? e.type : "conseiller";
     return {
@@ -206,12 +240,27 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
 // ⚠ Pas de `\b` : en JavaScript il ne connaît que les lettres ASCII, et
 // « dû » finit par une lettre accentuée — « montant dû » passait au travers.
 export const MOTS_INTERDITS_IA = /(?<![a-zà-ÿ])(dette|dettes|cr[ée]dit|cr[ée]dits|solde|soldes|mot de passe|identifiant|identifiants|montant d[ûu])(?![a-zà-ÿ])/i;
+// ⚠ 24/09/2026, trouvé en ajoutant l'estimation : « 5,5 millions de francs »
+// ou « 500 mille » n'étaient PAS lus comme des montants — l'IA aurait pu
+// écrire un prix inventé sous cette forme sans que le juge le voie. Un
+// nombre suivi de « million(s) » ou de « mille » est un montant, avec ou sans
+// le mot francs derrière.
+const ESPACES = /[\s\u00a0\u202f]/g;
 export function montantsCites(texte) {
   const out = [];
-  const re = /(\d[\d\s  .,]*)\s*(?:F\b|FCFA|F\s*CFA|francs?)/gi;
+  const t = String(texte || "");
+  const pris = [];
+  const reGrand = /(\d+(?:[.,]\d+)?)\s*(millions?|mille)(?![a-zà-ÿ])/gi;
   let m;
-  while ((m = re.exec(String(texte || "")))) {
-    const n = Number(m[1].replace(/[\s  .]/g, "").replace(",", "."));
+  while ((m = reGrand.exec(t))) {
+    const n = Number(m[1].replace(",", ".")) * (/^million/i.test(m[2]) ? 1e6 : 1e3);
+    if (Number.isFinite(n)) { out.push(Math.round(n)); pris.push([m.index, m.index + m[0].length]); }
+  }
+  const re = /(\d[\d\s\u00a0\u202f.,]*)\s*(?:F\b|FCFA|F\s*CFA|francs?)/gi;
+  while ((m = re.exec(t))) {
+    const debut = m.index;
+    if (pris.some(([a, b]) => debut >= a && debut < b)) continue;
+    const n = Number(m[1].replace(ESPACES, "").replace(/\./g, "").replace(",", "."));
     if (Number.isFinite(n)) out.push(Math.round(n));
   }
   return out;
@@ -236,7 +285,7 @@ export function garderReponse(texte, { prixConnus = [] } = {}) {
 // ce qu'on a — un service qui boucle ne doit jamais coûter sans fin.
 export async function converserAvecIA({ consigne, messages, appeler, executer, outils = OUTILS_IA, maxTokens = MAX_TOKENS_REPONSE } = {}) {
   const suite = [...(messages || [])];
-  const effets = { prix: [], demandeDevis: null, conseiller: false, type: "" };
+  const effets = { prix: [], demandeDevis: null, conseiller: false, type: "", estimation: null };
   let texte = "";
   let tours = 0;
   if (!suite.length || suite[suite.length - 1].role !== "user") return { texte: "", effets, tours, motif: "rien du client" };
@@ -257,6 +306,7 @@ export async function converserAvecIA({ consigne, messages, appeler, executer, o
       const ef = r?.effets || {};
       if (Array.isArray(ef.prix)) effets.prix.push(...ef.prix);
       if (ef.demandeDevis && !effets.demandeDevis) effets.demandeDevis = ef.demandeDevis;
+      if (ef.estimation) effets.estimation = ef.estimation;
       if (ef.conseiller) { effets.conseiller = true; effets.type = ef.type || effets.type || "conseiller"; }
     }
     suite.push({ role: "user", content: resultats });
@@ -285,7 +335,10 @@ export const avecMention = (texte, { nouvelle }) => (nouvelle ? `ℹ️ ${MENTIO
 //       rien de ce qui a été DIT de travers ne part).
 export function reponseDepuisIA({ texte, effets, juge, nouvelle }) {
   const ef = effets || { prix: [], demandeDevis: null, conseiller: false };
-  const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}) });
+  // L'estimation part avec la réponse (le serveur la range sur la ligne, pour
+  // la retrouver sur la fiche 🧲 Prospects) — seulement si la réponse est
+  // celle que l'IA a écrite : une phrase fixe ne la cite pas.
+  const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
   if (juge?.ok) return pose(texte, etapeApresIA(ef), !!ef.conseiller, "");
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);
   if (ef.demandeDevis) return pose(texteDemandeEnregistree(ef.demandeDevis.nom), ETAPE_CONSEILLER, true, juge?.motif || "");
@@ -295,8 +348,17 @@ export function reponseDepuisIA({ texte, effets, juge, nouvelle }) {
 
 // La fiche 🧲 Prospects d'une demande enregistrée par l'IA : la MÊME
 // fabrique que l'assistant à menu (une seule forme de fiche).
-export const demandeDevisIA = ({ cle, tel, demandeDevis, ts }) =>
-  construireDemandeDevis({ cle, tel, nom: demandeDevis.nom, besoin: demandeDevis.besoin, ts });
+// L'estimation donnée au client (même tour, ou plus tôt dans le fil) suit
+// sur la fiche : le vendeur doit savoir quel chiffre le client a en tête.
+export const demandeDevisIA = ({ cle, tel, demandeDevis, ts, estimation = null }) => ({
+  ...construireDemandeDevis({ cle, tel, nom: demandeDevis.nom, besoin: demandeDevis.besoin, ts }),
+  ...(estimation ? { estimation_assistant: { bas: estimation.bas, haut: estimation.haut, texte: estimation.texte, le: String(ts || "").slice(0, 10) } } : {}),
+});
+// La dernière estimation donnée dans le fil (lignes de l'assistant).
+export const derniereEstimation = (fil) => {
+  const l = [...(fil || [])].reverse().find((m) => m && m.wa_assistant && m.wa_assistant.memoire && m.wa_assistant.memoire.estimation);
+  return l ? l.wa_assistant.memoire.estimation : null;
+};
 
 // ---- LE RÉGLAGE : conversation par IA, ou menu à chiffres ----
 // Une POLITIQUE sur les boutiques (`assistant_wa_mode`), comme `assistant_wa`.

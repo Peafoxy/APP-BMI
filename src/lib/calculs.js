@@ -8,6 +8,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { PERTES_PCT_DEFAUT } from "./pompes.js";
+import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES, MOYENS_ENCAISSEMENT } from "./constants";
@@ -2531,22 +2532,18 @@ export const idDepuisNom = (nom) => String(nom || "")
   .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 24);
 
-export const PRIX_RAIL_DEFAUT = 5500;
-export const prixRailMetre = (db) => {
-  const b = (db?.boutiques || []).find((x) => Number(x.prix_rail) > 0);
-  return b ? Number(b.prix_rail) : PRIX_RAIL_DEFAUT;
-};
+// ⚠ La règle vit dans lib/choixSolaire.js depuis le 24/09/2026 (le serveur
+// la lit aussi, pour l'estimation de l'assistant WhatsApp) : importée ET
+// réexportée — `export { x } from` ne crée pas de nom local.
+export { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT };
+export const prixRailMetre = (db) => prixRailDesBoutiques(db?.boutiques);
 // ---- LONGUEUR D'UNE BARRE DE RAIL (14/09/2026) ----
 // Timo : « le rail est vendu à l'unité de 4,2 m dans le stock ; dans le
 // dimensionnement c'est au mètre ». Le stock compte des BARRES, le devis des
 // MÈTRES : la longueur d'une barre fait le pont (règle `barresDeRail`,
 // lib/solaire.js). Réglable dans ⚙ Paramètres à côté du prix du mètre, rangé
 // pareil (sur les boutiques, aucune table nouvelle).
-export const LONGUEUR_RAIL_DEFAUT = 4.2;
-export const longueurRailBarre = (db) => {
-  const b = (db?.boutiques || []).find((x) => Number(x.longueur_rail) > 0);
-  return b ? Number(b.longueur_rail) : LONGUEUR_RAIL_DEFAUT;
-};
+export const longueurRailBarre = (db) => longueurRailDesBoutiques(db?.boutiques);
 
 // ⚠ LES FROTTEMENTS DANS LE TUYAU D'UN FORAGE — une ESTIMATION, jamais un
 // chiffre exact : ils dépendent du diamètre du tuyau, que nous ne demandons

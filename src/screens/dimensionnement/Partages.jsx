@@ -38,37 +38,12 @@ export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBro
 import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel } from "../../lib/calculs";
 import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock } from "./devisCommun";
-
-// ⚠ VA ≠ WATTS (2.100.40, demande Timo) — la puissance utile d'un
-// convertisseur annoncé en VA n'est pas son chiffre en VA : c'est ce chiffre
-// multiplié par le facteur de puissance (0,8 en usage courant). L'application
-// comparait pourtant les deux directement : un besoin de 5 000 W acceptait un
-// convertisseur « 5000VA », qui ne délivre en réalité que 4 000 W — le client
-// repartait sous-équipé d'environ 20 %.
-//
-// Le cas « kVA » est déjà couvert en amont : specDepuisNom() ramène kVA en VA
-// (et kW en W) avant d'arriver ici, donc « 5KVA » vaut 5000 va, puis 4000 W.
-// Peu importe donc que l'article soit écrit en VA ou en kVA.
-export const FACTEUR_PUISSANCE_VA = 0.8;
-export const puissanceUtileW = (spec) => {
-  if (!spec) return 0;
-  return spec.unite === "va" ? Math.round(spec.valeur * FACTEUR_PUISSANCE_VA) : spec.valeur;
-};
-
-// ⚠ QUANTITÉ NÉCESSAIRE (2.100.39) — la quantité proposée était plafonnée à
-// 50 unités, EN SILENCE. Au-delà (grosse installation), le devis partait
-// sous-dimensionné sans que personne ne soit prévenu.
-// Le plafond servait en réalité de filet contre une caractéristique mal lue
-// dans le nom d'un article (« PANNEAU 5W » au lieu de « 550W »). On enlève le
-// plafond — la quantité est désormais toujours juste. L'avertissement
-// « quantité inhabituelle » qui l'avait remplacé a été retiré à son tour
-// (Timo, 08/09/2026 : « quelle que soit la quantité ») : aucun message, la
-// quantité affichée se vérifie à l'œil.
-export const quantiteNecessaire = (besoin, valeurUnitaire) => {
-  const u = Number(valeurUnitaire || 0);
-  if (!(u > 0)) return 1;
-  return Math.max(1, Math.ceil(Number(besoin || 0) / u));
-};
+// ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
+// serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
+// IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
+// local, et ce fichier s'en sert (piège touché deux fois, CLAUDE.md § 5).
+import { FACTEUR_PUISSANCE_VA, puissanceUtileW, quantiteNecessaire, simplifierMot, memeFamille, contientLeMot, specDepuisNom } from "../../lib/choixSolaire";
+export { FACTEUR_PUISSANCE_VA, puissanceUtileW, quantiteNecessaire, simplifierMot, memeFamille, contientLeMot, specDepuisNom };
 
 // ⚠ CONDITIONS COMMERCIALES D'UN DEVIS REPRIS (2.100.39) — reprendre un devis
 // rejeté restituait les appareils, les équipements et les accessoires, mais
@@ -94,52 +69,9 @@ export function appliquerConditionsReprises(devis, s) {
   s.setPctInstall(pose ? "10" : String(devis.pct_installation ?? 10));
 }
 
-// ⚠ « BATERIE » n'était pas reconnu (relevé par Timo, 18/08/2026) — ses trois
-// batteries étaient sous ses yeux, l'application affirmait qu'il n'y en avait
-// aucune. Il manquait un T. Tout le reste était pourtant lu correctement :
-// 200 Ah, 300 Ah, et même 51,2 V traduit en système 48 V.
-//
-// Une faute d'une lettre sur le mot dont dépend TOUTE la sélection, ça arrive
-// tous les jours — surtout quand plusieurs personnes saisissent le stock.
-// Plutôt que d'énumérer les fautes une à une, on compare des mots simplifiés :
-// sans accent, et sans lettres doublées. « BATERIE » et « BATTERIE » se
-// ramènent tous deux à « baterie ». Idem pour paneau/panneau,
-// convertiseur/convertisseur, regulateur/régulateur.
-export const simplifierMot = (s) => String(s || "")
-  .toLowerCase()
-  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-  .replace(/(.)\1+/g, "$1");
-
-// Deux noms de famille désignent-ils la même chose ? On compare en simplifié
-// (sans accent ni lettre doublée), et on accepte qu'un nom contienne l'autre :
-// « Photocellules » et « Photocellules (cellules infrarouges) » sont la même
-// famille. L'administrateur peut renommer ses familles dans les Paramètres —
-// si le lien se perd, la recherche par le nom de l'article prend le relais.
-export const memeFamille = (a, b) => {
-  const x = simplifierMot(a).trim(), y = simplifierMot(b).trim();
-  if (!x || !y) return false;
-  if (x === y) return true;
-  return (x.length >= 4 && y.length >= 4) && (x.includes(y) || y.includes(x));
-};
-
-export const contientLeMot = (texte, mots) => {
-  const t = simplifierMot(texte);
-  return mots.some((m) => t.includes(simplifierMot(m)));
-};
-
-// ============ OUTILS DE DIMENSIONNEMENT SOLAIRE ============
-// Extrait une caractéristique numérique du nom d'un article
-// (ex: "Panneau JKM 555W" -> 555 wc, "Convertisseur hybride 3KW" -> 3000 w, "Batterie 200Ah" -> 200 ah)
-export function specDepuisNom(nom) {
-  const m = String(nom || "").match(/(\d+(?:[.,]\d+)?)\s*(kwc|wc|kw|w|kva|va|ah|kg|a|m)\b/i);
-  if (!m) return null;
-  let valeur = parseFloat(m[1].replace(",", "."));
-  let unite = m[2].toLowerCase();
-  if (unite === "kwc") { unite = "wc"; valeur *= 1000; }
-  if (unite === "kw") { unite = "w"; valeur *= 1000; }
-  if (unite === "kva") { unite = "va"; valeur *= 1000; }
-  return { valeur, unite };
-}
+// (VA ≠ watts, quantité jamais plafonnée, « BATERIE » reconnu, familles
+// comparées en simplifié, caractéristique lue dans le nom : leur histoire
+// est écrite dans lib/choixSolaire.js, où ces règles vivent désormais.)
 
 // ---- Bloc « Autres équipements » : lignes libres (nom + prix + quantité) ----
 export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, onRetirer, placeholder, db, produits = [] }) {

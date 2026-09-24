@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 440 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par trois outils et un juge, le faux service joué par le banc)
+npm run verifier-whatsapp        # 462 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3338,9 +3338,80 @@ lit mal est pire qu'un banc absent).
   premier vrai échange dira si la forme de l'appel est juste** : on regarde
   le journal Vercel (« IA indisponible, le menu reprend — … ») avant de
   chercher ailleurs.
-- **Le niveau 3 de l'assistant est donc construit ; l'option « estimation
-  automatique envoyée par le robot » (le 3 de « 1 et 2 ») reste NON
-  construite** — le devis officiel ne part jamais sans une personne.
+- **Le niveau 3 de l'assistant est donc construit** — et le devis officiel
+  ne part toujours jamais sans une personne (voir le § suivant pour
+  l'estimation, construite le même soir).
+
+### ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT — EN FOURCHETTE, JAMAIS UN DEVIS (24/09/2026)
+- Timo : « Devis en pdf ou même une évaluation brève ? » → **le devis PDF
+  déconseillé** (il engage BMI : cachet, signature « Pour BMI Togo »,
+  validité ; et WhatsApp n'envoie un PDF que depuis une adresse publique, or
+  on ne range pas de fichiers dans la base, décision du 20/09) ; **une
+  évaluation brève en TEXTE proposée**. Puis, à « de quel chiffre ? » : le
+  prix total du matériel, pose comprise. Ses trois réponses : **« 1 valeur
+  par défaut, 2 en fourchette, 3 solaire »**. Ne pas reproposer le PDF.
+- ⚠⚠ **LA MÊME RÈGLE QUE LE VENDEUR, PAS UNE COPIE.** Le choix du matériel
+  (quel panneau, quelle batterie, quel convertisseur, combien, tension et
+  type compatibles, régulateur inutile sur un hybride) vivait DANS l'écran
+  Solaire.jsx. Il a été DÉPLACÉ, à l'identique, dans **`lib/choixSolaire.js`**
+  (un seul import : lib/solaire.js — lisible par le serveur) : l'écran appelle
+  `candidatsSolaire` / `choixDuStock`, Partages.jsx importe PUIS réexporte
+  (piège du § 5), calculs.js reprend le prix et la longueur du rail
+  (`prixRailDesBoutiques`). Le catalogue des 60 appareils a quitté
+  lib/appareils.js (qui dépend de calculs.js) pour **`lib/catalogueAppareils.js`**,
+  sans import, repris par appareils.js. Trois contrôles de
+  `verifier-cloisonnement` RETOURNÉS vers le nouveau fichier (watts utiles aux
+  deux endroits, SOLEIL/TENSION d'office, rails × 2,2) ; 1865 toujours au vert.
+- **Décision 1 — les valeurs par défaut** : celles de l'écran
+  (`REGLAGES_ESTIMATION` : autonomie 1 jour, soleil 5 h, 48 V, lithium) —
+  le client ne les voit pas, **c'est la fourchette qui les absorbe**.
+- **Décision 2 — la fourchette** : ± 15 % (`MARGE_FOURCHETTE`), en chiffres
+  ronds (50 000 F au-delà de 500 000), **le bas arrondi vers le bas, le haut
+  vers le haut : l'arrondi ne rétrécit jamais**. Plusieurs boutiques réelles :
+  chacune chiffre avec SON stock et SES prix, la fourchette va de la moins
+  chère − 15 % à la plus chère + 15 % — on ne choisit pas une boutique à la
+  place du client. Le chiffre = articles au prix du stock + fixation (barres
+  entamées, supports, étriers) + **pose au pourcentage d'office (10 %)**.
+- **Décision 3 — le solaire seulement** : la consigne interdit l'estimation
+  pour le garage, la domotique, la VMC ou un produit seul.
+- **Le quatrième outil, `estimer_solaire`** (lib/assistantIA.js) : l'IA passe
+  les MOTS du client, **l'application les lit** (`lireAppareils`, la règle de
+  « 🔆 Préparer le devis ») — l'IA ne fournit jamais une puissance. ⚠⚠ **RIEN
+  D'INVENTÉ** : un appareil sans puissance ou sans heures → pas de chiffre, et
+  l'outil dit quoi demander ; un panneau, une batterie ou un convertisseur
+  introuvable → la boutique ne chiffre pas ; aucune boutique complète → pas
+  d'estimation. **Refusé, l'outil ne rend AUCUN montant permis** : le juge
+  jetterait tout chiffre. Accepté, il rend EXACTEMENT deux montants permis
+  (bas, haut) et une phrase que l'IA recopie (`texteEstimation` : panneaux,
+  batteries, convertisseur RETENU, « Comptez entre X et Y »,
+  `PHRASE_INDICATIVE` — « estimation indicative, pose comprise ; un
+  conseiller BMI TOGO vous confirme le prix exact dans un devis »).
+- ⚠⚠ **UN TROU DU JUGE FERMÉ LE MÊME SOIR** : « 5,5 millions de francs » et
+  « 500 mille » n'étaient PAS lus comme des montants — l'IA aurait pu écrire
+  un prix inventé sous cette forme sans être arrêtée. `montantsCites` les lit
+  désormais. Éprouvé en retirant la lecture : le contrôle tombe.
+- **L'estimation suit sur la fiche 🧲 Prospects** (`estimation_assistant` :
+  bas, haut, texte, date — `demandeDevisIA`), même quand la demande est
+  enregistrée à un tour SUIVANT (`derniereEstimation` relit la mémoire de la
+  ligne de l'assistant, `wa_assistant.memoire.estimation`). La fiche l'AFFICHE
+  sous le besoin (`data-estimation-assistant`) : **le vendeur doit savoir quel
+  chiffre le client a en tête** — c'est le vrai prix de cette option, dit à
+  Timo avant de construire. Une phrase fixe (réponse jetée) ne porte pas
+  l'estimation.
+- ⚠ **LE MUR** : l'estimation ne regarde que les boutiques RÉELLES
+  (`reelles`, api/whatsapp-entrant.js), chacune avec son stock ; le catalogue
+  est celui réglé sur une boutique réelle. Éprouvé en ouvrant le mur : le
+  contrôle tombe.
+- **Le banc** (`verifier-whatsapp` ㉓, **462**) exerce la phrase de MANDA sur
+  un stock d'essai (lithium 48 V retenu, jamais la gel 12 V ni le
+  convertisseur 24 V), la fourchette, le refus sans heures, le stock
+  incomplet, l'hybride, la vraie boucle (estimer puis enregistrer), le mur,
+  l'écran ; **éprouvé** par quatre fautes (mur ouvert, appareil sans heures
+  accepté, marge à 0, millions non lus) : à chaque fois des contrôles
+  tombent. Deux contrôles de ㉒ RETOURNÉS (quatre outils, trois imports) et
+  deux de ⑳ (produits chargés une fois, mémoire de la ligne).
+- **Rien à coller dans Supabase** : `estimation_assistant` est un champ de
+  plus sur la fiche prospect. Coût : rien de plus qu'une réponse de l'IA.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

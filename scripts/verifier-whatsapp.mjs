@@ -1486,7 +1486,10 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   test("★ les ventes ne sont lues QUE quand un message libre peut viser le stock (un « 5 » tapé ne charge rien)",
     /const peutViserLeStock = \[null, undefined, ETAPE_MENU, ETAPE_PRODUIT\]\.includes\(decision\.etape\) && !entree\.chiffre && !entree\.menu && !entree\.vide;/.test(corpsR)
     && /const articles = peutViserLeStock \? await chargerArticles\(\) : \[\];/.test(corpsR)
-    && /const chargerArticles = async \(\) => \{\s*if \(articlesCharges\) return articlesCharges;[\s\S]{0,200}from\("produits"\)/.test(corpsR));
+    // ⚠ RETOURNÉ le 24/09/2026 : les produits sont lus UNE fois
+    // (chargerProduits), pour la recherche d'articles et pour l'estimation.
+    && /const chargerArticles = async \(\) => \{\s*if \(articlesCharges\) return articlesCharges;[\s\S]{0,200}chargerProduits\(\)/.test(corpsR)
+    && /const chargerProduits = async \(\) => \{\s*if \(!produitsBruts\) \{\s*const \{ data: prods \} = await admin\.from\("produits"\)/.test(corpsR));
   test("★ sa ligne et la demande de devis partent avec `updated_at`, la fiche légère suit SANS propriétaire",
     /insert\(\{ id: ligneR\.id, data: ligneR, updated_at: ligneR\.ts \}\)/.test(corpsR)
     && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR)
@@ -1658,8 +1661,10 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && I.conversationNouvelle({ etape: null }) === true && I.conversationNouvelle({ etape: A.ETAPE_MENU }) === false);
 
   // ── LES OUTILS : trois, et rien d'autre
-  test("★★ trois outils exactement — chercher un article, enregistrer une demande de devis, passer la main — chacun avec son schéma",
-    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,passer_conseiller"
+  // ⚠ RETOURNÉ le 24/09/2026 : un quatrième outil, estimer_solaire
+  // (décisions de Timo « 1 valeur par défaut, 2 en fourchette, 3 solaire »).
+  test("★★ quatre outils exactement — chercher un article, enregistrer une demande de devis, estimer le solaire, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,passer_conseiller"
     && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
   const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
   test("★★ chercher_article passe par LA règle de recherche et rend prix, disponible (oui/non), boutique — JAMAIS une quantité",
@@ -1767,8 +1772,11 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     /URL_IA = "https:\/\/api\.anthropic\.com\/v1\/messages"/.test(porteBrut) && /"anthropic-version": VERSION_API_IA/.test(porte) && /"x-api-key": cle/.test(porte)
     && /AbortController/.test(porte) && /DELAI_IA_MS = 25000/.test(porte) && /if \(!reponse\.ok\) \{[\s\S]{0,300}throw e;/.test(porte)
     && !/api\.anthropic\.com/.test(entrantI) && !/api\.anthropic\.com/.test(codeI));
-  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, un seul import (lib/assistantWhatsapp.js)",
-    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 1 && /from "\.\/assistantWhatsapp\.js"/.test(codeI));
+  // ⚠ RETOURNÉ le 24/09/2026 : l'estimation lit LA lecture des appareils et
+  // LE calcul de l'application — trois imports, tous des règles sans réseau.
+  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, trois imports (assistant à menu, lecture des appareils, choix du matériel)",
+    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 3
+    && /from "\.\/assistantWhatsapp\.js"/.test(codeI) && /from "\.\/besoinSolaire\.js"/.test(codeI) && /from "\.\/choixSolaire\.js"/.test(codeI));
 
   // ── LE SERVEUR : l'IA d'abord, le menu en repli, et rien d'écrit avant l'envoi
   const corpsR = entrantI.slice(entrantI.indexOf("async function repondreParAssistant"));
@@ -1789,7 +1797,8 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && /if \(essaiIA\) r = \{ \.\.\.r, texte: avecMention\(r\.texte, \{ nouvelle \}\) \};/.test(corpsR)
     && I.avecMention("x", { nouvelle: true }).includes(I.MENTION_SERVICE_EXTERIEUR) && I.avecMention("x", { nouvelle: false }) === "x");
   test("★ la ligne écrite porte la marque `ia`, la demande de devis part par la même écriture qu'avant, la fiche légère suit sans propriétaire",
-    /ligneAssistant\(\{ cle, tel: from, nom: client\?\.nom \|\| "", texte: r\.texte, etape: r\.etape, ts, memoire: r\.memoire \|\| null, ia: !!r\.ia \}\)/.test(corpsR)
+    // ⚠ RETOURNÉ le 24/09/2026 : la mémoire porte aussi l'estimation donnée.
+    /ligneAssistant\(\{ cle, tel: from, nom: client\?\.nom \|\| "", texte: r\.texte, etape: r\.etape, ts, memoire: memoireR, ia: !!r\.ia \}\)/.test(corpsR)
     && A.ligneAssistant({ cle: "9", texte: "x", etape: I.ETAPE_IA, ts: il(0), ia: true }).wa_assistant.ia === true
     && !("ia" in A.ligneAssistant({ cle: "9", texte: "x", etape: A.ETAPE_MENU, ts: il(0) }).wa_assistant)
     && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR));
@@ -1812,6 +1821,147 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && /jetée avant de partir/.test(param) && /ne se fait jamais passer pour une personne/.test(param));
   test("★ 📲 WhatsApp étiquette une phrase de l'IA « (IA) » et l'écran se rend avec une ligne de l'IA dans le fil",
     /\{m\.wa_assistant\.ia \? " \(IA\)" : ""\}/.test(ecranI) && (() => { const h = V.renduAvecIA(); return typeof h === "string" && !h.startsWith("ERREUR") && h.includes("(IA)"); })());
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur par défaut, 2 en fourchette, 3 solaire »)");
+// Timo : « est-ce pas possible d'utiliser l'outil de dimensionnement pour
+// envoyer un devis solaire au client ? » → pas un devis (il engage BMI),
+// une ESTIMATION en texte. Ce qui est protégé : la MÊME règle que le vendeur
+// (le choix du matériel a quitté l'écran pour lib/choixSolaire.js), les
+// valeurs par défaut de l'écran, ± 15 % arrondi sans jamais rétrécir, rien
+// d'inventé (heures manquantes, stock incomplet → pas de chiffre), le mur
+// (boutiques réelles seulement), le juge qui n'accepte que les deux montants
+// de l'outil, et l'estimation qui suit sur la fiche 🧲 Prospects.
+{
+  const S = await import("../src/lib/choixSolaire.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const { lireAppareils } = await import("../src/lib/besoinSolaire.js");
+  const { CATALOGUE_APPAREILS, fusionnerCatalogue } = await import("../src/lib/catalogueAppareils.js");
+  const codeS = lire("src/lib/choixSolaire.js").replace(/\/\/[^\n]*/g, "");
+  const codeCat = lire("src/lib/catalogueAppareils.js").replace(/\/\/[^\n]*/g, "");
+  const solJsx = lire("src/screens/dimensionnement/Solaire.jsx").replace(/\/\/[^\n]*/g, "");
+  const partJsx = lire("src/screens/dimensionnement/Partages.jsx").replace(/\/\/[^\n]*/g, "");
+  const appJs = lire("src/lib/appareils.js").replace(/\/\/[^\n]*/g, "");
+  const entrantS = lire("api/whatsapp-entrant.js").replace(/\/\/[^\n]*/g, "");
+  const prospectsS = lire("src/screens/Prospects.jsx");
+  const paramS = lire("src/screens/Parametres.jsx");
+  const MANDA = "2 clim de 1,5hp 8h par jour 10 ampoule de 15w toute la nuit Un congélateur de 200w branché h24";
+  const stockA = [
+    { id: "p1", nom: "PANNEAU 550W", categorie: "Panneaux solaires", prix_vente: 85000 },
+    { id: "b1", nom: "BATERIE 51,2V 300AH", categorie: "Batteries", prix_vente: 1200000 },
+    { id: "b2", nom: "BATTERIE GEL 12V 200AH", categorie: "Batteries", prix_vente: 150000 },
+    { id: "c1", nom: "CONVERTISSEUR HYBRIDE 10KW 48V", categorie: "Convertisseur", prix_vente: 900000, tension: 48 },
+    { id: "c2", nom: "CONVERTISSEUR 5000VA 24V", categorie: "Convertisseur", prix_vente: 300000, tension: 24 },
+    { id: "r1", nom: "REGULATEUR MPPT 100A", categorie: "Régulateur MPPT", prix_vente: 200000 },
+    { id: "e1", nom: "ETRIER", prix_vente: 500 }, { id: "s1", nom: "SUPPORT RAIL M8", prix_vente: 1000 },
+  ];
+  const stockB = stockA.map((p) => ({ ...p, id: `B${p.id}`, prix_vente: Math.round(p.prix_vente * 1.1) }));
+  const bq = (nom, produits) => ({ nom, produits, prixRail: 5500, longueurRail: 4.2, idDomaineSolaire: "solaire" });
+  const apM = lireAppareils(MANDA, CATALOGUE_APPAREILS);
+
+  // ── LA MÊME RÈGLE QUE LE VENDEUR
+  test("★★ le choix du matériel a QUITTÉ l'écran : Solaire.jsx appelle candidatsSolaire et choixDuStock, il ne les réécrit plus",
+    /const candidats = \(role\) => candidatsSolaire\(produitsBoutique, role, \{ tension, typeBatterie, idDomaineSolaire \}\);/.test(solJsx)
+    && /return choixDuStock\(produitsBoutique, role, besoinParRole\[role\.id\], \{ tension, typeBatterie, idDomaineSolaire \}\);/.test(solJsx)
+    && !/const tensionInfereeBatterie = /.test(solJsx) && !/const MOTS_TYPE_BATTERIE = /.test(solJsx) && !/const ROLES_EQUIPEMENT = \[/.test(solJsx)
+    && /const idDomaineSolaire = idDomaineSolaireDes\(db\.boutiques\);/.test(solJsx));
+  test("★ Partages.jsx IMPORTE puis RÉEXPORTE (jamais `export … from`, qui ne crée pas de nom local)",
+    /import \{ FACTEUR_PUISSANCE_VA, puissanceUtileW, quantiteNecessaire, simplifierMot, memeFamille, contientLeMot, specDepuisNom \} from "\.\.\/\.\.\/lib\/choixSolaire";/.test(partJsx)
+    && /export \{ FACTEUR_PUISSANCE_VA, puissanceUtileW, quantiteNecessaire, simplifierMot, memeFamille, contientLeMot, specDepuisNom \};/.test(partJsx)
+    && !/export function specDepuisNom/.test(partJsx));
+  test("★★ lib/choixSolaire.js ne reçoit jamais `db` et n'importe que la règle de calcul (lisible par le serveur tel quel)",
+    !/\bdb\b/.test(codeS) && (codeS.match(/^import /mg) || []).length === 1 && /from "\.\/solaire\.js"/.test(codeS));
+  test("★ le catalogue des 60 appareils est SANS import, et lib/appareils.js le reprend (une seule liste)",
+    !/^import /m.test(codeCat) && CATALOGUE_APPAREILS.length === 60 && fusionnerCatalogue([]).length === 60
+    && fusionnerCatalogue([{ id: "led", retire: true }]).length === 59
+    && /import \{ CATALOGUE_APPAREILS, fusionnerCatalogue \} from "\.\/catalogueAppareils";/.test(appJs) && /return fusionnerCatalogue\(/.test(appJs));
+  test("★ le prix et la longueur du rail : UNE règle, que calculs.js reprend",
+    S.prixRailDesBoutiques([]) === 5500 && S.prixRailDesBoutiques([{ prix_rail: 6000 }]) === 6000 && S.longueurRailDesBoutiques([]) === 4.2
+    && /export const prixRailMetre = \(db\) => prixRailDesBoutiques\(db\?\.boutiques\);/.test(lire("src/lib/calculs.js")));
+
+  // ── SES TROIS DÉCISIONS
+  test("★★ « 1 valeur par défaut » : les réglages d'office de l'écran (autonomie 1 j, soleil 5 h, 48 V, lithium) ; « 2 en fourchette » : ± 15 %",
+    S.REGLAGES_ESTIMATION.autonomie === "1" && S.REGLAGES_ESTIMATION.soleil === S.SOLEIL_DEFAUT && S.SOLEIL_DEFAUT === "5"
+    && S.REGLAGES_ESTIMATION.tension === S.TENSION_DEFAUT && S.TENSION_DEFAUT === "48" && S.REGLAGES_ESTIMATION.typeBatterie === "lifepo4"
+    && S.MARGE_FOURCHETTE === 0.15 && S.PCT_INSTALLATION_DEFAUT === 10);
+  const eM = S.estimationSolaire(apM, [bq("DEMAKPOE", stockA)]);
+  test("★★ la phrase de MANDA donne une estimation : 30,6 kWh/j, panneaux 550 W, batteries LITHIUM 48 V (jamais la gel 12 V), le convertisseur 48 V (jamais le 24 V)",
+    eM.ok && eM.kwhParJour === 30.6 && eM.wcPanneau === 550 && eM.ahBatterie === 300 && eM.tension === 48 && eM.kwConvertisseur === 10 && eM.panneaux > 0);
+  const t1 = S.chiffrageBoutique(S.estimationSolaire ? (await import("../src/lib/solaire.js")).besoinsSolaires(apM, S.REGLAGES_ESTIMATION) : null, bq("DEMAKPOE", stockA)).total;
+  test("★★ la fourchette ENTOURE le calcul (± 15 %), en chiffres ronds, l'arrondi ne la rétrécit jamais",
+    eM.bas <= t1 * 0.85 && eM.haut >= t1 * 1.15 && eM.bas % 50000 === 0 && eM.haut % 50000 === 0
+    && eM.bas > t1 * 0.85 - 50000 && eM.haut < t1 * 1.15 + 50000);
+  test("★ plusieurs boutiques : de la moins chère − 15 % à la plus chère + 15 % — on ne choisit pas une boutique à la place du client",
+    (() => { const e2 = S.estimationSolaire(apM, [bq("A", stockA), bq("B", stockB)]); return e2.ok && e2.bas === eM.bas && e2.haut > eM.haut && e2.boutiques === 2; })());
+  test("★★ RIEN D'INVENTÉ : une télé et des ventilateurs sans heures → pas de chiffre, et on dit lesquels",
+    (() => { const e = S.estimationSolaire(lireAppareils("une télé et 3 ventilateurs", CATALOGUE_APPAREILS), [bq("A", stockA)]); return !e.ok && /Il manque la puissance ou les heures/.test(e.motif) && /Ventilateur/.test(e.motif) && e.bas === undefined; })());
+  test("★★ un stock sans batterie (ou sans panneau, sans convertisseur) ne chiffre pas — pas de prix sur un article qui n'existe pas",
+    !S.estimationSolaire(apM, [bq("A", stockA.filter((p) => !/BAT/.test(p.nom)))]).ok
+    && !S.estimationSolaire(apM, [bq("A", stockA.filter((p) => !/PANNEAU/.test(p.nom)))]).ok
+    && !S.estimationSolaire(apM, []).ok && !S.estimationSolaire([], [bq("A", stockA)]).ok);
+  test("★ un convertisseur hybride ne fait pas payer de régulateur en plus ; un non hybride, si",
+    (() => {
+      const bes = { wcPanneaux: 3000, ahBatterie: 100, wConvertisseur: 4000, aRegulateur: 80 };
+      const avec = S.chiffrageBoutique(bes, bq("A", stockA)).total;
+      const sans = S.chiffrageBoutique(bes, bq("A", stockA.map((p) => (p.id === "c1" ? { ...p, nom: "CONVERTISSEUR 10KW 48V" } : p)))).total;
+      return sans > avec;
+    })());
+  const phrase = S.texteEstimation(eM);
+  test("★★ la phrase au client : une fourchette, jamais « devis » comme promesse, « indicative », « un conseiller vous confirme »",
+    phrase.includes("Comptez entre") && phrase.includes(S.PHRASE_INDICATIVE) && /indicative/.test(phrase) && /conseiller BMI TOGO vous confirme/.test(phrase)
+    && I.garderReponse(phrase, { prixConnus: [eM.bas, eM.haut] }).ok === true);
+
+  // ── L'OUTIL ET LE JUGE
+  const ctxS = { catalogue: CATALOGUE_APPAREILS, boutiquesSolaire: [bq("DEMAKPOE", stockA)] };
+  const out = I.executerOutil("estimer_solaire", { description: MANDA }, ctxS);
+  test("★★ l'outil lit les MOTS du client par la règle de lecture (jamais des puissances fournies par l'IA) et rend exactement deux montants permis",
+    out.effets.prix.length === 2 && out.effets.prix[0] === eM.bas && out.effets.prix[1] === eM.haut && out.effets.estimation.texte === phrase
+    && /Recopier cette phrase telle quelle/.test(out.resultat) && I.OUTILS_IA.find((o) => o.name === "estimer_solaire").input_schema.required.join() === "description");
+  const refus = I.executerOutil("estimer_solaire", { description: "une télé" }, ctxS);
+  test("★★ refusée, l'outil ne donne AUCUN montant permis — le juge jetterait tout chiffre",
+    refus.effets.prix.length === 0 && /Ne donner AUCUN chiffre/.test(refus.resultat)
+    && I.garderReponse("Comptez environ 2 000 000 F.", { prixConnus: refus.effets.prix }).ok === false);
+  test("★★ le juge lit aussi « 5,5 millions » et « 500 mille » (trou fermé le même jour) : un chiffre retouché est jeté",
+    I.montantsCites("environ 5,5 millions de francs").join() === "5500000" && I.montantsCites("500 mille").join() === "500000"
+    && I.garderReponse("Comptez environ 5,5 millions de francs.", { prixConnus: [eM.bas, eM.haut] }).ok === (eM.bas === 5500000 || eM.haut === 5500000)
+    && I.garderReponse(phrase.replace(String(eM.haut.toLocaleString("fr-FR")), "9 999 000"), { prixConnus: [eM.bas, eM.haut] }).ok === false);
+  test("★★ la consigne : estimation pour le SOLAIRE seulement, recopiée sans changer un chiffre, jamais un devis",
+    /Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul/.test(I.CONSIGNE_IA)
+    && /recopie sa phrase telle quelle, sans changer un seul chiffre/.test(I.CONSIGNE_IA) && /Une estimation n'est JAMAIS un devis/.test(I.CONSIGNE_IA));
+
+  // ── LA VRAIE BOUCLE : estimer, puis enregistrer la demande — l'estimation suit sur la fiche
+  let n = 0;
+  const appeler = async () => {
+    n++;
+    if (n === 1) return { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "estimer_solaire", input: { description: MANDA } }] };
+    if (n === 2) return { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t2", name: "enregistrer_demande_devis", input: { nom: "MANDA", besoin: MANDA } }] };
+    return { stop_reason: "end_turn", content: [{ type: "text", text: `${phrase} Votre demande est enregistrée.` }] };
+  };
+  const conv = await I.converserAvecIA({ consigne: "", messages: [{ role: "user", content: MANDA }], appeler, executer: (nom, e) => I.executerOutil(nom, e, ctxS) });
+  const juge = I.garderReponse(conv.texte, { prixConnus: conv.effets.prix });
+  const rep = I.reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle: false });
+  const fiche = I.demandeDevisIA({ cle: "90112233", tel: "+22890112233", demandeDevis: rep.demandeDevis, ts: "2026-09-24T10:00:00.000Z", estimation: rep.estimation });
+  test("★★ la boucle : estimation puis demande — le juge accepte, l'estimation suit sur la fiche 🧲 Prospects (réelle, au nom de l'assistant)",
+    juge.ok && rep.estimation?.bas === eM.bas && fiche.estimation_assistant.bas === eM.bas && fiche.estimation_assistant.haut === eM.haut
+    && fiche.estimation_assistant.le === "2026-09-24" && fiche.source === "assistant_whatsapp" && !("formation" in fiche));
+  test("★ une demande d'un tour SUIVANT retrouve l'estimation donnée plus tôt dans le fil (derniereEstimation) ; une phrase fixe ne la porte pas",
+    I.derniereEstimation([{ wa_assistant: { etape: "ia", memoire: { estimation: { bas: 1 } } } }, { wa_assistant: { etape: "ia" } }]).bas === 1
+    && I.derniereEstimation([]) === null
+    && !("estimation" in I.reponseDepuisIA({ texte: "x 1 F", effets: { ...conv.effets }, juge: { ok: false, motif: "m" }, nouvelle: false })));
+
+  // ── LE SERVEUR : le mur, la mémoire, la fiche
+  test("★★ LE MUR : l'estimation ne regarde que les boutiques RÉELLES, chacune avec SON stock",
+    /const reelles = boutiques\.filter\(\(b\) => b && b\.nom && !b\.formation\);/.test(entrantS)
+    && /boutiquesSolaire: reelles\.map\(\(b\) => \(\{\s*nom: b\.nom,\s*produits: produits\.filter\(\(p\) => p\.boutique === b\.nom\),/.test(entrantS)
+    && /catalogue: fusionnerCatalogue\(perso\)/.test(entrantS));
+  test("★ le serveur donne le contexte solaire à l'outil, range l'estimation dans la mémoire de la ligne, et la pose sur la fiche du prospect",
+    /\.\.\.\(nom === "estimer_solaire" \? await contexteSolaire\(\) : \{\}\),/.test(entrantS)
+    && /const memoireR = r\.estimation \? \{ \.\.\.\(r\.memoire \|\| \{\}\), estimation: r\.estimation \} : \(r\.memoire \|\| null\);/.test(entrantS)
+    && /demandeDevisIA\(\{ cle, tel: from, demandeDevis: r\.demandeDevis, ts, estimation: r\.estimation \|\| derniereEstimation\(fil\) \}\)/.test(entrantS));
+  test("★ 🧲 Prospects montre au vendeur l'estimation donnée au client ; ⚙ Paramètres la décrit (solaire seulement, ± 15 %, réglages d'office)",
+    /data-estimation-assistant/.test(prospectsS) && /entre \{fmt\(p\.estimation_assistant\.bas\)\} et \{fmt\(p\.estimation_assistant\.haut\)\}/.test(prospectsS)
+    && /<b>solaire seulement<\/b>/.test(paramS) && /± 15 %/.test(paramS));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
