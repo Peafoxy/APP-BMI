@@ -56,6 +56,11 @@ echo "▸ Le fonds de caisse se règle à la hausse ET à la baisse : supabase/s
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-20-fonds-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-20 refusé par la base"
 echo "▸ Le compte de l'exploitant : supabase/securite-31-compte-exploitant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-31-compte-exploitant.sql >/dev/null 2>&1 || echo "   ❌ securite-31 refusé par la base"
+# ⚠ La phrase de vérification que Timo colle doit répondre true | true | true :
+# le 24/09/2026 elle répondait false sur dg_seul (l'apostrophe doublée dans le
+# corps de la fonction). On la LIT ici, au lieu de la présumer.
+VERIF31=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-31-compte-exploitant.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF31" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-31 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-31 répond : $VERIF31"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 

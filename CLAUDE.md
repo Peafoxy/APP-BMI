@@ -4116,6 +4116,17 @@ lit mal est pire qu'un banc absent).
 - **Une écriture refusée par le serveur coince tout le lot** (tout ou rien)
   et doit afficher son motif ; le filet « Abandonner ce geste refusé »
   (admin principal) retire le geste de la file.
+- ⚠ **UNE PHRASE DE VÉRIFICATION SQL NE CHERCHE JAMAIS UNE APOSTROPHE**
+  (capture Timo, 24/09/2026, `securite-31` : `true | false | true` alors que
+  le déclencheur était bien en place). Dans le corps d'une fonction (entre
+  `$$`), `l''administrateur` s'écrit avec DEUX apostrophes, et c'est ainsi
+  qu'il est rangé dans `pg_proc.prosrc` ; la phrase `like '%l''administrateur…%'`
+  cherche, elle, UNE apostrophe — elle ne trouve jamais et répond `false` à
+  tort. On cherche un morceau SANS apostrophe (`'%administrateur principal
+  (le DG)%'`). **Et le banc SQL LIT désormais la réponse de cette phrase**
+  (`tester-argent`, `VERIF31`) au lieu de la présumer : éprouvé en remettant
+  la faute, il tombe. Un `true | false | true` qui rassure à tort aurait
+  aussi bien pu cacher un vrai défaut.
 - **Le banc mesure, il ne présume pas** : bundler le module (esbuild) et
   exercer la vraie fonction plutôt que lire le code ; un contrôle qui rassure
   sans protéger est pire qu'absent.
