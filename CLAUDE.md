@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 381 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti)
+npm run verifier-whatsapp        # 388 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3117,6 +3117,26 @@ lit mal est pire qu'un banc absent).
   propriétaire était reposé, **la conversation se reconfiait toute seule**.
   Il lit maintenant LA règle (`proprietaireDe`), et le repli par le devis ne
   rejoue pas sur une conversation rendue (`filMuet`). Dit à Timo.
+- ⚠⚠ **« LA RÈGLE EST TROP RIGIDE » (capture Timo, 24/09/2026, une heure
+  après la mise en service — et le premier vrai échange PROUVAIT que la
+  chaîne YCloud marche) : « Je veux un devis » tapé à l'étape « nom d'un
+  produit » a reçu « Je ne trouve pas « Je veux un devis » dans notre base ».
+  « Il devrait se référer à sa liste de sélection pour voir s'il y a un mot du
+  client qui concorde avec sa liste. » Depuis, **un MOT est un choix comme un
+  chiffre** (`MOTS_CLES` / `choixParMots` / `comprendreLibre`) : à l'accueil,
+  au menu et à l'étape produit, on regarde d'abord si un mot du client désigne
+  une ligne (conseiller, panne → SAV, devis, prix, solaire, garage…), puis on
+  cherche l'article dans le stock (**après avoir retiré les mots vides**,
+  `motsUtiles` : « combien coûte le panneau 400 » → « panneau 400 »), puis
+  une activité — « je ne trouve pas » n'arrive qu'après, et il DIT les mots
+  de sortie (« devis », « conseiller »). ⚠ **Un GESTE prime sur une
+  activité** (« je veux un devis solaire » = un devis) ; **mot ENTIER**
+  (« panne » ne réveille pas « panneau ») ; et **là où le client DÉCRIT**
+  (son besoin, son nom) **rien n'est interprété**. Un premier message qui
+  porte un mot du menu va droit à sa ligne, sans l'accueil. Le serveur
+  charge le stock pour tout message LIBRE à ces trois étapes (jamais pour un
+  chiffre). Éprouvé en ne lisant plus les mots : cinq contrôles tombent ;
+  deux contrôles RETOURNÉS (le premier message, la phrase « je ne trouve pas »).
 - **Le réglage** : ⚙ Paramètres → 🤖 Assistant du numéro WhatsApp BMI,
   administrateur PRINCIPAL seul, champ `assistant_wa` sur les boutiques (une
   politique, comme la durée de conservation — **rien à coller**), **allumé
@@ -3125,7 +3145,7 @@ lit mal est pire qu'un banc absent).
   octobre 2026) — un client qui parcourt le menu coûte trois ou quatre
   messages. **Rien à coller dans Supabase** : des lignes de plus dans
   `messages` et `prospects`, que `securite-27` à `-30` savent déjà ranger.
-- **Le banc** (`verifier-whatsapp` ⑳, 381) exerce la règle, lit le serveur,
+- **Le banc** (`verifier-whatsapp` ⑳, 388) exerce la règle, lit le serveur,
   l'écran, le réglage, et REND l'écran avec une ligne du robot ; **éprouvé**
   en remettant quatre fautes (conversation confiée ignorée, mur des boutiques
   de formation ouvert, écriture avant l'envoi, boucle maison du

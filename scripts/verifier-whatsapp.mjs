@@ -1361,8 +1361,12 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
     A.decisionAssistant({ fil: [entrant("bonjour", 2), { id: "s", canal: "whatsapp", wa_tel: "90112233", ts: il(1), wa_systeme: true, texte: "rendue à tous" }, entrant("re", 0)] }).repondre === true);
 
   // ── CE QU'IL DIT
-  const r0 = A.reponseAssistant({ etape: null, texte: "Bonjour, je veux un prix" });
-  test("★ premier message, quel qu'il soit → l'accueil, et on attend un chiffre", r0.texte === A.TEXTE_ACCUEIL && r0.etape === A.ETAPE_MENU);
+  // ⚠ RETOURNÉ le 24/09/2026 : un premier message SANS mot du menu → l'accueil ;
+  // avec un mot du menu (« prix ») → sa ligne, sans passer par l'accueil.
+  const r0 = A.reponseAssistant({ etape: null, texte: "Bonjour, comment allez-vous" });
+  test("★ premier message sans mot du menu → l'accueil, et on attend un chiffre ; « je veux un prix » → la ligne produits",
+    r0.texte === A.TEXTE_ACCUEIL && r0.etape === A.ETAPE_MENU
+    && A.reponseAssistant({ etape: null, texte: "Bonjour, je veux un prix" }).etape === A.ETAPE_PRODUIT);
   const choix = (n) => A.reponseAssistant({ etape: A.ETAPE_MENU, texte: String(n) });
   test("★ 1 à 4 présentent l'activité dans ses mots et proposent 5, 6, 8",
     [1, 2, 3, 4].every((n) => choix(n).etape === A.ETAPE_MENU && choix(n).texte.includes(A.LIGNES_MENU[n - 1].titre) && /5️⃣[\s\S]*6️⃣[\s\S]*8️⃣/.test(choix(n).texte))
@@ -1401,10 +1405,37 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   test("★ « batterie » → « sur commande » (plus rien en stock), avec sa tension",
     A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "batterie", articles }).texte.includes("Batterie lithium 5 kWh (48 V) — 900 000 F — sur commande"));
   test("★ un article introuvable : il le DIT et propose un conseiller, il n'invente rien",
-    A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "onduleur", articles }).texte.startsWith("Je ne trouve pas « onduleur »") && A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "onduleur", articles }).texte.includes("tapez 8"));
+    A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "tondeuse", articles }).texte.startsWith("Je ne trouve pas « tondeuse »") && A.reponseAssistant({ etape: A.ETAPE_PRODUIT, texte: "tondeuse", articles }).texte.includes("« conseiller » (ou 8)"));
   test("★ au plus 6 articles cités, les disponibles d'abord",
     A.chercherArticles(Array.from({ length: 9 }, (_, i) => ({ nom: `Câble ${i}`, categorie: "", boutique: "D", prix: 1, disponible: i % 2 === 0 })), "cable").length === 6
     && A.chercherArticles(Array.from({ length: 9 }, (_, i) => ({ nom: `Câble ${i}`, categorie: "", boutique: "D", prix: 1, disponible: i % 2 === 0 })), "cable")[0].disponible === true);
+
+  // ── LES MOTS DU CLIENT (capture Timo, 24/09/2026 : « Je veux un devis » →
+  // « Je ne trouve pas… » — « la règle est trop rigide… il devrait se référer
+  // à sa liste de sélection »)
+  const libre = (etape, texte) => A.reponseAssistant({ etape, texte, articles, client: null });
+  test("★★ « Je veux un devis » à l'étape produit N'EST PAS un nom d'article : c'est la demande de devis",
+    libre(A.ETAPE_PRODUIT, "Je veux un devis").etape === A.ETAPE_DEVIS_BESOIN);
+  test("★★ un mot du menu est un choix, à l'accueil comme au menu : conseiller, panne (SAV), devis, solaire",
+    libre(A.ETAPE_MENU, "je voudrais parler à quelqu'un").conseiller === true
+    && libre(A.ETAPE_MENU, "ma pompe est en panne").texte.includes("SAV")
+    && libre(null, "Je veux un devis").etape === A.ETAPE_DEVIS_BESOIN
+    && libre(A.ETAPE_MENU, "énergie solaire").texte.includes(A.LIGNES_MENU[0].titre)
+    && libre(null, "bonjour").texte === A.TEXTE_ACCUEIL);
+  test("★★ un GESTE prime sur une activité : « je veux un devis solaire » est un devis",
+    libre(A.ETAPE_MENU, "je veux un devis solaire").etape === A.ETAPE_DEVIS_BESOIN);
+  test("★ « combien coûte le panneau 400 ? » au menu cherche « panneau 400 » dans le stock, sans passer par 5",
+    libre(A.ETAPE_MENU, "combien coûte le panneau 400 ?").trouves === 1 && A.motsUtiles("combien coûte le panneau 400 ?") === "panneau 400");
+  test("★ « prix » seul demande le nom ; un mot inconnu redit le menu ; un article introuvable le dit avec les mots de sortie",
+    libre(A.ETAPE_MENU, "prix").etape === A.ETAPE_PRODUIT && libre(A.ETAPE_MENU, "prix").texte.startsWith("🛒")
+    && libre(A.ETAPE_MENU, "blabla").texte.includes("Je n'ai pas compris")
+    && /écrivez « devis »/.test(libre(A.ETAPE_PRODUIT, "tondeuse").texte));
+  test("★ « panne » ne réveille pas « panneau » (mot entier), « portes » vaut « porte »",
+    A.choixParMots("un panneau 400 W") === null || A.choixParMots("un panneau 400 W").id === "solaire"
+    && A.choixParMots("panne").id === "sav" && A.choixParMots("deux portes").id === "garage");
+  test("★★ là où le client DÉCRIT (besoin, nom), rien n'est interprété : « installation solaire avec devis » est SA réponse",
+    libre(A.ETAPE_DEVIS_BESOIN, "installation solaire avec devis pour 3 clims").etape === A.ETAPE_DEVIS_NOM
+    && A.reponseAssistant({ etape: A.ETAPE_DEVIS_NOM, texte: "KOSSI SOLAIRE", memoire: { besoin: "x" } }).demandeDevis.nom === "KOSSI SOLAIRE");
 
   // ── LA DEMANDE DE DEVIS : une fiche prospect, RÉELLE, jamais un devis
   const rD1 = A.reponseAssistant({ etape: A.ETAPE_DEVIS_BESOIN, texte: "3 clims et une maison à Agoè", client: { nom: "ESSO" } });
@@ -1446,8 +1477,12 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   test("★★ il reçoit le PROPRIÉTAIRE de la conversation et le réglage — le silence est décidé par la règle",
     /decisionAssistant\(\{ fil, proprietaireId, actif: assistantActif\(boutiques\)/.test(corpsR)
     && /repondreParAssistant\(\{[^}]*proprietaireId: proprietaire\.id/.test(entrantA));
-  test("★ les ventes ne sont lues QUE pour chercher un article (un « 5 » tapé ne charge rien)",
-    /if \(decision\.etape === ETAPE_PRODUIT\) \{[\s\S]{0,200}from\("produits"\)/.test(corpsR));
+  // ⚠ RETOURNÉ le 24/09/2026 (capture Timo, « la règle est trop rigide ») : le
+  // stock se charge pour tout message LIBRE au menu aussi — jamais pour un
+  // chiffre, « menu », ou une étape où le client décrit.
+  test("★ les ventes ne sont lues QUE quand un message libre peut viser le stock (un « 5 » tapé ne charge rien)",
+    /const peutViserLeStock = \[null, undefined, ETAPE_MENU, ETAPE_PRODUIT\]\.includes\(decision\.etape\) && !entree\.chiffre && !entree\.menu && !entree\.vide;/.test(corpsR)
+    && /if \(peutViserLeStock\) \{[\s\S]{0,200}from\("produits"\)/.test(corpsR));
   test("★ sa ligne et la demande de devis partent avec `updated_at`, la fiche légère suit SANS propriétaire",
     /insert\(\{ id: ligneR\.id, data: ligneR, updated_at: ligneR\.ts \}\)/.test(corpsR)
     && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR)

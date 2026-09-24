@@ -28,7 +28,7 @@ import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp } from "../src/lib/whatsappModeles.js";
 // 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
 // ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
-import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
+import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, ETAPE_MENU, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 
@@ -249,8 +249,14 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   const decision = decisionAssistant({ fil, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
   if (!decision.repondre) return { repondu: false, pourquoi: decision.pourquoi };
 
+  // Le stock ne se charge que s'il peut servir : un message LIBRE (pas un
+  // chiffre, pas « menu ») à l'accueil, au menu ou à l'étape « produit ».
+  // ⚠ 24/09/2026 (capture Timo) : au menu aussi, parce qu'un client écrit
+  // « combien coûte le panneau 400 » sans avoir tapé 5.
+  const entree = interpreterEntree(ligne.texte);
+  const peutViserLeStock = [null, undefined, ETAPE_MENU, ETAPE_PRODUIT].includes(decision.etape) && !entree.chiffre && !entree.menu && !entree.vide;
   let articles = [];
-  if (decision.etape === ETAPE_PRODUIT) {
+  if (peutViserLeStock) {
     const [{ data: prods }, { data: vts }, { data: ajs }] = await Promise.all([
       admin.from("produits").select("id, data"),
       admin.from("ventes").select("id, data"),

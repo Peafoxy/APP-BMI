@@ -122,6 +122,58 @@ export function interpreterEntree(texte) {
   return { vide: false, chiffre: m ? Number(m[1]) : null, menu: false, texte: String(texte || "").trim() };
 }
 
+// ---- LES MOTS DU CLIENT QUI DÉSIGNENT UNE LIGNE DU MENU ----
+// ⚠⚠ Capture Timo, 24/09/2026, une heure après la mise en service : « Je veux
+// un devis » tapé à l'étape « nom d'un produit » a reçu « Je ne trouve pas
+// « Je veux un devis » dans notre base ». « La règle est trop rigide… il
+// devrait se référer à sa liste de sélection pour voir s'il y a un mot du
+// client qui concorde avec sa liste. » Depuis : un chiffre reste un choix,
+// mais un MOT en est un aussi. Les mots sont comparés sans accents ni
+// majuscules, MOT ENTIER (« panne » ne réveille pas « panneau »).
+// ⚠ L'ORDRE COMPTE : un GESTE (conseiller, SAV, devis) prime sur une activité
+// — « je veux un devis solaire » est une demande de devis, pas une
+// présentation du solaire. Et à une étape où le client DÉCRIT (son besoin,
+// son nom), rien n'est interprété : « installation solaire » est sa réponse.
+export const MOTS_CLES = {
+  conseiller: ["conseiller", "conseillere", "humain", "quelqu'un", "quelqu un", "agent", "commercial", "appeler", "appelez", "appel", "rappeler", "rappelez", "parler", "personne", "responsable"],
+  sav: ["sav", "panne", "depannage", "depanner", "reparation", "reparer", "garantie", "ne marche plus", "ne marche pas", "ne fonctionne plus", "ne fonctionne pas", "probleme", "defaut", "defectueux", "assistance", "technicien"],
+  devis: ["devis", "cotation", "proforma", "pro forma", "estimation", "chiffrage", "chiffrer"],
+  produits: ["prix", "tarif", "cout", "coute", "coutent", "combien", "produit", "article", "equipement", "disponible", "disponibilite", "dispo", "stock", "acheter", "achat", "vendez", "vente"],
+  solaire: ["solaire", "photovoltaique", "panneau", "onduleur", "batterie", "kit solaire", "energie"],
+  garage: ["garage", "portail", "moteur", "porte", "rideau"],
+  domotique: ["domotique", "automatisation", "automatisme", "batiment intelligent", "maison intelligente"],
+  vmc: ["vmc", "ventilation", "aeration", "extracteur"],
+};
+export const ORDRE_GESTES = ["conseiller", "sav", "devis"];
+export const ORDRE_ACTIVITES = ["produits", "solaire", "garage", "domotique", "vmc"];
+const motsDe = (t) => sansAccents(t).replace(/[^a-z0-9' ]/g, " ").split(/\s+/).filter(Boolean);
+const porteLeMot = (mots, t, k) => (k.includes(" ") ? ` ${t} `.includes(` ${k} `) : mots.some((m) => m === k || m === `${k}s` || m === `${k}x`));
+export function choixParMots(texte, ids = [...ORDRE_GESTES, ...ORDRE_ACTIVITES]) {
+  const t = sansAccents(texte).replace(/[^a-z0-9' ]/g, " ").replace(/\s+/g, " ").trim();
+  const mots = motsDe(texte);
+  for (const id of ids) if ((MOTS_CLES[id] || []).some((k) => porteLeMot(mots, t, k))) return LIGNES_MENU.find((l) => l.id === id) || null;
+  return null;
+}
+
+// Les mots qui ne désignent pas un article, retirés avant de chercher dans
+// le stock : « combien coûte le panneau 400 » → « panneau 400 ».
+const MOTS_VIDES = new Set(["je", "j", "veux", "voudrais", "voulais", "souhaite", "cherche", "recherche", "le", "la", "les", "l", "un", "une", "des", "du", "de", "d", "pour", "est", "ce", "c", "que", "qu", "quel", "quelle", "quels", "quelles", "vous", "avez", "as", "tu", "bonjour", "bonsoir", "svp", "stp", "merci", "il", "y", "a", "et", "en", "votre", "vos", "me", "moi", "donner", "donnez", "donne", "dispo", "disponible", "disponibilite", "stock", "acheter", "achat", "prix", "tarif", "cout", "coute", "coutent", "combien", "produit", "produits", "article", "articles", "equipement", "equipements", "avoir", "sur", "chez", "au", "aux", "ca", "sa", "mon", "ma", "mes", "ton", "ta", "tes", "on", "nous", "avec", "sans", "ou", "ok", "oui", "non", "vendez", "vente", "info", "infos", "information", "informations", "s", "il", "ils", "elle", "elles", "faut", "besoin", "dans", "par", "the"]);
+export const motsUtiles = (texte) => motsDe(texte).filter((m) => !MOTS_VIDES.has(m)).join(" ");
+
+// Ce qu'on comprend d'un message LIBRE (hors chiffre) : un geste, sinon un
+// article du stock, sinon une activité — sinon rien. `articles` peut être
+// vide (le serveur ne charge le stock que quand il peut servir).
+export function comprendreLibre(texte, articles = []) {
+  const geste = choixParMots(texte, ORDRE_GESTES);
+  if (geste) return { choix: geste };
+  const requete = motsUtiles(texte);
+  const trouves = requete ? chercherArticles(articles, requete) : [];
+  if (trouves.length) return { trouves, requete };
+  const activite = choixParMots(texte, ORDRE_ACTIVITES);
+  if (activite) return { choix: activite };
+  return null;
+}
+
 // ---- QUAND RÉPONDRE, ET À QUELLE ÉTAPE ----
 // `fil` : la conversation, du plus ancien au plus récent, le message du
 // client EN DERNIER (celui qu'on vient de recevoir). Rend
@@ -193,7 +245,7 @@ export function chercherArticles(articles, requete) {
 
 const fmtF = (n) => `${Math.round(Number(n || 0)).toLocaleString("fr-FR")} F`;
 export function texteArticles(requete, trouves) {
-  if (!trouves.length) return `Je ne trouve pas « ${requete} » dans notre base. Essayez un autre nom (par exemple la marque ou la puissance), ou tapez 8 pour un conseiller.`;
+  if (!trouves.length) return `Je ne trouve pas « ${requete} » dans notre base. Essayez un autre nom (par exemple la marque ou la puissance), écrivez « devis » pour une demande de devis, ou « conseiller » (ou 8) pour parler à quelqu'un.`;
   const lignes = trouves.map((a) => `• ${a.nom}${a.tension ? ` (${a.tension})` : ""} — ${a.prix > 0 ? fmtF(a.prix) : "prix sur demande"} — ${a.disponible ? "disponible" : "sur commande"} (${a.boutique})`);
   return `Voici ce que je trouve pour « ${requete} » :\n${lignes.join("\n")}\n\nÉcrivez un autre nom pour continuer, tapez 6 pour un devis, ou 8 pour un conseiller.`;
 }
@@ -222,13 +274,18 @@ export function reponseAssistant({ etape, texte, media = null, client = null, ar
   // Un envoi sans un mot (photo, note vocale, document) : une personne regarde.
   if (entree.vide && media) return { texte: `Merci pour votre envoi. Un conseiller BMI TOGO le regarde et vous répond sur ce numéro.\n\n${SIGNATURE_BMI}`, etape: ETAPE_CONSEILLER, conseiller: true };
   if (entree.vide) return null;
-  if (etape === null || etape === undefined || entree.menu) return { texte: TEXTE_ACCUEIL, etape: ETAPE_MENU, conseiller: false };
+  if (entree.menu) return { texte: TEXTE_ACCUEIL, etape: ETAPE_MENU, conseiller: false };
   if (entree.chiffre) return reponseAuChoix(entree.chiffre, client);
+  // Un message LIBRE, là où on attend un choix ou un nom d'article : on
+  // regarde d'abord si un mot du client désigne une ligne du menu, puis le
+  // stock. « Je ne trouve pas » n'arrive qu'après (capture Timo, 24/09/2026).
+  const libre = (etape === null || etape === undefined || etape === ETAPE_MENU || etape === ETAPE_PRODUIT) ? comprendreLibre(entree.texte, articles) : null;
+  if (libre?.choix) return reponseAuChoix(libre.choix.n, client);
+  if (libre?.trouves) return { texte: texteArticles(libre.requete, libre.trouves), etape: ETAPE_PRODUIT, conseiller: false, trouves: libre.trouves.length };
+  if (etape === null || etape === undefined) return { texte: TEXTE_ACCUEIL, etape: ETAPE_MENU, conseiller: false };
   switch (etape) {
-    case ETAPE_PRODUIT: {
-      const trouves = chercherArticles(articles, entree.texte);
-      return { texte: texteArticles(entree.texte, trouves), etape: ETAPE_PRODUIT, conseiller: false, trouves: trouves.length };
-    }
+    case ETAPE_PRODUIT:
+      return { texte: texteArticles(motsUtiles(entree.texte) || entree.texte, []), etape: ETAPE_PRODUIT, conseiller: false, trouves: 0 };
     case ETAPE_DEVIS_BESOIN: {
       if (client?.nom) return demandeEnregistree(client.nom, entree.texte);
       return { texte: "Merci. À quel nom dois-je enregistrer votre demande ?", etape: ETAPE_DEVIS_NOM, conseiller: false, memoire: { besoin: entree.texte } };
