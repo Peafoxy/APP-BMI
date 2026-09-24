@@ -45,7 +45,7 @@ const fiches = [
 ];
 const garnie = { boutiques, users, messages: [...messages, ...confiee, ...fiches], produits: [], ventes: [] };
 
-const rendre = (db, profile) => renderToStaticMarkup(<Whatsapp db={db} save={() => {}} profile={profile} />);
+const rendre = (db, profile, cleInitiale = null) => renderToStaticMarkup(<Whatsapp db={db} save={() => {}} profile={profile} cleInitiale={cleInitiale} />);
 
 // ---- 🔑 LA LIGNE « ACCÈS ENVOYÉS » (23/09/2026) : la VRAIE chaîne ----
 // KOSSI (vendeur) crée le compte de KOFFI et les accès partent du numéro
@@ -118,6 +118,13 @@ export const htmlDoc = () => renderToStaticMarkup(
   <MediaWa message={{ id: "wa3", wa_media: { type: "document", lien: "https://x/f.pdf", nom: "facture.pdf" } }} />);
 
 // ---- 🤖 L'ASSISTANT (24/09/2026) : sa ligne dans le fil d'ESSO ----
+export const renduAvecIA = () => {
+  try {
+    const ligne = ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "Le panneau 400 W est disponible.", etape: "ia", ts: new Date(Date.now() + 1000).toISOString(), ia: true });
+    // Le fil OUVERT : c'est là que l'étiquette « (IA) » se dessine.
+    return rendre({ ...garnie, messages: [...garnie.messages, ligne] }, users[0], "90112233");
+  } catch (e) { return `ERREUR ${e?.message || e}`; }
+};
 export const renduAvecAssistant = () => {
   try {
     const ligne = ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "👋 Bonjour et bienvenue chez BMI TOGO !", etape: ETAPE_MENU, ts: new Date(Date.now() + 1000).toISOString() });

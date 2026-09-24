@@ -28,6 +28,7 @@ import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "..
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
+import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION } from "../lib/assistantIA";
 import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
@@ -568,6 +569,19 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       ? "Remettre l'assistant ? Il répondra tout seul aux clients qui écrivent au numéro BMI (conversations sans propriétaire seulement)."
       : "Couper l'assistant ? Les messages des clients continueront d'arriver dans 📲 WhatsApp, mais plus aucune réponse automatique ne partira.")) return;
     save({ ...db, boutiques: poserAssistant(db.boutiques, suivant) }, suivant ? "Assistant WhatsApp remis en service" : "Assistant WhatsApp coupé");
+  };
+  // Niveau 3 (24/09/2026) : l'assistant DISCUTE par une intelligence
+  // artificielle, ou reste au menu à chiffres. Même réglage, même droit ;
+  // sans clé côté serveur, le menu reprend de lui-même.
+  const assistantMode = modeAssistant(db.boutiques);
+  const changerModeAssistant = async (mode) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Changer la façon de répondre de l'assistant WhatsApp")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (mode === assistantMode) return;
+    if (!await uConfirm(mode === "ia"
+      ? "Faire discuter l'assistant par l'intelligence artificielle ? Les messages des clients seront lus par un service situé hors du Togo pour préparer la réponse (le client en est informé au premier message). Le menu à chiffres reprend tout seul si le service ne répond pas."
+      : "Revenir au menu à chiffres ? Plus aucun message de client ne sera lu par le service d'IA.")) return;
+    save({ ...db, boutiques: poserModeAssistant(db.boutiques, mode) }, mode === "ia" ? "Assistant WhatsApp : conversation par IA" : "Assistant WhatsApp : menu à chiffres");
   };
 
   const retablirMsgFidelite = async () => {
@@ -1728,17 +1742,37 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="assistant-whatsapp">
         <div className="font-bold mb-1">🤖 Assistant du numéro WhatsApp BMI</div>
         <div className="text-xs text-slate-500 mb-3">
-          Quand un client écrit au numéro BMI et que la conversation n'est à personne, l'assistant répond tout seul : accueil, menu à chiffres,
+          Quand un client écrit au numéro BMI et que la conversation n'est à personne, l'assistant répond tout seul.
+          <b> En conversation par IA</b>, il discute en phrases et pose ses questions ; tout ce qu'il affirme vient de l'application :
           prix et disponibilité d'un article (jamais la quantité en stock), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller.
-          <b> Il se tait</b> sur une conversation confiée, dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.
-          Il ne parle <b>jamais</b> d'une dette ni d'un crédit. Chaque réponse coûte environ 4 F (1 000 offertes par mois à partir du 1er octobre 2026).
+          Il n'invente <b>jamais</b> un prix, un délai ni une caractéristique, ne parle <b>jamais</b> d'une dette ni d'un crédit, ne se fait jamais passer pour une personne ; une réponse qui sortirait de ces règles est jetée avant de partir.
+          <b> En menu à chiffres</b>, il propose les huit choix de votre mot d'accueil.
+          <b> Il se tait</b> dans les deux cas sur une conversation confiée, dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.
+          Coût : environ 4 F par réponse WhatsApp (1 000 offertes par mois à partir du 1er octobre 2026), plus quelques francs par réponse pour le service d'IA, facturés par son fournisseur.
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className={`text-sm font-bold ${assistantOn ? "text-emerald-700" : "text-slate-500"}`} data-assistant-etat={assistantOn ? "actif" : "coupe"}>{assistantOn ? "● En service" : "○ Coupé"}</span>
           {jeSuisPrincipal && <button onClick={basculerAssistant} className={btnDark}>{assistantOn ? "Couper l'assistant" : "Remettre l'assistant"}</button>}
         </div>
+        {assistantOn && (
+          <div className="flex flex-wrap items-center gap-2 mt-3 text-sm" data-assistant-mode={assistantMode}>
+            <span className="text-slate-600">Façon de répondre :</span>
+            {[["ia", "🗣 Conversation par IA"], ["menu", "🔢 Menu à chiffres"]].map(([mode, libelle]) => (
+              <button key={mode} onClick={() => changerModeAssistant(mode)} disabled={!jeSuisPrincipal}
+                className={`px-3 py-1.5 rounded-lg border ${assistantMode === mode ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-700 border-slate-300"} ${jeSuisPrincipal ? "" : "opacity-60"}`}>
+                {libelle}
+              </button>
+            ))}
+          </div>
+        )}
+        {assistantOn && assistantMode === "ia" && (
+          <div className="text-xs text-slate-500 mt-2">
+            ⚠ La conversation par IA a besoin de deux réglages côté serveur (la clé d'accès au service et le nom du modèle) : tant qu'ils ne sont pas posés, le menu à chiffres répond à sa place.
+            Chaque nouvelle conversation commence par cette phrase, que l'IA ne peut pas oublier : « {PHRASE_PRESENTATION} »
+          </div>
+        )}
         <details className="mt-2">
-          <summary className="text-xs text-slate-500 cursor-pointer">Le message d'accueil (votre texte, figé dans l'application)</summary>
+          <summary className="text-xs text-slate-500 cursor-pointer">Le message d'accueil du menu à chiffres (votre texte, figé dans l'application)</summary>
           <div className="text-sm text-slate-700 whitespace-pre-wrap mt-1 rounded-lg bg-slate-50 border border-slate-200 p-3">{TEXTE_ACCUEIL}</div>
         </details>
       </div>

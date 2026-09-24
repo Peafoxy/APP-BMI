@@ -297,11 +297,15 @@ export function reponseAssistant({ etape, texte, media = null, client = null, ar
   }
 }
 
+// Les deux phrases fixes que l'assistant qui DISCUTE (lib/assistantIA.js)
+// réemploie quand sa propre réponse est jetée par le juge : la demande a
+// bien été enregistrée, ou une personne prend le relais — on le dit avec
+// les mêmes mots que le menu, jamais avec un texte inventé.
+export const texteDemandeEnregistree = (nom) => `✅ Merci ${nom}, votre demande de devis est enregistrée. Un conseiller BMI TOGO vous contacte sur ce numéro pour la compléter et vous proposer une offre.\n\n${SIGNATURE_BMI}`;
+export const TEXTE_RELAIS_CONSEILLER = `👨‍💼 Un conseiller BMI TOGO prend le relais sur ce numéro. Écrivez-lui votre demande, il vous répond dès que possible.\n\n${SIGNATURE_BMI}`;
+
 function demandeEnregistree(nom, besoin) {
-  return {
-    texte: `✅ Merci ${nom}, votre demande de devis est enregistrée. Un conseiller BMI TOGO vous contacte sur ce numéro pour la compléter et vous proposer une offre.\n\n${SIGNATURE_BMI}`,
-    etape: ETAPE_CONSEILLER, conseiller: true, demandeDevis: { nom, besoin },
-  };
+  return { texte: texteDemandeEnregistree(nom), etape: ETAPE_CONSEILLER, conseiller: true, demandeDevis: { nom, besoin } };
 }
 
 function reponseAuChoix(n, client) {
@@ -318,7 +322,7 @@ function reponseAuChoix(n, client) {
     case "sav":
       return { texte: `🔧 SAV & assistance technique — décrivez votre problème en un message (l'équipement, depuis quand, ce qui se passe) : un technicien BMI TOGO vous répond sur ce numéro.\n\n${SIGNATURE_BMI}`, etape: ETAPE_CONSEILLER, conseiller: true };
     default:
-      return { texte: `👨‍💼 Un conseiller BMI TOGO prend le relais sur ce numéro. Écrivez-lui votre demande, il vous répond dès que possible.\n\n${SIGNATURE_BMI}`, etape: ETAPE_CONSEILLER, conseiller: true };
+      return { texte: TEXTE_RELAIS_CONSEILLER, etape: ETAPE_CONSEILLER, conseiller: true };
   }
 }
 
@@ -327,14 +331,16 @@ function reponseAuChoix(n, client) {
 // « 🔁 Confier » le fait), sans `wa_entrant` (elle n'ouvre pas la fenêtre
 // de 24 h, ne compte pas comme non lu). `wa_assistant.etape` est SA mémoire :
 // c'est là que `decisionAssistant` relit où l'on en est.
-export function ligneAssistant({ cle, tel, nom, texte, etape, ts, memoire = null } = {}) {
+export function ligneAssistant({ cle, tel, nom, texte, etape, ts, memoire = null, ia = false } = {}) {
   return {
     id: `wa-assist-${String(ts || "").replace(/\D/g, "").slice(0, 17) || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     date: String(ts || "").slice(0, 10), ts: String(ts || ""),
     canal: "whatsapp", wa_tel: cle, wa_numero: String(tel || ""), wa_nom: String(nom || ""),
     wa_entrant: false, de_id: ID_ASSISTANT, de_nom: NOM_ASSISTANT,
     texte: String(texte || ""),
-    wa_assistant: { etape, ...(memoire ? { memoire } : {}) },
+    // `ia: true` : la phrase a été écrite par le service d'IA (niveau 3), pas
+    // par le menu — l'écran le dit, et on sait relire ce qui a été dit.
+    wa_assistant: { etape, ...(memoire ? { memoire } : {}), ...(ia ? { ia: true } : {}) },
     lu_par: [],
   };
 }

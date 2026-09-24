@@ -1480,9 +1480,13 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   // ⚠ RETOURNÉ le 24/09/2026 (capture Timo, « la règle est trop rigide ») : le
   // stock se charge pour tout message LIBRE au menu aussi — jamais pour un
   // chiffre, « menu », ou une étape où le client décrit.
+  // ⚠ RETOURNÉ le 24/09/2026 (niveau 3) : le stock se charge par UNE fonction
+  // à la demande (`chargerArticles`), que l'IA appelle pour chercher_article
+  // et que le menu appelle seulement quand un message libre peut viser le stock.
   test("★ les ventes ne sont lues QUE quand un message libre peut viser le stock (un « 5 » tapé ne charge rien)",
     /const peutViserLeStock = \[null, undefined, ETAPE_MENU, ETAPE_PRODUIT\]\.includes\(decision\.etape\) && !entree\.chiffre && !entree\.menu && !entree\.vide;/.test(corpsR)
-    && /if \(peutViserLeStock\) \{[\s\S]{0,200}from\("produits"\)/.test(corpsR));
+    && /const articles = peutViserLeStock \? await chargerArticles\(\) : \[\];/.test(corpsR)
+    && /const chargerArticles = async \(\) => \{\s*if \(articlesCharges\) return articlesCharges;[\s\S]{0,200}from\("produits"\)/.test(corpsR));
   test("★ sa ligne et la demande de devis partent avec `updated_at`, la fiche légère suit SANS propriétaire",
     /insert\(\{ id: ligneR\.id, data: ligneR, updated_at: ligneR\.ts \}\)/.test(corpsR)
     && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR)
@@ -1507,7 +1511,7 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
     /data-reglage="assistant-whatsapp"/.test(param)
     && /const basculerAssistant = async \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile/.test(param)
     && /poserAssistant\(db\.boutiques, suivant\)/.test(param) && /\{TEXTE_ACCUEIL\}/.test(param)
-    && /Il ne parle <b>jamais<\/b> d'une dette ni d'un crédit/.test(param));
+    && /ne parle <b>jamais<\/b> d'une dette ni d'un crédit/.test(param));
   // Le rendu : la liste avec une ligne du robot en dernier ne fait pas d'écran blanc.
   const htmlA = V.renduAvecAssistant();
   test("★ l'écran 📲 WhatsApp se rend avec une réponse de l'assistant dans le fil (pas d'écran blanc)",
@@ -1604,6 +1608,210 @@ titre("㉑ 🧲 LA DEMANDE DE L'ASSISTANT SE PREND EN CHARGE, ET SON DEVIS SE PR
     && /import \{ prospectAvecDevis \} from "\.\.\/\.\.\/lib\/prospects"/.test(partagesJsx));
   test("★ « Convertir » sur un numéro qui a DÉJÀ un compte rattache la fiche au lieu de s'arrêter",
     /prospectAcquis\(x, \{ client_user_id: existant\.id \}\)/.test(prospectsJsx) && !/Rien n'a été recréé\.`\);\s*return;/.test(prospectsJsx));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par le juge (24/09/2026, « Lance avec ces trois réponses »)");
+// Timo : « il doit arriver à discuter comme un humain ». Ce qui est protégé
+// ici : l'IA ne SAIT rien toute seule (trois outils, rien d'autre), sa
+// réponse est JUGÉE avant de partir (un montant qu'aucun outil n'a donné,
+// un mot sur une dette, un texte trop long → jetée), elle ne se fait jamais
+// passer pour une personne, le client est prévenu qu'un service extérieur
+// lit ses messages, le menu reprend quand elle échoue, et la clé comme le
+// nom du modèle ne vivent QUE côté serveur. Le banc JOUE le service d'IA
+// (un faux `appeler`) : on exerce la vraie boucle, pas une lecture de code.
+{
+  const I = await import("../src/lib/assistantIA.js");
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const codeI = lire("src/lib/assistantIA.js").replace(/\/\/[^\n]*/g, "");
+  const porteBrut = lire("api/_assistantIA.js");
+  const porte = porteBrut.replace(/\/\/[^\n]*/g, "");
+  const entrantI = lire("api/whatsapp-entrant.js").replace(/\/\/[^\n]*/g, "");
+  const param = lire("src/screens/Parametres.jsx");
+  const ecranI = lire("src/screens/Whatsapp.jsx").replace(/\/\/[^\n]*/g, "");
+  const il = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+  const entrant = (texte, h = 0, extra = {}) => ({ id: `e${h}`, canal: "whatsapp", wa_tel: "90112233", wa_entrant: true, ts: il(h), texte, ...extra });
+  const articles = [
+    { nom: "Panneau solaire 400 W", categorie: "Panneaux", boutique: "DEMAKPOE", prix: 85000, disponible: true, tension: "" },
+    { nom: "Batterie lithium 5 kWh", categorie: "Batteries", boutique: "DEMAKPOE", prix: 900000, disponible: false, tension: "48 V" },
+  ];
+  const ctx = { articles, client: null, cle: "90112233", tel: "+22890112233" };
+
+  // ── LA CONSIGNE : ses trois décisions, et les règles du 24/09
+  test("★★ la consigne dit qui elle est (un programme, jamais une personne), vouvoie, et parle français simple",
+    /Tu es un programme, pas une personne/.test(I.CONSIGNE_IA) && /Tu ne te fais JAMAIS passer pour un employé, un conseiller ou un humain/.test(I.CONSIGNE_IA)
+    && /Tu vouvoies toujours/.test(I.CONSIGNE_IA) && /français simple/.test(I.CONSIGNE_IA));
+  test("★★ la consigne grave les règles de Timo : rien d'inventé, jamais la quantité, jamais une dette, jamais un devis chiffré, un conseiller toujours possible",
+    /Tu n'inventes RIEN/.test(I.CONSIGNE_IA) && /seulement « disponible » ou « sur commande »/.test(I.CONSIGNE_IA)
+    && /Une dette, un crédit, un solde, un montant dû, un mot de passe, un identifiant/.test(I.CONSIGNE_IA)
+    && /Un devis chiffré, une promesse d'installation, une remise, une date : seul un vendeur de BMI TOGO s'engage/.test(I.CONSIGNE_IA)
+    && /passer_conseiller/.test(I.CONSIGNE_IA) && /Tu recopies le prix exactement/.test(I.CONSIGNE_IA));
+  test("★ la consigne présente les activités de BMI avec les mots du menu de Timo (les quatre activités)",
+    A.LIGNES_MENU.filter((l) => l.activite).every((l) => I.CONSIGNE_IA.includes(l.titre) && (!l.detail || I.CONSIGNE_IA.includes(l.detail))));
+  test("★ un client connu est nommé à l'IA ; un numéro inconnu → elle doit demander le nom avant d'enregistrer",
+    /il s'appelle ESSO/.test(I.consignePour({ client: { nom: "ESSO" } })) && /son nom est inconnu/.test(I.consignePour({})));
+  test("★★ LA PRÉSENTATION est posée par le serveur, pas confiée à l'IA : un programme, pas une personne ; lu par un service hors du Togo ; « conseiller » pour une personne",
+    /un programme, pas une personne/.test(I.PHRASE_PRESENTATION) && I.PHRASE_PRESENTATION.includes(I.MENTION_SERVICE_EXTERIEUR)
+    && /hors du Togo/.test(I.MENTION_SERVICE_EXTERIEUR) && /écrivez « conseiller »/.test(I.PHRASE_PRESENTATION)
+    && /le serveur ajoute la phrase de présentation/.test(I.CONSIGNE_IA)
+    && I.avecPresentation("x", { nouvelle: true }).startsWith(I.PHRASE_PRESENTATION) && I.avecPresentation("x", { nouvelle: false }) === "x"
+    && I.conversationNouvelle({ etape: null }) === true && I.conversationNouvelle({ etape: A.ETAPE_MENU }) === false);
+
+  // ── LES OUTILS : trois, et rien d'autre
+  test("★★ trois outils exactement — chercher un article, enregistrer une demande de devis, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,passer_conseiller"
+    && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
+  const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
+  test("★★ chercher_article passe par LA règle de recherche et rend prix, disponible (oui/non), boutique — JAMAIS une quantité",
+    cherche.effets.prix.join() === "85000" && /"disponible":true/.test(cherche.resultat) && /"prix_fcfa":85000/.test(cherche.resultat)
+    && !/qte|quantite|stock"/.test(cherche.resultat) && Object.keys(JSON.parse(cherche.resultat)[0]).sort().join(",") === "boutique,categorie,disponible,nom,prix_fcfa,tension");
+  test("★ un article introuvable : l'outil le DIT et interdit d'inventer un prix",
+    /Aucun article trouvé/.test(I.executerOutil("chercher_article", { recherche: "tondeuse" }, ctx).resultat) && /Ne pas inventer de prix/.test(I.executerOutil("chercher_article", { recherche: "tondeuse" }, ctx).resultat));
+  test("★★ enregistrer_demande_devis refuse sans besoin, refuse sans nom pour un inconnu, prend le nom du COMPTE pour un client connu",
+    /Refusé : le besoin est vide/.test(I.executerOutil("enregistrer_demande_devis", { nom: "K" }, ctx).resultat)
+    && /Refusé : le nom du client est inconnu/.test(I.executerOutil("enregistrer_demande_devis", { besoin: "3 clims" }, ctx).resultat)
+    && I.executerOutil("enregistrer_demande_devis", { besoin: "3 clims", nom: "KOFFI" }, ctx).effets.demandeDevis.nom === "KOFFI"
+    && I.executerOutil("enregistrer_demande_devis", { besoin: "3 clims", nom: "AUTRE" }, { ...ctx, client: { nom: "ESSO" } }).effets.demandeDevis.nom === "ESSO"
+    && I.executerOutil("enregistrer_demande_devis", { besoin: "3 clims", nom: "KOFFI" }, ctx).effets.conseiller === true);
+  test("★ passer_conseiller passe la main (conseiller, sav, paiement ; un type inconnu vaut conseiller), un outil inconnu ne fait rien",
+    I.executerOutil("passer_conseiller", { motif: "x", type: "sav" }, ctx).effets.type === "sav"
+    && I.executerOutil("passer_conseiller", { motif: "x", type: "bizarre" }, ctx).effets.type === "conseiller"
+    && I.executerOutil("passer_conseiller", { motif: "x", type: "sav" }, ctx).effets.conseiller === true
+    && I.executerOutil("voler_la_base", {}, ctx).effets.conseiller === false && /Outil inconnu/.test(I.executerOutil("voler_la_base", {}, ctx).resultat));
+  test("★★ la fiche 🧲 Prospects d'une demande de l'IA est LA MÊME que celle du menu (une seule fabrique, réelle, au nom de l'assistant)",
+    (() => { const f = I.demandeDevisIA({ cle: "90112233", tel: "+22890112233", demandeDevis: { nom: "KOFFI", besoin: "un portail" }, ts: "2026-09-24T10:00:00.000Z" }); return !("formation" in f) && f.commercial === A.NOM_ASSISTANT && f.source === "assistant_whatsapp" && f.nature === "un portail" && f.nom === "KOFFI"; })());
+
+  // ── LA MÉMOIRE
+  const filM = [entrant("bonjour", 3), A.ligneAssistant({ cle: "90112233", texte: "Bonjour, que cherchez-vous ?", etape: I.ETAPE_IA, ts: il(2.9), ia: true }),
+    { id: "s", canal: "whatsapp", wa_tel: "90112233", ts: il(2), wa_systeme: true, texte: "confiée" },
+    entrant("", 1, { wa_media: { type: "image" } }), entrant("le panneau 400 ?", 0)];
+  const mem = I.messagesPourIA(filM);
+  test("★★ le fil devient une suite user / assistant qui commence et finit par le client ; une photo devient « [photo … non lisible] » ; une ligne système est ignorée",
+    mem.map((m) => m.role).join(",") === "user,assistant,user" && mem[2].content.startsWith("[photo envoyé par le client — non lisible]") && mem[2].content.endsWith("le panneau 400 ?")
+    && !mem.some((m) => /confiée/.test(m.content)));
+  test("★ la mémoire est bornée (les 24 dernières lignes) et vide si rien ne vient du client",
+    I.messagesPourIA(Array.from({ length: 60 }, (_, i) => entrant(`m${i}`, 60 - i))).length === 1 && I.messagesPourIA(Array.from({ length: 60 }, (_, i) => entrant(`m${i}`, 60 - i)))[0].content.split("\n").length === I.MAX_MESSAGES_MEMOIRE
+    && I.messagesPourIA([A.ligneAssistant({ cle: "9", texte: "x", etape: I.ETAPE_IA, ts: il(0) })]).length === 0);
+
+  // ── LE JUGE : on ne se fie pas à la consigne, on VÉRIFIE
+  test("★★ un montant en francs qu'AUCUN outil n'a donné → la réponse est JETÉE (un prix inventé est une faute au nom de BMI)",
+    I.garderReponse("Le panneau est à 85 000 F.", { prixConnus: [85000] }).ok === true
+    && I.garderReponse("Le panneau est à 90 000 F.", { prixConnus: [85000] }).ok === false
+    && I.garderReponse("Comptez environ 1 200 000 FCFA pour l'installation.", { prixConnus: [85000] }).ok === false
+    && I.garderReponse("Ça coûte 3500 francs.", { prixConnus: [] }).ok === false
+    && I.montantsCites("85 000 F, 1 200 000 FCFA, 3500F").join() === "85000,1200000,3500");
+  test("★★ un mot sur une dette, un crédit, un solde, un mot de passe, un identifiant → jetée, motif « sujet réservé »",
+    ["Votre dette est de …", "Vous pouvez payer à crédit", "Votre solde est positif", "Voici votre mot de passe", "Donnez-moi votre identifiant", "Le montant dû est…"]
+      .every((t) => I.garderReponse(t, {}).reserve === true)
+    && I.garderReponse("Nous accréditons…", {}).ok === true);
+  test("★ vide ou trop long → jetée ; un texte ordinaire passe",
+    I.garderReponse("", {}).ok === false && I.garderReponse("x".repeat(I.MAX_LONGUEUR_REPONSE + 1), {}).ok === false
+    && I.garderReponse("Bonjour ! Le Panneau solaire 400 W est disponible à DEMAKPOE. Voulez-vous un devis ?", { prixConnus: [] }).ok === true);
+  test("★★ un verdict « sujet réservé » envoie la phrase fixe (espace client + conseiller) et passe la main ; une réponse jetée après une demande ENREGISTRÉE envoie la phrase du menu, rien n'est perdu ; jetée sans effet → null, le menu reprend",
+    (() => {
+      const r1 = I.reponseDepuisIA({ texte: "votre dette…", effets: { prix: [], demandeDevis: null, conseiller: false }, juge: I.garderReponse("votre dette…", {}), nouvelle: false });
+      const r2 = I.reponseDepuisIA({ texte: "c'est 999 F", effets: { prix: [], demandeDevis: { nom: "KOFFI", besoin: "b" }, conseiller: true }, juge: I.garderReponse("c'est 999 F", {}), nouvelle: false });
+      const r3 = I.reponseDepuisIA({ texte: "c'est 999 F", effets: { prix: [], demandeDevis: null, conseiller: false }, juge: I.garderReponse("c'est 999 F", {}), nouvelle: false });
+      const r4 = I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [], demandeDevis: null, conseiller: false }, juge: { ok: true }, nouvelle: true });
+      return r1.texte === I.REPONSE_SUJET_RESERVE && r1.etape === A.ETAPE_CONSEILLER && r1.conseiller === true && /espace client/.test(r1.texte)
+        && r2.texte === A.texteDemandeEnregistree("KOFFI") && r2.demandeDevis.nom === "KOFFI" && r2.etape === A.ETAPE_CONSEILLER
+        && r3 === null
+        && r4.texte.startsWith(I.PHRASE_PRESENTATION) && r4.etape === I.ETAPE_IA && r4.ia === true;
+    })());
+  test("★★ aucune phrase fixe de l'IA ne parle de dette, de crédit, de solde, de mot de passe (le juge s'applique aussi à ce qu'on écrit nous-mêmes)",
+    [I.PHRASE_PRESENTATION, I.REPONSE_SUJET_RESERVE, I.MENTION_SERVICE_EXTERIEUR, A.TEXTE_RELAIS_CONSEILLER, A.texteDemandeEnregistree("X")].every((t) => I.garderReponse(t, {}).ok === true));
+
+  // ── LA VRAIE BOUCLE, avec un faux service
+  const joue = (reponses) => { let n = 0; const vus = []; return { vus, appeler: async (corps) => { vus.push(corps); return reponses[Math.min(n++, reponses.length - 1)]; } }; };
+  const outil = (id, name, input) => ({ type: "tool_use", id, name, input });
+  const filC = [entrant("le panneau 400 c'est combien ?", 0)];
+  const j1 = joue([
+    { stop_reason: "tool_use", content: [{ type: "text", text: "Je regarde." }, outil("t1", "chercher_article", { recherche: "panneau 400" })] },
+    { stop_reason: "end_turn", content: [{ type: "text", text: "Le Panneau solaire 400 W est à 85 000 F, disponible à DEMAKPOE. Voulez-vous un devis ?" }] },
+  ]);
+  const c1 = await I.converserAvecIA({ consigne: I.consignePour({}), messages: I.messagesPourIA(filC), appeler: j1.appeler, executer: (n, e) => I.executerOutil(n, e, ctx) });
+  test("★★ LA BOUCLE : l'outil est exécuté par NOUS, son résultat renvoyé sous `tool_result` avec le même id, la consigne et les trois outils sont passés à chaque tour",
+    c1.tours === 1 && j1.vus.length === 2 && j1.vus[1].messages.at(-1).role === "user" && j1.vus[1].messages.at(-1).content[0].type === "tool_result"
+    && j1.vus[1].messages.at(-1).content[0].tool_use_id === "t1" && /"prix_fcfa":85000/.test(j1.vus[1].messages.at(-1).content[0].content)
+    && j1.vus[1].messages.at(-2).role === "assistant" && j1.vus.every((c) => c.system === I.consignePour({}) && c.tools === I.OUTILS_IA && c.max_tokens === I.MAX_TOKENS_REPONSE));
+  test("★★ le prix cité vient de l'outil : le juge accepte ; si le service avait écrit un autre prix, il refuse",
+    I.garderReponse(c1.texte, { prixConnus: c1.effets.prix }).ok === true && c1.effets.prix.join() === "85000"
+    && I.garderReponse("Le Panneau solaire 400 W est à 95 000 F.", { prixConnus: c1.effets.prix }).ok === false);
+  const j2 = joue([
+    { stop_reason: "tool_use", content: [outil("t2", "enregistrer_demande_devis", { nom: "KOFFI", besoin: "3 clims 1,5 CV à Agoè" })] },
+    { stop_reason: "end_turn", content: [{ type: "text", text: "Merci KOFFI, votre demande est enregistrée. Un conseiller BMI TOGO vous rappelle sur ce numéro." }] },
+  ]);
+  const c2 = await I.converserAvecIA({ consigne: "", messages: [{ role: "user", content: "je veux un devis, 3 clims, KOFFI" }], appeler: j2.appeler, executer: (n, e) => I.executerOutil(n, e, ctx) });
+  test("★★ une demande de devis enregistrée par l'outil passe la main (étape conseiller), avec le nom et le besoin",
+    c2.effets.demandeDevis.nom === "KOFFI" && c2.effets.demandeDevis.besoin === "3 clims 1,5 CV à Agoè" && c2.effets.conseiller === true
+    && I.etapeApresIA(c2.effets) === A.ETAPE_CONSEILLER && I.etapeApresIA(c1.effets) === I.ETAPE_IA);
+  // ⚠ Le faux service s'arrête de lui-même au 20e appel : si la borne de la
+  // règle manquait, on lirait un ✗ (20 tours au lieu de 4), pas un banc
+  // qui pend — un banc illisible est un banc qu'on cesse de lire.
+  let k = 0;
+  const boucle = async () => { k++; return k > 20 ? { stop_reason: "end_turn", content: [] } : { stop_reason: "tool_use", content: [outil(`t${k}`, "chercher_article", { recherche: "x" })] }; };
+  const c3 = await I.converserAvecIA({ consigne: "", messages: [{ role: "user", content: "x" }], appeler: boucle, executer: (n, e) => I.executerOutil(n, e, ctx) });
+  test("★★ un service qui redemande un outil sans fin est ARRÊTÉ : au plus 4 allers-retours (5 appels), jamais une boucle qui coûte sans fin",
+    c3.tours === I.MAX_TOURS_OUTILS && k === I.MAX_TOURS_OUTILS + 1 && I.MAX_TOURS_OUTILS === 4);
+  test("★ rien du client → pas d'appel du tout",
+    (await I.converserAvecIA({ consigne: "", messages: [], appeler: async () => { throw new Error("ne doit pas être appelé"); }, executer: () => ({}) })).texte === "");
+
+  // ── LA PORTE : la clé et le modèle côté serveur seulement, jamais dans le code
+  test("★★ la clé d'accès et le nom du modèle sont des variables Vercel, lues UNIQUEMENT dans api/_assistantIA.js, jamais préfixées VITE_",
+    /process\.env\.ANTHROPIC_API_KEY/.test(porte) && /process\.env\.ASSISTANT_IA_MODELE/.test(porte) && !/VITE_/.test(porte)
+    && !/ANTHROPIC_API_KEY|ASSISTANT_IA_MODELE/.test(entrantI) && !/process\.env/.test(codeI)
+    && /pret: !!cle && !!modele/.test(porte));
+  test("★★ AUCUN nom de modèle d'IA dans le code (règle de la maison) : ni dans la règle, ni dans la porte, ni dans le webhook, ni dans les écrans",
+    ["src/lib/assistantIA.js", "api/_assistantIA.js", "api/whatsapp-entrant.js", "src/screens/Parametres.jsx", "src/screens/Whatsapp.jsx"].every((f) => !/claude-[a-z0-9]/i.test(lire(f))));
+  test("★ la porte : une seule adresse, la version d'API, la clé dans l'en-tête, un délai borné, et une réponse en erreur qui LÈVE (l'appelant retombe sur le menu)",
+    /URL_IA = "https:\/\/api\.anthropic\.com\/v1\/messages"/.test(porteBrut) && /"anthropic-version": VERSION_API_IA/.test(porte) && /"x-api-key": cle/.test(porte)
+    && /AbortController/.test(porte) && /DELAI_IA_MS = 25000/.test(porte) && /if \(!reponse\.ok\) \{[\s\S]{0,300}throw e;/.test(porte)
+    && !/api\.anthropic\.com/.test(entrantI) && !/api\.anthropic\.com/.test(codeI));
+  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, un seul import (lib/assistantWhatsapp.js)",
+    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 1 && /from "\.\/assistantWhatsapp\.js"/.test(codeI));
+
+  // ── LE SERVEUR : l'IA d'abord, le menu en repli, et rien d'écrit avant l'envoi
+  const corpsR = entrantI.slice(entrantI.indexOf("async function repondreParAssistant"));
+  test("★★ le webhook tente l'IA seulement si elle est CHOISIE et CONFIGURÉE, puis retombe sur le menu (`if (!r)`) — la décision de silence est prise UNE fois, avant, par la règle",
+    /if \(modeAssistant\(boutiques\) === "ia" && ia\.pret\) \{/.test(corpsR) && /if \(!r\) \{[\s\S]{0,900}r = reponseAssistant\(\{/.test(corpsR)
+    && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
+  test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
+    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    && /executerOutil\(nom, entree, \{\s*articles: nom === "chercher_article" \? await chargerArticles\(\) : \[\],/.test(corpsR)
+    && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle \}\);/.test(corpsR)
+    && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
+  test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA comprise : un seul envoi YCloud, APRÈS l'IA et le menu, AVANT toute écriture",
+    (corpsR.match(/envoyerYCloud\(/g) || []).length === 1
+    && corpsR.indexOf("converserAvecIA(") < corpsR.indexOf("envoyerYCloud(") && corpsR.indexOf("reponseAssistant(") < corpsR.indexOf("envoyerYCloud(")
+    && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("messages").insert(') && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("prospects").insert('));
+  test("★★ une IA qui trébuche (réseau, refus, réponse jetée) ne laisse jamais le client sans réponse : try/catch, journal, et le menu ; et sur une nouvelle conversation le client est prévenu que le service a lu son message",
+    /try \{\s*const conv = await converserAvecIA/.test(corpsR) && /catch \(e\) \{\s*console\.error\("\[whatsapp-entrant\] IA indisponible, le menu reprend/.test(corpsR)
+    && /if \(essaiIA\) r = \{ \.\.\.r, texte: avecMention\(r\.texte, \{ nouvelle \}\) \};/.test(corpsR)
+    && I.avecMention("x", { nouvelle: true }).includes(I.MENTION_SERVICE_EXTERIEUR) && I.avecMention("x", { nouvelle: false }) === "x");
+  test("★ la ligne écrite porte la marque `ia`, la demande de devis part par la même écriture qu'avant, la fiche légère suit sans propriétaire",
+    /ligneAssistant\(\{ cle, tel: from, nom: client\?\.nom \|\| "", texte: r\.texte, etape: r\.etape, ts, memoire: r\.memoire \|\| null, ia: !!r\.ia \}\)/.test(corpsR)
+    && A.ligneAssistant({ cle: "9", texte: "x", etape: I.ETAPE_IA, ts: il(0), ia: true }).wa_assistant.ia === true
+    && !("ia" in A.ligneAssistant({ cle: "9", texte: "x", etape: A.ETAPE_MENU, ts: il(0) }).wa_assistant)
+    && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR));
+  test("★★ les règles de SILENCE ne bougent pas : conversation confiée, employé qui a répondu, conseiller demandé — le même `decisionAssistant` décide avant l'IA",
+    A.decisionAssistant({ fil: [entrant("bonjour")], proprietaireId: "COM1" }).repondre === false
+    && A.decisionAssistant({ fil: [entrant("x", 3), { id: "h", canal: "whatsapp", wa_tel: "90112233", ts: il(2), texte: "je réponds", de_id: "KOSSI" }, entrant("ok", 0)] }).repondre === false
+    && A.decisionAssistant({ fil: [entrant("8", 1), A.ligneAssistant({ cle: "90112233", texte: "…", etape: A.ETAPE_CONSEILLER, ts: il(1), ia: true }), entrant("j'attends", 0)] }).repondre === false
+    && A.decisionAssistant({ fil: [entrant("x", 1), A.ligneAssistant({ cle: "90112233", texte: "…", etape: I.ETAPE_IA, ts: il(1), ia: true }), entrant("suite", 0)] }).repondre === true
+    && A.decisionAssistant({ fil: [entrant("x", 1), A.ligneAssistant({ cle: "90112233", texte: "…", etape: I.ETAPE_IA, ts: il(1), ia: true }), entrant("suite", 0)] }).etape !== null);
+  test("★ le webhook a le temps d'attendre le service (vercel.json : 60 s pour whatsapp-entrant)",
+    /"api\/whatsapp-entrant\.js": \{ "maxDuration": 60 \}/.test(lire("vercel.json")));
+
+  // ── LE RÉGLAGE ET L'ÉCRAN
+  test("★ le réglage : « ia » tant que personne n'a choisi le menu, posé sur toutes les boutiques, un mode inconnu vaut « ia »",
+    I.modeAssistant([]) === "ia" && I.modeAssistant([{ nom: "A", assistant_wa_mode: "menu" }]) === "menu" && I.modeAssistant([{ nom: "A", assistant_wa_mode: "bizarre" }]) === "ia"
+    && I.poserModeAssistant([{ nom: "A" }, { nom: "B" }], "menu").every((b) => b.assistant_wa_mode === "menu") && I.poserModeAssistant([{ nom: "A" }], "bizarre")[0].assistant_wa_mode === "ia");
+  test("★ ⚙ Paramètres : le choix IA / menu, PRINCIPAL seul, revérifié dans le geste, qui DIT au moment de choisir que les messages partent hors du Togo, et montre la phrase de présentation",
+    /data-assistant-mode=\{assistantMode\}/.test(param) && /const changerModeAssistant = async \(mode\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile/.test(param)
+    && /poserModeAssistant\(db\.boutiques, mode\)/.test(param) && /lus par un service situé hors du Togo/.test(param) && /\{PHRASE_PRESENTATION\}/.test(param)
+    && /jetée avant de partir/.test(param) && /ne se fait jamais passer pour une personne/.test(param));
+  test("★ 📲 WhatsApp étiquette une phrase de l'IA « (IA) » et l'écran se rend avec une ligne de l'IA dans le fil",
+    /\{m\.wa_assistant\.ia \? " \(IA\)" : ""\}/.test(ecranI) && (() => { const h = V.renduAvecIA(); return typeof h === "string" && !h.startsWith("ERREUR") && h.includes("(IA)"); })());
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

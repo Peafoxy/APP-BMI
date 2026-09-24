@@ -29,6 +29,11 @@ import { numeroWhatsApp } from "../src/lib/whatsappModeles.js";
 // 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
 // ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
 import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, ETAPE_MENU, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
+// 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
+// qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
+// la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
+import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, avecMention, modeAssistant } from "../src/lib/assistantIA.js";
+import { configIA, appelerIA } from "./_assistantIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 
@@ -248,33 +253,75 @@ export default async function handler(req, res) {
 async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle, from, client, ligne }) {
   const decision = decisionAssistant({ fil, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
   if (!decision.repondre) return { repondu: false, pourquoi: decision.pourquoi };
+  const nouvelle = conversationNouvelle(decision);
+  const clientIA = client ? { nom: client.nom } : null;
 
-  // Le stock ne se charge que s'il peut servir : un message LIBRE (pas un
-  // chiffre, pas « menu ») à l'accueil, au menu ou à l'étape « produit ».
-  // ⚠ 24/09/2026 (capture Timo) : au menu aussi, parce qu'un client écrit
-  // « combien coûte le panneau 400 » sans avoir tapé 5.
-  const entree = interpreterEntree(ligne.texte);
-  const peutViserLeStock = [null, undefined, ETAPE_MENU, ETAPE_PRODUIT].includes(decision.etape) && !entree.chiffre && !entree.menu && !entree.vide;
-  let articles = [];
-  if (peutViserLeStock) {
+  // Le stock (boutiques RÉELLES seulement, le mur) se charge à la demande,
+  // UNE fois : quand l'IA appelle chercher_article, ou quand le menu peut
+  // viser un article.
+  let articlesCharges = null;
+  const chargerArticles = async () => {
+    if (articlesCharges) return articlesCharges;
     const [{ data: prods }, { data: vts }, { data: ajs }] = await Promise.all([
       admin.from("produits").select("id, data"),
       admin.from("ventes").select("id, data"),
       admin.from("ajustements").select("data"),
     ]);
-    articles = articlesPourAssistant({
+    articlesCharges = articlesPourAssistant({
       produits: (prods || []).map((l) => ({ ...(l.data || {}), id: l.id })),
       boutiques,
       ventes: (vts || []).map((l) => ({ ...(l.data || {}), id: l.id })),
       ajustements: (ajs || []).map((l) => l.data || {}),
     });
+    return articlesCharges;
+  };
+
+  // ---- 🤖 D'ABORD L'IA, si elle est choisie ET configurée ----
+  // Elle ne SAIT rien toute seule : les faits viennent des outils que CE
+  // serveur exécute (`executerOutil`), et sa réponse passe par le juge
+  // (`garderReponse`) avant de partir. Tout ce qui échoue — réseau, refus du
+  // service, réponse jetée — retombe sur le menu, en le disant au journal.
+  let r = null;
+  let essaiIA = false;
+  const ia = configIA();
+  if (modeAssistant(boutiques) === "ia" && ia.pret) {
+    essaiIA = true;
+    try {
+      const conv = await converserAvecIA({
+        consigne: consignePour({ client: clientIA }),
+        messages: messagesPourIA(fil),
+        appeler: (corps) => appelerIA(corps, ia),
+        executer: async (nom, entree) => executerOutil(nom, entree, {
+          articles: nom === "chercher_article" ? await chargerArticles() : [],
+          client: clientIA,
+        }),
+      });
+      const juge = garderReponse(conv.texte, { prixConnus: conv.effets.prix });
+      r = reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle });
+      if (!juge.ok) console.error("[whatsapp-entrant] IA : réponse jetée —", juge.motif, r ? "(phrase fixe envoyée)" : "(le menu reprend)");
+    } catch (e) {
+      console.error("[whatsapp-entrant] IA indisponible, le menu reprend —", e?.message || e);
+    }
   }
 
-  const r = reponseAssistant({
-    etape: decision.etape, texte: ligne.texte, media: ligne.wa_media || null,
-    client: client ? { nom: client.nom } : null, articles, memoire: decision.memoire || {},
-  });
-  if (!r) return { repondu: false, pourquoi: "rien à dire" };
+  // ---- LE MENU À CHIFFRES, comme avant, quand l'IA n'a rien donné ----
+  if (!r) {
+    // Le stock ne se charge que s'il peut servir : un message LIBRE (pas un
+    // chiffre, pas « menu ») à l'accueil, au menu ou à l'étape « produit ».
+    // ⚠ 24/09/2026 (capture Timo) : au menu aussi, parce qu'un client écrit
+    // « combien coûte le panneau 400 » sans avoir tapé 5.
+    const entree = interpreterEntree(ligne.texte);
+    const peutViserLeStock = [null, undefined, ETAPE_MENU, ETAPE_PRODUIT].includes(decision.etape) && !entree.chiffre && !entree.menu && !entree.vide;
+    const articles = peutViserLeStock ? await chargerArticles() : [];
+    r = reponseAssistant({
+      etape: decision.etape, texte: ligne.texte, media: ligne.wa_media || null,
+      client: clientIA, articles, memoire: decision.memoire || {},
+    });
+    if (!r) return { repondu: false, pourquoi: "rien à dire" };
+    // Le message a été LU par le service d'IA avant que le menu ne reprenne :
+    // sur une nouvelle conversation, le client doit le savoir quand même.
+    if (essaiIA) r = { ...r, texte: avecMention(r.texte, { nouvelle }) };
+  }
 
   const { cle: cleYCloud, expediteurBrut } = configYCloud();
   const expediteur = numeroWhatsApp(expediteurBrut);
@@ -292,7 +339,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   // La réponse se range APRÈS le message du client (une seconde plus tard
   // au moins), sinon le fil la lirait avant la question.
   const ts = new Date(Math.max(Date.now(), Date.parse(ligne.ts) + 1000)).toISOString();
-  const ligneR = ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: r.memoire || null });
+  const ligneR = ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: r.memoire || null, ia: !!r.ia });
   const { error: errIns } = await admin.from("messages").insert({ id: ligneR.id, data: ligneR, updated_at: ligneR.ts });
   if (errIns) throw errIns;
 
@@ -311,5 +358,5 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
     const { error: errFiche } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: fiche.ts });
     if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);
   }
-  return { repondu: true, conseiller: !!r.conseiller, devis: !!r.demandeDevis, nom, etape: r.etape };
+  return { repondu: true, conseiller: !!r.conseiller, devis: !!r.demandeDevis, nom, etape: r.etape, ia: !!r.ia };
 }

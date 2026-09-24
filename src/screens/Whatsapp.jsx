@@ -70,9 +70,12 @@ export function compterNonLusWa(db, profile) {
   );
 }
 
-export function Whatsapp({ db, save, profile }) {
+// `cleInitiale` : la conversation ouverte au montage — le banc s'en sert pour
+// RENDRE un fil (une phrase de l'IA, une ligne du robot) ; l'application
+// ne la passe pas.
+export function Whatsapp({ db, save, profile, cleInitiale = null }) {
   const messages = db.messages || [];
-  const [cleOuverte, setCleOuverte] = useState(null);
+  const [cleOuverte, setCleOuverte] = useState(cleInitiale);
   const [texte, setTexte] = useState("");
   const [envoi, setEnvoi] = useState(false);
   const [contact, setContact] = useState(null);
@@ -482,7 +485,7 @@ export function Whatsapp({ db, save, profile }) {
                   le robot a dit au client. */}
               {fil.map((m) => (
                 <div key={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : estLigneAssistant(m) ? "ml-auto bg-sky-50 border border-sky-200 text-slate-800" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
-                  {estLigneAssistant(m) && <div className="text-xs font-bold mb-0.5 text-sky-800">🤖 {NOM_ASSISTANT}</div>}
+                  {estLigneAssistant(m) && <div className="text-xs font-bold mb-0.5 text-sky-800">🤖 {NOM_ASSISTANT}{m.wa_assistant.ia ? " (IA)" : ""}</div>}
                   {!m.wa_systeme && !estLigneAssistant(m) && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
                   {m.wa_media && <MediaWa message={m} />}
                   {m.texte ? <div className="whitespace-pre-line">{texteDuFil(m)}</div> : null}

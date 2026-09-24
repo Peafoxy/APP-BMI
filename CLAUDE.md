@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 403 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare)
+npm run verifier-whatsapp        # 440 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par trois outils et un juge, le faux service joué par le banc)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3061,10 +3061,13 @@ lit mal est pire qu'un banc absent).
   (un seul import : la règle commune de recherche `correspond`), lue par le
   serveur `api/whatsapp-entrant.js` ; porte YCloud écrite UNE fois
   (`api/_ycloud.js`, la clé n'est lue que là et dans whatsapp-media).
-- **C'EST LE NIVEAU « MENU À CHIFFRES », PAS L'IA** — on lui a proposé l'IA
+- **C'ÉTAIT LE NIVEAU « MENU À CHIFFRES », PAS L'IA** — on lui a proposé l'IA
   ensuite, « une fois qu'on aura vu ce que les clients écrivent vraiment ».
-  Rien ne sort du Togo : aucun service extérieur ne lit le message du client.
-  Ne pas construire l'IA sans sa demande.
+  ~~Rien ne sort du Togo : aucun service extérieur ne lit le message du
+  client. Ne pas construire l'IA sans sa demande.~~ **RETOURNÉ le 24/09/2026
+  au soir** : il l'a demandée (« il doit arriver à discuter comme un
+  humain ») — voir le § « 🗣 L'ASSISTANT QUI DISCUTE » plus bas. Le menu
+  reste ENTIER, comme repli et comme mode au choix.
 - ⚠⚠ **DEUX RÉSERVES DITES AVANT DE CONSTRUIRE, et tenues** : (1) **la DETTE
   n'est JAMAIS communiquée** — ChatGPT voulait « une authentification
   préalable », ce qui voudrait dire faire circuler un identifiant ou un mot
@@ -3227,6 +3230,117 @@ lit mal est pire qu'un banc absent).
   les réunit par esbuild.
 - **Rien à coller à part `securite-32`** : `source`, `pris_le`, `pris_par_id`,
   `client_user_id`, `devis_id` sont des champs de la fiche prospect.
+
+### 🗣 L'ASSISTANT QUI DISCUTE — L'IA BRIDÉE PAR LES OUTILS ET PAR LE JUGE (niveau 3, 24/09/2026)
+- Timo, une heure après la prise en charge des demandes : **« L'assistant
+  doit être plus intelligent et interagir avec les clients, que de balancer
+  des messages et que le client choisisse des numéros. Il doit arriver à
+  discuter comme un humain. »** Trois décisions lui ont été demandées avant
+  de construire, et il a répondu **« Lance avec ces trois réponses »** :
+  **(1)** les messages des clients peuvent être lus par un service extérieur
+  (hors du Togo), la démarche **IPDCP** est de son côté ; **(2) Claude,
+  d'Anthropic** ; **(3)** vouvoiement, français simple, « je suis l'assistant
+  de BMI TOGO », **jamais se faire passer pour une personne**. Règle pure
+  **`lib/assistantIA.js`** (un seul import : lib/assistantWhatsapp.js — ni
+  réseau, ni `db`) ; porte réseau **`api/_assistantIA.js`** ; le webhook
+  `api/whatsapp-entrant.js` tente l'IA D'ABORD, le menu à chiffres reprend
+  dès qu'elle échoue.
+- ⚠⚠ **L'IA NE SAIT RIEN TOUTE SEULE.** Tout ce qui est un FAIT vient de
+  l'application par **TROIS outils** que le SERVEUR exécute (`OUTILS_IA` /
+  `executerOutil`) et rien d'autre : `chercher_article` (LA règle commune de
+  recherche, prix et « disponible / sur commande », **jamais la quantité** —
+  le banc lit les clés rendues), `enregistrer_demande_devis` (**la MÊME
+  fabrique** de fiche 🧲 Prospects que le menu, réelle, au nom de
+  l'assistant ; refusée sans besoin, refusée sans nom pour un inconnu, le nom
+  du COMPTE prime pour un client connu), `passer_conseiller` (conseiller /
+  sav / paiement). Un outil inconnu ne fait rien.
+- ⚠⚠ **ON NE SE FIE PAS À LA CONSIGNE, ON VÉRIFIE** (`garderReponse`, le
+  juge) : une réponse est **JETÉE** si elle cite **un montant en francs
+  qu'aucun outil n'a donné** (`montantsCites` contre `effets.prix` — un prix
+  inventé, et même un prix CALCULÉ, est une faute au nom de BMI), si elle
+  porte un **sujet réservé** (dette, crédit, solde, mot de passe,
+  identifiant, montant dû — `MOTS_INTERDITS_IA`, **sans `\b`** : en
+  JavaScript il ne connaît que l'ASCII et « montant dû » passait au travers),
+  si elle est vide ou trop longue (1 500 caractères). Puis `reponseDepuisIA`
+  décide ce qui PART : jugée bonne → telle quelle ; **sujet réservé → la
+  phrase fixe** `REPONSE_SUJET_RESERVE` (espace client + conseiller) et une
+  personne prend le relais ; jetée MAIS un outil a **enregistré une demande**
+  ou **passé la main** → **la phrase fixe du menu** (`texteDemandeEnregistree`,
+  `TEXTE_RELAIS_CONSEILLER`, exportées de lib/assistantWhatsapp.js — rien de
+  ce qui a été FAIT n'est perdu, rien de ce qui a été DIT de travers ne
+  part) ; jetée sans effet → `null`, **le menu reprend**. Le juge s'applique
+  aussi à nos phrases fixes (le banc les passe toutes).
+- ⚠⚠ **LA PRÉSENTATION EST POSÉE PAR LE SERVEUR, jamais confiée à l'IA**
+  (`PHRASE_PRESENTATION`, devant la première réponse d'une conversation
+  NOUVELLE — `conversationNouvelle(decision)`, l'étape null de
+  `decisionAssistant`) : « un programme, pas une personne », **« vos
+  messages sont lus par un service informatique situé hors du Togo »**
+  (`MENTION_SERVICE_EXTERIEUR`, sa décision 1 : le client doit le savoir),
+  « écrivez « conseiller » pour parler à quelqu'un ». La consigne DIT à l'IA
+  de ne pas se présenter elle-même. ⚠ **Et si l'IA a LU le message puis que
+  le menu reprend** (panne, réponse jetée) sur une nouvelle conversation, le
+  menu part avec la mention quand même (`avecMention`, `essaiIA`) : le
+  message est parti hors du Togo, on ne le cache pas.
+- **LES RÈGLES DE SILENCE NE BOUGENT PAS** : c'est le MÊME `decisionAssistant`
+  (conversation confiée, employé qui a répondu il y a moins de 24 h,
+  conseiller demandé, réglage coupé) qui décide UNE fois, AVANT l'IA ; le
+  banc compte l'appel. Une ligne de l'IA porte `wa_assistant.etape = "ia"`
+  (sa mémoire est le fil lui-même, `messagesPourIA` : user / assistant en
+  alternance, commence et finit par le client, une photo devient « [photo …
+  non lisible] », 24 lignes au plus) et **`wa_assistant.ia: true`** — 📲
+  WhatsApp l'étiquette « 🤖 Assistant BMI TOGO (IA) ». Après
+  `passer_conseiller` ou une demande enregistrée, l'étape est CONSEILLER :
+  silence, comme avec le menu.
+- ⚠⚠ **RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA COMPRISE** :
+  UN seul `envoyerYCloud` dans `repondreParAssistant`, après l'IA et le menu,
+  avant toute écriture (fil, prospect, fiche légère) — éprouvé en faisant
+  écrire la fiche prospect avant l'envoi : le contrôle tombe. **La boucle est
+  BORNÉE** (`MAX_TOURS_OUTILS` = 4 allers-retours, 5 appels) : un service
+  qui redemande un outil sans fin ne coûte pas sans fin. ⚠ Le faux service
+  du banc s'arrête de lui-même au 20e appel : la borne retirée donne un ✗
+  lisible, pas un banc qui pend (la première version pendait — « un banc
+  illisible est un banc qu'on cesse de lire »).
+- ⚠⚠ **DEUX VARIABLES VERCEL, côté serveur seulement, JAMAIS `VITE_`** :
+  **`ANTHROPIC_API_KEY`** (la clé, créée par Timo sur le site du fournisseur,
+  personne d'autre ne la voit) et **`ASSISTANT_IA_MODELE`** (le nom du
+  modèle). **Le nom du modèle ne s'écrit PAS dans le code** (règle de la
+  maison : aucun nom de modèle d'IA dans un commit, un commentaire, une PR —
+  ni dans une constante) : c'est un réglage du serveur, dit à Timo dans le
+  message, jamais dans le dépôt. Le banc interdit `claude-…` dans la règle,
+  la porte, le webhook et les écrans. Sans l'une des deux variables,
+  `configIA().pret` est faux et **le menu répond** — jamais un client sans
+  réponse. `vercel.json` donne 60 s au webhook (`maxDuration`) pour attendre
+  le service ; la porte coupe à 25 s (`AbortController`).
+- **LE RÉGLAGE** : ⚙ Paramètres → 🤖 Assistant, **« 🗣 Conversation par IA /
+  🔢 Menu à chiffres »** (`assistant_wa_mode` sur les boutiques, **« ia »
+  d'office**, principal seul, revérifié DANS le geste, et la confirmation DIT
+  que les messages partent hors du Togo). Le bouton « Couper l'assistant »
+  coupe les deux. **Rien à coller dans Supabase.**
+- ⚠ **CE QUE ÇA COÛTE** : ~4 F la réponse WhatsApp, plus **quelques francs
+  par réponse pour le service d'IA**, facturés par Anthropic (carte bancaire,
+  compte à créer par Timo). ⚠ **CE QUE ÇA NE FAIT PAS** : l'IA ne lit ni les
+  dettes, ni les devis, ni les comptes ; elle ne calcule aucun prix (une
+  multiplication de deux articles est jetée par le juge — c'est le prix de la
+  règle « rien d'inventé ») ; elle ne relance jamais (fenêtre de 24 h) ; elle
+  ne lit pas une photo (elle le dit et passe la main). **Le personnel voit
+  chaque phrase dans 📲 WhatsApp.**
+- ⚠ **LA PORTE N'A PAS PU ÊTRE ÉPROUVÉE SUR LE VRAI SERVICE D'ICI** (aucune
+  clé, et il ne doit pas y en avoir ici) : le banc (`verifier-whatsapp` ㉒,
+  **440**) JOUE le service — un faux `appeler` — et exerce la VRAIE boucle
+  (`tool_use` → `executerOutil` → `tool_result` avec le même id, la consigne
+  et les trois outils à chaque tour), le juge, la mémoire, le réglage,
+  l'écran RENDU avec une ligne de l'IA (nouvelle prop `cleInitiale` de
+  📲 WhatsApp, pour le banc seul). **Éprouvé** en remettant cinq fautes (le
+  juge des prix retiré, la boucle sans borne, un nom de modèle dans la
+  porte, la fiche prospect écrite avant l'envoi, la présentation oubliée) :
+  à chaque fois des contrôles tombent. Deux contrôles de ⑳ RETOURNÉS (le
+  stock chargé par `chargerArticles`, la phrase de ⚙ Paramètres). **Le
+  premier vrai échange dira si la forme de l'appel est juste** : on regarde
+  le journal Vercel (« IA indisponible, le menu reprend — … ») avant de
+  chercher ailleurs.
+- **Le niveau 3 de l'assistant est donc construit ; l'option « estimation
+  automatique envoyée par le robot » (le 3 de « 1 et 2 ») reste NON
+  construite** — le devis officiel ne part jamais sans une personne.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

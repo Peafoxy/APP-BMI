@@ -1,4 +1,5 @@
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "functions": { "api/whatsapp-entrant.js": { "maxDuration": 60 } },
   "crons": [{ "path": "/api/rappels-du-matin", "schedule": "0 7 * * *" }]
 }
