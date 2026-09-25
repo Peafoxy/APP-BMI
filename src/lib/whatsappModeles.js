@@ -116,6 +116,13 @@ export const MODELES = {
   // la BOUTIQUE qui a vendu (sa décision), le numéro BMI principal si la
   // fiche n'en a pas — Meta refuse un trou vide.
   recu_vente: { categorie: "utility", variables: ["client", "date", "boutique", "recu", "montant", "paiement", "telephone"] },
+  // 👨‍💼 25/09/2026, Timo : « si un client demande d'être mis en relation, il
+  // envoie un message WhatsApp automatiquement à moi l'administrateur ».
+  // UTILITY : une alerte de service, rien de commercial. Il ne part pas vers
+  // un CLIENT : c'est le SERVEUR (api/whatsapp-entrant.js) qui l'envoie au
+  // numéro réglé dans ⚙ Paramètres — aucun écran ne l'envoie (il n'est donc
+  // pas dans MODELES_EN_SERVICE).
+  alerte_conseiller: { categorie: "utility", variables: ["administrateur", "client", "numero"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -750,4 +757,32 @@ export function envoiRecuVente({ vente, boutique, avance = 0, reste = 0, fmt, dF
 export function texteRecuVente(envoi) {
   if (!envoi) return "";
   return envoi.variables.reduce((t, v, i) => t.replace(`{{${i + 1}}}`, v), TEXTE_RECU_VENTE);
+}
+
+// ---------------------------------------------------------------
+// 👨‍💼 L'ALERTE À L'ADMINISTRATEUR : UN CLIENT DEMANDE UNE PERSONNE (25/09/2026)
+// ---------------------------------------------------------------
+// Texte de Timo (« Lance avec ce texte »), mot pour mot chez Meta :
+export const TEXTE_ALERTE_CONSEILLER = "Bonjour {{1}}, un client demande à parler à un conseiller : {{2}} ({{3}}). Répondez-lui depuis l'application BMI, onglet WhatsApp. BMI TOGO";
+// Le réglage : `alerte_conseiller = { tel, nom }` sur les boutiques (une
+// politique, comme l'assistant — rien à coller), lu sur une boutique RÉELLE
+// seulement : une boutique de formation ne commande pas une alerte réelle.
+export function alerteConseillerDe(boutiques) {
+  const b = (boutiques || []).find((x) => x && !x.formation && x.alerte_conseiller && x.alerte_conseiller.tel);
+  return b ? { tel: String(b.alerte_conseiller.tel), nom: String(b.alerte_conseiller.nom || "") } : null;
+}
+export const poserAlerteConseiller = (boutiques, reglage) =>
+  (boutiques || []).map((b) => ({ ...b, alerte_conseiller: reglage && reglage.tel ? { tel: String(reglage.tel), nom: String(reglage.nom || "") } : null }));
+// Vide = alerte coupée (accepté). Sinon : un vrai numéro, et JAMAIS le numéro
+// BMI lui-même (il ne peut pas s'écrire à lui-même).
+export function critiqueNumeroAlerte(tel) {
+  const d = String(tel || "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.length < 8) return "Ce numéro est trop court : écrivez les 8 chiffres (ou avec l'indicatif +228).";
+  if (d.slice(-8) === NUMERO_BMI_PRINCIPAL.replace(/\D/g, "").slice(-8)) return "C'est le numéro BMI lui-même : il ne peut pas s'écrire à lui-même. Mettez votre numéro personnel.";
+  return "";
+}
+// Les trois trous, dans l'ordre du modèle. Jamais un trou vide (Meta refuse).
+export function variablesAlerte({ administrateur, client, numero } = {}) {
+  return [texteVariable(administrateur) || "administrateur", texteVariable(client) || "client sans nom", texteVariable(numero) || "numéro inconnu"];
 }

@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 483 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes)
+npm run verifier-whatsapp        # 492 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3503,6 +3503,32 @@ lit mal est pire qu'un banc absent).
   internes lues, une réponse d'employé ignorée, la correction qui perd le
   champ) : à chaque fois des contrôles tombent. Un contrôle de ⑳ RETOURNÉ (les
   clés d'un article cité portent `description`).
+
+### 📲 L'ALERTE WHATSAPP À L'ADMINISTRATEUR QUAND UN CLIENT DEMANDE UN CONSEILLER (25/09/2026)
+- Timo : « si un client demande d'être mis en relation, il envoie un message
+  WhatsApp automatiquement à moi l'administrateur » → « Lance avec ce texte ».
+- **Modèle `alerte_conseiller`** (UTILITY, trois trous : administrateur,
+  client, numéro — `TEXTE_ALERTE_CONSEILLER`, lib/whatsappModeles.js, mot pour
+  mot chez Meta) : « Bonjour {{1}}, un client demande à parler à un
+  conseiller : {{2}} ({{3}}). Répondez-lui depuis l'application BMI, onglet
+  WhatsApp. BMI TOGO ». **À créer par Timo chez YCloud** ; tant qu'il n'est
+  pas approuvé, l'envoi échoue EN SILENCE (journal du serveur) et la
+  notification sur les téléphones continue.
+- ⚠ **SERVEUR SEUL** : `api/whatsapp-entrant.js` (`envoyerAlerteConseiller`)
+  l'envoie le tour où l'assistant PASSE LA MAIN (`repondu && conseiller &&
+  !devis`) — donc **UNE fois par demande** (ensuite l'assistant se tait).
+  Pas dans `MODELES_EN_SERVICE` : aucun écran ne l'envoie. ⚠ **Une demande de
+  DEVIS n'envoie pas d'alerte** (elle a sa fiche 🧲 Prospects) — dit à Timo.
+  Rien n'est écrit dans la base.
+- **Réglage** : ⚙ Paramètres → 🤖 Assistant → « 👨‍💼 Alerte sur votre
+  WhatsApp », principal seul (revérifié dans le geste), champ
+  `alerte_conseiller = { tel, nom }` sur les boutiques (rien à coller), lu sur
+  une boutique RÉELLE seulement ; `nom` = celui qui règle ({{1}}). Vide =
+  coupée. `critiqueNumeroAlerte` refuse un numéro trop court et **le numéro
+  BMI lui-même** (il ne s'écrit pas à lui-même). ~4 F l'alerte.
+- Le banc (㉕, 492) — éprouvé en remettant trois fautes (alerte sur un devis,
+  réglage lu en formation, numéro BMI accepté) : chacune tombe. Deux contrôles
+  de ① RETOURNÉS (onze modèles ; tous en service SAUF l'alerte).
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

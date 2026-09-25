@@ -29,6 +29,7 @@ import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "..
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
 import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION } from "../lib/assistantIA";
+import { alerteConseillerDe, poserAlerteConseiller, critiqueNumeroAlerte, TEXTE_ALERTE_CONSEILLER } from "../lib/whatsappModeles";
 import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
@@ -582,6 +583,25 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       ? "Faire discuter l'assistant par l'intelligence artificielle ? Les messages des clients seront lus par un service situé hors du Togo pour préparer la réponse (le client n'en est pas informé : décision du 24/09/2026). Le menu à chiffres reprend tout seul si le service ne répond pas."
       : "Revenir au menu à chiffres ? Plus aucun message de client ne sera lu par le service d'IA.")) return;
     save({ ...db, boutiques: poserModeAssistant(db.boutiques, mode) }, mode === "ia" ? "Assistant WhatsApp : conversation par IA" : "Assistant WhatsApp : menu à chiffres");
+  };
+
+  // 👨‍💼 L'alerte WhatsApp à l'administrateur (25/09/2026, « Lance avec ce
+  // texte ») : quand l'assistant passe la main, le numéro BMI envoie le
+  // modèle `alerte_conseiller` au numéro réglé ici. Vide = coupée. Principal
+  // seul, revérifié dans le geste ; le serveur relit le réglage.
+  const alerteActuelle = alerteConseillerDe(db.boutiques);
+  const [telAlerte, setTelAlerte] = useState(alerteActuelle?.tel || "");
+  const enregistrerAlerte = async () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Régler l'alerte WhatsApp de l'administrateur")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const tel = telAlerte.trim();
+    const motif = critiqueNumeroAlerte(tel);
+    if (motif) { uAlert(motif); return; }
+    if (!await uConfirm(tel
+      ? `Envoyer l'alerte au ${tel} ? Chaque fois qu'un client demande à parler à un conseiller, le numéro BMI y enverra un message WhatsApp (environ 4 F l'alerte).`
+      : "Couper l'alerte WhatsApp ? La notification sur les téléphones continue.")) return;
+    save({ ...db, boutiques: poserAlerteConseiller(db.boutiques, tel ? { tel, nom: profile.nom } : null) },
+      tel ? `Alerte conseiller WhatsApp envoyée au ${tel}` : "Alerte conseiller WhatsApp coupée");
   };
 
   const retablirMsgFidelite = async () => {
@@ -1772,6 +1792,23 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             Chaque nouvelle conversation commence par cette phrase, que l'IA ne peut pas oublier : « {PHRASE_PRESENTATION} »
           </div>
         )}
+        <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="alerte-conseiller">
+          <div className="font-semibold text-sm">👨‍💼 Alerte sur votre WhatsApp quand un client demande un conseiller</div>
+          <div className="text-xs text-slate-500 mt-1">
+            Le numéro BMI vous envoie ce message (modèle « alerte_conseiller », à faire approuver chez YCloud) — une fois par demande, pas à chaque message du client.
+            Une demande de devis n'en envoie pas : elle arrive dans 🧲 Prospects. Laissez vide pour couper. Environ 4 F l'alerte.
+          </div>
+          <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mt-2">{TEXTE_ALERTE_CONSEILLER}</div>
+          <div className="flex flex-wrap items-end gap-2 mt-2">
+            <Field label="Votre numéro WhatsApp personnel">
+              <input className={`${inputCls} sm:w-56`} value={telAlerte} onChange={(e) => setTelAlerte(e.target.value)} placeholder="+228 90 00 00 00" disabled={!jeSuisPrincipal} />
+            </Field>
+            {jeSuisPrincipal && <button onClick={enregistrerAlerte} className={btnDark}>✅ Enregistrer</button>}
+          </div>
+          <div className="text-xs mt-1" data-alerte-etat={alerteActuelle ? "active" : "coupee"}>
+            {alerteActuelle ? <span className="text-emerald-700 font-bold">● Alerte envoyée au {alerteActuelle.tel}{alerteActuelle.nom ? ` (« Bonjour ${alerteActuelle.nom} »)` : ""}</span> : <span className="text-slate-500">○ Aucune alerte WhatsApp</span>}
+          </div>
+        </div>
         <details className="mt-2">
           <summary className="text-xs text-slate-500 cursor-pointer">Le message d'accueil du menu à chiffres (votre texte, figé dans l'application)</summary>
           <div className="text-sm text-slate-700 whitespace-pre-wrap mt-1 rounded-lg bg-slate-50 border border-slate-200 p-3">{TEXTE_ACCUEIL}</div>

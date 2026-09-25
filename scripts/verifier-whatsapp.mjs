@@ -57,10 +57,14 @@ const ATTENDU = {
   mot_fidelite: { categorie: "marketing", n: 1 },
   mot_fidelite_simple: { categorie: "marketing", n: 1 },
   recu_vente: { categorie: "utility", n: 7 },
+  // ⚠ LE ONZIÈME (25/09/2026, « Lance avec ce texte ») : l'alerte à
+  // l'administrateur quand un client demande un conseiller. UTILITY, trois
+  // trous. Il ne part JAMAIS d'un écran : c'est le serveur qui l'envoie.
+  alerte_conseiller: { categorie: "utility", n: 3 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les dix modèles sont là, et eux seuls", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les onze modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -79,7 +83,11 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
   M.MODELES_EN_SERVICE.includes("rappel_echeance")
   && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, fmt, dFR }).modele === "rappel_dette"
   && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, echeance: { date: "" }, fmt, dFR }).modele === "rappel_dette");
-test("les sept sont en service", M.NOMS_MODELES.every((n) => M.MODELES_EN_SERVICE.includes(n)));
+// ⚠ RETOURNÉ le 25/09/2026 : tous en service POUR LES ÉCRANS, SAUF l'alerte,
+// que seul le serveur envoie (un écran qui l'enverrait serait une faute).
+test("tous les modèles sont en service pour les écrans, sauf l'alerte à l'administrateur (serveur seul)",
+  M.NOMS_MODELES.filter((n) => n !== "alerte_conseiller").every((n) => M.MODELES_EN_SERVICE.includes(n))
+  && !M.MODELES_EN_SERVICE.includes("alerte_conseiller"));
 
 // ──────────────────────────────────────────────────────────────
 titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
@@ -2070,6 +2078,41 @@ titre("㉔ LA MISE EN RELATION SE VOIT, ET L'ARTICLE SE DÉCRIT (25/09/2026)");
     /répété aux clients<\/b> : jamais de prix d'achat, de fournisseur ni de remarque interne/.test(stocksS) && /📝 Notes internes/.test(stocksS));
   test("★ la consigne : la description se redit sans rien y ajouter ; sans elle, on ne décrit pas au-delà du nom",
     /c'est BMI TOGO qui l'a écrite/.test(I.CONSIGNE_IA) && /Sans description, tu ne décris pas l'article au-delà de son nom/.test(I.CONSIGNE_IA));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㉕ L'ALERTE WHATSAPP À L'ADMINISTRATEUR (25/09/2026, « Lance avec ce texte »)");
+{
+  const W = await import("../src/lib/whatsappModeles.js");
+  const ent = lire("api/whatsapp-entrant.js").replace(/\/\/[^\n]*/g, "");
+  const par = lire("src/screens/Parametres.jsx");
+  test("★★ le texte de Timo, mot pour mot, avec ses trois trous dans l'ordre : l'administrateur, le client, son numéro",
+    W.TEXTE_ALERTE_CONSEILLER === "Bonjour {{1}}, un client demande à parler à un conseiller : {{2}} ({{3}}). Répondez-lui depuis l'application BMI, onglet WhatsApp. BMI TOGO"
+    && W.variablesAlerte({ administrateur: "TIMO", client: "ESSO", numero: "+22890112233" }).join("|") === "TIMO|ESSO|+22890112233"
+    && W.MODELES.alerte_conseiller.variables.join() === "administrateur,client,numero");
+  test("★ jamais un trou vide (Meta refuse) : un client sans nom reste nommé",
+    W.variablesAlerte({ administrateur: "", client: "", numero: "" }).every((v) => v.length > 0));
+  test("★★ le numéro : vide = coupée ; trop court refusé ; le numéro BMI LUI-MÊME refusé (il ne s'écrit pas à lui-même)",
+    W.critiqueNumeroAlerte("") === "" && W.critiqueNumeroAlerte("90112233") === "" && W.critiqueNumeroAlerte("+228 90 11 22 33") === ""
+    && /trop court/.test(W.critiqueNumeroAlerte("9011")) && /numéro BMI lui-même/.test(W.critiqueNumeroAlerte("+228 99 96 84 88")));
+  test("★★ LE MUR : le réglage ne se lit QUE sur une boutique réelle",
+    W.alerteConseillerDe([{ nom: "ECOLE", formation: true, alerte_conseiller: { tel: "90000000" } }]) === null
+    && W.alerteConseillerDe(W.poserAlerteConseiller([{ nom: "A" }, { nom: "E", formation: true }], { tel: "90112233", nom: "TIMO" }))?.tel === "90112233"
+    && W.alerteConseillerDe(W.poserAlerteConseiller([{ nom: "A", alerte_conseiller: { tel: "9" } }], null)) === null);
+  test("★★ le serveur l'envoie UNE fois par demande (le tour où l'assistant passe la main), jamais pour un devis, et un échec ne coupe rien",
+    /if \(assistant\.repondu && assistant\.conseiller && !assistant\.devis\) \{\s*try \{\s*await envoyerAlerteConseiller\(/.test(ent)
+    && /console\.error\("\[whatsapp-entrant\] alerte conseiller"/.test(ent)
+    && (ent.match(/envoyerAlerteConseiller\(/g) || []).length === 2);
+  test("★★ le serveur relit le réglage ET son refus, envoie le modèle par la porte commune, et n'écrit rien dans la base",
+    (() => { const i = ent.indexOf("async function envoyerAlerteConseiller"); const corps = ent.slice(i, ent.indexOf("\n}", i));
+      return /alerteConseillerDe\(boutiques\)/.test(corps) && /critiqueNumeroAlerte\(reglage\.tel\)/.test(corps)
+        && /name: "alerte_conseiller"/.test(corps) && /envoyerYCloud\(/.test(corps) && !/admin\.from\(/.test(corps); })());
+  test("★ ⚙ Paramètres : principal seul (revérifié dans le geste), le refus du numéro, et le texte montré tel quel",
+    /refuserSaufAdminPrincipal\(db, profile, "Régler l'alerte WhatsApp de l'administrateur"\)/.test(par)
+    && /const motif = critiqueNumeroAlerte\(tel\);/.test(par) && /\{TEXTE_ALERTE_CONSEILLER\}/.test(par)
+    && /poserAlerteConseiller\(db\.boutiques, tel \? \{ tel, nom: profile\.nom \} : null\)/.test(par));
+  test("★ aucun écran ne l'envoie (serveur seul)",
+    ["src/screens/Whatsapp.jsx", "src/whatsapp.js", "src/screens/Parametres.jsx"].every((f) => !/modele: "alerte_conseiller"|envoyerModele\([^)]*alerte_conseiller/.test(lire(f))));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
