@@ -74,10 +74,13 @@ const ATTENDU = {
   // de reprise et le bon de retour, dans la forme du bon imprimé. UTILITY.
   bon_reprise: { categorie: "utility", n: 12 },
   bon_retour: { categorie: "utility", n: 11 },
+  // ⚠ LE DIX-SEPTIÈME (25/09/2026, « B, lance ») : le premier devis d'un
+  // client, avec ses accès. MARKETING (un devis est une offre).
+  devis_premier: { categorie: "marketing", n: 5 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les seize modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé, puis les deux bons)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les dix-sept modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé, les deux bons, le premier devis)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -115,11 +118,16 @@ titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
 // ne portent aucun secret — `espace` est le SEUL, et il ne sert qu'à
 // remettre ses identifiants à un compte qu'on vient de créer.
 const MOTS_SECRETS = ["motdepasse", "mot_de_passe", "pwd", "identifiant", "mdp"];
-const trousHorsEspace = Object.entries(M.MODELES).filter(([n]) => n !== "espace").flatMap(([, m]) => m.variables).join(" ").toLowerCase();
-test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant",
+// ⚠ RETOURNÉ le 25/09/2026 (Timo, « B ») : `devis_premier` — le PREMIER
+// devis d'un client, qui porte ses accès comme `espace`. Ce sont les DEUX
+// seuls modèles qui portent un secret ; les relances n'en portent aucun.
+const PORTEURS_DE_SECRET = ["espace", "devis_premier"];
+const trousHorsEspace = Object.entries(M.MODELES).filter(([n]) => !PORTEURS_DE_SECRET.includes(n)).flatMap(([, m]) => m.variables).join(" ").toLowerCase();
+test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant (sauf espace et devis_premier)",
   !MOTS_SECRETS.some((s) => trousHorsEspace.includes(s)));
-test("★ `espace` est le SEUL modèle qui porte un secret, et il ne porte que ça",
-  M.MODELES.espace.variables.join(",") === "client,identifiant,mot_de_passe");
+test("★ `espace` et `devis_premier` sont les SEULS qui portent un secret, les accès en DERNIERS trous",
+  M.MODELES.espace.variables.join(",") === "client,identifiant,mot_de_passe"
+  && M.MODELES.devis_premier.variables.join(",") === "client,domaine,montant,identifiant,mot_de_passe");
 const srcPartages = lire("src/screens/dimensionnement/Partages.jsx");
 const srcDevis = lire("src/screens/TousLesDevis.jsx");
 test("★ aucun écran ne passe un mot de passe à l'envoi automatique",
@@ -1213,8 +1221,9 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : dix — les reçus de versement et de réservation.
   // ⚠ RETOURNÉ le 25/09/2026 (soir) : onze — le reçu de vente détaillé.
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
-  test("★ les treize modèles à ligne : devis, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
+  // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis (sa ligne ne porte jamais les accès, ㉚).
+  test("★ les quatorze modèles à ligne : devis, premier devis, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_premier,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -2480,6 +2489,32 @@ titre("㉙ 🧾 LE BON DE REPRISE ET LE BON DE RETOUR PARTENT DU NUMÉRO BMI (25
   const plein = M.envoiRecuVenteDetail({ vente: venteX, boutique: { tel: "9".repeat(300) }, montant: 99999999, lignes: beaucoup, fmt: fmtR, dFR: dFRr });
   test("★★ au pire (nom, téléphone et liste au maximum), la liste se raccourcit pour que le message tienne sous 1 024 caractères",
     plein && M.texteRecu(plein).length <= M.LIMITE_MESSAGE_META && plein.variables[4].length > 0);
+}
+
+titre("㉚ 📄🔑 LE PREMIER DEVIS PART DU NUMÉRO BMI AVEC SES ACCÈS (25/09/2026, « B, lance »)");
+{
+  const fmtP = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
+  const devis = { id: "D1", type_devis: "solaire", total: 1250000 };
+  const compte = { id: "u9", nom: "KOSSI90112233", nom_base: "KOSSI MENSAH", tel: "90112233" };
+  const e = M.envoiDevisPremier({ devis, compte, motDePasse: "Bmi4827", fmt: fmtP });
+  test("★★ le texte, mot pour mot : les accès se lisent « votre espace avec : {{4}} et {{5}} » — jamais les mots « identifiant » ni « mot de passe » (la leçon d'espace)",
+    M.TEXTE_DEVIS_PREMIER.startsWith("Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.")
+    && M.TEXTE_DEVIS_PREMIER.includes("Montant : {{3}}") && M.TEXTE_DEVIS_PREMIER.includes("votre espace avec : {{4}} et {{5}}")
+    && !/identifiant|mot de passe/i.test(M.TEXTE_DEVIS_PREMIER) && M.MODELES_EN_SERVICE.includes("devis_premier"));
+  test("★★ les cinq trous dans l'ordre : nom, domaine, montant, identifiant, mot de passe",
+    e && e.modele === "devis_premier" && e.variables.join("|") === `KOSSI MENSAH|solaire|${fmtP(1250000)}|KOSSI90112233|Bmi4827`
+    && M.critiqueModele("devis_premier", e.variables) === "");
+  test("★★ sans mot de passe connu, AUCUN envoi par ce modèle (la règle d'avant reprend : à la main)",
+    M.envoiDevisPremier({ devis, compte, motDePasse: null, fmt: fmtP }) === null && M.envoiDevisPremier({ devis, compte: { ...compte, nom: "" }, motDePasse: "x", fmt: fmtP }) === null);
+  const ligneP = M.ligneEnvoiModele("devis_premier", e.variables);
+  test("★★ la ligne du fil 📲 WhatsApp ne porte JAMAIS les accès",
+    /^📲 Envoyé du numéro BMI — Devis solaire de .+ envoyé à KOSSI MENSAH, avec ses accès/.test(ligneP) && !ligneP.includes("Bmi4827") && !ligneP.includes("KOSSI90112233"));
+  const P = lire("src/screens/dimensionnement/Partages.jsx").replace(/^\s*\/\/.*$/gm, "");
+  test("★★ Partages : un client jamais contacté reçoit devis_premier ; premierContact ne joue que s'il n'a pas pu être rempli ; le mur reste l'espace du DEVIS",
+    /const premier = !clientDejaContacte\(compte, idDevis\);/.test(P)
+    && /const envoiPremier = premier \? envoiDevisPremier\(\{ devis: devisMarque, compte, motDePasse, fmt \}\) : null;/.test(P)
+    && /const envoi = envoiPremier \|\| envoiDevisDisponible\(/.test(P)
+    && /premierContact: premier && !envoiPremier,/.test(P) && /espaceFormation: !!espaceDeLaFiche\(devisMarque\)/.test(P));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

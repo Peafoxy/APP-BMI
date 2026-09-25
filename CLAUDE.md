@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 564 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500)
+npm run verifier-whatsapp        # 570 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis avec ses accès)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3298,6 +3298,37 @@ lit mal est pire qu'un banc absent).
   remise à 250 puis la place sous 1 024 ignorée, l'adresse vide) : chacune
   tombe. Deux contrôles RETOURNÉS (seize modèles, treize lignes) et un de
   `verifier-cloisonnement` (proposerBon avec `apresGeste`). Rien à coller.
+
+### 📄🔑 LE PREMIER DEVIS D'UN CLIENT PART DU NUMÉRO BMI, AVEC SES ACCÈS (25/09/2026, décision « B »)
+- Timo : « LES DEVIS NE PARTENT TOUJOURS PAS AVEC LE NUMÉRO DE BMI » (capture
+  YCloud : `devis_disponible` approuvé). La cause était NOTRE règle du 19/09 :
+  le **premier** devis d'un client jamais contacté (`clientDejaContacte` :
+  ni autre devis, ni `info_donnees_le`) partait à la main, sans un mot, car il
+  porte les codes — et l'envoi d'`espace` à la création ne marque pas le
+  client. Deux voies proposées (A : `espace` puis le devis, deux messages ;
+  B : un modèle qui porte les deux) → **« B »**.
+- **`devis_premier`** (MARKETING, 5 trous : client, domaine, montant,
+  identifiant, mot de passe — `TEXTE_DEVIS_PREMIER`, `envoiDevisPremier`,
+  lib/whatsappModeles.js). ⚠ Les accès s'écrivent comme dans `espace`
+  (« votre espace avec : {{4}} et {{5}} ») — **jamais** les mots
+  « identifiant » ni « mot de passe » dans le texte : c'est ce qui a fait
+  accepter `espace`, et ce qui avait fait refuser `devis_pret` (19/09).
+  `espace` et `devis_premier` sont les DEUX seuls modèles qui portent un
+  secret (contrôle RETOURNÉ, pas supprimé) ; les relances n'en portent aucun.
+- **Partages.jsx** : client jamais contacté → `devis_premier` ;
+  `premierContact` ne joue plus que si le modèle n'a pas pu être rempli (mot
+  de passe non recalculable, `envoiDevisPremier` rend null) → à la main,
+  comme avant. Le mur ne change pas (l'espace du DEVIS). **La ligne du fil
+  ne porte jamais les accès** (« …, avec ses accès à l'espace client »).
+- ⚠ **Tant que Meta ne l'a pas approuvé**, le premier devis part à la main
+  ET un message en français le dit (« pas encore approuvé ») — voulu : un
+  repli muet ressemble à une panne. S'il est refusé, on le recrée sous un
+  AUTRE nom (un nom refusé reste bloqué ~1 mois) ; rien ne casse d'ici là.
+- **À faire par Timo : créer `devis_premier` chez YCloud** (Marketing, fr).
+  ~14 F. Banc ㉚ (`verifier-whatsapp`, 570), éprouvé en remettant trois
+  fautes (premierContact toujours posé, les accès dans la ligne du fil, un
+  mot de passe absent accepté) : chacune tombe. Trois contrôles RETOURNÉS
+  (le secret, dix-sept modèles, quatorze lignes). Rien à coller dans Supabase.
 
 ### 📲 UNE VENTE SANS NUMÉRO DEMANDE D'ABORD (25/09/2026, décision « 1 »)
 - Timo : « une vente sans numéro devrait demander au vendeur d'ajouter le nom

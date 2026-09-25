@@ -143,6 +143,13 @@ export const MODELES = {
   // échange), quelle que soit la quantité.
   bon_reprise: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "valeur", "reglement", "par"] },
   bon_retour: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "frais", "par"] },
+  // 📄🔑 25/09/2026, Timo, décision « B » : le PREMIER devis d'un client
+  // (celui qui porte ses accès) part lui aussi du numéro BMI, en UN message.
+  // Il porte les accès COMME `espace`, sans jamais écrire « identifiant » ni
+  // « mot de passe » dans son texte — c'est ce qui a fait accepter `espace`.
+  // MARKETING : un devis est une offre. S'il est refusé, rien ne casse : le
+  // premier devis repart à la main, comme avant.
+  devis_premier: { categorie: "marketing", variables: ["client", "domaine", "montant", "identifiant", "mot_de_passe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -174,6 +181,9 @@ export const MODELES_EN_SERVICE = [
   // 25/09/2026 : les bons de reprise et de retour. En service AVANT l'accord
   // de Meta : d'ici là rien ne part tout seul, et l'écran le dit.
   "bon_reprise", "bon_retour",
+  // 25/09/2026 : le premier devis d'un client, avec ses accès. En service
+  // AVANT l'accord de Meta : d'ici là, le premier devis part à la main.
+  "devis_premier",
 ];
 
 // ---------------------------------------------------------------
@@ -328,6 +338,30 @@ export function envoiDevisDisponible({ devis, compte, fmt }) {
   return {
     modele: "devis_disponible",
     variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(fmt(devis?.total))],
+  };
+}
+
+// 📄🔑 LE PREMIER DEVIS D'UN CLIENT, AVEC SES ACCÈS (25/09/2026, « B »).
+// Texte à créer chez YCloud sous le nom `devis_premier`, mot pour mot.
+export const TEXTE_DEVIS_PREMIER = [
+  "Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.",
+  "",
+  "Montant : {{3}}",
+  "",
+  "Consultez-le, validez-le ou demandez une modification sur https://gestion.bmitogo.com votre espace avec : {{4}} et {{5}}",
+  "",
+  "BMI TOGO — Les bâtiments modernes et intelligents",
+].join("\n");
+// Rend null si l'un des deux codes manque (un mot de passe choisi à la
+// main ne se recalcule pas) : on ne remplit JAMAIS un trou au hasard, et
+// l'écran retombe alors sur la règle d'avant (le premier devis à la main).
+export function envoiDevisPremier({ devis, compte, motDePasse, fmt }) {
+  const identifiant = texteVariable(compte?.nom);
+  const mdp = texteVariable(motDePasse);
+  if (!identifiant || !mdp) return null;
+  return {
+    modele: "devis_premier",
+    variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(fmt(devis?.total)), identifiant, mdp],
   };
 }
 
@@ -519,6 +553,8 @@ export function libelleTrace(trace) {
 // une phrase. ⚠ La ligne DIT ce qui est parti, jamais « livré » ni « lu ».
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
+  // ⚠ JAMAIS les accès dans la ligne du fil : trous 4 et 5 ignorés.
+  devis_premier: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}, avec ses accès à l'espace client.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,

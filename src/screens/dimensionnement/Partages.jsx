@@ -8,7 +8,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../../whatsapp";
-import { envoiDevisDisponible, clientDejaContacte, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
+import { envoiDevisDisponible, envoiDevisPremier, clientDejaContacte, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { prospectAvecDevis } from "../../lib/prospects";
 
@@ -558,13 +558,18 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // jamais prévenu, et personne ne le savait. Le repli garde ce texte-ci
   // mot pour mot.
   const idDevis = idAReprendre || devisMarque.id;
-  const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
+  // 📄🔑 25/09/2026 (Timo, « B ») : le PREMIER devis part lui aussi du numéro
+  // BMI, par `devis_premier`, qui porte les accès en un seul message. Sans
+  // mot de passe connu, la règle d'avant joue : ce premier devis part à la main.
+  const premier = !clientDejaContacte(compte, idDevis);
+  const envoiPremier = premier ? envoiDevisPremier({ devis: devisMarque, compte, motDePasse, fmt }) : null;
+  const envoi = envoiPremier || envoiDevisDisponible({ devis: devisMarque, compte, fmt });
   const r = await envoyerModele({
     tel: compte.tel || nouvClient.tel,
     modele: envoi.modele,
     variables: envoi.variables,
     espaceFormation: !!espaceDeLaFiche(devisMarque),
-    premierContact: !clientDejaContacte(compte, idDevis),
+    premierContact: premier && !envoiPremier,
     texteRepli: lignesMsg.join("\n"),
     demanderConfirmation: uConfirm,
   });
