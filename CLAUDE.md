@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 492 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur)
+npm run verifier-whatsapp        # 496 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3529,6 +3529,29 @@ lit mal est pire qu'un banc absent).
 - Le banc (㉕, 492) — éprouvé en remettant trois fautes (alerte sur un devis,
   réglage lu en formation, numéro BMI accepté) : chacune tombe. Deux contrôles
   de ① RETOURNÉS (onze modèles ; tous en service SAUF l'alerte).
+
+### 🧠 L'ASSISTANT CONSEILLE DANS NOS MÉTIERS, AU-DELÀ DU CATALOGUE (25/09/2026, décision « A »)
+- Timo : « l'assistant ne peut pas avoir une idée globale dans le domaine
+  solaire… que d'être focalisé que sur notre catalogue ? … conseiller et
+  essayer d'orienter les clients ». La consigne disait « aucune
+  caractéristique technique sans outil » : il refusait même d'expliquer
+  hybride / autonome. **Deux sortes de réponses** (`CONSIGNE_IA`) :
+  - **Les FAITS de BMI** (prix, délai, garantie, article précis, stock, ce que
+    BMI a) : **outils seuls**, inchangé — « Tu n'inventes RIEN sur BMI ».
+  - **Le conseil GÉNÉRAL** (solaire, domotique, motorisation, VMC) : ouvert,
+    présenté comme général (« en général »), confirmé par un conseiller, puis
+    ramené vers un article, une estimation ou une demande de devis.
+- ⚠ **Toujours interdits** : un prix « en général » ou une économie en francs
+  (le juge JETTE tout montant non fourni par un outil — éprouvé), une
+  promesse chiffrée (« vous économiserez 50 % »), un conseil hors métier ou
+  dangereux (travaux sous tension).
+- ⚠ **Ce que le juge ne vérifie PAS, et c'est dit à Timo** : la JUSTESSE d'un
+  conseil technique. On se fie au service d'IA ; le personnel lit tout dans
+  📲 WhatsApp. ⚠ Il conseille « en général », pas selon les choix de BMI
+  (48 V, lithium…) : l'option **B** — un mémo « Nos choix BMI » dans
+  ⚙ Paramètres — a été proposée et **NON retenue** (« A »). Ne pas la
+  construire sans sa demande.
+- Banc ㉖ (496), éprouvé en retirant l'interdit du prix « en général ».
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le

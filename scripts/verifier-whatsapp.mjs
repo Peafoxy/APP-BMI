@@ -2115,5 +2115,27 @@ titre("㉕ L'ALERTE WHATSAPP À L'ADMINISTRATEUR (25/09/2026, « Lance avec ce t
     ["src/screens/Whatsapp.jsx", "src/whatsapp.js", "src/screens/Parametres.jsx"].every((f) => !/modele: "alerte_conseiller"|envoyerModele\([^)]*alerte_conseiller/.test(lire(f))));
 }
 
+// ──────────────────────────────────────────────────────────────
+titre("㉖ LE CONSEIL GÉNÉRAL DANS LES MÉTIERS DE BMI (25/09/2026, décision « A »)");
+// Timo : « il devrait avoir une large idée des domaines dans lesquels nous
+// exerçons… conseiller et essayer d'orienter les clients ». Les FAITS de BMI
+// restent aux outils ; le conseil général est ouvert, bridé.
+{
+  const I = await import("../src/lib/assistantIA.js");
+  const C = I.CONSIGNE_IA;
+  test("★★ le conseil général est OUVERT, dans les métiers de BMI, présenté comme général et confirmé par un conseiller, puis ramené vers un article, une estimation ou un devis",
+    /LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO/.test(C) && /énergie solaire, domotique, motorisation/.test(C) && /ventilation VMC/.test(C)
+    && /conseil GÉNÉRAL \(« en général »/.test(C) && /un conseiller BMI TOGO confirme pour son cas précis/.test(C)
+    && /tu ramènes vers une solution concrète/.test(C));
+  test("★★ les FAITS de BMI restent aux outils : rien d'inventé sur BMI (prix, délai, garantie, article précis, stock)",
+    /Un FAIT DE BMI TOGO que l'outil ne t'a pas donné/.test(C) && /Tu n'inventes RIEN sur BMI/.test(C));
+  test("★★ jamais un prix « en général » ni une économie en francs, jamais une promesse chiffrée, jamais hors métier ni dangereux",
+    /Un prix « en général », un ordre de prix ou une économie en francs/.test(C)
+    && /Une promesse de résultat chiffrée/.test(C) && /conseil dangereux/.test(C));
+  test("★★ et le juge tient toujours : un conseil qui glisse un prix « en général » est JETÉ, un conseil sans montant passe",
+    I.garderReponse("En général un kit solaire complet coûte autour de 2 000 000 F.", { prixConnus: [] }).ok === false
+    && I.garderReponse("En général, un système hybride convient quand vous avez le réseau CEET : il recharge les batteries la nuit. Un conseiller BMI TOGO confirme pour votre cas.", { prixConnus: [] }).ok === true);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
