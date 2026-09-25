@@ -135,6 +135,14 @@ export const MODELES = {
   // UTILITY tous les deux : des transactions en cours.
   recu_reglement: { categorie: "utility", variables: ["client", "montant", "date", "paiement", "numero", "situation", "telephone"] },
   recu_reservation: { categorie: "utility", variables: ["client", "date", "boutique", "numero", "montant", "situation", "telephone"] },
+  // 🧾 25/09/2026, Timo : « le bon de retour et de reprise n'envoie pas le
+  // message WhatsApp automatiquement par le numéro de BMI », puis l'exemple
+  // du bon d'EZO ENERGY → « lance les deux bons ». La FORME du bon imprimé,
+  // ligne pour ligne (un modèle Meta peut avoir plusieurs lignes ; un TROU,
+  // jamais). UTILITY : une transaction. Un bon = UN article (une reprise, un
+  // échange), quelle que soit la quantité.
+  bon_reprise: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "valeur", "reglement", "par"] },
+  bon_retour: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "frais", "par"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -163,6 +171,9 @@ export const MODELES_EN_SERVICE = [
   // En service AVANT l'accord de Meta : d'ici là rien ne part, et l'écran le
   // dit discrètement (même règle que le reçu de vente).
   "recu_reglement", "recu_reservation",
+  // 25/09/2026 : les bons de reprise et de retour. En service AVANT l'accord
+  // de Meta : d'ici là rien ne part tout seul, et l'écran le dit.
+  "bon_reprise", "bon_retour",
 ];
 
 // ---------------------------------------------------------------
@@ -518,6 +529,8 @@ const LIGNES_ENVOI = {
   recu_vente_detail: ([client, date, boutique, recu, articles, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique} (${articles}), ${montant}, ${paiement}.`,
   recu_reglement: ([client, montant, date, paiement, numero, situation]) => `Reçu de versement N° ${numero} envoyé à ${client} : ${montant} le ${date} (${paiement}), ${situation}.`,
   recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
+  bon_reprise: ([, , , numero, date, recu, client, article, motif, valeur, reglement]) => `Bon de reprise N° ${numero} envoyé à ${client} : ${article} repris le ${date} (reçu ${recu}), motif : ${motif}, valeur ${valeur}. ${reglement}.`,
+  bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
 export const PREFIXE_LIGNE_ENVOI = "📲 Envoyé du numéro BMI — ";
@@ -802,9 +815,15 @@ export const TEXTE_RECU_VENTE_DETAIL = [
 // articles ENTIERS — jamais un nom coupé au milieu — et on dit combien il en
 // reste (« + 3 autres articles »). ⚠ `lignes` vient de l'écran
 // (`lignesVente`, core.js) : ce fichier n'importe rien.
-export const LONGUEUR_MAX_ARTICLES = 250;
+// ⚠ 500 depuis le 25/09/2026 (Timo : « oui 500 » — c'était 250, 5 à 8
+// articles ; 500 en montre 10 à 15). Et le MESSAGE entier reste sous la
+// limite de Meta (`LIMITE_MESSAGE_META`) : `envoiRecuVenteDetail` donne à la
+// liste ce qui reste une fois le reste du reçu écrit, jamais plus de 500.
+export const LONGUEUR_MAX_ARTICLES = 500;
+export const LIMITE_MESSAGE_META = 1024;
 export const SEPARATEUR_ARTICLES = " · ";
-export function listeArticlesRecu(lignes) {
+export function listeArticlesRecu(lignes, max = LONGUEUR_MAX_ARTICLES) {
+  const LONGUEUR_MAX = Math.max(1, Math.min(LONGUEUR_MAX_ARTICLES, Number(max) || LONGUEUR_MAX_ARTICLES));
   const morceaux = (Array.isArray(lignes) ? lignes : [])
     .map((l) => {
       const nom = texteVariable(l?.article);
@@ -820,13 +839,13 @@ export function listeArticlesRecu(lignes) {
     const essai = [...pris, morceaux[i]];
     const reste = morceaux.length - essai.length;
     const texte = essai.join(SEPARATEUR_ARTICLES) + (reste ? SEPARATEUR_ARTICLES + suite(reste) : "");
-    if (texte.length > LONGUEUR_MAX_ARTICLES && pris.length) break;
+    if (texte.length > LONGUEUR_MAX && pris.length) break;
     pris = essai;
   }
   const reste = morceaux.length - pris.length;
   const t = pris.join(SEPARATEUR_ARTICLES) + (reste ? SEPARATEUR_ARTICLES + suite(reste) : "");
   // Un seul nom plus long que la limite (rare) : coupé, on le dit par « … ».
-  return t.length > LONGUEUR_MAX_ARTICLES ? t.slice(0, LONGUEUR_MAX_ARTICLES - 1) + "…" : t;
+  return t.length > LONGUEUR_MAX ? t.slice(0, LONGUEUR_MAX - 1) + "…" : t;
 }
 
 // Les huit trous, depuis la vente. Les mêmes règles que `envoiRecuVente`
@@ -835,9 +854,12 @@ export function listeArticlesRecu(lignes) {
 export function envoiRecuVenteDetail({ vente, boutique, montant, lignes, avance = 0, reste = 0, fmt, dFR }) {
   const court = envoiRecuVente({ vente, boutique, montant, avance, reste, fmt, dFR });
   if (!court) return null;
-  const articles = listeArticlesRecu(lignes);
-  if (!articles) return null;
   const [client, date, bq, recu, mt, paiement, telephone] = court.variables;
+  // La place qui reste pour la liste une fois le reste du reçu écrit.
+  const sansListe = [client, date, bq, recu, "", mt, paiement, telephone]
+    .reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), TEXTE_RECU_VENTE_DETAIL);
+  const articles = listeArticlesRecu(lignes, LIMITE_MESSAGE_META - sansListe.length);
+  if (!articles) return null;
   return { modele: "recu_vente_detail", variables: [client, date, bq, recu, articles, mt, paiement, telephone] };
 }
 
@@ -941,10 +963,102 @@ export function envoiRecuReservation({ reservation, boutique, fmt, dFR, numeroDe
     ],
   };
 }
+// ---------------------------------------------------------------
+// 🧾 LE BON DE REPRISE, LE BON DE RETOUR (25/09/2026)
+// ---------------------------------------------------------------
+// Timo, avec l'exemple du bon d'EZO ENERGY : la forme du bon imprimé, ligne
+// pour ligne, mot pour mot chez Meta. Deux écarts voulus : la dernière ligne
+// n'est PAS le mot de la boutique (« Les articles vendus ne sont ni repris,
+// ni échangés » contredirait un bon de reprise), et pas de ligne de
+// formation (rien ne part du numéro BMI en formation).
+const TIRETS = "------------------------";
+export const TEXTE_BON_REPRISE = [
+  "↩ *BON DE REPRISE — {{1}}*",
+  "{{2}}",
+  "Tél : {{3}}",
+  TIRETS,
+  "N° : {{4}}",
+  "Date : {{5}}",
+  "Reçu d'origine : {{6}}",
+  "Client : {{7}}",
+  TIRETS,
+  "{{8}}",
+  "Motif : {{9}}",
+  "Valeur reprise : {{10}}",
+  "{{11}}",
+  "L'article est repris par BMI ; le reçu de vente reste valable pour le reste.",
+  TIRETS,
+  "Établi par : {{12}}",
+  "Merci de votre confiance. BMI TOGO",
+].join("\n");
+export const TEXTE_BON_RETOUR = [
+  "🔁 *BON DE RETOUR (garantie) — {{1}}*",
+  "{{2}}",
+  "Tél : {{3}}",
+  TIRETS,
+  "N° : {{4}}",
+  "Date : {{5}}",
+  "Reçu d'origine : {{6}}",
+  "Client : {{7}}",
+  TIRETS,
+  "{{8}}",
+  "Motif : {{9}}",
+  "L'article défectueux est repris par BMI (SAV) et remplacé par un article neuf, même quantité.",
+  "{{10}}",
+  TIRETS,
+  "Établi par : {{11}}",
+  "Merci de votre confiance. BMI TOGO",
+].join("\n");
+
+// Ce qui a été réglé sur une reprise (trou 11) : la dette réduite, l'argent
+// rendu, ou les deux — les mêmes mots que le bon imprimé.
+export function reglementReprise(bon, fmt) {
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const dette = bon?.dette ? `Dette réduite de ${f(bon.dette.reduction)}${bon.dette.numero ? ` (dette ${texteVariable(bon.dette.numero)})` : ""}` : "";
+  const rendu = Number(bon?.rembourse) > 0 ? `Rendu au client : ${f(bon.rembourse)}${bon.moyen ? ` (${texteVariable(bon.moyen)})` : ""}` : "";
+  if (dette && rendu) return `${dette} ; ${rendu}`;
+  if (dette) return `${dette} : rien à rendre`;
+  return rendu || "Rien à rendre";
+}
+// Les frais d'un échange (trou 10).
+export function fraisRetour(bon, fmt) {
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  if (!bon?.frais || bon.gratuit) return "Échange GRATUIT sous garantie.";
+  const detail = texteVariable(bon.frais.detail);
+  const numero = texteVariable(bon.frais.numero);
+  return `Frais facturés : ${f(bon.frais.montant)}${detail ? ` (${detail})` : ""}${numero ? ` — dette ${numero}` : ""}`;
+}
+// Le modèle et ses trous, depuis le bon (lib/bons.js : `bonReprise` /
+// `bonRetour`). Rend null sans numéro de téléphone : rien à envoyer, et ce
+// n'est pas une panne. ⚠ Aucun trou vide (Meta refuse) : adresse → « Lomé,
+// Togo » comme le bon imprimé, téléphone → celui de BMI.
+export function envoiBon({ bon, boutique, fmt, dFR }) {
+  if (!bon || !String(bon.tel || "").replace(/\D/g, "")) return null;
+  const reprise = bon.type === "reprise";
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  const client = texteVariable(bon.client);
+  const tete = [
+    texteVariable(bon.boutique) || "BMI TOGO",
+    texteVariable(boutique?.adresse) || "Lomé, Togo",
+    texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,
+    texteVariable(bon.numero) || "—",
+    d(bon.date) || "aujourd'hui",
+    `${texteVariable(bon.recu) || "—"}${bon.dateVente ? ` du ${d(bon.dateVente)}` : ""}`,
+    !client || /client non renseign/i.test(client) ? "Non renseigné" : client,
+    `${Number(bon.qte) || 1} × ${texteVariable(bon.article) || "article"}`,
+    texteVariable(bon.motif) || "Non précisé",
+  ];
+  const par = texteVariable(bon.par) || "BMI TOGO";
+  return reprise
+    ? { modele: "bon_reprise", variables: [...tete, f(bon.montant), reglementReprise(bon, f), par] }
+    : { modele: "bon_retour", variables: [...tete, fraisRetour(bon, f), par] };
+}
+
 // Le texte lisible d'un envoi, quel que soit le reçu.
 export function texteRecu(envoi) {
   if (!envoi) return "";
-  const t = { recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION }[envoi.modele];
+  const t = { recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR }[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 

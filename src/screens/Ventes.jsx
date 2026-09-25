@@ -27,7 +27,7 @@ import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { envoiRecuVente, envoiRecuVenteDetail, motifAttendu, envoiRecuReservation } from "../lib/whatsappModeles";
+import { envoiRecuVente, envoiRecuVenteDetail, motifAttendu, envoiRecuReservation, envoiBon } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
@@ -995,16 +995,52 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     save(dbApres, r.journal);
     setReprise(null);
     // Le bon de reprise, tout de suite (Timo, 14/09/2026) — le reçu de vente reste tel quel.
-    await proposerBon(bonReprise(dbApres, r.vente, r.reprise), infoBq(r.vente.boutique));
+    await proposerBon(bonReprise(dbApres, r.vente, r.reprise), infoBq(r.vente.boutique), { apresGeste: true });
   };
-  // UN chemin pour proposer un bon (reprise ou retour) : imprimer, envoyer par
-  // WhatsApp si le client a un numéro, ou plus tard depuis la ligne de la vente.
-  const proposerBon = async (bon, bq) => {
+  // 🧾 LE BON PART DU NUMÉRO BMI (Timo, 25/09/2026 : « le bon de retour et de
+  // reprise n'envoie pas le message WhatsApp automatiquement par le numéro de
+  // BMI »). Modèles `bon_reprise` / `bon_retour` : la forme du bon imprimé.
+  // UNE écriture dans 📲 WhatsApp, sur le modèle PARTI, sans donner la
+  // conversation à celui qui a fait le geste (la règle des reçus).
+  const envoyerBonDuNumeroBmi = async (bon, bq) => {
+    const envoi = envoiBon({ bon, boutique: bq, fmt, dFR });
+    if (!envoi) return { auto: false, motif: "" };
+    const r = await envoyerModele({ tel: bon.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!bq.formation, sansRepli: true });
+    if (r.auto) {
+      save((e) => ({
+        ...e,
+        messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: bon.tel, nom: bon.client, modele: envoi.modele, variables: envoi.variables, ref: { bon_numero: bon.numero } }),
+      }));
+    }
+    return { auto: !!r.auto, motif: r.motif || "" };
+  };
+  // UN chemin pour proposer un bon (reprise ou retour). Juste APRÈS le geste
+  // (`apresGeste`), il part TOUT SEUL du numéro BMI, sans question et sans
+  // repli — comme le reçu d'une vente ; ce qui s'est passé se lit sous le
+  // titre. Puis : imprimer, ou plus tard. Depuis la ligne de la vente,
+  // « Envoyer par WhatsApp » passe par le numéro BMI APRÈS une question.
+  const proposerBon = async (bon, bq, { apresGeste = false } = {}) => {
     if (!bon) return;
-    const options = ["🖨 Imprimer", ...(bon.tel ? ["Envoyer par WhatsApp"] : []), "Plus tard"];
-    const choix = await uChoix(`${bon.type === "reprise" ? "Bon de reprise" : "Bon de retour"} ${bon.numero} — le client garde une trace de ce qui a été repris et rendu.`, options);
+    const libelle = bon.type === "reprise" ? "Bon de reprise" : "Bon de retour";
+    let parti = false;
+    if (apresGeste && telDigits(bon.tel)) {
+      const r = await envoyerBonDuNumeroBmi(bon, bq);
+      parti = r.auto;
+      setNoteRecuWa(r.auto
+        ? `📲 ${libelle} ${bon.numero} envoyé du numéro BMI à ${bon.client || "ce client"}.`
+        : r.motif && !motifAttendu(r.motif) ? `Le ${libelle.toLowerCase()} ${bon.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton 🧾 de la vente reste là pour l'envoyer.` : "");
+    }
+    const options = ["🖨 Imprimer", ...(bon.tel && !parti ? ["Envoyer par WhatsApp"] : []), "Plus tard"];
+    const choix = await uChoix(`${libelle} ${bon.numero} — le client garde une trace de ce qui a été repris et rendu.${parti ? "\n\n📲 Déjà envoyé au client du numéro WhatsApp BMI." : ""}`, options);
     if (choix === "🖨 Imprimer") imprimerBon(bon, bq);
-    else if (choix === "Envoyer par WhatsApp") bonWhatsApp(bon, bq);
+    else if (choix === "Envoyer par WhatsApp") {
+      if (apresGeste || !telDigits(bon.tel) || bq.formation) { bonWhatsApp(bon, bq); return; }
+      if (!await uConfirm(`Envoyer le ${libelle.toLowerCase()} N° ${bon.numero} à ${bon.client || "ce client"} (${bon.tel}) du numéro WhatsApp BMI ?`)) return;
+      const r = await envoyerBonDuNumeroBmi(bon, bq);
+      if (r.auto) { await uAlert(`✅ ${libelle} N° ${bon.numero} envoyé du numéro BMI à ${bon.client || "ce client"}.`); return; }
+      if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le bon : le message part de VOTRE numéro.`);
+      bonWhatsApp(bon, bq);
+    }
   };
   // Les bons d'une vente déjà enregistrés : réimprimables depuis sa ligne.
   const bonsDeVente = (v) => [
@@ -1058,7 +1094,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // Le bon de retour, tout de suite (Timo, 14/09/2026).
     const dbApres = { ...db, ajustements: [...ajustements, ...(db.ajustements || [])], ...(dette ? { dettes: [dette, ...(db.dettes || [])] } : {}) };
     const retourFait = retoursDeVente(dbApres, r.vente).find((x) => x.ref === ref);
-    await proposerBon(bonRetour(dbApres, r.vente, retourFait), infoBq(r.vente.boutique));
+    await proposerBon(bonRetour(dbApres, r.vente, retourFait), infoBq(r.vente.boutique), { apresGeste: true });
   };
 
   // ⚠ Demande Timo : reprendre une vente déjà encaissée pour en faire un devis

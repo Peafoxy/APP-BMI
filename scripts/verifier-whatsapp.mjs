@@ -70,10 +70,14 @@ const ATTENDU = {
   // (des transactions en cours), SEPT trous chacun.
   recu_reglement: { categorie: "utility", n: 7 },
   recu_reservation: { categorie: "utility", n: 7 },
+  // ⚠ LES QUINZIÈME ET SEIZIÈME (25/09/2026, « lance les deux bons ») : le bon
+  // de reprise et le bon de retour, dans la forme du bon imprimé. UTILITY.
+  bon_reprise: { categorie: "utility", n: 12 },
+  bon_retour: { categorie: "utility", n: 11 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les quatorze modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les seize modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé, puis les deux bons)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1208,8 +1212,9 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // reçu de vente s'écrivent aussi dans le fil.
   // ⚠ RETOURNÉ le 25/09/2026 : dix — les reçus de versement et de réservation.
   // ⚠ RETOURNÉ le 25/09/2026 (soir) : onze — le reçu de vente détaillé.
-  test("★ les onze modèles à ligne : devis, dette, mot de fidélité, les quatre reçus — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
+  // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
+  test("★ les treize modèles à ligne : devis, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -2401,6 +2406,80 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
     && /espaceFormation: !!bqV\.formation \|\| !!c\.formation/.test(pose));
   test("★ les trois écrans DISENT ce qui s'est passé, discrètement (jamais une fenêtre)",
     [D, Vt, CI].every((x) => /data-recu-whatsapp/.test(x) && /setNoteRecuWa/.test(x)));
+}
+
+titre("㉙ 🧾 LE BON DE REPRISE ET LE BON DE RETOUR PARTENT DU NUMÉRO BMI (25/09/2026, « lance les deux bons »)");
+{
+  const fmtR = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
+  const dFRr = (x) => String(x || "").split("-").reverse().join("/");
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const sortieBn = join(process.cwd(), "scripts", "_bundle-bons.tmp.mjs");
+  await build({ entryPoints: ["src/lib/bons.js"], bundle: true, format: "esm", platform: "node", outfile: sortieBn, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Bn = await import(pathToFileURL(sortieBn).href);
+  unlinkSync(sortieBn);
+  // La vraie reprise de la capture de Timo : EZO ENERGY, 10 étriers, 6 000 F rendus en espèces.
+  const vente = { id: "V28", numero: "BMID-2026-0028", date: "2026-09-25", boutique: "BMI DEMAKPOE", client: "EZO ENERGY DU TOGO", tel: "90112233", paiement: "Espèces" };
+  const reprise = { ref: "REP-X", date: "2026-09-25", article: "Étrier du milieu", qte: 10, motif: "Il a changé d'avis", montant: 6000, rembourse: 6000, moyen: "Espèces", par: "TIMO" };
+  const bq = { adresse: "Agoè démakpoè dans la von de MIAMI BEACH", tel: "99968488" };
+  const bonR = Bn.bonReprise({ dettes: [] }, { ...vente, reprises: [reprise] }, reprise);
+  const eR = M.envoiBon({ bon: bonR, boutique: bq, fmt: fmtR, dFR: dFRr });
+  test("★★ le texte de bon_reprise, dans la forme du bon imprimé, douze trous dans l'ordre",
+    M.TEXTE_BON_REPRISE.split("\n").length === 17 && M.TEXTE_BON_REPRISE.startsWith("↩ *BON DE REPRISE — {{1}}*\n{{2}}\nTél : {{3}}")
+    && M.TEXTE_BON_REPRISE.endsWith("Établi par : {{12}}\nMerci de votre confiance. BMI TOGO")
+    && M.MODELES.bon_reprise.variables.join(",") === "boutique,adresse,telephone,numero,date,recu,client,article,motif,valeur,reglement,par"
+    && M.MODELES_EN_SERVICE.includes("bon_reprise") && M.MODELES_EN_SERVICE.includes("bon_retour"));
+  test("★★ le bon d'EZO ENERGY : chaque trou à sa place, et le message complet est celui du bon imprimé",
+    eR && eR.modele === "bon_reprise" && M.critiqueModele("bon_reprise", eR.variables) === ""
+    && eR.variables.join("|") === `BMI DEMAKPOE|Agoè démakpoè dans la von de MIAMI BEACH|99968488|${bonR.numero}|25/09/2026|BMID-2026-0028 du 25/09/2026|EZO ENERGY DU TOGO|10 × Étrier du milieu|Il a changé d'avis|${fmtR(6000)}|Rendu au client : ${fmtR(6000)} (Espèces)|TIMO`
+    && M.texteRecu(eR).includes(`Valeur reprise : ${fmtR(6000)}\nRendu au client : ${fmtR(6000)} (Espèces)\nL'article est repris par BMI`));
+  test("★★ jamais « Les articles vendus ne sont ni repris ni échangés » sur un bon (la dernière ligne est fixe chez Meta)",
+    ![M.TEXTE_BON_REPRISE, M.TEXTE_BON_RETOUR].some((t) => /ni repris/i.test(t)) && !M.texteRecu(M.envoiBon({ bon: bonR, boutique: { ...bq, message: "Les articles vendus ne sont ni repris, ni échangés" }, fmt: fmtR })).includes("ni repris"));
+  const avecDette = { ...bonR, rembourse: 1500, dette: { numero: "DET-9", reduction: 6000 } };
+  test("★ ce qui est réglé : dette réduite, argent rendu, ou les deux — jamais un trou vide",
+    M.reglementReprise(avecDette, fmtR) === `Dette réduite de ${fmtR(6000)} (dette DET-9) ; Rendu au client : ${fmtR(1500)} (Espèces)`
+    && M.reglementReprise({ ...avecDette, rembourse: 0 }, fmtR) === `Dette réduite de ${fmtR(6000)} (dette DET-9) : rien à rendre`
+    && M.reglementReprise({ ...bonR, rembourse: 0 }, fmtR) === "Rien à rendre");
+  const bonT = { type: "retour", numero: "RET-BMID-2026-0028-1", date: "2026-09-26", boutique: "BMI DEMAKPOE", client: "", tel: "90112233", recu: "BMID-2026-0028", dateVente: "2026-09-25", article: "Onduleur 5 kW", qte: 1, motif: "ne démarre plus", frais: null, gratuit: true, par: "ANGELE" };
+  const eT = M.envoiBon({ bon: bonT, boutique: {}, fmt: fmtR, dFR: dFRr });
+  test("★★ le bon de retour : onze trous, gratuit dit en toutes lettres, un client sans nom « Non renseigné », adresse et téléphone jamais vides",
+    eT && eT.modele === "bon_retour" && M.critiqueModele("bon_retour", eT.variables) === ""
+    && eT.variables[1] === "Lomé, Togo" && eT.variables[2] === M.NUMERO_BMI_PRINCIPAL && eT.variables[6] === "Non renseigné"
+    && eT.variables[7] === "1 × Onduleur 5 kW" && eT.variables[9] === "Échange GRATUIT sous garantie." && eT.variables[10] === "ANGELE"
+    && M.fraisRetour({ ...bonT, gratuit: false, frais: { montant: 15000, detail: "déplacement", numero: "DET-3" } }, fmtR) === `Frais facturés : ${fmtR(15000)} (déplacement) — dette DET-3`);
+  test("★ sans numéro, rien à envoyer ; aucun trou ne porte de retour à la ligne",
+    M.envoiBon({ bon: { ...bonR, tel: "" }, boutique: bq }) === null
+    && M.envoiBon({ bon: { ...bonR, motif: "casse\nau déballage" }, boutique: bq, fmt: fmtR }).variables.every((v) => !/[\r\n]/.test(v)));
+  test("★ la ligne du fil raconte le bon",
+    /^📲 Envoyé du numéro BMI — Bon de reprise N° .+ envoyé à EZO ENERGY DU TOGO : 10 × Étrier du milieu repris le 25\/09\/2026/.test(M.ligneEnvoiModele("bon_reprise", eR.variables))
+    && /^📲 Envoyé du numéro BMI — Bon de retour N° RET-BMID-2026-0028-1/.test(M.ligneEnvoiModele("bon_retour", eT.variables)));
+  const V = sansComm(lire("src/screens/Ventes.jsx"));
+  const env = V.slice(V.indexOf("const envoyerBonDuNumeroBmi = async"), V.indexOf("const proposerBon = async"));
+  test("★★ UNE fonction envoie un bon : sans repli, le mur = la BOUTIQUE de la vente, la ligne du fil seulement si parti, sans donner la conversation",
+    env.length > 0 && /envoiBon\(\{ bon, boutique: bq, fmt, dFR \}\)/.test(env) && /sansRepli: true/.test(env)
+    && /espaceFormation: !!bq\.formation/.test(env) && /if \(r\.auto\)/.test(env) && /messagesAvecLigneEnvoi\(/.test(env)
+    && !/donnerAuSender|proprietaire_id|estCompteFormation/.test(env));
+  const pro = V.slice(V.indexOf("const proposerBon = async"), V.indexOf("const bonsDeVente ="));
+  test("★★ juste APRÈS le geste : le bon part tout seul (aucune question avant), la note le dit sous le titre ; déjà parti, « Envoyer par WhatsApp » ne s'offre plus",
+    /if \(apresGeste && telDigits\(bon\.tel\)\) \{\s*const r = await envoyerBonDuNumeroBmi\(bon, bq\);/.test(pro)
+    && /setNoteRecuWa\(/.test(pro) && /bon\.tel && !parti \?/.test(pro)
+    && pro.indexOf("envoyerBonDuNumeroBmi(bon, bq)") < pro.indexOf("uChoix("));
+  const ligne = pro.slice(pro.indexOf('else if (choix === "Envoyer par WhatsApp")'));
+  test("★★ depuis la ligne : une QUESTION avant le numéro BMI ; en formation ou sans numéro, WhatsApp s'ouvre sur l'appareil ; un échec se dit, puis le bon complet sur l'appareil",
+    /if \(apresGeste \|\| !telDigits\(bon\.tel\) \|\| bq\.formation\) \{ bonWhatsApp\(bon, bq\); return; \}/.test(ligne)
+    && /if \(!await uConfirm\(`Envoyer le /.test(ligne) && ligne.indexOf("if (!await uConfirm(") < ligne.indexOf("envoyerBonDuNumeroBmi(")
+    && /motifAttendu\(r\.motif\)/.test(ligne));
+  test("★★ la reprise ET le retour appellent le bon avec apresGeste (les deux gestes)",
+    (V.match(/proposerBon\([^)]*\)[^;]*\{ apresGeste: true \}\);/g) || []).length === 2);
+  // Le reçu détaillé : 500 caractères de liste, et le message reste sous la limite de Meta.
+  const beaucoup = Array.from({ length: 40 }, (_, i) => ({ article: `Panneau solaire 450W bifacial lot ${i + 1}`, qte: i + 1 }));
+  const l500 = M.listeArticlesRecu(beaucoup);
+  test("★★ la liste des articles monte à 500 caractères (Timo, « oui 500 ») : plus d'articles qu'avant, toujours entiers",
+    M.LONGUEUR_MAX_ARTICLES === 500 && l500.length <= 500 && l500.length > 400 && l500.split(M.SEPARATEUR_ARTICLES).length > 10
+    && /\+ \d+ autres articles$/.test(l500));
+  const venteX = { id: "VX", numero: "BMID-2026-0099", date: "2026-09-25", boutique: "BMI DEMAKPOE", client: "X".repeat(300), tel: "90112233", paiement: "Espèces" };
+  const plein = M.envoiRecuVenteDetail({ vente: venteX, boutique: { tel: "9".repeat(300) }, montant: 99999999, lignes: beaucoup, fmt: fmtR, dFR: dFRr });
+  test("★★ au pire (nom, téléphone et liste au maximum), la liste se raccourcit pour que le message tienne sous 1 024 caractères",
+    plein && M.texteRecu(plein).length <= M.LIMITE_MESSAGE_META && plein.variables[4].length > 0);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
