@@ -1787,10 +1787,11 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   test("★★ le webhook tente l'IA seulement si elle est CHOISIE et CONFIGURÉE, puis retombe sur le menu (`if (!r)`) — la décision de silence est prise UNE fois, avant, par la règle",
     /if \(modeAssistant\(boutiques\) === "ia" && ia\.pret\) \{/.test(corpsR) && /if \(!r\) \{[\s\S]{0,900}r = reponseAssistant\(\{/.test(corpsR)
     && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
+  // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
-    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
     && /executerOutil\(nom, entree, \{\s*articles: nom === "chercher_article" \? await chargerArticles\(\) : \[\],/.test(corpsR)
-    && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle \}\);/.test(corpsR)
+    && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
   test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA comprise : un seul envoi YCloud, APRÈS l'IA et le menu, AVANT toute écriture",
     (corpsR.match(/envoyerYCloud\(/g) || []).length === 1
@@ -1971,6 +1972,18 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     && I.TEXTE_QUE_FAISONS_NOUS.endsWith("écrivez simplement « conseiller ».")
     && I.CONSIGNE_IA.includes(I.TEXTE_QUE_FAISONS_NOUS) && /ce que fait BMI TOGO[^\n]*TEL QUEL/.test(I.CONSIGNE_IA)
     && I.garderReponse(I.TEXTE_QUE_FAISONS_NOUS, {}).ok === true && I.TEXTE_QUE_FAISONS_NOUS.length < I.MAX_LONGUEUR_REPONSE);
+  // 25/09/2026, capture Timo : « il y a 2 bonjour dans un seul message… il ne demande pas au client de préciser la quantité ».
+  test("★★ UN SEUL BONJOUR : la consigne d'une conversation nouvelle interdit de saluer, et le filet retire le salut (et le nom du client) que l'IA mettrait quand même — sans toucher à la suite, ni à « Bonjournée », ni à une conversation en cours",
+    /Ne dis PAS bonjour/.test(I.consignePour({ nouvelle: true })) && /Ne redis pas bonjour/.test(I.consignePour({ nouvelle: false }))
+    && I.sansSalutation("Bonjour 👋 Je ne peux pas lire les vidéos.") === "Je ne peux pas lire les vidéos."
+    && I.sansSalutation("Bonsoir ESSO 😊 Voici nos batteries :", "ESSO") === "Voici nos batteries :"
+    && I.sansSalutation("Bonjournée") === "Bonjournée" && I.sansSalutation("Je vous dis bonjour") === "Je vous dis bonjour"
+    && I.reponseDepuisIA({ texte: "Bonjour 👋 Je ne peux pas lire les vidéos.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === `${I.PHRASE_PRESENTATION}\n\nJe ne peux pas lire les vidéos.`
+    && I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === I.PHRASE_PRESENTATION
+    && I.reponseDepuisIA({ texte: "Bonjour Kossi", effets: { prix: [] }, juge: { ok: true }, nouvelle: false }).texte === "Bonjour Kossi"
+    && /consignePour\(\{ client: clientIA, nouvelle \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
+  test("★ LA QUANTITÉ SE DEMANDE : pour le solaire, la consigne exige le NOMBRE de chaque appareil avant d'estimer, et interdit de supposer qu'il y en a un seul",
+    /COMBIEN il y en a \(le nombre\)/.test(I.CONSIGNE_IA) && /Ne suppose jamais qu'il y en a un seul/.test(I.CONSIGNE_IA));
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
   {
     const phrase = "Pour environ 18,6 kWh par jour : 12 panneaux. Comptez entre 3\u202f300\u202f000 F et 4\u00a0550\u00a0000 F.";

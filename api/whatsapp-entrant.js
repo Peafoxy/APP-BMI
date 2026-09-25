@@ -316,7 +316,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   if (modeAssistant(boutiques) === "ia" && ia.pret) {
     try {
       const conv = await converserAvecIA({
-        consigne: consignePour({ client: clientIA }),
+        consigne: consignePour({ client: clientIA, nouvelle }),
         messages: messagesPourIA(fil),
         appeler: (corps) => appelerIA(corps, ia),
         executer: async (nom, entree) => executerOutil(nom, entree, {
@@ -326,7 +326,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
         }),
       });
       const juge = garderReponse(conv.texte, { prixConnus: conv.effets.prix });
-      r = reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle });
+      r = reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle, nom: clientIA?.nom || "" });
       if (!juge.ok) console.error("[whatsapp-entrant] IA : réponse jetée —", juge.motif, r ? "(phrase fixe envoyée)" : "(le menu reprend)");
     } catch (e) {
       console.error("[whatsapp-entrant] IA indisponible, le menu reprend —", e?.message || e);

@@ -123,7 +123,8 @@ COMMENT TU T'Y PRENDS
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
-- Pour une installation SOLAIRE, quand le client a décrit ses appareils (lesquels, combien, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
+- Pour une installation SOLAIRE, demande TOUJOURS, pour CHAQUE appareil : COMBIEN il y en a (le nombre), combien d'heures par jour il fonctionne, et sa puissance si le client la connaît. Ne suppose jamais qu'il y en a un seul : tant que le nombre d'un appareil n'est pas dit, redemande-le avant d'estimer.
+- Quand le client a décrit ses appareils (lesquels, combien de chacun, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
 - Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis. Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
 - Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro.
@@ -132,10 +133,32 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Tu réponds au dernier message du client, en tenant compte de ce qui a été dit avant dans la conversation.`;
 
 // Un mot sur le client, quand on le connaît — ajouté à la consigne.
-export const consignePour = ({ client = null } = {}) =>
-  client?.nom
-    ? `${CONSIGNE_IA}\n\nLE CLIENT : il s'appelle ${client.nom} et a un compte chez BMI TOGO (tu peux l'appeler par son nom). Pour une demande de devis, son nom est connu : ne le redemande pas.`
-    : `${CONSIGNE_IA}\n\nLE CLIENT : ce numéro n'a pas de compte chez BMI TOGO, son nom est inconnu. Pour une demande de devis, demande-lui son nom avant d'enregistrer.`;
+export const consignePour = ({ client = null, nouvelle = false } = {}) => {
+  const qui = client?.nom
+    ? `LE CLIENT : il s'appelle ${client.nom} et a un compte chez BMI TOGO (tu peux l'appeler par son nom). Pour une demande de devis, son nom est connu : ne le redemande pas.`
+    : `LE CLIENT : ce numéro n'a pas de compte chez BMI TOGO, son nom est inconnu. Pour une demande de devis, demande-lui son nom avant d'enregistrer.`;
+  // Timo, 25/09/2026 : « il y a 2 bonjour dans un seul message ». Le serveur
+  // salue lui-même au début d'une conversation (PHRASE_PRESENTATION).
+  const salut = nouvelle
+    ? "LA SALUTATION : cette conversation commence, et le serveur a DÉJÀ dit bonjour et présenté BMI TOGO juste avant ta réponse. Ne dis PAS bonjour ni bonsoir : réponds directement à la question."
+    : "LA SALUTATION : la conversation est en cours. Ne redis pas bonjour à chaque message.";
+  return `${CONSIGNE_IA}\n\n${qui}\n\n${salut}`;
+};
+
+// Le filet derrière la consigne : sur une conversation NOUVELLE, une réponse
+// qui commence quand même par « Bonjour » (ou « Bonsoir ESSO 😊 ») perd ce
+// salut — la présentation posée juste au-dessus l'a déjà dit. Seuls le mot de
+// salut, le NOM du client s'il est connu, la ponctuation et les emojis qui
+// suivent partent ; la suite du texte ne bouge pas.
+export function sansSalutation(texte, nom = "") {
+  const t = String(texte || "");
+  const echap = (x) => String(x || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const leNom = echap(nom) ? `(?:\\s+${echap(nom)})?` : "";
+  const re = new RegExp(`^\\s*(?:bonjour|bonsoir|salut|hello)(?![\\p{L}])${leNom}[\\s!,.]*(?:[\\p{Extended_Pictographic}\\u200d\\ufe0f]+[\\s!,.]*)*`, "iu");
+  if (!re.test(t)) return t;
+  const reste = t.replace(re, "");
+  return reste ? reste.charAt(0).toUpperCase() + reste.slice(1) : "";
+}
 
 // ---- LES OUTILS (ce que l'IA a le droit de FAIRE, et rien d'autre) ----
 export const OUTILS_IA = [
@@ -354,7 +377,7 @@ export const etapeApresIA = (effets) => (effets?.conseiller ? ETAPE_CONSEILLER :
 
 // Une NOUVELLE conversation (rien de BMI depuis 24 h : `decisionAssistant`
 // rend l'étape null) reçoit la présentation devant la réponse.
-export const avecPresentation = (texte, { nouvelle }) => (nouvelle ? `${PHRASE_PRESENTATION}\n\n${texte}` : texte);
+export const avecPresentation = (texte, { nouvelle }) => (nouvelle ? (String(texte || "").trim() ? `${PHRASE_PRESENTATION}\n\n${texte}` : PHRASE_PRESENTATION) : texte);
 export const conversationNouvelle = (decision) => !decision || decision.etape === null || decision.etape === undefined;
 
 // ---- CE QU'ON ENVOIE, D'APRÈS LE VERDICT DU JUGE ----
@@ -379,13 +402,13 @@ export function sansGuillemetsAutour(texte, phrase) {
   return t.replace(new RegExp(`(?:«\\s*|"|\u201c)(${echap})(?:\\s*»|"|\u201d)`, "g"), "$1");
 }
 
-export function reponseDepuisIA({ texte, effets, juge, nouvelle }) {
+export function reponseDepuisIA({ texte, effets, juge, nouvelle, nom = "" }) {
   const ef = effets || { prix: [], demandeDevis: null, conseiller: false };
   // L'estimation part avec la réponse (le serveur la range sur la ligne, pour
   // la retrouver sur la fiche 🧲 Prospects) — seulement si la réponse est
   // celle que l'IA a écrite : une phrase fixe ne la cite pas.
   const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
-  if (juge?.ok) return pose(sansGuillemetsAutour(texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
+  if (juge?.ok) return pose(sansGuillemetsAutour(nouvelle ? sansSalutation(texte, nom) : texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);
   if (ef.demandeDevis) return pose(texteDemandeEnregistree(ef.demandeDevis.nom), ETAPE_CONSEILLER, true, juge?.motif || "");
   if (ef.conseiller) return pose(TEXTE_RELAIS_CONSEILLER, ETAPE_CONSEILLER, true, juge?.motif || "");
