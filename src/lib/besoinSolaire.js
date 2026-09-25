@@ -77,7 +77,7 @@ function appareilDuSegment(catalogue, mots, hp) {
   return meilleur.a;
 }
 
-// Rend la liste d'appareils du volet solaire : { nom, puissance, heures, qte, reconnu }.
+// Rend la liste d'appareils du volet solaire : { nom, puissance, heures, qte, qteDite, reconnu }.
 // `catalogue` = catalogueAppareils(db, profile) — le vrai, avec les ajouts de Timo.
 // Le premier mot d'un nom du catalogue (« clim », « ampoule »,
 // « congelateur »…) : c'est lui qui dit qu'un nombre est une QUANTITÉ.
@@ -102,12 +102,15 @@ export function lireAppareils(texte, catalogue = []) {
   // quantité forme un segment de quantité 1 s'il porte des mots.
   const segments = [];
   let courant = null;
-  const ouvrir = (qte) => { courant = { qte, mots: [] }; segments.push(courant); };
+  // `dite` : le client a-t-il ÉCRIT le nombre (« 1 », « une », « 10 ») ?
+  // Sans lui (« les ampoules », « quelques lumières »), la ligne garde 1 pour
+  // le volet (le vendeur corrige), mais l'estimation de l'assistant refuse.
+  const ouvrir = (qte, dite) => { courant = { qte, dite, mots: [] }; segments.push(courant); };
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     if (t === ",") { courant = null; continue; }
-    if (estQuantite(t, tokens[i + 1]) && (!courant || !courant.mots.length || motConnu(tokens[i + 1]))) { ouvrir(quantiteDe(t)); continue; }
-    if (!courant) ouvrir(1);
+    if (estQuantite(t, tokens[i + 1]) && (!courant || !courant.mots.length || motConnu(tokens[i + 1]))) { ouvrir(quantiteDe(t), true); continue; }
+    if (!courant) ouvrir(1, false);
     courant.mots.push(t);
   }
   const resultat = [];
@@ -132,7 +135,7 @@ export function lireAppareils(texte, catalogue = []) {
     if (!appareil && (!motsLibres.length || watts == null)) continue;
     const nom = appareil ? appareil.nom : motsLibres.join(" ").replace(/^./, (c) => c.toUpperCase());
     const puissance = watts != null ? watts : (appareil ? appareil.puissance : "");
-    resultat.push({ nom, puissance: puissance === "" ? "" : String(puissance), heures: heures == null ? "" : String(heures), qte: String(s.qte || 1), reconnu: !!appareil });
+    resultat.push({ nom, puissance: puissance === "" ? "" : String(puissance), heures: heures == null ? "" : String(heures), qte: String(s.qte || 1), qteDite: !!s.dite, reconnu: !!appareil });
   }
   return resultat;
 }

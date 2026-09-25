@@ -1900,6 +1900,20 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     (() => { const e2 = S.estimationSolaire(apM, [bq("A", stockA), bq("B", stockB)]); return e2.ok && e2.bas === eM.bas && e2.haut > eM.haut && e2.boutiques === 2; })());
   test("★★ RIEN D'INVENTÉ : une télé et des ventilateurs sans heures → pas de chiffre, et on dit lesquels",
     (() => { const e = S.estimationSolaire(lireAppareils("une télé et 3 ventilateurs", CATALOGUE_APPAREILS), [bq("A", stockA)]); return !e.ok && /Il manque la puissance ou les heures/.test(e.motif) && /Ventilateur/.test(e.motif) && e.bas === undefined; })());
+  // Timo, 25/09/2026 : « une ampoule (c'est bon), 1 ampoule (c'est aussi bon),
+  // les ampoules (ce n'est pas bon), quelques lumières (pas bon aussi) ».
+  const estQ = (t) => S.estimationSolaire(lireAppareils(t, CATALOGUE_APPAREILS), [bq("A", stockA)]);
+  test("★★ LE NOMBRE EST OBLIGATOIRE : « une ampoule » et « 1 ampoule » s'estiment",
+    estQ("une ampoule 10h").ok === true && estQ("1 ampoule 10h").ok === true && estQ("dix ampoules 10h").ok === true);
+  test("★★ LE NOMBRE EST OBLIGATOIRE : « les ampoules » et « quelques lumières » sont REFUSÉES, et le motif nomme l'appareil et demande combien",
+    (() => { const a = estQ("les ampoules 10h"), b = estQ("quelques lumières 10h"), c = estQ("2 clim 1,5hp 8h et les ampoules 10h");
+      return !a.ok && !b.ok && !c.ok && a.bas === undefined && /Il manque le NOMBRE pour : Ampoule LED/.test(a.motif) && /combien/.test(a.motif) && !/Climatiseur/.test(c.motif); })());
+  test("★ le volet (🔆 Préparer le devis) garde 1 d'office sur « les ampoules » — le vendeur corrige ; seul le drapeau dit que le nombre manquait",
+    (() => { const l = lireAppareils("les ampoules 10h", CATALOGUE_APPAREILS)[0]; return l.qte === "1" && l.qteDite === false; })()
+    && S.estimationSolaire([{ nom: "Ampoule", puissance: "10", heures: "10", qte: "2" }], [bq("A", stockA)]).ok === true);
+  test("★ l'outil refuse aussi, sans aucun montant permis",
+    (() => { const r = I.executerOutil("estimer_solaire", { description: "quelques lumières 10h" }, { catalogue: CATALOGUE_APPAREILS, boutiquesSolaire: [bq("A", stockA)] }); return r.effets.prix.length === 0 && /NOMBRE/.test(r.resultat); })()
+    && /« les ampoules » ou « quelques lumières » n'en est PAS un/.test(I.CONSIGNE_IA));
   test("★★ un stock sans batterie (ou sans panneau, sans convertisseur) ne chiffre pas — pas de prix sur un article qui n'existe pas",
     !S.estimationSolaire(apM, [bq("A", stockA.filter((p) => !/BAT/.test(p.nom)))]).ok
     && !S.estimationSolaire(apM, [bq("A", stockA.filter((p) => !/PANNEAU/.test(p.nom)))]).ok

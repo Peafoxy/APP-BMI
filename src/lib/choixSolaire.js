@@ -286,6 +286,11 @@ export function estimationSolaire(appareils, boutiques, reglages = REGLAGES_ESTI
   if (!liste.length) return { ok: false, motif: "Aucun appareil décrit : demander au client quels appareils il veut alimenter, combien, et combien d'heures par jour." };
   const incomplets = appareilsIncomplets(liste);
   if (incomplets.length) return { ok: false, motif: `Il manque la puissance ou les heures d'utilisation pour : ${incomplets.map((a) => a.nom || "un appareil").join(", ")}. Le demander au client, ne rien supposer.` };
+  // ⚠ Le NOMBRE doit être DIT (Timo, 25/09/2026 : « une ampoule » ou
+  // « 1 ampoule », oui ; « les ampoules », « quelques lumières », non). Seul
+  // `qteDite === false` refuse : une ligne saisie à la main n'a pas ce drapeau.
+  const sansNombre = liste.filter((a) => a.qteDite === false);
+  if (sansNombre.length) return { ok: false, motif: `Il manque le NOMBRE pour : ${sansNombre.map((a) => a.nom || "un appareil").join(", ")}. Demander au client combien il en a (« une », « 3 »…), ne jamais supposer un seul.` };
   const besoins = besoinsSolaires(liste, reglages);
   const chiffres = (boutiques || []).map((b) => chiffrageBoutique(besoins, b, reglages));
   const complets = chiffres.filter((c) => !c.manque && c.total > 0);
