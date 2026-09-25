@@ -31,7 +31,7 @@
 // UNE règle, pure (le banc l'exerce). Serveur : securite-15.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
-import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees } from "./constants.js";
+import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
 
@@ -343,3 +343,38 @@ export const ROLES_DEPENSES_PERSONNELLES = ["technicien", "technicien_bmi"];
 export const neVoitQueSesDepenses = (profile) => ROLES_DEPENSES_PERSONNELLES.includes(profile?.role);
 export const estMaDepense = (d, profile) => (!!d?.par_id && d.par_id === profile?.id) || (!d?.par_id && !!d?.par && d.par === profile?.nom);
 export const depensesVisibles = (liste, profile) => (neVoitQueSesDepenses(profile) ? (liste || []).filter((d) => estMaDepense(d, profile)) : (liste || []));
+
+// ============ ✏️ MODIFIER UNE DÉPENSE (Timo, 25/09/2026) ============
+// « donner la possibilité de modifier une dépense » → décisions : la CATÉGORIE
+// et la DESCRIPTION seulement, par l'administrateur PRINCIPAL seul. Le montant,
+// le moyen et « Payé avec » NE se modifient PAS : ils portent de l'argent (le
+// tiroir, une clôture déjà faite, la validation du DG). Un montant faux se
+// supprime et se ressaisit. Les lignes qui ont leur propre circuit ne se
+// modifient pas ici : versements, fonds de caisse, apports / prélèvements du
+// DG, remboursements, dépenses rejetées ou créées automatiquement.
+export function motifNonModifiable(d) {
+  if (!d) return "Dépense introuvable.";
+  if (CATEGORIES_HORS_CHARGES.includes(d.categorie) || d.versement || d.fonds_caisse || d.exploitant) return `« ${d.categorie} » n'est pas une dépense ordinaire : elle ne se modifie pas ici.`;
+  if (d.auto) return "Cette dépense a été créée automatiquement par un autre geste : elle ne se modifie pas ici.";
+  if (estRejetee(d)) return "Une dépense rejetée par le DG ne se modifie plus.";
+  return null;
+}
+export const depenseModifiable = (d) => !motifNonModifiable(d);
+export function critiqueModifDepense(d, { categorie, description } = {}) {
+  const motif = motifNonModifiable(d);
+  if (motif) return motif;
+  if (!CATEGORIES.includes(categorie)) return "Choisissez une catégorie de la liste.";
+  if (categorie === d.categorie && String(description || "").trim() === String(d.description || "").trim()) return "Rien n'a changé.";
+  return null;
+}
+// La dépense corrigée et la phrase du journal (qui dit ce qui a changé).
+export function modifierDepense(d, { categorie, description }, par, le) {
+  const desc = String(description || "").trim();
+  const changes = [];
+  if (categorie !== d.categorie) changes.push(`catégorie : ${d.categorie} → ${categorie}`);
+  if (desc !== String(d.description || "").trim()) changes.push(`description : « ${d.description || "—"} » → « ${desc || "—"} »`);
+  return {
+    depense: { ...d, categorie, description: desc, modifie_le: le, modifie_par: par },
+    journal: `Dépense du ${dFR(d.date)} (${fmt(d.montant)}, ${d.boutique}) modifiée — ${changes.join(" · ")}`,
+  };
+}

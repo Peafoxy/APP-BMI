@@ -45,7 +45,7 @@ import { correspond } from "../lib/suggestions";
 // 🏠 LE LOYER D'UN LOCAL (25/09/2026) : UNE case « loué », et ses champs
 // n'apparaissent que si elle est cochée. Écrit UNE fois, pour la création
 // d'une boutique et pour la fiche d'une boutique existante.
-const LOYER_VIDE = { loue: false, montant: "", jour: JOUR_ECHEANCE_DEFAUT, proprietaire: "", tel: "", debut: "", caution: "", note: "" };
+const LOYER_VIDE = { loue: false, montant: "", jour: JOUR_ECHEANCE_DEFAUT, proprietaire: "", tel: "", debut: "", caution: "", dernier_mois_paye: "", note: "" };
 function ChampsLoyer({ valeur, onChange }) {
   const v = valeur || LOYER_VIDE;
   const pose = (champ) => (e) => onChange({ ...v, [champ]: e.target.value });
@@ -63,6 +63,10 @@ function ChampsLoyer({ valeur, onChange }) {
           <Field label="Téléphone du propriétaire"><input type="tel" className={inputCls} value={v.tel} onChange={pose("tel")} placeholder="+228 90 00 00 00" /></Field>
           <Field label="Début du bail (facultatif)"><input type="date" className={inputCls} value={v.debut} onChange={pose("debut")} /></Field>
           <Field label="Caution versée (F, facultatif)"><input type="number" className={inputCls} value={v.caution} onChange={pose("caution")} /></Field>
+          {/* Timo (25/09/2026) : « une ligne de dernier mois payé, pour mieux suivre
+              les arriérés ». Les loyers d'avant l'application n'y sont pas :
+              c'est ici qu'on dit où on en est ; ensuite ça avance tout seul. */}
+          <Field label="Dernier mois payé"><input type="month" className={inputCls} value={v.dernier_mois_paye || ""} onChange={pose("dernier_mois_paye")} data-dernier-mois /></Field>
           <div className="sm:col-span-2"><Field label="Autres informations (facultatif)"><input className={inputCls} value={v.note} onChange={pose("note")} placeholder="Ex : payé par trimestre, contrat chez le notaire…" /></Field></div>
         </div>
       )}

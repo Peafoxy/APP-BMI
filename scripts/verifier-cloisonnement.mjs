@@ -7383,7 +7383,7 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
     /<Field label="Chantier à rattacher">/.test(dpC) && !/chantiersOuverts\.length > 0 && \(/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
     && /Aucun chantier de devis en cours<\/option>/.test(dpC)
     && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const depense = chantierChoisi \? rattacherDepense\(depenseLoyer, chantierChoisi\) : depenseLoyer;/.test(dpC) && /const depenseLoyer = estLoyerDuMois \? \{ \.\.\.r\.depense, loyer_mois: f\.loyer_mois, loyer_boutique: f\.loyer_boutique \} : r\.depense;/.test(dpC)
-    && /🏠 \{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && !/uChoix/.test(dpC));
+    && /🏠 \{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && (dpC.match(/uChoix\(/g) || []).length === 1 && /const payerLoyer = async \(\) => \{[\s\S]*?const choix = await uChoix\(`Loyer de/.test(dpC));
   const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
     /const depRattachees = chantier \? totalDepensesChantier\(db, chantier\) : 0;/.test(ciC) && /const fraisNet = fraisAPartager\(fraisRep, depRattachees\);/.test(ciC)
@@ -11130,8 +11130,9 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   test("★★ le paiement passe par la dépense ORDINAIRE (construireDepenseSaisie) et se revérifie DANS le geste",
     /const estLoyerDuMois = f\.loyer_mois && f\.categorie === CATEGORIE_LOYER;/.test(dsrc) && /const refusL = critiquePaiementLoyer\([^\n]*\n\s*if \(refusL\) \{ uAlert\(refusL\); return; \}/.test(dsrc)
     && dsrc.indexOf("construireDepenseSaisie(db, profile") < dsrc.indexOf("const estLoyerDuMois"));
-  test("★ « Payer » ne fait que pré-remplir (aucun save dans payerLoyer)", /const payerLoyer = \(\) => \{[\s\S]*?setF\(\{ \.\.\.formVide, \.\.\.formulaireLoyer\(fiche, loyer, boutique\) \}\);\s*\};/.test(dsrc)
-    && !/const payerLoyer = \(\) => \{[^}]*save\(/.test(dsrc));
+  const corpsPayer = (dsrc.match(/const payerLoyer = async \(\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★ « Payer » ne fait que pré-remplir (aucun save dans payerLoyer), et revérifie les mois choisis",
+    /setF\(\{ \.\.\.formVide, \.\.\.pf \}\);/.test(corpsPayer) && !/save\(/.test(corpsPayer) && /critiquePaiementLoyer\(loyer, pf\.loyer_mois\)/.test(corpsPayer));
   const psrc = readFileSync("src/screens/Parametres.jsx", "utf8");
   test("★★ la fiche du loyer : l'administrateur SEUL, revérifié DANS le geste", /const enregistrerLoyer = \(\) => \{[\s\S]*?refuserSaufAdmin\(profile, "Renseigner le loyer d'une boutique"\)/.test(psrc)
     && /const ouvrirLoyer = \(b\) => \{\s*if \(refuserSaufAdmin\(profile, "Renseigner le loyer d'une boutique"\)\) return;/.test(psrc));
@@ -11147,6 +11148,58 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     /const ajouter = async \(\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(!f\.categorie\) \{ uAlert\(/.test(dsrc));
   test("★ le cadre du loyer DIT ce qu'il a compté (montant, date, qui l'a saisi)",
     /data-loyer-compte/.test(dsrc) && /loyer\.lignes\.map\(\(d\) => `\$\{fmt\(d\.montant\)\} le \$\{dFR\(d\.date\)\}/.test(dsrc));
+  // Timo (25/09/2026) : « une ligne de dernier mois payé pour mieux suivre les
+  // arriérés… payer tous les mois en même temps ou avec prépaiement ».
+  {
+    const f2 = L.nettoyerFicheLoyer({ loue: true, montant: 90000, jour: 1, proprietaire: "GEDEON", dernier_mois_paye: "2026-06" });
+    const E = (depenses, jour = "2026-09-25") => L.etatLoyer({ fiche: f2, depenses, boutique: "DEMAKPOE", aujourdhui: jour });
+    const e0 = E([]);
+    test("★★ dernier mois payé DÉCLARÉ (juin) → arriérés juillet, août, septembre = 270 000 F, le retard compté depuis le plus ancien",
+      e0.statut === "retard" && e0.dernierPaye === "2026-06" && e0.dus.map((x) => x.mois).join() === "2026-07,2026-08,2026-09" && e0.reste === 270000 && e0.moisEnRetard === 3 && e0.joursRetard === 86);
+    test("★★ « Payer » paie le mois le plus ANCIEN d'abord", L.formulaireLoyer(f2, e0, "DEMAKPOE", 1).loyer_mois === "2026-07");
+    const tous = L.formulaireLoyer(f2, e0, "DEMAKPOE", 3);
+    test("★★ tous les mois dus en UNE dépense : 270 000 F, la liste des trois mois", tous.montant === "270000" && tous.loyer_mois.join() === "2026-07,2026-08,2026-09");
+    const avance = { categorie: "Loyer", boutique: "DEMAKPOE", date: "2026-09-25", montant: 450000, loyer_mois: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11"] };
+    const e1 = E([avance]);
+    test("★★ PRÉPAIEMENT : 5 mois payés d'un coup → rien de dû, dernier mois payé novembre, « payé d'avance »",
+      e1.statut === "paye" && e1.dernierPaye === "2026-11" && e1.avance === "2026-11");
+    test("★★ un mois payé d'avance ne se paie pas deux fois ; le suivant se propose",
+      !!L.critiquePaiementLoyer(e1, ["2026-11"]) && L.critiquePaiementLoyer(e1, ["2026-12"]) === null && L.moisAPayer(e1, 1)[0].mois === "2026-12");
+    const enAttente = { categorie: "Loyer", boutique: "DEMAKPOE", date: "2026-09-25", montant: 180000, loyer_mois: ["2026-09", "2026-10"], validation: { statut: "attente" } };
+    const f3 = L.nettoyerFicheLoyer({ loue: true, montant: 90000, jour: 1, proprietaire: "G", dernier_mois_paye: "2026-08" });
+    const e2 = L.etatLoyer({ fiche: f3, depenses: [enAttente], boutique: "DEMAKPOE", aujourdhui: "2026-09-25" });
+    test("★★ des mois EN ATTENTE du DG (septembre ET octobre à venir) ne se proposent plus et ne se repaient pas",
+      e2.statut === "attente" && !!L.critiquePaiementLoyer(e2, ["2026-10"]) && L.moisAPayer(e2, 1)[0].mois === "2026-11");
+    const partiel = { categorie: "Loyer", boutique: "DEMAKPOE", date: "2026-07-03", montant: 50000, loyer_mois: "2026-07" };
+    test("★ un acompte sur un mois ne le solde pas : il reste 40 000 F sur juillet", E([partiel]).dus[0].reste === 40000 && E([partiel]).reste === 220000);
+    test("★ sans dernier mois déclaré ni début de bail, rien n'est réclamé avant le mois en cours", e([], "2026-10-20").dus.map((x) => x.mois).join() === "2026-10");
+  }
+  test("★★ la fiche porte la ligne « Dernier mois payé » (calendrier mois / année)",
+    /<Field label="Dernier mois payé"><input type="month"/.test(psrc) && /dernier_mois_paye: String\(s\.dernier_mois_paye \|\| ""\)\.slice\(0, 7\)/.test(src));
+  test("★ le cadre affiche le dernier mois payé, les arriérés et le payé d'avance", /data-dernier-mois-paye/.test(dsrc) && /payé d'avance jusqu'à/.test(dsrc) && /Arriérés : \$\{loyer\.moisEnRetard\} mois/.test(dsrc));
+  // ✏️ Modifier une dépense : catégorie et description, l'administrateur principal seul.
+  {
+    const Vd = await import("../src/lib/validationDepenses.js");
+    const d0 = { id: "m1", boutique: "DEMAKPOE", date: "2026-09-02", categorie: "Loyer", description: "", montant: 5000, paiement: "Espèces", par: "ANGELE" };
+    const r = Vd.modifierDepense(d0, { categorie: "Transport", description: "taxi" }, "TIMO", "2026-09-25");
+    test("★★ modifier ne touche QUE la catégorie et la description (montant, paiement, boutique intacts), et laisse sa trace",
+      r.depense.categorie === "Transport" && r.depense.description === "taxi" && r.depense.montant === 5000 && r.depense.paiement === "Espèces" && r.depense.boutique === "DEMAKPOE"
+      && r.depense.modifie_par === "TIMO" && /catégorie : Loyer → Transport/.test(r.journal));
+    test("★★ ne se modifient pas : versement, fonds de caisse, apport du DG, dépense automatique, dépense rejetée",
+      !!Vd.critiqueModifDepense({ ...d0, categorie: "Versement de fonds", versement: {} }, { categorie: "Transport" })
+      && !!Vd.critiqueModifDepense({ ...d0, fonds_caisse: { montant: 1 } }, { categorie: "Transport" })
+      && !!Vd.critiqueModifDepense({ ...d0, exploitant: { sens: "apport" } }, { categorie: "Transport" })
+      && !!Vd.critiqueModifDepense({ ...d0, auto: "reparation_outil" }, { categorie: "Transport" })
+      && !!Vd.critiqueModifDepense({ ...d0, validation: { statut: "rejetee" } }, { categorie: "Transport" })
+      && !!Vd.critiqueModifDepense(d0, { categorie: "Inconnue" })
+      && !!Vd.critiqueModifDepense(d0, { categorie: "Loyer", description: "" })
+      && Vd.critiqueModifDepense(d0, { categorie: "Transport", description: "" }) === null);
+    test("★★ modifier = l'administrateur PRINCIPAL seul, revérifié DANS le geste, sur la fiche FRAÎCHE",
+      /onModifier=\{estAdminPrincipal\(db, profile\) \? ouvrirModif : null\}/.test(dsrc)
+      && /const enregistrerModif = \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Modifier une dépense"\)\) return;/.test(dsrc)
+      && /const refus = critiqueModifDepense\(fraiche, modif\);/.test(dsrc));
+    test("★ le formulaire de modification n'offre ni montant ni paiement", (dsrc.match(/data-fiche-modif-depense[\s\S]*?<\/div>\s*\)\}/) || [""])[0].includes("Catégorie") && !/data-fiche-modif-depense[\s\S]{0,900}label="Montant/.test(dsrc));
+  }
   test("★ aucun rappel de loyer dans la tournée du matin (décision « non »)", !/loyer/i.test(readFileSync("src/lib/rappels.js", "utf8")) && !/loyer/i.test(readFileSync("api/rappels-du-matin.js", "utf8")));
 }
 

@@ -10,13 +10,13 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee } from "../components/ui";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE } from "../lib/validationDepenses";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, enTeteFige, celluleFigee } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
-import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, CATEGORIE_LOYER } from "../lib/loyer";
+import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER } from "../lib/loyer";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
@@ -34,7 +34,7 @@ export function BadgeValidation({ x }) {
   if (estValidee(x)) return <span className="text-xs font-bold text-green-700">✅ validée le {dFR(x.validation.le)}{x.validation.auto ? " (DG)" : ` par ${x.validation.par}`}</span>;
   return <span className="text-xs text-slate-400">—</span>;
 }
-function TableauDepenses({ liste, profile, onSupprimer, vide }) {
+function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
   return (
     <HistoriqueArchive lignes={liste} dateDe={(x) => x.date} aujourdhui={today()} vide={vide} titreArchives="Dépenses archivées" classeTable="w-full text-sm min-w-[860px]"
       entete={<thead className="sticky top-0 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>}
@@ -53,9 +53,13 @@ function TableauDepenses({ liste, profile, onSupprimer, vide }) {
             {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}</span> : <span className="text-slate-300">—</span>}
           </td>
           <td className="px-3 py-2">
+            {onModifier && depenseModifiable(x) && (
+              <button onClick={() => onModifier(x)} className="text-xs font-bold text-sky-800 underline mr-2" data-modifier-depense>✏️ Modifier</button>
+            )}
             {profile.role === "admin" && (
               <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
             )}
+            {x.modifie_le && <div className="text-[11px] text-slate-400">modifiée le {dFR(x.modifie_le)} par {x.modifie_par}</div>}
           </td>
         </tr>
       )} />
@@ -91,10 +95,30 @@ export function Depenses({ db, save, profile }) {
   const voitLoyer = ["admin", "gerant"].includes(profile.role);
   const fiche = voitLoyer ? ficheLoyer((db.boutiques || []).find((b) => b.nom === boutique)) : null;
   const loyer = fiche ? etatLoyer({ fiche, depenses: db.depenses, boutique, aujourdhui: today() }) : null;
-  const payerLoyer = () => {
-    const refus = critiquePaiementLoyer(loyer);
+  // Timo (25/09/2026) : « payer tous les mois en même temps ou avec
+  // prépaiement ». Un mois (le plus ancien dû), tous les mois dus, ou un
+  // nombre de mois choisi (d'avance). Le geste ne fait que PRÉ-REMPLIR.
+  const payerLoyer = async () => {
+    const dus = loyer.dus.filter((x) => !x.attente);
+    const somme = (n) => moisAPayer(loyer, n).reduce((t, x) => t + x.reste, 0);
+    const options = [];
+    if (dus.length) options.push([1, `Le mois le plus ancien : ${libelleMois(dus[0].mois)} — ${fmt(somme(1))}`]);
+    if (dus.length > 1) options.push([dus.length, `Tous les mois dus (${dus.length}) — ${fmt(somme(dus.length))}`]);
+    options.push([0, "Payer d'avance… (choisir le nombre de mois)"]);
+    const choix = await uChoix(`Loyer de ${boutique} — ${fmt(loyer.montant)} par mois.\n\nQue payez-vous ?`, options.map(([, l]) => l));
+    if (choix === null || choix === undefined) return;
+    let n = (options.find(([, l]) => l === choix) || [])[0];
+    if (n === 0) {
+      const v = await uPrompt(`Combien de mois payez-vous en tout${dus.length ? ` (dont ${dus.length} déjà dû${dus.length > 1 ? "s" : ""})` : ""} ?`, String(dus.length + 1));
+      if (v === null) return;
+      n = Math.round(Number(v));
+      if (!(n >= 1 && n <= 24)) { uAlert("Indiquez un nombre de mois entre 1 et 24."); return; }
+    }
+    if (!n) return;
+    const pf = formulaireLoyer(fiche, loyer, boutique, n);
+    const refus = critiquePaiementLoyer(loyer, pf.loyer_mois);
     if (refus) { uAlert(refus); return; }
-    setF({ ...formVide, ...formulaireLoyer(fiche, loyer, boutique) });
+    setF({ ...formVide, ...pf });
   };
 
   // Timo (15/09/2026) : « si dépense dépasse fonds de caisse, impossible de
@@ -117,6 +141,24 @@ export function Depenses({ db, save, profile }) {
     // PLUS ce qu'il reste dans l'enveloppe.
     const p = fondsAVerser(db, nomBoutique, totalVente);
     return critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste, boutique: nomBoutique });
+  };
+
+  // ✏️ Modifier une dépense (Timo, 25/09/2026) : catégorie et description,
+  // l'administrateur PRINCIPAL seul, revérifié DANS le geste.
+  const [modif, setModif] = useState(null);
+  const ouvrirModif = (d) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
+    setModif({ d, categorie: d.categorie, description: d.description || "" });
+  };
+  const enregistrerModif = () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const fraiche = (db.depenses || []).find((x) => x.id === modif.d.id);
+    const refus = critiqueModifDepense(fraiche, modif);
+    if (refus) { uAlert(refus); return; }
+    const r = modifierDepense(fraiche, modif, profile.nom, today());
+    save({ ...db, depenses: db.depenses.map((x) => (x.id === fraiche.id ? r.depense : x)) }, r.journal);
+    setModif(null);
   };
 
   // Timo (12/09/2026) : à partir de 5 000 F, la dépense attend la validation
@@ -157,7 +199,7 @@ export function Depenses({ db, save, profile }) {
     const estLoyerDuMois = f.loyer_mois && f.categorie === CATEGORIE_LOYER;
     if (estLoyerDuMois) {
       const ficheL = ficheLoyer((db.boutiques || []).find((b) => b.nom === f.loyer_boutique));
-      const refusL = critiquePaiementLoyer(ficheL ? etatLoyer({ fiche: ficheL, depenses: db.depenses, boutique: f.loyer_boutique, aujourdhui: today() }) : null);
+      const refusL = critiquePaiementLoyer(ficheL ? etatLoyer({ fiche: ficheL, depenses: db.depenses, boutique: f.loyer_boutique, aujourdhui: today() }) : null, f.loyer_mois);
       if (refusL) { uAlert(refusL); return; }
     }
     const depenseLoyer = estLoyerDuMois ? { ...r.depense, loyer_mois: f.loyer_mois, loyer_boutique: f.loyer_boutique } : r.depense;
@@ -288,23 +330,27 @@ export function Depenses({ db, save, profile }) {
                   {fiche.note && <div>{fiche.note}</div>}
                 </div>
               )}
+              <div className="text-sm text-slate-700 mt-1" data-dernier-mois-paye>
+                Dernier mois payé : <b>{loyer.dernierPaye ? libelleMois(loyer.dernierPaye) : "—"}</b>
+                {loyer.avance && <span className="text-green-700 font-semibold"> · payé d'avance jusqu'à {libelleMois(loyer.avance)}</span>}
+              </div>
               <div className={`text-sm font-bold mt-2 ${loyer.statut === "retard" ? "text-red-700" : loyer.statut === "paye" ? "text-green-700" : "text-amber-700"}`}>
                 {loyer.statut === "paye" && `✅ ${libelleMois(loyer.mois)} : payé${loyer.derniere ? ` le ${dFR(loyer.derniere.date)}` : ""}`}
-                {loyer.statut === "attente" && `⏳ ${libelleMois(loyer.mois)} : saisi, en attente de la validation du DG`}
+                {loyer.statut === "attente" && `⏳ Le loyer dû est saisi, en attente de la validation du DG`}
                 {loyer.statut === "a_payer" && `⏳ ${libelleMois(loyer.mois)} : ${fmt(loyer.reste)} à payer avant le ${dFR(loyer.echeance)}`}
-                {loyer.statut === "retard" && `⚠ ${libelleMois(loyer.mois)} : ${fmt(loyer.reste)} en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance le ${dFR(loyer.echeance)})`}
+                {loyer.statut === "retard" && `⚠ Arriérés : ${loyer.moisEnRetard} mois (${libellePeriodeLoyer(loyer.dus.filter((x) => !x.attente && x.enRetard).map((x) => x.mois), { avecNombre: false })}) — ${fmt(loyer.reste)} dus · en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance du plus ancien : ${dFR(loyer.dus.find((x) => !x.attente && x.enRetard).echeance)})`}
               </div>
             </div>
-            {(loyer.statut === "a_payer" || loyer.statut === "retard") && (
-              <button onClick={payerLoyer} className={btnDark}>💵 Payer le loyer de {libelleMois(loyer.mois)}</button>
-            )}
+            <button onClick={payerLoyer} className={btnDark} data-payer-loyer>
+              {loyer.statut === "a_payer" || loyer.statut === "retard" ? "💵 Payer le loyer" : "💵 Payer d'avance"}
+            </button>
           </div>
           {/* Ce que le cadre a COMPTÉ (Timo, 25/09/2026 : « pourquoi 85 000 en
               retard ? ») : un chiffre qui surprend doit montrer sa source. */}
           {loyer.lignes.length > 0 && (
             <div className="mt-2 text-xs text-slate-600" data-loyer-compte>
-              Déjà compté pour {libelleMois(loyer.mois)} :{" "}
-              {loyer.lignes.map((d) => `${fmt(d.montant)} le ${dFR(d.date)}${d.par ? ` (saisi par ${d.par})` : ""}${d?.validation?.statut === "attente" ? " — en attente du DG" : ""}`).join(" · ")}
+              Déjà compté :{" "}
+              {loyer.lignes.map((d) => `${fmt(d.montant)} le ${dFR(d.date)} pour ${libellePeriodeLoyer(moisDeLaDepense(d))}${d.par ? ` (saisi par ${d.par})` : ""}${d?.validation?.statut === "attente" ? " — en attente du DG" : ""}`).join(" · ")}
               {loyer.statut !== "paye" && " — si ce n'était pas le loyer, l'administrateur supprime la dépense et la ressaisit dans la bonne catégorie."}
             </div>
           )}
@@ -350,7 +396,21 @@ export function Depenses({ db, save, profile }) {
           <span>{mesSeules ? "Mes dépenses" : "Dépenses"} — {boutique}</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>
         </div>
-        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
+        {modif && (
+          <div className="rounded-lg border-2 border-sky-300 bg-sky-50 p-3 mb-3" data-fiche-modif-depense>
+            <div className="font-bold text-sm mb-2">✏️ Modifier la dépense du {dFR(modif.d.date)} — {fmt(modif.d.montant)} ({modif.d.par})</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Catégorie"><select className={inputCls} value={modif.categorie} onChange={(e) => setModif({ ...modif, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
+              <Field label="Description"><input className={inputCls} value={modif.description} onChange={(e) => setModif({ ...modif, description: e.target.value })} /></Field>
+            </div>
+            <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
+            <div className="flex gap-2 mt-2">
+              <button onClick={enregistrerModif} className={btnDark}>Enregistrer</button>
+              <button onClick={() => setModif(null)} className="text-sm font-bold text-slate-600 underline">Annuler</button>
+            </div>
+          </div>
+        )}
+        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={estAdminPrincipal(db, profile) ? ouvrirModif : null} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
           Les <b>versements de fonds</b>, les <b>fonds de caisse remis par le DG</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.

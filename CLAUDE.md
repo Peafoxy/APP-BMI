@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1888 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1902 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2755,6 +2755,46 @@ lit mal est pire qu'un banc absent).
   qu'il a compté** (`data-loyer-compte` : montant, date, qui l'a saisi, en
   attente du DG) et la porte de sortie (supprimer puis ressaisir). Éprouvé en
   remettant la catégorie d'office et en retirant le refus : chacun tombe.
+
+### 📅 LE LOYER : DERNIER MOIS PAYÉ, ARRIÉRÉS, PLUSIEURS MOIS OU D'AVANCE (25/09/2026)
+- Timo : « dans la fiche loyer, ajouter une ligne de dernier mois payé, pour
+  mieux suivre les arriérés » puis « ça me convient, mais aussi… payer tous les
+  mois en même temps ou avec prépaiement ».
+- **« Dernier mois payé »** sur la fiche (champ calendrier, `dernier_mois_paye`,
+  admin via ⚙ Paramètres) : les loyers d'AVANT l'application n'étant pas des
+  dépenses, c'est lui qui dit où on en est. **On compte à partir du mois
+  suivant** ; sans rien de déclaré ni début de bail, rien n'est réclamé avant
+  le mois en cours (l'ancienne règle). Ensuite **ça avance tout seul** : le
+  dernier mois payé = le dernier mois d'une suite sans trou de mois soldés.
+- **Arriérés** (`etatLoyer` : `dus`, `reste`, `moisEnRetard`, `joursRetard`
+  depuis l'échéance du plus ANCIEN) ; un acompte ne solde pas un mois ; un
+  mois en attente du DG n'est ni dû ni repayable ; **payé d'avance** se lit
+  (`avance`) et les mois à venir déjà pris (`futursPris`) ne se repaient pas.
+- **« 💵 Payer le loyer »** propose : le mois le plus ANCIEN, tous les mois
+  dus, ou un nombre de mois d'avance (1 à 24). **UNE dépense par versement au
+  propriétaire**, qui porte la LISTE de ses mois (`loyer_mois` : une chaîne
+  pour un mois, un tableau pour plusieurs) ; son montant remplit les mois
+  DANS L'ORDRE. Toujours un simple PRÉ-REMPLISSAGE, revérifié DANS le geste.
+
+### ✏️ MODIFIER UNE DÉPENSE (25/09/2026, « catégorie et description seulement · admin principal »)
+- **La catégorie et la description, rien d'autre** : le montant, le moyen et
+  « Payé avec » portent de l'argent (tiroir, clôture faite, validation du DG) —
+  un montant faux se supprime et se ressaisit. **L'administrateur PRINCIPAL
+  seul** (bouton ✏️ Modifier sur la ligne, `refuserSaufAdminPrincipal` DANS le
+  geste, sur la fiche FRAÎCHE). Règles pures `motifNonModifiable` /
+  `critiqueModifDepense` / `modifierDepense` (lib/validationDepenses.js).
+- **Ne se modifient pas ici** : versements, fonds de caisse, apports et
+  prélèvements du DG, remboursements (`CATEGORIES_HORS_CHARGES`), dépenses
+  automatiques (`auto`), rejetées. **La trace** : `modifie_le` /
+  `modifie_par` (lus sous la ligne) et le journal dit « catégorie : A → B ».
+  ⚠ Pas encore dans la liste « Chez le comptable » (pas demandé).
+- Rien à coller : l'administrateur principal écrit déjà les dépenses.
+- Banc (14 contrôles), éprouvé en remettant cinq fautes (le mois déclaré
+  ignoré, un mois d'avance repayable, le montant touché, la garde du principal
+  retirée, une dépense automatique modifiable) : chacune tombe. Trois
+  contrôles RETOURNÉS (uChoix désormais UNE fois, dans `payerLoyer` ; le corps
+  de `payerLoyer` ; le format du mois laissé au calendrier). Une condition
+  morte retirée (`declare && m <= declare`, jamais atteinte).
 
 ### 🔐 UN ENVOI WHATSAPP NE DIT PLUS « RECONNECTEZ-VOUS » (25/09/2026)
 - Capture Timo, 📋 Clients → WhatsApp : « Le message n'est pas parti du numéro
