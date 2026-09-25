@@ -158,6 +158,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     // clique — l'administrateur principal est un compte réel même quand il
     // regarde la formation.
     const envoi = envoiRelanceDevis({ devis: d, compte: d.client, fmt, dFR });
+    // ⚠ ON CONFIRME AVANT (Timo, 25/09/2026, sur les dettes — même risque
+    // ici) : le message part tout seul du numéro BMI.
+    if (!await uConfirm(`Relancer ${d.client?.nom_base || d.client?.nom || "ce client"} (${d.client.tel}) pour son devis de ${fmt(d.total)} ?\n\nLe message part du numéro WhatsApp BMI.`)) return;
     const r = await envoyerModele({
       tel: d.client.tel,
       modele: envoi?.modele,

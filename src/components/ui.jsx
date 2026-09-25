@@ -177,7 +177,12 @@ export const classeLigneDepliable = (deplie, i, fondSinon = "") => deplie ? "bg-
 // cellule portent leur fond (une cellule collée sans fond laisserait passer
 // les colonnes qui glissent dessous) ; une ligne dépliée garde sa barre bleue.
 export const enTeteFige = (fond = "bg-slate-100") => `sticky left-0 z-20 ${fond} shadow-[2px_0_0_0_#e2e8f0]`;
-export const celluleFigee = (fond = "bg-white", deplie = false) => `sticky left-0 z-[5] ${fond} ${deplie ? "shadow-[inset_6px_0_0_0_var(--color-sky-700),2px_0_0_0_#e2e8f0]" : "shadow-[2px_0_0_0_#e2e8f0]"} max-w-[180px]`;
+// ⚠ Le fond d'une cellule figée est toujours OPAQUE (capture Timo,
+// 25/09/2026, 📋 Dettes : sur une ligne sur deux, « SEBASTINO » se lisait
+// mêlé au motif qui glissait dessous) — la rayure « bg-slate-50/60 » est
+// transparente à 40 % : on lui retire sa transparence ici, pas ligne par ligne.
+const fondOpaque = (fond) => String(fond || "bg-white").replace(/\/\d+\b/g, "");
+export const celluleFigee = (fond = "bg-white", deplie = false) => `sticky left-0 z-[5] ${fondOpaque(fond)} ${deplie ? "shadow-[inset_6px_0_0_0_var(--color-sky-700),2px_0_0_0_#e2e8f0]" : "shadow-[2px_0_0_0_#e2e8f0]"} max-w-[180px]`;
 
 // Le VRAI logo WhatsApp (Timo, 12/09/2026 : « remplacer l'icône de WhatsApp
 // par le vrai icône WhatsApp ») : dessiné en SVG, vert WhatsApp, à la taille

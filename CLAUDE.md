@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 532 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation)
+npm run verifier-whatsapp        # 535 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -2689,6 +2689,19 @@ lit mal est pire qu'un banc absent).
   « whatsapp-media »). On retire les commentaires avant de chercher. **Même
   famille que le 20/09 au matin, troisième fois** : un contrôle qui lit du
   français au lieu du code se trompe.
+
+### ✋ UNE RELANCE SE CONFIRME AVANT DE PARTIR (25/09/2026)
+- Capture Timo, 📋 Dettes : « lorsqu'on appuie sur WhatsApp, il faut qu'on
+  confirme d'abord… sinon on peut relancer une personne qu'on ne devrait
+  pas ». Depuis que la relance part TOUTE SEULE du numéro BMI, un clic à côté
+  ne se rattrapait pas. `relancer` (Dettes) et `relancerDevis` (Tous les
+  devis — même risque, étendu le même jour et dit à Timo) posent
+  « Relancer X (numéro) ? » AVANT `envoyerModele`, avec le reste à payer ou
+  le montant du devis. Banc ⑰ (découpe le corps du geste, éprouvé).
+- **Défaut réparé au passage (même capture)** : le NOM figé de 📋 Dettes se
+  lisait mêlé au motif sur une ligne sur deux — la rayure `bg-slate-50/60`
+  est transparente. `celluleFigee` (ui.jsx) retire la transparence
+  (`fondOpaque`) : UNE règle, tous les tableaux à colonne figée.
 
 ### 🔐 UN ENVOI WHATSAPP NE DIT PLUS « RECONNECTEZ-VOUS » (25/09/2026)
 - Capture Timo, 📋 Clients → WhatsApp : « Le message n'est pas parti du numéro

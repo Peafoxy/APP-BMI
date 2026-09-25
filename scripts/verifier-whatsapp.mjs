@@ -841,6 +841,30 @@ test("★★ …et elle SE LIT sous la ligne — une trace qu'on ne voit pas ne 
   /libelleTrace\(d\.envoi_whatsapp\)/.test(ecranDettes));
 test("★★ UN SEUL CHEMIN : l'écran passe par envoyerModele, il n'ouvre plus WhatsApp lui-même pour une relance",
   /envoyerModele\(\{/.test(codeDettes) && !/const relancer[\s\S]{0,400}envoyerWhatsApp\(/.test(codeDettes));
+{
+  // ★★ ON CONFIRME AVANT DE RELANCER (Timo, 25/09/2026 : « sinon on peut
+  // relancer une personne qu'on ne devrait pas ») : le message part tout
+  // seul du numéro BMI. On découpe le CORPS de chaque geste et on exige la
+  // question AVANT l'envoi — dettes ET devis (même risque).
+  const corps = (code, nom) => { const i = code.indexOf(`const ${nom} = async`); return i < 0 ? "" : code.slice(i, code.indexOf("\n  };", i)); };
+  const confirmeAvant = (c) => { const q = c.search(/if \(!await uConfirm\(`Relancer /); const e = c.indexOf("envoyerModele("); return q > 0 && e > 0 && q < e; };
+  const cDette = corps(codeDettes, "relancer");
+  const cDevis = corps(lire("src/screens/TousLesDevis.jsx"), "relancerDevis");
+  test("★★ 📋 Dettes : « Relancer X (numéro) ? » est demandé AVANT que le message parte",
+    confirmeAvant(cDette) && /Reste à payer/.test(cDette));
+  test("★★ 📋 Tous les devis : même question AVANT l'envoi", confirmeAvant(cDevis));
+}
+{
+  // ★★ La cellule FIGÉE a un fond OPAQUE (capture Timo, 25/09/2026 :
+  // « SEBASTINO » mêlé au motif qui glissait dessous, sur la rayure
+  // transparente bg-slate-50/60). On exerce la vraie fonction de ui.jsx.
+  const ui = lire("src/components/ui.jsx");
+  const m = ui.match(/const fondOpaque = (\(fond\) => [^;]+);/);
+  const fondOpaque = m ? eval(m[1]) : null;
+  test("★★ la rayure transparente perd sa transparence sous le nom figé (bg-slate-50/60 → bg-slate-50)",
+    !!fondOpaque && fondOpaque("bg-slate-50/60") === "bg-slate-50" && fondOpaque("bg-red-50") === "bg-red-50" && fondOpaque("") === "bg-white"
+    && /export const celluleFigee = [^\n]*\$\{fondOpaque\(fond\)\}/.test(ui));
+}
 test("★ un repli qui n'est pas la règle SE DIT (un repli muet ressemble à une panne)",
   /if \(r\.motif\) uAlert\(/.test(codeDettes));
 test("★★ un plan PROPOSÉ mais pas encore accepté ne donne aucune échéance",

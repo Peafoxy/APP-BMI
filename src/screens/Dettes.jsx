@@ -235,6 +235,11 @@ export function Dettes({ db, save, profile }) {
     // Une dette soldée ne se relance pas — la règle le dit, l'écran le répète.
     if (!envoi) { uAlert("Cette dette est soldée : il n'y a rien à relancer."); return; }
     const texte = texteRappel({ dette: d, compte, echeance, fmt, dFR });
+    // ⚠ ON CONFIRME AVANT (Timo, 25/09/2026 : « il faut qu'on confirme
+    // d'abord… sinon on peut relancer une personne qu'on ne devrait pas ») :
+    // le message part TOUT SEUL du numéro BMI, un clic à côté ne se rattrape
+    // pas. La question nomme le client, son numéro et ce qu'on lui réclame.
+    if (!await uConfirm(`Relancer ${d.client}${d.tel ? ` (${d.tel})` : ""} ?\n\nReste à payer : ${fmt(Math.max(0, Number(d.montant || 0) - Number(d.paye || 0)))} sur ${fmt(d.montant)}.\n\nLe message part du numéro WhatsApp BMI.`)) return;
     // ⚠ LE MUR : c'est l'espace de la DETTE qui décide, jamais celui de la
     // personne qui clique — l'administrateur principal est un compte RÉEL
     // même quand il regarde la formation.
