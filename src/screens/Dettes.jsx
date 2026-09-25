@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, lignesDette } from "../lib/core";
+import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
@@ -82,7 +82,7 @@ export function Dettes({ db, save, profile }) {
     // seul. ⚠ Le mur : l'espace de la BOUTIQUE de la dette.
     const bqD = bqDe(dApres.boutique);
     setNoteRecuWa(await envoyerRecuSansQuestion({
-      envoi: envoiRecuReglement({ dette: dApres, versement: paiement, boutique: bqD, fmt, dFR }),
+      envoi: envoiRecuReglement({ dette: dApres, versement: paiement, boutique: bqD, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: dApres.tel, nom: dApres.client, espaceFormation: !!bqD.formation, save, profile, ref: { dette_id: dApres.id },
     }));
   };
@@ -122,7 +122,7 @@ export function Dettes({ db, save, profile }) {
     // est dedans : pas de reçu de versement en plus.
     const bqR = bqDe(r.boutique);
     envoyerRecuSansQuestion({
-      envoi: envoiRecuReservation({ reservation: r, boutique: bqR, fmt, dFR }),
+      envoi: envoiRecuReservation({ reservation: r, boutique: bqR, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: r.tel, nom: r.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: r.id },
     }).then(setNoteRecuWa);
     setPanierRes([]);

@@ -2260,6 +2260,24 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
     && /Reçu de réservation N° DET-0008 envoyé à AYOKO/.test(M.ligneEnvoiModele("recu_reservation", e2.variables)));
 
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  // ★ Une VIEILLE dette, née avant la numérotation, n'a pas de numéro
+  // enregistré : le message porte le MÊME numéro que son reçu imprimé
+  // (numeroRecuDette), jamais un tiret (Timo, 25/09/2026).
+  {
+    const { numeroRecuDette } = await import("../src/lib/core.js");
+    const vieille = { id: "ab12cd34", date: "2025-11-03", client: "ESSO", tel: "90112233", boutique: "BMI DEMAKPOE", montant: 160000, paye: 110000 };
+    const imprime = numeroRecuDette(vieille);
+    const ev = M.envoiRecuReglement({ dette: vieille, versement, boutique: {}, fmt: fmtR, dFR: dFRr, numeroDe: numeroRecuDette });
+    const er = M.envoiRecuReservation({ reservation: { ...resa, numero: undefined, id: "ef56ab78" }, boutique: {}, fmt: fmtR, dFR: dFRr, numeroDe: numeroRecuDette });
+    test("★★ vieille dette SANS numéro : le versement porte le numéro du reçu imprimé (BMI-DET-2025-AB12), jamais « — »",
+      imprime === "BMI-DET-2025-AB12" && ev.variables[4] === imprime && er.variables[3] !== "—" && /-DET-2026-EF56$/.test(er.variables[3]));
+    test("★ une dette QUI A son numéro le garde tel quel (aucun préfixe ajouté : jamais « BMID-BMID-… »)",
+      M.envoiRecuReglement({ dette: { ...dette, numero: "BMID-DET-2026-0003" }, versement, boutique: {}, fmt: fmtR, dFR: dFRr, numeroDe: numeroRecuDette }).variables[4] === "BMID-DET-2026-0003");
+    const appels = ["src/screens/Dettes.jsx", "src/screens/Ventes.jsx", "src/screens/ClientsInstalles.jsx"]
+      .flatMap((f) => (sansComm(lire(f)).match(/envoiRecu(?:Reglement|Reservation)\([^;]*?\)\s*,/g) || []));
+    test("★ les QUATRE écrans passent la règle du numéro (numeroDe: numeroRecuDette)",
+      appels.length === 4 && appels.every((a) => a.includes("numeroDe: numeroRecuDette")));
+  }
   const W = sansComm(lire("src/whatsapp.js"));
   const i = W.indexOf("export async function envoyerRecuSansQuestion");
   const corps = W.slice(i, W.indexOf("\n}", i));

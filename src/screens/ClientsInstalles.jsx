@@ -13,7 +13,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerRecuSansQuestion } from "../whatsapp";
 import { messageIdentifiants, envoiRecuReglement } from "../lib/whatsappModeles";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, numeroRecuDette } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
@@ -590,7 +590,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const bqV = (db.boutiques || []).find((b) => b.nom === boutiqueEncaissement) || {};
     const telV = detteApres.tel || c.tel;
     setNoteRecuWa(await envoyerRecuSansQuestion({
-      envoi: envoiRecuReglement({ dette: { ...detteApres, tel: telV }, versement: paiement, boutique: bqV, fmt, dFR }),
+      envoi: envoiRecuReglement({ dette: { ...detteApres, tel: telV }, versement: paiement, boutique: bqV, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: telV, nom: detteApres.client || `${c.prenom || ""} ${c.nom || ""}`.trim(),
       espaceFormation: !!bqV.formation || !!c.formation, save, profile, ref: { dette_id: detteApres.id },
     }));

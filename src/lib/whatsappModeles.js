@@ -821,7 +821,12 @@ const nomClientRecu = (nom) => {
 };
 // `dette` = la dette APRÈS le versement ; `versement` = la ligne qu'on vient
 // d'ajouter. Rend null sans numéro ou sans montant (rien à envoyer).
-export function envoiRecuReglement({ dette, versement, boutique, fmt, dFR }) {
+// `numeroDe` = la règle du numéro de reçu (`numeroRecuDette`, core.js — ce
+// fichier n'importe rien) : une vieille dette sans numéro enregistré reçoit
+// le MÊME numéro que son reçu imprimé, jamais un tiret (Timo, 25/09/2026).
+const numeroDeLaDette = (d, numeroDe) =>
+  texteVariable(typeof numeroDe === "function" ? numeroDe(d) : d.numero) || "—";
+export function envoiRecuReglement({ dette, versement, boutique, fmt, dFR, numeroDe }) {
   if (!dette || !String(dette.tel || "").replace(/\D/g, "")) return null;
   const m = Number(versement?.montant);
   if (!Number.isFinite(m) || m <= 0) return null;
@@ -834,7 +839,7 @@ export function envoiRecuReglement({ dette, versement, boutique, fmt, dFR }) {
       f(m),
       d(versement.date) || "aujourd'hui",
       moyenVersement(versement.paiement),
-      texteVariable(dette.numero) || "—",
+      numeroDeLaDette(dette, numeroDe),
       situationDette({ total: dette.montant, paye: dette.paye, fmt: f }),
       texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,
     ],
@@ -842,7 +847,7 @@ export function envoiRecuReglement({ dette, versement, boutique, fmt, dFR }) {
 }
 // La réservation telle qu'enregistrée (son avance est DANS `paye` : on ne
 // l'annonce pas une seconde fois par un reçu de versement).
-export function envoiRecuReservation({ reservation, boutique, fmt, dFR }) {
+export function envoiRecuReservation({ reservation, boutique, fmt, dFR, numeroDe }) {
   const r = reservation;
   if (!r || !String(r.tel || "").replace(/\D/g, "")) return null;
   const total = Number(r.montant);
@@ -859,7 +864,7 @@ export function envoiRecuReservation({ reservation, boutique, fmt, dFR }) {
       nomClientRecu(r.client),
       d(r.date) || "aujourd'hui",
       texteVariable(r.boutique) || "BMI TOGO",
-      texteVariable(r.numero) || "—",
+      numeroDeLaDette(r, numeroDe),
       f(total),
       situation,
       texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,

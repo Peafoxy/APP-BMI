@@ -10,7 +10,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
 import { montantEncaisseVente } from "../lib/versements";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -631,7 +631,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // Son avance est dedans : pas de reçu de versement en plus.
       const bqR = infoBq(reservation.boutique);
       envoyerRecuSansQuestion({
-        envoi: envoiRecuReservation({ reservation, boutique: bqR, fmt, dFR }),
+        envoi: envoiRecuReservation({ reservation, boutique: bqR, fmt, dFR, numeroDe: numeroRecuDette }),
         tel: reservation.tel, nom: reservation.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: reservation.id },
       }).then(setNoteRecuWa);
       setPanier([]);
