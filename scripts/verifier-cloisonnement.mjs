@@ -11069,5 +11069,29 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   test("★ le geste de changement est refusé à un compte en lecture seule", /const changerMoyenApporteur = async \(a\) => \{\s*\n\s*if \(bloquerSiLecture\(db, profile\)\) return;/.test(eq));
 }
 
+// ============ L'HEURE DE LOMÉ, JAMAIS CELLE DE L'APPAREIL (25/09/2026) ============
+// Capture Timo : la vente BMID-2026-0025 d'ANGELE affichée à 18:44, le journal
+// disait 16:44 — son appareil était réglé à +2 h. On EXERCE la vraie fonction
+// sous un fuseau décalé, et on interdit toute autre source d'heure.
+{
+  const core = readFileSync("src/lib/core.js", "utf8");
+  const m = core.match(/export const heureCourte = \(\) => ([^;]+);/);
+  let lue = "", attendue = "";
+  if (m) {
+    const avant = process.env.TZ;
+    process.env.TZ = "Africa/Johannesburg";
+    const f = new Function(`return ${m[1]};`);
+    lue = f();
+    attendue = new Date().toISOString().slice(11, 16);
+    process.env.TZ = avant;
+  }
+  test("★★ heureCourte rend l'heure de Lomé (GMT+0) même sur un appareil réglé à +2 h", !!m && lue === attendue);
+  const fichiers = ["src/lib/transfertsStock.js", "src/screens/Dettes.jsx", "src/screens/Ventes.jsx", "src/screens/Commandes.jsx",
+    "src/screens/dimensionnement/Brouillons.jsx", "src/screens/dimensionnement/devisCommun.js", "src/screens/ClientsInstalles.jsx", "src/lib/core.js"];
+  const fautifs = fichiers.filter((f) => /toTimeString\(\)|toLocaleTimeString\(|\.getHours\(\)/.test(readFileSync(f, "utf8")));
+  test("★★ aucune heure écrite sur une ligne ne vient plus de l'horloge LOCALE de l'appareil (toTimeString, getHours…)", fautifs.length === 0);
+  test("★ les écrans qui horodatent passent par heureCourte", fichiers.slice(0, 7).every((f) => /heureCourte\(\)/.test(readFileSync(f, "utf8"))));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

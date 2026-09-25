@@ -13,7 +13,7 @@
 // Ce fichier est PUR (aucun React) : le banc fabrique le même devis avec
 // l'ancienne écriture et celle-ci, et vérifie qu'ils sont identiques.
 // ============================================================
-import { uid, today } from "../../lib/core";
+import { uid, today, heureCourte } from "../../lib/core";
 
 // ---- Les « autres équipements » (saisie libre) ----
 export const reprisesAutres = (lignesReprises) => (lignesReprises || [])
@@ -83,7 +83,7 @@ export const champsReglages = (r) => ({
 // un devis sans type rouvre dans Solaire). `complement` = champs propres au
 // volet placés après le type (le domaine, pour Autre).
 export function construireDevis({ profile, boutique, typeDevis, complement = {}, besoins, panierMetier, lignesMetier, autres, reglages, horodatage }) {
-  const h = horodatage || { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5) };
+  const h = horodatage || { id: uid(), date: today(), heure: heureCourte() };
   return {
     id: h.id,
     date: h.date,

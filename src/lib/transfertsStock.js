@@ -25,7 +25,7 @@
 // pour tous les rôles (securite-8), et l'ajustement de validation suit la
 // règle des mouvements de stock (magasinier, gérant, admin).
 // ============================================================
-import { uid, today } from "./core";
+import { uid, today, heureCourte } from "./core";
 import { demandesDe, stockActuel, boutiquesVisibles } from "./calculs";
 
 export const TYPE_TRANSFERT_STOCK = "transfert_stock";
@@ -44,7 +44,7 @@ const majDemande = (db, boutique, id, champs) => (db.boutiques || []).map((b) =>
 export function nouveauTransfertStock({ de, vers, produit, qte, profile, date = today() }) {
   return {
     id: uid(), type: TYPE_TRANSFERT_STOCK, de, vers, date,
-    heure: new Date().toTimeString().slice(0, 5),
+    heure: heureCourte(),
     par: profile?.nom || "?", par_id: profile?.id || null,
     lignes: [{ produit_id: produit.id, nom: produit.nom, qte: Number(qte) }],
     statut: STATUT_ATTENTE,

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1862 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1865 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2702,6 +2702,20 @@ lit mal est pire qu'un banc absent).
   lisait mêlé au motif sur une ligne sur deux — la rayure `bg-slate-50/60`
   est transparente. `celluleFigee` (ui.jsx) retire la transparence
   (`fondOpaque`) : UNE règle, tous les tableaux à colonne figée.
+
+### 🕓 L'HEURE ÉCRITE EST CELLE DE LOMÉ, JAMAIS CELLE DE L'APPAREIL (25/09/2026)
+- Capture Timo, 💰 Ventes : BMID-2026-0025 à 18:44 AVANT 0026 (16:47) et 0027
+  (17:26). Soupçon d'un numéro repris : faux (pas de suppression, et la règle
+  est « plus grand + 1 »). **Le journal disait 16:44** : le téléphone d'ANGELE
+  était réglé à +2 h. La DATE venait déjà de l'heure universelle (`today`),
+  l'HEURE venait de l'horloge locale (`toTimeString`) — deux sources.
+- Depuis : **`heureCourte()` (core.js) = l'heure de Lomé (GMT+0, sans heure
+  d'été)**, même source que `today()`, et les 12 endroits qui horodataient une
+  ligne (ventes, versements, réservations, commandes, devis, transferts) y
+  passent. Le banc EXERCE la fonction sous un fuseau à +2 h et interdit
+  `toTimeString` / `getHours` dans ces fichiers (éprouvé : il tombe).
+- ⚠ Les lignes déjà écrites gardent leur heure décalée. Régler quand même
+  l'appareil : le reste du téléphone (WhatsApp, rappels) garde sa fausse heure.
 
 ### 🔐 UN ENVOI WHATSAPP NE DIT PLUS « RECONNECTEZ-VOUS » (25/09/2026)
 - Capture Timo, 📋 Clients → WhatsApp : « Le message n'est pas parti du numéro

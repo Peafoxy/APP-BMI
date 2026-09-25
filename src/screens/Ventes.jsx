@@ -10,7 +10,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
 import { montantEncaisseVente } from "../lib/versements";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -671,7 +671,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         motif: `Réservation — ${resumeArticles({ articles: panier })}`,
         articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
         montant: total, paye: avanceRes,
-        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avanceRes, paiement: normPaiement(f.paiement), par: profile.nom }] : [],
+        paiements: avanceRes > 0 ? [{ id: uid(), date: today(), heure: heureCourte(), montant: avanceRes, paiement: normPaiement(f.paiement), par: profile.nom }] : [],
         echeance: null, statut: "en_cours", par: profile.nom,
         // ⚠ Trouvé en audit général (pas dans le scope initial de la demande
         // "non livré") : sans ceci, un commercial/apporteur choisi sur cette
@@ -719,7 +719,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       client_user_id: clientCompteId,
       numero,
       date: today(),
-      heure: new Date().toTimeString().slice(0, 5),
+      heure: heureCourte(),
       boutique,
       articles: panier,
       client: f.client || "Client non renseigné",
@@ -869,7 +869,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       }
       // Le moyen de paiement accompagne l'avance : sans lui, la caisse la
       // comptait en espèces quoi qu'il arrive (point 15 de l'audit).
-      const paiementsInitiaux = avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(f.moyen_avance || PAIEMENTS[0]), par: profile.nom }] : [];
+      const paiementsInitiaux = avance > 0 ? [{ id: uid(), date: today(), heure: heureCourte(), montant: avance, paiement: normPaiement(f.moyen_avance || PAIEMENTS[0]), par: profile.nom }] : [];
       // Les frais figurent AUSSI en lignes : sans elles, le reçu de versement
       // (imprimerRecuVersement) listerait des articles à 1 000 000 F sous un
       // « montant total dû » de 1 150 000 F, sans rien pour l'expliquer.

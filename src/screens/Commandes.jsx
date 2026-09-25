@@ -5,7 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
-import { uid, fmt, today, dFR, totalVente } from "../lib/core";
+import { uid, fmt, today, dFR, heureCourte, totalVente } from "../lib/core";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
@@ -117,7 +117,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     const commande = {
       id: uid(),
       date: today(),
-      heure: new Date().toTimeString().slice(0, 5),
+      heure: heureCourte(),
       commercial: profile.nom,
       responsable: f.responsable || null,
       // Le rabais est plafonné à la commission du commercial sur cette commande.

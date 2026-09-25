@@ -48,7 +48,7 @@ export function Dettes({ db, save, profile }) {
     // Le circuit « réservation » du même écran, lui, créait déjà cette ligne —
     // seul ce formulaire l'oubliait.
     const paiements = acompte > 0 ? [{
-      id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5),
+      id: uid(), date: today(), heure: heureCourte(),
       montant: acompte, paiement: normPaiement(f.moyen), par: profile.nom,
     }] : [];
     // ⚠ Vague 2, étape 1 : la ligne porte le COMPTE du client quand il en a
@@ -69,7 +69,7 @@ export function Dettes({ db, save, profile }) {
     const moyen = await demanderMoyenPaiement();
     if (moyen === null) return;
     if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${d.client} ?`)) return;
-    const paiement = { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: m, paiement: normPaiement(moyen), par: profile.nom };
+    const paiement = { id: uid(), date: today(), heure: heureCourte(), montant: m, paiement: normPaiement(moyen), par: profile.nom };
     const dApres = { ...d, paye: Number(d.paye) + m, paiements: [...(d.paiements || []), paiement] };
     save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? dApres : x)) },
       `${estReservation(d) ? "Versement réservation" : "Paiement dette"} ${fmt(m)} de ${d.client} — ${d.boutique}`);
@@ -114,7 +114,7 @@ export function Dettes({ db, save, profile }) {
       id: uid(), client_user_id: compteClientPour(db, res.tel, res.client), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique, client: res.client.trim(), tel: res.tel.trim(),
       motif: `Réservation — ${panierRes.length} article(s)`,
       articles: panierRes, montant: totalRes, paye: avance,
-      paiements: avance > 0 ? [{ id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: avance, paiement: normPaiement(res.moyen), par: profile.nom }] : [],
+      paiements: avance > 0 ? [{ id: uid(), date: today(), heure: heureCourte(), montant: avance, paiement: normPaiement(res.moyen), par: profile.nom }] : [],
       echeance: res.echeance || null, statut: "en_cours", par: profile.nom,
     };
     save({ ...db, dettes: [r, ...db.dettes] }, `Réservation prépayée ${res.client.trim()} (${fmt(totalRes)}) — ${boutique}`);
@@ -157,7 +157,7 @@ export function Dettes({ db, save, profile }) {
       // un numéro de secours dérivé de l'id) — elle entre maintenant dans la
       // même numérotation séquentielle que les ventes normales.
       id: uid(), client_user_id: r.client_user_id ?? compteClientPour(db, r.tel, r.client), numero: prochainNumeroVente(db, r.boutique),
-      date: today(), heure: new Date().toTimeString().slice(0, 5), boutique: r.boutique, client: r.client, tel: r.tel,
+      date: today(), heure: heureCourte(), boutique: r.boutique, client: r.client, tel: r.tel,
       // ⚠ VRAI BUG trouvé par Timo (préexistant, pas introduit par les
       // réservations créées depuis Ventes.jsx) : les articles d'une
       // réservation portent un champ `nom` (voir creerReservation ci-dessus),

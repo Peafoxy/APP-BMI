@@ -13,7 +13,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerRecuSansQuestion } from "../whatsapp";
 import { messageIdentifiants, envoiRecuReglement } from "../lib/whatsappModeles";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, numeroRecuDette } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, heureCourte, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, numeroRecuDette } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
@@ -577,7 +577,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // (formation) » pour un chantier de formation (lot 2 Espace client), ou
     // une boutique si un versement précédent y a déjà déplacé la dette.
     if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${c.nom} ?\n\n${enBoutique ? `Encaissé en boutique (${boutiqueEncaissement}).` : `Encaissé sur le terrain (caisse ${boutiqueEncaissement}).`}`)) return;
-    const paiement = { id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), montant: m, paiement: normPaiement(moyen), par: profile.nom };
+    const paiement = { id: uid(), date: today(), heure: heureCourte(), montant: m, paiement: normPaiement(moyen), par: profile.nom };
     // Le versement change la boutique de la dette UNIQUEMENT s'il vient
     // d'être payé en boutique cette fois-ci — chaque versement peut donc
     // provenir d'un endroit différent (terrain puis boutique, ou l'inverse).

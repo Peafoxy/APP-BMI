@@ -5,7 +5,7 @@
 // son volet, s'envoie par WhatsApp, ou se supprime. Rangé dans la fiche de
 // celui qui l'a fait (`brouillons_devis`) : personnel, synchronisé, sans SQL.
 // ============================================================
-import { uid, fmt, today, dFR } from "../../lib/core";
+import { uid, fmt, today, dFR, heureCourte } from "../../lib/core";
 import { uAlert, uConfirm } from "../../components/ui";
 import { bloquerSiLecture } from "../../lib/calculs";
 import { brouillonsDe, retirerBrouillon } from "./devisCommun";
@@ -37,7 +37,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, b.devis?.boutique);
     if (!resolu) return;
     const { compte, motDePasse, dbApres } = resolu;
-    const devis = { ...b.devis, id: uid(), date: today(), heure: new Date().toTimeString().slice(0, 5), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
+    const devis = { ...b.devis, id: uid(), date: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
       dbApres: retirerBrouillon(dbApres, profile.id, b.id), compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`],
