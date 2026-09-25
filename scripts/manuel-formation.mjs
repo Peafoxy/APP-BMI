@@ -23,7 +23,7 @@ const {
   Header, Footer, PageNumber, TabStopType, LeaderType, VerticalAlign, HeightRule,
 } = require("docx");
 
-export const DATE_MANUEL = "23 septembre 2026";
+export const DATE_MANUEL = "25 septembre 2026";
 
 // ---- La palette (celle de l'application : bleu de l'espace réel) ----
 const BLEU = "1E3A8A", BLEU_MOYEN = "1D4ED8", BLEU_PALE = "DBEAFE", BLEU_FOND = "EFF6FF";
