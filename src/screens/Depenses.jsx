@@ -16,6 +16,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, Aucu
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
+import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, CATEGORIE_LOYER } from "../lib/loyer";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
@@ -79,6 +80,20 @@ export function Depenses({ db, save, profile }) {
   const [f, setF] = useState(formVide);
   const jeSuisDG = estAdminPrincipal(db, profile);
 
+  // ---- 🏠 LE LOYER DE LA BOUTIQUE REGARDÉE (Timo, 25/09/2026) ----
+  // Gérant et administrateur. La fiche (montant, propriétaire, échéance) se
+  // règle dans ⚙ Paramètres par l'administrateur seul ; ici on LIT l'état du
+  // mois dans les dépenses « Loyer », et « Payer » ne fait que PRÉ-REMPLIR le
+  // formulaire : la dépense passe ensuite par toutes les règles ordinaires.
+  const voitLoyer = ["admin", "gerant"].includes(profile.role);
+  const fiche = voitLoyer ? ficheLoyer((db.boutiques || []).find((b) => b.nom === boutique)) : null;
+  const loyer = fiche ? etatLoyer({ fiche, depenses: db.depenses, boutique, aujourdhui: today() }) : null;
+  const payerLoyer = () => {
+    const refus = critiquePaiementLoyer(loyer);
+    if (refus) { uAlert(refus); return; }
+    setF({ ...formVide, ...formulaireLoyer(fiche, loyer, boutique) });
+  };
+
   // Timo (15/09/2026) : « si dépense dépasse fonds de caisse, impossible de
   // dépenser ». La limite est TOUT le contenu du tiroir (recettes + ce qu'il
   // reste du fonds) — règle pure critiqueSortieTiroir, revérifiée DANS chaque
@@ -133,7 +148,16 @@ export function Depenses({ db, save, profile }) {
       ? `\n\n💼 Le tiroir de ${boutique} paie ${fmt(Math.max(0, poches.montant))} et le fonds de caisse complète ${fmt(propositionFonds.manqueAuTiroir)} (il restera ${fmt(propositionFonds.reste - propositionFonds.manqueAuTiroir)} dans l'enveloppe). Les prochaines recettes le rembourseront.`
       : "";
     if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}${partage}`)) return;
-    const depense = chantierChoisi ? rattacherDepense(r.depense, chantierChoisi) : r.depense;
+    // 🏠 Le loyer pré-rempli garde son mois et SON local (la caisse d'une autre
+    // boutique peut l'avoir payé) ; revérifié DANS le geste : jamais deux fois.
+    const estLoyerDuMois = f.loyer_mois && f.categorie === CATEGORIE_LOYER;
+    if (estLoyerDuMois) {
+      const ficheL = ficheLoyer((db.boutiques || []).find((b) => b.nom === f.loyer_boutique));
+      const refusL = critiquePaiementLoyer(ficheL ? etatLoyer({ fiche: ficheL, depenses: db.depenses, boutique: f.loyer_boutique, aujourdhui: today() }) : null);
+      if (refusL) { uAlert(refusL); return; }
+    }
+    const depenseLoyer = estLoyerDuMois ? { ...r.depense, loyer_mois: f.loyer_mois, loyer_boutique: f.loyer_boutique } : r.depense;
+    const depense = chantierChoisi ? rattacherDepense(depenseLoyer, chantierChoisi) : depenseLoyer;
     save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : ""));
     setF(formVide);
     if (r.aValider && !jeSuisDG) uAlert(`Dépense enregistrée — en attente de validation par le DG.${choixCaisse.boutique !== boutique ? `\n\nElle est rangée sous ${choixCaisse.boutique} : choisissez cette boutique en haut pour la voir.` : ""}`);
@@ -242,6 +266,36 @@ export function Depenses({ db, save, profile }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {loyer && (
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${loyer.statut === "retard" ? "border-red-300" : loyer.statut === "paye" ? "border-green-300" : "border-amber-300"}`} data-loyer={loyer.statut}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="font-bold text-slate-800">🏠 Loyer de la boutique <Badge boutique={boutique} /></div>
+              <div className="text-sm text-slate-600 mt-1">
+                <b className="tabular-nums">{fmt(loyer.montant)}</b> par mois · échéance le <b>{Number(fiche.jour)}</b> du mois
+                {fiche.proprietaire && <> · propriétaire : <b>{fiche.proprietaire}</b></>}{fiche.tel && <> ({fiche.tel})</>}
+              </div>
+              {(fiche.debut || fiche.caution > 0 || fiche.note) && (
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {fiche.debut && <>Bail depuis le {dFR(fiche.debut)}</>}{fiche.debut && fiche.caution > 0 && " · "}
+                  {fiche.caution > 0 && <>caution versée : {fmt(fiche.caution)}</>}
+                  {fiche.note && <div>{fiche.note}</div>}
+                </div>
+              )}
+              <div className={`text-sm font-bold mt-2 ${loyer.statut === "retard" ? "text-red-700" : loyer.statut === "paye" ? "text-green-700" : "text-amber-700"}`}>
+                {loyer.statut === "paye" && `✅ ${libelleMois(loyer.mois)} : payé${loyer.derniere ? ` le ${dFR(loyer.derniere.date)}` : ""}`}
+                {loyer.statut === "attente" && `⏳ ${libelleMois(loyer.mois)} : saisi, en attente de la validation du DG`}
+                {loyer.statut === "a_payer" && `⏳ ${libelleMois(loyer.mois)} : ${fmt(loyer.reste)} à payer avant le ${dFR(loyer.echeance)}`}
+                {loyer.statut === "retard" && `⚠ ${libelleMois(loyer.mois)} : ${fmt(loyer.reste)} en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance le ${dFR(loyer.echeance)})`}
+              </div>
+            </div>
+            {(loyer.statut === "a_payer" || loyer.statut === "retard") && (
+              <button onClick={payerLoyer} className={btnDark}>💵 Payer le loyer de {libelleMois(loyer.mois)}</button>
+            )}
+          </div>
+          {f.loyer_mois && f.loyer_boutique === boutique && <div className="mt-2 text-xs text-sky-800">Le formulaire ci-dessous est rempli : vérifiez « Payé avec », puis enregistrez.</div>}
         </div>
       )}
       <Panel boutique={boutique}>

@@ -7382,7 +7382,7 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
   test("★ écran Dépenses : la ligne « Chantier à rattacher » TOUJOURS présente à côté de « Payé avec » (chantiersRattachables, « — Aucun — », « Aucun chantier de devis en cours » si vide), la saisie passe par critiqueRattachement puis rattacherDepense, la colonne « Chantier » montre le chantier SANS lien ni rattachement après coup",
     /<Field label="Chantier à rattacher">/.test(dpC) && !/chantiersOuverts\.length > 0 && \(/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
     && /Aucun chantier de devis en cours<\/option>/.test(dpC)
-    && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const depense = chantierChoisi \? rattacherDepense\(r\.depense, chantierChoisi\) : r\.depense;/.test(dpC)
+    && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const depense = chantierChoisi \? rattacherDepense\(depenseLoyer, chantierChoisi\) : depenseLoyer;/.test(dpC) && /const depenseLoyer = estLoyerDuMois \? \{ \.\.\.r\.depense, loyer_mois: f\.loyer_mois, loyer_boutique: f\.loyer_boutique \} : r\.depense;/.test(dpC)
     && /🏠 \{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && !/uChoix/.test(dpC));
   const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
@@ -11091,6 +11091,54 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   const fautifs = fichiers.filter((f) => /toTimeString\(\)|toLocaleTimeString\(|\.getHours\(\)/.test(readFileSync(f, "utf8")));
   test("★★ aucune heure écrite sur une ligne ne vient plus de l'horloge LOCALE de l'appareil (toTimeString, getHours…)", fautifs.length === 0);
   test("★ les écrans qui horodatent passent par heureCourte", fichiers.slice(0, 7).every((f) => /heureCourte\(\)/.test(readFileSync(f, "utf8"))));
+}
+
+// ============ 🏠 LE LOYER D'UNE BOUTIQUE (25/09/2026) ============
+// Timo : la fiche par l'administrateur seul, une case « loué » à la création,
+// le cadre dans 📤 Dépenses pour gérant et admin, aucun rappel à 7 h.
+{
+  const L = await import("../src/lib/loyer.js");
+  const src = readFileSync("src/lib/loyer.js", "utf8");
+  test("★ lib/loyer.js n'importe rien (lisible par Node)", !/^\s*import /m.test(src));
+  const fiche = L.nettoyerFicheLoyer({ loue: true, montant: "150000", jour: "5", proprietaire: " M. KOFFI ", tel: "90112233" });
+  test("★ la fiche se range propre (nombres, texte nettoyé)", fiche.montant === 150000 && fiche.jour === 5 && fiche.proprietaire === "M. KOFFI");
+  test("★ non loué = aucune fiche", L.ficheLoyer({ loyer: { loue: false } }) === null && L.ficheLoyer({}) === null);
+  test("★ une fiche louée sans montant ou sans propriétaire est refusée",
+    !!L.critiqueFicheLoyer({ loue: true, montant: "", proprietaire: "X", jour: 5 })
+    && !!L.critiqueFicheLoyer({ loue: true, montant: 1000, proprietaire: "", jour: 5 })
+    && !!L.critiqueFicheLoyer({ loue: true, montant: 1000, proprietaire: "X", jour: 40 })
+    && L.critiqueFicheLoyer({ loue: true, montant: 1000, proprietaire: "X", jour: 5 }) === null
+    && L.critiqueFicheLoyer({ loue: false }) === null);
+  test("★ l'échéance du 31 tombe au dernier jour d'un mois court", L.echeanceDuMois({ jour: 31 }, "2026-02") === "2026-02-28");
+  const dep = (x) => ({ categorie: "Loyer", boutique: "DEMAKPOE", date: "2026-10-03", montant: 150000, ...x });
+  const e = (depenses, jour) => L.etatLoyer({ fiche, depenses, boutique: "DEMAKPOE", aujourdhui: jour });
+  test("★★ à payer avant l'échéance, en retard après", e([], "2026-10-03").statut === "a_payer" && e([], "2026-10-09").statut === "retard" && e([], "2026-10-09").joursRetard === 4);
+  test("★★ payé : une dépense Loyer du mois suffit (même saisie à la main, sans marque)", e([dep({})], "2026-10-20").statut === "paye");
+  test("★★ une dépense REJETÉE par le DG ne paie pas le loyer", e([dep({ validation: { statut: "rejetee" }, montant: 0 })], "2026-10-20").statut === "retard" && e([dep({ validation: { statut: "rejetee" } })], "2026-10-20").statut === "retard");
+  test("★★ une dépense EN ATTENTE du DG se dit en attente, et bloque un second paiement",
+    e([dep({ validation: { statut: "attente" } })], "2026-10-20").statut === "attente"
+    && !!L.critiquePaiementLoyer(e([dep({ validation: { statut: "attente" } })], "2026-10-20")));
+  test("★★ LE LOCAL, pas la caisse : payé par la caisse d'APESSITO, c'est le loyer de DEMAKPOE",
+    e([dep({ boutique: "APESSITO", loyer_boutique: "DEMAKPOE", loyer_mois: "2026-10" })], "2026-10-20").statut === "paye"
+    && L.etatLoyer({ fiche, depenses: [dep({ boutique: "APESSITO", loyer_boutique: "DEMAKPOE" })], boutique: "APESSITO", aujourdhui: "2026-10-20" }).statut !== "paye");
+  test("★★ le mois de septembre ne paie pas octobre", e([dep({ date: "2026-09-30" })], "2026-10-20").statut === "retard");
+  test("★★ jamais deux fois : le loyer payé refuse un second paiement", !!L.critiquePaiementLoyer(e([dep({})], "2026-10-20")) && L.critiquePaiementLoyer(e([], "2026-10-20")) === null);
+  const pf = L.formulaireLoyer(fiche, e([], "2026-10-20"), "DEMAKPOE");
+  test("★ « Payer » pré-remplit catégorie Loyer, montant, mois et local", pf.categorie === "Loyer" && pf.montant === "150000" && pf.loyer_mois === "2026-10" && pf.loyer_boutique === "DEMAKPOE");
+  const dsrc = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★★ le cadre du loyer n'est lu que par le gérant et l'administrateur", /const voitLoyer = \["admin", "gerant"\]\.includes\(profile\.role\);/.test(dsrc) && /const fiche = voitLoyer \? ficheLoyer\(/.test(dsrc));
+  test("★★ le paiement passe par la dépense ORDINAIRE (construireDepenseSaisie) et se revérifie DANS le geste",
+    /const estLoyerDuMois = f\.loyer_mois && f\.categorie === CATEGORIE_LOYER;/.test(dsrc) && /const refusL = critiquePaiementLoyer\([^\n]*\n\s*if \(refusL\) \{ uAlert\(refusL\); return; \}/.test(dsrc)
+    && dsrc.indexOf("construireDepenseSaisie(db, profile") < dsrc.indexOf("const estLoyerDuMois"));
+  test("★ « Payer » ne fait que pré-remplir (aucun save dans payerLoyer)", /const payerLoyer = \(\) => \{[\s\S]*?setF\(\{ \.\.\.formVide, \.\.\.formulaireLoyer\(fiche, loyer, boutique\) \}\);\s*\};/.test(dsrc)
+    && !/const payerLoyer = \(\) => \{[^}]*save\(/.test(dsrc));
+  const psrc = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★★ la fiche du loyer : l'administrateur SEUL, revérifié DANS le geste", /const enregistrerLoyer = \(\) => \{[\s\S]*?refuserSaufAdmin\(profile, "Renseigner le loyer d'une boutique"\)/.test(psrc)
+    && /const ouvrirLoyer = \(b\) => \{\s*if \(refuserSaufAdmin\(profile, "Renseigner le loyer d'une boutique"\)\) return;/.test(psrc));
+  test("★★ la case « loué » est sur la fiche de CRÉATION, et ses champs n'apparaissent que cochée",
+    /<ChampsLoyer valeur=\{f\.loyer\}/.test(psrc) && /\{v\.loue && \(\s*<div[^>]*data-champs-loyer/.test(psrc) && /const refusLoyer = critiqueFicheLoyer\(f\.loyer\);/.test(psrc));
+  test("★ la fiche est écrite UNE fois (ChampsLoyer) pour la création et la correction", (psrc.match(/<ChampsLoyer /g) || []).length === 2);
+  test("★ aucun rappel de loyer dans la tournée du matin (décision « non »)", !/loyer/i.test(readFileSync("src/lib/rappels.js", "utf8")) && !/loyer/i.test(readFileSync("api/rappels-du-matin.js", "utf8")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

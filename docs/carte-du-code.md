@@ -30,6 +30,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
 | `lib/banques.js` | La liste des banques et la banque d'un employé |
+| `lib/loyer.js` | Le loyer d'un local loué : sa fiche, l'état du mois (payé, à payer, en retard), jamais deux fois |
 | `lib/paie.js` | La fiche de paie, séparée de la fiche employé |
 | `lib/cnss.js` | La déclaration des rémunérations et cotisations |
 

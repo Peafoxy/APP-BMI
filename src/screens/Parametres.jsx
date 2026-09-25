@@ -38,9 +38,38 @@ import { genererDossierPersonnel } from "../pdf";
 // dessinateur que celui d'un client : seules les données changent.
 import { dossierEmploye, critiqueDossierEmploye, journalDossierEmploye, nomDossierEmploye } from "../lib/dossierEmploye";
 import { exportCSV } from "../lib/export";
+import { ficheLoyer, nettoyerFicheLoyer, critiqueFicheLoyer, JOUR_ECHEANCE_DEFAUT } from "../lib/loyer";
 import { correspond } from "../lib/suggestions";
 
 // ============ PARAMÈTRES ============
+// 🏠 LE LOYER D'UN LOCAL (25/09/2026) : UNE case « loué », et ses champs
+// n'apparaissent que si elle est cochée. Écrit UNE fois, pour la création
+// d'une boutique et pour la fiche d'une boutique existante.
+const LOYER_VIDE = { loue: false, montant: "", jour: JOUR_ECHEANCE_DEFAUT, proprietaire: "", tel: "", debut: "", caution: "", note: "" };
+function ChampsLoyer({ valeur, onChange }) {
+  const v = valeur || LOYER_VIDE;
+  const pose = (champ) => (e) => onChange({ ...v, [champ]: e.target.value });
+  return (
+    <div className="mt-3">
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input type="checkbox" checked={!!v.loue} onChange={(e) => onChange({ ...v, loue: e.target.checked })} data-case-loue />
+        🏠 Ce local est <b>loué</b>
+      </label>
+      {v.loue && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-2" data-champs-loyer>
+          <Field label="Loyer mensuel (F)"><input type="number" className={inputCls} value={v.montant} onChange={pose("montant")} /></Field>
+          <Field label="Échéance : le … du mois"><input type="number" min="1" max="31" className={inputCls} value={v.jour} onChange={pose("jour")} /></Field>
+          <Field label="Nom du propriétaire"><input className={inputCls} value={v.proprietaire} onChange={pose("proprietaire")} /></Field>
+          <Field label="Téléphone du propriétaire"><input type="tel" className={inputCls} value={v.tel} onChange={pose("tel")} placeholder="+228 90 00 00 00" /></Field>
+          <Field label="Début du bail (facultatif)"><input type="date" className={inputCls} value={v.debut} onChange={pose("debut")} /></Field>
+          <Field label="Caution versée (F, facultatif)"><input type="number" className={inputCls} value={v.caution} onChange={pose("caution")} /></Field>
+          <div className="sm:col-span-2"><Field label="Autres informations (facultatif)"><input className={inputCls} value={v.note} onChange={pose("note")} placeholder="Ex : payé par trimestre, contrat chez le notaire…" /></Field></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAuto, dernierAuto }) {
   // ⚠⚠⚠ TEMPORAIRE — demande EXPLICITE de Timo (16/08/2026), retiré
   // volontairement pour pouvoir réinitialiser depuis le site web en
@@ -679,7 +708,10 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const monEspaceFormation = estCompteFormation(db, profile);
   const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false,
     formation: voitLesDeuxEspaces(db, profile) ? false : estCompteFormation(db, profile),
-    adresse: "", tel: "" });
+    adresse: "", tel: "", loyer: LOYER_VIDE });
+  // 🏠 La fiche du loyer d'une boutique existante, ouverte sous le tableau.
+  const [loyerPour, setLoyerPour] = useState(null);
+  const [loyerForm, setLoyerForm] = useState(LOYER_VIDE);
   const [couleurPour, setCouleurPour] = useState(null);
   const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   // Le fonds de caisse d'une boutique : UN geste (14/09/2026), montant + origine de l'argent.
@@ -703,9 +735,36 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     // dans l'espace que vous REGARDEZ. Cocher une case en regardant l'autre
     // espace créait une boutique qui disparaissait aussitôt de la vue.
     const formation = espaceDuCompte(db, profile);
-    save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation, adresse: f.adresse.trim(), tel: f.tel.trim() }] });
-    setF({ nom: "", couleur: "#2563eb", depot: false, adresse: "", tel: "" });
+    // 🏠 Timo (25/09/2026) : « une case à cocher si loué ou non… les
+    // informations apparaissent pour remplir ».
+    const refusLoyer = critiqueFicheLoyer(f.loyer);
+    if (refusLoyer) { uAlert(`🏠 Loyer : ${refusLoyer}`); return; }
+    const loyer = f.loyer?.loue ? nettoyerFicheLoyer(f.loyer) : undefined;
+    save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation, adresse: f.adresse.trim(), tel: f.tel.trim(), ...(loyer ? { loyer } : {}) }] });
+    setF({ nom: "", couleur: "#2563eb", depot: false, adresse: "", tel: "", loyer: LOYER_VIDE });
     uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom}${formation ? " — espace D'ENTRAÎNEMENT" : ""} créé(e) !`);
+  };
+
+  // 🏠 Corriger ou retirer la fiche du loyer : l'administrateur seul (sa
+  // décision du 25/09/2026 — sinon un gérant changerait son propre loyer).
+  const ouvrirLoyer = (b) => {
+    if (refuserSaufAdmin(profile, "Renseigner le loyer d'une boutique")) return;
+    const actuelle = ficheLoyer(b);
+    setLoyerForm(actuelle ? { ...LOYER_VIDE, ...actuelle, montant: String(actuelle.montant || ""), caution: actuelle.caution ? String(actuelle.caution) : "" } : { ...LOYER_VIDE });
+    setLoyerPour(b);
+  };
+  const enregistrerLoyer = () => {
+    const b = loyerPour;
+    if (!b) return;
+    if (refuserSaufAdmin(profile, "Renseigner le loyer d'une boutique")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueFicheLoyer(loyerForm);
+    if (refus) { uAlert(refus); return; }
+    const loyer = nettoyerFicheLoyer(loyerForm);
+    save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, loyer } : x)) },
+      loyer.loue ? `Loyer de ${b.nom} : ${fmt(loyer.montant)} par mois, échéance le ${loyer.jour}, propriétaire ${loyer.proprietaire}` : `${b.nom} : local marqué « non loué »`);
+    setLoyerPour(null);
+    uAlert(loyer.loue ? `🏠 Loyer de ${b.nom} enregistré : ${fmt(loyer.montant)} par mois.` : `${b.nom} n'est plus marqué « loué ».`);
   };
 
   const basculerDepot = async (b) => {
@@ -1496,6 +1555,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <input type="checkbox" checked={!!f.depot} onChange={(e) => setF({ ...f, depot: e.target.checked })} />
           🏭 C'est un <b>magasin (dépôt)</b> : on y stocke la marchandise, on n'y vend pas. Il sert à ravitailler les boutiques.
         </label>
+        <ChampsLoyer valeur={f.loyer} onChange={(loyer) => setF({ ...f, loyer })} />
         {/* ⚠ Une phrase qui ne se coche pas ne peut pas être oubliée. Elle
             suit le sélecteur « je regarde » du menu. */}
         <div className={`mt-2 text-xs font-semibold rounded-lg px-3 py-2 ${espaceDuCompte(db, profile) ? "bg-violet-50 border border-violet-200 text-violet-800" : "bg-sky-50 border border-sky-200 text-sky-800"}`}>
@@ -1543,6 +1603,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <button onClick={() => modifierInfos(b)} className="text-xs font-bold text-sky-800 underline mr-2">📍 Infos reçu</button>
                   <button onClick={() => setPositionPour(b)} className={`text-xs font-bold underline mr-2 ${b.lat ? "text-green-700" : "text-sky-800"}`}>📌 {b.lat ? "Position GPS ✓" : "Position GPS"}</button>
                   <button onClick={() => setCouleurPour(b)} className="text-xs font-bold text-sky-800 underline mr-2">Couleur</button>
+                  <button onClick={() => ouvrirLoyer(b)} className={`text-xs font-bold underline mr-2 ${ficheLoyer(b) ? "text-green-700" : "text-sky-800"}`} data-bouton-loyer>🏠 Loyer{ficheLoyer(b) ? ` ${fmt(ficheLoyer(b).montant)}` : ""}</button>
                   {!b.depot && <button onClick={() => modifierFondsFixe(b)} className={`text-xs font-bold underline mr-2 ${b.fonds_caisse_fixe > 0 ? "text-green-700" : "text-sky-800"}`}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>}
                   {!b.depot && <button onClick={() => modifierComptesMobiles(b)} className={`text-xs font-bold underline mr-2 ${MOYENS_MOBILES.some((m) => b[m.champ]) ? "text-green-700" : "text-sky-800"}`}>📱 Comptes mobiles{MOYENS_MOBILES.filter((m) => b[m.champ]).length ? ` (${MOYENS_MOBILES.filter((m) => b[m.champ]).length})` : ""}</button>}
                   <button onClick={() => supprimer(b)} className="text-xs text-red-600 underline mr-2">Suppr.</button>
@@ -1553,6 +1614,16 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </tbody>
         </table>
       </div>
+      {loyerPour && (
+        <div className="rounded-xl p-4 bg-white border-2 border-sky-300 shadow-sm" data-fiche-loyer>
+          <div className="font-bold mb-2">🏠 Loyer de <Badge boutique={loyerPour.nom} /></div>
+          <ChampsLoyer valeur={loyerForm} onChange={setLoyerForm} />
+          <div className="flex gap-2 mt-3">
+            <button onClick={enregistrerLoyer} className={btnDark}>Enregistrer</button>
+            <button onClick={() => setLoyerPour(null)} className="text-sm font-bold text-slate-600 underline">Annuler</button>
+          </div>
+        </div>
+      )}
 
       </div>
       <div className="space-y-4" style={{ display: onglet === "catalogue" ? undefined : "none" }}>

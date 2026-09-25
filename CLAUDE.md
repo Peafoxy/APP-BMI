@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1865 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1885 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2716,6 +2716,36 @@ lit mal est pire qu'un banc absent).
   `toTimeString` / `getHours` dans ces fichiers (éprouvé : il tombe).
 - ⚠ Les lignes déjà écrites gardent leur heure décalée. Régler quand même
   l'appareil : le reste du téléphone (WhatsApp, rappels) garde sa fausse heure.
+
+### 🏠 LE LOYER D'UN LOCAL LOUÉ (25/09/2026)
+- Timo : « un onglet où on renseigne le loyer de chaque boutique, pour gérant
+  et administrateur ? » → **pas d'onglet** : un cadre en haut de 📤 Dépenses
+  (le gérant n'a pas ⚙ Paramètres). Ses trois décisions : **(1) la fiche =
+  l'administrateur SEUL** ; **(2) une CASE « Ce local est loué » sur la fiche
+  de CRÉATION** d'une boutique ou d'un magasin, qui fait apparaître montant,
+  échéance, propriétaire, son numéro, début du bail, caution, autres infos
+  (`ChampsLoyer`, Parametres.jsx, écrit UNE fois — aussi derrière le bouton
+  « 🏠 Loyer » de chaque boutique) ; **(3) AUCUN rappel dans la tournée de
+  7 h** — ne pas l'ajouter sans lui.
+- Règle pure `lib/loyer.js` (sans import). La fiche vit sur la boutique
+  (champ `loyer`) — **rien à coller** : le serveur réserve déjà toute
+  modification d'une boutique à l'administrateur (`boutiques_regles_roles`).
+  ⚠ Elle descend sur chaque appareil de la boutique (comme toute la fiche) ;
+  l'écran ne l'affiche qu'au gérant et à l'administrateur.
+- **L'état du mois se LIT dans les dépenses « Loyer »**, rien n'est coché à
+  la main : payé / en attente du DG / à payer avant l'échéance / en retard de
+  N jours. Une dépense rejetée ne paie rien ; une ancienne dépense « Loyer »
+  saisie à la main compte pour le mois de sa date. Le jour 31 tombe au dernier
+  jour d'un mois court.
+- **« 💵 Payer le loyer de … » ne fait que PRÉ-REMPLIR** le formulaire :
+  la dépense passe par `construireDepenseSaisie` (validation du DG, « Payé
+  avec », tiroir, clôture). Elle porte `loyer_mois` et **`loyer_boutique`** —
+  **c'est le LOCAL qui compte, pas la caisse qui a payé** (la caisse
+  d'APESSITO peut payer le loyer de DEMAKPOE). **Jamais deux fois** :
+  revérifié DANS le geste (`critiquePaiementLoyer`).
+- Banc `verifier-cloisonnement` (20 contrôles), éprouvé en retirant la
+  revérification, le filtre des rejetées et le cadre réservé : chacun tombe.
+  Un contrôle RETOURNÉ (le rattachement au chantier part de `depenseLoyer`).
 
 ### 🔐 UN ENVOI WHATSAPP NE DIT PLUS « RECONNECTEZ-VOUS » (25/09/2026)
 - Capture Timo, 📋 Clients → WhatsApp : « Le message n'est pas parti du numéro
