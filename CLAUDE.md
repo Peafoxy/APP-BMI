@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1865 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1862 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 509 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois)
+npm run verifier-whatsapp        # 510 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3023,9 +3023,9 @@ lit mal est pire qu'un banc absent).
   (`donnerAuSender`, comme « ✍️ Écrire » — sinon la réponse tombe au
   support) ⚠ **mais seulement si elle n'est à personne** : une conversation
   confiée à un collègue ne se prend pas au passage (seul « 🔁 Confier »).
-  ⚙ Paramètres → 💬 Mot de fidélité commande toujours le bouton de 👥
-  Utilisateurs (inchangé, téléphone de l'employé), et l'aide DIT que 📋
-  Clients passe par le modèle figé chez Meta.
+  ~~⚙ Paramètres → 💬 Mot de fidélité commande toujours le bouton de 👥
+  Utilisateurs~~ — RETOURNÉ le 25/09/2026 : 👥 Utilisateurs part aussi du
+  numéro BMI, et ce réglage est retiré (§ « 👥 UTILISATEURS PART AUSSI »).
 - **💰 Ventes — `envoyerRecuAutomatique(vente, next)`**, appelé après
   l'impression du reçu : `envoiRecuVente` remplit les **sept trous** — nom
   (« cher client » si non renseigné), date, boutique, N° de reçu, montant,
@@ -3060,6 +3060,24 @@ lit mal est pire qu'un banc absent).
   YCloud. En attendant l'accord de Meta : le mot de fidélité se replie sur
   l'ouverture WhatsApp (motif dit en français), le reçu de vente ne part pas
   et le dit sous le titre.
+
+### 💙 LE MOT DE FIDÉLITÉ DE 👥 UTILISATEURS PART AUSSI DU NUMÉRO BMI (25/09/2026, décision « a »)
+- Timo : « il reste les messages WhatsApp dans utilisateur… ça ouvre toujours
+  le WhatsApp sur l'ordinateur » (les modèles `mot_fidelite` /
+  `mot_fidelite_simple` venaient d'être approuvés). Sur la fiche d'un CLIENT,
+  le logo vert passe par `envoyerFidelite` (Utilisateurs.jsx) : la même chaîne
+  que 📋 Clients — question, `mot_fidelite` (un client ici A un compte),
+  repli sur le texte du modèle avec le motif en français, ligne dans
+  📲 WhatsApp qui donne la conversation à celui qui envoie si elle n'est à
+  personne. ⚠ Le mur = ce qu'EST le compte du client
+  (`estCompteFormation(db, u)`), jamais celui de qui clique. Sur un EMPLOYÉ :
+  conversation vide sur l'appareil, comme avant.
+- ⚠⚠ **LE TEXTE RÉGLABLE (⚙ Paramètres → 💬 Mot de fidélité, 16/09) EST
+  RETIRÉ** — `MESSAGE_FIDELITE_DEFAUT`, `messageFideliteRegle`, `texteFidelite`
+  et le champ `message_fidelite` ne sont plus lus. La phrase d'un modèle vit
+  chez Meta : pour la changer, un nouveau modèle chez YCloud. Ne pas remettre
+  un réglage qui ne part pas chez le client. `roleAvecArticle` reste (refus
+  d'un identifiant pris). Contrôles RETOURNÉS dans les deux bancs, éprouvés.
 
 ### 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI — SANS IA, BRANCHÉ SUR LA BASE (24/09/2026)
 - Timo : « on peut implémenter un assistant aussi avec les API WhatsApp avec
@@ -4497,7 +4515,7 @@ lit mal est pire qu'un banc absent).
   risque : un employé se connecte avec SON mot de passe, pas avec son numéro).
   Serveur : `tel` est déjà dans la liste « gestion » de `securite-18` — rien à
   coller.
-- **💬 Le mot de fidélité au client** (16/09/2026, « proposer un message aussi à
+- ~~**💬 Le mot de fidélité au client**~~ — **RETOURNÉ le 25/09/2026** : il part du numéro BMI, le réglage est retiré (voir « 👥 UTILISATEURS PART AUSSI DU NUMÉRO BMI »). Historique : (16/09/2026, « proposer un message aussi à
   envoyer quand on clique sur l'icône WhatsApp ») : texte **écrit par Timo, mot
   pour mot** (`MESSAGE_FIDELITE_DEFAUT`, lib/comptesClients.js — 6 lignes, de
   « Bonjour {client}.. » à « Consultez aussi notre site Web bmitogo.com »).

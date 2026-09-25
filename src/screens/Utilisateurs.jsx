@@ -7,15 +7,15 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
+import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
-import { messageIdentifiants } from "../lib/whatsappModeles";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, motifAttendu, messageRepli } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace} from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -96,6 +96,35 @@ export function Users({ db, save, profile }) {
   // cocher crée un stagiaire qui vend pour de bon — le risque disparaît avec
   // la case.
   const espaceCree = espaceDuCompte(db, profile);
+
+  // 💙 LE MOT DE FIDÉLITÉ DU NUMÉRO BMI, SUR LA FICHE D'UN CLIENT (25/09/2026).
+  // La même chaîne que 📋 Clients : une question, le modèle `mot_fidelite`
+  // (un client d'ici A un compte, donc un espace), une ligne dans 📲 WhatsApp
+  // qui DONNE la conversation à celui qui envoie si elle n'est à personne.
+  // ⚠ LE MUR : l'espace du CLIENT (ce qu'EST son compte), jamais celui de la
+  // personne qui clique. Repli : WhatsApp s'ouvre avec le même texte, et
+  // l'écran dit pourquoi.
+  const envoyerFidelite = async (u) => {
+    if (!telDigits(u.tel)) { uAlert("Aucun numéro enregistré pour ce client."); return; }
+    const nom = u.nom_base || u.nom;
+    const envoi = envoiMotFidelite({ nom, avecCompte: true });
+    if (!await uConfirm(`Envoyer le mot de fidélité à ${nom} du numéro BMI ?`)) return;
+    const r = await envoyerModele({
+      tel: u.tel,
+      modele: envoi.modele,
+      variables: envoi.variables,
+      espaceFormation: estCompteFormation(db, u),
+      texteRepli: texteMotFidelite({ nom, avecCompte: true }),
+      demanderConfirmation: uConfirm,
+    });
+    if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+    if (!r.auto) return;
+    save((etat) => ({
+      ...etat,
+      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: u.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true }),
+    }), `Mot de fidélité envoyé du numéro BMI à ${nom} — ${profile.nom}`);
+    uAlert(`✅ Mot de fidélité envoyé du numéro BMI à ${nom}.`);
+  };
   const boutiquesDuFormulaire = db.boutiques.filter((b) => !b.terrain && !!b.formation === !!espaceCree);
   const [msg, setMsg] = useState("");
 
@@ -1163,15 +1192,12 @@ export function Users({ db, save, profile }) {
                   {u.tel && (
                     <div className="text-xs font-normal text-slate-500 flex items-center gap-1.5">
                       <span>📞 {u.tel}</span>
-                      {/* Timo (16/09/2026) : « proposer un message aussi à envoyer
-                          quand on clique sur l'icône WhatsApp » — texte écrit par
-                          lui, réglable dans ⚙ Paramètres, et « exclusivement pour
-                          les clients » : sur la fiche d'un employé le clic ouvre
-                          une conversation vide, comme avant. WhatsApp n'envoie
-                          jamais tout seul, le mot arrive dans la case de saisie. */}
-                      <button onClick={() => envoyerWhatsApp(telDigits(u.tel), u.role === "client"
-                        ? texteFidelite(messageFideliteRegle(db), { client: u.nom_base || u.nom, auteur: profile.nom, role: profile.role })
-                        : "")} title={u.role === "client" ? `Écrire à ${u.nom} sur WhatsApp (le mot de fidélité est pré-rempli)` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></button>
+                      {/* 💙 Sur un CLIENT, le mot de fidélité part du numéro BMI
+                          (Timo, 25/09/2026 : « il reste les messages WhatsApp dans
+                          utilisateur… ça ouvre toujours le WhatsApp sur
+                          l'ordinateur »), comme dans 📋 Clients. Sur un EMPLOYÉ,
+                          une conversation vide s'ouvre, comme avant. */}
+                      <button onClick={() => (u.role === "client" ? envoyerFidelite(u) : envoyerWhatsApp(telDigits(u.tel), ""))} title={u.role === "client" ? `Envoyer le mot de fidélité à ${u.nom} du numéro BMI` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></button>
                     </div>
                   )}
                 </td>

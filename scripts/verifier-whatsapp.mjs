@@ -1317,9 +1317,17 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     /parti: sansRepli \? false : await envoyerWhatsApp\(tel, texteRepli, demanderConfirmation\)/.test(srcWhatsapp)
     && /const libre = !entete\.proprietaire_id \|\| entete\.proprietaire_id === profile\?\.id;/.test(srcWhatsapp)
     && /donnerAuSender && libre && profile\?\.id/.test(srcWhatsapp));
-  test("★ ⚙ Paramètres : une boutique sans téléphone est signalée (le reçu indiquerait le numéro BMI principal), et l'aide du mot de fidélité dit que 📋 Clients passe par Meta",
+  test("★ ⚙ Paramètres : une boutique sans téléphone est signalée (le reçu indiquerait le numéro BMI principal), et le texte réglable du mot de fidélité n'y est plus (RETOURNÉ le 25/09/2026, décision « a » : la phrase vit chez Meta)",
     /Sans téléphone : le reçu WhatsApp automatique indiquera le numéro BMI principal/.test(lire("src/screens/Parametres.jsx"))
-    && /mot_fidelite_simple/.test(lire("src/screens/Parametres.jsx")));
+    && !/data-reglage="message-fidelite"/.test(lire("src/screens/Parametres.jsx")));
+  {
+    const u = lire("src/screens/Utilisateurs.jsx");
+    const i = u.indexOf("const envoyerFidelite = async");
+    const corps = u.slice(i, u.indexOf("\n  };", i));
+    test("★ 👥 Utilisateurs passe par envoyerModele (mot_fidelite du numéro BMI), jamais un texte ouvert sur l'ordinateur d'office",
+      i > 0 && /await envoyerModele\(\{/.test(corps) && /modele: envoi\.modele/.test(corps)
+      && M.envoiMotFidelite({ nom: "AYOKO", avecCompte: true }).modele === "mot_fidelite");
+  }
 }
 
 // ──────────────────────────────────────────────────────────────

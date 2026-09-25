@@ -7815,7 +7815,9 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     // ⚠ RETOURNÉ le 16/09/2026 : le clic partait avec un texte VIDE pour tout
     // le monde ; il porte désormais le mot de fidélité si la fiche est celle
     // d'un client (voir le bloc « mot de fidélité » plus bas).
-    && /envoyerWhatsApp\(telDigits\(u\.tel\), u\.role === "client"/.test(uNum) && /<IconeWhatsApp taille=\{14\} \/>/.test(uNum));
+    // ⚠ RETOURNÉ encore le 25/09/2026 : sur un client, le clic part du numéro
+    // BMI (envoyerFidelite) ; sur un employé, conversation vide.
+    && /envoyerWhatsApp\(telDigits\(u\.tel\), ""\)/.test(uNum) && /<IconeWhatsApp taille=\{14\} \/>/.test(uNum));
   test("★ la recherche de 👥 Utilisateurs regarde AUSSI le numéro, par la règle commune (motsDuNumero), jamais un filtre maison",
     /correspond\(`\$\{x\.nom \|\| ""\} \$\{x\.nom_complet \|\| ""\} \$\{motsDuNumero\(x\.tel\)\}`, qU\)/.test(uNum)
     && /import \{ motsDuNumero \} from "\.\.\/lib\/clientsConnus";/.test(uNum));
@@ -7850,36 +7852,29 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // dans les paramètres ».
   // ═══════════════════════════════════════════════════════════
   const par = readFileSync("src/screens/Parametres.jsx", "utf8");
-  const modeleFid = Cli.MESSAGE_FIDELITE_DEFAUT;
-  test("★ le mot d'origine est celui que Timo a écrit, mot pour mot (6 lignes, du bonjour au site web)",
-    modeleFid.split("\n").length === 6
-    && modeleFid.startsWith("Bonjour {client}.. c'est {auteur}, {role} chez BMI")
-    && /votre fidélité envers BMI/.test(modeleFid) && /MERCI POUR VOTRE CONFIANCE/.test(modeleFid)
-    && /toujours disponibles pour vous servir/.test(modeleFid)
-    && /passer en boutique à tout moment pour vos achat et devis/.test(modeleFid)
-    && modeleFid.trim().endsWith("Consultez aussi notre site Web bmitogo.com"));
-  const ecritFid = Cli.texteFidelite(modeleFid, { client: "djedje", auteur: "timo", role: "vendeur" });
-  test("★ les trois mots se remplacent : client et auteur en MAJUSCULES, le rôle avec son article — et plus aucune accolade",
-    ecritFid.startsWith("Bonjour DJEDJE.. c'est TIMO, le vendeur chez BMI")
-    && !/\{client\}|\{auteur\}|\{role\}/.test(ecritFid));
-  test("★ l'article suit la voyelle : « l'administrateur », jamais « le administrateur »",
+  // ⚠ RETOURNÉ le 25/09/2026 (décision « a ») : le mot de fidélité part du
+  // numéro BMI par les modèles approuvés chez Meta, depuis 👥 Utilisateurs
+  // comme depuis 📋 Clients. Le texte réglable ne partait plus chez le
+  // client : il a été RETIRÉ, avec sa règle.
+  test("★ le texte réglable du mot de fidélité est RETIRÉ (règle et réglage) : la phrase vit chez Meta",
+    Cli.MESSAGE_FIDELITE_DEFAUT === undefined && Cli.messageFideliteRegle === undefined && Cli.texteFidelite === undefined
+    && !/data-reglage="message-fidelite"/.test(par) && !/message_fidelite/.test(par));
+  test("★ l'article suit la voyelle : « l'administrateur », jamais « le administrateur » (refus d'un identifiant pris)",
     Cli.roleAvecArticle("admin") === "l'administrateur" && Cli.roleAvecArticle("gerant") === "le gérant de boutique"
     && Cli.roleAvecArticle("resp_commercial") === "le responsable commercial" && Cli.roleAvecArticle("") === "");
-  test("le réglage de ⚙ Paramètres l'emporte ; sans réglage, ou réglage vidé, c'est le texte d'origine",
-    Cli.messageFideliteRegle({ boutiques: [{ message_fidelite: "Salut {client}" }] }) === "Salut {client}"
-    && Cli.messageFideliteRegle({ boutiques: [{}] }) === modeleFid && Cli.messageFideliteRegle({}) === modeleFid
-    && Cli.messageFideliteRegle({ boutiques: [{ message_fidelite: "   " }] }) === modeleFid);
-  test("un modèle vidé n'écrit rien (la conversation s'ouvre vide) et ne fait pas tomber la règle",
-    Cli.texteFidelite("", { client: "X" }) === "" && Cli.texteFidelite(null, {}) === "" && Cli.texteFidelite(modeleFid) !== "");
-  test("★ EXCLUSIVEMENT pour les clients : sur la fiche d'un employé, le clic WhatsApp ouvre une conversation VIDE",
-    /u\.role === "client"[\s\S]{0,40}\? texteFidelite\(messageFideliteRegle\(db\), \{ client: u\.nom_base \|\| u\.nom, auteur: profile\.nom, role: profile\.role \}\)[\s\S]{0,30}: ""/.test(uNum)
-    && /import \{[^}]*messageFideliteRegle, texteFidelite \} from "\.\.\/lib\/comptesClients";/.test(uNum));
-  test("★ le texte se règle dans ⚙ Paramètres — rangé sur les boutiques (rien à coller), avec l'aperçu de ce que le client recevra",
-    /data-reglage="message-fidelite"/.test(par) && /message_fidelite: msgFid/.test(par)
-    && /MESSAGE_FIDELITE_DEFAUT/.test(par) && /texteFidelite\(msgFid, \{ client: "DJEDJE"/.test(par)
-    && /refuserSaufAdmin\(profile, "Modifier le mot de fidélité"\)/.test(par));
-  test("★ le mot part par la règle commune WhatsApp (envoyerWhatsApp), jamais un wa.me écrit dans l'écran",
-    /envoyerWhatsApp\(telDigits\(u\.tel\), u\.role === "client"/.test(uNum) && !/wa\.me/.test(uNum));
+  test("★ 👥 Utilisateurs : sur un CLIENT le logo WhatsApp envoie du numéro BMI ; sur un employé, conversation VIDE",
+    /u\.role === "client" \? envoyerFidelite\(u\) : envoyerWhatsApp\(telDigits\(u\.tel\), ""\)/.test(uNum) && !/wa\.me/.test(uNum));
+  {
+    const i = uNum.indexOf("const envoyerFidelite = async");
+    const corps = uNum.slice(i, uNum.indexOf("\n  };", i));
+    test("★ 👥 Utilisateurs : la question AVANT l'envoi, le modèle du client qui a un compte, le mur = l'espace du CLIENT",
+      i > 0 && corps.indexOf("uConfirm(") < corps.indexOf("envoyerModele(")
+      && /envoiMotFidelite\(\{ nom, avecCompte: true \}\)/.test(corps)
+      && /espaceFormation: estCompteFormation\(db, u\)/.test(corps) && !/estCompteFormation\(db, profile\)/.test(corps));
+    test("★ 👥 Utilisateurs : la ligne n'entre dans 📲 WhatsApp QUE si le message est parti du numéro BMI",
+      /if \(!r\.auto\) return;[\s\S]*messagesAvecLigneEnvoi\([^)]*donnerAuSender: true/.test(corps)
+      && /texteRepli: texteMotFidelite\(/.test(corps) && /motifAttendu\(r\.motif\)/.test(corps));
+  }
 
   // ⚠ RESSERRÉ le 18/09/2026 : la recherche portait sur le MOT, donc un
   // simple commentaire qui cite le fichier voisin faisait tomber le contrôle.

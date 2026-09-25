@@ -24,7 +24,6 @@ import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS 
 import { barresDeRail } from "../lib/solaire";
 import { banquesReglees, ajouterBanque, retirerBanque, nettoyerNomBanque } from "../lib/banques";
 import { mesOutils, sortieEnCours } from "../lib/outillage";
-import { MESSAGE_FIDELITE_DEFAUT, messageFideliteRegle, texteFidelite } from "../lib/comptesClients";
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
@@ -391,7 +390,6 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
   // ---- NOTE AFFICHÉE SOUS LE DIMENSIONNEMENT ----
   const [note, setNote] = useState(noteDimensionnement(db));
-  const [msgFid, setMsgFid] = useState(messageFideliteRegle(db));
 
   const [tauxParr, setTauxParr] = useState(String(tauxParrainageDefaut(db)));
 
@@ -529,18 +527,6 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     uAlert("✅ Note enregistrée. Elle s'affiche désormais sous le tableau des équipements proposés.");
   };
 
-  // ---- 💬 Le mot de fidélité envoyé au client (Timo, 16/09/2026) ----
-  // « Il peut être aussi paramétré dans les paramètres. » Rangé sur les
-  // boutiques (`message_fidelite`), comme la liste des banques : rien à
-  // coller dans Supabase.
-  const enregistrerMsgFidelite = () => {
-    if (refuserSaufAdmin(profile, "Modifier le mot de fidélité")) return;
-    if (bloquerSiLecture(db, profile)) return;
-    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, message_fidelite: msgFid })) },
-      "Mot de fidélité au client modifié");
-    uAlert("✅ Enregistré. Ce mot est pré-rempli au clic sur WhatsApp, dans 👥 Utilisateurs, sur la fiche d'un client.");
-  };
-
   // ---- ⏳ La durée de conservation des données d'un client (19/09/2026) ----
   // Timo : « 6 ans après le dernier achat. On peut à tout moment changer cette
   // durée. » Rangée sur les boutiques (`duree_conservation_ans`), comme le mot
@@ -602,15 +588,6 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       : "Couper l'alerte WhatsApp ? La notification sur les téléphones continue.")) return;
     save({ ...db, boutiques: poserAlerteConseiller(db.boutiques, tel ? { tel, nom: profile.nom } : null) },
       tel ? `Alerte conseiller WhatsApp envoyée au ${tel}` : "Alerte conseiller WhatsApp coupée");
-  };
-
-  const retablirMsgFidelite = async () => {
-    if (refuserSaufAdmin(profile, "Modifier le mot de fidélité")) return;
-    if (bloquerSiLecture(db, profile)) return;
-    if (!await uConfirm("Rétablir le texte d'origine ?")) return;
-    setMsgFid(MESSAGE_FIDELITE_DEFAUT);
-    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, message_fidelite: MESSAGE_FIDELITE_DEFAUT })) },
-      "Mot de fidélité au client rétabli");
   };
 
   const retablirNote = async () => {
@@ -1723,36 +1700,6 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               <button onClick={() => retirerUneBanque(b)} className="text-red-600 font-bold" title={`Retirer ${b} de la liste`} aria-label={`Retirer ${b}`}>✖</button>
             </span>
           ))}
-        </div>
-      </div>
-
-      {/* Timo (16/09/2026) a écrit ce texte lui-même, et tranché : le mot est
-          « exclusivement pour les clients », et « il peut être aussi paramétré
-          dans les paramètres ». */}
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="message-fidelite">
-        <div className="font-bold mb-1">💬 Mot de fidélité envoyé au client</div>
-        <div className="text-xs text-slate-500 mb-3">
-          Pré-rempli dans WhatsApp quand on clique sur le logo vert d'un <b>client</b>, dans 👥 Utilisateurs (jamais sur la fiche d'un employé).
-          WhatsApp <b>n'envoie jamais tout seul</b> : le mot arrive dans la case de saisie, chacun le complète ou l'efface avant d'appuyer.
-          ⚠ Dans 📋 Clients, le bouton WhatsApp envoie <b>du numéro BMI</b> le mot de fidélité approuvé par Meta (modèles <b>mot_fidelite</b> / <b>mot_fidelite_simple</b>, texte figé chez Meta) : ce réglage-ci ne le change pas.
-        </div>
-        <div className="text-xs text-slate-500 mb-2">
-          Trois mots se remplacent tout seuls : <b>{"{client}"}</b> le nom du client · <b>{"{auteur}"}</b> celui qui écrit · <b>{"{role}"}</b> son rôle,
-          <b> avec son article déjà dedans</b> (« le vendeur », « l'administrateur ») — écrivez donc <b>{"{role}"}</b>, jamais « le {"{role}"} ».
-        </div>
-        <textarea
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm min-h-[150px]"
-          value={msgFid}
-          onChange={(e) => setMsgFid(e.target.value)}
-          placeholder="Laissez vide pour ouvrir une conversation vide, comme pour un employé."
-        />
-        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="text-[11px] font-bold uppercase text-slate-500 mb-1">Ce que le client recevra</div>
-          <div className="text-sm text-slate-700 whitespace-pre-wrap">{texteFidelite(msgFid, { client: "DJEDJE", auteur: profile.nom, role: profile.role }) || "— rien : la conversation s'ouvrira vide —"}</div>
-        </div>
-        <div className="flex gap-2 flex-wrap mt-3">
-          <button onClick={enregistrerMsgFidelite} className={btnDark}>✅ Enregistrer le mot</button>
-          <button onClick={retablirMsgFidelite} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">↺ Rétablir le texte d'origine</button>
         </div>
       </div>
 
