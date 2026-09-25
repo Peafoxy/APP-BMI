@@ -29,7 +29,7 @@ import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { estLigneAssistant, NOM_ASSISTANT } from "../lib/assistantWhatsapp";
+import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } from "../lib/assistantWhatsapp";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche } from "../lib/whatsappModeles";
 import { motDePasseConnu } from "../lib/comptesClients";
@@ -467,6 +467,13 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
                 vendeur tape un message qui ne partira jamais et ne comprend
                 pas pourquoi — c'est la règle de Meta, pas la nôtre, mais
                 c'est à nous de la DIRE. */}
+            {/* 👨‍💼 LE CLIENT A DEMANDÉ UNE PERSONNE (25/09/2026) : l'assistant
+                s'est tu, c'est à nous. Le bandeau part dès qu'on répond. */}
+            {attenteConseiller(ouverte.fil) && (
+              <div data-attente-conseiller="fil" className="border-b px-4 py-2 text-xs bg-amber-50 border-amber-200 text-amber-800">
+                <b>👨‍💼 Ce client attend un conseiller {libelleAttente(attenteConseiller(ouverte.fil).depuis)}.</b> L'assistant s'est tu : répondez-lui ci-dessous. Ce bandeau disparaît dès qu'une personne a répondu.
+              </div>
+            )}
             <div className={`border-b px-4 py-2 text-xs ${ouverte.fenetre.ouverte ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-amber-50 border-amber-100 text-amber-800"}`}>
               <div className="font-bold">{libelleFenetre(ouverte.fenetre)}</div>
               <div className="mt-0.5 text-slate-500">
@@ -537,6 +544,8 @@ function LigneWa({ item, cleOuverte, ouvrir }) {
   // ⚠ Elle ne porte NI aperçu, NI pastille de non-lus : il n'y a rien à
   // montrer, et la règle ne lui a donné aucun message.
   const verrou = !!c.verrouillee;
+  // 👨‍💼 Une ligne grisée n'a pas de fil : rien à attendre de ce côté.
+  const attente = verrou ? null : attenteConseiller(c.fil);
   return (
     <tr><td className="p-0">
     <button onClick={() => ouvrir(c)} data-wa-verrou={verrou ? "1" : "0"}
@@ -549,6 +558,7 @@ function LigneWa({ item, cleOuverte, ouvrir }) {
             : c.proprietaire_nom ? c.proprietaire_nom : "🛟 Support — personne ne l'a engagée"}
           {verrou || c.fenetre.ouverte ? "" : " · fenêtre fermée"}
         </span>
+        {attente && <span data-attente-conseiller="1" className="block text-xs font-bold text-amber-700">👨‍💼 Attend un conseiller {libelleAttente(attente.depuis)}</span>}
       </span>
       {!verrou && item.nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{item.nb}</span>}
     </button>

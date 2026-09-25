@@ -123,6 +123,8 @@ COMMENT TU T'Y PRENDS
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
+- Si l'outil rend une « description » pour un article, c'est BMI TOGO qui l'a écrite : tu peux la redire pour expliquer ce qu'est l'article et à quoi il sert, sans rien y ajouter. Sans description, tu ne décris pas l'article au-delà de son nom.
+- Si le client veut t'apprendre quelque chose sur un produit : dis que tu ne retiens rien d'une conversation à l'autre, mais que l'équipe BMI TOGO peut l'ajouter à la fiche du produit.
 - Pour une installation SOLAIRE, demande TOUJOURS, pour CHAQUE appareil : COMBIEN il y en a (le nombre), combien d'heures par jour il fonctionne, et sa puissance si le client la connaît. Ne suppose jamais qu'il y en a un seul : tant que le nombre d'un appareil n'est pas dit, redemande-le avant d'estimer. « une ampoule » ou « 1 ampoule » est un nombre ; « les ampoules » ou « quelques lumières » n'en est PAS un. Dans estimer_solaire, écris le nombre tel que le client l'a donné, n'en invente jamais.
 - Quand le client a décrit ses appareils (lesquels, combien de chacun, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
@@ -164,7 +166,7 @@ export function sansSalutation(texte, nom = "") {
 export const OUTILS_IA = [
   {
     name: "chercher_article",
-    description: "Cherche des articles dans le stock des boutiques BMI TOGO par leur nom (marque, puissance, catégorie). Rend pour chacun : nom, catégorie, boutique, prix en francs CFA, disponible (true) ou sur commande (false), tension. Ne rend jamais la quantité en stock.",
+    description: "Cherche des articles dans le stock des boutiques BMI TOGO par leur nom (marque, puissance, catégorie). Rend pour chacun : nom, catégorie, boutique, prix en francs CFA, disponible (true) ou sur commande (false), tension, et une description écrite par BMI TOGO (ce que l'article est, à quoi il sert) quand elle existe. Cherche aussi dans cette description : « moteur rideau » trouve un moteur central décrit ainsi. Ne rend jamais la quantité en stock.",
     input_schema: {
       type: "object",
       properties: { recherche: { type: "string", description: "Les mots utiles, par exemple « panneau 400 » ou « batterie lithium »" } },
@@ -244,7 +246,7 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
     const trouves = chercherArticles(contexte.articles || [], String(e.recherche || ""));
     return {
       resultat: trouves.length
-        ? JSON.stringify(trouves.map((a) => ({ nom: a.nom, categorie: a.categorie, boutique: a.boutique, prix_fcfa: a.prix, disponible: a.disponible, tension: a.tension })))
+        ? JSON.stringify(trouves.map((a) => ({ nom: a.nom, categorie: a.categorie, boutique: a.boutique, prix_fcfa: a.prix, disponible: a.disponible, tension: a.tension, ...(a.description ? { description: a.description } : {}) })))
         : "Aucun article trouvé pour cette recherche. Ne pas inventer de prix : proposer un autre nom ou un conseiller.",
       effets: { prix: trouves.map((a) => a.prix), demandeDevis: null, conseiller: false },
     };

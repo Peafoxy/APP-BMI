@@ -11,7 +11,7 @@ import { messagesAvecLigneAcces, messagesAvecLigneEnvoi } from "../src/whatsapp.
 import { conversationsWa } from "../src/lib/whatsappConversations.js";
 import { texteAccesAffiche } from "../src/lib/whatsappModeles.js";
 import { motDePasseConnu } from "../src/lib/comptesClients.js";
-import { ligneAssistant, ETAPE_MENU } from "../src/lib/assistantWhatsapp.js";
+import { ligneAssistant, ETAPE_MENU, ETAPE_CONSEILLER } from "../src/lib/assistantWhatsapp.js";
 
 const boutiques = [{ id: "b1", nom: "APESSITO" }];
 const users = [
@@ -129,5 +129,18 @@ export const renduAvecAssistant = () => {
   try {
     const ligne = ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "👋 Bonjour et bienvenue chez BMI TOGO !", etape: ETAPE_MENU, ts: new Date(Date.now() + 1000).toISOString() });
     return rendre({ ...garnie, messages: [...garnie.messages, ligne] }, users[0]);
+  } catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+
+// ---- 👨‍💼 UN CLIENT ATTEND UN CONSEILLER (25/09/2026) ----
+const ligneRelais = () => ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "Un conseiller BMI TOGO va vous répondre.", etape: ETAPE_CONSEILLER, ts: new Date(Date.now() - 12 * 60000).toISOString(), ia: true });
+export const renduAttente = (ouvert = true) => {
+  try { return rendre({ ...garnie, messages: [...garnie.messages, ligneRelais()] }, users[0], ouvert ? "90112233" : null); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+export const renduAttenteRepondue = () => {
+  try {
+    const rep = { id: "wa-rep", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", wa_entrant: false, de_id: "TIMO", de_nom: "TIMO", texte: "Bonjour, je suis là.", ts: new Date(Date.now() - 60000).toISOString(), lu_par: [] };
+    return rendre({ ...garnie, messages: [...garnie.messages, ligneRelais(), rep] }, users[0], "90112233");
   } catch (e) { return `ERREUR ${e?.message || e}`; }
 };

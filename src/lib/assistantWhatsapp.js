@@ -222,6 +222,13 @@ export function stockDepuisLignes(p, ventes = [], ajustements = []) {
   return Number(p.initial || 0) + Number(p.entrees || 0) - vendu + ajuste;
 }
 
+// 🤖 « Ce que l'assistant peut dire aux clients » (fiche article, 25/09/2026 :
+// « dès qu'un client te parle de moteurs centraux, savoir que c'est de ce
+// type de moteur qu'il parle »). ⚠ Un champ À PART, jamais `notes` (« Notes
+// internes ») : ce qui est écrit ici part chez le client. Borné.
+export const NOTE_ASSISTANT_MAX = 400;
+export const noteAssistantDe = (p) => String(p?.note_assistant || "").trim().slice(0, NOTE_ASSISTANT_MAX);
+
 export function articlesPourAssistant({ produits = [], boutiques = [], ventes = [], ajustements = [] } = {}) {
   const reelles = new Set((boutiques || []).filter((b) => b && b.nom && !b.formation).map((b) => b.nom));
   return (produits || [])
@@ -230,6 +237,7 @@ export function articlesPourAssistant({ produits = [], boutiques = [], ventes = 
       nom: String(p.nom), categorie: String(p.categorie || ""), boutique: String(p.boutique),
       prix: Number(p.prix_vente || 0), disponible: stockDepuisLignes(p, ventes, ajustements) > 0,
       tension: String(p.tension || ""),
+      description: noteAssistantDe(p),
     }));
 }
 
@@ -238,7 +246,7 @@ export function chercherArticles(articles, requete) {
   const q = String(requete || "").trim();
   if (q.length < 2) return [];
   return (articles || [])
-    .filter((a) => correspond(`${a.nom} ${a.categorie}`, q))
+    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.description || ""}`, q))
     .sort((a, b) => (a.disponible === b.disponible ? a.nom.localeCompare(b.nom, "fr") : a.disponible ? -1 : 1))
     .slice(0, MAX_ARTICLES_CITES);
 }
@@ -246,7 +254,7 @@ export function chercherArticles(articles, requete) {
 const fmtF = (n) => `${Math.round(Number(n || 0)).toLocaleString("fr-FR")} F`;
 export function texteArticles(requete, trouves) {
   if (!trouves.length) return `Je ne trouve pas « ${requete} » dans notre base. Essayez un autre nom (par exemple la marque ou la puissance), écrivez « devis » pour une demande de devis, ou « conseiller » (ou 8) pour parler à quelqu'un.`;
-  const lignes = trouves.map((a) => `• ${a.nom}${a.tension ? ` (${a.tension})` : ""} — ${a.prix > 0 ? fmtF(a.prix) : "prix sur demande"} — ${a.disponible ? "disponible" : "sur commande"} (${a.boutique})`);
+  const lignes = trouves.map((a) => `• ${a.nom}${a.tension ? ` (${a.tension})` : ""} — ${a.prix > 0 ? fmtF(a.prix) : "prix sur demande"} — ${a.disponible ? "disponible" : "sur commande"} (${a.boutique})${a.description ? `\n   ${a.description}` : ""}`);
   return `Voici ce que je trouve pour « ${requete} » :\n${lignes.join("\n")}\n\nÉcrivez un autre nom pour continuer, tapez 6 pour un devis, ou 8 pour un conseiller.`;
 }
 
@@ -324,6 +332,34 @@ function reponseAuChoix(n, client) {
     default:
       return { texte: TEXTE_RELAIS_CONSEILLER, etape: ETAPE_CONSEILLER, conseiller: true };
   }
+}
+
+// ---- 👨‍💼 UN CLIENT ATTEND UNE PERSONNE (25/09/2026) ----
+// Timo : « comment se fait la mise en relation avec un conseiller ?… j'ai
+// compris qu'il n'y a pas une suite ». La suite existait (l'assistant se tait,
+// une notification part), mais dans 📲 WhatsApp rien ne distinguait ce client
+// d'un message ordinaire. Rend { depuis } tant que le DERNIER mot de BMI est
+// l'assistant qui a passé la main ; `null` dès qu'une personne (réponse libre
+// ou modèle) a écrit après, ou que l'assistant a repris (le client a redemandé
+// le menu). Les lignes « système » (Confier, Rendre à tous) ne comptent pas.
+export function attenteConseiller(fil) {
+  const liste = Array.isArray(fil) ? fil : [];
+  for (let i = liste.length - 1; i >= 0; i--) {
+    const m = liste[i];
+    if (!m || m.wa_entrant || m.wa_systeme) continue;
+    if (!estLigneAssistant(m)) return null;
+    return m.wa_assistant.etape === ETAPE_CONSEILLER ? { depuis: String(m.ts || "") } : null;
+  }
+  return null;
+}
+// « depuis 12 min », « depuis 2 h 05 », « depuis 3 j » — jamais un nombre négatif.
+export function libelleAttente(depuis, maintenant = new Date().toISOString()) {
+  const ms = Date.parse(maintenant) - Date.parse(depuis || "");
+  if (!Number.isFinite(ms)) return "";
+  const min = Math.max(0, Math.floor(ms / 60000));
+  if (min < 60) return `depuis ${min} min`;
+  if (min < 24 * 60) return `depuis ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}`;
+  return `depuis ${Math.floor(min / 1440)} j`;
 }
 
 // ---- LA LIGNE QU'IL ÉCRIT DANS LE FIL ----

@@ -1393,8 +1393,8 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   const articles = A.articlesPourAssistant({ produits: produitsA, boutiques: boutiquesA, ventes: ventesA, ajustements: ajustementsA });
   test("★★ LE MUR : un article d'une boutique de FORMATION n'est jamais cité",
     articles.length === 2 && articles.every((a) => a.boutique === "DEMAKPOE"));
-  test("★★ un article cité ne porte QUE nom, catégorie, boutique, prix, disponible (oui/non), tension — JAMAIS une quantité",
-    articles.every((a) => Object.keys(a).sort().join(",") === "boutique,categorie,disponible,nom,prix,tension")
+  test("★★ un article cité ne porte QUE nom, catégorie, boutique, prix, disponible (oui/non), tension, description (25/09/2026) — JAMAIS une quantité",
+    articles.every((a) => Object.keys(a).sort().join(",") === "boutique,categorie,description,disponible,nom,prix,tension")
     && articles.find((a) => a.nom.startsWith("Panneau")).disponible === true
     && articles.find((a) => a.nom.startsWith("Batterie")).disponible === false);
   test("★ le stock se calcule comme lib/calculs.js : initial + entrées − vendu + ajustements (10 + 2 − 5 − 1 = 6 ; 1 − 1 = 0)",
@@ -1507,7 +1507,7 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
 
   // ── L'ÉCRAN ET LE RÉGLAGE
   test("★ 📲 WhatsApp montre la réponse du robot COMME telle (étiquette, cadre clair, `data-assistant`)",
-    /import \{ estLigneAssistant, NOM_ASSISTANT \} from "\.\.\/lib\/assistantWhatsapp"/.test(ecranA)
+    /import \{ estLigneAssistant, NOM_ASSISTANT(?:, [^}]*)? \} from "\.\.\/lib\/assistantWhatsapp"/.test(ecranA)
     && /data-assistant=\{estLigneAssistant\(m\) \? "oui" : undefined\}/.test(ecranA)
     && /🤖 \{NOM_ASSISTANT\}/.test(ecranA));
   test("★ ⚙ Paramètres : le réglage existe, PRINCIPAL seul, revérifié dans le geste, et montre le mot d'accueil de Timo tel quel",
@@ -2009,6 +2009,67 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
       && I.sansGuillemetsAutour('x "' + phrase + '" y', phrase) === "x " + phrase + " y"
       && I.sansGuillemetsAutour("Écrivez « conseiller ». " + phrase, phrase) === "Écrivez « conseiller ». " + phrase);
   }
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㉔ LA MISE EN RELATION SE VOIT, ET L'ARTICLE SE DÉCRIT (25/09/2026)");
+// Timo : « comment se fait la mise en relation avec un conseiller ?… j'ai
+// compris qu'il n'y a pas une suite » → « lance les deux ».
+{
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const stocksS = lire("src/screens/Stocks.jsx");
+  const waS = lire("src/screens/Whatsapp.jsx").replace(/\/\/[^\n]*/g, "");
+  const relais = A.ligneAssistant({ cle: "1", tel: "1", texte: "x", etape: A.ETAPE_CONSEILLER, ts: "2026-09-25T07:21:00Z" });
+  const menu = A.ligneAssistant({ cle: "1", tel: "1", texte: "x", etape: A.ETAPE_MENU, ts: "2026-09-25T07:25:00Z" });
+  const entrant = { canal: "whatsapp", wa_entrant: true, ts: "2026-09-25T07:22:00Z" };
+  const personne = { canal: "whatsapp", wa_entrant: false, de_id: "TIMO", ts: "2026-09-25T07:30:00Z" };
+  const systeme = { canal: "whatsapp", wa_systeme: true, ts: "2026-09-25T07:31:00Z" };
+  test("★★ un client attend un conseiller tant que le DERNIER mot de BMI est l'assistant qui a passé la main (même si le client réécrit, même après un « Confier »)",
+    A.attenteConseiller([relais])?.depuis === "2026-09-25T07:21:00Z" && !!A.attenteConseiller([relais, entrant]) && !!A.attenteConseiller([relais, entrant, systeme]));
+  test("★★ la pastille disparaît dès qu'une PERSONNE a écrit après, ou que l'assistant a repris (le client a redemandé le menu)",
+    A.attenteConseiller([relais, entrant, personne]) === null && A.attenteConseiller([relais, entrant, menu]) === null
+    && A.attenteConseiller([menu]) === null && A.attenteConseiller([entrant]) === null && A.attenteConseiller([]) === null);
+  test("★ le temps d'attente se lit en clair (min, h, j), jamais négatif",
+    A.libelleAttente("2026-09-25T07:21:00Z", "2026-09-25T07:33:00Z") === "depuis 12 min"
+    && A.libelleAttente("2026-09-25T07:21:00Z", "2026-09-25T09:26:00Z") === "depuis 2 h 05"
+    && A.libelleAttente("2026-09-25T07:21:00Z", "2026-09-28T07:21:00Z") === "depuis 3 j"
+    && A.libelleAttente("2026-09-25T07:21:00Z", "2026-09-25T07:00:00Z") === "depuis 0 min");
+  const hL = V.renduAttente(false), hF = V.renduAttente(true), hR = V.renduAttenteRepondue();
+  test("★★ l'écran RENDU : la ligne de la liste porte « 👨‍💼 Attend un conseiller depuis 12 min », le fil ouvert porte le bandeau",
+    /data-attente-conseiller="1"[^>]*>👨‍💼 Attend un conseiller depuis 1[12] min/.test(hL) && /data-attente-conseiller="fil"/.test(hF) && /L’assistant s’est tu|L'assistant s'est tu|L&#x27;assistant s&#x27;est tu/.test(hF));
+  test("★★ une personne a répondu : ni pastille, ni bandeau", !/data-attente-conseiller/.test(hR) && !/ERREUR/.test(hR));
+  test("★ une ligne GRISÉE ne calcule rien (elle n'a pas de fil)", /const attente = verrou \? null : attenteConseiller\(c\.fil\);/.test(waS));
+
+  // ── L'ARTICLE SE DÉCRIT : un champ À PART, jamais les notes internes
+  const boutiques = [{ nom: "DEMAKPOE" }, { nom: "ECOLE", formation: true }];
+  const produits = [
+    { id: "m1", nom: "MOTEUR CENTRAL 600KG", categorie: "Moteurs", boutique: "DEMAKPOE", prix_vente: 250000, initial: 2,
+      notes: "SECRET INTERNE acheté 150 000 chez X", note_assistant: "Moteur central pour rideau métallique, monté au centre de l'axe." },
+    { id: "m2", nom: "MOTEUR BATTANT", categorie: "Moteurs", boutique: "DEMAKPOE", prix_vente: 300000, initial: 1, notes: "fournisseur Y" },
+  ];
+  const arts = A.articlesPourAssistant({ produits, boutiques });
+  const json = I.executerOutil("chercher_article", { recherche: "moteur" }, { articles: arts }).resultat;
+  test("★★ LES NOTES INTERNES NE SORTENT JAMAIS : ni dans la liste des articles, ni dans ce que l'outil rend à l'IA, ni dans le menu",
+    !JSON.stringify(arts).includes("SECRET") && !json.includes("SECRET") && !json.includes("fournisseur Y")
+    && !A.texteArticles("moteur", A.chercherArticles(arts, "moteur")).includes("SECRET"));
+  test("★★ la description écrite pour l'assistant, elle, sort : dans l'outil (seulement si elle existe) et sous la ligne du menu",
+    json.includes("rideau métallique") && JSON.parse(json).find((a) => a.nom === "MOTEUR BATTANT").description === undefined
+    && A.texteArticles("moteur", A.chercherArticles(arts, "moteur")).includes("\n   Moteur central pour rideau métallique"));
+  test("★★ la recherche regarde AUSSI la description : « moteur rideau » trouve le moteur central, rien de plus",
+    A.chercherArticles(arts, "moteur rideau").map((a) => a.nom).join() === "MOTEUR CENTRAL 600KG");
+  test("★ elle est bornée (400 caractères) et le mur tient toujours (formation jamais citée)",
+    A.noteAssistantDe({ note_assistant: "x".repeat(900) }).length === A.NOTE_ASSISTANT_MAX && A.NOTE_ASSISTANT_MAX === 400
+    && A.articlesPourAssistant({ produits: [{ ...produits[0], boutique: "ECOLE" }], boutiques }).length === 0);
+  test("★★ la fiche article : le champ existe à la CRÉATION, à la PRÉSÉLECTION et à la CORRECTION (leçon des pompes : recopié dans `apres`)",
+    /note_assistant: \(f\.note_assistant \|\| ""\)\.trim\(\) \}\] \}/.test(stocksS)
+    && /notes: \(f\.notes \|\| ""\)\.trim\(\),\n(?:\s*\/\/[^\n]*\n)*\s*note_assistant: \(f\.note_assistant \|\| ""\)\.trim\(\),/.test(stocksS)
+    && /note_assistant: p\.note_assistant \|\| ""/.test(stocksS) && /note_assistant: a\.note_assistant \|\| ""/.test(stocksS)
+    && /\["note_assistant", "Ce que l'assistant dit aux clients", "texte"\]/.test(stocksS));
+  test("★ l'écran AVERTIT que ce texte est répété aux clients (jamais de prix d'achat ni de fournisseur), à part des « Notes internes »",
+    /répété aux clients<\/b> : jamais de prix d'achat, de fournisseur ni de remarque interne/.test(stocksS) && /📝 Notes internes/.test(stocksS));
+  test("★ la consigne : la description se redit sans rien y ajouter ; sans elle, on ne décrit pas au-delà du nom",
+    /c'est BMI TOGO qui l'a écrite/.test(I.CONSIGNE_IA) && /Sans description, tu ne décris pas l'article au-delà de son nom/.test(I.CONSIGNE_IA));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

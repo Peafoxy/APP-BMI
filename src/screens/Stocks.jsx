@@ -8,7 +8,8 @@ import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
+import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
+import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -35,7 +36,7 @@ export function Stocks({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const bq = boutiqueRetenue(db, profile, bqSel, { ecran: "stocks" });
-  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
   // un article mal saisi ne se corrigeait pas. On pouvait changer son
@@ -298,6 +299,7 @@ export function Stocks({ db, save, profile }) {
     ["hybride", "Hybride (solaire + secteur)", "case"],
     ["fiche_technique", "Fiche technique", "texte"],
     ["notes", "Notes internes", "texte"],
+    ["note_assistant", "Ce que l'assistant dit aux clients", "texte"],
   ];
 
   // ⚠ Les prix et la quantité initiale touchent à l'argent et au stock :
@@ -319,13 +321,13 @@ export function Stocks({ db, save, profile }) {
       prix_achat: p.prix_achat ?? "", prix_vente: p.prix_vente ?? "", code: p.code || "",
       tension: p.tension ?? "", garantie_boutique: p.garantie_boutique || "",
       garantie_fabricant: p.garantie_fabricant || "", conditions_garantie: p.conditions_garantie || "",
-      fiche_technique: p.fiche_technique || "", notes: p.notes || "",
+      fiche_technique: p.fiche_technique || "", notes: p.notes || "", note_assistant: p.note_assistant || "",
       puissance_kw: p.puissance_kw || "", profondeur_max_m: p.profondeur_max_m || "",
       debit_max_m3h: p.debit_max_m3h || "", hybride: !!p.hybride,
     });
     // Le volet des garanties s'ouvre tout seul s'il contient déjà quelque
     // chose : sinon on corrigerait à l'aveugle un champ qu'on ne voit pas.
-    if (p.garantie_boutique || p.garantie_fabricant || p.conditions_garantie || p.fiche_technique || p.notes) {
+    if (p.garantie_boutique || p.garantie_fabricant || p.conditions_garantie || p.fiche_technique || p.notes || p.note_assistant) {
       setAutresInfosOuvert(true);
     }
     formulaireRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -333,7 +335,7 @@ export function Stocks({ db, save, profile }) {
 
   const annulerCorrection = () => {
     setEnEdition(null);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   };
 
   const enregistrerCorrection = async () => {
@@ -360,6 +362,9 @@ export function Stocks({ db, save, profile }) {
       conditions_garantie: (f.conditions_garantie || "").trim(),
       fiche_technique: (f.fiche_technique || "").trim(),
       notes: (f.notes || "").trim(),
+      // 🤖 Ce que l'assistant WhatsApp peut dire (25/09/2026) — recopié ici,
+      // sinon la correction le perdrait (leçon des pompes, 20/09).
+      note_assistant: (f.note_assistant || "").trim(),
       // ⚠ LES QUATRE RENSEIGNEMENTS DE LA POMPE (défaut trouvé par Timo,
       // 20/09/2026, capture : il saisit 0,4 kW / 95 m / 1,5 m³/h et SEULE la
       // tension s'affichait dans 📦 Stocks et dans 💰 Ventes). Ils étaient
@@ -484,6 +489,7 @@ export function Stocks({ db, save, profile }) {
       conditions_garantie: a.conditions_garantie || "",
       fiche_technique: a.fiche_technique || "",
       notes: a.notes || "",
+      note_assistant: a.note_assistant || "",
     });
     setSuggestionsMasquees(true);
   };
@@ -501,8 +507,8 @@ export function Stocks({ db, save, profile }) {
     }
     save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "",
       puissance_kw: f.puissance_kw ? Number(f.puissance_kw) : "", profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
-      debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "" });
+      debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim(), note_assistant: (f.note_assistant || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
     uAlert("Article ajouté !");
   };
 
@@ -1187,6 +1193,16 @@ export function Stocks({ db, save, profile }) {
             <Field label="📝 Notes internes (facultatif)">
               <input className={inputCls} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
             </Field>
+            {/* 🤖 Timo, 25/09/2026 : « dès qu'un client te parle de moteurs
+                centraux, savoir que c'est de ce type de moteur qu'il parle ».
+                ⚠ UN CHAMP À PART, jamais « Notes internes » : ce qui est écrit
+                ici PART chez le client, mot pour mot. */}
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Field label="🤖 Ce que l'assistant WhatsApp peut dire aux clients (facultatif)">
+                <ChampQuiGrandit valeur={f.note_assistant} onChange={(v) => setF({ ...f, note_assistant: String(v).slice(0, NOTE_ASSISTANT_MAX) })} placeholder="Ex : moteur central pour rideau métallique, se monte au centre de l'axe, jusqu'à 600 kg." />
+              </Field>
+              <div className="text-[11px] text-amber-800 mt-1">⚠ Ce texte est lu par l'assistant et <b>répété aux clients</b> : jamais de prix d'achat, de fournisseur ni de remarque interne (ceux-là vont dans « Notes internes »).</div>
+            </div>
           </div>
         )}
         <div className="mt-3 flex gap-2 flex-wrap">
@@ -1324,6 +1340,7 @@ export function Stocks({ db, save, profile }) {
                   <td className={`px-3 py-2 font-semibold ${celluleFigee(al ? "bg-red-50" : "bg-white")}`}>
                     {p.nom}
                     {ficheLisible(p) && <div className="text-xs font-normal text-sky-800">{ficheLisible(p)}</div>}
+                    {p.note_assistant && <div className="text-xs font-normal text-violet-700" title={p.note_assistant}>🤖 {p.note_assistant}</div>}
                     {(p.fiche_technique || p.notes) && (
                       <div className="text-xs font-normal text-slate-500">
                         {p.fiche_technique && <a href={p.fiche_technique} target="_blank" rel="noopener noreferrer" className="text-sky-700 underline">🔗 Fiche technique</a>}

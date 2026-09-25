@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 470 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur)
+npm run verifier-whatsapp        # 483 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3470,6 +3470,39 @@ lit mal est pire qu'un banc absent).
   deux de ⑳ (produits chargés une fois, mémoire de la ligne).
 - **Rien à coller dans Supabase** : `estimation_assistant` est un champ de
   plus sur la fiche prospect. Coût : rien de plus qu'une réponse de l'IA.
+
+### 👨‍💼 LA MISE EN RELATION SE VOIT, ET L'ARTICLE SE DÉCRIT (25/09/2026, « lance les deux »)
+- Timo, capture : « comment se fait la mise en relation avec un conseiller ?…
+  j'ai compris qu'il n'y a pas une suite ». **La suite existait** (l'assistant
+  se tait, notification « 👨‍💼 Demande un conseiller » aux administrateurs ou au
+  propriétaire, conversation en tête de 📲 WhatsApp) — mais dans la liste,
+  rien ne distinguait ce client d'un message ordinaire.
+- **`attenteConseiller(fil)` / `libelleAttente`** (lib/assistantWhatsapp.js) :
+  tant que le DERNIER mot de BMI est l'assistant à l'étape « conseiller »
+  (les entrants et les lignes « système » ne comptent pas), la ligne porte
+  **« 👨‍💼 Attend un conseiller depuis 12 min »** (ambre, `data-attente-conseiller`)
+  et le fil ouvert un bandeau. **Elle disparaît dès qu'une PERSONNE écrit**
+  (réponse libre ou modèle), ou que l'assistant reprend (« menu »). Une ligne
+  grisée ne calcule rien. Rien d'écrit, rien à coller.
+- **🤖 « Ce que l'assistant WhatsApp peut dire aux clients »** — un champ À PART
+  sur la fiche article (📦 Stocks → Autres informations, `note_assistant`,
+  400 caractères, `NOTE_ASSISTANT_MAX`) : « dès qu'un client te parle de
+  moteurs centraux, savoir que c'est de ce type de moteur qu'il parle ».
+  ⚠⚠ **JAMAIS « Notes internes »** (`notes`) : ce champ porte des prix d'achat
+  et des fournisseurs ; ce qui est écrit dans le nouveau PART chez le client,
+  l'écran l'avertit en ambre. L'outil `chercher_article` et le menu rendent la
+  `description`, la recherche la regarde aussi (« moteur rideau » trouve le
+  moteur central) ; la consigne dit de la redire sans rien y ajouter, et sans
+  elle de ne rien décrire au-delà du nom. ⚠ Création, présélection ET
+  correction la portent (leçon des pompes : la correction la recopie dans
+  `apres`). ⚠ Un article existe par boutique : la description se remplit sur
+  chaque fiche. ⚠ Un prix écrit dedans serait jeté par le juge (il ne vient
+  pas de `prix_vente`) : on n'y met pas de prix.
+- Le banc (`verifier-whatsapp` ㉔, 483) exerce la règle, REND l'écran (attente,
+  puis répondu), et a été éprouvé en remettant trois fautes (les notes
+  internes lues, une réponse d'employé ignorée, la correction qui perd le
+  champ) : à chaque fois des contrôles tombent. Un contrôle de ⑳ RETOURNÉ (les
+  clés d'un article cité portent `description`).
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
