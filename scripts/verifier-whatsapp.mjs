@@ -1985,8 +1985,8 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     /\.\.\.\(nom === "estimer_solaire" \? await contexteSolaire\(\) : \{\}\),/.test(entrantS)
     && /const memoireR = r\.estimation \? \{ \.\.\.\(r\.memoire \|\| \{\}\), estimation: r\.estimation \} : \(r\.memoire \|\| null\);/.test(entrantS)
     && /demandeDevisIA\(\{ cle, tel: from, demandeDevis: r\.demandeDevis, ts, estimation: r\.estimation \|\| derniereEstimation\(fil\) \}\)/.test(entrantS));
-  test("★ 🧲 Prospects montre au vendeur l'estimation donnée au client ; ⚙ Paramètres la décrit (solaire seulement, ± 15 %, réglages d'office)",
-    /data-estimation-assistant/.test(prospectsS) && /entre \{fmt\(p\.estimation_assistant\.bas\)\} et \{fmt\(p\.estimation_assistant\.haut\)\}/.test(prospectsS)
+  test("★ 🧲 Prospects montre au vendeur l'estimation donnée au client (RETOURNÉ le 25/09 : une pastille « bas – haut » sur la ligne du besoin) ; ⚙ Paramètres la décrit (solaire seulement, ± 15 %, réglages d'office)",
+    /data-estimation-assistant/.test(prospectsS) && /\{fmt\(p\.estimation_assistant\.bas\)\} – \{fmt\(p\.estimation_assistant\.haut\)\}/.test(prospectsS)
     && /<b>solaire seulement<\/b>/.test(paramS) && /± 15 %/.test(paramS));
   // 24/09/2026 au soir, Timo : « si le client demande « Que faites-vous ? », il peut répondre : … ».
   test("★ « Que faites-vous ? » : le texte de Timo, mot pour mot, est dans la consigne avec l'ordre de le recopier tel quel ; il passe le juge (aucun montant, aucun sujet réservé, sous la limite) et garde la porte « conseiller »",
@@ -2135,6 +2135,34 @@ titre("㉖ LE CONSEIL GÉNÉRAL DANS LES MÉTIERS DE BMI (25/09/2026, décision 
   test("★★ et le juge tient toujours : un conseil qui glisse un prix « en général » est JETÉ, un conseil sans montant passe",
     I.garderReponse("En général un kit solaire complet coûte autour de 2 000 000 F.", { prixConnus: [] }).ok === false
     && I.garderReponse("En général, un système hybride convient quand vous avez le réseau CEET : il recharge les batteries la nuit. Un conseiller BMI TOGO confirme pour votre cas.", { prixConnus: [] }).ok === true);
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㉗ 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE FOIS (25/09/2026)");
+// Capture Timo : « ce n'est pas agréable à regarder… tous les détails dans
+// localisation ? » → « lance les deux ».
+{
+  const I = await import("../src/lib/assistantIA.js");
+  const P = lire("src/screens/Prospects.jsx");
+  const cellLoc = (() => { const i = P.indexOf("{p.localisation || (p.lat"); return P.slice(i, P.indexOf("</td>", i)); })();
+  test("★★ la case Localisation ne porte QUE le lieu (ni le besoin, ni l'estimation)",
+    cellLoc.length > 0 && !/p\.nature/.test(cellLoc) && !/estimation_assistant/.test(cellLoc));
+  test("★★ le besoin a SA ligne sur toute la largeur, deux lignes au plus, un clic l'ouvre, un second le replie (un seul déplié)",
+    /<td colSpan=\{10\}/.test(P) && /line-clamp-2/.test(P) && /setBesoinDeplie\(deplie \? null : p\.id\)/.test(P)
+    && /const deplie = besoinDeplie === p\.id;/.test(P) && /data-besoin-prospect/.test(P));
+  test("★ l'estimation n'apparaît qu'UNE fois sur l'écran, en pastille",
+    (P.match(/data-estimation-assistant/g) || []).length === 1);
+  test("★ les gestes passent à la ligne au lieu de courir à droite",
+    /flex flex-wrap items-center gap-x-2 gap-y-1 min-w-\[260px\] max-w-\[420px\]/.test(P));
+  const capture = "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour. Estimation donnée : ~34,2 kWh/jour, 22 panneaux 400W, 4 batteries 200Ah 48V, convertisseur 5,5 kW, entre 4 600 000 et 6 250 000 F CFA.";
+  test("★★ le besoin enregistré par l'assistant ne garde QUE ce que le client a dit (la phrase de sa capture)",
+    I.besoinSansEstimation(capture) === "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour."
+    && I.executerOutil("enregistrer_demande_devis", { besoin: capture, nom: "Gaelle" }, {}).effets.demandeDevis.besoin.indexOf("Estimation") === -1);
+  test("★ le filet ne vide jamais un besoin, et ne touche pas un besoin sans chiffre",
+    I.besoinSansEstimation("Estimation") === "Estimation" && I.besoinSansEstimation("2 clim 1,5hp 8h. 10 ampoules 15w la nuit") === "2 clim 1,5hp 8h. 10 ampoules 15w la nuit");
+  test("★ la consigne et l'outil le disent : jamais l'estimation ni un montant dans le besoin",
+    /jamais l'estimation ni un montant : l'application garde l'estimation à part/.test(I.CONSIGNE_IA)
+    && /Jamais l'estimation ni aucun montant/.test(JSON.stringify(I.OUTILS_IA)));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

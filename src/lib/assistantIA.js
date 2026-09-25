@@ -132,7 +132,7 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Pour une installation SOLAIRE, demande TOUJOURS, pour CHAQUE appareil : COMBIEN il y en a (le nombre), combien d'heures par jour il fonctionne, et sa puissance si le client la connaît. Ne suppose jamais qu'il y en a un seul : tant que le nombre d'un appareil n'est pas dit, redemande-le avant d'estimer. « une ampoule » ou « 1 ampoule » est un nombre ; « les ampoules » ou « quelques lumières » n'en est PAS un. Dans estimer_solaire, écris le nombre tel que le client l'a donné, n'en invente jamais.
 - Quand le client a décrit ses appareils (lesquels, combien de chacun, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
-- Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis. Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
+- Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis (le besoin avec les mots du client seulement, jamais l'estimation ni un montant : l'application garde l'estimation à part). Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
 - Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro.
 - Une photo, un document ou un message vocal : tu ne peux pas les lire ; dis-le et appelle passer_conseiller.
 - Si le client écrit dans une autre langue, réponds simplement en français.
@@ -184,7 +184,7 @@ export const OUTILS_IA = [
       type: "object",
       properties: {
         nom: { type: "string", description: "Le nom du client (vide si le client est déjà connu)" },
-        besoin: { type: "string", description: "Le besoin, avec les mots du client : appareils, heures d'utilisation, lieu, type de projet" },
+        besoin: { type: "string", description: "Le besoin, avec les mots du client : appareils (avec leur nombre), heures d'utilisation, lieu, type de projet. Jamais l'estimation ni aucun montant : l'application les garde à part." },
       },
       required: ["besoin"],
     },
@@ -244,6 +244,22 @@ export function messagesPourIA(fil, { max = MAX_MESSAGES_MEMOIRE } = {}) {
 // tel, ts }. Rend { resultat (texte rendu à l'IA), effets }.
 //   effets : { prix: [..] (les montants qu'elle a le droit de citer),
 //              demandeDevis: {nom, besoin} | null, conseiller: bool, type }
+// ---- LE BESOIN NE PORTE QUE CE QUE LE CLIENT A DIT (25/09/2026) ----
+// Capture Timo : l'IA recopiait « Estimation donnée : 22 panneaux… entre
+// 4 600 000 et 6 250 000 F CFA » DANS le besoin, pendant que la fiche
+// affichait déjà l'estimation à part — le chiffre se lisait deux fois. La
+// consigne le dit, et ce filet retire toute phrase qui parle d'estimation ou
+// porte un montant. Il ne vide jamais un besoin : s'il ne restait rien, on
+// garde le texte tel quel (une personne le relit).
+const PHRASE_A_RETIRER = /estimation|f\s?cfa|\d[\d\s\u00a0\u202f]{3,}\s?(?:f\b|francs?)/i;
+export function besoinSansEstimation(texte) {
+  const brut = String(texte || "").trim();
+  if (!brut) return "";
+  const phrases = brut.split(/(?<=[.!?\n])\s+/);
+  const gardees = phrases.filter((ph) => !PHRASE_A_RETIRER.test(ph)).join(" ").trim();
+  return gardees || brut;
+}
+
 export function executerOutil(nom, entree = {}, contexte = {}) {
   const e = entree || {};
   if (nom === "chercher_article") {
@@ -257,7 +273,7 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
   }
   if (nom === "enregistrer_demande_devis") {
     const nomClient = String(contexte.client?.nom || e.nom || "").trim();
-    const besoin = String(e.besoin || "").trim();
+    const besoin = besoinSansEstimation(e.besoin);
     if (!besoin) return { resultat: "Refusé : le besoin est vide. Demander au client ce qu'il veut installer ou alimenter.", effets: { prix: [], demandeDevis: null, conseiller: false } };
     if (!nomClient) return { resultat: "Refusé : le nom du client est inconnu. Le lui demander, puis rappeler cet outil avec le nom.", effets: { prix: [], demandeDevis: null, conseiller: false } };
     return {

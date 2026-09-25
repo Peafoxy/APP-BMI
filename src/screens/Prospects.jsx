@@ -3,7 +3,7 @@
 // vue Admin) : catégories, contact WhatsApp, position sur carte,
 // détection des dormants, conversion en client.
 // ============================================================
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
@@ -29,6 +29,8 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
   const [carteOuverte, setCarteOuverte] = useState(false);
   const [filtreRelance, setFiltreRelance] = useState(false);
   const [q, setQ] = useState("");
+  // Le besoin d'UN prospect déplié à la fois (règle de dépliage de 💰 Ventes).
+  const [besoinDeplie, setBesoinDeplie] = useState(null);
 
   // ---- Gestion des catégories (Admin uniquement) ----
   const ajouterCategorie = () => {
@@ -422,8 +424,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucun prospect pour l'instant.</td></tr>}
             {listePage.map((p) => {
               const enRetard = p.relance && p.relance <= today();
+              const deplie = besoinDeplie === p.id;
               return (
-                <tr key={p.id} className={`border-t border-slate-100 hover:bg-sky-50 ${enRetard ? "bg-orange-50" : ""}`}>
+                <Fragment key={p.id}>
+                <tr className={`border-t border-slate-100 hover:bg-sky-50 ${enRetard ? "bg-orange-50" : ""}`}>
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
                   <td className="px-3 py-2 font-semibold">
                     {p.nom}
@@ -436,10 +440,6 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                     {p.lat && p.lng && (
                       <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" className="ml-1 text-sky-700 underline text-xs whitespace-nowrap">📍 Voir sur la carte</a>
                     )}
-                    {p.nature && <div className="text-xs text-slate-500 mt-1 italic">🔧 {p.nature}</div>}
-                    {/* L'estimation que l'assistant a donnée au client (24/09/2026) :
-                        le vendeur doit savoir quel chiffre le client a en tête. */}
-                    {p.estimation_assistant && <div className="text-xs text-violet-800 mt-1" data-estimation-assistant>🤖 Estimation donnée au client le {dFR(p.estimation_assistant.le)} : entre {fmt(p.estimation_assistant.bas)} et {fmt(p.estimation_assistant.haut)} (indicative, pose comprise)</div>}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.statut === "Favorable" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{p.statut}</span>
@@ -464,7 +464,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                   </td>
                   <td className={`px-3 py-2 whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : ""}`}>{p.relance ? dFR(p.relance) : "—"}</td>
                   {isAdmin && <td className="px-3 py-2">{p.commercial}</td>}
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  {/* Les gestes passent à la ligne au lieu de courir à droite
+                      (capture Timo, 25/09/2026 : « ArchiverSuppr. » collés). */}
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-[260px] max-w-[420px]">
                     {!isAdmin && <button onClick={() => modifierRelance(p)} className="text-xs font-bold text-sky-800 underline mr-2">Relance</button>}
                     {enRetard && p.tel && (isAdmin || p.commercial === profile.nom) && (
                       <button onClick={() => relancerWhatsApp(p)} className="text-xs font-bold text-white bg-orange-600 rounded px-2 py-0.5 hover:bg-orange-700 mr-2">📱 Relancer</button>
@@ -486,8 +489,25 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                       ? (isAdmin || p.commercial === profile.nom) && <button onClick={() => reactiver(p)} className="text-xs text-green-700 underline font-semibold">↩ Réactiver</button>
                       : (isAdmin || p.commercial === profile.nom) && !p.converti && <button onClick={() => archiver(p)} className="text-xs text-amber-700 underline font-semibold">📦 Archiver</button>}
                     {(isAdmin || p.commercial === profile.nom) && <button onClick={() => supprimer(p)} className="text-xs text-red-600 underline">Suppr.</button>}
+                    </div>
                   </td>
                 </tr>
+                {/* 🔧 LE BESOIN SUR SA PROPRE LIGNE (capture Timo, 25/09/2026 : « ce
+                    n'est pas agréable à regarder… tous les détails dans
+                    localisation ? »). Toute la largeur, deux lignes au plus, un
+                    clic l'ouvre en entier, un second le replie. L'estimation de
+                    l'assistant y est une pastille, une seule fois. */}
+                {(p.nature || p.estimation_assistant) && (
+                  <tr className={`${enRetard ? "bg-orange-50" : ""} cursor-pointer`} onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>
+                    <td colSpan={10} className="px-3 pb-2 pt-0">
+                      <div className="flex flex-wrap items-start gap-2 text-xs">
+                        {p.nature && <span className={`flex-1 min-w-[240px] text-slate-600 ${deplie ? "whitespace-pre-wrap" : "line-clamp-2"}`} title={deplie ? "Cliquer pour replier" : "Cliquer pour tout lire"}><b className="text-slate-700 not-italic">🔧 Besoin :</b> {p.nature}</span>}
+                        {p.estimation_assistant && <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold whitespace-nowrap" data-estimation-assistant title="Estimation indicative, pose comprise, donnée au client par l'assistant WhatsApp">🤖 Estimation donnée le {dFR(p.estimation_assistant.le)} : {fmt(p.estimation_assistant.bas)} – {fmt(p.estimation_assistant.haut)}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>

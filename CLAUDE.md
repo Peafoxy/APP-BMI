@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 496 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé)
+npm run verifier-whatsapp        # 503 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3552,6 +3552,27 @@ lit mal est pire qu'un banc absent).
   ⚙ Paramètres — a été proposée et **NON retenue** (« A »). Ne pas la
   construire sans sa demande.
 - Banc ㉖ (496), éprouvé en retirant l'interdit du prix « en général ».
+
+### 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE SEULE FOIS (25/09/2026, « lance les deux »)
+- Captures Timo : « ce n'est pas agréable à regarder… tous les détails dans
+  localisation ? ». Le besoin (six lignes décrites par l'assistant) et
+  l'estimation s'empilaient dans la colonne étroite « Localisation », chaque
+  ligne du tableau devenait immense, l'estimation se lisait DEUX fois, et les
+  gestes couraient à droite jusqu'à « ArchiverSuppr. ».
+- **Localisation = le lieu seul.** **Le besoin a SA ligne** sous le prospect,
+  toute la largeur (`colSpan`), deux lignes au plus (`line-clamp-2`), un clic
+  l'ouvre, un second le replie, un seul déplié (`besoinDeplie`). **L'estimation
+  = UNE pastille violette** « bas – haut » sur cette ligne. **Les gestes passent
+  à la ligne** (flex-wrap, 260–420 px). Affichage seul : rien d'enregistré ne
+  change, les droits non plus.
+- **Le besoin ne garde que ce que le client a dit** : l'IA y recopiait sa
+  propre estimation. La consigne et la description de l'outil l'interdisent,
+  et `besoinSansEstimation` (lib/assistantIA.js) retire toute phrase qui parle
+  d'estimation ou porte un montant — sans jamais vider un besoin. ⚠ Les fiches
+  DÉJÀ créées gardent leur texte (rien n'est réécrit).
+- Banc ㉗ (503), éprouvé en remettant le besoin dans Localisation et en
+  retirant le filet : chacun tombe. Un contrôle de ㉓ RETOURNÉ (la pastille
+  « bas – haut »). Écran regardé dans Chromium.
 
 ### Versement des fonds (09/09/2026)
 - **« 💸 Verser les fonds » dans 🔒 Caisse** (**gérant et admin — pas le
