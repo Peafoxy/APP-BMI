@@ -11,7 +11,7 @@ import { correspond } from "../lib/suggestions";
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import {
@@ -241,12 +241,13 @@ export function Clients({ db, save, profile }) {
           <input className={champRecherche} placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <table className="w-full text-sm min-w-[720px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucun client trouvé.</td></tr>}
             {clientsPage.map((c, i) => (
               <tr key={i} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 font-semibold">{c.nom}</td>
+                {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
+                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee("bg-white")}`}>{c.nom}</td>
                 <td className="px-3 py-2">{c.tel || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{c.achats}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}</td>

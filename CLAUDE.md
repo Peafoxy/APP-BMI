@@ -4394,6 +4394,8 @@ lit mal est pire qu'un banc absent).
   ⚠ **RETOURNÉ pour 🧲 Prospects et 📋 Dettes le 25/09/2026** (« figer le nom
   du client… comme dans stock ») : la colonne figée y est le **NOM DU CLIENT**,
   passé en première colonne, la date juste après. Dépenses garde la Date.
+  **📋 Clients aussi** (le même jour) : le nom y était déjà en tête, il est
+  figé.
   Mesuré dans Chromium à 420 px (le nom reste à 17 px, la date part hors
   d'écran).
 - Présélectionner un article remplit le formulaire d'ajout ; la correction

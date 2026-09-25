@@ -6115,7 +6115,10 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       // 13/09/2026 : la première colonne reste figée, ordinateur aussi ; Dépenses pareil (Date, fond de la ligne gardé) ; plus aucun lg:static dans l'application.
       // RETOURNÉ le 25/09/2026 (« dans Dettes aussi figer le nom du client ») : dans Dettes la colonne figée est le CLIENT, la date vient après.
       && /celluleFigee\(fondLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\), detteDepliee === d\.id\)\}`\}><div className="font-semibold text-slate-800">\{d\.client\}<\/div>/.test(dj)
-      && /\{\[\["Client", "text-left"\], \["Date", "text-left"\]/.test(dj) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(dj)
+      && /\{\[\["Client", "text-left"\], \["Date", "text-left"\]/.test(dj)
+      // 25/09/2026 : « dans Clients aussi figer le nom du client » — 📋 Clients fige sa première colonne (le client) par la même règle.
+      && /<td className=\{`px-3 py-2 font-semibold min-w-\[150px\] \$\{celluleFigee\("bg-white"\)\}`\}>\{c\.nom\}<\/td>/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+      && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(dj)
       && /celluleFigee\(estRejetee\(x\) \? "bg-red-50" : estEnAttente\(x\) \? "bg-amber-50" : "bg-white"\)/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
       && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
