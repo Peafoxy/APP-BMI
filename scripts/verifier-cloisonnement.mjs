@@ -11195,9 +11195,22 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
       && !!Vd.critiqueModifDepense(d0, { categorie: "Loyer", description: "" })
       && Vd.critiqueModifDepense(d0, { categorie: "Transport", description: "" }) === null);
     test("★★ modifier = l'administrateur PRINCIPAL seul, revérifié DANS le geste, sur la fiche FRAÎCHE",
-      /onModifier=\{estAdminPrincipal\(db, profile\) \? ouvrirModif : null\}/.test(dsrc)
+      /ouvrirModif: estAdminPrincipal\(db, profile\) \? ouvrirModif : null/.test(dsrc)
       && /const enregistrerModif = \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Modifier une dépense"\)\) return;/.test(dsrc)
       && /const refus = critiqueModifDepense\(fraiche, modif\);/.test(dsrc));
+    // « Chez le comptable » (Timo, 25/09/2026, décision « a ») : le même bouton,
+    // la même règle, écrite UNE fois (useModifDepense) ; le comptable reste en
+    // lecture seule ; ni l'entrée d'un versement ni une ligne automatique.
+    const corpsCC = dsrc.slice(dsrc.indexOf("export function ChezComptable"));
+    test("★★ « Chez le comptable » : ✏️ Modifier par LA même règle (useModifDepense), panneau affiché, bouton passé au tableau",
+      (dsrc.match(/function useModifDepense\(/g) || []).length === 1
+      && /const \{ ouvrirModif, panneauModif \} = useModifDepense\(db, save, profile\);/.test(corpsCC)
+      && /\{panneauModif\}\s*<TableauDepenses liste=\{liste\} profile=\{profile\} onSupprimer=\{supprimerDepense\} onModifier=\{ouvrirModif\}/.test(corpsCC)
+      && (dsrc.match(/data-fiche-modif-depense/g) || []).length === 1);
+    test("★★ « Chez le comptable » : l'entrée d'un versement et les lignes automatiques (salaire, commission, CNSS, avance) ne se modifient pas",
+      !!Vd.critiqueModifDepense({ ...d0, categorie: "Transport", montant: -50000, versement_id: "v1" }, { categorie: "Autre" })
+      && ["cnss", "commission", "commission_equipe", "commission_ext", "avance", "virement", "installation"].every((a) => !Vd.depenseModifiable({ ...d0, auto: a }))
+      && Vd.depenseModifiable({ ...d0, boutique: "Chez le comptable" }));
     test("★ le formulaire de modification n'offre ni montant ni paiement", (dsrc.match(/data-fiche-modif-depense[\s\S]*?<\/div>\s*\)\}/) || [""])[0].includes("Catégorie") && !/data-fiche-modif-depense[\s\S]{0,900}label="Montant/.test(dsrc));
   }
   test("★ aucun rappel de loyer dans la tournée du matin (décision « non »)", !/loyer/i.test(readFileSync("src/lib/rappels.js", "utf8")) && !/loyer/i.test(readFileSync("api/rappels-du-matin.js", "utf8")));

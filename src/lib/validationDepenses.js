@@ -354,7 +354,7 @@ export const depensesVisibles = (liste, profile) => (neVoitQueSesDepenses(profil
 // DG, remboursements, dépenses rejetées ou créées automatiquement.
 export function motifNonModifiable(d) {
   if (!d) return "Dépense introuvable.";
-  if (CATEGORIES_HORS_CHARGES.includes(d.categorie) || d.versement || d.fonds_caisse || d.exploitant) return `« ${d.categorie} » n'est pas une dépense ordinaire : elle ne se modifie pas ici.`;
+  if (CATEGORIES_HORS_CHARGES.includes(d.categorie) || d.versement || d.versement_id || d.fonds_caisse || d.exploitant) return `« ${d.categorie} » n'est pas une dépense ordinaire : elle ne se modifie pas ici.`;
   if (d.auto) return "Cette dépense a été créée automatiquement par un autre geste : elle ne se modifie pas ici.";
   if (estRejetee(d)) return "Une dépense rejetée par le DG ne se modifie plus.";
   return null;

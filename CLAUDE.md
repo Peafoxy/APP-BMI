@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1902 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1904 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2787,7 +2787,12 @@ lit mal est pire qu'un banc absent).
   prélèvements du DG, remboursements (`CATEGORIES_HORS_CHARGES`), dépenses
   automatiques (`auto`), rejetées. **La trace** : `modifie_le` /
   `modifie_par` (lus sous la ligne) et le journal dit « catégorie : A → B ».
-  ⚠ Pas encore dans la liste « Chez le comptable » (pas demandé).
+- **🧾 « Chez le comptable » aussi** (25/09/2026, « a, lance ») : le même
+  bouton, par LA même règle (`useModifDepense`, Depenses.jsx, écrite UNE
+  fois). **Le comptable reste en lecture seule** (son seul geste : pointer
+  « Encaissé / Remis ») ; seul l'administrateur principal voit ✏️. **Décision
+  « a » : les lignes automatiques (salaires, commissions, CNSS, avances,
+  primes) ne se modifient pas**, ni l'entrée d'un versement (`versement_id`).
 - Rien à coller : l'administrateur principal écrit déjà les dépenses.
 - Banc (14 contrôles), éprouvé en remettant cinq fautes (le mois déclaré
   ignoré, un mois d'avance repayable, le montant touché, la garde du principal

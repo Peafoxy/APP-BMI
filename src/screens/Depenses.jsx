@@ -67,6 +67,47 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
 }
 
 // ============ DÉPENSES ============
+// ✏️ Modifier une dépense (Timo, 25/09/2026) : catégorie et description,
+// l'administrateur PRINCIPAL seul, revérifié DANS le geste. Écrit UNE fois
+// pour les deux listes : 📤 Dépenses et 🧾 Chez le comptable (« a » : les
+// lignes automatiques — salaires, commissions, CNSS… — ne se modifient pas).
+function useModifDepense(db, save, profile) {
+  const [modif, setModif] = useState(null);
+  const ouvrirModif = (d) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
+    setModif({ d, categorie: d.categorie, description: d.description || "" });
+  };
+  const enregistrerModif = () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const fraiche = (db.depenses || []).find((x) => x.id === modif.d.id);
+    const refus = critiqueModifDepense(fraiche, modif);
+    if (refus) { uAlert(refus); return; }
+    const r = modifierDepense(fraiche, modif, profile.nom, today());
+    save({ ...db, depenses: db.depenses.map((x) => (x.id === fraiche.id ? r.depense : x)) }, r.journal);
+    setModif(null);
+  };
+  const panneauModif = (
+    <>
+        {modif && (
+          <div className="rounded-lg border-2 border-sky-300 bg-sky-50 p-3 mb-3" data-fiche-modif-depense>
+            <div className="font-bold text-sm mb-2">✏️ Modifier la dépense du {dFR(modif.d.date)} — {fmt(modif.d.montant)} ({modif.d.par})</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Catégorie"><select className={inputCls} value={modif.categorie} onChange={(e) => setModif({ ...modif, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
+              <Field label="Description"><input className={inputCls} value={modif.description} onChange={(e) => setModif({ ...modif, description: e.target.value })} /></Field>
+            </div>
+            <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
+            <div className="flex gap-2 mt-2">
+              <button onClick={enregistrerModif} className={btnDark}>Enregistrer</button>
+              <button onClick={() => setModif(null)} className="text-sm font-bold text-slate-600 underline">Annuler</button>
+            </div>
+          </div>
+        )}
+    </>
+  );
+  return { modif, ouvrirModif: estAdminPrincipal(db, profile) ? ouvrirModif : null, panneauModif };
+}
+
 export function Depenses({ db, save, profile }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "depenses" });
   const [bq, setBq] = useState(profile.boutique || premiere);
@@ -143,23 +184,8 @@ export function Depenses({ db, save, profile }) {
     return critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste, boutique: nomBoutique });
   };
 
-  // ✏️ Modifier une dépense (Timo, 25/09/2026) : catégorie et description,
-  // l'administrateur PRINCIPAL seul, revérifié DANS le geste.
-  const [modif, setModif] = useState(null);
-  const ouvrirModif = (d) => {
-    if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
-    setModif({ d, categorie: d.categorie, description: d.description || "" });
-  };
-  const enregistrerModif = () => {
-    if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
-    if (bloquerSiLecture(db, profile)) return;
-    const fraiche = (db.depenses || []).find((x) => x.id === modif.d.id);
-    const refus = critiqueModifDepense(fraiche, modif);
-    if (refus) { uAlert(refus); return; }
-    const r = modifierDepense(fraiche, modif, profile.nom, today());
-    save({ ...db, depenses: db.depenses.map((x) => (x.id === fraiche.id ? r.depense : x)) }, r.journal);
-    setModif(null);
-  };
+  // ✏️ Modifier une dépense : voir useModifDepense (écrit UNE fois).
+  const { modif, ouvrirModif, panneauModif } = useModifDepense(db, save, profile);
 
   // Timo (12/09/2026) : à partir de 5 000 F, la dépense attend la validation
   // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.
@@ -396,21 +422,8 @@ export function Depenses({ db, save, profile }) {
           <span>{mesSeules ? "Mes dépenses" : "Dépenses"} — {boutique}</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>
         </div>
-        {modif && (
-          <div className="rounded-lg border-2 border-sky-300 bg-sky-50 p-3 mb-3" data-fiche-modif-depense>
-            <div className="font-bold text-sm mb-2">✏️ Modifier la dépense du {dFR(modif.d.date)} — {fmt(modif.d.montant)} ({modif.d.par})</div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Catégorie"><select className={inputCls} value={modif.categorie} onChange={(e) => setModif({ ...modif, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
-              <Field label="Description"><input className={inputCls} value={modif.description} onChange={(e) => setModif({ ...modif, description: e.target.value })} /></Field>
-            </div>
-            <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
-            <div className="flex gap-2 mt-2">
-              <button onClick={enregistrerModif} className={btnDark}>Enregistrer</button>
-              <button onClick={() => setModif(null)} className="text-sm font-bold text-slate-600 underline">Annuler</button>
-            </div>
-          </div>
-        )}
-        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={estAdminPrincipal(db, profile) ? ouvrirModif : null} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
+        {panneauModif}
+        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
           Les <b>versements de fonds</b>, les <b>fonds de caisse remis par le DG</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
@@ -469,6 +482,9 @@ export function ChezComptable({ db, save, profile }) {
       `Pointage de décaissement ANNULÉ par ${profile.nom} : ${fmt(Math.abs(dep.montant))} — ${dep.description || dep.categorie}`);
   };
   const totalMois = liste.filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
+  // ✏️ Le comptable reste en lecture seule : seul l'administrateur principal
+  // voit le bouton (même règle que dans les boutiques).
+  const { ouvrirModif, panneauModif } = useModifDepense(db, save, profile);
   const total = liste.reduce((s, x) => s + Number(x.montant), 0);
 
   const supprimerDepense = async (d) => {
@@ -539,7 +555,8 @@ export function ChezComptable({ db, save, profile }) {
           <span>Chez le comptable</span>
           <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)} · Total : {fmt(total)}</span>
         </div>
-        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
+        {panneauModif}
+        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
       </div>
     </div>
   );
