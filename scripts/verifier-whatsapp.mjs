@@ -1256,16 +1256,33 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && M.formulePaiement({ paiement: "Virement bancaire" }) === "payé par virement bancaire"
     && M.formulePaiement({ paiement: "Crédit (dette)", avance: 50000, reste: 110000, fmt }) === `à crédit : avance ${fmt(50000)}, reste ${fmt(110000)}`
     && M.formulePaiement({ paiement: "Crédit (dette)", avance: 0, reste: 160000, fmt }) === `à crédit : reste ${fmt(160000)}`);
-  const vente = { id: "V1", tel: "90112233", client: "ESSO", date: "2026-09-23", boutique: "BMI DEMAKPOE", numero: "DEM-0142", total: 160000, paiement: "Espèces" };
-  const e = M.envoiRecuVente({ vente, boutique: { tel: "+228 91 13 05 11" }, fmt, dFR });
+  // ⚠ RETOURNÉ le 25/09/2026 : la vente d'essai portait un champ `total`
+  // qu'AUCUNE vraie vente ne porte — le contrôle passait pendant que chaque
+  // client recevait « 0 F » (capture Timo, EZO ENERGY, 18 000 F). La vente
+  // d'essai est maintenant une vraie vente (des `articles`), et le montant
+  // vient de LA formule de la caisse, comme à l'écran.
+  const { montantEncaisseVente } = await import("../src/lib/versements.js");
+  const { totalVente } = await import("../src/lib/core.js");
+  const vente = { id: "V1", tel: "90112233", client: "ESSO", date: "2026-09-23", boutique: "BMI DEMAKPOE", numero: "DEM-0142", paiement: "Espèces", articles: [{ article: "Batterie", qte: 1, pu: 150000 }], frais_transport: 10000 };
+  const montantV = montantEncaisseVente(vente, totalVente);
+  const e = M.envoiRecuVente({ vente, boutique: { tel: "+228 91 13 05 11" }, montant: montantV, fmt, dFR });
+  const ezo = { id: "V2", tel: "99770055", client: "EZO ENERGY DU TOGO", date: "2026-09-25", boutique: "BMI DEMAKPOE", numero: "BMID-2026-0028", paiement: "Espèces", articles: [{ article: "Étrier du milieu", qte: 20, pu: 600 }, { article: "Étrier final", qte: 10, pu: 600 }] };
+  test("★★ LE CAS DE TIMO : la vente d'EZO à 18 000 F écrit 18 000 F dans le reçu, jamais « 0 F »",
+    M.envoiRecuVente({ vente: ezo, boutique: {}, montant: montantEncaisseVente(ezo, totalVente), fmt, dFR }).variables[4] === fmt(18000));
+  test("★★ sans montant donné par l'écran, AUCUN reçu ne part (jamais un « 0 F » inventé)",
+    M.envoiRecuVente({ vente: ezo, boutique: {}, fmt, dFR }) === null
+    && !/vente\.total/.test(M.envoiRecuVente.toString()));
+  test("★★ l'écran 💰 Ventes passe le montant de LA formule de la caisse (articles − remises + frais)",
+    /montant: montantEncaisseVente\(vente, totalVente\)/.test(lire("src/screens/Ventes.jsx"))
+    && /import \{ montantEncaisseVente \} from "\.\.\/lib\/versements";/.test(lire("src/screens/Ventes.jsx")));
   test("★★ les sept trous viennent de la vente : nom, date, boutique, reçu, montant, formule, TÉLÉPHONE DE LA BOUTIQUE",
     e && e.modele === "recu_vente" && e.variables.join("|") === `ESSO|23/09/2026|BMI DEMAKPOE|DEM-0142|${fmt(160000)}|payé en espèces|+228 91 13 05 11`);
   test("★★ une boutique sans téléphone → le numéro BMI principal (Meta refuse un trou vide), jamais un trou vide",
-    M.envoiRecuVente({ vente, boutique: {}, fmt, dFR }).variables[6] === M.NUMERO_BMI_PRINCIPAL
-    && M.critiqueModele("recu_vente", M.envoiRecuVente({ vente, boutique: {}, fmt, dFR }).variables) === "");
+    M.envoiRecuVente({ vente, boutique: {}, montant: montantV, fmt, dFR }).variables[6] === M.NUMERO_BMI_PRINCIPAL
+    && M.critiqueModele("recu_vente", M.envoiRecuVente({ vente, boutique: {}, montant: montantV, fmt, dFR }).variables) === "");
   test("★ « Client non renseigné » ou sans nom → « cher client » ; SANS numéro → null (rien à envoyer, pas une panne)",
-    M.envoiRecuVente({ vente: { ...vente, client: "Client non renseigné" }, boutique: {}, fmt, dFR }).variables[0] === "cher client"
-    && M.envoiRecuVente({ vente: { ...vente, tel: "" }, boutique: {}, fmt, dFR }) === null);
+    M.envoiRecuVente({ vente: { ...vente, client: "Client non renseigné" }, boutique: {}, montant: montantV, fmt, dFR }).variables[0] === "cher client"
+    && M.envoiRecuVente({ vente: { ...vente, tel: "" }, boutique: {}, montant: montantV, fmt, dFR }) === null);
   test("★ le texte lisible du reçu remplit les sept trous, dans l'ordre",
     M.texteRecuVente(e) === `Bonjour ESSO,\nMerci pour votre achat du 23/09/2026 à BMI DEMAKPOE.\nReçu N° DEM-0142 : ${fmt(160000)}, payé en espèces.\nPour toute question veuillez contacter : +228 91 13 05 11.\nMerci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents\nwww.bmitogo.com`);
   test("★ les trois modèles ont leur ligne dans le fil, sans secret, jamais « livré » ni « lu »",

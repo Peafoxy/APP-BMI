@@ -11,6 +11,7 @@ import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, fmt, today, dFR, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { montantEncaisseVente } from "../lib/versements";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
@@ -412,6 +413,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const dette = (apres.dettes || []).find((d) => d.vente_id === vente.id) || null;
     const envoi = envoiRecuVente({
       vente, boutique: bq,
+      // Le montant du reçu imprimé : articles − remises − rabais + frais.
+      montant: montantEncaisseVente(vente, totalVente),
       avance: dette ? Number(dette.paye || 0) : 0,
       reste: dette ? Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) : 0,
       fmt, dFR,

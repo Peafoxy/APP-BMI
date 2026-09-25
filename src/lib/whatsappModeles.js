@@ -735,8 +735,15 @@ export function formulePaiement({ paiement, avance = 0, reste = 0, fmt }) {
 // téléphone (rien à envoyer, et ce n'est pas une panne : la plupart des
 // ventes de comptoir n'en ont pas). ⚠ `telephoneBoutique` vide → le numéro
 // BMI principal, jamais un trou vide.
-export function envoiRecuVente({ vente, boutique, avance = 0, reste = 0, fmt, dFR }) {
+// ⚠⚠ LE MONTANT EST DONNÉ PAR L'ÉCRAN, jamais lu sur la vente (25/09/2026,
+// capture Timo : « la facture fait 18 000 mais dans le message WhatsApp,
+// 0 F »). Une vente ne porte PAS de champ `total` : son montant se CALCULE
+// (articles − remises − rabais + frais, `montantEncaisseVente`). Lire
+// `vente.total` envoyait « 0 F » à chaque client. Sans montant, rien ne part :
+// un reçu faux au nom de BMI est pire qu'un reçu absent.
+export function envoiRecuVente({ vente, boutique, montant, avance = 0, reste = 0, fmt, dFR }) {
   if (!vente || !String(vente.tel || "").replace(/\D/g, "")) return null;
+  if (typeof montant !== "number" || !Number.isFinite(montant)) return null;
   const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
   const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
   const nom = texteVariable(vente.client);
@@ -747,7 +754,7 @@ export function envoiRecuVente({ vente, boutique, avance = 0, reste = 0, fmt, dF
       d(vente.date) || "aujourd'hui",
       texteVariable(vente.boutique) || "BMI TOGO",
       texteVariable(vente.numero) || "—",
-      f(Number(vente.total) || 0),
+      f(montant),
       formulePaiement({ paiement: vente.paiement, avance, reste, fmt: f }),
       texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,
     ],
