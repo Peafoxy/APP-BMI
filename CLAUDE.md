@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1885 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1888 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2746,6 +2746,15 @@ lit mal est pire qu'un banc absent).
 - Banc `verifier-cloisonnement` (20 contrôles), éprouvé en retirant la
   revérification, le filtre des rejetées et le cadre réservé : chacun tombe.
   Un contrôle RETOURNÉ (le rattachement au chantier part de `depenseLoyer`).
+- ⚠⚠ **« POURQUOI 85 000 EN RETARD ? »** (capture Timo, le jour même : loyer
+  90 000, cadre à 85 000) : une dépense de 5 000 F était tombée en « Loyer »
+  parce que **le formulaire de 📤 Dépenses proposait « Loyer » d'office** (la
+  première de `CATEGORIES`). Décision « les 2 » : **(1) aucune catégorie
+  d'office** — « — Choisir — », refus DANS le geste tant qu'on n'a pas
+  choisi (un clic de plus par dépense, dit avant) ; **(2) le cadre DIT ce
+  qu'il a compté** (`data-loyer-compte` : montant, date, qui l'a saisi, en
+  attente du DG) et la porte de sortie (supprimer puis ressaisir). Éprouvé en
+  remettant la catégorie d'office et en retirant le refus : chacun tombe.
 
 ### 🔐 UN ENVOI WHATSAPP NE DIT PLUS « RECONNECTEZ-VOUS » (25/09/2026)
 - Capture Timo, 📋 Clients → WhatsApp : « Le message n'est pas parti du numéro

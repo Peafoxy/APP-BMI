@@ -11138,6 +11138,15 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   test("★★ la case « loué » est sur la fiche de CRÉATION, et ses champs n'apparaissent que cochée",
     /<ChampsLoyer valeur=\{f\.loyer\}/.test(psrc) && /\{v\.loue && \(\s*<div[^>]*data-champs-loyer/.test(psrc) && /const refusLoyer = critiqueFicheLoyer\(f\.loyer\);/.test(psrc));
   test("★ la fiche est écrite UNE fois (ChampsLoyer) pour la création et la correction", (psrc.match(/<ChampsLoyer /g) || []).length === 2);
+  // Timo (25/09/2026) : « pourquoi 85 000 en retard ? » — une dépense de 5 000 F
+  // tombée en « Loyer » parce que la catégorie était remplie d'office.
+  test("★★ AUCUNE catégorie d'office dans 📤 Dépenses : le formulaire part vide et « — Choisir — » en tête",
+    /const formVide = \{ categorie: "",/.test(dsrc) && !/categorie: CATEGORIES\[0\]/.test(dsrc)
+    && /<option value="">— Choisir —<\/option>\{CATEGORIES\.map/.test(dsrc));
+  test("★★ une dépense sans catégorie est REFUSÉE dans le geste, avant toute écriture",
+    /const ajouter = async \(\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(!f\.categorie\) \{ uAlert\(/.test(dsrc));
+  test("★ le cadre du loyer DIT ce qu'il a compté (montant, date, qui l'a saisi)",
+    /data-loyer-compte/.test(dsrc) && /loyer\.lignes\.map\(\(d\) => `\$\{fmt\(d\.montant\)\} le \$\{dFR\(d\.date\)\}/.test(dsrc));
   test("★ aucun rappel de loyer dans la tournée du matin (décision « non »)", !/loyer/i.test(readFileSync("src/lib/rappels.js", "utf8")) && !/loyer/i.test(readFileSync("api/rappels-du-matin.js", "utf8")));
 }
 

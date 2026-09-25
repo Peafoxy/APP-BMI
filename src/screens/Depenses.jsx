@@ -73,7 +73,10 @@ export function Depenses({ db, save, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "depenses" });
   // « Payé avec » nomme chaque caisse (capture Timo, 13/09/2026) ; vide = la caisse de la boutique regardée.
-  const formVide = { categorie: CATEGORIES[0], description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: "", chantier_id: "" };
+  // ⚠ Aucune catégorie d'office (Timo, 25/09/2026) : « Loyer », la première de
+  // la liste, était proposée d'office — une dépense de 5 000 F saisie sans y
+  // toucher est tombée en « Loyer » et le cadre du loyer l'a comptée. On CHOISIT.
+  const formVide = { categorie: "", description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: "", chantier_id: "" };
   const caissesPossibles = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
   const chantiersOuverts = chantiersRattachables(db, profile);
@@ -120,6 +123,7 @@ export function Depenses({ db, save, profile }) {
   // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.
   const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
+    if (!f.categorie) { uAlert("Choisissez la catégorie de la dépense."); return; }
     const choixCaisse = interpreterPayeAvec(f.paye_avec, boutique);
     const r = construireDepenseSaisie(db, profile, { ...f, ...choixCaisse }, today());
     if (r.refus) { uAlert(r.refus); return; }
@@ -295,13 +299,22 @@ export function Depenses({ db, save, profile }) {
               <button onClick={payerLoyer} className={btnDark}>💵 Payer le loyer de {libelleMois(loyer.mois)}</button>
             )}
           </div>
+          {/* Ce que le cadre a COMPTÉ (Timo, 25/09/2026 : « pourquoi 85 000 en
+              retard ? ») : un chiffre qui surprend doit montrer sa source. */}
+          {loyer.lignes.length > 0 && (
+            <div className="mt-2 text-xs text-slate-600" data-loyer-compte>
+              Déjà compté pour {libelleMois(loyer.mois)} :{" "}
+              {loyer.lignes.map((d) => `${fmt(d.montant)} le ${dFR(d.date)}${d.par ? ` (saisi par ${d.par})` : ""}${d?.validation?.statut === "attente" ? " — en attente du DG" : ""}`).join(" · ")}
+              {loyer.statut !== "paye" && " — si ce n'était pas le loyer, l'administrateur supprime la dépense et la ressaisit dans la bonne catégorie."}
+            </div>
+          )}
           {f.loyer_mois && f.loyer_boutique === boutique && <div className="mt-2 text-xs text-sky-800">Le formulaire ci-dessous est rempli : vérifiez « Payé avec », puis enregistrez.</div>}
         </div>
       )}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dépense <Badge boutique={boutique} /></div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <Field label="Catégorie"><select className={inputCls} value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
+          <Field label="Catégorie"><select className={inputCls} value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} data-categorie-depense><option value="">— Choisir —</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
           <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
           <Field label="Montant (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
