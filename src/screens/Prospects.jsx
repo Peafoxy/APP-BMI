@@ -15,7 +15,7 @@ import { messageIdentifiants } from "../lib/whatsappModeles";
 import { prospectAcquis, estDemandeAssistant, prendreEnCharge, critiquePriseEnCharge } from "../lib/prospects";
 import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { catalogueAppareils } from "../lib/appareils";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -419,7 +419,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
           </div>
         </div>
         <table className="w-full text-sm min-w-[900px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Nom", "Numéro", "Catégorie", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucun prospect pour l'instant.</td></tr>}
             {listePage.map((p) => {
@@ -428,11 +428,14 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
               return (
                 <Fragment key={p.id}>
                 <tr className={`border-t border-slate-100 hover:bg-sky-50 ${enRetard ? "bg-orange-50" : ""}`}>
-                  <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
-                  <td className="px-3 py-2 font-semibold">
+                  {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo,
+                      25/09/2026 : « figer le nom du client… comme dans stock ») :
+                      il passe en PREMIÈRE colonne, par LA règle commune. */}
+                  <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(enRetard ? "bg-orange-50" : "bg-white")}`}>
                     {p.nom}
-                    {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700 whitespace-nowrap" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
+                    {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
                   </td>
+                  <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
                   <td className="px-3 py-2">{p.tel}</td>
                   <td className="px-3 py-2 text-slate-500">{p.categorie}</td>
                   <td className="px-3 py-2">

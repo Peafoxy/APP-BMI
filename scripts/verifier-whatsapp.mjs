@@ -2152,6 +2152,10 @@ titre("㉗ 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE FOIS (25/09
     && /const deplie = besoinDeplie === p\.id;/.test(P) && /data-besoin-prospect/.test(P));
   test("★ l'estimation n'apparaît qu'UNE fois sur l'écran, en pastille",
     (P.match(/data-estimation-assistant/g) || []).length === 1);
+  test("★★ le NOM reste figé pendant le défilement horizontal (« comme dans stock ») : première colonne, par LA règle commune enTeteFige / celluleFigee, fond orange gardé sur une relance en retard",
+    /\{\["Nom", "Date", "Numéro",/.test(P) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(P)
+    && /<td className=\{`px-3 py-2 font-semibold min-w-\[170px\] \$\{celluleFigee\(enRetard \? "bg-orange-50" : "bg-white"\)\}`\}>\s*\{\/\*[\s\S]*?\*\/\}?\s*\{p\.nom\}|<td className=\{`px-3 py-2 font-semibold min-w-\[170px\] \$\{celluleFigee\(enRetard \? "bg-orange-50" : "bg-white"\)\}`\}>\s*\{p\.nom\}/.test(P)
+    && !/sticky left-0/.test(P));
   test("★ les gestes passent à la ligne au lieu de courir à droite",
     /flex flex-wrap items-center gap-x-2 gap-y-1 min-w-\[260px\] max-w-\[420px\]/.test(P));
   const capture = "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour. Estimation donnée : ~34,2 kWh/jour, 22 panneaux 400W, 4 batteries 200Ah 48V, convertisseur 5,5 kW, entre 4 600 000 et 6 250 000 F CFA.";
