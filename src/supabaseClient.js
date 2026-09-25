@@ -104,9 +104,10 @@ export async function creerFilleulEnLigne({ nom, tel, note }) {
   if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
   if (!navigator.onLine) return { error: "Le parrainage demande une connexion internet. Réessayez une fois en ligne." };
   try {
+    await assurerSession().catch(() => false);
     const { data } = await supabase.auth.getSession();
     const jeton = data?.session?.access_token;
-    if (!jeton) return { error: "Votre session a expiré. Déconnectez-vous et reconnectez-vous pour parrainer." };
+    if (!jeton) return { error: "La session sécurisée n'a pas pu être rétablie. Entrez votre mot de passe dans la fenêtre de verrouillage, puis réessayez." };
     const reponse = await fetch(URL_CREER_FILLEUL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -130,14 +131,34 @@ const URL_NOTIFIER = BASE ? `${BASE}/api/notifier` : "/api/notifier";
 async function appelAvecJeton(urlFonction, corps) {
   if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
   if (typeof navigator !== "undefined" && navigator.onLine === false) return { error: "Hors ligne." };
-  try {
+  // ⚠⚠ LE JETON SE RENOUVELLE AVANT L'APPEL, ET UNE FOIS DE PLUS SI LE
+  // SERVEUR LE REFUSE (capture Timo, 25/09/2026 : 📋 Clients → WhatsApp →
+  // « Votre session a expiré. Reconnectez-vous »). Les écritures passaient
+  // déjà par `assurerSession` ; ces appels-là prenaient le jeton tel quel —
+  // un téléphone resté en veille envoyait un jeton périmé. Et « reconnectez-
+  // vous » est interdit depuis le 09/09/2026 : une session tombée se rétablit
+  // toute seule, sinon la fenêtre de verrou demande le mot de passe.
+  const envoyer = async () => {
     const { data } = await supabase.auth.getSession();
     const jeton = data?.session?.access_token;
-    if (!jeton) return { error: "Pas de session sécurisée." };
-    const reponse = await fetch(urlFonction, {
+    if (!jeton) return null;
+    return fetch(urlFonction, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jeton, ...corps }),
     });
+  };
+  try {
+    await assurerSession().catch(() => false);
+    let reponse = await envoyer();
+    if (!reponse || reponse.status === 401) {
+      try { await supabase.auth.refreshSession(); } catch { /* on tente les identifiants */ }
+      if (!(await sessionActive())) await assurerSession().catch(() => false);
+      reponse = await envoyer();
+    }
+    if (!reponse || reponse.status === 401) {
+      marquerSessionPerdue("Session sécurisée expirée : entrez votre mot de passe pour la rétablir.");
+      return { error: "Session sécurisée expirée.", statut: 401 };
+    }
     const resultat = await reponse.json().catch(() => ({}));
     // ⚠ On garde ce que la fonction serveur a mis en plus (le code de refus
     // de WhatsApp, par exemple) : `error` et `statut` restent les seuls

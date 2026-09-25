@@ -262,6 +262,26 @@ test("★ formation et premier contact sont ATTENDUS : aucune fenêtre",
   M.motifAttendu(M.MOTIF_FORMATION) && M.motifAttendu(M.MOTIF_PREMIER_CONTACT));
 test("★ un serveur pas configuré SE DIT", !M.motifAttendu(M.MOTIF_ECHEC[500]));
 test("★ une session expirée aussi", !M.motifAttendu(M.MOTIF_ECHEC[401]));
+// ⚠⚠ 25/09/2026 (capture Timo, 📋 Clients → WhatsApp : « Votre session a
+// expiré. Reconnectez-vous ») : le jeton partait tel quel, périmé après une
+// veille. Il se renouvelle AVANT l'appel et une fois de plus sur un 401 ;
+// sinon la fenêtre de verrou redemande le mot de passe. Jamais « reconnectez-vous ».
+{
+  const cli = lire("src/supabaseClient.js");
+  const i = cli.indexOf("async function appelAvecJeton");
+  const corpsAppel = cli.slice(i, cli.indexOf("export const abonnerPushEnLigne", i));
+  test("★ session : le jeton est RENOUVELÉ avant l'appel (assurerSession avant le premier envoi)",
+    corpsAppel.indexOf("assurerSession()") > -1 && corpsAppel.indexOf("assurerSession()") < corpsAppel.indexOf("let reponse = await envoyer()"));
+  test("★ session : un 401 déclenche un rafraîchissement et UN second essai",
+    /reponse\.status === 401\)\s*\{[\s\S]*?refreshSession\(\)[\s\S]*?reponse = await envoyer\(\)/.test(corpsAppel));
+  test("★ session : un second 401 ouvre la fenêtre de verrou (marquerSessionPerdue)",
+    /marquerSessionPerdue\(/.test(corpsAppel));
+  test("★ le motif 401 ne dit JAMAIS « reconnectez-vous » (règle du 09/09/2026)",
+    !/reconnect/i.test(M.MOTIF_ECHEC[401]) && /mot de passe/.test(M.MOTIF_ECHEC[401]));
+  test("★ le parrainage renouvelle aussi la session et ne dit plus « reconnectez-vous »",
+    /creerFilleulEnLigne[\s\S]*?assurerSession\(\)[\s\S]*?getSession/.test(cli)
+    && !/pour parrainer\." \}/.test(cli.slice(cli.indexOf("creerFilleulEnLigne"), cli.indexOf("URL_ETAT_AUTH"))));
+}
 test("★ un refus de WhatsApp aussi (motif rendu tel quel)", !M.motifAttendu("Template not approved"));
 test("un motif vide n'est pas « attendu » par défaut", !M.motifAttendu("") && !M.motifAttendu(null));
 test("★ le message de repli DIT ce qui s'est passé à la place",

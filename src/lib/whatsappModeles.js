@@ -514,7 +514,7 @@ export function ligneEnvoiModele(modele, variables) {
 // ⚠ On ne perd JAMAIS un message en silence : tout échec ramène le bouton
 // WhatsApp d'aujourd'hui. Le motif se dit en français, jamais un code.
 export const MOTIF_ECHEC = {
-  401: "Votre session a expiré. Reconnectez-vous, puis réessayez.",
+  401: "La session sécurisée n'a pas pu être rétablie. Entrez votre mot de passe dans la fenêtre de verrouillage qui s'affiche, puis réessayez.",
   403: "Ce compte n'a pas le droit d'envoyer un message au nom de BMI.",
   429: "Trop de messages d'un coup : WhatsApp demande d'attendre un moment.",
   500: "Le serveur n'est pas encore configuré pour WhatsApp.",
