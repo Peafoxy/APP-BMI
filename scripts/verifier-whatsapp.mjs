@@ -61,10 +61,15 @@ const ATTENDU = {
   // l'administrateur quand un client demande un conseiller. UTILITY, trois
   // trous. Il ne part JAMAIS d'un écran : c'est le serveur qui l'envoie.
   alerte_conseiller: { categorie: "utility", n: 3 },
+  // ⚠ LES DOUZIÈME ET TREIZIÈME (25/09/2026, « Lance avec ces deux textes ») :
+  // le reçu d'un versement sur une dette et celui d'une réservation. UTILITY
+  // (des transactions en cours), SEPT trous chacun.
+  recu_reglement: { categorie: "utility", n: 7 },
+  recu_reservation: { categorie: "utility", n: 7 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les onze modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les treize modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1173,8 +1178,9 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
     && M.ligneEnvoiModele("rappel_dette", ["ESSO", "01/09/2026", "80 000 F"]) === "");
   // ⚠ RETOURNÉ le 23/09/2026 : HUIT — le mot de fidélité (deux textes) et le
   // reçu de vente s'écrivent aussi dans le fil.
-  test("★ les huit modèles à ligne : devis, dette, mot de fidélité, reçu de vente — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_vente,relance_devis");
+  // ⚠ RETOURNÉ le 25/09/2026 : dix — les reçus de versement et de réservation.
+  test("★ les dix modèles à ligne : devis, dette, mot de fidélité, les trois reçus — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,relance_devis");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -1210,7 +1216,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
     const lignes = (src.match(/messages: r\.auto \? messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: [^}]*modele: envoi\.modele, variables: envoi\.variables, ref: \{ [a-z_]+: [\w.]+ \} \}\) : etat\.messages/g) || []);
     test(`★★ ${f} : chaque envoi par modèle écrit la ligne dans 📲 WhatsApp si le message est parti du numéro BMI, par save((etat) => …) (${lignes.length}/${envois})`,
       envois > 0 && lignes.length === envois && lignes.every((l) => l.includes(ref))
-      && new RegExp(`messagesAvecLigneEnvoi \\} from "${chemin.replace(/\./g, "\\.")}"`).test(src)
+      // ⚠ RETOURNÉ le 25/09/2026 : l'import peut porter d'autres noms (le reçu automatique).
+      && new RegExp(`messagesAvecLigneEnvoi[^}]*\\} from "${chemin.replace(/\./g, "\\.")}"`).test(src)
       && /save\(\(etat\) => \(\{\s*\.\.\.etat,/.test(src));
   }
   test("★★ src/whatsapp.js porte la fonction, écrite UNE fois, qui passe par la règle pure et garde le propriétaire de la fiche légère",
@@ -2212,6 +2219,73 @@ titre("㉗ 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE FOIS (25/09
   test("★ la consigne et l'outil le disent : jamais l'estimation ni un montant dans le besoin",
     /jamais l'estimation ni un montant : l'application garde l'estimation à part/.test(I.CONSIGNE_IA)
     && /Jamais l'estimation ni aucun montant/.test(JSON.stringify(I.OUTILS_IA)));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « Lance avec ces deux textes »)");
+{
+  const fmtR = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
+  const dFRr = (x) => String(x || "").split("-").reverse().join("/");
+  test("★★ les deux textes de Timo, mot pour mot",
+    M.TEXTE_RECU_REGLEMENT === "Bonjour {{1}},\nBMI TOGO a bien reçu votre versement de {{2}} le {{3}} ({{4}}).\nReçu N° {{5}} : {{6}}.\nPour toute question veuillez contacter : {{7}}.\nMerci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents\nwww.bmitogo.com"
+    && M.TEXTE_RECU_RESERVATION === "Bonjour {{1}},\nVotre réservation du {{2}} à {{3}} est bien enregistrée.\nRéservation N° {{4}} : {{5}}, {{6}}.\nLa marchandise vous sera remise dès qu'elle sera disponible.\nPour toute question veuillez contacter : {{7}}.\nMerci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents");
+  test("★ les deux sont EN SERVICE (un écran peut les envoyer)",
+    M.MODELES_EN_SERVICE.includes("recu_reglement") && M.MODELES_EN_SERVICE.includes("recu_reservation"));
+  const dette = { id: "D1", numero: "DET-0007", client: "ESSO", tel: "90112233", boutique: "BMI DEMAKPOE", montant: 160000, paye: 110000 };
+  const versement = { montant: 60000, date: "2026-09-25", paiement: "Mobile Money (Flooz)" };
+  const e1 = M.envoiRecuReglement({ dette, versement, boutique: { tel: "+228 91 13 05 11" }, fmt: fmtR, dFR: dFRr });
+  test("★★ le versement : les sept trous — nom, montant VERSÉ, date, moyen, n° de la dette, CE QUI RESTE, téléphone de la boutique",
+    e1 && e1.modele === "recu_reglement"
+    && e1.variables.join("|") === `ESSO|${fmtR(60000)}|25/09/2026|par Mobile Money (Flooz)|DET-0007|il reste ${fmtR(50000)} sur un total de ${fmtR(160000)}|+228 91 13 05 11`
+    && M.critiqueModele("recu_reglement", e1.variables) === "");
+  test("★★ le DERNIER versement dit « votre compte est soldé, merci », jamais « il reste 0 F »",
+    M.envoiRecuReglement({ dette: { ...dette, paye: 160000 }, versement, boutique: {}, fmt: fmtR, dFR: dFRr }).variables[5] === "votre compte est soldé, merci");
+  test("★ en espèces → « en espèces » ; sans numéro, ou sans montant → aucun reçu ; boutique sans téléphone → le numéro BMI",
+    M.moyenVersement("Espèces") === "en espèces" && M.moyenVersement("Virement bancaire") === "par virement bancaire"
+    && M.envoiRecuReglement({ dette: { ...dette, tel: "" }, versement, boutique: {}, fmt: fmtR, dFR: dFRr }) === null
+    && M.envoiRecuReglement({ dette, versement: { ...versement, montant: 0 }, boutique: {}, fmt: fmtR, dFR: dFRr }) === null
+    && M.envoiRecuReglement({ dette, versement, boutique: {}, fmt: fmtR, dFR: dFRr }).variables[6] === M.NUMERO_BMI_PRINCIPAL);
+  const resa = { id: "R1", numero: "DET-0008", client: "AYOKO", tel: "90114455", boutique: "BMI DEMAKPOE", date: "2026-09-25", montant: 300000, paye: 100000, type: "prepaye" };
+  const e2 = M.envoiRecuReservation({ reservation: resa, boutique: {}, fmt: fmtR, dFR: dFRr });
+  test("★★ la réservation : nom, date, boutique, n°, TOTAL, « avance …, reste … », téléphone",
+    e2 && e2.modele === "recu_reservation"
+    && e2.variables.join("|") === `AYOKO|25/09/2026|BMI DEMAKPOE|DET-0008|${fmtR(300000)}|avance ${fmtR(100000)}, reste ${fmtR(200000)}|${M.NUMERO_BMI_PRINCIPAL}`
+    && M.critiqueModele("recu_reservation", e2.variables) === "");
+  test("★ réservation sans avance, ou payée en entier : la formule le DIT",
+    M.envoiRecuReservation({ reservation: { ...resa, paye: 0 }, boutique: {}, fmt: fmtR, dFR: dFRr }).variables[5] === `aucune avance, reste ${fmtR(300000)}`
+    && M.envoiRecuReservation({ reservation: { ...resa, paye: 300000 }, boutique: {}, fmt: fmtR, dFR: dFRr }).variables[5] === "entièrement payée");
+  test("★ le texte lisible remplit les sept trous, et la ligne du fil le raconte",
+    M.texteRecu(e1).includes(`versement de ${fmtR(60000)} le 25/09/2026 (par Mobile Money (Flooz))`)
+    && /Reçu de versement N° DET-0007 envoyé à ESSO/.test(M.ligneEnvoiModele("recu_reglement", e1.variables))
+    && /Reçu de réservation N° DET-0008 envoyé à AYOKO/.test(M.ligneEnvoiModele("recu_reservation", e2.variables)));
+
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const W = sansComm(lire("src/whatsapp.js"));
+  const i = W.indexOf("export async function envoyerRecuSansQuestion");
+  const corps = W.slice(i, W.indexOf("\n}", i));
+  test("★★ UNE fonction envoie les deux reçus : SANS repli (WhatsApp ne s'ouvre jamais), la ligne du fil seulement si parti du numéro BMI, sans donner la conversation",
+    i > 0 && /sansRepli: true/.test(corps) && !/envoyerWhatsApp\(/.test(corps)
+    && /if \(r\.auto\)/.test(corps) && !/donnerAuSender/.test(corps) && /motifAttendu\(r\.motif\)/.test(corps));
+  const D = sansComm(lire("src/screens/Dettes.jsx"));
+  const enc = D.slice(D.indexOf("const encaisser = async"), D.indexOf("const ajouterArticleRes"));
+  test("★★ 📋 Dettes, chaque versement : le reçu part sur la dette APRÈS le versement, le mur = l'espace de la BOUTIQUE de la dette",
+    /envoiRecuReglement\(\{ dette: dApres, versement: paiement,/.test(enc)
+    && /espaceFormation: !!bqD\.formation/.test(enc) && !/estCompteFormation\(db, profile\)/.test(enc));
+  const cre = D.slice(D.indexOf("const creerReservation = async"), D.indexOf("const livrer = async"));
+  test("★★ 📋 Dettes, une réservation : le reçu de RÉSERVATION seul (son avance est dedans, jamais un reçu de versement en plus)",
+    /envoiRecuReservation\(\{ reservation: r,/.test(cre) && !/envoiRecuReglement/.test(cre) && /espaceFormation: !!bqR\.formation/.test(cre));
+  const Vt = sansComm(lire("src/screens/Ventes.jsx"));
+  const blocRes = Vt.slice(Vt.indexOf("if (creerCommeReservation) {"), Vt.indexOf("const messageConfirm ="));
+  test("★★ 💰 Ventes, une vente devenue réservation : le reçu de réservation part aussi, jamais le reçu de vente",
+    /envoiRecuReservation\(\{ reservation, boutique: bqR,/.test(blocRes) && !/envoyerRecuAutomatique\(/.test(blocRes)
+    && /espaceFormation: !!bqR\.formation/.test(blocRes));
+  const CI = sansComm(lire("src/screens/ClientsInstalles.jsx"));
+  const pose = CI.slice(CI.indexOf("const encaisserPose = async"), CI.indexOf("const forcerReceptionSansSignature"));
+  test("★★ 🏠 Clients installés, un versement : le même reçu, sur la dette APRÈS le versement",
+    /envoiRecuReglement\(\{ dette: \{ \.\.\.detteApres, tel: telV \}, versement: paiement,/.test(pose) && /envoyerRecuSansQuestion\(/.test(pose)
+    && /espaceFormation: !!bqV\.formation \|\| !!c\.formation/.test(pose));
+  test("★ les trois écrans DISENT ce qui s'est passé, discrètement (jamais une fenêtre)",
+    [D, Vt, CI].every((x) => /data-recu-whatsapp/.test(x) && /setNoteRecuWa/.test(x)));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

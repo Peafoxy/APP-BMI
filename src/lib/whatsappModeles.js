@@ -123,6 +123,11 @@ export const MODELES = {
   // numéro réglé dans ⚙ Paramètres — aucun écran ne l'envoie (il n'est donc
   // pas dans MODELES_EN_SERVICE).
   alerte_conseiller: { categorie: "utility", variables: ["administrateur", "client", "numero"] },
+  // 🧾 25/09/2026, Timo : « les réservations et les règlements de dette
+  // auront aussi les messages ? » → « Lance avec ces deux textes ».
+  // UTILITY tous les deux : des transactions en cours.
+  recu_reglement: { categorie: "utility", variables: ["client", "montant", "date", "paiement", "numero", "situation", "telephone"] },
+  recu_reservation: { categorie: "utility", variables: ["client", "date", "boutique", "numero", "montant", "situation", "telephone"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -144,6 +149,10 @@ export const MODELES_EN_SERVICE = [
   // Meta (d'ici là : repli sur l'ouverture WhatsApp pour le mot de
   // fidélité ; RIEN pour le reçu de vente, qui ne dérange jamais le vendeur).
   "mot_fidelite", "mot_fidelite_simple", "recu_vente",
+  // 25/09/2026 : les reçus d'un versement sur une dette et d'une réservation.
+  // En service AVANT l'accord de Meta : d'ici là rien ne part, et l'écran le
+  // dit discrètement (même règle que le reçu de vente).
+  "recu_reglement", "recu_reservation",
 ];
 
 // ---------------------------------------------------------------
@@ -496,6 +505,8 @@ const LIGNES_ENVOI = {
   mot_fidelite: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   mot_fidelite_simple: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   recu_vente: ([client, date, boutique, recu, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique}, ${montant}, ${paiement}.`,
+  recu_reglement: ([client, montant, date, paiement, numero, situation]) => `Reçu de versement N° ${numero} envoyé à ${client} : ${montant} le ${date} (${paiement}), ${situation}.`,
+  recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
 export const PREFIXE_LIGNE_ENVOI = "📲 Envoyé du numéro BMI — ";
@@ -764,6 +775,102 @@ export function envoiRecuVente({ vente, boutique, montant, avance = 0, reste = 0
 export function texteRecuVente(envoi) {
   if (!envoi) return "";
   return envoi.variables.reduce((t, v, i) => t.replace(`{{${i + 1}}}`, v), TEXTE_RECU_VENTE);
+}
+
+// ---------------------------------------------------------------
+// 🧾 LE REÇU D'UN VERSEMENT, LE REÇU D'UNE RÉSERVATION (25/09/2026)
+// ---------------------------------------------------------------
+// Timo : « les réservations et les règlements de dette auront aussi les
+// messages ? » → « Lance avec ces deux textes ». Mot pour mot chez Meta.
+// Mêmes règles que le reçu de vente : ils partent tout seuls, sans question
+// et SANS REPLI (WhatsApp ne s'ouvre jamais) ; rien en formation, rien sans
+// numéro ; le {{7}} est le téléphone de la boutique, sinon le numéro BMI.
+export const TEXTE_RECU_REGLEMENT = [
+  "Bonjour {{1}},",
+  "BMI TOGO a bien reçu votre versement de {{2}} le {{3}} ({{4}}).",
+  "Reçu N° {{5}} : {{6}}.",
+  "Pour toute question veuillez contacter : {{7}}.",
+  "Merci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents",
+  "www.bmitogo.com",
+].join("\n");
+export const TEXTE_RECU_RESERVATION = [
+  "Bonjour {{1}},",
+  "Votre réservation du {{2}} à {{3}} est bien enregistrée.",
+  "Réservation N° {{4}} : {{5}}, {{6}}.",
+  "La marchandise vous sera remise dès qu'elle sera disponible.",
+  "Pour toute question veuillez contacter : {{7}}.",
+  "Merci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents",
+].join("\n");
+
+// Le moyen d'un VERSEMENT, en toutes lettres (trou 4) : la formule du reçu
+// de vente sans son « payé ». Un versement n'est jamais « à crédit ».
+export function moyenVersement(paiement) {
+  const p = String(paiement || "");
+  if (!p || /cr[ée]dit/i.test(p)) return "en espèces";
+  return formulePaiement({ paiement: p }).replace(/^payé /, "");
+}
+// Où en est la dette APRÈS ce versement (trou 6).
+export function situationDette({ total, paye, fmt }) {
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const reste = Math.max(0, Number(total || 0) - Number(paye || 0));
+  return reste > 0 ? `il reste ${f(reste)} sur un total de ${f(Number(total || 0))}` : "votre compte est soldé, merci";
+}
+const nomClientRecu = (nom) => {
+  const n = texteVariable(nom);
+  return !n || /client non renseign/i.test(n) ? "cher client" : n;
+};
+// `dette` = la dette APRÈS le versement ; `versement` = la ligne qu'on vient
+// d'ajouter. Rend null sans numéro ou sans montant (rien à envoyer).
+export function envoiRecuReglement({ dette, versement, boutique, fmt, dFR }) {
+  if (!dette || !String(dette.tel || "").replace(/\D/g, "")) return null;
+  const m = Number(versement?.montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  return {
+    modele: "recu_reglement",
+    variables: [
+      nomClientRecu(dette.client),
+      f(m),
+      d(versement.date) || "aujourd'hui",
+      moyenVersement(versement.paiement),
+      texteVariable(dette.numero) || "—",
+      situationDette({ total: dette.montant, paye: dette.paye, fmt: f }),
+      texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,
+    ],
+  };
+}
+// La réservation telle qu'enregistrée (son avance est DANS `paye` : on ne
+// l'annonce pas une seconde fois par un reçu de versement).
+export function envoiRecuReservation({ reservation, boutique, fmt, dFR }) {
+  const r = reservation;
+  if (!r || !String(r.tel || "").replace(/\D/g, "")) return null;
+  const total = Number(r.montant);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  const paye = Math.max(0, Number(r.paye || 0));
+  const reste = Math.max(0, total - paye);
+  const situation = reste <= 0 ? "entièrement payée"
+    : paye > 0 ? `avance ${f(paye)}, reste ${f(reste)}` : `aucune avance, reste ${f(reste)}`;
+  return {
+    modele: "recu_reservation",
+    variables: [
+      nomClientRecu(r.client),
+      d(r.date) || "aujourd'hui",
+      texteVariable(r.boutique) || "BMI TOGO",
+      texteVariable(r.numero) || "—",
+      f(total),
+      situation,
+      texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL,
+    ],
+  };
+}
+// Le texte lisible d'un envoi, quel que soit le reçu.
+export function texteRecu(envoi) {
+  if (!envoi) return "";
+  const t = { recu_vente: TEXTE_RECU_VENTE, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION }[envoi.modele];
+  return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 
 // ---------------------------------------------------------------

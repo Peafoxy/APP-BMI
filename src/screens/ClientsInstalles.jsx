@@ -11,8 +11,8 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
-import { messageIdentifiants } from "../lib/whatsappModeles";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerRecuSansQuestion } from "../whatsapp";
+import { messageIdentifiants, envoiRecuReglement } from "../lib/whatsappModeles";
 import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
@@ -118,6 +118,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const [f, setF] = useState(vide);
   const [carteOuverte, setCarteOuverte] = useState(false);
   const [q, setQ] = useState("");
+  // 🧾 25/09/2026 : ce que le reçu WhatsApp d'un versement est devenu.
+  const [noteRecuWa, setNoteRecuWa] = useState("");
   const [filtreEntretien, setFiltreEntretien] = useState(false);
 
   // Comptes de rôle "client" pas encore rattachés à une fiche (pour lier un accès à l'app)
@@ -583,6 +585,15 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({ ...db, dettes: db.dettes.map((x) => (x.id === dette.id ? detteApres : x)) },
       `Versement pose seule ${fmt(m)} de ${c.nom} — ${boutiqueEncaissement} (${enBoutique ? "boutique" : "terrain"})`);
     uAlert("✅ Versement enregistré !");
+    // 🧾 Le reçu du versement part du numéro BMI (Timo, 25/09/2026), tout
+    // seul. ⚠ Le mur : l'espace de la caisse qui encaisse, ou du chantier.
+    const bqV = (db.boutiques || []).find((b) => b.nom === boutiqueEncaissement) || {};
+    const telV = detteApres.tel || c.tel;
+    setNoteRecuWa(await envoyerRecuSansQuestion({
+      envoi: envoiRecuReglement({ dette: { ...detteApres, tel: telV }, versement: paiement, boutique: bqV, fmt, dFR }),
+      tel: telV, nom: detteApres.client || `${c.prenom || ""} ${c.nom || ""}`.trim(),
+      espaceFormation: !!bqV.formation || !!c.formation, save, profile, ref: { dette_id: detteApres.id },
+    }));
   };
 
   // BMI constate la réception SANS AUCUNE SIGNATURE (cas exceptionnel —
@@ -852,6 +863,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   return (
     <div className="space-y-4">
+      {noteRecuWa && <div data-recu-whatsapp className="text-xs text-slate-600">{noteRecuWa}</div>}
       <Panel>
         <div className="font-bold mb-3">🏠 Nouveau client installé</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -4604,7 +4604,8 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     {
       const srcD = readFileSync("src/screens/Dettes.jsx", "utf8");
       test("★ la relance d'une dette part du numéro BMI par le chemin unique, avec le texte du modèle en repli",
-        /import \{ envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/whatsapp";/.test(srcD)
+        // ⚠ RETOURNÉ le 25/09/2026 : l'import porte aussi le reçu automatique d'un versement.
+        /import \{ envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion \} from "\.\.\/whatsapp";/.test(srcD)
         && /texteRepli: texte,/.test(srcD)
         && /demanderConfirmation: uConfirm,/.test(srcD)
         && !/envoyerWhatsApp\(/.test(srcD));

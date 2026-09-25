@@ -26,8 +26,8 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
-import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { envoiRecuVente, motifAttendu } from "../lib/whatsappModeles";
+import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
+import { envoiRecuVente, motifAttendu, envoiRecuReservation } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
@@ -627,6 +627,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // "NON LIVRÉ" (2.99.62) qui s'applique automatiquement puisque
       // reservation.type === "prepaye" et statut !== "livree".
       try { imprimerRecuVersement(reservation, infoBq(boutique)); } catch {}
+      // 🧾 Le reçu de la réservation part du numéro BMI (Timo, 25/09/2026).
+      // Son avance est dedans : pas de reçu de versement en plus.
+      const bqR = infoBq(reservation.boutique);
+      envoyerRecuSansQuestion({
+        envoi: envoiRecuReservation({ reservation, boutique: bqR, fmt, dFR }),
+        tel: reservation.tel, nom: reservation.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: reservation.id },
+      }).then(setNoteRecuWa);
       setPanier([]);
       setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
       setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });

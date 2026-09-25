@@ -23,7 +23,7 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 
@@ -229,4 +229,28 @@ export async function chargerMediaWa(messageId) {
     return { url: "", motif: reponse?.error || "Fichier indisponible." };
   }
   return { url: URL.createObjectURL(reponse.blob), motif: "" };
+}
+
+// ---------------------------------------------------------------
+// 🧾 UN REÇU QUI PART TOUT SEUL (25/09/2026)
+// ---------------------------------------------------------------
+// Le versement sur une dette et la réservation (📋 Dettes, 🏠 Clients
+// installés, 💰 Ventes). UNE fonction pour les quatre gestes : le modèle part
+// du numéro BMI SANS question et SANS repli (WhatsApp ne s'ouvre jamais), la
+// ligne entre dans 📲 WhatsApp sans donner la conversation à personne. Rend
+// la phrase à afficher discrètement (vide si rien à dire : pas de numéro,
+// formation — le cas normal ne dérange personne).
+export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {} }) {
+  if (!envoi) return "";
+  const r = await envoyerModele({ tel, modele: envoi.modele, variables: envoi.variables, espaceFormation, sansRepli: true });
+  if (r.auto) {
+    if (typeof save === "function") {
+      save((etat) => ({
+        ...etat,
+        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref }),
+      }));
+    }
+    return `📲 Reçu envoyé du numéro BMI à ${nom}.`;
+  }
+  return r.motif && !motifAttendu(r.motif) ? `Le reçu n'est pas parti du numéro BMI : ${r.motif}` : "";
 }

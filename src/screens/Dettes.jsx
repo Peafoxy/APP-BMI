@@ -13,9 +13,9 @@ import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels";
-import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
+import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace, envoiRecuReglement, envoiRecuReservation } from "../lib/whatsappModeles";
 import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
-import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
@@ -28,6 +28,10 @@ export function Dettes({ db, save, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dettes" });
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
+  // 🧾 25/09/2026 : ce que le reçu WhatsApp automatique est devenu, dit
+  // discrètement sous les boutiques (jamais une fenêtre).
+  const [noteRecuWa, setNoteRecuWa] = useState("");
+  const bqDe = (nom) => (db.boutiques || []).find((b) => b.nom === nom) || {};
   // Timo (13/09/2026) : « appliquer la même règle que dans Ventes pour
   // restructurer les dettes » — UNE dette dépliée à la fois (la suite des
   // articles au clic sur la ligne, un clic sur une autre la déplie directement).
@@ -74,6 +78,13 @@ export function Dettes({ db, save, profile }) {
     // l'historique cumulé (pas seulement celui du jour) — et devient
     // automatiquement le reçu DÉFINITIF si ce versement solde la dette.
     imprimerRecuVersement(dApres, db.boutiques.find((b) => b.nom === d.boutique) || {});
+    // 🧾 Le reçu du versement part du numéro BMI (Timo, 25/09/2026), tout
+    // seul. ⚠ Le mur : l'espace de la BOUTIQUE de la dette.
+    const bqD = bqDe(dApres.boutique);
+    setNoteRecuWa(await envoyerRecuSansQuestion({
+      envoi: envoiRecuReglement({ dette: dApres, versement: paiement, boutique: bqD, fmt, dFR }),
+      tel: dApres.tel, nom: dApres.client, espaceFormation: !!bqD.formation, save, profile, ref: { dette_id: dApres.id },
+    }));
   };
 
   // ---- RÉSERVATION PRÉPAYÉE ----
@@ -107,6 +118,13 @@ export function Dettes({ db, save, profile }) {
       echeance: res.echeance || null, statut: "en_cours", par: profile.nom,
     };
     save({ ...db, dettes: [r, ...db.dettes] }, `Réservation prépayée ${res.client.trim()} (${fmt(totalRes)}) — ${boutique}`);
+    // 🧾 Le reçu de la réservation part du numéro BMI (25/09/2026). Son avance
+    // est dedans : pas de reçu de versement en plus.
+    const bqR = bqDe(r.boutique);
+    envoyerRecuSansQuestion({
+      envoi: envoiRecuReservation({ reservation: r, boutique: bqR, fmt, dFR }),
+      tel: r.tel, nom: r.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: r.id },
+    }).then(setNoteRecuWa);
     setPanierRes([]);
     setRes({ client: "", tel: "", produit_id: "", qte: "", avance: "", moyen: "Espèces", echeance: "" });
     uAlert("✅ Réservation créée.");
@@ -277,6 +295,7 @@ export function Dettes({ db, save, profile }) {
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="dettes" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {noteRecuWa && <div data-recu-whatsapp className="text-xs text-slate-600">{noteRecuWa}</div>}
 
       <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
         <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</div>
