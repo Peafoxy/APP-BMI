@@ -2356,6 +2356,20 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
       /if \(!telDigits\(v\.tel\) \|\| bq\.formation\) \{ recuWhatsApp\(v, bq\); return; \}/.test(ligne2)
       && ligne2.indexOf("if (!telDigits(v.tel)") < q
       && /if \(r\.motif && !motifAttendu\(r\.motif\)\) await uAlert\(/.test(ligne2) && /\n    recuWhatsApp\(v, bq\);\n  \};$/.test(ligne2));
+    // ★★ UNE VENTE SANS NUMÉRO DEMANDE D'ABORD (Timo, 25/09/2026, « 1 » :
+    // toujours). On découpe le corps de l'encaissement et on exige la
+    // question AVANT la moindre écriture, avec les deux sorties.
+    const enc = (ven2.match(/const encaisserVente = async \(\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    const iQ = enc.indexOf("numeroManquant(f.tel)"), iSave = enc.search(/\bsave\(/);
+    test("★★ 💰 Ventes : sans numéro, la question « Ajouter le client / Continuer sans » est posée AVANT d'enregistrer, et « Ajouter » n'enregistre rien",
+      iQ > 0 && iSave > iQ
+      && /if \(!origineDevis && numeroManquant\(f\.tel\)\) \{\s*const choix = await uChoix\(QUESTION_SANS_NUMERO, \[CHOIX_AJOUTER_CLIENT, CHOIX_CONTINUER_SANS\]\);\s*if \(choix !== CHOIX_CONTINUER_SANS\) \{[^}]*return;/.test(enc));
+    const numeroManquant = (tel) => String(tel || "").replace(/\D/g, "").length < 8;
+    test("★ un numéro de moins de 8 chiffres (« +228 » seul) compte comme absent ; un vrai numéro passe",
+      /export const numeroManquant = \(tel\) => String\(tel \|\| ""\)\.replace\(\/\\D\/g, ""\)\.length < 8;/.test(ven2)
+      && numeroManquant("") && numeroManquant("+228 ") && !numeroManquant("90 56 96 61") && !numeroManquant("+228 90569661"));
+    test("★ « Ajouter le client » remet le curseur dans la case Client (la case est remontée avec autoFocus)",
+      /setFocusClient\(\(n\) => n \+ 1\)/.test(enc) && /<ChampSuggestions key=\{`client-\$\{focusClient\}`\} autoFocus=\{focusClient > 0\}/.test(ven2));
     const imp = lire("src/lib/impression.js");
     test("★ le reçu COMPLET (un article par ligne) est écrit UNE fois : recuWhatsApp l'ouvre, texteRecuComplet le rédige",
       /export function recuWhatsApp\(v, bq = \{\}\) \{\n  envoyerWhatsApp\(v\.tel, texteRecuComplet\(v, bq\)\);\n\}/.test(imp)

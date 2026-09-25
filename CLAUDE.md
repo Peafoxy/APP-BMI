@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 546 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation)
+npm run verifier-whatsapp        # 549 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3161,6 +3161,26 @@ lit mal est pire qu'un banc absent).
   ligne dans la liste, limite retirée). Trois contrôles RETOURNÉS (quatorze
   modèles, onze lignes, l'envoi de Ventes dans une fonction commune).
   Rien à coller dans Supabase.
+
+### 📲 UNE VENTE SANS NUMÉRO DEMANDE D'ABORD (25/09/2026, décision « 1 »)
+- Timo : « une vente sans numéro devrait demander au vendeur d'ajouter le nom
+  et le numéro du client… ou continuer sans les informations du client ».
+  Deux choix proposés — toujours, ou seulement au-dessus d'un montant — et il
+  a pris **« 1 » : TOUJOURS**, même pour un câble à 800 F.
+- Dans `encaisserVente` (Ventes.jsx), après les contrôles et **avant toute
+  écriture** : si `numeroManquant(f.tel)` (moins de 8 chiffres — « +228 » seul
+  ne vaut pas un numéro), `uChoix(QUESTION_SANS_NUMERO, [CHOIX_AJOUTER_CLIENT,
+  CHOIX_CONTINUER_SANS])`. **« Ajouter le client » n'enregistre RIEN** : retour
+  au formulaire, curseur dans la case Client (la case est remontée avec
+  `autoFocus`, `focusClient`). Annuler = rien non plus. « Continuer sans » =
+  la vente d'avant, sans reçu WhatsApp. Un devis encaissé (`origineDevis`)
+  n'est pas questionné : son client a son compte et son numéro.
+- ⚠ Le prix, dit à Timo avant : **un clic de plus à chaque vente anonyme**.
+  Les anciennes ventes sans numéro ne sont pas touchées (le bouton de la ligne
+  ouvre toujours le reçu complet sur l'appareil) — modifier une vente
+  encaissée n'a pas été demandé.
+- Banc (549), éprouvé en retirant la question et en laissant « Ajouter »
+  enregistrer : le contrôle tombe. Rien à coller.
 
 ### 💙 LE MOT DE FIDÉLITÉ DE 👥 UTILISATEURS PART AUSSI DU NUMÉRO BMI (25/09/2026, décision « a »)
 - Timo : « il reste les messages WhatsApp dans utilisateur… ça ouvre toujours

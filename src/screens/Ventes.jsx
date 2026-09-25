@@ -77,6 +77,13 @@ function lignesVenteEnAutres(v) {
   });
 }
 
+// 📲 La question d'une vente sans numéro (25/09/2026). Un numéro de moins de
+// 8 chiffres (« +228 » seul) ne vaut pas un numéro : le reçu ne partirait pas.
+export const QUESTION_SANS_NUMERO = "Le client n'a pas de numéro : il ne recevra pas son reçu sur WhatsApp, et une dette ne pourra pas être relancée.";
+export const CHOIX_AJOUTER_CLIENT = "✏️ Ajouter le client (nom et numéro)";
+export const CHOIX_CONTINUER_SANS = "Continuer sans les informations du client";
+export const numeroManquant = (tel) => String(tel || "").replace(/\D/g, "").length < 8;
+
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "ventes" });
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
@@ -414,6 +421,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // reçu court (`recu_vente`). UNE fonction pour l'encaissement ET le bouton
   // de la ligne. ⚠ Une seule écriture, sur le modèle qui est PARTI.
   // ⚠ Formation : on ne tente pas le second (même motif, rien à gagner).
+  // Le curseur revient dans la case Client quand on choisit « Ajouter le
+  // client » (la case est remontée avec autoFocus).
+  const [focusClient, setFocusClient] = useState(0);
   const envoyerRecuDuNumeroBmi = async (vente, etat) => {
     const bq = infoBq(vente.boutique);
     const dette = (etat.dettes || []).find((d) => d.vente_id === vente.id) || null;
@@ -505,6 +515,20 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // crédit, sinon l'encaissement est bloqué (évite qu'une vente parte par
     // erreur comme "livrée" alors que rien n'a encore été remis, ou l'inverse).
     if (f.paiement === "Crédit (dette)" && !origineDevis && !f.statutArticle) { setMsg("Choisissez le statut de l'article (Livré ou Non livré) avant d'encaisser."); return; }
+    // 📲 UNE VENTE SANS NUMÉRO DEMANDE D'ABORD (Timo, 25/09/2026 : « une
+    // vente sans numéro devrait demander au vendeur d'ajouter le nom et le
+    // numéro du client… ou continuer sans » → « 1 » : TOUJOURS, même pour un
+    // câble à 800 F). Sans numéro, le reçu ne part pas du numéro BMI, et une
+    // dette ne se relance plus. « Ajouter le client » n'enregistre RIEN : on
+    // revient au formulaire, le curseur dans la case Client. Un devis encaissé
+    // porte déjà son client (son compte a son numéro) : pas de question.
+    if (!origineDevis && numeroManquant(f.tel)) {
+      const choix = await uChoix(QUESTION_SANS_NUMERO, [CHOIX_AJOUTER_CLIENT, CHOIX_CONTINUER_SANS]);
+      if (choix !== CHOIX_CONTINUER_SANS) {
+        if (choix === CHOIX_AJOUTER_CLIENT) setFocusClient((n) => n + 1);
+        return;
+      }
+    }
     const nonLivreCredit = f.paiement === "Crédit (dette)" && f.statutArticle === "non_livre" && !origineDevis;
     // ⚠ Trouvaille Timo (vraie insuffisance) : un client qui règle COMPTANT
     // un article en rupture (devis déjà signé) n'avait AUCUNE porte de
@@ -1185,7 +1209,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     propose — un clic remplit le nom ET le numéro. Ce qui est
                     tapé n'est jamais transformé : un client de passage se saisit
                     librement, comme avant. */}
-                <ChampSuggestions valeur={f.client} onChange={(v) => setF({ ...f, client: v })}
+                <ChampSuggestions key={`client-${focusClient}`} autoFocus={focusClient > 0} valeur={f.client} onChange={(v) => setF({ ...f, client: v })}
                   onChoisir={(c) => setF({ ...f, client: c.valeur, tel: c.tel || f.tel })}
                   suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
                   placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : "Nom, ou numéro du client"} />
