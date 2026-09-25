@@ -76,11 +76,10 @@ const ATTENDU = {
   bon_retour: { categorie: "utility", n: 11 },
   // ⚠ LE DIX-SEPTIÈME (25/09/2026, « B, lance ») : le premier devis d'un
   // client, avec ses accès. MARKETING (un devis est une offre).
-  devis_premier: { categorie: "marketing", n: 5 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les dix-sept modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé, les deux bons, le premier devis)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les seize modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -118,16 +117,16 @@ titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
 // ne portent aucun secret — `espace` est le SEUL, et il ne sert qu'à
 // remettre ses identifiants à un compte qu'on vient de créer.
 const MOTS_SECRETS = ["motdepasse", "mot_de_passe", "pwd", "identifiant", "mdp"];
-// ⚠ RETOURNÉ le 25/09/2026 (Timo, « B ») : `devis_premier` — le PREMIER
-// devis d'un client, qui porte ses accès comme `espace`. Ce sont les DEUX
-// seuls modèles qui portent un secret ; les relances n'en portent aucun.
-const PORTEURS_DE_SECRET = ["espace", "devis_premier"];
+// ⚠ RETOURNÉ deux fois le 25/09/2026 : `devis_premier` (un devis avec ses
+// accès) y est entré, puis en est RESSORTI — refusé par Meta, supprimé par
+// Timo. `espace` est de nouveau le SEUL modèle qui porte un secret.
+const PORTEURS_DE_SECRET = ["espace"];
 const trousHorsEspace = Object.entries(M.MODELES).filter(([n]) => !PORTEURS_DE_SECRET.includes(n)).flatMap(([, m]) => m.variables).join(" ").toLowerCase();
-test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant (sauf espace et devis_premier)",
+test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant (sauf espace)",
   !MOTS_SECRETS.some((s) => trousHorsEspace.includes(s)));
-test("★ `espace` et `devis_premier` sont les SEULS qui portent un secret, les accès en DERNIERS trous",
+test("★ `espace` est le SEUL qui porte un secret, et `devis_premier` (refusé par Meta) n'existe plus",
   M.MODELES.espace.variables.join(",") === "client,identifiant,mot_de_passe"
-  && M.MODELES.devis_premier.variables.join(",") === "client,domaine,montant,identifiant,mot_de_passe");
+  && !M.MODELES.devis_premier && !M.MODELES_EN_SERVICE.includes("devis_premier") && !M.envoiDevisPremier && !M.TEXTE_DEVIS_PREMIER);
 const srcPartages = lire("src/screens/dimensionnement/Partages.jsx");
 const srcDevis = lire("src/screens/TousLesDevis.jsx");
 test("★ aucun écran ne passe un mot de passe à l'envoi automatique",
@@ -265,14 +264,19 @@ test("★ une panne du serveur aussi", /catch[\s\S]*return repli\(/.test(srcWhat
 test("★ une réponse en erreur aussi", /reponse\.error[\s\S]*return repli\(/.test(srcWhatsapp));
 test("★ aucune file d'attente (une relance en retard est une faute)",
   !/localStorage/.test(srcWhatsapp) && !/setTimeout/.test(srcWhatsapp));
-test("★ les écrans passent TOUJOURS un texte de repli",
+// ⚠ RETOURNÉ le 25/09/2026 : Partages envoie aussi `espace` AVANT le premier
+// devis, SANS repli (sinon WhatsApp s'ouvrirait deux fois) — c'est le repli
+// du DEVIS qui porte alors les codes. Seul cet envoi-là est dispensé.
+test("★ les écrans passent TOUJOURS un texte de repli (sauf l'envoi d'`espace` avant le premier devis, sansRepli)",
   (srcDevis.match(/envoyerModele\(\{/g) || []).length === (srcDevis.match(/texteRepli:/g) || []).length
-  && (srcPartages.match(/envoyerModele\(\{/g) || []).length === (srcPartages.match(/texteRepli:/g) || []).length);
+  && (srcPartages.match(/envoyerModele\(\{/g) || []).length === (srcPartages.match(/texteRepli:/g) || []).length + (srcPartages.match(/modele: acces\.modele[^}]*sansRepli: true/g) || []).length);
 test("★ la trace ne s'écrit QUE si le message est vraiment parti du n° BMI",
   /if \(r\.auto\)/.test(srcPartages) && /r\.auto \? traceEnvoi/.test(srcDevis));
 test("★ les écrans passent l'espace du DEVIS, jamais celui de la personne",
   /espaceFormation: espaceDuDevis\(db, d, profile\)/.test(srcDevis)
-  && /espaceFormation: !!espaceDeLaFiche\(devisMarque\)/.test(srcPartages));
+  // ⚠ RETOURNÉ le 25/09/2026 : calculé UNE fois pour les deux envois (espace, puis le devis).
+  && /const espaceFormation = !!espaceDeLaFiche\(devisMarque\);/.test(srcPartages)
+  && !/espaceFormation: (?!!!espaceDeLaFiche)[^,\n]*estCompteFormation/.test(srcPartages));
 
 // ──────────────────────────────────────────────────────────────
 titre("⑬ UN REPLI MUET RESSEMBLE À UNE PANNE (Timo, 19/09/2026)");
@@ -1221,9 +1225,9 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : dix — les reçus de versement et de réservation.
   // ⚠ RETOURNÉ le 25/09/2026 (soir) : onze — le reçu de vente détaillé.
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
-  // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis (sa ligne ne porte jamais les accès, ㉚).
-  test("★ les quatorze modèles à ligne : devis, premier devis, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_premier,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
+  // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
+  test("★ les treize modèles à ligne : devis, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -1255,7 +1259,10 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   ];
   for (const [f, ref, chemin] of ecrans) {
     const src = sansComm(lire(f));
-    const envois = (src.match(/await envoyerModele\(\{/g) || []).length;
+    // ⚠ RETOURNÉ le 25/09/2026 : l'envoi d'`espace` avant le premier devis
+    // (Partages) écrit SA ligne, masquée, par messagesAvecLigneAcces — il
+    // n'est pas compté ici (contrôlé en ㉚).
+    const envois = (src.match(/await envoyerModele\(\{/g) || []).length - (src.match(/await envoyerModele\(\{\s*tel: telClient, modele: acces\.modele/g) || []).length;
     const lignes = (src.match(/messages: r\.auto \? messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: [^}]*modele: envoi\.modele, variables: envoi\.variables, ref: \{ [a-z_]+: [\w.]+ \} \}\) : etat\.messages/g) || []);
     test(`★★ ${f} : chaque envoi par modèle écrit la ligne dans 📲 WhatsApp si le message est parti du numéro BMI, par save((etat) => …) (${lignes.length}/${envois})`,
       envois > 0 && lignes.length === envois && lignes.every((l) => l.includes(ref))
@@ -2491,30 +2498,36 @@ titre("㉙ 🧾 LE BON DE REPRISE ET LE BON DE RETOUR PARTENT DU NUMÉRO BMI (25
     plein && M.texteRecu(plein).length <= M.LIMITE_MESSAGE_META && plein.variables[4].length > 0);
 }
 
-titre("㉚ 📄🔑 LE PREMIER DEVIS PART DU NUMÉRO BMI AVEC SES ACCÈS (25/09/2026, « B, lance »)");
+titre("㉚ 📄🔑 LE PREMIER DEVIS : SES ACCÈS (espace) PUIS LE DEVIS (devis_disponible) — RETOURNÉ le 25/09/2026");
 {
-  const fmtP = (n) => `${Number(n || 0).toLocaleString("fr-FR")} F`;
-  const devis = { id: "D1", type_devis: "solaire", total: 1250000 };
-  const compte = { id: "u9", nom: "KOSSI90112233", nom_base: "KOSSI MENSAH", tel: "90112233" };
-  const e = M.envoiDevisPremier({ devis, compte, motDePasse: "Bmi4827", fmt: fmtP });
-  test("★★ le texte, mot pour mot : les accès se lisent « votre espace avec : {{4}} et {{5}} » — jamais les mots « identifiant » ni « mot de passe » (la leçon d'espace)",
-    M.TEXTE_DEVIS_PREMIER.startsWith("Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.")
-    && M.TEXTE_DEVIS_PREMIER.includes("Montant : {{3}}") && M.TEXTE_DEVIS_PREMIER.includes("votre espace avec : {{4}} et {{5}}")
-    && !/identifiant|mot de passe/i.test(M.TEXTE_DEVIS_PREMIER) && M.MODELES_EN_SERVICE.includes("devis_premier"));
-  test("★★ les cinq trous dans l'ordre : nom, domaine, montant, identifiant, mot de passe",
-    e && e.modele === "devis_premier" && e.variables.join("|") === `KOSSI MENSAH|solaire|${fmtP(1250000)}|KOSSI90112233|Bmi4827`
-    && M.critiqueModele("devis_premier", e.variables) === "");
-  test("★★ sans mot de passe connu, AUCUN envoi par ce modèle (la règle d'avant reprend : à la main)",
-    M.envoiDevisPremier({ devis, compte, motDePasse: null, fmt: fmtP }) === null && M.envoiDevisPremier({ devis, compte: { ...compte, nom: "" }, motDePasse: "x", fmt: fmtP }) === null);
-  const ligneP = M.ligneEnvoiModele("devis_premier", e.variables);
-  test("★★ la ligne du fil 📲 WhatsApp ne porte JAMAIS les accès",
-    /^📲 Envoyé du numéro BMI — Devis solaire de .+ envoyé à KOSSI MENSAH, avec ses accès/.test(ligneP) && !ligneP.includes("Bmi4827") && !ligneP.includes("KOSSI90112233"));
+  // ⚠ RETOURNÉ : `devis_premier` (un seul message, devis + accès) a été
+  // refusé trois fois par Meta et supprimé par Timo. « Lance » : deux
+  // messages, `espace` d'abord, puis `devis_disponible` — et un seul si ses
+  // accès sont déjà partis.
+  const neuf = { id: "u9", nom: "KOSSI90112233", nom_base: "KOSSI MENSAH", tel: "90112233", devis: [{ id: "D1" }] };
+  test("★★ un client tout neuf, sans ligne d'accès dans le fil : ses accès ne sont PAS partis",
+    M.accesDejaEnvoyes(neuf, "D1", []) === false && M.accesDejaEnvoyes(neuf, "D1", undefined) === false);
+  test("★★ la ligne `espace` du fil (wa_acces.client_id) prouve que ses accès sont partis : le devis part SEUL (on ne paie pas deux fois)",
+    M.accesDejaEnvoyes(neuf, "D1", [{ id: "m1", wa_acces: { client_id: "u9" } }]) === true);
+  test("★ la ligne d'accès d'un AUTRE client ne compte pas",
+    M.accesDejaEnvoyes(neuf, "D1", [{ id: "m1", wa_acces: { client_id: "u8" } }]) === false);
+  test("★ un client déjà contacté (autre devis, ou application ouverte) aussi",
+    M.accesDejaEnvoyes({ ...neuf, info_donnees_le: "2026-09-01" }, "D1", []) === true
+    && M.accesDejaEnvoyes({ ...neuf, devis: [{ id: "D0" }, { id: "D1" }] }, "D1", []) === true);
   const P = lire("src/screens/dimensionnement/Partages.jsx").replace(/^\s*\/\/.*$/gm, "");
-  test("★★ Partages : un client jamais contacté reçoit devis_premier ; premierContact ne joue que s'il n'a pas pu être rempli ; le mur reste l'espace du DEVIS",
-    /const premier = !clientDejaContacte\(compte, idDevis\);/.test(P)
-    && /const envoiPremier = premier \? envoiDevisPremier\(\{ devis: devisMarque, compte, motDePasse, fmt \}\) : null;/.test(P)
-    && /const envoi = envoiPremier \|\| envoiDevisDisponible\(/.test(P)
-    && /premierContact: premier && !envoiPremier,/.test(P) && /espaceFormation: !!espaceDeLaFiche\(devisMarque\)/.test(P));
+  const iAcces = P.indexOf("envoiIdentifiants({"), iDevis = P.indexOf("envoiDevisDisponible({ devis: devisMarque");
+  test("★★ Partages : `espace` part AVANT le devis, et seulement si ses accès ne sont pas déjà partis",
+    /let accesPartis = accesDejaEnvoyes\(compte, idDevis, dbApres\.messages\);/.test(P)
+    && /if \(!accesPartis && motDePasse && compte\.nom\) \{/.test(P)
+    && iAcces > 0 && iDevis > iAcces);
+  test("★★ `espace` part SANS repli (sinon WhatsApp s'ouvrirait deux fois), et le mur reste l'espace du DEVIS",
+    /modele: acces\.modele, variables: acces\.variables,\s*espaceFormation, sansRepli: true,/.test(P)
+    && /const espaceFormation = !!espaceDeLaFiche\(devisMarque\);/.test(P));
+  test("★★ si ses accès ne sont pas partis, le devis ne part PAS du numéro BMI : à la main, avec ses codes",
+    /if \(rAcces\.auto\) \{ accesPartis = true; accesEnvoyes = true; \}/.test(P)
+    && /premierContact: !accesPartis,/.test(P));
+  test("★★ les accès partis s'écrivent dans 📲 WhatsApp par LA ligne masquée (messagesAvecLigneAcces), jamais en clair",
+    /if \(accesEnvoyes\) \{\s*save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages,/.test(P));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

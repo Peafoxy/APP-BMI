@@ -143,13 +143,6 @@ export const MODELES = {
   // échange), quelle que soit la quantité.
   bon_reprise: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "valeur", "reglement", "par"] },
   bon_retour: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "frais", "par"] },
-  // 📄🔑 25/09/2026, Timo, décision « B » : le PREMIER devis d'un client
-  // (celui qui porte ses accès) part lui aussi du numéro BMI, en UN message.
-  // Il porte les accès COMME `espace`, sans jamais écrire « identifiant » ni
-  // « mot de passe » dans son texte — c'est ce qui a fait accepter `espace`.
-  // MARKETING : un devis est une offre. S'il est refusé, rien ne casse : le
-  // premier devis repart à la main, comme avant.
-  devis_premier: { categorie: "marketing", variables: ["client", "domaine", "montant", "identifiant", "mot_de_passe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -181,9 +174,11 @@ export const MODELES_EN_SERVICE = [
   // 25/09/2026 : les bons de reprise et de retour. En service AVANT l'accord
   // de Meta : d'ici là rien ne part tout seul, et l'écran le dit.
   "bon_reprise", "bon_retour",
-  // 25/09/2026 : le premier devis d'un client, avec ses accès. En service
-  // AVANT l'accord de Meta : d'ici là, le premier devis part à la main.
-  "devis_premier",
+  // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
+  // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
+  // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
+  // pas une offre et des accès. Le premier devis part donc en DEUX messages :
+  // `espace`, puis `devis_disponible` (voir `accesDejaEnvoyes`).
 ];
 
 // ---------------------------------------------------------------
@@ -341,30 +336,6 @@ export function envoiDevisDisponible({ devis, compte, fmt }) {
   };
 }
 
-// 📄🔑 LE PREMIER DEVIS D'UN CLIENT, AVEC SES ACCÈS (25/09/2026, « B »).
-// Texte à créer chez YCloud sous le nom `devis_premier`, mot pour mot.
-export const TEXTE_DEVIS_PREMIER = [
-  "Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.",
-  "",
-  "Montant : {{3}}",
-  "",
-  "Consultez-le, validez-le ou demandez une modification sur https://gestion.bmitogo.com votre espace avec : {{4}} et {{5}}",
-  "",
-  "BMI TOGO — Les bâtiments modernes et intelligents",
-].join("\n");
-// Rend null si l'un des deux codes manque (un mot de passe choisi à la
-// main ne se recalcule pas) : on ne remplit JAMAIS un trou au hasard, et
-// l'écran retombe alors sur la règle d'avant (le premier devis à la main).
-export function envoiDevisPremier({ devis, compte, motDePasse, fmt }) {
-  const identifiant = texteVariable(compte?.nom);
-  const mdp = texteVariable(motDePasse);
-  if (!identifiant || !mdp) return null;
-  return {
-    modele: "devis_premier",
-    variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(fmt(devis?.total)), identifiant, mdp],
-  };
-}
-
 // 📲 LA RELANCE — le modèle DÉPEND DU STATUT, comme le texte d'aujourd'hui
 // (`texteRelanceDevis`, lib/comptesClients.js) : un devis proposé se relance,
 // un devis validé se règle. Payé, rejeté, en demande de modification : rien
@@ -487,6 +458,22 @@ export function clientDejaContacte(compte, devisId) {
   return (compte.devis || []).some((d) => d && d.id !== devisId);
 }
 
+// 🔑 SES ACCÈS SONT-ILS DÉJÀ PARTIS ? (25/09/2026, Timo : « un nouveau
+// client… les accès s'envoient avec le modèle espace et, à une seconde
+// phase, le devis avec devis disponible »). Oui si le client a déjà été
+// contacté (règle ci-dessus), OU si un message `espace` lui est parti du
+// numéro BMI — la ligne qu'il laisse dans 📲 WhatsApp porte
+// `wa_acces.client_id` (création du compte, « ↻ Renvoyer ses accès »).
+// Sans ce second signe, un client créé la veille recevrait ses accès deux
+// fois — et on paierait deux fois.
+// ⚠ Reçoit la LISTE des messages, jamais la base : on y cherche une marque,
+// on ne parcourt rien d'autre.
+export function accesDejaEnvoyes(compte, devisId, messages) {
+  if (clientDejaContacte(compte, devisId)) return true;
+  if (!compte || !compte.id) return false;
+  return (Array.isArray(messages) ? messages : []).some((m) => m && m.wa_acces && m.wa_acces.client_id === compte.id);
+}
+
 // ---------------------------------------------------------------
 // LA TRACE — ce qui se lit sous la ligne du devis
 // ---------------------------------------------------------------
@@ -553,8 +540,6 @@ export function libelleTrace(trace) {
 // une phrase. ⚠ La ligne DIT ce qui est parti, jamais « livré » ni « lu ».
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
-  // ⚠ JAMAIS les accès dans la ligne du fil : trous 4 et 5 ignorés.
-  devis_premier: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}, avec ses accès à l'espace client.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,

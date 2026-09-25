@@ -4592,7 +4592,8 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
   {
     const srcPartages = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
     test("★ le devis (Partages) part du numéro BMI par le chemin unique, avec le texte d'aujourd'hui en repli et le bouton de secours (uConfirm transmis)",
-      /import \{ envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/\.\.\/whatsapp";/.test(srcPartages)
+      // ⚠ RETOURNÉ le 25/09/2026 : l'import porte aussi messagesAvecLigneAcces (les accès partis avant le premier devis).
+      /import \{ envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces \} from "\.\.\/\.\.\/whatsapp";/.test(srcPartages)
       && /texteRepli: lignesMsg\.join\("\\n"\),/.test(srcPartages)
       && /demanderConfirmation: uConfirm,/.test(srcPartages)
       && !/envoyerWhatsApp\(/.test(srcPartages));

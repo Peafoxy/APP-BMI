@@ -7,8 +7,8 @@ import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
-import { envoyerModele, messagesAvecLigneEnvoi } from "../../whatsapp";
-import { envoiDevisDisponible, envoiDevisPremier, clientDejaContacte, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
+import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
+import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { prospectAvecDevis } from "../../lib/prospects";
 
@@ -363,7 +363,7 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         </div>
       )}
       <div className="text-xs text-slate-500 mb-3">
-        Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI, ou depuis votre WhatsApp pour son tout premier message, qui porte ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom et le numéro suffisent.
+        Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI (s'il n'a pas encore reçu ses accès, ils partent d'abord, dans un message à part). Si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur votre téléphone avec ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom et le numéro suffisent.
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 items-end">
         <Field label="Client destinataire">
@@ -545,37 +545,57 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   ];
   // 📲 19/09/2026 — LE DEVIS PEUT PARTIR DU NUMÉRO BMI, TOUT SEUL.
   //
-  // ⚠⚠ MAIS JAMAIS LE PREMIER MESSAGE D'UN CLIENT. Celui-là porte ses
-  // IDENTIFIANTS, et un modèle approuvé par Meta ne peut PAS les porter :
-  // tout mot de passe est rangé d'office dans sa catégorie
-  // « authentication » et le modèle est refusé (trois refus le 19/09/2026).
-  // Tant que le client n'a pas reçu ses codes, WhatsApp s'ouvre comme avant
-  // et c'est le vendeur qui envoie — sinon on lui enverrait un lien vers un
-  // espace où il ne saurait pas entrer.
+  // ⚠⚠ JAMAIS AVANT SES ACCÈS : un client qui n'a pas ses codes recevrait
+  // un lien vers un espace où il ne saurait pas entrer. Ses accès partent
+  // donc d'abord, par `espace` (ci-dessous) ; s'ils ne peuvent pas partir,
+  // WhatsApp s'ouvre comme avant et c'est le vendeur qui envoie le tout.
   //
   // ⚠ Si le navigateur bloque l'ouverture, on le DIT et on propose un
   // bouton : sans cela, le devis partait enregistré mais le client n'était
   // jamais prévenu, et personne ne le savait. Le repli garde ce texte-ci
   // mot pour mot.
   const idDevis = idAReprendre || devisMarque.id;
-  // 📄🔑 25/09/2026 (Timo, « B ») : le PREMIER devis part lui aussi du numéro
-  // BMI, par `devis_premier`, qui porte les accès en un seul message. Sans
-  // mot de passe connu, la règle d'avant joue : ce premier devis part à la main.
-  const premier = !clientDejaContacte(compte, idDevis);
-  const envoiPremier = premier ? envoiDevisPremier({ devis: devisMarque, compte, motDePasse, fmt }) : null;
-  const envoi = envoiPremier || envoiDevisDisponible({ devis: devisMarque, compte, fmt });
+  const telClient = compte.tel || nouvClient.tel;
+  const espaceFormation = !!espaceDeLaFiche(devisMarque);
+  // 🔑📄 25/09/2026 (Timo, « lance ») — LE PREMIER DEVIS PART EN DEUX
+  // MESSAGES DU NUMÉRO BMI. Meta refuse un modèle qui porte à la fois une
+  // offre et des accès (`devis_premier`, refusé trois fois puis supprimé).
+  // Donc : si ses accès ne lui sont jamais partis, `espace` D'ABORD, puis
+  // le devis par `devis_disponible`. S'ils sont déjà partis (compte créé
+  // avant, accès renvoyés), le devis part seul.
+  // ⚠ Si `espace` ne part pas (formation, réseau, refus, mot de passe qu'on
+  // ne sait pas recalculer), le devis ne part PAS du numéro BMI non plus :
+  // il repart à la main avec ses codes (`premierContact`), sinon le client
+  // recevrait un lien vers un espace où il ne saurait pas entrer.
+  let accesPartis = accesDejaEnvoyes(compte, idDevis, dbApres.messages);
+  let accesEnvoyes = false;
+  if (!accesPartis && motDePasse && compte.nom) {
+    const acces = envoiIdentifiants({ nomAffiche: compte.nom_base || compte.nom, identifiant: compte.nom, motDePasse });
+    const rAcces = await envoyerModele({
+      tel: telClient, modele: acces.modele, variables: acces.variables,
+      espaceFormation, sansRepli: true,
+    });
+    if (rAcces.auto) { accesPartis = true; accesEnvoyes = true; }
+    else if (rAcces.motif && !motifAttendu(rAcces.motif)) uAlert(`Ses accès ne sont pas partis du numéro BMI. ${messageRepli(rAcces.motif)}`);
+  }
+  const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
   const r = await envoyerModele({
-    tel: compte.tel || nouvClient.tel,
+    tel: telClient,
     modele: envoi.modele,
     variables: envoi.variables,
-    espaceFormation: !!espaceDeLaFiche(devisMarque),
-    premierContact: premier && !envoiPremier,
+    espaceFormation,
+    premierContact: !accesPartis,
     texteRepli: lignesMsg.join("\n"),
     demanderConfirmation: uConfirm,
   });
   // ⚠ Un repli muet ressemble à une panne : on DIT pourquoi, sauf quand le
   // motif est attendu (formation, premier message qui porte les identifiants).
   if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+  // Les accès partis du numéro BMI s'écrivent dans 📲 WhatsApp, masqués
+  // (règle du 23/09 : le créateur et l'administrateur seuls les lisent).
+  if (accesEnvoyes) {
+    save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: { ...compte, tel: telClient } }) }));
+  }
   // La trace se pose seulement si le message est VRAIMENT parti du numéro
   // BMI : une ouverture WhatsApp ne prouve rien (personne ne sait si le
   // vendeur a appuyé sur envoyer), et l'écrire serait rassurer à tort.
@@ -590,7 +610,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
             ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) }
             : x)) }
         : u)),
-      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: compte.tel || nouvClient.tel, nom: compte.nom_base || compte.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: idDevis } }) : etat.messages,
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: telClient, nom: compte.nom_base || compte.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: idDevis } }) : etat.messages,
     }));
   }
   // ⚠ On rend CE QUI S'EST PASSÉ, pas seulement « c'est parti » : l'écran doit
