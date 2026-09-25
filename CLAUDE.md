@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 535 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation)
+npm run verifier-whatsapp        # 546 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3121,6 +3121,46 @@ lit mal est pire qu'un banc absent).
   chacune tombe. Quatre contrôles RETOURNÉS (treize modèles, dix lignes,
   l'import de Dettes, deux bancs). **À faire par Timo : créer les deux modèles chez
   YCloud** (catégorie utility, langue fr). ~4 F le message. Rien à coller.
+
+### 🧾 LE REÇU DE VENTE AVEC LA LISTE DES ARTICLES — `recu_vente_detail` (25/09/2026)
+- Capture Timo, 💰 Ventes : « depuis les ventes le message ne part pas du
+  numéro BMI » (le bouton WhatsApp de la LIGNE ouvrait WhatsApp sur
+  l'appareil — gardé exprès le 23/09 pour le reçu complet), puis « et si on
+  veut le message long avec la liste des articles ? pourquoi celui envoyé
+  après encaissement n'envoie pas le long ? » → « écris-moi le texte… on
+  implémente avec le détail des trous ».
+- ⚠ **Pourquoi le reçu long tel quel ne peut PAS partir du numéro BMI** :
+  Meta refuse un retour à la ligne dans un trou, et borne le message à
+  ~1 024 caractères. Le reçu complet (un article par ligne, prix, sous-total)
+  reste donc celui qui s'ouvre sur l'appareil ; le PDF depuis le numéro BMI
+  voudrait un fichier sur une adresse publique (refusé le 20/09).
+- **`recu_vente_detail`** (UTILITY, HUIT trous : client, date, boutique, reçu,
+  **articles**, montant, paiement, téléphone — `TEXTE_RECU_VENTE_DETAIL`,
+  lib/whatsappModeles.js). La liste tient sur UNE ligne
+  (`listeArticlesRecu` : « 16 × Panneau 370W · 12 × Panneau 250W »), des
+  articles ENTIERS, `LONGUEUR_MAX_ARTICLES` = 250 puis « + N autres
+  articles ». Les lignes viennent de l'écran (`lignesVente`, ce fichier
+  n'importe rien).
+- **UNE fonction pour les deux chemins** (`envoyerRecuDuNumeroBmi`,
+  Ventes.jsx) : le DÉTAILLÉ d'abord, le COURT (`recu_vente`) s'il ne part pas
+  (pas encore approuvé…), UNE écriture dans 📲 WhatsApp sur celui qui est
+  parti ; en formation on ne tente pas le second.
+- **Le bouton de la LIGNE part désormais du numéro BMI** (`envoyerRecuLigne`),
+  **après une question** (« Envoyer le reçu N° … à X (numéro) du numéro
+  WhatsApp BMI ? » — la règle des relances). Sans numéro sur la vente ou en
+  formation : WhatsApp s'ouvre avec le reçu COMPLET, sans question, comme
+  avant. Si le numéro BMI échoue : le motif en français, puis le reçu
+  complet sur l'appareil. Parti en court : l'écran dit que la liste manque.
+  Le reçu complet est écrit UNE fois (`texteRecuComplet`, impression.js ;
+  `recuWhatsApp` l'ouvre).
+- **L'encaissement ne change pas de nature** : toujours sans question et sans
+  repli, il tente simplement le détaillé d'abord.
+- **À faire par Timo : créer `recu_vente_detail` chez YCloud** (utility, fr).
+  D'ici l'accord de Meta, le court part à sa place. Banc ㉘ (546), éprouvé
+  en remettant quatre fautes (ordre inversé, question retirée, retour à la
+  ligne dans la liste, limite retirée). Trois contrôles RETOURNÉS (quatorze
+  modèles, onze lignes, l'envoi de Ventes dans une fonction commune).
+  Rien à coller dans Supabase.
 
 ### 💙 LE MOT DE FIDÉLITÉ DE 👥 UTILISATEURS PART AUSSI DU NUMÉRO BMI (25/09/2026, décision « a »)
 - Timo : « il reste les messages WhatsApp dans utilisateur… ça ouvre toujours

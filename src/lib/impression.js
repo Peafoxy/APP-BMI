@@ -811,7 +811,13 @@ export function imprimerBulletin(u, mois, db) {
   if (printApi) printApi.open(html, nomDocument("Bulletin", { client: u.nom, numero: mois }));
 }
 
+// Le texte du reçu COMPLET (un article par ligne) : c'est ce qui part quand
+// WhatsApp s'ouvre sur l'appareil — le numéro BMI ne peut pas le porter tel
+// quel (Meta refuse un retour à la ligne dans un trou).
 export function recuWhatsApp(v, bq = {}) {
+  envoyerWhatsApp(v.tel, texteRecuComplet(v, bq));
+}
+export function texteRecuComplet(v, bq = {}) {
   const lignes = [
     // ⚠ Bandeau formation : il était présent sur le reçu imprimé, le reçu de
     // versement, la proforma, le devis, le PV, le contrat et le bon — mais
@@ -847,7 +853,7 @@ export function recuWhatsApp(v, bq = {}) {
     `------------------------`,
     bq.message || "Merci de votre confiance !",
   ].filter(Boolean);
-  envoyerWhatsApp(v.tel, lignes.join("\n"));
+  return lignes.join("\n");
 }
 
 // ============ BON DE REPRISE / BON DE RETOUR (Timo, 14/09/2026) ============

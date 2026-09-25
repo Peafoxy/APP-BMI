@@ -57,6 +57,10 @@ const ATTENDU = {
   mot_fidelite: { categorie: "marketing", n: 1 },
   mot_fidelite_simple: { categorie: "marketing", n: 1 },
   recu_vente: { categorie: "utility", n: 7 },
+  // ⚠ LE QUATORZIÈME (25/09/2026, « écris-moi le texte… on implémente avec
+  // le détail des trous ») : le reçu de vente AVEC la liste des articles,
+  // sur une ligne. UTILITY, HUIT trous. Il est tenté d'abord, le court ensuite.
+  recu_vente_detail: { categorie: "utility", n: 8 },
   // ⚠ LE ONZIÈME (25/09/2026, « Lance avec ce texte ») : l'alerte à
   // l'administrateur quand un client demande un conseiller. UTILITY, trois
   // trous. Il ne part JAMAIS d'un écran : c'est le serveur qui l'envoie.
@@ -69,7 +73,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les treize modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les quatorze modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1203,8 +1207,9 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 23/09/2026 : HUIT — le mot de fidélité (deux textes) et le
   // reçu de vente s'écrivent aussi dans le fil.
   // ⚠ RETOURNÉ le 25/09/2026 : dix — les reçus de versement et de réservation.
-  test("★ les dix modèles à ligne : devis, dette, mot de fidélité, les trois reçus — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,relance_devis");
+  // ⚠ RETOURNÉ le 25/09/2026 (soir) : onze — le reçu de vente détaillé.
+  test("★ les onze modèles à ligne : devis, dette, mot de fidélité, les quatre reçus — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -1348,18 +1353,23 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && /<M\.Clients db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(lire("src/App.jsx")));
   // 💰 VENTES : automatique, sans question, sans repli, le mur, la ligne sans propriétaire.
   const ven = sansComm(lire("src/screens/Ventes.jsx"));
+  // ⚠ RETOURNÉ le 25/09/2026 (soir) : l'envoi vit dans UNE fonction,
+  // `envoyerRecuDuNumeroBmi`, partagée par l'encaissement et le bouton de la
+  // ligne ; le reçu DÉTAILLÉ est tenté d'abord, le court ensuite.
   const auto = (ven.match(/const envoyerRecuAutomatique = async \(vente, apres\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  const commun = (ven.match(/const envoyerRecuDuNumeroBmi = async \(vente, etat\) => \{[\s\S]*?\n  \};/) || [""])[0];
   test("★★ 💰 Ventes : le reçu part tout seul après l'encaissement (appelé après l'impression du reçu), SANS question, SANS repli (sansRepli), l'espace de la BOUTIQUE qui a vendu",
-    auto.length > 0 && /envoyerRecuAutomatique\(vente, next\);/.test(ven)
-    && /sansRepli: true/.test(auto) && !/demanderConfirmation/.test(auto) && !/uConfirm/.test(auto) && !/envoyerWhatsApp\(/.test(auto)
-    && /espaceFormation: !!bq\.formation/.test(auto) && !/estCompteFormation/.test(auto)
-    && /envoiRecuVente\(\{[\s\S]*?vente, boutique: bq,/.test(auto));
+    auto.length > 0 && commun.length > 0 && /envoyerRecuAutomatique\(vente, next\);/.test(ven)
+    && /envoyerRecuDuNumeroBmi\(vente, apres\)/.test(auto)
+    && /sansRepli: true/.test(commun) && !/demanderConfirmation/.test(commun + auto) && !/uConfirm/.test(commun + auto) && !/envoyerWhatsApp\(/.test(commun + auto)
+    && /espaceFormation: !!bq\.formation/.test(commun) && !/estCompteFormation/.test(commun)
+    && /envoiRecuVente\(base\)/.test(commun) && /vente, boutique: bq,/.test(commun));
   test("★★ 💰 Ventes : à crédit, l'avance et le reste viennent de la DETTE née de la vente ; la ligne s'écrit sur l'état courant, porte la vente et ne donne PAS la conversation",
-    /\(apres\.dettes \|\| \[\]\)\.find\(\(d\) => d\.vente_id === vente\.id\)/.test(auto)
-    && /save\(\(etat\) => \(\{\s*\.\.\.etat,\s*messages: messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \} \}\)/.test(auto)
-    && !/donnerAuSender/.test(auto));
+    /\(etat\.dettes \|\| \[\]\)\.find\(\(d\) => d\.vente_id === vente\.id\)/.test(commun)
+    && /save\(\(e\) => \(\{\s*\.\.\.e,\s*messages: messagesAvecLigneEnvoi\(e\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \} \}\)/.test(commun)
+    && !/donnerAuSender/.test(commun));
   test("★ 💰 Ventes : ce qui s'est passé se lit sous le titre, discrètement (jamais une fenêtre) ; sans numéro ou en formation, rien",
-    /setNoteRecuWa\(""\); return;/.test(auto) && /motifAttendu\(r\.motif\)/.test(auto) && !/uAlert\(/.test(auto)
+    /setNoteRecuWa\(r\.motif && !motifAttendu\(r\.motif\) \?/.test(auto) && !/uAlert\(/.test(auto + commun)
     && /data-recu-whatsapp/.test(ven));
   test("★ src/whatsapp.js : `sansRepli` n'ouvre jamais WhatsApp, `donnerAuSender` ne donne qu'une conversation LIBRE",
     /parti: sansRepli \? false : await envoyerWhatsApp\(tel, texteRepli, demanderConfirmation\)/.test(srcWhatsapp)
@@ -2301,6 +2311,55 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
       .flatMap((f) => (sansComm(lire(f)).match(/envoiRecu(?:Reglement|Reservation)\([^;]*?\)\s*,/g) || []));
     test("★ les QUATRE écrans passent la règle du numéro (numeroDe: numeroRecuDette)",
       appels.length === 4 && appels.every((a) => a.includes("numeroDe: numeroRecuDette")));
+  }
+  {
+    // ★★ LE REÇU DE VENTE AVEC LES ARTICLES (25/09/2026, « écris-moi le texte
+    // du modèle… on implémente avec le détail des trous »).
+    test("★★ le texte du modèle recu_vente_detail, mot pour mot, huit trous dans l'ordre",
+      M.TEXTE_RECU_VENTE_DETAIL === "Bonjour {{1}},\nMerci pour votre achat du {{2}} à {{3}}.\nReçu N° {{4}}\nArticles : {{5}}\nTotal : {{6}}, {{7}}.\nPour toute question veuillez contacter : {{8}}.\nMerci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents\nwww.bmitogo.com"
+      && M.MODELES.recu_vente_detail.variables.join(",") === "client,date,boutique,recu,articles,montant,paiement,telephone"
+      && M.MODELES_EN_SERVICE.includes("recu_vente_detail"));
+    const venteEric = { id: "V16", numero: "BMID-2026-0016", client: "MR ERIC", tel: "90569661", boutique: "BMI DEMAKPOE", date: "2026-09-24", paiement: "Crédit (dette)" };
+    const lignesEric = [{ article: "Panneau 370W", qte: 16 }, { article: "Panneau 250W", qte: 12 }];
+    const ed = M.envoiRecuVenteDetail({ vente: venteEric, boutique: { tel: "+228 91 13 05 11" }, montant: 1000000, lignes: lignesEric, avance: 0, reste: 1000000, fmt: fmtR, dFR: dFRr });
+    test("★★ la vente de MR ERIC : la liste sur UNE ligne, le montant, la formule du crédit, le téléphone — dans l'ordre",
+      ed && ed.modele === "recu_vente_detail"
+      && ed.variables.join("|") === `MR ERIC|24/09/2026|BMI DEMAKPOE|BMID-2026-0016|16 × Panneau 370W · 12 × Panneau 250W|${fmtR(1000000)}|à crédit : reste ${fmtR(1000000)}|+228 91 13 05 11`
+      && M.critiqueModele("recu_vente_detail", ed.variables) === "");
+    const beaucoup = Array.from({ length: 30 }, (_, i) => ({ article: `Câble solaire 6mm² rouge lot ${i + 1}`, qte: i + 1 }));
+    const longue = M.listeArticlesRecu(beaucoup);
+    test("★★ une grosse vente : jamais de retour à la ligne, jamais au-delà de la limite, des articles ENTIERS, et « + N autres articles » dit ce qui manque",
+      !/[\r\n\t]/.test(longue) && longue.length <= M.LONGUEUR_MAX_ARTICLES
+      && /\+ \d+ autres articles$/.test(longue) && longue.startsWith("1 × Câble solaire 6mm² rouge lot 1 · ")
+      && longue.split(M.SEPARATEUR_ARTICLES).slice(0, -1).every((m) => /^\d+ × Câble solaire 6mm² rouge lot \d+$/.test(m)));
+    const plein = M.texteRecu(M.envoiRecuVenteDetail({ vente: { ...venteEric, client: "X".repeat(300) }, boutique: {}, montant: 1000000, lignes: beaucoup, fmt: fmtR, dFR: dFRr }));
+    test("★ même au pire (nom et liste au maximum), le message reste sous la limite de Meta (1 024 caractères)",
+      plein.length > 0 && plein.length <= 1024);
+    test("★ sans numéro, sans montant ou sans article lisible : aucun reçu détaillé (l'écran retombe sur le court)",
+      M.envoiRecuVenteDetail({ vente: { ...venteEric, tel: "" }, boutique: {}, montant: 10, lignes: lignesEric }) === null
+      && M.envoiRecuVenteDetail({ vente: venteEric, boutique: {}, montant: undefined, lignes: lignesEric }) === null
+      && M.envoiRecuVenteDetail({ vente: venteEric, boutique: {}, montant: 10, lignes: [{ article: "", qte: 1 }] }) === null
+      && M.listeArticlesRecu([{ article: "Onduleur", qte: 1 }]) === "1 × Onduleur");
+    test("★ la ligne du fil raconte le reçu détaillé",
+      /^📲 Envoyé du numéro BMI — Reçu N° BMID-2026-0016 envoyé à MR ERIC : achat du 24\/09\/2026 à BMI DEMAKPOE \(16 × Panneau 370W · 12 × Panneau 250W\)/.test(M.ligneEnvoiModele("recu_vente_detail", ed.variables)));
+    const ven2 = sansComm(lire("src/screens/Ventes.jsx"));
+    const commun2 = (ven2.match(/const envoyerRecuDuNumeroBmi = async \(vente, etat\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    const ligne2 = (ven2.match(/const envoyerRecuLigne = async \(v\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    test("★★ 💰 Ventes : le DÉTAILLÉ est tenté d'abord, le court ensuite, UNE écriture sur celui qui est parti, et on s'arrête en formation",
+      /const envois = \[envoiRecuVenteDetail\(\{ \.\.\.base, lignes: lignesVente\(vente\) \}\), envoiRecuVente\(base\)\]\.filter\(Boolean\);/.test(commun2)
+      && /for \(const envoi of envois\)/.test(commun2) && /if \(r\.auto\) \{[\s\S]*?return \{ auto: true/.test(commun2)
+      && /if \(motifAttendu\(r\.motif\)\) break;/.test(commun2) && (commun2.match(/save\(/g) || []).length === 1);
+    const q = ligne2.indexOf("uConfirm("), e = ligne2.indexOf("envoyerRecuDuNumeroBmi(");
+    test("★★ 💰 Ventes, le bouton de la LIGNE : il demande AVANT d'envoyer du numéro BMI, et le bouton l'appelle",
+      q > 0 && e > q && /onClick=\{\(\) => envoyerRecuLigne\(v\)\}/.test(ven2) && !/onClick=\{\(\) => recuWhatsApp\(/.test(ven2));
+    test("★★ …sans numéro ou en formation, WhatsApp s'ouvre avec le reçu COMPLET, sans question ; si le numéro BMI échoue, on dit pourquoi puis le reçu complet",
+      /if \(!telDigits\(v\.tel\) \|\| bq\.formation\) \{ recuWhatsApp\(v, bq\); return; \}/.test(ligne2)
+      && ligne2.indexOf("if (!telDigits(v.tel)") < q
+      && /if \(r\.motif && !motifAttendu\(r\.motif\)\) await uAlert\(/.test(ligne2) && /\n    recuWhatsApp\(v, bq\);\n  \};$/.test(ligne2));
+    const imp = lire("src/lib/impression.js");
+    test("★ le reçu COMPLET (un article par ligne) est écrit UNE fois : recuWhatsApp l'ouvre, texteRecuComplet le rédige",
+      /export function recuWhatsApp\(v, bq = \{\}\) \{\n  envoyerWhatsApp\(v\.tel, texteRecuComplet\(v, bq\)\);\n\}/.test(imp)
+      && /export function texteRecuComplet\(v, bq = \{\}\)/.test(imp) && /return lignes\.join\("\\n"\);/.test(imp));
   }
   const W = sansComm(lire("src/whatsapp.js"));
   const i = W.indexOf("export async function envoyerRecuSansQuestion");

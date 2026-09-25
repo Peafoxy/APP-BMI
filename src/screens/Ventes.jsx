@@ -27,7 +27,7 @@ import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { envoiRecuVente, motifAttendu, envoiRecuReservation } from "../lib/whatsappModeles";
+import { envoiRecuVente, envoiRecuVenteDetail, motifAttendu, envoiRecuReservation } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
@@ -408,31 +408,66 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // qui a vendu. La ligne s'écrit dans 📲 WhatsApp sur l'état COURANT, sans
   // donner la conversation au vendeur (une vente de comptoir ne fait pas
   // d'un vendeur le propriétaire du client).
-  const envoyerRecuAutomatique = async (vente, apres) => {
+  // 🧾 25/09/2026 (« et si on veut le message long avec la liste des
+  // articles ? ») : le reçu AVEC les articles (`recu_vente_detail`) est
+  // tenté D'ABORD ; s'il ne part pas (pas encore approuvé par Meta…), le
+  // reçu court (`recu_vente`). UNE fonction pour l'encaissement ET le bouton
+  // de la ligne. ⚠ Une seule écriture, sur le modèle qui est PARTI.
+  // ⚠ Formation : on ne tente pas le second (même motif, rien à gagner).
+  const envoyerRecuDuNumeroBmi = async (vente, etat) => {
     const bq = infoBq(vente.boutique);
-    const dette = (apres.dettes || []).find((d) => d.vente_id === vente.id) || null;
-    const envoi = envoiRecuVente({
+    const dette = (etat.dettes || []).find((d) => d.vente_id === vente.id) || null;
+    const base = {
       vente, boutique: bq,
       // Le montant du reçu imprimé : articles − remises − rabais + frais.
       montant: montantEncaisseVente(vente, totalVente),
       avance: dette ? Number(dette.paye || 0) : 0,
       reste: dette ? Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) : 0,
       fmt, dFR,
-    });
-    if (!envoi) { setNoteRecuWa(""); return; }
-    const r = await envoyerModele({
-      tel: vente.tel, modele: envoi.modele, variables: envoi.variables,
-      espaceFormation: !!bq.formation, sansRepli: true,
-    });
+    };
+    const envois = [envoiRecuVenteDetail({ ...base, lignes: lignesVente(vente) }), envoiRecuVente(base)].filter(Boolean);
+    let motif = "";
+    for (const envoi of envois) {
+      const r = await envoyerModele({
+        tel: vente.tel, modele: envoi.modele, variables: envoi.variables,
+        espaceFormation: !!bq.formation, sansRepli: true,
+      });
+      if (r.auto) {
+        save((e) => ({
+          ...e,
+          messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id } }),
+        }));
+        return { auto: true, detail: envoi.modele === "recu_vente_detail" };
+      }
+      motif = r.motif || motif;
+      if (motifAttendu(r.motif)) break;
+    }
+    return { auto: false, motif, rien: !envois.length };
+  };
+
+  const envoyerRecuAutomatique = async (vente, apres) => {
+    const r = await envoyerRecuDuNumeroBmi(vente, apres);
+    if (r.auto) { setNoteRecuWa(`📲 Reçu ${vente.numero} envoyé du numéro BMI à ${vente.client}.`); return; }
+    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.` : "");
+  };
+
+  // 🧾 LE BOUTON WHATSAPP DE LA LIGNE (25/09/2026, capture Timo : « depuis
+  // les ventes le message ne part pas du numéro BMI ») : il part du numéro
+  // BMI, APRÈS une question (un clic à côté ne se rattrape pas — la règle
+  // des relances). Sans numéro sur la vente, en formation, ou si le numéro
+  // BMI ne peut pas envoyer : WhatsApp s'ouvre sur l'appareil avec le reçu
+  // COMPLET, un article par ligne, comme avant — et on dit pourquoi.
+  const envoyerRecuLigne = async (v) => {
+    const bq = infoBq(v.boutique);
+    if (!telDigits(v.tel) || bq.formation) { recuWhatsApp(v, bq); return; }
+    if (!await uConfirm(`Envoyer le reçu N° ${v.numero} à ${v.client || "ce client"} (${v.tel}) du numéro WhatsApp BMI ?`)) return;
+    const r = await envoyerRecuDuNumeroBmi(v, db);
     if (r.auto) {
-      save((etat) => ({
-        ...etat,
-        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id } }),
-      }));
-      setNoteRecuWa(`📲 Reçu ${vente.numero} envoyé du numéro BMI à ${vente.client}.`);
+      await uAlert(`✅ Reçu N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}`);
       return;
     }
-    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.` : "");
+    if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le reçu complet : le message part de VOTRE numéro.`);
+    recuWhatsApp(v, bq);
   };
 
   const encaisserVente = async () => {
@@ -1412,7 +1447,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} aria-label="Imprimer le reçu">🖨</button>
-                    <button onClick={() => recuWhatsApp(v, infoBq(v.boutique))} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp" aria-label="WhatsApp"><IconeWhatsApp /></button>
+                    <button onClick={() => envoyerRecuLigne(v)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp (du numéro BMI)" aria-label="WhatsApp"><IconeWhatsApp /></button>
                     {bonsDeVente(v).length > 0 && (
                       <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
                     )}

@@ -116,6 +116,13 @@ export const MODELES = {
   // la BOUTIQUE qui a vendu (sa décision), le numéro BMI principal si la
   // fiche n'en a pas — Meta refuse un trou vide.
   recu_vente: { categorie: "utility", variables: ["client", "date", "boutique", "recu", "montant", "paiement", "telephone"] },
+  // 🧾 25/09/2026, Timo : « et si on veut le message long avec la liste des
+  // articles ? » → « on implémente avec le détail des trous ». Le reçu
+  // AVEC LES ARTICLES. ⚠ Meta refuse un retour à la ligne dans un trou : la
+  // liste tient donc sur UNE ligne (« 16 × Panneau 370W · 12 × Panneau
+  // 250W »), et s'arrête sur « + N autres articles » au-delà de
+  // LONGUEUR_MAX_ARTICLES. UTILITY, huit trous.
+  recu_vente_detail: { categorie: "utility", variables: ["client", "date", "boutique", "recu", "articles", "montant", "paiement", "telephone"] },
   // 👨‍💼 25/09/2026, Timo : « si un client demande d'être mis en relation, il
   // envoie un message WhatsApp automatiquement à moi l'administrateur ».
   // UTILITY : une alerte de service, rien de commercial. Il ne part pas vers
@@ -149,6 +156,9 @@ export const MODELES_EN_SERVICE = [
   // Meta (d'ici là : repli sur l'ouverture WhatsApp pour le mot de
   // fidélité ; RIEN pour le reçu de vente, qui ne dérange jamais le vendeur).
   "mot_fidelite", "mot_fidelite_simple", "recu_vente",
+  // 25/09/2026 : le reçu AVEC la liste des articles. Tenté D'ABORD ; tant
+  // que Meta ne l'a pas approuvé, l'écran retombe sur `recu_vente`.
+  "recu_vente_detail",
   // 25/09/2026 : les reçus d'un versement sur une dette et d'une réservation.
   // En service AVANT l'accord de Meta : d'ici là rien ne part, et l'écran le
   // dit discrètement (même règle que le reçu de vente).
@@ -505,6 +515,7 @@ const LIGNES_ENVOI = {
   mot_fidelite: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   mot_fidelite_simple: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   recu_vente: ([client, date, boutique, recu, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique}, ${montant}, ${paiement}.`,
+  recu_vente_detail: ([client, date, boutique, recu, articles, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique} (${articles}), ${montant}, ${paiement}.`,
   recu_reglement: ([client, montant, date, paiement, numero, situation]) => `Reçu de versement N° ${numero} envoyé à ${client} : ${montant} le ${date} (${paiement}), ${situation}.`,
   recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
 };
@@ -771,10 +782,69 @@ export function envoiRecuVente({ vente, boutique, montant, avance = 0, reste = 0
     ],
   };
 }
+// ---------------------------------------------------------------
+// 🧾 LE REÇU AVEC LA LISTE DES ARTICLES (25/09/2026)
+// ---------------------------------------------------------------
+// Texte à créer chez YCloud sous le nom `recu_vente_detail`, mot pour mot.
+export const TEXTE_RECU_VENTE_DETAIL = [
+  "Bonjour {{1}},",
+  "Merci pour votre achat du {{2}} à {{3}}.",
+  "Reçu N° {{4}}",
+  "Articles : {{5}}",
+  "Total : {{6}}, {{7}}.",
+  "Pour toute question veuillez contacter : {{8}}.",
+  "Merci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents",
+  "www.bmitogo.com",
+].join("\n");
+
+// La liste tient sur UNE ligne (Meta refuse un retour à la ligne dans un
+// trou) et reste courte : le message entier est borné par Meta. On garde des
+// articles ENTIERS — jamais un nom coupé au milieu — et on dit combien il en
+// reste (« + 3 autres articles »). ⚠ `lignes` vient de l'écran
+// (`lignesVente`, core.js) : ce fichier n'importe rien.
+export const LONGUEUR_MAX_ARTICLES = 250;
+export const SEPARATEUR_ARTICLES = " · ";
+export function listeArticlesRecu(lignes) {
+  const morceaux = (Array.isArray(lignes) ? lignes : [])
+    .map((l) => {
+      const nom = texteVariable(l?.article);
+      if (!nom) return "";
+      const q = Number(l?.qte);
+      return Number.isFinite(q) && q > 0 ? `${q} × ${nom}` : nom;
+    })
+    .filter(Boolean);
+  if (!morceaux.length) return "";
+  const suite = (n) => `+ ${n} autre${n > 1 ? "s" : ""} article${n > 1 ? "s" : ""}`;
+  let pris = [];
+  for (let i = 0; i < morceaux.length; i++) {
+    const essai = [...pris, morceaux[i]];
+    const reste = morceaux.length - essai.length;
+    const texte = essai.join(SEPARATEUR_ARTICLES) + (reste ? SEPARATEUR_ARTICLES + suite(reste) : "");
+    if (texte.length > LONGUEUR_MAX_ARTICLES && pris.length) break;
+    pris = essai;
+  }
+  const reste = morceaux.length - pris.length;
+  const t = pris.join(SEPARATEUR_ARTICLES) + (reste ? SEPARATEUR_ARTICLES + suite(reste) : "");
+  // Un seul nom plus long que la limite (rare) : coupé, on le dit par « … ».
+  return t.length > LONGUEUR_MAX_ARTICLES ? t.slice(0, LONGUEUR_MAX_ARTICLES - 1) + "…" : t;
+}
+
+// Les huit trous, depuis la vente. Les mêmes règles que `envoiRecuVente`
+// (montant donné par l'écran, rien sans numéro) ; sans article lisible, rien
+// non plus — l'écran retombe alors sur le reçu court.
+export function envoiRecuVenteDetail({ vente, boutique, montant, lignes, avance = 0, reste = 0, fmt, dFR }) {
+  const court = envoiRecuVente({ vente, boutique, montant, avance, reste, fmt, dFR });
+  if (!court) return null;
+  const articles = listeArticlesRecu(lignes);
+  if (!articles) return null;
+  const [client, date, bq, recu, mt, paiement, telephone] = court.variables;
+  return { modele: "recu_vente_detail", variables: [client, date, bq, recu, articles, mt, paiement, telephone] };
+}
+
 // Le texte lisible (pour le fil, le banc, un jour un repli à la main).
 export function texteRecuVente(envoi) {
   if (!envoi) return "";
-  return envoi.variables.reduce((t, v, i) => t.replace(`{{${i + 1}}}`, v), TEXTE_RECU_VENTE);
+  return texteRecu(envoi);
 }
 
 // ---------------------------------------------------------------
@@ -874,7 +944,7 @@ export function envoiRecuReservation({ reservation, boutique, fmt, dFR, numeroDe
 // Le texte lisible d'un envoi, quel que soit le reçu.
 export function texteRecu(envoi) {
   if (!envoi) return "";
-  const t = { recu_vente: TEXTE_RECU_VENTE, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION }[envoi.modele];
+  const t = { recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION }[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 
