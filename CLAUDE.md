@@ -4391,6 +4391,11 @@ lit mal est pire qu'un banc absent).
   `fondLigneDepliable`). Appliquée aux quatre tableaux : Stocks (tableau
   et « À réapprovisionner », colonne Article), Dépenses et Dettes (colonne
   Date). Le banc interdit `lg:static` et tout `sticky left-0` hors ui.jsx.
+  ⚠ **RETOURNÉ pour 🧲 Prospects et 📋 Dettes le 25/09/2026** (« figer le nom
+  du client… comme dans stock ») : la colonne figée y est le **NOM DU CLIENT**,
+  passé en première colonne, la date juste après. Dépenses garde la Date.
+  Mesuré dans Chromium à 420 px (le nom reste à 17 px, la date part hors
+  d'écran).
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix
