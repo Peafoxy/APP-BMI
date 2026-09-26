@@ -163,3 +163,19 @@ export const htmlCoches = () => {
   ];
   return rendre({ ...garnie, messages: [...garnie.messages, ...suivis] }, users[0], "90112233");
 };
+
+// ---- 📁 L'ARCHIVAGE DES CONVERSATIONS (26/09/2026) : la VRAIE chaîne ----
+// Capture Timo : une conversation de 5 jours dans « Conversations
+// anciennes », mois « — ». 25 conversations RÉCENTES (lues), et une
+// vieille de 5 mois : seule la vieille doit partir aux archives.
+export const htmlArchivage = () => {
+  const aujourdhui = new Date();
+  const il = (jours) => new Date(aujourdhui.getTime() - jours * 86400000).toISOString();
+  const lignes = [];
+  for (let i = 0; i < 25; i++) {
+    const cle = `9030${String(i).padStart(4, "0")}`;
+    lignes.push({ id: `r${i}`, canal: "whatsapp", wa_tel: cle, wa_numero: `+228${cle}`, wa_nom: `RECENT${i}`, wa_entrant: true, ts: il(i % 6), date: il(i % 6).slice(0, 10), texte: "ok", lu_par: ["TIMO"] });
+  }
+  lignes.push({ id: "v1", canal: "whatsapp", wa_tel: "90399999", wa_numero: "+22890399999", wa_nom: "VIEUX CLIENT", wa_entrant: true, ts: il(150), date: il(150).slice(0, 10), texte: "ok", lu_par: ["TIMO"] });
+  return rendre({ boutiques, users, messages: lignes, produits: [], ventes: [] }, users[0]);
+};

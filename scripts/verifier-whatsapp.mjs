@@ -2732,5 +2732,22 @@ titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « o
     && (hc.match(/data-coches=/g) || []).length === 2 && /LIGNE SANS SUIVI/.test(hc));
 }
 
+{
+// ⚠ 26/09/2026 (capture Timo : « conversation de 5 jours classée
+// ancienne ? ») : le contrôle ci-dessus rejouait la MÊME forme que l'écran
+// (`it.conv`), qui ne porte qu'un identifiant — il passait donc avec la faute.
+// On REND l'écran : 25 conversations récentes, une vieille de 5 mois.
+titre("📁 L'archivage des conversations, sur l'écran RENDU (26/09/2026)");
+let htmlArch = "";
+try { htmlArch = V.htmlArchivage(); } catch (e) { htmlArch = ""; }
+// Les archives sont REPLIÉES d'office : ce qui est au-dessus du bouton est
+// exactement ce qui se voit sans le toucher.
+const avantArch = htmlArch.slice(0, htmlArch.indexOf("Conversations anciennes"));
+test("★★ l'écran rendu : les 25 conversations de moins de 3 mois restent TOUTES visibles, seule celle de 5 mois part dans « anciennes (1) »",
+  /Conversations anciennes \(1\)/.test(htmlArch) && Array.from({ length: 25 }, (_, i) => `RECENT${i}<`).every((n) => avantArch.includes(n)) && !avantArch.includes("VIEUX CLIENT"));
+test("★ l'écran passe la CONVERSATION à l'archivage (it.wa), jamais son seul identifiant (it.conv)",
+  /dateDe=\{\(it\) => derniereActivite\(it\.wa\)\}/.test(ecranWa) && !/derniereActivite\(it\.conv\)/.test(ecranWa));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

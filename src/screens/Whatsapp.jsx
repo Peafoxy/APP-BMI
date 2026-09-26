@@ -428,7 +428,12 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
           {lues.length > 0 && (
             <HistoriqueArchive
               lignes={lues}
-              dateDe={(it) => derniereActivite(it.conv)}
+              // ⚠ 26/09/2026 (capture Timo : une conversation de 5 jours rangée
+              // dans « anciennes », mois « — ») : on passait `it.conv` — qui ne
+              // porte que { type, id } — au lieu de la conversation `it.wa`. La
+              // date sortait VIDE pour toutes, chacune passait pour ancienne, et
+              // tout ce qui dépassait les 20 premières partait aux archives.
+              dateDe={(it) => derniereActivite(it.wa)}
               aujourdhui={today()}
               titreArchives="Conversations anciennes"
               rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />}
