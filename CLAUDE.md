@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 646 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception)
+npm run verifier-whatsapp        # 653 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3510,6 +3510,39 @@ lit mal est pire qu'un banc absent).
   ligne dans la liste, limite retirée). Trois contrôles RETOURNÉS (quatorze
   modèles, onze lignes, l'envoi de Ventes dans une fonction commune).
   Rien à coller dans Supabase.
+
+### 🔒 LES REÇUS DE VENTE ET LES BONS NE SE LISENT PAS PAR TOUT LE MONDE DANS 📲 WHATSAPP (26/09/2026)
+- Timo : « les messages des reçus vente et reçu vente détaillé ne doivent pas
+  être lus par tout le monde dans l'app BMI… à part celui qui a vendu et les
+  administrateurs », puis **« a non · b moi seul · c reprise et retour aussi »**.
+- Avant : la ligne du fil portait tout (montant, articles, paiement) et la
+  conversation (au support, le reçu ne la donne à personne) descendait chez
+  tout le personnel qui a 📲 WhatsApp.
+- **Modèles privés** (`MODELES_PRIVES`, lib/whatsappModeles.js) :
+  `recu_vente`, `recu_vente_detail`, `bon_reprise`, `bon_retour`. ⚠ **PAS**
+  `recu_reglement` ni `recu_reservation` (non demandés).
+- ⚠⚠ **La ligne RANGÉE ne porte aucun détail** (`messagesAvecLigneEnvoi`) :
+  une phrase neutre (`ligneMasquee` : « 🔒 Reçu de vente envoyé au client —
+  détail réservé au vendeur et à l'administrateur principal »), `wa_prive`, et
+  le lien (`vente_id` ; `bon_numero` + `bon_vente_id` pour un bon — pas
+  `vente_id`, sinon les coches de la ligne de 💰 Ventes suivraient le bon).
+  Masquer seulement à l'écran ne protégerait rien.
+- **Qui lit le détail** (`peutLireLignePrivee`) : **celui qui a envoyé**
+  (`de_id` — le vendeur qui a encaissé, ou celui qui a fait la reprise /
+  le retour) et **l'administrateur PRINCIPAL seul** (« b : moi seul » — un
+  autre administrateur lit la phrase neutre). L'écran recompose le détail
+  depuis la vente (`texteLignePrivee`, **`lib/lignesPrivees.js`**) par LA
+  MÊME fabrique que l'envoi (`envoisRecuDeVente`, que 💰 Ventes appelle
+  désormais ; `bonsDeLaVente` + `envoiBon`) ; le reçu recomposé reprend
+  l'avance posée sur la vente (l'état de l'encaissement). Vente absente de
+  l'appareil → phrase neutre.
+- ⚠ **« a : non »** : les lignes écrites AVANT gardent leur texte en clair
+  (aucun nettoyage, aucun SQL).
+- Rien à coller dans Supabase. Banc ㉟ (7 contrôles, l'écran RENDU pour le
+  vendeur, le principal, un autre administrateur et une autre vendeuse),
+  éprouvé en remettant trois fautes (détail rangé en clair, tous les
+  administrateurs autorisés, écran qui ignore la règle) : chacune tombe.
+  Trois contrôles RETOURNÉS (la fabrique des reçus vit dans lignesPrivees).
 
 ### 🧾 LE BON DE REPRISE ET LE BON DE RETOUR PARTENT DU NUMÉRO BMI (25/09/2026, « lance les deux bons »)
 - Timo : « le bon de retour et de reprise n'envoie pas le message WhatsApp

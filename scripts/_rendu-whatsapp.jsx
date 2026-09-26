@@ -179,3 +179,29 @@ export const htmlArchivage = () => {
   lignes.push({ id: "v1", canal: "whatsapp", wa_tel: "90399999", wa_numero: "+22890399999", wa_nom: "VIEUX CLIENT", wa_entrant: true, ts: il(150), date: il(150).slice(0, 10), texte: "ok", lu_par: ["TIMO"] });
   return rendre({ boutiques, users, messages: lignes, produits: [], ventes: [] }, users[0]);
 };
+
+// ---- 🔒 LE REÇU ET LE BON NE SE LISENT PAS PAR TOUT LE MONDE (26/09/2026) ----
+// KOSSI (vendeur) encaisse la vente V9 et le reçu détaillé part du numéro
+// BMI ; un bon de reprise part aussi. TIMO (principal) et KOSSI lisent le
+// détail, recomposé depuis la vente ; ADMIN2 (administrateur, pas principal)
+// et AMA (vendeuse) lisent la phrase neutre.
+const venteV9 = { id: "V9", numero: "BMID-2026-0099", date: "2026-09-26", boutique: "APESSITO", client: "ESSO", tel: "+22890112233", paiement: "Espèces",
+  articles: [{ produit_id: "p1", article: "Panneau 370W", qte: 4, prix: 50000 }],
+  reprises: [{ ref: "R1", date: "2026-09-26", produit_id: "p1", article: "Panneau 370W", qte: 1, montant: 50000, rembourse: 50000, moyen: "Espèces", motif: "Reprise client (R1) — Ne veut plus", par: "TIMO" }] };
+const usersPrives = [...users, { id: "ADMIN2", nom: "ADMIN2", role: "admin" }, { id: "AMA", nom: "AMA", role: "vendeur" }];
+export const lignesPrivees = () => {
+  let msgs = messagesAvecLigneEnvoi([], {
+    profile: users[2], tel: "+22890112233", nom: "ESSO", modele: "recu_vente_detail",
+    variables: ["ESSO", "26/09/2026", "APESSITO", "BMID-2026-0099", "4 × Panneau 370W", "200 000 F", "payé en espèces", "99968488"],
+    ref: { vente_id: "V9" }, envoi: { id: "yc-9" },
+  });
+  msgs = messagesAvecLigneEnvoi(msgs, {
+    profile: users[0], tel: "+22890112233", nom: "ESSO", modele: "bon_reprise",
+    variables: ["APESSITO", "Lomé", "99968488", "REP-BMID-2026-0099-1", "26/09/2026", "BMID-2026-0099", "ESSO", "1 × Panneau 370W", "Ne veut plus", "50 000 F", "remboursé en espèces", "TIMO"],
+    ref: { bon_numero: "REP-BMID-2026-0099-1", bon_vente_id: "V9" }, envoi: { id: "yc-10" },
+  });
+  return msgs;
+};
+export const htmlLignePrivee = (lecteurId) => rendre(
+  { ...garnie, users: usersPrives, ventes: [venteV9], messages: [...lignesPrivees(), ...garnie.messages] },
+  usersPrives.find((u) => u.id === lecteurId), "90112233");

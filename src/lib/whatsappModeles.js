@@ -250,6 +250,30 @@ export function texteAccesAffiche(m, lecteur, acces) {
   return texteEspace({ nomAffiche: m.wa_nom, identifiant: acces.identifiant, motDePasse: acces.motDePasse });
 }
 
+// 🔒 LES REÇUS ET LES BONS NE SE LISENT PAS PAR TOUT LE MONDE (26/09/2026)
+// Timo : « les messages des reçus vente et reçu vente détaillé ne doivent pas
+// être lus par tout le monde dans l'app BMI… à part celui qui a vendu et les
+// administrateurs » → « b : moi seul », « c : reprise et retour aussi ».
+// La ligne rangée dans la conversation ne porte PAS le détail (montant,
+// articles, paiement) : elle descend chez tout le personnel qui voit la
+// conversation, et masquer seulement à l'écran ne protégerait rien. Elle porte
+// une phrase neutre et le LIEN vers la vente ; l'écran recompose le détail
+// depuis la vente pour qui a le droit : celui qui a envoyé (le vendeur qui a
+// encaissé, ou qui a fait le geste) et l'administrateur PRINCIPAL.
+// ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour"];
+const LIGNES_MASQUEES = {
+  recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
+  recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
+  bon_reprise: "🔒 Bon de reprise envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
+  bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
+};
+export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
+export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
+// `estPrincipal` est calculé par l'écran (cette règle n'importe rien).
+export const peutLireLignePrivee = (m, lecteur, estPrincipal) => !!(m && m.wa_prive && lecteur
+  && (estPrincipal === true || (lecteur.id != null && m.de_id === lecteur.id)));
+
 // Ce que l'écran dit APRÈS l'envoi des identifiants — UNE phrase pour les
 // six écrans qui créent ou renvoient un compte. Un repli muet ressemble à
 // une panne (leçon du 19/09) : quand le message n'est pas parti du numéro

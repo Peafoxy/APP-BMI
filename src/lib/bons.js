@@ -40,7 +40,7 @@ export function bonReprise(db, vente, reprise) {
   const montant = Number(reprise.montant || 0);
   const rembourse = Number(reprise.rembourse || 0);
   return {
-    type: TYPE_BON_REPRISE, numero: numeroBonReprise(vente, reprise), ref: reprise.ref, date: reprise.date,
+    type: TYPE_BON_REPRISE, numero: numeroBonReprise(vente, reprise), ref: reprise.ref, date: reprise.date, vente_id: vente.id,
     boutique: vente.boutique, client: vente.client || "", tel: vente.tel || "",
     recu: numeroRecu(vente), dateVente: vente.date,
     article: reprise.article, qte: Number(reprise.qte || 0), motif: motifNu(reprise.motif),
@@ -81,7 +81,7 @@ export function bonRetour(db, vente, retour) {
   if (!vente || !retour) return null;
   const liste = retoursDeVente(db, vente);
   return {
-    type: TYPE_BON_RETOUR, numero: numeroBonRetour(vente, retour, liste), ref: retour.ref, date: retour.date,
+    type: TYPE_BON_RETOUR, numero: numeroBonRetour(vente, retour, liste), ref: retour.ref, date: retour.date, vente_id: vente.id,
     boutique: vente.boutique, client: vente.client || "", tel: vente.tel || "",
     recu: numeroRecu(vente), dateVente: vente.date,
     article: retour.article, qte: retour.qte, motif: retour.motif,

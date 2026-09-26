@@ -11,7 +11,7 @@ import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
-import { montantEncaisseVente } from "../lib/versements";
+import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
@@ -28,7 +28,7 @@ import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { envoiRecuVente, envoiRecuVenteDetail, motifAttendu, envoiRecuReservation, envoiBon } from "../lib/whatsappModeles";
+import { motifAttendu, envoiRecuReservation, envoiBon } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
@@ -430,15 +430,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const envoyerRecuDuNumeroBmi = async (vente, etat) => {
     const bq = infoBq(vente.boutique);
     const dette = (etat.dettes || []).find((d) => d.vente_id === vente.id) || null;
-    const base = {
-      vente, boutique: bq,
-      // Le montant du reçu imprimé : articles − remises − rabais + frais.
-      montant: montantEncaisseVente(vente, totalVente),
-      avance: dette ? Number(dette.paye || 0) : 0,
-      reste: dette ? Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) : 0,
-      fmt, dFR,
-    };
-    const envois = [envoiRecuVenteDetail({ ...base, lignes: lignesVente(vente) }), envoiRecuVente(base)].filter(Boolean);
+    // Le montant du reçu imprimé (articles − remises − rabais + frais) et les
+    // deux reçus : UNE fabrique, celle que 📲 WhatsApp relit pour recomposer
+    // le détail chez le vendeur et l'administrateur principal (lignesPrivees).
+    const envois = envoisRecuDeVente(vente, { boutique: bq, dette: dette || { paye: 0, montant: 0 } });
     let motif = "";
     for (const envoi of envois) {
       const r = await envoyerModele({
@@ -1012,7 +1007,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (r.auto) {
       save((e) => ({
         ...e,
-        messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: bon.tel, nom: bon.client, modele: envoi.modele, variables: envoi.variables, ref: { bon_numero: bon.numero }, envoi: r }),
+        messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: bon.tel, nom: bon.client, modele: envoi.modele, variables: envoi.variables, ref: { bon_numero: bon.numero, bon_vente_id: bon.vente_id }, envoi: r }),
       }));
     }
     return { auto: !!r.auto, motif: r.motif || "" };

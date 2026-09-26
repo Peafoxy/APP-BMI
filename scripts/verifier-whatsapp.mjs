@@ -1344,9 +1344,13 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
   test("★★ sans montant donné par l'écran, AUCUN reçu ne part (jamais un « 0 F » inventé)",
     M.envoiRecuVente({ vente: ezo, boutique: {}, fmt, dFR }) === null
     && !/vente\.total/.test(M.envoiRecuVente.toString()));
-  test("★★ l'écran 💰 Ventes passe le montant de LA formule de la caisse (articles − remises + frais)",
-    /montant: montantEncaisseVente\(vente, totalVente\)/.test(lire("src/screens/Ventes.jsx"))
-    && /import \{ montantEncaisseVente \} from "\.\.\/lib\/versements";/.test(lire("src/screens/Ventes.jsx")));
+  // RETOURNÉ le 26/09/2026 : la fabrique des deux reçus a quitté 💰 Ventes pour
+  // lib/lignesPrivees.js (📲 WhatsApp la relit pour recomposer le détail) —
+  // la formule du montant est la même, lue au même endroit pour les deux.
+  test("★★ le reçu passe le montant de LA formule de la caisse (articles − remises + frais), par LA fabrique commune que 💰 Ventes appelle",
+    /const montant = montantEncaisseVente\(vente, totalVente\);/.test(lire("src/lib/lignesPrivees.js"))
+    && /import \{ montantEncaisseVente \} from "\.\/versements";/.test(lire("src/lib/lignesPrivees.js"))
+    && /const envois = envoisRecuDeVente\(vente, \{ boutique: bq, dette: dette \|\| \{ paye: 0, montant: 0 \} \}\);/.test(lire("src/screens/Ventes.jsx")));
   test("★★ les sept trous viennent de la vente : nom, date, boutique, reçu, montant, formule, TÉLÉPHONE DE LA BOUTIQUE",
     e && e.modele === "recu_vente" && e.variables.join("|") === `ESSO|23/09/2026|BMI DEMAKPOE|DEM-0142|${fmt(160000)}|payé en espèces|+228 91 13 05 11`);
   test("★★ une boutique sans téléphone → le numéro BMI principal (Meta refuse un trou vide), jamais un trou vide",
@@ -1399,7 +1403,7 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && /envoyerRecuDuNumeroBmi\(vente, apres\)/.test(auto)
     && /sansRepli: true/.test(commun) && !/demanderConfirmation/.test(commun + auto) && !/uConfirm/.test(commun + auto) && !/envoyerWhatsApp\(/.test(commun + auto)
     && /espaceFormation: !!bq\.formation/.test(commun) && !/estCompteFormation/.test(commun)
-    && /envoiRecuVente\(base\)/.test(commun) && /vente, boutique: bq,/.test(commun));
+    && /envoisRecuDeVente\(vente, \{ boutique: bq,/.test(commun) && /envoiRecuVente\(base\)/.test(lire("src/lib/lignesPrivees.js")));
   test("★★ 💰 Ventes : à crédit, l'avance et le reste viennent de la DETTE née de la vente ; la ligne s'écrit sur l'état courant, porte la vente et ne donne PAS la conversation",
     /\(etat\.dettes \|\| \[\]\)\.find\(\(d\) => d\.vente_id === vente\.id\)/.test(commun)
     && /save\(\(e\) => \(\{\s*\.\.\.e,\s*messages: messagesAvecLigneEnvoi\(e\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \}, envoi: r \}\)/.test(commun)
@@ -2382,7 +2386,8 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
     const commun2 = (ven2.match(/const envoyerRecuDuNumeroBmi = async \(vente, etat\) => \{[\s\S]*?\n  \};/) || [""])[0];
     const ligne2 = (ven2.match(/const envoyerRecuLigne = async \(v\) => \{[\s\S]*?\n  \};/) || [""])[0];
     test("★★ 💰 Ventes : le DÉTAILLÉ est tenté d'abord, le court ensuite, UNE écriture sur celui qui est parti, et on s'arrête en formation",
-      /const envois = \[envoiRecuVenteDetail\(\{ \.\.\.base, lignes: lignesVente\(vente\) \}\), envoiRecuVente\(base\)\]\.filter\(Boolean\);/.test(commun2)
+      /return \[envoiRecuVenteDetail\(\{ \.\.\.base, lignes: lignesVente\(vente\) \}\), envoiRecuVente\(base\)\]\.filter\(Boolean\);/.test(lire("src/lib/lignesPrivees.js"))
+      && /const envois = envoisRecuDeVente\(/.test(commun2)
       && /for \(const envoi of envois\)/.test(commun2) && /if \(r\.auto\) \{[\s\S]*?return \{ auto: true/.test(commun2)
       && /if \(motifAttendu\(r\.motif\)\) break;/.test(commun2) && (commun2.match(/save\(/g) || []).length === 1);
     const q = ligne2.indexOf("uConfirm("), e = ligne2.indexOf("envoyerRecuDuNumeroBmi(");
@@ -2901,6 +2906,38 @@ const par = lire("src/screens/Parametres.jsx");
 test("★ ⚙ Paramètres : le lien se règle et se coupe, administrateur PRINCIPAL seul, revérifié dans le geste ; le chantier dit « ⭐ Avis demandé le … »",
   /const enregistrerAvis = async \(couper = false\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Régler la demande d'avis Google"\)\) return;/.test(par)
   && /data-reglage="avis-google"/.test(par) && /data-avis-demande/.test(lire("src/screens/ClientsInstalles.jsx")));
+}
+
+{
+titre("㉟ 🔒 LES REÇUS DE VENTE ET LES BONS NE SE LISENT PAS PAR TOUT LE MONDE (26/09/2026, « moi seul », « reprise et retour aussi »)");
+let lp = [];
+try { lp = V.lignesPrivees(); } catch (e) { lp = []; }
+const recu = lp.find((m) => m.wa_modele === "recu_vente_detail") || {};
+const bon = lp.find((m) => m.wa_modele === "bon_reprise") || {};
+test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni paiement) : une phrase neutre, la marque privée et le lien vers la vente",
+  recu.wa_prive === true && recu.vente_id === "V9" && /^🔒 Reçu de vente envoyé au client/.test(recu.texte || "")
+  && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
+  && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
+test("★ les quatre modèles privés : les deux reçus de vente, le bon de reprise, le bon de retour — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "bon_reprise,bon_retour,recu_vente,recu_vente_detail" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ un envoi ordinaire (devis, relance, dette) garde son texte en clair : il n'est pas privé, et une ligne sans marque ne se « déverrouille » pas",
+  !M.lignePrivee("devis_disponible") && !M.lignePrivee("relance_devis") && !M.lignePrivee("rappel_dette") && M.ligneMasquee("relance_devis") === ""
+  && !M.peutLireLignePrivee({ texte: "x" }, { id: "KOSSI" }, true));
+let htmls = {};
+for (const id of ["KOSSI", "TIMO", "ADMIN2", "AMA"]) { try { htmls[id] = V.htmlLignePrivee(id); } catch (e) { htmls[id] = ""; } }
+test("★★ l'écran RENDU : celui qui a envoyé (KOSSI) et l'administrateur PRINCIPAL (TIMO) lisent le détail recomposé depuis la vente",
+  /BMID-2026-0099/.test(htmls.KOSSI) && /200/.test(htmls.KOSSI) && /Panneau 370W/.test(htmls.KOSSI)
+  && /BMID-2026-0099/.test(htmls.TIMO) && /Panneau 370W/.test(htmls.TIMO) && /REP-BMID-2026-0099-1/.test(htmls.TIMO));
+test("★★ …un autre administrateur (pas le principal) et une autre vendeuse ne lisent QUE la phrase neutre",
+  /Reçu de vente envoyé au client/.test(htmls.ADMIN2) && !/Panneau 370W/.test(htmls.ADMIN2) && !/BMID-2026-0099/.test(htmls.ADMIN2)
+  && /Reçu de vente envoyé au client/.test(htmls.AMA) && !/Panneau 370W/.test(htmls.AMA) && !/BMID-2026-0099/.test(htmls.AMA));
+test("★ le bon : établi par TIMO, KOSSI (qui n'a pas fait ce geste) ne lit pas son détail",
+  !/REP-BMID-2026-0099-1/.test(htmls.KOSSI) && /Bon de reprise envoyé au client/.test(htmls.KOSSI));
+const srcLP = lire("src/lib/lignesPrivees.js");
+test("★ UNE fabrique pour l'envoi et l'affichage : 💰 Ventes et 📲 WhatsApp passent par lib/lignesPrivees.js, l'écran demande l'administrateur PRINCIPAL",
+  /import \{ envoisRecuDeVente \} from "\.\.\/lib\/lignesPrivees";/.test(lire("src/screens/Ventes.jsx"))
+  && /peutLireLignePrivee\(m, profile, estAdminPrincipal\(db, profile\)\) && texteLignePrivee\(m, db\)/.test(ecranWa)
+  && /envoiBon\(\{ bon, boutique, fmt, dFR \}\)/.test(srcLP));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

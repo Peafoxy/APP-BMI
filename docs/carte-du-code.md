@@ -102,6 +102,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/relanceAutoDevis.js` | La relance automatique d'un devis ⏳ Proposé au 8e jour, qui annonce la fin de l'offre (serveur, tournée de 7 h) |
 | `lib/rappelEntretien.js` | Le rappel d'entretien automatique : 10 jours avant, le message au client et la tâche du chef du chantier (serveur, tournée de 7 h) ; « ✅ Entretien fait » et la prochaine date à +6 mois |
 | `lib/demandeAvis.js` | La demande d'avis Google : du 10e au 40e jour après la réception d'un chantier, une seule fois (serveur, tournée de 7 h) ; le lien réglé dans ⚙ Paramètres |
+| `lib/lignesPrivees.js` | Le détail d'un reçu de vente ou d'un bon dans 📲 WhatsApp, recomposé depuis la vente pour le vendeur et l'administrateur principal seulement ; la fabrique des deux reçus de vente |
 | `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, et devis ⏳ Proposés (famille imbriquée dans la fiche du client) |
 | `lib/sauvegarde.js` | La sauvegarde JSON : téléchargement, et écriture horaire dans un dossier |
 | `lib/suiviEnvoi.js` | Les coches d'un message parti du numéro BMI (✓ parti, ✓✓ arrivé, ✓✓ bleu lu, ❌ non reçu) : lire la nouvelle de Meta, ne jamais reculer |

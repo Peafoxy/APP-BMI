@@ -26,12 +26,13 @@ import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi 
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
-import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte } from "../lib/calculs";
+import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrincipal } from "../lib/calculs";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } from "../lib/assistantWhatsapp";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION } from "../lib/whatsappConversations";
-import { texteContact, texteAccesAffiche } from "../lib/whatsappModeles";
+import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
+import { texteLignePrivee } from "../lib/lignesPrivees";
 import { motDePasseConnu } from "../lib/comptesClients";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
 import { champsEnvoi } from "../lib/suiviEnvoi";
@@ -190,7 +191,12 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
   // partir de la fiche du client (le mot de passe est RECALCULÉ, jamais lu
   // dans la conversation). Les autres lisent « •••••• ». La fiche vient de
   // l'espace regardé, jamais de db.users en entier.
+  // 🔒 UN REÇU DE VENTE OU UN BON (26/09/2026) : la ligne rangée est neutre ;
+  // celui qui l'a envoyé et l'administrateur PRINCIPAL lisent le détail,
+  // recomposé depuis la vente (lib/lignesPrivees.js). Les autres, la phrase
+  // neutre. Une vente absente de l'appareil laisse la phrase neutre.
   const texteDuFil = (m) => {
+    if (m && m.wa_prive) return (peutLireLignePrivee(m, profile, estAdminPrincipal(db, profile)) && texteLignePrivee(m, db)) || m.texte;
     if (!m || !m.wa_acces) return m ? m.texte : "";
     const client = utilisateursDeLEspace(db, profile).find((u) => u.id === m.wa_acces.client_id);
     return texteAccesAffiche(m, profile, client ? { identifiant: client.nom, motDePasse: motDePasseConnu(client) } : null);

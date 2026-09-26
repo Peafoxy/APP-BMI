@@ -23,7 +23,7 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
@@ -163,7 +163,11 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
 export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {}, donnerAuSender = false, envoi = null }) {
   const liste = Array.isArray(messages) ? messages : [];
   const cle = cleConversation(tel);
-  const texte = ligneEnvoiModele(modele, variables);
+  // 🔒 Un reçu de vente ou un bon : la ligne rangée ne porte pas le détail
+  // (lib/whatsappModeles.js, MODELES_PRIVES) — l'écran le recompose depuis la
+  // vente pour le vendeur et l'administrateur principal.
+  const prive = lignePrivee(modele);
+  const texte = ligneEnvoiModele(modele, variables) ? (prive ? ligneMasquee(modele) : ligneEnvoiModele(modele, variables)) : "";
   if (!cle || !texte) return liste;
   const nomClient = String(nom || "");
   const entete = liste.find((x) => x && x.id === idEntete(cle)) || {};
@@ -178,6 +182,9 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.devis_id ? { devis_id: ref.devis_id } : {}),
     ...(ref && ref.dette_id ? { dette_id: ref.dette_id } : {}),
     ...(ref && ref.vente_id ? { vente_id: ref.vente_id } : {}),
+    ...(ref && ref.bon_numero ? { bon_numero: ref.bon_numero } : {}),
+    ...(ref && ref.bon_vente_id ? { bon_vente_id: ref.bon_vente_id } : {}),
+    ...(prive ? { wa_prive: true } : {}),
     ...prop,
     ...champsEnvoi(envoi),
   });
