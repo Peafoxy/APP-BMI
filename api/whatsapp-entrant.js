@@ -38,6 +38,8 @@ import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } f
 import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
 import { configIA, appelerIA } from "./_assistantIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
+// ✓✓ Les coches (26/09/2026) : la règle vit dans lib/suiviEnvoi.js.
+import { lireStatut, statutApres, ligneAttendue, champsEnvoi, valeurSure } from "../src/lib/suiviEnvoi.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 
 // Les formes que YCloud peut donner à un message entrant. On cherche le
@@ -75,6 +77,11 @@ export default async function handler(req, res) {
   const attendu = process.env.WHATSAPP_WEBHOOK_SECRET;
   const donne = String(req.query?.cle || req.headers["x-bmi-cle"] || "");
   if (!attendu || donne !== attendu) return res.status(401).json({ error: "Appel non reconnu." });
+
+  // ✓✓ UNE NOUVELLE DE SUIVI (envoyé, reçu, lu, échec) n'est pas un message
+  // du client : elle met à jour la ligne partie du numéro BMI, rien d'autre.
+  const suivi = lireStatut(req.body);
+  if (suivi) return traiterSuivi(req, res, suivi);
 
   const { from, texte, media, id, ts } = lireEntrant(req.body);
   const cle = cleConversation(from);
@@ -405,7 +412,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   // L'estimation donnée se range dans la mémoire de la ligne : la demande de
   // devis d'un tour suivant la retrouve (derniereEstimation).
   const memoireR = r.estimation ? { ...(r.memoire || {}), estimation: r.estimation } : (r.memoire || null);
-  const ligneR = ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: memoireR, ia: !!r.ia });
+  const ligneR = { ...ligneAssistant({ cle, tel: from, nom: client?.nom || "", texte: r.texte, etape: r.etape, ts, memoire: memoireR, ia: !!r.ia }), ...champsEnvoi(envoi) };
   const { error: errIns } = await admin.from("messages").insert({ id: ligneR.id, data: ligneR, updated_at: ligneR.ts });
   if (errIns) throw errIns;
 
@@ -427,4 +434,49 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
     if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);
   }
   return { repondu: true, conseiller: !!r.conseiller, devis: !!r.demandeDevis, nom, etape: r.etape, ia: !!r.ia };
+}
+
+// ---------------------------------------------------------------
+// ✓✓ LE SUIVI D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026)
+// ---------------------------------------------------------------
+// Timo : « pourquoi ça ne coche pas ? » → « oui, lance ». Meta prévient par
+// cette adresse quand un message est parti, arrivé sur le téléphone, lu, ou
+// refusé. On retrouve la ligne par son numéro de suivi et on y écrit l'état.
+// ⚠ LES COCHES NE RECULENT JAMAIS (`statutApres`).
+// ⚠ SEULE la ligne concernée est réécrite, et `updated_at` est posé À LA MAIN
+// (dans la ligne ET dans la fiche), sinon l'état ne descendrait jamais sur
+// les téléphones. Un téléphone qui réécrit ensuite la ligne (il la marque
+// lue) passe par la fusion à trois de src/sync.js : l'état n'est pas perdu.
+// ⚠ Une nouvelle arrivée AVANT la ligne (le téléphone qui a envoyé n'a pas
+// fini d'écrire) : on répond 503 pour que YCloud la renvoie, pendant
+// `ATTENTE_LIGNE_MIN` minutes seulement ; au-delà, 200 et on n'insiste pas.
+async function traiterSuivi(req, res, suivi) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !cleService) return res.status(500).json({ error: "Serveur mal configuré" });
+  const admin = createClient(url, cleService, { auth: { persistSession: false } });
+  try {
+    const conditions = [
+      suivi.id ? `data->>wa_envoi_id.eq.${valeurSure(suivi.id)}` : "",
+      suivi.wamid ? `data->>wa_wamid.eq.${valeurSure(suivi.wamid)}` : "",
+    ].filter(Boolean).join(",");
+    const { data: lignes, error } = await admin.from("messages").select("id, data").or(conditions).limit(1);
+    if (error) throw error;
+    const trouvee = lignes && lignes[0];
+    if (!trouvee) {
+      if (ligneAttendue(suivi)) return res.status(503).json({ attente: true, pourquoi: "ligne pas encore écrite" });
+      return res.status(200).json({ ignore: true, pourquoi: "message inconnu (parti avant le suivi, ou par le repli)" });
+    }
+    const nouveau = statutApres(trouvee.data?.wa_statut, suivi);
+    if (!nouveau) return res.status(200).json({ deja: true, etat: trouvee.data?.wa_statut?.etat || "" });
+    const ts = new Date().toISOString();
+    const data = { ...(trouvee.data || {}), wa_statut: nouveau, updated_at: ts };
+    const { error: errMaj } = await admin.from("messages").update({ data, updated_at: ts }).eq("id", trouvee.id);
+    if (errMaj) throw errMaj;
+    return res.status(200).json({ ok: true, etat: nouveau.etat });
+  } catch (e) {
+    console.error("[whatsapp-entrant] suivi", e?.message || e);
+    // 200 : une nouvelle de suivi perdue ne coûte qu'une coche.
+    return res.status(200).json({ ok: false, erreur: "suivi non enregistré" });
+  }
 }

@@ -35,7 +35,9 @@ export async function envoyerYCloud(cle, corps) {
     const code = resultat?.error?.code ?? resultat?.code ?? "";
     return { ok: false, motif, statut_whatsapp: reponse.status, code_whatsapp: code };
   }
-  return { ok: true, id: resultat?.id || "", statut: resultat?.status || "envoye" };
+  // Le numéro de suivi (`id`, et le `wamid` de Meta) sert aux COCHES
+  // (lib/suiviEnvoi.js, 26/09/2026) : Meta prévient ensuite par ce numéro.
+  return { ok: true, id: resultat?.id || "", wamid: resultat?.wamid || "", statut: resultat?.status || "envoye" };
 }
 
 export const corpsTexte = (expediteur, destinataire, texte) =>

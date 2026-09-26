@@ -102,6 +102,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/relanceAutoDevis.js` | La relance automatique d'un devis ⏳ Proposé au 8e jour, qui annonce la fin de l'offre (serveur, tournée de 7 h) |
 | `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, et devis ⏳ Proposés (famille imbriquée dans la fiche du client) |
 | `lib/sauvegarde.js` | La sauvegarde JSON : téléchargement, et écriture horaire dans un dossier |
+| `lib/suiviEnvoi.js` | Les coches d'un message parti du numéro BMI (✓ parti, ✓✓ arrivé, ✓✓ bleu lu, ❌ non reçu) : lire la nouvelle de Meta, ne jamais reculer |
 | `lib/suggestions.js` | LA règle de recherche d'un champ à suggestions (toute recherche tapée) |
 
 ---

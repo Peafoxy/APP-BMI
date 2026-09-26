@@ -26,6 +26,7 @@ import { relancesAutoDuJour, ligneRelanceAuto, enteteApresRelance, compteApresRe
 import { idEntete, cleConversation } from "../src/lib/whatsappConversations.js";
 import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
+import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
 import { randomUUID } from "node:crypto";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages"];
@@ -87,7 +88,9 @@ async function relancerLesDevis(admin, db, aujourdhui) {
       if (!envoi.ok) { bilan.refusees++; console.error("[rappels-du-matin] relance auto refusée", envoi.code_whatsapp, envoi.motif); continue; }
       bilan.envoyees++;
       const ts = new Date().toISOString();
-      const ligne = ligneRelanceAuto({ id: randomUUID(), tel: r.tel, compte: r.compte, devis: r.devis, variables: r.envoi.variables, ts });
+      const ligneBase = ligneRelanceAuto({ id: randomUUID(), tel: r.tel, compte: r.compte, devis: r.devis, variables: r.envoi.variables, ts });
+      // ✓✓ Le numéro de suivi, pour les coches (lib/suiviEnvoi.js).
+      const ligne = ligneBase ? { ...ligneBase, ...champsEnvoi(envoi) } : null;
       if (ligne) {
         const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
         if (error) console.error("[rappels-du-matin] relance auto : ligne du fil non écrite", error.message);

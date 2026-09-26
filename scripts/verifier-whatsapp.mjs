@@ -1181,7 +1181,7 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
     // 🔑 LA LIGNE DU FIL (23/09/2026) : après CHAQUE envoi d'un client, si le
     // message est PARTI du numéro BMI (r.auto), la ligne s'écrit par
     // save((etat) => …) — jamais depuis le `db` d'avant la création.
-    const lignes = src.match(/if \(r && r\.auto\) save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages, \{ profile, client: \w+(, renvoi: true)? \}\) \}\)\);/g) || [];
+    const lignes = src.match(/if \(r && r\.auto\) save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages, \{ profile, client: \w+(, renvoi: true)?, envoi: r \}\) \}\)\);/g) || [];
     test(`★★ ${f} : chaque envoi d'un client écrit la ligne « accès envoyés » dans 📲 WhatsApp, seulement si le message est parti du numéro BMI, sur l'état COURANT (${lignes.length}/${appels.length})`,
       appels.length > 0 && lignes.length === appels.length && /import \{[^}]*messagesAvecLigneAcces[^}]*\} from "\.\.\/whatsapp"/.test(src));
     // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
@@ -1271,7 +1271,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
     // (Partages) écrit SA ligne, masquée, par messagesAvecLigneAcces — il
     // n'est pas compté ici (contrôlé en ㉚).
     const envois = (src.match(/await envoyerModele\(\{/g) || []).length - (src.match(/await envoyerModele\(\{\s*tel: telClient, modele: acces\.modele/g) || []).length;
-    const lignes = (src.match(/messages: r\.auto \? messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: [^}]*modele: envoi\.modele, variables: envoi\.variables, ref: \{ [a-z_]+: [\w.]+ \} \}\) : etat\.messages/g) || []);
+    const lignes = (src.match(/messages: r\.auto \? messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: [^}]*modele: envoi\.modele, variables: envoi\.variables, ref: \{ [a-z_]+: [\w.]+ \}, envoi: r \}\) : etat\.messages/g) || []);
     test(`★★ ${f} : chaque envoi par modèle écrit la ligne dans 📲 WhatsApp si le message est parti du numéro BMI, par save((etat) => …) (${lignes.length}/${envois})`,
       envois > 0 && lignes.length === envois && lignes.every((l) => l.includes(ref))
       // ⚠ RETOURNÉ le 25/09/2026 : l'import peut porter d'autres noms (le reçu automatique).
@@ -1377,7 +1377,7 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && /texteRepli: texteMotFidelite\(\{ nom, avecCompte: !!compte \}\)/.test(corps) && /demanderConfirmation: uConfirm/.test(corps)
     && !/db\.users/.test(corps));
   test("★★ 📋 Clients : la ligne s'écrit sur l'état COURANT, seulement si parti du numéro BMI, et DONNE la conversation (donnerAuSender) ; le repli se dit",
-    /if \(!r\.auto\) return;/.test(corps) && /save\(\(etat\) => \(\{\s*\.\.\.etat,\s*messages: messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: c\.tel, nom, modele: envoi\.modele, variables: envoi\.variables, donnerAuSender: true \}\)/.test(corps)
+    /if \(!r\.auto\) return;/.test(corps) && /save\(\(etat\) => \(\{\s*\.\.\.etat,\s*messages: messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: c\.tel, nom, modele: envoi\.modele, variables: envoi\.variables, donnerAuSender: true, envoi: r \}\)/.test(corps)
     && /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\)/.test(corps)
     && /<M\.Clients db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(lire("src/App.jsx")));
   // 💰 VENTES : automatique, sans question, sans repli, le mur, la ligne sans propriétaire.
@@ -1395,7 +1395,7 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && /envoiRecuVente\(base\)/.test(commun) && /vente, boutique: bq,/.test(commun));
   test("★★ 💰 Ventes : à crédit, l'avance et le reste viennent de la DETTE née de la vente ; la ligne s'écrit sur l'état courant, porte la vente et ne donne PAS la conversation",
     /\(etat\.dettes \|\| \[\]\)\.find\(\(d\) => d\.vente_id === vente\.id\)/.test(commun)
-    && /save\(\(e\) => \(\{\s*\.\.\.e,\s*messages: messagesAvecLigneEnvoi\(e\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \} \}\)/.test(commun)
+    && /save\(\(e\) => \(\{\s*\.\.\.e,\s*messages: messagesAvecLigneEnvoi\(e\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \}, envoi: r \}\)/.test(commun)
     && !/donnerAuSender/.test(commun));
   test("★ 💰 Ventes : ce qui s'est passé se lit sous le titre, discrètement (jamais une fenêtre) ; sans numéro ou en formation, rien",
     /setNoteRecuWa\(r\.motif && !motifAttendu\(r\.motif\) \?/.test(auto) && !/uAlert\(/.test(auto + commun)
@@ -2532,7 +2532,7 @@ titre("㉚ 📄🔑 LE PREMIER DEVIS : SES ACCÈS (espace) PUIS LE DEVIS (devis_
     /modele: acces\.modele, variables: acces\.variables,\s*espaceFormation, sansRepli: true,/.test(P)
     && /const espaceFormation = !!espaceDeLaFiche\(devisMarque\);/.test(P));
   test("★★ si ses accès ne sont pas partis, le devis ne part PAS du numéro BMI : à la main, avec ses codes",
-    /if \(rAcces\.auto\) \{ accesPartis = true; accesEnvoyes = true; \}/.test(P)
+    /if \(rAcces\.auto\) \{ accesPartis = true; accesEnvoyes = rAcces; \}/.test(P)
     && /premierContact: !accesPartis,/.test(P));
   test("★★ les accès partis s'écrivent dans 📲 WhatsApp par LA ligne masquée (messagesAvecLigneAcces), jamais en clair",
     /if \(accesEnvoyes\) \{\s*save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages,/.test(P));
@@ -2619,6 +2619,117 @@ titre("㉛ ⌛ L'OFFRE EXPIRÉE (option « b ») ET LA RELANCE AUTOMATIQUE DU 8e
     /const TABLES = \[[^\]]*"messages"/.test(RM));
   test("★ aucun nom de variable secrète dans la règle ni dans une chaîne affichée",
     !/VITE_YCLOUD|VITE_WHATSAPP/.test(lire("api/rappels-du-matin.js")) && !/YCLOUD_API_KEY/.test(lire("src/lib/relanceAutoDevis.js")));
+}
+
+// ===============================================================
+titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « oui, lance »)");
+{
+  const S = await import("../src/lib/suiviEnvoi.js");
+  const nouvelle = (status, extra = {}) => ({ type: "whatsapp.message.updated", createTime: "2026-09-26T12:31:00Z", whatsappMessage: { id: "yc-1", wamid: "wamid.AB", status, ...extra } });
+  const lu = S.lireStatut(nouvelle("read", { readTime: "2026-09-26T12:40:00Z" }));
+  test("★★ une nouvelle de YCloud se lit : l'état, les deux numéros de suivi, l'heure (celle de la lecture pour « lu »)",
+    lu && lu.etat === "lu" && lu.id === "yc-1" && lu.wamid === "wamid.AB" && lu.le === "2026-09-26T12:40:00.000Z"
+    && S.lireStatut(nouvelle("delivered")).etat === "recu" && S.lireStatut(nouvelle("sent")).etat === "envoye" && S.lireStatut(nouvelle("failed")).etat === "echec");
+  test("★★ un MESSAGE DU CLIENT n'est pas une nouvelle de suivi, ni un état inconnu, ni une nouvelle sans numéro",
+    S.lireStatut({ type: "whatsapp.inbound_message.received", whatsappInboundMessage: { from: "+22890112233", text: { body: "Bonjour" } } }) === null
+    && S.lireStatut(nouvelle("bizarre")) === null && S.lireStatut({ whatsappMessage: { status: "read" } }) === null && S.lireStatut(null) === null);
+  const envoye = S.statutApres(null, S.lireStatut(nouvelle("sent")));
+  const recu = S.statutApres(envoye, S.lireStatut(nouvelle("delivered")));
+  const luS = S.statutApres(recu, lu);
+  test("★★ les coches AVANCENT : envoyé → reçu → lu",
+    envoye.etat === "envoye" && recu.etat === "recu" && luS.etat === "lu");
+  test("★★ elles ne RECULENT JAMAIS : « reçu » après « lu », « envoyé » après « reçu », un échec après « reçu », la même nouvelle deux fois — rien ne change",
+    S.statutApres(luS, S.lireStatut(nouvelle("delivered"))) === null && S.statutApres(recu, S.lireStatut(nouvelle("sent"))) === null
+    && S.statutApres(recu, S.lireStatut(nouvelle("failed"))) === null && S.statutApres(luS, lu) === null);
+  const echecConnu = S.statutApres(envoye, S.lireStatut(nouvelle("failed", { errorCode: 131050, errorMessage: "User opted out" })));
+  const echecInconnu = S.statutApres(null, S.lireStatut(nouvelle("failed", { errorCode: 999999, errorMessage: "Something odd" })));
+  test("★★ un ÉCHEC se dit en français par LA règle commune ; un motif inconnu reste tel quel (on n'invente pas d'explication)",
+    echecConnu.etat === "echec" && /ne plus recevoir de messages commerciaux/.test(echecConnu.motif) && echecInconnu.motif === "Something odd");
+  test("★ une nouvelle arrivée avant sa ligne se fait renvoyer quinze minutes, pas plus",
+    S.ligneAttendue({ le: "2026-09-26T12:31:00Z" }, "2026-09-26T12:40:00Z") === true && S.ligneAttendue({ le: "2026-09-26T12:31:00Z" }, "2026-09-26T13:00:00Z") === false);
+  const ch = S.champsEnvoi({ id: "yc-1", wamid: "wamid.AB" });
+  test("★ l'envoi range ses deux numéros et part à « envoyé » ; un envoi sans numéro (repli, formation) ne range rien",
+    ch.wa_envoi_id === "yc-1" && ch.wa_wamid === "wamid.AB" && ch.wa_statut.etat === "envoye" && JSON.stringify(S.champsEnvoi({})) === "{}" && JSON.stringify(S.champsEnvoi(null)) === "{}");
+  test("★★ un numéro de suivi ne peut pas ouvrir le filtre de la base (virgule, parenthèse, point-virgule retirés)",
+    S.valeurSure("yc-1),data->>role.eq.admin;--") === "yc-1data-role.eq.admin--" && !/[,();]/.test(S.valeurSure("a,b(c)d;e")));
+  const cLu = S.coches({ etat: "lu", le: "2026-09-26T12:40:00Z" }), cRecu = S.coches({ etat: "recu", le: "" });
+  test("★ ✓ parti · ✓✓ gris arrivé · ✓✓ bleu lu · ❌ non reçu — et jamais le mot « livré »",
+    S.coches({ etat: "envoye" }).signe === "✓" && cRecu.signe === "✓✓" && cRecu.couleur === "gris" && cLu.couleur === "bleu" && /26\/09\/2026 à 12:40/.test(cLu.titre)
+    && S.coches({ etat: "echec", motif: "X" }).signe === "❌" && S.coches(null) === null
+    && ["envoye", "recu", "lu", "echec"].every((e) => !/livr/i.test(S.coches({ etat: e, motif: "m" }).titre)));
+  const msgs = [
+    { canal: "whatsapp", vente_id: "V1", ts: "1", wa_envoi_id: "a", wa_statut: { etat: "lu" } },
+    { canal: "whatsapp", vente_id: "V1", ts: "3" },
+    { canal: "whatsapp", vente_id: "V1", ts: "2", wa_envoi_id: "b", wa_statut: { etat: "recu" } },
+    { canal: "whatsapp", vente_id: "V2", ts: "9", wa_envoi_id: "c" },
+  ];
+  test("★ la ligne d'une vente (dette, devis) lit le DERNIER message suivi qui la concerne, jamais celui d'une autre",
+    S.dernierEnvoiPour(msgs, { vente_id: "V1" }).wa_envoi_id === "b" && S.dernierEnvoiPour(msgs, { vente_id: "V3" }) === null && S.dernierEnvoiPour(msgs, {}) === null);
+
+  // LE SERVEUR
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const WE = sansComm(lire("api/whatsapp-entrant.js"));
+  test("★★ l'adresse d'arrivée reconnaît une nouvelle de suivi AVANT de lire un message du client (sinon elle ne l'écrit jamais comme un message)",
+    WE.indexOf("lireStatut(req.body)") > 0 && WE.indexOf("lireStatut(req.body)") < WE.indexOf("lireEntrant(req.body)") && WE.indexOf("lireStatut(req.body)") > WE.indexOf("donne !== attendu"));
+  // On APPELLE l'adresse d'arrivée pour de vrai, sans base : une nouvelle
+  // de suivi doit atteindre traiterSuivi (qui réclame la base → 500), jamais
+  // la lecture d'un message du client (qui répondrait 200 « numéro illisible »).
+  const appelWebhook = async (corps) => {
+    const avant = { s: process.env.WHATSAPP_WEBHOOK_SECRET, u: process.env.VITE_SUPABASE_URL };
+    process.env.WHATSAPP_WEBHOOK_SECRET = "secret-du-banc"; delete process.env.VITE_SUPABASE_URL;
+    let code = 0, corpsRendu = null;
+    const res = { status(c) { code = c; return this; }, json(j) { corpsRendu = j; return this; } };
+    try { await E.default({ method: "POST", query: { cle: "secret-du-banc" }, headers: {}, body: corps }, res); }
+    finally {
+      if (avant.s === undefined) delete process.env.WHATSAPP_WEBHOOK_SECRET; else process.env.WHATSAPP_WEBHOOK_SECRET = avant.s;
+      if (avant.u !== undefined) process.env.VITE_SUPABASE_URL = avant.u;
+    }
+    return { code, corps: corpsRendu };
+  };
+  const rSuivi = await appelWebhook(nouvelle("delivered"));
+  test("★★ appelée pour de vrai, l'adresse d'arrivée TRAITE une nouvelle de suivi (elle va chercher la base), au lieu de la jeter comme un message illisible",
+    rSuivi.code === 500 && !(rSuivi.corps && rSuivi.corps.ignore));
+  const suiviCorps = WE.slice(WE.indexOf("async function traiterSuivi"));
+  test("★★ elle retrouve la ligne par son numéro de suivi, nettoyé (valeurSure), et ne réécrit QUE cette ligne, avec `updated_at` dans la ligne et dans la fiche",
+    /valeurSure\(suivi\.id\)/.test(suiviCorps) && /valeurSure\(suivi\.wamid\)/.test(suiviCorps) && /\.update\(\{ data, updated_at: ts \}\)\.eq\("id", trouvee\.id\)/.test(suiviCorps)
+    && /wa_statut: nouveau, updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
+  test("★★ elle ne fait jamais reculer une coche (LA règle statutApres) et fait renvoyer une nouvelle trop pressée (503)",
+    /statutApres\(trouvee\.data\?\.wa_statut, suivi\)/.test(suiviCorps) && /ligneAttendue\(suivi\)\) return res\.status\(503\)/.test(suiviCorps));
+  test("★ une nouvelle de suivi ne prévient personne et ne réveille pas l'assistant",
+    !/envoyerAuxPersonnes|repondreParAssistant|envoyerYCloud/.test(suiviCorps));
+  test("★ YCloud rend le numéro de suivi (id + wamid), le serveur le transmet, l'application le garde",
+    /wamid: resultat\?\.wamid/.test(lire("api/_ycloud.js")) && /wamid: resultat\.wamid/.test(lire("api/whatsapp.js"))
+    && (lire("src/whatsapp.js").match(/wamid: reponse\.wamid/g) || []).length === 2);
+  test("★★ les lignes écrites par le SERVEUR portent leur numéro (l'assistant, la relance du 8e jour)",
+    /\.\.\.champsEnvoi\(envoi\) \};/.test(WE) && /\.\.\.champsEnvoi\(envoi\) \}/.test(sansComm(lire("api/rappels-du-matin.js"))));
+  // L'APPLICATION : chaque ligne envoyée garde son numéro.
+  const W = lire("src/whatsapp.js");
+  test("★ les deux fabriques de ligne (envoi par modèle, accès) rangent le numéro de suivi",
+    (W.match(/\.\.\.champsEnvoi\(envoi\),/g) || []).length === 2 && /envoi: r \}\)/.test(W));
+  const ecrans = ["Dettes", "TousLesDevis", "Utilisateurs", "Clients", "Ventes", "Prospects", "ClientsInstalles", "dimensionnement/Partages"];
+  const appels = ecrans.flatMap((e) => (sansComm(lire(`src/screens/${e}.jsx`)).match(/messagesAvecLigne(Envoi|Acces)\([^\n]*/g) || []));
+  test(`★★ CHAQUE appel des écrans passe son envoi (${appels.length} appels) — un appel oublié, c'est un message sans coches`,
+    appels.length >= 13 && appels.every((a) => /envoi: (r|accesEnvoyes) \}/.test(a)));
+  const WS = lire("src/screens/Whatsapp.jsx");
+  test("★ 📲 WhatsApp : la réponse libre et « ✍️ Écrire » gardent leur numéro, les coches se dessinent sur les lignes suivies, l'échec se lit en toutes lettres",
+    (WS.match(/\.\.\.champsEnvoi\(r\),/g) || []).length === 2 && /m\.wa_envoi_id && <CochesEnvoi statut=\{m\.wa_statut\}/.test(WS) && /data-echec-envoi/.test(WS));
+  test("★ les lignes de 💰 Ventes, 📋 Dettes et 📋 Tous les devis montrent les coches du dernier message, par LA règle",
+    [["Ventes", "vente_id: v.id"], ["Dettes", "dette_id: d.id"], ["TousLesDevis", "devis_id: d.id"]].every(([e, ref]) => {
+      const t = lire(`src/screens/${e}.jsx`);
+      return t.includes(`dernierEnvoiPour(db.messages, { ${ref} })`) && /<CochesEnvoi statut=\{e\.wa_statut\} \/>/.test(t) && /from "\.\.\/lib\/suiviEnvoi"/.test(t);
+    }));
+  test("★ les coches sont dessinées UNE fois (ui.jsx), depuis LA règle",
+    /export const CochesEnvoi/.test(lire("src/components/ui.jsx")) && /import \{ coches \} from "\.\.\/lib\/suiviEnvoi"/.test(lire("src/components/ui.jsx")));
+  // LA VRAIE CHAÎNE, rendue
+  const ligneDe = (liste) => liste.find((m) => m.wa_modele) || {};
+  const ls = [ligneDe(V.ligneSuivie({ id: "yc-7", wamid: "wamid.ZZ" }))];
+  test("★★ la vraie chaîne : un reçu parti porte son numéro et part à « envoyé » ; sans numéro, rien",
+    ls[0].wa_envoi_id === "yc-7" && ls[0].wa_statut.etat === "envoye" && ls[0].vente_id === "V1" && !("wa_envoi_id" in ligneDe(V.ligneSuivie(null))) && !!ligneDe(V.ligneSuivie(null)).wa_modele);
+  let hc = "";
+  try { hc = V.htmlCoches(); } catch (e) { hc = ""; }
+  test("★★ l'écran rendu : ✓✓ bleu sur la ligne lue, ❌ et son motif sur l'échec, rien sur la ligne sans suivi",
+    /data-coches="lu"/.test(hc) && /data-coches="echec"/.test(hc) && /Non reçu : Ce numéro n&#x27;a pas WhatsApp\./.test(hc)
+    && (hc.match(/data-coches=/g) || []).length === 2 && /LIGNE SANS SUIVI/.test(hc));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

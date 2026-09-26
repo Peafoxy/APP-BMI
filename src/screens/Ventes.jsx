@@ -15,7 +15,8 @@ import { montantEncaisseVente } from "../lib/versements";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi } from "../components/ui";
+import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
@@ -447,7 +448,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       if (r.auto) {
         save((e) => ({
           ...e,
-          messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id } }),
+          messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id }, envoi: r }),
         }));
         return { auto: true, detail: envoi.modele === "recu_vente_detail" };
       }
@@ -1011,7 +1012,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (r.auto) {
       save((e) => ({
         ...e,
-        messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: bon.tel, nom: bon.client, modele: envoi.modele, variables: envoi.variables, ref: { bon_numero: bon.numero } }),
+        messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: bon.tel, nom: bon.client, modele: envoi.modele, variables: envoi.variables, ref: { bon_numero: bon.numero }, envoi: r }),
       }));
     }
     return { auto: !!r.auto, motif: r.motif || "" };
@@ -1510,6 +1511,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} aria-label="Imprimer le reçu">🖨</button>
                     <button onClick={() => envoyerRecuLigne(v)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp (du numéro BMI)" aria-label="WhatsApp"><IconeWhatsApp /></button>
+                    {(() => {
+                      // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
+                      // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
+                      const e = dernierEnvoiPour(db.messages, { vente_id: v.id });
+                      return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
+                    })()}
                     {bonsDeVente(v).length > 0 && (
                       <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
                     )}

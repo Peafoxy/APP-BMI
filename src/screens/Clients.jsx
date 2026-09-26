@@ -76,7 +76,7 @@ export function CreerClient({ db, save, profile }) {
     setF({ nom: "", tel: "" });
     // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
     const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
-    if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: client }) }));
+    if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: client, envoi: r }) }));
     const m = messageIdentifiants(nom, r); if (m) uAlert(m);
     // Le cadre vert dit PAR OÙ les accès sont partis : il écrivait « WhatsApp
     // s'est ouvert » en dur, faux depuis que le message part du numéro BMI
@@ -91,7 +91,7 @@ export function CreerClient({ db, save, profile }) {
     if (!mdp) { uAlert("Ce compte a un mot de passe personnalisé, impossible de le régénérer ici."); return; }
     // ⚠ LE MUR : l'espace de la FICHE, jamais celui de qui clique.
     const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: c.nom_base || c.nom, identifiant: id, motDePasse: mdp, tel: c.tel, role: "client", espaceFormation: !!c.formation, demanderConfirmation: uConfirm });
-    if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: c, renvoi: true }) }));
+    if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: c, renvoi: true, envoi: r }) }));
     const m = messageIdentifiants(c.nom_base || c.nom, r); if (m) uAlert(m);
   };
 
@@ -222,7 +222,7 @@ export function Clients({ db, save, profile }) {
     if (typeof save === "function") {
       save((etat) => ({
         ...etat,
-        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: c.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true }),
+        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: c.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true, envoi: r }),
       }), `Mot de fidélité envoyé du numéro BMI à ${nom} — ${profile.nom}`);
     }
     uAlert(`✅ Mot de fidélité envoyé du numéro BMI à ${nom}.`);

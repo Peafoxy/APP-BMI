@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { col, light, moyensProposes } from "../lib/core";
 import { LOGO } from "../lib/constants";
 import { libelleBanque } from "../lib/banques";
+import { coches } from "../lib/suiviEnvoi";
 import { genererPDF } from "../pdf";
 // Timo (14/09/2026) : « sur tous les fichiers générés par l'app, un bouton
 // Partager » — le document de l'aperçu devient un PDF (image de la page,
@@ -188,6 +189,22 @@ export const celluleFigee = (fond = "bg-white", deplie = false) => `sticky left-
 // par le vrai icône WhatsApp ») : dessiné en SVG, vert WhatsApp, à la taille
 // du texte — l'emoji 💬 ne ressemblait à rien de connu. Écrit une fois, pour
 // tout bouton qui envoie sur WhatsApp.
+// ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026) — dessinées
+// UNE fois, pour 📲 WhatsApp et pour les lignes de vente, dette et devis.
+// ✓ parti · ✓✓ gris arrivé · ✓✓ bleu lu · ❌ non reçu (le motif au survol).
+// Rien sans suivi : un message parti avant, ou par le repli, n'a pas de coche.
+export const CochesEnvoi = ({ statut, surFonce = false }) => {
+  const c = coches(statut);
+  if (!c) return null;
+  const couleur = c.couleur === "bleu" ? "#53bdeb" : c.couleur === "rouge" ? undefined : surFonce ? "rgba(255,255,255,0.75)" : "#94a3b8";
+  return (
+    <span data-coches={statut.etat} title={c.titre} aria-label={c.titre}
+      className="inline-block ml-1 font-bold tracking-tighter whitespace-nowrap" style={couleur ? { color: couleur } : undefined}>
+      {c.signe}
+    </span>
+  );
+};
+
 export const IconeWhatsApp = ({ taille = 18 }) => (
   <svg width={taille} height={taille} viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ display: "inline-block", verticalAlign: "middle" }}>
     <path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />

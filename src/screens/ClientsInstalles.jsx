@@ -160,7 +160,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (await uConfirm(`✅ Compte créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
       // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
       const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
-      if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user }) }));
+      if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user, envoi: r }) }));
       const m = messageIdentifiants(nom, r); if (m) uAlert(m);
     }
   };

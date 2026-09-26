@@ -568,14 +568,14 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // il repart à la main avec ses codes (`premierContact`), sinon le client
   // recevrait un lien vers un espace où il ne saurait pas entrer.
   let accesPartis = accesDejaEnvoyes(compte, idDevis, dbApres.messages);
-  let accesEnvoyes = false;
+  let accesEnvoyes = null;
   if (!accesPartis && motDePasse && compte.nom) {
     const acces = envoiIdentifiants({ nomAffiche: compte.nom_base || compte.nom, identifiant: compte.nom, motDePasse });
     const rAcces = await envoyerModele({
       tel: telClient, modele: acces.modele, variables: acces.variables,
       espaceFormation, sansRepli: true,
     });
-    if (rAcces.auto) { accesPartis = true; accesEnvoyes = true; }
+    if (rAcces.auto) { accesPartis = true; accesEnvoyes = rAcces; }
     else if (rAcces.motif && !motifAttendu(rAcces.motif)) uAlert(`Ses accès ne sont pas partis du numéro BMI. ${messageRepli(rAcces.motif)}`);
   }
   const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
@@ -594,7 +594,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // Les accès partis du numéro BMI s'écrivent dans 📲 WhatsApp, masqués
   // (règle du 23/09 : le créateur et l'administrateur seuls les lisent).
   if (accesEnvoyes) {
-    save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: { ...compte, tel: telClient } }) }));
+    save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: { ...compte, tel: telClient }, envoi: accesEnvoyes }) }));
   }
   // La trace se pose seulement si le message est VRAIMENT parti du numéro
   // BMI : une ouverture WhatsApp ne prouve rien (personne ne sait si le
@@ -610,7 +610,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
             ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) }
             : x)) }
         : u)),
-      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: telClient, nom: compte.nom_base || compte.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: idDevis } }) : etat.messages,
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: telClient, nom: compte.nom_base || compte.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: idDevis }, envoi: r }) : etat.messages,
     }));
   }
   // ⚠ On rend CE QUI S'EST PASSÉ, pas seulement « c'est parti » : l'écran doit

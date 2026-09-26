@@ -14,7 +14,8 @@ import { envoiRelanceDevis, traceEnvoi, libelleTrace, motifAttendu, messageRepli
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
-import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche } from "../components/ui";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi } from "../components/ui";
+import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
@@ -207,7 +208,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
             ? { ...x, relance_le: today(), relance_par: profile.nom, nb_relances: (x.nb_relances || 0) + 1, ...(trace ? { envoi_whatsapp: trace } : {}) }
             : x)) }
         : u)),
-      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: d.client.tel, nom: d.client.nom_base || d.client.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: d.id } }) : etat.messages,
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: d.client.tel, nom: d.client.nom_base || d.client.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: d.id }, envoi: r }) : etat.messages,
     }), `Devis ${STATUT_DEVIS[d.statut || "propose"][0]} de ${d.client?.nom_base || d.client?.nom} (${fmt(d.total)}) relancé ${r.auto ? "du numéro BMI" : "par WhatsApp"} — ${profile.nom}`);
   };
 
@@ -442,6 +443,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       📲 Relancé le {dFR(d.relance_le)}{d.envoi_whatsapp ? " — du n° BMI" : ""}
                     </span>
                   )}
+                  {(() => {
+                      // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
+                      // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
+                      const e = dernierEnvoiPour(db.messages, { devis_id: d.id });
+                      return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
+                    })()}
                   {offreExpiree(d, today()) && (
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-offre-expiree
                       title={`${phraseOffreExpiree(d)}. Le client peut toujours le valider.`}>

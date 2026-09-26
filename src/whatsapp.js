@@ -26,6 +26,8 @@ import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
 import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
+// ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
+import { champsEnvoi } from "./lib/suiviEnvoi";
 
 const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
@@ -74,7 +76,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
     return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }));
   }
-  return { auto: true, parti: true, motif: "", id: reponse.id || "" };
+  return { auto: true, parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
 }
 
 // ---------------------------------------------------------------
@@ -112,7 +114,7 @@ export async function envoyerIdentifiantsDuNumeroBmi({ nomAffiche, identifiant, 
 // Cinq écrans s'en servent, par `save((etat) => …)` : l'écran a déjà
 // enregistré le compte avant d'envoyer, il ne doit pas réécrire un état
 // périmé (la création serait prise pour une suppression).
-export function messagesAvecLigneAcces(messages, { profile, client, renvoi = false }) {
+export function messagesAvecLigneAcces(messages, { profile, client, renvoi = false, envoi = null }) {
   const liste = Array.isArray(messages) ? messages : [];
   const tel = client && client.tel;
   const cle = cleConversation(tel);
@@ -123,6 +125,7 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
     canal: CANAL_WA, wa_tel: cle, wa_numero: tel, wa_nom: nom,
     texte: texteEspaceMasque(nom),
     wa_acces: { client_id: client.id, renvoi: !!renvoi },
+    ...champsEnvoi(envoi),
   });
   return messagesAvecEntete([m, ...liste], {
     cle, tel, nom, derniere: m.ts,
@@ -155,7 +158,9 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
 // seulement si elle n'est à PERSONNE : une conversation déjà confiée à un
 // collègue ne se prend pas au passage (seul « 🔁 Confier » le fait). Une
 // relance, un reçu de vente ne la donnent jamais (`donnerAuSender` absent).
-export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {}, donnerAuSender = false }) {
+// ✓✓ `envoi` = la réponse de `envoyerModele` : son numéro de suivi se range
+// sur la ligne, c'est lui qui permettra d'y poser les coches (26/09/2026).
+export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {}, donnerAuSender = false, envoi = null }) {
   const liste = Array.isArray(messages) ? messages : [];
   const cle = cleConversation(tel);
   const texte = ligneEnvoiModele(modele, variables);
@@ -174,6 +179,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.dette_id ? { dette_id: ref.dette_id } : {}),
     ...(ref && ref.vente_id ? { vente_id: ref.vente_id } : {}),
     ...prop,
+    ...champsEnvoi(envoi),
   });
   return messagesAvecEntete([m, ...liste], {
     cle, tel, nom: nomClient, derniere: m.ts,
@@ -205,7 +211,7 @@ export async function repondreWhatsApp({ tel, texte }) {
     if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
     return { parti: false, motif: motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }) };
   }
-  return { parti: true, motif: "", id: reponse.id || "" };
+  return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
 }
 
 // ---------------------------------------------------------------
@@ -247,7 +253,7 @@ export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation
     if (typeof save === "function") {
       save((etat) => ({
         ...etat,
-        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref }),
+        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }),
       }));
     }
     return `📲 Reçu envoyé du numéro BMI à ${nom}.`;

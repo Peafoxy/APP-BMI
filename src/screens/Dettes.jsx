@@ -6,7 +6,8 @@
 import { useState } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi } from "../components/ui";
+import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -268,7 +269,7 @@ export function Dettes({ db, save, profile }) {
     save((etat) => ({
       ...etat,
       dettes: etat.dettes.map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)),
-      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: d.tel, nom: compte?.nom_base || compte?.nom || d.client, modele: envoi.modele, variables: envoi.variables, ref: { dette_id: d.id } }) : etat.messages,
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: d.tel, nom: compte?.nom_base || compte?.nom || d.client, modele: envoi.modele, variables: envoi.variables, ref: { dette_id: d.id }, envoi: r }) : etat.messages,
     }),
       `Relance de la dette de ${d.client} (${fmt(Math.max(0, d.montant - d.paye))}) envoyée du numéro BMI — ${d.boutique}`);
     uAlert(`✅ Message envoyé du numéro BMI à ${d.client}.`);
@@ -474,6 +475,12 @@ export function Dettes({ db, save, profile }) {
                         registre d'outillage, 18/09). Elle dit qui, quand — jamais
                         « livré » ni « lu », qu'on ne sait pas. */}
                     {d.envoi_whatsapp && <div className="text-xs mt-0.5 text-emerald-700">📲 {libelleTrace(d.envoi_whatsapp)}</div>}
+                    <div className="mt-0.5">{(() => {
+                      // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
+                      // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
+                      const e = dernierEnvoiPour(db.messages, { dette_id: d.id });
+                      return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
+                    })()}</div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1">

@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 594 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour)
+npm run verifier-whatsapp        # 618 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -849,6 +849,56 @@ lit mal est pire qu'un banc absent).
   > valable jusqu'au {{5}}. Passé cette date, les prix devront être
   > confirmés. Pour le valider, ouvrez votre espace sur gestion.bmitogo.com ou
   > répondez simplement à ce message. Merci de votre confiance. BMI TOGO
+
+### ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « oui, lance »)
+- Capture Timo du WhatsApp du téléphone BMI (le reçu de LDJEMEK SOLAR, sans
+  coche) : « pourquoi ça ne coche pas ? toujours ça dépend de Meta ? » —
+  **oui** : cette bulle est une COPIE que Meta dessine, l'application n'y
+  écrit rien, **et ça ne changera pas**. Puis « explique-moi comment ça
+  marcherait » → « et dans WhatsApp Messenger ? » (non : les coches se lisent
+  dans l'application BMI, jamais sur le téléphone BMI, et le client n'en voit
+  jamais sur un message reçu) → **« oui, lance »**.
+- Règle pure **`lib/suiviEnvoi.js`** (lisible par le serveur). À l'envoi,
+  YCloud rend un numéro de suivi (`id`, et le `wamid` de Meta) : **il se range
+  sur la ligne du fil** (`wa_envoi_id`, `wa_wamid`, `wa_statut` à « envoyé »)
+  par `champsEnvoi` — les deux fabriques (`messagesAvecLigneEnvoi`,
+  `messagesAvecLigneAcces`, qui reçoivent `envoi: r`), la réponse libre et
+  « ✍️ Écrire » de 📲 WhatsApp, l'assistant et la relance du 8e jour (serveur).
+  Un envoi sans numéro (repli, formation, messages d'AVANT) n'a pas de coche.
+- **Meta prévient par l'adresse d'arrivée** (`api/whatsapp-entrant.js`) :
+  `lireStatut` reconnaît la nouvelle (`whatsappMessage.status` : sent,
+  delivered, read, failed) **AVANT** de lire un message de client ;
+  `traiterSuivi` retrouve la ligne par son numéro (filtre nettoyé par
+  `valeurSure`), ne réécrit QU'ELLE, `updated_at` dans la ligne et la fiche.
+  ⚠ **Les coches ne reculent jamais** (`statutApres`, rang envoyé < échec <
+  reçu < lu). ⚠ **Une nouvelle arrivée avant sa ligne** (le téléphone n'a pas
+  fini d'écrire) répond **503** pour que YCloud la renvoie, pendant 15 minutes
+  (`ATTENTE_LIGNE_MIN`), puis 200. ⚠ Une nouvelle de suivi ne prévient
+  personne et ne réveille pas l'assistant. Un téléphone qui réécrit ensuite la
+  ligne (il la marque lue) passe par la fusion à trois de src/sync.js.
+- **L'affichage** : `CochesEnvoi` (ui.jsx, dessinées UNE fois) — ✓ parti,
+  ✓✓ gris arrivé, ✓✓ bleu lu, ❌ non reçu **avec le motif en français** (LA
+  règle `traduireMotifWhatsApp`, un motif inconnu reste tel quel). Dans le
+  fil de 📲 WhatsApp, et sur la ligne de 💰 Ventes, 📋 Dettes et 📋 Tous les
+  devis (`dernierEnvoiPour`, le dernier message suivi de cette vente, dette,
+  devis). ⚠ **Ce qu'un appareil ne reçoit pas, il ne le voit pas** : une
+  conversation confiée à un collègue ne descend pas (`securite-28`), donc ses
+  coches non plus sur la ligne de la vente — l'administrateur voit tout.
+- ⚠ **« Lu » n'est pas garanti** : un client qui a coupé les confirmations
+  de lecture reste à ✓✓ gris pour toujours. ⚠ **La forme exacte du paquet de
+  YCloud n'a pas pu être vérifiée d'ici** : le premier vrai reçu dira si la
+  lecture est juste (le journal Vercel montre ce qui a été ignoré, et
+  pourquoi).
+- **À FAIRE PAR TIMO** : dans la console YCloud, sur la MÊME adresse que les
+  réponses des clients, cocher l'événement du **statut des messages**
+  (« whatsapp.message.updated »). Sans ça, rien n'arrive et aucune coche ne
+  bouge. Coût : rien (Meta ne fait pas payer ces nouvelles). **Rien à coller
+  dans Supabase.**
+- Banc ㉜ (`verifier-whatsapp`, 24 contrôles), dont un APPEL réel de
+  l'adresse d'arrivée ; éprouvé en remettant cinq fautes (coches qui
+  reculent, nouvelle ignorée, filtre non nettoyé, écran qui oublie son envoi,
+  coches jamais dessinées) : chacune tombe. Cinq contrôles RETOURNÉS (les
+  appels portent `envoi: r`).
 
 ### ✏️ UNE PÉRIODE À SOI DANS 💰 VENTES (19/09/2026)
 - Timo, devant le filtre : « pour filtrer les ventes ou proforma, il n'y a

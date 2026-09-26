@@ -22,7 +22,7 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -34,6 +34,7 @@ import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAcc
 import { texteContact, texteAccesAffiche } from "../lib/whatsappModeles";
 import { motDePasseConnu } from "../lib/comptesClients";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
+import { champsEnvoi } from "../lib/suiviEnvoi";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
 // 💬 Messages — un rôle ne se nomme pas de deux façons dans l'application.
@@ -207,7 +208,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     const m = nouveauMessage(profile, {
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
-      wa_id: r.id || "", texte: t,
+      wa_id: r.id || "", texte: t, ...champsEnvoi(r),
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
     // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
@@ -276,7 +277,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     const m = nouveauMessage(profile, {
       canal: CANAL_WA, wa_tel: cleConversation(tel), wa_numero: tel,
       ...(nom || client?.nom ? { wa_nom: nom || client.nom } : {}),
-      wa_id: r.id || "", texte: message,
+      wa_id: r.id || "", texte: message, ...champsEnvoi(r),
       proprietaire_id: profile.id, proprietaire_nom: profile.nom,
     });
     save({ ...db, messages: messagesAvecEntete([m, ...messages], {
@@ -496,7 +497,8 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
                   {!m.wa_systeme && !estLigneAssistant(m) && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
                   {m.wa_media && <MediaWa message={m} />}
                   {m.texte ? <div className="whitespace-pre-line">{texteDuFil(m)}</div> : null}
-                  <div className={`text-[10px] mt-1 ${m.de_id === profile.id ? "text-sky-200" : "text-slate-400"}`}>{dFR(m.date)} {String(m.ts || "").slice(11, 16)}</div>
+                  <div className={`text-[10px] mt-1 ${m.de_id === profile.id ? "text-sky-200" : "text-slate-400"}`}>{dFR(m.date)} {String(m.ts || "").slice(11, 16)}{m.wa_envoi_id && <CochesEnvoi statut={m.wa_statut} surFonce={m.de_id === profile.id && !estLigneAssistant(m)} />}</div>
+                  {m.wa_statut?.etat === "echec" && <div data-echec-envoi className="text-[11px] mt-1 font-semibold text-red-600 bg-white/90 rounded px-1">❌ Non reçu : {m.wa_statut.motif}</div>}
                 </div>
               ))}
             </div>

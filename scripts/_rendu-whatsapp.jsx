@@ -144,3 +144,22 @@ export const renduAttenteRepondue = () => {
     return rendre({ ...garnie, messages: [...garnie.messages, ligneRelais(), rep] }, users[0], "90112233");
   } catch (e) { return `ERREUR ${e?.message || e}`; }
 };
+
+// ---- ✓✓ LES COCHES (26/09/2026) : la VRAIE chaîne ----
+// KOSSI envoie un reçu (numéro de suivi « yc-1 ») puis une relance
+// (« yc-2 ») ; Meta dit « lu » pour la première, « échec » pour la seconde.
+// La ligne sans numéro de suivi (d'avant) ne porte aucune coche.
+export const ligneSuivie = (envoi) => messagesAvecLigneEnvoi([], {
+  profile: users[2], tel: "+22890112233", nom: "ESSO", modele: "recu_vente",
+  variables: ["ESSO", "26/09/2026", "APESSITO", "BMID-2026-0033", "132 200 F", "payé en espèces", "99968488"],
+  ref: { vente_id: "V1" }, envoi,
+});
+export const htmlCoches = () => {
+  const base = { ts: "2026-09-26T12:30:00Z", date: "2026-09-26", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", de_id: "KOSSI", de_nom: "KOSSI", lu_par: ["KOSSI"] };
+  const suivis = [
+    { ...base, id: "s1", texte: "LIGNE LUE", wa_envoi_id: "yc-1", wa_statut: { etat: "lu", le: "2026-09-26T12:31:00Z" } },
+    { ...base, id: "s2", ts: "2026-09-26T12:32:00Z", texte: "LIGNE EN ECHEC", wa_envoi_id: "yc-2", wa_statut: { etat: "echec", le: "2026-09-26T12:33:00Z", motif: "Ce numéro n'a pas WhatsApp." } },
+    { ...base, id: "s3", ts: "2026-09-26T12:34:00Z", texte: "LIGNE SANS SUIVI" },
+  ];
+  return rendre({ ...garnie, messages: [...garnie.messages, ...suivis] }, users[0], "90112233");
+};

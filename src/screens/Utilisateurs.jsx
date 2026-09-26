@@ -121,7 +121,7 @@ export function Users({ db, save, profile }) {
     if (!r.auto) return;
     save((etat) => ({
       ...etat,
-      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: u.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true }),
+      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: u.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true, envoi: r }),
     }), `Mot de fidélité envoyé du numéro BMI à ${nom} — ${profile.nom}`);
     uAlert(`✅ Mot de fidélité envoyé du numéro BMI à ${nom}.`);
   };
@@ -161,7 +161,7 @@ export function Users({ db, save, profile }) {
       if (await uConfirm(`✅ Client créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
         // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
         const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nomCli, identifiant, motDePasse, tel: telCli, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
-        if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user }) }));
+        if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user, envoi: r }) }));
         const m = messageIdentifiants(nomCli, r); if (m) uAlert(m);
       }
       return;

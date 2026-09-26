@@ -170,7 +170,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
 
     // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
     const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: p.nom, identifiant, motDePasse, tel: p.tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
-    if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user }) }));
+    if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user, envoi: r }) }));
     // ⚠ L'écran ne décrit jamais autre chose que ce qui vient de se passer
     // (leçon du 19/09) : la phrase dépend du chemin réellement emprunté.
     uAlert(`✅ ${p.nom} est désormais client.${messageIdentifiants(p.nom, r) ? `\n\n${messageIdentifiants(p.nom, r)}` : ""}`);
