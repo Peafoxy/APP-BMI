@@ -93,7 +93,27 @@ export function genererPDF(d, logo) {
 // ou de logo fait sur l'un et pas sur l'autre donnait deux papiers
 // différents pour la même entreprise. UNE écriture, ici.
 const BLEU = [30, 90, 138];
-const enteteSociete = (doc, logo, largeur) => {
+// ⚠ 26/09/2026 (Timo : « pourquoi sur les proformas il n'y a pas le numéro
+// de la boutique ? » → « b, lance ») : le devis et la proforma écrivaient
+// l'en-tête EN DUR (« Lomé, Togo », NIF, RCCM) — sans téléphone, alors que le
+// reçu lit la fiche de la boutique. Ils reçoivent désormais cette fiche (`bq`)
+// et disent comme le reçu : adresse, téléphone, e-mail. Sans fiche, rien ne
+// change (les trois lignes d'avant). Toujours TROIS lignes, pour ne jamais
+// toucher le bandeau du titre posé à 32 mm.
+export const EMAIL_BMI_DEFAUT = "Bmitogo.info@gmail.com";
+// Le NIF et le RCCM de BMI, écrits UNE fois (le banc y veille).
+const NIF_BMI = "NIF : 1001790098";
+const RCCM_BMI = "RCCM : TG-LFW-01-2022-A10-01523";
+export function coordonneesBoutique(bq) {
+  if (!bq || !bq.nom) return ["Lomé, Togo", NIF_BMI, RCCM_BMI];
+  const contact = [bq.tel ? `Tél : ${bq.tel}` : "", `Email : ${bq.email || EMAIL_BMI_DEFAUT}`].filter(Boolean).join("  ·  ");
+  return [
+    texteSurPdf(`${bq.nom} — ${bq.adresse || "Lomé, Togo"}`),
+    texteSurPdf(contact),
+    `${NIF_BMI}  ·  ${RCCM_BMI}`,
+  ];
+}
+const enteteSociete = (doc, logo, largeur, bq = null) => {
   if (logo) {
     try {
       const props = doc.getImageProperties(logo);
@@ -107,9 +127,7 @@ const enteteSociete = (doc, logo, largeur) => {
   doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
   doc.setFontSize(8);
   doc.setTextColor(110, 110, 110);
-  doc.text("Lomé, Togo", largeur - 14, 21, { align: "right" });
-  doc.text("NIF : 1001790098", largeur - 14, 25, { align: "right" });
-  doc.text("RCCM : TG-LFW-01-2022-A10-01523", largeur - 14, 29, { align: "right" });
+  coordonneesBoutique(bq).forEach((t, i) => doc.text(t, largeur - 14, 21 + i * 4, { align: "right" }));
 };
 // Le bandeau bleu du titre, puis — demande Timo — le bandeau « DOCUMENT DE
 // FORMATION » quand le document vient de l'espace d'entraînement. Renvoie
@@ -179,7 +197,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 
-  enteteSociete(doc, logo, largeur);
+  enteteSociete(doc, logo, largeur, p.bq);
   // Bandeau PROFORMA — bien visible, pour qu'on ne le confonde pas avec un reçu
   const yApresPf = bandeauTitre(doc, largeur, "FACTURE PROFORMA", p.formation);
 
@@ -569,7 +587,7 @@ export function genererDevis(d, logo, retournerDoc = false) {
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 
-  enteteSociete(doc, logo, largeur);
+  enteteSociete(doc, logo, largeur, d.bq);
   // Bandeau DEVIS — `d.formation` est calculé par l'appelant (qui a accès à
   // db, ce module ne l'a pas).
   const yApres = bandeauTitre(doc, largeur, `DEVIS — ${d.titre || ""}`.trim(), d.formation);

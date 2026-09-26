@@ -4824,7 +4824,11 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
   // n'a ni total ni mentions d'offre — ce n'est pas une offre de prix —,
   // mais il pose son pied de page lui-même sur la dernière page.
   test("★ le devis, le proforma, le relevé ET le dossier personnel passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
-    (pdf.match(/enteteSociete\(doc, logo, largeur\);/g) || []).length === 4 && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 4
+    // RETOURNÉ le 26/09/2026 : le devis et la proforma passent la fiche de
+    // leur boutique à l'en-tête (`d.bq` / `p.bq`) — toujours LA même brique.
+    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 4
+    && /enteteSociete\(doc, logo, largeur, p\.bq\);/.test(pdf) && /enteteSociete\(doc, logo, largeur, d\.bq\);/.test(pdf)
+    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 4
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
@@ -7083,6 +7087,38 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   test("★ aucun texte du devis n'en chevauche un autre, page par page — mesuré sur le PDF réel, y compris sur un devis à DEUX pages avec acompte, solde et délai (les mentions serrées à gauche des cadres ne mordent sur rien)",
     chevauchements(Pdf.genererDevis(devisOrdinaire, null, true)) === 0 && chevauchements(docSol) === 0
     && chevauchements(docGros) === 0);
+  // ---- 📞 LE NUMÉRO DE LA BOUTIQUE SUR LE DEVIS ET LA PROFORMA (26/09/2026,
+  // « pourquoi sur les proformas il n'y a pas le numéro de la boutique ? » →
+  // « b, lance »). L'en-tête lit la fiche de la boutique, comme le reçu.
+  {
+    const bqEssai = { nom: "BMI DEMAKPOE", adresse: "Demakpoe, Lomé", tel: "+228 91 13 05 11", email: "demakpoe@bmitogo.com" };
+    test("★ sans fiche de boutique, l'en-tête reste celui d'avant (Lomé, NIF, RCCM — trois lignes)",
+      JSON.stringify(Pdf.coordonneesBoutique(null)) === JSON.stringify(["Lomé, Togo", "NIF : 1001790098", "RCCM : TG-LFW-01-2022-A10-01523"]));
+    const lignesBq = Pdf.coordonneesBoutique(bqEssai);
+    test("★ avec la fiche : nom et adresse, téléphone et e-mail, NIF et RCCM — toujours TROIS lignes (le bandeau du titre est à 32 mm)",
+      lignesBq.length === 3 && /BMI DEMAKPOE/.test(lignesBq[0]) && /Demakpoe, Lomé/.test(lignesBq[0])
+      && /Tél : \+228 91 13 05 11/.test(lignesBq[1]) && /demakpoe@bmitogo\.com/.test(lignesBq[1]) && /NIF/.test(lignesBq[2]) && /RCCM/.test(lignesBq[2]));
+    test("★ une boutique sans e-mail prend celui de BMI, comme le reçu",
+      /Bmitogo\.info@gmail\.com/.test(Pdf.coordonneesBoutique({ nom: "X", tel: "90" })[1]));
+    const devisBq = Pdf.genererDevis({ ...devisOrdinaire, bq: bqEssai }, null, true);
+    test("★★ le DEVIS porte le téléphone de la boutique, tient toujours sur UNE page, et aucun texte n'en chevauche un autre",
+      texteDuPdf(devisBq).includes("+228 91 13 05 11") && devisBq.internal.getNumberOfPages() === 1 && chevauchements(devisBq) === 0);
+    const pfBq = Pdf.genererProforma({ numero: "PF-1", date: "26/09/2026", boutique: "BMI DEMAKPOE", client: "ESSO", tel: "90112233",
+      lignes: [{ article: "PANNEAU 400W", qte: 2, pu: 60000, total: 120000 }], total: 120000, validite: "15 jours", bq: bqEssai }, null, true);
+    test("★★ la PROFORMA (PDF) porte le téléphone de la boutique, et aucun texte n'en chevauche un autre",
+      texteDuPdf(pfBq).includes("+228 91 13 05 11") && chevauchements(pfBq) === 0);
+    const imp = readFileSync("src/lib/impression.js", "utf8");
+    const corpsPf = (imp.match(/export function imprimerProforma[\s\S]*?\n\}/) || [""])[0];
+    test("★ la PROFORMA imprimée lit la fiche (adresse, téléphone, e-mail)",
+      /export function imprimerProforma\(p, logo, estFormation = false, bq = \{\}\)/.test(imp) && /bq && bq\.tel \? `<div>Tél : \$\{esc\(bq\.tel\)\}<\/div>`/.test(corpsPf) && /bq\.adresse/.test(corpsPf));
+    const vtx = readFileSync("src/screens/Ventes.jsx", "utf8");
+    test("★ 💰 Ventes passe la fiche de la boutique aux TROIS chemins de la proforma (PDF, impression, réimpression) et au texte WhatsApp",
+      /genererProforma\(\{ \.\.\.pf, formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO\)/.test(vtx)
+      && (vtx.match(/imprimerProforma\([^;]*infoBq\(pf\.boutique\)\)/g) || []).length === 2
+      && /infoBq\(pf\.boutique\)\.tel \? \[`\$\{pf\.boutique\} — Tél : /.test(vtx));
+    test("★ 📋 Tous les devis passe la fiche de la boutique du devis (sinon celle de son auteur)",
+      /bq: \(db\.boutiques \|\| \[\]\)\.find\(\(b\) => b\.nom === d\.boutique\)/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+  }
   // ⚠ Capture Timo (11/09/2026) : le bandeau TOTAL était posé PAR-DESSUS
   // « Frais d'installation ». Le contrôle du chevauchement de TEXTES ne l'a
   // pas vu — le bandeau est un rectangle plein, pas un texte. On mesure donc
@@ -7118,6 +7154,16 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     }
     return L;
   };
+  // 📞 26/09/2026 : l'en-tête qui porte la fiche de la boutique reste AU-DESSUS
+  // du bandeau du titre (posé à 32 mm) — le contrôle de chevauchement des
+  // TEXTES ne le voit pas, le bandeau est un rectangle plein. Mesuré.
+  {
+    const bqE = { nom: "BMI DEMAKPOE", adresse: "Demakpoe, Lomé", tel: "+228 91 13 05 11" };
+    const hautEntete = (doc) => Math.max(...boites(doc).filter((o) => /NIF|Tél :|Demakpoe/.test(o.t) && o.y < 40).map((o) => o.y));
+    test("★★ devis et proforma : la dernière ligne de l'en-tête de la boutique reste au-dessus du bandeau du titre (≤ 30 mm)",
+      hautEntete(Pdf.genererDevis({ ...devisOrdinaire, bq: bqE }, null, true)) <= 30
+      && hautEntete(Pdf.genererProforma({ numero: "PF-1", date: "26/09/2026", client: "ESSO", lignes: [{ article: "A", qte: 1, pu: 1, total: 1 }], total: 1, bq: bqE }, null, true)) <= 30);
+  }
   const bSol = boites(Pdf.genererDevis(dSol, null, true));
   const bord = (t) => bSol.find((o) => o.t === t);
   const centre = (o) => (o.x1 + o.x2) / 2;

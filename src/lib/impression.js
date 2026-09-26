@@ -299,7 +299,9 @@ export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
   else imprimerRecu(v, bq, produits);
 }
 
-export function imprimerProforma(p, logo, estFormation = false) {
+// ⚠ 26/09/2026 : la proforma lit la fiche de la boutique (`bq`), comme le
+// reçu — adresse, téléphone, e-mail. Sans fiche, l'en-tête d'avant.
+export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
   const html = `
   <style>
   #zone-impression .prf-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
@@ -326,7 +328,7 @@ export function imprimerProforma(p, logo, estFormation = false) {
     ${bandeauFormation(estFormation)}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
-      <td class="soc"><div class="nom">BMI TOGO</div><div>Lomé, Togo</div><div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
+      <td class="soc"><div class="nom">BMI TOGO</div>${bq && bq.nom ? `<div class="marque">${esc(bq.nom)}</div>` : ""}<div>${esc((bq && bq.adresse) || "Lomé, Togo")}</div>${bq && bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}${bq && bq.nom ? `<div>Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}</div>` : ""}<div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
     </tr></table>
     <h1>FACTURE PROFORMA</h1>
     <div class="meta">

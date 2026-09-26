@@ -377,6 +377,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       signature: initiateur?.signature_personnelle || "",
       cachet: (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT,
       formation: estFormation,
+      // 26/09/2026 (« b, lance ») : l'en-tête dit l'adresse, le téléphone et
+      // l'e-mail de la boutique du devis, comme le reçu — sinon celle de son
+      // auteur. Sans fiche trouvée, l'en-tête d'avant.
+      bq: (db.boutiques || []).find((b) => b.nom === d.boutique) || (db.boutiques || []).find((b) => b.nom === initiateur?.boutique) || null,
     }, LOGO);
   };
 

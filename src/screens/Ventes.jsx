@@ -375,6 +375,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ``,
       `Ceci est une offre de prix (proforma), sans valeur de reçu. Valable ${pf.validite}.`,
       `BMI TOGO — Les bâtiments modernes et intelligents`,
+      // 26/09/2026 : le numéro de la boutique, comme sur le reçu.
+      ...(infoBq(pf.boutique).tel ? [`${pf.boutique} — Tél : ${infoBq(pf.boutique).tel}`] : []),
     ];
     const num = telDigits(pf.tel);
     // On ouvre WhatsApp EN PREMIER et de façon strictement synchrone (avant
@@ -385,7 +387,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // la discussion s'ouvre sur SON contact, pas sur un choix générique.
     envoyerWhatsApp(pf.tel, lignes.join("\n"));
     // Le PDF est généré et téléchargé juste après, prêt à être joint au message.
-    genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation }, LOGO);
+    genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO);
     setMsg(num
       ? `✅ Proforma ${pf.numero} émis : WhatsApp ouvert sur le numéro du client et PDF téléchargé — joignez-le au message (non comptabilisé).`
       : `✅ Proforma ${pf.numero} émis : aucun numéro sur cette commande, WhatsApp ouvert en générique. PDF téléchargé, à joindre au message (non comptabilisé).`);
@@ -397,7 +399,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     const pf = construireProforma();
     enregistrerProforma(pf);
-    imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation);
+    imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique));
     setMsg(`✅ Proforma ${pf.numero} imprimé (non comptabilisé).`);
   };
 
@@ -1471,7 +1473,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       : <span className="text-xs font-semibold text-amber-700">⏳ En attente</span>;
                   })()}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation)} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
+                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
                     {/* ⚠ Timo (11/09/2026) : « reprise » disait déjà, sur une VENTE,
                         que le client rend un article — deux sens opposés dans le même
                         écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement

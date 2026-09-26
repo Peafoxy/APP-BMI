@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1917 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1926 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -753,6 +753,22 @@ lit mal est pire qu'un banc absent).
   le PDF est enregistré et on le dit. Le titre « Aperçu avant impression »
   est `hidden sm:block`. `navigator.share` et `html2canvas` n'existent que
   dans ui.jsx (le banc l'impose).
+- **📞 Le devis et la proforma portent l'adresse, le TÉLÉPHONE et l'e-mail de
+  la boutique** (26/09/2026, « pourquoi sur les proformas il n'y a pas le
+  numéro de la boutique ? » → « b, lance » : proforma ET devis). Leur en-tête
+  était écrit en dur (« Lomé, Togo », NIF, RCCM) alors que le reçu lit la
+  fiche de la boutique. `enteteSociete(doc, logo, largeur, bq)` et la règle
+  `coordonneesBoutique` (src/pdf.js) : avec la fiche → « BOUTIQUE — adresse »,
+  « Tél · Email » (e-mail de BMI d'office, comme le reçu), « NIF · RCCM » ;
+  sans fiche → l'en-tête d'avant. ⚠ **Toujours TROIS lignes** : le bandeau du
+  titre est posé à 32 mm, le banc MESURE que l'en-tête reste au-dessus (le
+  contrôle des textes ne voit pas un rectangle plein) et que le devis tient
+  toujours sur une page. NIF et RCCM restent écrits UNE fois (`NIF_BMI`,
+  `RCCM_BMI`). Les trois chemins de la proforma (PDF, impression,
+  réimpression, `infoBq`) et son texte WhatsApp (ligne « BOUTIQUE — Tél »),
+  et le devis de 📋 Tous les devis (la boutique du devis, sinon celle de son
+  auteur). Rien à coller. Éprouvé : proforma sans fiche, en-tête qui
+  descend sur le bandeau — chacune tombe.
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.
