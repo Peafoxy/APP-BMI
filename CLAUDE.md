@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 572 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis)
+npm run verifier-whatsapp        # 594 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -779,6 +779,52 @@ lit mal est pire qu'un banc absent).
   prospect garde son lien. ⚠ **Aucun déclencheur serveur ne garde ce geste**
   (`users_regles_devis` ne regarde que le passage à « validé ») : c'est
   l'application qui décide — dit à Timo. Rien à coller.
+
+### ⌛ L'OFFRE EXPIRÉE ET LA RELANCE AUTOMATIQUE DU 8e JOUR (26/09/2026)
+- Timo : « après combien de temps un devis est supprimé chez le client si le
+  client n'a pas validé ? » — **jamais** : la mention « Offre valable 15
+  jours » du PDF ne commandait rien. Deux voies proposées (a : expiré, plus
+  validable · b : validable, mais « prix à confirmer ») → **« B, lance »**.
+  Puis : « après 8 jours sans validation, une relance automatique avec
+  informations d'expiration après 15 jours » → **« texte ok, une seule
+  relance, lance »**.
+- **Option « b »** : `finOffre` / `offreExpiree` / `phraseOffreExpiree`
+  (lib/rappels.js, `VALIDITE_OFFRE_JOURS` = 15). Le 15e jour est encore
+  valable, l'offre expire le lendemain ; **⏳ Proposé seulement**. Rien n'est
+  bloqué ni supprimé : bandeau ambre et phrase dans la confirmation de
+  l'espace client (`data-offre-expiree`), pastille « ⌛ Offre expirée — prix
+  à confirmer » dans 📋 Tous les devis, rappel dans la signature en boutique.
+  **À la validation** (`validerDevis`), la marque `offre_expiree_a_validation`
+  reste sur le devis (pastille « ⌛ Validé après expiration ») et le journal
+  le dit — sinon le vendeur ne le saurait plus à l'encaissement.
+- **La relance automatique** : règle pure `lib/relanceAutoDevis.js`, envoyée
+  par la **tournée de 7 h** (`api/rappels-du-matin.js`), modèle
+  **`relance_devis_expiration`** (MARKETING, 5 trous : client, domaine,
+  montant, date, fin — `TEXTE_RELANCE_EXPIRATION`, texte validé par Timo).
+  **Serveur seul** (pas dans `MODELES_EN_SERVICE`, comme l'alerte).
+  - Du **8e au 15e jour** (une tournée manquée rattrape le lendemain ; après
+    le 15e, on n'annonce pas une date passée). **UNE seule** : `relance_auto_le`
+    sur le devis ET la ligne du fil (qui ne se réécrit jamais) l'empêchent.
+    Pas si le devis a déjà été relancé à la main (`relance_le`). Elle NE
+    touche PAS `relance_le` : le rappel « 15 jours sans réponse » reste.
+  - ⚠ **Le mur** : jamais un devis marqué formation, un compte de formation,
+    bloqué ou sans numéro.
+  - ⚠ **Rien n'est écrit tant que WhatsApp n'a pas accepté** ; refusé (modèle
+    pas encore approuvé…) → journal Vercel, on retente le lendemain. Après
+    l'envoi : la ligne dans 📲 WhatsApp (sans propriétaire), la fiche légère,
+    et la marque sur le devis (fiche RELUE juste avant, `updated_at` posé).
+    La relance ne dépend pas de la clé des notifications.
+  - Pastille « 🤖 Relancé automatiquement le … » dans 📋 Tous les devis.
+- **À faire par Timo : créer `relance_devis_expiration` chez YCloud**
+  (marketing, fr, le texte ci-dessous). ~14 F la relance. Rien à coller dans
+  Supabase. Banc ㉛ (`verifier-whatsapp`, 22 contrôles), éprouvé en remettant
+  quatre fautes (deux relances, le mur ouvert, relance après expiration,
+  offre expirée un jour trop tôt) : chacune tombe. Trois contrôles RETOURNÉS
+  (dix-sept modèles, quatorze lignes, deux modèles serveur seul).
+  > Bonjour {{1}}, votre devis BMI TOGO {{2}} de {{3}}, établi le {{4}}, est
+  > valable jusqu'au {{5}}. Passé cette date, les prix devront être
+  > confirmés. Pour le valider, ouvrez votre espace sur gestion.bmitogo.com ou
+  > répondez simplement à ce message. Merci de votre confiance. BMI TOGO
 
 ### ✏️ UNE PÉRIODE À SOI DANS 💰 VENTES (19/09/2026)
 - Timo, devant le filtre : « pour filtrer les ventes ou proforma, il n'y a

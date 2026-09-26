@@ -36,6 +36,10 @@ titre("① LES SIX MODÈLES, ET L'ORDRE DE LEURS TROUS");
 const ATTENDU = {
   devis_disponible: { categorie: "marketing", n: 3 },
   relance_devis: { categorie: "marketing", n: 4 },
+  // ⚠ LE DIX-SEPTIÈME (26/09/2026, « texte ok, une seule relance, lance ») :
+  // la relance AUTOMATIQUE du 8e jour, qui annonce la fin de l'offre.
+  // MARKETING (un devis est une offre), CINQ trous. Serveur seul.
+  relance_devis_expiration: { categorie: "marketing", n: 5 },
   devis_valide_paiement: { categorie: "utility", n: 4 },
   rappel_echeance: { categorie: "utility", n: 5 },
   // ⚠ LE SIXIÈME (20/09/2026, décision « c ») : la relance d'une DETTE
@@ -74,12 +78,12 @@ const ATTENDU = {
   // de reprise et le bon de retour, dans la forme du bon imprimé. UTILITY.
   bon_reprise: { categorie: "utility", n: 12 },
   bon_retour: { categorie: "utility", n: 11 },
-  // ⚠ LE DIX-SEPTIÈME (25/09/2026, « B, lance ») : le premier devis d'un
-  // client, avec ses accès. MARKETING (un devis est une offre).
+  // (`devis_premier`, un temps dix-septième, a été RETIRÉ le 25/09/2026 :
+  // refusé trois fois par Meta.)
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les seize modèles sont là, et eux seuls (RETOURNÉ le 25/09/2026 : dix + l'alerte + les deux reçus de dette et de réservation, puis le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les dix-sept modèles sont là, et eux seuls (RETOURNÉ le 26/09/2026 : + la relance automatique du 8e jour ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -100,9 +104,12 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
   && M.envoiRappelDette({ dette: { montant: 100, paye: 0 }, compte: null, echeance: { date: "" }, fmt, dFR }).modele === "rappel_dette");
 // ⚠ RETOURNÉ le 25/09/2026 : tous en service POUR LES ÉCRANS, SAUF l'alerte,
 // que seul le serveur envoie (un écran qui l'enverrait serait une faute).
-test("tous les modèles sont en service pour les écrans, sauf l'alerte à l'administrateur (serveur seul)",
-  M.NOMS_MODELES.filter((n) => n !== "alerte_conseiller").every((n) => M.MODELES_EN_SERVICE.includes(n))
-  && !M.MODELES_EN_SERVICE.includes("alerte_conseiller"));
+// RETOURNÉ le 26/09/2026 : la relance automatique du 8e jour est, elle
+// aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration"];
+test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique)",
+  M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
+  && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
 
 // ──────────────────────────────────────────────────────────────
 titre("② AUCUN SECRET NE VOYAGE DANS UN MODÈLE");
@@ -1226,8 +1233,9 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (soir) : onze — le reçu de vente détaillé.
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
-  test("★ les treize modèles à ligne : devis, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis");
+  // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
+  test("★ les quatorze modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -2528,6 +2536,89 @@ titre("㉚ 📄🔑 LE PREMIER DEVIS : SES ACCÈS (espace) PUIS LE DEVIS (devis_
     && /premierContact: !accesPartis,/.test(P));
   test("★★ les accès partis s'écrivent dans 📲 WhatsApp par LA ligne masquée (messagesAvecLigneAcces), jamais en clair",
     /if \(accesEnvoyes\) \{\s*save\(\(etat\) => \(\{ \.\.\.etat, messages: messagesAvecLigneAcces\(etat\.messages,/.test(P));
+}
+
+titre("㉛ ⌛ L'OFFRE EXPIRÉE (option « b ») ET LA RELANCE AUTOMATIQUE DU 8e JOUR (26/09/2026)");
+{
+  // Timo : « B, lance » puis « après 8 jours sans validation, une relance
+  // automatique avec informations d'expiration après 15 jours » → « texte
+  // ok, une seule relance, lance ».
+  const R = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
+  const A = await import(pathToFileURL(join(process.cwd(), "src/lib/relanceAutoDevis.js")).href);
+  const dv = { id: "D1", date: "2026-09-01", total: 450000, statut: "propose", type_devis: "solaire" };
+  test("★★ l'offre est valable 15 jours À COMPTER du devis : le 16/09 encore valable, expirée le 17/09",
+    R.finOffre(dv) === "2026-09-16" && !R.offreExpiree(dv, "2026-09-16") && R.offreExpiree(dv, "2026-09-17"));
+  test("★ seul un devis ⏳ Proposé s'annonce expiré (validé, payé, corrigé, rejeté, supprimé : non)",
+    ["valide", "paye", "corrige", "modification", "rejete"].every((st) => !R.offreExpiree({ ...dv, statut: st }, "2026-10-30"))
+    && !R.offreExpiree({ ...dv, supprime_le: "2026-09-20" }, "2026-10-30"));
+  test("★ la phrase dit la date de fin et « prix à confirmer »",
+    /16\/09\/2026/.test(R.phraseOffreExpiree(dv)) && /prix à confirmer/.test(R.phraseOffreExpiree(dv)));
+  const VD = lire("src/lib/validationDevis.js");
+  test("★★ « b » : le devis reste VALIDABLE — la validation ne refuse pas une offre expirée, elle la MARQUE et le journal le dit",
+    /const expiree = offreExpiree\(d, today\(\)\);/.test(VD) && /offre_expiree_a_validation: true/.test(VD)
+    && !/expiree[^\n]*return \{ erreur/.test(VD) && /offre expirée, prix à confirmer/.test(VD));
+  const EC = lire("src/screens/EspaceClient.jsx"), TD = lire("src/screens/TousLesDevis.jsx");
+  test("★ l'espace du client le DIT avant qu'il valide (bandeau + fenêtre de confirmation)",
+    /\{offreExpiree\(d, today\(\)\) && \(\s*<div[^>]*data-offre-expiree/.test(EC) && (EC.match(/\+ avisExpiration/g) || []).length === 2);
+  test("★ 📋 Tous les devis le montre (proposé expiré, validé après expiration, relance automatique) et la signature en boutique le rappelle",
+    /offreExpiree\(d, today\(\)\) && \(\s*<span[^>]*data-offre-expiree/.test(TD) && /d\.offre_expiree_a_validation &&/.test(TD)
+    && /d\.relance_auto_le &&/.test(TD) && /Paiement prévu à \$\{boutique\}\.`\}\$\{offreExpiree\(d, today\(\)\)/.test(TD));
+
+  // LE MODÈLE : le texte de Timo, cinq trous dans l'ordre.
+  test("★★ « relance_devis_expiration » : MARKETING, cinq trous dans l'ordre client, domaine, montant, date, fin",
+    M.MODELES.relance_devis_expiration?.categorie === "marketing"
+    && M.MODELES.relance_devis_expiration.variables.join(",") === "client,domaine,montant,date,fin");
+  test("★ le texte est celui de Timo, mot pour mot (cinq trous, la phrase des prix à confirmer)",
+    (M.TEXTE_RELANCE_EXPIRATION.match(/\{\{\d\}\}/g) || []).join("") === "{{1}}{{2}}{{3}}{{4}}{{5}}"
+    && /Passé cette date, les prix devront être confirmés\./.test(M.TEXTE_RELANCE_EXPIRATION));
+
+  // LA RÈGLE DU JOUR : exactement une relance, entre le 8e et le 15e jour.
+  test("★★ à relancer du 8e au 15e jour seulement (7e : trop tôt ; 16e : l'offre est finie, on n'annonce pas une date passée)",
+    !A.devisARelancerAuto(dv, "2026-09-08") && A.devisARelancerAuto(dv, "2026-09-09")
+    && A.devisARelancerAuto(dv, "2026-09-16") && !A.devisARelancerAuto(dv, "2026-09-17"));
+  test("★★ UNE seule : déjà relancé automatiquement, ou à la main, ou plus ⏳ Proposé → rien",
+    !A.devisARelancerAuto({ ...dv, relance_auto_le: "2026-09-09" }, "2026-09-10")
+    && !A.devisARelancerAuto({ ...dv, relance_le: "2026-09-05" }, "2026-09-10")
+    && !A.devisARelancerAuto({ ...dv, statut: "valide" }, "2026-09-10")
+    && !A.devisARelancerAuto({ ...dv, supprime_le: "2026-09-05" }, "2026-09-10"));
+  const client = { id: "c1", role: "client", nom: "MANDA90112233", nom_base: "MANDA", tel: "90112233", devis: [dv] };
+  const base = { users: [client], boutiques: [{ nom: "BMI DEMAKPOE" }], messages: [] };
+  const liste = A.relancesAutoDuJour(base, "2026-09-09");
+  test("★★ la liste du jour porte le bon devis, au bon numéro, avec les cinq trous remplis (dont la date de fin)",
+    liste.length === 1 && liste[0].devis.id === "D1" && liste[0].envoi.modele === "relance_devis_expiration"
+    && liste[0].envoi.variables.length === 5 && liste[0].envoi.variables.every((x) => String(x).trim())
+    && liste[0].envoi.variables[0] === "MANDA" && liste[0].envoi.variables[4] === "16/09/2026" && /90112233/.test(liste[0].tel));
+  test("★★ LE MUR : un devis marqué formation, un compte de formation, un compte bloqué ou sans numéro → rien",
+    A.relancesAutoDuJour({ ...base, users: [{ ...client, devis: [{ ...dv, formation: true }] }] }, "2026-09-09").length === 0
+    && A.relancesAutoDuJour({ ...base, users: [{ ...client, formation: true }] }, "2026-09-09").length === 0
+    && A.relancesAutoDuJour({ ...base, users: [{ ...client, actif: false }] }, "2026-09-09").length === 0
+    && A.relancesAutoDuJour({ ...base, users: [{ ...client, tel: "" }] }, "2026-09-09").length === 0);
+  const ligne = A.ligneRelanceAuto({ id: "m1", tel: liste[0].tel, compte: client, devis: dv, variables: liste[0].envoi.variables, ts: "2026-09-09T07:00:00Z" });
+  test("★★ UNE seule, même si la marque du devis s'est perdue : la ligne du fil (qui ne se réécrit jamais) suffit à l'empêcher",
+    !!ligne && A.relancesAutoDuJour({ ...base, messages: [ligne] }, "2026-09-10").length === 0);
+  test("★ la ligne du fil dit ce qui est parti, sans propriétaire (la relance ne s'approprie rien)",
+    ligne.texte.startsWith(M.PREFIXE_LIGNE_ENVOI) && /16\/09\/2026/.test(ligne.texte) && !("proprietaire_id" in ligne)
+    && ligne.devis_id === "D1" && ligne.wa_modele === "relance_devis_expiration");
+  test("★ la marque se pose sur le BON devis, et sur lui seul",
+    A.compteApresRelance({ ...client, devis: [dv, { id: "D2" }] }, "D1", "2026-09-09T07:00:00Z").devis.map((d) => d.relance_auto_le || "").join("|") === "2026-09-09|");
+
+  // LE SERVEUR : la tournée de 7 h envoie, et n'écrit qu'APRÈS l'accord de WhatsApp.
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const RM = sansComm(lire("api/rappels-du-matin.js"));
+  const corps = RM.slice(RM.indexOf("async function relancerLesDevis"));
+  const iEnvoi = corps.indexOf("envoyerYCloud("), iRefus = corps.indexOf("if (!envoi.ok)"), iEcrit = corps.indexOf('from("messages").insert');
+  test("★★ la tournée envoie par LA règle (relancesAutoDuJour) et par LA porte YCloud, jamais une copie",
+    /relancesAutoDuJour\(db, aujourdhui\)/.test(corps) && /from "\.\/_ycloud\.js"/.test(RM) && !/X-API-Key/.test(RM));
+  test("★★ rien n'est écrit tant que WhatsApp n'a pas accepté (envoi, puis refus → on passe, puis écriture)",
+    iEnvoi > 0 && iRefus > iEnvoi && iEcrit > iRefus && /bilan\.refusees\+\+;[^\n]*continue;/.test(corps));
+  test("★ la fiche du client est RELUE juste avant de poser la marque, et `updated_at` est posé (sinon elle ne descend pas)",
+    /from\("users"\)\.select\("id, data"\)\.eq\("id", r\.compte\.id\)/.test(corps) && /updated_at: ts \}\)\.eq\("id", frais\.id\)/.test(corps));
+  test("★ la relance ne dépend pas des notifications : elle part AVANT le contrôle de la clé VAPID",
+    RM.indexOf("relancerLesDevis(admin, db, aujourdhui)") > 0 && RM.indexOf("relancerLesDevis(admin, db, aujourdhui)") < RM.indexOf("if (!configurerWebPush())"));
+  test("★ la tournée lit les messages (la preuve d'une relance déjà partie)",
+    /const TABLES = \[[^\]]*"messages"/.test(RM));
+  test("★ aucun nom de variable secrète dans la règle ni dans une chaîne affichée",
+    !/VITE_YCLOUD|VITE_WHATSAPP/.test(lire("api/rappels-du-matin.js")) && !/YCLOUD_API_KEY/.test(lire("src/lib/relanceAutoDevis.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

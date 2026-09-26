@@ -99,6 +99,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/rebase.js` | Reporter une modification d'écran sur l'état le plus récent |
 | `lib/fileUnique.js` | « Une seule synchronisation à la fois, mais aucune perdue » |
 | `lib/abandonLot.js` | Le filet : abandonner un geste que le serveur refuse |
+| `lib/relanceAutoDevis.js` | La relance automatique d'un devis ⏳ Proposé au 8e jour, qui annonce la fin de l'offre (serveur, tournée de 7 h) |
 | `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, et devis ⏳ Proposés (famille imbriquée dans la fiche du client) |
 | `lib/sauvegarde.js` | La sauvegarde JSON : téléchargement, et écriture horaire dans un dossier |
 | `lib/suggestions.js` | LA règle de recherche d'un champ à suggestions (toute recherche tapée) |

@@ -46,6 +46,12 @@ export const MODELES = {
   // « Bonjour {{1}}, nous revenons vers vous au sujet du devis {{2}} de {{3}}
   //   que nous vous avons envoyé le {{4}}. … »
   relance_devis: { categorie: "marketing", variables: ["client", "domaine", "montant", "date"] },
+  // ⌛ 26/09/2026 (Timo : « après 8 jours sans validation, une relance
+  // automatique avec l'information d'expiration après 15 jours » → « texte
+  // ok, une seule relance, lance »). MARKETING (un devis est une offre).
+  // Envoyé par le SERVEUR seul, à la tournée de 7 h (api/rappels-du-matin.js) :
+  // aucun écran ne l'envoie, il n'est donc pas dans MODELES_EN_SERVICE.
+  relance_devis_expiration: { categorie: "marketing", variables: ["client", "domaine", "montant", "date", "fin"] },
   // « Bonjour {{1}}, merci d'avoir validé votre devis BMI TOGO de {{2}}
   //   (contrat {{3}}). … boutique {{4}}. »
   devis_valide_paiement: { categorie: "utility", variables: ["client", "montant", "contrat", "boutique"] },
@@ -336,6 +342,19 @@ export function envoiDevisDisponible({ devis, compte, fmt }) {
   };
 }
 
+// ⌛ LA RELANCE AUTOMATIQUE À 8 JOURS — le texte de Timo, mot pour mot chez
+// Meta (26/09/2026). Les dates arrivent déjà en JJ/MM/AAAA.
+export const TEXTE_RELANCE_EXPIRATION =
+  "Bonjour {{1}}, votre devis BMI TOGO {{2}} de {{3}}, établi le {{4}}, est valable jusqu'au {{5}}. "
+  + "Passé cette date, les prix devront être confirmés. Pour le valider, ouvrez votre espace sur "
+  + "gestion.bmitogo.com ou répondez simplement à ce message. Merci de votre confiance. BMI TOGO";
+export function envoiRelanceExpiration({ devis, compte, fin, fmt, dFR }) {
+  return {
+    modele: "relance_devis_expiration",
+    variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(fmt(devis?.total)), texteVariable(dFR(devis?.date)), texteVariable(dFR(fin))],
+  };
+}
+
 // 📲 LA RELANCE — le modèle DÉPEND DU STATUT, comme le texte d'aujourd'hui
 // (`texteRelanceDevis`, lib/comptesClients.js) : un devis proposé se relance,
 // un devis validé se règle. Payé, rejeté, en demande de modification : rien
@@ -541,6 +560,7 @@ export function libelleTrace(trace) {
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
+  relance_devis_expiration: ([client, domaine, montant, date, fin]) => `Relance automatique du devis ${domaine} de ${montant} (établi le ${date}) à ${client} : offre valable jusqu'au ${fin}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,
   rappel_dette: ([client, date, reste, total]) => `Rappel de dette à ${client} : reste ${reste} à régler sur ${total} (achat du ${date}).`,

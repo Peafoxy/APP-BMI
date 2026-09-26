@@ -12,7 +12,7 @@ import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { envoiRelanceDevis, traceEnvoi, libelleTrace, motifAttendu, messageRepli } from "../lib/whatsappModeles";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
-import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS } from "../lib/rappels";
+import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche } from "../components/ui";
 import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
@@ -294,7 +294,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     let infosContrat, mention;
     if (mode === "ecran") {
       if (!signatureRef.current?.aSigne()) { uAlert("Le client doit signer dans le cadre prévu."); return; }
-      if (!await uConfirm(`Enregistrer la signature de ${d.client?.nom_base || d.client?.nom} pour le devis de ${fmt(d.total)} ?\n\nContrat ${numero}, signé en boutique ${lieuSignature || "—"} devant ${profile.nom}.${d.pose_seule ? "" : `\nPaiement prévu à ${boutique}.`}`)) return;
+      if (!await uConfirm(`Enregistrer la signature de ${d.client?.nom_base || d.client?.nom} pour le devis de ${fmt(d.total)} ?\n\nContrat ${numero}, signé en boutique ${lieuSignature || "—"} devant ${profile.nom}.${d.pose_seule ? "" : `\nPaiement prévu à ${boutique}.`}${offreExpiree(d, today()) ? `\n\n⌛ ${phraseOffreExpiree(d)} : confirmez le prix avec le client.` : ""}`)) return;
       infosContrat = { contrat_numero: numero, contrat_signature: signatureRef.current.image(), contrat_date_signature: today(),
         contrat_signe_en_boutique: lieuSignature, contrat_signe_devant: profile.nom };
       mention = ` — signé en boutique ${lieuSignature || "—"} devant ${profile.nom}`;
@@ -436,6 +436,24 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${d.envoi_whatsapp ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}
                       title={d.envoi_whatsapp ? libelleTrace(d.envoi_whatsapp) : `Relancé par ${d.relance_par || "?"}`}>
                       📲 Relancé le {dFR(d.relance_le)}{d.envoi_whatsapp ? " — du n° BMI" : ""}
+                    </span>
+                  )}
+                  {offreExpiree(d, today()) && (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-offre-expiree
+                      title={`${phraseOffreExpiree(d)}. Le client peut toujours le valider.`}>
+                      ⌛ Offre expirée — prix à confirmer
+                    </span>
+                  )}
+                  {d.offre_expiree_a_validation && (d.statut === "valide" || d.statut === "paye") && (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
+                      title="Le client a validé après la fin de l'offre (15 jours) : le prix est à confirmer avec lui.">
+                      ⌛ Validé après expiration — prix à confirmer
+                    </span>
+                  )}
+                  {d.relance_auto_le && (d.statut || "propose") === "propose" && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300"
+                      title="Relance automatique du 8e jour, partie du numéro WhatsApp BMI">
+                      🤖 Relancé automatiquement le {dFR(d.relance_auto_le)}
                     </span>
                   )}
                   {demandeModifEnCours(d) && (

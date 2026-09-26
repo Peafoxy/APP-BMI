@@ -14,6 +14,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../comp
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
+import { offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { demandeModifEnCours, devisCorrige, repondreDemandeModif, accepterDevisCorrige, refuserDevisCorrige } from "../lib/modifDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 // 🔒 VOS DONNÉES (point 3, 18/09/2026) — le client se sert lui-même.
@@ -343,10 +344,13 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // lib/validationDevis.js — la même sert au vendeur qui fait signer en
   // boutique (TousLesDevis). Ici : les questions et les messages au client.
   const finaliserValidation = async (d, infosContrat) => {
+    // ⌛ Option « b » (26/09/2026) : une offre expirée se valide quand même,
+    // mais le client le lit AVANT de dire oui.
+    const avisExpiration = offreExpiree(d, today()) ? `\n\n⌛ ${phraseOffreExpiree(d)} : BMI vous confirmera le prix avant l'installation.` : "";
     if (d.pose_seule) {
       if (!await uConfirm(
         `Valider ce devis de ${fmt(d.total)} (pose seule — matériel déjà en votre possession) ?\n\n` +
-        `Nos équipes vous contacteront pour programmer l'intervention. Le règlement se fait au technicien à la fin des travaux (ou en boutique si besoin).`
+        `Nos équipes vous contacteront pour programmer l'intervention. Le règlement se fait au technicien à la fin des travaux (ou en boutique si besoin).` + avisExpiration
       )) return false;
       const r = validerDevis(db, { clientId: profile.id, devisId: d.id, infosContrat, acteur: { nom: profile.nom, estClient: true } });
       if (r.erreur) { uAlert(r.erreur); return false; }
@@ -364,7 +368,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
       `Valider ce devis de ${fmt(d.total)} ?\n\n` +
       `Vous vous engagez à passer payer à la boutique ${boutique}.${localisation}${lienCarte}${telBoutique}\n` +
       `Le vendeur y sera prévenu de votre venue.\n\n` +
-      `L'installation sera programmée après votre paiement.`
+      `L'installation sera programmée après votre paiement.` + avisExpiration
     )) return false;
     const r = validerDevis(db, { clientId: profile.id, devisId: d.id, boutique, infosContrat, acteur: { nom: profile.nom, estClient: true } });
     if (r.erreur) { uAlert(r.erreur); return false; }
@@ -546,6 +550,11 @@ export function EspaceClient({ db, profile, save, setTab }) {
                     {d.refus_motif && (!d.statut || d.statut === "propose") && (
                       <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
                         ⚠ La boutique n'a pas pu donner suite : <b>{d.refus_motif}</b>. Vous pouvez revalider, éventuellement dans une autre boutique.
+                      </div>
+                    )}
+                    {offreExpiree(d, today()) && (
+                      <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-offre-expiree>
+                        ⌛ <b>{phraseOffreExpiree(d)}.</b> Vous pouvez toujours valider ce devis : BMI vous confirmera le prix avant l'installation.
                       </div>
                     )}
                     {(!d.statut || d.statut === "propose") && (
