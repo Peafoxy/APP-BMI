@@ -108,11 +108,12 @@ export function coordonneesBoutique(bq) {
   if (!bq || !bq.nom) return ["Lomé, Togo", NIF_BMI, RCCM_BMI];
   const contact = [bq.tel ? `Tél : ${bq.tel}` : "", `Email : ${bq.email || EMAIL_BMI_DEFAUT}`].filter(Boolean).join("  ·  ");
   return [
-    texteSurPdf(`${bq.nom} — ${bq.adresse || "Lomé, Togo"}`),
+    texteSurPdf(bq.adresse || "Lomé, Togo"),
     texteSurPdf(contact),
     `${NIF_BMI}  ·  ${RCCM_BMI}`,
   ];
 }
+export const titreEntete = (bq) => (bq && bq.nom ? bq.nom : "BMI TOGO");
 const enteteSociete = (doc, logo, largeur, bq = null) => {
   if (logo) {
     try {
@@ -124,7 +125,10 @@ const enteteSociete = (doc, logo, largeur, bq = null) => {
   }
   doc.setFontSize(16);
   doc.setTextColor(...BLEU);
-  doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
+  // ⚠ 26/09/2026 (Timo : « et si on enlevait BMI TOGO… le logo fait déjà le
+  // job ») : avec une fiche de boutique, le titre est le NOM de la boutique,
+  // comme sur le reçu ; sans fiche (relevé, dossier personnel), « BMI TOGO ».
+  doc.text(texteSurPdf(titreEntete(bq)), largeur - 14, 16, { align: "right" });
   doc.setFontSize(8);
   doc.setTextColor(110, 110, 110);
   coordonneesBoutique(bq).forEach((t, i) => doc.text(t, largeur - 14, 21 + i * 4, { align: "right" }));

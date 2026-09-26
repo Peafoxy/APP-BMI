@@ -310,7 +310,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
   #zone-impression .prf-doc .entete img{max-width:150px;max-height:110px;object-fit:contain}
   #zone-impression .prf-doc .soc{text-align:right;line-height:1.5}
   #zone-impression .prf-doc .soc .nom{font-size:20px;font-weight:bold;color:#1e5a8a}
-  #zone-impression .prf-doc .soc .marque{font-size:12px;font-weight:bold;color:#3d8b40}
+  #zone-impression .prf-doc .soc .legal{font-size:10px;color:#777}
   #zone-impression .prf-doc h1{text-align:center;font-size:17px;letter-spacing:2px;margin:10px 0 12px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
   #zone-impression .prf-doc .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin-bottom:10px}
   #zone-impression .prf-doc .btitre{font-weight:bold;color:#1e5a8a;border-bottom:1px solid #d5e2ee;margin:10px 0 4px;font-size:12px;letter-spacing:1px}
@@ -328,7 +328,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
     ${bandeauFormation(estFormation)}
     <table class="entete"><tr>
       <td><img src="${logo}" alt="BMI" /></td>
-      <td class="soc"><div class="nom">BMI TOGO</div>${bq && bq.nom ? `<div class="marque">${esc(bq.nom)}</div>` : ""}<div>${esc((bq && bq.adresse) || "Lomé, Togo")}</div>${bq && bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}${bq && bq.nom ? `<div>Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}</div>` : ""}<div>NIF : 1001790098</div><div>RCCM : TG-LFW-01-2022-A10-01523</div></td>
+      <td class="soc"><div class="nom">${esc((bq && bq.nom) || "BMI TOGO")}</div><div>${esc((bq && bq.adresse) || "Lomé, Togo")}</div>${bq && bq.nom ? `<div>${[bq.tel ? `Tél : ${esc(bq.tel)}` : "", `Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}`].filter(Boolean).join(" · ")}</div>` : ""}<div class="legal">NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div></td>
     </tr></table>
     <h1>FACTURE PROFORMA</h1>
     <div class="meta">

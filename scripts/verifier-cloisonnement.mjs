@@ -7095,8 +7095,8 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     test("★ sans fiche de boutique, l'en-tête reste celui d'avant (Lomé, NIF, RCCM — trois lignes)",
       JSON.stringify(Pdf.coordonneesBoutique(null)) === JSON.stringify(["Lomé, Togo", "NIF : 1001790098", "RCCM : TG-LFW-01-2022-A10-01523"]));
     const lignesBq = Pdf.coordonneesBoutique(bqEssai);
-    test("★ avec la fiche : nom et adresse, téléphone et e-mail, NIF et RCCM — toujours TROIS lignes (le bandeau du titre est à 32 mm)",
-      lignesBq.length === 3 && /BMI DEMAKPOE/.test(lignesBq[0]) && /Demakpoe, Lomé/.test(lignesBq[0])
+    test("★ avec la fiche : l'adresse (le NOM est le titre, plus au-dessus), téléphone et e-mail, NIF et RCCM — toujours TROIS lignes (le bandeau du titre est à 32 mm)",
+      lignesBq.length === 3 && lignesBq[0] === Pdf.texteSurPdf("Demakpoe, Lomé")
       && /Tél : \+228 91 13 05 11/.test(lignesBq[1]) && /demakpoe@bmitogo\.com/.test(lignesBq[1]) && /NIF/.test(lignesBq[2]) && /RCCM/.test(lignesBq[2]));
     test("★ une boutique sans e-mail prend celui de BMI, comme le reçu",
       /Bmitogo\.info@gmail\.com/.test(Pdf.coordonneesBoutique({ nom: "X", tel: "90" })[1]));
@@ -7109,8 +7109,18 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       texteDuPdf(pfBq).includes("+228 91 13 05 11") && chevauchements(pfBq) === 0);
     const imp = readFileSync("src/lib/impression.js", "utf8");
     const corpsPf = (imp.match(/export function imprimerProforma[\s\S]*?\n\}/) || [""])[0];
-    test("★ la PROFORMA imprimée lit la fiche (adresse, téléphone, e-mail)",
-      /export function imprimerProforma\(p, logo, estFormation = false, bq = \{\}\)/.test(imp) && /bq && bq\.tel \? `<div>Tél : \$\{esc\(bq\.tel\)\}<\/div>`/.test(corpsPf) && /bq\.adresse/.test(corpsPf));
+    test("★ la PROFORMA imprimée lit la fiche (adresse, téléphone, e-mail) — téléphone et e-mail sur UNE ligne, NIF et RCCM sur une autre",
+      /export function imprimerProforma\(p, logo, estFormation = false, bq = \{\}\)/.test(imp) && /bq\.tel \? `Tél : \$\{esc\(bq\.tel\)\}`/.test(corpsPf) && /\.join\(" · "\)/.test(corpsPf) && /bq\.adresse/.test(corpsPf)
+      && /<div class="legal">NIF : 1001790098 · RCCM : /.test(corpsPf));
+    // « Un peu surchargée » puis « et si on enlevait BMI TOGO… le logo fait
+    // déjà le job » (26/09/2026) : avec une fiche, le TITRE est la boutique.
+    test("★★ « BMI TOGO » ne s'écrit plus au-dessus de la boutique : la proforma imprimée titre avec le nom de la boutique (BMI TOGO seulement sans fiche)",
+      /<div class="nom">\$\{esc\(\(bq && bq\.nom\) \|\| "BMI TOGO"\)\}<\/div>/.test(corpsPf) && !/<div class="nom">BMI TOGO<\/div>/.test(corpsPf) && !/class="marque"/.test(corpsPf));
+    const hautPdf = (doc) => doc.internal.pages.flat().join("\n").split("\n").filter((l) => /\sTj/.test(l)).slice(0, 6).join(" ");
+    test("★★ le devis et la proforma (PDF) titrent avec la boutique, sans « BMI TOGO » ; sans fiche, « BMI TOGO » reste (relevé, dossier)",
+      Pdf.titreEntete(bqEssai) === "BMI DEMAKPOE" && Pdf.titreEntete(null) === "BMI TOGO" && Pdf.titreEntete({}) === "BMI TOGO"
+      && texteDuPdf(devisBq).includes("BMI DEMAKPOE") && !/BMI TOGO/.test(hautPdf(devisBq)) && !/BMI TOGO/.test(hautPdf(pfBq))
+      && /enteteSociete[\s\S]{0,900}titreEntete\(bq\)/.test(readFileSync("src/pdf.js", "utf8")));
     const vtx = readFileSync("src/screens/Ventes.jsx", "utf8");
     test("★ 💰 Ventes passe la fiche de la boutique aux TROIS chemins de la proforma (PDF, impression, réimpression) et au texte WhatsApp",
       /genererProforma\(\{ \.\.\.pf, formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO\)/.test(vtx)

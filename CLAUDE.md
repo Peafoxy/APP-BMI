@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1926 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1928 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -769,6 +769,14 @@ lit mal est pire qu'un banc absent).
   et le devis de 📋 Tous les devis (la boutique du devis, sinon celle de son
   auteur). Rien à coller. Éprouvé : proforma sans fiche, en-tête qui
   descend sur le bandeau — chacune tombe.
+  **« BMI TOGO » ne s'écrit plus au-dessus de la boutique** (capture Timo,
+  26/09/2026 : « un peu surchargée », puis « et si on enlevait BMI TOGO… le
+  logo fait déjà le job ») : avec une fiche, le TITRE est le nom de la
+  boutique (`titreEntete`, src/pdf.js ; `.nom` de la proforma imprimée),
+  comme sur le reçu — puis l'adresse, « Tél · Email » sur UNE ligne, « NIF ·
+  RCCM » en petit gris. **Quatre lignes au lieu de sept.** Sans fiche (relevé,
+  dossier personnel, PV, contrat, bon de ravitaillement), « BMI TOGO » reste.
+  Éprouvé en remettant « BMI TOGO » : deux contrôles tombent.
 - **Nom des documents : UNE règle** (`nomDocument` / `fichierPdf`, lib/core.js)
   → « Type - Client - Numéro ». **Zone de signature : UNE**
   (`components/ZoneSignature.jsx`, 440 × 300) pour les quatre emplacements.
