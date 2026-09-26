@@ -4007,6 +4007,72 @@ titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurabl
     /jeSuisPrincipal \? \[.*\["corbeille"/.test(par) && /refuserSaufAdminPrincipal\(db, profile, "Restaurer une fiche de la corbeille"\)/.test(par)
     && /refuserSaufAdminPrincipal\(db, profile, "Supprimer définitivement une fiche"\)/.test(par));
   test("★ la sauvegarde de secours emporte la corbeille", /fusionnerCorbeille\(db\)/.test(readFileSync("src/lib/sauvegarde.js", "utf8")));
+  // ---- 🗑 LES DEVIS À LA CORBEILLE (26/09/2026, Timo : « a, lance ») : un
+  // devis ⏳ Proposé seulement, l'administrateur principal seul, motif
+  // obligatoire, 30 jours puis purge. Famille IMBRIQUÉE dans users[].devis.
+  {
+    const dP = { id: "dv1", date: "2026-09-20", total: 450000, statut: "propose" };
+    const dV = { id: "dv2", date: "2026-09-21", total: 90000, statut: "valide" };
+    const cli = { id: "cl1", role: "client", nom: "MANDA", devis: [dP, dV] };
+    const autre = { id: "cl2", role: "client", nom: "ESSO", devis: [] };
+    const base = { users: [cli, autre], clients_installes: [] };
+    const princ = { nom: "TIMO" };
+    const apresD = Corb.mettreDevisALaCorbeille(base, "cl1", "dv1", princ, " Doublon ", "2026-09-26T10:00:00Z");
+    const enCorb = (apresD.corbeille_devis || [])[0] || {};
+    test("★ devis : mis à la corbeille, il QUITTE la fiche du client et se range marqué (qui, quand, motif, client)",
+      apresD.users[0].devis.length === 1 && apresD.users[0].devis[0].id === "dv2"
+      && enCorb.id === "dv1" && enCorb.supprime_par === "TIMO" && enCorb.supprime_motif === "Doublon"
+      && enCorb.corbeille_client_id === "cl1" && enCorb.corbeille_client_nom === "MANDA");
+    test("★ devis : un devis ✅ validé (ou payé, en modification, rejeté) ne se supprime JAMAIS, même par la règle",
+      Corb.mettreDevisALaCorbeille(base, "cl1", "dv2", princ, "x") === base
+      && ["valide", "paye", "corrige", "modification", "rejete"].every((st) => Corb.critiqueSuppressionDevis({ statut: st }))
+      && !Corb.critiqueSuppressionDevis({}) && !Corb.critiqueSuppressionDevis({ statut: "propose" })
+      && !!Corb.critiqueSuppressionDevisDans(base, "cl1", "dv2") && !Corb.critiqueSuppressionDevisDans(base, "cl1", "dv1"));
+    const fusD = Corb.fusionnerCorbeille(apresD);
+    test("★ devis : à l'écriture il RETOURNE dans la fiche de SON client, marqué, sans l'adresse de corbeille",
+      fusD.corbeille_devis === undefined && fusD.users[0].devis.length === 2
+      && fusD.users[0].devis.some((d) => d.id === "dv1" && d.supprime_le && d.corbeille_client_id === undefined)
+      && fusD.users[1].devis.length === 0);
+    const rechD = Corb.separerCorbeille(fusD);
+    test("★ devis : au chargement il est de nouveau séparé — aucune liste de devis ne le voit",
+      rechD.users[0].devis.length === 1 && rechD.corbeille_devis.length === 1 && rechD.corbeille_devis[0].corbeille_client_id === "cl1");
+    test("devis : séparer sans devis marqué garde le MÊME tableau des comptes",
+      Corb.separerCorbeille(base).users === base.users);
+    const restD = Corb.restaurerDeLaCorbeille(apresD, "devis", "dv1");
+    test("★ devis : restaurer le remet chez son client tel qu'il était, sans aucune marque",
+      restD.corbeille_devis.length === 0 && JSON.stringify(restD.users[0].devis.find((d) => d.id === "dv1")) === JSON.stringify(dP));
+    const sansClient = { ...apresD, users: [autre] };
+    test("★ devis : un client disparu (effacé) → la restauration est refusée et le dit, le devis ne revient nulle part",
+      !!Corb.critiqueRestauration(sansClient, "devis", enCorb) && Corb.restaurerDeLaCorbeille(sansClient, "devis", "dv1") === sansClient
+      && Corb.fusionnerCorbeille(sansClient).users.every((u) => !(u.devis || []).some((d) => d.id === "dv1")));
+    test("★ devis : la corbeille les liste, les purge à 30 jours et les nomme (client, date, montant)",
+      Corb.contenuCorbeille(apresD, "2026-09-27T10:00:00Z").some((x) => x.table === "devis" && x.libelle === "Devis")
+      && Corb.aPurger(apresD, "2026-10-26T10:00:00Z").length === 1 && Corb.aPurger(apresD, "2026-10-25T09:00:00Z").length === 0
+      && Corb.purgerCorbeille(apresD, "2026-10-27T00:00:00Z").corbeille_devis.length === 0
+      && /MANDA/.test(Corb.nomDeLaFiche("devis", enCorb)) && /450/.test(Corb.nomDeLaFiche("devis", enCorb))
+      && Corb.CLES_CORBEILLE.includes("corbeille_devis"));
+    const tdj = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    const corpsSupp = (tdj.match(/const supprimerDevis = async \(d\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    test("★ devis : le geste revérifie le principal, la fiche FRAÎCHE et exige un motif, puis passe par la corbeille",
+      /refuserSaufAdminPrincipal\(db, profile, "Supprimer un devis"\)/.test(corpsSupp)
+      && /critiqueSuppressionDevisDans\(db, d\.client\.id, d\.id\)/.test(corpsSupp)
+      && /if \(!String\(motif\)\.trim\(\)\)/.test(corpsSupp)
+      && /save\(mettreDevisALaCorbeille\(db, d\.client\.id, d\.id, profile, motif\)/.test(corpsSupp)
+      && /motif : \$\{String\(motif\)\.trim\(\)\}/.test(corpsSupp)
+      && corpsSupp.indexOf("refuserSaufAdminPrincipal") < corpsSupp.indexOf("save("));
+    test("★ devis : le bouton 🗑 ne s'affiche qu'au principal, sur un devis ⏳ Proposé",
+      /\{peutDeciderDuPlan && !critiqueSuppressionDevis\(d\) && \(\s*<button onClick=\{\(\) => supprimerDevis\(d\)\}/.test(tdj)
+      && /const peutDeciderDuPlan = estAdminPrincipal\(db, profile\);/.test(tdj));
+    const R = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
+    const vieux = { id: "dz", date: "2026-09-01", total: 1, statut: "propose" };
+    test("★ devis : un devis à la corbeille ne se relance JAMAIS (le serveur lit la fiche brute, marque comprise)",
+      R.devisAtteintLeSeuil(vieux, "2026-09-16") && !R.devisAtteintLeSeuil({ ...vieux, supprime_le: "2026-09-10" }, "2026-09-16")
+      && !R.devisARelancer({ ...vieux, supprime_le: "2026-09-10" }, "2026-09-20"));
+    test("★ devis : l'effacement d'un client emporte ses devis de la corbeille",
+      /corbeille_devis: \(db\.corbeille_devis \|\| \[\]\)\.filter\(\(x\) => !d\.compte \|\| x\.corbeille_client_id !== d\.compte\.id\)/.test(readFileSync("src/lib/effacementClient.js", "utf8")));
+    test("★ devis : ⚙ Paramètres refuse une restauration impossible et montre le motif",
+      /const refus = critiqueRestauration\(db, x\.table, x\.fiche\);/.test(par) && /x\.fiche\.supprime_motif/.test(par));
+  }
   test("★ le serveur : mettre à la corbeille = admin ou son commercial (jamais un client), restaurer = principal",
     /supprime_le/.test(readFileSync("supabase/securite-7-corbeille.sql", "utf8"))
     && readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8").includes("securite-7-corbeille.sql"));
@@ -5155,7 +5221,8 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
   const rappels = readFileSync("src/lib/rappels.js", "utf8");
   test("★ Tous les devis : seuil 15 jours, comptés depuis la DERNIÈRE relance (relance_le) sinon depuis le devis ; proposé et validé seulement (devisRelancable) — UNE règle, lib/rappels.js",
     /export const SEUIL_RELANCE_JOURS = 15;/.test(rappels) && /export const joursSansReponse = \(devis, aujourdhui\) => joursEntre\(devis\.relance_le \|\| devis\.date, aujourdhui\);/.test(rappels)
-    && /export const devisARelancer = \(devis, aujourdhui\) => devisRelancable\(devis\) && joursSansReponse\(devis, aujourdhui\) >= SEUIL_RELANCE_JOURS;/.test(rappels)
+    // RETOURNÉ le 26/09/2026 : un devis à la corbeille ne se relance plus (!estSupprime devant).
+    && /export const devisARelancer = \(devis, aujourdhui\) => !estSupprime\(devis\) && devisRelancable\(devis\) && joursSansReponse\(devis, aujourdhui\) >= SEUIL_RELANCE_JOURS;/.test(rappels)
     && /const enAttenteDeRelance = \(d\) => devisARelancer\(d, today\(\)\);/.test(tld) && !/const SEUIL_RELANCE_JOURS = 15;/.test(tld) && !/function joursDepuis/.test(tld));
   // ⚠ CONTRÔLE RETOURNÉ LE 19/09/2026 : la relance part du NUMÉRO BMI, par un
   // modèle approuvé par Meta (`envoyerModele`, src/whatsapp.js). Le texte

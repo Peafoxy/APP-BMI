@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1904 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1917 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -760,6 +760,25 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+- **🗑 Supprimer un devis ⏳ Proposé** (26/09/2026, « Pourquoi un
+  administrateur principal ne peut pas supprimer un devis proposé ? » → « a,
+  lance ») : bouton 🗑 Supprimer dans 📋 Tous les devis, **administrateur
+  PRINCIPAL seul, devis ⏳ Proposé seul** (validé, payé, corrigé, en
+  modification, rejeté : jamais — `critiqueSuppressionDevis`, revérifiée DANS
+  le geste sur la fiche fraîche, `critiqueSuppressionDevisDans`), **motif
+  obligatoire**, ligne de journal (client, montant, date, motif, qui). Le devis
+  part à la **corbeille 30 jours** : famille IMBRIQUÉE (`FAMILLE_DEVIS`,
+  `corbeille_devis`) — un devis vit dans `users[].devis`, la séparation et la
+  fusion vont le chercher dans chaque fiche client ; la ligne de corbeille
+  porte `corbeille_client_id` / `corbeille_client_nom` (où la remettre), retirés
+  à la fusion et à la restauration. Restauration refusée si le client a
+  disparu (`critiqueRestauration`) ; l'effacement d'un client emporte ses
+  devis de la corbeille. ⚠ **Le serveur lit les fiches BRUTES** (la tournée du
+  matin) : `devisAtteintLeSeuil` / `devisARelancer` écartent un devis marqué
+  (`estSupprime`). Les messages WhatsApp déjà partis restent ; la fiche d'un
+  prospect garde son lien. ⚠ **Aucun déclencheur serveur ne garde ce geste**
+  (`users_regles_devis` ne regarde que le passage à « validé ») : c'est
+  l'application qui décide — dit à Timo. Rien à coller.
 
 ### ✏️ UNE PÉRIODE À SOI DANS 💰 VENTES (19/09/2026)
 - Timo, devant le filtre : « pour filtrer les ventes ou proforma, il n'y a

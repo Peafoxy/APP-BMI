@@ -23,6 +23,7 @@
 import { joursAClôturer } from "./cloture.js";
 import { totalVente, fmt, dFR } from "./core.js";
 import { devisRelancable } from "./comptesClients.js";
+import { estSupprime } from "./corbeille.js";
 import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace.js";
 
 export const SEUIL_RELANCE_JOURS = 15;
@@ -48,9 +49,11 @@ export const dettePasseEnRetard = (d, aujourdhui) => joursDeDette(d, aujourdhui)
 
 // ---- Devis : 15 jours sans réponse, comptés depuis la dernière relance ----
 export const joursSansReponse = (devis, aujourdhui) => joursEntre(devis.relance_le || devis.date, aujourdhui);
-export const devisARelancer = (devis, aujourdhui) => devisRelancable(devis) && joursSansReponse(devis, aujourdhui) >= SEUIL_RELANCE_JOURS;
+// ⚠ Un devis mis à la CORBEILLE (supprime_le) ne se relance jamais : le
+// serveur lit les fiches brutes, la corbeille n'y est pas séparée.
+export const devisARelancer = (devis, aujourdhui) => !estSupprime(devis) && devisRelancable(devis) && joursSansReponse(devis, aujourdhui) >= SEUIL_RELANCE_JOURS;
 // Le jour où le devis ATTEINT le seuil : une seule fois par relance.
-export const devisAtteintLeSeuil = (devis, aujourdhui) => devisRelancable(devis) && joursSansReponse(devis, aujourdhui) === SEUIL_RELANCE_JOURS;
+export const devisAtteintLeSeuil = (devis, aujourdhui) => !estSupprime(devis) && devisRelancable(devis) && joursSansReponse(devis, aujourdhui) === SEUIL_RELANCE_JOURS;
 
 // ---- La fabrique d'un envoi ----
 // Un envoi = { destinataires (ids, sans doublon), titre, texte, ecran, tag }.

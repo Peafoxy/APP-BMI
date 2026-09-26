@@ -20,6 +20,7 @@ import { htmlContratInstallation, imprimerContratInstallation } from "../lib/imp
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
+import { mettreDevisALaCorbeille, critiqueSuppressionDevis, critiqueSuppressionDevisDans, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
 export function libelleTypeDevis(d) {
@@ -113,6 +114,25 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, plan_reglement: decide } : x)) }
         : u)),
     }, `Plan de règlement ${accepte ? "ACCEPTÉ" : "REFUSÉ"} — devis de ${d.client.nom} (${resumePlan(decide, solde)})${accepte ? "" : ` — motif : ${decide.motif_rejet}`}`);
+  };
+
+  // 🗑 Supprimer un devis ⏳ Proposé (26/09/2026, Timo : « a, lance ») :
+  // l'administrateur PRINCIPAL seul, motif obligatoire, et le devis part à la
+  // CORBEILLE 30 jours (⚙ Paramètres → 🗑 Corbeille), jamais détruit d'un coup.
+  // Les messages WhatsApp déjà partis restent ; la fiche d'un prospect garde
+  // son lien. Revérifié DANS le geste, sur la fiche fraîche.
+  const supprimerDevis = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Supprimer un devis")) return;
+    const refus = critiqueSuppressionDevisDans(db, d.client.id, d.id);
+    if (refus) { await uAlert(refus); return; }
+    const nomClient = d.client?.nom_base || d.client?.nom || "ce client";
+    const motif = await uPrompt(`Pourquoi supprimer ce devis de ${fmt(d.total)} pour ${nomClient} ?\n\nLe motif est obligatoire : il reste dans le journal.`, "Devis établi par erreur");
+    if (motif === null) return;
+    if (!String(motif).trim()) { await uAlert("Le motif est obligatoire : un devis ne se supprime pas sans dire pourquoi."); return; }
+    if (!await uConfirm(`Supprimer le devis de ${fmt(d.total)} du ${dFR(d.date)} pour ${nomClient} ?\n\nIl part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours : vous pourrez le restaurer dans ⚙ Paramètres → 🗑 Corbeille, puis il s'effacera tout seul.\nLes messages WhatsApp déjà envoyés au client restent.`)) return;
+    save(mettreDevisALaCorbeille(db, d.client.id, d.id, profile, motif),
+      `🗑 Devis supprimé (corbeille) — ${nomClient}, ${fmt(d.total)} du ${dFR(d.date)} — motif : ${String(motif).trim()} — par ${profile.nom}`);
   };
 
   const [ouvert, setOuvert] = useState(null);
@@ -514,6 +534,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                           title="Ce devis est signé : le client doit accepter avant toute correction">✏️ Demander une modification au client</button>
                       )}
                       <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
+                      {peutDeciderDuPlan && !critiqueSuppressionDevis(d) && (
+                        <button onClick={() => supprimerDevis(d)} data-supprimer-devis className="text-xs font-bold text-red-700 border border-red-300 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50"
+                          title={`Le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`}>🗑 Supprimer</button>
+                      )}
                     </div>
                     {peutFaireSigner(d) && (
                       <div className="mt-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">

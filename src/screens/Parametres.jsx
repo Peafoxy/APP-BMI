@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
-import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, critiqueRestauration, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
 import { barresDeRail } from "../lib/solaire";
 import { banquesReglees, ajouterBanque, retirerBanque, nettoyerNomBanque } from "../lib/banques";
@@ -166,6 +166,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const restaurerFiche = async (x) => {
     if (bloquerSiLecture(db, profile)) return;
     if (refuserSaufAdminPrincipal(db, profile, "Restaurer une fiche de la corbeille")) return;
+    const refus = critiqueRestauration(db, x.table, x.fiche);
+    if (refus) { await uAlert(refus); return; }
     if (!await uConfirm(`Restaurer ${x.libelle.toLowerCase()} « ${nomDeLaFiche(x.table, x.fiche)} » ?\n\nLa fiche revient exactement telle qu'elle était au moment de sa suppression, sur tous les appareils.`)) return;
     save(restaurerDeLaCorbeille(db, x.table, x.fiche.id), `♻ ${x.libelle} « ${nomDeLaFiche(x.table, x.fiche)} » restauré(e) de la corbeille par ${profile.nom}`);
   };
@@ -2175,6 +2177,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <div className="flex-1 min-w-[12rem]">
                     <span className="font-bold">{x.libelle} — {nomDeLaFiche(x.table, x.fiche)}</span>
                     <div className="text-xs text-slate-500">Supprimé le {dFR(String(x.fiche.supprime_le || "").slice(0, 10))} par {x.fiche.supprime_par || "?"} · {x.restants > 0 ? `effacement dans ${x.restants} jour(s)` : "effacement imminent"}</div>
+                    {x.fiche.supprime_motif && <div className="text-xs text-slate-500">Motif : {x.fiche.supprime_motif}</div>}
                   </div>
                   <button onClick={() => restaurerFiche(x)} className="px-3 py-1 rounded-lg bg-green-700 text-white text-xs font-bold hover:bg-green-800">♻ Restaurer</button>
                   <button onClick={() => effacerFiche(x)} className="px-3 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Supprimer définitivement</button>

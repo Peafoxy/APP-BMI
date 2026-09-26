@@ -362,6 +362,8 @@ export function effacerClient(db, dossier, profile, { motif, numero, autresNoms 
     // ⚠ Un chantier mis à la corbeille porte encore son nom : l'effacement
     // l'y suit, sinon il ressortirait nommé à la restauration.
     corbeille_clients_installes: (db.corbeille_clients_installes || []).map((c) => (idCh.has(c.id) ? chantierAnonyme(c) : c)),
+    // Ses devis mis à la corbeille partent avec son compte (ils portent son nom).
+    corbeille_devis: (db.corbeille_devis || []).filter((x) => !d.compte || x.corbeille_client_id !== d.compte.id),
     // Le journal garde QUI a fait QUOI et QUAND — il perd seulement le nom.
     audits: (db.audits || []).map(
       (a) => (a.action && !rien && dansLaPortee.audits.has(a.id) ? { ...a, action: propre(a.action) } : a)
