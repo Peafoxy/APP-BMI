@@ -11,6 +11,7 @@
 // ============================================================
 import { uid, today, fmt, prochainNumeroDette } from "./core";
 import { PAIEMENTS, TYPES_INSTALLATION } from "./constants";
+import { offreExpiree } from "./rappels";
 import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "./calculs";
 
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
@@ -37,6 +38,13 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
   if (d.statut === "valide" || d.statut === "paye") return { erreur: "Ce devis est déjà validé." };
   const nomClient = client.nom_base || client.nom || "Client";
   const qui = `${acteur?.estClient ? "le client " : ""}${acteur?.nom || nomClient}`;
+  // ⚠ Validé APRÈS l'expiration de l'offre (décision « b », 26/09/2026) :
+  // permis, mais la trace reste sur le devis — le badge « ⏳ Proposé »
+  // disparaît à la validation, et le vendeur doit encore savoir, à
+  // l'encaissement, que le prix est à confirmer.
+  const expiree = offreExpiree(d, today());
+  if (expiree) infosContrat = { ...infosContrat, offre_expiree_a_validation: true };
+  if (expiree) mention = `${mention} — ⌛ offre expirée, prix à confirmer`;
 
   // ⚠ « Pose seule » (demande Timo) : le client a déjà le matériel, rien à
   // payer avant travaux — pas de boutique à choisir, pas de commande. Le

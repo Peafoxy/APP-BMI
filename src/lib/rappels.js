@@ -24,6 +24,7 @@ import { joursAClôturer } from "./cloture.js";
 import { totalVente, fmt, dFR } from "./core.js";
 import { devisRelancable } from "./comptesClients.js";
 import { estSupprime } from "./corbeille.js";
+import { VALIDITE_OFFRE_JOURS } from "./constants.js";
 import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace.js";
 
 export const SEUIL_RELANCE_JOURS = 15;
@@ -52,6 +53,23 @@ export const joursSansReponse = (devis, aujourdhui) => joursEntre(devis.relance_
 // ⚠ Un devis mis à la CORBEILLE (supprime_le) ne se relance jamais : le
 // serveur lit les fiches brutes, la corbeille n'y est pas séparée.
 export const devisARelancer = (devis, aujourdhui) => !estSupprime(devis) && devisRelancable(devis) && joursSansReponse(devis, aujourdhui) >= SEUIL_RELANCE_JOURS;
+// ---- 📄 L'OFFRE EXPIRÉE (26/09/2026, Timo : « B, lance ») ----
+// Le PDF écrit « Offre valable 15 jours à compter du … » : le 15e jour est
+// encore valable, l'offre expire le lendemain. Décision « b » : le devis
+// RESTE validable (rien n'est bloqué, rien n'est supprimé), mais l'écran dit
+// « offre expirée, prix à confirmer ». Un devis ⏳ Proposé seulement : un
+// devis validé, payé, corrigé ou rejeté n'attend plus un « oui ».
+export const finOffre = (devis) => {
+  const t = Date.parse(String(devis?.date || "").slice(0, 10));
+  if (Number.isNaN(t)) return "";
+  return new Date(t + VALIDITE_OFFRE_JOURS * 86400000).toISOString().slice(0, 10);
+};
+export const offreExpiree = (devis, aujourdhui) =>
+  !!devis && !estSupprime(devis) && (devis.statut || "propose") === "propose" && !!finOffre(devis)
+  && joursEntre(devis.date, aujourdhui) > VALIDITE_OFFRE_JOURS;
+export const phraseOffreExpiree = (devis) =>
+  `Offre expirée le ${dFR(finOffre(devis))} (valable ${VALIDITE_OFFRE_JOURS} jours) — prix à confirmer`;
+
 // Le jour où le devis ATTEINT le seuil : une seule fois par relance.
 export const devisAtteintLeSeuil = (devis, aujourdhui) => !estSupprime(devis) && devisRelancable(devis) && joursSansReponse(devis, aujourdhui) === SEUIL_RELANCE_JOURS;
 
