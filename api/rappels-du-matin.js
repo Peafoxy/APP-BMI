@@ -25,6 +25,11 @@
 // APRÈS l'accord de WhatsApp, comme la relance), et une tâche ✅ pour le chef
 // du chantier, avec sa notification. La marque `rappel_entretien` sur le
 // chantier empêche qu'un geste reparte pour la même date.
+//
+// ⭐ 26/09/2026 — LA DEMANDE D'AVIS GOOGLE (Timo : « 6 », « 10 jours »). Même
+// tournée. Règle pure : src/lib/demandeAvis.js. Du 10e au 40e jour après la
+// réception d'un chantier, UNE fois : le modèle `demande_avis`, puis (après
+// l'accord de WhatsApp) la ligne du fil et la marque `avis_demande_le`.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { rappelsDuMatin } from "../src/lib/rappels.js";
@@ -35,6 +40,7 @@ import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
 import { rappelsEntretienDuJour, ligneRappelEntretien, enteteApresRappel, chantierApresRappel, tacheEntretien, notificationTache, tacheEntretienExiste, MODELE_RAPPEL_ENTRETIEN } from "../src/lib/rappelEntretien.js";
+import { demandesAvisDuJour, ligneDemandeAvis, enteteApresAvis, chantierApresAvis, MODELE_DEMANDE_AVIS } from "../src/lib/demandeAvis.js";
 import { randomUUID } from "node:crypto";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
@@ -71,10 +77,12 @@ export default async function handler(req, res) {
     // 🔧 Les entretiens : le message au client et la tâche du chef. Les
     // notifications des tâches rejoignent celles de la tournée.
     const entretiens = await rappelerLesEntretiens(admin, db, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan });
+    // ⭐ La demande d'avis Google, dix jours après la réception.
+    const avis = await demanderLesAvis(admin, db, aujourdhui);
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis });
     const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -197,4 +205,49 @@ async function rappelerLesEntretiens(admin, db, aujourdhui) {
     }
   }
   return { bilan, notifications };
+}
+
+// ---- ⭐ LA DEMANDE D'AVIS GOOGLE ----
+// Rend { a_demander, envoyees, refusees }. Rien n'est écrit tant que
+// WhatsApp n'a pas accepté ; refusée, on retente le lendemain.
+async function demanderLesAvis(admin, db, aujourdhui) {
+  const liste = demandesAvisDuJour(db, aujourdhui);
+  const bilan = { a_demander: liste.length, envoyees: 0, refusees: 0 };
+  if (!liste.length) return bilan;
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  if (!cle || !expediteur) { console.error("[rappels-du-matin] demande d'avis : WhatsApp non configuré sur le serveur"); return bilan; }
+  for (const r of liste) {
+    try {
+      const envoi = await envoyerYCloud(cle, {
+        from: expediteur, to: r.tel, type: "template",
+        template: { name: MODELE_DEMANDE_AVIS, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+      });
+      if (!envoi.ok) { bilan.refusees++; console.error("[rappels-du-matin] demande d'avis refusée", envoi.code_whatsapp, envoi.motif); continue; }
+      bilan.envoyees++;
+      const ts = new Date().toISOString();
+      const ligneBase = ligneDemandeAvis({ id: randomUUID(), tel: r.tel, compte: r.compte, chantier: r.chantier, variables: r.envoi.variables, ts });
+      const ligne = ligneBase ? { ...ligneBase, ...champsEnvoi(envoi) } : null;
+      if (ligne) {
+        const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+        if (error) console.error("[rappels-du-matin] demande d'avis : ligne du fil non écrite", error.message);
+        const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(r.tel)));
+        const fiche = enteteApresAvis({ tel: r.tel, compte: r.compte, chantier: r.chantier, ts, entete });
+        if (fiche) {
+          const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+          if (e2) console.error("[rappels-du-matin] demande d'avis : fiche légère non posée", e2.message);
+        }
+      }
+      // La marque sur le chantier : fiche RELUE juste avant.
+      const { data: fraisC } = await admin.from("clients_installes").select("id, data").eq("id", r.chantier.id).maybeSingle();
+      if (fraisC?.data) {
+        const data = { ...chantierApresAvis({ ...fraisC.data, id: fraisC.id }, aujourdhui), updated_at: ts };
+        const { error: e3 } = await admin.from("clients_installes").update({ data, updated_at: ts }).eq("id", fraisC.id);
+        if (e3) console.error("[rappels-du-matin] demande d'avis : marque du chantier non posée", e3.message);
+      }
+    } catch (e) {
+      console.error("[rappels-du-matin] demande d'avis", e?.message || e);
+    }
+  }
+  return bilan;
 }

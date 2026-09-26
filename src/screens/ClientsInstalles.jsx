@@ -1390,7 +1390,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{c.tel}</td>
                   <td className="px-3 py-2">{c.type_installation}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{c.date_installation ? dFR(c.date_installation) : "—"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {c.date_installation ? dFR(c.date_installation) : "—"}
+                    {/* ⭐ 26/09/2026 : la demande d'avis Google partie, une fois, dix jours après la réception. */}
+                    {c.avis_demande_le && <div className="text-[11px] text-amber-700" data-avis-demande>⭐ Avis demandé le {dFR(c.avis_demande_le)}</div>}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.date_entretien ? <span className={entretienDu ? "font-bold text-orange-700" : ""}>{entretienDu ? "⚠ " : ""}{dFR(c.date_entretien)}</span> : "—"}
                     {/* 🔧 26/09/2026 : ce que la tournée de 7 h a déjà fait pour CETTE date. */}

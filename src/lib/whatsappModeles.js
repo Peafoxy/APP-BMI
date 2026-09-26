@@ -155,6 +155,10 @@ export const MODELES = {
   // commercial. SERVEUR SEUL (lib/rappelEntretien.js) — aucun écran ne
   // l'envoie, il n'est donc pas dans MODELES_EN_SERVICE.
   rappel_entretien: { categorie: "utility", variables: ["client", "installation", "date"] },
+  // ⭐ 26/09/2026, Timo (« 6 », « 10 jours », son texte) : la demande d'avis
+  // Google après la réception. MARKETING (Meta range une demande d'avis dans
+  // la promotion). SERVEUR SEUL (lib/demandeAvis.js).
+  demande_avis: { categorie: "marketing", variables: ["client", "installation", "lien"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -382,6 +386,20 @@ export function envoiRappelEntretien({ chantier, compte, dFR }) {
   };
 }
 
+// ⭐ LA DEMANDE D'AVIS — le texte de Timo, mot pour mot chez Meta (26/09/2026).
+// Le mot « INSTALLATION » en capitales est le sien.
+export const TEXTE_DEMANDE_AVIS =
+  "Bonjour {{1}},\nMerci d'avoir confié votre INSTALLATION {{2}} à BMI TOGO.\n"
+  + "Votre avis compte beaucoup pour nous et aide d'autres clients à nous faire confiance.\n"
+  + "Pouvez-vous prendre une minute pour le partager ici : {{3}}\nMerci ! BMI TOGO";
+export function envoiDemandeAvis({ chantier, compte, lien }) {
+  const nom = compte ? nomPourClient(compte) : texteVariable(`${chantier?.prenom || ""} ${chantier?.nom || ""}`.trim());
+  return {
+    modele: "demande_avis",
+    variables: [nom, installationPourRappel(chantier?.type_installation), texteVariable(lien)],
+  };
+}
+
 // 📲 LA RELANCE — le modèle DÉPEND DU STATUT, comme le texte d'aujourd'hui
 // (`texteRelanceDevis`, lib/comptesClients.js) : un devis proposé se relance,
 // un devis validé se règle. Payé, rejeté, en demande de modification : rien
@@ -587,6 +605,7 @@ export function libelleTrace(trace) {
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
+  demande_avis: ([client, installation]) => `Demande d'avis Google envoyée à ${client} (installation ${installation}).`,
   rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
   relance_devis_expiration: ([client, domaine, montant, date, fin]) => `Relance automatique du devis ${domaine} de ${montant} (établi le ${date}) à ${client} : offre valable jusqu'au ${fin}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,

@@ -28,7 +28,8 @@ import { mesOutils, sortieEnCours } from "../lib/outillage";
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
 import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION } from "../lib/assistantIA";
-import { alerteConseillerDe, poserAlerteConseiller, critiqueNumeroAlerte, TEXTE_ALERTE_CONSEILLER } from "../lib/whatsappModeles";
+import { alerteConseillerDe, poserAlerteConseiller, critiqueNumeroAlerte, TEXTE_ALERTE_CONSEILLER, TEXTE_DEMANDE_AVIS } from "../lib/whatsappModeles";
+import { lienAvisGoogle, poserAvisGoogle, critiqueLienAvis, LIEN_AVIS_GOOGLE_DEFAUT, JOURS_APRES_RECEPTION } from "../lib/demandeAvis";
 import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
@@ -638,6 +639,23 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       : "Couper l'alerte WhatsApp ? La notification sur les téléphones continue.")) return;
     save({ ...db, boutiques: poserAlerteConseiller(db.boutiques, tel ? { tel, nom: profile.nom } : null) },
       tel ? `Alerte conseiller WhatsApp envoyée au ${tel}` : "Alerte conseiller WhatsApp coupée");
+  };
+
+  // ⭐ LA DEMANDE D'AVIS GOOGLE (26/09/2026, « 6 ») : le lien envoyé par la
+  // tournée de 7 h, dix jours après la réception. Principal seul, revérifié
+  // dans le geste ; d'office le lien donné par Timo ; « Couper » = rien ne part.
+  const lienAvisActuel = lienAvisGoogle(db.boutiques);
+  const [lienAvis, setLienAvis] = useState(lienAvisActuel || LIEN_AVIS_GOOGLE_DEFAUT);
+  const enregistrerAvis = async (couper = false) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Régler la demande d'avis Google")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const lien = lienAvis.trim();
+    if (!couper) { const motif = critiqueLienAvis(lien); if (motif) { uAlert(motif); return; } }
+    if (!await uConfirm(couper
+      ? "Couper la demande d'avis Google ? Plus aucun client ne la recevra."
+      : `Envoyer la demande d'avis avec ce lien ?\n${lien || LIEN_AVIS_GOOGLE_DEFAUT}\n\n${JOURS_APRES_RECEPTION} jours après la réception d'un chantier, une seule fois (environ 14 F le message).`)) return;
+    save({ ...db, boutiques: poserAvisGoogle(db.boutiques, couper ? { lien, coupe: true } : { lien, coupe: false }) },
+      couper ? "Demande d'avis Google coupée" : `Demande d'avis Google : ${lien || LIEN_AVIS_GOOGLE_DEFAUT}`);
   };
 
   const retablirNote = async () => {
@@ -1855,6 +1873,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </div>
           <div className="text-xs mt-1" data-alerte-etat={alerteActuelle ? "active" : "coupee"}>
             {alerteActuelle ? <span className="text-emerald-700 font-bold">● Alerte envoyée au {alerteActuelle.tel}{alerteActuelle.nom ? ` (« Bonjour ${alerteActuelle.nom} »)` : ""}</span> : <span className="text-slate-500">○ Aucune alerte WhatsApp</span>}
+          </div>
+        </div>
+        <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="avis-google">
+          <div className="font-semibold text-sm">⭐ Demande d'avis Google après la réception</div>
+          <div className="text-xs text-slate-500 mt-1">
+            {JOURS_APRES_RECEPTION} jours après la réception d'un chantier (PV signé, forcé ou réception automatique), le numéro BMI envoie une fois ce message au client (modèle « demande_avis », à faire approuver chez YCloud, environ 14 F).
+            Jamais en formation, jamais à un compte bloqué ; un chantier réceptionné depuis plus de 40 jours ne la reçoit pas.
+          </div>
+          <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mt-2 whitespace-pre-line">{TEXTE_DEMANDE_AVIS}</div>
+          <div className="flex flex-wrap items-end gap-2 mt-2">
+            <Field label="Lien de votre fiche Google (« Demander des avis »)">
+              <input className={`${inputCls} sm:w-80`} value={lienAvis} onChange={(e) => setLienAvis(e.target.value)} placeholder={LIEN_AVIS_GOOGLE_DEFAUT} disabled={!jeSuisPrincipal} />
+            </Field>
+            {jeSuisPrincipal && <button onClick={() => enregistrerAvis(false)} className={btnDark}>✅ Enregistrer</button>}
+            {jeSuisPrincipal && lienAvisActuel && <button onClick={() => enregistrerAvis(true)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700">Couper</button>}
+          </div>
+          <div className="text-xs mt-1" data-avis-etat={lienAvisActuel ? "actif" : "coupe"}>
+            {lienAvisActuel ? <span className="text-emerald-700 font-bold">● En service — {lienAvisActuel}</span> : <span className="text-slate-500">○ Coupée : aucune demande d'avis ne part</span>}
           </div>
         </div>
         <details className="mt-2">

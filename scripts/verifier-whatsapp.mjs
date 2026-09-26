@@ -83,10 +83,13 @@ const ATTENDU = {
   // ⚠ LE DIX-HUITIÈME (26/09/2026, « 5 ») : le rappel d'entretien, envoyé par
   // la tournée de 7 h. UTILITY (un service), trois trous.
   rappel_entretien: { categorie: "utility", n: 3 },
+  // ⚠ LE DIX-NEUVIÈME (26/09/2026, « 6 ») : la demande d'avis Google, dix
+  // jours après la réception. MARKETING, trois trous, serveur seul.
+  demande_avis: { categorie: "marketing", n: 3 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les dix-huit modèles sont là, et eux seuls (RETOURNÉ le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les dix-neuf modèles sont là, et eux seuls (RETOURNÉ le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -110,8 +113,8 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // RETOURNÉ le 26/09/2026 : la relance automatique du 8e jour est, elle
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien"];
-test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien)",
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis"];
+test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
 
@@ -1238,8 +1241,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
-  test("★ les quinze modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,rappel_entretien,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
+  test("★ les seize modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,rappel_entretien,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -2839,6 +2842,65 @@ test("rien de secret : aucune clé dans la règle, et le texte du modèle est ce
   !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/rappelEntretien.js"))
   && M.TEXTE_RAPPEL_ENTRETIEN === "Bonjour {{1}}, l'entretien de votre installation {{2}} est prévu le {{3}}. Un technicien BMI TOGO vous contactera pour fixer l'heure. Pour changer la date, répondez simplement à ce message. BMI TOGO"
   && M.installationPourRappel("Autre") === "BMI TOGO" && M.installationPourRappel("") === "BMI TOGO");
+}
+
+{
+titre("㉞ ⭐ LA DEMANDE D'AVIS GOOGLE APRÈS LA RÉCEPTION (26/09/2026, « 6 », « 10 jours »)");
+const A = await import(pathToFileURL(join(process.cwd(), "src/lib/demandeAvis.js")).href);
+const jour = "2026-09-26";
+const client = { id: "C1", nom: "ESSO", nom_base: "ESSO", role: "client", tel: "+228 90 11 22 33" };
+const recu = (id, le, plus = {}) => ({ id, nom: id, tel: "90112200", type_installation: "Solaire résidentiel", statut: "receptionne", receptionne_le: le, ...plus });
+const base = {
+  users: [client, { id: "C2", nom: "BLOQUE", role: "client", tel: "90445566", actif: false }, { id: "CF", nom: "ELEVE", role: "client", tel: "90778899", formation: true }],
+  boutiques: [{ nom: "DEMAKPOE" }, { nom: "FORMATION B", formation: true }],
+  ventes: [{ id: "VF", boutique: "FORMATION B" }], dettes: [], messages: [],
+  clients_installes: [
+    recu("K1", "2026-09-16", { nom: "ESSO", user_id: "C1" }),  // J+10 : part
+    recu("K2", "2026-09-17"),                                   // J+9 : trop tôt
+    recu("K3", "2026-08-17"),                                   // J+40 : part encore
+    recu("K4", "2026-08-16"),                                   // J+41 : trop vieux
+    recu("K5", "2026-09-10", { statut: "termine" }),            // pas réceptionné
+    recu("K6", "2026-09-10", { vente_id: "VF" }),               // boutique de formation
+    recu("K7", "2026-09-10", { user_id: "CF", tel: "" }),       // compte de formation
+    recu("K8", "2026-09-10", { user_id: "C2", tel: "" }),       // compte bloqué
+    recu("K9", "2026-09-10", { avis_demande_le: "2026-09-20" }),// déjà demandée
+    recu("K10", "2026-09-10", { tel: "" }),                     // sans numéro
+    recu("K11", "2026-09-10", { travaux: true }),               // travaux à crédit
+    recu("K12", "2026-09-10", { supprime_le: "2026-09-20" }),   // corbeille
+  ],
+};
+const ids = (l) => l.map((r) => r.chantier.id).join(",");
+const liste = A.demandesAvisDuJour(base, jour);
+test("★★ la fenêtre : du 10e au 40e jour après la réception (9e trop tôt, 41e jamais — pas un balayage de tout l'historique), réceptionné seulement",
+  ids(liste) === "K1,K3" && A.JOURS_APRES_RECEPTION === 10 && A.JOURS_MAX_DEMANDE_AVIS === 40);
+test("★★ LE MUR ET LES PORTES : jamais en formation (boutique, compte), jamais un compte bloqué, sans numéro, travaux à crédit, corbeille — et UNE fois : la marque du chantier arrête tout",
+  !/K6|K7|K8|K9|K10|K11|K12/.test(ids(liste)));
+test("★ …et la ligne du fil (modèle + chantier), qui ne se réécrit jamais, l'empêche aussi",
+  ids(A.demandesAvisDuJour({ ...base, messages: [{ id: "m", canal: "whatsapp", wa_modele: "demande_avis", chantier_id: "K1" }] }, jour)) === "K3");
+test("★ le modèle : MARKETING, trois trous dans l'ordre (nom du compte, installation en minuscules, le lien)",
+  liste[0].envoi.modele === "demande_avis" && liste[0].envoi.variables.join("|") === `ESSO|solaire résidentiel|${A.LIEN_AVIS_GOOGLE_DEFAUT}` && M.MODELES.demande_avis.categorie === "marketing");
+test("★★ le lien : celui de Timo d'office, celui réglé sur une boutique RÉELLE sinon (jamais la formation), coupé = rien ne part",
+  A.LIEN_AVIS_GOOGLE_DEFAUT === "https://share.google/7LY5N6ctSmah0mlYY"
+  && A.lienAvisGoogle([{ nom: "F", formation: true, avis_google: { lien: "https://faux", coupe: false } }]) === A.LIEN_AVIS_GOOGLE_DEFAUT
+  && A.lienAvisGoogle([{ nom: "D", avis_google: { lien: "https://g.page/r/X", coupe: false } }]) === "https://g.page/r/X"
+  && A.demandesAvisDuJour({ ...base, boutiques: [{ nom: "DEMAKPOE", avis_google: { lien: "", coupe: true } }] }, jour).length === 0
+  && !!A.critiqueLienAvis("pas un lien") && A.critiqueLienAvis("https://share.google/abc") === "");
+const ligne = A.ligneDemandeAvis({ id: "L", tel: liste[0].tel, compte: client, chantier: liste[0].chantier, variables: liste[0].envoi.variables, ts: "2026-09-26T07:00:00Z" });
+test("★ la ligne du fil : sortante, sans propriétaire, porte le modèle et le chantier ; la marque dit le jour",
+  ligne.canal === "whatsapp" && !ligne.proprietaire_id && ligne.wa_modele === "demande_avis" && ligne.chantier_id === "K1"
+  && A.chantierApresAvis(liste[0].chantier, jour).avis_demande_le === jour);
+test("le texte du modèle est celui de Timo, mot pour mot (INSTALLATION en capitales, le trou 3 numéroté)",
+  M.TEXTE_DEMANDE_AVIS === "Bonjour {{1}},\nMerci d'avoir confié votre INSTALLATION {{2}} à BMI TOGO.\nVotre avis compte beaucoup pour nous et aide d'autres clients à nous faire confiance.\nPouvez-vous prendre une minute pour le partager ici : {{3}}\nMerci ! BMI TOGO");
+const srvA = lire("api/rappels-du-matin.js");
+const corpsA = srvA.slice(srvA.indexOf("async function demanderLesAvis"));
+test("★★ le serveur : la ligne du fil et la marque ne s'écrivent QU'APRÈS l'accord de WhatsApp ; la fiche du chantier est RELUE avant la marque",
+  /demandesAvisDuJour\(db, aujourdhui\)/.test(corpsA) && corpsA.indexOf("if (!envoi.ok)") > corpsA.indexOf("envoyerYCloud(")
+  && corpsA.indexOf('from("messages").insert') > corpsA.indexOf("if (!envoi.ok)")
+  && corpsA.indexOf('from("clients_installes").select') > corpsA.indexOf("if (!envoi.ok)") && /const avis = await demanderLesAvis\(admin, db, aujourdhui\);/.test(srvA));
+const par = lire("src/screens/Parametres.jsx");
+test("★ ⚙ Paramètres : le lien se règle et se coupe, administrateur PRINCIPAL seul, revérifié dans le geste ; le chantier dit « ⭐ Avis demandé le … »",
+  /const enregistrerAvis = async \(couper = false\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Régler la demande d'avis Google"\)\) return;/.test(par)
+  && /data-reglage="avis-google"/.test(par) && /data-avis-demande/.test(lire("src/screens/ClientsInstalles.jsx")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

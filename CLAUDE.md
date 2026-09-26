@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 636 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique)
+npm run verifier-whatsapp        # 646 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -941,6 +941,37 @@ lit mal est pire qu'un banc absent).
   date comptée, la fenêtre à 11 jours, la tâche écrite sans relire) : chacune
   tombe. Trois contrôles RETOURNÉS (dix-huit modèles, quinze lignes, trois
   modèles serveur seul) ; `demanderDate` ×6 dans verifier-cloisonnement.
+
+### ⭐ LA DEMANDE D'AVIS GOOGLE APRÈS LA RÉCEPTION (26/09/2026, « 6 », « 10 jours », « oui, lance le 6 »)
+- Règle pure **`lib/demandeAvis.js`** (lisible par le serveur), envoyée par
+  la **tournée de 7 h** (`demanderLesAvis`, api/rappels-du-matin.js). Modèle
+  **`demande_avis`** (MARKETING, 3 trous : nom, installation en minuscules,
+  LIEN — `TEXTE_DEMANDE_AVIS`, **le texte de Timo mot pour mot**, avec
+  « INSTALLATION » en capitales et ses retours à la ligne). **Serveur seul**.
+- **Du 10e au 40e jour après `receptionne_le`** (PV signé, forcé ou réception
+  automatique), statut `receptionne` seulement. ⚠ **Le 40e jour est une
+  fenêtre, pas un détail** : sans elle, le premier matin aurait écrit à TOUS
+  les chantiers réceptionnés depuis des mois.
+- ⚠ **UNE FOIS PAR CHANTIER, POUR TOUJOURS** : `avis_demande_le` sur le
+  chantier (fiche RELUE avant d'écrire) et la ligne du fil (modèle +
+  `chantier_id`). Rien n'est écrit tant que WhatsApp n'a pas accepté ;
+  refusée → retentée le lendemain.
+- ⚠ **LE MUR** : jamais un chantier de formation (`chantierDeFormation`,
+  la règle du rappel d'entretien), jamais un compte bloqué, jamais sans
+  numéro, jamais des 🛠 travaux à crédit, jamais la corbeille.
+- **Le lien** : d'office celui donné par Timo (`LIEN_AVIS_GOOGLE_DEFAUT` =
+  https://share.google/7LY5N6ctSmah0mlYY) ; ⚙ Paramètres → 🤖 Assistant →
+  « ⭐ Demande d'avis Google » (administrateur PRINCIPAL, revérifié dans le
+  geste) le change ou le **coupe** (`avis_google = { lien, coupe }` sur les
+  boutiques RÉELLES — un réglage posé en formation ne compte pas). Rien à
+  coller. Le chantier dit « ⭐ Avis demandé le … » sous sa date d'installation.
+- ⚠ Dans son exemple, Timo avait écrit « BMI togo https://… » pour le trou
+  3 : le trou ne porte QUE le lien (le texte dit déjà « BMI TOGO »).
+- **À faire par Timo : créer `demande_avis` chez YCloud** (marketing, fr).
+  ~14 F. Banc ㉞ (`verifier-whatsapp`, 10 contrôles), éprouvé en remettant
+  quatre fautes (balayage sans limite de 40 jours, le mur ouvert, une seconde
+  demande, le réglage lu en formation) : chacune tombe. Trois contrôles
+  RETOURNÉS (dix-neuf modèles, seize lignes, quatre modèles serveur seul).
 
 ### 📦 LA QUANTITÉ À COMMANDER D'APRÈS LE RYTHME DES VENTES (26/09/2026, « 3 », « 3a »)
 - « ⚠ À réapprovisionner » (📦 Stocks) ne regardait que le SEUIL. Depuis :
