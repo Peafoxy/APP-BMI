@@ -21,6 +21,7 @@ import { htmlContratInstallation, imprimerContratInstallation } from "../lib/imp
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
+import { STATUT_SANS_SUITE, estSansSuite, peutClasserDevis, critiqueClassement, classerSansSuite, critiqueReouverture, rouvrirDevis, avecDevis, devisDans } from "../lib/devisSansSuite";
 import { mettreDevisALaCorbeille, critiqueSuppressionDevis, critiqueSuppressionDevisDans, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
@@ -37,6 +38,7 @@ const STATUT_DEVIS = {
   corrige: ["🔄 Corrigé — en attente de l'accord du client", "bg-indigo-100 text-indigo-800 border-indigo-300"],
   modification: ["✏️ Modification demandée", "bg-purple-100 text-purple-800 border-purple-300"],
   rejete: ["❌ Rejeté", "bg-red-100 text-red-800 border-red-300"],
+  [STATUT_SANS_SUITE]: ["📁 Classé sans suite", "bg-slate-100 text-slate-700 border-slate-300"],
 };
 const BadgeStatutDevis = ({ statut }) => {
   const [label, cls] = STATUT_DEVIS[statut || "propose"] || STATUT_DEVIS.propose;
@@ -53,7 +55,7 @@ const joursSansReponse = (d) => joursSansReponseDepuis(d, today());
 // ⚠ Demande Timo : la liste est classée par STATUT (proposé → validé → payé →
 // modification demandée → rejeté), et à l'intérieur d'un même statut, du plus
 // récent au plus ancien (ordre déjà en place avant ce classement).
-const ORDRE_STATUT_DEVIS = { propose: 0, valide: 1, paye: 2, corrige: 3, modification: 4, rejete: 5 };
+const ORDRE_STATUT_DEVIS = { propose: 0, valide: 1, paye: 2, corrige: 3, modification: 4, rejete: 5, [STATUT_SANS_SUITE]: 6 };
 const NB_DEVIS_AFFICHES = 7;
 
 export function TousLesDevis({ db, save, profile, onModifierDevis }) {
@@ -134,6 +136,34 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     if (!await uConfirm(`Supprimer le devis de ${fmt(d.total)} du ${dFR(d.date)} pour ${nomClient} ?\n\nIl part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours : vous pourrez le restaurer dans ⚙ Paramètres → 🗑 Corbeille, puis il s'effacera tout seul.\nLes messages WhatsApp déjà envoyés au client restent.`)) return;
     save(mettreDevisALaCorbeille(db, d.client.id, d.id, profile, motif),
       `🗑 Devis supprimé (corbeille) — ${nomClient}, ${fmt(d.total)} du ${dFR(d.date)} — motif : ${String(motif).trim()} — par ${profile.nom}`);
+  };
+
+  // 📁 Classer sans suite / rouvrir (26/09/2026, Timo : « a, auteur admin et
+  // resp com, lance ») : le devis reste ENTIER, il sort de la liste active.
+  // Règle pure lib/devisSansSuite.js, revérifiée DANS le geste sur la fiche
+  // fraîche.
+  const classerDevis = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueClassement(devisDans(db, d.client.id, d.id), profile);
+    if (refus) { await uAlert(refus); return; }
+    const nomClient = d.client?.nom_base || d.client?.nom || "ce client";
+    const motif = await uPrompt(`Pourquoi classer sans suite ce devis de ${fmt(d.total)} pour ${nomClient} ?\n\nLe motif est obligatoire : il reste sur le devis et dans le journal.`, "Le client ne donne plus de nouvelles");
+    if (motif === null) return;
+    const refus2 = critiqueClassement(devisDans(db, d.client.id, d.id), profile, motif);
+    if (refus2) { await uAlert(refus2); return; }
+    if (!await uConfirm(`Classer sans suite le devis de ${fmt(d.total)} du ${dFR(d.date)} pour ${nomClient} ?\n\nIl reste entier (articles, prix, relances), mais sort de la liste active : vous le retrouverez sous « 📁 Sans suite ».\nLe client ne pourra plus le valider et il ne sera plus relancé.\nVous pourrez le rouvrir à tout moment.`)) return;
+    save(avecDevis(db, d.client.id, d.id, (x) => classerSansSuite(x, profile, motif, today())),
+      `📁 Devis classé sans suite — ${nomClient}, ${fmt(d.total)} du ${dFR(d.date)} — motif : ${String(motif).trim()} — par ${profile.nom}`);
+  };
+  const rouvrirDevisClasse = async (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueReouverture(devisDans(db, d.client.id, d.id), profile);
+    if (refus) { await uAlert(refus); return; }
+    const nomClient = d.client?.nom_base || d.client?.nom || "ce client";
+    if (!await uConfirm(`Rouvrir le devis de ${fmt(d.total)} du ${dFR(d.date)} pour ${nomClient} ?\n\nIl redevient ⏳ Proposé, tel qu'il était : le client pourra de nouveau le valider.\nSon offre date toujours du ${dFR(d.date)} : pour de nouveaux prix, utilisez ensuite « ✏️ Modifier et renvoyer ».`)) return;
+    save(avecDevis(db, d.client.id, d.id, (x) => rouvrirDevis(x, profile, today())),
+      `↩ Devis rouvert (était classé sans suite) — ${nomClient}, ${fmt(d.total)} du ${dFR(d.date)} — par ${profile.nom}`);
+    setFiltreStatut("propose");
   };
 
   const [ouvert, setOuvert] = useState(null);
@@ -224,9 +254,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     }
     return true;
   });
-  const compteStatut = (s) => (s ? devisAvantStatut.filter((d) => (d.statut || "propose") === s).length : devisAvantStatut.length);
+  // 📁 « Tous » est la liste ACTIVE : un devis classé sans suite n'y est pas,
+  // il se retrouve sous son propre onglet (Timo, 26/09/2026).
+  const dansOnglet = (d, s) => (s ? (d.statut || "propose") === s : !estSansSuite(d));
+  const compteStatut = (s) => devisAvantStatut.filter((d) => dansOnglet(d, s)).length;
 
-  const devisFiltres = devisAvantStatut.filter((d) => !filtreStatut || (d.statut || "propose") === filtreStatut)
+  const devisFiltres = devisAvantStatut.filter((d) => dansOnglet(d, filtreStatut))
     .sort((a, b) =>
     (ORDRE_STATUT_DEVIS[a.statut || "propose"] - ORDRE_STATUT_DEVIS[b.statut || "propose"])
     || `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
@@ -392,7 +425,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
             juste sous le titre — pas un simple classement passif de la liste. */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"]].map(([id, label]) => (
+          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"], [STATUT_SANS_SUITE, "📁 Sans suite"]].map(([id, label]) => (
             <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
               className={`px-3 py-1.5 rounded-full text-sm font-bold border ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
               {label} <span className={`ml-1 ${filtreStatut === id ? "text-sky-200" : "text-slate-400"}`}>({compteStatut(id)})</span>
@@ -494,6 +527,20 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                 </button>
                 {ouvert === d.id && (
                   <div className="px-4 pb-4 bg-slate-50">
+                    {estSansSuite(d) && (
+                      <div className="mb-3 rounded-xl border-2 border-slate-300 bg-white p-3 text-sm" data-sans-suite>
+                        <div className="font-bold text-slate-800">📁 Classé sans suite le {dFR(d.sans_suite?.le)} par {d.sans_suite?.par || "?"}</div>
+                        {d.sans_suite?.motif && <div className="text-slate-700 mt-1">Motif : « {d.sans_suite.motif} »</div>}
+                        <div className="text-xs text-slate-500 mt-1">Le devis est gardé entier. Le client ne peut plus le valider ; il n'est plus relancé.</div>
+                      </div>
+                    )}
+                    {(d.historique_sans_suite || []).length > 0 && !estSansSuite(d) && (
+                      <div className="mb-3 text-xs text-slate-500">
+                        {(d.historique_sans_suite || []).map((h, i) => (
+                          <div key={i}>📁 Classé sans suite le {dFR(h.le)} par {h.par || "?"}{h.motif ? ` (« ${h.motif} »)` : ""} — rouvert le {dFR(h.rouvert_le)} par {h.rouvert_par || "?"}</div>
+                        ))}
+                      </div>
+                    )}
                     {d.plan_reglement && (() => {
                       const pl = d.plan_reglement;
                       const solde = soldeApresAcompte(d);
@@ -563,6 +610,14 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                           title="Ce devis est signé : le client doit accepter avant toute correction">✏️ Demander une modification au client</button>
                       )}
                       <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
+                      {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
+                        <button onClick={() => classerDevis(d)} data-classer-sans-suite className="text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-lg px-3 py-1.5 hover:bg-slate-100"
+                          title="Le devis reste entier mais sort de la liste active">📁 Classer sans suite</button>
+                      )}
+                      {peutClasserDevis(d, profile) && estSansSuite(d) && (
+                        <button onClick={() => rouvrirDevisClasse(d)} data-rouvrir-devis className="text-xs font-bold text-sky-800 border border-sky-300 bg-white rounded-lg px-3 py-1.5 hover:bg-sky-50"
+                          title="Le devis redevient ⏳ Proposé">↩ Rouvrir le devis</button>
+                      )}
                       {peutDeciderDuPlan && !critiqueSuppressionDevis(d) && (
                         <button onClick={() => supprimerDevis(d)} data-supprimer-devis className="text-xs font-bold text-red-700 border border-red-300 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50"
                           title={`Le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`}>🗑 Supprimer</button>

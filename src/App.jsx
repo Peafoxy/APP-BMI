@@ -1705,6 +1705,8 @@ function compterNouveauxDevis(db, profile) {
     .flatMap((u) => u.devis || [])
     .filter((d) => espace === undefined || !!d.formation === espace)
     .filter((d) => voitTout || d.par_id === profile.id)
+    // 📁 Un devis classé sans suite est rangé : il n'appelle plus l'attention.
+    .filter((d) => (d.statut || "") !== "sans_suite")
     .filter((d) => !(d.vu_par || []).includes(profile.id))
     .length;
 }

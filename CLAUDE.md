@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1933 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1948 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -803,6 +803,32 @@ lit mal est pire qu'un banc absent).
   prospect garde son lien. ⚠ **Aucun déclencheur serveur ne garde ce geste**
   (`users_regles_devis` ne regarde que le passage à « validé ») : c'est
   l'application qui décide — dit à Timo. Rien à coller.
+
+- **📁 Classer un devis sans suite** (26/09/2026, après « un devis expiré
+  peut saturer la base ? » — non, mesuré chez lui : 20 Mo sur 500, 22 devis,
+  456 Ko pour comptes et devis — puis « conserver quelque trace sinon le
+  supprimer ? » → « a, auteur admin et resp com, lance »). Règle pure
+  **`lib/devisSansSuite.js`**. Bouton « 📁 Classer sans suite » dans
+  📋 Tous les devis, **devis ⏳ Proposé seul**, **celui qui l'a établi (par
+  `par_id`), l'administrateur, le responsable commercial** — revérifié DANS
+  le geste sur la fiche fraîche, **motif obligatoire**, ligne de journal.
+  Le devis **reste ENTIER** : statut `sans_suite` + `sans_suite = { le, par,
+  par_id, motif }`. Il **sort de « 📋 Tous »** (la liste active) et se range
+  sous l'onglet **« 📁 Sans suite »** ; il ne compte plus dans la pastille
+  rouge. Tout ce qui regarde « propose » l'exclut d'office : plus de
+  validation par le client (l'espace client dit « ce devis n'est plus
+  d'actualité… écrivez-nous », **jamais le motif interne**), plus de relance
+  (main, 15 jours, 8e jour), plus de pastille « offre expirée », plus
+  modifiable ; `validerDevis` le refuse aussi. **« ↩ Rouvrir le devis »**
+  (mêmes personnes) : il redevient ⏳ Proposé tel qu'il était, le classement
+  passe dans `historique_sans_suite` (ne rétrécit jamais) ; l'offre date
+  toujours du jour du devis — pour de nouveaux prix, « ✏️ Modifier et
+  renvoyer ». La **suppression reste** au principal, pour les vraies erreurs.
+  ⚠ Aucun déclencheur serveur ne garde ce geste (comme la suppression) : c'est
+  l'application qui décide. Rien à coller. Banc (`verifier-cloisonnement`,
+  15 contrôles), éprouvé en remettant quatre fautes (motif facultatif, les
+  classés dans « Tous », la validation qui les accepte, tout le monde qui
+  classe) : chacune tombe.
 
 ### ⌛ L'OFFRE EXPIRÉE ET LA RELANCE AUTOMATIQUE DU 8e JOUR (26/09/2026)
 - Timo : « après combien de temps un devis est supprimé chez le client si le

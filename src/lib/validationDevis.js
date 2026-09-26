@@ -36,6 +36,7 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
   const { client, devis: d } = trouverDevis(db, clientId, devisId);
   if (!client || !d) return { erreur: "Ce devis n'existe plus." };
   if (d.statut === "valide" || d.statut === "paye") return { erreur: "Ce devis est déjà validé." };
+  if (d.statut === "sans_suite") return { erreur: "Ce devis a été classé sans suite : il doit d'abord être rouvert (📋 Tous les devis → 📁 Sans suite)." };
   const nomClient = client.nom_base || client.nom || "Client";
   const qui = `${acteur?.estClient ? "le client " : ""}${acteur?.nom || nomClient}`;
   // ⚠ Validé APRÈS l'expiration de l'offre (décision « b », 26/09/2026) :

@@ -11380,6 +11380,77 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     test("★ le formulaire de modification n'offre ni montant ni paiement", (dsrc.match(/data-fiche-modif-depense[\s\S]*?<\/div>\s*\)\}/) || [""])[0].includes("Catégorie") && !/data-fiche-modif-depense[\s\S]{0,900}label="Montant/.test(dsrc));
   }
   test("★ aucun rappel de loyer dans la tournée du matin (décision « non »)", !/loyer/i.test(readFileSync("src/lib/rappels.js", "utf8")) && !/loyer/i.test(readFileSync("api/rappels-du-matin.js", "utf8")));
+
+  // ---- 📁 CLASSER UN DEVIS SANS SUITE (26/09/2026, Timo : « a, auteur admin
+  // et resp com, lance ») : le devis reste ENTIER, il sort de la liste active,
+  // le client ne le valide plus, il n'est plus relancé, il se rouvre.
+  {
+    const SS = await import(pathToFileURL(join(process.cwd(), "src/lib/devisSansSuite.js")).href);
+    const R2 = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
+    const CC = await import(pathToFileURL(join(process.cwd(), "src/lib/comptesClients.js")).href);
+    const d = { id: "ds1", date: "2026-08-01", total: 300000, statut: "propose", par: "KOSSI", par_id: "u-kossi", lignes: [{ article: "Panneau", qte: 4, pu: 50000, total: 200000 }] };
+    const auteur = { id: "u-kossi", nom: "KOSSI", role: "commercial" };
+    const autreCom = { id: "u-ama", nom: "AMA", role: "commercial" };
+    const admin = { id: "u-a", nom: "TIMO2", role: "admin" };
+    const resp = { id: "u-r", nom: "RESP", role: "resp_commercial" };
+    const vendeur = { id: "u-v", nom: "ANGELE", role: "vendeur" };
+    test("★ sans suite : l'auteur, l'administrateur et le responsable commercial peuvent classer — personne d'autre",
+      [auteur, admin, resp].every((p) => SS.critiqueClassement(d, p) === "")
+      && !!SS.critiqueClassement(d, autreCom) && !!SS.critiqueClassement(d, vendeur)
+      && !!SS.critiqueClassement({ ...d, par_id: "" }, { id: "", role: "commercial" }));
+    test("★ sans suite : un devis ⏳ Proposé seulement (validé, payé, corrigé, modification, rejeté, corbeille : refusés)",
+      ["valide", "paye", "corrige", "modification", "rejete"].every((st) => !!SS.critiqueClassement({ ...d, statut: st }, admin))
+      && !!SS.critiqueClassement({ ...d, supprime_le: "2026-09-01" }, admin) && SS.critiqueClassement({ ...d, statut: undefined }, admin) === "");
+    test("★ sans suite : le motif est obligatoire", !!SS.critiqueClassement(d, auteur, "  ") && SS.critiqueClassement(d, auteur, "Plus de nouvelles") === "");
+    const c = SS.classerSansSuite(d, auteur, " Plus de nouvelles ", "2026-09-26");
+    test("★ sans suite : le devis reste ENTIER (lignes, total, auteur) et porte qui, quand, pourquoi",
+      c.statut === "sans_suite" && c.total === 300000 && JSON.stringify(c.lignes) === JSON.stringify(d.lignes) && c.par === "KOSSI"
+      && c.sans_suite.le === "2026-09-26" && c.sans_suite.par === "KOSSI" && c.sans_suite.par_id === "u-kossi" && c.sans_suite.motif === "Plus de nouvelles");
+    test("★ sans suite : plus de relance (ni à la main, ni la tournée de 7 h), plus de pastille « offre expirée », plus modifiable",
+      R2.devisARelancer(d, "2026-09-26") && !R2.devisARelancer(c, "2026-09-26")
+      && R2.offreExpiree(d, "2026-09-26") && !R2.offreExpiree(c, "2026-09-26")
+      && !CC.devisRelancable(c) && !CC.devisModifiable(c) && !!SS.critiqueClassement(c, admin));
+    const r = SS.rouvrirDevis(c, resp, "2026-09-30");
+    test("★ sans suite : rouvrir le rend ⏳ Proposé tel qu'il était, et le classement reste lisible dans l'historique",
+      r.statut === "propose" && r.sans_suite === undefined && r.total === 300000
+      && r.historique_sans_suite.length === 1 && r.historique_sans_suite[0].motif === "Plus de nouvelles"
+      && r.historique_sans_suite[0].rouvert_par === "RESP" && r.historique_sans_suite[0].rouvert_le === "2026-09-30"
+      && SS.rouvrirDevis(SS.classerSansSuite(r, admin, "Encore", "2026-10-05"), admin, "2026-10-06").historique_sans_suite.length === 2);
+    test("★ sans suite : rouvrir = les mêmes personnes, et seulement un devis classé",
+      SS.critiqueReouverture(c, auteur) === "" && !!SS.critiqueReouverture(c, vendeur) && !!SS.critiqueReouverture(d, admin));
+    const base = { users: [{ id: "cl", role: "client", devis: [d, { id: "autre", statut: "propose" }] }, { id: "x", devis: [{ id: "ds1", statut: "propose" }] }] };
+    const apres = SS.avecDevis(base, "cl", "ds1", (x) => SS.classerSansSuite(x, auteur, "m", "2026-09-26"));
+    test("★ sans suite : le geste ne touche QUE le devis de ce client",
+      apres.users[0].devis[0].statut === "sans_suite" && apres.users[0].devis[1].statut === "propose" && apres.users[1].devis[0].statut === "propose"
+      && SS.devisDans(apres, "cl", "ds1").statut === "sans_suite");
+    const tdj2 = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    const corpsCl = (tdj2.match(/const classerDevis = async \(d\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    const corpsRo = (tdj2.match(/const rouvrirDevisClasse = async \(d\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    test("★★ 📋 Tous les devis : classer et rouvrir revérifient DANS le geste sur la fiche FRAÎCHE, motif compris, avant d'écrire",
+      /critiqueClassement\(devisDans\(db, d\.client\.id, d\.id\), profile, motif\)/.test(corpsCl)
+      && corpsCl.indexOf("critiqueClassement(devisDans") < corpsCl.indexOf("save(")
+      && /classerSansSuite\(x, profile, motif, today\(\)\)/.test(corpsCl) && /motif : \$\{String\(motif\)\.trim\(\)\}/.test(corpsCl)
+      && /critiqueReouverture\(devisDans\(db, d\.client\.id, d\.id\), profile\)/.test(corpsRo)
+      && corpsRo.indexOf("critiqueReouverture") < corpsRo.indexOf("save(") && /rouvrirDevis\(x, profile, today\(\)\)/.test(corpsRo));
+    test("★★ 📋 Tous les devis : « Tous » est la liste ACTIVE (sans les classés), qui ont leur onglet « 📁 Sans suite »",
+      /const dansOnglet = \(d, s\) => \(s \? \(d\.statut \|\| "propose"\) === s : !estSansSuite\(d\)\);/.test(tdj2)
+      && /devisAvantStatut\.filter\(\(d\) => dansOnglet\(d, filtreStatut\)\)/.test(tdj2)
+      && /\[STATUT_SANS_SUITE, "📁 Sans suite"\]/.test(tdj2) && /data-sans-suite/.test(tdj2));
+    test("★ 📋 Tous les devis : les boutons ne s'affichent qu'à qui peut (peutClasserDevis), sur un Proposé / un classé",
+      /\{peutClasserDevis\(d, profile\) && \(d\.statut \|\| "propose"\) === "propose" && \(\s*<button onClick=\{\(\) => classerDevis\(d\)\}/.test(tdj2)
+      && /\{peutClasserDevis\(d, profile\) && estSansSuite\(d\) && \(\s*<button onClick=\{\(\) => rouvrirDevisClasse\(d\)\}/.test(tdj2));
+    const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+    test("★ espace client : un devis classé sans suite ne se valide pas (le cadre de validation ne regarde que « propose »), et le dit SANS le motif interne",
+      /\{\(!d\.statut \|\| d\.statut === "propose"\) && \(/.test(ec)
+      && /\{d\.statut === "sans_suite" && \([\s\S]{0,400}Ce devis n'est plus d'actualité/.test(ec)
+      && !/sans_suite\?\.motif|sans_suite\.motif/.test(ec));
+    test("★ la validation d'un devis (boutique ou espace client) refuse un devis classé sans suite",
+      /d\.statut === "sans_suite"\) return \{ erreur:/.test(readFileSync("src/lib/validationDevis.js", "utf8")));
+    test("★ la pastille rouge des nouveaux devis ne compte pas un devis classé",
+      /function compterNouveauxDevis[\s\S]{0,900}\.filter\(\(d\) => \(d\.statut \|\| ""\) !== "sans_suite"\)/.test(readFileSync("src/App.jsx", "utf8")));
+    test("★ la relance automatique du 8e jour ne regarde qu'un devis « propose » (un classé en est donc exclu)",
+      /if \(\(devis\.statut \|\| "propose"\) !== "propose"\) return false;/.test(readFileSync("src/lib/relanceAutoDevis.js", "utf8")));
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

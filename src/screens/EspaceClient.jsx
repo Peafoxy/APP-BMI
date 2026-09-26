@@ -633,6 +633,15 @@ export function EspaceClient({ db, profile, save, setTab }) {
                       </div>
                     )}
 
+                    {/* 📁 Classé sans suite par BMI (26/09/2026) : le motif est
+                        interne, il ne s'affiche pas chez le client. */}
+                    {d.statut === "sans_suite" && (
+                      <div className="mt-4 rounded-xl border-2 border-slate-300 bg-slate-50 p-3" data-sans-suite>
+                        <div className="font-bold text-slate-800">📁 Ce devis n'est plus d'actualité</div>
+                        <div className="text-sm text-slate-700 mt-1">BMI TOGO l'a classé sans suite. Si votre projet vous intéresse toujours, écrivez-nous : nous vous ferons une nouvelle proposition.</div>
+                      </div>
+                    )}
+
                     {d.statut === "rejete" && (
                       <div className="mt-4 rounded-xl border-2 border-red-300 bg-red-50 p-3">
                         <div className="font-bold text-red-800">❌ Devis rejeté</div>
