@@ -4875,10 +4875,10 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026), demanderDate ×4 (dont la date réelle d'une remise de fonds)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait »)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
     && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "6"
-    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "4");
+    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "6");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -6095,6 +6095,47 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     liste.map((x) => x.p.nom).join("|") === "RUPTURE|ALPHA|ZETA|SANS SEUIL|JUSTE" && C.articlesAReapprovisionner(dbR, stockR, "B").length === 1 && C.articlesAReapprovisionner(dbR, stockR, "C").length === 0);
   test("★ …le manque = seuil − reste, jamais moins de 1 (au seuil, ou seuil 0 et rien en stock)",
     liste.map((x) => x.manque).join("|") === "10|3|3|1|1" && liste[0].actuel === 0 && liste[0].seuil === 10);
+
+  // 📦 LE RYTHME DES VENTES (26/09/2026, « 3 », « 3a ») : 30 jours de ventes,
+  // de quoi tenir la durée réglée (21 j d'office) ; le seuil reste un plancher.
+  const jour = "2026-09-26";
+  const dbV = {
+    boutiques: [{ nom: "A" }],
+    produits: [
+      { id: "v1", boutique: "A", nom: "PANNEAU", seuil: 2, initial: 6 },   // 30 vendus en 30 j → 1/j, 6 en stock → 21 − 6 = 15
+      { id: "v2", boutique: "A", nom: "LENT", seuil: 5, initial: 3 },      // rien vendu → l'ancienne règle : 5 − 3 = 2
+      { id: "v3", boutique: "A", nom: "LARGE", seuil: 0, initial: 100 },  // 30 vendus, 100 en stock → rien
+      { id: "v4", boutique: "A", nom: "VIEUX", seuil: 0, initial: 1 },    // vendu il y a 40 jours seulement → absent
+      { id: "v5", boutique: "A", nom: "TRAVAUX", seuil: 0, initial: 0 },  // 15 sortis en travaux, 3 repris : 12 en 30 j → 0,4/j → 9
+    ],
+    ventes: [
+      { id: "s1", date: "2026-09-26", boutique: "A", articles: [{ produit_id: "v1", article: "PANNEAU", qte: 20 }, { produit_id: "v3", article: "LARGE", qte: 30 }] },
+      { id: "s2", date: "2026-08-28", boutique: "A", articles: [{ produit_id: "v1", article: "PANNEAU", qte: 10 }] },  // 1er jour de la fenêtre : compté
+      { id: "s3", date: "2026-08-27", boutique: "A", articles: [{ produit_id: "v1", article: "PANNEAU", qte: 99 }, { produit_id: "v4", article: "VIEUX", qte: 50 }] },  // hors fenêtre
+      { id: "s4", date: "2026-09-20", boutique: "A", articles: [{ produit_id: "v5", article: "TRAVAUX", qte: 15, deja_sorti: true }] },  // déjà compté à la sortie
+    ],
+    ajustements: [
+      { id: "a1", date: "2026-09-10", produit_id: "v5", qte: -15, type: "sortie_travaux" },
+      { id: "a2", date: "2026-09-12", produit_id: "v5", qte: 3, type: "reprise_client" },
+      { id: "a3", date: "2026-09-12", produit_id: "v5", qte: 50, type: "entree_manuelle" },  // pas une vente
+    ],
+  };
+  const stockV = (db, p) => Number(p.initial || 0);
+  const lr = C.articlesAReapprovisionner(dbV, stockV, "A", { jours: 30, couverture: 21, aujourdhui: jour });
+  const de = (nom) => lr.find((x) => x.p.nom === nom);
+  test("★ rythme : 30 vendus en 30 jours (bornes comprises, le 31e jour avant exclu), 6 en stock, 21 jours à tenir → 15 à commander, tient ≈ 6 jours",
+    C.venduSurPeriode(dbV, "v1", 30, jour) === 30 && de("PANNEAU")?.manque === 15 && de("PANNEAU")?.tientJours === 6);
+  test("★ …un article qui ne s'est pas vendu garde l'ANCIENNE règle du seuil (5 − 3 = 2), un stock large ne propose rien, une vente d'il y a 40 jours ne compte pas",
+    de("LENT")?.manque === 2 && de("LENT")?.tientJours === null && !de("LARGE") && !de("VIEUX"));
+  test("★ …les sorties de 🛠 travaux comptent une fois (pas la ligne `deja_sorti` de la facture), une reprise client se déduit, une entrée n'est pas une vente : 12 en 30 j → 9 pour 21 j",
+    C.venduSurPeriode(dbV, "v5", 30, jour) === 12 && de("TRAVAUX")?.manque === 9);
+  test("★ …le seuil reste un PLANCHER (rythme faible, seuil haut → le seuil l'emporte), et l'ordre met en tête ce qui tient le moins longtemps",
+    C.articlesAReapprovisionner({ ...dbV, produits: [{ id: "v1", boutique: "A", nom: "PANNEAU", seuil: 40, initial: 6 }] }, stockV, "A", { jours: 30, couverture: 21, aujourdhui: jour })[0].manque === 34
+    && lr[0].p.nom === "TRAVAUX" && lr[1].p.nom === "PANNEAU" && lr[lr.length - 1].p.nom === "LENT");
+  test("★ …la durée visée se règle sur les boutiques (21 j d'office), et ⚙ Paramètres l'écrit, administrateur seul, revérifié dans le geste",
+    C.couvertureStockJours({ boutiques: [{ nom: "A" }] }) === 21 && C.couvertureStockJours({ boutiques: [{ nom: "A" }, { nom: "B", reappro_couverture_jours: 14 }] }) === 14
+    && /const enregistrerCouvertureStock = \(\) => \{\s*if \(refuserSaufAdmin\(profile, "Modifier la durée de stock visée"\)\) return;/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
+    && /reappro_couverture_jours: v/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
 }
 
 titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'administrateur principal seul » ; 14/09/2026 : « Reprise de l'article par BMI », pas « par le client » — c'est BMI qui reprend, le client rend)");

@@ -80,10 +80,13 @@ const ATTENDU = {
   bon_retour: { categorie: "utility", n: 11 },
   // (`devis_premier`, un temps dix-septième, a été RETIRÉ le 25/09/2026 :
   // refusé trois fois par Meta.)
+  // ⚠ LE DIX-HUITIÈME (26/09/2026, « 5 ») : le rappel d'entretien, envoyé par
+  // la tournée de 7 h. UTILITY (un service), trois trous.
+  rappel_entretien: { categorie: "utility", n: 3 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les dix-sept modèles sont là, et eux seuls (RETOURNÉ le 26/09/2026 : + la relance automatique du 8e jour ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les dix-huit modèles sont là, et eux seuls (RETOURNÉ le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -106,8 +109,9 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // que seul le serveur envoie (un écran qui l'enverrait serait une faute).
 // RETOURNÉ le 26/09/2026 : la relance automatique du 8e jour est, elle
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration"];
-test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique)",
+// RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien"];
+test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
 
@@ -1234,8 +1238,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
-  test("★ les quatorze modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
+  test("★ les quinze modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,rappel_entretien,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -2747,6 +2751,94 @@ test("★★ l'écran rendu : les 25 conversations de moins de 3 mois restent TO
   /Conversations anciennes \(1\)/.test(htmlArch) && Array.from({ length: 25 }, (_, i) => `RECENT${i}<`).every((n) => avantArch.includes(n)) && !avantArch.includes("VIEUX CLIENT"));
 test("★ l'écran passe la CONVERSATION à l'archivage (it.wa), jamais son seul identifiant (it.conv)",
   /dateDe=\{\(it\) => derniereActivite\(it\.wa\)\}/.test(ecranWa) && !/derniereActivite\(it\.conv\)/.test(ecranWa));
+}
+
+{
+titre("㉝ 🔧 LE RAPPEL D'ENTRETIEN AUTOMATIQUE (26/09/2026, « 5 », « 10 jours », « 6 mois »)");
+const E = await import(pathToFileURL(join(process.cwd(), "src/lib/rappelEntretien.js")).href);
+const jour = "2026-09-26";
+const chef = { id: "T1", nom: "KOSSI", role: "technicien" };
+const prevu = { id: "T2", nom: "AMA", role: "technicien_bmi" };
+const principal = { id: "A1", nom: "TIMO", role: "admin", admin_principal: true };
+const client = { id: "C1", nom: "ESSO", nom_base: "ESSO", role: "client", tel: "+228 90 11 22 33" };
+const base = {
+  users: [chef, prevu, principal, client, { id: "C2", nom: "BLOQUE", role: "client", tel: "90445566", actif: false }, { id: "CF", nom: "ELEVE", role: "client", tel: "90778899", formation: true }],
+  boutiques: [{ nom: "DEMAKPOE" }, { nom: "FORMATION B", formation: true }],
+  ventes: [{ id: "VF", boutique: "FORMATION B" }], dettes: [],
+  messages: [],
+  clients_installes: [
+    { id: "K1", nom: "ESSO", user_id: "C1", type_installation: "Solaire résidentiel", date_entretien: "2026-10-06", equipe: [{ user_id: "T1", chef: true }] },  // J-10 : dedans
+    { id: "K2", nom: "LOIN", tel: "90112244", date_entretien: "2026-10-07", equipe: [{ user_id: "T1", chef: true }] },   // J-11 : trop tôt
+    { id: "K3", nom: "PASSE", tel: "90112255", date_entretien: "2026-09-25", equipe: [{ user_id: "T1", chef: true }] },  // hier : trop tard
+    { id: "K4", nom: "SANS TEL", date_entretien: "2026-09-30", chef_prevu: "T2" },                                        // pas de numéro : tâche seule, chef prévu
+    { id: "K5", nom: "FORM", tel: "90112266", date_entretien: "2026-09-30", vente_id: "VF" },                           // boutique de formation
+    { id: "K6", nom: "MARQUE", tel: "90112277", date_entretien: "2026-09-30", formation: true },                         // marque formation
+    { id: "K7", nom: "ELEVE", user_id: "CF", date_entretien: "2026-09-30" },                                             // compte de formation
+    { id: "K8", nom: "BLOQUE", user_id: "C2", date_entretien: "2026-09-30" },                                            // compte bloqué : tâche au principal, rien au client
+    { id: "K9", nom: "SUPPR", tel: "90112288", date_entretien: "2026-09-30", supprime_le: "2026-09-20" },                // corbeille
+    { id: "K10", nom: "TRAV", tel: "90112299", date_entretien: "2026-09-30", travaux: true },                           // travaux à crédit
+    { id: "K11", nom: "FAIT", tel: "90112200", date_entretien: "2026-09-30", rappel_entretien: { date: "2026-09-30", whatsapp_le: "2026-09-21", tache_le: "2026-09-21" } }, // déjà fait pour cette date
+    { id: "K12", nom: "ANCIEN", tel: "90112211", date_entretien: "2026-09-30", rappel_entretien: { date: "2026-03-30", whatsapp_le: "2026-03-20", tache_le: "2026-03-20" } }, // marque d'une AUTRE date
+  ],
+};
+const liste = E.rappelsEntretienDuJour(base, jour);
+const de = (id) => liste.find((r) => r.chantier.id === id);
+test("★★ la fenêtre : de J-10 au jour même (J-11 trop tôt, une date passée ne s'annonce plus), hors corbeille et travaux à crédit",
+  !!de("K1") && !de("K2") && !de("K3") && !de("K9") && !de("K10") && E.JOURS_AVANT_ENTRETIEN === 10);
+test("★★ LE MUR : jamais un chantier de formation — marque, boutique de sa vente, ou compte du client",
+  !de("K5") && !de("K6") && !de("K7"));
+test("★ au client : le modèle `rappel_entretien`, trois trous dans l'ordre (nom du compte, installation en minuscules, date JJ/MM/AAAA)",
+  de("K1").whatsapp && de("K1").envoi.modele === "rappel_entretien" && de("K1").envoi.variables.join("|") === "ESSO|solaire résidentiel|06/10/2026" && de("K1").tel === "+22890112233");
+test("★ la tâche va au chef de CE chantier ; sinon au chef prévu ; un compte client bloqué ne reçoit rien, mais la tâche part quand même (à l'administrateur principal faute d'équipe)",
+  de("K1").tache && de("K1").pour.id === "T1" && de("K4").pour.id === "T2" && de("K4").tache && !de("K4").whatsapp
+  && de("K8").pour.id === "A1" && de("K8").tache && !de("K8").whatsapp);
+test("★★ UNE FOIS PAR DATE : la marque de CETTE date arrête tout ; celle d'une AUTRE date ne compte pas",
+  !de("K11") && !!de("K12") && de("K12").whatsapp && de("K12").tache);
+const avecLigne = { ...base, messages: [{ id: "m", canal: "whatsapp", wa_modele: "rappel_entretien", chantier_id: "K1", entretien_date: "2026-10-06" }] };
+const avecTache = { ...base, users: base.users.map((u) => (u.id === "T1" ? { ...u, taches: [E.tacheEntretien({ id: "t", chantier: base.clients_installes[0], aujourdhui: jour })] } : u)) };
+test("★ …et les deux filets qui ne se réécrivent pas : la ligne du fil (modèle + chantier + date) empêche un second message, la tâche déjà posée empêche une seconde tâche",
+  E.rappelsEntretienDuJour(avecLigne, jour).find((r) => r.chantier.id === "K1")?.whatsapp === false
+  && E.rappelsEntretienDuJour(avecTache, jour).find((r) => r.chantier.id === "K1")?.tache === false);
+const t = E.tacheEntretien({ id: "t1", chantier: base.clients_installes[0], aujourdhui: jour });
+const n = E.notificationTache({ pour: chef, chantier: base.clients_installes[0] });
+test("★ la tâche : marquée automatique, liée au chantier, échéance = la date d'entretien, « à faire » ; la notification va au seul responsable et ouvre ✅ Mes tâches",
+  t.auto === "entretien" && t.chantier_id === "K1" && t.echeance === "2026-10-06" && t.statut === "a_faire" && /Entretien de ESSO le 06\/10\/2026/.test(t.titre)
+  && n.destinataires.join() === "T1" && n.ecran === "taches");
+const ligne = E.ligneRappelEntretien({ id: "L", tel: de("K1").tel, compte: client, chantier: base.clients_installes[0], variables: de("K1").envoi.variables, ts: "2026-09-26T07:00:00Z" });
+test("★ la ligne du fil : sortante, sans propriétaire, porte le modèle, le chantier et la date (le filet), jamais « livré » ni « lu »",
+  ligne.canal === "whatsapp" && !ligne.proprietaire_id && ligne.wa_modele === "rappel_entretien" && ligne.chantier_id === "K1" && ligne.entretien_date === "2026-10-06"
+  && /entretien/.test(ligne.texte) && !/livré|lu par/i.test(ligne.texte));
+const marque = E.chantierApresRappel(base.clients_installes[0], { whatsapp_le: jour });
+const marque2 = E.chantierApresRappel(marque, { tache_le: jour, tache_pour: "KOSSI" });
+test("★ la marque du chantier dit pour QUELLE date, et se complète sans s'écraser (message puis tâche)",
+  marque2.rappel_entretien.date === "2026-10-06" && marque2.rappel_entretien.whatsapp_le === jour && marque2.rappel_entretien.tache_pour === "KOSSI");
+test("★★ ✅ Entretien fait : la prochaine date est proposée à +6 mois (31/08 → 28/02), l'entretien se garde dans une liste qui ne rétrécit pas, la nouvelle date rouvre le rappel",
+  E.dateApresMois("2026-09-26") === "2027-03-26" && E.dateApresMois("2026-08-31") === "2027-02-28" && E.MOIS_ENTRE_ENTRETIENS === 6
+  && (() => { const c = E.marquerEntretienFait({ ...marque2, entretiens: [{ le: "2026-03-01" }] }, { le: "2026-10-05", prochaine: "2027-04-05", par: "TIMO" });
+    return c.entretiens.length === 2 && c.entretiens[1].prevu === "2026-10-06" && c.date_entretien === "2027-04-05"
+      && E.rappelsEntretienDuJour({ ...base, clients_installes: [c] }, "2027-03-27").find((r) => r.chantier.id === "K1")?.whatsapp === true; })());
+test("★ …refusé sans date, ou avec une prochaine date qui ne vient pas après",
+  !!E.critiqueEntretienFait(base.clients_installes[0], { le: "" }) && !!E.critiqueEntretienFait(base.clients_installes[0], { le: "2026-10-05", prochaine: "2026-10-01" })
+  && E.critiqueEntretienFait(base.clients_installes[0], { le: "2026-10-05", prochaine: "" }) === "");
+const srvR = lire("api/rappels-du-matin.js");
+const corpsR = srvR.slice(srvR.indexOf("async function rappelerLesEntretiens"));
+test("★★ le serveur : la tournée lit les chantiers, envoie le modèle, et n'écrit la ligne du fil QU'APRÈS l'accord de WhatsApp",
+  /"clients_installes"\]/.test(srvR) && /rappelsEntretienDuJour\(db, aujourdhui\)/.test(corpsR)
+  && corpsR.indexOf("envoyerYCloud(") > 0 && corpsR.indexOf("if (!envoi.ok)") > corpsR.indexOf("envoyerYCloud(")
+  && corpsR.indexOf('from("messages").insert') > corpsR.indexOf("if (!envoi.ok)"));
+test("★ …la tâche : la fiche du responsable est RELUE et revérifiée avant d'écrire ; la marque ne se pose pas sur une date changée entre-temps ; les notifications rejoignent la tournée",
+  /select\("id, data"\)\.eq\("id", r\.pour\.id\)/.test(corpsR) && /!tacheEntretienExiste\(frais\.data, r\.chantier\)/.test(corpsR)
+  && /fraisC\.data\.date_entretien/.test(corpsR) && /\.\.\.entretiens\.notifications\]/.test(srvR));
+const ecranCI = lire("src/screens/ClientsInstalles.jsx");
+const corpsFait = ecranCI.slice(ecranCI.indexOf("const entretienFait = async"), ecranCI.indexOf("const lierCompte = async"));
+test("★ l'écran : « ✅ Entretien fait » (administrateur, revérifié dans le geste), la tâche automatique de cette date se ferme, ce que la tournée a fait se lit sous la date",
+  /if \(refuserSaufAdmin\(profile, "Noter un entretien fait"\)\) return;/.test(corpsFait) && /critiqueEntretienFait\(c,/.test(corpsFait)
+  && /statut: "validee"/.test(corpsFait) && /\{isAdmin && !c\.travaux && c\.date_entretien && <button onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI)
+  && /data-rappel-entretien/.test(ecranCI));
+test("rien de secret : aucune clé dans la règle, et le texte du modèle est celui validé par Timo",
+  !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/rappelEntretien.js"))
+  && M.TEXTE_RAPPEL_ENTRETIEN === "Bonjour {{1}}, l'entretien de votre installation {{2}} est prévu le {{3}}. Un technicien BMI TOGO vous contactera pour fixer l'heure. Pour changer la date, répondez simplement à ce message. BMI TOGO"
+  && M.installationPourRappel("Autre") === "BMI TOGO" && M.installationPourRappel("") === "BMI TOGO");
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

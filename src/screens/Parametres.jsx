@@ -17,7 +17,7 @@ import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, ma
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
-import { pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
+import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, critiqueRestauration, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
@@ -490,6 +490,21 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, pertes_tuyau_pct: v })) },
       `Frottements dans le tuyau estimés à ${v} % de sa longueur`);
     uAlert(`✅ Les frottements sont désormais estimés à ${v} % de la longueur du tuyau.\n\nC'est une ESTIMATION : le chiffre exact dépend du diamètre du tuyau. Elle sert au calcul « 💧 Quelle pompe pour ce forage ? » du devis.`);
+  };
+
+  // 📦 LA DURÉE DE STOCK VISÉE (26/09/2026, « 3 ») : « À réapprovisionner »
+  // (📦 Stocks) propose de quoi tenir ce nombre de jours au rythme des ventes
+  // des 30 derniers jours. UN chiffre pour toutes les boutiques, rangé sur les
+  // boutiques comme la longueur du rail.
+  const [couvertureStock, setCouvertureStock] = useState(String(couvertureStockJours(db)));
+  const enregistrerCouvertureStock = () => {
+    if (refuserSaufAdmin(profile, "Modifier la durée de stock visée")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const v = Math.round(Number(String(couvertureStock).replace(",", ".")));
+    if (Number.isNaN(v) || v < 1 || v > 180) { uAlert("Entrez un nombre de jours entre 1 et 180 (par exemple 21 pour trois semaines)."); return; }
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, reappro_couverture_jours: v })) },
+      `Durée de stock visée fixée à ${v} jours`);
+    uAlert(`✅ « À réapprovisionner » proposera désormais de quoi tenir ${v} jours au rythme des ventes des 30 derniers jours.\n\nLe seuil de chaque article reste un plancher. La quantité proposée reste modifiable avant d'envoyer la demande.`);
   };
 
   const enregistrerPrixRail = () => {
@@ -1734,6 +1749,15 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
         <div className="text-xs text-slate-500 mt-2">
           Le stock compte des barres : le devis arrondit les mètres calculés aux barres entamées, le client paie ces barres au prix du mètre, et le stock perd ce nombre de barres à l'encaissement.
+        </div>
+        <div className="flex gap-2 items-end flex-wrap mt-4 pt-3 border-t border-slate-200" data-reglage="couverture-stock">
+          <Field label="📦 Stock à prévoir (jours de ventes)">
+            <input type="number" min="1" max="180" step="1" className={inputCls + " w-36"} value={couvertureStock} onChange={(e) => setCouvertureStock(e.target.value)} />
+          </Field>
+          <button onClick={enregistrerCouvertureStock} className={btnDark}>✅ Enregistrer</button>
+          <div className="text-xs text-slate-500 pb-2">
+            « À réapprovisionner » (📦 Stocks) propose de quoi tenir ce nombre de jours, au rythme des ventes des 30 derniers jours. Exemple : 1 vendu par jour, 6 en stock, {Number(couvertureStock) || 21} jours → <b>{Math.max((Number(couvertureStock) || 21) - 6, 0)} à commander</b>.
+          </div>
         </div>
         <div className="flex gap-2 items-end flex-wrap mt-4 pt-3 border-t border-slate-200" data-reglage="pertes-tuyau">
           <Field label="💧 Forage — frottements dans le tuyau (%)">

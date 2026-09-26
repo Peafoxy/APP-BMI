@@ -149,6 +149,12 @@ export const MODELES = {
   // échange), quelle que soit la quantité.
   bon_reprise: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "valeur", "reglement", "par"] },
   bon_retour: { categorie: "utility", variables: ["boutique", "adresse", "telephone", "numero", "date", "recu", "client", "article", "motif", "frais", "par"] },
+  // 🔧 26/09/2026, Timo (« 5 », « 10 jours », « texte ok ») : le rappel
+  // d'entretien, envoyé par la tournée de 7 h dix jours avant la date posée
+  // sur le chantier. UTILITY : un service lié à une installation, rien de
+  // commercial. SERVEUR SEUL (lib/rappelEntretien.js) — aucun écran ne
+  // l'envoie, il n'est donc pas dans MODELES_EN_SERVICE.
+  rappel_entretien: { categorie: "utility", variables: ["client", "installation", "date"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -352,6 +358,27 @@ export function envoiRelanceExpiration({ devis, compte, fin, fmt, dFR }) {
   return {
     modele: "relance_devis_expiration",
     variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(fmt(devis?.total)), texteVariable(dFR(devis?.date)), texteVariable(dFR(fin))],
+  };
+}
+
+// 🔧 LE RAPPEL D'ENTRETIEN — le texte validé par Timo (« 5d texte ok »),
+// mot pour mot chez Meta (26/09/2026).
+export const TEXTE_RAPPEL_ENTRETIEN =
+  "Bonjour {{1}}, l'entretien de votre installation {{2}} est prévu le {{3}}. "
+  + "Un technicien BMI TOGO vous contactera pour fixer l'heure. Pour changer la date, "
+  + "répondez simplement à ce message. BMI TOGO";
+// « Solaire résidentiel » → « solaire résidentiel » ; « Autre » ou rien →
+// « BMI TOGO » (« votre installation BMI TOGO ») : Meta refuse un trou vide.
+export const installationPourRappel = (type) => {
+  const t = String(type || "").trim();
+  if (!t || /^autre$/i.test(t)) return "BMI TOGO";
+  return texteVariable(t.charAt(0).toLowerCase() + t.slice(1));
+};
+export function envoiRappelEntretien({ chantier, compte, dFR }) {
+  const nom = compte ? nomPourClient(compte) : texteVariable(`${chantier?.prenom || ""} ${chantier?.nom || ""}`.trim());
+  return {
+    modele: "rappel_entretien",
+    variables: [nom, installationPourRappel(chantier?.type_installation), texteVariable(dFR(chantier?.date_entretien))],
   };
 }
 
@@ -560,6 +587,7 @@ export function libelleTrace(trace) {
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
+  rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
   relance_devis_expiration: ([client, domaine, montant, date, fin]) => `Relance automatique du devis ${domaine} de ${montant} (établi le ${date}) à ${client} : offre valable jusqu'au ${fin}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,

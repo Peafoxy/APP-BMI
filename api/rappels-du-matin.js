@@ -18,6 +18,13 @@
 // 📲 WhatsApp, sa fiche légère, et la marque `relance_auto_le` sur le devis.
 // Un refus de WhatsApp (modèle pas encore approuvé…) part dans le journal
 // Vercel et n'écrit rien : on retentera le lendemain, jusqu'au 15e jour.
+//
+// 🔧 26/09/2026 — LE RAPPEL D'ENTRETIEN (Timo : « 5 », « 10 jours »). Même
+// tournée. Règle pure : src/lib/rappelEntretien.js. Dix jours avant la date
+// d'entretien d'un chantier : le modèle `rappel_entretien` au client (écrit
+// APRÈS l'accord de WhatsApp, comme la relance), et une tâche ✅ pour le chef
+// du chantier, avec sa notification. La marque `rappel_entretien` sur le
+// chantier empêche qu'un geste reparte pour la même date.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { rappelsDuMatin } from "../src/lib/rappels.js";
@@ -27,9 +34,10 @@ import { idEntete, cleConversation } from "../src/lib/whatsappConversations.js";
 import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
+import { rappelsEntretienDuJour, ligneRappelEntretien, enteteApresRappel, chantierApresRappel, tacheEntretien, notificationTache, tacheEntretienExiste, MODELE_RAPPEL_ENTRETIEN } from "../src/lib/rappelEntretien.js";
 import { randomUUID } from "node:crypto";
 
-const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages"];
+const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
 
 async function lireTable(admin, table) {
   const lignes = [];
@@ -60,10 +68,13 @@ export default async function handler(req, res) {
     // ⚠ La relance ne dépend pas des notifications : l'une en panne
     // n'empêche pas l'autre.
     const relances = await relancerLesDevis(admin, db, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances });
-    const envois = rappelsDuMatin(db, aujourdhui);
+    // 🔧 Les entretiens : le message au client et la tâche du chef. Les
+    // notifications des tâches rejoignent celles de la tournée.
+    const entretiens = await rappelerLesEntretiens(admin, db, aujourdhui);
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan });
+    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -116,4 +127,74 @@ async function relancerLesDevis(admin, db, aujourdhui) {
     }
   }
   return bilan;
+}
+
+// ---- 🔧 LE RAPPEL D'ENTRETIEN ----
+// Rend { bilan, notifications }. Le message au client n'écrit rien tant que
+// WhatsApp ne l'a pas accepté ; la tâche, elle, ne dépend pas de WhatsApp.
+async function rappelerLesEntretiens(admin, db, aujourdhui) {
+  const liste = rappelsEntretienDuJour(db, aujourdhui);
+  const bilan = { a_rappeler: liste.length, messages: 0, refuses: 0, taches: 0 };
+  const notifications = [];
+  if (!liste.length) return { bilan, notifications };
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  for (const r of liste) {
+    try {
+      const ts = new Date().toISOString();
+      const marque = {};
+      if (r.whatsapp && cle && expediteur) {
+        const envoi = await envoyerYCloud(cle, {
+          from: expediteur, to: r.tel, type: "template",
+          template: { name: MODELE_RAPPEL_ENTRETIEN, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+        });
+        if (!envoi.ok) { bilan.refuses++; console.error("[rappels-du-matin] rappel d'entretien refusé", envoi.code_whatsapp, envoi.motif); }
+        else {
+          bilan.messages++;
+          marque.whatsapp_le = aujourdhui;
+          const ligneBase = ligneRappelEntretien({ id: randomUUID(), tel: r.tel, compte: r.compte, chantier: r.chantier, variables: r.envoi.variables, ts });
+          const ligne = ligneBase ? { ...ligneBase, ...champsEnvoi(envoi) } : null;
+          if (ligne) {
+            const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+            if (error) console.error("[rappels-du-matin] rappel d'entretien : ligne du fil non écrite", error.message);
+            const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(r.tel)));
+            const fiche = enteteApresRappel({ tel: r.tel, compte: r.compte, chantier: r.chantier, ts, entete });
+            if (fiche) {
+              const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+              if (e2) console.error("[rappels-du-matin] rappel d'entretien : fiche légère non posée", e2.message);
+            }
+          }
+        }
+      } else if (r.whatsapp) {
+        console.error("[rappels-du-matin] rappel d'entretien : WhatsApp non configuré sur le serveur");
+      }
+      if (r.tache) {
+        // La fiche du responsable est RELUE juste avant, pour ne pas réécrire
+        // une copie vieille de quelques secondes ni poser la tâche deux fois.
+        const { data: frais } = await admin.from("users").select("id, data").eq("id", r.pour.id).maybeSingle();
+        if (frais?.data && !tacheEntretienExiste(frais.data, r.chantier)) {
+          const tache = tacheEntretien({ id: randomUUID(), chantier: r.chantier, aujourdhui });
+          const data = { ...frais.data, taches: [...(frais.data.taches || []), tache], updated_at: ts };
+          const { error: e3 } = await admin.from("users").update({ data, updated_at: ts }).eq("id", frais.id);
+          if (e3) console.error("[rappels-du-matin] rappel d'entretien : tâche non posée", e3.message);
+          else { bilan.taches++; marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || ""; notifications.push(notificationTache({ pour: r.pour, chantier: r.chantier })); }
+        } else if (frais?.data) {
+          marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || "";
+        }
+      }
+      if (marque.whatsapp_le || marque.tache_le) {
+        const { data: fraisC } = await admin.from("clients_installes").select("id, data").eq("id", r.chantier.id).maybeSingle();
+        // Une date changée entre-temps (entretien fait, reporté) : on ne
+        // marque pas l'ancienne sur la nouvelle.
+        if (fraisC?.data && String(fraisC.data.date_entretien || "").slice(0, 10) === String(r.chantier.date_entretien).slice(0, 10)) {
+          const data = { ...chantierApresRappel({ ...fraisC.data, id: fraisC.id }, marque), updated_at: ts };
+          const { error: e4 } = await admin.from("clients_installes").update({ data, updated_at: ts }).eq("id", fraisC.id);
+          if (e4) console.error("[rappels-du-matin] rappel d'entretien : marque du chantier non posée", e4.message);
+        }
+      }
+    } catch (e) {
+      console.error("[rappels-du-matin] rappel d'entretien", e?.message || e);
+    }
+  }
+  return { bilan, notifications };
 }

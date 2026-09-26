@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1928 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1933 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 620 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI)
+npm run verifier-whatsapp        # 636 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -899,6 +899,74 @@ lit mal est pire qu'un banc absent).
   reculent, nouvelle ignorée, filtre non nettoyé, écran qui oublie son envoi,
   coches jamais dessinées) : chacune tombe. Cinq contrôles RETOURNÉS (les
   appels portent `envoi: r`).
+
+### 🔧 LE RAPPEL D'ENTRETIEN AUTOMATIQUE (26/09/2026, « 5 », « 10 jours », « texte ok », « 6 mois »)
+- Après la comparaison avec les autres logiciels. La case « Prochain
+  entretien » d'un chantier ne prévenait personne. Règle pure
+  **`lib/rappelEntretien.js`** (lisible par le serveur), envoyée par la
+  **tournée de 7 h** (`api/rappels-du-matin.js`, qui lit désormais
+  `clients_installes`).
+- **Du 10e jour avant la date au jour même** (une tournée manquée rattrape ;
+  une date passée ne s'annonce plus). DEUX gestes **indépendants** :
+  - **au client**, le modèle **`rappel_entretien`** (UTILITY, 3 trous : nom,
+    installation en minuscules — « Autre » ou rien → « BMI TOGO » —, date ;
+    `TEXTE_RAPPEL_ENTRETIEN`, mot pour mot chez Meta). **Serveur seul**, pas
+    dans `MODELES_EN_SERVICE`. Écrit (ligne du fil, fiche légère) **APRÈS**
+    l'accord de WhatsApp ; refusé → on retente le lendemain ;
+  - **une tâche ✅** (`auto: "entretien"`, échéance = la date) pour **le chef
+    de CE chantier**, sinon le chef prévu, sinon le premier de l'équipe,
+    sinon l'administrateur principal, **avec sa notification** — même sans
+    numéro de client : l'entretien se fait quand même. Fiche du responsable
+    RELUE avant d'écrire.
+- ⚠ **UNE FOIS PAR DATE** : la marque `rappel_entretien = { date, whatsapp_le,
+  tache_le, tache_pour }` sur le chantier (jamais posée si la date a changé
+  entre-temps), plus deux filets qui ne se réécrivent pas (la ligne du fil :
+  modèle + `chantier_id` + `entretien_date` ; la tâche déjà posée). Une
+  NOUVELLE date rouvre le rappel.
+- ⚠ **LE MUR** : jamais un chantier de formation (sa marque, la boutique de
+  sa vente ou de sa dette, le compte du client). Compte client bloqué →
+  rien au client, la tâche part. Corbeille et 🛠 travaux à crédit : jamais.
+- **« ✅ Entretien fait »** dans 🏠 Clients installés (**administrateur** —
+  la date d'entretien est un champ de la fiche qu'il est seul à écrire,
+  `refuserSaufAdmin` dans le geste) : la date faite, la prochaine proposée à
+  **+6 mois** (`dateApresMois`, 31/08 → 28/02 ; vide = aucune), l'entretien
+  se garde dans `entretiens` (liste qui ne rétrécit jamais), et la tâche
+  automatique de cette date passe « validée ». Sous la date : « 📲 Client
+  prévenu le … », « ✅ Tâche : KOSSI », « Dernier : … ».
+  ⚠ **Le chef qui fait l'entretien coche sa tâche ; c'est l'administrateur
+  qui note « Entretien fait »** (à dire à Timo).
+- **À faire par Timo : créer `rappel_entretien` chez YCloud** (utility, fr).
+  ~4 F le message. **Rien à coller dans Supabase.** Banc ㉝ (15 contrôles),
+  éprouvé en remettant quatre fautes (le mur ouvert, la marque d'une autre
+  date comptée, la fenêtre à 11 jours, la tâche écrite sans relire) : chacune
+  tombe. Trois contrôles RETOURNÉS (dix-huit modèles, quinze lignes, trois
+  modèles serveur seul) ; `demanderDate` ×6 dans verifier-cloisonnement.
+
+### 📦 LA QUANTITÉ À COMMANDER D'APRÈS LE RYTHME DES VENTES (26/09/2026, « 3 », « 3a »)
+- « ⚠ À réapprovisionner » (📦 Stocks) ne regardait que le SEUIL. Depuis :
+  `articlesAReapprovisionner(db, stock, bq, { jours, couverture })`
+  (calculs.js) compte ce qui est **parti sur les 30 derniers jours**
+  (`JOURS_RYTHME_VENTES`, aujourd'hui compris : lignes de vente sauf
+  `deja_sorti`, sorties de 🛠 travaux nettes de leurs retours, moins les
+  reprises client ; une entrée n'est pas une vente — `venduParProduitSurPeriode`,
+  UN passage pour tous les articles) et propose **à commander = ce qui se
+  vendra pendant la durée visée − le reste**.
+- ⚠ **Le seuil reste un PLANCHER** : un article sous son seuil apparaît
+  toujours ; un article qui ne se vend pas garde l'ancienne règle seule.
+  Rangé par « tient encore ≈ N jours » (le plus court en tête).
+- Colonnes « Vendu 30 j », « Tient encore » (rouge sous 7 j), « À commander »
+  — reprises par l'export et par « 🚚 Demander ce ravitaillement »,
+  **toujours modifiables** avant l'envoi. L'application propose, elle ne
+  commande jamais.
+- **La durée visée : 21 jours d'office**, ⚙ Paramètres → « 📦 Stock à prévoir
+  (jours de ventes) », administrateur (`reappro_couverture_jours` sur les
+  boutiques, comme le rail — **rien à coller**).
+- ⚠ Un **magasin** ne vend pas (il ravitaille) : chez lui c'est encore le
+  seuil seul. Compter ses ravitaillements n'a pas été demandé.
+- Banc (`verifier-cloisonnement`, 5 contrôles), éprouvé en comptant les
+  lignes `deja_sorti`, en retirant le plancher du seuil et en élargissant la
+  fenêtre d'un jour : chacun tombe. Deux contrôles de `verifier-ecran-stocks`
+  RETOURNÉS (les colonnes du rythme, l'appel avec la durée).
 
 ### ✏️ UNE PÉRIODE À SOI DANS 💰 VENTES (19/09/2026)
 - Timo, devant le filtre : « pour filtrer les ventes ou proforma, il n'y a

@@ -26,6 +26,7 @@ import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
 import { travauxSolde } from "../lib/calculs";
 import { factureMontant, coutTravaux, margeTravaux } from "../lib/travaux";
+import { dateApresMois, critiqueEntretienFait, marquerEntretienFait, dernierEntretien, MOIS_ENTRE_ENTRETIENS, MARQUE_TACHE_ENTRETIEN } from "../lib/rappelEntretien";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -792,6 +793,32 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({ ...db, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? { ...x, date_entretien: d.trim() } : x)) }, `Entretien de ${c.nom} programmé le ${dFR(d.trim())}`);
   };
 
+  // ✅ ENTRETIEN FAIT (26/09/2026, « 5 », « 6 mois ») : il se garde dans la
+  // liste `entretiens` (qui ne rétrécit jamais), la prochaine date est
+  // proposée à +6 mois, et la tâche automatique de cette date se ferme.
+  // Administrateur : la date d'entretien est un champ de la fiche qu'il est
+  // seul à écrire (le serveur le revérifie).
+  const entretienFait = async (c0) => {
+    if (refuserSaufAdmin(profile, "Noter un entretien fait")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const le = await demanderDate(`Entretien de ${c0.prenom || ""} ${c0.nom} — fait le :`, today());
+    if (!le) return;
+    const propose = dateApresMois(le.trim(), MOIS_ENTRE_ENTRETIENS);
+    const prochaine = await demanderDate(`Prochain entretien (proposé à ${MOIS_ENTRE_ENTRETIENS} mois ; videz la case pour n'en prévoir aucun) :`, propose, true);
+    if (prochaine === null) return;
+    const c = db.clients_installes.find((x) => x.id === c0.id);
+    const refus = critiqueEntretienFait(c, { le: le.trim(), prochaine: prochaine.trim() });
+    if (refus) { uAlert(refus); return; }
+    const prevu = String(c.date_entretien || "").slice(0, 10);
+    const suivant = marquerEntretienFait(c, { le: le.trim(), prochaine: prochaine.trim(), par: profile.nom });
+    const users = db.users.map((u) => (u.taches || []).some((t) => t.auto === MARQUE_TACHE_ENTRETIEN && t.chantier_id === c.id && t.echeance === prevu && t.statut !== "validee")
+      ? { ...u, taches: u.taches.map((t) => (t.auto === MARQUE_TACHE_ENTRETIEN && t.chantier_id === c.id && t.echeance === prevu && t.statut !== "validee" ? { ...t, statut: "validee", valide_par: profile.nom, valide_le: today() } : t)) }
+      : u);
+    save({ ...db, users, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? suivant : x)) },
+      `Entretien de ${c.nom} fait le ${dFR(le.trim())}${prochaine.trim() ? ` — prochain le ${dFR(prochaine.trim())}` : " — aucun autre prévu"}`);
+    uAlert(`✅ Entretien noté (${dFR(le.trim())}).${prochaine.trim() ? `\n\nProchain entretien : ${dFR(prochaine.trim())}. Le client sera prévenu par WhatsApp 10 jours avant, et une tâche sera posée pour le chef du chantier.` : "\n\nAucun autre entretien n'est prévu."}`);
+  };
+
   const lierCompte = async (c) => {
     if (refuserSaufAdmin(profile, "Lier un compte client à un chantier")) return;
     if (comptesClientsLibres.length === 0) { uAlert("Aucun compte « Client » disponible. Créez d'abord un compte avec le rôle Client dans Utilisateurs."); return; }
@@ -1366,6 +1393,14 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   <td className="px-3 py-2 whitespace-nowrap">{c.date_installation ? dFR(c.date_installation) : "—"}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.date_entretien ? <span className={entretienDu ? "font-bold text-orange-700" : ""}>{entretienDu ? "⚠ " : ""}{dFR(c.date_entretien)}</span> : "—"}
+                    {/* 🔧 26/09/2026 : ce que la tournée de 7 h a déjà fait pour CETTE date. */}
+                    {c.date_entretien && c.rappel_entretien?.date === String(c.date_entretien).slice(0, 10) && (
+                      <div className="text-[11px] text-slate-500 whitespace-normal" data-rappel-entretien>
+                        {c.rappel_entretien.whatsapp_le && <div>📲 Client prévenu le {dFR(c.rappel_entretien.whatsapp_le)}</div>}
+                        {c.rappel_entretien.tache_le && <div>✅ Tâche : {c.rappel_entretien.tache_pour || "posée"}</div>}
+                      </div>
+                    )}
+                    {dernierEntretien(c) && <div className="text-[11px] text-slate-500">Dernier : {dFR(dernierEntretien(c).le)}</div>}
                   </td>
                   <td className="px-3 py-2">
                     {c.localisation || "—"}
@@ -1433,6 +1468,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       </span>
                     )}
                     {!c.travaux && <button onClick={() => modifierEntretien(c)} className="text-xs font-bold text-sky-800 underline mr-2">Entretien</button>}
+                    {isAdmin && !c.travaux && c.date_entretien && <button onClick={() => entretienFait(c)} className="text-xs font-bold text-emerald-700 underline mr-2" data-entretien-fait>✅ Entretien fait</button>}
                     {isAdmin && !c.user_id && <button onClick={() => lierCompte(c)} className="text-xs font-bold text-sky-800 underline mr-2">Lier un compte</button>}
                     {(isAdmin || c.commercial === profile.nom) && <button onClick={() => supprimer(c)} className="text-xs text-red-600 underline">Suppr.</button>}
                   </td>

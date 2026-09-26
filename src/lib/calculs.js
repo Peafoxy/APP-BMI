@@ -1841,11 +1841,84 @@ export const alertesBoutiques = (db, stock, profile) => {
 // dessous, du plus urgent au moins urgent (le plus loin sous son seuil
 // d'abord, puis le plus petit reste). `manque` = seuil − reste, au moins 1 :
 // c'est la quantité proposée dans la demande de ravitaillement.
-export const articlesAReapprovisionner = (db, stock, boutique) => (db.produits || [])
+// ---- LA QUANTITÉ À COMMANDER D'APRÈS LE RYTHME DES VENTES (26/09/2026) ----
+// Timo, après la comparaison avec les autres logiciels : « 3 » — la liste ne
+// regardait que le SEUIL (seuil 5, reste 3 → « commandez-en 2 »), sans savoir
+// si l'article part à 2 par mois ou à 40. Décisions : on regarde les ventes des
+// 30 derniers jours (« 3a »), on veut tenir 3 semaines (« ok pour tout ») ;
+// ce dernier chiffre se règle dans ⚙ Paramètres (admin, sur les boutiques).
+//   • ce qui est PARTI dans la période = lignes de vente (sauf `deja_sorti`,
+//     déjà compté à la sortie des 🛠 travaux), plus les sorties de travaux
+//     nettes de leurs retours, moins ce que BMI a REPRIS au client ;
+//   • à commander = ce qu'on vendra pendant la durée choisie − ce qui reste ;
+//   • ⚠ LE SEUIL RESTE UN PLANCHER : un article sous son seuil apparaît
+//     toujours, même s'il ne se vend pas — c'est alors l'ancienne règle seule ;
+//   • l'application PROPOSE, elle ne commande jamais : la demande au magasin
+//     reprend ces quantités, modifiables avant l'envoi.
+export const JOURS_RYTHME_VENTES = 30;
+export const COUVERTURE_JOURS_DEFAUT = 21;
+export const couvertureStockJours = (db) => {
+  const b = (db?.boutiques || []).find((x) => Number(x?.reappro_couverture_jours) > 0);
+  return b ? Number(b.reappro_couverture_jours) : COUVERTURE_JOURS_DEFAUT;
+};
+const TYPES_SORTIE_RYTHME = ["sortie_travaux", "retour_travaux", "reprise_client"];
+const jourMoins = (jour, n) => {
+  const d = new Date(`${String(jour).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+};
+// Unités parties sur les `jours` derniers jours (aujourd'hui compris), pour
+// TOUS les articles en UN passage (une carte id → quantité) : l'écran Stocks
+// se redessine souvent, on ne reparcourt pas les ventes article par article.
+export const venduParProduitSurPeriode = (db, jours = JOURS_RYTHME_VENTES, aujourdhui = today()) => {
+  const fin = String(aujourdhui).slice(0, 10);
+  const debut = jourMoins(fin, jours - 1);
+  const dansLaPeriode = (d) => { const j = String(d || "").slice(0, 10); return j >= debut && j <= fin; };
+  const carte = new Map();
+  const ajouter = (pid, n) => { if (pid) carte.set(pid, (carte.get(pid) || 0) + n); };
+  (db.ventes || []).forEach((v) => {
+    if (!dansLaPeriode(v.date)) return;
+    lignesVente(v).forEach((l) => { if (!l.deja_sorti) ajouter(l.produit_id, Number(l.qte || 0)); });
+  });
+  // Un ajustement négatif est une sortie : on le compte en positif.
+  (db.ajustements || []).forEach((a) => {
+    if (TYPES_SORTIE_RYTHME.includes(a.type) && dansLaPeriode(a.date)) ajouter(a.produit_id, -Number(a.qte || 0));
+  });
+  return carte;
+};
+export const venduSurPeriode = (db, pid, jours = JOURS_RYTHME_VENTES, aujourdhui = today()) =>
+  Math.max(venduParProduitSurPeriode(db, jours, aujourdhui).get(pid) || 0, 0);
+
+// `options` absent → l'ancienne règle du seuil seule (utile au banc et à un
+// écran qui ne voudrait pas du rythme). Avec `options.couverture` → le rythme.
+export const articlesAReapprovisionner = (db, stock, boutique, options = null) => {
+  const vendus = options ? venduParProduitSurPeriode(db, options.jours || JOURS_RYTHME_VENTES, options.aujourdhui || today()) : null;
+  return (db.produits || [])
   .filter((p) => p.boutique === boutique)
-  .map((p) => { const actuel = stock(db, p); const seuil = Number(p.seuil || 0); return { p, actuel, seuil, manque: Math.max(seuil - actuel, 1) }; })
-  .filter((x) => x.actuel <= x.seuil)
-  .sort((a, b) => (a.actuel - a.seuil) - (b.actuel - b.seuil) || a.actuel - b.actuel || a.p.nom.localeCompare(b.p.nom));
+  .map((p) => {
+    const actuel = stock(db, p);
+    const seuil = Number(p.seuil || 0);
+    const manqueSeuil = actuel <= seuil ? Math.max(seuil - actuel, 1) : 0;
+    if (!options) return { p, actuel, seuil, manque: manqueSeuil };
+    const jours = options.jours || JOURS_RYTHME_VENTES;
+    const couverture = options.couverture || COUVERTURE_JOURS_DEFAUT;
+    const vendu = Math.max(vendus.get(p.id) || 0, 0);
+    const parJour = vendu / jours;
+    const besoin = Math.ceil(parJour * couverture);
+    const manqueRythme = Math.max(besoin - Math.max(actuel, 0), 0);
+    const tientJours = parJour > 0 ? Math.max(Math.floor(Math.max(actuel, 0) / parJour), 0) : null;
+    return { p, actuel, seuil, vendu, parJour, tientJours, manque: Math.max(manqueSeuil, manqueRythme), parRythme: manqueRythme > manqueSeuil };
+  })
+  .filter((x) => (options ? x.manque > 0 : x.actuel <= x.seuil))
+  .sort((a, b) => {
+    if (options) {
+      const ta = a.tientJours ?? Infinity, tb = b.tientJours ?? Infinity;
+      if (ta !== tb) return ta - tb;
+    }
+    return (a.actuel - a.seuil) - (b.actuel - b.seuil) || a.actuel - b.actuel || a.p.nom.localeCompare(b.p.nom);
+  });
+};
 
 // ============ APPORTEURS D'AFFAIRES ============
 // N'IMPORTE QUEL utilisateur qui amène un client peut être crédité de la vente
