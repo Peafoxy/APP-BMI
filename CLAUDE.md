@@ -5197,6 +5197,16 @@ lit mal est pire qu'un banc absent).
   recopier) : 1600 px sur un grand écran, tout l'écran sur 1400 px, **rien de
   changé sur téléphone et tablette**. Éprouvé en remettant `max-w-6xl` : deux
   contrôles tombent, et ils affichent « mesuré : 1152 px ».
+- **💾 LA SAUVEGARDE RESTE À TOUS LES ADMINISTRATEURS — « on laisse comme
+  tel » (27/09/2026).** Timo : « quel utilisateur a droit à cette
+  sauvegarde ? » → vérifié dans le code : ⚙ Paramètres → 💾 Données n'existe
+  que pour le rôle administrateur ; **exporter**, le **dossier horaire** et le
+  **fichier automatique du jour** (première ouverture de la journée) = tout
+  administrateur ; **restaurer** = le principal seul. Dit à Timo : le fichier
+  emporte TOUT ce que l'appareil de l'administrateur a reçu (clients, paie,
+  et les deux espaces pour le principal). Deux restrictions proposées (a :
+  le principal seul pour tout ; b : le fichier automatique chez le principal
+  seul) → **refusées**. **Ne pas le reproposer.**
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
   11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
 - **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**
