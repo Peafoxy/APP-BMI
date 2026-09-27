@@ -425,7 +425,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       })()}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock {domaine ? `domaine ${domaine.nom}` : "de la boutique"} — {boutique})</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Besoins du client → articles (stock de {boutique}{domaine ? ` — ${domaine.nom} en tête, le reste du stock dessous` : ""})</div>
         <table className="w-full text-sm min-w-[820px]">
           {/* ⚠ Timo (11/09/2026) : « Besoin du client reste toujours besoin et non
               catégorie, et article proposé reste toujours article proposé et non

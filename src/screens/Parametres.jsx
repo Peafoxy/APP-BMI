@@ -1738,7 +1738,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <button onClick={ajouterDomaine} className={btnDark}>Créer le domaine</button>
           </div>
           <div className="text-xs text-slate-400 mt-2">
-            Il apparaîtra dans ☀️ Dimensionnement une fois la prochaine mise à jour installée.
+            Il apparaît tout de suite dans ☀️ Dimensionnement, comme un volet sans calcul (un besoin, puis l'article proposé).
           </div>
         </div>
       </div>
