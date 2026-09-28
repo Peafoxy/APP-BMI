@@ -373,6 +373,8 @@ test("★ un refus sans phrase ni code ne reste pas muet",
 // n'importe quel refus parlant d'un modèle, et on traduirait de travers.
 test("★★ un seul mot ne suffit jamais à reconnaître un motif",
   M.traduireMotifWhatsApp("the template was sent", 0) === "");
+test("★ « Template not found » de YCloud (sans code, 28/09/2026) se dit en français",
+  /n'existe pas sur le compte WhatsApp de BMI/.test(M.traduireMotifWhatsApp("Template not found. WABA: 2016129029105220, name: mot_fidelite, language: fr", 0)));
 test("majuscules et accents ne gênent pas", M.traduireMotifWhatsApp("INSUFFICIENT BALANCE", 0) !== "");
 test("★ les mots-repères sont écrits en minuscules sans accent (sinon ils ne trouveraient JAMAIS rien)",
   M.MOTIFS_WHATSAPP.every((r) => (r.marques || []).every((m) => m === M.normaliseMotif(m))));

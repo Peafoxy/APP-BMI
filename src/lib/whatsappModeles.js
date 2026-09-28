@@ -703,6 +703,10 @@ export const MOTIFS_WHATSAPP = [
   { marques: ["template", "pending"], dit: "Ce modèle de message est encore en cours d'examen chez WhatsApp." },
   { marques: ["template", "rejected"], dit: "Ce modèle de message a été refusé par WhatsApp." },
   { code: 132001, dit: "Ce modèle de message n'existe pas chez WhatsApp, ou pas en français." },
+  // Vu pour de vrai le 28/09/2026 (capture Timo, après le raccordement refait
+  // sur un NOUVEAU compte WhatsApp) : YCloud répond « Template not found.
+  // WABA: …, name: …, language: fr » SANS le code 132001.
+  { marques: ["template", "not found"], dit: "Ce modèle de message n'existe pas sur le compte WhatsApp de BMI : il faut le créer (ou le recréer) dans la console YCloud." },
   { code: 132015, dit: "Ce modèle de message est suspendu par WhatsApp (trop de personnes l'ont signalé)." },
   { code: 132016, dit: "Ce modèle de message a été désactivé par WhatsApp." },
   { code: 132000, dit: "Le message n'a pas le bon nombre d'informations : c'est un défaut de l'application, à signaler." },
