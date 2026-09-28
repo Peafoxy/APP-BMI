@@ -53,6 +53,35 @@ l'application sans son feu vert**.
 
 ---
 
+## ⚠ 28/09/2026 — RACCORDEMENT REFAIT : NOUVEAU COMPTE WHATSAPP BUSINESS
+
+WhatsApp Business a été réinstallé sur le téléphone BMI (restauration Google
+Drive du 27/09, 2,1 Go) — geste qui casse la coexistence. Timo a refait le
+raccordement dans YCloud ; Meta a créé un **NOUVEAU compte** au lieu de
+reprendre l'ancien. Capture Timo, YCloud → WhatsApp accounts :
+
+| | Avant (19/09) | Depuis le 28/09 |
+|---|---|---|
+| WABA ID | 885440708797061 | **2016129029105220** |
+| Portefeuille | « BMI Togo » | « Bmi togo » |
+| Numéro | +228 99 96 84 88 | +228 99 96 84 88 (inchangé) |
+| État | Connected | **Connected**, qualité **High**, limite 250 |
+
+**Les modèles sont restés sur l'ANCIEN compte** : un envoi n'utilise que les
+modèles du compte qui porte le numéro. Conseil donné : recréer les 19 sur le
+nouveau (liste complète, textes et exemples : `docs/modeles-whatsapp.docx`).
+Côté application, rien à changer (même numéro, même console YCloud donc même
+clé) ; à vérifier par Timo : l'adresse d'arrivée (webhook) et ses deux
+événements (messages entrants, statut des messages).
+
+⚠ **Ce qui casse la coexistence** (à redire à l'équipe) : réinstaller
+WhatsApp Business, changer de téléphone, déconnecter la plateforme
+professionnelle, passer le numéro sur WhatsApp Messenger, ou ne pas ouvrir
+l'application 14 jours de suite. Un téléphone éteint ou sans réseau ne casse
+rien.
+
+---
+
 ## 19/09/2026 — Timo reprend : « je suis revenu sur ycloud pour scanner »
 
 Capture de sa console YCloud (`ycloud.com/console/#/app/getStarted`), compte
