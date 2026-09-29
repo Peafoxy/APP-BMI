@@ -14,7 +14,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
-import { unlinkSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { unlinkSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -6157,6 +6157,30 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     test("★ encaisser une pose / remettre un cadeau : seules les boutiques de vente de l'espace du chantier (jamais la formation sur un chantier réel, jamais TERRAIN ni un dépôt), et ClientsInstalles ne lit plus la liste brute",
       noms === "BMI DEMAKPOE|BMI APESSITO" && !/boutiquesVente\(db\)/.test(ci)
       && (ci.match(/boutiquesVenteDuChantier\(db, profile, c\)/g) || []).length === 2);
+  }
+  // 🧱 RÈGLE GÉNÉRALE (29/09/2026, Timo : « tu étais sûr que côté argent tout
+  // était cloisonné… mais nous voici ») : AUCUN écran ne lit la liste BRUTE des
+  // boutiques de vente — chaque `boutiquesVente(db)` passe par un filtre d'espace
+  // (boutiquesVisibles / boutiquesDuMemeEspace). Seule exception : la boutique
+  // proposée d'office à la création d'un compte (Utilisateurs), revérifiée
+  // contre la liste de l'espace AVANT l'enregistrement.
+  {
+    const brutes = [];
+    for (const dossier of ["src/screens", "src/screens/dimensionnement", "src/components"]) {
+      for (const f of readdirSync(dossier).filter((n) => /\.jsx?$/.test(n))) {
+        const chemin = `${dossier}/${f}`;
+        const code = readFileSync(chemin, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+        let m; const re = /boutiquesVente\(db\)/g;
+        while ((m = re.exec(code))) {
+          const avant = code.slice(Math.max(0, m.index - 60), m.index);
+          if (/(boutiquesVisibles|boutiquesDuMemeEspace)\(db, profile, \[?(\.\.\.)?$/.test(avant)) continue;
+          if (chemin.endsWith("Utilisateurs.jsx") && /const premiere = $/.test(avant)) continue;
+          if (chemin.endsWith("SelecteurBoutique.jsx")) continue; // filtrée juste après par boutiquesVisibles
+          brutes.push(chemin);
+        }
+      }
+    }
+    test("★ aucun écran ne propose la liste BRUTE des boutiques de vente (sans filtre d'espace)" + (brutes.length ? ` — trouvé dans : ${brutes.join(", ")}` : ""), brutes.length === 0);
   }
   // 🎯 LE STOCK À ATTEINDRE (Timo, 29/09/2026, « b ») : sous le seuil, on remonte
   // jusqu'à lui — plus seulement jusqu'au seuil.

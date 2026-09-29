@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1959 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1960 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -127,6 +127,17 @@ lit mal est pire qu'un banc absent).
   pas proposés ici : ils appartiennent à l'autre espace » a été RETIRÉE du
   formulaire de chantier ; la liste est celle de l'espace regardé, point. Ne
   pas la remettre, ni ailleurs sous une autre forme.
+- ⚠⚠ **LE SIXIÈME, ET IL TOUCHAIT L'ARGENT** (capture Timo, 29/09/2026,
+  encaissement d'une pose seule : « Encaissé dans quelle boutique ? »
+  proposait DFORMATION et AFORMATION à côté des vraies boutiques ; puis « tu
+  étais sûr et sûr que côté argent, tout était bien cloisonné… mais nous
+  voici »). La question lisait `boutiquesVente(db)` BRUT — le cadeau de la
+  même fiche aussi. Réparé par `boutiquesVenteDuChantier` (calculs.js :
+  l'espace regardé ET celui du chantier), et **un contrôle GÉNÉRAL** du banc
+  interdit désormais tout `boutiquesVente(db)` sans filtre d'espace dans un
+  écran ou un composant — il nomme le fichier fautif. Le contrôle précédent
+  ne surveillait que `db.users` : **une assurance donnée sans contrôle
+  général n'en était pas une.**
 - **Toute liste passe par un filtre d'espace** : boutiques →
   `boutiquesVisibles` ; personnes → `utilisateursDeLEspace` ; lignes
   (ventes, proformas…) → `filtreEspaceAffichage` ou la boutique regardée.
