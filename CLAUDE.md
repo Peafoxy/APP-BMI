@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1981 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2005 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1238,6 +1238,47 @@ lit mal est pire qu'un banc absent).
     dans `screens/Messagerie.jsx` (`libelleRole` : la liste des
     conversations, le choix des membres d'un groupe, la nouvelle
     conversation) : les trois ou aucun, sinon la règle mentirait.
+
+### 🏢 LE PRÉNOM DU CLIENT, ET L'ENTREPRISE QU'IL REPRÉSENTE (29/09/2026, « A c, B b, C a, lance »)
+- Timo : « demander aussi son prénom… une case à cocher si le client paie au
+  nom d'une entreprise… sur le reçu ou proforma… même mécanisme sur les
+  devis… la personne mentionnée est le répondant, c'est à son numéro que les
+  infos espace client sont envoyées… dans le contrat, on mentionne clairement
+  l'entreprise et son répondant ». Règle pure **`lib/clientEntreprise.js`**
+  (sans import), case écrite UNE fois **`components/ChampsEntreprise.jsx`**.
+- **« A c »** : l'entreprise = nom, **téléphone, NIF, RCCM** (seul le nom est
+  exigé quand la case est cochée — `critiqueEntreprise`). **« B b »** : elle se
+  garde sur le document (vente, proforma, dette, réservation, devis) **ET sur
+  la fiche du client** (`ficheAvecIdentite`), pour revenir pré-cochée ; une
+  case décochée n'efface jamais celle de la fiche. **« C a »** : le prénom est
+  **OBLIGATOIRE à la création d'un compte client** (🙋 Créer un client,
+  👥 Utilisateurs, 🏠 Clients installés, 🧲 Convertir — demandé par une question
+  s'il manque, le devis aussi), **FACULTATIF au comptoir** de 💰 Ventes.
+- ⚠ **Le prénom ne touche NI l'identifiant NI le mot de passe** (on se connecte
+  toujours avec son NOM) ; il remplit `prenom` et `nom_complet` (le champ que
+  lisent déjà dossier et bulletin). ⚠ **La personne reste LE client** : son
+  compte, son numéro, ses accès et ses messages — l'entreprise n'est jamais un
+  compte de plus, jamais un numéro d'envoi.
+- **Le devis** : « ➕ Nouveau client » = nom, prénom, numéro WhatsApp ; sous la
+  ligne « Client destinataire », la case **« 🏢 Entreprise cliente »** (nouveau
+  client OU compte existant). Revérifié dans `resoudreClientDevis` (volet ET
+  📝 Mes brouillons). L'entreprise d'un devis suit jusqu'à la vente
+  (`origine_devis`).
+- **Les documents** : reçu de vente et reçu de dette (`lignesNomClient` :
+  Entreprise, coordonnées, « Représentée par »), proforma imprimée et PDF,
+  devis PDF (titre = l'entreprise, « Représentée par » sur la ligne libre — ses
+  NIF / RCCM n'y tiennent pas : la mise en page est mesurée ; ils sont sur la
+  proforma et le contrat), texte WhatsApp du reçu (`ligneClient`), **contrat
+  imprimé ET contrat de l'espace client** (`partieClientContrat` :
+  « L'entreprise X (Tél · NIF · RCCM), représentée par Mr/Mme NOM Prénom
+  (tél.), son répondant, agissant au nom et pour le compte de l'entreprise »).
+- **Rien à coller dans Supabase** : une fiche client n'est pas soumise à la
+  liste « gestion » de `securite-18`. Les anciens documents n'ont ni prénom ni
+  entreprise : ils s'impriment comme avant. Banc (`verifier-cloisonnement`,
+  24 contrôles), éprouvé en remettant trois fautes (l'entreprise effacée de la
+  fiche, le prénom plus exigé, les accès envoyés au téléphone de l'entreprise) :
+  chacune tombe. Trois contrôles RETOURNÉS (le clic de 💰 Ventes remplit aussi
+  prénom et entreprise ; « 🆕 Nouveau devis » efface aussi prénom et entreprise).
 
 ### 🔧 Le partage des frais d'installation : BMI d'abord, le chef à +7 % (29/09/2026)
 - Capture Timo (🏠 Clients installés → Frais, POUDAMA) : il tapait 60 dans

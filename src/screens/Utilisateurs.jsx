@@ -15,6 +15,9 @@ import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
+// 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
+import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
+import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
@@ -85,6 +88,7 @@ export function Users({ db, save, profile }) {
     : utilisateursVisibles.filter((x) => x.role === roleAffiche);
   const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
+  const [entCli, setEntCli] = useState(ENTREPRISE_VIDE());
   // Les boutiques réellement proposables pour le compte en cours de
   // création : celles de l'espace coché, jamais TERRAIN (caisse virtuelle,
   // qui n'est un rattachement valide pour personne). Une seule définition,
@@ -143,9 +147,11 @@ export function Users({ db, save, profile }) {
     // irrécupérable, personne ne pourrait le lui renvoyer.
     if (f.role === "client") {
       if (!f.nom.trim() || chiffresTel(f.tel).length < 4) {
-        setMsg("Pour un client : le NOM et le NUMÉRO suffisent. Le mot de passe est généré automatiquement.");
+        setMsg("Pour un client : le NOM, le PRÉNOM et le NUMÉRO suffisent. Le mot de passe est généré automatiquement.");
         return;
       }
+      const refusIdentite = critiquePrenom(f.prenom) || critiqueEntreprise(entCli);
+      if (refusIdentite) { setMsg(refusIdentite); return; }
       const identifiant = identifiantClient(db, f.nom, f.tel);
       const { motDePasse } = await resoudreMotDePasseClient(db, f.nom, f.tel);
       if (!await uConfirm(
@@ -154,9 +160,10 @@ export function Users({ db, save, profile }) {
         `Remettez-lui ces identifiants.`
       )) return;
       const nomCli = f.nom, telCli = f.tel;
-      const { user } = await fabriquerCompteClient(db, f.nom, f.tel, profile.nom, marqueEspace(db, profile));
+      const { user } = await fabriquerCompteClient(db, f.nom, f.tel, profile.nom, { ...marqueEspace(db, profile), ...champsCompteClient(f.nom, f.prenom, entCli) });
       save({ ...db, users: [...db.users, user], messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])] }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}`);
       setF(vide);
+      setEntCli(ENTREPRISE_VIDE());
       setMsg(`✅ Client créé — identifiant : ${identifiant} · mot de passe : ${motDePasse}`);
       // Envoi automatique des identifiants par WhatsApp.
       if (await uConfirm(`✅ Client créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
@@ -255,8 +262,7 @@ export function Users({ db, save, profile }) {
         await envoyerIdentifiantsEmployeWhatsApp(nomEmp, nomEmp, pwdEmp, roleEmp, telEmp, uConfirm);
       }
     }
-    setF(vide);
-    setF({ nom: "", pwd: "", role: "vendeur", boutique: premiere, taux: "5" });
+    setF({ ...vide, boutique: premiere });
     setMsg("✅ Utilisateur créé");
     setTimeout(() => setMsg(""), 3000);
   };
@@ -1019,9 +1025,9 @@ export function Users({ db, save, profile }) {
           ) : (
             <Field label="Mot de passe"><input className={inputCls} value={f.pwd} onChange={(e) => setF({ ...f, pwd: e.target.value })} /></Field>
           )}
-          {f.role !== "client" && (
-            <Field label="Prénom"><input className={inputCls} placeholder="Prénom(s), comme sur la pièce" value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
-          )}
+          {/* 29/09/2026 : le prénom se demande AUSSI pour un client (obligatoire) —
+              il ne change ni son identifiant ni son mot de passe. */}
+          <Field label="Prénom"><input className={inputCls} placeholder={f.role === "client" ? "Ama" : "Prénom(s), comme sur la pièce"} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} data-prenom-client={f.role === "client" ? "" : undefined} /></Field>
           {f.role !== "client" && (
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
@@ -1073,6 +1079,11 @@ export function Users({ db, save, profile }) {
             </div>
           )}
         </div>
+        {f.role === "client" && (
+          <div className="mt-3">
+            <ChampsEntreprise valeur={entCli} onChange={setEntCli} libelle="🏢 Entreprise cliente" aide="La personne saisie au-dessus est son répondant : son compte, ses accès et ses messages lui sont adressés." />
+          </div>
+        )}
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <button onClick={creer} className={btnDark}>Créer</button>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}

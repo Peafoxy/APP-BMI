@@ -34,11 +34,12 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
   const envoyer = async (b) => {
     if (bloquerSiLecture(db, profile)) return;
     const clientDevis = b.client?.id || "__nouveau__";
-    const nouvClient = { nom: b.client?.nom || "", tel: b.client?.tel || "" };
+    // 29/09/2026 : le prénom et l'entreprise cliente du brouillon suivent.
+    const nouvClient = { nom: b.client?.nom || "", prenom: b.client?.prenom || b.devis?.prenom || "", tel: b.client?.tel || "", entreprise: b.devis?.entreprise || null };
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, b.devis?.boutique);
     if (!resolu) return;
-    const { compte, motDePasse, dbApres } = resolu;
-    const devis = { ...b.devis, id: uid(), date: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
+    const { compte, motDePasse, dbApres, identite } = resolu;
+    const devis = { ...b.devis, ...identite, id: uid(), date: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
       dbApres: retirerBrouillon(dbApres, profile.id, b.id), compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`],

@@ -15,6 +15,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whats
 import { messageIdentifiants } from "../lib/whatsappModeles";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
+import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -157,6 +158,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       return;
     }
 
+    // 29/09/2026 (« C a ») : le prénom est OBLIGATOIRE pour un compte client.
+    const refusPrenom = critiquePrenom(f.prenom);
+    if (refusPrenom) { uAlert(`${refusPrenom}\n\nRenseignez la case « Prénom » de la fiche.`); return; }
+
     const identifiant = identifiantClient(db, nom, tel);
     const { motDePasse } = await resoudreMotDePasseClient(db, nom, tel);
     if (!await uConfirm(
@@ -165,7 +170,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       `Remettez-lui ces identifiants : c'est avec eux qu'il suivra son installation et réceptionnera les travaux.`
     )) return;
 
-    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
+    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom, { ...marqueEspace(db, profile), ...champsCompteClient(nom, f.prenom) });
     save({ ...db, users: [...db.users, user], messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])] }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}`);
     setF((p) => ({ ...p, user_id: user.id }));
     // Envoi automatique des identifiants par WhatsApp.

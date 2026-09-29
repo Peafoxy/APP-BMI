@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat } from "../../components/ui";
+import { ENTREPRISE_VIDE } from "../../lib/clientEntreprise";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique, estAdminPrincipal } from "../../lib/calculs";
 import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
@@ -623,7 +624,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setChoix({}); setRolesManuels({}); setRolesHB({}); setManuelOuvert({}); setBrouillonManuel({});
     setRailsQte(0); setFixationManuelle({});
     reprendreAutres([]);
-    envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", tel: "" });
+    envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
     r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide());
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
   };

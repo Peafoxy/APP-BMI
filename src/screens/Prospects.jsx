@@ -14,6 +14,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whats
 import { messageIdentifiants } from "../lib/whatsappModeles";
 import { prospectAcquis, estDemandeAssistant, prendreEnCharge, critiquePriseEnCharge } from "../lib/prospects";
 import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
+import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
@@ -151,6 +152,13 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
       return;
     }
 
+    // 29/09/2026 (« C a ») : le prénom est OBLIGATOIRE à la création d'un
+    // compte client. Il ne change ni l'identifiant ni le mot de passe.
+    const prenomSaisi = p.prenom || await uPrompt(`Prénom de « ${p.nom} » ?\n\nIl est demandé pour créer son compte client.`, "");
+    if (prenomSaisi === null) return;
+    const refusPrenom = critiquePrenom(prenomSaisi);
+    if (refusPrenom) { uAlert(refusPrenom); return; }
+
     const identifiant = identifiantClient(db, p.nom, p.tel);
     const { motDePasse } = await resoudreMotDePasseClient(db, p.nom, p.tel);
     if (!await uConfirm(
@@ -159,7 +167,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
       `Un compte sera créé et ses identifiants lui seront envoyés par WhatsApp.\n\nÀ ne faire que s'il a accepté de devenir client.`
     )) return;
 
-    const { user } = await fabriquerCompteClient(db, p.nom, p.tel, profile.nom, marqueEspace(db, profile));
+    const { user } = await fabriquerCompteClient(db, p.nom, p.tel, profile.nom, { ...marqueEspace(db, profile), ...champsCompteClient(p.nom, prenomSaisi, p.entreprise) });
     // Le prospect est marqué converti (il sort de la file active) et lié au compte.
     save({
       ...db,

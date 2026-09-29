@@ -15,6 +15,8 @@ import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
+import { ChampsEntreprise } from "../components/ChampsEntreprise";
+import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
@@ -22,7 +24,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, comptesAvecCeNumero, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -85,6 +87,10 @@ export const QUESTION_SANS_NUMERO = "Le client n'a pas de numéro : il ne recevr
 export const CHOIX_AJOUTER_CLIENT = "✏️ Ajouter le client (nom et numéro)";
 export const CHOIX_CONTINUER_SANS = "Continuer sans les informations du client";
 export const numeroManquant = (tel) => String(tel || "").replace(/\D/g, "").length < 8;
+
+// Le prénom et l'entreprise d'un document (devis d'origine, proforma) remis
+// dans le formulaire de 💰 Ventes.
+const identiteDe = (doc) => ({ prenom: (doc && doc.prenom) || "", entreprise: formulaireDepuisEntreprise(doc && doc.entreprise) });
 
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "ventes" });
@@ -170,11 +176,27 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       commercial: preRempli.commercial || f0.commercial,
       responsable: preRempli.responsable || f0.responsable,
       rabais: preRempli.rabais || f0.rabais,
+      ...identiteDe(preRempli.origineDevis),
     }));
     if (onPreRempliConsomme) onPreRempliConsomme();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preRempli]);
-  const [f, setF] = useState({ client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
+  const [f, setF] = useState({ ...identiteDe(preRempli?.origineDevis), client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
+  // 🏢 29/09/2026 (Timo) : le prénom (facultatif ici, « C a ») et
+  // l'entreprise pour laquelle le client paie. Ils vont sur le reçu, la
+  // proforma, la dette — et sur la fiche du client s'il a un compte (« B b »).
+  const pourFiche = () => champsIdentite({ prenom: f.prenom, entreprise: f.entreprise });
+  const avecFicheClient = (base, compteId) => {
+    if (!compteId) return base;
+    const id = pourFiche();
+    if (!id.prenom && !id.entreprise) return base;
+    return { ...base, users: (base.users || []).map((u) => (u.id === compteId ? ficheAvecIdentite(u, id) : u)) };
+  };
+  // Un client choisi qui a un compte : son prénom et son entreprise reviennent.
+  const identiteDuNumero = (tel) => {
+    const c = comptesAvecCeNumero(db, profile, tel, 1)[0];
+    return c && (c.prenom || c.entreprise) ? { prenom: c.prenom || "", entreprise: formulaireDepuisEntreprise(c.entreprise) } : {};
+  };
   // Apporteur d'affaires EXTERNE (pas un utilisateur de l'application)
   const [ext, setExt] = useState({ actif: false, nom: "", tel: "", taux: "", montant: "" });
   // 🤝 L'apporteur NOMMÉ DANS LE DEVIS (Timo, 29/09/2026) : il arrive déjà
@@ -312,6 +334,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     boutique,
     client: f.client || "",
     tel: f.tel || "",
+    ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }),
     lignes: panier.map((l) => ({
       // ⚠ Timo (11/09/2026) : `produit_id` GARDÉ à l'émission — c'est lui qui
       // permet de reprendre la proforma au panier plus tard, avec la bonne
@@ -342,7 +365,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const enregistrerProforma = (pf) => {
     // On garde une trace (liste visible par vendeur / resp. commercial / admin).
     const ligne = { id: uid(), date: today(), ts: new Date().toISOString(),
-      numero: pf.numero, boutique, client: pf.client, tel: pf.tel,
+      numero: pf.numero, boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf),
       sous_total: pf.sous_total, remise_pct: pf.remise_pct, remise_montant: pf.remise_montant,
       total: pf.total, lignes: pf.lignes, par: profile.nom };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
@@ -365,7 +388,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par la proforma ${pf.numero} ?`)) return;
     setPanier(r.panier);
     setOrigineProforma({ id: pf.id, numero: pf.numero });
-    setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, remise: r.remisePct ? String(r.remisePct) : "" });
+    setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, remise: r.remisePct ? String(r.remisePct) : "", ...(pf.prenom || pf.entreprise ? identiteDe(pf) : {}) });
     setVueListe("ventes");
     const avis = [
       `🛒 Proforma ${pf.numero} : ${r.panier.length} article(s) au panier. Vérifiez, puis encaissez.`,
@@ -381,6 +404,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
     enregistrerProforma(pf);
     const lignes = [
@@ -416,6 +440,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
     enregistrerProforma(pf);
     imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique));
@@ -515,6 +540,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // Timo (10/09/2026) : les remises par article suivent la même limite, et
     // remise sur un article + remise générale = refusé (règle pure, calculs.js).
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
+    { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { setMsg(refusE); uAlert(refusE); return; } }
     // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
     // seul — sauf si la remise est CELLE de la commande encaissée (devis
     // validé), déjà contrôlée en amont. Le serveur applique la même règle.
@@ -692,7 +718,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       if (!await uConfirm(`Créer une réservation prépayée pour ${f.client || "ce client"} ?\n\nTotal : ${fmt(total)}\nAvance versée : ${fmt(avanceRes)}\nReste à payer : ${fmt(total - avanceRes)}\n\nLa marchandise ne sortira du stock qu'à la livraison (écran Dettes → Réservations prépayées).`)) return;
       const reservation = {
         id: uid(), client_user_id: compteClientPour(db, f.tel, f.client), numero: prochainNumeroDette(db, boutique), type: "prepaye", date: today(), boutique,
-        client: f.client || "Client non renseigné", tel: f.tel,
+        client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }),
         motif: `Réservation — ${resumeArticles({ articles: panier })}`,
         articles: panier.map((l) => ({ produit_id: l.produit_id, nom: l.article, qte: l.qte, pu: l.pu })),
         montant: total, paye: avanceRes,
@@ -705,7 +731,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         commercial: f.commercial || null, responsable: f.responsable || null,
         rabais, apporteur: apporteurExterne(total),
       };
-      save({ ...db, dettes: [reservation, ...db.dettes] }, `Réservation prépayée ${f.client || "Client non renseigné"} (${fmt(total)}) — ${boutique} — créée depuis Ventes`);
+      save({ ...avecFicheClient(db, reservation.client_user_id), dettes: [reservation, ...db.dettes] }, `Réservation prépayée ${f.client || "Client non renseigné"} (${fmt(total)}) — ${boutique} — créée depuis Ventes`);
       // Le client repart avec une preuve de ce qu'il a payé — même document
       // que celui d'un versement ultérieur (2.99.54), avec le filigrane
       // "NON LIVRÉ" (2.99.62) qui s'applique automatiquement puisque
@@ -719,7 +745,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         tel: reservation.tel, nom: reservation.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: reservation.id },
       }).then(setNoteRecuWa);
       setPanier([]);
-      setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
+      setF({ ...identiteDe(null), client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
       setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
       setApporteurConverti(null);
       setCat("");
@@ -750,6 +776,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       articles: panier,
       client: f.client || "Client non renseigné",
       tel: f.tel,
+      ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }),
       remise,
       remise_pct: remisePct,
       // Frais du devis d'origine, réellement encaissés en plus des articles —
@@ -774,7 +801,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
     };
 
-    let next = { ...db, ventes: [vente, ...db.ventes] };
+    let next = { ...avecFicheClient(db, clientCompteId), ventes: [vente, ...db.ventes] };
 
     // ══════ LE PAIEMENT D'UN DEVIS DÉCLENCHE L'INSTALLATION ══════
     // C'est ici que le devis devient un chantier. Tant que le client n'a pas
@@ -791,7 +818,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         // pas seulement la boutique — « faire toujours confiance à l'espace ».
         ...marqueEspace(db, profile, boutique),
         nom: compteClient?.nom_base || compteClient?.nom || f.client || "Client",
-        prenom: "",
+        prenom: f.prenom || compteClient?.prenom || "",
         tel: compteClient?.tel || f.tel || "",
         user_id: od.client_id,                 // le client suivra son chantier depuis son espace
         type_installation: TYPES_INSTALLATION[0],
@@ -912,7 +939,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // ne pouvait pas attendre le solde de la dette (règle posée par Timo le
       // 29/08/2026). Les dettes créées avant ne le portent pas : leurs ventes
       // gardent l'ancienne règle, payables dès la réception.
-      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
     }
     // 🛠 Travaux à crédit : le reçu (et la dette) reviennent sur la fiche.
     if (origineTravaux) {
@@ -936,7 +963,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setPanier([]);
     setOrigineProforma(null);   // consommée : la proforma a donné sa vente
     setTransfertEnAttente(null);
-    setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
+    setF({ ...identiteDe(null), client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
     setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
     setApporteurConverti(null);
     setCat("");
@@ -1276,16 +1303,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     tapé n'est jamais transformé : un client de passage se saisit
                     librement, comme avant. */}
                 <ChampSuggestions key={`client-${focusClient}`} autoFocus={focusClient > 0} valeur={f.client} onChange={(v) => setF({ ...f, client: v })}
-                  onChoisir={(c) => setF({ ...f, client: c.valeur, tel: c.tel || f.tel })}
+                  onChoisir={(c) => setF({ ...f, client: c.valeur, tel: c.tel || f.tel, ...identiteDuNumero(c.tel || f.tel) })}
                   suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
                   placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : "Nom, ou numéro du client"} />
+              </Field>
+              <Field label="Prénom (facultatif)">
+                <input className={inputCls} value={f.prenom || ""} onChange={(e) => setF({ ...f, prenom: e.target.value })} data-prenom-client />
               </Field>
               <Field label={origineDevis ? "Son numéro" : "Numéro du client"}>
                 {/* Timo (15/09/2026) : « la présélection n'est pas possible
                     avec le numéro ? » — la case du numéro propose comme celle
                     du nom, et le clic remplit les deux. */}
                 <ChampSuggestions type="tel" valeur={f.tel} onChange={(v) => setF({ ...f, tel: v })}
-                  onChoisir={(c) => setF({ ...f, tel: c.valeur, client: c.nom || f.client })}
+                  onChoisir={(c) => setF({ ...f, tel: c.valeur, client: c.nom || f.client, ...identiteDuNumero(c.valeur) })}
                   suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
                   placeholder="+228 ..." />
               </Field>
@@ -1351,6 +1381,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   </select>
                 </Field>
               )}
+              <div className="sm:col-span-2 lg:col-span-5">
+                <ChampsEntreprise valeur={f.entreprise} onChange={(e) => setF({ ...f, entreprise: e })}
+                  aide="La personne saisie au-dessus est son répondant. Le reçu et la proforma portent le nom de l'entreprise et ses coordonnées." />
+              </div>
               <div className="sm:col-span-2 lg:col-span-4">
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <input type="checkbox" checked={ext.actif} disabled={tauxApporteurFige && !!apporteurImpose}

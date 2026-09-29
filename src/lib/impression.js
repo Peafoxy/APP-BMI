@@ -10,6 +10,18 @@ import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
+import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
+
+// 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
+// l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
+// par ». Écrit UNE fois pour le reçu de vente et le reçu d'une dette.
+function lignesNomClient(doc) {
+  const i = identiteClient(doc);
+  if (!i.entreprise) return `<div><b>Nom :</b> ${esc(i.titre || "________________________")}</div>`;
+  return `<div><b>Entreprise :</b> ${esc(i.titre)}</div>`
+    + (i.coordonnees ? `<div>${esc(i.coordonnees)}</div>` : "")
+    + (i.personne ? `<div><b>Représentée par :</b> ${esc(i.personne)}</div>` : "");
+}
 
 // ============ ÉCHAPPEMENT HTML (partagé par tous les documents) ============
 // Une seule définition pour tout le fichier (elle était dupliquée 7 fois).
@@ -110,7 +122,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 
     <div class="btitre">CLIENT</div>
     <div class="client">
-      <div><b>Nom :</b> ${esc(v.client || "________________________")}</div>
+      ${lignesNomClient(v)}
       <div><b>Téléphone :</b> ${esc(v.tel || "________________________")}</div>
     </div>
 
@@ -235,7 +247,7 @@ export function imprimerRecuVersement(d, bq = {}) {
 
     <div class="btitre">CLIENT</div>
     <div class="client">
-      <div><b>Nom :</b> ${esc(d.client || "________________________")}</div>
+      ${lignesNomClient(d)}
       <div><b>Téléphone :</b> ${esc(d.tel || "________________________")}</div>
       <div><b>Motif :</b> ${(d.articles && d.articles.length > 0) ? (estReservation(d) ? "Réservation" : "Vente à crédit") : esc(d.motif || "—")}</div>
     </div>
@@ -338,7 +350,9 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
     </div>
     <div class="btitre">CLIENT</div>
     <div class="client">
-      <div><b>${esc(p.client || "—")}</b></div>
+      <div><b>${esc(identiteClient(p).titre || "—")}</b></div>
+      ${identiteClient(p).coordonnees ? `<div>${esc(identiteClient(p).coordonnees)}</div>` : ""}
+      ${identiteClient(p).represente ? `<div>${esc(identiteClient(p).represente)}</div>` : ""}
       ${p.tel ? `<div>Tél : ${esc(p.tel)}</div>` : ""}
     </div>
     <table class="articles">
@@ -565,7 +579,7 @@ export function htmlContratInstallation(d, db) {
     <div class="art">Entre les soussignés :</div>
     <div class="art">BMI (Bâtiments Modernes et Intelligents) E-mail : info@bmitogo.com ; NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523 ; représenté par Mr EGBAOU Essozimna</div>
     <div class="art">Et :</div>
-    <div class="art">Mr/Mme : ${esc(client?.nom || "")}${client?.tel ? `, tél. ${esc(client.tel)}` : ""}</div>
+    <div class="art">${esc(partieClientContrat({ nom: client?.nom_base || client?.nom || "", prenom: d.prenom || client?.prenom, tel: client?.tel, entreprise: d.entreprise || null }))}</div>
 
     ${d.pose_seule ? `
     <div class="art"><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>${totalEquipementsBMI > 0 ? `, ainsi que la fourniture des équipements complémentaires listés ci-dessous` : ""}, pour un <b>montant total dû à BMI TOGO de ${fmt(d.total)} FCFA</b>, se décomposant comme suit : main d'œuvre de pose — <b>${fmt(d.total - totalEquipementsBMI)} FCFA</b>${totalEquipementsBMI > 0 ? ` ; équipements fournis par BMI TOGO — <b>${fmt(totalEquipementsBMI)} FCFA</b>` : ""}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.
@@ -834,7 +848,7 @@ export function texteRecuComplet(v, bq = {}) {
     `------------------------`,
     `Date : ${dFR(v.date)}${v.heure ? ` à ${v.heure}` : ""}`,
     `Reçu N° : ${numeroRecu(v)}`,
-    v.client ? `Client : ${v.client}` : null,
+    v.client ? `Client : ${ligneClient(v)}` : null,
     `------------------------`,
     // ⚠ 2.99.51 : chaque ligne affiche désormais son montant NET (remise de
     // ligne déjà soustraite), sinon la somme des lignes ne correspondait plus

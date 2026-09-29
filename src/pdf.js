@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fichierPdf } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS } from "./lib/constants";
+import { identiteClient } from "./lib/clientEntreprise";
 
 // Formatage des montants pour le PDF. On N'UTILISE PAS toLocaleString("fr-FR")
 // car jsPDF n'affiche pas correctement son espace insécable (il apparaît comme
@@ -211,8 +212,12 @@ export function genererProforma(p, logo, retournerDoc = false) {
   doc.text(`N° ${p.numero}`, 14, yApresPf + 8);
   doc.text(`Date : ${p.date}`, 14, yApresPf + 13);
   if (p.boutique) doc.text(`Boutique : ${p.boutique}`, 14, yApresPf + 18);
-  doc.text(`Client : ${p.client || "—"}`, largeur - 14, yApresPf + 8, { align: "right" });
+  // 🏢 29/09/2026 : l'entreprise cliente et son répondant (lib/clientEntreprise.js).
+  const idPf = identiteClient(p);
+  doc.text(texteSurPdf(`Client : ${idPf.titre || "—"}`), largeur - 14, yApresPf + 8, { align: "right" });
   if (p.tel) doc.text(`Tél : ${p.tel}`, largeur - 14, yApresPf + 13, { align: "right" });
+  if (idPf.represente) doc.text(texteSurPdf(idPf.represente), largeur - 14, yApresPf + 18, { align: "right" });
+  if (idPf.coordonnees) doc.text(texteSurPdf(idPf.coordonnees), largeur - 14, yApresPf + 22, { align: "right" });
 
   // Tableau des articles
   autoTable(doc, {
@@ -223,7 +228,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
       `${fmtMontant(l.pu)} F`,
       `${fmtMontant(l.total)} F`,
     ]),
-    startY: yApresPf + 24,
+    startY: yApresPf + (idPf.coordonnees ? 27 : 24),
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 247, 250] },
@@ -606,7 +611,10 @@ export function genererDevis(d, logo, retournerDoc = false) {
   doc.text(`Date : ${d.date}`, 14, yApres + 10.5);
   if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, yApres + 14.5);
   if (d.par) doc.text(`Élaboré par : ${d.par}`, 14, yApres + 18.5);
-  doc.text(`Client : ${d.client || "—"}`, largeur - 14, yApres + 6.5, { align: "right" });
+  // 🏢 29/09/2026 : l'entreprise cliente, et son répondant sur la ligne libre.
+  const idDv = identiteClient(d);
+  doc.text(texteSurPdf(`Client : ${idDv.titre || "—"}`), largeur - 14, yApres + 6.5, { align: "right" });
+  if (idDv.represente) doc.text(texteSurPdf(idDv.represente), largeur - 14, yApres + 18.5, { align: "right" });
   if (d.tel) doc.text(`Tél : ${d.tel}`, largeur - 14, yApres + 10.5, { align: "right" });
   if (d.statut) doc.text(`Statut : ${d.statut}`, largeur - 14, yApres + 14.5, { align: "right" });
 

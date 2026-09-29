@@ -14,6 +14,7 @@ import { PAIEMENTS, TYPES_INSTALLATION } from "./constants";
 import { offreExpiree } from "./rappels";
 import { acomptePose, ACOMPTE_POSE_PCT } from "./poseSeule";
 import { apporteurPourDettePose } from "./apporteurDevis";
+import { champsIdentite } from "./clientEntreprise";
 import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "./calculs";
 
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
@@ -126,7 +127,10 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
     statut: "en_attente",
     // Le lien avec le devis : c'est ce qui permettra de créer la fiche
     // d'installation au moment de l'encaissement.
-    origine_devis: { client_id: client.id, devis_id: d.id, par_id: d.par_id, par_role: d.par_role },
+    // 29/09/2026 : le prénom et l'entreprise cliente du devis suivent jusqu'au
+    // reçu (lib/clientEntreprise.js).
+    ...champsIdentite({ prenom: d.prenom, entreprise: d.entreprise }),
+    origine_devis: { client_id: client.id, devis_id: d.id, par_id: d.par_id, par_role: d.par_role, ...champsIdentite({ prenom: d.prenom, entreprise: d.entreprise }) },
   };
 
   // Le prospect correspondant porte un badge « a dit oui, pas encore payé » :

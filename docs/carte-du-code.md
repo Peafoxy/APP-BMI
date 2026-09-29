@@ -66,6 +66,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/comptesClients.js` | Les identifiants automatiques d'un compte client, les relances de devis |
 | `lib/identiteClient.js` | L'identifiant et le mot de passe d'un client, et **la comparaison de deux identifiants de connexion** (`memeIdentifiant`, lue par l'écran ET par le serveur) — **n'importe RIEN** |
 | `lib/clientsConnus.js` | Les clients que la boutique connaît déjà (proposés dans Ventes, Dettes, Travaux) |
+| `lib/clientEntreprise.js` | Le prénom du client et l'entreprise qu'il représente (son répondant) : sur la fiche, la vente, la proforma, le devis, le reçu et le contrat |
 | `lib/effacementClient.js` | 🔒 Le droit à l'effacement : ce qui part, ce que les livres gardent sans son nom |
 | `lib/dossierPersonnel.js` | 📄 Le droit d'accès : tout ce qu'on a sur un client, en un document — **jamais son mot de passe** |
 | `lib/dossierEmploye.js` | 👥 Le droit d'accès d'un EMPLOYÉ : paie, CNSS, banque masquée — **pas d'effacement, la loi l'interdit** |
@@ -119,6 +120,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 |---|---|
 | `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
+| `ChampsEntreprise.jsx` | La case « entreprise cliente » et ses lignes (nom, téléphone, NIF, RCCM), écrite une fois pour Ventes, le devis et la création d'un compte client |
 | `SelecteurArticle.jsx` | La fenêtre « Rechercher un article » |
 | `encaissementPose.js` | LE geste qui encaisse une pose seule (acompte 70 %, puis solde) — 🧾 Commandes et 🏠 Clients installés |
 | `SelecteurBoutique.jsx` | La rangée de pastilles des boutiques |

@@ -2,6 +2,7 @@
 // screens/EspaceClient.jsx — Espace du rôle Client : ses devis, ses
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
+import { partieClientContrat } from "../lib/clientEntreprise";
 import { useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
@@ -924,7 +925,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p>Entre les soussignés :</p>
                 <p>BMI (Bâtiments Modernes et Intelligents) E-mail : info@bmitogo.com ; NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523 ; représenté par Mr EGBAOU Essozimna</p>
                 <p>Et :</p>
-                <p>Mr/Mme : {profile.nom}{profile.tel ? `, tél. ${profile.tel}` : ""}</p>
+                <p>{partieClientContrat({ nom: profile.nom_base || profile.nom, prenom: d.prenom || profile.prenom, tel: profile.tel, entreprise: d.entreprise || null })}</p>
                 {d.pose_seule ? (<>
                   <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>{totalEquipementsBMI > 0 ? ", ainsi que la fourniture des équipements complémentaires listés ci-dessous" : ""}, pour un <b>montant total dû à BMI TOGO de {fmt(d.total)} FCFA</b>, se décomposant comme suit : main d'œuvre de pose — <b>{fmt(d.total - totalEquipementsBMI)} FCFA</b>{totalEquipementsBMI > 0 ? <> ; équipements fournis par BMI TOGO — <b>{fmt(totalEquipementsBMI)} FCFA</b></> : null}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.
                     {totalEquipementsBMI > 0 && <span className="block mt-1"><b>Équipements fournis par BMI TOGO :</b><ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{equipementsBMI.map((l, i) => <li key={i}>{l.article} — quantité : {l.qte}</li>)}</ul></span>}</p>

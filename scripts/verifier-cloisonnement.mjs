@@ -5040,7 +5040,7 @@ titre("Solaire : « 🆕 Nouveau devis » au-delà de 5 appareils, avec confirma
     /const nouveauDevis = async \(\) => \{\s*if \(!await uConfirm\(/.test(sol) && /Commencer un NOUVEAU devis \?/.test(sol) && /annulez et cliquez d'abord « 📝 Enregistrer un brouillon »/.test(sol));
   test("★ tout ce qui fait le devis est effacé : appareils (une ligne vide), choix et verrous, HB, rails et fixation, autres équipements, client, remise / frais / acompte / délai ; une reprise en cours est close",
     /setAppareils\(\[\{ id: uid\(\), nom: "", puissance: "", heures: "", qte: "1" \}\]\);/.test(sol) && /setChoix\(\{\}\); setRolesManuels\(\{\}\); setRolesHB\(\{\}\);/.test(sol)
-    && /setRailsQte\(0\); setFixationManuelle\(\{\}\);/.test(sol) && /reprendreAutres\(\[\]\);/.test(sol) && /envoi\.setClientDevis\(""\); envoi\.setNouvClient\(\{ nom: "", tel: "" \}\);/.test(sol)
+    && /setRailsQte\(0\); setFixationManuelle\(\{\}\);/.test(sol) && /reprendreAutres\(\[\]\);/.test(sol) && /envoi\.setClientDevis\(""\); envoi\.setNouvClient\(\{ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE\(\) \}\);/.test(sol)
     && /r\.setPctRemise\("0"\); r\.setPctInstall\("10"\); r\.setPctTransport\("0"\); r\.setPoseSeule\(false\); r\.setMontantPoseFixe\(""\); r\.setPctAcompte\("100"\); r\.setDelaiInstallation\(""\);/.test(sol)
     && /if \(devisAReprendre && onDevisRepriseConsomme\) onDevisRepriseConsomme\(\);/.test(sol));
   test("les réglages de la maison (autonomie, ensoleillement, tension, batterie) ne sont PAS touchés", !/setAutonomie\("1"\)|setSoleil\(SOLEIL_DEFAUT\)|setTension\(TENSION_DEFAUT\)/.test(sol.slice(sol.indexOf("const nouveauDevis"), sol.indexOf("const nouveauDevis") + 1500)));
@@ -8026,7 +8026,8 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // Les écrans : LE champ commun, jamais une liste maison, et le clic
   // remplit le nom ET le numéro.
   const ecrans = [
-    ["src/screens/Ventes.jsx", /valeur=\{f\.client\}/, /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, client: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/],
+    // 29/09/2026 : dans 💰 Ventes le clic remplit AUSSI le prénom et l'entreprise du compte (identiteDuNumero).
+    ["src/screens/Ventes.jsx", /valeur=\{f\.client\}/, /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, client: c\.valeur, tel: c\.tel \|\| f\.tel, \.\.\.identiteDuNumero\(c\.tel \|\| f\.tel\) \}\)\}/],
     ["src/screens/Dettes.jsx", /valeur=\{res\.client\}/, /onChoisir=\{\(c\) => setRes\(\{ \.\.\.res, client: c\.valeur, tel: c\.tel \|\| res\.tel \}\)\}/],
     ["src/screens/Travaux.jsx", /valeur=\{f\.nom\}/, /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, nom: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/],
   ];
@@ -8041,7 +8042,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     (dtJ.match(/suggestions=\{propositionsClients\(/g) || []).length === 2
     && /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, client: c\.valeur, tel: c\.tel \|\| f\.tel \}\)\}/.test(dtJ));
   const numEcrans = [
-    ["src/screens/Ventes.jsx", /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, tel: c\.valeur, client: c\.nom \|\| f\.client \}\)\}/],
+    ["src/screens/Ventes.jsx", /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, tel: c\.valeur, client: c\.nom \|\| f\.client, \.\.\.identiteDuNumero\(c\.valeur\) \}\)\}/],
     ["src/screens/Dettes.jsx", /onChoisir=\{\(c\) => setRes\(\{ \.\.\.res, tel: c\.valeur, client: c\.nom \|\| res\.client \}\)\}/],
     ["src/screens/Travaux.jsx", /onChoisir=\{\(c\) => setF\(\{ \.\.\.f, tel: c\.valeur, nom: c\.nom \|\| f\.nom \}\)\}/],
   ];
@@ -11697,6 +11698,80 @@ titre("🤝 L'apporteur externe nommé dans le devis : 3 % d'office, le principa
   const dbd = readFileSync("src/screens/Dashboard.jsx", "utf8");
   test("★ le tableau de bord compte la commission d'apporteur d'une pose (sa dette), à côté de celle des ventes",
     /\[\.\.\.ventesReellesDb, \.\.\.dettesReellesDb\.filter\(\(d\) => d\.pose_seule\)\]/.test(dbd));
+}
+
+titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répondant (29/09/2026, « A c, B b, C a »)");
+{
+  const sortieCE = join("node_modules", ".cache", `bmi-client-entreprise-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/clientEntreprise.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieCE, logLevel: "silent" });
+  const CE = await import(pathToFileURL(sortieCE).href);
+  unlinkSync(sortieCE);
+  const srcCE = readFileSync("src/lib/clientEntreprise.js", "utf8");
+  test("la règle ne dépend de rien (lisible par Node)", !/^import /m.test(srcCE));
+  test("★ « C a » : le prénom est exigé pour un compte client", CE.critiquePrenom("  ") !== "" && CE.critiquePrenom("Ama") === "");
+  const form = { actif: true, nom: "solar sarl", tel: "22 22 11 00", nif: "1000123", rccm: "tg-lom-2020" };
+  test("★ une case cochée SANS nom d'entreprise est refusée ; téléphone, NIF et RCCM restent facultatifs",
+    CE.critiqueEntreprise({ ...form, nom: "" }) !== "" && CE.critiqueEntreprise({ actif: true, nom: "X" }) === "" && CE.critiqueEntreprise({ ...form, actif: false, nom: "" }) === "");
+  test("★ « A c » : l'entreprise garde son téléphone ET son NIF / RCCM, en capitales",
+    JSON.stringify(CE.entrepriseDuFormulaire(form)) === JSON.stringify({ nom: "SOLAR SARL", tel: "22 22 11 00", nif: "1000123", rccm: "TG-LOM-2020" }));
+  test("une case décochée n'enregistre rien", CE.entrepriseDuFormulaire({ ...form, actif: false }) === null && JSON.stringify(CE.champsIdentite({ entreprise: { ...form, actif: false } })) === "{}");
+  const u = { id: "u1", nom: "KOFFI", nom_base: "KOFFI", role: "client" };
+  const u2 = CE.ficheAvecIdentite(u, { prenom: "Ama", entreprise: form });
+  test("★ « B b » : la fiche du client reçoit son prénom (et nom_complet) et son entreprise",
+    u2.prenom === "Ama" && u2.nom_complet === "KOFFI Ama" && u2.entreprise.nom === "SOLAR SARL");
+  test("★ une vente « pour lui » (case décochée) n'EFFACE pas l'entreprise de sa fiche, et un prénom déjà posé ne se réécrit pas",
+    CE.ficheAvecIdentite(u2, { prenom: "Autre", entreprise: { actif: false } }) === u2);
+  test("★ le prénom ne touche NI l'identifiant NI le mot de passe : il n'écrit ni `nom` ni `nom_base`",
+    !("nom" in CE.champsCompteClient("KOFFI", "Ama", form)) && !("nom_base" in CE.champsCompteClient("KOFFI", "Ama", form)));
+  const doc = { client: "koffi", prenom: "Ama", tel: "90112233", entreprise: CE.entrepriseDuFormulaire(form) };
+  const id = CE.identiteClient(doc);
+  test("★ le document : l'ENTREPRISE en titre, ses coordonnées, « Représentée par : KOFFI Ama »",
+    id.titre === "SOLAR SARL" && id.coordonnees === "Tél : 22 22 11 00 · NIF : 1000123 · RCCM : TG-LOM-2020" && id.represente === "Représentée par : KOFFI Ama");
+  test("sans entreprise, le document dit « NOM Prénom »", CE.identiteClient({ client: "koffi", prenom: "Ama" }).titre === "KOFFI Ama");
+  const ctr = CE.partieClientContrat({ nom: "KOFFI", prenom: "Ama", tel: "90112233", entreprise: doc.entreprise });
+  test("★ le contrat nomme clairement l'entreprise ET son répondant",
+    /^L'entreprise SOLAR SARL \(Tél : 22 22 11 00 · NIF : 1000123/.test(ctr) && /représentée par Mr\/Mme KOFFI Ama \(tél\. 90112233\), son répondant/.test(ctr));
+  test("sans entreprise, le contrat reste « Mr/Mme : NOM Prénom, tél. … »",
+    CE.partieClientContrat({ nom: "KOFFI", prenom: "Ama", tel: "90" }) === "Mr/Mme : KOFFI Ama, tél. 90");
+
+  // Les écrans.
+  const lireE = (f) => readFileSync(f, "utf8");
+  const creations = ["src/screens/Clients.jsx", "src/screens/Utilisateurs.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Prospects.jsx"];
+  test("★ « C a » : les quatre écrans qui créent un compte client EXIGENT le prénom et le rangent (champsCompteClient)",
+    creations.every((f) => { const t = lireE(f); return /critiquePrenom\(/.test(t) && /champsCompteClient\(/.test(t); }));
+  const pa = lireE("src/screens/dimensionnement/Partages.jsx");
+  const resoudre = pa.slice(pa.indexOf("export async function resoudreClientDevis"), pa.indexOf("export async function envoyerDevisEtOuvrirWhatsApp"));
+  test("★ le devis : un nouveau client donne nom, PRÉNOM (demandé s'il manque) et numéro ; le compte le range",
+    /critiquePrenom\(prenom\)/.test(resoudre) && /uPrompt\(`Prénom de/.test(resoudre) && /champsCompteClient\(nom, prenom, nouvClient\.entreprise\)/.test(resoudre));
+  test("★ le devis : la case « Entreprise cliente » sous le client destinataire, pour un nouveau client COMME pour un compte, l'entreprise de sa fiche pré-cochée",
+    /\{clientDevis && \(\s*<div className="mt-2">\s*<ChampsEntreprise valeur=\{nouvClient\.entreprise\}/.test(pa) && /libelle="🏢 Entreprise cliente"/.test(pa)
+    && /formulaireDepuisEntreprise\(c && c\.entreprise\)/.test(pa));
+  test("★ le devis porte le prénom et l'entreprise, et la fiche du client aussi (ficheAvecIdentite, revérifié dans resoudreClientDevis)",
+    /const devis = \{ \.\.\.construire\(\), \.\.\.identite \};/.test(pa) && /ficheAvecIdentite\(compte, identite\)/.test(resoudre) && /critiqueEntreprise\(nouvClient\.entreprise\)/.test(resoudre));
+  test("★ les accès vont au numéro du RÉPONDANT : l'envoi garde `compte.tel || nouvClient.tel`, jamais celui de l'entreprise",
+    /const telClient = compte\.tel \|\| nouvClient\.tel;/.test(pa) && !/entreprise\.tel/.test(pa));
+  const ve = lireE("src/screens/Ventes.jsx");
+  test("★ 💰 Ventes : prénom FACULTATIF, la case entreprise, revérifiée dans l'encaissement et les deux proformas",
+    /<Field label="Prénom \(facultatif\)">/.test(ve) && /<ChampsEntreprise valeur=\{f\.entreprise\}/.test(ve)
+    && (ve.match(/critiqueEntreprise\(f\.entreprise\)/g) || []).length === 3);
+  test("★ 💰 Ventes : la vente, la proforma, la réservation et la dette portent l'identité (champsIdentite)",
+    (ve.match(/\.\.\.champsIdentite\(\{ prenom: f\.prenom, entreprise: f\.entreprise \}\)/g) || []).length === 4
+    && /numero: pf\.numero, boutique, client: pf\.client, tel: pf\.tel, \.\.\.champsIdentite\(pf\)/.test(ve));
+  test("★ 💰 Ventes : la fiche du compte suit (« B b »), et le compte se retrouve par LE mur (comptesAvecCeNumero, jamais db.users)",
+    /let next = \{ \.\.\.avecFicheClient\(db, clientCompteId\)/.test(ve) && /comptesAvecCeNumero\(db, profile, tel, 1\)/.test(ve));
+  test("★ le devis encaissé apporte son prénom et son entreprise jusqu'à la vente (origine_devis)",
+    /origine_devis: \{[^}]*\.\.\.champsIdentite\(\{ prenom: d\.prenom, entreprise: d\.entreprise \}\)/.test(lireE("src/lib/validationDevis.js"))
+    && /\.\.\.identiteDe\(preRempli\.origineDevis\)/.test(ve));
+  const imp = lireE("src/lib/impression.js");
+  test("★ les documents : reçu de vente et reçu de dette passent par UNE règle (lignesNomClient), la proforma par identiteClient",
+    (imp.match(/\$\{lignesNomClient\((v|d)\)\}/g) || []).length === 2 && /identiteClient\(p\)\.represente/.test(imp) && /Client : \$\{ligneClient\(v\)\}/.test(imp));
+  test("★ le contrat imprimé ET celui de l'espace client passent par partieClientContrat (plus de « Mr/Mme » écrit à la main)",
+    /partieClientContrat\(\{ nom: client\?\.nom_base/.test(imp) && !/Mr\/Mme : \$\{esc\(client/.test(imp)
+    && /partieClientContrat\(\{ nom: profile\.nom_base \|\| profile\.nom/.test(lireE("src/screens/EspaceClient.jsx")));
+  const pdfS = lireE("src/pdf.js");
+  test("★ le PDF du devis et celui de la proforma écrivent l'entreprise et son répondant",
+    /const idPf = identiteClient\(p\);/.test(pdfS) && /const idDv = identiteClient\(d\);/.test(pdfS) && /idDv\.represente/.test(pdfS));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

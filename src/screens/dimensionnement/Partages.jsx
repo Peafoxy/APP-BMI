@@ -36,7 +36,9 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
   }, [volet, profile.id, texte]);
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
-import { Field, inputCls, uAlert, uConfirm } from "../../components/ui";
+import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../../components/ui";
+import { ChampsEntreprise } from "../../components/ChampsEntreprise";
+import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel } from "../../lib/calculs";
 import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
@@ -275,6 +277,10 @@ export function BlocsFinDevis({ r, onConvertir }) {
 // ---- L'envoi au client et la conversion en vente, communs aux trois volets.
 // Le volet ne fournit que ce qui lui est propre : le devis construit, la
 // première ligne du message WhatsApp, le message « devis vide ».
+// Le client d'un devis : nom, prénom, numéro WhatsApp, et l'entreprise
+// qu'il représente (29/09/2026).
+const CLIENT_VIDE = () => ({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
+
 export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r }) {
   // 🤝 Le refus de l'apporteur, revérifié DANS le geste (envoi, brouillon,
   // conversion) : le champ grisé à l'écran ne suffit pas.
@@ -287,7 +293,14 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   // d'un client sans compte encore). Réappliqué à chaque nouvelle reprise —
   // avant, chaque volet le refaisait dans son propre effet.
   const clientRepris = (r) => (r?.client?.id ? r.client.id : (r?.client?.nom ? "__nouveau__" : ""));
-  const nouvClientRepris = (r) => (r?.client && !r.client.id ? { nom: r.client.nom || "", tel: r.client.tel || "" } : { nom: "", tel: "" });
+  // 29/09/2026 : le prénom et l'entreprise cliente suivent le client repris
+  // (le devis, sinon le brouillon) — l'entreprise vaut aussi pour un compte.
+  const nouvClientRepris = (r) => {
+    const entreprise = formulaireDepuisEntreprise(r?.devis?.entreprise || r?.client?.entreprise);
+    return r?.client && !r.client.id
+      ? { nom: r.client.nom || "", prenom: r.client.prenom || r?.devis?.prenom || "", tel: r.client.tel || "", entreprise }
+      : { ...CLIENT_VIDE(), entreprise };
+  };
   const [clientDevis, setClientDevis] = useState(() => clientRepris(devisAReprendre));
   const [nouvClient, setNouvClient] = useState(() => nouvClientRepris(devisAReprendre));
   useEffect(() => {
@@ -315,8 +328,8 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     if (refusApporteur()) return;
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
-    const { compte, motDePasse, dbApres } = resolu;
-    const devis = construire();
+    const { compte, motDePasse, dbApres, identite } = resolu;
+    const devis = { ...construire(), ...identite };
     // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
     // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
     // n'était parti. On respecte la réponse.
@@ -334,7 +347,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
       save((etat) => ({ ...etat, prospects: (etat.prospects || []).map((x) => (x.id === pid ? prospectAvecDevis(x, { client_user_id: compte.id, devis_id: devis.id }) : x)) }));
     }
     setClientDevis("");
-    setNouvClient({ nom: "", tel: "" });
+    setNouvClient(CLIENT_VIDE());
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
     { const m = messageDevisEnvoye(compte.nom, envoye.auto); if (envoye.auto && m) uAlert(m); }
@@ -360,13 +373,14 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     if (clientDevis === "__nouveau__") {
       const nom = nouvClient.nom.trim(), tel = nouvClient.tel.trim();
       if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom et le numéro du client."); return; }
-      client = { nom, tel };
+      client = { nom, tel, ...champsIdentite({ prenom: nouvClient.prenom }) };
     } else {
       const compte = comptesClients.find((u) => u.id === clientDevis);
       if (!compte) { uAlert("Choisissez d'abord le client."); return; }
       client = { id: compte.id, nom: compte.nom_base || compte.nom, tel: compte.tel || "" };
     }
-    const devis = construire();
+    { const refus = critiqueEntreprise(nouvClient.entreprise); if (refus) { uAlert(refus); return; } }
+    const devis = { ...construire(), ...champsIdentite({ prenom: client.prenom, entreprise: nouvClient.entreprise }) };
     const brouillon = { id: brouillonRepris || uid(), volet, client, devis, date: today(), ts: new Date().toISOString() };
     save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${client.nom} (${fmt(devis.total)}) par ${profile.nom}`);
     uAlert(`📝 Brouillon enregistré pour ${client.nom}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, ou supprimer.`);
@@ -421,20 +435,29 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         </div>
       )}
       <div className="text-xs text-slate-500 mb-3">
-        Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI (s'il n'a pas encore reçu ses accès, ils partent d'abord, dans un message à part). Si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur votre téléphone avec ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom et le numéro suffisent.
+        Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI (s'il n'a pas encore reçu ses accès, ils partent d'abord, dans un message à part). Si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur votre téléphone avec ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom, le prénom et le numéro suffisent.
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 items-end">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
         <Field label="Client destinataire">
-          <select className={inputCls} value={clientDevis} onChange={(e) => setClientDevis(e.target.value)}>
+          <select className={inputCls} value={clientDevis} onChange={(e) => {
+            const v = e.target.value;
+            setClientDevis(v);
+            // L'entreprise de sa fiche revient d'office (B « b »).
+            const c = comptesClients.find((u) => u.id === v);
+            setNouvClient({ ...nouvClient, entreprise: formulaireDepuisEntreprise(c && c.entreprise) });
+          }}>
             <option value="">— Choisir —</option>
-            <option value="__nouveau__">➕ Nouveau client (nom + numéro)</option>
+            <option value="__nouveau__">➕ Nouveau client (nom, prénom, numéro)</option>
             {comptesClients.map((u) => <option key={u.id} value={u.id}>{u.nom_base || u.nom}{u.tel ? ` — ${u.tel}` : ""}</option>)}
           </select>
         </Field>
         {clientDevis === "__nouveau__" && (
           <>
             <Field label="Nom du client">
-              <input className={inputCls} placeholder="KOFFI AMA" value={nouvClient.nom} onChange={(e) => setNouvClient({ ...nouvClient, nom: e.target.value })} />
+              <input className={inputCls} placeholder="KOFFI" value={nouvClient.nom} onChange={(e) => setNouvClient({ ...nouvClient, nom: e.target.value })} />
+            </Field>
+            <Field label="Prénom">
+              <input className={inputCls} placeholder="Ama" value={nouvClient.prenom || ""} onChange={(e) => setNouvClient({ ...nouvClient, prenom: e.target.value })} data-prenom-client />
             </Field>
             <Field label="Numéro WhatsApp">
               <input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={nouvClient.tel} onChange={(e) => setNouvClient({ ...nouvClient, tel: e.target.value })} />
@@ -442,6 +465,13 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
           </>
         )}
       </div>
+
+      {clientDevis && (
+        <div className="mt-2">
+          <ChampsEntreprise valeur={nouvClient.entreprise} onChange={(e) => setNouvClient({ ...nouvClient, entreprise: e })} libelle="🏢 Entreprise cliente"
+            aide="La personne choisie au-dessus est son répondant : c'est à son numéro que partent le devis et les accès à l'espace client. Le contrat nommera l'entreprise et son répondant." />
+        </div>
+      )}
 
       {clientDevis === "__nouveau__" && nouvClient.nom && chiffresTel(nouvClient.tel).length >= 4 && (
         <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs">
@@ -490,12 +520,39 @@ function marquerProspectsDuCompte(base, compteId, telRef) {
 // récupère un compte existant. Retourne null (une alerte a déjà été affichée) en
 // cas de saisie invalide, sinon { compte, motDePasse, dbApres }.
 export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique) {
+  // 🏢 29/09/2026 (Timo) : « en bas de la ligne client destinataire, une case
+  // à cocher entreprise cliente… la personne mentionnée est le répondant,
+  // c'est à son numéro que les infos de l'espace client sont envoyées ».
+  // Le compte reste celui de la PERSONNE ; l'entreprise se range sur le devis
+  // et sur sa fiche (B « b »). Un nom sans case cochée est refusé ICI, pour
+  // tous les chemins (volet, Mes brouillons).
+  const refusEnt = critiqueEntreprise(nouvClient.entreprise);
+  if (refusEnt) { uAlert(refusEnt); return null; }
+  const avecIdentite = (base, compte, prenom) => {
+    const identite = champsIdentite({ prenom, entreprise: nouvClient.entreprise });
+    const fiche = ficheAvecIdentite(compte, identite);
+    return {
+      identite,
+      compte: fiche,
+      dbApres: fiche === compte ? base : { ...base, users: base.users.map((u) => (u.id === compte.id ? fiche : u)) },
+    };
+  };
   if (clientDevis === "__nouveau__") {
     const nom = nouvClient.nom.trim();
     const tel = nouvClient.tel.trim();
     if (!nom || chiffresTel(tel).length < 4) {
       uAlert("Pour créer le compte, il faut le nom du client et son numéro (au moins 4 chiffres).");
       return null;
+    }
+    // C « a » : le prénom est obligatoire pour un compte client. Un ancien
+    // brouillon n'en a pas : on le DEMANDE au lieu de refuser.
+    let prenom = nettoyerPrenom(nouvClient.prenom);
+    if (!prenom) {
+      const saisi = await uPrompt(`Prénom de ${nom.toUpperCase()} ?\n\nIl est demandé pour son compte client.`, "");
+      if (saisi === null) return null;
+      prenom = nettoyerPrenom(saisi);
+      const refusPrenom = critiquePrenom(prenom);
+      if (refusPrenom) { uAlert(refusPrenom); return null; }
     }
     // ⚠ Bug réel trouvé (compte VIVA, capture Timo) : rien n'empêchait de
     // créer DEUX FOIS le même client (double-clic, ou nouvel essai après
@@ -515,17 +572,18 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
     // memeNumero compare les 8 DERNIERS chiffres — la règle posée par Timo.
     const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, tel));
     if (existant) {
+      const r = avecIdentite(db, existant, prenom);
       return {
-        compte: existant, motDePasse: existant.mdp_auto ? motDePasseConnu(existant) : null,
-        dbApres: marquerProspectsDuCompte(db, existant.id, existant.tel || tel),
+        compte: r.compte, identite: r.identite, motDePasse: existant.mdp_auto ? motDePasseConnu(existant) : null,
+        dbApres: marquerProspectsDuCompte(r.dbApres, existant.id, existant.tel || tel),
       };
     }
     // Le compte client hérite de l'espace de celui qui le crée (voir
     // marqueEspace) : un « client » inventé pendant un entraînement ne doit
     // pas se retrouver mêlé aux vrais dans les listes ni dans les relances.
-    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile, boutique));
+    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, { ...marqueEspace(db, profile, boutique), ...champsCompteClient(nom, prenom, nouvClient.entreprise) });
     return {
-      compte: fab.user, motDePasse: fab.motDePasse,
+      compte: fab.user, motDePasse: fab.motDePasse, identite: champsIdentite({ prenom, entreprise: nouvClient.entreprise }),
       dbApres: marquerProspectsDuCompte(
         { ...db, users: [...db.users, fab.user], messages: [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
         fab.user.id, tel),
@@ -533,7 +591,8 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
   }
   const compte = db.users.find((u) => u.id === clientDevis);
   if (!compte) { uAlert("Choisissez le client à qui envoyer ce devis."); return null; }
-  return { compte, motDePasse: motDePasseConnu(compte), dbApres: marquerProspectsDuCompte(db, compte.id, compte.tel) };
+  const r = avecIdentite(db, compte, compte.prenom);
+  return { compte: r.compte, identite: r.identite, motDePasse: motDePasseConnu(compte), dbApres: marquerProspectsDuCompte(r.dbApres, compte.id, compte.tel) };
 }
 
 // Enregistre le devis dans la fiche du client puis ouvre WhatsApp avec ses

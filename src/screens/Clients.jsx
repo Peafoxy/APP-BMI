@@ -14,6 +14,9 @@ import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+// 🏢 Le prénom et l'entreprise du client (29/09/2026) : UNE règle, UN bloc.
+import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
+import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
   motDePasseConnu, messagesNouveauClient,
@@ -27,7 +30,8 @@ import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/
 // et le client (qui a 🤝 Parrainer). Crée UNIQUEMENT un compte de rôle "client",
 // avec identifiants automatiques + envoi WhatsApp. AUCUNE commission.
 export function CreerClient({ db, save, profile }) {
-  const [f, setF] = useState({ nom: "", tel: "" });
+  const [f, setF] = useState({ nom: "", prenom: "", tel: "" });
+  const [ent, setEnt] = useState(ENTREPRISE_VIDE());
   const [aussiProspect, setAussiProspect] = useState(false); // client simple, ou aussi un prospect à relancer
   const [dernier, setDernier] = useState(null); // { nom, identifiant, motDePasse, tel }
 
@@ -38,6 +42,8 @@ export function CreerClient({ db, save, profile }) {
     if (bloquerSiLecture(db, profile)) return;
     const nom = f.nom.trim(), tel = f.tel.trim();
     if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom du client et son numéro (au moins 4 chiffres)."); return; }
+    const refusIdentite = critiquePrenom(f.prenom) || critiqueEntreprise(ent);
+    if (refusIdentite) { uAlert(refusIdentite); return; }
     // ⚠ memeNumero, pas une égalité de chiffres bruts : « +228 90 11 22 33 »
     // et « 90112233 » sont la MÊME personne (voir lib/identiteClient.js).
     // Avant ce correctif, un doublon se créait sans que personne ne le voie.
@@ -50,7 +56,7 @@ export function CreerClient({ db, save, profile }) {
       `Créer le compte de ${nom.toUpperCase()} ?\n\n👤 Identifiant : ${identifiant}\n🔑 Mot de passe : ${motDePasse}\n\nSes identifiants lui seront envoyés par WhatsApp.`
     )) return;
 
-    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom, marqueEspace(db, profile));
+    const { user } = await fabriquerCompteClient(db, nom, tel, profile.nom, { ...marqueEspace(db, profile), ...champsCompteClient(nom, f.prenom, ent) });
     // On note QUI a amené ce client — pour la traçabilité, PAS pour une commission.
     const client = { ...user, amene_par_id: profile.id, amene_par_nom: profile.nom };
 
@@ -73,7 +79,8 @@ export function CreerClient({ db, save, profile }) {
       messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])],
     }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}${aussiProspect ? " (+ prospect à relancer)" : ""}`);
 
-    setF({ nom: "", tel: "" });
+    setF({ nom: "", prenom: "", tel: "" });
+    setEnt(ENTREPRISE_VIDE());
     // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
     const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
     if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: client, envoi: r }) }));
@@ -101,11 +108,12 @@ export function CreerClient({ db, save, profile }) {
         <div className="font-bold mb-1">🙋 Créer un compte client</div>
         <div className="text-xs text-slate-500 mb-4">
           Ouvrez un accès à un client (actuel ou potentiel) : il pourra suivre ses devis et ses installations.
-          Le nom et le numéro suffisent — le mot de passe est généré, et ses identifiants partent par WhatsApp.
+          Le nom, le prénom et le numéro suffisent — le mot de passe est généré, et ses identifiants partent par WhatsApp.
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-2 items-end mb-3">
-          <Field label="Nom du client"><input className={inputCls} placeholder="KOFFI AMA" value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
+        <div className="grid sm:grid-cols-3 gap-2 items-end mb-3">
+          <Field label="Nom du client"><input className={inputCls} placeholder="KOFFI" value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
+          <Field label="Prénom"><input className={inputCls} placeholder="Ama" value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} data-prenom-client /></Field>
           <Field label="Numéro WhatsApp">
             <input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} />
             {/* ⚠ PRÉSÉLECTION (demande Timo) : on ne laisse plus l'utilisateur
@@ -127,6 +135,8 @@ export function CreerClient({ db, save, profile }) {
             })()}
           </Field>
         </div>
+
+        <div className="mb-3"><ChampsEntreprise valeur={ent} onChange={setEnt} libelle="🏢 Entreprise cliente" aide="La personne saisie au-dessus est son répondant : son compte, ses accès et ses messages lui sont adressés." /></div>
 
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-3">
           <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Ce contact est…</div>
