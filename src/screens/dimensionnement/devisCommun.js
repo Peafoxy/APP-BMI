@@ -64,6 +64,23 @@ export const lignesFrais = (r) => [
   ...(r.remise > 0 ? [{ categorie: "Remise", article: `Remise (${r.pctRemise} %)`, qte: 1, pu: -r.remise, total: -r.remise }] : []),
 ];
 
+// ⚠ 29/09/2026 (Timo : « un devis de forage dans les brouillons… dès qu'il
+// est repris, il ajoute automatiquement une ligne de frais d'installation »).
+// Les trois lignes ci-dessus sont RANGÉES dans `devis.lignes`, à côté des
+// articles. Le volet « Autre » reprenait toute ligne qui n'était pas
+// « Autres équipements » : la ligne de frais revenait comme un ARTICLE, et
+// le pourcentage (lui aussi repris) la recomptait par-dessus — frais en
+// double, calculés sur eux-mêmes. UNE règle pour les reconnaître, écrite ICI,
+// à côté de ce qui les fabrique : catégorie ET début du libellé (un article
+// du stock rangé dans une catégorie « Installation » ne doit pas disparaître).
+export const estLigneFrais = (l) => {
+  const a = String((l && l.article) || "");
+  const c = l && l.categorie;
+  return (c === "Installation" && (a.startsWith("Frais d'installation (") || a === "Frais de pose (matériel du client)"))
+    || (c === "Transport" && a.startsWith("Transport / livraison ("))
+    || (c === "Remise" && a.startsWith("Remise ("));
+};
+
 // ---- Les champs enregistrés sur le devis, dans cet ordre ----
 export const champsReglages = (r) => ({
   total: r.totalDevis,

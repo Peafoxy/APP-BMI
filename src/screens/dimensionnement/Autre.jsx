@@ -9,7 +9,7 @@ import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../com
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
-import { construireDevis, panierAutres } from "./devisCommun";
+import { construireDevis, panierAutres, estLigneFrais } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
 import { etudePompe, pompesDuStock, ficheLisible } from "../../lib/pompes.js";
 import { pertesTuyauPct } from "../../lib/calculs";
@@ -114,7 +114,10 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // ⚠ Depuis que chaque ligne porte SA catégorie de stock (11/09/2026), le
   // volet reprend tout ce qui n'est pas « Autres équipements » — avant, il
   // filtrait sur le nom du domaine, qui n'est plus sur les lignes.
-  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie !== "Autres équipements") : [];
+  // ⚠ Et JAMAIS les lignes de frais (installation, transport, remise) : elles
+  // se recalculent d'après les pourcentages repris — les reprendre comme des
+  // articles les comptait deux fois (29/09/2026, `estLigneFrais`).
+  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie !== "Autres équipements" && !estLigneFrais(l)) : [];
   // Reconstruit besoins + choix/verrous à partir des mêmes lignes, en tentant de
   // retrouver l'article correspondant en stock — sinon on restitue le prix d'origine tel quel.
   const initialSelection = (() => {

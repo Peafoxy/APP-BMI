@@ -4594,7 +4594,8 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
       /categorie: l\.besoin\.categorie \|\| categorieChoisie, article: l\.produit\.nom/.test(au)
       && /besoins: \{ categorie: categorieChoisie \},/.test(au)
       && !/articles_demandes:/.test(au)
-      && /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements"\)/.test(au));
+      // ⚠ RETOURNÉ le 29/09/2026 : la reprise écarte AUSSI les lignes de frais (estLigneFrais).
+      && /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\)\)/.test(au));
   }
 }
 
@@ -11459,6 +11460,31 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     test("★ la relance automatique du 8e jour ne regarde qu'un devis « propose » (un classé en est donc exclu)",
       /if \(\(devis\.statut \|\| "propose"\) !== "propose"\) return false;/.test(readFileSync("src/lib/relanceAutoDevis.js", "utf8")));
   }
+}
+
+titre("Un devis SANS CALCUL repris ne ramène jamais ses lignes de frais comme des articles (29/09/2026)");
+{
+  // Timo : « un devis de forage dans les brouillons… dès qu'il est repris, il
+  // ajoute automatiquement une ligne de frais d'installation ». La ligne de
+  // frais était rangée dans devis.lignes et revenait comme un ARTICLE, pendant
+  // que le pourcentage repris la recomptait.
+  const sortieLF = join("node_modules", ".cache", `bmi-lf-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieLF, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DC = await import(pathToFileURL(sortieLF).href);
+  unlinkSync(sortieLF);
+  const frais = DC.lignesFrais({ fraisInstallation: 12000, pctInstall: 10, poseSeule: false, fraisTransport: 6000, pctTransport: 5, remise: 3000, pctRemise: 2.5 });
+  const pose = DC.lignesFrais({ fraisInstallation: 50000, poseSeule: true, fraisTransport: 0, remise: 0 });
+  test("★★ les trois lignes que fabrique lignesFrais sont TOUTES reconnues (installation, transport, remise, et la pose seule)",
+    frais.length === 3 && frais.every(DC.estLigneFrais) && pose.length === 1 && pose.every(DC.estLigneFrais));
+  test("★ un vrai article n'est jamais pris pour des frais — même rangé dans une catégorie « Installation »",
+    !DC.estLigneFrais({ categorie: "Installation", article: "Coffret de protection", qte: 1, pu: 20000 })
+    && !DC.estLigneFrais({ categorie: "Pompe", article: "Pompe 0,75 kW", qte: 1, pu: 250000 })
+    && !DC.estLigneFrais(null));
+  const autre = readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8");
+  test("★★ le volet « Autre » écarte les lignes de frais à la reprise (elles se recalculent d'après les pourcentages)",
+    /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\)\)/.test(autre)
+    && /import \{[^}]*\bestLigneFrais\b[^}]*\} from "\.\/devisCommun"/.test(autre));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

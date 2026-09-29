@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1949 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1952 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -552,6 +552,15 @@ lit mal est pire qu'un banc absent).
   reprise récupère tout ce qui n'est pas « Autres équipements ».
   `correspondancesBesoin` et le champ à suggestions ont été RETIRÉS de ce
   volet : une règle qui ne commande plus rien ne reste pas en place.
+  ⚠ **Une reprise n'y ramène JAMAIS les lignes de frais** (29/09/2026, Timo :
+  « un devis de forage repris ajoute automatiquement une ligne de frais
+  d'installation ») : installation, transport et remise sont RANGÉES dans
+  `devis.lignes` ; le filtre « tout sauf Autres équipements » les ramenait
+  comme des ARTICLES pendant que le pourcentage repris les recomptait (frais
+  en double, calculés sur eux-mêmes). `estLigneFrais` (devisCommun.js, à côté
+  de `lignesFrais`) les reconnaît par la catégorie ET le début du libellé. Les
+  volets solaire et portail n'étaient pas touchés (ils reprennent par
+  catégorie précise). Banc éprouvé en retirant le filtre : il tombe.
 - **UN champ à suggestions pour toute l'application** (08/09/2026) :
   `components/ChampSuggestions.jsx` + règle pure `lib/suggestions.js`.
   Recherche sans accents ni majuscules, chaque mot tapé dans n'importe quel
