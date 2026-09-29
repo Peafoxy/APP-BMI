@@ -1240,42 +1240,40 @@ titre("Clients installés : les coordonnées des vrais clients restent dans l'es
 }
 
 
-titre("Répartition des frais d'installation : la somme des parts ne dépasse jamais 100 %");
+titre("Répartition des frais d'installation : BMI prend sa part, le reste à égalité entre les techniciens (chef compris)");
 {
-  // Reprise EXACTE de repartitionProposee (ClientsInstalles.jsx).
-  const repartition = (ids, chefId, partChef) => {
-    const n = ids.length;
-    if (!n) return {};
-    const reste = Math.max(0, 100 - Number(partChef || 0));
-    const partEgale = Math.round((reste / n) * 10) / 10;
-    const r = {};
-    let distribue = 0;
-    ids.forEach((id) => { if (id === chefId) return; r[id] = partEgale; distribue += partEgale; });
-    const chef = ids.includes(chefId) ? chefId : ids[0];
-    r[chef] = Math.round((100 - distribue) * 100) / 100;
-    return r;
-  };
+  // Timo (29/09/2026, « b, mais… PART DE BMI ») : la VRAIE fonction de l'écran
+  // est extraite du fichier et exercée — plus une recopie qui pourrait diverger.
+  const srcCI = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  const debut = srcCI.indexOf("function repartitionProposee(");
+  const corps = srcCI.slice(debut, srcCI.indexOf("\n}\n", debut) + 2);
+  const repartition = new Function(`${corps}; return repartitionProposee;`)();
   const total = (r) => Math.round(Object.values(r).reduce((s, v) => s + v, 0) * 100) / 100;
   const ids = (n) => Array.from({ length: n }, (_, i) => `t${i}`);
 
   let pire = 0;
   for (let n = 1; n <= 12; n++) {
-    for (const pc of [0, 10, 25, 33, 40, 50, 60, 75, 100]) {
-      pire = Math.max(pire, Math.abs(100 - total(repartition(ids(n), "t0", pc))));
+    for (const bmi of [0, 10, 25, 33, 40, 50, 60, 75, 100]) {
+      pire = Math.max(pire, Math.abs((100 - bmi) - total(repartition(ids(n), "t0", bmi))));
     }
   }
-  test("de 1 à 12 techniciens et pour tous les taux de chef : le total fait toujours 100 %",
+  test("de 1 à 12 techniciens et pour toute part de BMI : les techniciens reçoivent exactement 100 % − la part de BMI",
     pire === 0);
-  test("le cas qui débordait — 7 techniciens, chef à 40 % — fait bien 100 % (c'était 100,2)",
-    total(repartition(ids(7), "t0", 40)) === 100);
-  test("9 techniciens : 100 % aussi (c'était 100,3)",
-    total(repartition(ids(9), "t0", 40)) === 100);
-  test("le chef reçoit toujours la part la plus forte", (() => {
-    const r = repartition(ids(7), "t0", 40);
-    return r.t0 === Math.max(...Object.values(r));
+  test("le cas de la capture (4 techniciens, BMI 60 %) : 10 % chacun, chef compris — jamais 70 % au chef", (() => {
+    const r = repartition(["AGBEKO", "ESSO", "EMMANUEL", "DJEDJE"], "AGBEKO", 60);
+    return Object.values(r).every((v) => v === 10) && total(r) === 40;
   })());
-  test("un seul technicien prend 100 %",
-    total(repartition(ids(1), "t0", 40)) === 100 && repartition(ids(1), "t0", 40).t0 === 100);
+  test("7 techniciens, BMI 40 % : total 60 %, le chef ne dépasse les autres que d'un arrondi (≤ 0,1)", (() => {
+    const r = repartition(ids(7), "t0", 40);
+    const autres = Object.entries(r).filter(([k]) => k !== "t0").map(([, v]) => v);
+    return total(r) === 60 && Math.abs(r.t0 - autres[0]) <= 0.1 + 1e-9;
+  })());
+  test("BMI à 0 : un seul technicien prend 100 %",
+    repartition(ids(1), "t0", 0).t0 === 100);
+  test("l'écran dit « Part de BMI », plus « Part du chef de chantier »",
+    /label="Part de BMI \(%\)"/.test(srcCI) && !/Part du chef de chantier/.test(srcCI) && !/part_chef/.test(srcCI));
+  test("la part de BMI enregistrée est celle qui reste réellement (100 − total des techniciens)",
+    /part_bmi: pctBMI/.test(srcCI) && /const pctBMI = Math\.round\(\(100 - totalPct\)/.test(srcCI));
 }
 
 
