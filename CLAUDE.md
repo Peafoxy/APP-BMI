@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1956 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1958 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1039,8 +1039,9 @@ lit mal est pire qu'un banc absent).
   demande plus ; vide = le seuil comme avant. Refusé s'il n'est pas au-dessus
   du seuil (`critiqueStockCible`, création ET ✏️ Corriger). Colonne « À
   atteindre » dans la liste et l'export. Copié au ravitaillement vers une
-  boutique qui n'a pas l'article. ⚠ L'import Excel ne le lit pas (pas
-  demandé) : il se remplit fiche par fiche.
+  boutique qui n'a pas l'article. ~~⚠ L'import Excel ne le lit pas~~ —
+  **RETOURNÉ le 29/09/2026** (« oui, ajoute la colonne ») : voir
+  « Importation Excel » plus bas.
 - Banc (`verifier-cloisonnement`, 9 contrôles), éprouvé en comptant les
   lignes `deja_sorti`, en retirant le plancher du seuil et en élargissant la
   fenêtre d'un jour : chacun tombe. Deux contrôles de `verifier-ecran-stocks`
@@ -5133,7 +5134,10 @@ lit mal est pire qu'un banc absent).
 - Présélectionner un article remplit le formulaire d'ajout ; la correction
   ne passe que par ✏️ Corriger. Importation Excel : une feuille par boutique,
   colonnes nom, fournisseur, domaine, catégorie, initial, seuil, prix
-  d'achat, prix de vente ; deux modes (nouveaux articles / entrées).
+  d'achat, prix de vente, **puis « Stock à atteindre » (facultative, EN
+  DERNIER** pour qu'un ancien fichier sans titres se lise pareil — 29/09/2026 ;
+  pas au-dessus du seuil ou illisible → article importé sans lui, et c'est
+  dit) ; deux modes (nouveaux articles / entrées).
 
 ### Rapports
 - **Le rapport de stocks est classé par boutique, par catégorie et par

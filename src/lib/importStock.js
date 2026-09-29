@@ -6,15 +6,18 @@
 // « une feuille par boutique ». L'ordre des colonnes est le sien, celui du
 // formulaire à l'écran :
 //   Nom, Fournisseur, Domaine, Catégorie, Initial, Seuil, Prix d'achat, Prix de vente
+// puis, facultative et EN DERNIER (29/09/2026, « oui, ajoute la colonne
+// dans l'import Excel ») : Stock à atteindre. En dernier pour qu'un fichier
+// SANS titres, écrit avant, se lise toujours de la même façon.
 //
 // Ce module est PUR (aucun accès à l'écran) pour que le banc puisse rejouer
 // chaque règle : la lecture du fichier lui-même (xlsx) est isolée en bas.
 // ============================================================
-import { normNom, domainesDefinis, estBoutiqueFormation } from "./calculs";
+import { normNom, domainesDefinis, estBoutiqueFormation, critiqueStockCible } from "./calculs";
 
-export const COLONNES_IMPORT = ["Nom", "Fournisseur", "Domaine", "Catégorie", "Initial", "Seuil", "Prix d'achat", "Prix de vente"];
+export const COLONNES_IMPORT = ["Nom", "Fournisseur", "Domaine", "Catégorie", "Initial", "Seuil", "Prix d'achat", "Prix de vente", "Stock à atteindre"];
 
-export const EXEMPLE_IMPORT = ["Panneau Solaire 150W", "SOLARIS", "Solaire", "Panneaux", 10, 3, 45000, 65000];
+export const EXEMPLE_IMPORT = ["Panneau Solaire 150W", "SOLARIS", "Solaire", "Panneaux", 10, 3, 45000, 65000, 12];
 
 // Un titre de colonne se reconnaît sans accents, sans majuscules, sans
 // espaces ni apostrophes : « Prix d'achat », « PRIX ACHAT », « prix_achat »
@@ -29,8 +32,9 @@ const ALIAS = {
   seuil: "seuil", seuilalerte: "seuil", alerte: "seuil",
   prixachat: "prix_achat", prixdachat: "prix_achat", achat: "prix_achat", pa: "prix_achat",
   prixvente: "prix_vente", prixdevente: "prix_vente", vente: "prix_vente", pv: "prix_vente",
+  stockaatteindre: "stock_cible", aatteindre: "stock_cible", stockcible: "stock_cible", cible: "stock_cible", stockmax: "stock_cible", stockmaximum: "stock_cible",
 };
-const CHAMPS_ORDONNES = ["nom", "fournisseur", "domaine", "categorie", "initial", "seuil", "prix_achat", "prix_vente"];
+const CHAMPS_ORDONNES = ["nom", "fournisseur", "domaine", "categorie", "initial", "seuil", "prix_achat", "prix_vente", "stock_cible"];
 
 // ---- MODE « ENTRÉES DE STOCK » (marchandise reçue pour des articles EXISTANTS) ----
 // Demande Timo (03/09/2026) : « pour une prochaine entrée, on peut utiliser
@@ -152,6 +156,16 @@ export const analyserImport = (db, boutique, enregistrements) => {
     }
 
     const initial = nombre(e.initial), seuil = nombre(e.seuil), prixAchat = nombre(e.prix_achat);
+    // 🎯 Stock à atteindre : facultatif ; illisible ou pas au-dessus du seuil
+    // → l'article est importé SANS lui, et on le dit (même règle que la fiche).
+    let stockCible = 0;
+    const cTape = e.stock_cible;
+    if (String(cTape ?? "").trim() !== "") {
+      const c = nombre(cTape);
+      const refus = Number.isFinite(c) ? critiqueStockCible(Number.isFinite(seuil) ? seuil : 0, c) : "illisible";
+      if (refus) avertissements.push(`${ou} (${nom}) : stock à atteindre « ${String(cTape).trim()} » ignoré — ${refus === "illisible" ? "ce n'est pas un nombre" : "il doit être plus grand que le seuil"}`);
+      else stockCible = c;
+    }
     nouveaux.push({
       boutique, nom, fournisseur, domaine,
       categorie: String(e.categorie ?? "").trim() || "Autre",
@@ -160,6 +174,7 @@ export const analyserImport = (db, boutique, enregistrements) => {
       seuil: Number.isFinite(seuil) ? seuil : 0,
       prix_achat: Number.isFinite(prixAchat) ? prixAchat : 0,
       prix_vente: prixVente,
+      ...(stockCible > 0 ? { stock_cible: stockCible } : {}),
     });
   }
   return { nouveaux, erreurs, avertissements };
@@ -248,7 +263,7 @@ export async function telechargerModeleImport(boutique, mode = MODES_IMPORT.arti
   const feuille = XLSX.utils.aoa_to_sheet(entreesMode ? [COLONNES_ENTREES, EXEMPLE_ENTREES] : [COLONNES_IMPORT, EXEMPLE_IMPORT]);
   feuille["!cols"] = entreesMode
     ? [{ wch: 28 }, { wch: 14 }, { wch: 12 }]
-    : [{ wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 12 }];
+    : [{ wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
   const classeur = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(classeur, feuille, (boutique || "Stock").slice(0, 31));
   const nomB = (boutique || "").replace(/[\\/:*?"<>|]/g, "").trim() || "BMI";

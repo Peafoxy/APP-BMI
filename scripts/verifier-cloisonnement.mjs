@@ -7336,8 +7336,25 @@ titre("Importation d'articles : Excel ou texte collé, fournisseur et domaine co
     fournisseurs: [{ id: "f1", nom: "SOLARIS" }, { id: "f2", nom: "ECOLE-FOURN", formation: true }],
     produits: [{ id: "p1", boutique: "BMI DEMAKPOE", nom: "COFFRET ETANCHE IP65", prix_vente: 12000 }],
   };
-  test("★ l'ordre des colonnes est celui de Timo : Nom, Fournisseur, Domaine, Catégorie, Initial, Seuil, Prix d'achat, Prix de vente",
-    Imp.COLONNES_IMPORT.join("|") === "Nom|Fournisseur|Domaine|Catégorie|Initial|Seuil|Prix d'achat|Prix de vente");
+  test("★ l'ordre des colonnes est celui de Timo : Nom, Fournisseur, Domaine, Catégorie, Initial, Seuil, Prix d'achat, Prix de vente — puis Stock à atteindre, EN DERNIER (29/09/2026)",
+    Imp.COLONNES_IMPORT.join("|") === "Nom|Fournisseur|Domaine|Catégorie|Initial|Seuil|Prix d'achat|Prix de vente|Stock à atteindre");
+
+  // 🎯 Stock à atteindre (29/09/2026, « oui, ajoute la colonne dans l'import Excel »)
+  {
+    const rC = Imp.analyserImport(dbI, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes([
+      ["Nom", "Seuil", "Prix de vente", "Stock à atteindre"],
+      ["CIBLE OK", 3, 1000, 12], ["CIBLE BASSE", 5, 1000, 4], ["CIBLE VIDE", 5, 1000, ""], ["CIBLE FAUSSE", 5, 1000, "douze"],
+    ]).enregistrements);
+    const n = (nom) => rC.nouveaux.find((x) => x.nom === nom);
+    test("★ import : la colonne « Stock à atteindre » est lue par son titre ; plus grand que le seuil → gardé ; pas au-dessus ou illisible → article importé SANS lui, et c'est DIT ; vide → rien",
+      n("CIBLE OK")?.stock_cible === 12 && n("CIBLE BASSE") && n("CIBLE BASSE").stock_cible === undefined && n("CIBLE VIDE")?.stock_cible === undefined
+      && n("CIBLE FAUSSE") && n("CIBLE FAUSSE").stock_cible === undefined
+      && rC.avertissements.filter((a) => /stock à atteindre/.test(a)).length === 2);
+    const sansT = Imp.analyserImport(dbI, "BMI DEMAKPOE", Imp.enregistrementsDepuisLignes([["ANCIEN", "", "", "", 1, 2, 500, 900], ["NOUVEAU", "", "", "", 1, 2, 500, 900, 10]]).enregistrements);
+    test("★ …sans titres : un fichier à 8 colonnes se lit comme avant, la 9e colonne est le stock à atteindre",
+      sansT.nouveaux.find((x) => x.nom === "ANCIEN")?.prix_vente === 900 && sansT.nouveaux.find((x) => x.nom === "ANCIEN")?.stock_cible === undefined
+      && sansT.nouveaux.find((x) => x.nom === "NOUVEAU")?.stock_cible === 10);
+  }
 
   // Fichier avec titres, dans le DÉSORDRE, accents/majuscules libres.
   const avecTitres = Imp.enregistrementsDepuisLignes([
