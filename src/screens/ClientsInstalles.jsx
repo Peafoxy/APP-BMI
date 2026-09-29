@@ -18,7 +18,7 @@ import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
@@ -259,7 +259,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const quoi = await uPrompt(`🎁 Cadeau pour ${c.prenom} ${c.nom}\n\nQue lui offrez-vous ?\n(ex : une lampe solaire, un bon d'entretien gratuit...)`, "");
     if (quoi === null || !quoi.trim()) return;
 
-    const bqs = boutiquesVente(db).map((b) => b.nom);
+    const bqs = boutiquesVenteDuChantier(db, profile, c).map((b) => b.nom);
     if (bqs.length === 0) { uAlert("Aucune boutique enregistrée."); return; }
     const ou = await uPrompt(`Où doit-il venir le récupérer ?\n\n(${bqs.join(" / ")})`, bqs[0]);
     if (ou === null) return;
@@ -567,7 +567,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // rattaché à AUCUNE boutique précise — on lui demande laquelle.
     let boutiqueEncaissement = enBoutique ? profile.boutique : dette?.boutique;
     if (enBoutique && !boutiqueEncaissement) {
-      boutiqueEncaissement = await uChoix("Encaissé dans quelle boutique ?", boutiquesVente(db).map((b) => b.nom));
+      boutiqueEncaissement = await uChoix("Encaissé dans quelle boutique ?", boutiquesVenteDuChantier(db, profile, c).map((b) => b.nom));
       if (!boutiqueEncaissement) return;
     }
     const note = await encaisserDettePose({ db, save, profile, chantier: c, boutiqueEncaissement, enBoutique });

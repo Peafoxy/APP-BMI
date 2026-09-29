@@ -1610,6 +1610,16 @@ export const espaceDuChantier = (db, c, profile) => {
   return b ? estBoutiqueFormation(db, b) : espaceDuCompte(db, profile);
 };
 
+// Les boutiques de vente où un geste sur CE chantier peut tomber (encaisser
+// une pose, remettre un cadeau) : celles de l'espace regardé ET de l'espace
+// du chantier — jamais l'autre (capture Timo, 29/09/2026 : « Encaissé dans
+// quelle boutique ? » proposait DFORMATION et AFORMATION à côté de BMI
+// DEMAKPOE sur un chantier réel). C'est l'espace de l'ARGENT qui décide.
+export const boutiquesVenteDuChantier = (db, profile, c) => {
+  const formation = !!espaceDuChantier(db, c, profile);
+  return boutiquesVisibles(db, profile, boutiquesVente(db)).filter((b) => !!b.formation === formation);
+};
+
 export const repartirCommissionEquipe = (ventes, tauxFilleul, tauxEquipe, db) => {
   const tx = Number(tauxEquipe || 0);
   let due = 0, versees = 0, gelee = 0;

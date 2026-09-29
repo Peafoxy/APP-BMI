@@ -6145,6 +6145,19 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     C.couvertureStockJours({ boutiques: [{ nom: "A" }] }) === 21 && C.couvertureStockJours({ boutiques: [{ nom: "A" }, { nom: "B", reappro_couverture_jours: 14 }] }) === 14
     && /const enregistrerCouvertureStock = \(\) => \{\s*if \(refuserSaufAdmin\(profile, "Modifier la durée de stock visée"\)\) return;/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
     && /reappro_couverture_jours: v/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
+  // 🧱 LE MUR À L'ENCAISSEMENT D'UNE POSE (capture Timo, 29/09/2026 : « Encaissé
+  // dans quelle boutique ? » proposait DFORMATION et AFORMATION à côté de BMI
+  // DEMAKPOE sur un chantier réel).
+  {
+    const dbM = { boutiques: [{ nom: "BMI DEMAKPOE" }, { nom: "BMI APESSITO" }, { nom: "DFORMATION", formation: true }, { nom: "TERRAIN", terrain: true }, { nom: "DEPOT", depot: true }],
+      users: [{ id: "p", nom: "TIMO", role: "admin", admin_principal: true }] };
+    const timo = dbM.users[0];
+    const noms = C.boutiquesVenteDuChantier(dbM, timo, { id: "c1", boutique: "BMI DEMAKPOE" }).map((b) => b.nom).join("|");
+    const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+    test("★ encaisser une pose / remettre un cadeau : seules les boutiques de vente de l'espace du chantier (jamais la formation sur un chantier réel, jamais TERRAIN ni un dépôt), et ClientsInstalles ne lit plus la liste brute",
+      noms === "BMI DEMAKPOE|BMI APESSITO" && !/boutiquesVente\(db\)/.test(ci)
+      && (ci.match(/boutiquesVenteDuChantier\(db, profile, c\)/g) || []).length === 2);
+  }
   // 🎯 LE STOCK À ATTEINDRE (Timo, 29/09/2026, « b ») : sous le seuil, on remonte
   // jusqu'à lui — plus seulement jusqu'au seuil.
   const unSeul = (p) => C.articlesAReapprovisionner({ ...dbV, produits: [p] }, stockV, "A", { jours: 30, couverture: 21, aujourdhui: jour })[0];
