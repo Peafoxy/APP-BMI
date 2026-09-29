@@ -2,6 +2,7 @@
 // screens/EspaceClient.jsx — Espace du rôle Client : ses devis, ses
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
+import { ACOMPTE_POSE_PCT } from "../lib/poseSeule";
 import { partieClientContrat } from "../lib/clientEntreprise";
 import { useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
@@ -351,7 +352,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     if (d.pose_seule) {
       if (!await uConfirm(
         `Valider ce devis de ${fmt(d.total)} (pose seule — matériel déjà en votre possession) ?\n\n` +
-        `Nos équipes vous contacteront pour programmer l'intervention. Le règlement se fait au technicien à la fin des travaux (ou en boutique si besoin).` + avisExpiration
+        `Nos équipes vous contacteront. ${ACOMPTE_POSE_PCT} % du montant sont à régler avant que l'intervention soit programmée, le solde à la réception des travaux (au technicien ou en boutique).` + avisExpiration
       )) return false;
       const r = validerDevis(db, { clientId: profile.id, devisId: d.id, infosContrat, acteur: { nom: profile.nom, estClient: true } });
       if (r.erreur) { uAlert(r.erreur); return false; }
@@ -563,7 +564,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                         <div className="font-bold text-sky-900 mb-1">Ce devis vous convient ?</div>
                         <div className="text-xs text-slate-600 mb-3">
                           {d.pose_seule
-                            ? <>Validez-le pour signer le contrat. <b>Nos équipes vous contacteront pour programmer l'intervention.</b> Le règlement se fait au technicien à la fin des travaux.</>
+                            ? <>Validez-le pour signer le contrat. <b>Nos équipes vous contacteront pour programmer l'intervention.</b> {ACOMPTE_POSE_PCT} % sont à régler avant que l'intervention soit programmée, le solde à la réception des travaux.</>
                             : <>Validez-le, et choisissez la boutique où vous passerez régler. Le vendeur y sera prévenu. <b>Votre installation sera programmée dès votre paiement.</b></>}
                         </div>
                         <div className="grid sm:grid-cols-2 gap-2 items-end">

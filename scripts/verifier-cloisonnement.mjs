@@ -11772,6 +11772,18 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
   const pdfS = lireE("src/pdf.js");
   test("★ le PDF du devis et celui de la proforma écrivent l'entreprise et son répondant",
     /const idPf = identiteClient\(p\);/.test(pdfS) && /const idDv = identiteClient\(d\);/.test(pdfS) && /idDv\.represente/.test(pdfS));
+  test("★ les appels passent l'identité : le PDF du devis de 📋 Tous les devis et la réimpression d'une proforma",
+    /prenom: d\.prenom \|\| d\.client\?\.prenom \|\| "",\s*entreprise: d\.entreprise \|\| null,/.test(lireE("src/screens/TousLesDevis.jsx"))
+    && /client: pf\.client, tel: pf\.tel, \.\.\.champsIdentite\(pf\), lignes/.test(ve));
+}
+
+titre("🔧 L'espace client dit la règle des 70 % de la pose seule, jamais « au technicien à la fin des travaux » (29/09/2026)");
+{
+  const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+  test("★ la validation d'une pose seule annonce l'acompte AVANT la programmation (ACOMPTE_POSE_PCT), et plus aucune phrase ne dit « au technicien à la fin des travaux »",
+    (ec.match(/\$?\{ACOMPTE_POSE_PCT\} % (du montant )?sont à régler avant que l'intervention soit programmée/g) || []).length === 2
+    && !/Le règlement se fait au technicien à la fin des travaux/.test(ec)
+    && /import \{ ACOMPTE_POSE_PCT \} from "\.\.\/lib\/poseSeule";/.test(ec));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

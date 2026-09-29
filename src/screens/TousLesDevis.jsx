@@ -385,6 +385,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       date: dFR(d.date),
       boutique: d.boutique,
       client: d.client?.nom_base || d.client?.nom || "—",
+      // 29/09/2026 : le prénom et l'entreprise cliente du devis (lib/clientEntreprise.js).
+      prenom: d.prenom || d.client?.prenom || "",
+      entreprise: d.entreprise || null,
       tel: d.client?.tel || "",
       titre: libelleTypeDevis(d).replace(/^\S+\s/, ""),
       statut: (STATUT_DEVIS[d.statut || "propose"] || STATUT_DEVIS.propose)[0].replace(/^\S+\s/, ""),

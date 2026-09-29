@@ -1541,7 +1541,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       : <span className="text-xs font-semibold text-amber-700">⏳ En attente</span>;
                   })()}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
+                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf), lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
                     {/* ⚠ Timo (11/09/2026) : « reprise » disait déjà, sur une VENTE,
                         que le client rend un article — deux sens opposés dans le même
                         écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement
