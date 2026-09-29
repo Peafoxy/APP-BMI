@@ -8,7 +8,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
 import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
@@ -477,6 +477,8 @@ export function MonEquipe({ db, save, profile }) {
   // ou on rouvre avec un motif (le membre le verra en rouge dans Mes tâches).
   const aValider = tachesAValider(db, profile);
   const [membreTaches, setMembreTaches] = useState(null); // fiche dont on affiche l'historique des tâches
+  // Ce qu'on ouvre se voit (29/09/2026) : les tâches s'affichent en haut de l'écran.
+  const refTaches = useMontrerALOuverture(membreTaches);
 
   const validerTache = async (tv) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -512,10 +514,10 @@ export function MonEquipe({ db, save, profile }) {
           validee: <span className="text-xs font-bold px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">✅ Validée</span>,
         };
         return (
-          <Panel>
+          <div ref={refTaches} data-panneau="taches"><Panel>
             <div className="flex items-center justify-between mb-3">
               <div className="font-bold">🗂 Tâches de {membre.nom} ({liste.length})</div>
-              <button onClick={() => setMembreTaches(null)} className="text-xs font-bold text-slate-500 underline">Fermer</button>
+              <button onClick={() => { setMembreTaches(null); revenirSurLaLigne(membre.id); }} className="text-xs font-bold text-slate-500 underline">Fermer</button>
             </div>
             <div className="space-y-2">
               {liste.map((t) => (
@@ -538,7 +540,7 @@ export function MonEquipe({ db, save, profile }) {
                 </div>
               ))}
             </div>
-          </Panel>
+          </Panel></div>
         );
       })()}
       {aValider.length > 0 && (
@@ -588,7 +590,7 @@ export function MonEquipe({ db, save, profile }) {
           <tbody>
             {stats.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun commercial actif.</td></tr>}
             {stats.map((st) => (
-              <tr key={st.u.id} className="border-t border-slate-100 hover:bg-sky-50">
+              <tr key={st.u.id} data-ligne={st.u.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>

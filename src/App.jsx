@@ -109,7 +109,7 @@ import { motAMontrer, motPour, marquerMotLu, CLE_VU_ICI } from "./lib/motInforma
 import { dureeConservation } from "./lib/conservation";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
-  uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info,
+  uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info, remonterEnHaut,
 } from "./components/ui";
 import {
   stockVendu, stockAjuste, stockActuel, virementsMois,
@@ -208,6 +208,16 @@ export default function App() {
   // la barre montrait Tableau de bord avant de se corriger.
   useLayoutEffect(() => {
     document.querySelectorAll(`[data-tab-id="${tab}"]`).forEach((el) => el.scrollIntoView?.({ inline: "center", block: "nearest" }));
+  }, [tab]);
+  // Timo (29/09/2026, « tu cliques, l'écran s'affiche ») : un écran qui
+  // s'ouvre s'affiche depuis son haut — pas à la hauteur où l'on avait
+  // cliqué dans l'écran d'avant (« 📋 → devis », « Facturer », « Reprendre »).
+  // La première image (retour après F5) n'est pas touchée.
+  const ongletPrecedent = useRef(tab);
+  useEffect(() => {
+    if (ongletPrecedent.current === tab) return;
+    ongletPrecedent.current = tab;
+    remonterEnHaut();
   }, [tab]);
   // Mémorise l'onglet actif à chaque changement, pour le retrouver après une
   // actualisation de la page (voir tabDeDepart ci-dessus) — seulement une

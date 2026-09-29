@@ -62,6 +62,7 @@ npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
+npm run verifier-ecran-qui-se-montre # 20 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
 npm run verifier-whatsapp        # 691 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
@@ -5361,6 +5362,29 @@ lit mal est pire qu'un banc absent).
   recopier) : 1600 px sur un grand écran, tout l'écran sur 1400 px, **rien de
   changé sur téléphone et tablette**. Éprouvé en remettant `max-w-6xl` : deux
   contrôles tombent, et ils affichent « mesuré : 1152 px ».
+- **👁 CE QU'ON OUVRE SE VOIT — UNE règle pour tous les écrans** (capture
+  Timo, 29/09/2026, 🏠 Clients installés : « lorsqu'on clique sur Dossier
+  l'affichage n'est pas visible… si tu es déjà en bas, rien de visible » →
+  « a, lance… que ce soit une règle générale : tu cliques, l'écran
+  s'affiche… investiguer et corriger tous les menus qui font comme
+  Dossier »). Un panneau qui s'ouvre LOIN du bouton cliqué (au-dessus de la
+  liste le plus souvent) **amène la page jusqu'à lui**, et en se fermant
+  **ramène sur la ligne d'où l'on vient**. Écrit UNE fois dans ui.jsx :
+  `montrerALecran`, `useMontrerALOuverture(cle)`, `PanneauQuiSeMontre
+  cle retour`, `revenirSurLaLigne(id)` (la ligne porte `data-ligne`), et
+  `remonterEnHaut` — **un changement d'onglet** (« 📋 → devis »,
+  « Facturer », « Reprendre ») et **un devis ou brouillon repris** s'affichent
+  depuis leur HAUT. Posé partout où l'inventaire du 29/09 l'a trouvé :
+  🏠 Dossier et 🔧 Frais, 👑 tâches d'un membre, 🧰 réparation / retour /
+  comptage / contenu / fiche, ⚙ loyer et dossier d'un client à effacer,
+  📦 bon préparé depuis une demande et inventaire, 📤 ✏️ Modifier, 📲 « Lui
+  écrire quand même ». ⚠ **Ne vaut pas** pour ce qui se déplie sous la ligne
+  cliquée, les fenêtres par-dessus l'écran, ni la barre des onglets (elle
+  défile seule, jamais la page). **Un nouveau panneau éloigné de son bouton
+  passe par `PanneauQuiSeMontre`** ; le banc (`verifier-ecran-qui-se-montre`)
+  MESURE dans Chromium, avec un témoin sans la règle, et interdit
+  `scrollIntoView` / `window.scrollTo` hors ui.jsx. Éprouvé en neutralisant
+  la règle (cinq contrôles tombent) et en retirant un panneau (il tombe).
 - **💾 LA SAUVEGARDE RESTE À TOUS LES ADMINISTRATEURS — « on laisse comme
   tel » (27/09/2026).** Timo : « quel utilisateur a droit à cette
   sauvegarde ? » → vérifié dans le code : ⚙ Paramètres → 💾 Données n'existe

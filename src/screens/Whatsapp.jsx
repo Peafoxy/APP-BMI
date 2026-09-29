@@ -22,7 +22,7 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi, PanneauQuiSeMontre } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -384,7 +384,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
           <button onClick={() => setContact(contact ? null : { nom: "", tel: "", sujet: "" })}
             className="text-xs font-bold text-sky-800 underline whitespace-nowrap">{contact ? "Annuler" : "✍️ Écrire"}</button>
         </div>
-        {contact && (
+        {contact && (<PanneauQuiSeMontre cle={`${contact.tel}|${contact.nom}` || "contact"}>
           <div className="border-b border-slate-200 bg-sky-50/60 p-3 space-y-2">
             <Field label="À qui ?">
               <ChampSuggestions valeur={contact.nom} onChange={(v) => setContact({ ...contact, nom: v })}
@@ -410,7 +410,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
               Le client pourra répondre ici. Tant qu'il n'a pas répondu, WhatsApp n'accepte pas d'autre message libre.
             </div>
           </div>
-        )}
+        </PanneauQuiSeMontre>)}
         {tousConvs.length > 0 && (
           <div className="px-3 py-2 border-b border-slate-100">
             <input className={champRecherche} value={recherche} onChange={(e) => setRecherche(e.target.value)}

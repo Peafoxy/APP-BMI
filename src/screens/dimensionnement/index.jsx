@@ -9,6 +9,7 @@ import { DimensionnementSolaire } from "./Solaire";
 import { DimensionnementGarage } from "./Garage";
 import { DimensionnementAutre } from "./Autre";
 import { MesBrouillons } from "./Brouillons";
+import { remonterEnHaut } from "../../components/ui";
 import { brouillonsDe } from "./devisCommun";
 
 // ⚠ Demande Timo (18/08/2026) : « dès qu'un domaine est créé dans les
@@ -71,7 +72,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
   };
   useEffect(() => {
     const cible = domaineDuDevis(devisAReprendre?.devis);
-    if (cible) setMode(cible);
+    if (cible) { setMode(cible); remonterEnHaut(true); } // le devis repris se lit depuis son haut
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
 

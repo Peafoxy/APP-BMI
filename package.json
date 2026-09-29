@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.101.373",
+  "version": "2.101.374",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -37,6 +37,7 @@
     "tester-client-lecture": "bash scripts/tester-client-lecture-sql.sh",
     "tester-espace-client": "bash scripts/tester-espace-client-sql.sh",
     "verifier-champs": "node scripts/verifier-champs.mjs",
+    "verifier-ecran-qui-se-montre": "node scripts/verifier-ecran-qui-se-montre.mjs",
     "verifier-mot-information": "node scripts/verifier-mot-information.mjs",
     "verifier-whatsapp": "node scripts/verifier-whatsapp.mjs",
     "tester-conversations": "bash scripts/tester-conversations-sql.sh",

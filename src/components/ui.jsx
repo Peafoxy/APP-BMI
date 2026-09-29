@@ -259,6 +259,23 @@ export function useMontrerALOuverture(cle) {
   }, [cle]);
   return ref;
 }
+// Le même, en cadre : pour un panneau qui n'apparaît QUE s'il est ouvert
+// (`{x && <PanneauQuiSeMontre cle={x.id}>…</PanneauQuiSeMontre>}`) — pas de
+// crochet à poser en tête d'écran.
+// `retour` : l'id de la ligne d'où l'on vient — à la fermeture du panneau
+// (Annuler comme Valider), la page y revient.
+export function PanneauQuiSeMontre({ cle, retour, children, ...reste }) {
+  const ref = useMontrerALOuverture(cle ?? true);
+  useEffect(() => () => { if (retour) revenirSurLaLigne(retour); }, [retour]);
+  return <div ref={ref} data-panneau-montre="" {...reste}>{children}</div>;
+}
+// Un AUTRE écran s'ouvre (changement d'onglet, « 📋 → devis », « Facturer »,
+// un brouillon repris) : il s'affiche depuis son HAUT, jamais à la hauteur
+// où l'on avait cliqué dans l'écran d'avant.
+export function remonterEnHaut(doux = false) {
+  if (typeof window === "undefined" || typeof window.scrollTo !== "function") return;
+  try { window.scrollTo({ top: 0, behavior: doux ? "smooth" : "auto" }); } catch { window.scrollTo(0, 0); }
+}
 // Au FERMER : revenir sur la ligne d'où l'on est parti (`data-ligne="<id>"`).
 export function revenirSurLaLigne(id) {
   if (!id || typeof document === "undefined") return;

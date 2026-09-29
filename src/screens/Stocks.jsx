@@ -9,7 +9,7 @@ import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
-import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran } from "../components/ui";
+import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -922,12 +922,12 @@ export function Stocks({ db, save, profile }) {
       {estMagasin && (
         <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
           <div className="font-bold mb-1 text-purple-800">🚚 Ravitailler une boutique depuis 🏭 {bq}</div>
-          {demandeEnCours && (
+          {demandeEnCours && (<PanneauQuiSeMontre cle={demandeEnCours.d?.id || demandeEnCours.boutique}>
             <div className="mb-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs font-bold text-blue-800">
               📋 Ce bon répond à la demande de {demandeEnCours.boutique} — elle sera marquée « servie » à la validation.
               <button onClick={() => { setDemandeEnCours(null); setAAssocier([]); }} className="ml-2 underline font-normal">détacher</button>
             </div>
-          )}
+          </PanneauQuiSeMontre>)}
 
           {aAssocier.length > 0 && (
             <div className="mb-3 rounded-lg bg-amber-50 border border-amber-300 p-3">
@@ -1239,7 +1239,7 @@ export function Stocks({ db, save, profile }) {
       </Panel>
       </div>
 
-      {inv && (
+      {inv && (<PanneauQuiSeMontre cle="inventaire">
         <div className="rounded-xl p-4 bg-white border-2 border-emerald-300">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
             <div className="font-bold text-emerald-800">📋 Inventaire physique — {bq}</div>
@@ -1280,7 +1280,7 @@ export function Stocks({ db, save, profile }) {
             <button onClick={() => setInv(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
           </div>
         </div>
-      )}
+      </PanneauQuiSeMontre>)}
 
       {/* ---- 🔧 DÉFECTUEUX / SAV (demande Timo, 31/08/2026) ----
           Les articles rendus en panne lors d'un échange sous garantie

@@ -15,7 +15,7 @@ import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
@@ -1613,7 +1613,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Logo", "Coordonnées reçu", "Couleur", "Données", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {boutiquesDeLEcran.map((b) => (
-              <tr key={b.id} className="border-t border-slate-100 hover:bg-sky-50">
+              <tr key={b.id} data-ligne={b.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-4 py-2"><Badge boutique={b.nom} />
                   <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>
                   {b.formation && <div className="text-xs font-bold mt-0.5 text-amber-700">🎓 Formation — hors Tableau de bord</div>}
@@ -1653,7 +1653,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </tbody>
         </table>
       </div>
-      {loyerPour && (
+      {loyerPour && (<PanneauQuiSeMontre cle={loyerPour.id || loyerPour.nom} retour={loyerPour.id}>
         <div className="rounded-xl p-4 bg-white border-2 border-sky-300 shadow-sm" data-fiche-loyer>
           <div className="font-bold mb-2">🏠 Loyer de <Badge boutique={loyerPour.nom} /></div>
           <ChampsLoyer valeur={loyerForm} onChange={setLoyerForm} />
@@ -1662,7 +1662,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <button onClick={() => setLoyerPour(null)} className="text-sm font-bold text-slate-600 underline">Annuler</button>
           </div>
         </div>
-      )}
+      </PanneauQuiSeMontre>)}
 
       </div>
       <div className="space-y-4" style={{ display: onglet === "catalogue" ? undefined : "none" }}>
@@ -2007,7 +2007,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           )}
         </div>
 
-        {dossierEff && (
+        {dossierEff && (<PanneauQuiSeMontre cle={`${cibleEff.nom}|${cibleEff.tel || ""}`}>
           <div className="rounded-xl p-4 bg-white border-2 border-slate-300 shadow-sm">
             <div className="font-bold mb-2">Dossier de « {cibleEff.nom} »{cibleEff.tel ? ` — ${cibleEff.tel}` : ""}</div>
 
@@ -2086,7 +2086,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               </>
             )}
           </div>
-        )}
+        </PanneauQuiSeMontre>)}
 
         {/* ═══════ 👥 LE DOSSIER D'ACCÈS D'UN EMPLOYÉ (19/09/2026) ═══════
             « Et les employés dans cette histoire ? » — ils sont des sujets de

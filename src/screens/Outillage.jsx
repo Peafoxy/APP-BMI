@@ -19,7 +19,7 @@ import { Fragment, useState } from "react";
 import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } from "../lib/core";
 import { chiffresTel } from "../lib/identiteClient";
 import { ficheParId } from "../lib/banques";
-import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche, PanneauQuiSeMontre } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
 // ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
@@ -1024,7 +1024,7 @@ export function Outillage({ db, save, profile }) {
           )}
 
           {/* 🔧 Le formulaire de réparation : chez qui, son numéro, la panne, le prix */}
-          {repar && (
+          {repar && (<PanneauQuiSeMontre cle={repar.outil_id} retour={repar.outil_id}>
             <div className="rounded-xl border-2 border-amber-300 bg-white p-3 mb-3">
               <div className="font-bold text-slate-800 mb-2">🔧 « {(tous.find((o) => o.id === repar.outil_id) || {}).nom} » part en réparation</div>
               <div className="grid md:grid-cols-4 gap-3">
@@ -1060,10 +1060,10 @@ export function Outillage({ db, save, profile }) {
                 <button onClick={() => setRepar(null)} className="px-4 py-2 rounded-lg border font-semibold text-sm text-slate-600">Annuler</button>
               </div>
             </div>
-          )}
+          </PanneauQuiSeMontre>)}
 
           {/* 📥 Le retour d'une réparation : le prix payé, enfin connu */}
-          {retourRep && (() => {
+          {retourRep && <PanneauQuiSeMontre cle={retourRep.outil_id} retour={retourRep.outil_id}>{(() => {
             const o = tous.find((x) => x.id === retourRep.outil_id) || {};
             const rep = reparationEnCours(o) || {};
             return (
@@ -1092,20 +1092,20 @@ export function Outillage({ db, save, profile }) {
                 </div>
               </div>
             );
-          })()}
+          })()}</PanneauQuiSeMontre>}
 
           {/* 🧰 LE COMPTAGE D'UNE BOÎTE — décision 1a : au retour, obligatoire. */}
-          {compter && (() => {
+          {compter && <PanneauQuiSeMontre cle={compter.outil_id} retour={compter.outil_id}>{(() => {
             const o = tous.find((x) => x.id === compter.outil_id);
             if (!o) return null;
             return (
               <PanneauComptage outil={o} compte={compter.valeurs} setCompte={(v) => setCompter({ ...compter, valeurs: v })}
                 pourRetour={compter.pourRetour} onValider={validerComptage} onAnnuler={() => setCompter(null)} />
             );
-          })()}
+          })()}</PanneauQuiSeMontre>}
 
           {/* 🧰 CE QUE LA BOÎTE CONTIENT : la liste que l'on comptera à chaque retour. */}
-          {contenu && (() => {
+          {contenu && <PanneauQuiSeMontre cle={contenu.outil_id} retour={contenu.outil_id}>{(() => {
             const o = tous.find((x) => x.id === contenu.outil_id);
             if (!o) return null;
             const fait = dernierComptage(o);
@@ -1164,10 +1164,10 @@ export function Outillage({ db, save, profile }) {
                 </div>
               </div>
             );
-          })()}
+          })()}</PanneauQuiSeMontre>}
 
           {/* ✏️ CORRIGER LA FICHE — un numéro gravé faux ne se laisse pas. */}
-          {fiche && (() => {
+          {fiche && <PanneauQuiSeMontre cle={fiche.outil_id} retour={fiche.outil_id}>{(() => {
             const o = tous.find((x) => x.id === fiche.outil_id);
             if (!o) return null;
             return (
@@ -1189,7 +1189,7 @@ export function Outillage({ db, save, profile }) {
                 </div>
               </div>
             );
-          })()}
+          })()}</PanneauQuiSeMontre>}
 
           {affichee.length === 0 ? (
             <div className="text-sm text-slate-500">{VIDE_VUE[vue]}</div>
@@ -1237,7 +1237,7 @@ export function Outillage({ db, save, profile }) {
                           </td>
                         </tr>
                       )}
-                      <tr className={`cursor-pointer ${deplie ? classeLigneDepliable(true, i) : (vue !== "tous" && tard ? "bg-red-50 hover:bg-red-100" : classeLigneDepliable(false, i))}`}
+                      <tr data-ligne={o.id} className={`cursor-pointer ${deplie ? classeLigneDepliable(true, i) : (vue !== "tous" && tard ? "bg-red-50 hover:bg-red-100" : classeLigneDepliable(false, i))}`}
                         onClick={() => setOutilDeplie(deplie ? "" : o.id)} title="Cliquez pour voir l'histoire de cet outil">
                         <td className={`px-3 py-2 font-semibold ${celluleFigee(fond, deplie)}`}>{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}
                           {estBoite(o) && <div className={`text-xs font-normal ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}</td>
