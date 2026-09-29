@@ -6,7 +6,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { telDigits, uid, definirMotDePasse, hacherFort, today, dFR, envoyerWhatsApp, nouveauMessage } from "./core.js";
+import { telDigits, uid, definirMotDePasse, hacherFort, today, dFR, envoyerWhatsApp, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "./core.js";
 
 // Adresse publique de l'application, envoyée au client par WhatsApp.
 export const ADRESSE_APP = "https://gestion.bmitogo.com";
@@ -241,7 +241,9 @@ export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motD
 
 // Simple accusé de prise de contact envoyé à un nouveau prospect — pas
 // d'identifiants ici, il n'est pas encore client (voir convertirEnClient).
-export function envoyerAccueilProspectWhatsApp(nomAffiche, tel) {
+// ⚠ 29/09/2026 (décision « a ») : l'écran l'ANNONCE avant l'ouverture —
+// un enregistrement qui ouvre WhatsApp sans prévenir surprend.
+export function envoyerAccueilProspectWhatsApp(nomAffiche, tel, { annonce, prevenir } = {}) {
   const lignes = [
     `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
     ``,
@@ -249,7 +251,7 @@ export function envoyerAccueilProspectWhatsApp(nomAffiche, tel) {
     ``,
     `BMI TOGO — Les bâtiments modernes et intelligents`,
   ];
-  envoyerWhatsApp(tel, lignes.join("\n"));
+  return ouvrirWhatsAppApresAnnonce({ tel, texte: lignes.join("\n"), annonce, prevenir });
 }
 
 // Relance WhatsApp d'un prospect — UN CLIC : le message est déjà prêt, il

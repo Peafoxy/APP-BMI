@@ -251,8 +251,8 @@ export function Users({ db, save, profile }) {
       // WhatsApp s'ouvre sur CE téléphone, l'administrateur appuie lui-même,
       // et rien ne s'écrit dans 📲 WhatsApp. Le banc l'impose.
       if (await uConfirm(`✅ Compte créé.\n\n👤 ${nomEmp}\n🔑 ${pwdEmp}\n\nEnvoyer ces identifiants à ${nomEmp} par WhatsApp, depuis VOTRE numéro ?`)) {
+        // La question ci-dessus EST l'annonce (règle du 29/09/2026) : rien après.
         await envoyerIdentifiantsEmployeWhatsApp(nomEmp, nomEmp, pwdEmp, roleEmp, telEmp, uConfirm);
-        uAlert(`WhatsApp s'est ouvert avec les identifiants de ${nomEmp} : le message part de VOTRE numéro, pas du numéro BMI.`);
       }
     }
     setF(vide);

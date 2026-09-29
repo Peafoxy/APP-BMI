@@ -18,6 +18,7 @@ import { readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
+import { execSync } from "node:child_process";
 import * as M from "../src/lib/whatsappModeles.js";
 
 let ok = 0, ko = 0;
@@ -272,8 +273,9 @@ test("la règle pure ne dépend de rien (le serveur la lit telle quelle)",
 
 // ──────────────────────────────────────────────────────────────
 titre("⑫ RIEN N'EST JAMAIS PERDU EN SILENCE");
-test("★ tout refus ramène l'ouverture WhatsApp d'aujourd'hui",
-  /const repli = async[\s\S]*envoyerWhatsApp\(tel, texteRepli/.test(srcWhatsapp));
+// ⚠ RETOURNÉ le 29/09/2026 : le repli passe par LA règle des fenêtres.
+test("★ tout refus ramène l'ouverture WhatsApp d'aujourd'hui (par la règle qui annonce AVANT)",
+  /const repli = async[\s\S]*ouvrirWhatsAppApresAnnonce\(\{ tel, texte: texteRepli/.test(srcWhatsapp));
 test("★ une panne du serveur aussi", /catch[\s\S]*return repli\(/.test(srcWhatsapp));
 test("★ une réponse en erreur aussi", /reponse\.error[\s\S]*return repli\(/.test(srcWhatsapp));
 test("★ aucune file d'attente (une relance en retard est une faute)",
@@ -336,9 +338,8 @@ test("★ le message de repli DIT ce qui s'est passé à la place",
   const corpsRepli = (wa.match(/const repli = async \(motif\) => \{[\s\S]*?\n  \};/) || [""])[0];
   test("★★ le motif d'un repli se dit AVANT l'ouverture de WhatsApp (attendu, puis ouverture), et jamais pour un motif attendu",
     corpsRepli.length > 0
-    && corpsRepli.indexOf("await prevenir(messageRepli(motif))") > 0
-    && corpsRepli.indexOf("await prevenir(messageRepli(motif))") < corpsRepli.indexOf("envoyerWhatsApp(")
-    && /!motifAttendu\(motif\)/.test(corpsRepli) && /!sansRepli/.test(corpsRepli));
+    && /messageRepli\(motif, annonceRepli\)/.test(corpsRepli) && /!motifAttendu\(motif\)/.test(corpsRepli)
+    && /ouvrirWhatsAppApresAnnonce\(\{ tel, texte: texteRepli, annonce: texteAnnonce, prevenir, demanderConfirmation \}\)/.test(corpsRepli));
   const ecrans = ["src/screens/TousLesDevis.jsx", "src/screens/dimensionnement/Partages.jsx", "src/screens/Utilisateurs.jsx", "src/screens/Clients.jsx", "src/screens/Dettes.jsx", "src/screens/Whatsapp.jsx", "src/screens/Prospects.jsx", "src/screens/ClientsInstalles.jsx"];
   // Appel par appel : tout envoi qui PEUT ouvrir WhatsApp (pas `sansRepli`)
   // doit porter `prevenir: uAlert` — un seul oublié suffit à faire tomber.
@@ -356,13 +357,17 @@ test("★ le message de repli DIT ce qui s'est passé à la place",
 titre("⑭ L'ÉCRAN NE DÉCRIT JAMAIS AUTRE CHOSE QUE CE QUI VIENT DE SE PASSER");
 test("★ parti du numéro BMI → on ne promet pas que WhatsApp s'ouvre",
   !/WhatsApp s'ouvre/.test(M.messageDevisEnvoye("AMA", true)) && /numéro BMI/.test(M.messageDevisEnvoye("AMA", true)));
-test("★ envoi à la main → WhatsApp s'ouvre, comme avant",
-  /WhatsApp s'ouvre/.test(M.messageDevisEnvoye("AMA", false)));
+// ⚠ RETOURNÉ le 29/09/2026 : envoi à la main → TOUT est dit AVANT
+// l'ouverture (`annonceRepli`) ; après coup, la phrase ne parle plus
+// d'ouverture, et elle ne s'affiche que si le message est parti du numéro BMI.
+test("★ envoi à la main → la phrase d'après ne parle plus d'ouverture",
+  !/WhatsApp/.test(M.messageDevisEnvoye("AMA", false)) && M.messageDevisEnvoye("AMA", false).includes("AMA"));
 test("les deux nomment le client", ["AMA"].every((n) => M.messageDevisEnvoye(n, true).includes(n) && M.messageDevisEnvoye(n, false).includes(n)));
-test("★ les DEUX endroits qui envoient un devis passent par cette phrase — aucune copie",
-  /uAlert\(messageDevisEnvoye\(compte\.nom, envoye\.auto\)\)/.test(srcPartages)
-  && /uAlert\(messageDevisEnvoye\(compte\.nom, envoye\.auto\)\)/.test(lire("src/screens/dimensionnement/Brouillons.jsx"))
-  && !/WhatsApp s'ouvre avec ses identifiants/.test(srcPartages)
+test("★ les DEUX endroits qui envoient un devis passent par cette phrase — aucune copie — et seulement si parti du numéro BMI",
+  /if \(envoye\.auto && m\) uAlert\(m\)/.test(srcPartages) && /messageDevisEnvoye\(compte\.nom, envoye\.auto\)/.test(srcPartages)
+  && /if \(envoye && envoye\.auto\) uAlert\(messageDevisEnvoye\(compte\.nom, true\)\)/.test(lire("src/screens/dimensionnement/Brouillons.jsx"))
+  // La seule phrase « WhatsApp s'ouvre avec ses identifiants » est l'ANNONCE, dite avant (« Appuyez sur OK »).
+  && /Appuyez sur OK : WhatsApp s'ouvre avec ses identifiants et le lien/.test(srcPartages)
   && !/WhatsApp s'ouvre avec ses identifiants/.test(lire("src/screens/dimensionnement/Brouillons.jsx")));
 test("★ l'envoi rend CE QUI S'EST PASSÉ, pas un simple oui", /return \{ ok: true, auto: !!r\.auto \};/.test(srcPartages));
 
@@ -1186,8 +1191,10 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
   test("★ parti du numéro BMI : l'écran le dit", /numéro BMI/.test(M.messageIdentifiants("gaelle", { auto: true })));
   test("★ formation : RIEN à dire (c'est la règle qui joue, personne n'a rien à apprendre)",
     M.messageIdentifiants("gaelle", { auto: false, motif: M.MOTIF_FORMATION }) === "");
-  test("★ tout autre repli SE DIT, avec ce qui s'est passé à la place",
-    /VOTRE numéro/.test(M.messageIdentifiants("gaelle", { auto: false, motif: "Pas de connexion : le message ne peut pas partir du numéro BMI." })));
+  // ⚠ RETOURNÉ le 29/09/2026 : un autre repli SE DIT toujours — mais AVANT
+  // l'ouverture (`prevenir`), plus après. Après coup : rien.
+  test("★ tout autre repli se dit AVANT (plus rien après coup)",
+    M.messageIdentifiants("gaelle", { auto: false, motif: "Pas de connexion : le message ne peut pas partir du numéro BMI." }) === "");
   test("★ « livré » et « lu » ne s'écrivent jamais",
     !/livr|\blu\b/i.test(M.messageIdentifiants("x", { auto: true })));
 
@@ -1438,7 +1445,8 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     /setNoteRecuWa\(r\.motif && !motifAttendu\(r\.motif\) \?/.test(auto) && !/uAlert\(/.test(auto + commun)
     && /data-recu-whatsapp/.test(ven));
   test("★ src/whatsapp.js : `sansRepli` n'ouvre jamais WhatsApp, `donnerAuSender` ne donne qu'une conversation LIBRE",
-    /parti: sansRepli \? false : await envoyerWhatsApp\(tel, texteRepli, demanderConfirmation\)/.test(srcWhatsapp)
+    // ⚠ RETOURNÉ le 29/09/2026 : `sansRepli` sort AVANT toute ouverture.
+    /if \(sansRepli\) return \{ auto: false, motif, annonce: false, parti: false \};/.test(srcWhatsapp)
     && /const libre = !entete\.proprietaire_id \|\| entete\.proprietaire_id === profile\?\.id;/.test(srcWhatsapp)
     && /donnerAuSender && libre && profile\?\.id/.test(srcWhatsapp));
   test("★ ⚙ Paramètres : une boutique sans téléphone est signalée (le reçu indiquerait le numéro BMI principal), et le texte réglable du mot de fidélité n'y est plus (RETOURNÉ le 25/09/2026, décision « a » : la phrase vit chez Meta)",
@@ -2964,6 +2972,68 @@ test("★ UNE fabrique pour l'envoi et l'affichage : 💰 Ventes et 📲 WhatsAp
   /import \{ envoisRecuDeVente \} from "\.\.\/lib\/lignesPrivees";/.test(lire("src/screens/Ventes.jsx"))
   && /peutLireLignePrivee\(m, profile, estAdminPrincipal\(db, profile\)\) && texteLignePrivee\(m, db\)/.test(ecranWa)
   && /envoiBon\(\{ bon, boutique, fmt, dFR \}\)/.test(srcLP));
+}
+
+titre("㊱ 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHATSAPP (29/09/2026)");
+// Timo, capture : « pourquoi elle vient après que le message soit déjà
+// passé ? » puis « une seule règle qui régisse ces fenêtres ». Ce qui va se
+// passer se dit AVANT ; WhatsApp ne s'ouvre qu'après OK ; plus rien après.
+{
+  const Core = await import("../src/lib/core.js");
+  // La VRAIE fonction, avec un faux navigateur qui note l'ordre des gestes.
+  const journal = [];
+  const avant = globalThis.window;
+  globalThis.window = { open: () => { journal.push("ouverture"); return {}; } };
+  const parti = await Core.ouvrirWhatsAppApresAnnonce({ tel: "90112233", texte: "x", annonce: "Appuyez sur OK…",
+    prevenir: async () => { journal.push("annonce"); } });
+  const journal2 = [];
+  globalThis.window = { open: () => { journal2.push("ouverture"); return {}; } };
+  await Core.ouvrirWhatsAppApresAnnonce({ tel: "90112233", texte: "x", annonce: "", prevenir: async () => { journal2.push("annonce"); } });
+  globalThis.window = avant;
+  test("★★ la règle : l'annonce D'ABORD, attendue, puis l'ouverture — jamais l'inverse", parti === true && journal.join(",") === "annonce,ouverture");
+  test("★ sans annonce, WhatsApp s'ouvre directement (décision « b » : pas de clic en plus)", journal2.join(",") === "ouverture");
+
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const fichiers = execSync("git ls-files src").toString().trim().split("\n").filter((f) => /\.(jsx?|mjs)$/.test(f));
+  // 1. Aucune phrase qui raconte une ouverture APRÈS coup, nulle part.
+  const phrasesApres = fichiers.filter((f) => /s'est ouvert|vient de s'ouvrir|WhatsApp ouvert/.test(sansComm(lire(f))));
+  test("★★ aucune phrase « s'est ouvert », « vient de s'ouvrir », « WhatsApp ouvert » dans toute l'application", phrasesApres.length === 0);
+  if (phrasesApres.length) console.log("     fautifs :", phrasesApres.join(", "));
+  // 2. Aucune fenêtre dans les 3 lignes qui suivent une ouverture de WhatsApp.
+  const ouvre = /\b(envoyerWhatsApp|recuWhatsApp|bonWhatsApp|ouvrirWhatsAppApresAnnonce|envoyerIdentifiants\w*WhatsApp|envoyer\w*ProspectWhatsApp)\(/;
+  const apres = [];
+  for (const f of fichiers.filter((x) => x.startsWith("src/screens/"))) {
+    const L = sansComm(lire(f)).split("\n");
+    L.forEach((l, i) => {
+      if (!ouvre.test(l) || /function |=>\s*\{?\s*$|return;/.test(l)) return;
+      for (let j = i + 1; j <= i + 3 && j < L.length; j++) {
+        if (/^\s*\};/.test(L[j]) || /return;/.test(L[j])) break;
+        if (/uAlert\(/.test(L[j])) apres.push(`${f}:${j + 1}`);
+      }
+    });
+  }
+  test("★★ aucune fenêtre juste APRÈS une ouverture de WhatsApp (écrans)", apres.length === 0);
+  if (apres.length) console.log("     fautifs :", apres.join(", "));
+  // 3. Les endroits réparés passent par la règle, avec leur annonce.
+  const ci = sansComm(lire("src/screens/ClientsInstalles.jsx"));
+  test("★ 🏠 Déclarer terminé : annoncé AVANT l'ouverture du lien du PV",
+    /await ouvrirWhatsAppApresAnnonce\(\{ tel: c\.tel, texte, prevenir: uAlert,[\s\S]{0,120}annonce: "✅ Travaux déclarés terminés\.\\n\\nAppuyez sur OK/.test(ci));
+  test("★ 🏠 Mon espace → Parrainer : annoncé AVANT", /await ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignesMsg\.join\("\\n"\), prevenir: uAlert,[\s\S]{0,200}Appuyez sur OK : WhatsApp s'ouvre pour le prévenir/.test(sansComm(lire("src/screens/EspaceClient.jsx"))));
+  const ven = sansComm(lire("src/screens/Ventes.jsx"));
+  const corpsPf = ven.slice(ven.indexOf("const proformaWhatsApp = async"), ven.indexOf("\n  };", ven.indexOf("const proformaWhatsApp = async")));
+  test("★★ 💰 Proforma : le PDF D'ABORD, puis l'annonce, puis WhatsApp",
+    corpsPf.indexOf("genererProforma(") > 0 && corpsPf.indexOf("genererProforma(") < corpsPf.indexOf("ouvrirWhatsAppApresAnnonce(")
+    && /Joignez-y le PDF/.test(corpsPf) && !/envoyerWhatsApp\(/.test(corpsPf));
+  const pro = sansComm(lire("src/screens/Prospects.jsx"));
+  const corpsAj = pro.slice(pro.indexOf("const ajouter = async"), pro.indexOf("\n  };", pro.indexOf("const ajouter = async")));
+  test("★ 🧲 Ajouter un prospect (décision « a ») : enregistré, PUIS annoncé, PUIS WhatsApp",
+    corpsAj.indexOf("save(") > 0 && corpsAj.indexOf("save(") < corpsAj.indexOf("envoyerAccueilProspectWhatsApp(")
+    && /prevenir: uAlert,[\s\S]*Appuyez sur OK : WhatsApp s'ouvre avec le message d'accueil/.test(corpsAj));
+  test("★ 🧲 Relancer, 🏠 Envoyer pour signature / Avenant, 🔒 Mes données (décision « b ») : pas de fenêtre en plus",
+    /envoyerRelanceProspectWhatsApp\(p\.nom, p\.tel\);/.test(pro) && /envoyerWhatsApp\(boutiqueContact\.tel,/.test(sansComm(lire("src/screens/MesDonnees.jsx"))));
+  test("★ 📲 « ✍️ Écrire » : la réponse qui n'arrivera pas ici se dit AVANT", /annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec le texte\. Le message partira de VOTRE numéro/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
+  test("★ ☀️ Devis envoyé à la main : UNE fenêtre avant (accès ratés compris), rien après",
+    /annonceRepli: `\$\{motifAcces \?/.test(srcPartages) && !/await uAlert\(`Ses accès ne sont pas partis/.test(srcPartages));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

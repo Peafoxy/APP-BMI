@@ -8,7 +8,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
 import { creerFilleulEnLigne } from "../supabaseClient";
 import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, envoyerWhatsApp, nouveauMessage } from "../lib/core";
+import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, marqueEspace } from "../lib/calculs";
@@ -113,10 +113,10 @@ export function EspaceClient({ db, profile, save, setTab }) {
     // arrive APRÈS une fenêtre de confirmation, donc le navigateur peut la
     // bloquer. Sans le bouton de secours, le filleul avait un compte sans le
     // savoir — et personne n'était prévenu.
-    await envoyerWhatsApp(tel, lignesMsg.join("\n"), uConfirm);
-
+    // Dit AVANT l'ouverture (règle du 29/09/2026), jamais après.
+    await ouvrirWhatsAppApresAnnonce({ tel, texte: lignesMsg.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
+      annonce: `✅ Merci ! Votre commission de ${tauxParrain(moi, db)} % vous sera versée dès que ${nom.toUpperCase()} aura réceptionné son installation.\n\nAppuyez sur OK : WhatsApp s'ouvre pour le prévenir, avec ses identifiants et le lien.` });
     setParr({ nom: "", tel: "", note: "" });
-    uAlert(`✅ Merci ! WhatsApp s'ouvre pour prévenir ${nom.toUpperCase()} — avec ses identifiants et le lien.\n\nVotre commission de ${tauxParrain(moi, db)} % vous sera versée dès qu'il aura réceptionné son installation.`);
   };
 
   // ---- LE CLIENT REJETTE SON DEVIS ----

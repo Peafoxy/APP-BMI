@@ -654,6 +654,19 @@ export const lienWhatsApp = (tel, texte) => {
 export function envoyerWhatsApp(tel, texte, demanderConfirmation) {
   return ouvrirWhatsApp(lienWhatsApp(tel, texte), demanderConfirmation);
 }
+// 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHATSAPP
+// (29/09/2026, capture Timo : « pourquoi elle vient après que le message soit
+// déjà passé ? » puis « une seule règle qui régisse ces fenêtres »). Ce qui
+// va se passer se dit AVANT : la fenêtre (`prevenir`, l'`uAlert` de l'écran)
+// est ATTENDUE, puis WhatsApp s'ouvre. Plus aucune fenêtre APRÈS au sujet de
+// l'ouverture — la personne est déjà dans WhatsApp, elle ne la lirait qu'en
+// revenant, le message parti. Sans annonce, WhatsApp s'ouvre directement
+// (décision « b » : quand le bouton dit déjà ce qu'il fait, pas de clic en
+// plus). Le banc interdit toute phrase « s'est ouvert » après coup.
+export async function ouvrirWhatsAppApresAnnonce({ tel, texte, annonce, prevenir, demanderConfirmation }) {
+  if (annonce && typeof prevenir === "function") await prevenir(annonce);
+  return envoyerWhatsApp(tel, texte, demanderConfirmation);
+}
 export async function ouvrirWhatsApp(url, demanderConfirmation) {
   let fenetre = null;
   try { fenetre = window.open(url, "_blank"); } catch { fenetre = null; }

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1948 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1949 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 653 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement)
+npm run verifier-whatsapp        # 668 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3075,6 +3075,39 @@ lit mal est pire qu'un banc absent).
   contrôles RETOURNÉS (uChoix désormais UNE fois, dans `payerLoyer` ; le corps
   de `payerLoyer` ; le format du mois laissé au calendrier). Une condition
   morte retirée (`declare && m <= declare`, jamais atteinte).
+
+### 🪟 LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHATSAPP : AVANT, JAMAIS APRÈS (29/09/2026)
+- Capture Timo (👥 Utilisateurs, mot de fidélité) : « pourquoi elle vient
+  après que le message soit déjà passé ? » — l'application ouvrait WhatsApp
+  PUIS expliquait ; on ne lisait l'explication qu'en revenant, message parti.
+  Puis : « cherche les autres défauts de ce genre… une seule règle qui
+  régisse ces fenêtres » → « **a pour le 6, b pour le reste, lance** ».
+- **UNE règle, `ouvrirWhatsAppApresAnnonce`** (lib/core.js, à côté de
+  `envoyerWhatsApp`) : l'annonce (`prevenir`, l'`uAlert` de l'écran) est dite
+  et ATTENDUE, **puis** WhatsApp s'ouvre, **et plus aucune fenêtre après** au
+  sujet de l'ouverture. Le repli de `envoyerModele` y passe (`prevenir`, et
+  `annonceRepli` pour ce qu'on veut dire même quand le motif est attendu) ;
+  `messageRepli(motif, suite)` finit par « **Appuyez sur OK** : WhatsApp
+  s'ouvre… ». Une fenêtre qui raconte ce qui VIENT de se faire sans rien
+  ouvrir derrière (« ✅ Reçu envoyé du numéro BMI ») reste juste.
+- Réparés : les 8 envois par le numéro BMI (mot de fidélité, identifiants,
+  relances de devis et de dette, devis — accès ratés compris, en UNE
+  fenêtre —, « ✍️ Écrire ») ; 🏠 Déclarer terminé ; 🏠 Mon espace → Parrainer ;
+  👥 création d'un employé (la question d'avant EST l'annonce) ; 💰 **Proforma :
+  le PDF d'ABORD** (on arrivait dans WhatsApp sans rien à joindre).
+- **Décision « a »** : 🧲 **Ajouter un prospect** est annoncé (il ouvrait
+  WhatsApp sans prévenir pendant l'enregistrement). **Décision « b »** :
+  🧲 Relancer, 🏠 Envoyer pour signature / Avenant, 🔒 Mes données restent
+  **sans fenêtre** — le bouton dit déjà ce qu'il fait. Ne pas y ajouter de
+  clic sans sa demande.
+- Banc ㊱ (`verifier-whatsapp`) : la VRAIE règle exercée (l'annonce avant
+  l'ouverture), aucune phrase « s'est ouvert / vient de s'ouvrir / WhatsApp
+  ouvert » dans toute l'application, aucune `uAlert` dans les 3 lignes qui
+  suivent une ouverture dans un écran, et chaque endroit réparé. Éprouvé en
+  remettant quatre fautes (ordre inversé, fenêtre après l'avenant, proforma
+  sans PDF d'abord, prospect ouvert avant l'enregistrement) : chacune tombe.
+  Contrôles RETOURNÉS (le repli, les identifiants, le devis, le filleul,
+  l'accueil prospect). Rien à coller.
 
 ### 🔐 UN ENVOI WHATSAPP NE DIT PLUS « RECONNECTEZ-VOUS » (25/09/2026)
 - Capture Timo, 📋 Clients → WhatsApp : « Le message n'est pas parti du numéro

@@ -10,7 +10,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, envoyerWhatsApp } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -359,7 +359,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (typeof window !== "undefined" && window.scrollTo) window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const proformaWhatsApp = () => {
+  const proformaWhatsApp = async () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
@@ -380,18 +380,18 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(infoBq(pf.boutique).tel ? [`${pf.boutique} — Tél : ${infoBq(pf.boutique).tel}`] : []),
     ];
     const num = telDigits(pf.tel);
-    // On ouvre WhatsApp EN PREMIER et de façon strictement synchrone (avant
-    // tout traitement du PDF) : dès qu'un await s'intercale avant window.open,
-    // le navigateur considère que ce n'est plus une action directe de l'utilisateur
-    // et bloque l'ouverture silencieusement — c'était la cause du souci.
-    // Le numéro du client (déjà saisi sur la commande) est utilisé directement :
-    // la discussion s'ouvre sur SON contact, pas sur un choix générique.
-    envoyerWhatsApp(pf.tel, lignes.join("\n"));
-    // Le PDF est généré et téléchargé juste après, prêt à être joint au message.
+    // ⚠ 29/09/2026 : le PDF D'ABORD — sinon on arrivait dans WhatsApp sans
+    // rien à joindre —, puis ce qui va se passer, AVANT l'ouverture, jamais
+    // après (règle `ouvrirWhatsAppApresAnnonce`). L'ancien ordre (WhatsApp
+    // en premier, sans rien attendre) protégeait l'ouverture contre le
+    // blocage du navigateur ; c'est maintenant le clic sur OK qui l'ouvre,
+    // un geste tout frais, et `ouvrirWhatsApp` garde son filet si besoin.
     genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO);
-    setMsg(num
-      ? `✅ Proforma ${pf.numero} émis : WhatsApp ouvert sur le numéro du client et PDF téléchargé — joignez-le au message (non comptabilisé).`
-      : `✅ Proforma ${pf.numero} émis : aucun numéro sur cette commande, WhatsApp ouvert en générique. PDF téléchargé, à joindre au message (non comptabilisé).`);
+    setMsg(`✅ Proforma ${pf.numero} émis (non comptabilisé).`);
+    await ouvrirWhatsAppApresAnnonce({ tel: pf.tel, texte: lignes.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
+      annonce: num
+        ? `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAppuyez sur OK : WhatsApp s'ouvre sur le numéro du client. Joignez-y le PDF.`
+        : `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAucun numéro sur cette commande. Appuyez sur OK : WhatsApp s'ouvre sans destinataire : choisissez le client, puis joignez le PDF.` });
   };
 
   const proformaPDF = () => {

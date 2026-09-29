@@ -8,7 +8,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
-import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageRepli, messageDevisEnvoye } from "../../lib/whatsappModeles";
+import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { prospectAvecDevis } from "../../lib/prospects";
 
@@ -282,7 +282,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     setNouvClient({ nom: "", tel: "" });
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
-    uAlert(messageDevisEnvoye(compte.nom, envoye.auto));
+    { const m = messageDevisEnvoye(compte.nom, envoye.auto); if (envoye.auto && m) uAlert(m); }
   };
 
   const convertir = (panier, pctRemise) => {
@@ -569,6 +569,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // recevrait un lien vers un espace où il ne saurait pas entrer.
   let accesPartis = accesDejaEnvoyes(compte, idDevis, dbApres.messages);
   let accesEnvoyes = null;
+  let motifAcces = "";
   if (!accesPartis && motDePasse && compte.nom) {
     const acces = envoiIdentifiants({ nomAffiche: compte.nom_base || compte.nom, identifiant: compte.nom, motDePasse });
     const rAcces = await envoyerModele({
@@ -576,7 +577,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
       espaceFormation, sansRepli: true,
     });
     if (rAcces.auto) { accesPartis = true; accesEnvoyes = rAcces; }
-    else if (rAcces.motif && !motifAttendu(rAcces.motif)) await uAlert(`Ses accès ne sont pas partis du numéro BMI. ${messageRepli(rAcces.motif)}`);
+    else if (rAcces.motif && !motifAttendu(rAcces.motif)) motifAcces = rAcces.motif;
   }
   const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
   const r = await envoyerModele({
@@ -588,6 +589,8 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     texteRepli: lignesMsg.join("\n"),
     demanderConfirmation: uConfirm,
     prevenir: uAlert,
+    // Tout se dit AVANT l'ouverture (règle du 29/09/2026), en UNE fenêtre.
+    annonceRepli: `${motifAcces ? `📲 Ses accès ne sont pas partis du numéro BMI.\n\n${motifAcces}\n\n` : ""}✅ Devis enregistré dans l'espace de ${compte.nom}.\n\nAppuyez sur OK : WhatsApp s'ouvre avec ses identifiants et le lien, à envoyer au client.`,
   });
   // ⚠ Un repli muet ressemble à une panne : on DIT pourquoi, sauf quand le
   // motif est attendu (formation, premier message qui porte les identifiants).

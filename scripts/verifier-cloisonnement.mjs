@@ -4623,8 +4623,10 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     // ⚠ RETOURNÉ le 23/09/2026 : le bouton WhatsApp de 📋 Clients envoie le mot
     // de fidélité DU NUMÉRO BMI (envoyerModele, src/whatsapp.js) — l'écran
     // n'ouvre plus WhatsApp lui-même ; le repli passe par envoyerModele.
-    ["src/screens/Ventes.jsx", "envoyerWhatsApp"],
-    ["src/screens/EspaceClient.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
+    // ⚠ RETOURNÉ le 29/09/2026 : la proforma et le parrainage passent par
+    // LA règle `ouvrirWhatsAppApresAnnonce` (ce qui va se passer se dit AVANT).
+    ["src/screens/Ventes.jsx", "ouvrirWhatsAppApresAnnonce"],
+    ["src/screens/EspaceClient.jsx", "ouvrirWhatsAppApresAnnonce"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "ouvrirWhatsAppApresAnnonce"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
   ]) {
     const src = readFileSync(f, "utf8");
     // (13/09/2026 : lib/comptesClients.js écrit « ./core.js » — la chaîne lue par le serveur des notifications exige l'extension.)
@@ -4644,7 +4646,10 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
   // prospect qui n'ont pas bougé. Toujours QUATRE, toujours `envoyerWhatsApp`.
   {
     const srcCC = readFileSync("src/lib/comptesClients.js", "utf8");
-    const directs = (srcCC.match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length;
+    // ⚠ RETOURNÉ le 29/09/2026 : l'accueil d'un prospect passe par LA règle
+    // `ouvrirWhatsAppApresAnnonce` (décision « a ») ; la relance reste directe (« b »).
+    const directs = (srcCC.match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length
+      + (srcCC.match(/return ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignes\.join\("\\n"\), annonce, prevenir \}\);/g) || []).length;
     const parTexte = (srcCC.match(/return envoyerWhatsApp\(tel, texteIdentifiants(Client|Employe)\([^)]*\), demanderConfirmation\);/g) || []).length;
     test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
       directs === 2 && parTexte === 2);
@@ -4664,7 +4669,8 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
       && /demanderConfirmation: uConfirm,/.test(srcPartages)
       && !/envoyerWhatsApp\(/.test(srcPartages));
     test("★ le filleul (EspaceClient) garde le bouton de secours si le navigateur bloque (uConfirm transmis)",
-      /await envoyerWhatsApp\(tel, lignesMsg\.join\("\\n"\), uConfirm\);/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+      // ⚠ RETOURNÉ le 29/09/2026 : par LA règle, annoncé AVANT l'ouverture.
+      /await ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignesMsg\.join\("\\n"\), prevenir: uAlert, demanderConfirmation: uConfirm,/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
     // ⚠ CONTRÔLE RETOURNÉ LE 20/09/2026 (décision « c ») : 📋 Dettes non plus
     // n'ouvre WhatsApp en direct — la relance part du numéro BMI par le
     // chemin unique, et REPLIE sur l'ouverture WhatsApp au moindre refus.

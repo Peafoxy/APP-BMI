@@ -283,9 +283,9 @@ export function messageIdentifiants(nom, r) {
   if (r && r.auto) return `✅ Identifiants envoyés du numéro BMI à ${qui}.`;
   const motif = r && r.motif ? String(r.motif) : "";
   if (!motif || motif === MOTIF_FORMATION) return "";
-  // Le motif a déjà été dit AVANT l'ouverture (`prevenir`) : on ne le répète pas.
-  if (r && r.annonce) return "";
-  return `${motif}\n\nWhatsApp s'est ouvert avec les identifiants : le message part de VOTRE numéro.`;
+  // ⚠ 29/09/2026 : tout se dit AVANT l'ouverture (`prevenir`), jamais après —
+  // la personne serait déjà dans WhatsApp, le message parti.
+  return "";
 }
 
 // ---------------------------------------------------------------
@@ -787,11 +787,15 @@ export const messageDevisEnvoye = (nomClient, auto) =>
   `✅ Devis envoyé dans l'espace de ${nomClient}.\n\n`
   + (auto
       ? "Le client a reçu un message WhatsApp du numéro BMI."
-      : "WhatsApp s'ouvre avec ses identifiants et le lien.");
+      : "");
+// ⚠ 29/09/2026 : quand WhatsApp s'ouvre sur l'appareil, tout a été dit AVANT
+// (`annonceRepli`) — l'écran n'affiche donc cette phrase que si le message
+// est parti du numéro BMI (rien ne s'est ouvert).
 
 // ⚠ Dite AVANT l'ouverture (29/09/2026) : « Appuyez sur OK », pas « s'est ouvert ».
-export const messageRepli = (motif) =>
-  `📲 Le message n'est pas parti du numéro BMI.\n\n${motif}\n\nAppuyez sur OK : WhatsApp s'ouvre avec le texte complet, vous pourrez l'envoyer vous-même, comme avant.`;
+export const SUITE_REPLI = "Appuyez sur OK : WhatsApp s'ouvre avec le texte complet, vous pourrez l'envoyer vous-même, comme avant.";
+export const messageRepli = (motif, suite) =>
+  `📲 Le message n'est pas parti du numéro BMI.\n\n${motif}\n\n${suite || SUITE_REPLI}`;
 
 // ---------------------------------------------------------------
 // LE NUMÉRO, TEL QUE WHATSAPP LE VEUT

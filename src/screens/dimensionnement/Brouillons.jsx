@@ -42,7 +42,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
       dbApres: retirerBrouillon(dbApres, profile.id, b.id), compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`],
     });
-    if (envoye) uAlert(messageDevisEnvoye(compte.nom, envoye.auto));
+    if (envoye && envoye.auto) uAlert(messageDevisEnvoye(compte.nom, true));
   };
 
   return (

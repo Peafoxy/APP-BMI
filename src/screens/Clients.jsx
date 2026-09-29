@@ -153,7 +153,7 @@ export function CreerClient({ db, save, profile }) {
             ✅ <b>{dernier.nom.toUpperCase()}</b> créé — 👤 {dernier.identifiant} · 🔑 {dernier.motDePasse}
             <div className="text-xs text-slate-500 mt-1">{dernier.auto
               ? "Ses identifiants sont partis du numéro BMI."
-              : "WhatsApp s'est ouvert avec le message : il part de votre numéro. Si rien ne s'est passé, vérifiez que WhatsApp est installé."}</div>
+              : "Ses identifiants partent de votre numéro, par WhatsApp. Si WhatsApp ne s'est pas ouvert, vérifiez qu'il est installé."}</div>
           </div>
         )}
       </Panel>

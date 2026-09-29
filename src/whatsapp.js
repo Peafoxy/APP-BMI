@@ -22,7 +22,7 @@
 // déjà passé payer, est une faute. Hors ligne, on ouvre WhatsApp tout de
 // suite : la personne voit, décide, envoie.
 // ============================================================
-import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
+import { ouvrirWhatsAppApresAnnonce, nouveauMessage } from "./lib/core";
 import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
@@ -48,15 +48,19 @@ const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== f
 // WhatsApp, jamais après. L'écran passe sa fenêtre (`uAlert`) ; elle est
 // ATTENDUE, puis WhatsApp s'ouvre. Un motif attendu (formation, premier
 // contact) ne dérange personne. `annonce` dit à l'écran que c'est déjà dit.
-export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir }) {
+// `annonceRepli` : ce que l'écran veut dire AVANT l'ouverture même quand le
+// motif est attendu (formation, premier contact) — sinon rien n'est dit.
+export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir, annonceRepli }) {
   const repli = async (motif) => {
-    const annonce = !sansRepli && typeof prevenir === "function" && !!motif && !motifAttendu(motif);
-    if (annonce) await prevenir(messageRepli(motif));
+    if (sansRepli) return { auto: false, motif, annonce: false, parti: false };
+    const imprevu = !!motif && !motifAttendu(motif);
+    const texteAnnonce = imprevu ? messageRepli(motif, annonceRepli) : (annonceRepli || "");
+    const annonce = !!texteAnnonce && typeof prevenir === "function";
     return {
       auto: false,
       motif,
       annonce,
-      parti: sansRepli ? false : await envoyerWhatsApp(tel, texteRepli, demanderConfirmation),
+      parti: await ouvrirWhatsAppApresAnnonce({ tel, texte: texteRepli, annonce: texteAnnonce, prevenir, demanderConfirmation }),
     };
   };
 

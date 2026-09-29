@@ -48,7 +48,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
   };
 
   // ---- Enregistrement d'un prospect ----
-  const ajouter = () => {
+  const ajouter = async () => {
     if (!f.nom.trim() || !f.tel.trim()) { uAlert("Le nom et le numéro du prospect sont obligatoires."); return; }
     // ⚠ Cloisonnement : un prospect n'appartient à aucune boutique — sans
     // cette marque, une fiche inventée pendant un entraînement entrait dans
@@ -56,10 +56,12 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
     const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, ...marqueEspace(db, profile, f.boutique) };
     // WhatsApp est ouvert AVANT le save, de façon strictement synchrone (sinon
     // le navigateur bloque l'ouverture — cf. correctif du même souci sur le proforma).
-    envoyerAccueilProspectWhatsApp(f.nom, f.tel);
     save({ ...db, prospects: [p, ...db.prospects] }, `Nouveau prospect « ${f.nom} » (${f.categorie}) — ${profile.nom}`);
     setF(vide);
     setCarteOuverte(false);
+    // Décision « a » (29/09/2026) : ANNONCÉ avant l'ouverture de WhatsApp.
+    await envoyerAccueilProspectWhatsApp(f.nom, f.tel, { prevenir: uAlert,
+      annonce: `✅ Prospect « ${f.nom} » enregistré.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le message d'accueil, à lui envoyer.` });
   };
 
   const supprimer = async (p) => {

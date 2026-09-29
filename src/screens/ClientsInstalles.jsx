@@ -13,7 +13,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerRecuSansQuestion } from "../whatsapp";
 import { messageIdentifiants, envoiRecuReglement } from "../lib/whatsappModeles";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, heureCourte, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, numeroRecuDette } from "../lib/core";
+import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, heureCourte, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, numeroRecuDette, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
@@ -513,8 +513,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, ...champs, ...champsLienPv(jeton, numero) }
         : x)),
     }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom} — lien de signature envoyé automatiquement (${numero})`);
-    envoyerWhatsApp(c.tel, texte);
-    uAlert("✅ Travaux déclarés terminés. Le lien de signature vient de s'ouvrir dans WhatsApp.");
+    // Dit AVANT l'ouverture (règle du 29/09/2026), jamais après.
+    await ouvrirWhatsAppApresAnnonce({ tel: c.tel, texte, prevenir: uAlert, demanderConfirmation: uConfirm,
+      annonce: "✅ Travaux déclarés terminés.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le lien de signature du PV, à envoyer au client." });
   };
 
   // ---- ENVOI DU LIEN DE SIGNATURE (contrat de réception) ----
