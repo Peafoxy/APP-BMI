@@ -180,12 +180,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // 🤝 L'apporteur NOMMÉ DANS LE DEVIS (Timo, 29/09/2026) : il arrive déjà
   // rempli, avec le pourcentage que le devis a fixé (3 % d'office, ou celui
   // posé par l'administrateur principal). Hors du principal, il ne se change
-  // plus ici — et une vente issue d'un devis qui n'en portait pas n'en prend
-  // un qu'à 3 %, sans montant fixe. Une vente au comptoir reste libre.
+  // plus ici — et une vente qui n'en portait pas n'en prend un qu'à 3 %,
+  // sans montant fixe. ⚠ AU COMPTOIR AUSSI (Timo, 29/09/2026 : « au comptoir
+  // ça devrait être bloqué d'office… car la règle existait pour vente normale
+  // déjà ») : la même règle que les 3 % de remise, pour toutes les ventes.
   const [apporteurConverti, setApporteurConverti] = useState(() => preRempli?.apporteur || null);
   const apporteurImpose = devisOrigine?.apporteur_externe || apporteurConverti || null;
   const principalVentes = estAdminPrincipal(db, profile);
-  const tauxApporteurFige = !principalVentes && (!!origineDevis || !!apporteurImpose);
+  const tauxApporteurFige = !principalVentes;
   useEffect(() => {
     if (!apporteurImpose || !apporteurImpose.nom) return;
     setExt({ actif: true, nom: apporteurImpose.nom, tel: apporteurImpose.tel || "", taux: String(apporteurImpose.taux ?? TAUX_APPORTEUR_DEFAUT), montant: "" });
@@ -529,12 +531,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // crédit, sinon l'encaissement est bloqué (évite qu'une vente parte par
     // erreur comme "livrée" alors que rien n'a encore été remis, ou l'inverse).
     if (f.paiement === "Crédit (dette)" && !origineDevis && !f.statutArticle) { setMsg("Choisissez le statut de l'article (Livré ou Non livré) avant d'encaisser."); return; }
-    // 🤝 L'apporteur d'un devis, revérifié DANS le geste (29/09/2026) : le
-    // champ grisé ne suffit pas. Le pourcentage est celui du devis (3 %
-    // d'office), jamais un montant fixe ; le principal seul en décide autrement.
+    // 🤝 L'apporteur, revérifié DANS le geste (29/09/2026) : le champ grisé ne
+    // suffit pas. Le pourcentage est celui du devis, sinon 3 % — comptoir
+    // compris —, jamais un montant fixe ; le principal seul en décide autrement.
     if (tauxApporteurFige && ext.actif) {
       const refus = Number(ext.montant || 0) > 0
-        ? "🔒 Un apporteur venu d'un devis se paie au pourcentage, jamais au montant fixe."
+        ? "🔒 Un apporteur externe se paie au pourcentage, jamais au montant fixe."
         : critiqueApporteur(ext, { principal: principalVentes, tauxAttendu: apporteurImpose ? Number(apporteurImpose.taux ?? TAUX_APPORTEUR_DEFAUT) : TAUX_APPORTEUR_DEFAUT });
       if (refus) { setMsg(refus); uAlert(refus); return; }
     }
@@ -1363,7 +1365,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     {!tauxApporteurFige && <Field label="… ou montant fixe (F)"><input type="number" min="0" className={inputCls} value={ext.montant} onChange={(e) => setExt({ ...ext, montant: e.target.value, taux: "" })} /></Field>}
                     {tauxApporteurFige && (
                       <div className="sm:col-span-2 lg:col-span-4 text-xs text-amber-900" data-apporteur-du-devis>
-                        {apporteurImpose ? "🔒 Nommé dans le devis, avec son pourcentage : il ne se change pas ici." : `🔒 Venu d'un devis : ${TAUX_APPORTEUR_DEFAUT} % d'office.`} Seul l'administrateur principal peut en décider autrement.
+                        {apporteurImpose ? "🔒 Nommé dans le devis, avec son pourcentage : il ne se change pas ici." : `🔒 ${TAUX_APPORTEUR_DEFAUT} % d'office, jamais de montant fixe.`} Seul l'administrateur principal peut en décider autrement.
                       </div>
                     )}
                     <div className="sm:col-span-2 lg:col-span-4 text-sm font-bold text-amber-800">

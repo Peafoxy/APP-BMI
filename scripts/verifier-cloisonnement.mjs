@@ -11667,9 +11667,11 @@ titre("🤝 L'apporteur externe nommé dans le devis : 3 % d'office, le principa
     }));
   const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
   const encaisser = ve.slice(ve.indexOf("const encaisserVente"), ve.indexOf("const numero = prochainNumeroVente(db, boutique);"));
-  test("★★ 💰 Ventes : l'apporteur d'un devis arrive rempli, se revérifie DANS l'encaissement (avant le numéro), sans montant fixe, et attend la réception",
+  // RETOURNÉ le 29/09/2026 (Timo : « au comptoir ça devrait être bloqué
+  // d'office ») : 3 % fixe pour TOUTE vente, pas seulement celles d'un devis.
+  test("★★ 💰 Ventes : l'apporteur d'un devis arrive rempli ; 3 % fixe pour TOUTE vente hors principal, comptoir compris ; revérifié DANS l'encaissement (avant le numéro), sans montant fixe, et attend la réception",
     /const apporteurImpose = devisOrigine\?\.apporteur_externe \|\| apporteurConverti \|\| null;/.test(ve)
-    && /const tauxApporteurFige = !principalVentes && \(!!origineDevis \|\| !!apporteurImpose\);/.test(ve)
+    && /const tauxApporteurFige = !principalVentes;/.test(ve)
     && /critiqueApporteur\(ext, \{ principal: principalVentes, tauxAttendu:/.test(encaisser)
     && /jamais au montant fixe/.test(encaisser)
     && /if \(vente\.apporteur\) vente\.apporteur = \{ \.\.\.vente\.apporteur, a_la_reception: true \};/.test(ve)

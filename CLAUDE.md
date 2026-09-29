@@ -608,8 +608,10 @@ lit mal est pire qu'un banc absent).
   - **💰 Ventes** : l'apporteur du devis (ou du « Convertir en vente ») arrive
     rempli et **grisé** hors du principal ; une vente issue d'un devis sans
     apporteur n'en prend un qu'à 3 %, **jamais de montant fixe** ; revérifié
-    dans l'encaissement avec le taux DU DEVIS. ⚠ **Une vente au comptoir reste
-    libre** (pas demandé). ⚠ **L'apporteur d'un devis attend maintenant la
+    dans l'encaissement avec le taux DU DEVIS. ~~Une vente au comptoir reste
+    libre~~ — **RETOURNÉ le jour même** (« au comptoir ça devrait être bloqué
+    d'office… la règle existait pour vente normale déjà ») : **3 % fixe, sans
+    montant fixe, pour TOUTE vente**, hors administrateur principal. ⚠ **L'apporteur d'un devis attend maintenant la
     RÉCEPTION** (`a_la_reception`), comme le parrain — avant, seul le solde
     comptait pour lui (trou de la règle « réception ET solde »).
   - Base : les **articles, remise déduite** (jamais les frais) ; pour une
