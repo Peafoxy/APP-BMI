@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1960 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1979 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -591,6 +591,36 @@ lit mal est pire qu'un banc absent).
   Clients installés. Le banc interdit tout filtre « maison »
   (`toLowerCase().includes`, `normNom().includes`) dans écrans et composants ;
   `trouverArticle` (calculs.js) n'est pas une recherche mais un appariement.
+- **🤝 L'APPORTEUR EXTERNE SE NOMME DANS LE DEVIS** (29/09/2026, « a, tous
+  ceux qui établissent un devis, lance… fixer un pourcentage de 3 % par
+  défaut non modifiable… Pour modifier, l'initiateur enregistre comme
+  brouillon, l'admin principal change le pourcentage et lui il reprend pour
+  envoyer au client »). Avant, il ne se déclarait qu'à l'encaissement : le
+  devis n'en gardait rien, et une pose seule ne pouvait pas en avoir. Règle
+  pure `lib/apporteurDevis.js` (sans import).
+  - Case « 🤝 Un apporteur externe » en fin de devis, trois volets
+    (`BlocApporteurDevis`, Partages.jsx) ; `apporteur_externe` sur le devis
+    (`champsReglages`), relu à la reprise. **3 % d'office, champ grisé** ;
+    **le principal seul** le change (son devis, ou le brouillon d'un autre :
+    📝 Mes brouillons → cadre « 🤝 Apporteurs externes », `fixerTauxBrouillon`,
+    marque `taux_fixe_par`, l'auteur prévenu par message). Revérifié DANS
+    envoyer, convertir, brouillon (`critiqueApporteur`).
+  - **💰 Ventes** : l'apporteur du devis (ou du « Convertir en vente ») arrive
+    rempli et **grisé** hors du principal ; une vente issue d'un devis sans
+    apporteur n'en prend un qu'à 3 %, **jamais de montant fixe** ; revérifié
+    dans l'encaissement avec le taux DU DEVIS. ⚠ **Une vente au comptoir reste
+    libre** (pas demandé). ⚠ **L'apporteur d'un devis attend maintenant la
+    RÉCEPTION** (`a_la_reception`), comme le parrain — avant, seul le solde
+    comptait pour lui (trou de la règle « réception ET solde »).
+  - Base : les **articles, remise déduite** (jamais les frais) ; pour une
+    **pose seule**, le montant de la pose. **La pose seule porte l'apporteur
+    sur sa DETTE** (`apporteurPourDettePose`, validerDevis ; suit un devis
+    corrigé sauf déjà payé) ; 👑 Mon équipe le paie après réception ET solde
+    (`posesAvecApporteur`, chantiers de l'espace regardé), le tableau de bord
+    le compte, supprimer la dépense le rend dû.
+  - ⚠ **Une COMMANDE ne le porte pas** (« Convertir » d'un commercial) :
+    l'écran le dit. ⚠ **Aucun déclencheur serveur** ne garde le 3 % : c'est
+    l'application qui décide. Rien à coller.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

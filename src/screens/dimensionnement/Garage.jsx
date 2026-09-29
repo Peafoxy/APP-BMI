@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
-import { boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis } from "../../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis, estAdminPrincipal } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, contientLeMot, memeFamille, BlocEnvoiDevisClient, quantiteNecessaire, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
@@ -277,14 +277,14 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const totalArticles = totalRoles + totalAutres + totalKitSolaire + totalBatterieSecours + sousTotalPorte;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
-  const r = useReglagesDevis(totalArticles, {}, devisAReprendre);
+  const r = useReglagesDevis(totalArticles, {}, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
   const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
-  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "garage", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente });
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "garage", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r });
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
   // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.

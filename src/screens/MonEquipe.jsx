@@ -10,7 +10,7 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur} from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -40,6 +40,8 @@ export function MonEquipe({ db, save, profile }) {
   // ⚠ LE MUR : les dettes aussi passent par le filtre d'espace avant d'être
   // remises à une règle pure (le moyen du client d'une vente à crédit).
   const dettesDeMonEspace = (db.dettes || []).filter(filtreEspaceAffichage(db, profile));
+  // 🤝 Les poses seules qui portent un apporteur externe (29/09/2026).
+  const posesDeMonEspace = posesAvecApporteur(dettesDeMonEspace, chantiersDeLEspaceRegarde(db, profile));
   const prospectsDeMonEspace = (db.prospects || []).filter((p) => !!p.formation === regardeFormation);
   // Les ventes de chaque commercial, dans l'espace regardé, indexées une fois.
   const ventesParNom = new Map();
@@ -162,7 +164,7 @@ export function MonEquipe({ db, save, profile }) {
     const g = {};
     ventesDeMonEspace.filter((v) => v.apporteur && v.apporteur.nom && inP(v.date, debut, fin)).forEach((v) => {
       const cle = `${v.apporteur.nom}|${v.apporteur.tel || ""}`;
-      if (!g[cle]) g[cle] = { nom: v.apporteur.nom, tel: v.apporteur.tel || "", taux: Number(v.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [] };
+      if (!g[cle]) g[cle] = { nom: v.apporteur.nom, tel: v.apporteur.tel || "", taux: Number(v.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [], poses: [] };
       const m = Number(v.apporteur.montant || 0);
       g[cle].nb += 1;
       g[cle].ca += totalVente(v);
@@ -176,6 +178,22 @@ export function MonEquipe({ db, save, profile }) {
         if (!v.apporteur.a_la_reception) g[cle].attentePaiement = (g[cle].attentePaiement || 0) + m;
       } else { g[cle].due += m; g[cle].ventes.push(v.id); }
     });
+    // 🤝 LA POSE SEULE (29/09/2026) : pas de vente, l'apporteur nommé dans son
+    // devis vit sur la DETTE de pose. Même règle : dû après la réception ET le
+    // solde (posesAvecApporteur). Les dettes et chantiers passent DÉJÀ filtrés.
+    posesDeMonEspace.filter((x) => inP(x.dette.date, debut, fin)).forEach((x) => {
+      const d = x.dette;
+      const cle = `${d.apporteur.nom}|${d.apporteur.tel || ""}`;
+      if (!g[cle]) g[cle] = { nom: d.apporteur.nom, tel: d.apporteur.tel || "", taux: Number(d.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [], poses: [] };
+      const m = Number(d.apporteur.montant || 0);
+      g[cle].nb += 1;
+      g[cle].ca += Number(d.montant || 0);
+      if (d.apporteur.payee) g[cle].payee += m;
+      else if (x.bloquee) {
+        g[cle].attente = (g[cle].attente || 0) + m;
+        if (x.receptionne) g[cle].attentePaiement = (g[cle].attentePaiement || 0) + m;
+      } else { g[cle].due += m; g[cle].poses.push(d.id); }
+    });
     // ---- 💳 PAR QUOI ON LE PAIE, SANS RIEN DEMANDER (Timo, 21/09/2026) ----
     // « Moyen utilisé avec le client, automatiquement utilisé pour payer
     // l'apporteur externe... Au cas où on veux changer, on clique sur moyen ».
@@ -187,13 +205,17 @@ export function MonEquipe({ db, save, profile }) {
     // la question reviendrait — exactement ce qu'il a demandé de supprimer.
     Object.entries(g).forEach(([cle, l]) => {
       const siennes = ventesDeMonEspace.filter((v) => v.apporteur && cleApporteur(v.apporteur.nom, v.apporteur.tel) === cle);
+      const sesPoses = posesDeMonEspace.map((x) => x.dette).filter((d) => cleApporteur(d.apporteur.nom, d.apporteur.tel) === cle);
       l.ids = siennes.map((v) => v.id);
-      l.moyenHabituel = moyenHabituelApporteur(siennes);
+      l.idsPoses = sesPoses.map((d) => d.id);
+      l.moyenHabituel = moyenHabituelApporteur([...siennes, ...sesPoses]);
       // Le lot payé maintenant décide ; s'il n'y a rien à payer, on montre
       // quand même ce que ses ventes disent (la ligne l'affiche).
       const dues = new Set(l.ventes);
       const lot = siennes.filter((v) => dues.has(v.id));
-      l.moyenClient = moyenDuClientPourApporteur(lot.length ? lot : siennes, dettesDeMonEspace);
+      const posesDues = new Set(l.poses);
+      const lotPoses = sesPoses.filter((d) => posesDues.has(d.id));
+      l.moyenClient = moyenDuClientPourApporteur(lot.length || lotPoses.length ? lot : siennes, dettesDeMonEspace, lotPoses.length || lot.length ? lotPoses : sesPoses);
     });
     return Object.values(g).sort((a, b) => b.due - a.due);
   })();
@@ -262,7 +284,7 @@ export function MonEquipe({ db, save, profile }) {
   // Nombre de CLIENTS DISTINCTS apportés depuis toujours (pas seulement sur la période)
   const clientsApportes = (a) => {
     const clients = new Set();
-    ventesDeMonEspace.filter((v) => v.apporteur && v.apporteur.nom === a.nom && (v.apporteur.tel || "") === a.tel)
+    [...ventesDeMonEspace, ...posesDeMonEspace.map((x) => x.dette)].filter((v) => v.apporteur && v.apporteur.nom === a.nom && (v.apporteur.tel || "") === a.tel)
       .forEach((v) => clients.add(((v.client || "") + "|" + (v.tel || "")).trim().toLowerCase()));
     clients.delete("|");
     return clients.size;
@@ -335,8 +357,14 @@ export function MonEquipe({ db, save, profile }) {
     // De l'argent ne part jamais sur une hypothèse tue.
     const origineMoyen = a.moyenHabituel ? " — son moyen retenu (✏️ Moyen pour en changer)"
       : a.moyenClient ? " — le moyen par lequel le client a payé (✏️ Moyen pour en changer)" : "";
-    if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n💳 Moyen : ${moyen}${origineMoyen}\n\n${a.ventes.length} vente(s) concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
+    if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n💳 Moyen : ${moyen}${origineMoyen}\n\n${a.ventes.length} vente(s)${a.poses.length ? ` et ${a.poses.length} pose(s) seule(s)` : ""} concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
     if (dejaReglees(new Set(a.ventes), (v) => v.apporteur?.payee)) return;
+    const idsPoses = new Set(a.poses);
+    // La même garde pour les dettes de pose : réglées ailleurs entre-temps, rien ne part.
+    if ((db.dettes || []).some((d) => idsPoses.has(d.id) && d.apporteur?.payee)) {
+      uAlert("⚠ Une de ces poses vient d'être réglée par quelqu'un d'autre (autre appareil).\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois. Rouvrez l'écran : les montants se sont mis à jour.");
+      return;
+    }
     const ids = new Set(a.ventes);
     const dep = nouvelleDepense(profile, {
       boutique: bq, categorie: "Commissions",
@@ -349,6 +377,7 @@ export function MonEquipe({ db, save, profile }) {
       // le moyen du jour pour toujours, et la déduction depuis le client ne
       // servirait jamais deux fois. Seul ✏️ Moyen écrit un choix explicite.
       ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : v)),
+      dettes: (db.dettes || []).map((d) => (idsPoses.has(d.id) ? { ...d, apporteur: { ...d.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : d)),
       depenses: [dep, ...db.depenses],
       messages: [...messagesNotifPaiementCommission(db, profile, bq, a.nom, a.due), ...(db.messages || [])],
     }, `Commission de ${fmt(a.due)} payée à l'apporteur externe ${a.nom}`);
@@ -364,7 +393,7 @@ export function MonEquipe({ db, save, profile }) {
     if (!aDroit(db, profile, "act_commission")) { uAlert("Seule une personne autorisée à payer les commissions peut changer le moyen de paiement d'un apporteur."); return; }
     const m = await demanderMoyenPaiement(`pour ${a.nom}`, a.moyenHabituel || a.moyenClient || "Espèces");
     if (m === null) return;
-    save({ ...db, ventes: poserMoyenApporteur(db.ventes, a.ids, m) },
+    save({ ...db, ventes: poserMoyenApporteur(db.ventes, a.ids, m), dettes: poserMoyenApporteur(db.dettes, a.idsPoses, m) },
       `Moyen de paiement de l'apporteur ${a.nom}${a.tel ? ` (${a.tel})` : ""} : ${m}`);
     uAlert(`${a.nom} sera payé par ${m}. La question ne sera plus posée.`);
   };

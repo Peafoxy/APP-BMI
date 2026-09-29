@@ -23,6 +23,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/versements.js` | Le versement des fonds par les boutiques, et **le fonds de caisse** (l'enveloppe, à part du tiroir) |
 | `lib/cloture.js` | La clôture du jour (les ventes tous moyens, et le comptage du tiroir), et le blocage des ventes du lendemain |
 | `lib/validationDepenses.js` | La validation des dépenses par le DG, l'origine des fonds (« Payé avec »), les avances de frais |
+| `lib/apporteurDevis.js` | L'apporteur externe nommé dans le devis : 3 % d'office, le pourcentage changé par l'administrateur principal seul (brouillon), la commission sur les articles ou la pose, la dette de pose qui le porte |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |

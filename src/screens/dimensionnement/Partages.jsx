@@ -6,11 +6,12 @@
 import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
-import { fmt, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
+import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
 import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { prospectAvecDevis } from "../../lib/prospects";
+import { apporteurVide, apporteurDepuisDevis, apporteurDuFormulaire, critiqueApporteur, baseApporteurSaisie, commissionApporteur, TAUX_APPORTEUR_DEFAUT } from "../../lib/apporteurDevis";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
 // Demande Timo (02/09/2026) : « tous les écrans du dimensionnement doivent
@@ -67,6 +68,9 @@ export function appliquerConditionsReprises(devis, s) {
   s.setPoseSeule(pose);
   s.setMontantPoseFixe(pose ? String(devis.frais_installation ?? "") : "");
   s.setPctInstall(pose ? "10" : String(devis.pct_installation ?? 10));
+  // 🤝 L'apporteur externe nommé dans le devis (29/09/2026) — avec la marque
+  // du principal s'il a fixé le pourcentage dans le brouillon.
+  if (s.setApporteur) s.setApporteur(apporteurDepuisDevis(devis));
 }
 
 // (VA ≠ watts, quantité jamais plafonnée, « BATERIE » reconnu, familles
@@ -160,7 +164,7 @@ export function useAutresEquipements(lignesReprises, produitsBoutique = [], autr
 // (devisCommun.js). Un devis repris rétablit tout ce qui avait été négocié
 // (appliquerConditionsReprises) : sans cela le devis renvoyé au client
 // n'était plus celui convenu avec lui.
-export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre) {
+export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, { principal = false } = {}) {
   const [pctRemise, setPctRemise] = useState("0");
   const [pctInstall, setPctInstall] = useState("10");
   const [pctTransport, setPctTransport] = useState("0");
@@ -170,10 +174,12 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre) {
   const [poseSeule, setPoseSeule] = useState(initial.poseSeule ?? false);
   const [montantPoseFixe, setMontantPoseFixe] = useState(initial.montantPoseFixe ?? "");
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
+  // 🤝 L'apporteur externe (Timo, 29/09/2026) — lib/apporteurDevis.js.
+  const [apporteur, setApporteur] = useState(apporteurVide);
   useEffect(() => {
     appliquerConditionsReprises(devisAReprendre?.devis, {
       setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
@@ -182,6 +188,7 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre) {
     totalArticles, pctRemise, setPctRemise, pctInstall, setPctInstall, pctTransport, setPctTransport,
     poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
     pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
+    apporteur, setApporteur, principal,
   };
 }
 
@@ -197,6 +204,45 @@ export function BlocPoseSeule({ r }) {
         <div className="mt-2 flex items-center gap-2 text-sm">
           <span className="text-slate-500">Montant de la main d'œuvre (F CFA, fixé pour ce chantier)</span>
           <input type="number" min="0" value={r.montantPoseFixe} onChange={(e) => r.setMontantPoseFixe(e.target.value)} className="w-32 rounded border border-slate-300 px-2 py-1 text-right" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- 🤝 L'apporteur externe nommé dans le devis (Timo, 29/09/2026) ----
+// Tous ceux qui établissent un devis peuvent le nommer ; son pourcentage est
+// 3 % d'office et NE SE CHANGE PAS, sauf par l'administrateur principal —
+// sur son propre devis, ou sur le brouillon d'un autre (📝 Mes brouillons).
+export function BlocApporteurDevis({ r }) {
+  const a = r.apporteur || apporteurVide();
+  const maj = (champ, v) => r.setApporteur({ ...a, [champ]: v });
+  const base = baseApporteurSaisie(r);
+  return (
+    <div className="px-4 py-3 border-t border-slate-200" data-apporteur-devis>
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input type="checkbox" checked={!!a.actif} onChange={(e) => r.setApporteur(e.target.checked ? { ...apporteurVide(), actif: true } : apporteurVide())} />
+        🤝 Un <b>apporteur externe</b> (non-utilisateur) a amené ce client
+      </label>
+      {a.actif && (
+        <div className="mt-2 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <Field label="Nom et prénom(s)"><input className={inputCls} value={a.nom} onChange={(e) => maj("nom", e.target.value)} /></Field>
+          <Field label="Téléphone"><input type="tel" className={inputCls} value={a.tel} onChange={(e) => maj("tel", e.target.value)} /></Field>
+          <Field label="Commission (%)">
+            <input type="number" min="0" max="100" step="0.5" className={inputCls} value={a.taux} disabled={!r.principal} data-taux-apporteur
+                   onChange={(e) => r.setApporteur({ ...a, taux: e.target.value, taux_fixe_par: null, taux_fixe_le: null })} />
+          </Field>
+          <div className="text-sm font-bold text-amber-800 self-end pb-2">
+            Commission : <span className="tabular-nums">{fmt(commissionApporteur(base, a.taux))}</span>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4 text-xs text-amber-900">
+            {a.taux_fixe_par
+              ? <>Pourcentage fixé à <b>{a.taux} %</b> par {a.taux_fixe_par}{a.taux_fixe_le ? ` le ${dFR(a.taux_fixe_le)}` : ""}.</>
+              : r.principal
+                ? <>Calculée sur {r.poseSeule ? "le montant de la pose" : "les articles (remise déduite)"}. Vous seul pouvez changer le pourcentage.</>
+                : <>🔒 Fixé à {TAUX_APPORTEUR_DEFAUT} %. Pour un autre pourcentage : « 📝 Enregistrer un brouillon » — l'administrateur principal le fixera, puis reprenez-le pour l'envoyer.</>}
+            {" "}Due après la réception des travaux et le solde du client.
+          </div>
         </div>
       )}
     </div>
@@ -221,6 +267,7 @@ export function BlocsFinDevis({ r, onConvertir }) {
         delaiInstallation={r.delaiInstallation} setDelaiInstallation={r.setDelaiInstallation}
         montantAcompte={r.montantAcompte} totalDevis={r.totalDevis}
       />
+      <BlocApporteurDevis r={r} />
     </>
   );
 }
@@ -228,7 +275,14 @@ export function BlocsFinDevis({ r, onConvertir }) {
 // ---- L'envoi au client et la conversion en vente, communs aux trois volets.
 // Le volet ne fournit que ce qui lui est propre : le devis construit, la
 // première ligne du message WhatsApp, le message « devis vide ».
-export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente }) {
+export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r }) {
+  // 🤝 Le refus de l'apporteur, revérifié DANS le geste (envoi, brouillon,
+  // conversion) : le champ grisé à l'écran ne suffit pas.
+  const refusApporteur = () => {
+    const refus = critiqueApporteur(r && r.apporteur, { principal: !!(r && r.principal) });
+    if (refus) { uAlert(refus); return true; }
+    return false;
+  };
   // Le client repris : un compte (id), ou seulement un nom + numéro (brouillon
   // d'un client sans compte encore). Réappliqué à chaque nouvelle reprise —
   // avant, chaque volet le refaisait dans son propre effet.
@@ -258,6 +312,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   const envoyer = async ({ totalDevis, messageVide, construire, ligneEntete }) => {
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert(messageVide); return; }
+    if (refusApporteur()) return;
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
     const { compte, motDePasse, dbApres } = resolu;
@@ -287,9 +342,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
 
   const convertir = (panier, pctRemise) => {
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    if (refusApporteur()) return;
     effacerBrouillonVolet(volet, profile);
     if (brouillonRepris) save(retirerBrouillon(db, profile.id, brouillonRepris), `📝 Brouillon de devis converti en vente par ${profile.nom}`);
-    onConvertirEnVente(boutique, panier, Number(pctRemise || 0));
+    // L'apporteur suit le panier jusqu'à l'encaissement, avec son pourcentage.
+    onConvertirEnVente(boutique, panier, Number(pctRemise || 0), apporteurDuFormulaire(r && r.apporteur));
   };
 
   // 📝 Enregistrer un brouillon (demande Timo, 08/09/2026) : le devis tel
@@ -298,6 +355,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   const enregistrerBrouillon = ({ totalDevis, messageVide, construire }) => {
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert(messageVide); return; }
+    if (refusApporteur()) return;
     let client;
     if (clientDevis === "__nouveau__") {
       const nom = nouvClient.nom.trim(), tel = nouvClient.tel.trim();

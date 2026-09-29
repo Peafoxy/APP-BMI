@@ -4206,7 +4206,10 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
       ],
       total: totalDevis, pose_seule: poseSeule, frais_installation: fraisInstallation, pct_installation: poseSeule ? null : Number(pctInstall || 0),
       frais_transport: fraisTransport, pct_transport: Number(pctTransport || 0), remise, pct_remise: Number(pctRemise || 0),
-      pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim() };
+      pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim(),
+      // RETOURNÉ le 29/09/2026 : le devis porte désormais l'apporteur externe
+      // (lib/apporteurDevis.js), vide quand la case n'est pas cochée.
+      apporteur_externe: null };
   };
   const nouveau = (c) => {
     const reglages = { ...c, ...DC.calculerTotaux(c) };
@@ -4921,8 +4924,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 31 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "31"
+  test("★ nouveauMessage sert aux 32 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "32"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "18");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
@@ -11299,14 +11302,16 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   test("★★ LE PAIEMENT N'ÉCRIT PLUS DE MÉMOIRE — il figerait le moyen du jour et la déduction ne servirait jamais deux fois",
     !/ventes: poserMoyenApporteur\(db\.ventes\.map\(/.test(eq)
     && /ventes: db\.ventes\.map\(\(v\) => \(ids\.has\(v\.id\)/.test(eq));
+  // RETOURNÉ le 29/09/2026 : le même geste écrit aussi sur les dettes de
+  // POSE qui portent l'apporteur (pas de vente) — deux appels, UNE sauvegarde.
   test("★★ ✏️ Moyen reste le SEUL à écrire un choix explicite",
-    (eq.match(/poserMoyenApporteur\(/g) || []).length === 1
-    && /save\(\{ \.\.\.db, ventes: poserMoyenApporteur\(db\.ventes, a\.ids, m\) \}/.test(eq));
+    (eq.match(/poserMoyenApporteur\(/g) || []).length === 2
+    && /save\(\{ \.\.\.db, ventes: poserMoyenApporteur\(db\.ventes, a\.ids, m\), dettes: poserMoyenApporteur\(db\.dettes, a\.idsPoses, m\) \}/.test(eq));
   test("★★ le choix explicite est cherché sur TOUTES ses ventes de l'espace, pas sur la période — sinon la question revient au changement de mois",
     /const siennes = ventesDeMonEspace\.filter\(\(v\) => v\.apporteur && cleApporteur\(v\.apporteur\.nom, v\.apporteur\.tel\) === cle\);/.test(eq)
-    && /l\.moyenHabituel = moyenHabituelApporteur\(siennes\);/.test(eq));
+    && /l\.moyenHabituel = moyenHabituelApporteur\(\[\.\.\.siennes, \.\.\.sesPoses\]\);/.test(eq));
   test("★★ le moyen du client est déduit du LOT qu'on paie maintenant, dettes de l'espace à l'appui",
-    /l\.moyenClient = moyenDuClientPourApporteur\(lot\.length \? lot : siennes, dettesDeMonEspace\);/.test(eq)
+    /l\.moyenClient = moyenDuClientPourApporteur\(lot\.length \|\| lotPoses\.length \? lot : siennes, dettesDeMonEspace, lotPoses\.length \|\| lot\.length \? lotPoses : sesPoses\);/.test(eq)
     && /const lot = siennes\.filter\(\(v\) => dues\.has\(v\.id\)\);/.test(eq));
   test("★★ LE MUR : les dettes passent par le filtre d'espace AVANT d'être remises à la règle pure",
     /const dettesDeMonEspace = \(db\.dettes \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\);/.test(eq)
@@ -11564,6 +11569,127 @@ titre("Un devis SANS CALCUL repris ne ramène jamais ses lignes de frais comme d
   test("★★ le volet « Autre » écarte les lignes de frais à la reprise (elles se recalculent d'après les pourcentages)",
     /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\)\)/.test(autre)
     && /import \{[^}]*\bestLigneFrais\b[^}]*\} from "\.\/devisCommun"/.test(autre));
+}
+
+titre("🤝 L'apporteur externe nommé dans le devis : 3 % d'office, le principal seul en décide autrement (29/09/2026)");
+{
+  // Timo : « a, tous ceux qui établissent un devis, lance… Mais fixer un
+  // pourcentage de 3 % par défaut non modifiable… Pour modifier, l'initiateur
+  // enregistre comme brouillon, l'admin principal change le pourcentage et
+  // lui il reprend pour envoyer au client ».
+  const AD = await import(pathToFileURL(join(process.cwd(), "src/lib/apporteurDevis.js")).href);
+  const src = readFileSync("src/lib/apporteurDevis.js", "utf8");
+  test("★ lib/apporteurDevis.js n'importe RIEN (lisible par Node, comme lib/banques.js)", !/^\s*import\s/m.test(src));
+  const kofi = { actif: true, nom: "KOFI", tel: "90 11 22 33", taux: "3" };
+  test("★★ 3 % d'office, et le formulaire vide le dit", AD.TAUX_APPORTEUR_DEFAUT === 3 && AD.apporteurVide().taux === "3" && AD.apporteurVide().actif === false);
+  test("★★ un vendeur envoie à 3 % ; à 5 % il est REFUSÉ, et le refus dit la porte (brouillon, principal)",
+    AD.critiqueApporteur(kofi, { principal: false }) === ""
+    && /administrateur principal/.test(AD.critiqueApporteur({ ...kofi, taux: "5" }, { principal: false }))
+    && /brouillon/.test(AD.critiqueApporteur({ ...kofi, taux: "5" }, { principal: false })));
+  test("★★ le principal fixe le pourcentage qu'il veut (0 à 100), et sa MARQUE sur un brouillon laisse repartir l'auteur",
+    AD.critiqueApporteur({ ...kofi, taux: "5" }, { principal: true }) === ""
+    && AD.critiqueApporteur({ ...kofi, taux: "5", taux_fixe_par: "TIMO" }, { principal: false }) === ""
+    && AD.critiqueApporteur({ ...kofi, taux: "150" }, { principal: true }) !== "");
+  test("★ une case cochée sans nom est refusée ; une case décochée ne dit rien",
+    /nom/.test(AD.critiqueApporteur({ ...kofi, nom: " " }, { principal: true })) && AD.critiqueApporteur({ actif: false }, {}) === ""
+    && AD.apporteurDuFormulaire({ ...kofi, nom: "" }) === null && AD.apporteurDuFormulaire({ ...kofi, actif: false }) === null);
+  test("★★ À L'ENCAISSEMENT, c'est le pourcentage DU DEVIS qui fait foi : même la marque ne permet pas d'en changer",
+    AD.critiqueApporteur({ ...kofi, taux: "5" }, { principal: false, tauxAttendu: 5 }) === ""
+    && AD.critiqueApporteur({ ...kofi, taux: "3" }, { principal: false, tauxAttendu: 5 }) !== ""
+    && AD.critiqueApporteur({ ...kofi, taux: "8", taux_fixe_par: "TIMO" }, { principal: false, tauxAttendu: 5 }) !== "");
+  const b = { id: "br1", client: { nom: "AMA" }, devis: { total: 100000, apporteur_externe: { nom: "KOFI", tel: "", taux: 3 } } };
+  const bFixe = AD.fixerTauxBrouillon(b, 5, { nom: "TIMO" }, "2026-09-29");
+  test("★★ le principal fixe le pourcentage SUR le brouillon, avec sa marque ; la reprise le relit tel quel",
+    bFixe.devis.apporteur_externe.taux === 5 && bFixe.devis.apporteur_externe.taux_fixe_par === "TIMO"
+    && bFixe.devis.total === 100000 && b.devis.apporteur_externe.taux === 3
+    && AD.apporteurDepuisDevis(bFixe.devis).taux === "5" && AD.apporteurDepuisDevis(bFixe.devis).taux_fixe_par === "TIMO"
+    && AD.brouillonsAvecApporteur([b, { id: "x", devis: {} }]).length === 1);
+  test("★★ la commission se calcule sur les ARTICLES (remise déduite, sans les frais) — et sur la POSE pour une pose seule",
+    AD.baseApporteurDevis({ total: 1150000, frais_installation: 100000, frais_transport: 50000 }) === 1000000
+    && AD.baseApporteurDevis({ pose_seule: true, total: 90000, frais_installation: 80000, frais_transport: 10000 }) === 80000
+    && AD.baseApporteurSaisie({ poseSeule: false, totalArticles: 1000000, remise: 30000, fraisInstallation: 100000 }) === 970000
+    && AD.commissionApporteur(970000, 3) === 29100);
+
+  // Le devis construit par les trois volets porte l'apporteur.
+  const sortieAD = join("node_modules", ".cache", `bmi-ad-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieAD, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DC = await import(pathToFileURL(sortieAD).href);
+  unlinkSync(sortieAD);
+  const reglages = { ...DC.calculerTotaux({ totalArticles: 100000, pctRemise: "0", pctInstall: "10", pctTransport: "0", pctAcompte: "100" }), totalArticles: 100000, pctRemise: "0", pctInstall: "10", pctTransport: "0", pctAcompte: "100", delaiInstallation: "", apporteur: kofi };
+  const dv = DC.construireDevis({ profile: { id: "u1", nom: "KOSSI", role: "vendeur" }, boutique: "APESSITO", besoins: {}, panierMetier: [], lignesMetier: [], autres: [], reglages });
+  test("★★ le devis enregistré porte l'apporteur (nom, téléphone, 3 %)",
+    dv.apporteur_externe && dv.apporteur_externe.nom === "KOFI" && dv.apporteur_externe.taux === 3 && dv.apporteur_externe.tel === "90 11 22 33");
+
+  // La pose seule : la dette de pose porte l'apporteur, et le suit si le devis est corrigé.
+  const dbP = { boutiques: [{ id: "b1", nom: "BMI DEMAKPOE" }], commandes: [], dettes: [], clients_installes: [], ventes: [], ajustements: [], prospects: [],
+    users: [{ id: "c1", role: "client", nom: "AMA", tel: "90000000", devis: [
+      { id: "dp", statut: "propose", total: 90000, pose_seule: true, frais_installation: 80000, frais_transport: 10000, par: "KOSSI", par_id: "u5", par_role: "vendeur", boutique: "BMI DEMAKPOE", panier: [], lignes: [],
+        apporteur_externe: { nom: "KOFI", tel: "90 11 22 33", taux: 3 } },
+      { id: "dq", statut: "propose", total: 50000, pose_seule: true, frais_installation: 50000, par: "KOSSI", par_id: "u5", par_role: "vendeur", boutique: "BMI DEMAKPOE", panier: [], lignes: [] }] }] };
+  const rp = Val.validerDevis(dbP, { clientId: "c1", devisId: "dp", acteur: { nom: "KOSSI" } });
+  const rq = Val.validerDevis(dbP, { clientId: "c1", devisId: "dq", acteur: { nom: "KOSSI" } });
+  test("★★ POSE SEULE : la dette de pose porte l'apporteur, 3 % du montant de la pose (80 000 → 2 400), non payé",
+    rp.dette.apporteur && rp.dette.apporteur.nom === "KOFI" && rp.dette.apporteur.montant === 2400 && rp.dette.apporteur.payee === false
+    && !("apporteur" in rq.dette));
+
+  // Mon équipe : dû après la RÉCEPTION et le SOLDE, comme une vente.
+  const dettesP = [
+    { id: "d1", pose_seule: true, montant: 80000, paye: 80000, apporteur: { nom: "KOFI", montant: 2400 } },
+    { id: "d2", pose_seule: true, montant: 80000, paye: 20000, apporteur: { nom: "KOFI", montant: 2400 } },
+    { id: "d3", pose_seule: true, montant: 80000, paye: 80000, apporteur: { nom: "KOFI", montant: 2400 } },
+    { id: "d4", pose_seule: true, montant: 80000, paye: 80000 },
+  ];
+  const chP = [{ id: "c1", dette_id: "d1", statut: "receptionne" }, { id: "c2", dette_id: "d2", statut: "receptionne" }, { id: "c3", dette_id: "d3", statut: "termine" }];
+  const lp = C.posesAvecApporteur(dettesP, chP);
+  const etat = (id) => lp.find((x) => x.dette.id === id);
+  test("★★ une pose ne paie son apporteur qu'après la RÉCEPTION ET le solde — et une dette sans apporteur n'y figure pas",
+    lp.length === 3 && etat("d1").bloquee === false && etat("d2").bloquee === true && etat("d2").receptionne === true
+    && etat("d3").bloquee === true && etat("d3").receptionne === false);
+  test("★ le moyen du client d'une pose se lit sur SA dette de pose (l'argent ressort par où il est entré)",
+    C.moyenDuClientPourApporteur([], [], [{ date: "2026-09-20", paiements: [{ date: "2026-09-21", paiement: "Mobile Money (Flooz)" }] }]) === "Mobile Money (Flooz)");
+  const annule = C.annulerLiensDepense({ ventes: [], dettes: [{ id: "d1", apporteur: { payee: true, dep_id: "dep9" } }] }, { id: "dep9", auto: "commission_ext" });
+  test("★★ supprimer la dépense d'une commission d'apporteur REND la commission due, sur la dette de pose aussi",
+    annule.dettes[0].apporteur.payee === false && annule.dettes[0].apporteur.dep_id === null);
+
+  // Les écrans : la règle juste ne suffit pas si l'écran s'en sert mal.
+  const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★★ le devis revérifie l'apporteur DANS les trois gestes (envoyer, convertir, brouillon), et le champ du pourcentage n'est ouvert qu'au principal",
+    (pa.match(/if \(refusApporteur\(\)\) return;/g) || []).length === 3
+    && /critiqueApporteur\(r && r\.apporteur, \{ principal: !!\(r && r\.principal\) \}\)/.test(pa)
+    && /disabled=\{!r\.principal\} data-taux-apporteur/.test(pa)
+    && /<BlocApporteurDevis r=\{r\} \/>/.test(pa)
+    && /if \(s\.setApporteur\) s\.setApporteur\(apporteurDepuisDevis\(devis\)\);/.test(pa));
+  test("★ les trois volets passent le principal et leur réglage à l'envoi",
+    ["Solaire", "Garage", "Autre"].every((f) => {
+      const t = readFileSync(`src/screens/dimensionnement/${f}.jsx`, "utf8");
+      return /devisAReprendre, \{ principal: estAdminPrincipal\(db, profile\) \}\)/.test(t) && /onConvertirEnVente, r \}\)/.test(t);
+    }));
+  const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const encaisser = ve.slice(ve.indexOf("const encaisserVente"), ve.indexOf("const numero = prochainNumeroVente(db, boutique);"));
+  test("★★ 💰 Ventes : l'apporteur d'un devis arrive rempli, se revérifie DANS l'encaissement (avant le numéro), sans montant fixe, et attend la réception",
+    /const apporteurImpose = devisOrigine\?\.apporteur_externe \|\| apporteurConverti \|\| null;/.test(ve)
+    && /const tauxApporteurFige = !principalVentes && \(!!origineDevis \|\| !!apporteurImpose\);/.test(ve)
+    && /critiqueApporteur\(ext, \{ principal: principalVentes, tauxAttendu:/.test(encaisser)
+    && /jamais au montant fixe/.test(encaisser)
+    && /if \(vente\.apporteur\) vente\.apporteur = \{ \.\.\.vente\.apporteur, a_la_reception: true \};/.test(ve)
+    && /\{!tauxApporteurFige && <Field label="… ou montant fixe \(F\)">/.test(ve));
+  const br = readFileSync("src/screens/dimensionnement/Brouillons.jsx", "utf8");
+  const fixer = br.slice(br.indexOf("const fixerTaux"), br.indexOf("return (", br.indexOf("const fixerTaux")));
+  test("★★ 📝 Brouillons : le principal SEUL fixe le pourcentage (revérifié dans le geste), sur les brouillons de l'ESPACE REGARDÉ, relus frais, et l'auteur est prévenu",
+    /const principal = estAdminPrincipal\(db, profile\);/.test(br)
+    && /utilisateursDeLEspace\(db, profile\)\.flatMap/.test(br)
+    && /refuserSaufAdminPrincipal\(db, profile, "Changer le pourcentage d'un apporteur externe"\)/.test(fixer)
+    && /Ce brouillon n'existe plus/.test(fixer)
+    && /nouveauMessage\(profile, \{ a_id: u\.id/.test(fixer));
+  const eqA = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+  test("★★ 👑 Mon équipe paie aussi l'apporteur d'une POSE (sa dette), sur l'espace regardé, sans double paiement",
+    /const posesDeMonEspace = posesAvecApporteur\(dettesDeMonEspace, chantiersDeLEspaceRegarde\(db, profile\)\);/.test(eqA)
+    && /dettes: \(db\.dettes \|\| \[\]\)\.map\(\(d\) => \(idsPoses\.has\(d\.id\) \? \{ \.\.\.d, apporteur: \{ \.\.\.d\.apporteur, payee: true/.test(eqA)
+    && /idsPoses\.has\(d\.id\) && d\.apporteur\?\.payee/.test(eqA));
+  const dbd = readFileSync("src/screens/Dashboard.jsx", "utf8");
+  test("★ le tableau de bord compte la commission d'apporteur d'une pose (sa dette), à côté de celle des ventes",
+    /\[\.\.\.ventesReellesDb, \.\.\.dettesReellesDb\.filter\(\(d\) => d\.pose_seule\)\]/.test(dbd));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

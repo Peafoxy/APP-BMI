@@ -5,12 +5,13 @@
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat } from "../../components/ui";
-import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique } from "../../lib/calculs";
+import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique, estAdminPrincipal } from "../../lib/calculs";
 import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres } from "./devisCommun";
+import { apporteurVide } from "../../lib/apporteurDevis";
 import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
 // Réexportés : d'autres fichiers et le banc les lisent ici depuis toujours.
 export { SOLEIL_DEFAUT, TENSION_DEFAUT, supportsDuStock };
@@ -598,14 +599,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
-  const r = useReglagesDevis(totalArticles, {}, devisAReprendre);
+  const r = useReglagesDevis(totalArticles, {}, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
   const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
-  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "solaire", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente });
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "solaire", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r });
 
   // 🆕 Nouveau devis (demande Timo, 09/09/2026) : repartir de zéro d'un
   // geste au lieu de retirer les appareils ligne par ligne. Proposé
@@ -623,7 +624,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRailsQte(0); setFixationManuelle({});
     reprendreAutres([]);
     envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", tel: "" });
-    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation("");
+    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide());
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
   };
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;

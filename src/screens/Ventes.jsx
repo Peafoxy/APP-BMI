@@ -21,6 +21,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
+import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
@@ -160,6 +161,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setOrigineDevis(preRempli.origineDevis || null);
     setOrigineCommande(preRempli.commandeId || null);
     setOrigineTravaux(preRempli.travauxId || null);
+    setApporteurConverti(preRempli.apporteur || null);
     setF((f0) => ({
       ...f0,
       client: preRempli.client || f0.client,
@@ -175,6 +177,20 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [f, setF] = useState({ client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
   // Apporteur d'affaires EXTERNE (pas un utilisateur de l'application)
   const [ext, setExt] = useState({ actif: false, nom: "", tel: "", taux: "", montant: "" });
+  // 🤝 L'apporteur NOMMÉ DANS LE DEVIS (Timo, 29/09/2026) : il arrive déjà
+  // rempli, avec le pourcentage que le devis a fixé (3 % d'office, ou celui
+  // posé par l'administrateur principal). Hors du principal, il ne se change
+  // plus ici — et une vente issue d'un devis qui n'en portait pas n'en prend
+  // un qu'à 3 %, sans montant fixe. Une vente au comptoir reste libre.
+  const [apporteurConverti, setApporteurConverti] = useState(() => preRempli?.apporteur || null);
+  const apporteurImpose = devisOrigine?.apporteur_externe || apporteurConverti || null;
+  const principalVentes = estAdminPrincipal(db, profile);
+  const tauxApporteurFige = !principalVentes && (!!origineDevis || !!apporteurImpose);
+  useEffect(() => {
+    if (!apporteurImpose || !apporteurImpose.nom) return;
+    setExt({ actif: true, nom: apporteurImpose.nom, tel: apporteurImpose.tel || "", taux: String(apporteurImpose.taux ?? TAUX_APPORTEUR_DEFAUT), montant: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisOrigine?.id, apporteurConverti]);
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -513,6 +529,15 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // crédit, sinon l'encaissement est bloqué (évite qu'une vente parte par
     // erreur comme "livrée" alors que rien n'a encore été remis, ou l'inverse).
     if (f.paiement === "Crédit (dette)" && !origineDevis && !f.statutArticle) { setMsg("Choisissez le statut de l'article (Livré ou Non livré) avant d'encaisser."); return; }
+    // 🤝 L'apporteur d'un devis, revérifié DANS le geste (29/09/2026) : le
+    // champ grisé ne suffit pas. Le pourcentage est celui du devis (3 %
+    // d'office), jamais un montant fixe ; le principal seul en décide autrement.
+    if (tauxApporteurFige && ext.actif) {
+      const refus = Number(ext.montant || 0) > 0
+        ? "🔒 Un apporteur venu d'un devis se paie au pourcentage, jamais au montant fixe."
+        : critiqueApporteur(ext, { principal: principalVentes, tauxAttendu: apporteurImpose ? Number(apporteurImpose.taux ?? TAUX_APPORTEUR_DEFAUT) : TAUX_APPORTEUR_DEFAUT });
+      if (refus) { setMsg(refus); uAlert(refus); return; }
+    }
     // 📲 UNE VENTE SANS NUMÉRO DEMANDE D'ABORD (Timo, 25/09/2026 : « une
     // vente sans numéro devrait demander au vendeur d'ajouter le nom et le
     // numéro du client… ou continuer sans » → « 1 » : TOUJOURS, même pour un
@@ -694,6 +719,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       setPanier([]);
       setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
       setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
+      setApporteurConverti(null);
       setCat("");
       uAlert("✅ Réservation créée — le stock ne sera déduit et la vente enregistrée qu'à la livraison, depuis Dettes → Réservations prépayées.");
       return;
@@ -788,6 +814,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // réception des travaux par le client.
       vente.installation_id = chantier.id;
       vente.commission_a_la_reception = od.par_role === "commercial" || od.par_role === "technicien";
+      // 🤝 L'apporteur externe d'un devis attend la RÉCEPTION des travaux, comme
+      // le parrain (règle posée par Timo : réception ET solde du client).
+      if (vente.apporteur) vente.apporteur = { ...vente.apporteur, a_la_reception: true };
 
       // ---- LE PARRAIN DU CLIENT ----
       // Si ce client a été amené par un autre client, celui-ci touche sa part.
@@ -907,6 +936,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setTransfertEnAttente(null);
     setF({ client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
     setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
+    setApporteurConverti(null);
     setCat("");
   };
 
@@ -1321,15 +1351,21 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               )}
               <div className="sm:col-span-2 lg:col-span-4">
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <input type="checkbox" checked={ext.actif} onChange={(e) => setExt({ ...ext, actif: e.target.checked })} />
+                  <input type="checkbox" checked={ext.actif} disabled={tauxApporteurFige && !!apporteurImpose}
+                         onChange={(e) => setExt(tauxApporteurFige ? { actif: e.target.checked, nom: "", tel: "", taux: String(TAUX_APPORTEUR_DEFAUT), montant: "" } : { ...ext, actif: e.target.checked })} />
                   🤝 Un <b>apporteur externe</b> (non-utilisateur) a amené ce client
                 </label>
                 {ext.actif && (
                   <div className="mt-2 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <Field label="Nom et prénom(s)"><input className={inputCls} value={ext.nom} onChange={(e) => setExt({ ...ext, nom: e.target.value })} /></Field>
-                    <Field label="Téléphone"><input className={inputCls} value={ext.tel} onChange={(e) => setExt({ ...ext, tel: e.target.value })} /></Field>
-                    <Field label="Commission (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={ext.taux} onChange={(e) => setExt({ ...ext, taux: e.target.value, montant: "" })} /></Field>
-                    <Field label="… ou montant fixe (F)"><input type="number" min="0" className={inputCls} value={ext.montant} onChange={(e) => setExt({ ...ext, montant: e.target.value, taux: "" })} /></Field>
+                    <Field label="Nom et prénom(s)"><input className={inputCls} value={ext.nom} disabled={tauxApporteurFige && !!apporteurImpose} onChange={(e) => setExt({ ...ext, nom: e.target.value })} /></Field>
+                    <Field label="Téléphone"><input className={inputCls} value={ext.tel} disabled={tauxApporteurFige && !!apporteurImpose} onChange={(e) => setExt({ ...ext, tel: e.target.value })} /></Field>
+                    <Field label="Commission (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={ext.taux} disabled={tauxApporteurFige} data-taux-apporteur-vente onChange={(e) => setExt({ ...ext, taux: e.target.value, montant: "" })} /></Field>
+                    {!tauxApporteurFige && <Field label="… ou montant fixe (F)"><input type="number" min="0" className={inputCls} value={ext.montant} onChange={(e) => setExt({ ...ext, montant: e.target.value, taux: "" })} /></Field>}
+                    {tauxApporteurFige && (
+                      <div className="sm:col-span-2 lg:col-span-4 text-xs text-amber-900" data-apporteur-du-devis>
+                        {apporteurImpose ? "🔒 Nommé dans le devis, avec son pourcentage : il ne se change pas ici." : `🔒 Venu d'un devis : ${TAUX_APPORTEUR_DEFAUT} % d'office.`} Seul l'administrateur principal peut en décider autrement.
+                      </div>
+                    )}
                     <div className="sm:col-span-2 lg:col-span-4 text-sm font-bold text-amber-800">
                       Commission de {ext.nom || "l'apporteur"} : <span className="tabular-nums">{fmt(commissionExt(total))}</span>
                     </div>

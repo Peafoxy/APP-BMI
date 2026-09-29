@@ -1014,7 +1014,9 @@ export function annulerLiensDepense(db, d) {
     return { ventes: (db.ventes || []).map((v) => (v.override_dep === d.id ? { ...v, override_payee: false, override_dep: null } : v)) };
   }
   if (d.auto === "commission_ext") {
-    return { ventes: (db.ventes || []).map((v) => (v.apporteur?.dep_id === d.id ? { ...v, apporteur: { ...v.apporteur, payee: false, dep_id: null, date_paiement: null } } : v)) };
+    const defaire = (v) => (v.apporteur?.dep_id === d.id ? { ...v, apporteur: { ...v.apporteur, payee: false, dep_id: null, date_paiement: null } } : v);
+    // 🤝 Et la dette de pose qui portait l'apporteur (29/09/2026).
+    return { ventes: (db.ventes || []).map(defaire), dettes: (db.dettes || []).map(defaire) };
   }
   if (d.auto === "installation") {
     return { clients_installes: (db.clients_installes || []).map((c) => ({ ...c, equipe: (c.equipe || []).map((e) => (e.dep_id === d.id ? { ...e, paye: false, date_paiement: null, dep_id: null } : e)) })) };
@@ -1335,6 +1337,21 @@ export const venteSoldee = (db, v) => resteDuSurVente(db, v) === 0;
 export const partParrainBloquee = (v, db) => !!(v.apporteur && v.apporteur.a_la_reception)
   || (db !== undefined && !venteSoldee(db, v));
 
+// ---- 🤝 L'APPORTEUR D'UNE POSE SEULE (Timo, 29/09/2026) ----
+// Une pose seule n'a pas de vente : l'apporteur nommé dans son devis est
+// posé sur la DETTE de pose (lib/validationDevis.js). Même règle que sur une
+// vente : due après la RÉCEPTION du chantier ET le solde du client.
+// ⚠ LE MUR : reçoit les dettes et les chantiers DÉJÀ filtrés par l'espace —
+// jamais `db.dettes` en entier.
+export const posesAvecApporteur = (dettes, chantiers) => (dettes || [])
+  .filter((d) => d && d.pose_seule && d.apporteur && d.apporteur.nom)
+  .map((d) => {
+    const ch = (chantiers || []).find((c) => c && c.dette_id === d.id) || null;
+    const receptionne = !!ch && statutChantier(ch) === "receptionne";
+    const soldee = Math.max(0, Number(d.montant || 0) - Number(d.paye || 0)) === 0;
+    return { dette: d, chantier: ch, receptionne, soldee, bloquee: !receptionne || !soldee };
+  });
+
 // ---- 📌 LE MOYEN HABITUEL D'UN APPORTEUR EXTERNE (Timo, 21/09/2026) ----
 // Capture de la fenêtre « Moyen de paiement pour FIFO » : **« on demande encore
 // le moyen de paiement »**. Devant deux propositions (déduire le moyen du
@@ -1391,11 +1408,19 @@ export function moyenHabituelApporteur(sesVentes) {
 const quandLigne = (x) => `${x?.date || ""} ${x?.heure || ""}`;
 const duPlusRecent = (liste) => [...(liste || [])].sort((a, b) => quandLigne(b).localeCompare(quandLigne(a)));
 const moyenUtilisable = (m) => (MOYENS_ENCAISSEMENT.includes(String(m || "")) ? String(m) : "");
-export function moyenDuClientPourApporteur(sesVentes, dettes) {
+export function moyenDuClientPourApporteur(sesVentes, dettes, sesPoses = []) {
   for (const v of duPlusRecent(sesVentes)) {
     const direct = moyenUtilisable(v && v.paiement);
     if (direct) return direct;
     const d = (dettes || []).find((x) => x.vente_id === v.id);
+    for (const p of duPlusRecent(d && d.paiements)) {
+      const m = moyenUtilisable(p && p.paiement);
+      if (m) return m;
+    }
+  }
+  // 🤝 Une pose seule (29/09/2026) : pas de vente, l'argent du client est
+  // entré par les règlements de SA dette de pose.
+  for (const d of duPlusRecent(sesPoses)) {
     for (const p of duPlusRecent(d && d.paiements)) {
       const m = moyenUtilisable(p && p.paiement);
       if (m) return m;

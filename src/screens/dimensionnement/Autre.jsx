@@ -7,7 +7,7 @@ import { BoutiqueTabs } from "../../components/SelecteurBoutique";
 import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../components/ui";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
-import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue } from "../../lib/calculs";
+import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, estAdminPrincipal } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, estLigneFrais } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
@@ -259,7 +259,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const totalArticles = totalRoles + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
-  const r = useReglagesDevis(totalArticles, { poseSeule: brouillon?.poseSeule ?? false, montantPoseFixe: brouillon?.montantPoseFixe ?? "" }, devisAReprendre);
+  const r = useReglagesDevis(totalArticles, { poseSeule: brouillon?.poseSeule ?? false, montantPoseFixe: brouillon?.montantPoseFixe ?? "" }, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
   const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti, jamais avant.
@@ -269,7 +269,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
-  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "autre", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente });
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "autre", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r });
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
   // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.

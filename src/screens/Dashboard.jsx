@@ -201,7 +201,10 @@ export function Dashboard({ db, profile, save }) {
       const tauxEq = Number(chef.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
       return s + Math.round((commissionVente(v, Number(vendeur.taux_commission || 0), db) * tauxEq) / 100);
     }, 0);
-  const commissionsApporteurs = (payee) => ventesReellesDb.filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
+  // 🤝 Une pose seule porte son apporteur sur sa DETTE (29/09/2026) : il n'y a
+  // pas de vente. Les deux sont comptés, jamais l'un à la place de l'autre.
+  const commissionsApporteurs = (payee) => [...ventesReellesDb, ...dettesReellesDb.filter((d) => d.pose_seule)]
+    .filter((v) => v.apporteur && Boolean(v.apporteur.payee) === payee)
     .reduce((s, v) => s + Number(v.apporteur.montant || 0), 0);
   // ⚠ Même oubli que totalDepenses : les primes d'installation d'un
   // chantier d'entraînement gonflaient les commissions dues et payées.

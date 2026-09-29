@@ -5,9 +5,10 @@
 // son volet, s'envoie par WhatsApp, ou se supprime. Rangé dans la fiche de
 // celui qui l'a fait (`brouillons_devis`) : personnel, synchronisé, sans SQL.
 // ============================================================
-import { uid, fmt, today, dFR, heureCourte } from "../../lib/core";
-import { uAlert, uConfirm } from "../../components/ui";
-import { bloquerSiLecture } from "../../lib/calculs";
+import { uid, fmt, today, dFR, heureCourte, nouveauMessage } from "../../lib/core";
+import { uAlert, uConfirm, uPrompt } from "../../components/ui";
+import { bloquerSiLecture, estAdminPrincipal, refuserSaufAdminPrincipal, utilisateursDeLEspace } from "../../lib/calculs";
+import { brouillonsAvecApporteur, fixerTauxBrouillon } from "../../lib/apporteurDevis";
 import { brouillonsDe, retirerBrouillon } from "./devisCommun";
 import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp } from "./Partages";
 import { messageDevisEnvoye } from "../../lib/whatsappModeles";
@@ -45,7 +46,64 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
     if (envoye && envoye.auto) uAlert(messageDevisEnvoye(compte.nom, true));
   };
 
+  // 🤝 L'ADMINISTRATEUR PRINCIPAL FIXE LE POURCENTAGE DE L'APPORTEUR (Timo,
+  // 29/09/2026 : « l'initiateur enregistre comme brouillon, l'admin principal
+  // change le pourcentage et lui il reprend pour envoyer au client »). Il voit
+  // les brouillons de l'ESPACE REGARDÉ qui nomment un apporteur ; il ne touche
+  // que le pourcentage. L'auteur est prévenu, et c'est lui qui renvoie.
+  const principal = estAdminPrincipal(db, profile);
+  const aFixer = principal
+    ? utilisateursDeLEspace(db, profile).flatMap((u) => brouillonsAvecApporteur(brouillonsDe(u)).map((b) => ({ u, b })))
+    : [];
+  const fixerTaux = async ({ u, b }) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Changer le pourcentage d'un apporteur externe")) return;
+    const a = b.devis.apporteur_externe;
+    const rep = await uPrompt(`Pourcentage de l'apporteur ${a.nom} sur le devis de ${b.client?.nom || "?"} (${fmt(b.devis?.total)}), brouillon de ${u.nom} :`, String(a.taux ?? ""));
+    if (rep === null) return;
+    const taux = Number(String(rep).replace(",", "."));
+    if (!Number.isFinite(taux) || taux < 0 || taux > 100) { uAlert("Le pourcentage doit être entre 0 et 100."); return; }
+    // Relu sur la fiche FRAÎCHE : le brouillon a pu être envoyé ou supprimé.
+    const auteur = (utilisateursDeLEspace(db, profile)).find((x) => x.id === u.id);
+    const frais = brouillonsDe(auteur).find((x) => x.id === b.id);
+    if (!frais) { uAlert("Ce brouillon n'existe plus : il a été envoyé ou supprimé."); return; }
+    const maj = fixerTauxBrouillon(frais, taux, profile, today());
+    const avis = u.id === profile.id ? [] : [nouveauMessage(profile, { a_id: u.id,
+      texte: `🤝 Le pourcentage de l'apporteur ${a.nom} est fixé à ${taux} % sur votre brouillon de devis pour ${b.client?.nom || "?"}. Reprenez-le dans 📝 Mes brouillons pour l'envoyer au client.` })];
+    save({
+      ...db,
+      users: db.users.map((x) => (x.id === u.id ? { ...x, brouillons_devis: brouillonsDe(x).map((y) => (y.id === b.id ? maj : y)) } : x)),
+      messages: [...avis, ...(db.messages || [])],
+    }, `🤝 Pourcentage de l'apporteur ${a.nom} fixé à ${taux} % (brouillon de ${u.nom}, client ${b.client?.nom || "?"}) par ${profile.nom}`);
+    uAlert(`✅ ${taux} % pour ${a.nom}.${u.id === profile.id ? "" : ` ${u.nom} est prévenu : il reprend le brouillon et l'envoie.`}`);
+  };
+
   return (
+    <div className="space-y-4">
+    {principal && (
+      <div className="rounded-xl p-4 bg-amber-50 border border-amber-300 shadow-sm" data-apporteurs-a-fixer>
+        <div className="font-bold mb-1">🤝 Apporteurs externes — le pourcentage</div>
+        <div className="text-xs text-slate-600 mb-3">
+          Les brouillons de l'équipe qui nomment un apporteur externe. Il est à 3 % d'office ; vous seul pouvez le changer. L'auteur est prévenu, il reprend le brouillon et l'envoie.
+        </div>
+        {aFixer.length === 0 ? (
+          <div className="text-sm text-slate-500">Aucun brouillon avec un apporteur externe.</div>
+        ) : (
+          <div className="divide-y divide-amber-200">
+            {aFixer.map(({ u, b }) => (
+              <div key={`${u.id}-${b.id}`} className="py-2 flex flex-wrap items-center gap-2 text-sm">
+                <div className="flex-1 min-w-[12rem]">
+                  <span className="font-bold">{b.devis.apporteur_externe.nom}</span> · <b>{b.devis.apporteur_externe.taux} %</b>
+                  {b.devis.apporteur_externe.taux_fixe_par ? <span className="text-xs text-slate-500"> (fixé par {b.devis.apporteur_externe.taux_fixe_par})</span> : null}
+                  <div className="text-xs text-slate-500">Client {b.client?.nom || "?"} · {fmt(b.devis?.total)} · brouillon de {u.nom} · {dFR(b.date)}</div>
+                </div>
+                <button onClick={() => fixerTaux({ u, b })} className="px-3 py-1 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">✏️ Fixer le pourcentage</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
     <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
       <div className="font-bold mb-1">📝 Mes brouillons</div>
       <div className="text-xs text-slate-500 mb-3">
@@ -69,6 +127,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }

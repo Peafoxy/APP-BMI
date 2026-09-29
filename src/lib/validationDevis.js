@@ -13,6 +13,7 @@ import { uid, today, fmt, prochainNumeroDette } from "./core";
 import { PAIEMENTS, TYPES_INSTALLATION } from "./constants";
 import { offreExpiree } from "./rappels";
 import { acomptePose, ACOMPTE_POSE_PCT } from "./poseSeule";
+import { apporteurPourDettePose } from "./apporteurDevis";
 import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "./calculs";
 
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
@@ -69,6 +70,10 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
       // l'installation ne se programme pas avant (lib/poseSeule.js).
       pose_seule: true, acompte_attendu: acomptePose(d.total), acompte_pct: ACOMPTE_POSE_PCT,
       boutique_pose: d.boutique || boutique || null,
+      // 🤝 L'apporteur externe nommé dans le devis (29/09/2026) : une pose
+      // seule n'a pas de vente, sa commission vit donc sur la dette de pose.
+      // Payable dans 👑 Mon équipe après la réception ET le solde.
+      ...(apporteurPourDettePose(d) ? { apporteur: apporteurPourDettePose(d) } : {}),
     };
     const chantier = {
       id: uid(), date: today(),

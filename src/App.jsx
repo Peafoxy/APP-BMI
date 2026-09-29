@@ -1311,9 +1311,12 @@ export default function App() {
       )}
       {ongletsVisites.dimensionnement && (
         <div style={{ display: tab === "dimensionnement" ? "block" : "none" }}>
-          <M.Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise) => {
+          <M.Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise, apporteur) => {
             if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
-            setPreRempli({ boutique, panier, remise });
+            // 🤝 L'apporteur nommé dans le volet suit le panier jusqu'à 💰 Ventes
+            // (29/09/2026). Une COMMANDE ne le porte pas : on le dit.
+            if (apporteur && (isCommercial || isTechnicien)) uAlert(`🤝 L'apporteur ${apporteur.nom} ne suit pas une commande : envoyez plutôt le devis au client, c'est lui qui le garde jusqu'à l'encaissement.`);
+            setPreRempli({ boutique, panier, remise, apporteur: apporteur || null });
             setTab((isCommercial || isTechnicien) ? "commande" : "ventes");
           }} />
         </div>

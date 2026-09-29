@@ -14,6 +14,7 @@
 // l'ancienne écriture et celle-ci, et vérifie qu'ils sont identiques.
 // ============================================================
 import { uid, today, heureCourte } from "../../lib/core";
+import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 
 // ---- Les « autres équipements » (saisie libre) ----
 export const reprisesAutres = (lignesReprises) => (lignesReprises || [])
@@ -94,6 +95,9 @@ export const champsReglages = (r) => ({
   pct_acompte: Number(r.pctAcompte || 100),
   montant_acompte: r.montantAcompte,
   delai_installation: String(r.delaiInstallation || "").trim(),
+  // 🤝 L'apporteur externe nommé dans le devis (29/09/2026) : il suit le
+  // devis jusqu'à l'encaissement (💰 Ventes) ou la dette de pose.
+  apporteur_externe: apporteurDuFormulaire(r.apporteur),
 });
 
 // ---- Le devis complet. `typeDevis` absent = devis solaire (comme avant :
