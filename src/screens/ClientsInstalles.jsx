@@ -38,6 +38,7 @@ import { dateApresMois, critiqueEntretienFait, marquerEntretienFait, dernierEntr
 // majorée (avant : « part du chef » + une part égale, qui donnait 70 % au chef
 // quand on tapait 60, sans que le mot le dise).
 const PART_BMI_DEFAUT = 0;
+const MAJORATION_CHEF_DEFAUT = 7;
 
 // Qui peut intervenir sur un chantier
 
@@ -82,28 +83,31 @@ const techniciensActifs = (db) => (db.users || []).filter((u) => {
   return true;
 });
 
-// Calcule la répartition proposée : BMI garde part_bmi, le reste est partagé
-// également entre TOUS les techniciens présents (chef compris).
+// Calcule la répartition proposée. Timo (29/09/2026, « b, lance mais au lieu
+// de 15, mets 7 % ») : BMI garde part_bmi, le reste va aux techniciens
+// présents, et la part du CHEF dépasse celle de chacun des autres de
+// majoration_chef % (7 d'office) : chef = autre × 1,07. Ex. 4 techniciens,
+// 40 % à partager → les autres 9,83 %, le chef 10,51 %.
 // ⚠ Les parts étaient arrondies CHACUNE au dixième, sans jamais vérifier leur
 // somme. Avec 7 ou 9 techniciens (60 / 7 = 8,571… → 8,6) le total montait à
 // 100,2 ou 100,3 % : BMI distribuait plus que les frais facturés au client,
 // et l'ancienne tolérance de 100,5 % laissait passer l'écart en silence.
-// On arrondit maintenant les parts des NON-CHEFS, et le chef reçoit le reste
-// exact (un dixième au plus d'écart) — la somme des techniciens fait toujours
-// 100 % − la part de BMI, au centième près.
-function repartitionProposee(equipeIds, chefId, partBmi) {
+// On arrondit les parts des NON-CHEFS, et le chef reçoit le reste exact — la
+// somme des techniciens fait toujours 100 % − la part de BMI, au centième près.
+function repartitionProposee(equipeIds, chefId, partBmi, majorationChef) {
   const n = equipeIds.length;
   if (!n) return {};
   const reste = Math.min(100, Math.max(0, 100 - Number(partBmi || 0)));
-  const partEgale = Math.round((reste / n) * 10) / 10;
+  const m = Math.max(0, Number(majorationChef || 0)) / 100;
+  const chef = equipeIds.includes(chefId) ? chefId : equipeIds[0];
+  const partAutre = Math.round((reste / (n + m)) * 100) / 100;
   const r = {};
   let distribue = 0;
   equipeIds.forEach((id) => {
-    if (id === chefId) return;
-    r[id] = partEgale;
-    distribue += partEgale;
+    if (id === chef) return;
+    r[id] = partAutre;
+    distribue += partAutre;
   });
-  const chef = equipeIds.includes(chefId) ? chefId : equipeIds[0];
   r[chef] = Math.max(0, Math.round((reste - distribue) * 100) / 100);
   return r;
 }
@@ -387,7 +391,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // L'admin saisit les frais facturés, désigne le chef DU CHANTIER, coche les
   // techniciens présents, et l'application propose la répartition.
   const [chantier, setChantier] = useState(null); // fiche en cours de répartition
-  const [rep, setRep] = useState({ frais: "", chef: "", partBmi: String(PART_BMI_DEFAUT), equipe: [], pcts: {} });
+  const [rep, setRep] = useState({ frais: "", chef: "", partBmi: String(PART_BMI_DEFAUT), majChef: String(MAJORATION_CHEF_DEFAUT), equipe: [], pcts: {} });
   // ⚠ CLOISONNEMENT (2.100.38) — la liste des techniciens ne regardait aucun
   // espace : on pouvait affecter un VRAI technicien à un chantier
   // d'entraînement (et l'inverse). Sa part de frais était alors calculée à son
@@ -634,6 +638,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       partBmi: String(c.part_bmi ?? (Array.isArray(c.equipe) && c.equipe.length
         ? Math.max(0, Math.round((100 - c.equipe.reduce((s, e) => s + Number(e.pct || 0), 0)) * 10) / 10)
         : PART_BMI_DEFAUT)),
+      majChef: String(c.majoration_chef ?? MAJORATION_CHEF_DEFAUT),
       equipe,
       pcts: Object.fromEntries((c.equipe || []).map((e) => [e.user_id, e.pct])),
     });
@@ -642,11 +647,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const basculerTech = (id) => {
     const equipe = rep.equipe.includes(id) ? rep.equipe.filter((x) => x !== id) : [...rep.equipe, id];
     const chef = equipe.includes(rep.chef) ? rep.chef : (equipe[0] || "");
-    setRep((r) => ({ ...r, equipe, chef, pcts: repartitionProposee(equipe, chef, r.partBmi) }));
+    setRep((r) => ({ ...r, equipe, chef, pcts: repartitionProposee(equipe, chef, r.partBmi, r.majChef) }));
   };
 
-  const designerChef = (id) => setRep((r) => ({ ...r, chef: id, pcts: repartitionProposee(r.equipe, id, r.partBmi) }));
-  const changerPartBmi = (v) => setRep((r) => ({ ...r, partBmi: v, pcts: repartitionProposee(r.equipe, r.chef, v) }));
+  const designerChef = (id) => setRep((r) => ({ ...r, chef: id, pcts: repartitionProposee(r.equipe, id, r.partBmi, r.majChef) }));
+  const changerPartBmi = (v) => setRep((r) => ({ ...r, partBmi: v, pcts: repartitionProposee(r.equipe, r.chef, v, r.majChef) }));
+  const changerMajChef = (v) => setRep((r) => ({ ...r, majChef: v, pcts: repartitionProposee(r.equipe, r.chef, r.partBmi, v) }));
 
   const totalPct = Object.values(rep.pcts).reduce((s, v) => s + Number(v || 0), 0);
   const fraisRep = Number(rep.frais || 0);
@@ -718,7 +724,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, frais_installation: fraisRep, depenses_deduites: depRattachees, frais_a_partager: fraisNet, chef_id: rep.chef, part_bmi: pctBMI, equipe, date_repartition: today(), par_repartition: profile.nom }
+        ? { ...x, frais_installation: fraisRep, depenses_deduites: depRattachees, frais_a_partager: fraisNet, chef_id: rep.chef, part_bmi: pctBMI, majoration_chef: Number(rep.majChef || 0), equipe, date_repartition: today(), par_repartition: profile.nom }
         : x)),
       ...(avis.length ? { messages: [...avis, ...(db.messages || [])] } : {}),
     }, `Frais d'installation de ${fmt(fraisRep)}${depRattachees > 0 ? ` (− ${fmt(depRattachees)} de dépenses rattachées = ${fmt(fraisNet)})` : ""} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""}${annulees.length ? ` · ${annulees.length} demande(s) de prime annulée(s)` : ""})`);
@@ -1197,14 +1203,17 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               <div className="font-bold text-purple-800">🔧 Frais d'installation — {c.prenom || ""} {c.nom}</div>
               <button onClick={() => setChantier(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
             </div>
-            <div className="text-xs text-slate-500 mb-4">BMI prend d'abord sa part, puis le reste est partagé également entre tous les techniciens présents, chef du chantier compris. Vous pouvez ajuster chaque pourcentage à la main.</div>
+            <div className="text-xs text-slate-500 mb-4">BMI prend d'abord sa part, puis le reste est partagé entre les techniciens présents : le chef du chantier touche un peu plus que chacun des autres. Vous pouvez ajuster chaque pourcentage à la main.</div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Field label="Frais facturés au client (F CFA)">
                 <input type="number" min="0" className={inputCls} value={rep.frais} onChange={(e) => setRep({ ...rep, frais: e.target.value })} />
               </Field>
               <Field label="Part de BMI (%)">
                 <input type="number" min="0" max="100" step="5" className={inputCls} data-part-bmi value={rep.partBmi} onChange={(e) => changerPartBmi(e.target.value)} />
+              </Field>
+              <Field label="Le chef touche en plus (%)">
+                <input type="number" min="0" max="100" step="1" className={inputCls} data-majoration-chef value={rep.majChef} onChange={(e) => changerMajChef(e.target.value)} />
               </Field>
               <div className="flex flex-col justify-end text-sm font-bold text-slate-600">
                 <div>Aux techniciens : <span className={`ml-1 tabular-nums ${totalPct > 100.5 ? "text-red-600" : "text-green-700"}`}>{Math.round(totalPct * 10) / 10} %</span></div>

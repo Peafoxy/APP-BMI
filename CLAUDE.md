@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1979 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1981 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1237,6 +1237,25 @@ lit mal est pire qu'un banc absent).
     dans `screens/Messagerie.jsx` (`libelleRole` : la liste des
     conversations, le choix des membres d'un groupe, la nouvelle
     conversation) : les trois ou aucun, sinon la règle mentirait.
+
+### 🔧 Le partage des frais d'installation : BMI d'abord, le chef à +7 % (29/09/2026)
+- Capture Timo (🏠 Clients installés → Frais, POUDAMA) : il tapait 60 dans
+  « Part du chef de chantier » et le chef recevait **70 %** (60 + sa part
+  égale du reste) — le mot trompait. Décision « b, mais… PART DE BMI », puis
+  « b, lance mais au lieu de 15, mets 7 % » : **l'entreprise prend d'abord
+  « Part de BMI (%) »** (0 d'office), **le reste va aux techniciens présents**,
+  et **la part du chef dépasse celle de CHACUN des autres de 7 %** (« Le chef
+  touche en plus (%) », 7 d'office, modifiable) : chef = autre × 1,07 — pas
+  7 points. Ex. 4 techniciens, BMI 60 % : les autres 9,83 %, le chef 10,51 %.
+- `repartitionProposee(equipe, chef, partBmi, majorationChef)` (ClientsInstalles.jsx) :
+  les non-chefs arrondis au centième, le chef prend le reste exact — la somme
+  fait toujours 100 − part de BMI. La fiche garde `part_bmi` (ce qui reste
+  RÉELLEMENT après les corrections à la main) et `majoration_chef` ;
+  `part_chef` a disparu. Une ancienne répartition rouverte déduit sa part de
+  BMI de ses parts enregistrées, qui ne bougent pas. Chaque pourcentage se
+  corrige toujours à la main. Rien à coller.
+- Banc : la VRAIE fonction est extraite du fichier et exercée (plus une
+  recopie) ; éprouvé en ignorant la majoration : trois contrôles tombent.
 
 ### Petites dépenses d'un chantier de devis (13/09/2026)
 - Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,

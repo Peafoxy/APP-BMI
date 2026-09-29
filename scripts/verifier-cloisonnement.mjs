@@ -1240,10 +1240,10 @@ titre("Clients installés : les coordonnées des vrais clients restent dans l'es
 }
 
 
-titre("Répartition des frais d'installation : BMI prend sa part, le reste à égalité entre les techniciens (chef compris)");
+titre("Répartition des frais d'installation : BMI prend sa part, le chef touche 7 % de plus que chacun des autres");
 {
-  // Timo (29/09/2026, « b, mais… PART DE BMI ») : la VRAIE fonction de l'écran
-  // est extraite du fichier et exercée — plus une recopie qui pourrait diverger.
+  // Timo (29/09/2026, « b, lance mais au lieu de 15, mets 7 % ») : la VRAIE
+  // fonction de l'écran est extraite du fichier et exercée — plus une recopie.
   const srcCI = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   const debut = srcCI.indexOf("function repartitionProposee(");
   const corps = srcCI.slice(debut, srcCI.indexOf("\n}\n", debut) + 2);
@@ -1254,26 +1254,33 @@ titre("Répartition des frais d'installation : BMI prend sa part, le reste à é
   let pire = 0;
   for (let n = 1; n <= 12; n++) {
     for (const bmi of [0, 10, 25, 33, 40, 50, 60, 75, 100]) {
-      pire = Math.max(pire, Math.abs((100 - bmi) - total(repartition(ids(n), "t0", bmi))));
+      for (const maj of [0, 7, 15]) {
+        pire = Math.max(pire, Math.abs((100 - bmi) - total(repartition(ids(n), "t0", bmi, maj))));
+      }
     }
   }
-  test("de 1 à 12 techniciens et pour toute part de BMI : les techniciens reçoivent exactement 100 % − la part de BMI",
+  test("de 1 à 12 techniciens, toute part de BMI, toute majoration : les techniciens reçoivent exactement 100 % − la part de BMI",
     pire === 0);
-  test("le cas de la capture (4 techniciens, BMI 60 %) : 10 % chacun, chef compris — jamais 70 % au chef", (() => {
-    const r = repartition(["AGBEKO", "ESSO", "EMMANUEL", "DJEDJE"], "AGBEKO", 60);
-    return Object.values(r).every((v) => v === 10) && total(r) === 40;
+  test("le cas de la capture (4 techniciens, BMI 60 %, chef à +7 %) : les trois autres 9,83 %, le chef 10,51 % — jamais 70 %", (() => {
+    const r = repartition(["AGBEKO", "ESSO", "EMMANUEL", "DJEDJE"], "AGBEKO", 60, 7);
+    return r.ESSO === 9.83 && r.EMMANUEL === 9.83 && r.DJEDJE === 9.83 && r.AGBEKO === 10.51 && total(r) === 40;
   })());
-  test("7 techniciens, BMI 40 % : total 60 %, le chef ne dépasse les autres que d'un arrondi (≤ 0,1)", (() => {
-    const r = repartition(ids(7), "t0", 40);
-    const autres = Object.entries(r).filter(([k]) => k !== "t0").map(([, v]) => v);
-    return total(r) === 60 && Math.abs(r.t0 - autres[0]) <= 0.1 + 1e-9;
+  test("le chef touche bien environ 7 % de plus que chacun des autres (7 techniciens, BMI 30 %)", (() => {
+    const r = repartition(ids(7), "t0", 30, 7);
+    return Math.abs(r.t0 / r.t1 - 1.07) < 0.005;
   })());
-  test("BMI à 0 : un seul technicien prend 100 %",
-    repartition(ids(1), "t0", 0).t0 === 100);
-  test("l'écran dit « Part de BMI », plus « Part du chef de chantier »",
-    /label="Part de BMI \(%\)"/.test(srcCI) && !/Part du chef de chantier/.test(srcCI) && !/part_chef/.test(srcCI));
-  test("la part de BMI enregistrée est celle qui reste réellement (100 − total des techniciens)",
-    /part_bmi: pctBMI/.test(srcCI) && /const pctBMI = Math\.round\(\(100 - totalPct\)/.test(srcCI));
+  test("un chef absent de l'équipe cochée : le premier coché devient chef, et le total reste juste", (() => {
+    const r = repartition(ids(3), "inconnu", 40, 7);
+    return total(r) === 60 && r.t0 > r.t1;
+  })());
+  test("majoration 0 : parts égales ; un seul technicien, BMI 0 : il prend 100 %",
+    (() => { const r = repartition(ids(4), "t0", 60, 0); return r.t0 === 10 && r.t1 === 10; })()
+    && repartition(ids(1), "t0", 0, 7).t0 === 100);
+  test("l'écran dit « Part de BMI » et « Le chef touche en plus », 7 d'office ; plus de « Part du chef de chantier »",
+    /label="Part de BMI \(%\)"/.test(srcCI) && /label="Le chef touche en plus \(%\)"/.test(srcCI)
+    && /const MAJORATION_CHEF_DEFAUT = 7;/.test(srcCI) && !/Part du chef de chantier/.test(srcCI) && !/part_chef/.test(srcCI));
+  test("la fiche garde la part de BMI réellement restante et la majoration du chef",
+    /part_bmi: pctBMI, majoration_chef: Number\(rep\.majChef \|\| 0\)/.test(srcCI) && /const pctBMI = Math\.round\(\(100 - totalPct\)/.test(srcCI));
 }
 
 
