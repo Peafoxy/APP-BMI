@@ -65,3 +65,17 @@ Déplacé de CLAUDE.md le 06/09/2026, mot pour mot. **Aucun ne se construit sans
   chantiers est complète, application et serveur.
   Suite possible, une famille à la fois : prospects, articles, ventes
   (`TABLES_CORBEILLE` + `LIBELLES_CORBEILLE` + `nomDeLaFiche`).
+
+## Cases cliquables qui mènent à leur écran (29/09/2026) — « On laisse d'abord »
+- Demande de Timo (captures 📦 Stocks, 📈 Rentabilité, 📊 Tableau de bord) :
+  un clic sur une case (Total des ventes, Dépenses, Dettes…) ouvre l'écran
+  qui porte ces chiffres, comme les carrés de 🧰 Outillage.
+- Proposé, pas construit : la brique commune `Stat` rendue cliquable une
+  fois ; Résultat et Marge sans destination ; un onglet absent du rôle ou
+  retiré dans 🔐 Pouvoirs n'est jamais ouvert ; dans 📦 Stocks, les cases
+  mènent plus bas dans le même écran.
+- Questions restées ouvertes : la boutique choisie suit-elle le clic (elle
+  changerait la boutique mémorisée de l'écran d'arrivée) ? la période
+  aussi ? seulement les trois écrans des captures, ou aussi 💵 Salaires,
+  👑 Mon équipe, Commerciaux ?
+- Timo : **« On laisse d'abord »**. Ne pas construire sans sa demande.
