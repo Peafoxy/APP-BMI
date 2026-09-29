@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 668 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après)
+npm run verifier-whatsapp        # 688 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3084,6 +3084,44 @@ lit mal est pire qu'un banc absent).
   contrôles RETOURNÉS (uChoix désormais UNE fois, dans `payerLoyer` ; le corps
   de `payerLoyer` ; le format du mois laissé au calendrier). Une condition
   morte retirée (`declare && m <= declare`, jamais atteinte).
+
+### 🔧 LA POSE SEULE : 70 % AVANT DE PROGRAMMER, 30 % AU PV (29/09/2026, option « c »)
+- Timo, devant l'article 4 du contrat de pose (« 70 % avant le début des
+  travaux… 30 % à la signature du PV… ou dans les 3 jours qui suivent ») :
+  « le gérant de la boutique devrait avoir un paiement en attente dans les
+  commandes », puis « le gérant aussi pour les 30 %, lance », puis « on ne
+  bloque pas le PV, et l'application fait respecter les 3 jours ». Règle pure
+  **`lib/poseSeule.js`**, geste écrit UNE fois **`components/encaissementPose.js`**.
+- **La dette de pose naît avec son acompte** (`validationDevis.js`) :
+  `pose_seule`, `acompte_attendu` = 70 % du total (`acomptePose`),
+  `boutique_pose` = la boutique du DEVIS. Toujours dans la caisse TERRAIN ;
+  elle suit la caisse qui encaisse. Un devis corrigé recalcule l'acompte.
+- **Les 70 % se voient à DEUX endroits, c'est UNE dette** : 🧾 Commandes de
+  la boutique du devis (bloc « 🔧 Poses à encaisser », argent dans CETTE
+  boutique ; la pastille de l'onglet compte les acomptes attendus, sauf chez
+  l'administrateur) et le chantier dans 🏠 Clients installés (le chef sur le
+  terrain, caisse TERRAIN). Le premier qui encaisse ferme pour tout le monde.
+  Qui : chef de CE chantier, vendeur, **gérant**, resp. commercial, admin
+  (`peutEncaisserPose`, revérifié dans le geste, dette relue). Reçu WhatsApp
+  du numéro BMI comme tout versement.
+- **Programmer l'installation est REFUSÉ tant que les 70 % ne sont pas
+  versés** (`critiqueProgrammationPose`, dans le geste, sur la dette fraîche).
+- **Le PV n'est PAS bloqué.** Si le solde reste dû **plus de 3 jours après
+  `receptionne_le`** (fenêtre jusqu'au 10e jour), la **tournée de 7 h**
+  (`rappelerLesSoldesDePose`, api/rappels-du-matin.js) : le modèle
+  **`rappel_dette`** au client (rien d'écrit avant l'accord de WhatsApp,
+  refusé → retenté le lendemain, marque `rappel_solde_le`) et une
+  notification aux administrateurs (une fois, `rappel_solde_admin_le`), même
+  si le client n'a pas de numéro ou est bloqué. Jamais la formation.
+- ⚠ **Les dettes de pose d'AVANT** (sans `acompte_attendu`) : jamais
+  bloquées, absentes de 🧾 Commandes ; le rappel des 3 jours vaut pour elles.
+  ⚠ Le texte de `rappel_dette` dit « votre achat du {date} » — la date est
+  celle de la signature du contrat. Rien à coller dans Supabase.
+- Banc ㊲ (`verifier-whatsapp`, 20 contrôles), éprouvé en remettant cinq
+  fautes (le mur, le gérant retiré, le 3e jour compté en retard, le refus de
+  programmer retiré, la marque posée sans envoi) : chacune tombe. Contrôles
+  RETOURNÉS (le reçu de pose et `heureCourte` dans le geste commun,
+  `demanderMoyenPaiement` ×14, les notifications de la tournée).
 
 ### 🪟 LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHATSAPP : AVANT, JAMAIS APRÈS (29/09/2026)
 - Capture Timo (👥 Utilisateurs, mot de fidélité) : « pourquoi elle vient

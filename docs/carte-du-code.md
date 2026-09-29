@@ -105,6 +105,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/lignesPrivees.js` | Le détail d'un reçu de vente ou d'un bon dans 📲 WhatsApp, recomposé depuis la vente pour le vendeur et l'administrateur principal seulement ; la fabrique des deux reçus de vente |
 | `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, et devis ⏳ Proposés (famille imbriquée dans la fiche du client) |
 | `lib/devisSansSuite.js` | 📁 Classer un devis ⏳ Proposé sans suite (auteur, administrateur, resp. commercial ; motif obligatoire) et le rouvrir : le devis reste entier, il sort de la liste active, plus de validation ni de relance |
+| `lib/poseSeule.js` | 🔧 Le règlement d'une pose seule : 70 % d'acompte (pas de programmation avant), 30 % au PV, le rappel du solde 3 jours après la signature (tournée de 7 h), qui encaisse |
 | `lib/sauvegarde.js` | La sauvegarde JSON : téléchargement, et écriture horaire dans un dossier |
 | `lib/suiviEnvoi.js` | Les coches d'un message parti du numéro BMI (✓ parti, ✓✓ arrivé, ✓✓ bleu lu, ❌ non reçu) : lire la nouvelle de Meta, ne jamais reculer |
 | `lib/suggestions.js` | LA règle de recherche d'un champ à suggestions (toute recherche tapée) |
@@ -118,6 +119,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `SelecteurArticle.jsx` | La fenêtre « Rechercher un article » |
+| `encaissementPose.js` | LE geste qui encaisse une pose seule (acompte 70 %, puis solde) — 🧾 Commandes et 🏠 Clients installés |
 | `SelecteurBoutique.jsx` | La rangée de pastilles des boutiques |
 | `OngletsDeplacables.jsx` | La barre d'onglets qu'on déplace par appui long |
 | `HistoriqueArchive.jsx` | LE cadre d'historique qui défile et archive |

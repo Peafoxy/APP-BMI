@@ -90,6 +90,7 @@ import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BO
 } from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal } from "./lib/calculs";
+import { posesAEncaisser } from "./lib/poseSeule";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
 import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
 // 👆 L'empreinte qui ouvre le verrou d'inactivité (Timo, 16/09/2026, « lance
@@ -1720,7 +1721,13 @@ function compterCommandesEnAttente(db, profile) {
     c.statut === "en_attente" &&
     (isAdmin || c.boutique === profile.boutique) &&
     (isAdmin || !c.vendeur_cible || c.vendeur_cible === profile.nom)
-  ).length;
+  ).length
+  // 🔧 Les acomptes de pose seule à encaisser dans SA boutique (29/09/2026) :
+  // sans pastille, les 70 % attendraient sans que personne le sache.
+  // L'administrateur n'a pas de boutique attitrée : il les voit dans l'écran.
+  + (!isAdmin && profile.boutique
+    ? posesAEncaisser(db.dettes, db.clients_installes, profile.boutique).filter((p) => p.etat.etape === "acompte").length
+    : 0);
 }
 
 // Chantiers créés par le paiement d'un devis, mais jamais encore programmés —

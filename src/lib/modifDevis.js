@@ -28,6 +28,7 @@
 // ============================================================
 import { today, fmt, nouveauMessage } from "./core";
 import { PLAN_EN_ATTENTE } from "./reglement";
+import { acomptePose } from "./poseSeule";
 import { ROLES_MODIFIENT_TOUT_DEVIS } from "./comptesClients";
 
 // « Après 3 aller-retour, le devis devient caduc » : au-delà, plus aucune
@@ -165,7 +166,10 @@ export function accepterDevisCorrige(db, clientId, devisId, { signature, plan, d
         statut: "valide", contrat_signature: signature, contrat_date_signature: date,
         accepte_corrige_le: date, plan_reglement: planRevalide, demande_bmi: null,
       }),
-      dettes: dette ? (db.dettes || []).map((x) => (x.id === dette.id ? { ...x, montant: Number(devis.total || 0) } : x)) : db.dettes,
+      dettes: dette ? (db.dettes || []).map((x) => (x.id === dette.id
+        // Une pose seule garde ses 70 % d'acompte sur le NOUVEAU montant.
+        ? { ...x, montant: Number(devis.total || 0), ...(x.acompte_attendu ? { acompte_attendu: acomptePose(devis.total) } : {}) }
+        : x)) : db.dettes,
       clients_installes: ch && ch.pose_seule
         ? (db.clients_installes || []).map((c) => (c.id === ch.id ? { ...c, frais_installation: Number(devis.total || 0) } : c))
         : db.clients_installes,

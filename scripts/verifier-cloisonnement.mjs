@@ -4876,7 +4876,9 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
     && /export const demanderMoyenPaiement = \(complement = "", defaut = "Espèces", libelle = "Moyen de paiement", beneficiaire = null\) =>\n  uChoix\(/.test(ui)
     && /moyensProposes\(defaut\)\)/.test(ui) && !/uPrompt\(`\$\{libelle\}/.test(ui));
   test("★ les 14 questions passent par demanderMoyenPaiement (la 14e : ✏️ Moyen d'un apporteur, 21/09/2026 ; plus aucun uPrompt « Moyen de … »)",
-    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib | wc -l").toString().trim() === "14"
+    // RETOURNÉ le 29/09/2026 : le versement d'une pose seule a déménagé dans
+    // le geste commun components/encaissementPose.js — toujours 14.
+    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib src/components/encaissementPose.js | wc -l").toString().trim() === "14"
     && execSync("grep -rl 'uPrompt(.Moyen de' src || true").toString().trim() === "");
   // 12/09/2026 : le remboursement d'une avance de frais « avec le salaire » (Caisse.jsx) demande son mois — ×4.
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
@@ -11262,7 +11264,8 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   }
   test("★★ heureCourte rend l'heure de Lomé (GMT+0) même sur un appareil réglé à +2 h", !!m && lue === attendue);
   const fichiers = ["src/lib/transfertsStock.js", "src/screens/Dettes.jsx", "src/screens/Ventes.jsx", "src/screens/Commandes.jsx",
-    "src/screens/dimensionnement/Brouillons.jsx", "src/screens/dimensionnement/devisCommun.js", "src/screens/ClientsInstalles.jsx", "src/lib/core.js"];
+    "src/screens/dimensionnement/Brouillons.jsx", "src/screens/dimensionnement/devisCommun.js", "src/components/encaissementPose.js", "src/lib/core.js"];
+  // RETOURNÉ le 29/09/2026 : l'heure d'un versement de pose seule s'écrit dans le geste commun, plus dans ClientsInstalles.jsx.
   const fautifs = fichiers.filter((f) => /toTimeString\(\)|toLocaleTimeString\(|\.getHours\(\)/.test(readFileSync(f, "utf8")));
   test("★★ aucune heure écrite sur une ligne ne vient plus de l'horloge LOCALE de l'appareil (toTimeString, getHours…)", fautifs.length === 0);
   test("★ les écrans qui horodatent passent par heureCourte", fichiers.slice(0, 7).every((f) => /heureCourte\(\)/.test(readFileSync(f, "utf8"))));

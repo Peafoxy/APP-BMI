@@ -32,7 +32,7 @@
 // l'accord de WhatsApp) la ligne du fil et la marque `avis_demande_le`.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { rappelsDuMatin } from "../src/lib/rappels.js";
+import { rappelsDuMatin, fabriquerEnvoi } from "../src/lib/rappels.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 import { relancesAutoDuJour, ligneRelanceAuto, enteteApresRelance, compteApresRelance, MODELE_RELANCE_AUTO } from "../src/lib/relanceAutoDevis.js";
 import { idEntete, cleConversation } from "../src/lib/whatsappConversations.js";
@@ -41,6 +41,9 @@ import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
 import { rappelsEntretienDuJour, ligneRappelEntretien, enteteApresRappel, chantierApresRappel, tacheEntretien, notificationTache, tacheEntretienExiste, MODELE_RAPPEL_ENTRETIEN } from "../src/lib/rappelEntretien.js";
 import { demandesAvisDuJour, ligneDemandeAvis, enteteApresAvis, chantierApresAvis, MODELE_DEMANDE_AVIS } from "../src/lib/demandeAvis.js";
+import { soldesPoseDuJour, ligneRappelSolde, enteteApresRappelSolde, detteApresRappelSolde, texteAlerteSolde, MODELE_RAPPEL_SOLDE } from "../src/lib/poseSeule.js";
+import { idsAdmins } from "../src/lib/espace.js";
+import { fmt, dFR } from "../src/lib/core.js";
 import { randomUUID } from "node:crypto";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
@@ -79,10 +82,14 @@ export default async function handler(req, res) {
     const entretiens = await rappelerLesEntretiens(admin, db, aujourdhui);
     // ⭐ La demande d'avis Google, dix jours après la réception.
     const avis = await demanderLesAvis(admin, db, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis });
-    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications];
+    // 🔧 Le solde d'une pose seule, 3 jours après la signature du PV
+    // (Timo, 29/09/2026) : un message au client, une notification à
+    // l'administrateur.
+    const soldes = await rappelerLesSoldesDePose(admin, db, aujourdhui);
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan });
+    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -250,4 +257,70 @@ async function demanderLesAvis(admin, db, aujourdhui) {
     }
   }
   return bilan;
+}
+
+// ---- 🔧 LE SOLDE D'UNE POSE SEULE, 3 JOURS APRÈS LE PV ----
+// Rend { bilan, notifications }. Le message au client : rien n'est écrit tant
+// que WhatsApp ne l'a pas accepté ; refusé, on retente le lendemain (la
+// marque `rappel_solde_le` n'est pas posée). La notification à
+// l'administrateur part UNE fois (`rappel_solde_admin_le`). La dette est
+// RELUE juste avant d'être marquée — et si le client a payé entre-temps, on
+// ne marque rien de plus.
+async function rappelerLesSoldesDePose(admin, db, aujourdhui) {
+  const liste = soldesPoseDuJour(db, aujourdhui, { fmt, dFR });
+  const bilan = { a_rappeler: liste.length, messages: 0, refuses: 0, alertes: 0 };
+  const notifications = [];
+  if (!liste.length) return { bilan, notifications };
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  for (const r of liste) {
+    try {
+      const ts = new Date().toISOString();
+      let clientParti = false;
+      if (r.client && r.envoi && cle && expediteur) {
+        const envoi = await envoyerYCloud(cle, {
+          from: expediteur, to: r.tel, type: "template",
+          template: { name: MODELE_RAPPEL_SOLDE, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+        });
+        if (!envoi.ok) { bilan.refuses++; console.error("[rappels-du-matin] rappel du solde de pose refusé", envoi.code_whatsapp, envoi.motif); }
+        else {
+          bilan.messages++;
+          clientParti = true;
+          const ligneBase = ligneRappelSolde({ id: randomUUID(), tel: r.tel, compte: r.compte, dette: r.dette, variables: r.envoi.variables, ts });
+          const ligne = ligneBase ? { ...ligneBase, ...champsEnvoi(envoi) } : null;
+          if (ligne) {
+            const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+            if (error) console.error("[rappels-du-matin] rappel du solde : ligne du fil non écrite", error.message);
+            const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(r.tel)));
+            const fiche = enteteApresRappelSolde({ tel: r.tel, compte: r.compte, dette: r.dette, ts, entete });
+            if (fiche) {
+              const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+              if (e2) console.error("[rappels-du-matin] rappel du solde : fiche légère non posée", e2.message);
+            }
+          }
+        }
+      } else if (r.client) {
+        console.error("[rappels-du-matin] rappel du solde de pose : WhatsApp non configuré sur le serveur");
+      }
+      if (r.admin) {
+        const n = fabriquerEnvoi({
+          destinataires: idsAdmins(db, false),
+          titre: "🔧 Solde de pose non réglé", texte: texteAlerteSolde({ ...r, client: clientParti }, { fmt, dFR }),
+          ecran: "parc", tag: `solde-pose:${r.dette.id}`,
+        });
+        if (n) { notifications.push(n); bilan.alertes++; }
+      }
+      if (clientParti || r.admin) {
+        const { data: fraisD } = await admin.from("dettes").select("id, data").eq("id", r.dette.id).maybeSingle();
+        if (fraisD?.data) {
+          const data = { ...detteApresRappelSolde({ ...fraisD.data, id: fraisD.id }, aujourdhui, { client: clientParti, admin: r.admin }), updated_at: ts };
+          const { error: e3 } = await admin.from("dettes").update({ data, updated_at: ts }).eq("id", fraisD.id);
+          if (e3) console.error("[rappels-du-matin] rappel du solde : marque de la dette non posée", e3.message);
+        }
+      }
+    } catch (e) {
+      console.error("[rappels-du-matin] rappel du solde de pose", e?.message || e);
+    }
+  }
+  return { bilan, notifications };
 }

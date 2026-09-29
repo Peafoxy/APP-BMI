@@ -2381,7 +2381,8 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
       imprime === "BMI-DET-2025-AB12" && ev.variables[4] === imprime && er.variables[3] !== "—" && /-DET-2026-EF56$/.test(er.variables[3]));
     test("★ une dette QUI A son numéro le garde tel quel (aucun préfixe ajouté : jamais « BMID-BMID-… »)",
       M.envoiRecuReglement({ dette: { ...dette, numero: "BMID-DET-2026-0003" }, versement, boutique: {}, fmt: fmtR, dFR: dFRr, numeroDe: numeroRecuDette }).variables[4] === "BMID-DET-2026-0003");
-    const appels = ["src/screens/Dettes.jsx", "src/screens/Ventes.jsx", "src/screens/ClientsInstalles.jsx"]
+    // RETOURNÉ le 29/09/2026 : le versement d'une pose vit dans le geste commun.
+    const appels = ["src/screens/Dettes.jsx", "src/screens/Ventes.jsx", "src/components/encaissementPose.js"]
       .flatMap((f) => (sansComm(lire(f)).match(/envoiRecu(?:Reglement|Reservation)\([^;]*?\)\s*,/g) || []));
     test("★ les QUATRE écrans passent la règle du numéro (numeroDe: numeroRecuDette)",
       appels.length === 4 && appels.every((a) => a.includes("numeroDe: numeroRecuDette")));
@@ -2470,10 +2471,14 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
     /envoiRecuReservation\(\{ reservation, boutique: bqR,/.test(blocRes) && !/envoyerRecuAutomatique\(/.test(blocRes)
     && /espaceFormation: !!bqR\.formation/.test(blocRes));
   const CI = sansComm(lire("src/screens/ClientsInstalles.jsx"));
-  const pose = CI.slice(CI.indexOf("const encaisserPose = async"), CI.indexOf("const forcerReceptionSansSignature"));
-  test("★★ 🏠 Clients installés, un versement : le même reçu, sur la dette APRÈS le versement",
+  // RETOURNÉ le 29/09/2026 : le geste d'une pose seule vit UNE fois dans
+  // components/encaissementPose.js (🧾 Commandes s'en sert aussi).
+  const pose = sansComm(lire("src/components/encaissementPose.js"));
+  const poseCI = CI.slice(CI.indexOf("const encaisserPose = async"), CI.indexOf("const forcerReceptionSansSignature"));
+  test("★★ 🏠 Clients installés, un versement : le même reçu, sur la dette APRÈS le versement (geste commun)",
     /envoiRecuReglement\(\{ dette: \{ \.\.\.detteApres, tel: telV \}, versement: paiement,/.test(pose) && /envoyerRecuSansQuestion\(/.test(pose)
-    && /espaceFormation: !!bqV\.formation \|\| !!c\.formation/.test(pose));
+    && /espaceFormation: !!bqV\.formation \|\| !!chantier\.formation/.test(pose)
+    && /encaisserDettePose\(/.test(poseCI) && /setNoteRecuWa\(note\)/.test(poseCI));
   test("★ les trois écrans DISENT ce qui s'est passé, discrètement (jamais une fenêtre)",
     [D, Vt, CI].every((x) => /data-recu-whatsapp/.test(x) && /setNoteRecuWa/.test(x)));
 }
@@ -2870,7 +2875,7 @@ test("★★ le serveur : la tournée lit les chantiers, envoie le modèle, et n
   && corpsR.indexOf('from("messages").insert') > corpsR.indexOf("if (!envoi.ok)"));
 test("★ …la tâche : la fiche du responsable est RELUE et revérifiée avant d'écrire ; la marque ne se pose pas sur une date changée entre-temps ; les notifications rejoignent la tournée",
   /select\("id, data"\)\.eq\("id", r\.pour\.id\)/.test(corpsR) && /!tacheEntretienExiste\(frais\.data, r\.chantier\)/.test(corpsR)
-  && /fraisC\.data\.date_entretien/.test(corpsR) && /\.\.\.entretiens\.notifications\]/.test(srvR));
+  && /fraisC\.data\.date_entretien/.test(corpsR) && /\.\.\.entretiens\.notifications[,\]]/.test(srvR));
 const ecranCI = lire("src/screens/ClientsInstalles.jsx");
 const corpsFait = ecranCI.slice(ecranCI.indexOf("const entretienFait = async"), ecranCI.indexOf("const lierCompte = async"));
 test("★ l'écran : « ✅ Entretien fait » (administrateur, revérifié dans le geste), la tâche automatique de cette date se ferme, ce que la tournée a fait se lit sous la date",
@@ -3034,6 +3039,78 @@ titre("㊱ 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHAT
   test("★ 📲 « ✍️ Écrire » : la réponse qui n'arrivera pas ici se dit AVANT", /annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec le texte\. Le message partira de VOTRE numéro/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
   test("★ ☀️ Devis envoyé à la main : UNE fenêtre avant (accès ratés compris), rien après",
     /annonceRepli: `\$\{motifAcces \?/.test(srcPartages) && !/await uAlert\(`Ses accès ne sont pas partis/.test(srcPartages));
+}
+
+titre("㊲ 🔧 LA POSE SEULE : 70 % AVANT DE PROGRAMMER, 30 % AU PV, LE RAPPEL DU SOLDE 3 JOURS APRÈS (29/09/2026)");
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const P = await import(pathToFileURL(join(process.cwd(), "src/lib/poseSeule.js")).href);
+  const fmtP = (n) => `${Number(n || 0)} F`;
+  const dFRp = (x) => String(x || "").split("-").reverse().join("/");
+  test("★ l'acompte est de 70 % (article 4 du contrat de pose)", P.acomptePose(100000) === 70000 && P.ACOMPTE_POSE_PCT === 70);
+  const dette0 = { id: "DP", montant: 100000, paye: 0, pose_seule: true, acompte_attendu: 70000, boutique_pose: "BMI DEMAKPOE", client: "KOFFI", tel: "90112233", date: "2026-09-01" };
+  const d70 = { ...dette0, paye: 70000 }, d100 = { ...dette0, paye: 100000 }, d50 = { ...dette0, paye: 50000 };
+  test("★ l'étape se lit sur la dette : acompte → solde → réglée",
+    P.etatPose(dette0).etape === "acompte" && P.etatPose(d50).resteAcompte === 20000 && P.etatPose(d70).etape === "solde" && P.etatPose(d100).etape === "solde_ok");
+  const ch = { id: "C1", pose_seule: true, dette_id: "DP", statut: "en_cours", equipe: [{ user_id: "CHEF", chef: true }] };
+  test("★★ programmer : REFUSÉ tant que les 70 % ne sont pas versés, permis ensuite",
+    /acompte de 70 %/.test(P.critiqueProgrammationPose(ch, d50, fmtP)) && P.critiqueProgrammationPose(ch, d70, fmtP) === "");
+  test("★ une dette de pose d'AVANT la règle (sans acompte_attendu) n'est jamais bloquée",
+    P.critiqueProgrammationPose(ch, { id: "DP", montant: 100000, paye: 0 }, fmtP) === "");
+  const ch2 = { id: "C2", pose_seule: true, dette_id: "DX" };
+  const autre = { ...dette0, id: "DX", boutique_pose: "BMI APESSITO" };
+  const liste = P.posesAEncaisser([dette0, autre, { ...d100, id: "DZ" }], [ch, ch2, { id: "C3", pose_seule: true, dette_id: "DZ" }], "BMI DEMAKPOE");
+  test("★★ 🧾 Commandes : les poses de CETTE boutique seulement, jamais une pose réglée",
+    liste.length === 1 && liste[0].dette.id === "DP");
+  test("★★ qui encaisse : le gérant (Timo : « le gérant aussi »), le vendeur, l'admin, le chef de CE chantier — pas un technicien quelconque",
+    P.peutEncaisserPose(ch, { id: "G", role: "gerant" }) && P.peutEncaisserPose(ch, { id: "V", role: "vendeur" })
+    && P.peutEncaisserPose(ch, { id: "CHEF", role: "technicien" }) && !P.peutEncaisserPose(ch, { id: "T2", role: "technicien" }));
+  const chR = { ...ch, statut: "receptionne", receptionne_le: "2026-09-20" };
+  test("★★ le solde est en retard STRICTEMENT après 3 jours (le contrat laisse « les 3 jours qui suivent »), dans une fenêtre",
+    !P.soldeEnRetard(chR, d70, "2026-09-23") && P.soldeEnRetard(chR, d70, "2026-09-24") && !P.soldeEnRetard(chR, d70, "2026-10-01") && !P.soldeEnRetard(chR, d100, "2026-09-24"));
+  test("★ le PV n'est pas bloqué : rien n'empêche la réception avec un solde dû (aucune règle de PV dans le module)",
+    !/receptionne_le\s*=|contrat_statut/.test(sansComm(lire("src/lib/poseSeule.js"))));
+  const client = { id: "K", nom: "KOFFI", tel: "90112233" };
+  const dbS = { clients_installes: [{ ...chR, user_id: "K" }], dettes: [d70], users: [client], boutiques: [], ventes: [] };
+  const jour = P.soldesPoseDuJour(dbS, "2026-09-24", { fmt: fmtP, dFR: dFRp });
+  test("★★ la tournée : un message au client (modèle rappel_dette) ET une alerte à l'administrateur",
+    jour.length === 1 && jour[0].client && jour[0].admin && jour[0].envoi?.modele === "rappel_dette");
+  const dejaClient = P.soldesPoseDuJour({ ...dbS, dettes: [{ ...d70, rappel_solde_le: "2026-09-24" }] }, "2026-09-25", { fmt: fmtP, dFR: dFRp });
+  test("★★ UNE fois : le message déjà parti ne repart pas, l'alerte non plus une fois posée",
+    dejaClient.length === 1 && !dejaClient[0].client && dejaClient[0].admin
+    && P.soldesPoseDuJour({ ...dbS, dettes: [{ ...d70, rappel_solde_le: "x", rappel_solde_admin_le: "x" }] }, "2026-09-25", { fmt: fmtP, dFR: dFRp }).length === 0);
+  const bloque = P.soldesPoseDuJour({ ...dbS, users: [{ ...client, actif: false }] }, "2026-09-24", { fmt: fmtP, dFR: dFRp });
+  test("★ compte bloqué : aucun message au client, l'administrateur est prévenu quand même", bloque.length === 1 && !bloque[0].client && bloque[0].admin && !bloque[0].tel);
+  const form = P.soldesPoseDuJour({ ...dbS, clients_installes: [{ ...chR, user_id: "K", formation: true }] }, "2026-09-24", { fmt: fmtP, dFR: dFRp });
+  test("★★ LE MUR : jamais un chantier de formation", form.length === 0);
+  // Les écrans et le serveur.
+  const vd = sansComm(lire("src/lib/validationDevis.js"));
+  test("★★ la dette de pose NAÎT avec son acompte et la boutique du devis",
+    /pose_seule: true, acompte_attendu: acomptePose\(d\.total\)/.test(vd) && /boutique_pose: d\.boutique \|\| boutique \|\| null/.test(vd));
+  test("★ un devis corrigé garde ses 70 % sur le NOUVEAU montant", /acompte_attendu: acomptePose\(devis\.total\)/.test(sansComm(lire("src/lib/modifDevis.js"))));
+  const ciP = sansComm(lire("src/screens/ClientsInstalles.jsx"));
+  const prog = ciP.slice(ciP.indexOf("const enregistrerProgrammation = "), ciP.indexOf("const construireMessagePv"));
+  test("★★ 🏠 programmer : revérifié DANS le geste, sur la dette, AVANT d'écrire",
+    prog.indexOf("critiqueProgrammationPose(") > 0 && prog.indexOf("critiqueProgrammationPose(") < prog.indexOf("save(")
+    && /if \(refusPose\) \{ uAlert\(refusPose\); return; \}/.test(prog));
+  const geste = sansComm(lire("src/components/encaissementPose.js"));
+  test("★★ le geste commun revérifie le droit et relit la dette FRAÎCHE",
+    geste.indexOf("peutEncaisserPose(") > 0 && /\(db\.dettes \|\| \[\]\)\.find\(\(x\) => x\.id === chantier\.dette_id\)/.test(geste)
+    && geste.indexOf("peutEncaisserPose(") < geste.indexOf("save("));
+  const cmd = sansComm(lire("src/screens/Commandes.jsx"));
+  test("★★ 🧾 Commandes : le bloc des poses de la boutique regardée, l'argent dans CETTE boutique",
+    /posesAEncaisser\(db\.dettes, db\.clients_installes, boutique\)/.test(cmd)
+    && /encaisserDettePose\(\{ db, save, profile, chantier: p\.chantier, boutiqueEncaissement: boutique, enBoutique: true \}\)/.test(cmd)
+    && /data-poses-a-encaisser/.test(cmd));
+  test("★ le hook de 🧾 Commandes est posé AVANT le retour anticipé (écran blanc sinon)",
+    cmd.indexOf('const [noteRecuWa, setNoteRecuWa] = useState("")') < cmd.indexOf("if (!boutique) return <AucuneBoutique", cmd.indexOf("export function CommandesRecues")));
+  const api = sansComm(lire("api/rappels-du-matin.js"));
+  const corps = api.slice(api.indexOf("async function rappelerLesSoldesDePose"));
+  test("★★ serveur : rien n'est écrit dans le fil avant que WhatsApp accepte, la dette RELUE avant d'être marquée",
+    corps.indexOf("envoyerYCloud(") > 0 && corps.indexOf("envoyerYCloud(") < corps.indexOf('from("messages").insert')
+    && /clientParti = true;/.test(corps) && /client: clientParti, admin: r\.admin/.test(corps)
+    && corps.indexOf('from("dettes").select') < corps.indexOf('from("dettes").update'));
+  test("★ serveur : l'alerte part aux administrateurs, dans la tournée", /destinataires: idsAdmins\(db, false\)/.test(corps) && /\.\.\.soldes\.notifications/.test(api));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

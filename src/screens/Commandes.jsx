@@ -12,6 +12,8 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, Aucu
 import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
+import { posesAEncaisser, libelleEncaissementPose, ACOMPTE_POSE_PCT } from "../lib/poseSeule";
+import { encaisserDettePose } from "../components/encaissementPose";
 
 // ============ NOUVELLE COMMANDE (rôle Commercial) ============
 // Le commercial compose un panier et l'envoie à une boutique — il ne peut
@@ -346,6 +348,17 @@ export function CommandesRecues({ db, save, profile, onValider }) {
     return c.articles || [];
   };
 
+  // 🔧 Les POSES SEULES de cette boutique (Timo, 29/09/2026, option « c ») :
+  // les 70 % d'acompte de l'article 4, puis les 30 % du solde. C'est la MÊME
+  // dette que sur le chantier (🏠 Clients installés) : le premier qui encaisse
+  // ferme pour tout le monde. L'argent tombe dans la caisse de CETTE boutique.
+  const [noteRecuWa, setNoteRecuWa] = useState("");
+  const poses = boutique ? posesAEncaisser(db.dettes, db.clients_installes, boutique) : [];
+  const encaisserPose = async (p) => {
+    const note = await encaisserDettePose({ db, save, profile, chantier: p.chantier, boutiqueEncaissement: boutique, enBoutique: true });
+    if (note !== null) setNoteRecuWa(note);
+  };
+
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
@@ -353,6 +366,30 @@ export function CommandesRecues({ db, save, profile, onValider }) {
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="commandes-recues" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {noteRecuWa && <div className="text-xs text-slate-500" data-recu-whatsapp>{noteRecuWa}</div>}
+
+      {poses.length > 0 && (
+        <div className="bg-white rounded-xl border border-emerald-200 shadow-sm overflow-x-auto" data-poses-a-encaisser>
+          <div className="px-4 py-3 font-bold text-slate-800 border-b border-emerald-200 bg-emerald-50 flex items-center gap-2">🔧 Poses à encaisser <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({poses.length})</span></div>
+          <div className="px-4 pt-2 text-xs text-slate-500">Contrat de pose : {ACOMPTE_POSE_PCT} % avant les travaux (l'installation ne se programme pas avant), le reste à la signature du PV. Le client peut aussi payer sur le terrain, au chef de chantier.</div>
+          <div className="divide-y divide-slate-100">
+            {poses.map((p) => (
+              <div key={p.dette.id} className="px-4 py-3 flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="font-bold text-slate-800">{p.dette.client || `${p.chantier.prenom || ""} ${p.chantier.nom || ""}`.trim()}</div>
+                  <div className="text-xs text-slate-500">{p.dette.motif} — total {fmt(p.dette.montant)}, déjà versé {fmt(p.dette.paye || 0)}</div>
+                  <div className="text-xs font-semibold text-emerald-800">
+                    {p.etat.etape === "acompte"
+                      ? `Acompte ${ACOMPTE_POSE_PCT} % : ${fmt(p.etat.acompte)} — reste ${fmt(p.etat.resteAcompte)} avant de programmer`
+                      : `Acompte versé — solde à la signature du PV : ${fmt(p.etat.reste)}`}
+                  </div>
+                </div>
+                <button onClick={() => encaisserPose(p)} className="text-xs font-bold text-white bg-emerald-700 rounded px-3 py-1.5 hover:bg-emerald-800">💰 {libelleEncaissementPose(p.dette)}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center gap-2">📥 Commandes en attente <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({enAttente.length})</span></div>

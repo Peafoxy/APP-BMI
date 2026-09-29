@@ -12,6 +12,7 @@
 import { uid, today, fmt, prochainNumeroDette } from "./core";
 import { PAIEMENTS, TYPES_INSTALLATION } from "./constants";
 import { offreExpiree } from "./rappels";
+import { acomptePose, ACOMPTE_POSE_PCT } from "./poseSeule";
 import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "./calculs";
 
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
@@ -63,6 +64,11 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
       boutique: caisseTerrain, client: nomClient, tel: client.tel || "",
       motif: `Prestation de pose${infosContrat?.contrat_numero ? ` — contrat ${infosContrat.contrat_numero}` : ""}`,
       montant: d.total, paye: 0, paiements: [], par: acteur?.nom || nomClient,
+      // 29/09/2026 (option « c ») : les 70 % de l'article 4 s'encaissent
+      // dans 🧾 Commandes de la boutique du devis, ou sur le chantier ;
+      // l'installation ne se programme pas avant (lib/poseSeule.js).
+      pose_seule: true, acompte_attendu: acomptePose(d.total), acompte_pct: ACOMPTE_POSE_PCT,
+      boutique_pose: d.boutique || boutique || null,
     };
     const chantier = {
       id: uid(), date: today(),

@@ -11,15 +11,17 @@ import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerRecuSansQuestion } from "../whatsapp";
-import { messageIdentifiants, envoiRecuReglement } from "../lib/whatsappModeles";
-import { uid, normPaiement, lignesVente, totalVente, fmt, today, dFR, heureCourte, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, numeroRecuDette, ouvrirWhatsAppApresAnnonce } from "../lib/core";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
+import { messageIdentifiants } from "../lib/whatsappModeles";
+import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVente, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
+import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
+import { encaisserDettePose } from "../components/encaissementPose";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
@@ -418,6 +420,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (!p.date) { uAlert("Choisissez la date d'installation."); return; }
     if (p.equipe.length === 0) { uAlert("Affectez au moins un technicien."); return; }
     if (!p.chef) { uAlert("Désignez le chef d'équipe ⭐."); return; }
+    // ⚠ Pose seule : pas de programmation avant les 70 % (Timo, 29/09/2026 :
+    // « dès que les 70 % sont payés, on programme l'installation »).
+    // Revérifié ICI sur la dette fraîche.
+    const refusPose = critiqueProgrammationPose(c, (db.dettes || []).find((x) => x.id === c.dette_id), fmt);
+    if (refusPose) { uAlert(refusPose); return; }
     const equipe = p.equipe.map((id) => {
       const u = db.users.find((x) => x.id === id);
       const ancien = (c.equipe || []).find((e) => e.user_id === id);
@@ -547,55 +554,24 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // (encaissement sur le terrain, caisse TERRAIN) OU tout vendeur/
   // responsable commercial/admin (cas rare : client venu payer en
   // boutique — l'argent tombe alors dans LEUR caisse, pas TERRAIN).
-  const peutEncaisserPose = (c) =>
-    chefDuChantier(c)?.user_id === profile.id
-    || ["vendeur", "resp_commercial", "admin"].includes(profile.role);
-
+  // ⚠ « Pose seule » : le règlement se fait en versements, comme une dette —
+  // les 70 % d'acompte (article 4) puis les 30 % à la signature du PV. Le
+  // GESTE est écrit UNE fois (components/encaissementPose.js) : 🧾 Commandes
+  // de la boutique s'en sert aussi. Ici : le chef du chantier encaisse sur le
+  // terrain (caisse TERRAIN) ; un vendeur, un gérant, le resp. commercial ou
+  // l'administrateur encaissent en boutique.
   const encaisserPose = async (c) => {
-    if (bloquerSiLecture(db, profile)) return;
     const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
-    if (!dette) { uAlert("Aucun encaissement en attente pour ce chantier."); return; }
-    const reste = resteAPayer(dette);
-    if (reste <= 0) { uAlert("Ce chantier est déjà entièrement réglé."); return; }
     const enBoutique = profile.role !== "technicien" && profile.role !== "technicien_bmi";
     // ⚠ Bug trouvé par Timo (capture) : un admin (ou resp_commercial) n'est
-    // rattaché à AUCUNE boutique précise (`profile.boutique` vaut null) —
-    // le code prenait alors silencieusement la PREMIÈRE boutique de la
-    // liste, sans jamais demander. Corrigé : on lui demande explicitement.
-    // Un vendeur, lui, reste rattaché à sa boutique — pas de question.
-    let boutiqueEncaissement = enBoutique ? profile.boutique : dette.boutique;
+    // rattaché à AUCUNE boutique précise — on lui demande laquelle.
+    let boutiqueEncaissement = enBoutique ? profile.boutique : dette?.boutique;
     if (enBoutique && !boutiqueEncaissement) {
       boutiqueEncaissement = await uChoix("Encaissé dans quelle boutique ?", boutiquesVente(db).map((b) => b.nom));
       if (!boutiqueEncaissement) return;
     }
-    const s = await uPrompt(`Montant reçu de ${c.nom} (F) — reste dû : ${fmt(reste)}`, String(reste || ""));
-    const m = Number(s);
-    if (!s || isNaN(m) || m <= 0) return;
-    if (m > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
-    const moyen = await demanderMoyenPaiement();
-    if (moyen === null) return;
-    // Le libellé nomme la caisse RÉELLEMENT utilisée : sur le terrain c'est
-    // celle de la dette — TERRAIN, sa jumelle d'entraînement « TERRAIN
-    // (formation) » pour un chantier de formation (lot 2 Espace client), ou
-    // une boutique si un versement précédent y a déjà déplacé la dette.
-    if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${c.nom} ?\n\n${enBoutique ? `Encaissé en boutique (${boutiqueEncaissement}).` : `Encaissé sur le terrain (caisse ${boutiqueEncaissement}).`}`)) return;
-    const paiement = { id: uid(), date: today(), heure: heureCourte(), montant: m, paiement: normPaiement(moyen), par: profile.nom };
-    // Le versement change la boutique de la dette UNIQUEMENT s'il vient
-    // d'être payé en boutique cette fois-ci — chaque versement peut donc
-    // provenir d'un endroit différent (terrain puis boutique, ou l'inverse).
-    const detteApres = { ...dette, boutique: boutiqueEncaissement, paye: Number(dette.paye) + m, paiements: [...(dette.paiements || []), paiement] };
-    save({ ...db, dettes: db.dettes.map((x) => (x.id === dette.id ? detteApres : x)) },
-      `Versement pose seule ${fmt(m)} de ${c.nom} — ${boutiqueEncaissement} (${enBoutique ? "boutique" : "terrain"})`);
-    uAlert("✅ Versement enregistré !");
-    // 🧾 Le reçu du versement part du numéro BMI (Timo, 25/09/2026), tout
-    // seul. ⚠ Le mur : l'espace de la caisse qui encaisse, ou du chantier.
-    const bqV = (db.boutiques || []).find((b) => b.nom === boutiqueEncaissement) || {};
-    const telV = detteApres.tel || c.tel;
-    setNoteRecuWa(await envoyerRecuSansQuestion({
-      envoi: envoiRecuReglement({ dette: { ...detteApres, tel: telV }, versement: paiement, boutique: bqV, fmt, dFR, numeroDe: numeroRecuDette }),
-      tel: telV, nom: detteApres.client || `${c.prenom || ""} ${c.nom || ""}`.trim(),
-      espaceFormation: !!bqV.formation || !!c.formation, save, profile, ref: { dette_id: detteApres.id },
-    }));
+    const note = await encaisserDettePose({ db, save, profile, chantier: c, boutiqueEncaissement, enBoutique });
+    if (note !== null) setNoteRecuWa(note);
   };
 
   // BMI constate la réception SANS AUCUNE SIGNATURE (cas exceptionnel —
@@ -1451,12 +1427,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
                       <button onClick={() => imprimerPV(c, db)} className="text-xs font-bold text-white bg-slate-700 rounded px-2 py-1 hover:bg-slate-800 mr-2">📄 Voir le PV</button>
                     )}
-                    {c.pose_seule && peutEncaisserPose(c) && (() => {
+                    {c.pose_seule && peutEncaisserPose(c, profile) && (() => {
                       const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
                       const reste = dette ? resteAPayer(dette) : 0;
+                      const e = etatPose(dette);
                       return reste > 0 ? (
-                        <button onClick={() => encaisserPose(c)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800 mr-2">
-                          💰 Encaisser (reste {fmt(reste)})
+                        <button onClick={() => encaisserPose(c)} data-encaisser-pose className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800 mr-2">
+                          💰 {e && e.acompte ? libelleEncaissementPose(dette) : "Encaisser"} (reste {fmt(e && e.etape === "acompte" ? e.resteAcompte : reste)})
                         </button>
                       ) : dette ? (
                         <span className="text-xs font-bold text-emerald-700 mr-2">✅ Pose soldée</span>
