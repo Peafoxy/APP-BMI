@@ -326,9 +326,32 @@ test("un motif vide n'est pas « attendu » par défaut", !M.motifAttendu("") &&
 test("★ le message de repli DIT ce qui s'est passé à la place",
   /WhatsApp s'ouvre avec le texte complet/.test(M.messageRepli("peu importe"))
   && M.messageRepli("PANNE X").includes("PANNE X"));
-test("★ les deux écrans montrent le motif, et seulement s'il n'est pas attendu",
-  /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\);/.test(srcDevis)
-  && /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\);/.test(srcPartages));
+// ⚠ RETOURNÉ le 29/09/2026 (capture Timo : « pourquoi elle vient après que le
+// message soit déjà passé ? ») : le motif se dit AVANT l'ouverture de
+// WhatsApp, par `prevenir`, jamais après. Les écrans ne l'affichent plus
+// après coup ; `envoyerModele` l'ATTEND avant d'ouvrir.
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const wa = sansComm(lire("src/whatsapp.js"));
+  const corpsRepli = (wa.match(/const repli = async \(motif\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ le motif d'un repli se dit AVANT l'ouverture de WhatsApp (attendu, puis ouverture), et jamais pour un motif attendu",
+    corpsRepli.length > 0
+    && corpsRepli.indexOf("await prevenir(messageRepli(motif))") > 0
+    && corpsRepli.indexOf("await prevenir(messageRepli(motif))") < corpsRepli.indexOf("envoyerWhatsApp(")
+    && /!motifAttendu\(motif\)/.test(corpsRepli) && /!sansRepli/.test(corpsRepli));
+  const ecrans = ["src/screens/TousLesDevis.jsx", "src/screens/dimensionnement/Partages.jsx", "src/screens/Utilisateurs.jsx", "src/screens/Clients.jsx", "src/screens/Dettes.jsx", "src/screens/Whatsapp.jsx", "src/screens/Prospects.jsx", "src/screens/ClientsInstalles.jsx"];
+  // Appel par appel : tout envoi qui PEUT ouvrir WhatsApp (pas `sansRepli`)
+  // doit porter `prevenir: uAlert` — un seul oublié suffit à faire tomber.
+  const appelsSansPrevenir = (code) => (code.match(/envoyer(?:Modele|IdentifiantsDuNumeroBmi)\(\{[\s\S]*?\}\);/g) || [])
+    .filter((a) => !/sansRepli: true/.test(a) && !/prevenir: uAlert/.test(a));
+  const fautifs = ecrans.filter((f) => { const c = sansComm(lire(f)); return /uAlert\(messageRepli\(r\.motif\)\)/.test(c) || appelsSansPrevenir(c).length > 0; });
+  test("★★ les huit écrans qui envoient par le numéro BMI passent `prevenir: uAlert` et n'affichent plus le motif APRÈS", fautifs.length === 0);
+  if (fautifs.length) console.log("     fautifs :", fautifs.join(", "));
+  test("★ la phrase dit ce qui VA se passer (« Appuyez sur OK »), jamais « s'est ouvert »",
+    /Appuyez sur OK : WhatsApp s'ouvre avec le texte complet/.test(M.messageRepli("x")) && !/s'est ouvert/.test(M.messageRepli("x")));
+  test("★ les identifiants : un motif déjà dit avant n'est pas répété après",
+    M.messageIdentifiants("x", { auto: false, motif: "Pas de connexion.", annonce: true }) === "");
+}
 
 titre("⑭ L'ÉCRAN NE DÉCRIT JAMAIS AUTRE CHOSE QUE CE QUI VIENT DE SE PASSER");
 test("★ parti du numéro BMI → on ne promet pas que WhatsApp s'ouvre",
@@ -901,8 +924,9 @@ test("★★ UN SEUL CHEMIN : l'écran passe par envoyerModele, il n'ouvre plus 
     !!fondOpaque && fondOpaque("bg-slate-50/60") === "bg-slate-50" && fondOpaque("bg-red-50") === "bg-red-50" && fondOpaque("") === "bg-white"
     && /export const celluleFigee = [^\n]*\$\{fondOpaque\(fond\)\}/.test(ui));
 }
-test("★ un repli qui n'est pas la règle SE DIT (un repli muet ressemble à une panne)",
-  /if \(r\.motif\) uAlert\(/.test(codeDettes));
+// ⚠ RETOURNÉ le 29/09/2026 : il se dit AVANT l'ouverture (`prevenir`), plus après.
+test("★ un repli qui n'est pas la règle SE DIT, avant l'ouverture (un repli muet ressemble à une panne)",
+  /prevenir: uAlert/.test(codeDettes) && !/if \(r\.motif\) uAlert\(/.test(codeDettes));
 test("★★ un plan PROPOSÉ mais pas encore accepté ne donne aucune échéance",
   /plan\.statut !== PLAN_ACCEPTE/.test(codeDettes) && /return null/.test(codeDettes));
 test("★ l'échéance est cherchée par l'ÉCRAN, la règle pure ne reçoit jamais la base",
@@ -1391,7 +1415,7 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && !/db\.users/.test(corps));
   test("★★ 📋 Clients : la ligne s'écrit sur l'état COURANT, seulement si parti du numéro BMI, et DONNE la conversation (donnerAuSender) ; le repli se dit",
     /if \(!r\.auto\) return;/.test(corps) && /save\(\(etat\) => \(\{\s*\.\.\.etat,\s*messages: messagesAvecLigneEnvoi\(etat\.messages, \{ profile, tel: c\.tel, nom, modele: envoi\.modele, variables: envoi\.variables, donnerAuSender: true, envoi: r \}\)/.test(corps)
-    && /if \(r\.motif && !motifAttendu\(r\.motif\)\) uAlert\(messageRepli\(r\.motif\)\)/.test(corps)
+    && /prevenir: uAlert/.test(corps) && !/uAlert\(messageRepli/.test(corps)
     && /<M\.Clients db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(lire("src/App.jsx")));
   // 💰 VENTES : automatique, sans question, sans repli, le mur, la ligne sans propriétaire.
   const ven = sansComm(lire("src/screens/Ventes.jsx"));

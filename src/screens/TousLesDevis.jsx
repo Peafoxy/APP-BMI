@@ -10,7 +10,7 @@ import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { envoiRelanceDevis, traceEnvoi, libelleTrace, motifAttendu, messageRepli } from "../lib/whatsappModeles";
+import { envoiRelanceDevis, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
@@ -219,13 +219,14 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       espaceFormation: espaceDuDevis(db, d, profile),
       texteRepli: texte,
       demanderConfirmation: uConfirm,
+      prevenir: uAlert,
     });
     // ⚠ UN REPLI MUET RESSEMBLE À UNE PANNE. Si l'envoi du numéro BMI n'a pas
     // eu lieu pour une raison qu'on n'attendait pas (serveur pas encore
     // configuré, modèle pas encore approuvé, réseau), on le DIT. Les motifs
     // attendus — formation, premier message d'un client — ne dérangent
     // personne : c'est la règle qui joue, et elle est connue.
-    if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+    // Le motif d'un repli est dit AVANT l'ouverture de WhatsApp (`prevenir`, 29/09/2026), jamais après.
     if (!r.parti) return;
     const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) : null;
     // 📲 23/09/2026 : la relance partie du numéro BMI s'écrit AUSSI dans la

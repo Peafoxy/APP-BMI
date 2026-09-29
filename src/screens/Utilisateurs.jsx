@@ -11,7 +11,7 @@ import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identi
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, motifAttendu, messageRepli } from "../lib/whatsappModeles";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
@@ -116,8 +116,9 @@ export function Users({ db, save, profile }) {
       espaceFormation: estCompteFormation(db, u),
       texteRepli: texteMotFidelite({ nom, avecCompte: true }),
       demanderConfirmation: uConfirm,
+      prevenir: uAlert,
     });
-    if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+    // Le motif d'un repli est dit AVANT l'ouverture de WhatsApp (`prevenir`, 29/09/2026), jamais après.
     if (!r.auto) return;
     save((etat) => ({
       ...etat,
@@ -160,7 +161,7 @@ export function Users({ db, save, profile }) {
       // Envoi automatique des identifiants par WhatsApp.
       if (await uConfirm(`✅ Client créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
         // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
-        const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nomCli, identifiant, motDePasse, tel: telCli, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
+        const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nomCli, identifiant, motDePasse, tel: telCli, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
         if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user, envoi: r }) }));
         const m = messageIdentifiants(nomCli, r); if (m) uAlert(m);
       }

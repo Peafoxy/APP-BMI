@@ -8040,7 +8040,9 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
       && /espaceFormation: estCompteFormation\(db, u\)/.test(corps) && !/estCompteFormation\(db, profile\)/.test(corps));
     test("★ 👥 Utilisateurs : la ligne n'entre dans 📲 WhatsApp QUE si le message est parti du numéro BMI",
       /if \(!r\.auto\) return;[\s\S]*messagesAvecLigneEnvoi\([^)]*donnerAuSender: true/.test(corps)
-      && /texteRepli: texteMotFidelite\(/.test(corps) && /motifAttendu\(r\.motif\)/.test(corps));
+      // ⚠ RETOURNÉ le 29/09/2026 : le motif d'un repli se dit AVANT
+      // l'ouverture de WhatsApp (`prevenir`), plus après (capture Timo).
+      && /texteRepli: texteMotFidelite\(/.test(corps) && /prevenir: uAlert/.test(corps) && !/uAlert\(messageRepli/.test(corps));
   }
 
   // ⚠ RESSERRÉ le 18/09/2026 : la recherche portait sur le MOT, donc un

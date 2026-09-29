@@ -20,7 +20,7 @@ import {
 } from "../lib/comptesClients";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, motifAttendu, messageRepli } from "../lib/whatsappModeles";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/whatsappModeles";
 
 // ============ CRÉER UN CLIENT (parrainage employé) ============
 // Onglet dédié, ouvert à tous les employés SAUF l'admin (qui a 👥 Utilisateurs)
@@ -75,7 +75,7 @@ export function CreerClient({ db, save, profile }) {
 
     setF({ nom: "", tel: "" });
     // ⚠ LE MUR : l'espace du COMPTE CRÉÉ, jamais celui de qui clique.
-    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm });
+    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
     if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: client, envoi: r }) }));
     const m = messageIdentifiants(nom, r); if (m) uAlert(m);
     // Le cadre vert dit PAR OÙ les accès sont partis : il écrivait « WhatsApp
@@ -90,7 +90,7 @@ export function CreerClient({ db, save, profile }) {
     const mdp = motDePasseConnu(c);
     if (!mdp) { uAlert("Ce compte a un mot de passe personnalisé, impossible de le régénérer ici."); return; }
     // ⚠ LE MUR : l'espace de la FICHE, jamais celui de qui clique.
-    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: c.nom_base || c.nom, identifiant: id, motDePasse: mdp, tel: c.tel, role: "client", espaceFormation: !!c.formation, demanderConfirmation: uConfirm });
+    const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: c.nom_base || c.nom, identifiant: id, motDePasse: mdp, tel: c.tel, role: "client", espaceFormation: !!c.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
     if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: c, renvoi: true, envoi: r }) }));
     const m = messageIdentifiants(c.nom_base || c.nom, r); if (m) uAlert(m);
   };
@@ -216,8 +216,9 @@ export function Clients({ db, save, profile }) {
       espaceFormation: !!bqRegardee.formation,
       texteRepli: texteMotFidelite({ nom, avecCompte: !!compte }),
       demanderConfirmation: uConfirm,
+      prevenir: uAlert,
     });
-    if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+    // Le motif d'un repli est dit AVANT l'ouverture de WhatsApp (`prevenir`, 29/09/2026), jamais après.
     if (!r.auto) return;
     if (typeof save === "function") {
       save((etat) => ({

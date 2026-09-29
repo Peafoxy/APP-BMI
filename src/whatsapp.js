@@ -23,7 +23,7 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { envoyerWhatsApp, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
@@ -43,12 +43,22 @@ const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== f
 // numéro BMI ne peut pas envoyer, on NE fait PAS ouvrir WhatsApp — un vendeur
 // qui encaisse dix ventes ne doit pas le voir s'ouvrir dix fois. On rend le
 // motif, l'écran le dit discrètement, et le bouton du reçu reste là.
-export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false }) {
-  const repli = async (motif) => ({
-    auto: false,
-    motif,
-    parti: sansRepli ? false : await envoyerWhatsApp(tel, texteRepli, demanderConfirmation),
-  });
+// ⚠ `prevenir` (29/09/2026, capture Timo : « pourquoi elle vient après que
+// le message soit déjà passé ? ») : le motif du repli se dit AVANT d'ouvrir
+// WhatsApp, jamais après. L'écran passe sa fenêtre (`uAlert`) ; elle est
+// ATTENDUE, puis WhatsApp s'ouvre. Un motif attendu (formation, premier
+// contact) ne dérange personne. `annonce` dit à l'écran que c'est déjà dit.
+export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir }) {
+  const repli = async (motif) => {
+    const annonce = !sansRepli && typeof prevenir === "function" && !!motif && !motifAttendu(motif);
+    if (annonce) await prevenir(messageRepli(motif));
+    return {
+      auto: false,
+      motif,
+      annonce,
+      parti: sansRepli ? false : await envoyerWhatsApp(tel, texteRepli, demanderConfirmation),
+    };
+  };
 
   const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne() });
   if (refus) return repli(refus);
@@ -92,12 +102,12 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
 // celui de la personne qui clique.
 // ⚠ `premierContact` n'est pas passé : c'est CE message qui porte les
 // identifiants, la règle du premier contact ne le concerne pas.
-export async function envoyerIdentifiantsDuNumeroBmi({ nomAffiche, identifiant, motDePasse, tel, role, espaceFormation, demanderConfirmation }) {
+export async function envoyerIdentifiantsDuNumeroBmi({ nomAffiche, identifiant, motDePasse, tel, role, espaceFormation, demanderConfirmation, prevenir }) {
   const texteRepli = role && role !== "client"
     ? texteIdentifiantsEmploye(nomAffiche, identifiant, motDePasse, role)
     : texteIdentifiantsClient(nomAffiche, identifiant, motDePasse);
   const { modele, variables } = envoiIdentifiants({ nomAffiche, identifiant, motDePasse });
-  return envoyerModele({ tel, modele, variables, espaceFormation: !!espaceFormation, texteRepli, demanderConfirmation });
+  return envoyerModele({ tel, modele, variables, espaceFormation: !!espaceFormation, texteRepli, demanderConfirmation, prevenir });
 }
 
 // ---------------------------------------------------------------

@@ -576,7 +576,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
       espaceFormation, sansRepli: true,
     });
     if (rAcces.auto) { accesPartis = true; accesEnvoyes = rAcces; }
-    else if (rAcces.motif && !motifAttendu(rAcces.motif)) uAlert(`Ses accès ne sont pas partis du numéro BMI. ${messageRepli(rAcces.motif)}`);
+    else if (rAcces.motif && !motifAttendu(rAcces.motif)) await uAlert(`Ses accès ne sont pas partis du numéro BMI. ${messageRepli(rAcces.motif)}`);
   }
   const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
   const r = await envoyerModele({
@@ -587,10 +587,11 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     premierContact: !accesPartis,
     texteRepli: lignesMsg.join("\n"),
     demanderConfirmation: uConfirm,
+    prevenir: uAlert,
   });
   // ⚠ Un repli muet ressemble à une panne : on DIT pourquoi, sauf quand le
   // motif est attendu (formation, premier message qui porte les identifiants).
-  if (r.motif && !motifAttendu(r.motif)) uAlert(messageRepli(r.motif));
+  // Le motif d'un repli est dit AVANT l'ouverture de WhatsApp (`prevenir`, 29/09/2026), jamais après.
   // Les accès partis du numéro BMI s'écrivent dans 📲 WhatsApp, masqués
   // (règle du 23/09 : le créateur et l'administrateur seuls les lisent).
   if (accesEnvoyes) {

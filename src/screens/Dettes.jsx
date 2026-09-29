@@ -251,12 +251,13 @@ export function Dettes({ db, save, profile }) {
       espaceFormation: espaceDeLaDette(db, d, profile),
       texteRepli: texte,
       demanderConfirmation: uConfirm,
+      prevenir: uAlert,
     });
     if (!r.auto) {
       // ⚠ UN REPLI MUET RESSEMBLE À UNE PANNE (leçon du 19/09) : on dit
       // POURQUOI le message n'est pas parti du numéro BMI, sauf quand c'est
       // la règle qui joue (formation) — là, personne n'a rien à apprendre.
-      if (r.motif) uAlert(`${r.motif}\n\nWhatsApp s'est ouvert avec le texte : le message part de VOTRE numéro.`);
+      // Il a été dit AVANT l'ouverture de WhatsApp (`prevenir`, 29/09/2026).
       return;
     }
     // ⚠ LA TRACE NE S'ÉCRIT QUE SI LE MESSAGE EST PARTI DU NUMÉRO BMI : une

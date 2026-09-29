@@ -268,6 +268,8 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
       // aucun — il n'y a donc rien à protéger.
       texteRepli: message,
       demanderConfirmation: uConfirm,
+      // Le motif se dit AVANT l'ouverture de WhatsApp (29/09/2026), jamais après.
+      prevenir: uAlert,
     });
     setContact((c) => (c ? { ...c, envoi: false } : c));
     if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
@@ -276,7 +278,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     // une ouverture WhatsApp part d'un AUTRE numéro, le client ne répondrait
     // pas à BMI et la conversation mentirait.
     if (!r.auto) {
-      uAlert(`${r.motif ? r.motif + "\n\n" : ""}WhatsApp s'est ouvert avec le texte : le message part de VOTRE numéro, la réponse du client n'arrivera donc pas ici.`);
+      uAlert(`${r.motif && !r.annonce ? r.motif + "\n\n" : ""}Le message part de VOTRE numéro : la réponse du client n'arrivera donc pas ici.`);
       setContact(null);
       return;
     }

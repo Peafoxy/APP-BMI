@@ -283,6 +283,8 @@ export function messageIdentifiants(nom, r) {
   if (r && r.auto) return `✅ Identifiants envoyés du numéro BMI à ${qui}.`;
   const motif = r && r.motif ? String(r.motif) : "";
   if (!motif || motif === MOTIF_FORMATION) return "";
+  // Le motif a déjà été dit AVANT l'ouverture (`prevenir`) : on ne le répète pas.
+  if (r && r.annonce) return "";
   return `${motif}\n\nWhatsApp s'est ouvert avec les identifiants : le message part de VOTRE numéro.`;
 }
 
@@ -787,8 +789,9 @@ export const messageDevisEnvoye = (nomClient, auto) =>
       ? "Le client a reçu un message WhatsApp du numéro BMI."
       : "WhatsApp s'ouvre avec ses identifiants et le lien.");
 
+// ⚠ Dite AVANT l'ouverture (29/09/2026) : « Appuyez sur OK », pas « s'est ouvert ».
 export const messageRepli = (motif) =>
-  `📲 Le message n'est pas parti du numéro BMI.\n\n${motif}\n\nWhatsApp s'ouvre avec le texte complet : vous pouvez l'envoyer vous-même, comme avant.`;
+  `📲 Le message n'est pas parti du numéro BMI.\n\n${motif}\n\nAppuyez sur OK : WhatsApp s'ouvre avec le texte complet, vous pourrez l'envoyer vous-même, comme avant.`;
 
 // ---------------------------------------------------------------
 // LE NUMÉRO, TEL QUE WHATSAPP LE VEUT
