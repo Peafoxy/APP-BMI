@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 1952 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 1956 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 39  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1029,7 +1029,19 @@ lit mal est pire qu'un banc absent).
   boutiques, comme le rail — **rien à coller**).
 - ⚠ Un **magasin** ne vend pas (il ravitaille) : chez lui c'est encore le
   seuil seul. Compter ses ravitaillements n'a pas été demandé.
-- Banc (`verifier-cloisonnement`, 5 contrôles), éprouvé en comptant les
+- **🎯 LE STOCK À ATTEINDRE** (29/09/2026, « POURQUOI les articles à
+  commander correspondent au seuil ? » → « b, lance ») : le seuil dit QUAND
+  commander, pas COMBIEN — un article à 0 qui ne s'était pas vendu en 30 jours
+  proposait juste le seuil, et revenait sur la liste à la vente suivante. Case
+  **« Stock à atteindre (facultatif) »** à côté du Seuil (`stock_cible`, même
+  droit que le seuil — rien à coller) : sous le seuil, on propose de
+  **remonter jusqu'à lui** (`niveauARemonter`) ; le rythme l'emporte s'il
+  demande plus ; vide = le seuil comme avant. Refusé s'il n'est pas au-dessus
+  du seuil (`critiqueStockCible`, création ET ✏️ Corriger). Colonne « À
+  atteindre » dans la liste et l'export. Copié au ravitaillement vers une
+  boutique qui n'a pas l'article. ⚠ L'import Excel ne le lit pas (pas
+  demandé) : il se remplit fiche par fiche.
+- Banc (`verifier-cloisonnement`, 9 contrôles), éprouvé en comptant les
   lignes `deja_sorti`, en retirant le plancher du seuil et en élargissant la
   fenêtre d'un jour : chacun tombe. Deux contrôles de `verifier-ecran-stocks`
   RETOURNÉS (les colonnes du rythme, l'appel avec la durée).

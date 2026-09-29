@@ -1890,6 +1890,27 @@ export const venduParProduitSurPeriode = (db, jours = JOURS_RYTHME_VENTES, aujou
 export const venduSurPeriode = (db, pid, jours = JOURS_RYTHME_VENTES, aujourdhui = today()) =>
   Math.max(venduParProduitSurPeriode(db, jours, aujourdhui).get(pid) || 0, 0);
 
+// 🎯 LE STOCK À ATTEINDRE (Timo, 29/09/2026, « b ») : le seuil dit QUAND
+// commander, pas COMBIEN. Une fiche peut porter `stock_cible` (plus grand que
+// le seuil) : sous le seuil, on propose de REMONTER jusqu'à lui, pas jusqu'au
+// seuil — sinon l'article revient sur la liste à la vente suivante. Sans
+// stock à atteindre (ou un chiffre qui n'est pas au-dessus du seuil), rien ne
+// change : c'est le seuil.
+export const niveauARemonter = (p) => {
+  const seuil = Number(p?.seuil || 0);
+  const cible = Number(p?.stock_cible || 0);
+  return cible > seuil ? cible : seuil;
+};
+// Refus à la saisie : un stock à atteindre au niveau du seuil ou en dessous
+// ne voudrait rien dire. Vide ou 0 = pas de stock à atteindre.
+export const critiqueStockCible = (seuil, cible) => {
+  const c = Number(cible || 0);
+  if (!c) return "";
+  if (c < 0) return "Le stock à atteindre ne peut pas être négatif.";
+  if (c <= Number(seuil || 0)) return `Le stock à atteindre (${c}) doit être plus grand que le seuil (${Number(seuil || 0)}). Laissez la case vide pour commander jusqu'au seuil seulement.`;
+  return "";
+};
+
 // `options` absent → l'ancienne règle du seuil seule (utile au banc et à un
 // écran qui ne voudrait pas du rythme). Avec `options.couverture` → le rythme.
 export const articlesAReapprovisionner = (db, stock, boutique, options = null) => {
@@ -1899,8 +1920,9 @@ export const articlesAReapprovisionner = (db, stock, boutique, options = null) =
   .map((p) => {
     const actuel = stock(db, p);
     const seuil = Number(p.seuil || 0);
-    const manqueSeuil = actuel <= seuil ? Math.max(seuil - actuel, 1) : 0;
-    if (!options) return { p, actuel, seuil, manque: manqueSeuil };
+    const niveau = niveauARemonter(p);
+    const manqueSeuil = actuel <= seuil ? Math.max(niveau - actuel, 1) : 0;
+    if (!options) return { p, actuel, seuil, niveau, manque: manqueSeuil };
     const jours = options.jours || JOURS_RYTHME_VENTES;
     const couverture = options.couverture || COUVERTURE_JOURS_DEFAUT;
     const vendu = Math.max(vendus.get(p.id) || 0, 0);
@@ -1908,7 +1930,7 @@ export const articlesAReapprovisionner = (db, stock, boutique, options = null) =
     const besoin = Math.ceil(parJour * couverture);
     const manqueRythme = Math.max(besoin - Math.max(actuel, 0), 0);
     const tientJours = parJour > 0 ? Math.max(Math.floor(Math.max(actuel, 0) / parJour), 0) : null;
-    return { p, actuel, seuil, vendu, parJour, tientJours, manque: Math.max(manqueSeuil, manqueRythme), parRythme: manqueRythme > manqueSeuil };
+    return { p, actuel, seuil, niveau, vendu, parJour, tientJours, manque: Math.max(manqueSeuil, manqueRythme), parRythme: manqueRythme > manqueSeuil };
   })
   .filter((x) => (options ? x.manque > 0 : x.actuel <= x.seuil))
   .sort((a, b) => {

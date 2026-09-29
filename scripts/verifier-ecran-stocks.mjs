@@ -140,14 +140,14 @@ test("une ligne prévient AVANT le clic, sans fenêtre qui bloque",
 // ou en dessous de la boutique regardée, exportable, demande pré-remplie.
 // (React sépare les morceaux de texte par des commentaires : on les retire avant de lire.)
 const htmlPlat = html.replace(/<!--[^]*?-->/g, "");
-test("★ l'encadré « À réapprovisionner » est rendu avec le compte de la boutique regardée (1 sur BMI APESSITO), l'article, le reste, le seuil, « — » pour un article qui ne s'est pas vendu en 30 jours (vendu, tient encore) et la quantité à commander (26/09/2026 : colonnes du rythme)",
-  htmlPlat.includes("À réapprovisionner (1)") && htmlPlat.includes("REGULATEUR MPPT 60A") && /<td[^>]*>2<\/td><td[^>]*>5<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>3<\/td>/.test(htmlPlat));
+test("★ l'encadré « À réapprovisionner » est rendu avec le compte de la boutique regardée (1 sur BMI APESSITO), l'article, le reste, le seuil, « — » pour un article qui ne s'est pas vendu en 30 jours (vendu, tient encore) et la quantité à commander (26/09/2026 : colonnes du rythme ; 29/09/2026 : « — » sous « À atteindre » quand la fiche n'en porte pas)",
+  htmlPlat.includes("À réapprovisionner (1)") && htmlPlat.includes("REGULATEUR MPPT 60A") && /<td[^>]*>2<\/td><td[^>]*>5<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>3<\/td>/.test(htmlPlat));
 test("★ …l'article sous le seuil d'une AUTRE boutique n'y est pas, le bouton Exporter est là, et « Demander ce ravitaillement » n'apparaît que sur une boutique de vente qui a un magasin dans son espace",
   !htmlPlat.includes("CABLE 6MM") && htmlPlat.includes("📤 Exporter") && !htmlPlat.includes("Demander ce ravitaillement")
   && /\{!estMagasin && magasinsDe\(db\)\.length > 0 && <button onClick=\{demanderCeRavitaillement\}[^>]*>🚚 Demander ce ravitaillement<\/button>\}/.test(src));
 test("★ la règle est pure (articlesAReapprovisionner), la demande reçoit le panier pré-rempli (panierInitial), l'encadré du magasin n'a plus de limite à 20 lignes",
   /const aReapprovisionner = articlesAReapprovisionner\(db, stockActuel, bq, \{ jours: JOURS_RYTHME_VENTES, couverture \}\);/.test(src) && /const couverture = couvertureStockJours\(db\);/.test(src) && /panierInitial=\{panierPreRempli\}/.test(src) && !/alertesDesBoutiques\.slice\(0, 20\)/.test(src)
-  && /exportCSV\("a_reapprovisionner", \["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", `Vendu sur \$\{JOURS_RYTHME_VENTES\} j`, "Tient encore \(jours\)", "À commander"\]/.test(src)
+  && /exportCSV\("a_reapprovisionner", \["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Stock à atteindre", `Vendu sur \$\{JOURS_RYTHME_VENTES\} j`, "Tient encore \(jours\)", "À commander"\]/.test(src)
   && /\}, \[panierInitial\?\.n\]\);/.test(readFileSync("src/screens/Ravitaillement.jsx", "utf8")));
 // Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de défilement pour voir le reste ».
 test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent dans un cadre à hauteur fixe qui défile, en-tête collé en haut",

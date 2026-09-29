@@ -12,7 +12,7 @@ import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
 import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
-import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
+import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { exportCSV } from "../lib/export";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
@@ -36,7 +36,7 @@ export function Stocks({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const bq = boutiqueRetenue(db, profile, bqSel, { ecran: "stocks" });
-  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
   // un article mal saisi ne se corrigeait pas. On pouvait changer son
@@ -103,7 +103,7 @@ export function Stocks({ db, save, profile }) {
       let cible = produits.find((x) => x.boutique === rav.dest && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase());
       if (!cible) {
         // L'article n'existe pas encore dans la boutique : on le crée automatiquement
-        cible = { id: uid(), boutique: rav.dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, prix_achat: p.prix_achat, prix_vente: p.prix_vente, code: p.code || "", tension: p.tension || "" };
+        cible = { id: uid(), boutique: rav.dest, nom: p.nom, categorie: p.categorie, initial: 0, entrees: 0, seuil: p.seuil, ...(Number(p.stock_cible) > 0 ? { stock_cible: Number(p.stock_cible) } : {}), prix_achat: p.prix_achat, prix_vente: p.prix_vente, code: p.code || "", tension: p.tension || "" };
         produits = [...produits, cible];
       }
       ajusts.push({ id: uid(), date: today(), produit_id: p.id, boutique: bq, qte: -Number(l.qte), motif: `Ravitaillement ${numero} → ${rav.dest}`, par: profile.nom, ref, type: "ravitaillement" });
@@ -142,8 +142,8 @@ export function Stocks({ db, save, profile }) {
     setPanierPreRempli({ n: (panierPreRempli?.n || 0) + 1, lignes: aReapprovisionner.map(({ p, manque }) => ({ nom: p.nom, categorie: p.categorie || "", qte: manque })) });
     setTimeout(() => demandeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
-  const exporterAReapprovisionner = () => exportCSV("a_reapprovisionner", ["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", `Vendu sur ${JOURS_RYTHME_VENTES} j`, "Tient encore (jours)", "À commander"],
-    aReapprovisionner.map(({ p, actuel, seuil, vendu, tientJours, manque }) => [p.boutique, p.nom, p.categorie || "", p.fournisseur || "", actuel, seuil, vendu, tientJours ?? "", manque]), bq);
+  const exporterAReapprovisionner = () => exportCSV("a_reapprovisionner", ["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Stock à atteindre", `Vendu sur ${JOURS_RYTHME_VENTES} j`, "Tient encore (jours)", "À commander"],
+    aReapprovisionner.map(({ p, actuel, seuil, niveau, vendu, tientJours, manque }) => [p.boutique, p.nom, p.categorie || "", p.fournisseur || "", actuel, seuil, niveau > seuil ? niveau : "", vendu, tientJours ?? "", manque]), bq);
 
   // ---- CÔTÉ MAGASIN : demandes reçues + alertes des boutiques ----
   const demandesRecues = estMagasin ? demandesEnAttente(db, profile) : [];
@@ -292,6 +292,7 @@ export function Stocks({ db, save, profile }) {
     ["tension", "Tension", "nombre", "V"],
     ["initial", "Quantité initiale", "nombre", ""],
     ["seuil", "Seuil d'alerte", "nombre", ""],
+    ["stock_cible", "Stock à atteindre", "nombre", ""],
     ["prix_achat", "Prix d'achat", "nombre", "F"],
     ["prix_vente", "Prix de vente", "nombre", "F"],
     ["garantie_boutique", "Garantie boutique", "texte"],
@@ -321,7 +322,7 @@ export function Stocks({ db, save, profile }) {
     setEnEdition(p.id);
     setF({
       nom: p.nom || "", domaine: p.domaine || "", categorie: p.categorie || "",
-      fournisseur: p.fournisseur || "", initial: p.initial ?? "", seuil: p.seuil ?? "",
+      fournisseur: p.fournisseur || "", initial: p.initial ?? "", seuil: p.seuil ?? "", stock_cible: p.stock_cible || "",
       prix_achat: p.prix_achat ?? "", prix_vente: p.prix_vente ?? "", code: p.code || "",
       tension: p.tension ?? "", garantie_boutique: p.garantie_boutique || "",
       garantie_fabricant: p.garantie_fabricant || "", conditions_garantie: p.conditions_garantie || "",
@@ -339,7 +340,7 @@ export function Stocks({ db, save, profile }) {
 
   const annulerCorrection = () => {
     setEnEdition(null);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   };
 
   const enregistrerCorrection = async () => {
@@ -351,6 +352,7 @@ export function Stocks({ db, save, profile }) {
     const avant = db.produits.find((x) => x.id === enEdition);
     if (!avant) { uAlert("Cet article n'existe plus."); annulerCorrection(); return; }
     if (!f.nom.trim()) { uAlert("Le nom ne peut pas être vide."); return; }
+    { const refus = critiqueStockCible(f.seuil, f.stock_cible); if (refus) { uAlert(refus); return; } }
 
     const apres = {
       ...avant,
@@ -359,6 +361,7 @@ export function Stocks({ db, save, profile }) {
       categorie: (f.categorie || "").trim(),
       fournisseur: f.fournisseur || "",
       seuil: Number(f.seuil || 0),
+      stock_cible: Number(f.stock_cible || 0) || "",
       code: (f.code || "").trim(),
       tension: f.tension ? Number(f.tension) : "",
       garantie_boutique: (f.garantie_boutique || "").trim(),
@@ -484,6 +487,7 @@ export function Stocks({ db, save, profile }) {
       categorie: a.categorie || "",
       fournisseur: a.fournisseur || "",
       seuil: a.seuil ?? "",
+      stock_cible: a.stock_cible || "",
       prix_achat: a.prix_achat ?? "",
       prix_vente: a.prix_vente ?? "",
       code: a.code || "",
@@ -501,6 +505,7 @@ export function Stocks({ db, save, profile }) {
   const ajouter = async () => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom d'article."); return; }
+    { const refus = critiqueStockCible(f.seuil, f.stock_cible); if (refus) { uAlert(refus); return; } }
     // ⚠ Jamais deux fiches pour le même article dans la même boutique : le
     // stock serait coupé en deux et les quantités ne voudraient plus rien
     // dire. Pour modifier la fiche existante : ✏️ Corriger. Pour une
@@ -509,10 +514,10 @@ export function Stocks({ db, save, profile }) {
       uAlert(`« ${dejaDansCetteBoutique.nom} » existe déjà dans ${bq}.\n\nPour modifier sa fiche, utilisez ✏️ Corriger dans la liste ci-dessous. Pour créer un article différent, changez son nom.`);
       return;
     }
-    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "",
+    save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), ...(Number(f.stock_cible) > 0 ? { stock_cible: Number(f.stock_cible) } : {}), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "",
       puissance_kw: f.puissance_kw ? Number(f.puissance_kw) : "", profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
       debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim(), note_assistant: (f.note_assistant || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
     uAlert("Article ajouté !");
   };
 
@@ -820,23 +825,24 @@ export function Stocks({ db, save, profile }) {
           ? <div className="text-sm text-slate-400">Aucun article de {bq} n'est au seuil ou en dessous, ni ne manquera d'ici {couverture} jours au rythme des ventes.</div>
           : (
             <>
-              <div className="text-xs text-slate-500 mb-3" data-reappro-rythme>Du plus urgent au moins urgent. <b>À commander</b> = ce qui se vendra en {couverture} jours au rythme des {JOURS_RYTHME_VENTES} derniers jours, moins ce qui reste — jamais moins que ce qu'il faut pour revenir au seuil. C'est la quantité proposée dans la demande, modifiable avant l'envoi. La durée se règle dans ⚙ Paramètres (administrateur).</div>
+              <div className="text-xs text-slate-500 mb-3" data-reappro-rythme>Du plus urgent au moins urgent. <b>À commander</b> = ce qui se vendra en {couverture} jours au rythme des {JOURS_RYTHME_VENTES} derniers jours, moins ce qui reste — jamais moins que ce qu'il faut pour remonter au <b>stock à atteindre</b> de la fiche (sinon au seuil). C'est la quantité proposée dans la demande, modifiable avant l'envoi. La durée se règle dans ⚙ Paramètres (administrateur).</div>
               {/* Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de
                   défilement pour voir le reste » — cadre à hauteur fixe, en-tête collé. */}
               <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
-                <table className="w-full text-sm min-w-[760px]">
+                <table className="w-full text-sm min-w-[840px]">
                   {/* Timo (10/09/2026) : « figer le nom de l'article quand on défile de
                       droite à gauche — sur téléphone exclusivement » : la première
                       colonne reste collée à gauche sous la largeur lg, libre au-dessus. */}
-                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", `Vendu ${JOURS_RYTHME_VENTES} j`, "Tient encore", "À commander"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "À atteindre", `Vendu ${JOURS_RYTHME_VENTES} j`, "Tient encore", "À commander"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {aReapprovisionner.map(({ p, actuel, seuil, vendu, tientJours, manque }) => (
+                    {aReapprovisionner.map(({ p, actuel, seuil, niveau, vendu, tientJours, manque }) => (
                       <tr key={p.id} className="border-t border-slate-100">
                         <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{p.nom}</td>
                         <td className="px-3 py-2 text-slate-500">{p.categorie || "—"}</td>
                         <td className="px-3 py-2 text-slate-500">{p.fournisseur || "—"}</td>
                         <td className={`px-3 py-2 tabular-nums font-bold ${actuel <= 0 ? "text-red-600" : "text-orange-600"}`}>{actuel}</td>
                         <td className="px-3 py-2 tabular-nums text-slate-500">{seuil}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-500" data-a-atteindre>{niveau > seuil ? niveau : "—"}</td>
                         <td className="px-3 py-2 tabular-nums text-slate-500">{vendu || "—"}</td>
                         <td className={`px-3 py-2 tabular-nums ${tientJours !== null && tientJours < 7 ? "font-bold text-red-600" : "text-slate-500"}`}>{tientJours === null ? "—" : `≈ ${tientJours} j`}</td>
                         <td className="px-3 py-2 tabular-nums font-bold">{manque}</td>
@@ -1126,6 +1132,9 @@ export function Stocks({ db, save, profile }) {
           </Field>
           <Field label="Initial"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.initial} onChange={(e) => setF({ ...f, initial: e.target.value })} /></Field>
           <Field label="Seuil"><input type="number" className={inputCls} value={f.seuil} onChange={(e) => setF({ ...f, seuil: e.target.value })} /></Field>
+          {/* 🎯 Stock à atteindre (Timo, 29/09/2026, « b ») : sous le seuil, la
+              liste « À réapprovisionner » propose de remonter jusqu'ici. */}
+          <Field label="Stock à atteindre (facultatif)"><input type="number" data-stock-cible className={inputCls} value={f.stock_cible} onChange={(e) => setF({ ...f, stock_cible: e.target.value })} placeholder="Vide = jusqu'au seuil" /></Field>
           <Field label="Prix achat (F)"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.prix_achat} onChange={(e) => setF({ ...f, prix_achat: e.target.value })} /></Field>
           <Field label="Prix vente (F)"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.prix_vente} onChange={(e) => setF({ ...f, prix_vente: e.target.value })} /></Field>
           <Field label="Code-barres (facultatif)"><input className={inputCls} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="Scannez ou tapez" /></Field>

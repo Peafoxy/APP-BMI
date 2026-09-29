@@ -6145,6 +6145,28 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     C.couvertureStockJours({ boutiques: [{ nom: "A" }] }) === 21 && C.couvertureStockJours({ boutiques: [{ nom: "A" }, { nom: "B", reappro_couverture_jours: 14 }] }) === 14
     && /const enregistrerCouvertureStock = \(\) => \{\s*if \(refuserSaufAdmin\(profile, "Modifier la durée de stock visée"\)\) return;/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
     && /reappro_couverture_jours: v/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
+  // 🎯 LE STOCK À ATTEINDRE (Timo, 29/09/2026, « b ») : sous le seuil, on remonte
+  // jusqu'à lui — plus seulement jusqu'au seuil.
+  const unSeul = (p) => C.articlesAReapprovisionner({ ...dbV, produits: [p] }, stockV, "A", { jours: 30, couverture: 21, aujourdhui: jour })[0];
+  test("★ stock à atteindre : seuil 5, reste 0, rien vendu, à atteindre 20 → 20 à commander (pas 5) ; sans lui → 5 comme avant ; au-dessus du seuil → rien",
+    unSeul({ id: "x1", boutique: "A", nom: "X", seuil: 5, stock_cible: 20, initial: 0 })?.manque === 20
+    && unSeul({ id: "x1", boutique: "A", nom: "X", seuil: 5, initial: 0 })?.manque === 5
+    && unSeul({ id: "x1", boutique: "A", nom: "X", seuil: 5, stock_cible: 20, initial: 3 })?.manque === 17
+    && unSeul({ id: "x1", boutique: "A", nom: "X", seuil: 5, stock_cible: 20, initial: 8 }) === undefined
+    && C.articlesAReapprovisionner({ produits: [{ id: "x1", boutique: "A", nom: "X", seuil: 5, stock_cible: 20, initial: 0 }] }, stockV, "A")[0].manque === 20);
+  test("★ …le rythme l'emporte s'il demande plus (30 vendus/30 j, 21 j, stock 6 → 15 > 12 = 18 − 6), et un stock à atteindre au niveau du seuil ou en dessous ne compte pas",
+    unSeul({ id: "v1", boutique: "A", nom: "PANNEAU", seuil: 6, stock_cible: 18, initial: 6 })?.manque === 15
+    && unSeul({ id: "x1", boutique: "A", nom: "X", seuil: 5, stock_cible: 4, initial: 0 })?.manque === 5);
+  test("★ …refusé à la saisie s'il n'est pas au-dessus du seuil (création ET ✏️ Corriger), vide accepté",
+    C.critiqueStockCible(5, 5) !== "" && C.critiqueStockCible(5, 3) !== "" && C.critiqueStockCible(5, "") === "" && C.critiqueStockCible(5, 20) === ""
+    && (readFileSync("src/screens/Stocks.jsx", "utf8").match(/const refus = critiqueStockCible\(f\.seuil, f\.stock_cible\); if \(refus\) \{ uAlert\(refus\); return; \}/g) || []).length === 2);
+  {
+    const st = readFileSync("src/screens/Stocks.jsx", "utf8");
+    test("★ …la fiche le porte partout : création, ✏️ Corriger (dans `apres` ET la liste des changements), présélection, copie au ravitaillement ; la liste l'affiche et l'exporte",
+      /\["stock_cible", "Stock à atteindre", "nombre", ""\]/.test(st) && /stock_cible: Number\(f\.stock_cible \|\| 0\) \|\| "",/.test(st)
+      && /stock_cible: a\.stock_cible \|\| "",/.test(st) && /stock_cible: p\.stock_cible \|\| "",/.test(st)
+      && /seuil: p\.seuil, \.\.\.\(Number\(p\.stock_cible\) > 0/.test(st) && /data-stock-cible/.test(st) && /data-a-atteindre/.test(st) && /"Stock à atteindre", `Vendu sur/.test(st));
+  }
 }
 
 titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'administrateur principal seul » ; 14/09/2026 : « Reprise de l'article par BMI », pas « par le client » — c'est BMI qui reprend, le client rend)");
