@@ -159,6 +159,12 @@ export const MODELES = {
   // Google après la réception. MARKETING (Meta range une demande d'avis dans
   // la promotion). SERVEUR SEUL (lib/demandeAvis.js).
   demande_avis: { categorie: "marketing", variables: ["client", "installation", "lien"] },
+  // 🔧 29/09/2026, Timo (son texte) : le rappel du SOLDE d'une pose seule,
+  // 3 jours après la signature du PV. UTILITY (un paiement dû sur un contrat
+  // signé). SERVEUR SEUL (lib/poseSeule.js, tournée de 7 h). Il remplace
+  // `rappel_dette` pour ce rappel : « votre achat du … » ne disait pas une
+  // pose, et la date était celle du contrat, pas de la réception.
+  rappel_solde_pose: { categorie: "utility", variables: ["client", "date", "reste", "total"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -412,6 +418,30 @@ export function envoiRappelEntretien({ chantier, compte, dFR }) {
   };
 }
 
+// 🔧 LE RAPPEL DU SOLDE D'UNE POSE — le texte de Timo (29/09/2026), deux
+// fautes de frappe corrigées (« Veuillez », « comme » après la virgule) et le
+// lien écrit en clair. C'est CE texte qui se crée chez Meta, mot pour mot.
+export const TEXTE_RAPPEL_SOLDE_POSE =
+  "Bonjour {{1}},\nIci BMI Togo.\n"
+  + "Les travaux de pose ont été réceptionnés le {{2}}. Il reste {{3}} à régler sur un total de {{4}}, "
+  + "comme prévu au contrat (solde dans les 3 jours après la réception).\n"
+  + "Vous pouvez passer en boutique ou répondre directement à ce message.\n"
+  + "Pour toute préoccupation, veuillez écrire à :\n📧 contact@bmitogo.com\n\n"
+  + "Ou appeler :\n📞 +228 99 96 84 88 / +228 91 13 05 11\n\n"
+  + "www.bmitogo.com\n\n"
+  + "BMI TOGO — Les bâtiments modernes et intelligents\n💙💚 Merci de faire partie de nos clients !";
+// Trous : nom, date de RÉCEPTION (le PV), reste, total. Soldée → null.
+export function envoiRappelSoldePose({ dette, compte, chantier, fmt, dFR }) {
+  const total = Number(dette?.montant || 0);
+  const reste = Math.max(0, total - Number(dette?.paye || 0));
+  if (reste <= 0 || !chantier?.receptionne_le) return null;
+  const nom = nomPourClient(compte) || texteVariable(dette?.client);
+  return {
+    modele: "rappel_solde_pose",
+    variables: [nom, texteVariable(dFR(chantier.receptionne_le)), texteVariable(fmt(reste)), texteVariable(fmt(total))],
+  };
+}
+
 // ⭐ LA DEMANDE D'AVIS — le texte de Timo, mot pour mot chez Meta (26/09/2026).
 // Le mot « INSTALLATION » en capitales est le sien.
 export const TEXTE_DEMANDE_AVIS =
@@ -637,6 +667,7 @@ const LIGNES_ENVOI = {
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,
   rappel_dette: ([client, date, reste, total]) => `Rappel de dette à ${client} : reste ${reste} à régler sur ${total} (achat du ${date}).`,
+  rappel_solde_pose: ([client, date, reste, total]) => `Rappel automatique du solde de pose à ${client} : reste ${reste} à régler sur ${total} (réception le ${date}).`,
   mot_fidelite: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   mot_fidelite_simple: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   recu_vente: ([client, date, boutique, recu, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique}, ${montant}, ${paiement}.`,

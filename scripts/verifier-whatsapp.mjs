@@ -87,10 +87,13 @@ const ATTENDU = {
   // ⚠ LE DIX-NEUVIÈME (26/09/2026, « 6 ») : la demande d'avis Google, dix
   // jours après la réception. MARKETING, trois trous, serveur seul.
   demande_avis: { categorie: "marketing", n: 3 },
+  // ⚠ LE VINGTIÈME (29/09/2026, son texte) : le rappel du solde d'une pose
+  // seule, 3 jours après le PV. UTILITY, quatre trous, serveur seul.
+  rappel_solde_pose: { categorie: "utility", n: 4 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les dix-neuf modèles sont là, et eux seuls (RETOURNÉ le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les vingt modèles sont là, et eux seuls (RETOURNÉ le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -114,7 +117,8 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // RETOURNÉ le 26/09/2026 : la relance automatique du 8e jour est, elle
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis"];
+// RETOURNÉ le 29/09/2026 : + le rappel du solde d'une pose (tournée de 7 h).
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose"];
 test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
@@ -1275,7 +1279,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les seize modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,rappel_entretien,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3073,8 +3077,22 @@ titre("㊲ 🔧 LA POSE SEULE : 70 % AVANT DE PROGRAMMER, 30 % AU PV, LE RAPPEL 
   const client = { id: "K", nom: "KOFFI", tel: "90112233" };
   const dbS = { clients_installes: [{ ...chR, user_id: "K" }], dettes: [d70], users: [client], boutiques: [], ventes: [] };
   const jour = P.soldesPoseDuJour(dbS, "2026-09-24", { fmt: fmtP, dFR: dFRp });
-  test("★★ la tournée : un message au client (modèle rappel_dette) ET une alerte à l'administrateur",
-    jour.length === 1 && jour[0].client && jour[0].admin && jour[0].envoi?.modele === "rappel_dette");
+  // RETOURNÉ le 29/09/2026 : le texte de Timo, `rappel_solde_pose`, remplace
+  // `rappel_dette` (« votre achat du … » ne disait pas une pose).
+  test("★★ la tournée : un message au client (modèle rappel_solde_pose, la date du PV) ET une alerte à l'administrateur",
+    jour.length === 1 && jour[0].client && jour[0].admin && jour[0].envoi?.modele === "rappel_solde_pose"
+    && jour[0].envoi.variables.join("|") === "KOFFI|20/09/2026|30000 F|100000 F");
+  {
+    const M2 = await import(pathToFileURL(join(process.cwd(), "src/lib/whatsappModeles.js")).href);
+    const t = M2.TEXTE_RAPPEL_SOLDE_POSE;
+    test("★ le texte de Timo : quatre trous dans l'ordre, ses coordonnées, aucune faute de frappe laissée",
+      ["{{1}}", "{{2}}", "{{3}}", "{{4}}"].every((x, i, a) => t.indexOf(x) >= 0 && (i === 0 || t.indexOf(a[i - 1]) < t.indexOf(x)))
+      && /réceptionnés le \{\{2\}\}/.test(t) && /contact@bmitogo\.com/.test(t) && /\+228 99 96 84 88 \/ \+228 91 13 05 11/.test(t)
+      && /Merci de faire partie de nos clients/.test(t) && !/Veillez/.test(t) && !/\]\(/.test(t));
+    test("★ un solde réglé ou sans date de réception ne part pas",
+      M2.envoiRappelSoldePose({ dette: d100, chantier: chR, fmt: fmtP, dFR: dFRp }) === null
+      && M2.envoiRappelSoldePose({ dette: d70, chantier: { ...chR, receptionne_le: "" }, fmt: fmtP, dFR: dFRp }) === null);
+  }
   const dejaClient = P.soldesPoseDuJour({ ...dbS, dettes: [{ ...d70, rappel_solde_le: "2026-09-24" }] }, "2026-09-25", { fmt: fmtP, dFR: dFRp });
   test("★★ UNE fois : le message déjà parti ne repart pas, l'alerte non plus une fois posée",
     dejaClient.length === 1 && !dejaClient[0].client && dejaClient[0].admin

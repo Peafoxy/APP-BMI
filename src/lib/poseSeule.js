@@ -17,7 +17,7 @@
 //   • programmer l'installation est REFUSÉ tant que les 70 % ne sont pas
 //     versés (`critiqueProgrammationPose`) ;
 //   • le PV n'est PAS bloqué ; 3 jours après la signature, si le solde reste
-//     dû, la tournée de 7 h écrit au client (modèle `rappel_dette`) et
+//     dû, la tournée de 7 h écrit au client (modèle `rappel_solde_pose`, le texte de Timo) et
 //     prévient l'administrateur — UNE fois (`rappel_solde_le` sur la dette).
 //
 // ⚠ Une dette de pose d'AVANT la règle n'a pas `acompte_attendu` : elle
@@ -28,7 +28,7 @@
 // Règle pure, lue par le serveur : imports écrits avec `.js`.
 // ============================================================
 import { estSupprime } from "./corbeille.js";
-import { envoiRappelDette, numeroWhatsApp, ligneEnvoiModele } from "./whatsappModeles.js";
+import { envoiRappelSoldePose, numeroWhatsApp, ligneEnvoiModele } from "./whatsappModeles.js";
 import { cleConversation, CANAL_WA, construireEntete } from "./whatsappConversations.js";
 import { chantierDeFormation } from "./rappelEntretien.js";
 import { joursEntre } from "./rappels.js";
@@ -38,7 +38,7 @@ export const DELAI_SOLDE_POSE_JOURS = 3;
 // Au-delà, on ne réveille plus un client : une tournée manquée rattrape
 // pendant une semaine, pas des mois après.
 export const JOURS_MAX_RAPPEL_SOLDE = 10;
-export const MODELE_RAPPEL_SOLDE = "rappel_dette";
+export const MODELE_RAPPEL_SOLDE = "rappel_solde_pose";
 
 export const acomptePose = (total) => Math.round(Number(total || 0) * ACOMPTE_POSE_PCT / 100);
 const reste = (d) => Math.max(0, Number(d?.montant || 0) - Number(d?.paye || 0));
@@ -120,7 +120,7 @@ export function soldesPoseDuJour(db, aujourdhui, { fmt, dFR }) {
     const admin = !dette.rappel_solde_admin_le;
     if (!client && !admin) return;
     sortie.push({ chantier: c, dette, compte, tel, client, admin,
-      envoi: client ? envoiRappelDette({ dette, compte, echeance: null, fmt, dFR }) : null });
+      envoi: client ? envoiRappelSoldePose({ dette, compte, chantier: c, fmt, dFR }) : null });
   });
   return sortie;
 }
