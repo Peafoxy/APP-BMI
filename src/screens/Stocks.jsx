@@ -9,7 +9,7 @@ import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
-import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche } from "../components/ui";
+import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -140,7 +140,7 @@ export function Stocks({ db, save, profile }) {
   const demandeRef = useRef(null);
   const demanderCeRavitaillement = () => {
     setPanierPreRempli({ n: (panierPreRempli?.n || 0) + 1, lignes: aReapprovisionner.map(({ p, manque }) => ({ nom: p.nom, categorie: p.categorie || "", qte: manque })) });
-    setTimeout(() => demandeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    setTimeout(() => montrerALecran(demandeRef.current), 50);
   };
   const exporterAReapprovisionner = () => exportCSV("a_reapprovisionner", ["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Stock à atteindre", `Vendu sur ${JOURS_RYTHME_VENTES} j`, "Tient encore (jours)", "À commander"],
     aReapprovisionner.map(({ p, actuel, seuil, niveau, vendu, tientJours, manque }) => [p.boutique, p.nom, p.categorie || "", p.fournisseur || "", actuel, seuil, niveau > seuil ? niveau : "", vendu, tientJours ?? "", manque]), bq);
@@ -335,7 +335,7 @@ export function Stocks({ db, save, profile }) {
     if (p.garantie_boutique || p.garantie_fabricant || p.conditions_garantie || p.fiche_technique || p.notes || p.note_assistant) {
       setAutresInfosOuvert(true);
     }
-    formulaireRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    montrerALecran(formulaireRef.current, "center");
   };
 
   const annulerCorrection = () => {

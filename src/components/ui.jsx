@@ -232,6 +232,42 @@ export const Panel = ({ boutique, children }) => (
   <div className="rounded-xl p-4 border-2" style={{ borderColor: col(boutique), backgroundColor: light(boutique) }}>{children}</div>
 );
 
+// ============ CE QU'ON OUVRE SE VOIT ============
+// Timo (29/09/2026, capture de 🏠 Clients installés : « lorsqu'on clique sur
+// Dossier l'affichage n'est pas visible… si tu es déjà en bas, rien de
+// visible » → « a, lance… que ce soit une règle générale pour les écrans :
+// tu cliques, l'écran s'affiche »). UNE règle : un panneau qui s'ouvre loin
+// du bouton cliqué (au-dessus de la liste, le plus souvent) AMÈNE la page
+// jusqu'à lui ; en le fermant, on revient sur la ligne d'où l'on vient.
+// ⚠ Ne vaut PAS pour la barre des onglets (OngletsDeplacables fait défiler
+// SA barre, jamais la page) ni pour ce qui se déplie sous la ligne cliquée.
+export const MARGE_HAUT_PANNEAU = 80; // la barre du haut est collée : on ne pose pas le panneau dessous
+export function montrerALecran(el, bloc = "start") {
+  if (!el || typeof el.scrollIntoView !== "function") return;
+  try { el.style.scrollMarginTop = `${MARGE_HAUT_PANNEAU}px`; } catch { /* sans style : on défile quand même */ }
+  el.scrollIntoView({ behavior: "smooth", block: bloc });
+}
+// `cle` : ce qui ouvre le panneau (un id, un booléen) — la page vient à lui
+// chaque fois que la clé CHANGE vers une valeur vraie (ouvrir un autre
+// dossier ramène aussi). Rend la référence à poser sur le panneau.
+export function useMontrerALOuverture(cle) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!cle) return;
+    const t = setTimeout(() => montrerALecran(ref.current), 30);
+    return () => clearTimeout(t);
+  }, [cle]);
+  return ref;
+}
+// Au FERMER : revenir sur la ligne d'où l'on est parti (`data-ligne="<id>"`).
+export function revenirSurLaLigne(id) {
+  if (!id || typeof document === "undefined") return;
+  setTimeout(() => {
+    const el = document.querySelector(`[data-ligne="${String(id).replace(/"/g, "")}"]`);
+    montrerALecran(el, "center");
+  }, 30);
+}
+
 // ============ COMPOSANT DE CHARGEMENT ============
 export function LoadingSpinner() {
   return (

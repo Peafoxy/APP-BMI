@@ -15,7 +15,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whats
 import { messageIdentifiants } from "../lib/whatsappModeles";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
@@ -391,6 +391,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // L'admin saisit les frais facturés, désigne le chef DU CHANTIER, coche les
   // techniciens présents, et l'application propose la répartition.
   const [chantier, setChantier] = useState(null); // fiche en cours de répartition
+  const refFrais = useMontrerALOuverture(chantier);
+  // Timo (29/09/2026) : ce qu'on ouvre se voit — le dossier et les frais
+  // s'ouvrent au-dessus de la liste, la page vient à eux.
+  const refDossier = useMontrerALOuverture(dossierOuvert);
   const [rep, setRep] = useState({ frais: "", chef: "", partBmi: String(PART_BMI_DEFAUT), majChef: String(MAJORATION_CHEF_DEFAUT), equipe: [], pcts: {} });
   // ⚠ CLOISONNEMENT (2.100.38) — la liste des techniciens ne regardait aucun
   // espace : on pouvait affecter un VRAI technicien à un chantier
@@ -1024,10 +1028,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         const jeSuisDeLEquipe = (c.equipe || []).some((e) => e.user_id === profile.id);
         const peutEcrireDossier = isAdmin || jeSuisDeLEquipe;
         return (
-          <div className="rounded-xl p-4 bg-white border-2 border-sky-300">
+          <div ref={refDossier} data-panneau="dossier" className="rounded-xl p-4 bg-white border-2 border-sky-300">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div className="font-bold text-sky-900">📁 Dossier de chantier — {c.prenom} {c.nom}</div>
-              <button onClick={() => setDossierOuvert(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
+              <button onClick={() => { setDossierOuvert(null); revenirSurLaLigne(c.id); }} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -1198,10 +1202,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         const c = db.clients_installes.find((x) => x.id === chantier);
         if (!c) return null;
         return (
-          <div className="rounded-xl p-4 bg-white border-2 border-purple-300">
+          <div ref={refFrais} data-panneau="frais" className="rounded-xl p-4 bg-white border-2 border-purple-300">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
               <div className="font-bold text-purple-800">🔧 Frais d'installation — {c.prenom || ""} {c.nom}</div>
-              <button onClick={() => setChantier(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
+              <button onClick={() => { setChantier(null); revenirSurLaLigne(c.id); }} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>
             </div>
             <div className="text-xs text-slate-500 mb-4">BMI prend d'abord sa part, puis le reste est partagé entre les techniciens présents : le chef du chantier touche un peu plus que chacun des autres. Vous pouvez ajuster chaque pourcentage à la main.</div>
 
@@ -1359,7 +1363,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       </td>
                     </tr>
                   )}
-                <tr key={c.id} className={`border-t border-slate-100 hover:bg-sky-50 ${entretienDu ? "bg-orange-50" : ""}`}>
+                <tr key={c.id} data-ligne={c.id} className={`border-t border-slate-100 hover:bg-sky-50 ${entretienDu ? "bg-orange-50" : ""}`}>
                   <td className="px-3 py-2 font-semibold">{c.prenom} {c.nom}{c.user_id ? " 🔑" : ""}
                     {/* Plus de badge 🎓 ici (15/09/2026) : l'écran ne montre
                         plus que l'espace REGARDÉ, donc une fiche de formation
