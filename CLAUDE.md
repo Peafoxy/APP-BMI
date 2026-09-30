@@ -818,7 +818,7 @@ lit mal est pire qu'un banc absent).
   (`panier_normalise`, `panier_de_la_proforma`, SECURITY DEFINER) reprend
   `ventes_regles_roles` de securite-14 en entier et n'y ajoute que cette porte
   (deux lignes) — sans lui, l'écran laisse passer et la base refuse, tout le
-  lot reste coincé. **À coller par Timo** (attendu `true | true | true`).
+  lot reste coincé. **Collé par Timo le 30/09/2026 (`true | true | true`).**
   Banc SQL (`tester-argent`, 219) éprouvé en retirant la comparaison du
   panier : quatre contrôles tombent ; banc de l'application
   (`verifier-cloisonnement`) éprouvé de même ; un contrôle RETOURNÉ
