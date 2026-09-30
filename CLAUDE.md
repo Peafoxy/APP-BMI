@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2031 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2038 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -68,7 +68,7 @@ npm run verifier-whatsapp        # 709 : l'envoi WhatsApp du numéro BMI (l'ordr
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 209 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 219 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-paie              # 46  : la fiche de paie séparée, et le numéro de compte bancaire (serveur)
@@ -800,6 +800,29 @@ lit mal est pire qu'un banc absent).
   confirmation en nommant la date et le reçu. **Jamais de blocage** : un
   client peut recommander le même matériel. Le numéro de reçu est de toute
   façon recalculé à chaque vente (`prochainNumeroVente`).
+- **🧾 La remise d'une proforma SUIT sa vente, si le panier n'a pas bougé**
+  (capture Timo, 30/09/2026 : proforma à 7 % faite par l'administrateur,
+  reprise par le gérant, « 🔒 réservée à l'administrateur » à l'encaissement →
+  « b, lance »). La limite des 3 % regardait QUI encaisse, jamais qui avait
+  accordé la remise ; la commande avait déjà son exception, pas la proforma.
+  Règle pure `remiseDeProformaGardee` / `panierNormalise` (calculs.js) : la
+  vente reprend SA proforma (`proforma_id`) avec **les mêmes articles, les
+  mêmes quantités, les mêmes prix, les mêmes remises de ligne et le même
+  pourcentage** → la remise (générale ou de ligne) passe pour TOUT vendeur.
+  Un article ajouté, une quantité ou un prix changé → la limite revient, et le
+  refus DIT « ne vaut que pour son panier tel quel ». Deux lignes du même
+  article au même prix comptent ensemble (le panier les fusionne). Une
+  proforma sans `produit_id` sur chaque ligne (d'avant 2.101.135) n'ouvre
+  rien. ⚠ La PROFORMA elle-même reste réservée à l'administrateur au-delà de
+  3 % (rien d'ouvert de ce côté). ⚠ **LE COUPLE : `securite-33`**
+  (`panier_normalise`, `panier_de_la_proforma`, SECURITY DEFINER) reprend
+  `ventes_regles_roles` de securite-14 en entier et n'y ajoute que cette porte
+  (deux lignes) — sans lui, l'écran laisse passer et la base refuse, tout le
+  lot reste coincé. **À coller par Timo** (attendu `true | true | true`).
+  Banc SQL (`tester-argent`, 219) éprouvé en retirant la comparaison du
+  panier : quatre contrôles tombent ; banc de l'application
+  (`verifier-cloisonnement`) éprouvé de même ; un contrôle RETOURNÉ
+  (`critiqueRemises` ×2 avec le rôle, ×1 avec la proforma).
 - **📤 Partager, sur TOUS les documents de l'aperçu** (14/09/2026, deux
   captures : « sur tous les fichiers générés par l'app, un bouton Partager à
   la place de "Aperçu avant impression", exclusivement sur téléphone ; sous

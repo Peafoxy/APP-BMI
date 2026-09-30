@@ -49,7 +49,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [5200, 4100], lignes: [
         ["Ouvrir 💰 Ventes, composer un panier, « 💳 Encaisser la vente », « 🧾 Proforma WhatsApp », 🖨️ proforma, 🛒 Vendre une proforma, 🖨 / WhatsApp sur une vente", "**Vendeur, gérant, administrateur**"],
         ["Voir la liste 🧾 Proformas", "Vendeur, gérant, responsable commercial, administrateur"],
-        ["Une remise **au-delà de 3 %** (générale, ou sur un article)", "**L'administrateur seul** — le serveur applique la même règle"],
+        ["Une remise **au-delà de 3 %** (générale, ou sur un article)", "**L'administrateur seul** — le serveur applique la même règle. **Sauf** la remise d'une proforma reprise par 🛒 Vendre **avec son panier inchangé** : tout vendeur l'encaisse."],
         ["📋 Devis (reprendre la vente pour en faire un devis d'installation)", "L'administrateur, le responsable commercial, et **le vendeur qui a fait cette vente**"],
         ["🔁 Retour / échange sous garantie", "**Gérant et administrateur**"],
         ["↩ Reprise de l'article par BMI", "**L'administrateur principal seul**"],
@@ -104,6 +104,7 @@ export const CHAPITRE = {
         "Le client revient : vue **🧾 Proformas**, sur sa ligne **« 🛒 Vendre »**. Le panier se remplit, le nom et le numéro aussi, et **l'encaissement reste à faire** (« Vérifiez, puis encaissez »). Le prix de la proforma est gardé ; si le prix du jour a changé, l'écran le dit.",
         "La colonne **« Suite »** dit ce que chaque proforma est devenue : « ✅ Encaissée le … — reçu N° » ou « ⏳ En attente ». Une proforma déjà encaissée se revend quand même, mais **on prévient** : ce sera une nouvelle vente, avec un nouveau reçu.",
       ]],
+      ["regle", "**La remise d'une proforma suit sa vente, si le panier n'a pas bougé.** Une proforma à plus de 3 % n'a pu être faite que par l'administrateur ; reprise par 🛒 Vendre, **tout vendeur l'encaisse** tant que les articles, les quantités, les prix, les remises et le pourcentage sont ceux de la proforma. Un article ajouté ou une quantité changée : la limite de 3 % revient, et le refus dit « La remise de la proforma N° … ne vaut que pour son panier tel quel »."],
       ["attention", "**Trois mots pour trois gestes**, à ne pas confondre : **🛒 Vendre** (une proforma devient un panier), **↩ Reprise** (BMI reprend un article que le client rend), **🔁 Retour** (échange sous garantie)."],
 
       ["h3", "D. Le stock manque"],

@@ -6350,7 +6350,9 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
   const vr = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran Ventes : la règle est vérifiée à l'ajout au panier, à l'encaissement et sur les deux proformas ; la remise générale est grisée dès qu'un article porte une remise, et les remises de ligne dès qu'une remise générale est saisie",
     /if \(remL > 0 && Number\(f\.remise \|\| 0\) > 0\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 3
+    // RETOURNÉ le 30/09/2026 : l'encaissement passe « admin » quand la remise est celle d'une proforma reprise telle quelle (securite-33).
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 2
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/g) || []).length === 1
     && /value=\{f\.remise\}[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && (vr.match(/disabled=\{Number\(f\.remise \|\| 0\) > 0\}/g) || []).length === 2);
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
   const ta14 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
@@ -11973,6 +11975,39 @@ titre("💵 Commissions et primes : ce que les écrans disent est vrai, et le mu
     && /data-taux-fiche/.test(co) && /💰 Commission/.test(co));
   test("★ la promotion d'un apporteur (👑 Mon équipe) n'écrit plus un taux sur la fiche d'agent : il ne commande rien",
     !/commerciaux: \[\.\.\.\(db\.commerciaux \|\| \[\]\), \{ id: uid\(\), nom, tel: a\.tel \|\| "", taux,/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8")));
+}
+
+titre("🧾 La remise d'une proforma reprise telle quelle, pour tout vendeur (30/09/2026, « b »)");
+{
+  const pf = { id: "pf", numero: "PF-1", remise_pct: 7, lignes: [{ produit_id: "p1", article: "MOTEUR", qte: 1, pu: 140000, remise_ligne: 0 }] };
+  const pan = [{ produit_id: "p1", article: "MOTEUR", qte: 1, pu: 140000, remise_ligne: 0 }];
+  test("★★ panier inchangé et même pourcentage : la remise de la proforma est gardée",
+    C.remiseDeProformaGardee(pf, pan, 7) === true);
+  test("★★ une quantité, un prix, un article ajouté ou le pourcentage changé : elle ne l'est plus",
+    !C.remiseDeProformaGardee(pf, [{ ...pan[0], qte: 2 }], 7)
+    && !C.remiseDeProformaGardee(pf, [{ ...pan[0], pu: 150000 }], 7)
+    && !C.remiseDeProformaGardee(pf, [...pan, { produit_id: "p2", article: "CABLE", qte: 1, pu: 5000 }], 7)
+    && !C.remiseDeProformaGardee(pf, pan, 8));
+  test("★ deux lignes du même article au même prix valent une ligne fusionnée (le panier les fusionne)",
+    C.remiseDeProformaGardee({ ...pf, lignes: [{ ...pf.lignes[0] }, { ...pf.lignes[0] }] }, [{ ...pan[0], qte: 2 }], 7));
+  test("★ une vieille proforma sans produit_id, ou sans proforma, n'ouvre rien",
+    !C.remiseDeProformaGardee({ ...pf, lignes: [{ article: "MOTEUR", qte: 1, pu: 140000 }] }, pan, 7)
+    && !C.remiseDeProformaGardee(null, pan, 7));
+  const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const i = ve.indexOf("const encaisserVente");
+  const corps = ve.slice(i, ve.indexOf("const vente = {", i));
+  test("★★ l'encaissement passe par la règle (remise générale ET remise de ligne) et DIT pourquoi quand le panier a bougé",
+    /const remiseDeLaProforma = remiseDeProformaGardee\(pfReprise, panier, remisePct\);/.test(corps)
+    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/.test(corps)
+    && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin" && !remiseDeLaProforma/.test(corps)
+    && /ne vaut que pour son panier tel quel/.test(corps));
+  test("★ la proforma elle-même reste réservée à l'administrateur au-delà de 3 % (on n'a rien ouvert de ce côté)",
+    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 2);
+  const sql = readFileSync("supabase/securite-33-remise-proforma-reprise.sql", "utf8");
+  test("★★ LE COUPLE : le serveur compare le même panier (produit, prix, quantité, remise de ligne, pourcentage) et exige produit_id",
+    /panier_normalise\(pf -> 'lignes'\) = public\.panier_normalise\(vente -> 'articles'\)/.test(sql)
+    && /'p', p, 'pu', pu, 'q', q, 'r', r/.test(sql) && /coalesce\(l ->> 'produit_id', ''\) = ''/.test(sql)
+    && /remise_pct/.test(sql) && (sql.match(/panier_de_la_proforma\(new\.data\)/g) || []).length === 2);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

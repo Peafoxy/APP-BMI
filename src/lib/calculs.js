@@ -1748,6 +1748,34 @@ export function reprendreProforma(db, pf, boutique) {
   };
 }
 
+// ---- LA REMISE D'UNE PROFORMA SUIT SA VENTE, SI LE PANIER N'A PAS BOUGÉ ----
+// Timo (30/09/2026, capture : la proforma à 7 % faite par l'administrateur,
+// reprise par le gérant, refusée à l'encaissement) → décision « b » : la
+// remise accordée sur la proforma est gardée par TOUT vendeur, mais
+// SEULEMENT si le panier est resté le même — mêmes articles, mêmes
+// quantités, mêmes prix, mêmes remises de ligne, même pourcentage. La remise
+// accordée porte sur une offre précise, pas sur ce que le client ajoutera.
+// Le serveur applique LA MÊME comparaison (securite-33, panier_normalise).
+// Deux lignes du même article au même prix se comptent ensemble (le panier
+// les fusionne, mettreAuPanier). Une proforma sans `produit_id` sur chaque
+// ligne (d'avant 2.101.135) n'ouvre rien : on ne compare pas sur un nom.
+export const panierNormalise = (lignes) => {
+  const m = new Map();
+  for (const l of lignes || []) {
+    const cle = `${l.produit_id || ""}|${Number(l.pu || 0)}`;
+    const x = m.get(cle) || { p: String(l.produit_id || ""), pu: Number(l.pu || 0), q: 0, r: 0 };
+    x.q += Number(l.qte || 0); x.r += Number(l.remise_ligne || 0);
+    m.set(cle, x);
+  }
+  return [...m.values()].sort((a, b) => (a.p === b.p ? a.pu - b.pu : a.p < b.p ? -1 : 1));
+};
+export const remiseDeProformaGardee = (pf, panier, remisePct) => {
+  const lignes = pf?.lignes || [];
+  if (!lignes.length || lignes.some((l) => !l.produit_id)) return false;
+  if (Number(pf.remise_pct || 0) !== Number(remisePct || 0)) return false;
+  return JSON.stringify(panierNormalise(lignes)) === JSON.stringify(panierNormalise(panier));
+};
+
 // Ce qu'une proforma est DEVENUE : les ventes qui en sont issues, la plus
 // récente d'abord. Timo (11/09/2026) : « une proforma reprise devrait plus
 // être reprenable encore ? » — sa décision : **l'avertissement, pas le

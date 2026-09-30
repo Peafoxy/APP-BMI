@@ -24,7 +24,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, filtreEspaceAffichage, comptesAvecCeNumero, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, filtreEspaceAffichage, comptesAvecCeNumero, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -562,16 +562,26 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
     // Timo (10/09/2026) : les remises par article suivent la même limite, et
     // remise sur un article + remise générale = refusé (règle pure, calculs.js).
-    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
+    // 🧾 Décision « b » (Timo, 30/09/2026) : la remise d'une proforma reprise
+    // est GARDÉE par tout vendeur tant que le panier n'a pas bougé
+    // (remiseDeProformaGardee, calculs.js ; le serveur compare pareil,
+    // securite-33). Sinon la limite de 3 % revient, et on dit pourquoi.
+    const pfReprise = origineProforma ? (db.proformas || []).find((p) => p.id === origineProforma.id) : null;
+    const remiseDeLaProforma = remiseDeProformaGardee(pfReprise, panier, remisePct);
+    const pourquoiPasProforma = pfReprise && !remiseDeLaProforma
+      ? `\n\nLa remise de la proforma N° ${pfReprise.numero} ne vaut que pour son panier tel quel : un article, une quantité, un prix ou la remise a changé depuis la reprise.`
+      : "";
+    { const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma ? "admin" : profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}${pourquoiPasProforma}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { setMsg(refusE); uAlert(refusE); return; } }
     // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
     // seul — sauf si la remise est CELLE de la commande encaissée (devis
-    // validé), déjà contrôlée en amont. Le serveur applique la même règle.
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") {
+    // validé), déjà contrôlée en amont, ou celle d'une proforma reprise telle
+    // quelle (30/09/2026). Le serveur applique la même règle.
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin" && !remiseDeLaProforma) {
       const cmd = origineCommande ? (db.commandes || []).find((c) => c.id === origineCommande) : null;
       if (!cmd || Number(cmd.remise_pct || 0) !== remisePct) {
         setMsg(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`);
-        uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus, ou faites encaisser par l'administrateur.`);
+        uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus, ou faites encaisser par l'administrateur.${pourquoiPasProforma}`);
         return;
       }
     }
