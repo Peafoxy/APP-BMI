@@ -65,6 +65,10 @@ echo "▸ La remise d'une proforma reprise telle quelle : supabase/securite-33-r
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-33-remise-proforma-reprise.sql >/dev/null 2>&1 || echo "   ❌ securite-33 refusé par la base"
 VERIF33=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-33-remise-proforma-reprise.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF33" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-33 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-33 répond : $VERIF33"; exit 1; fi
+echo "▸ Modifier une proforma au-delà de 3 % : supabase/securite-34-modifier-proforma.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-34-modifier-proforma.sql >/dev/null 2>&1 || echo "   ❌ securite-34 refusé par la base"
+VERIF34=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-34-modifier-proforma.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF34" = "t|t" ]; then echo "   ✓ la phrase de vérification de securite-34 répond true | true"; else echo "   ❌ la phrase de vérification de securite-34 répond : $VERIF34"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -330,6 +334,16 @@ essai "★ une remise de 5 % sur un article, accordée sur la proforma, se garde
 essai "★ …mais pas si la remise de cet article est montée (8 000 au lieu de 5 000)" "REFUSE" "$VENDEUR" "$(UPS ventes zvR8 "{\"id\":\"zvR8\",\"boutique\":\"APESSITO\",\"proforma_id\":\"zpfL\",\"remise_pct\":0,\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":1,\"pu\":100000,\"remise_ligne\":8000}]}")"
 essai "★ une vieille proforma sans produit_id n'ouvre rien (on ne compare pas sur un nom)" "REFUSE" "$GERANT" "$(UPS ventes zvR9 "{\"id\":\"zvR9\",\"boutique\":\"APESSITO\",\"proforma_id\":\"zpfV\",\"remise_pct\":7,\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"MOTEUR\",\"qte\":1,\"pu\":140000}]}")"
 essai "★ une proforma qui n'existe pas n'ouvre rien" "REFUSE" "$GERANT" "$(UPS ventes zvRA "{\"id\":\"zvRA\",\"boutique\":\"APESSITO\",\"proforma_id\":\"inconnue\",\"remise_pct\":7,\"articles\":$LPF}")"
+
+echo
+echo "── MODIFIER UNE PROFORMA (securite-34, Timo 30/09/2026, « 3 oui ») : au-delà de 3 %, l'administrateur seul ──"
+essai "★ le gérant change les articles de la proforma à 7 % de l'admin, en GARDANT les 7 %" "REFUSE" "$GERANT" "$(UPS proformas zpfR "{\"id\":\"zpfR\",\"numero\":\"PF-1\",\"boutique\":\"APESSITO\",\"remise_pct\":7,\"lignes\":[{\"produit_id\":\"zp1\",\"article\":\"MOTEUR\",\"qte\":3,\"pu\":140000}]}")"
+essai "★ le gérant ramène la proforma à 7 % sous 3 %" "REFUSE" "$GERANT" "$(UPS proformas zpfR "{\"id\":\"zpfR\",\"numero\":\"PF-1\",\"boutique\":\"APESSITO\",\"remise_pct\":2,\"lignes\":$LPF}")"
+essai "★ un vendeur change la quantité d'une proforma à 5 % sur un article" "REFUSE" "$VENDEUR" "$(UPS proformas zpfL "{\"id\":\"zpfL\",\"numero\":\"PF-2\",\"boutique\":\"APESSITO\",\"remise_pct\":0,\"lignes\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":2,\"pu\":100000,\"remise_ligne\":5000}]}")"
+essai "★ l'ADMIN modifie la proforma à 7 %" "PERMIS" "$ADMIN" "$(UPS proformas zpfR "{\"id\":\"zpfR\",\"numero\":\"PF-1\",\"boutique\":\"APESSITO\",\"remise_pct\":7,\"lignes\":[{\"produit_id\":\"zp1\",\"article\":\"MOTEUR\",\"qte\":2,\"pu\":140000}]}")"
+$P -c "insert into public.proformas (id, data) values ('zpfO', '{\"id\":\"zpfO\",\"numero\":\"PF-4\",\"remise_pct\":2,\"lignes\":$L0}');" >/dev/null
+essai "un vendeur modifie une proforma ordinaire (2 %) : le quotidien passe" "PERMIS" "$VENDEUR" "$(UPS proformas zpfO "{\"id\":\"zpfO\",\"numero\":\"PF-4\",\"remise_pct\":2,\"lignes\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":3,\"pu\":100000}]}")"
+essai "★ un vendeur touche la proforma à 7 % sans changer lignes ni remise (upsert de synchronisation)" "PERMIS" "$VENDEUR" "$(UPS proformas zpfR "{\"id\":\"zpfR\",\"numero\":\"PF-1\",\"boutique\":\"APESSITO\",\"remise_pct\":7,\"lignes\":$LPF,\"note\":\"x\"}")"
 
 echo
 echo "── L'UPSERT N'EST PAS UNE CRÉATION (securite-8, capture Timo du 08/09/2026) ──"

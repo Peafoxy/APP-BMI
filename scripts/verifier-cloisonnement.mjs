@@ -3837,7 +3837,8 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
   const ventesSrc = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ …et à l'encaissement d'une vente (sauf remise venant de la commande encaissée), sur les proformas et les commandes",
     /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(ventesSrc) && /Number\(cmd\.remise_pct \|\| 0\) !== remisePct/.test(ventesSrc)
-    && (ventesSrc.match(/remiseExigeAdmin\(remisePct\)/g) || []).length === 3
+    // RETOURNÉ le 30/09/2026 : + « 💾 Enregistrer la proforma modifiée » — 4.
+    && (ventesSrc.match(/remiseExigeAdmin\(remisePct\)/g) || []).length === 4
     && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
   test("l'entrée de stock par fichier ignore la colonne Prix d'achat pour tout autre que l'administrateur",
     /profile\.role !== "admin" && resultat\.entrees\.some\(\(x\) => x\.prix_achat\)/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
@@ -6351,7 +6352,7 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
   test("★ écran Ventes : la règle est vérifiée à l'ajout au panier, à l'encaissement et sur les deux proformas ; la remise générale est grisée dès qu'un article porte une remise, et les remises de ligne dès qu'une remise générale est saisie",
     /if \(remL > 0 && Number\(f\.remise \|\| 0\) > 0\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
     // RETOURNÉ le 30/09/2026 : l'encaissement passe « admin » quand la remise est celle d'une proforma reprise telle quelle (securite-33).
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 2
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 3
     && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/g) || []).length === 1
     && /value=\{f\.remise\}[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && (vr.match(/disabled=\{Number\(f\.remise \|\| 0\) > 0\}/g) || []).length === 2);
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
@@ -11870,7 +11871,8 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
   const ve = lireE("src/screens/Ventes.jsx");
   test("★ 💰 Ventes : prénom FACULTATIF, la case entreprise, revérifiée dans l'encaissement et les deux proformas",
     /<Field label="Prénom \(facultatif\)">/.test(ve) && /<ChampsEntreprise valeur=\{f\.entreprise\}/.test(ve)
-    && (ve.match(/critiqueEntreprise\(f\.entreprise\)/g) || []).length === 3);
+    // RETOURNÉ le 30/09/2026 : + la proforma modifiée — 4.
+    && (ve.match(/critiqueEntreprise\(f\.entreprise\)/g) || []).length === 4);
   test("★ 💰 Ventes : la vente, la proforma, la réservation et la dette portent l'identité (champsIdentite)",
     (ve.match(/\.\.\.champsIdentite\(\{ prenom: f\.prenom, entreprise: f\.entreprise \}\)/g) || []).length === 4
     && /numero: pf\.numero, boutique, client: pf\.client, tel: pf\.tel, \.\.\.champsIdentite\(pf\)/.test(ve));
@@ -12002,12 +12004,57 @@ titre("🧾 La remise d'une proforma reprise telle quelle, pour tout vendeur (30
     && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin" && !remiseDeLaProforma/.test(corps)
     && /ne vaut que pour son panier tel quel/.test(corps));
   test("★ la proforma elle-même reste réservée à l'administrateur au-delà de 3 % (on n'a rien ouvert de ce côté)",
-    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 2);
+    // RETOURNÉ le 30/09/2026 : + la proforma modifiée (émettre, modifier : trois gestes, tous au rôle).
+    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 3);
   const sql = readFileSync("supabase/securite-33-remise-proforma-reprise.sql", "utf8");
   test("★★ LE COUPLE : le serveur compare le même panier (produit, prix, quantité, remise de ligne, pourcentage) et exige produit_id",
     /panier_normalise\(pf -> 'lignes'\) = public\.panier_normalise\(vente -> 'articles'\)/.test(sql)
     && /'p', p, 'pu', pu, 'q', q, 'r', r/.test(sql) && /coalesce\(l ->> 'produit_id', ''\) = ''/.test(sql)
     && /remise_pct/.test(sql) && (sql.match(/panier_de_la_proforma\(new\.data\)/g) || []).length === 2);
+}
+
+titre("✏️ Modifier une proforma (30/09/2026, « a, 2 oui, 3 oui »)");
+{
+  const pf = { id: "pf1", numero: "PRF-A", par: "KOSSI", par_id: "u_k", remise_pct: 2, total: 98000, lignes: [{ produit_id: "p1", article: "MOTEUR", qte: 1, pu: 100000 }] };
+  const db = { ventes: [] };
+  const kossi = { id: "u_k", nom: "KOSSI", role: "vendeur" }, ama = { id: "u_a", nom: "AMA", role: "gerant" }, timo = { id: "u_t", nom: "TIMO", role: "admin" };
+  test("★★ a) l'auteur et l'administrateur modifient, personne d'autre",
+    C.critiqueModifProforma(db, pf, kossi) === "" && C.critiqueModifProforma(db, pf, timo) === ""
+    && /Seuls KOSSI/.test(C.critiqueModifProforma(db, pf, ama)));
+  test("★ une proforma d'avant (sans par_id) reconnaît son auteur par son nom",
+    C.critiqueModifProforma(db, { ...pf, par_id: undefined }, kossi) === "");
+  test("★★ 2) une proforma ENCAISSÉE ne se modifie plus, même par l'administrateur",
+    /déjà été encaissée/.test(C.critiqueModifProforma({ ventes: [{ id: "v", proforma_id: "pf1", date: "2026-09-30" }] }, pf, timo)));
+  test("★★ 3) au-delà de 3 % (générale OU sur un article), l'administrateur seul — même pour son auteur",
+    /seul l'administrateur/.test(C.critiqueModifProforma(db, { ...pf, remise_pct: 7 }, kossi))
+    && /seul l'administrateur/.test(C.critiqueModifProforma(db, { ...pf, remise_pct: 0, lignes: [{ ...pf.lignes[0], remise_ligne: 5000 }] }, kossi))
+    && C.critiqueModifProforma(db, { ...pf, remise_pct: 7 }, timo) === "");
+  test("★★ la modification GARDE id et numéro, laisse sa trace et garde l'ancienne version (qui ne rétrécit jamais)",
+    (() => {
+      const m1 = C.proformaModifiee(pf, { client: "X", tel: "90", lignes: [{ produit_id: "p1", qte: 2, pu: 100000 }], total: 196000, remise_pct: 2 }, kossi, "2026-09-30T10:00:00Z");
+      const m2 = C.proformaModifiee(m1, { client: "X", tel: "90", lignes: [], total: 0, remise_pct: 0 }, timo, "2026-09-30T11:00:00Z");
+      return m1.id === "pf1" && m1.numero === "PRF-A" && m1.nb_modifications === 1 && m1.modifie_par === "KOSSI"
+        && m1.historique_modif.length === 1 && m1.historique_modif[0].total === 98000
+        && m2.nb_modifications === 2 && m2.historique_modif.length === 2 && !m2.historique_modif[1].historique_modif
+        && m1.par === "KOSSI";
+    })());
+  const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const i = ve.indexOf("const enregistrerProforma = (pf) => {");
+  const corps = ve.slice(i, ve.indexOf("\n  };\n", i));
+  test("★★ l'enregistrement REVÉRIFIE sur la fiche fraîche, REMPLACE (même id) et écrit le journal ; la proforma neuve porte par_id",
+    /const refus = critiqueModifProforma\(db, avant, profile\);/.test(corps)
+    && /proformas: \(db\.proformas \|\| \[\]\)\.map\(\(x\) => \(x\.id === avant\.id \? nouvelle : x\)\)/.test(corps)
+    && /Proforma \$\{avant\.numero\} modifiée par/.test(corps) && /par: profile\.nom, par_id: profile\.id/.test(corps));
+  test("★ le numéro est gardé, 🧾 et 🖨️ n'envoient rien si l'enregistrement est refusé, l'encaissement est masqué pendant la modification",
+    /numero: proformaEnModif\?\.numero \|\| numeroProforma\(\)/.test(ve)
+    && (ve.match(/if \(!enregistrerProforma\(pf\)\) return;/g) || []).length === 3
+    && /\{proformaEnModif \? \(/.test(ve) && /data-proforma-en-modif/.test(ve) && /data-proforma-modifiee/.test(ve));
+  test("★ un article introuvable dans le stock refuse la modification (il disparaîtrait de l'offre en silence)",
+    /if \(r\.introuvables\.length\) \{ uAlert\(`🔒 La proforma N° \$\{pf\.numero\} porte des articles introuvables/.test(ve));
+  const s34 = readFileSync("supabase/securite-34-modifier-proforma.sql", "utf8");
+  test("★★ LE COUPLE : securite-34 refuse à tout autre que l'administrateur de toucher une proforma au-delà de 3 % (pourcentage ou ligne) — et reprend le reste de securite-14 tel quel",
+    /coalesce\(\(avant ->> 'remise_pct'\)::numeric, 0\) > 3 or public\.remise_ligne_excessive\(avant -> 'lignes'\)/.test(s34)
+    && /Remise supérieure à 3 % sur un proforma/.test(s34) && /sur le même proforma/.test(s34));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

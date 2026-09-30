@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2038 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2047 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -68,7 +68,7 @@ npm run verifier-whatsapp        # 709 : l'envoi WhatsApp du numéro BMI (l'ordr
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 219 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-paie              # 46  : la fiche de paie séparée, et le numéro de compte bancaire (serveur)
@@ -823,6 +823,31 @@ lit mal est pire qu'un banc absent).
   panier : quatre contrôles tombent ; banc de l'application
   (`verifier-cloisonnement`) éprouvé de même ; un contrôle RETOURNÉ
   (`critiqueRemises` ×2 avec le rôle, ×1 avec la proforma).
+- **✏️ Une proforma se MODIFIE** (Timo, 30/09/2026 : « rendre un proforma
+  modifiable » → « a, 2 oui, 3 oui »). Bouton ✏️ Modifier sur sa ligne
+  (💰 Ventes → 🧾 Proformas) : le panier se remplit comme 🛒 Vendre, un
+  bandeau le dit, « 💾 Enregistrer la proforma modifiée » la REMPLACE (même
+  id, **même numéro**) ; 🧾 et 🖨️ pendant la modification enregistrent aussi
+  avant d'envoyer ou d'imprimer ; « 💳 Encaisser » est masqué pendant la
+  modification ; rien ne part au client tout seul. **La trace** :
+  `modifie_le`, `modifie_par`, `nb_modifications`, l'ancienne version dans
+  `historique_modif` (ne rétrécit jamais), « ✏️ Modifiée le … par … » sur la
+  ligne, journal « ancien total → nouveau ». Règles pures
+  `critiqueModifProforma` / `proformaModifiee` / `auteurDeLaProforma` /
+  `proformaAuDelaDuPlafond` (calculs.js), revérifiées DANS le geste sur la
+  fiche fraîche : **a)** l'auteur (`par_id`, posé désormais à l'émission ;
+  sinon le nom `par`) et l'administrateur ; **2)** une proforma ENCAISSÉE ne
+  se modifie jamais (nouvelle offre = nouvelle proforma) ; **3)** au-delà de
+  3 % (générale ou ligne), l'administrateur seul — sinon on changerait le
+  panier en gardant la remise, puis on l'encaisserait par securite-33. Un
+  article introuvable dans le stock refuse la modification (il disparaîtrait
+  en silence). ⚠ **LE COUPLE : `securite-34`** reprend `proformas_regles_remise`
+  de securite-14 et n'y ajoute que le point 3 ; **la base ne vérifie ni
+  l'auteur ni l'encaissement** (c'est l'application). **À coller par Timo**
+  (attendu `true | true`). Bancs éprouvés (verrou retiré : trois contrôles
+  SQL tombent ; encaissement ignoré : un contrôle tombe). Contrôles
+  RETOURNÉS : `remiseExigeAdmin` ×4, `critiqueRemises` au rôle ×3,
+  `critiqueEntreprise` ×4.
 - **📤 Partager, sur TOUS les documents de l'aperçu** (14/09/2026, deux
   captures : « sur tous les fichiers générés par l'app, un bouton Partager à
   la place de "Aperçu avant impression", exclusivement sur téléphone ; sous

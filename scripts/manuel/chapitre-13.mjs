@@ -148,6 +148,7 @@ export const CHAPITRE = {
         { titre: "Retrouver une proforma", texte: "**🧾 Proformas (N)** au-dessus de la liste des ventes : Date, N°, Client, Articles, Total, Émis par, et **Suite** — « ✅ Encaissée le … — reçu N° … » ou « ⏳ En attente ». La période, la recherche et le **Total des proformas** marchent comme pour les ventes (jamais le mot « recette » : une offre n'est pas encaissée)." },
         { titre: "🛒 Vendre", texte: "Le client revient avec sa proforma : **🛒 Vendre** remplit le panier (même prix que la proforma, même client, même remise). **Une remise de plus de 3 % accordée par l'administrateur sur la proforma passe pour tout vendeur, tant que le panier reste le même.** **Rien n'est encore enregistré** : le vendeur vérifie, puis encaisse normalement." },
       ]],
+      ["regle", "**Une proforma se corrige, elle ne se refait pas** (✏️ Modifier) : elle garde son numéro, et chaque correction est notée (date, auteur, l'ancienne version gardée). **Qui** : celui qui l'a établie et l'administrateur. **Jamais une proforma déjà encaissée** : elle est devenue une vente — pour une nouvelle offre, une nouvelle proforma. **Au-delà de 3 % de remise**, l'administrateur seul (la base le refuse aussi). Un article devenu introuvable dans le stock empêche la modification : il disparaîtrait de l'offre."],
       ["attention", "**🛒 Vendre ne change jamais de boutique tout seul.** Une proforma d'une autre boutique est refusée en nommant la bonne : il faut se placer sur cette boutique. Un article introuvable dans le stock est **listé**, jamais mis au panier sans sa fiche ; un prix qui a changé depuis est **signalé** (le prix de la proforma est gardé). Une proforma **déjà encaissée** se revend quand même, mais l'écran **prévient** en nommant la date et le reçu : ce sera une nouvelle vente, avec un nouveau numéro."],
     ]},
 
@@ -171,6 +172,7 @@ export const CHAPITRE = {
         ["🧾 Proformas (N)", "La liste des proformas émises, avec leur suite."],
         ["🖨️ Réimprimer", "Réimprimer une proforma de la liste."],
         ["🛒 Vendre", "Remplir le panier depuis une proforma ; l'encaissement reste à faire."],
+        ["✏️ Modifier", "Corriger une proforma : le panier se remplit, « 💾 Enregistrer la proforma modifiée » la remplace (même numéro, « ✏️ Modifiée le … par … » sur sa ligne). 🧾 et 🖨️ pendant la modification enregistrent aussi avant d'envoyer ou d'imprimer."],
       ]}],
     ]},
 

@@ -1748,6 +1748,45 @@ export function reprendreProforma(db, pf, boutique) {
   };
 }
 
+// ---- ✏️ MODIFIER UNE PROFORMA (Timo, 30/09/2026, « a, 2 oui, 3 oui ») ----
+//   a) celui qui l'a établie et l'administrateur, personne d'autre ;
+//   2) une proforma déjà ENCAISSÉE ne se modifie plus (elle est devenue une
+//      vente : on vendrait sur une offre qui n'est plus celle du reçu) ;
+//   3) une proforma dont la remise dépasse 3 % (générale ou sur un article)
+//      ne se modifie que par l'administrateur — sinon un vendeur changerait
+//      les articles en gardant la remise, et l'encaisserait ensuite par la
+//      règle de la remise gardée (remiseDeProformaGardee). Le serveur refuse
+//      pareil (securite-34).
+// Elle GARDE son numéro, remplace l'ancienne (jamais un doublon), et laisse
+// sa TRACE : modifie_le, modifie_par, nb_modifications, et l'ancienne version
+// dans historique_modif (liste qui ne rétrécit jamais).
+export const proformaAuDelaDuPlafond = (pf) =>
+  remiseExigeAdmin(pf?.remise_pct) || (pf?.lignes || []).some(remiseLigneExigeAdmin);
+export const auteurDeLaProforma = (pf, profile) =>
+  pf?.par_id ? pf.par_id === profile?.id : !!pf?.par && pf.par === profile?.nom;
+export const critiqueModifProforma = (db, pf, profile) => {
+  if (!pf) return "Proforma introuvable.";
+  const vs = ventesDeProforma(db, pf);
+  if (vs.length) return `La proforma N° ${pf.numero} a déjà été encaissée le ${dFR(vs[0].date)} : elle ne se modifie plus. Pour une nouvelle offre, établissez une nouvelle proforma.`;
+  if (profile?.role !== "admin" && !auteurDeLaProforma(pf, profile)) return `Seuls ${pf.par || "son auteur"}, qui l'a établie, et l'administrateur peuvent modifier la proforma N° ${pf.numero}.`;
+  if (profile?.role !== "admin" && proformaAuDelaDuPlafond(pf)) return `La proforma N° ${pf.numero} porte une remise de plus de ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut la modifier.`;
+  return "";
+};
+export const proformaModifiee = (avant, nouvelle, profile, quand = new Date().toISOString()) => {
+  const { historique_modif, ...ancienne } = avant || {};
+  return {
+    ...avant,
+    client: nouvelle.client, tel: nouvelle.tel,
+    prenom: nouvelle.prenom, entreprise: nouvelle.entreprise,
+    sous_total: nouvelle.sous_total, remise_pct: nouvelle.remise_pct, remise_montant: nouvelle.remise_montant,
+    total: nouvelle.total, lignes: nouvelle.lignes,
+    id: avant.id, numero: avant.numero,
+    modifie_le: quand, modifie_par: profile?.nom || "?", modifie_par_id: profile?.id || null,
+    nb_modifications: Number(avant.nb_modifications || 0) + 1,
+    historique_modif: [...(historique_modif || []), ancienne],
+  };
+};
+
 // ---- LA REMISE D'UNE PROFORMA SUIT SA VENTE, SI LE PANIER N'A PAS BOUGÉ ----
 // Timo (30/09/2026, capture : la proforma à 7 % faite par l'administrateur,
 // reprise par le gérant, refusée à l'encaissement) → décision « b » : la

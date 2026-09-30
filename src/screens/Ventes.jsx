@@ -24,7 +24,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, filtreEspaceAffichage, comptesAvecCeNumero, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -143,6 +143,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // ce qui permet de savoir ce qu'une proforma est devenue — et de prévenir
   // avant de la reprendre une seconde fois.
   const [origineProforma, setOrigineProforma] = useState(null);
+  // ✏️ La proforma en cours de modification (30/09/2026) : { id, numero }.
+  const [proformaEnModif, setProformaEnModif] = useState(null);
   // Le devis d'origine : c'est LUI qui porte les frais d'installation et de
   // transport facturés au client. Sans ça, l'écran d'encaissement ne montrait
   // que le total des articles — le vendeur n'avait alors aucune indication du
@@ -329,7 +331,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const numeroProforma = () => "PRF-" + Date.now().toString(36).toUpperCase().slice(-6);
 
   const construireProforma = () => ({
-    numero: numeroProforma(),
+    // ✏️ Une proforma modifiée GARDE son numéro.
+    numero: proformaEnModif?.numero || numeroProforma(),
     date: new Date().toLocaleDateString("fr-FR"),
     boutique,
     client: f.client || "",
@@ -362,13 +365,61 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     validite: "15 jours",
   });
 
+  // Rend false si l'enregistrement est refusé (modification refusée) : le
+  // PDF et le message WhatsApp ne partent alors pas.
   const enregistrerProforma = (pf) => {
+    // ✏️ Une modification REMPLACE la proforma (même id, même numéro) et
+    // laisse sa trace — revérifiée DANS le geste, sur la fiche fraîche.
+    if (proformaEnModif) {
+      const avant = (db.proformas || []).find((x) => x.id === proformaEnModif.id);
+      const refus = critiqueModifProforma(db, avant, profile);
+      if (refus) { uAlert(`🔒 ${refus}`); return false; }
+      const nouvelle = proformaModifiee(avant, { ...pf, ...champsIdentite(pf) }, profile);
+      save({ ...db, proformas: (db.proformas || []).map((x) => (x.id === avant.id ? nouvelle : x)) },
+        `✏️ Proforma ${avant.numero} modifiée par ${profile.nom} (${fmt(avant.total)} → ${fmt(nouvelle.total)})`);
+      setProformaEnModif(null);
+      return true;
+    }
     // On garde une trace (liste visible par vendeur / resp. commercial / admin).
     const ligne = { id: uid(), date: today(), ts: new Date().toISOString(),
       numero: pf.numero, boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf),
       sous_total: pf.sous_total, remise_pct: pf.remise_pct, remise_montant: pf.remise_montant,
-      total: pf.total, lignes: pf.lignes, par: profile.nom };
+      total: pf.total, lignes: pf.lignes, par: profile.nom, par_id: profile.id };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
+    return true;
+  };
+
+  // ---- ✏️ MODIFIER UNE PROFORMA (Timo, 30/09/2026, « a, 2 oui, 3 oui ») ----
+  // Règle pure : critiqueModifProforma (calculs.js). Le panier se remplit
+  // comme pour 🛒 Vendre ; « 💾 Enregistrer la proforma modifiée » la
+  // remplace (même numéro, trace), et 🧾 / 🖨️ l'enregistrent aussi avant de
+  // l'envoyer ou de l'imprimer. Rien ne part au client tout seul.
+  const modifierLaProforma = async (pf) => {
+    const refus = critiqueModifProforma(db, pf, profile);
+    if (refus) { uAlert(`🔒 ${refus}`); return; }
+    const r = reprendreProforma(db, pf, boutique);
+    if (r.refus) { uAlert(`🔒 ${r.refus}`); return; }
+    // Un article introuvable ne rentre pas au panier : l'enregistrer le
+    // ferait disparaître de l'offre en silence.
+    if (r.introuvables.length) { uAlert(`🔒 La proforma N° ${pf.numero} porte des articles introuvables dans le stock de ${boutique} (${r.introuvables.join(", ")}) : la modifier les ferait disparaître. Établissez une nouvelle proforma.`); return; }
+    if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par la proforma ${pf.numero} pour la modifier ?`)) return;
+    setPanier(r.panier);
+    setOrigineProforma(null);
+    setProformaEnModif({ id: pf.id, numero: pf.numero });
+    setF({ ...f, client: pf.client || "", tel: pf.tel || "", remise: r.remisePct ? String(r.remisePct) : "", ...identiteDe(pf) });
+    setVueListe("ventes");
+    setMsg(r.remiseEcartee ? "⚠ Remise générale écartée : une remise est déjà accordée sur un article (l'une ou l'autre)." : "");
+    remonterEnHaut(true);
+  };
+
+  const enregistrerModifProforma = () => {
+    if (panier.length === 0) { setMsg("Une proforma porte au moins un article."); return; }
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
+    const pf = construireProforma();
+    if (!enregistrerProforma(pf)) return;
+    setMsg(`✅ Proforma ${pf.numero} modifiée (même numéro). Pour la remettre au client : 🧾 Proformas → 🖨️ Réimprimer. Pour l'envoyer tout de suite, « 🧾 Proforma WhatsApp » pendant la modification enregistre ET envoie.`);
   };
 
   // ---- 🛒 REPRENDRE UNE PROFORMA (Timo, 11/09/2026) ----
@@ -406,7 +457,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
-    enregistrerProforma(pf);
+    if (!enregistrerProforma(pf)) return;
     const lignes = [
       `*FACTURE PROFORMA* — BMI TOGO`,
       `N° ${pf.numero} · ${pf.date}`,
@@ -465,7 +516,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
-    enregistrerProforma(pf);
+    if (!enregistrerProforma(pf)) return;
     imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique));
     setMsg(`✅ Proforma ${pf.numero} imprimé (non comptabilisé).`);
   };
@@ -1458,8 +1509,21 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </div>
             )}
 
+            {proformaEnModif && (
+              <div className="mt-4 rounded-lg border-2 border-amber-400 bg-amber-50 p-3 text-sm text-amber-900" data-proforma-en-modif>
+                ✏️ <b>Vous modifiez la proforma N° {proformaEnModif.numero}.</b> Corrigez le panier, le client ou la remise, puis enregistrez :
+                elle garde son numéro, et la modification est notée. 🧾 et 🖨️ l'enregistrent aussi avant de l'envoyer ou de l'imprimer.
+              </div>
+            )}
             <div className="mt-4 flex items-center gap-4 flex-wrap">
+              {proformaEnModif ? (
+                <>
+                  <button onClick={enregistrerModifProforma} className="px-6 py-2.5 rounded-lg bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 shadow-sm">💾 Enregistrer la proforma modifiée</button>
+                  <button onClick={() => { setProformaEnModif(null); setMsg("Modification abandonnée : la proforma n'a pas changé."); }} className="text-xs font-bold text-slate-600 underline">Annuler la modification</button>
+                </>
+              ) : (
               <button onClick={encaisserVente} className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 shadow-sm">💳 Encaisser la vente</button>
+              )}
               <button onClick={proformaWhatsApp} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</button>
               <button onClick={proformaPDF} title="Imprimer une offre de prix (non comptabilisée)" className="px-3 py-2.5 rounded-lg bg-white border-2 border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50">🖨️</button>
               <span className="text-base font-bold tabular-nums">Total{fraisInstallDevis > 0 || fraisTransportDevis > 0 ? " articles" : ""} : {fmt(total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>
@@ -1564,7 +1628,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <td className="px-3 py-2">{pf.client || "—"}{pf.tel ? <span className="text-slate-400"> · {pf.tel}</span> : null}</td>
                   <td className="px-3 py-2 text-slate-500">{(pf.lignes || []).length} article(s)</td>
                   <td className="px-3 py-2 font-semibold">{fmt(pf.total)}</td>
-                  <td className="px-3 py-2 text-slate-500">{pf.par}</td>
+                  <td className="px-3 py-2 text-slate-500">{pf.par}{pf.modifie_le && <div className="text-xs text-amber-700 font-semibold" data-proforma-modifiee>✏️ Modifiée le {dFR(String(pf.modifie_le).slice(0, 10))} par {pf.modifie_par}{Number(pf.nb_modifications || 0) > 1 ? ` (${pf.nb_modifications} fois)` : ""}</div>}</td>
                   {/* Ce que la proforma est DEVENUE (Timo, 11/09/2026) : combien
                       de tes offres aboutissent, et le reçu qui en est né. */}
                   <td className="px-3 py-2 whitespace-nowrap">{(() => {
@@ -1579,7 +1643,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                         que le client rend un article — deux sens opposés dans le même
                         écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement
                         reste à faire. */}
-                    <button onClick={() => reprendreLaProforma(pf)} title="Mettre les articles de cette proforma dans le panier — l'encaissement reste à faire" className="text-xs font-bold text-emerald-700 underline">🛒 Vendre</button>
+                    <button onClick={() => reprendreLaProforma(pf)} title="Mettre les articles de cette proforma dans le panier — l'encaissement reste à faire" className="text-xs font-bold text-emerald-700 underline mr-2">🛒 Vendre</button>
+                    {/* ✏️ 30/09/2026 : l'auteur et l'administrateur, jamais sur une proforma encaissée ; au-delà de 3 % l'administrateur seul (revérifié dans le geste). */}
+                    {!ventesDeProforma(db, pf).length && (profile.role === "admin" || (auteurDeLaProforma(pf, profile) && !proformaAuDelaDuPlafond(pf))) && (
+                      <button onClick={() => modifierLaProforma(pf)} title="Corriger cette proforma — elle garde son numéro, la modification est notée" className="text-xs font-bold text-amber-700 underline">✏️ Modifier</button>
+                    )}
                   </td>
                 </tr>
               ))}

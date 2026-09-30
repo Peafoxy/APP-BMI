@@ -179,7 +179,7 @@ export const CHAPITRE = {
         ["Pastilles de paiement", "Ventes seulement : une proforma n'a pas de moyen de paiement."],
         ["Colonnes", "Date (heure dessous) · N° reçu · Articles (deux au plus, « + N autres », le reste au clic) · Client · Qté · Total (remise dessous) · Paiement en pastille (vert espèces, ambre crédit, bleu mobile, gris virement) · Commercial · Actions."],
         ["Colonne « Suite » (proformas)", "« ✅ Encaissée le … — reçu N° » ou « ⏳ En attente »."],
-        ["🖨️ Réimprimer / 🛒 Vendre (proformas)", "Réimprime l'offre ; remet ses articles au panier."],
+        ["🖨️ Réimprimer / 🛒 Vendre / ✏️ Modifier (proformas)", "Réimprime l'offre ; remet ses articles au panier ; la corrige (même numéro, modification notée : son auteur et l'administrateur, jamais une fois encaissée, au-delà de 3 % l'administrateur seul)."],
       ]}],
     ]},
 
