@@ -132,7 +132,7 @@ export function Commerciaux({ db, save, profile }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label={`CA équipe — ${labelP}`} value={fmt(totalCA)} nature="entree" />
-        <Stat label="Commissions à payer" value={fmt(totalCommissions)} nature="du" />
+        <Stat label="Commissions estimées (CA × taux)" value={fmt(totalCommissions)} nature="du" />
         <Stat label="Ventes réalisées" value={totalVentes} nature="neutre" />
       </div>
 

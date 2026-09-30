@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { resumeArticles, totalVente, caVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
 import { Field, inputCls, Badge, Panel } from "../components/ui";
-import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionEnAttente, commissionPour , ventesDuCommercial, ventesReelles } from "../lib/calculs";
+import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionPour, commissionBrute, motifBlocageCommission, filtreEspaceAffichage } from "../lib/calculs";
 
 // ============ MA COMMISSION (commerciaux et techniciens) ============
 export function MaCommission({ db, profile }) {
@@ -45,7 +45,11 @@ export function MaCommission({ db, profile }) {
   // réelle") : ventesReelles() exclue les ventes des boutiques formation.
   // Une vente déjà réglée au commercial (payee_commission = true) n'entre plus
   // dans le calcul de la commission due — elle a déjà été comptabilisée.
-  const mesVentesTotales = ventesReelles(db).filter((v) => (v.commercial === profile.nom || v.responsable === profile.nom) && inP(v.date, debut, fin));
+  // ⚠ 30/09/2026 : c'était ventesReelles(db) — un commercial de FORMATION ne
+  // voyait donc AUCUNE de ses ventes d'entraînement. C'est l'espace REGARDÉ qui
+  // décide (filtreEspaceAffichage), comme dans 👑 Mon équipe.
+  const ventesDeMonEspace = (db.ventes || []).filter(filtreEspaceAffichage(db, profile));
+  const mesVentesTotales = ventesDeMonEspace.filter((v) => (v.commercial === profile.nom || v.responsable === profile.nom) && inP(v.date, debut, fin));
   const mesVentes = mesVentesTotales.filter((v) => !v.commission_payee);
     // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : « chiffre d'affaires » était
     // calculé avec totalVente (ce que le client a payé), alors que la
@@ -56,8 +60,11 @@ export function MaCommission({ db, profile }) {
   const ca = mesVentes.reduce((s, v) => s + caVente(v), 0);
   const taux = Number(profile.taux_commission || 0);
   const commission = mesVentes.reduce((s, v) => s + commissionPour(v, profile.nom, taux, db), 0);
-  // Gagné, mais pas encore exigible : le client n'a pas réceptionné l'installation.
-  const enAttenteReception = mesVentes.reduce((s, v) => s + commissionEnAttente(v, taux, db), 0);
+  // Gagné, mais pas encore exigible. DEUX raisons, dites séparément (30/09/2026 :
+  // le cadre disait « en attente de réception » même quand le client avait
+  // réceptionné mais n'avait pas fini de payer) — la règle de 👑 Mon équipe.
+  const enAttenteReception = mesVentes.filter((v) => motifBlocageCommission(v, db) === "reception").reduce((s, v) => s + commissionBrute(v, taux), 0);
+  const enAttentePaiement = mesVentes.filter((v) => motifBlocageCommission(v, db) === "paiement").reduce((s, v) => s + commissionBrute(v, taux), 0);
   const rabaisAccordes = mesVentesTotales.filter((v) => v.commercial === profile.nom).reduce((s, v) => s + Number(v.rabais || 0), 0);
   // Même base que ci-dessus : c'est un chiffre d'affaires, pas un encaissement.
   const dejaRegle = mesVentesTotales.filter((v) => v.commission_payee).reduce((s, v) => s + caVente(v), 0);
@@ -68,7 +75,7 @@ export function MaCommission({ db, profile }) {
   const jeSuisChef = estChefEquipe(db, moiLive);
   const tauxEquipe = Number(moiLive.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
   const detailEquipe = monEquipe.map((u) => {
-    const ventesU = ventesDuCommercial(db, u.nom).filter((v) => inP(v.date, debut, fin));
+    const ventesU = ventesDeMonEspace.filter((v) => v.commercial === u.nom && inP(v.date, debut, fin));
     const tu = Number(u.taux_commission || 0);
     const comDue = ventesU.filter((v) => !v.commission_payee).reduce((s, v) => s + commissionVente(v, tu, db), 0);
     const comTotale = ventesU.reduce((s, v) => s + commissionVente(v, tu, db), 0);
@@ -128,10 +135,18 @@ export function MaCommission({ db, profile }) {
         <div className="font-bold mb-3">💵 Ma commission — {profile.nom}</div>
 
         {enAttenteReception > 0 && (
-          <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+          <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3" data-attente="reception">
             <div className="font-bold text-amber-900">⏳ {fmt(enAttenteReception)} en attente de réception</div>
             <div className="text-xs text-slate-600 mt-1">
-              Cette commission est acquise, mais elle ne devient exigible que le jour où le client <b>réceptionne son installation</b>. Elle s'ajoutera automatiquement à votre dû à ce moment-là.
+              Cette commission est acquise, mais elle ne devient exigible que le jour où le client <b>réceptionne son installation</b> — et a fini de payer. Elle s'ajoutera alors d'elle-même à votre dû.
+            </div>
+          </div>
+        )}
+        {enAttentePaiement > 0 && (
+          <div className="mb-4 rounded-xl border-2 border-orange-300 bg-orange-50 p-3" data-attente="paiement">
+            <div className="font-bold text-orange-900">💰 {fmt(enAttentePaiement)} en attente du paiement du client</div>
+            <div className="text-xs text-slate-600 mt-1">
+              Le client n'a pas fini de payer (sa dette n'est pas soldée). Un franc ne sort pas de la caisse avant d'y être entré : cette commission deviendra due d'elle-même dès que la dette sera soldée.
             </div>
           </div>
         )}

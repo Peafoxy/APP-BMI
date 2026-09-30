@@ -1460,7 +1460,11 @@ export const debloquerCommissionsReception = (db, vente_id, contexte) => {
   if (app && app.parrain_user_id && app.a_la_reception && Number(app.montant || 0) > 0) {
     messages = [nouveauMessage(SYSTEME, {
       canal: "support", client_id: app.parrain_user_id,
-      texte: `🎉 Bonne nouvelle ! L'installation de votre filleul${app.nom ? ` ${app.nom}` : ""} a été réceptionnée${contexte ? ` (${contexte})` : ""}. Votre commission de parrainage de ${fmt(app.montant)} F est maintenant due : elle vous sera versée par BMI TOGO. Merci de votre confiance !`,
+      // ⚠ « maintenant due » n'est vrai que si le filleul a fini de payer
+      // (règle du 29/08/2026 : réception ET solde) — sinon on le dit.
+      texte: `🎉 Bonne nouvelle ! L'installation de votre filleul${app.nom ? ` ${app.nom}` : ""} a été réceptionnée${contexte ? ` (${contexte})` : ""}. ${venteSoldee(db, vente)
+        ? `Votre commission de parrainage de ${fmt(app.montant)} F est maintenant due : elle vous sera versée par BMI TOGO.`
+        : `Votre commission de parrainage de ${fmt(app.montant)} F deviendra due dès que votre filleul aura fini de payer son installation.`} Merci de votre confiance !`,
     }), ...messages];
   }
   return { ventes: majVentes, messages };

@@ -73,7 +73,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     if (!await uConfirm(
       `Parrainer ${nom.toUpperCase()} ?\n\n` +
       `Un compte lui sera créé, et notre équipe le contactera.\n\n` +
-      `Vous toucherez ${tauxParrain(moi, db)} % sur son installation — le jour où il l'aura réceptionnée.`
+      `Vous toucherez ${tauxParrain(moi, db)} % sur son installation — le jour où il l'aura réceptionnée et entièrement payée.`
     )) return;
 
     // ⚠ TOUT LE TRAVAIL PASSE PAR LE SERVEUR DEPUIS LE 25/08/2026.
@@ -117,7 +117,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     // savoir — et personne n'était prévenu.
     // Dit AVANT l'ouverture (règle du 29/09/2026), jamais après.
     await ouvrirWhatsAppApresAnnonce({ tel, texte: lignesMsg.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
-      annonce: `✅ Merci ! Votre commission de ${tauxParrain(moi, db)} % vous sera versée dès que ${nom.toUpperCase()} aura réceptionné son installation.\n\nAppuyez sur OK : WhatsApp s'ouvre pour le prévenir, avec ses identifiants et le lien.` });
+      annonce: `✅ Merci ! Votre commission de ${tauxParrain(moi, db)} % vous sera versée dès que ${nom.toUpperCase()} aura réceptionné son installation et fini de la payer.\n\nAppuyez sur OK : WhatsApp s'ouvre pour le prévenir, avec ses identifiants et le lien.` });
     setParr({ nom: "", tel: "", note: "" });
   };
 
@@ -428,7 +428,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
         <div className="font-bold mb-1">🤝 Parrainez vos proches</div>
         <div className="text-xs text-slate-500 mb-3">
           Vous connaissez quelqu'un qui a besoin d'une installation solaire ? Présentez-le-nous.
-          Vous touchez <b>{tauxParrain(moi, db)} %</b> du montant de son installation — versés le jour où il l'a réceptionnée.
+          Vous touchez <b>{tauxParrain(moi, db)} %</b> du montant de son installation — versés quand il l'a réceptionnée et entièrement payée.
         </div>
 
         {(gainsDus > 0 || gainsEnAttente > 0 || gainsPayes > 0) && (

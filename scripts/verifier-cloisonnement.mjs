@@ -2122,6 +2122,16 @@ titre("Un PV signé ne gèle plus jamais les commissions — et le passé est ra
       && messages.some((m) => m.client_id === "u_parrain" && /commission de parrainage/.test(m.texte));
   })());
 
+  // ⚠ 30/09/2026 (chapitre 16) : le message disait « maintenant due » même
+  // quand le filleul n'avait pas fini de payer — la règle est réception ET solde.
+  test("★ le message au parrain ne dit « maintenant due » QUE si le filleul a fini de payer", (() => {
+    const dbDette = { ...db2, dettes: [{ id: "d2", vente_id: "v2", montant: 500000, paye: 100000 }] };
+    const pasSolde = C.debloquerCommissionsReception(dbDette, "v2", "test").messages.find((m) => m.client_id === "u_parrain");
+    const solde = C.debloquerCommissionsReception(db2, "v2", "test").messages.find((m) => m.client_id === "u_parrain");
+    return !!pasSolde && !/maintenant due/.test(pasSolde.texte) && /fini de payer/.test(pasSolde.texte)
+      && !!solde && /maintenant due/.test(solde.texte);
+  })());
+
   // Ce que le rattrapage ne doit PAS toucher.
   test("un chantier encore « terminé » n'est pas pris (c'est le travail du J+7)",
     C.chantiersAReconcilier(dbAvec([venteGelee], [{ ...chantierSigne, statut: "termine" }]), timo).length === 0);
@@ -11818,6 +11828,25 @@ titre("🏠 Clients installés : ce que l'écran dit est vrai, et le mur tient s
     && /l'administrateur et les chefs d'équipe voient tout le parc/.test(ci)
     && !/ne pourra pas réceptionner les travaux depuis l'application/.test(ci)
     && /Il signera quand même le PV de réception, par le lien envoyé sur WhatsApp/.test(ci));
+}
+
+titre("💵 Commissions et primes : ce que les écrans disent est vrai, et le mur tient dans Ma commission (30/09/2026)");
+{
+  const mc = readFileSync("src/screens/MaCommission.jsx", "utf8");
+  const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+  const co = readFileSync("src/screens/Commerciaux.jsx", "utf8");
+  const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★ Ma commission lit les ventes de l'espace REGARDÉ (plus ventesReelles : un commercial de formation ne voyait rien)",
+    /const ventesDeMonEspace = \(db\.ventes \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\);/.test(mc)
+    && !/ventesReelles\(|ventesDuCommercial\(/.test(code(mc)));
+  test("★ Ma commission sépare « en attente de réception » et « en attente du paiement du client »",
+    /motifBlocageCommission\(v, db\) === "reception"/.test(mc) && /motifBlocageCommission\(v, db\) === "paiement"/.test(mc)
+    && /data-attente="reception"/.test(mc) && /data-attente="paiement"/.test(mc));
+  test("★ l'espace client du parrain dit « réceptionnée ET payée », jamais la réception seule",
+    (ec.match(/entièrement payée|fini de la payer/g) || []).length === 3
+    && !/le jour où il l'aura réceptionnée\.`/.test(ec) && !/versés le jour où il l'a réceptionnée\./.test(ec));
+  test("★ 🎯 Commerciaux n'annonce plus « Commissions à payer » pour une estimation CA × taux",
+    /Commissions estimées \(CA × taux\)/.test(co) && !/label="Commissions à payer"/.test(co));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

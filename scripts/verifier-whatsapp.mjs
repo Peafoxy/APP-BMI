@@ -3029,7 +3029,7 @@ titre("㊱ 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHAT
   const ci = sansComm(lire("src/screens/ClientsInstalles.jsx"));
   test("★ 🏠 Déclarer terminé : annoncé AVANT l'ouverture du lien du PV",
     /await ouvrirWhatsAppApresAnnonce\(\{ tel: c\.tel, texte, prevenir: uAlert,[\s\S]{0,120}annonce: "✅ Travaux déclarés terminés\.\\n\\nAppuyez sur OK/.test(ci));
-  test("★ 🏠 Mon espace → Parrainer : annoncé AVANT", /await ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignesMsg\.join\("\\n"\), prevenir: uAlert,[\s\S]{0,200}Appuyez sur OK : WhatsApp s'ouvre pour le prévenir/.test(sansComm(lire("src/screens/EspaceClient.jsx"))));
+  test("★ 🏠 Mon espace → Parrainer : annoncé AVANT", /await ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignesMsg\.join\("\\n"\), prevenir: uAlert,[\s\S]{0,260}Appuyez sur OK : WhatsApp s'ouvre pour le prévenir/.test(sansComm(lire("src/screens/EspaceClient.jsx"))));
   const ven = sansComm(lire("src/screens/Ventes.jsx"));
   const corpsPf = ven.slice(ven.indexOf("const proformaWhatsApp = async"), ven.indexOf("\n  };", ven.indexOf("const proformaWhatsApp = async")));
   test("★★ 💰 Proforma : le PDF D'ABORD, puis l'annonce, puis WhatsApp",
