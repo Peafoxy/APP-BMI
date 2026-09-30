@@ -1963,7 +1963,7 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
   // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
-    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
     && /executerOutil\(nom, entree, \{\s*articles: nom === "chercher_article" \? await chargerArticles\(\) : \[\],/.test(corpsR)
     && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
@@ -2169,7 +2169,7 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     && I.reponseDepuisIA({ texte: "Bonjour 👋 Je ne peux pas lire les vidéos.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === `${I.PHRASE_PRESENTATION}\n\nJe ne peux pas lire les vidéos.`
     && I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === I.PHRASE_PRESENTATION
     && I.reponseDepuisIA({ texte: "Bonjour Kossi", effets: { prix: [] }, juge: { ok: true }, nouvelle: false }).texte === "Bonjour Kossi"
-    && /consignePour\(\{ client: clientIA, nouvelle \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
+    && /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
   test("★ LA QUANTITÉ SE DEMANDE : pour le solaire, la consigne exige le NOMBRE de chaque appareil avant d'estimer, et interdit de supposer qu'il y en a un seul",
     /COMBIEN il y en a \(le nombre\)/.test(I.CONSIGNE_IA) && /Ne suppose jamais qu'il y en a un seul/.test(I.CONSIGNE_IA));
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
@@ -2301,6 +2301,38 @@ titre("㉖ LE CONSEIL GÉNÉRAL DANS LES MÉTIERS DE BMI (25/09/2026, décision 
   test("★★ et le juge tient toujours : un conseil qui glisse un prix « en général » est JETÉ, un conseil sans montant passe",
     I.garderReponse("En général un kit solaire complet coûte autour de 2 000 000 F.", { prixConnus: [] }).ok === false
     && I.garderReponse("En général, un système hybride convient quand vous avez le réseau CEET : il recharge les batteries la nuit. Un conseiller BMI TOGO confirme pour votre cas.", { prixConnus: [] }).ok === true);
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㊳ L'ASSISTANT NE DIT JAMAIS CE QUE BMI NE FAIT PAS (30/09/2026, capture Timo : le forage)");
+// « Installation de forage » → « ne fait pas partie des services de BMI
+// TOGO » : FAUX, les pompes vivent dans le métier Forage. Un fait de BMI
+// inventé : la consigne l'interdit, le juge le JETTE, un conseiller confirme.
+{
+  const I = await import("../src/lib/assistantIA.js");
+  const W = await import("../src/lib/assistantWhatsapp.js");
+  const phraseCapture = "Merci pour la précision 🙏 Mais l'installation de forage (pompage d'eau) ne fait pas partie des services de BMI TOGO. Nous nous occupons plutôt d'énergie solaire, d'automatisation (portails, garages), de domotique et de VMC.";
+  const j = I.garderReponse(phraseCapture, { prixConnus: [] });
+  test("★★ la phrase EXACTE de la capture est JETÉE par le juge",
+    j.ok === false && j.metierNie === true);
+  test("★★ d'autres façons de le dire aussi (« nous ne faisons pas », « BMI TOGO ne propose pas », « en dehors de nos services »)",
+    ["Désolé, nous ne faisons pas de forage.", "BMI TOGO ne propose pas la vidéosurveillance.", "C'est en dehors de nos services.", "Ce n'est pas dans nos activités."]
+      .every((t) => I.garderReponse(t, { prixConnus: [] }).metierNie === true));
+  test("★★ jetée, elle ne se tait pas : un conseiller prend le relais (phrase fixe, étape conseiller)",
+    (() => { const r = I.reponseDepuisIA({ texte: phraseCapture, effets: { prix: [], demandeDevis: null, conseiller: false }, juge: j, nouvelle: false });
+      return !!r && r.texte.includes(W.TEXTE_RELAIS_CONSEILLER) && r.conseiller === true && r.etape === W.ETAPE_CONSEILLER; })());
+  test("★ aucune de NOS phrases ne tombe sous ce juge (présentation, « que faites-vous », relais, sujet réservé)",
+    [I.TEXTE_QUE_FAISONS_NOUS, I.REPONSE_SUJET_RESERVE, W.TEXTE_RELAIS_CONSEILLER, W.TEXTE_ACCUEIL].every((t) => !I.METIER_NIE.test(t)));
+  test("★ un conseil ordinaire passe toujours",
+    I.garderReponse("Pour un forage, en général on choisit la pompe d'après le niveau dynamique donné par le foreur. Je peux enregistrer une demande de devis.", { prixConnus: [] }).ok === true);
+  test("★★ la consigne l'interdit en toutes lettres, et nomme le forage",
+    /Que BMI TOGO NE FAIT PAS quelque chose/.test(I.CONSIGNE_IA) && /forage, pompe/.test(I.CONSIGNE_IA));
+  test("★★ les métiers réglés dans l'application entrent dans la consigne — boutiques RÉELLES seulement (le mur)",
+    (() => { const bq = [{ nom: "F", formation: true, domaines: [{ nom: "Entraînement" }] }, { nom: "R", domaines: [{ nom: "Solaire" }, { nom: "Forage" }] }];
+      const m = I.metiersDesBoutiques(bq); const c = I.consignePour({ metiers: m });
+      return m.join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION : Solaire, Forage/.test(c); })());
+  test("★ le serveur les passe à la consigne",
+    /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 // ──────────────────────────────────────────────────────────────

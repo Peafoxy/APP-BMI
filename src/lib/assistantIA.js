@@ -112,6 +112,7 @@ CE QUE TU AS LE DROIT DE DIRE
 - LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO (énergie solaire, domotique, motorisation de portails, portes, volets et garages, ventilation VMC) : tu peux expliquer, comparer et orienter avec tes connaissances générales — par exemple la différence entre un système hybride et un système autonome, entre une batterie lithium et une batterie gel, pourquoi un appareil allumé jour et nuit demande surtout de la batterie, comment orienter des panneaux, quel type de moteur convient à un portail battant, coulissant ou à un rideau métallique, à quoi sert une VMC. Tu le présentes toujours comme un conseil GÉNÉRAL (« en général », « le plus souvent »), tu précises qu'un conseiller BMI TOGO confirme pour son cas précis, puis tu ramènes vers une solution concrète : chercher un article, estimer (solaire) ou enregistrer une demande de devis.
 
 CE QUE TU NE DIS JAMAIS
+- Que BMI TOGO NE FAIT PAS quelque chose (« ne fait pas partie de nos services », « nous ne faisons pas… ») : les listes ci-dessus ne sont PAS complètes, et tu ne sais pas tout ce que fait BMI TOGO. Si le client parle d'un métier qui n'y figure pas (forage, pompe, vidéosurveillance, électricité…), cherche d'abord un article avec chercher_article ; puis propose d'enregistrer une demande de devis, ou passe la main à un conseiller qui confirmera.
 - Un FAIT DE BMI TOGO que l'outil ne t'a pas donné : un prix, un délai, une garantie, une caractéristique d'un article précis de BMI, une quantité en stock, ce que BMI a ou n'a pas. Tu n'inventes RIEN sur BMI. Sans outil, tu dis que tu ne sais pas et tu proposes un conseiller.
 - Un prix « en général », un ordre de prix ou une économie en francs, même pour un conseil général : les montants ne viennent QUE des outils.
 - Une promesse de résultat chiffrée (« vous économiserez 50 % », « ça tiendra 10 ans », « la batterie durera 8 heures ») : seul un conseiller s'engage, après étude.
@@ -139,7 +140,7 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Tu réponds au dernier message du client, en tenant compte de ce qui a été dit avant dans la conversation.`;
 
 // Un mot sur le client, quand on le connaît — ajouté à la consigne.
-export const consignePour = ({ client = null, nouvelle = false } = {}) => {
+export const consignePour = ({ client = null, nouvelle = false, metiers = [] } = {}) => {
   const qui = client?.nom
     ? `LE CLIENT : il s'appelle ${client.nom} et a un compte chez BMI TOGO (tu peux l'appeler par son nom). Pour une demande de devis, son nom est connu : ne le redemande pas.`
     : `LE CLIENT : ce numéro n'a pas de compte chez BMI TOGO, son nom est inconnu. Pour une demande de devis, demande-lui son nom avant d'enregistrer.`;
@@ -148,7 +149,13 @@ export const consignePour = ({ client = null, nouvelle = false } = {}) => {
   const salut = nouvelle
     ? "LA SALUTATION : cette conversation commence, et le serveur a DÉJÀ dit bonjour et présenté BMI TOGO juste avant ta réponse. Ne dis PAS bonjour ni bonsoir : réponds directement à la question."
     : "LA SALUTATION : la conversation est en cours. Ne redis pas bonjour à chaque message.";
-  return `${CONSIGNE_IA}\n\n${qui}\n\n${salut}`;
+  // Les MÉTIERS réglés dans l'application (⚙ Paramètres → domaines, boutiques
+  // réelles) : un métier ajouté par Timo (Forage…) se dit sans toucher au code.
+  const noms = (metiers || []).map((m) => String(m || "").trim()).filter(Boolean);
+  const met = noms.length
+    ? `\n\nLES MÉTIERS DE BMI TOGO RÉGLÉS DANS L'APPLICATION : ${noms.join(", ")}. Ce sont des métiers de BMI TOGO : tu n'en exclus aucun.`
+    : "";
+  return `${CONSIGNE_IA}\n\n${qui}\n\n${salut}${met}`;
 };
 
 // Le filet derrière la consigne : sur une conversation NOUVELLE, une réponse
@@ -345,11 +352,25 @@ export function montantsCites(texte) {
   }
   return out;
 }
+// ⚠ 30/09/2026 (capture Timo) : « Installation de forage » → l'IA a répondu
+// que le forage « ne fait pas partie des services de BMI TOGO » — FAUX (les
+// pompes vivent dans le métier Forage). Dire ce que BMI ne fait PAS, c'est
+// inventer un fait de BMI : la réponse est JETÉE et un conseiller prend le
+// relais (il confirme, lui).
+export const METIER_NIE = /ne (?:fait|font) pas partie (?:de nos|des) (?:services|activit[ée]s|m[ée]tiers)|(?:nous|BMI(?: TOGO)?) ne (?:faisons|proposons|fait|propose|traitons|traite|r[ée]alisons|r[ée]alise|vendons|vend|installons|installe) pas|(?:n'est|ne sont) pas (?:dans|parmi) nos (?:services|activit[ée]s|m[ée]tiers|domaines)|(?:hors|en dehors) de nos (?:services|activit[ée]s|m[ée]tiers|domaines)/i;
+
+// Les noms des métiers réglés sur les boutiques RÉELLES (le mur), sinon rien.
+export const metiersDesBoutiques = (boutiques) => {
+  const b = (boutiques || []).find((x) => x && !x.formation && Array.isArray(x.domaines) && x.domaines.length);
+  return b ? b.domaines.map((d) => d && d.nom).filter(Boolean) : [];
+};
+
 export function garderReponse(texte, { prixConnus = [] } = {}) {
   const t = String(texte || "").trim();
   if (!t) return { ok: false, motif: "réponse vide" };
   if (t.length > MAX_LONGUEUR_REPONSE) return { ok: false, motif: "réponse trop longue" };
   if (MOTS_INTERDITS_IA.test(t)) return { ok: false, motif: "sujet réservé", reserve: true };
+  if (METIER_NIE.test(t)) return { ok: false, motif: "BMI dit ne pas faire un métier (fait inventé)", metierNie: true };
   const connus = new Set((prixConnus || []).map((p) => Math.round(Number(p) || 0)));
   const inconnu = montantsCites(t).find((n) => !connus.has(n));
   if (inconnu !== undefined) return { ok: false, motif: `montant non donné par un outil : ${inconnu} F` };
@@ -432,6 +453,7 @@ export function reponseDepuisIA({ texte, effets, juge, nouvelle, nom = "" }) {
   const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
   if (juge?.ok) return pose(sansGuillemetsAutour(nouvelle ? sansSalutation(texte, nom) : texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);
+  if (juge?.metierNie) return pose(TEXTE_RELAIS_CONSEILLER, ETAPE_CONSEILLER, true, juge.motif);
   if (ef.demandeDevis) return pose(texteDemandeEnregistree(ef.demandeDevis.nom), ETAPE_CONSEILLER, true, juge?.motif || "");
   if (ef.conseiller) return pose(TEXTE_RELAIS_CONSEILLER, ETAPE_CONSEILLER, true, juge?.motif || "");
   return null;
