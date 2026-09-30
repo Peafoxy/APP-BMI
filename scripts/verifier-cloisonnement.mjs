@@ -8367,6 +8367,12 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("le remboursement d'une avance ne propose pas « une avance personnelle » comme issue (on est déjà dedans)",
     !/avance personnelle/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 90000, geste: "Ce remboursement", avecAvance: false }))
     && /Ce remboursement \(90\s000\sF\)/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 90000, geste: "Ce remboursement", avecAvance: false })));
+  // Relu en écrivant le chapitre 17 du manuel (30/09/2026) : le refus
+  // promettait un remboursement « dès que la caisse le permettra », comme s'il
+  // venait tout seul. C'est un GESTE (🔒 Caisse → Avances de frais).
+  test("★ le refus du tiroir ne promet JAMAIS un remboursement automatique de l'avance : il dit où elle se rembourse",
+    !/dès que la caisse le permettra/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 200000 }))
+    && /Avances de frais à rembourser/.test(V.critiqueSortieTiroir({ ...tiroirVide, montant: 200000 })));
   const dpJ = readFileSync("src/screens/Depenses.jsx", "utf8"), caJ = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ le contrôle est posé aux TROIS moments où le tiroir se vide hors versement : la saisie, la validation du DG, et le remboursement d'une avance en espèces",
     /const refusTiroir = \(nomBoutique, montant, geste\) => \{/.test(dpJ) && /return critiqueSortieTiroir\(\{ tiroir: p\.montant \+ p\.resteFonds, fondsFixe: p\.resteFonds/.test(dpJ)

@@ -202,7 +202,10 @@ export function etatFondsCaisse(solde, fondsFixe) {
 // Timo. Le contrôle se pose donc aux DEUX moments, et au remboursement d'une
 // avance de frais en espèces (le troisième chemin par lequel le tiroir se vide
 // en dehors d'un versement).
-export const MSG_AVANCE_PERSONNELLE = "Sinon, choisissez « une avance personnelle » dans « Payé avec » : la dépense sera remboursée dès que la caisse le permettra.";
+// ⚠ Le remboursement d'une avance n'est JAMAIS automatique (30/09/2026, relu
+// en écrivant le chapitre 17 du manuel) : c'est un geste — en espèces par le
+// gérant ou l'administrateur, avec le salaire, ou par le DG (🔒 Caisse).
+export const MSG_AVANCE_PERSONNELLE = "Sinon, choisissez « une avance personnelle » dans « Payé avec » : la personne qui a payé de sa poche sera remboursée ensuite (🔒 Caisse → Avances de frais à rembourser).";
 export function critiqueSortieTiroir({ tiroir, fondsFixe = 0, montant, geste = "Cette dépense", boutique = "", avecAvance = true }) {
   const m = Math.round(Number(montant) || 0);
   if (!Number.isFinite(m) || m <= 0) return "";
