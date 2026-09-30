@@ -150,4 +150,65 @@ export function libelleAnciennete(annees) {
 export const phraseConservation = (duree) =>
   `Vos données sont conservées ${Number(duree) || DUREE_CONSERVATION_DEFAUT} ans après votre dernier achat. `
   + `Passé ce délai, elles sont effacées : votre nom et votre numéro disparaissent de nos dossiers. `
-  + `Les factures et les contrats, eux, restent — la loi commerciale nous oblige à les garder — mais votre nom en est retiré.`;
+  + `Les factures et les contrats, eux, restent — la loi commerciale nous oblige à les garder — mais votre nom en est retiré. `
+  + PHRASE_SANS_SUITE;
+
+// ---------------------------------------------------------------
+// 📁 LE CLIENT SANS SUITE : ARCHIVÉ À 30 JOURS, PROPOSÉ À L'EFFACEMENT À 1 AN
+// ---------------------------------------------------------------
+// Timo, 30/09/2026 : « Un client qui n'a jamais validé un devis depuis son
+// espace est archivé… qu'il n'apparaisse plus parmi les clients. Après 1 an,
+// il est supprimé totalement… plus de trace » → « b, 30 jours, lance ».
+//
+// ⚠ « b » = l'effacement est PROPOSÉ, jamais automatique : la règle du
+// 19/09 (« rien ne s'efface tout seul ») tient. Ce fichier DIT qui est
+// archivé et qui peut être effacé ; c'est ⚙ Paramètres → 🔒 Données
+// personnelles qui efface, au clic de l'administrateur principal.
+//
+// ⚠ « Archivé » n'est ÉCRIT nulle part : c'est une façon d'afficher, calculée
+// à chaque ouverture. Un client qui revient (nouveau devis, achat, devis
+// validé) sort donc de l'archive tout seul, sans que personne n'y touche.
+export const JOURS_AVANT_ARCHIVE = 30;
+export const JOURS_ARCHIVE_AVANT_EFFACEMENT = 365;
+
+// Un devis que le client a dit « oui » : validé, payé, corrigé après
+// signature, ou qui porte une signature / une validation passée.
+export const devisAEteValide = (d) =>
+  ["valide", "paye", "corrige"].includes(d?.statut)
+  || !!d?.valide_le || !!d?.contrat_signature
+  || (Array.isArray(d?.historique_modif) && d.historique_modif.length > 0);
+
+export function plusJours(date, n) {
+  const j = String(date || "").slice(0, 10);
+  const t = Date.parse(`${j}T00:00:00Z`);
+  if (!j || isNaN(t)) return "";
+  return new Date(t + Number(n || 0) * 86400000).toISOString().slice(0, 10);
+}
+
+// L'état d'un compte d'après SES devis. `null` = pas concerné :
+//   aucun devis (on ne sait rien de lui), un devis validé (il a dit oui),
+//   ou un devis en cours de modification (on attend BMI, pas lui).
+// Le calcul part du DERNIER devis (sa date, ou sa dernière correction) :
+// un devis renvoyé remet le compteur à zéro.
+export function etatSansSuite(devis, aujourdhui = new Date().toISOString().slice(0, 10)) {
+  const liste = (devis || []).filter(Boolean);
+  if (!liste.length) return null;
+  if (liste.some(devisAEteValide)) return null;
+  if (liste.some((d) => d.statut === "modification" || d.demande_bmi)) return null;
+  const reference = liste
+    .flatMap((d) => [d.date, d.modifie_le])
+    .map((x) => String(x || "").slice(0, 10))
+    .filter((x) => x.length === 10 && !isNaN(Date.parse(`${x}T00:00:00Z`)))
+    .sort().pop();
+  if (!reference) return null;
+  const archiveLe = plusJours(reference, JOURS_AVANT_ARCHIVE);
+  const effacableLe = plusJours(archiveLe, JOURS_ARCHIVE_AVANT_EFFACEMENT);
+  const j = String(aujourdhui || "").slice(0, 10);
+  return { reference, archiveLe, effacableLe, archive: j >= archiveLe, effacable: j >= effacableLe };
+}
+
+// Ce que le client lit sur ce point, écrit UNE fois (repris par la phrase de
+// conservation, donc par son dossier et par ⚙ Paramètres).
+export const PHRASE_SANS_SUITE =
+  `Un compte ouvert sans achat ni devis validé est archivé ${JOURS_AVANT_ARCHIVE} jours après son dernier devis, `
+  + `puis ses données peuvent être effacées un an plus tard.`;

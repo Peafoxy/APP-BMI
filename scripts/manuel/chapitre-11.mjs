@@ -74,7 +74,7 @@ export const CHAPITRE = {
         ["Ajouter, corriger ou retirer un appareil de la liste proposée", "**Administrateur**, dans ⚙ Paramètres → 🔌 Appareils."],
         ["Le compte en lecture seule (comptable)", "N'a pas l'onglet. Tout geste d'écriture répond que la base est en lecture seule."],
       ]}],
-      ["note", "**Le mur formation / réel s'applique ici aussi.** Les boutiques proposées sont celles de l'espace regardé, et la liste « Client destinataire » ne montre que les clients de l'espace de la boutique de travail. Un devis établi depuis une boutique de formation est un devis de formation : il ne part jamais du numéro WhatsApp BMI."],
+      ["note", "**Le mur formation / réel s'applique ici aussi.** Les boutiques proposées sont celles de l'espace regardé, et la liste « Client destinataire » ne montre que les clients de l'espace de la boutique de travail, **sans les clients archivés** (sans achat ni devis validé depuis 30 jours après leur dernier devis) : pour l'un d'eux, « ➕ Nouveau client » avec son numéro retrouve son compte, sans doublon, et le fait revenir. Un devis établi depuis une boutique de formation est un devis de formation : il ne part jamais du numéro WhatsApp BMI."],
     ]},
 
     // ── 3

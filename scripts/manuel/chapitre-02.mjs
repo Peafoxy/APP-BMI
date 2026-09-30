@@ -90,6 +90,7 @@ export const CHAPITRE = {
       ["h3", "D. Lire la liste"],
       ["ul", [
         "**Une pastille par rôle** au-dessus de la liste, avec le nombre : cliquer filtre. La ligne de recherche trouve par le **nom** comme par le **numéro** (« 90112233 », « +228 90 11 22 33 » et « 228 » trouvent le même compte).",
+        "**📁 Clients archivés** (sous la liste) : un client qui a reçu un devis mais n'a **jamais rien acheté ni validé de devis** quitte la liste des clients **30 jours après son dernier devis**. Il reste trouvable par la recherche (badge « 📁 Archivé ») et se lit dans ce bloc, avec sa date d'archive. **Rien n'est effacé** : un nouveau devis ou un achat le fait revenir tout seul. Un an plus tard, ⚙ Paramètres → 🔒 Données personnelles **propose** de l'effacer ; seul l'administrateur principal décide.",
         "Sur chaque ligne : le nom (le nom complet dessous), **📞 le numéro** avec le logo WhatsApp (sur un client, le clic prépare le mot de fidélité), le rôle en pastille (avec « ⭐ Chef », le taux de commission), la boutique (« Toutes » pour un rôle sans boutique), le statut, et **🎓 Formation** pour un compte d'entraînement.",
         "**« ⚠ Identité »** en orange : la pièce d'identité n'est pas renseignée. Bouton 🆔.",
       ]],

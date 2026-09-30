@@ -10382,7 +10382,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       /refuserSaufAdminPrincipal\(db, profile, "Changer la durée de conservation des données"\)/.test(par)
       && /poserDureeConservation\(db\.boutiques, ans\)/.test(par));
 
-    test("★★⚠ L'ÉCRAN NE PROPOSE AUCUN « TOUT EFFACER » : la liste des dépassés ouvre un client à la fois, par le MÊME chemin que l'effacement ordinaire (setCibleEff), avec ses avertissements",
+    test("★★⚠ L'ÉCRAN NE PROPOSE AUCUN « TOUT EFFACER » SUR LES 6 ANS (seul le bloc des clients sans suite a un bouton groupé, décision « b » du 30/09/2026) : la liste des dépassés ouvre un client à la fois, par le MÊME chemin que l'effacement ordinaire (setCibleEff), avec ses avertissements",
       /depassesEff\.map/.test(par) && /setCibleEff\(\{ nom: c\.nom, tel: c\.tel \}\)/.test(par)
       && !/tout effacer|effacerTous|effacerLesDepasses/i.test(par));
 
@@ -10396,7 +10396,111 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       !/Décider d'une <b>durée de conservation<\/b>/.test(par)
       // les deux autres, elles, tiennent toujours
       && /IPDCP/.test(par) && /hébergement hors du Togo/.test(par));
+
+    // 📁 LE CLIENT SANS SUITE (30/09/2026, Timo : « b, 30 jours, lance »).
+    test("★ Paramètres : la liste « archivés depuis plus d'un an » part de visibleEff (le mur), ouvre un client par le chemin ordinaire, et le bouton groupé est réservé au PRINCIPAL, revérifié DANS le geste, recalculé sur l'état du moment, confirmé avant d'écrire, avec UNE ligne de journal",
+      /clientsSansSuite\(visibleEff, today\(\)\)\.filter\(\(c\) => c\.effacable\)/.test(par)
+      && /sansSuiteEff\.map/.test(par) && /setCibleEff\(\{ nom: c\.nom, tel: c\.tel \}\); setMotifEff\(MOTIF_SANS_SUITE\)/.test(par)
+      && (() => {
+        const i = par.indexOf("const effacerLesSansSuite = async");
+        const corps = par.slice(i, par.indexOf("\n  };\n", i));
+        const garde = corps.indexOf('refuserSaufAdminPrincipal(db, profile, "Effacer les clients sans suite")');
+        const conf = corps.indexOf("await uConfirm("), ecrit = corps.indexOf("save(suivant, journalEffacementGroupe(");
+        return i > 0 && garde > 0 && conf > garde && ecrit > conf
+          && /clientsSansSuite\(visibleEff, today\(\)\)/.test(corps)
+          && (corps.match(/\bsave\(/g) || []).length === 1;
+      })());
+
   }
+}
+
+// ============================================================
+// 📁 LE CLIENT SANS SUITE : ARCHIVÉ À 30 JOURS, EFFACEMENT PROPOSÉ À 1 AN
+// (Timo, 30/09/2026 : « b, 30 jours, lance »)
+// ============================================================
+{
+  const dv = (date, statut = "propose", plus = {}) => ({ id: `d${date}${statut}`, date, statut, ...plus });
+  test("★★ 30 jours après le DERNIER devis (sa date ou sa correction) : archivé ; un an plus tard : effacement proposé — le 29e jour, rien",
+    (() => {
+      const e1 = Cons.etatSansSuite([dv("2026-08-01")], "2026-08-30");
+      const e2 = Cons.etatSansSuite([dv("2026-08-01")], "2026-08-31");
+      const e3 = Cons.etatSansSuite([dv("2026-08-01")], "2027-08-31");
+      const e4 = Cons.etatSansSuite([dv("2026-08-01"), dv("2026-07-01", "rejete", { modifie_le: "2026-09-10" })], "2026-09-20");
+      return e1 && !e1.archive && e2.archive && !e2.effacable && e2.archiveLe === "2026-08-31"
+        && e2.effacableLe === "2027-08-31" && e3.effacable && e4.reference === "2026-09-10" && !e4.archive;
+    })());
+  test("★★ jamais concerné : sans devis, avec un devis validé / payé / signé, ou un devis en cours de modification (c'est BMI qu'on attend)",
+    Cons.etatSansSuite([], "2030-01-01") === null && Cons.etatSansSuite(undefined, "2030-01-01") === null
+    && Cons.etatSansSuite([dv("2026-01-01"), dv("2026-02-01", "valide")], "2030-01-01") === null
+    && Cons.etatSansSuite([dv("2026-01-01", "paye")], "2030-01-01") === null
+    && Cons.etatSansSuite([dv("2026-01-01", "propose", { contrat_signature: "x" })], "2030-01-01") === null
+    && Cons.etatSansSuite([dv("2026-01-01", "modification")], "2030-01-01") === null
+    && Cons.etatSansSuite([dv("2026-01-01", "sans_suite")], "2030-01-01") !== null);
+  test("★★ « jamais rien acheté » se lit PRUDEMMENT : une vente sur son numéro, une dette sur son compte, un chantier, ou un HOMONYME sans numéro qui a acheté le sortent de la liste — devant un doute, on n'archive pas",
+    (() => {
+      const c = (id, nom, tel) => ({ id, nom, tel, role: "client", devis: [dv("2025-01-01")] });
+      const r = Eff.clientsSansSuite({
+        comptes: [c("a", "AFI", "90111111"), c("b", "BEBE", "90222222"), c("k", "KOMLA", ""), c("z", "ZOE", "90333333"), c("h", "HOMO", ""), c("x", "CLIENT EFFACÉ N° 2", "")],
+        ventes: [{ client: "AFI DIFFERENT", tel: "+228 90 11 11 11" }, { client: "HOMO", tel: "" }],
+        dettes: [{ client: "?", user_id: "b" }], commandes: [],
+        chantiers: [{ nom: "KOMLA", tel: "" }],
+      }, "2026-09-30");
+      return r.length === 1 && r[0].nom === "ZOE" && r[0].archive && r[0].effacable;
+    })());
+  test("★★ le numéro d'effacement lit AUSSI le journal : un client sans aucune vente n'y laisse sa référence nulle part ailleurs — sans ça, deux effacements successifs reprendraient le même numéro",
+    Eff.prochainNumeroEffacement({ audits: [{ action: "🔒 Effacement de données personnelles — CLIENT EFFACÉ N° 3 à CLIENT EFFACÉ N° 7 (5 client(s) sans suite)" }] }) === 8
+    && /CLIENT EFFACÉ N° 4 à CLIENT EFFACÉ N° 5/.test(Eff.journalEffacementGroupe([{ total: 2 }, { total: 3 }], { nom: "TIMO" }, { motif: "x", premier: 4 })));
+  test("★★ effacer deux clients sans suite à la suite : leurs comptes, devis et messages partent, chacun sous SA référence, et la ligne de journal suivante reprend après",
+    (() => {
+      const db = {
+        users: [{ id: "a", nom: "ZOLA", tel: "90333333", role: "client", devis: [dv("2025-01-01")] },
+          { id: "b", nom: "YAOVI", tel: "90444444", role: "client", devis: [dv("2025-01-01")] },
+          { id: "v", nom: "KOSSI", role: "vendeur" }],
+        messages: [{ id: "m1", de_id: "a", a_id: "v", texte: "bonjour" }, { id: "m2", de_id: "v", a_id: "v", texte: "rappeler ZOLA" }],
+        audits: [], ventes: [], dettes: [], proformas: [], commandes: [], clients_installes: [], prospects: [],
+      };
+      const vis = { comptes: db.users, ventes: [], dettes: [], proformas: [], commandes: [], chantiers: [], prospects: [], messages: db.messages, audits: [] };
+      const liste = Eff.clientsSansSuite(vis, "2026-09-30").filter((c) => c.effacable);
+      const premier = Eff.prochainNumeroEffacement(db);
+      let s = db; const faits = [];
+      liste.forEach((c, k) => { const d = Eff.dossierClient(vis, { nom: c.compte.nom, tel: c.compte.tel }); s = Eff.effacerClient(s, d, { nom: "TIMO" }, { motif: "m", numero: premier + k, autresNoms: ["KOSSI"] }); faits.push(d); });
+      s = { ...s, audits: [{ id: "j", action: Eff.journalEffacementGroupe(faits, { nom: "TIMO" }, { motif: "m", premier }) }] };
+      return liste.length === 2 && s.users.length === 1 && s.messages.length === 1
+        && /CLIENT EFFACÉ N° 1/.test(s.messages[0].texte) && Eff.prochainNumeroEffacement(s) === 3;
+    })());
+  test("★★ LE MUR : la liste de l'espace regardé ne voit JAMAIS un compte de l'autre espace (calculs.js filtre AVANT la règle pure)",
+    (() => {
+      const db = { boutiques: [{ id: "b1", nom: "APESSITO" }, { id: "b4", nom: "AFORMATION", formation: true }],
+        users: [{ id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true },
+          { id: "r", nom: "REEL", tel: "90555555", role: "client", devis: [dv("2025-01-01")] },
+          { id: "f", nom: "ESSAI", tel: "90666666", role: "client", formation: true, devis: [dv("2025-01-01")] }],
+        ventes: [], dettes: [], commandes: [], clients_installes: [] };
+      const timo = { id: "u_timo", role: "admin" };
+      C.setRegardeFormation(false);
+      const reel = C.clientsSansSuiteDeLEspace(db, timo, "2026-09-30").map((c) => c.nom).join(",");
+      C.setRegardeFormation(true);
+      const form = C.clientsSansSuiteDeLEspace(db, timo, "2026-09-30").map((c) => c.nom).join(",");
+      C.setRegardeFormation(false);
+      return reel === "REEL" && form === "ESSAI";
+    })());
+  {
+    const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+    test("★★ 👥 Utilisateurs : un archivé quitte la liste des clients ET le compteur, reste trouvable par la recherche (badge 📁), et se lit dans « 📁 Clients archivés »",
+      /: utilisateursVisibles\.filter\(\(x\) => x\.role === roleAffiche && !idsArchives\.has\(x\.id\)\)/.test(ut)
+      && /x\.role === r && !idsArchives\.has\(x\.id\)/.test(ut)
+      && /\? utilisateursVisibles\.filter\(\(x\) => correspond\(/.test(ut)
+      && /data-client-archive/.test(ut) && /data-clients-archives/.test(ut)
+      && /clientsSansSuiteDeLEspace\(db, profile\)/.test(ut));
+    test("★★ Le devis ne PROPOSE plus un archivé, mais le retrouve par son numéro (aucun doublon) et garde un client déjà choisi",
+      /const proposes = comptesClients\.filter\(\(u\) => !archives\.has\(u\.id\) \|\| u\.id === clientDevis\)/.test(pa)
+      && /\{proposes\.map\(/.test(pa) && !/\{comptesClients\.map\(/.test(pa)
+      && /const existant = \(db\.users \|\| \[\]\)\.find\(\(u\) => u\.role === "client" && u\.tel && memeNumero\(u\.tel, tel\)\)/.test(pa));
+  }
+  test("★ la phrase du client le DIT (et donc son dossier), et le mot d'accueil aussi — une règle qu'on ne lui annonce pas ne vaut rien",
+    Cons.phraseConservation(6).includes(Cons.PHRASE_SANS_SUITE) && /archivé 30 jours après son dernier devis/.test(Cons.PHRASE_SANS_SUITE)
+    && Dos.mentionsDossier(6).some((m) => m.includes(Cons.PHRASE_SANS_SUITE))
+    && /un peu plus d'un an après votre dernier devis/.test(readFileSync("src/lib/motInformation.js", "utf8")));
 }
 
 // ═══════════════════════════════════════════════════════════

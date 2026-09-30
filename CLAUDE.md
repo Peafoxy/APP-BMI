@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2017 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2027 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2349,6 +2349,48 @@ lit mal est pire qu'un banc absent).
   L'écran le DIT quand la liste est vide, au lieu de laisser croire à un
   balayage.
 - **Rien à coller dans Supabase.**
+
+#### 📁 LE CLIENT SANS SUITE : ARCHIVÉ À 30 JOURS, EFFACEMENT PROPOSÉ À 1 AN (30/09/2026, « b, 30 jours, lance »)
+- Timo : « un client qui n'a jamais validé un devis… est archivé… qu'il
+  n'apparaisse plus parmi les clients. Après 1 an, il est supprimé
+  totalement… plus de trace ». **Option « b »** : l'effacement est PROPOSÉ,
+  jamais automatique — la règle du 19/09 (« rien ne s'efface tout seul »)
+  tient.
+- **Qui** : un COMPTE client qui a au moins un devis, aucun devis validé
+  (`devisAEteValide` : validé, payé, corrigé, signé, `valide_le`,
+  `historique_modif`), aucun en `modification`, et **jamais rien acheté** —
+  lu PRUDEMMENT : une vente, dette, commande ou un chantier sur son numéro,
+  son nom (sans numéro) ou son compte le sort de la liste ; **un homonyme qui
+  a acheté le protège aussi**. Règles pures `etatSansSuite` (lib/conservation.js,
+  toujours sans import ni fonction qui efface) et `clientsSansSuite`
+  (lib/effacementClient.js) ; `clientsSansSuiteDeLEspace` / `idsClientsArchives`
+  (calculs.js) filtrent par l'espace regardé AVANT la règle.
+- **Archivé** = 30 jours (`JOURS_AVANT_ARCHIVE`) après le DERNIER devis (sa
+  date ou `modifie_le`). **Rien n'est écrit** : c'est une façon d'afficher,
+  recalculée à chaque ouverture — un nouveau devis ou un achat le fait
+  revenir tout seul. 👥 Utilisateurs : hors de la liste des clients et du
+  compteur, **trouvable par la recherche** (badge « 📁 Archivé »), bloc
+  « 📁 Clients archivés ». Le devis ne le PROPOSE plus dans « Client
+  destinataire », mais « ➕ Nouveau client » avec son numéro retrouve son
+  compte (aucun doublon) ; un devis repris garde son client.
+- **Effaçable** = 1 an d'archive (`JOURS_ARCHIVE_AVANT_EFFACEMENT`) : ⚙
+  Paramètres → 🔒 Données personnelles → « 📁 Clients sans suite archivés
+  depuis plus d'un an » — un client à la fois (chemin ordinaire, motif
+  pré-rempli) ou **« 🗑 Effacer ces N client(s) »** (principal, revérifié et
+  recalculé DANS le geste, confirmation qui nomme chacun, `effacerClient` à
+  la suite, UNE ligne de journal `journalEffacementGroupe`). Le « aucun tout
+  effacer » du 19/09 vaut toujours pour la liste des 6 ans.
+- ⚠ **Défaut réparé au passage** : `prochainNumeroEffacement` ne lisait pas
+  le journal — un client sans aucune vente n'y laissait sa référence nulle
+  part, deux effacements auraient repris le même numéro. Il lit maintenant
+  TOUTES les références de chaque texte (« N° 3 à N° 7 » → 8).
+- **Le client le lit** : `PHRASE_SANS_SUITE` s'ajoute à `phraseConservation`
+  (donc au dossier et à ⚙ Paramètres), et le mot d'accueil dit « ou un peu
+  plus d'un an après votre dernier devis, si vous n'avez rien acheté ni
+  accepté ». Rien à coller dans Supabase. Banc (`verifier-cloisonnement`,
+  10 contrôles), éprouvé en remettant cinq fautes (archivés dans la liste,
+  le journal ignoré, l'achat ignoré, le mur ouvert, la modification
+  oubliée) : chacune tombe.
 
 - **La protection des données est COMPLÈTE** : effacement, dossier d'accès
   (client et employé), libre-service du client, fuite du numéro de compte

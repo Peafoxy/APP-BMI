@@ -39,7 +39,7 @@ export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBro
 import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
 import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
@@ -424,6 +424,12 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
   // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
   // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
   const sansSignature = profile && !profile.signature_personnelle;
+  // 📁 Les clients ARCHIVÉS (sans suite, 30/09/2026) ne sont plus proposés.
+  // Taper son numéro dans « ➕ Nouveau client » retrouve quand même son
+  // compte (aucun doublon), et le nouveau devis le fait sortir de l'archive.
+  // Un devis repris d'un client archivé garde son client choisi.
+  const archives = idsClientsArchives(db, profile);
+  const proposes = comptesClients.filter((u) => !archives.has(u.id) || u.id === clientDevis);
   return (
     <div className="rounded-xl p-4 bg-white border-2 border-emerald-300">
       <div className="font-bold text-emerald-900 mb-1">📲 Envoyer ce devis au client</div>
@@ -448,7 +454,7 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
           }}>
             <option value="">— Choisir —</option>
             <option value="__nouveau__">➕ Nouveau client (nom, prénom, numéro)</option>
-            {comptesClients.map((u) => <option key={u.id} value={u.id}>{u.nom_base || u.nom}{u.tel ? ` — ${u.tel}` : ""}</option>)}
+            {proposes.map((u) => <option key={u.id} value={u.id}>{u.nom_base || u.nom}{u.tel ? ` — ${u.tel}` : ""}</option>)}
           </select>
         </Field>
         {clientDevis === "__nouveau__" && (

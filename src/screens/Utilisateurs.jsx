@@ -16,9 +16,10 @@ import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDep
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
+import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -72,7 +73,16 @@ export function Users({ db, save, profile }) {
   // supprime — donc celui où se tromper de cible coûte le plus cher.
   const dansMonEspace = utilisateursDeLEspace(db, profile);
   const utilisateursVisibles = jeSuisAdminPrincipal ? dansMonEspace : dansMonEspace.filter((x) => adminPrincipal(db)?.id !== x.id);
-  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r).length]));
+  // 📁 Les clients SANS SUITE (Timo, 30/09/2026 : « b, 30 jours ») : un devis,
+  // aucun validé, aucun achat — archivés 30 jours après leur dernier devis.
+  // Ils quittent la liste des clients (et le compteur) mais restent trouvables
+  // par la recherche, et dans le bloc « 📁 Clients archivés ». Rien n'est
+  // écrit : un nouveau devis ou un achat les en fait sortir tout seuls.
+  const sansSuite = clientsSansSuiteDeLEspace(db, profile);
+  const archives = sansSuite.filter((c) => c.archive);
+  const idsArchives = new Set(archives.map((c) => c.compte.id));
+  const [voirArchives, setVoirArchives] = useState(false);
+  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r && !idsArchives.has(x.id)).length]));
   const rolesPresents = ROLES_LISTE.filter(([r]) => nbParRole[r] > 0);
   const roleAffiche = nbParRole[roleActif] > 0 ? roleActif : (rolesPresents[0]?.[0] || "admin");
   const qU = rechercheU.trim().toLowerCase();
@@ -85,7 +95,7 @@ export function Users({ db, save, profile }) {
     // « 90112233 », « +228 90 11 22 33 » et « 90 11 22 33 » trouvent le même
     // compte. Le filtre reste `correspond` : UNE règle pour toute recherche tapée.
     ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
-    : utilisateursVisibles.filter((x) => x.role === roleAffiche);
+    : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsArchives.has(x.id));
   const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
   const [entCli, setEntCli] = useState(ENTREPRISE_VIDE());
@@ -1152,6 +1162,7 @@ export function Users({ db, save, profile }) {
               <React.Fragment key={u.id}>
               <tr className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
                 <td className="px-4 py-2 font-semibold">{u.nom}
+                  {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
                   {["commercial", "technicien"].includes(u.role) && filleulsDe(db, u).length > 0 && (
                     <div className={`text-xs font-bold ${estChefEquipe(db, u) ? "text-amber-600" : "text-slate-500"}`}>
@@ -1322,6 +1333,31 @@ export function Users({ db, save, profile }) {
           </tbody>
         </table>
         </div>
+        {archives.length > 0 && (
+          <div className="border-t border-slate-200 px-4 py-3" data-clients-archives>
+            <button onClick={() => setVoirArchives((x) => !x)} className="text-sm font-bold text-slate-700">
+              📁 Clients archivés ({archives.length}) {voirArchives ? "▴" : "▾"}
+            </button>
+            <div className="text-xs text-slate-500 mt-0.5">
+              Aucun achat ni devis validé : archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis. Ils ne sont plus proposés
+              dans les listes ; un nouveau devis ou un achat les fait revenir tout seuls. Au bout d'un an d'archive,
+              ⚙ Paramètres → 🔒 Données personnelles propose de les effacer — rien ne part sans le geste de l'administrateur principal.
+            </div>
+            {voirArchives && (
+              <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                {archives.map((c) => (
+                  <div key={c.compte.id} className="px-3 py-2 text-sm">
+                    <span className="font-semibold">{c.nom}</span>
+                    <span className="block text-xs text-slate-500">
+                      {c.tel || "sans numéro"} · dernier devis le {dFR(c.reference)} · archivé le {dFR(c.archiveLe)}
+                      {" "}· {c.effacable ? <b className="text-amber-700">effacement proposé depuis le {dFR(c.effacableLe)}</b> : <>effacement proposé à partir du {dFR(c.effacableLe)}</>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Les gestes rares et graves, en bas, à part (capture Timo, 12/09/2026 :

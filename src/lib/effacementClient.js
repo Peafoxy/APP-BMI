@@ -38,6 +38,7 @@
 // ============================================================
 import { numeroComparable } from "./identiteClient.js";
 import { sansAccents } from "./suggestions.js";
+import { etatSansSuite } from "./conservation.js";
 
 // ---------------------------------------------------------------
 // LA RÉFÉRENCE QUI REMPLACE LE NOM
@@ -60,11 +61,17 @@ export function prochainNumeroEffacement(db) {
     ...(d.commandes || []).map((x) => x.client),
     ...(d.clients_installes || []).map((x) => x.nom),
     ...(d.corbeille_clients_installes || []).map((x) => x.nom),
+    // ⚠ Un client SANS aucune vente (le client sans suite, 30/09/2026) ne
+    // laisse son numéro QUE dans le journal : sans lui, le suivant
+    // reprendrait la même référence.
+    ...(d.audits || []).map((x) => x.action),
   ];
   let max = 0;
   for (const t of textes) {
-    const m = String(t || "").match(MOTIF_EFFACE);
-    if (m) max = Math.max(max, Number(m[1]) || 0);
+    // Toutes les références d'un texte (« N° 3 à N° 7 » : c'est le 7 qui compte).
+    for (const m of String(t || "").matchAll(new RegExp(MOTIF_EFFACE.source, "gi"))) {
+      max = Math.max(max, Number(m[1]) || 0);
+    }
   }
   return max + 1;
 }
@@ -402,3 +409,44 @@ export function clientsEffacables(visible) {
   (v.chantiers || []).forEach((c) => poser(nomDuChantier(c), c.tel, c.date));
   return Object.values(map).sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
 }
+
+// ---------------------------------------------------------------
+// 📁 LES CLIENTS SANS SUITE (30/09/2026, Timo : « b, 30 jours, lance »)
+// ---------------------------------------------------------------
+// Un COMPTE client qui a reçu au moins un devis, n'en a validé aucun, et n'a
+// jamais rien acheté : archivé 30 jours après son dernier devis, proposé à
+// l'effacement 1 an plus tard (règle de date : lib/conservation.js).
+//
+// ⚠ « jamais rien acheté » se lit PRUDEMMENT : une vente, une dette, une
+// commande ou un chantier qui porte son numéro, son nom (sans numéro) ou son
+// compte suffit à le sortir de la liste. Un homonyme qui a acheté le protège
+// donc aussi — devant un doute, on n'archive pas et on n'efface pas.
+//
+// ⚠ LE MUR : `visible` = les listes DÉJÀ filtrées par l'espace regardé,
+// comme dossierClient. Rien n'est écrit : l'archive se RECALCULE.
+export function clientsSansSuite(visible, aujourdhui = new Date().toISOString().slice(0, 10)) {
+  const v = visible || {};
+  return (v.comptes || [])
+    .filter((u) => u?.role === "client" && !estEfface(u.nom))
+    .map((u) => {
+      const etat = etatSansSuite(u.devis, aujourdhui);
+      if (!etat) return null;
+      const d = dossierClient(v, { nom: u.nom_base || u.nom, tel: u.tel });
+      if (d.ventes.length || d.dettes.length || d.commandes.length || d.chantiers.length) return null;
+      return { compte: u, nom: u.nom, tel: u.tel || "", cle: cleDuClient(u.nom_base || u.nom, u.tel), ...etat };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.reference.localeCompare(b.reference));
+}
+
+// La ligne du journal d'un effacement GROUPÉ (les clients sans suite archivés
+// depuis plus d'un an, 30/09/2026). Une seule ligne pour un seul geste ; elle
+// ne nomme personne, mais porte la PREMIÈRE et la DERNIÈRE référence, pour
+// que le compteur ne redescende jamais.
+export const journalEffacementGroupe = (dossiers, profile, { motif, premier } = {}) => {
+  const n = (dossiers || []).length;
+  const total = (dossiers || []).reduce((s, d) => s + (d?.total || 0), 0);
+  const refs = n > 1 ? `${pseudonyme(premier)} à ${pseudonyme(Number(premier) + n - 1)}` : pseudonyme(premier);
+  return `🔒 Effacement de données personnelles — ${refs} (${n} client(s) sans suite) : `
+    + `${total} enregistrement(s) traité(s) — motif : ${String(motif || "").trim()} — par ${profile?.nom || "?"}`;
+};

@@ -176,6 +176,7 @@ export const CHAPITRE = {
         "**💬 Messages** (chapitre 20) : la création prévient les administrateurs ; le client écrit au support et à son chef d'équipe.",
         "**📲 WhatsApp** : une conversation est rangée **sous le numéro**, qu'il ait un compte ou non. Le premier message d'un client sans compte va au support.",
         "**⚙ Paramètres → 🔒 Données personnelles** (chapitre 23) : le dossier d'accès, l'effacement (nom retiré des factures, compte supprimé), la durée de conservation. Supprimer un compte dans 👥 Utilisateurs **n'efface pas** son nom des ventes : c'est ce panneau qui le fait.",
+        "**📁 Le client sans suite** : un compte qui a reçu un devis mais n'a jamais rien acheté ni validé est **archivé 30 jours après son dernier devis** (il n'est plus proposé dans 👥 Utilisateurs ni dans le choix du client d'un devis ; retaper son numéro retrouve son compte et le fait revenir). **Un an plus tard**, 🔒 Données personnelles le propose à l'effacement — un par un, ou « 🗑 Effacer ces N client(s) » — **l'administrateur principal confirme** : rien ne part tout seul.",
       ]],
     ]},
 

@@ -25,12 +25,12 @@ import { barresDeRail } from "../lib/solaire";
 import { banquesReglees, ajouterBanque, retirerBanque, nettoyerNomBanque } from "../lib/banques";
 import { mesOutils, sortieEnCours } from "../lib/outillage";
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
-import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme } from "../lib/effacementClient";
+import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme, clientsSansSuite, journalEffacementGroupe } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
 import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION } from "../lib/assistantIA";
 import { alerteConseillerDe, poserAlerteConseiller, critiqueNumeroAlerte, TEXTE_ALERTE_CONSEILLER, TEXTE_DEMANDE_AVIS } from "../lib/whatsappModeles";
 import { lienAvisGoogle, poserAvisGoogle, critiqueLienAvis, LIEN_AVIS_GOOGLE_DEFAUT, JOURS_APRES_RECEPTION } from "../lib/demandeAvis";
-import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT } from "../lib/conservation";
+import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT, JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
 // 📄 LE DROIT D'ACCÈS (Timo, 18/09/2026) — voir lib/dossierPersonnel.js.
 import { dossierPersonnel, critiqueDossier, journalDossier, nomDossierPersonnel, lignesCsvDossier } from "../lib/dossierPersonnel";
@@ -247,6 +247,45 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // parcourt est un passage de mur en puissance (leçon du 18/09).
   const depassesEff = clientsDepasses(listeEff, dureeEnCours, today());
   const refusDossier = dossierEff ? critiqueDossier(dossierEff) : "";
+  // 📁 Les clients SANS SUITE archivés depuis plus d'un an (Timo, 30/09/2026 :
+  // « b, 30 jours, lance »). L'effacement est PROPOSÉ ici, jamais fait tout
+  // seul : un client à la fois (le chemin ordinaire), ou toute la liste d'un
+  // clic — c'est l'option « b ». Même mur : `visibleEff`, jamais db.
+  const sansSuiteEff = clientsSansSuite(visibleEff, today()).filter((c) => c.effacable);
+  const MOTIF_SANS_SUITE = "Sans achat ni devis validé depuis plus d'un an (compte archivé)";
+
+  const effacerLesSansSuite = async () => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Effacer les clients sans suite")) return;
+    // Recalculé DANS le geste, sur l'état du moment.
+    const liste = clientsSansSuite(visibleEff, today()).filter((c) => c.effacable);
+    if (!liste.length) { uAlert("Aucun client sans suite à effacer."); return; }
+    const premier = prochainNumeroEffacement(db);
+    const ok = await uConfirm(
+      `Effacer les données personnelles de ces ${liste.length} client(s) ?\n\n`
+      + liste.map((c) => `• ${c.nom}${c.tel ? ` (${c.tel})` : ""} — dernier devis le ${dFR(c.reference)}`).join("\n")
+      + `\n\nAucun n'a acheté ni validé de devis. Partent : leur compte, leurs devis, leur fiche de prospection, leurs messages ; `
+      + `dans le journal, leur nom devient « ${pseudonyme(premier)} »${liste.length > 1 ? ` à « ${pseudonyme(premier + liste.length - 1)} »` : ""}.\n\n`
+      + `⚠ AUCUN RETOUR POSSIBLE.`
+    );
+    if (!ok) return;
+    let suivant = db;
+    const faits = [];
+    liste.forEach((c) => {
+      const dossier = dossierClient(visibleEff, { nom: c.compte.nom_base || c.compte.nom, tel: c.compte.tel });
+      if (critiqueEffacement(dossier, fmt)) return;
+      const autresNoms = [
+        ...comptesEff.filter((u) => u.id !== c.compte.id).flatMap((u) => [u.nom, u.nom_base]),
+        ...listeEff.filter((x) => x.cle !== c.cle).map((x) => x.nom),
+      ].filter(Boolean);
+      suivant = effacerClient(suivant, dossier, profile, { motif: MOTIF_SANS_SUITE, numero: premier + faits.length, autresNoms });
+      faits.push(dossier);
+    });
+    if (!faits.length) return;
+    save(suivant, journalEffacementGroupe(faits, profile, { motif: MOTIF_SANS_SUITE, premier }));
+    setCibleEff(null); setMotifEff(""); setQEff("");
+    uAlert(`✅ ${faits.length} client(s) sans suite effacé(s).`);
+  };
 
   const remettreDossier = async (format) => {
     if (refuserSaufAdminPrincipal(db, profile, "Remettre à un client le dossier de ses données")) return;
@@ -2207,6 +2246,40 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                     </button>
                   ))}
                 </div>
+              </>
+            )}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-200" data-sans-suite-effacables>
+            <div className="font-bold text-sm mb-1">
+              📁 Clients sans suite archivés depuis plus d'un an {sansSuiteEff.length > 0 && <span className="text-amber-700">({sansSuiteEff.length})</span>}
+            </div>
+            <div className="text-xs text-slate-500 mb-2">
+              Un compte qui a reçu un devis mais n'a jamais rien acheté ni validé est archivé {JOURS_AVANT_ARCHIVE} jours après
+              son dernier devis (👥 Utilisateurs → 📁 Clients archivés), puis proposé ici un an plus tard.
+              <b> Rien ne part sans votre geste.</b>
+            </div>
+            {sansSuiteEff.length === 0 ? (
+              <div className="text-xs text-slate-500">Aucun pour le moment.</div>
+            ) : (
+              <>
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-amber-200 divide-y divide-amber-100">
+                  {sansSuiteEff.map((c) => (
+                    <button
+                      key={c.compte.id}
+                      onClick={() => { setCibleEff({ nom: c.nom, tel: c.tel }); setMotifEff(MOTIF_SANS_SUITE); }}
+                      className={`w-full text-left px-3 py-2 text-sm ${cleCibleEff === c.cle ? "bg-sky-50 border-l-4 border-sky-700 font-bold" : "bg-amber-50/50 hover:bg-amber-50"}`}
+                    >
+                      {c.nom}
+                      <span className="block text-xs text-slate-500">
+                        {c.tel || "sans numéro"} · dernier devis le {dFR(c.reference)} · archivé le {dFR(c.archiveLe)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={effacerLesSansSuite} className="mt-2 px-3 py-1.5 rounded-lg text-sm font-bold bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200">
+                  🗑 Effacer ces {sansSuiteEff.length} client(s)
+                </button>
               </>
             )}
           </div>

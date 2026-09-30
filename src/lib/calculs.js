@@ -20,6 +20,7 @@ import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois 
 // compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
 import { chiffresTel, memeNumero, numeroComparable } from "./identiteClient";
 import { estCompteFormation as estCompteFormationRegle } from "./espace";
+import { clientsSansSuite } from "./effacementClient";
 // 🧰 Un outil perdu se rembourse. Pour un technicien à COMMISSION, il n'y a
 // pas de salaire à amputer : la retenue se prend sur sa part d'installation.
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
@@ -543,6 +544,28 @@ export const chantiersDeLEspaceRegarde = (db, profile, voirFormation = undefined
     return !b || estBoutiqueFormation(db, b) === enFormation;
   });
 };
+
+// 📁 Les comptes clients SANS SUITE de l'espace regardé (30/09/2026) : un
+// devis au moins, aucun validé, aucun achat. `archive` au bout de 30 jours,
+// `effacable` (proposé, jamais automatique) un an plus tard.
+// ⚠ LE MUR : les listes sont filtrées par l'espace regardé AVANT d'être
+// remises à la règle pure — jamais db.users ni db.ventes en entier.
+export const clientsSansSuiteDeLEspace = (db, profile, aujourdhui = today()) => {
+  const f = filtreEspaceAffichage(db, profile);
+  return clientsSansSuite({
+    comptes: utilisateursDeLEspace(db, profile),
+    ventes: (db?.ventes || []).filter(f),
+    dettes: (db?.dettes || []).filter(f),
+    commandes: (db?.commandes || []).filter(f),
+    // Un chantier à la corbeille porte encore le nom : devant un doute, il
+    // protège le client (on n'archive pas quelqu'un qui a eu un chantier).
+    chantiers: [...chantiersDeLEspaceRegarde(db, profile), ...(db?.corbeille_clients_installes || [])],
+  }, aujourdhui);
+};
+
+// Les identifiants des comptes ARCHIVÉS (pour les retirer d'une liste).
+export const idsClientsArchives = (db, profile, aujourdhui = today()) =>
+  new Set(clientsSansSuiteDeLEspace(db, profile, aujourdhui).filter((c) => c.archive).map((c) => c.compte.id));
 
 // Ce qu'un compte a le droit d'ÉCRIRE (traitements de masse : réception
 // automatique à J+7…). Le principal écrit dans les deux espaces — c'est

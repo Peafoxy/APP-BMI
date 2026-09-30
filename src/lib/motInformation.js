@@ -72,7 +72,7 @@ export const MOT_CLIENT = {
     {
       icone: "📇",
       titre: "Ce que nous gardons",
-      texte: "Votre nom, votre numéro, et ce que vous achetez chez nous. C'est ce qu'il faut pour établir vos devis, vos reçus et vos contrats, et pour assurer le suivi après votre installation. Nous les gardons {duree} ans après votre dernier achat, puis nous les effaçons.",
+      texte: "Votre nom, votre numéro, et ce que vous achetez chez nous. C'est ce qu'il faut pour établir vos devis, vos reçus et vos contrats, et pour assurer le suivi après votre installation. Nous les gardons {duree} ans après votre dernier achat, puis nous les effaçons — ou un peu plus d'un an après votre dernier devis, si vous n'avez rien acheté ni accepté.",
     },
     {
       icone: "🔑",
