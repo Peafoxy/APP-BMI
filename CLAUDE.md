@@ -843,8 +843,8 @@ lit mal est pire qu'un banc absent).
   article introuvable dans le stock refuse la modification (il disparaîtrait
   en silence). ⚠ **LE COUPLE : `securite-34`** reprend `proformas_regles_remise`
   de securite-14 et n'y ajoute que le point 3 ; **la base ne vérifie ni
-  l'auteur ni l'encaissement** (c'est l'application). **À coller par Timo**
-  (attendu `true | true`). Bancs éprouvés (verrou retiré : trois contrôles
+  l'auteur ni l'encaissement** (c'est l'application). **Collé par Timo le
+  30/09/2026 (`true | true`).** Bancs éprouvés (verrou retiré : trois contrôles
   SQL tombent ; encaissement ignoré : un contrôle tombe). Contrôles
   RETOURNÉS : `remiseExigeAdmin` ×4, `critiqueRemises` au rôle ×3,
   `critiqueEntreprise` ×4.
