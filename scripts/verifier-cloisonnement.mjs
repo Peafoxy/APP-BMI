@@ -11951,6 +11951,28 @@ titre("💵 Commissions et primes : ce que les écrans disent est vrai, et le mu
     && !/le jour où il l'aura réceptionnée\.`/.test(ec) && !/versés le jour où il l'a réceptionnée\./.test(ec));
   test("★ 🎯 Commerciaux n'annonce plus « Commissions à payer » pour une estimation CA × taux",
     /Commissions estimées \(CA × taux\)/.test(co) && !/label="Commissions à payer"/.test(co));
+
+  // 🎯 UN SEUL TAUX (Timo, 30/09/2026, « b ») : 🎯 Commerciaux AFFICHE le taux
+  // de la fiche d'employé (celui qui paie), sans pouvoir le changer.
+  test("★★ le taux d'un agent = celui de SA fiche d'employé ; sans compte, 0 — jamais `c.taux`",
+    C.tauxDeLAgent([{ nom: "KODJO", role: "commercial", taux_commission: 7 }], { nom: "KODJO", taux: 3 }) === 7
+    && C.tauxDeLAgent([], { nom: "SEUL", taux: 5 }) === 0
+    && C.tauxDeLAgent([{ nom: "AMA", role: "client", taux_commission: 9 }], { nom: "AMA", taux: 5 }) === 0);
+  test("★★ la liste des apporteurs de 💰 Ventes ne montre plus le taux d'une fiche sans compte (personne ne le paie)",
+    (() => {
+      const db = { boutiques: [], users: [{ id: "t", nom: "TIMO", role: "admin", admin_principal: true }],
+        commerciaux: [{ id: "c1", nom: "SANSCOMPTE", taux: 5, actif: true }] };
+      C.setRegardeFormation(false);
+      const a = C.apporteursPossibles(db, { id: "t", role: "admin" }).find((x) => x.nom === "SANSCOMPTE");
+      return a && a.taux === 0;
+    })());
+  test("★★ 🎯 Commerciaux : le taux vient de tauxDeLAgent sur les comptes de l'espace regardé ; plus aucune saisie ni modification de taux ; l'écran dit où il se règle",
+    /const comptes = utilisateursDeLEspace\(db, profile\);/.test(co)
+    && /const taux = tauxDeLAgent\(comptes, c\);/.test(co)
+    && !/c\.taux/.test(code(co)) && !/f\.taux/.test(code(co)) && !/taux: Number/.test(code(co))
+    && /data-taux-fiche/.test(co) && /💰 Commission/.test(co));
+  test("★ la promotion d'un apporteur (👑 Mon équipe) n'écrit plus un taux sur la fiche d'agent : il ne commande rien",
+    !/commerciaux: \[\.\.\.\(db\.commerciaux \|\| \[\]\), \{ id: uid\(\), nom, tel: a\.tel \|\| "", taux,/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

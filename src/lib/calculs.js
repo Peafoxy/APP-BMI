@@ -2008,6 +2008,19 @@ export const articlesAReapprovisionner = (db, stock, boutique, options = null) =
 // N'IMPORTE QUEL utilisateur qui amène un client peut être crédité de la vente
 // et toucher sa commission, s'il a un taux de commission défini par l'admin.
 export const aUnTaux = (u) => Number(u.taux_commission || 0) > 0;
+
+// 🎯 LE TAUX D'UN AGENT = CELUI DE SA FICHE D'EMPLOYÉ (Timo, 30/09/2026,
+// décision « b »). Il en existait deux : `commerciaux[].taux` (🎯 Commerciaux,
+// « Modifier ») ne servait qu'au classement, `users[].taux_commission`
+// (👥 Utilisateurs → 💰 Commission) sert à PAYER — et ils ne se suivaient
+// pas. 🎯 Commerciaux AFFICHE désormais celui qui paie, sans pouvoir le
+// changer. Un agent sans compte n'est payé par personne : son taux est 0, et
+// l'écran le dit. `comptes` = la liste DÉJÀ filtrée par l'espace regardé.
+export const compteDeLAgent = (comptes, c) => {
+  const memes = (comptes || []).filter((u) => u.role !== "client" && u.nom === c?.nom);
+  return memes.find((u) => u.role === "commercial") || memes[0] || null;
+};
+export const tauxDeLAgent = (comptes, c) => Number(compteDeLAgent(comptes, c)?.taux_commission || 0);
 // ⚠ Cloisonnement : on ne propose que des collègues du MÊME espace —
 // créditer une vente d'entraînement à un commercial réel (ou l'inverse)
 // n'aurait aucun sens, et la vente porterait son nom pour toujours.
@@ -2034,7 +2047,9 @@ export const apporteursPossibles = (db, profile) => {
       const compte = (db.users || []).find((u) => u.nom === c.nom);
       const reference = c.formation !== undefined ? c : (compte || {});
       if (!memeEspace(reference)) return;
-      if (!noms.has(c.nom)) noms.set(c.nom, { id: c.id, nom: c.nom, taux: Number(c.taux || 0), role: "commercial" });
+      // Sans compte, personne ne le paie : taux 0 (décision « b », 30/09/2026 —
+      // `c.taux` ne commande plus rien).
+      if (!noms.has(c.nom)) noms.set(c.nom, { id: c.id, nom: c.nom, taux: 0, role: "commercial" });
     });
   return [...noms.values()].sort((a, b) => a.nom.localeCompare(b.nom));
 };

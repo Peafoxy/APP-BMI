@@ -145,11 +145,11 @@ export const CHAPITRE = {
         ["✏️ Moyen", "🤝 Apporteurs externes", "Change le moyen de paiement d'un apporteur ; retenu ensuite."],
         ["🎖 Promouvoir commercial", "🤝 Apporteurs externes", "Crée un compte commercial à un apporteur de 5 clients ou plus."],
         ["📄 Exporter les commissions", "🎯 Commerciaux", "Exporte le classement de la période (CSV)."],
-        ["Modifier / Désactiver / Suppr.", "🎯 Commerciaux", "Taux et objectif d'un agent ; activer ou retirer."],
+        ["Modifier / Désactiver / Suppr.", "🎯 Commerciaux", "Objectif mensuel d'un agent ; activer ou retirer. Le taux ne s'y change pas."],
         ["✓ Valider et payer", "💰 Primes remises", "Paie une prime d'installation depuis la caisse de la boutique."],
         ["💰 Commission … % / ⭐ Équipe … % / Nommer chef / 🤝 Parrain", "👥 Utilisateurs → ⋯ Gérer", "Taux de commission, taux d'équipe, chef, recruteur."],
       ]}],
-      ["attention", "**Deux taux existent, et un seul paie.** Le taux qui sert au **paiement** est celui de la fiche de l'employé (👥 Utilisateurs → 💰 Commission). Celui de 🎯 Commerciaux (« Modifier ») ne sert qu'au **classement** et à l'estimation « Commissions estimées (CA × taux) ». Changez le taux dans 👥 Utilisateurs."],
+      ["attention", "**Un seul taux, celui de la fiche d'employé** (👥 Utilisateurs → ⋯ Gérer → 💰 Commission). C'est lui qui paie, et 🎯 Commerciaux l'**affiche** sans pouvoir le changer (colonne « Taux », et l'estimation « Commissions estimées (CA × taux) »). Un agent de 🎯 Commerciaux **sans compte** affiche « — sans compte » : personne ne le paie."],
     ]},
 
     // ── 6
@@ -193,7 +193,7 @@ export const CHAPITRE = {
     { titre: "Erreurs fréquentes", blocs: [
       ["table", { entetes: ["L'erreur", "La bonne façon"], largeurs: [4300, 5000], lignes: [
         ["Promettre sa commission à un commercial dès la signature du devis.", "Elle attend la réception **et** le solde du client."],
-        ["Changer le taux dans 🎯 Commerciaux en croyant changer la paie.", "Le taux payé est celui de 👥 Utilisateurs → 💰 Commission."],
+        ["Chercher à changer le taux dans 🎯 Commerciaux.", "Il ne s'y change plus : 👥 Utilisateurs → ⋯ Gérer → 💰 Commission. 🎯 Commerciaux suit tout seul."],
         ["Accorder un gros rabais « au nom de BMI ».", "Le rabais est pris sur **la commission du commercial**, plafonné à elle : ce n'est pas une remise."],
         ["Annuler un paiement depuis « Ce mois » alors qu'il couvrait plusieurs mois.", "Refusé : se mettre sur « Depuis le début », puis annuler."],
         ["Payer deux fois une prime (administrateur et vendeur).", "L'application refuse la seconde : la part est déjà payée."],

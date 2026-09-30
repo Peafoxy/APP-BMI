@@ -335,7 +335,7 @@ export function MonEquipe({ db, save, profile }) {
     save({
       ...db,
       users: [...db.users, nouvel],
-      commerciaux: [...(db.commerciaux || []), { id: uid(), nom, tel: a.tel || "", taux, actif: true, ...marqueEspace(db, profile) }]
+      commerciaux: [...(db.commerciaux || []), { id: uid(), nom, tel: a.tel || "", actif: true, ...marqueEspace(db, profile) }]
     }, `🎖 ${a.nom} promu COMMERCIAL (${n} clients apportés) — compte « ${nom} », commission ${taux} %`);
     uAlert(`🎖 ${a.nom} est désormais Commercial !\n\nIdentifiant : ${nom}\nMot de passe : ${pwd}\n\nDemandez-lui de le changer à la première connexion.`);
   };

@@ -7,12 +7,12 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, caVente, fmt, today, dFR, telDigits, inP, lienWhatsApp } from "../lib/core";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
-import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin } from "../lib/calculs";
+import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin, utilisateursDeLEspace, compteDeLAgent, tauxDeLAgent } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
 export function Commerciaux({ db, save, profile }) {
-  const [f, setF] = useState({ nom: "", tel: "", zone: "", taux: "", objectif: "" });
+  const [f, setF] = useState({ nom: "", tel: "", zone: "", objectif: "" });
   const [periodeIndex, setPeriodeIndex] = useState(2); // Ce mois par défaut
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");
@@ -35,19 +35,19 @@ export function Commerciaux({ db, save, profile }) {
     if (refuserSaufAdmin(profile, "Créer un agent commercial")) return;
     if (bloquerSiLecture(db, profile)) return;
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
-    save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, taux: Number(f.taux || 0), objectif: Number(f.objectif || 0), actif: true, ...marqueEspace(db, profile) }] });
-    setF({ nom: "", tel: "", zone: "", taux: "", objectif: "" });
+    save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, objectif: Number(f.objectif || 0), actif: true, ...marqueEspace(db, profile) }] });
+    setF({ nom: "", tel: "", zone: "", objectif: "" });
     uAlert("Commercial ajouté !");
   };
 
   const modifier = async (c) => {
     if (refuserSaufAdmin(profile, "Modifier un agent commercial")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const taux = await uPrompt(`Taux de commission de ${c.nom} (%) :`, c.taux);
-    if (taux === null) return;
-    const objectif = await uPrompt(`Objectif mensuel de ${c.nom} (F) :`, c.objectif);
+    // Le TAUX ne se change plus ici (décision « b », 30/09/2026) : c'est celui
+    // de la fiche d'employé, qui paie. Seul l'objectif reste à l'agent.
+    const objectif = await uPrompt(`Objectif mensuel de ${c.nom} (F) :\n\nLe taux de commission se règle dans 👥 Utilisateurs → ⋯ Gérer → 💰 Commission.`, c.objectif);
     if (objectif === null) return;
-    save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, taux: Number(taux || 0), objectif: Number(objectif || 0) } : x)) });
+    save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, objectif: Number(objectif || 0) } : x)) });
   };
 
   const toggleActif = (c) => { if (bloquerSiLecture(db, profile) || refuserSaufAdmin(profile, "Activer ou désactiver un agent commercial")) return; save({ ...db, commerciaux: db.commerciaux.map((x) => (x.id === c.id ? { ...x, actif: x.actif === false } : x)) }); };
@@ -68,17 +68,20 @@ export function Commerciaux({ db, save, profile }) {
     // ce qu'on lui versait — de quoi discuter longtemps sans que personne ait
     // tort. Les deux partent maintenant de la même base.
     const ca = vs.reduce((s, v) => s + caVente(v), 0);
-    const commission = Math.round((ca * Number(c.taux)) / 100);
+    const taux = tauxDeLAgent(comptes, c);
+    const commission = Math.round((ca * taux) / 100);
     const objectifP = nbMois && c.objectif > 0 ? c.objectif * nbMois : null;
     const pct = objectifP ? Math.round((ca / objectifP) * 100) : null;
     const panier = vs.length ? Math.round(ca / vs.length) : 0;
-    return { nb: vs.length, ca, commission, objectifP, pct, panier };
+    return { nb: vs.length, ca, commission, objectifP, pct, panier, taux, compte: compteDeLAgent(comptes, c) };
   };
 
   // ⚠ Même cloisonnement que les fournisseurs : sans ce filtre, un compte de
   // formation voyait les VRAIS commerciaux, pouvait changer leur taux de
   // commission ou les supprimer (trou trouvé le 19/08/2026).
   const espace = espaceDuCompte(db, profile);
+  // Le taux se lit sur la fiche d'employé de l'espace REGARDÉ (le mur).
+  const comptes = utilisateursDeLEspace(db, profile);
   const liste = (db.commerciaux || []).filter((x) => espace === undefined || !!x.formation === espace);
   const classement = liste.map((c) => ({ c, s: stats(c) })).sort((a, b) => b.s.ca - a.s.ca);
   const totalCA = classement.reduce((s, x) => s + x.s.ca, 0);
@@ -98,12 +101,14 @@ export function Commerciaux({ db, save, profile }) {
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-3">Nouveau commercial</div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
           <Field label="Téléphone"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           <Field label="Zone"><input className={inputCls} value={f.zone} onChange={(e) => setF({ ...f, zone: e.target.value })} /></Field>
-          <Field label="Commission (%)"><input type="number" step="0.5" className={inputCls} value={f.taux} onChange={(e) => setF({ ...f, taux: e.target.value })} /></Field>
           <Field label="Objectif mensuel (F)"><input type="number" className={inputCls} value={f.objectif} onChange={(e) => setF({ ...f, objectif: e.target.value })} /></Field>
+        </div>
+        <div className="mt-2 text-xs text-slate-500" data-taux-fiche>
+          Le taux de commission n'est plus saisi ici : c'est celui de la fiche d'employé (👥 Utilisateurs → ⋯ Gérer → 💰 Commission), le seul qui sert à payer.
         </div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer</button>
       </div>
@@ -142,7 +147,7 @@ export function Commerciaux({ db, save, profile }) {
           <button
             className="px-4 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900"
             onClick={() => exportCSV("commissions", ["Rang", "Commercial", "Zone", "Période", "Ventes", "CA (F)", "Panier moyen (F)", "Taux (%)", "Commission (F)", "Objectif période (F)", "Atteinte (%)"],
-              classement.map(({ c, s }, i) => [i + 1, c.nom, c.zone, `${dFR(debutP)} au ${dFR(finP)}`, s.nb, s.ca, s.panier, c.taux, s.commission, s.objectifP ?? "", s.pct ?? ""]))}
+              classement.map(({ c, s }, i) => [i + 1, c.nom, c.zone, `${dFR(debutP)} au ${dFR(finP)}`, s.nb, s.ca, s.panier, s.taux, s.commission, s.objectifP ?? "", s.pct ?? ""]))}
           >📄 Exporter les commissions</button>
         </div>
         <table className="w-full text-sm min-w-[1080px]">
@@ -159,7 +164,7 @@ export function Commerciaux({ db, save, profile }) {
                   <td className="px-3 py-2 tabular-nums">{s.nb}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(s.ca)}</td>
                   <td className="px-3 py-2 tabular-nums">{s.nb ? fmt(s.panier) : "—"}</td>
-                  <td className="px-3 py-2 tabular-nums">{c.taux}%</td>
+                  <td className="px-3 py-2 tabular-nums" title="Taux de la fiche d'employé (👥 Utilisateurs → 💰 Commission)">{s.compte ? `${s.taux}%` : <span className="text-xs text-slate-500">— sans compte</span>}</td>
                   <td className="px-3 py-2 tabular-nums font-bold text-blue-700">{fmt(s.commission)}</td>
                   <td className="px-3 py-2 tabular-nums">{s.objectifP ? fmt(s.objectifP) : "—"}</td>
                   <td className="px-3 py-2 w-32">
