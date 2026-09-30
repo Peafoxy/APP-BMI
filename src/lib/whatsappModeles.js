@@ -165,6 +165,11 @@ export const MODELES = {
   // `rappel_dette` pour ce rappel : « votre achat du … » ne disait pas une
   // pose, et la date était celle du contrat, pas de la réception.
   rappel_solde_pose: { categorie: "utility", variables: ["client", "date", "reste", "total"] },
+  // 🧾 30/09/2026, Timo : « pour l'envoi des proforma, pas de modèle
+  // YCloud ? » puis SON texte. MARKETING : une proforma est une OFFRE de
+  // prix, comme un devis (leçon du refus INCORRECT_CATEGORY, 19/09). La
+  // liste des articles tient sur UNE ligne (la règle du reçu détaillé).
+  proforma: { categorie: "marketing", variables: ["client", "numero", "date", "boutique", "articles", "total", "fin", "telephone"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -196,6 +201,10 @@ export const MODELES_EN_SERVICE = [
   // 25/09/2026 : les bons de reprise et de retour. En service AVANT l'accord
   // de Meta : d'ici là rien ne part tout seul, et l'écran le dit.
   "bon_reprise", "bon_retour",
+  // 30/09/2026 : la proforma. En service AVANT l'accord de Meta : d'ici là,
+  // repli sur l'ouverture WhatsApp d'aujourd'hui (texte complet, PDF à
+  // joindre), et le refus se dit en français.
+  "proforma",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -675,6 +684,7 @@ const LIGNES_ENVOI = {
   recu_reglement: ([client, montant, date, paiement, numero, situation]) => `Reçu de versement N° ${numero} envoyé à ${client} : ${montant} le ${date} (${paiement}), ${situation}.`,
   recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
   bon_reprise: ([, , , numero, date, recu, client, article, motif, valeur, reglement]) => `Bon de reprise N° ${numero} envoyé à ${client} : ${article} repris le ${date} (reçu ${recu}), motif : ${motif}, valeur ${valeur}. ${reglement}.`,
+  proforma: ([client, numero, date, boutique, articles, total, fin]) => `Proforma N° ${numero} envoyée à ${client} : ${articles}, total ${total}, du ${date} (${boutique}), valable jusqu'au ${fin}.`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1021,6 +1031,62 @@ export function envoiRecuVenteDetail({ vente, boutique, montant, lignes, avance 
   return { modele: "recu_vente_detail", variables: [client, date, bq, recu, articles, mt, paiement, telephone] };
 }
 
+// ---------------------------------------------------------------
+// 🧾 LA PROFORMA DEPUIS LE NUMÉRO BMI (30/09/2026)
+// ---------------------------------------------------------------
+// Le texte de Timo, à créer chez YCloud sous le nom `proforma`, catégorie
+// MARKETING, langue fr. ⚠ Aucun trou en tête ni en fin de message (Meta le
+// refuse) : le texte commence par « Bonjour » et finit par une phrase fixe.
+export const TEXTE_PROFORMA = [
+  "Bonjour {{1}},",
+  "Voici votre proforma BMI TOGO N° {{2}} du {{3}} ({{4}}) :",
+  "",
+  "{{5}}.",
+  "Total : {{6}}.",
+  "Offre valable jusqu'au {{7}}, sans valeur de reçu.",
+  "Pour la confirmer, passez en boutique ou appelez le {{8}}.",
+  "",
+  "POUR TOUTE QUESTION:",
+  "tel: +228 99 96 84 88 / +228 91 13 05 11",
+  "e-mail: contact@bmitogo.com",
+  "site web: www.bmitogo.com",
+  "",
+  "merci pour votre confiance",
+].join("\n");
+
+// La date de fin de l'offre : le jour de la proforma + sa validité (15 jours,
+// la mention imprimée). Pure, en heure universelle (celle de Lomé).
+export function finDeValidite(isoDate, jours = 15) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || ""));
+  if (!m) return "";
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  d.setUTCDate(d.getUTCDate() + (Number(jours) || 0));
+  return d.toISOString().slice(0, 10);
+}
+
+// Les huit trous, depuis la proforma. ⚠ Rien sans numéro, rien sans article
+// lisible : l'écran retombe alors sur l'ouverture WhatsApp d'aujourd'hui.
+// ⚠ La liste ne prend que la place qui RESTE sous la limite de Meta.
+export function envoiProforma({ proforma, boutique, fin, fmt }) {
+  const pf = proforma || {};
+  if (String(pf.tel || "").replace(/\D/g, "").length < 8) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${Math.round(Number(n) || 0)} F`;
+  const nom = texteVariable(pf.client);
+  const client = !nom || /client non renseign/i.test(nom) ? "cher client" : nom;
+  const numero = texteVariable(pf.numero);
+  const date = texteVariable(pf.date);
+  const bq = texteVariable(pf.boutique) || "BMI TOGO";
+  const finTxt = texteVariable(fin);
+  const telephone = texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL;
+  const total = f(pf.total);
+  if (!numero || !date || !finTxt) return null;
+  const sansListe = [client, numero, date, bq, "", total, finTxt, telephone]
+    .reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), TEXTE_PROFORMA);
+  const articles = listeArticlesRecu(pf.lignes, LIMITE_MESSAGE_META - sansListe.length);
+  if (!articles) return null;
+  return { modele: "proforma", variables: [client, numero, date, bq, articles, total, finTxt, telephone] };
+}
+
 // Le texte lisible (pour le fil, le banc, un jour un repli à la main).
 export function texteRecuVente(envoi) {
   if (!envoi) return "";
@@ -1216,7 +1282,7 @@ export function envoiBon({ bon, boutique, fmt, dFR }) {
 // Le texte lisible d'un envoi, quel que soit le reçu.
 export function texteRecu(envoi) {
   if (!envoi) return "";
-  const t = { recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR }[envoi.modele];
+  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR }[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 

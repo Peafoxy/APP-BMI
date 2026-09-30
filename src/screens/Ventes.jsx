@@ -31,7 +31,7 @@ import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { motifAttendu, envoiRecuReservation, envoiBon } from "../lib/whatsappModeles";
+import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
 
 // ============ VENTES ============
@@ -428,12 +428,35 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // en premier, sans rien attendre) protégeait l'ouverture contre le
     // blocage du navigateur ; c'est maintenant le clic sur OK qui l'ouvre,
     // un geste tout frais, et `ouvrirWhatsApp` garde son filet si besoin.
+    const bqPf = infoBq(pf.boutique);
     genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO);
     setMsg(`✅ Proforma ${pf.numero} émis (non comptabilisé).`);
-    await ouvrirWhatsAppApresAnnonce({ tel: pf.tel, texte: lignes.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
-      annonce: num
-        ? `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAppuyez sur OK : WhatsApp s'ouvre sur le numéro du client. Joignez-y le PDF.`
-        : `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAucun numéro sur cette commande. Appuyez sur OK : WhatsApp s'ouvre sans destinataire : choisissez le client, puis joignez le PDF.` });
+    const annonceAppareil = num
+      ? `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAppuyez sur OK : WhatsApp s'ouvre sur le numéro du client. Joignez-y le PDF.`
+      : `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAucun numéro sur cette commande. Appuyez sur OK : WhatsApp s'ouvre sans destinataire : choisissez le client, puis joignez le PDF.`;
+    // 🧾 30/09/2026 (Timo, son texte) : la proforma part du NUMÉRO BMI, par le
+    // modèle `proforma`, APRÈS une question (la règle des relances : un clic à
+    // côté ne se rattrape pas). ⚠ LE MUR : l'espace de la BOUTIQUE de la
+    // proforma, jamais celui de qui clique. Sans numéro, en formation, ou si
+    // le numéro BMI ne peut pas envoyer : l'ouverture WhatsApp d'aujourd'hui,
+    // texte complet et PDF à joindre — le motif dit AVANT, jamais après.
+    // La ligne entre dans 📲 WhatsApp sans donner la conversation (comme un reçu).
+    const envoi = envoiProforma({ proforma: pf, boutique: bqPf, fin: dFR(finDeValidite(today(), 15)), fmt });
+    if (envoi && !bqPf.formation) {
+      if (!await uConfirm(`Envoyer la proforma N° ${pf.numero} à ${pf.client || "ce client"} (${pf.tel}) du numéro WhatsApp BMI ?\n\nLe PDF est déjà téléchargé sur l'appareil.`)) return;
+      const r = await envoyerModele({ tel: pf.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!bqPf.formation,
+        texteRepli: lignes.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
+        annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec la proforma complète, depuis VOTRE numéro. Le PDF est téléchargé sur l'appareil : joignez-le au message." });
+      if (r.auto) {
+        save((e) => ({
+          ...e,
+          messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoi.modele, variables: envoi.variables, ref: { proforma_numero: pf.numero }, envoi: r }),
+        }));
+        await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}.\n\nLe PDF est aussi téléchargé sur l'appareil, si le client le demande.`);
+      }
+      return;
+    }
+    await ouvrirWhatsAppApresAnnonce({ tel: pf.tel, texte: lignes.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm, annonce: annonceAppareil });
   };
 
   const proformaPDF = () => {

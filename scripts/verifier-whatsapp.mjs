@@ -90,10 +90,11 @@ const ATTENDU = {
   // ⚠ LE VINGTIÈME (29/09/2026, son texte) : le rappel du solde d'une pose
   // seule, 3 jours après le PV. UTILITY, quatre trous, serveur seul.
   rappel_solde_pose: { categorie: "utility", n: 4 },
+  proforma: { categorie: "marketing", n: 8 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les vingt modèles sont là, et eux seuls (RETOURNÉ le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les vingt et un modèles sont là, et eux seuls (RETOURNÉ le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1280,8 +1281,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
-  test("★ les seize modèles à ligne : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
+  test("★ les modèles à ligne (RETOURNÉ le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -2333,6 +2334,42 @@ titre("㊳ L'ASSISTANT NE DIT JAMAIS CE QUE BMI NE FAIT PAS (30/09/2026, capture
       return m.join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION : Solaire, Forage/.test(c); })());
   test("★ le serveur les passe à la consigne",
     /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㊴ LA PROFORMA PART DU NUMÉRO BMI (30/09/2026, le texte de Timo)");
+{
+  const M2 = await import("../src/lib/whatsappModeles.js");
+  const V = lire("src/screens/Ventes.jsx");
+  const f = (n) => `${Number(n).toLocaleString("fr-FR")} F`;
+  const pf = { numero: "PRF-ABC123", date: "30/09/2026", boutique: "BMI DEMAKPOE", client: "KOFFI", tel: "90 11 22 33",
+    lignes: [{ article: "Panneau 400W", qte: 4 }, { article: "Batterie 200Ah", qte: 1 }], total: 850000 };
+  const e = M2.envoiProforma({ proforma: pf, boutique: { tel: "+228 91 00 00 00" }, fin: "15/10/2026", fmt: f });
+  test("★★ les huit trous dans l'ordre : client, n°, date, boutique, articles sur UNE ligne, total, fin de validité, téléphone de la boutique",
+    !!e && e.modele === "proforma" && e.variables[0] === "KOFFI" && e.variables[1] === "PRF-ABC123" && e.variables[2] === "30/09/2026"
+    && e.variables[3] === "BMI DEMAKPOE" && e.variables[4] === "4 × Panneau 400W · 1 × Batterie 200Ah" && e.variables[5] === f(850000)
+    && e.variables[6] === "15/10/2026" && e.variables[7] === "+228 91 00 00 00" && !e.variables.some((v) => /\n/.test(v)));
+  test("★ sans numéro (ou sans article), rien ne part du numéro BMI",
+    M2.envoiProforma({ proforma: { ...pf, tel: "+228" }, fin: "15/10/2026", fmt: f }) === null
+    && M2.envoiProforma({ proforma: { ...pf, lignes: [] }, fin: "15/10/2026", fmt: f }) === null);
+  test("★ sans téléphone sur la boutique, le numéro BMI principal (Meta refuse un trou vide)",
+    M2.envoiProforma({ proforma: pf, boutique: {}, fin: "15/10/2026", fmt: f }).variables[7] === M2.NUMERO_BMI_PRINCIPAL);
+  test("★ la fin de l'offre = le jour + 15 jours (fin de mois comprise)",
+    M2.finDeValidite("2026-09-30", 15) === "2026-10-15" && M2.finDeValidite("2026-12-25", 15) === "2027-01-09");
+  test("★ le message entier reste sous la limite de Meta, même avec 60 articles",
+    (() => { const big = M2.envoiProforma({ proforma: { ...pf, lignes: Array.from({ length: 60 }, (_, i) => ({ article: `Article numéro ${i} assez long`, qte: 2 })) }, fin: "15/10/2026", fmt: f });
+      return !!big && M2.texteRecu(big).length <= M2.LIMITE_MESSAGE_META && /\+ \d+ autres articles/.test(big.variables[4]); })());
+  test("★ le texte de Timo, marketing, en service",
+    M2.MODELES.proforma.categorie === "marketing" && M2.MODELES_EN_SERVICE.includes("proforma")
+    && /Voici votre proforma BMI TOGO N° \{\{2\}\} du \{\{3\}\} \(\{\{4\}\}\)/.test(M2.TEXTE_PROFORMA) && /merci pour votre confiance$/.test(M2.TEXTE_PROFORMA));
+  const corps = (() => { const i = V.indexOf("const proformaWhatsApp = async"); return V.slice(i, V.indexOf("const proformaPDF", i)); })();
+  test("★★ 💰 Ventes : le PDF d'abord, UNE question, puis le numéro BMI — le mur = la BOUTIQUE de la proforma",
+    corps.indexOf("genererProforma(") > 0 && corps.indexOf("genererProforma(") < corps.indexOf("uConfirm(`Envoyer la proforma")
+    && corps.indexOf("uConfirm(`Envoyer la proforma") < corps.indexOf("envoyerModele(")
+    && /espaceFormation: !!bqPf\.formation/.test(corps) && !/estCompteFormation\(db, profile\)/.test(corps));
+  test("★★ partie du numéro BMI : la ligne entre dans 📲 WhatsApp, SANS donner la conversation ; sinon le repli d'avant, annoncé AVANT",
+    /messagesAvecLigneEnvoi\(e\.messages, \{ profile, tel: pf\.tel/.test(corps) && !/donnerAuSender/.test(corps)
+    && /texteRepli: lignes\.join/.test(corps) && /prevenir: uAlert/.test(corps) && /ouvrirWhatsAppApresAnnonce\(/.test(corps));
 }
 
 // ──────────────────────────────────────────────────────────────

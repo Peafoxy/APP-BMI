@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 20 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 700 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas)
+npm run verifier-whatsapp        # 709 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3858,6 +3858,25 @@ lit mal est pire qu'un banc absent).
   les accès, la ligne `wa_acces` ignorée, `espace` avec repli) : chacune
   tombe. Contrôles RETOURNÉS : seize modèles, treize lignes, le secret, le
   repli, l'espace, la ligne du fil, l'import de Partages. Rien à coller.
+
+### 🧾 LA PROFORMA PART DU NUMÉRO BMI — `proforma` (30/09/2026, le texte de Timo)
+- Timo : « pour l'envoi des proforma, pas de modèle YCloud ? » (non : WhatsApp
+  s'ouvrait sur l'appareil, PDF à joindre), puis SON texte. Modèle
+  **`proforma`** (MARKETING — une offre, comme un devis), **huit trous** :
+  client, n°, date, boutique, **articles sur UNE ligne** (`listeArticlesRecu`,
+  la règle du reçu détaillé, sous les 1 024 caractères), total, **fin de
+  l'offre** (jour + 15, `finDeValidite`), téléphone de la boutique (sinon le
+  numéro BMI) — `TEXTE_PROFORMA` / `envoiProforma` (lib/whatsappModeles.js).
+  ⚠ Son lien collé en « [www.bmitogo.com](…) » est écrit `www.bmitogo.com`.
+- 💰 Ventes → « 🧾 Proforma WhatsApp » : **le PDF d'abord**, puis UNE question,
+  puis le numéro BMI ; la ligne entre dans 📲 WhatsApp **sans donner la
+  conversation** (comme un reçu) et **n'est PAS privée** (pas demandé). ⚠ Le
+  mur = la BOUTIQUE de la proforma. Sans numéro, en formation, ou refus
+  (modèle pas encore approuvé…) : l'ouverture d'avant, texte complet, PDF à
+  joindre, motif dit AVANT. Refus de la question = rien ne part (proforma et
+  PDF déjà faits). **À faire par Timo : créer `proforma` chez YCloud**
+  (marketing, fr). ~14 F. Banc ㊴ (8), éprouvé (le mur, le numéro). Deux
+  contrôles RETOURNÉS (vingt et un modèles, les modèles à ligne). Rien à coller.
 
 ### 📲 UNE VENTE SANS NUMÉRO DEMANDE D'ABORD (25/09/2026, décision « 1 »)
 - Timo : « une vente sans numéro devrait demander au vendeur d'ajouter le nom
