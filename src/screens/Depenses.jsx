@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { fmt, today, dFR, totalVente } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
-import { CATEGORIES, PAIEMENTS, horsVersements, depensesComptees } from "../lib/constants";
+import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE } from "../lib/validationDepenses";
@@ -121,7 +121,7 @@ export function Depenses({ db, save, profile }) {
   // ⚠ Aucune catégorie d'office (Timo, 25/09/2026) : « Loyer », la première de
   // la liste, était proposée d'office — une dépense de 5 000 F saisie sans y
   // toucher est tombée en « Loyer » et le cadre du loyer l'a comptée. On CHOISIT.
-  const formVide = { categorie: "", description: "", montant: "", paiement: PAIEMENTS[0], paye_avec: "", chantier_id: "" };
+  const formVide = { categorie: "", description: "", montant: "", paiement: MOYENS_ENCAISSEMENT[0], paye_avec: "", chantier_id: "" };
   const caissesPossibles = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
   const chantiersOuverts = chantiersRattachables(db, profile);
@@ -389,7 +389,9 @@ export function Depenses({ db, save, profile }) {
           <Field label="Catégorie"><select className={inputCls} value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} data-categorie-depense><option value="">— Choisir —</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
           <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
           <Field label="Montant (F)"><input type="number" className={inputCls} value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} /></Field>
-          <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{PAIEMENTS.map((p) => <option key={p}>{p}</option>)}</select></Field>
+          {/* Timo (30/09/2026) : « Crédit (dette) » retiré — une dépense qui n'est
+              pas payée n'est pas une dépense : on la saisit le jour où l'argent sort. */}
+          <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{MOYENS_ENCAISSEMENT.map((p) => <option key={p}>{p}</option>)}</select></Field>
           {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
           <Field label="Payé avec">
             <select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })} data-paye-avec>

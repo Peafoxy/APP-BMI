@@ -4953,7 +4953,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     // 13/09/2026 : la liste passe en plus par depensesVisibles (un technicien ne voit que les siennes) — horsVersements reste dedans.
     /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dep)
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
-    && /import \{ CATEGORIES, PAIEMENTS, horsVersements, depensesComptees \} from "\.\.\/lib\/constants";/.test(dep)
+    // ⚠ RETOURNÉ le 30/09/2026 : PAIEMENTS → MOYENS_ENCAISSEMENT (« Crédit (dette) » retiré des dépenses).
+    && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep));
@@ -6608,6 +6609,23 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   // ---- Ce qui compte, et où ----
   const att = { ...s7.depense, id: "d_att", date: "2026-09-12" };
   const petite = { ...s2.depense, id: "d_pet", date: "2026-09-12" };
+  // Relu en écrivant le chapitre 18 du manuel (30/09/2026) : deux phrases de la paie mentaient.
+  {
+    const salJ = readFileSync("src/screens/Salaires.jsx", "utf8");
+    const calJ = readFileSync("src/lib/calculs.js", "utf8");
+    const corpsVir = calJ.slice(calJ.indexOf("export async function envoyerVirementG"), calJ.indexOf("const moyen = await demanderMoyenPaiement", calJ.indexOf("export async function envoyerVirementG")));
+    test("★ 💵 Salaires nomme le rôle par LA liste commune (un comptable n'est plus écrit « Vendeur »), et la liste vide nomme les six rôles salariés",
+      /const roleCourt = \(r\) => LIBELLE_ROLE_EMPLOYE\[r\] \|\| r;/.test(salJ) && !/: "Vendeur";/.test(salJ)
+      && /Responsable commercial ou Comptable/.test(salJ));
+    test("★ la fenêtre du virement de salaire détaille la retenue CNSS : ses lignes aboutissent au net annoncé",
+      /Retenue CNSS \(9 %\) : −\$\{fmt\(p\.retenueCNSS\)\}/.test(corpsVir) && /Net à percevoir : \$\{fmt\(p\.net\)\}/.test(corpsVir));
+  }
+  // Timo (30/09/2026, « oui retire-le ») : une dépense ne se paie jamais « à crédit ».
+  const dpCredit = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ une dépense n'a JAMAIS « Crédit (dette) » pour moyen : refusée DANS le geste, et la liste de 📤 Dépenses ne le propose plus",
+    /Crédit \(dette\)/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Crédit (dette)", paye_avec: "caisse" }, "2026-09-30").refus || "")
+    && !Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Mobile Money (Flooz)", paye_avec: "caisse" }, "2026-09-30").refus
+    && /MOYENS_ENCAISSEMENT\.map\(\(p\) => <option key=\{p\}>/.test(dpCredit) && !/\bPAIEMENTS\b/.test(dpCredit));
   const avance = { ...Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "taxi", montant: 3000, paiement: "Espèces", paye_avec: "avance" }, "2026-09-12").depense, id: "d_av", date: "2026-09-12" };
   const dg = { ...Vd.construireDepenseSaisie(dbV, ali, { boutique: "APESSITO", categorie: "Autre", description: "", montant: 1000, paiement: "Espèces", paye_avec: "dg" }, "2026-09-12").depense, id: "d_dg", date: "2026-09-12" };
   const flooz = { ...s2.depense, id: "d_fl", date: "2026-09-12", paiement: "Mobile Money (Flooz)" };

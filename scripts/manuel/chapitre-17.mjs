@@ -87,7 +87,7 @@ export const CHAPITRE = {
         { titre: "Chantier à rattacher", texte: "« — Aucun — » d'office. Choisir un chantier seulement pour un frais **du chantier** (partie D)." },
         { titre: "Enregistrer la dépense", texte: "Lire la confirmation : montant, catégorie, caisse qui paie, et ce qui va se passer (validation du DG, autre boutique, chantier, fonds de caisse)." },
       ]],
-      ["attention", "La liste « Paiement » propose aussi **« Crédit (dette) »** : une dépense qui n'est pas encore payée n'est pas une dépense. On la saisit **le jour où l'argent sort**, avec le vrai moyen."],
+      ["attention", "Une dépense **ne se paie jamais « à crédit »** : une dépense qui n'est pas encore payée n'est pas une dépense. On la saisit **le jour où l'argent sort**, avec le vrai moyen — la liste ne propose d'ailleurs pas « Crédit (dette) », et l'application le refuse."],
 
       ["h3", "B. « Payé avec » : le choix qui décide de la caisse"],
       ["table", { entetes: ["Le choix", "Ce que ça veut dire", "Ce qui bouge"], largeurs: [2700, 3300, 3300], lignes: [

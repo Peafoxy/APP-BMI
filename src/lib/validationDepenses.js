@@ -31,7 +31,7 @@
 // UNE règle, pure (le banc l'exerce). Serveur : securite-15.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
-import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES } from "./constants.js";
+import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
 
@@ -174,6 +174,9 @@ const auteurDe = (db, dep) => (db.users || []).find((u) => (dep.par_id && u.id =
 export function construireDepenseSaisie(db, profile, { boutique, categorie, description, montant, paiement, paye_avec }, aujourdhui) {
   const refus = critiqueSaisie({ montant, paye_avec, boutique });
   if (refus) return { refus };
+  // Timo (30/09/2026) : une dépense se paie — « Crédit (dette) » n'en est
+  // jamais le moyen. Revérifié ici, dans le geste, pas seulement dans la liste.
+  if (paiement !== undefined && !MOYENS_ENCAISSEMENT.includes(paiement)) return { refus: "Une dépense se saisit le jour où l'argent sort : choisissez comment elle a été payée (espèces, Mobile Money ou virement), jamais « Crédit (dette) »." };
   const m = Number(montant);
   const aValider = doitEtreValidee(m);
   const validation = !aValider ? null

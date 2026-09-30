@@ -54,8 +54,8 @@ export const CHAPITRE = {
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. Les rôles, et ce que chacun voit"],
       ["table", { entetes: ["Rôle (tel qu'il s'affiche)", "Métier", "Ses onglets"], largeurs: [2500, 2100, 4700], lignes: [
-        ["Vendeur", "Vend en boutique, clôture le jour", "Ventes, Commandes reçues, Dimensionnement, Tous les devis, Ravitaillement, Dépenses (lecture), Dettes, Clients, Caisse, Salaire, Messages, WhatsApp, Créer un client, Primes remises, Contrats, Travaux à crédit"],
-        ["Gérant de boutique", "Tient la boutique : stock, dépenses, versements", "Comme le vendeur, plus Stocks et Fournisseurs ; sans Ravitaillement ni Primes remises"],
+        ["Vendeur", "Vend en boutique, clôture le jour", "Ventes, Commandes reçues, Dimensionnement, Tous les devis, Ravitaillement, Clients installés, Travaux à crédit, Dettes, Clients, Caisse, Salaire, Messages, WhatsApp, Créer un client, Primes remises, Contrats"],
+        ["Gérant de boutique", "Tient la boutique : stock, dépenses, versements", "Ventes, Commandes reçues, Dimensionnement, Tous les devis, Contrats, Stocks, Transfert, Dépenses, Dettes, Clients, Caisse, Fournisseurs, Salaire, Messages, WhatsApp, Créer un client, Travaux à crédit"],
         ["Magasinier", "Tient le magasin et l'outillage", "Stocks, Salaire, Messages, WhatsApp, Créer un client, Travaux à crédit, Outillage"],
         ["Commercial", "À commission, apporte des clients", "Nouvelle commande, Dimensionnement, Tous les devis, Prospects, Clients installés, Mes tâches, Messages, WhatsApp, Ma commission, Équipe (s'il est chef), Créer un client, Contrats"],
         ["Technicien (commission)", "Installe, à commission", "Comme le commercial, plus Primes reçues, Dépenses (les siennes), Outillage"],

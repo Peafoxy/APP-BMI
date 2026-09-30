@@ -1121,7 +1121,9 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   const suggestion = Math.max(0, p.reste);
   const v = await uPrompt(
     `Montant du virement (F CFA) — ${libelleMoisFR(m)}\n\n` +
-    `Salaire de base : ${fmt(p.base)}\nPrimes : +${fmt(p.primes)}\nAvances : −${fmt(p.avances)}\nRetenue crédit BMI : −${fmt(p.retenueCredit)}\nNet à percevoir : ${fmt(p.net)}\n` +
+    // ⚠ 30/09/2026 (relu en écrivant le chapitre 18) : la retenue CNSS manquait
+    // au détail — pour un assujetti, les lignes n'aboutissaient pas au net annoncé.
+    `Salaire de base : ${fmt(p.base)}\nPrimes : +${fmt(p.primes)}\nAvances : −${fmt(p.avances)}\nRetenue crédit BMI : −${fmt(p.retenueCredit)}\n${p.retenueCNSS ? `Retenue CNSS (9 %) : −${fmt(p.retenueCNSS)}\n` : ""}Net à percevoir : ${fmt(p.net)}\n` +
     `Déjà envoyé ce mois : ${fmt(p.verse)}\nReste à verser : ${fmt(Math.max(0, p.reste))}`,
     String(suggestion || "")
   );

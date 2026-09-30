@@ -183,8 +183,8 @@ export function envoyerIdentifiantsWhatsApp(nomAffiche, identifiant, motDePasse,
   return envoyerWhatsApp(tel, texteIdentifiantsClient(nomAffiche, identifiant, motDePasse), demanderConfirmation);
 }
 
-// Libellés lisibles des rôles employés — pour le message d'invitation
-// WhatsApp (ci-dessous) et nulle part ailleurs pour l'instant.
+// Libellés lisibles des rôles employés — le message d'invitation WhatsApp
+// (ci-dessous) et la liste de 💵 Salaires (30/09/2026).
 export const LIBELLE_ROLE_EMPLOYE = {
   vendeur: "Vendeur", gerant: "Gérant de boutique", magasinier: "Magasinier",
   commercial: "Commercial", technicien: "Technicien", technicien_bmi: "Technicien BMI",

@@ -11,6 +11,7 @@ import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/va
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
+import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { exportCSV } from "../lib/export";
 import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC, memeSaisieCNSS } from "../lib/cnss";
 
@@ -45,7 +46,10 @@ export function SalairesAdmin({ db, save, profile }) {
   const attente = lignes.reduce((s, l) => s + l.p.enAttente, 0);
   const encoursCredit = lignes.reduce((s, l) => s + l.credit, 0);
 
-  const roleCourt = (r) => r === "gerant" ? "Gérant" : r === "magasinier" ? "Magasinier" : r === "technicien_bmi" ? "Technicien BMI" : "Vendeur";
+  // ⚠ 30/09/2026 (relu en écrivant le chapitre 18 du manuel) : la copie
+  // maison écrivait « Vendeur » pour un comptable ou un responsable
+  // commercial — salariés eux aussi. LA liste commune des rôles décide.
+  const roleCourt = (r) => LIBELLE_ROLE_EMPLOYE[r] || r;
 
   const statut = (p) => {
     if (p.net <= 0) return <span className="text-xs font-bold text-slate-400">—</span>;
@@ -91,7 +95,7 @@ export function SalairesAdmin({ db, save, profile }) {
             `Paie ${libelleMoisFR(mois)}`)}>📄 Exporter</button>
         </div>
         {lignes.length === 0 ? (
-          <div className="text-sm text-slate-400 text-center py-6">Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier ou Technicien BMI.</div>
+          <div className="text-sm text-slate-400 text-center py-6">Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier, Technicien BMI, Responsable commercial ou Comptable.</div>
         ) : (
           <div className="max-h-[460px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm min-w-[860px]">
