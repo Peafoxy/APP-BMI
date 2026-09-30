@@ -750,6 +750,10 @@ export const MOTIFS_WHATSAPP = [
   { code: 131026, dit: "Ce numéro ne peut pas recevoir de message WhatsApp (pas de compte WhatsApp, ou un réglage l'en empêche)." },
   { code: 131047, dit: "Plus de 24 h se sont écoulées depuis le dernier message du client : WhatsApp n'accepte plus qu'un modèle approuvé." },
   { marques: ["invalid", "phone"], dit: "Ce numéro n'est pas un numéro WhatsApp valide." },
+  // Vu pour de vrai le 30/09/2026 (capture Timo, un numéro +86) : « Sending
+  // WhatsApp messages to Mainland China (+86) recipients is not supported. »
+  // C'est une interdiction de Meta, définitive : rien à régler chez nous.
+  { marques: ["mainland china", "not supported"], dit: "WhatsApp ne remet aucun message à un numéro de Chine continentale (+86) : c'est une interdiction de Meta, rien à régler chez nous. Joignez ce client autrement (appel, e-mail)." },
 
   // — Le compte BMI, et le raccordement —
   { code: 130429, dit: "Trop de messages d'un coup : WhatsApp demande d'attendre un moment." },
