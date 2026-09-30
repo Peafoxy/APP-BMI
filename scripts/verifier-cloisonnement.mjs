@@ -11786,5 +11786,23 @@ titre("🔧 L'espace client dit la règle des 70 % de la pose seule, jamais « a
     && /import \{ ACOMPTE_POSE_PCT \} from "\.\.\/lib\/poseSeule";/.test(ec));
 }
 
+titre("📄 La pastille « En attente de paiement » d'un contrat suit la même règle que son bouton (29/09/2026)");
+{
+  const ci = readFileSync("src/screens/ContratsInstallation.jsx", "utf8");
+  test("★ une pose seule SOLDÉE ne reste plus « ⏳ En attente de paiement » : la pastille et « Voir le contrat » lisent contratRegle (la dette pour une pose seule)",
+    /const contratRegle = \(d\) => \(d\.pose_seule \? detteDuDevisSoldee\(d\) : d\.statut === "paye"\);/.test(ci)
+    && /\{!contratRegle\(d\) && <span[^>]*>⏳ En attente de paiement/.test(ci)
+    && /if \(isAdmin \|\| contratRegle\(d\)\)/.test(ci)
+    && !/d\.statut !== "paye" &&/.test(ci));
+}
+
+titre("📄 Le contrat imprimé d'une pose seule n'annonce pas « Paiement prévu à la boutique — » (29/09/2026)");
+{
+  const im = readFileSync("src/lib/impression.js", "utf8");
+  test("★ la ligne « Fait à Lomé » ne cite une boutique de paiement que hors pose seule (la pose seule suit son Article 4 : 70 % puis le solde au PV)",
+    /Fait à Lomé, le \$\{dFR\(d\.contrat_date_signature\)\}\.\$\{d\.pose_seule \? "" : ` Paiement prévu à la boutique/.test(im)
+    && !/Fait à Lomé, le \$\{dFR\(d\.contrat_date_signature\)\}\. Paiement prévu/.test(im));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

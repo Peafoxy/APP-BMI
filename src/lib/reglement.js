@@ -94,7 +94,10 @@ export const resumePlan = (plan, solde) => {
   const lignes = echeancier(plan, solde);
   if (!lignes.length) return "Plan incomplet";
   const dernier = lignes[lignes.length - 1];
-  return `${Number(plan.montant_mensuel).toLocaleString("fr-FR")} F chaque fin de mois à partir du ${lignes[0].date} — ${lignes.length} versement(s), solde le ${dernier.date}`;
+  // 29/09/2026 (chapitre 14 du manuel) : la date s'écrit à la française
+  // (31/10/2026) — « 2026-10-31 » se lisait chez le client ET l'administrateur.
+  const jourFr = (iso) => String(iso || "").split("-").reverse().join("/");
+  return `${Number(plan.montant_mensuel).toLocaleString("fr-FR")} F chaque fin de mois à partir du ${jourFr(lignes[0].date)} — ${lignes.length} versement(s), solde le ${jourFr(dernier.date)}`;
 };
 
 // Ce que le contrat prévoyait, pour que l'administrateur compare d'un coup

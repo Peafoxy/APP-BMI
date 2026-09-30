@@ -68,6 +68,10 @@ export function ContratsInstallation({ db, save, profile }) {
     const dette = chantier ? (db.dettes || []).find((x) => x.id === chantier.dette_id) : null;
     return dette ? resteAPayer(dette) <= 0 : false;
   };
+  // UNE règle pour « réglé ? » : le bouton ET la pastille (29/09/2026 — la
+  // pastille lisait `statut !== "paye"`, donc une pose seule SOLDÉE restait
+  // « ⏳ En attente de paiement » pour toujours).
+  const contratRegle = (d) => (d.pose_seule ? detteDuDevisSoldee(d) : d.statut === "paye");
   const detteChantierSoldee = (fiche) => {
     if (!fiche?.dette_id) return true;
     const dette = (db.dettes || []).find((x) => x.id === fiche.dette_id);
@@ -75,7 +79,7 @@ export function ContratsInstallation({ db, save, profile }) {
   };
 
   const voirContrat = (c, d) => {
-    if (isAdmin || (d.pose_seule ? detteDuDevisSoldee(d) : d.statut === "paye")) { imprimerContratInstallation(d, db); return; }
+    if (isAdmin || contratRegle(d)) { imprimerContratInstallation(d, db); return; }
     if (isClient) {
       uAlert(d.pose_seule
         ? "Ce contrat n'est pas encore téléchargeable — le règlement n'est pas encore soldé. Vous pourrez le télécharger une fois le paiement terminé."
@@ -142,7 +146,7 @@ export function ContratsInstallation({ db, save, profile }) {
                 <div className="font-semibold text-sm">
                   {d.contrat_numero || "—"}
                   {!isClient && <span className="text-slate-400 font-normal"> · {client.nom}</span>}
-                  {d.statut !== "paye" && <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">⏳ En attente de paiement</span>}
+                  {!contratRegle(d) && <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">⏳ En attente de paiement</span>}
                   {d.contrat_papier && <span className="ml-2 text-[10px] font-bold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5" title={`Original archivé à ${d.contrat_papier_boutique || "—"}`}>📝 Signé sur papier</span>}
                   {d.contrat_signe_en_boutique && <span className="ml-2 text-[10px] font-bold text-sky-800 bg-sky-100 rounded-full px-2 py-0.5">🏪 Signé en boutique</span>}
                 </div>

@@ -90,7 +90,9 @@ titre("La phrase que lisent le client ET l'administrateur");
   const plan = { type: "mensuel", montant_mensuel: 60000, premiere_echeance: "2026-08-31" };
   const r = R.resumePlan(plan, 360000);
   test("elle donne le montant, le nombre de versements et la date de fin",
-    r.includes("6 versement") && r.includes("2027-01-31"));
+    r.includes("6 versement") && r.includes("31/01/2027"));
+  test("★ les dates s'écrivent à la française (31/08/2026), jamais « 2026-08-31 » (29/09/2026)",
+    r.includes("à partir du 31/08/2026") && !/\d{4}-\d{2}-\d{2}/.test(r));
   test("le versement unique renvoie à la signature du procès-verbal",
     R.resumePlan({ type: "solde_signature" }, 360000).includes("procès-verbal"));
   test("sans plan, on ne raconte rien", R.resumePlan(null, 360000) === "Aucun plan proposé");
