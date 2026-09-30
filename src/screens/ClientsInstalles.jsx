@@ -27,7 +27,7 @@ import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
 import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
-import { travauxSolde } from "../lib/calculs";
+import { travauxSolde, filtreEspaceAffichage } from "../lib/calculs";
 import { factureMontant, coutTravaux, margeTravaux } from "../lib/travaux";
 import { dateApresMois, critiqueEntretienFait, marquerEntretienFait, dernierEntretien, MOIS_ENTRE_ENTRETIENS, MARQUE_TACHE_ENTRETIEN } from "../lib/rappelEntretien";
 
@@ -119,7 +119,10 @@ const fraisRepartis = (c) => (c.equipe || []).reduce((s, e) => s + Number(e.mont
 
 export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const estChef = !!profile.chef_equipe;
-  const estTechnicien = profile.role === "technicien";
+  // 30/09/2026 (chapitre 15 du manuel) : le technicien BMI aussi — il n'était
+  // pas compté, et un technicien BMI de l'équipe (non chef) ne voyait pas le
+  // chantier où il intervient (règle de Timo : ses dossiers + ceux où il travaille).
+  const estTechnicien = profile.role === "technicien" || profile.role === "technicien_bmi";
   // Un technicien voyait TOUT auparavant (au même titre qu'un chef d'équipe
   // ou un admin) — demande Timo : il ne doit voir que SES PROPRES dossiers
   // (créés par lui) et ceux où il intervient réellement (présent dans
@@ -134,6 +137,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // 🧾 25/09/2026 : ce que le reçu WhatsApp d'un versement est devenu.
   const [noteRecuWa, setNoteRecuWa] = useState("");
   const [filtreEntretien, setFiltreEntretien] = useState(false);
+  // ⚠ LE MUR (30/09/2026) : la liste « Vente rattachée » lisait db.ventes EN
+  // ENTIER — l'administrateur principal, qui charge les deux espaces, pouvait
+  // rattacher une vente d'entraînement à un vrai chantier. L'espace regardé seul.
+  const ventesDeLEspace = (db.ventes || []).filter(filtreEspaceAffichage(db, profile));
 
   // Comptes de rôle "client" pas encore rattachés à une fiche (pour lier un accès à l'app)
   // ⚠ Cloisonnement (29/08/2026) : sans ce filtre, on pouvait rattacher un
@@ -192,7 +199,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // bel et bien un compte, simplement parce que personne ne l'avait
   // sélectionné à la main dans le menu déroulant plus bas.
   const chargerDepuisVente = (venteId) => {
-    const v = db.ventes.find((x) => x.id === venteId);
+    const v = ventesDeLEspace.find((x) => x.id === venteId);
     if (!v) { setF((p) => ({ ...p, vente_id: "" })); return; }
     const lignes = lignesVente(v).map((l) => ({ nom: l.article, qte: Number(l.qte), serie: "" }));
     const telVente = chiffresTel(v.tel);
@@ -334,7 +341,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // On le signale maintenant, pas à la fin du chantier.
     if (!f.user_id) {
       const ok = await uConfirm(
-        `⚠ Aucun compte client rattaché.\n\n${f.prenom} ${f.nom} ne pourra pas réceptionner les travaux depuis l'application : le bouton n'apparaîtra pas chez lui.\n\nPour lui créer un compte : 👥 Utilisateurs → rôle « Client ».\n\nCréer quand même la fiche sans compte ?`
+        `⚠ Aucun compte client rattaché.\n\n${f.prenom} ${f.nom} ne pourra pas suivre son installation dans un espace client. Il signera quand même le PV de réception, par le lien envoyé sur WhatsApp.\n\nPour lui ouvrir un compte : bouton « + Créer » à côté de « Compte client ».\n\nCréer quand même la fiche sans compte ?`
       );
       if (!ok) return;
     }
@@ -925,7 +932,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
           <Field label="🧾 Vente rattachée (facultatif)">
             <select className={inputCls} value={f.vente_id} onChange={(e) => chargerDepuisVente(e.target.value)}>
               <option value="">— Aucune —</option>
-              {[...db.ventes].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 80).map((v) => (
+              {[...ventesDeLEspace].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 80).map((v) => (
                 <option key={v.id} value={v.id}>{dFR(v.date)} — {v.client || "client"} — {fmt(totalVente(v))}</option>
               ))}
             </select>
@@ -1489,7 +1496,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         </table>
         </div>
       </div>
-      <div className="text-xs text-slate-400">🔑 = fiche liée à un compte d'accès client. ⚠ fond orange = entretien dû. Les commerciaux ne voient que leurs propres clients ; l'administrateur, les techniciens et les chefs d'équipe voient tout le parc.</div>
+      <div className="text-xs text-slate-400">🔑 = fiche liée à un compte d'accès client. ⚠ fond orange = entretien dû. Les commerciaux et les techniciens ne voient que leurs propres fiches et les chantiers où ils interviennent ; l'administrateur et les chefs d'équipe voient tout le parc.</div>
     </div>
   );
 }

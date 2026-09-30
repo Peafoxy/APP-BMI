@@ -11804,5 +11804,21 @@ titre("📄 Le contrat imprimé d'une pose seule n'annonce pas « Paiement prév
     && !/Fait à Lomé, le \$\{dFR\(d\.contrat_date_signature\)\}\. Paiement prévu/.test(im));
 }
 
+titre("🏠 Clients installés : ce que l'écran dit est vrai, et le mur tient sur la vente rattachée (30/09/2026)");
+{
+  const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ la liste « Vente rattachée » ne propose que les ventes de l'espace regardé (jamais db.ventes en entier)",
+    /const ventesDeLEspace = \(db\.ventes \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\);/.test(ci)
+    && /\{\[\.\.\.ventesDeLEspace\]\.sort\(/.test(ci) && !/\[\.\.\.db\.ventes\]/.test(ci)
+    && /const v = ventesDeLEspace\.find\(/.test(ci));
+  test("★ un technicien BMI de l'équipe voit le chantier où il intervient (comme le technicien à commission)",
+    /const estTechnicien = profile\.role === "technicien" \|\| profile\.role === "technicien_bmi";/.test(ci));
+  test("★ la légende ne dit plus que les techniciens voient tout le parc, et la fiche sans compte ne dit plus « ne pourra pas réceptionner »",
+    !/les techniciens et les chefs d'équipe voient tout le parc/.test(ci)
+    && /l'administrateur et les chefs d'équipe voient tout le parc/.test(ci)
+    && !/ne pourra pas réceptionner les travaux depuis l'application/.test(ci)
+    && /Il signera quand même le PV de réception, par le lien envoyé sur WhatsApp/.test(ci));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
