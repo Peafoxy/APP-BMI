@@ -4196,7 +4196,7 @@ lit mal est pire qu'un banc absent).
   (`tester-devis-chantiers`, **123**) le rejoue, LIT sa phrase de
   vérification (`VERIF32`, sans apostrophe), et éprouve les refus (pour un
   autre, déjà prise, un prospect ordinaire) ; éprouvé en ouvrant la porte à
-  tout prospect : deux essais tombent. **À coller par Timo.**
+  tout prospect : deux essais tombent. **Collé par Timo le 01/10/2026 (`true | true`).**
 - **« 🔆 Préparer le devis »** (sur sa fiche : admin ou commercial rattaché,
   `refuserSaufProprietaire` revérifié dans le geste) : les appareils sont
   **LUS dans le besoin** par la règle pure **`lib/besoinSolaire.js`**
@@ -4235,7 +4235,7 @@ lit mal est pire qu'un banc absent).
   tout prospect) : à chaque fois des contrôles tombent. `lib/prospects.js`
   et `lib/appareils.js` ne sont pas lisibles par Node : `scripts/_entree-prospects.mjs`
   les réunit par esbuild.
-- **Rien à coller à part `securite-32`** : `source`, `pris_le`, `pris_par_id`,
+- **Rien d'autre à coller que `securite-32` (collé le 01/10/2026)** : `source`, `pris_le`, `pris_par_id`,
   `client_user_id`, `devis_id` sont des champs de la fiche prospect.
 
 ### 🗣 L'ASSISTANT QUI DISCUTE — L'IA BRIDÉE PAR LES OUTILS ET PAR LE JUGE (niveau 3, 24/09/2026)
