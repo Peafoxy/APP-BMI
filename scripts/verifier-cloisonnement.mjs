@@ -12307,7 +12307,11 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   };
   const ongletsDe = (role) => {
     const m = app.match(BRANCHE[role]);
-    return m ? [...m[1].matchAll(/\["(\w+)",/g)].map((x) => x[1]) : null;
+    if (!m) return null;
+    // La branche est partagée par le commercial et le technicien : les
+    // onglets « ...(isTechnicien ? [...] : []) » ne sont pas au commercial.
+    const ligne = role === "commercial" ? m[1].replace(/\.\.\.\(isTechnicien \? \[\[[^\]]*\]\] : \[\]\)/g, "") : m[1];
+    return [...ligne.matchAll(/\["(\w+)",/g)].map((x) => x[1]);
   };
   const numerosChapitres = readdirSync("scripts/manuel").map((f) => f.match(/^chapitre-(\d+)\.mjs$/)).filter(Boolean).map((m) => Number(m[1]));
   const guides = readdirSync("scripts/manuel/guides").filter((f) => /^guide-.+\.mjs$/.test(f));
