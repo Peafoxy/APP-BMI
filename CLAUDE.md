@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 20 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 745 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI »)
+npm run verifier-whatsapp        # 764 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -4605,6 +4605,50 @@ lit mal est pire qu'un banc absent).
   dans le mémo, la garde du principal retirée) : chacune tombe. Quatre
   contrôles RETOURNÉS (cinq outils ; l'appel de la consigne avec le mémo ×3).
   Chapitres 20 et 23 du manuel à jour. Rien à coller dans Supabase.
+
+### 💧 L'ASSISTANT VOIT NOS MÉTIERS, LA FICHE DE TOUS LES ARTICLES, ET CHOISIT UNE POMPE (01/10/2026, « les 4 »)
+- Captures Timo (« Il y a des limites apparemment », conversation sur des
+  pompes de forage) : « pompe de forage » ne trouvait rien. Quatre causes,
+  quatre corrections, puis ses deux précisions : **« il faut qu'il accède à
+  nos domaines… qu'il renseigne d'une manière générale, ensuite
+  particulièrement lui faire des propositions par rapport à notre stock »** et
+  **« pas seulement la fiche des pompes… de tous les articles »**.
+- **Le métier** : `articlesPourAssistant` porte `metier` (le NOM du domaine
+  réglé, `nomsDesMetiers`, boutiques réelles), et `chercherArticles` le
+  cherche — « pompe forage » trouve les pompes rangées dans Forage. Les
+  métiers entrent dans la consigne **avec leurs familles**
+  (`domainesPourIA` — `metiersDesBoutiques` RETIRÉE).
+- **La fiche de TOUS les articles** (`ficheArticleAssistant`,
+  `CLES_FICHE_ASSISTANT`) : puissance, garanties boutique / fabricant,
+  conditions, lien de fiche technique ; profondeur, débit, hybride **pour une
+  pompe seulement** (la catégorie décide, `estPompe` — assistantWhatsapp.js
+  importe donc lib/pompes.js, sans import). Un champ vide ne part pas.
+  ⚠⚠ **JAMAIS** prix d'achat, fournisseur, `notes`, code-barres, seuil, stock
+  à atteindre, quantité (le banc lit les clés ET le texte rendu). Le débit part
+  sous le nom `debit_max_m3h_en_surface`. Le menu à chiffres montre la même
+  fiche (`ficheEnClair`).
+- **Les petits mots** : l'outil `chercher_article` passe la requête par
+  `motsUtiles` (la règle du menu) avant de chercher.
+- **Le sixième outil, `choisir_pompe`** : LA règle du volet du devis
+  (`etudePompe`, lib/pompes.js, option « A ») — niveau dynamique (exigé, le
+  foreur), réservoir, tuyau (frottements `pertes_tuyau_pct` des boutiques
+  réelles), litres par jour → hauteur et débit nécessaire, les pompes du stock
+  qui MONTENT assez haut (6 au plus, la plus juste d'abord), les trop courtes,
+  le nombre sans fiche, `AVERTISSEMENT_COURBE`. Le juge n'accepte que les prix
+  des pompes proposées. ⚠ **Jamais un débit promis à une hauteur** (consigne
+  + avertissement) ; le juge ne vérifie pas les m³/h, seulement les francs.
+- **La règle de Timo dans la consigne** : toute question dans nos métiers →
+  d'abord le conseil GÉNÉRAL, ENSUITE des articles précis de NOTRE stock
+  (chercher_article / choisir_pompe / estimer_solaire), puis une suite (total,
+  devis, conseiller).
+- Banc ㊸ (`verifier-whatsapp`, 19), éprouvé en remettant quatre fautes (le
+  métier non cherché, les petits mots gardés, la fiche de pompe sur tous les
+  articles, les notes internes transmises, la règle « général puis stock »
+  retirée) : chacune tombe. ⚠ Un refus de l'outil faisait PLANTER le banc
+  (JSON.parse) au lieu d'un ✗ : corrigé. Contrôles RETOURNÉS : six outils,
+  quatre imports de assistantIA, deux de assistantWhatsapp, les clés d'un
+  article (+ `metier`, un champ vide ne part plus), l'appel des métiers ×3.
+  Chapitres 8 et 20 à jour. Rien à coller dans Supabase.
 
 ### 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE SEULE FOIS (25/09/2026, « lance les deux »)
 - Captures Timo : « ce n'est pas agréable à regarder… tous les détails dans

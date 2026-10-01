@@ -1575,8 +1575,9 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   const articles = A.articlesPourAssistant({ produits: produitsA, boutiques: boutiquesA, ventes: ventesA, ajustements: ajustementsA });
   test("★★ LE MUR : un article d'une boutique de FORMATION n'est jamais cité",
     articles.length === 2 && articles.every((a) => a.boutique === "DEMAKPOE"));
-  test("★★ un article cité ne porte QUE nom, catégorie, boutique, prix, disponible (oui/non), tension, description (25/09/2026) — JAMAIS une quantité",
-    articles.every((a) => Object.keys(a).sort().join(",") === "boutique,categorie,description,disponible,nom,prix,tension")
+  // ⚠ RETOURNÉ le 01/10/2026 : + le métier (et la fiche quand elle est renseignée — contrôlée en ㊸).
+  test("★★ un article cité ne porte QUE nom, catégorie, métier, boutique, prix, disponible (oui/non), tension, description — JAMAIS une quantité",
+    articles.every((a) => Object.keys(a).sort().join(",") === "boutique,categorie,description,disponible,metier,nom,prix,tension")
     && articles.find((a) => a.nom.startsWith("Panneau")).disponible === true
     && articles.find((a) => a.nom.startsWith("Batterie")).disponible === false);
   test("★ le stock se calcule comme lib/calculs.js : initial + entrées − vendu + ajustements (10 + 2 − 5 − 1 = 6 ; 1 − 1 = 0)",
@@ -1634,8 +1635,10 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   test("★★ aucun texte de l'assistant ne parle de dette, de crédit ni de solde",
     [A.TEXTE_ACCUEIL, ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => choix(n).texte), rP.texte, rD1.texte, rD2.texte, A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "x" }).texte]
       .every((t) => !/dette|cr[ée]dit|solde|mot de passe|identifiant/i.test(t)));
-  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et son seul import est la règle commune de recherche",
-    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 1 && /from "\.\/suggestions\.js"/.test(codeA));
+  // ⚠ RETOURNÉ le 01/10/2026 : + la règle des pompes (sans import elle aussi), pour la fiche d'un article.
+  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses deux imports sont la règle commune de recherche et celle des pompes",
+    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 2 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
+    && !/^import /m.test(lire("src/lib/pompes.js")));
 
   // ── LA LIGNE QU'IL ÉCRIT
   const lg = A.ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "…", etape: A.ETAPE_MENU, ts: "2026-09-24T10:00:01.000Z" });
@@ -1849,13 +1852,14 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   // ── LES OUTILS : trois, et rien d'autre
   // ⚠ RETOURNÉ le 24/09/2026 : un quatrième outil, estimer_solaire
   // (décisions de Timo « 1 valeur par défaut, 2 en fourchette, 3 solaire »).
-  test("★★ cinq outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, passer la main — chacun avec son schéma",
-    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,passer_conseiller"
+  test("★★ six outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,passer_conseiller"
     && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
   const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
+  // ⚠ RETOURNÉ le 01/10/2026 : un champ VIDE (ici la tension) ne part plus — on n'écrit pas « tension : ».
   test("★★ chercher_article passe par LA règle de recherche et rend prix, disponible (oui/non), boutique — JAMAIS une quantité",
     cherche.effets.prix.join() === "85000" && /"disponible":true/.test(cherche.resultat) && /"prix_fcfa":85000/.test(cherche.resultat)
-    && !/qte|quantite|stock"/.test(cherche.resultat) && Object.keys(JSON.parse(cherche.resultat)[0]).sort().join(",") === "boutique,categorie,disponible,nom,prix_fcfa,tension");
+    && !/qte|quantite|stock"/.test(cherche.resultat) && Object.keys(JSON.parse(cherche.resultat)[0]).sort().join(",") === "boutique,categorie,disponible,nom,prix_fcfa");
   test("★ un article introuvable : l'outil le DIT et interdit d'inventer un prix",
     /Aucun article trouvé/.test(I.executerOutil("chercher_article", { recherche: "tondeuse" }, ctx).resultat) && /Ne pas inventer de prix/.test(I.executerOutil("chercher_article", { recherche: "tondeuse" }, ctx).resultat));
   test("★★ enregistrer_demande_devis refuse sans besoin, refuse sans nom pour un inconnu, prend le nom du COMPTE pour un client connu",
@@ -1960,8 +1964,9 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && !/api\.anthropic\.com/.test(entrantI) && !/api\.anthropic\.com/.test(codeI));
   // ⚠ RETOURNÉ le 24/09/2026 : l'estimation lit LA lecture des appareils et
   // LE calcul de l'application — trois imports, tous des règles sans réseau.
-  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, trois imports (assistant à menu, lecture des appareils, choix du matériel)",
-    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 3
+  // ⚠ RETOURNÉ le 01/10/2026 : + la règle des pompes (choisir_pompe).
+  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, quatre imports (assistant à menu, lecture des appareils, choix du matériel, pompes)",
+    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 4 && /from "\.\/pompes\.js"/.test(codeI)
     && /from "\.\/assistantWhatsapp\.js"/.test(codeI) && /from "\.\/besoinSolaire\.js"/.test(codeI) && /from "\.\/choixSolaire\.js"/.test(codeI));
 
   // ── LE SERVEUR : l'IA d'abord, le menu en repli, et rien d'écrit avant l'envoi
@@ -1971,8 +1976,8 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
   // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
-    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
-    && /executerOutil\(nom, entree, \{[^}]*?articles: nom === "chercher_article" \|\| nom === "calculer_total" \? await chargerArticles\(\) : \[\],/.test(corpsR)
+    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    && /executerOutil\(nom, entree, \{[^}]*?articles: \["chercher_article", "calculer_total", "choisir_pompe"\]\.includes\(nom\) \? await chargerArticles\(\) : \[\],/.test(corpsR)
     && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
   test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA comprise : un seul envoi YCloud, APRÈS l'IA et le menu, AVANT toute écriture",
@@ -2177,7 +2182,7 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     && I.reponseDepuisIA({ texte: "Bonjour 👋 Je ne peux pas lire les vidéos.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === `${I.PHRASE_PRESENTATION}\n\nJe ne peux pas lire les vidéos.`
     && I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === I.PHRASE_PRESENTATION
     && I.reponseDepuisIA({ texte: "Bonjour Kossi", effets: { prix: [] }, juge: { ok: true }, nouvelle: false }).texte === "Bonjour Kossi"
-    && /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
+    && /consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
   test("★ LA QUANTITÉ SE DEMANDE : pour le solaire, la consigne exige le NOMBRE de chaque appareil avant d'estimer, et interdit de supposer qu'il y en a un seul",
     /COMBIEN il y en a \(le nombre\)/.test(I.CONSIGNE_IA) && /Ne suppose jamais qu'il y en a un seul/.test(I.CONSIGNE_IA));
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
@@ -2337,10 +2342,11 @@ titre("㊳ L'ASSISTANT NE DIT JAMAIS CE QUE BMI NE FAIT PAS (30/09/2026, capture
     /Que BMI TOGO NE FAIT PAS quelque chose/.test(I.CONSIGNE_IA) && /forage, pompe/.test(I.CONSIGNE_IA));
   test("★★ les métiers réglés dans l'application entrent dans la consigne — boutiques RÉELLES seulement (le mur)",
     (() => { const bq = [{ nom: "F", formation: true, domaines: [{ nom: "Entraînement" }] }, { nom: "R", domaines: [{ nom: "Solaire" }, { nom: "Forage" }] }];
-      const m = I.metiersDesBoutiques(bq); const c = I.consignePour({ metiers: m });
-      return m.join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION : Solaire, Forage/.test(c); })());
+      // ⚠ RETOURNÉ le 01/10/2026 (« il faut qu'il accède à nos domaines ») : les métiers arrivent AVEC leurs familles.
+      const m = I.domainesPourIA(bq); const c = I.consignePour({ metiers: m });
+      return m.map((d) => d.nom).join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION, avec leurs familles d'articles : Solaire ; Forage/.test(c) && !/Entraînement/.test(c); })());
   test("★ le serveur les passe à la consigne",
-    /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
+    /consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -3347,6 +3353,86 @@ titre("㊷ L'ASSISTANT DONNE UN TOTAL CALCULÉ PAR L'APPLICATION, ET CONSEILLE S
     && /data-reglage="choix-bmi"/.test(par) && /jeSuisPrincipal && <button onClick=\{enregistrerMemo\}/.test(par));
   test("★ le serveur passe le mémo à la consigne",
     /memo: memoAssistant\(boutiques\)/.test(lire("api/whatsapp-entrant.js")));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㊸ L'ASSISTANT VOIT NOS MÉTIERS ET LA FICHE DE TOUS LES ARTICLES, ET CHOISIT UNE POMPE (01/10/2026, « les 4 »)");
+// Captures Timo : « pompe de forage » ne trouvait rien (le métier n'était ni
+// transmis ni cherché), la fiche des pompes n'arrivait pas à l'IA, sa requête
+// gardait les petits mots, et aucun outil ne choisissait une pompe. Puis :
+// « pas seulement la fiche des pompes… de tous les articles ».
+{
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const boutiques = [
+    { nom: "DEMAKPOE", domaines: [{ id: "solaire", nom: "Solaire", familles: ["Panneaux solaires"] }, { id: "forage", nom: "Forage", familles: ["Pompe", "Tuyaux"] }] },
+    { nom: "ECOLE", formation: true, domaines: [{ id: "x", nom: "Entraînement" }] },
+  ];
+  const produits = [
+    { id: "q1", nom: "Pompe immergée 4SP 60", categorie: "Pompe", domaine: "forage", boutique: "DEMAKPOE", prix_vente: 350000, initial: 2, puissance_kw: 0.75, profondeur_max_m: 60, debit_max_m3h: 3, hybride: true, garantie_boutique: "1 an", prix_achat: 200000, fournisseur: "SECRET FOURNISSEUR", notes: "remise fournisseur 10 %", code: "123456", seuil: 1, fiche_technique: "https://exemple.com/4sp60.pdf" },
+    { id: "q2", nom: "Pompe immergée 4SP 120", categorie: "Pompe", domaine: "forage", boutique: "DEMAKPOE", prix_vente: 650000, initial: 0, puissance_kw: 1.5, profondeur_max_m: 120, debit_max_m3h: 2 },
+    { id: "q3", nom: "Pompe de surface 30", categorie: "Pompe", domaine: "forage", boutique: "DEMAKPOE", prix_vente: 90000, initial: 1, profondeur_max_m: 30 },
+    { id: "q4", nom: "Pompe sans fiche", categorie: "Pompe", domaine: "forage", boutique: "DEMAKPOE", prix_vente: 100000, initial: 1 },
+    { id: "t1", nom: "Tuyau PEHD 32", categorie: "Tuyaux", domaine: "forage", boutique: "DEMAKPOE", prix_vente: 1500, initial: 100, profondeur_max_m: 99, garantie_fabricant: "6 mois" },
+    { id: "e1", nom: "Pompe entraînement", categorie: "Pompe", domaine: "x", boutique: "ECOLE", prix_vente: 1, initial: 9, profondeur_max_m: 500 },
+  ];
+  const articles = A.articlesPourAssistant({ produits, boutiques });
+  const p60 = articles.find((a) => a.nom.includes("60"));
+  test("★★ le MÉTIER arrive par son nom réglé dans ⚙ Paramètres (« forage » → « Forage »)", p60.metier === "Forage");
+  test("★★ la fiche de TOUS les articles passe : puissance, garanties, lien de fiche technique (le tuyau a sa garantie fabricant)",
+    p60.puissance_kw === 0.75 && p60.garantie_boutique === "1 an" && p60.fiche_technique === "https://exemple.com/4sp60.pdf"
+    && articles.find((a) => a.nom.startsWith("Tuyau")).garantie_fabricant === "6 mois");
+  test("★★ profondeur, débit, hybride : POMPE seulement (c'est la catégorie qui décide — le tuyau n'a pas de profondeur)",
+    p60.profondeur_max_m === 60 && p60.debit_max_m3h === 3 && p60.hybride === true
+    && articles.find((a) => a.nom.startsWith("Tuyau")).profondeur_max_m === undefined);
+  const interdites = ["prix_achat", "fournisseur", "notes", "code", "seuil", "stock_cible", "initial", "entrees", "qte", "quantite"];
+  test("★★ JAMAIS : prix d'achat, fournisseur, notes internes, code-barres, seuil, quantité — ni dans la liste, ni dans ce que l'IA reçoit",
+    articles.every((a) => interdites.every((k) => !(k in a)))
+    && (() => { const r = I.executerOutil("chercher_article", { recherche: "pompe" }, { articles }).resultat; return !/SECRET|remise fournisseur|200000|123456/.test(r); })());
+  test("★★ LE MUR : la pompe d'une boutique de FORMATION n'existe pas pour l'assistant", !articles.some((a) => a.boutique === "ECOLE"));
+
+  const ch = I.executerOutil("chercher_article", { recherche: "je veux une pompe de forage" }, { articles });
+  // Un refus de l'outil est du texte : il doit donner un ✗ lisible, pas arrêter le banc.
+  const lus = (() => { try { return JSON.parse(ch.resultat); } catch { return []; } })();
+  test("★★ « je veux une pompe de forage » trouve les pompes : petits mots retirés, métier cherché",
+    lus.length === 4 && lus.every((a) => a.metier === "Forage" && /Pompe/.test(a.nom)));
+  test("★★ l'IA lit la fiche : le débit est dit EN SURFACE (jamais « débit » tout court)",
+    lus.find((a) => a.nom.includes("60"))?.debit_max_m3h_en_surface === 3 && !lus.some((a) => "debit_max_m3h" in a));
+  test("★ le menu à chiffres montre la fiche aussi (« jusqu'à 60 m », « en surface », garantie)",
+    /jusqu'à 60 m · débit max 3 m³\/h \(en surface\) · hybride · garantie : 1 an/.test(A.texteArticles("pompe", [p60])));
+
+  // 💧 choisir_pompe
+  const ok = I.executerOutil("choisir_pompe", { niveau_dynamique_m: 45, hauteur_reservoir_m: 8, longueur_tuyau_m: 60, litres_par_jour: 3000 }, { articles, pertesPct: 5 });
+  const r = (() => { try { return JSON.parse(ok.resultat); } catch { return { pompes_qui_montent_assez_haut: [], pompes_trop_courtes: [] }; } })();
+  test("★★ 45 m + 8 m + 3 m (5 % de 60 m) = 56 m ; 3 000 L ÷ 6 h = 0,5 m³/h — LA règle du volet du devis",
+    r.hauteur_a_faire_monter_m === 56 && r.debit_necessaire_m3h === 0.5);
+  test("★★ seules les pompes qui MONTENT assez haut, la plus juste d'abord ; les trop courtes nommées ; la non renseignée comptée",
+    r.pompes_qui_montent_assez_haut.map((a) => a.nom).join("|") === "Pompe immergée 4SP 60|Pompe immergée 4SP 120"
+    && r.pompes_trop_courtes.length === 1 && /surface 30/.test(r.pompes_trop_courtes[0]) && r.pompes_sans_fiche === 1);
+  test("★★ le tuyau (profondeur saisie par erreur) n'est JAMAIS une pompe ; la pompe de formation non plus",
+    !/Tuyau|entraînement/.test(ok.resultat));
+  test("★★ le juge n'accepte que les prix des pompes proposées",
+    ok.effets.prix.join() === "350000,650000");
+  test("★★ jamais un débit promis à cette hauteur : l'avertissement de la courbe part avec la réponse",
+    /ne donne pas son débit maximal à sa profondeur maximale/.test(r.a_dire_au_client) && /Ne JAMAIS promettre un débit/.test(r.consigne));
+  const sansNiveau = I.executerOutil("choisir_pompe", { litres_par_jour: 3000 }, { articles });
+  test("★★ sans le NIVEAU DYNAMIQUE : refus, dit pourquoi (le foreur), AUCUN prix permis",
+    /niveau dynamique/.test(sansNiveau.resultat) && /foreur/.test(sansNiveau.resultat) && sansNiveau.effets.prix.length === 0);
+  test("★ sans pompe assez haute : on le DIT, rien d'inventé",
+    (() => { const x = JSON.parse(I.executerOutil("choisir_pompe", { niveau_dynamique_m: 200, litres_par_jour: 1000 }, { articles }).resultat);
+      return x.pompes_qui_montent_assez_haut.length === 0 && /Aucune pompe/.test(x.consigne); })());
+
+  // La consigne
+  test("★★ LA RÈGLE DE TIMO : d'abord renseigner de manière générale, ENSUITE proposer des articles de NOTRE stock",
+    /d'abord tu RENSEIGNES le client de manière générale/.test(I.CONSIGNE_IA) && /ENSUITE tu passes au PARTICULIER/.test(I.CONSIGNE_IA)
+    && /PROPOSES des articles précis de BMI TOGO/.test(I.CONSIGNE_IA));
+  test("★★ la consigne : pour une pompe, le niveau dynamique d'abord, et jamais un débit promis à une profondeur",
+    /NIVEAU DE L'EAU PENDANT LE POMPAGE/.test(I.CONSIGNE_IA) && /Tu ne promets JAMAIS un débit à une profondeur donnée/.test(I.CONSIGNE_IA));
+  test("★★ les métiers arrivent dans la consigne AVEC leurs familles (« Forage (Pompe, Tuyaux) »), boutiques réelles seulement",
+    /Forage \(Pompe, Tuyaux\)/.test(I.consignePour({ metiers: I.domainesPourIA(boutiques) })) && !/Entraînement/.test(I.consignePour({ metiers: I.domainesPourIA(boutiques) })));
+  test("★ le serveur donne à choisir_pompe le MÊME stock et les frottements réglés (boutiques réelles)",
+    /\["chercher_article", "calculer_total", "choisir_pompe"\]\.includes\(nom\) \? await chargerArticles\(\)/.test(lire("api/whatsapp-entrant.js"))
+    && /pertesPct: \(reelles\.find\(\(b\) => Number\(b\.pertes_tuyau_pct\) > 0\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

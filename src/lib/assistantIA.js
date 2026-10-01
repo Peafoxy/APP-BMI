@@ -31,7 +31,11 @@
 // ⚠ LE MUR : comme lib/assistantWhatsapp.js, ce fichier ne reçoit JAMAIS
 // `db` — des listes déjà filtrées (les articles des boutiques RÉELLES).
 // ============================================================
-import { NOM_ASSISTANT, SIGNATURE_BMI, LIGNES_MENU, chercherArticles, construireDemandeDevis, ETAPE_CONSEILLER, texteDemandeEnregistree, TEXTE_RELAIS_CONSEILLER } from "./assistantWhatsapp.js";
+import { NOM_ASSISTANT, SIGNATURE_BMI, LIGNES_MENU, chercherArticles, construireDemandeDevis, ETAPE_CONSEILLER, texteDemandeEnregistree, TEXTE_RELAIS_CONSEILLER, motsUtiles, CLES_FICHE_ASSISTANT } from "./assistantWhatsapp.js";
+// 💧 Le choix d'une pompe (01/10/2026, « les 4 ») : LA règle du volet du
+// devis (option « A » du 20/09), jamais une copie — elle dit quelles pompes
+// MONTENT assez haut, et ne promet jamais un débit à une hauteur donnée.
+import { etudePompe, AVERTISSEMENT_COURBE, PERTES_PCT_DEFAUT } from "./pompes.js";
 // L'estimation solaire (24/09/2026, décisions « 1 valeur par défaut, 2 en
 // fourchette, 3 solaire ») : la lecture des appareils et le calcul sont
 // LES règles de l'application, jamais une copie.
@@ -103,9 +107,10 @@ ${activites}
 - 🧾 Devis, établis par un vendeur de BMI TOGO — tu enregistres la DEMANDE par l'outil enregistrer_demande_devis.
 - ☀️ Pour le solaire seulement, une ESTIMATION indicative en fourchette — par l'outil estimer_solaire.
 - 🔧 SAV et assistance technique, et 👨‍💼 conseillers — par l'outil passer_conseiller.
+- 💧 Pour un forage : le choix d'une pompe d'après le niveau de l'eau et le besoin en eau — par l'outil choisir_pompe.
 
 CE QUE TU AS LE DROIT DE DIRE
-- Le prix, la disponibilité (« disponible » ou « sur commande ») et les caractéristiques d'un article, UNIQUEMENT tels que l'outil chercher_article te les donne. Tu recopies le prix exactement, tu ne l'arrondis pas, tu ne le convertis pas.
+- Le prix, la disponibilité (« disponible » ou « sur commande ») et les caractéristiques d'un article (métier, catégorie, tension, puissance, profondeur et débit d'une pompe, hybride, garanties, lien de la fiche technique, description), UNIQUEMENT tels que l'outil chercher_article te les donne. Tu recopies le prix exactement, tu ne l'arrondis pas, tu ne le convertis pas.
 - UN TOTAL pour une quantité ou pour plusieurs articles (« combien pour 3 panneaux et 2 batteries ? »), UNIQUEMENT par l'outil calculer_total, que tu recopies tel quel : tu ne fais JAMAIS une multiplication ni une addition toi-même. Ce total est INDICATIF : articles seuls, hors pose et transport, au prix du stock d'une boutique — ce n'est pas un devis.
 - Présenter les activités de BMI TOGO avec les mots ci-dessus.
 - Poser des questions pour comprendre le besoin (appareils à alimenter, heures d'utilisation, ville ou quartier) avant d'enregistrer une demande de devis.
@@ -124,11 +129,13 @@ CE QUE TU NE DIS JAMAIS
 - Une opinion sur un concurrent, une information sur un autre client, un avis médical, juridique ou financier.
 
 COMMENT TU T'Y PRENDS
+- ⭐ LA RÈGLE DE BMI TOGO POUR TOUTE QUESTION DANS SES MÉTIERS : d'abord tu RENSEIGNES le client de manière générale (comment ça marche, ce qu'il faut regarder, les questions à se poser) ; ENSUITE tu passes au PARTICULIER : tu cherches dans NOTRE stock avec chercher_article (ou choisir_pompe, estimer_solaire) et tu lui PROPOSES des articles précis de BMI TOGO qui répondent à son besoin, avec leur prix et leur disponibilité tels que l'outil les donne. Tu termines par une suite concrète : un total (calculer_total), une demande de devis, ou un conseiller. Ne t'arrête jamais au conseil général quand le stock peut répondre.
 - Si le client demande ce que fait BMI TOGO (« que faites-vous ? », « vos services ? », « vous faites quoi ? ») : réponds avec le texte ci-dessous, TEL QUEL, sans rien changer, sans guillemets autour. C'est la seule réponse qui peut dépasser 6 lignes.
 ---
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
-- Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
+- Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium », « pompe forage ») — le métier compte aussi (« forage » trouve les articles rangés dans le métier Forage). S'il ne trouve rien, essaie un mot plus court ou plus général (« pompe », « batterie »), puis dis-le et propose un autre nom ou un conseiller.
+- Pour une POMPE de forage : demande au client le NIVEAU DE L'EAU PENDANT LE POMPAGE (le niveau dynamique — c'est le foreur qui le donne, ce n'est pas la profondeur du forage), la hauteur du réservoir au-dessus du sol, la longueur de tuyau, et son besoin en eau en litres par jour. Puis appelle choisir_pompe. Tu proposes les pompes qu'il rend. ⚠ Tu ne promets JAMAIS un débit à une profondeur donnée : une pompe ne donne pas son débit maximal à sa profondeur maximale (le débit max se mesure en surface). Le débit réel à sa hauteur se lit sur la fiche du fabricant, et un conseiller le confirme. Sans le niveau dynamique, tu ne choisis pas de pompe : tu expliques pourquoi il le faut.
 - Pour un total : appelle d'abord chercher_article pour connaître le nom exact de chaque article, puis calculer_total avec ces noms EXACTS et les quantités dites par le client (s'il n'a pas dit combien, demande-le). Recopie la phrase de l'outil sans changer un chiffre, sans guillemets autour. Si l'outil refuse, dis ce qui manque — ne donne aucun chiffre.
 - Si l'outil rend une « description » pour un article, c'est BMI TOGO qui l'a écrite : tu peux la redire pour expliquer ce qu'est l'article et à quoi il sert, sans rien y ajouter. Sans description, tu ne décris pas l'article au-delà de son nom.
 - Si le client veut t'apprendre quelque chose sur un produit : dis que tu ne retiens rien d'une conversation à l'autre, mais que l'équipe BMI TOGO peut l'ajouter à la fiche du produit.
@@ -153,9 +160,18 @@ export const consignePour = ({ client = null, nouvelle = false, metiers = [], me
     : "LA SALUTATION : la conversation est en cours. Ne redis pas bonjour à chaque message.";
   // Les MÉTIERS réglés dans l'application (⚙ Paramètres → domaines, boutiques
   // réelles) : un métier ajouté par Timo (Forage…) se dit sans toucher au code.
-  const noms = (metiers || []).map((m) => String(m || "").trim()).filter(Boolean);
+  // 01/10/2026 (« il faut qu'il accède à nos domaines ») : un métier peut
+  // venir avec ses FAMILLES d'articles (« Forage : Pompe, Tuyaux… »).
+  const noms = (metiers || []).map((m) => {
+    if (m && typeof m === "object") {
+      const nomM = String(m.nom || "").trim();
+      const fam = (m.familles || []).map((f) => String(f || "").trim()).filter(Boolean);
+      return nomM ? (fam.length ? `${nomM} (${fam.join(", ")})` : nomM) : "";
+    }
+    return String(m || "").trim();
+  }).filter(Boolean);
   const met = noms.length
-    ? `\n\nLES MÉTIERS DE BMI TOGO RÉGLÉS DANS L'APPLICATION : ${noms.join(", ")}. Ce sont des métiers de BMI TOGO : tu n'en exclus aucun.`
+    ? `\n\nLES MÉTIERS DE BMI TOGO RÉGLÉS DANS L'APPLICATION, avec leurs familles d'articles : ${noms.join(" ; ")}. Ce sont des métiers de BMI TOGO : tu n'en exclus aucun, tu peux y donner un conseil général, puis chercher dans le stock (le nom du métier ou de la famille est un bon mot de recherche).`
     : "";
   // 📝 « Nos choix BMI » (01/10/2026, « lance les deux ») : écrits par la
   // direction dans ⚙ Paramètres. Ils PRIMENT sur le conseil général.
@@ -185,7 +201,7 @@ export function sansSalutation(texte, nom = "") {
 export const OUTILS_IA = [
   {
     name: "chercher_article",
-    description: "Cherche des articles dans le stock des boutiques BMI TOGO par leur nom (marque, puissance, catégorie). Rend pour chacun : nom, catégorie, boutique, prix en francs CFA, disponible (true) ou sur commande (false), tension, et une description écrite par BMI TOGO (ce que l'article est, à quoi il sert) quand elle existe. Cherche aussi dans cette description : « moteur rideau » trouve un moteur central décrit ainsi. Ne rend jamais la quantité en stock.",
+    description: "Cherche des articles dans le stock des boutiques BMI TOGO par leur nom (marque, puissance, catégorie) ou leur métier (solaire, forage, garage…). Rend pour chacun : nom, catégorie, métier, boutique, prix en francs CFA, disponible (true) ou sur commande (false), et ce que la fiche porte quand c'est renseigné : tension, puissance (kW), pour une pompe la profondeur maximale (m), le débit maximal en surface (m³/h) et si elle est hybride, les garanties, le lien de la fiche technique, et une description écrite par BMI TOGO (ce que l'article est, à quoi il sert). Cherche aussi dans cette description : « moteur rideau » trouve un moteur central décrit ainsi. Ne rend jamais la quantité en stock.",
     input_schema: {
       type: "object",
       properties: { recherche: { type: "string", description: "Les mots utiles, par exemple « panneau 400 » ou « batterie lithium »" } },
@@ -233,6 +249,20 @@ export const OUTILS_IA = [
         boutique: { type: "string", description: "Facultatif : la boutique dont on veut les prix" },
       },
       required: ["lignes"],
+    },
+  },
+  {
+    name: "choisir_pompe",
+    description: "Pour un forage : calcule avec la règle de BMI TOGO la hauteur que la pompe doit faire monter (niveau dynamique + réservoir + frottements du tuyau, estimés) et le débit nécessaire, puis rend les pompes du stock qui MONTENT assez haut (la plus juste d'abord), avec leur prix et leur disponibilité, et celles qui sont trop courtes. Ne promet jamais un débit à cette hauteur. Refuse sans le niveau dynamique ou sans le besoin en eau, et dit quoi demander.",
+    input_schema: {
+      type: "object",
+      properties: {
+        niveau_dynamique_m: { type: "number", description: "Le niveau de l'eau PENDANT le pompage, en mètres (donné par le foreur ; ce n'est pas la profondeur du forage)" },
+        hauteur_reservoir_m: { type: "number", description: "La hauteur du réservoir au-dessus du sol, en mètres (0 si pas de château d'eau)" },
+        longueur_tuyau_m: { type: "number", description: "La longueur de tuyau de la pompe au réservoir, en mètres (0 si inconnue)" },
+        litres_par_jour: { type: "number", description: "Le besoin en eau par jour, en litres" },
+      },
+      required: ["niveau_dynamique_m", "litres_par_jour"],
     },
   },
   {
@@ -381,16 +411,63 @@ export function critiqueMemoAssistant(texte) {
   return "";
 }
 
+// Ce qu'un article dit à l'IA : la fiche entière que le client peut lire
+// (01/10/2026, « pas seulement la fiche des pompes… de tous les articles »),
+// rien d'autre — jamais la quantité, jamais un prix d'achat, jamais les notes
+// internes (articlesPourAssistant ne les a déjà pas).
+export function articlePourIA(a) {
+  const o = { nom: a.nom, categorie: a.categorie, ...(a.metier ? { metier: a.metier } : {}), boutique: a.boutique, prix_fcfa: a.prix, disponible: a.disponible, ...(a.tension ? { tension: a.tension } : {}) };
+  for (const k of CLES_FICHE_ASSISTANT) if (a[k] !== undefined && a[k] !== "" && a[k] !== false) o[k] = a[k];
+  // Le débit d'une pompe se lit EN SURFACE (règle du 20/09) : le nom le dit.
+  if (o.debit_max_m3h) { o.debit_max_m3h_en_surface = o.debit_max_m3h; delete o.debit_max_m3h; }
+  if (a.description) o.description = a.description;
+  return o;
+}
+
+// Les métiers réglés (boutiques RÉELLES), avec leurs familles d'articles.
+export const domainesPourIA = (boutiques) => {
+  const b = (boutiques || []).find((x) => x && !x.formation && Array.isArray(x.domaines) && x.domaines.length);
+  return b ? b.domaines.filter((d) => d && d.nom).map((d) => ({ nom: d.nom, familles: Array.isArray(d.familles) ? d.familles : [] })) : [];
+};
+
 export function executerOutil(nom, entree = {}, contexte = {}) {
   const e = entree || {};
   if (nom === "chercher_article") {
-    const trouves = chercherArticles(contexte.articles || [], String(e.recherche || ""));
+    // Les petits mots (« je veux une pompe de forage ») sont retirés avant
+    // de chercher, par LA règle du menu (01/10/2026) — sinon une phrase
+    // entière ne trouve presque jamais rien.
+    const brut = String(e.recherche || "");
+    const trouves = chercherArticles(contexte.articles || [], motsUtiles(brut) || brut);
     return {
       resultat: trouves.length
-        ? JSON.stringify(trouves.map((a) => ({ nom: a.nom, categorie: a.categorie, boutique: a.boutique, prix_fcfa: a.prix, disponible: a.disponible, tension: a.tension, ...(a.description ? { description: a.description } : {}) })))
-        : "Aucun article trouvé pour cette recherche. Ne pas inventer de prix : proposer un autre nom ou un conseiller.",
+        ? JSON.stringify(trouves.map(articlePourIA))
+        : "Aucun article trouvé pour cette recherche. Essayer un mot plus court ou plus général. Ne pas inventer de prix : proposer un autre nom ou un conseiller.",
       effets: { prix: trouves.map((a) => a.prix), demandeDevis: null, conseiller: false },
     };
+  }
+  if (nom === "choisir_pompe") {
+    const pompes = (contexte.articles || []).filter((a) => a && /pompe/i.test(String(a.categorie || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+    const saisie = {
+      niveauDynamique: e.niveau_dynamique_m, hauteurReservoir: e.hauteur_reservoir_m,
+      longueurTuyau: e.longueur_tuyau_m, litresParJour: e.litres_par_jour,
+      pctPertes: Number(contexte.pertesPct) > 0 ? Number(contexte.pertesPct) : PERTES_PCT_DEFAUT,
+    };
+    const et = etudePompe(pompes, saisie);
+    if (et.refus) return { resultat: `Pas de choix de pompe. ${et.refus} Ne donner AUCUN chiffre de pompe.`, effets: { prix: [], demandeDevis: null, conseiller: false } };
+    const conviennent = et.conviennent.slice(0, 6);
+    const resultat = {
+      hauteur_a_faire_monter_m: et.hmt,
+      detail: `eau ${et.eau} m + réservoir ${et.reservoir} m + frottements estimés ${et.pertes} m`,
+      debit_necessaire_m3h: et.debit,
+      pompes_qui_montent_assez_haut: conviennent.map(articlePourIA),
+      pompes_trop_courtes: et.tropCourtes.slice(0, 4).map((a) => `${a.nom} (jusqu'à ${a.profondeur_max_m} m)`),
+      pompes_sans_fiche: et.sansFiche.length,
+      a_dire_au_client: AVERTISSEMENT_COURBE.replace("Avant de promettre un débit au client, vérifiez-le", "Le débit réel à cette hauteur se vérifie"),
+      consigne: conviennent.length
+        ? "Proposer ces pompes (la première est la plus juste). Ne JAMAIS promettre un débit à cette hauteur : le débit max est celui en surface. Un conseiller confirme avec la fiche du fabricant."
+        : "Aucune pompe renseignée du stock ne monte assez haut. Le dire, ne rien inventer, proposer une demande de devis ou un conseiller.",
+    };
+    return { resultat: JSON.stringify(resultat), effets: { prix: conviennent.map((a) => a.prix), demandeDevis: null, conseiller: false } };
   }
   if (nom === "enregistrer_demande_devis") {
     const nomClient = String(contexte.client?.nom || e.nom || "").trim();
@@ -480,12 +557,6 @@ export function montantsCites(texte) {
 // inventer un fait de BMI : la réponse est JETÉE et un conseiller prend le
 // relais (il confirme, lui).
 export const METIER_NIE = /ne (?:fait|font) pas partie (?:de nos|des) (?:services|activit[ée]s|m[ée]tiers)|(?:nous|BMI(?: TOGO)?) ne (?:faisons|proposons|fait|propose|traitons|traite|r[ée]alisons|r[ée]alise|vendons|vend|installons|installe) pas|(?:n'est|ne sont) pas (?:dans|parmi) nos (?:services|activit[ée]s|m[ée]tiers|domaines)|(?:hors|en dehors) de nos (?:services|activit[ée]s|m[ée]tiers|domaines)/i;
-
-// Les noms des métiers réglés sur les boutiques RÉELLES (le mur), sinon rien.
-export const metiersDesBoutiques = (boutiques) => {
-  const b = (boutiques || []).find((x) => x && !x.formation && Array.isArray(x.domaines) && x.domaines.length);
-  return b ? b.domaines.map((d) => d && d.nom).filter(Boolean) : [];
-};
 
 export function garderReponse(texte, { prixConnus = [] } = {}) {
   const t = String(texte || "").trim();

@@ -127,6 +127,8 @@ export const CHAPITRE = {
         "Quand le client demande une personne, la ligne porte « **👨‍💼 Attend un conseiller depuis 12 min** » et le fil une bande ambre. **Répondez-lui** : la bande disparaît dès qu'une personne écrit.",
         "Une demande de devis prise par l'assistant arrive dans 🧲 Prospects (chapitre 4).",
         "En conversation par IA, il peut donner **un total** (« 3 panneaux 400 W ») : c'est **l'application** qui le calcule au prix du stock, boutique par boutique, **articles seuls, hors pose et transport** — jamais l'IA. Il conseille selon **« Nos choix BMI »** quand la direction les a écrits (chapitre 23), sinon en général.",
+        "**Pour toute question dans nos métiers**, il renseigne d'abord le client **de manière générale**, puis il **propose des articles de notre stock** (prix et « disponible / sur commande » tels que la fiche les donne) et une suite : un total, une demande de devis ou un conseiller. Il connaît **nos métiers et leurs familles** réglés dans ⚙ Paramètres (« Forage : Pompe, Tuyaux… ») et **la fiche de chaque article** (chapitre 8) — jamais le prix d'achat, le fournisseur ni les notes internes.",
+        "**Pour une pompe de forage**, il demande le **niveau de l'eau pendant le pompage** (donné par le foreur), la hauteur du réservoir, la longueur de tuyau et le besoin en litres par jour ; l'application calcule la hauteur à faire monter (avec les frottements réglés dans ⚙ Paramètres) et il propose **les pompes du stock qui montent assez haut**. Il ne promet **jamais un débit à une profondeur** : le débit maximal d'une fiche est celui en surface. Une pompe dont la profondeur maximale n'est pas renseignée n'est pas proposée.",
       ]],
     ]},
 

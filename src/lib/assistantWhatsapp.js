@@ -54,6 +54,9 @@
 // Le banc (`npm run verifier-whatsapp`) exerce ces règles pour de vrai.
 // ============================================================
 import { correspond, sansAccents } from "./suggestions.js";
+// La règle des pompes (sans import elle aussi) : c'est la CATÉGORIE qui fait
+// une pompe, jamais le nom — même règle que 📦 Stocks.
+import { estPompe } from "./pompes.js";
 
 export const NOM_ASSISTANT = "Assistant BMI TOGO";
 // Le `de_id` des lignes qu'il écrit : jamais celui d'une personne.
@@ -229,15 +232,54 @@ export function stockDepuisLignes(p, ventes = [], ajustements = []) {
 export const NOTE_ASSISTANT_MAX = 400;
 export const noteAssistantDe = (p) => String(p?.note_assistant || "").trim().slice(0, NOTE_ASSISTANT_MAX);
 
+// ---- LA FICHE D'UN ARTICLE, TELLE QUE L'ASSISTANT PEUT LA DIRE (01/10/2026) ----
+// Timo : « pas seulement la fiche des pompes… mais de tous les articles… il
+// faut qu'il y accède ». Tout ce que la fiche porte et qui PEUT être dit à un
+// client passe ; un champ vide ne passe pas (on n'écrit pas « garantie : »).
+// ⚠⚠ JAMAIS : le prix d'achat, le fournisseur, les « Notes internes »
+// (`notes`), le code-barres, la quantité, le seuil, le stock à atteindre —
+// le banc lit les clés rendues et tombe si l'une d'elles apparaît.
+// ⚠ Les trois renseignements propres à une pompe (profondeur, débit,
+// hybride) ne passent QUE pour une pompe : c'est la catégorie qui décide.
+const nbPos = (v) => (Number(v) > 0 ? Number(v) : 0);
+const texteCourt = (v, max = 300) => String(v || "").trim().slice(0, max);
+export const CLES_FICHE_ASSISTANT = ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "hybride", "garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"];
+export function ficheArticleAssistant(p) {
+  const f = {};
+  if (nbPos(p?.puissance_kw)) f.puissance_kw = nbPos(p.puissance_kw);
+  if (estPompe(p)) {
+    if (nbPos(p.profondeur_max_m)) f.profondeur_max_m = nbPos(p.profondeur_max_m);
+    if (nbPos(p.debit_max_m3h)) f.debit_max_m3h = nbPos(p.debit_max_m3h);
+    if (p.hybride) f.hybride = true;
+  }
+  for (const k of ["garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"]) {
+    const t = texteCourt(p?.[k]);
+    if (t) f[k] = t;
+  }
+  return f;
+}
+
+// Le MÉTIER d'un article : le nom du domaine réglé dans ⚙ Paramètres
+// (`p.domaine` porte son identifiant), sinon l'identifiant lui-même.
+export const nomsDesMetiers = (boutiques) => {
+  const b = (boutiques || []).find((x) => x && !x.formation && Array.isArray(x.domaines) && x.domaines.length);
+  const m = {};
+  for (const d of (b ? b.domaines : [])) if (d && d.id) m[d.id] = String(d.nom || d.id);
+  return m;
+};
+
 export function articlesPourAssistant({ produits = [], boutiques = [], ventes = [], ajustements = [] } = {}) {
   const reelles = new Set((boutiques || []).filter((b) => b && b.nom && !b.formation).map((b) => b.nom));
+  const metiers = nomsDesMetiers(boutiques);
   return (produits || [])
     .filter((p) => p && p.nom && reelles.has(p.boutique))
     .map((p) => ({
       nom: String(p.nom), categorie: String(p.categorie || ""), boutique: String(p.boutique),
+      metier: p.domaine ? String(metiers[p.domaine] || p.domaine) : "",
       prix: Number(p.prix_vente || 0), disponible: stockDepuisLignes(p, ventes, ajustements) > 0,
       tension: String(p.tension || ""),
       description: noteAssistantDe(p),
+      ...ficheArticleAssistant(p),
     }));
 }
 
@@ -246,15 +288,29 @@ export function chercherArticles(articles, requete) {
   const q = String(requete || "").trim();
   if (q.length < 2) return [];
   return (articles || [])
-    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.description || ""}`, q))
+    // On cherche aussi dans le MÉTIER (« pompe forage » trouve les pompes
+    // rangées dans Forage, 01/10/2026) et dans ce que la fiche dit.
+    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${a.description || ""}${a.hybride ? " hybride" : ""}`, q))
     .sort((a, b) => (a.disponible === b.disponible ? a.nom.localeCompare(b.nom, "fr") : a.disponible ? -1 : 1))
     .slice(0, MAX_ARTICLES_CITES);
 }
 
+// La fiche en une ligne, pour le menu à chiffres (l'IA la reçoit en clair).
+const virgule = (n) => String(n).replace(".", ",");
+export function ficheEnClair(a) {
+  const b = [];
+  if (a?.puissance_kw) b.push(`${virgule(a.puissance_kw)} kW`);
+  if (a?.profondeur_max_m) b.push(`jusqu'à ${virgule(a.profondeur_max_m)} m`);
+  if (a?.debit_max_m3h) b.push(`débit max ${virgule(a.debit_max_m3h)} m³/h (en surface)`);
+  if (a?.hybride) b.push("hybride");
+  if (a?.garantie_boutique) b.push(`garantie : ${a.garantie_boutique}`);
+  else if (a?.garantie_fabricant) b.push(`garantie fabricant : ${a.garantie_fabricant}`);
+  return b.join(" · ");
+}
 const fmtF = (n) => `${Math.round(Number(n || 0)).toLocaleString("fr-FR")} F`;
 export function texteArticles(requete, trouves) {
   if (!trouves.length) return `Je ne trouve pas « ${requete} » dans notre base. Essayez un autre nom (par exemple la marque ou la puissance), écrivez « devis » pour une demande de devis, ou « conseiller » (ou 8) pour parler à quelqu'un.`;
-  const lignes = trouves.map((a) => `• ${a.nom}${a.tension ? ` (${a.tension})` : ""} — ${a.prix > 0 ? fmtF(a.prix) : "prix sur demande"} — ${a.disponible ? "disponible" : "sur commande"} (${a.boutique})${a.description ? `\n   ${a.description}` : ""}`);
+  const lignes = trouves.map((a) => `• ${a.nom}${a.tension ? ` (${a.tension})` : ""} — ${a.prix > 0 ? fmtF(a.prix) : "prix sur demande"} — ${a.disponible ? "disponible" : "sur commande"} (${a.boutique})${ficheEnClair(a) ? `\n   ${ficheEnClair(a)}` : ""}${a.description ? `\n   ${a.description}` : ""}`);
   return `Voici ce que je trouve pour « ${requete} » :\n${lignes.join("\n")}\n\nÉcrivez un autre nom pour continuer, tapez 6 pour un devis, ou 8 pour un conseiller.`;
 }
 
