@@ -1281,7 +1281,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       "Cet appareil relira l'INTÉGRALITÉ des données du serveur. Vos modifications locales non encore envoyées seront D'ABORD sauvegardées sur le serveur : rien ne sera perdu.\n\nCela peut prendre quelques secondes."
     )) return;
     if (!navigator.onLine) {
-      uAlert("⚠ Vous êtes hors ligne.\n\nLe retéléchargement a besoin d'internet. Reconnectez-vous et réessayez.");
+      uAlert("⚠ Vous êtes hors ligne.\n\nLe retéléchargement a besoin d'internet. Retrouvez une connexion et réessayez.");
       return;
     }
     try {

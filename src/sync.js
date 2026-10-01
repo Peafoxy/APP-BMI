@@ -557,14 +557,17 @@ export async function synchroniser(options = {}) {
               + `L'enregistrement reste sur cet appareil, rien n'est perdu, mais il ne partira pas tant que la situation n'aura pas été corrigée.\n\n`
               + `Prévenez l'administrateur principal en lui montrant ce message :\n${msg.slice(0, 200)}`
             : refusRLS
-              ? `⚠ ${etatAuth.ok ? `Écriture refusée par Supabase (${op.table}) : ${msg}` : `Session sécurisée expirée — déconnectez-vous puis reconnectez-vous : les opérations en attente partiront automatiquement après.`}`
+              ? `⚠ ${etatAuth.ok ? `Écriture refusée par Supabase (${op.table}) : ${msg}` : `Session sécurisée expirée — appuyez sur « Rétablir » en haut de l'écran et tapez votre mot de passe : les opérations en attente partiront aussitôt.`}`
               : `Envoi (${op.table}) : ${msg}`;
           console.warn("Élément non envoyé, on réessaiera :", op.table, msg);
         }
       }
     } catch (e) {
       echecReseau = true;
-      derniereErreur = `Envoi vers le serveur impossible : ${String(e?.message || e)}`;
+      // ⚠ 01/10/2026 (chapitre 24) : « Failed to fetch » à l'écran n'apprend rien
+      // à personne. Le détail part dans la console, l'écran dit ce qui se passe.
+      console.warn("Envoi vers le serveur impossible :", String(e?.message || e));
+      derniereErreur = "Le serveur ne répond pas (réseau coupé ou trop faible). Rien n'est perdu : l'application réessaie toute seule.";
     }
 
     // ---------- 2) TIRER : suppressions D'ABORD, données ENSUITE ----------

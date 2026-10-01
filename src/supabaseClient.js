@@ -327,7 +327,7 @@ export async function assurerSession() {
     }
   } catch { /* on continue avec les identifiants s'ils sont connus */ }
   if (!identifiants) {
-    Object.assign(etatAuth, { ok: false, raison: "Session expirée : déconnectez-vous puis reconnectez-vous pour rétablir l'envoi." });
+    Object.assign(etatAuth, { ok: false, raison: "Session expirée : appuyez sur « Rétablir » en haut de l'écran et tapez votre mot de passe." });
     return false;
   }
   const r = await synchroniserAuth(identifiants.id, identifiants.motDePasse);

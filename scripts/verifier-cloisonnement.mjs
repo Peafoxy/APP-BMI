@@ -12245,5 +12245,27 @@ titre("⚙ Paramètres : ce que l'écran dit est vrai (01/10/2026, chapitre 23 d
     /n'invente <b>jamais<\/b> un fait de BMI/.test(pa) && /conseil général/.test(pa));
 }
 
+titre("🔌 Hors connexion : ce que l'écran dit quand un envoi ne part pas (01/10/2026, chapitre 24 du manuel)");
+{
+  // ⚠ Trouvé en écrivant le chapitre 24 : la bande rouge disait encore
+  // « déconnectez-vous puis reconnectez-vous » (banni le 09/09/2026), même
+  // devant un REFUS du serveur ; et une panne de réseau s'affichait en
+  // anglais (« Failed to fetch »).
+  const sansComm = (t) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const app = sansComm(readFileSync("src/App.jsx", "utf8"));
+  const syn = sansComm(readFileSync("src/sync.js", "utf8"));
+  const cli = sansComm(readFileSync("src/supabaseClient.js", "utf8"));
+  test("★★ plus jamais « déconnectez-vous puis reconnectez-vous » pour un envoi bloqué (bande rouge, motif d'envoi, session expirée)",
+    ![app, syn, cli].some((t) => /déconnectez-vous puis reconnectez-vous/.test(t)));
+  test("★ la bande rouge distingue un REFUS du serveur (réessayer n'y change rien, le principal l'abandonne) d'un simple réessai",
+    /data-envoi-bloque=\{sync\.refus \? "refus" : "reessai"\}/.test(app) && /réessayer n'y changera rien/.test(app) && /réessaie toute seule toutes les 20 secondes/.test(app));
+  test("★ une session sécurisée expirée renvoie vers « Rétablir » et le mot de passe",
+    /appuyez sur « Rétablir » en haut de l'écran/.test(syn) && /appuyez sur « Rétablir » en haut de l'écran/.test(cli));
+  test("★ une panne de réseau ne s'affiche plus en anglais : le détail part dans la console",
+    !/derniereErreur = `Envoi vers le serveur impossible : \$\{/.test(syn) && /Le serveur ne répond pas \(réseau coupé ou trop faible\)/.test(syn));
+  test("★ la synchronisation réessaie bien toutes les 20 secondes (ce que la bande annonce)",
+    /setInterval\(ecouteurEnLigne, 20000\)/.test(syn));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

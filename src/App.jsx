@@ -1247,7 +1247,12 @@ export default function App() {
           {sync.refus && estAdminPrincipal(db, profile) && (
             <button onClick={abandonnerLeRefus} className="mt-2 px-3 py-1.5 rounded-lg bg-red-700 text-white text-xs font-bold hover:bg-red-800">🗑 Abandonner ce geste refusé (administrateur principal)</button>
           )}
-          <div className="text-xs mt-1 text-red-700">L'application réessaie toutes les 20 secondes. Si le compteur ne descend pas d'ici une minute : déconnectez-vous puis reconnectez-vous — le bouton de déconnexion vous guidera, et vos opérations partiront automatiquement après. Rien n'est perdu : elles sont enregistrées sur cet appareil.</div>
+          {/* ⚠ 01/10/2026 (chapitre 24) : cette ligne disait « déconnectez-vous
+              puis reconnectez-vous » — la phrase que Timo a bannie le 09/09 —, et
+              même devant un REFUS du serveur, où se reconnecter ne change rien. */}
+          <div className="text-xs mt-1 text-red-700" data-envoi-bloque={sync.refus ? "refus" : "reessai"}>{sync.refus
+            ? `Une règle du serveur refuse ce geste : réessayer n'y changera rien, et ce qui attend derrière reste sur cet appareil. ${estAdminPrincipal(db, profile) ? "Abandonnez-le avec le bouton ci-dessus, puis refaites-le correctement." : "Prévenez l'administrateur principal : lui seul peut l'abandonner."} Rien n'est perdu : tout est enregistré sur cet appareil.`
+            : "L'application réessaie toute seule toutes les 20 secondes. Rien n'est perdu : vos opérations sont enregistrées sur cet appareil et partiront dès que le serveur répondra."}</div>
         </div>
       )}
       {/* ⚠ Vague 3 : le serveur ne connaît l'administrateur principal que par
