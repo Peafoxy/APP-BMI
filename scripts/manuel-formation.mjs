@@ -11,7 +11,7 @@
 // fait que la mise en page. Le PDF est produit par LibreOffice à partir du
 // Word, pour que les deux disent la même chose. Sortie : docs/manuel/.
 // ============================================================
-import { writeFileSync, readdirSync } from "node:fs";
+import { writeFileSync, readdirSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { VERSION } from "../src/lib/constants.js";
@@ -305,13 +305,138 @@ function pagesDesChapitres(pdf) {
 
 const slug = (t) => String(t).normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 function versPdf(docx) {
-  try { execFileSync("soffice", ["--headless", "--convert-to", "pdf", "--outdir", "docs/manuel", docx], { stdio: "ignore", timeout: 180000 }); }
+  const dossier = docx.slice(0, docx.lastIndexOf("/"));
+  try { execFileSync("soffice", ["--headless", "--convert-to", "pdf", "--outdir", dossier, docx], { stdio: "ignore", timeout: 180000 }); }
   catch (e) { console.error("✗ Le PDF n'a pas pu être produit (LibreOffice Writer absent ?) :", e?.message || e); process.exit(1); }
 }
 async function ecrire(docx, fabrique) {
   numListeId = 0; numerotations.length = 0;
   writeFileSync(docx, await Packer.toBuffer(fabrique()));
   versPdf(docx);
+}
+
+
+// ---- LES GUIDES PAR POSTE (01/10/2026, Timo : « 1 oui, 2 oui, 3 entiers, 4 oui ») ----
+// Un guide = « Ma journée » + les chapitres de son poste, ENTIERS et repris
+// des mêmes fichiers (jamais recopiés) + l'examen pratique et sa fiche.
+// Les mots vivent dans scripts/manuel/guides/guide-*.mjs. Sortie :
+// docs/manuel/guides/.
+function bandeauPartie(numero, titre, sousTitre) {
+  return [
+    new Paragraph({ children: [new PageBreak()] }),
+    vide(1800),
+    table([new TableRow({ children: [cellule([
+      new Paragraph({ children: [new TextRun({ text: `PARTIE ${numero}`, color: "BFDBFE", size: 22, bold: true })], spacing: { after: 120 } }),
+      new Paragraph({ children: [new TextRun({ text: titre, color: "FFFFFF", size: 48, bold: true })], spacing: { after: 120 } }),
+      new Paragraph({ children: [new TextRun({ text: sousTitre, color: "DBEAFE", size: 21, italics: true })] }),
+    ], { largeur: LARGEUR, fond: BLEU, marges: { top: 400, bottom: 400, left: 450, right: 450 } })] })], { largeurs: [LARGEUR] }),
+    new Paragraph({ children: [new PageBreak()] }),
+  ];
+}
+
+function couvertureGuide(g, chapitres) {
+  return [
+    vide(1600),
+    table([new TableRow({ children: [cellule([
+      new Paragraph({ children: [new TextRun({ text: "BMI TOGO  ·  LES BÂTIMENTS MODERNES ET INTELLIGENTS", color: "BFDBFE", size: 17, bold: true })], spacing: { after: 120 } }),
+      new Paragraph({ children: [new TextRun({ text: "Guide du poste", color: "FFFFFF", size: 40, bold: true })], spacing: { after: 60 } }),
+      new Paragraph({ children: [new TextRun({ text: g.poste, color: "FFFFFF", size: 64, bold: true })], spacing: { after: 200 } }),
+      new Paragraph({ children: [new TextRun({ text: `BMI-Gestion  ·  Version ${VERSION}  ·  ${DATE_MANUEL}`, color: "BFDBFE", size: 20 })] }),
+    ], { largeur: LARGEUR, fond: BLEU, marges: { top: 500, bottom: 500, left: 500, right: 500 } })] })], { largeurs: [LARGEUR] }),
+    vide(500),
+    table([["Public", g.public], ["Durée conseillée", g.duree], ["Chapitres du manuel", chapitres.map((c) => c.numero).join(" · ")]].map(([k, v]) => new TableRow({ children: [
+      cellule([new Paragraph({ children: [new TextRun({ text: k, bold: true, color: GRIS, size: 19 })] })], { largeur: 2900, marges: { top: 90, bottom: 90, left: 0, right: 140 } }),
+      cellule([new Paragraph({ children: [new TextRun({ text: v, color: ENCRE, size: 20 })] })], { largeur: LARGEUR - 2900, marges: { top: 90, bottom: 90, left: 140, right: 0 } }),
+    ] })), { largeurs: [2900, LARGEUR - 2900], bordures: { ...SANS_BORDURES, insideHorizontal: trait("E2E8F0", 4) } }),
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({ text: "Sommaire", heading: HeadingLevel.HEADING_1 }),
+    ...SOMMAIRE.map((e) => new Paragraph({
+      tabStops: [{ type: TabStopType.RIGHT, position: LARGEUR, leader: LeaderType.DOT }],
+      spacing: { after: 90, before: e.partie ? 200 : 40 }, indent: { left: e.partie ? 0 : 400 },
+      children: [new TextRun({ text: e.libelle, bold: !!e.partie, size: e.partie ? 23 : 21 }), new TextRun({ text: "\t" + (e.page || ""), size: 21, color: GRIS })],
+    })),
+  ];
+}
+
+function epreuvesExamen(ex) {
+  const larg = [700, 2400, 3300, LARGEUR - 6400];
+  const entete = new TableRow({ tableHeader: true, cantSplit: true, children: ["N°", "L'épreuve", "Ce qu'il faut faire", "Ce qu'on doit voir"].map((t, i) =>
+    cellule([new Paragraph({ children: [new TextRun({ text: t, bold: true, color: BLEU, size: 19 })] })], { largeur: larg[i], fond: BLEU_PALE })) });
+  const lignes = ex.epreuves.map((e, i) => new TableRow({ cantSplit: true, children: [
+    cellule([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(i + 1), bold: true, color: BLEU_MOYEN, size: 21 })] })], { largeur: larg[0], fond: i % 2 ? ZEBRE : undefined, valign: VerticalAlign.CENTER }),
+    cellule([new Paragraph({ children: runs(e.titre, { size: 19, bold: true }) })], { largeur: larg[1], fond: i % 2 ? ZEBRE : undefined }),
+    cellule([new Paragraph({ children: runs(e.consigne, { size: 19 }) })], { largeur: larg[2], fond: i % 2 ? ZEBRE : undefined }),
+    cellule([new Paragraph({ children: runs(e.attendu, { size: 19 }) })], { largeur: larg[3], fond: i % 2 ? ZEBRE : undefined }),
+  ] }));
+  return [table([entete, ...lignes], { largeurs: larg, bordures: BORDURES_FINES }), vide(200)];
+}
+
+function ficheExamen(g) {
+  const ligne = (k) => new TableRow({ height: { value: 520, rule: HeightRule.ATLEAST }, children: [
+    cellule([new Paragraph({ children: [new TextRun({ text: k, bold: true, color: GRIS, size: 19 })] })], { largeur: 2900, fond: ZEBRE, valign: VerticalAlign.CENTER }),
+    cellule([new Paragraph({})], { largeur: LARGEUR - 2900 }),
+  ] });
+  const coche = () => cellule([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "☐", size: 22 })] })], { largeur: 1300, valign: VerticalAlign.CENTER });
+  return [
+    new Paragraph({ children: [new PageBreak()] }),
+    ...rubrique("✓", `Fiche d'examen — ${g.poste}`),
+    para("À remplir par le formateur pendant l'examen. Une fiche par personne ; elle se garde dans son dossier. L'examen est réussi quand **toutes** les épreuves le sont ; une épreuve ratée se refait un autre jour.", { par: { spacing: { after: 200 } }, run: { color: GRIS, size: 19 } }),
+    table(["Nom et prénom", "Boutique", "Date de l'examen", "Formateur"].map(ligne), { largeurs: [2900, LARGEUR - 2900], bordures: BORDURES_FINES }),
+    vide(240),
+    table([
+      new TableRow({ tableHeader: true, children: [
+        cellule([new Paragraph({ children: [new TextRun({ text: "Épreuve", bold: true, color: BLEU, size: 19 })] })], { largeur: LARGEUR - 2600, fond: BLEU_PALE }),
+        cellule([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Réussie", bold: true, color: BLEU, size: 19 })] })], { largeur: 1300, fond: BLEU_PALE }),
+        cellule([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "À refaire", bold: true, color: BLEU, size: 19 })] })], { largeur: 1300, fond: BLEU_PALE }),
+      ] }),
+      ...g.examen.epreuves.map((e, i) => new TableRow({ height: { value: 440, rule: HeightRule.ATLEAST }, cantSplit: true, children: [
+        cellule([new Paragraph({ children: runs(`${i + 1}.  ${e.titre}`, { size: 19 }) })], { largeur: LARGEUR - 2600, fond: i % 2 ? ZEBRE : undefined, valign: VerticalAlign.CENTER }),
+        coche(), coche(),
+      ] })),
+      new TableRow({ height: { value: 440, rule: HeightRule.ATLEAST }, cantSplit: true, children: [
+        cellule([new Paragraph({ children: runs(`Questions orales (${g.examen.questions.length})`, { size: 19 }) })], { largeur: LARGEUR - 2600, valign: VerticalAlign.CENTER }),
+        coche(), coche(),
+      ] }),
+    ], { largeurs: [LARGEUR - 2600, 1300, 1300], bordures: BORDURES_FINES }),
+    vide(240),
+    table([new TableRow({ height: { value: 1200, rule: HeightRule.ATLEAST }, children: [cellule([
+      new Paragraph({ children: [new TextRun({ text: "Observations du formateur", bold: true, color: GRIS, size: 19 })] }),
+    ], { largeur: LARGEUR })] })], { largeurs: [LARGEUR], bordures: BORDURES_FINES }),
+    vide(240),
+    new Paragraph({ children: [new TextRun({ text: "Examen réussi :   ☐  Oui        ☐  À repasser le  ______ / ______ / ________", size: 21, bold: true, color: ENCRE })], spacing: { after: 240 }, keepNext: true }),
+    table([new TableRow({ height: { value: 1300, rule: HeightRule.ATLEAST }, children: [
+      cellule([new Paragraph({ children: [new TextRun({ text: "Signature de la personne", bold: true, color: GRIS, size: 19 })] })], { largeur: LARGEUR / 2 }),
+      cellule([new Paragraph({ children: [new TextRun({ text: "Signature du formateur", bold: true, color: GRIS, size: 19 })] })], { largeur: LARGEUR / 2 }),
+    ] })], { largeurs: [LARGEUR / 2, LARGEUR / 2], bordures: BORDURES_FINES }),
+  ];
+}
+
+function corpsGuide(g, chapitres) {
+  return [
+    ...couvertureGuide(g, chapitres),
+    ...bandeauPartie(1, "Ma journée", "Le poste raconté dans l'ordre de la journée"),
+    ...rubrique("☀", `Ma journée — ${g.poste}`),
+    ...g.journee.flatMap(bloc),
+    ...bandeauPartie(2, "Les chapitres de mon poste", `Les chapitres ${chapitres.map((c) => c.numero).join(", ")} du manuel de formation, tels quels`),
+    ...chapitres.flatMap((c, i) => [...(i ? [new Paragraph({ children: [new PageBreak()] })] : []), ...corpsChapitre(c)]),
+    ...bandeauPartie(3, "L'examen pratique", "Dans l'espace de formation, avec le formateur"),
+    ...rubrique("✎", "Les épreuves"),
+    para(g.examen.intro, { par: { spacing: { after: 200 } } }),
+    ...epreuvesExamen(g.examen),
+    ...rubrique("?", "Les questions orales"),
+    ...bloc(["questions", g.examen.questions]),
+    ...ficheExamen(g),
+  ];
+}
+
+function pagesDuGuide(pdf) {
+  const pages = execFileSync("pdftotext", ["-layout", pdf, "-"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).split("\f");
+  let depuis = 2;
+  SOMMAIRE.forEach((e) => {
+    for (let i = depuis; i < pages.length; i++) {
+      if (pages[i].split("\n").some((l) => l.trim() === e.repere)) { e.page = String(i + 1); depuis = i; return; }
+    }
+  });
 }
 
 // ---- On y va ----
@@ -332,3 +457,27 @@ await ecrire(complet, fabriqueComplet);            // passe 1 : la pagination
 pagesDesChapitres(complet.replace(/\.docx$/, ".pdf"));
 await ecrire(complet, fabriqueComplet);            // passe 2 : les numéros de page
 console.log(`✓ ${complet} (+ PDF) — ${chapitres.length} chapitre(s)`);
+
+// ---- Les guides par poste ----
+mkdirSync("docs/manuel/guides", { recursive: true });
+const fichiersGuides = readdirSync("scripts/manuel/guides").filter((f) => /^guide-.+\.mjs$/.test(f)).sort();
+for (const f of fichiersGuides) {
+  const g = (await import(`./manuel/guides/${f}`)).GUIDE;
+  const siens = g.chapitres.map((n) => {
+    const c = chapitres.find((x) => x.numero === n);
+    if (!c) { console.error(`✗ Guide ${g.id} : le chapitre ${n} n'existe pas.`); process.exit(1); }
+    return c;
+  });
+  SOMMAIRE = [
+    { libelle: "Partie 1 — Ma journée", repere: "PARTIE 1", partie: true, page: "" },
+    { libelle: "Partie 2 — Les chapitres de mon poste", repere: "PARTIE 2", partie: true, page: "" },
+    ...siens.map((c) => ({ libelle: `Chapitre ${c.numero}  ·  ${c.titre}`, repere: `CHAPITRE ${c.numero}`, page: "" })),
+    { libelle: "Partie 3 — L'examen pratique", repere: "PARTIE 3", partie: true, page: "" },
+  ];
+  const docx = `docs/manuel/guides/guide-${g.id}.docx`;
+  const fabrique = () => document({ children: corpsGuide(g, siens), enTeteDroite: `Guide du poste  ·  ${g.poste}` });
+  await ecrire(docx, fabrique);                       // passe 1 : la pagination
+  pagesDuGuide(docx.replace(/\.docx$/, ".pdf"));
+  await ecrire(docx, fabrique);                       // passe 2 : les numéros de page
+  console.log(`✓ ${docx} (+ PDF) — ${siens.length} chapitre(s)`);
+}

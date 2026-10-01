@@ -12281,5 +12281,50 @@ titre("🧯 Incidents : la bande des notifications bloquées (01/10/2026, chapit
     (app.match(/enregistrerAppareil\(u\)/g) || []).length >= 2);
 }
 
+titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/2026)");
+{
+  // Un guide reprend les chapitres des onglets de son poste. Si un jour un
+  // onglet s'ajoute à un rôle (App.jsx) sans que son guide le couvre, ce
+  // contrôle tombe : un guide qui oublie un écran du poste ment par omission.
+  const ONGLET_CHAPITRES = {
+    dashboard: [22], rentabilite: [22], historique: [22], ventes: [5], commandes: [5], commande: [5],
+    dimensionnement: [11, 12], tous_devis: [13], contrats: [14], depenses: [17], chez_comptable: [17],
+    dettes: [7], clients: [3], nouveau_client: [3], caisse: [6], stocks: [8], transfert: [9], ravitaillement: [9],
+    fournisseurs: [10], commerciaux: [16], equipe: [16], commission: [16], primes_remises: [16], primes_recues: [16],
+    prospects: [4], parc: [15], travaux: [15], taches: [15], outillage: [19], messages: [20], whatsapp: [20],
+    salaire: [18], salaires: [18], users: [2], parametres: [23],
+  };
+  const app = readFileSync("src/App.jsx", "utf8");
+  const BRANCHE = {
+    vendeur: /\n\s*: (\[\["ventes", "💰 Ventes"\][^\n]*)/,
+    gerant: /isGerant\n\s*\? (\[\[[^\n]*)/,
+    magasinier: /isMagasinier\n\s*\? (\[\[[^\n]*)/,
+    comptable: /isComptable\n\s*\? (\[\[[^\n]*)/,
+    resp_commercial: /isRespCom\n\s*\? (\[\[[^\n]*)/,
+    commercial: /\(isCommercial \|\| isTechnicien\)\n\s*\? (\[\[[^\n]*)/,
+    technicien: /\(isCommercial \|\| isTechnicien\)\n\s*\? (\[\[[^\n]*)/,
+    technicien_bmi: /isTechnicienBMI\n\s*\? (\[\[[^\n]*)/,
+  };
+  const ongletsDe = (role) => {
+    const m = app.match(BRANCHE[role]);
+    return m ? [...m[1].matchAll(/\["(\w+)",/g)].map((x) => x[1]) : null;
+  };
+  const numerosChapitres = readdirSync("scripts/manuel").map((f) => f.match(/^chapitre-(\d+)\.mjs$/)).filter(Boolean).map((m) => Number(m[1]));
+  const guides = readdirSync("scripts/manuel/guides").filter((f) => /^guide-.+\.mjs$/.test(f));
+  test("★ au moins un guide par poste existe (le vendeur d'abord)", guides.includes("guide-vendeur.mjs"));
+  for (const f of guides) {
+    const g = (await import(pathToFileURL(join(process.cwd(), "scripts/manuel/guides", f)).href)).GUIDE;
+    const reels = [...new Set(g.roles.flatMap((r) => ongletsDe(r) || ["?" + r]))];
+    test(`★ ${f} : ses onglets sont ceux du poste dans App.jsx (${reels.join(", ")})`,
+      !reels.some((o) => o.startsWith("?")) && reels.every((o) => g.onglets.includes(o)) && g.onglets.every((o) => reels.includes(o) || o === "commission"));
+    const manquants = g.onglets.filter((o) => !ONGLET_CHAPITRES[o] || ONGLET_CHAPITRES[o].some((n) => !g.chapitres.includes(n)));
+    test(`★ ${f} : chaque onglet du poste a son chapitre dans le guide${manquants.length ? " — manque : " + manquants.join(", ") : ""}`, manquants.length === 0);
+    test(`★ ${f} : les chapitres 1 (connexion), 24 (hors connexion) et 25 (incidents) y sont`, [1, 24, 25].every((n) => g.chapitres.includes(n)));
+    test(`★ ${f} : chaque chapitre cité existe dans le manuel`, g.chapitres.every((n) => numerosChapitres.includes(n)));
+    test(`★ ${f} : une journée, au moins six épreuves d'examen avec ce qu'on doit voir, et des questions`,
+      g.journee.length > 5 && g.examen.epreuves.length >= 6 && g.examen.epreuves.every((e) => e.titre && e.consigne && e.attendu) && g.examen.questions.length >= 3);
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
