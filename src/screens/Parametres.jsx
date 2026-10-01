@@ -149,7 +149,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (!u) { uAlert("Choisissez un administrateur."); return; }
     if (!await uConfirm(
       `⚠ Transférer le rôle d'administrateur principal à ${u.nom} ?\n\n` +
-      `Il pourra alors réinitialiser l'application (depuis le logiciel Windows), et VOUS ne le pourrez plus.\n\nCette action est immédiate.`
+      `Tous les gestes réservés à l'administrateur principal passeront à lui (voir les deux espaces, valider les versements et les dépenses, restaurer une sauvegarde, réinitialiser l'application…), et VOUS ne les aurez plus.\n\nCette action est immédiate.`
     )) return;
     save({
       ...db,
@@ -1263,7 +1263,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     await new Promise((r) => setTimeout(r, 1200));
     const trace = {
       id: uid(), date: new Date().toISOString(), user: profile.nom,
-      action: `🧨 RÉINITIALISATION COMPLÈTE depuis le logiciel Windows — ${total} enregistrement(s) effacé(s)`,
+      action: `🧨 RÉINITIALISATION COMPLÈTE ${estAppWindows() ? "depuis le logiciel Windows" : "depuis le site web"} — ${total} enregistrement(s) effacé(s)`,
     };
     save({ ...vide, audits: [trace] }); // un seul envoi : la trace
 
@@ -1571,7 +1571,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           🔐 Sécurité est volontairement en dernier : les gestes lourds ne
           doivent pas être sur le chemin de tous les jours. */}
       <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
-        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["appareils", `🔌 Appareils${aClasser.length ? ` (${aClasser.length} à classer)` : ""}`], ["apparence", "🎨 Apparence"], ["donnees", "💾 Données"],
+        {[["boutiques", "🏪 Boutiques"], ["catalogue", "🗂 Catalogue & devis"], ["appareils", `🔌 Appareils${aClasser.length ? ` (${aClasser.length} à classer)` : ""}`], ...(jeSuisPrincipal ? [["apparence", "🎨 Apparence"]] : []), ["donnees", "💾 Données"],
           ...(jeSuisPrincipal ? [["donnees_perso", "🔒 Données personnelles"], ["corbeille", `🗑 Corbeille${corbeille.length ? ` (${corbeille.length})` : ""}`]] : []),
           ["securite", "🔐 Sécurité"]].map(([id, label]) => (
           <button key={id} onClick={() => setOnglet(id)} className={`px-4 py-1.5 rounded-md text-sm font-bold ${onglet === id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>
@@ -1655,7 +1655,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               <tr key={b.id} data-ligne={b.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-4 py-2"><Badge boutique={b.nom} />
                   <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>
-                  {b.formation && <div className="text-xs font-bold mt-0.5 text-amber-700">🎓 Formation — hors Tableau de bord</div>}
+                  {b.formation && <div className="text-xs font-bold mt-0.5 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
                   <button onClick={() => basculerDepot(b)} className="text-xs font-bold text-sky-800 underline">{b.depot ? "→ En faire une boutique" : "→ En faire un magasin"}</button>
                 </td>
                 <td className="px-4 py-2">{b.logo ? <img src={b.logo} alt="" className="h-9 w-auto rounded border border-slate-200 bg-white" /> : <span className="text-xs text-slate-400">Logo BMI (défaut)</span>}</td>
@@ -1708,7 +1708,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
         <div className="font-bold mb-1">🤝 Taux de parrainage par défaut</div>
         <div className="text-xs text-slate-500 mb-3">
-          Ce que touche un client qui en parraine un autre, sur l'installation de son filleul — versé à la réception. Un client peut avoir un taux personnel (👥 Utilisateurs → 💰 Commission) : celui-ci prime alors sur cette valeur.
+          Ce que touche un client qui en parraine un autre, sur l'installation de son filleul — dû quand l'installation est réceptionnée ET entièrement payée. Un client peut avoir un taux personnel (👥 Utilisateurs → 💰 Commission) : celui-ci prime alors sur cette valeur.
         </div>
         <div className="flex gap-2 items-end flex-wrap">
           <Field label="Taux (%)">
@@ -1871,9 +1871,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <b> En conversation par IA</b>, il discute en phrases et pose ses questions ; tout ce qu'il affirme vient de l'application :
           prix et disponibilité d'un article (jamais la quantité en stock), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller,
           et pour le <b>solaire seulement</b> une <b>estimation indicative en fourchette</b> (± 15 %, pose comprise, calculée avec les réglages d'office — 1 jour d'autonomie, 5 h de soleil, 48 V, lithium — et le stock réel des boutiques), notée sur la fiche du prospect.
-          Il n'invente <b>jamais</b> un prix, un délai ni une caractéristique, ne parle <b>jamais</b> d'une dette ni d'un crédit, ne se fait jamais passer pour une personne ; une réponse qui sortirait de ces règles est jetée avant de partir.
+          Il n'invente <b>jamais</b> un fait de BMI (un prix, un délai, une caractéristique d'article) — il peut donner un conseil général dans vos métiers, présenté comme tel —, ne parle <b>jamais</b> d'une dette ni d'un crédit, ne se fait jamais passer pour une personne ; une réponse qui sortirait de ces règles est jetée avant de partir.
           <b> En menu à chiffres</b>, il propose les huit choix de votre mot d'accueil.
-          <b> Il se tait</b> dans les deux cas sur une conversation confiée, dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.
+          <b> Il se tait</b> dans les deux cas sur une conversation qui a déjà quelqu'un (confiée, ou née d'un devis parti du numéro BMI), dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.
           Coût : environ 4 F par réponse WhatsApp (1 000 offertes par mois à partir du 1er octobre 2026), plus quelques francs par réponse pour le service d'IA, facturés par son fournisseur.
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -2394,7 +2394,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
         <div className="font-bold mb-1">👑 Administrateur principal</div>
         <div className="text-xs text-slate-500 mb-3">
-          Lui seul peut réinitialiser l'application — et uniquement depuis le logiciel Windows. Les autres administrateurs gardent tous leurs autres pouvoirs.
+          Lui seul voit les deux espaces (👁 Je regarde), change le mot de passe ou le rôle d'un autre compte, valide les versements vers le DG et la banque et les dépenses à valider (il est le DG), restaure une sauvegarde, gère la corbeille et les données personnelles, et réinitialise l'application. Les autres administrateurs gardent tous leurs autres pouvoirs.
         </div>
         <div className="text-sm mb-3">
           Actuellement : <b className="text-sky-800">{adminPrincipal(db)?.nom || "aucun"}</b>
@@ -2619,9 +2619,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       <div className="rounded-xl p-4 bg-white border-2 border-sky-200">
         <div className="font-bold mb-1 text-sky-900">🔐 Sécurité Supabase</div>
         <div className="text-xs text-slate-500 mb-3">
-          Aujourd'hui, la base de données accepte les écritures avec la seule clé publique de l'application (visible dans son code).
-          Chaque connexion crée en coulisse un vrai compte d'authentification Supabase — mais tant que <code>durcir_securite.sql</code> n'est
-          pas exécuté, cette protection n'est pas encore appliquée. Vérifiez ici que tout le monde est prêt avant de l'activer.
+          La base de données n'accepte que les appareils connectés avec une <b>session sécurisée</b> : chaque connexion ouvre en coulisse
+          un compte d'authentification Supabase, et la base refuse tout le reste (puis applique les règles de rôle et d'espace).
+          Ce bouton vérifie que chaque utilisateur actif a bien ce compte côté serveur.
         </div>
 
         {!supabaseConfigure ? (
@@ -2644,12 +2644,12 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 <div className="mt-3">
                   <div className={`rounded-lg p-3 text-sm font-bold ${tousPrets ? "bg-green-50 border border-green-300 text-green-800" : "bg-amber-50 border border-amber-300 text-amber-800"}`}>
                     {tousPrets
-                      ? `✅ Les ${prets.length} utilisateurs actifs ont une session sécurisée prête. Vous pouvez exécuter durcir_securite.sql.`
-                      : `⚠ ${prets.length} / ${utilisateursActifs.length} utilisateurs actifs sont prêts. N'exécutez pas encore durcir_securite.sql — les autres perdraient la synchronisation.`}
+                      ? `✅ Les ${prets.length} utilisateurs actifs ont leur session sécurisée.`
+                      : `⚠ ${prets.length} / ${utilisateursActifs.length} utilisateurs actifs ont leur session sécurisée. Les autres ne synchronisent pas tant qu'ils ne se sont pas reconnectés avec internet.`}
                   </div>
                   {pasPrets.length > 0 && (
                     <div className="mt-2">
-                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Pas encore prêts — ils doivent se reconnecter (avec internet actif) :</div>
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Sans session sécurisée — ils doivent se reconnecter (avec internet actif) :</div>
                       <div className="flex flex-wrap gap-1.5">
                         {pasPrets.map((u) => <span key={u.id} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{u.nom}</span>)}
                       </div>
@@ -2731,7 +2731,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             (ambre, pas rouge) pour ne jamais confondre les deux boutons. */}
         {boutiquesFormation(db).size > 0 && (
           <div className="mt-4 pt-4 border-t border-amber-200">
-            <div className="text-xs text-slate-600 mb-2">Efface uniquement les ventes/dettes/chantiers des boutiques de formation — les vraies données ne sont jamais touchées. Fonctionne aussi hors ligne.</div>
+            <div className="text-xs text-slate-600 mb-2">Efface tout ce qui appartient à l'entraînement — ventes, dettes, chantiers, commandes, proformas, dépenses, articles et leurs mouvements, clôtures, prospects, comptes clients et devis de formation. Les vraies données ne sont jamais touchées. Fonctionne aussi hors ligne.</div>
             <button
               onClick={reinitialiserFormationSeule}
               disabled={!estAdminPrincipal(db, profile)}

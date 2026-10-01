@@ -12218,5 +12218,32 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     /bilan\.mouvements\.slice\(0, 100\)/.test(cc) && /bilan\.mouvements\.length > 100 && <tr[^>]*data-releve-tronque/.test(cc) && /les portent tous/.test(cc));
 }
 
+titre("⚙ Paramètres : ce que l'écran dit est vrai (01/10/2026, chapitre 23 du manuel)");
+{
+  // ⚠ Trouvé en écrivant le chapitre 23. On lit le CODE sans ses commentaires
+  // (un commentaire qui raconte l'ancienne phrase ne doit pas faire crier).
+  const brut = readFileSync("src/screens/Parametres.jsx", "utf8");
+  // ⚠ « image/* » (accept d'un champ fichier) ressemble à un début de
+  // commentaire : on ne retire que les commentaires JSX {/* … */} et les
+  // lignes « // ».
+  const pa = brut.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★ le taux de parrainage n'est pas « versé à la réception » : dû quand l'installation est réceptionnée ET entièrement payée",
+    !/versé à la réception/.test(pa) && /réceptionnée ET entièrement payée/.test(pa));
+  test("★ une boutique de formation n'est pas « hors Tableau de bord » (elle y est, dans l'espace de formation)",
+    !/hors Tableau de bord/.test(pa) && /jamais dans les chiffres réels/.test(pa));
+  test("★★ 🔐 Sécurité Supabase ne dit plus que la base accepte les écritures avec la seule clé publique, ni qu'il faut « exécuter durcir_securite.sql »",
+    !/accepte les écritures avec la seule clé publique/.test(pa) && !/exécuter durcir_securite|N'exécutez pas encore/.test(pa) && /session sécurisée/.test(pa));
+  test("★ l'administrateur principal n'est plus décrit comme « celui qui réinitialise depuis le logiciel Windows » (la barrière Windows est levée)",
+    !/uniquement depuis le logiciel Windows/.test(pa) && !/réinitialiser l'application \(depuis le logiciel Windows\)/.test(pa) && /Lui seul voit les deux espaces/.test(pa));
+  test("★ le journal d'une réinitialisation dit d'où elle a été faite (site web ou logiciel Windows), jamais « Windows » d'office",
+    /RÉINITIALISATION COMPLÈTE \$\{estAppWindows\(\) \? "depuis le logiciel Windows" : "depuis le site web"\}/.test(pa));
+  test("★ « Réinitialiser uniquement la formation » dit tout ce qu'elle efface (dépenses, articles, comptes clients…), pas seulement ventes, dettes, chantiers",
+    !/Efface uniquement les ventes\/dettes\/chantiers/.test(pa) && /dépenses, articles et leurs mouvements, clôtures, prospects, comptes clients et devis de formation/.test(pa));
+  test("★ l'onglet 🎨 Apparence n'existe que pour l'administrateur principal (ses deux réglages lui sont réservés : sinon un onglet VIDE)",
+    /\.\.\.\(jeSuisPrincipal \? \[\["apparence", "🎨 Apparence"\]\] : \[\]\)/.test(pa) && (pa.match(/\["apparence",/g) || []).length === 1);
+  test("★ l'assistant ne prétend pas se taire sur toute caractéristique : faits de BMI jamais inventés, conseil général permis",
+    /n'invente <b>jamais<\/b> un fait de BMI/.test(pa) && /conseil général/.test(pa));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
