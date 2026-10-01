@@ -62,6 +62,9 @@ export function CarteCaisse({ titre, caisse, note, releve: r, periode, mots = { 
                 <td className={`px-3 py-1.5 tabular-nums font-bold text-right ${m.sens === "entree" ? "text-emerald-700" : ""}`}>{m.sens === "entree" ? "+" : "−"} {fmt(m.montant)}</td>
               </tr>
             ))}
+            {/* ⚠ 01/10/2026 (chapitre 22) : l'écran n'en montre que 100, sans le
+                dire — un relevé qui s'arrête en silence se lit comme complet. */}
+            {bilan.mouvements.length > 100 && <tr className="border-t border-slate-200 bg-slate-50" data-releve-tronque><td colSpan={4} className="px-3 py-2 text-xs text-slate-600">Les 100 mouvements les plus récents sont affichés ici, sur {bilan.mouvements.length}. Le relevé imprimé (PDF) et l'export les portent tous.</td></tr>}
           </tbody>
         </table>
       </div>

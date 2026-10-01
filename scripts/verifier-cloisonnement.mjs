@@ -5112,7 +5112,7 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
     /<Stat label="Total des dépenses"/.test(dash) && /<Stat label=\{`Dépenses — \$\{customRow\.label\}`\}/.test(dash) && !/\{!sansVentes && <Stat label=\{`Dépenses — /.test(dash) && !/\{!sansVentes && <Stat label="Total des dépenses"/.test(dash)
     && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("ventes"/.test(dash) && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("dettes"/.test(dash)
     && /\{!sansStock && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("stocks"/.test(dash));
-  test("★ le journal comptable exporté suit aussi la boutique choisie", /lignesJournal\(db, pa, pb\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
+  test("★ le journal comptable exporté suit aussi la boutique choisie (et, depuis le 01/10/2026, l'espace regardé)", /lignesJournal\(db, pa, pb, dansMonEspace\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
   // Capture Timo (10/09/2026) : « Période : Aujourd'hui » choisi, les cartes disaient encore « Ventes du mois ».
   // Timo (11/09/2026) : « Période doit rester sur Aujourd'hui par défaut ».
   test("★ le sélecteur de période démarre sur Aujourd'hui (periodes()[0]), repli compris — plus sur « Ce mois »",
@@ -12146,6 +12146,76 @@ titre("🏠 Espace client : un montant ne porte jamais son « F » deux fois (01
   const v = Core.fmtFcfa(1200000);
   test("★ fmtFcfa écrit « 1 200 000 FCFA », une seule unité ; un montant absent reste « — »",
     /^1\s200\s000 FCFA$/.test(v) && !/F F/.test(v) && Core.fmtFcfa(null) === "—");
+}
+
+titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regardé décide, et un article se chiffre pareil partout (01/10/2026, chapitre 22 du manuel)");
+{
+  // ⚠ Trouvé en écrivant le chapitre 22 : 🕘 Historique lisait db.audits
+  // BRUT (le principal, qui télécharge les deux espaces, voyait les gestes
+  // d'entraînement mêlés aux vrais) ; les deux bandeaux disaient au principal
+  // « Votre compte travaille en formation » ; le Top 5 du tableau de bord ne
+  // retirait ni la remise générale ni les reprises. On REND les écrans.
+  const sortieRap = join("node_modules", ".cache", `bmi-rapports-${process.pid}.mjs`);
+  let R = null, erreur = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-rapports.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieRap, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    R = await import(pathToFileURL(sortieRap).href);
+  } catch (e) { erreur = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieRap); } catch {}
+  test("les trois écrans se montent dans le banc" + (erreur ? ` (${erreur})` : ""), !!R);
+  if (R) {
+    const auj = new Date().toISOString().slice(0, 10);
+    const timo = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "" };
+    const db = {
+      boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b2", nom: "DFORMATION", formation: true }],
+      users: [timo], produits: [{ id: "p1", nom: "Panneau 400W", boutique: "DEMAKPOE", categorie: "Panneaux", prix_achat: 60000, prix_vente: 100000, initial: 10, seuil: 1 }],
+      ventes: [{ id: "v1", date: auj, boutique: "DEMAKPOE", articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 2, pu: 100000 }], remise: 20000, paiement: "Espèces" }],
+      depenses: [], dettes: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [],
+      audits: [
+        { id: "a1", date: auj + "T08:00:00Z", user: "ANGELE", action: "Vente REELLE-ABC" },
+        { id: "a2", date: auj + "T09:00:00Z", user: "FORMA1", action: "Vente ENTRAINEMENT-XYZ", formation: true },
+      ],
+    };
+    let hReel = "", hForm = "", rentaForm = "", dashForm = "", renta = "", dash = "";
+    try {
+      R.setRegardeFormation(false);
+      hReel = R.rendreHistorique(db, timo); renta = R.rendreRentabilite(db, timo); dash = R.rendreDashboard(db, timo);
+      R.setRegardeFormation(true);
+      hForm = R.rendreHistorique(db, timo); rentaForm = R.rendreRentabilite(db, timo); dashForm = R.rendreDashboard(db, timo);
+    } finally { R.setRegardeFormation(false); }
+    // React écrit l'apostrophe « &#x27; » : on la rend avant de lire.
+    const lisible = (h) => h.replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
+    [hReel, hForm, rentaForm, dashForm, renta, dash] = [hReel, hForm, rentaForm, dashForm, renta, dash].map(lisible);
+    test("★★ 🕘 Historique : le principal qui regarde le RÉEL ne lit aucun geste d'entraînement (et lit les siens)",
+      /REELLE-ABC/.test(hReel) && !/ENTRAINEMENT-XYZ/.test(hReel));
+    test("★★ 🕘 Historique : le principal qui regarde la FORMATION ne lit que les gestes d'entraînement",
+      /ENTRAINEMENT-XYZ/.test(hForm) && !/REELLE-ABC/.test(hForm));
+    test("★ les bandeaux de formation ne disent pas au principal « Votre compte travaille en formation » : ils disent qu'il REGARDE, et comment revenir",
+      /Vous regardez l.espace de formation/.test(dashForm) && /Vous regardez l.espace de formation/.test(rentaForm)
+      && !/Votre compte travaille en formation/.test(dashForm + rentaForm) && /Je regarde/.test(dashForm));
+    test("★★ le Top 5 du tableau de bord et 📈 Rentabilité donnent le MÊME chiffre pour un article (remise générale déduite : 2 × 100 000 − 20 000 = 180 000)",
+      /Panneau 400W<\/span><span[^>]*>180\s000\sF/.test(dash) && /180\s000\sF/.test(renta) && !/200\s000\sF/.test(dash.slice(dash.indexOf("Top 5"))));
+    test("★ 📈 Rentabilité dit ce qu'elle compte : prix VENDU (pas « encaissé »), prix d'achat ACTUEL de la fiche, une vente à crédit comptée dès qu'elle est faite",
+      /prix d.achat actuel, celui de sa fiche/.test(renta) && !/encaissé − prix d.achat/.test(renta) && /crédit compte dès qu.elle est faite/.test(renta));
+  }
+  {
+    const dbJ = { boutiques: [{ nom: "DEMAKPOE" }, { nom: "DFORMATION", formation: true }], dettes: [],
+      ventes: [{ id: "v1", date: "2026-09-10", boutique: "DEMAKPOE", articles: [{ article: "A", qte: 1, pu: 1000 }], paiement: "Espèces" },
+        { id: "v2", date: "2026-09-10", boutique: "DFORMATION", articles: [{ article: "B", qte: 1, pu: 7000 }], paiement: "Espèces" }],
+      depenses: [{ id: "x1", date: "2026-09-10", boutique: "Chez le DG", categorie: "Apport de l'exploitant", montant: 500, exploitant: { sens: "apport", note: "n" } }] };
+    const f = new Set(["DFORMATION"]);
+    const enForm = Core.lignesJournal(dbJ, "2026-09-01", "2026-09-30", (x) => f.has(x.boutique));
+    const enReel = Core.lignesJournal(dbJ, "2026-09-01", "2026-09-30");
+    test("★★ 📒 Journal comptable : l'espace REGARDÉ décide — en formation, seulement l'entraînement (ni la vraie vente, ni l'apport du DG) ; sans filtre, le réel comme avant",
+      enForm.length === 2 && enForm.every((l) => l[8] === "DFORMATION") && enReel.length === 4 && !enReel.some((l) => l[8] === "DFORMATION")
+      && /lignesJournal\(db, pa, pb, dansMonEspace\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
+  }
+  const cc = readFileSync("src/components/CarteCaisse.jsx", "utf8");
+  test("★ un relevé de caisse qui n'affiche que 100 mouvements le DIT (le PDF et l'export les portent tous)",
+    /bilan\.mouvements\.slice\(0, 100\)/.test(cc) && /bilan\.mouvements\.length > 100 && <tr[^>]*data-releve-tronque/.test(cc) && /les portent tous/.test(cc));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

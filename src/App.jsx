@@ -1398,7 +1398,7 @@ export default function App() {
       )}
       {ongletsVisites.historique && (isAdmin || isComptable) && (
         <div style={{ display: tab === "historique" ? "block" : "none" }}>
-          <M.Historique db={db} />
+          <M.Historique db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.commission && (jeSuisApporteur || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && (

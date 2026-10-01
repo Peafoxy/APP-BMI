@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useCallback } from "react";
-import { fmt, today, dFR, inP, col, totalVente, caVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
 import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
@@ -271,8 +271,12 @@ export function Dashboard({ db, profile, save }) {
   const ventesPeriode = ventesReellesDb.filter((v) => inP(v.date, paG, pbG));
   const topProduits = (() => {
     const cumul = {};
-    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0); }));
-    return Object.entries(cumul).sort((x, y) => y[1] - x[1]).slice(0, 5);
+    // ⚠ 01/10/2026 (chapitre 22) : le Top 5 additionnait « qte × pu − remise
+    // de ligne », sans la remise générale ni les reprises — le même défaut que
+    // 📈 Rentabilité avait corrigé le 29/08/2026. Les deux écrans donnaient
+    // deux chiffres pour le même article. UNE règle : caLigneVente.
+    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + caLigneVente(v, l); }));
+    return Object.entries(cumul).map(([nom, ca]) => [nom, Math.round(ca)]).filter(([, ca]) => ca > 0).sort((x, y) => y[1] - x[1]).slice(0, 5);
   })();
   const maxTop = Math.max(1, ...topProduits.map((x) => x[1]));
   const repPaiements = (() => {
@@ -288,8 +292,9 @@ export function Dashboard({ db, profile, save }) {
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
           <div className="font-bold text-amber-900">🎓 Chiffres de l'espace FORMATION</div>
           <div className="text-xs text-amber-800 mt-0.5">
-            Votre compte travaille en formation : ce tableau de bord ne montre que les boutiques d'entraînement.
-            Les chiffres réels de l'entreprise ne vous sont pas accessibles.
+            {voitLesDeuxEspaces(db, profile)
+              ? <>Vous regardez l'espace de formation : ce tableau de bord ne montre que les boutiques d'entraînement. Pour revenir aux vrais chiffres : ⚙ Paramètres → 👁 Je regarde.</>
+              : <>Votre compte travaille en formation : ce tableau de bord ne montre que les boutiques d'entraînement. Les chiffres réels de l'entreprise ne vous sont pas accessibles.</>}
           </div>
         </div>
       )}
@@ -475,7 +480,7 @@ export function Dashboard({ db, profile, save }) {
           {!sansStock && <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
             trierPourRapportStocks(produitsReelsDb, (p) => stockActuel(db, p)).map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>}
           <button className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800"
-            onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
+            onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb, dansMonEspace).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
         </div>
         <div className="text-xs text-slate-400 mt-2">Fichiers CSV compatibles Excel (séparateur point-virgule). Le journal comptable couvre la période sélectionnée plus haut : écritures en partie double (ventes, dépenses, règlements de dettes) avec les comptes SYSCOHADA de base — à remettre à votre comptable, qui peut adapter les codes si besoin.</div>
       </div>

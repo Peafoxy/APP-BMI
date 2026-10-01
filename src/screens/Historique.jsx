@@ -6,11 +6,19 @@ import { useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { dFR } from "../lib/core";
 import { champRecherche } from "../components/ui";
+import { espaceDuCompte } from "../lib/calculs";
 
 // ============ HISTORIQUE (JOURNAL D'AUDIT) ============
-export function Historique({ db }) {
+export function Historique({ db, profile }) {
   const [q, setQ] = useState("");
-  let liste = (db.audits || []).slice(0, 500);
+  // ⚠ LE MUR (01/10/2026, trouvé en écrivant le chapitre 22 du manuel) :
+  // le journal partait de db.audits BRUT. Le serveur le cloisonne pour tout
+  // le monde… sauf l'administrateur PRINCIPAL, qui télécharge les DEUX
+  // espaces : il lisait les gestes d'entraînement mêlés aux vrais. Chaque
+  // ligne porte sa marque (marqueEspace) : c'est l'espace REGARDÉ qui
+  // décide, comme pour le dossier d'un client (⚙ Paramètres).
+  const enFormation = !!espaceDuCompte(db, profile);
+  let liste = (db.audits || []).filter((a) => !!a.formation === enFormation).slice(0, 500);
   if (q) liste = liste.filter((a) => correspond(String(a.user) + " " + String(a.action), q));
   const dh = (iso) => `${dFR(iso)} ${String(iso).slice(11, 16)}`;
   return (

@@ -39,7 +39,7 @@ export const normPaiement = (t) => {
 
 // Journal en partie double : chaque opération produit une ligne au débit
 // et une ligne au crédit, équilibrées, avec les comptes SYSCOHADA.
-export function lignesJournal(db, a, b) {
+export function lignesJournal(db, a, b, dansLEspace = null) {
   const lignes = [];
   const pousser = (date, journal, piece, compte, intitule, libelle, debit, credit, boutique) =>
     lignes.push([String(date).slice(0, 10), journal, piece, compte, intitule, libelle, debit || "", credit || "", boutique || ""]);
@@ -52,7 +52,12 @@ export function lignesJournal(db, a, b) {
   // est reconstruite localement : lib/core.js ne dépend de rien, et ne doit
   // pas importer lib/calculs.js — qui, lui, importe déjà core.)
   const formation = new Set((db.boutiques || []).filter((x) => x.formation).map((x) => x.nom));
-  const reel = (x) => !formation.has(x.boutique);
+  // ⚠ 01/10/2026 (chapitre 22) : le journal excluait la formation « en dur ».
+  // Le principal qui REGARDAIT la formation exportait donc les VRAIES
+  // écritures, pendant que tout le reste du tableau de bord montrait
+  // l'entraînement. L'écran passe désormais SON filtre d'espace ; sans lui,
+  // le réel seul (ce que l'application faisait avant).
+  const reel = dansLEspace || ((x) => !formation.has(x.boutique));
 
   // Ventes : débit trésorerie (ou clients si crédit) / crédit 701
   db.ventes.filter((v) => reel(v) && inP(v.date, a, b)).forEach((v) => {
@@ -87,7 +92,7 @@ export function lignesJournal(db, a, b) {
   // compte 104 OHADA) : un APPORT = débit caisse / crédit 1041 ; un
   // PRÉLÈVEMENT = débit 1048 / crédit caisse. Jamais une charge : le
   // comptable vide le 104 dans le capital personnel (103) en fin d'année.
-  (db.depenses || []).filter((x) => !!x.exploitant && (x.categorie === CATEGORIE_APPORT_EXPLOITANT || x.categorie === CATEGORIE_PRELEVEMENT_EXPLOITANT) && inP(x.date, a, b)).forEach((x) => {
+  (db.depenses || []).filter(reel).filter((x) => !!x.exploitant && (x.categorie === CATEGORIE_APPORT_EXPLOITANT || x.categorie === CATEGORIE_PRELEVEMENT_EXPLOITANT) && inP(x.date, a, b)).forEach((x) => {
     const piece = "EXP-" + String(x.id).slice(0, 6).toUpperCase();
     const lib = `${x.categorie}${x.exploitant.note ? " — " + x.exploitant.note : ""}`;
     const m = Number(x.montant);

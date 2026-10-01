@@ -92,12 +92,14 @@ export function Rentabilite({ db, profile }) {
       {enFormation && (
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
           <div className="font-bold text-amber-900">🎓 Rentabilité de l'espace FORMATION</div>
-          <div className="text-xs text-amber-800 mt-0.5">Votre compte travaille en formation : seules les boutiques d'entraînement sont prises en compte.</div>
+          <div className="text-xs text-amber-800 mt-0.5">{voitLesDeuxEspaces(db, profile)
+            ? "Vous regardez l'espace de formation : seules les boutiques d'entraînement sont prises en compte. Pour revenir aux vrais chiffres : ⚙ Paramètres → 👁 Je regarde."
+            : "Votre compte travaille en formation : seules les boutiques d'entraînement sont prises en compte."}</div>
         </div>
       )}
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-1">📈 Rentabilité par produit</div>
-        <div className="text-xs text-slate-500 mb-3">Marge réelle = prix de vente encaissé − prix d'achat. Les remises sont donc prises en compte.</div>
+        <div className="text-xs text-slate-500 mb-3">Marge = prix auquel l'article a été vendu (remises déduites, articles repris retirés) − son prix d'achat actuel, celui de sa fiche. Une vente à crédit compte dès qu'elle est faite.</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Période">
             <select className={inputCls} value={periode} onChange={(e) => setPeriode(e.target.value)}>
@@ -164,7 +166,7 @@ export function Rentabilite({ db, profile }) {
       {dormants.length > 0 && (
         <div className="bg-white rounded-xl border border-orange-200 shadow-sm overflow-x-auto">
           <div className="px-4 py-3 font-bold text-orange-800 border-b border-orange-200 bg-orange-50">
-            😴 Produits dormants — invendus sur la période, mais en stock ({fmt(capitalDormant)} immobilisés)
+            😴 Produits dormants — invendus sur la période, mais en stock ({fmt(capitalDormant)} immobilisés){dormants.length > 25 ? ` · les 25 plus lourds sur ${dormants.length}` : ""}
           </div>
           <table className="w-full text-sm min-w-[520px]">
             <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Site", "Stock", "Valeur immobilisée"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
