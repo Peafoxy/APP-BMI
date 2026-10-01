@@ -12267,5 +12267,19 @@ titre("🔌 Hors connexion : ce que l'écran dit quand un envoi ne part pas (01/
     /setInterval\(ecouteurEnLigne, 20000\)/.test(syn));
 }
 
+titre("🧯 Incidents : la bande des notifications bloquées (01/10/2026, chapitre 25 du manuel)");
+{
+  // ⚠ Trouvé en écrivant le chapitre 25 : la bande demandait de se
+  // RECONNECTER alors qu'un rechargement suffit (l'appareil est rattaché à
+  // la personne au retour d'un F5, App.jsx).
+  const pa = readFileSync("src/screens/Parametres.jsx", "utf8");
+  const app = readFileSync("src/App.jsx", "utf8");
+  const bande = (pa.match(/🔕 Les notifications sont bloquées[^<]*/) || [""])[0];
+  test("★ la bande « notifications bloquées » dit de recharger la page, jamais de se reconnecter",
+    !!bande && !/reconnectez-vous/.test(bande) && /rechargez la page \(F5\) ou rouvrez l'application/.test(bande));
+  test("★ … et c'est vrai : au retour d'un F5, l'appareil est rattaché à la personne (enregistrerAppareil)",
+    (app.match(/enregistrerAppareil\(u\)/g) || []).length >= 2);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
