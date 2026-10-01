@@ -2156,10 +2156,15 @@ lit mal est pire qu'un banc absent).
   sur son écran, une liste de « aucun / aucune » n'apprend rien. **Elles
   restent dans le DOCUMENT**, où elles prouvent qu'on a regardé partout.
 - **La demande part par la règle commune WhatsApp** (`texteDemandeDonnees`,
-  texte qu'il RELIT avant d'envoyer — WhatsApp n'envoie jamais tout seul), vers
-  **la boutique de son chantier, sinon de son dernier achat** ; **jamais un
-  numéro codé en dur**. Sans numéro réglé, on le DIT et on renvoie vers
-  💬 Messages au lieu de faire semblant. ⚠ Un `quoi` inconnu retombe sur la
+  texte qu'il RELIT avant d'envoyer — WhatsApp n'envoie jamais tout seul).
+  ~~vers la boutique de son chantier, sinon de son dernier achat~~ —
+  **RETOURNÉ le 01/10/2026** (Timo : « pourquoi ne pas envoyer le message sur
+  le numéro de BMI ? » → « Lance ») : elle part de SON téléphone (c'est lui
+  qui écrit) vers le **NUMÉRO WHATSAPP BMI** (`NUMERO_BMI_PRINCIPAL`, lu dans
+  lib/whatsappModeles.js, jamais recopié), donc elle arrive dans 📲 WhatsApp
+  de l'application (24 h pour répondre, « 🔁 Confier »). Le choix du 18/09
+  datait d'AVANT le raccordement du numéro BMI. ⚠ Un compte de FORMATION
+  n'écrit pas au vrai numéro : renvoyé vers 💬 Messages. ⚠ Un `quoi` inconnu retombe sur la
   CORRECTION, jamais sur la suppression : devant un doute, on ne propose pas
   d'effacer.
 - ⚠ **L'espace client ne refiltre RIEN** : sur son appareil la base ne contient

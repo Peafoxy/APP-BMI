@@ -10262,13 +10262,20 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     // SANS sa liste de boutiques, donc l'appel CASSÉ. Il a donc GARANTI un
     // écran blanc à tout client qui se connectait (capture Timo). Un contrôle
     // qui lit du TEXTE ne fait pas tourner une fonction.
-    test("★ la demande part par la règle commune WhatsApp, jamais un lien écrit dans l'écran, et le numéro vient de la BOUTIQUE (jamais codé en dur) — avec sa LISTE, sinon undefined.filter et écran blanc",
-      /envoyerWhatsApp\(boutiqueContact\.tel, texteDemandeDonnees\(/.test(ec)
-      && /boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)/.test(ec)
-      && !/wa\.me|\+228\d/.test(ec));
+    // ⚠ RETOURNÉ le 01/10/2026 (Timo : « pourquoi ne pas envoyer le message
+    // sur le numéro de BMI ? » → « Lance ») : la demande arrive sur le NUMÉRO
+    // BMI (lu dans lib/whatsappModeles.js, jamais recopié), plus sur le
+    // téléphone d'une boutique — donc dans 📲 WhatsApp de l'application.
+    test("★ la demande part par la règle commune WhatsApp vers le NUMÉRO BMI (NUMERO_BMI_PRINCIPAL, jamais recopié ni écrit en lien dans l'écran) — plus vers une boutique (RETOURNÉ le 01/10/2026)",
+      /envoyerWhatsApp\(NUMERO_BMI_PRINCIPAL, texteDemandeDonnees\(/.test(ec)
+      && !/boutiqueContact/.test(ec)
+      && !/wa\.me|\+228\s?\d/.test(ec.replace(/\/\/.*$/gm, "")));
 
-    test("★ sans numéro de boutique, on ne fait pas semblant : on le DIT et on renvoie vers 💬 Messages, où la demande arrive quand même",
-      /numéro de votre boutique n'est pas encore renseigné/.test(ec) && /onglet 💬 Messages/.test(ec));
+    // ⚠ RETOURNÉ le 01/10/2026 : plus de numéro de boutique à attendre ; c'est
+    // le compte de FORMATION qui ne part pas (le mur), renvoyé vers 💬 Messages.
+    test("★ un compte de FORMATION n'écrit pas au vrai numéro BMI : on le DIT et on renvoie vers 💬 Messages, où la demande arrive quand même",
+      /if \(estCompteFormation\(db, profile\)\) \{\s*uAlert\("Espace formation/.test(ec) && /onglet 💬 Messages/.test(ec)
+      && ec.indexOf("estCompteFormation(db, profile)) {") < ec.indexOf("envoyerWhatsApp(NUMERO_BMI_PRINCIPAL"));
 
     test("★ le document du client porte le bandeau de FORMATION quand son compte est d'entraînement — un document d'essai ne doit jamais passer pour un vrai",
       /formation: estCompteFormation\(db, profile\)/.test(ec));

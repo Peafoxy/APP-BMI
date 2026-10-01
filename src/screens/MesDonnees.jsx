@@ -27,7 +27,8 @@
 // ============================================================
 import { fmt, today, dFR, envoyerWhatsApp } from "../lib/core";
 import { Panel, uAlert } from "../components/ui";
-import { boutiquesVisibles, estCompteFormation } from "../lib/calculs";
+import { estCompteFormation } from "../lib/calculs";
+import { NUMERO_BMI_PRINCIPAL } from "../lib/whatsappModeles";
 import { dossierClient } from "../lib/effacementClient";
 import { dossierPersonnel, resumePourLeClient, texteDemandeDonnees } from "../lib/dossierPersonnel";
 import { dureeConservation } from "../lib/conservation";
@@ -36,7 +37,6 @@ import { LOGO } from "../lib/constants";
 
 export function MesDonnees({ db, profile }) {
   const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
-  const fiche = (db.clients_installes || []).find((c) => c.user_id === profile.id);
 
   const monDossier = dossierClient({
     comptes: [{ ...moi, role: "client" }],
@@ -63,27 +63,23 @@ export function MesDonnees({ db, profile }) {
     });
   };
 
-  // À qui écrire : la boutique de son chantier, sinon celle de son dernier
-  // achat, sinon la première qui porte un numéro. On ne code JAMAIS un numéro
-  // en dur — il se règle dans ⚙ Paramètres comme tout le reste.
-  // ⚠⚠ LA LISTE EST LE TROISIÈME ARGUMENT, ET ELLE EST OBLIGATOIRE : sans
-  // elle, `boutiquesVisibles` faisait `undefined.filter(...)` — écran blanc
-  // pour tout client à la connexion (capture Timo, 19/09/2026).
-  const boutiqueContact = (() => {
-    const toutes = boutiquesVisibles(db, profile, db.boutiques || []);
-    const nom = fiche?.boutique || (db.ventes || [])[0]?.boutique;
-    return toutes.find((b) => b.nom === nom && b.tel) || toutes.find((b) => b.tel) || null;
-  })();
-
-  // ⚠ WhatsApp n'envoie jamais tout seul : le texte arrive dans sa case de
-  // saisie, il le relit avant d'appuyer. Et un `quoi` inconnu retombe sur la
-  // CORRECTION, jamais sur la suppression (lib/dossierPersonnel.js).
+  // ⚠ 01/10/2026, Timo : « pourquoi ne pas envoyer le message sur le numéro
+  // de BMI ? » → « Lance ». C'est le CLIENT qui écrit : son message part de
+  // SON téléphone (personne ne peut écrire à sa place), mais il arrive sur le
+  // NUMÉRO WHATSAPP BMI — donc dans 📲 WhatsApp de l'application, où l'équipe
+  // le voit et a 24 h pour lui répondre — et plus sur le téléphone d'une
+  // boutique (choix du 18/09, AVANT que le numéro BMI soit raccordé).
+  // ⚠ LE MUR : un compte de FORMATION n'écrit pas au vrai numéro BMI (les
+  // conversations WhatsApp n'existent qu'en réel) : on le renvoie vers
+  // 💬 Messages. WhatsApp n'envoie jamais tout seul : il relit avant
+  // d'appuyer. Un `quoi` inconnu retombe sur la CORRECTION, jamais sur la
+  // suppression (lib/dossierPersonnel.js).
   const demanderSurMesDonnees = (quoi) => {
-    if (!boutiqueContact?.tel) {
-      uAlert("Le numéro de votre boutique n'est pas encore renseigné.\n\nÉcrivez-nous depuis l'onglet 💬 Messages : votre demande arrivera de la même façon.");
+    if (estCompteFormation(db, profile)) {
+      uAlert("Espace formation : aucune demande ne part vers le vrai numéro WhatsApp BMI.\n\nÉcrivez depuis l'onglet 💬 Messages : votre demande arrivera de la même façon.");
       return;
     }
-    envoyerWhatsApp(boutiqueContact.tel, texteDemandeDonnees(moi.nom_base || profile.nom, quoi));
+    envoyerWhatsApp(NUMERO_BMI_PRINCIPAL, texteDemandeDonnees(moi.nom_base || profile.nom, quoi));
   };
 
   const resume = resumePourLeClient(maVue);
@@ -133,7 +129,7 @@ export function MesDonnees({ db, profile }) {
           </button>
         </div>
         <div className="text-[11px] text-slate-400 mt-2">
-          Votre demande part par WhatsApp vers votre boutique — vous la relisez avant de l'envoyer. Vous pouvez aussi nous écrire depuis l'onglet 💬 Messages.
+          Votre demande part par WhatsApp vers le numéro BMI ({NUMERO_BMI_PRINCIPAL}) — vous la relisez avant de l'envoyer. Vous pouvez aussi nous écrire depuis l'onglet 💬 Messages.
         </div>
       </Panel>
     </div>

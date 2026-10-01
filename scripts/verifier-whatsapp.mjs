@@ -3128,7 +3128,7 @@ titre("㊱ 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHAT
   test("★ 🧲 Relancer, 🏠 Envoyer pour signature / Avenant, 🔒 Mes données (décision « b ») : pas de fenêtre en plus",
     /envoyerModele\(/.test(corpsRel) && !/annonceRepli/.test(corpsRel)
     && /envoyerDuNumeroBmi\(c, envoiLienPv\(\{[^)]*\}\)\);/.test(corpsSig) && /envoyerDuNumeroBmi\(c, envoiAv\);/.test(corpsAv)
-    && /envoyerWhatsApp\(boutiqueContact\.tel,/.test(sansComm(lire("src/screens/MesDonnees.jsx"))));
+    && /envoyerWhatsApp\(NUMERO_BMI_PRINCIPAL,/.test(sansComm(lire("src/screens/MesDonnees.jsx"))));
   test("★ 📲 « ✍️ Écrire » : la réponse qui n'arrivera pas ici se dit AVANT", /annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec le texte\. Le message partira de VOTRE numéro/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
   test("★ ☀️ Devis envoyé à la main : UNE fenêtre avant (accès ratés compris), rien après",
     /annonceRepli: `\$\{motifAcces \?/.test(srcPartages) && !/await uAlert\(`Ses accès ne sont pas partis/.test(srcPartages));
