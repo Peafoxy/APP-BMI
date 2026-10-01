@@ -199,7 +199,7 @@ export function Messagerie({ db, save, profile }) {
               {s.items.map((it) => <LigneConversation key={s.cle + it.cle} item={it} conv={conv} ouvrir={ouvrir} />)}
             </React.Fragment>
           ))}
-          {estClient && !chatLibre && <div className="px-4 py-3 text-xs text-slate-400">Vos messages sont transmis à l'équipe BMI Togo (administration, techniciens et votre commercial).</div>}
+          {estClient && !chatLibre && <div className="px-4 py-3 text-xs text-slate-400">Vos messages sont transmis à l'équipe BMI Togo (l'administration, les techniciens de votre chantier et votre commercial).</div>}
           {!estClient && contacts.length === 0 && clientsAvecFil.length === 0 && mesGroupes.length === 0 && mesClientsEnTantQueChef.length === 0 && clientsQuiMOntEcrit.length === 0 && !isAdmin && <div className="px-4 py-6 text-sm text-slate-400 text-center">Aucun contact pour l'instant — les autres membres de l'équipe apparaîtront ici dès leur création.</div>}
         </div>
       </div>

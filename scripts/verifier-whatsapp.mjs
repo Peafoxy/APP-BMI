@@ -3271,5 +3271,18 @@ titre("㊵ LE PV, L'AVENANT, L'ACCUEIL ET LA RELANCE D'UN PROSPECT PARTENT DU NU
     && /texteRepli: texteEnvoi\(envoi\)/.test(corpsEnv) && /if \(r\.auto\)/.test(corpsEnv));
 }
 
+titre("㊶ 💬 MESSAGES ET 📲 WHATSAPP : CE QUE L'ÉCRAN DIT EST VRAI (01/10/2026, chapitre 20 du manuel)");
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const wa = sansComm(lire("src/screens/Whatsapp.jsx"));
+  const corps = wa.slice(wa.indexOf("const reattribuer = async"), wa.indexOf("const rendreATous = async"));
+  test("★★ 🔁 Confier ne propose QUE quelqu'un qui a 📲 WhatsApp (jamais le comptable : la conversation serait perdue pour tous sauf l'administrateur)",
+    /utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => u\.actif !== false && aAccesWhatsapp\(u\)\)/.test(corps));
+  test("★ la liste vide dit vrai : une conversation naît quand un client ÉCRIT au numéro BMI, pas seulement quand il répond",
+    /dès qu'un client écrit au numéro BMI, ou répond à un message qui en est parti/.test(wa));
+  test("★ 💬 Messages : le client lit QUI reçoit son message (les techniciens de SON chantier, pas tous)",
+    /l'administration, les techniciens de votre chantier et votre commercial/.test(lire("src/screens/Messagerie.jsx")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

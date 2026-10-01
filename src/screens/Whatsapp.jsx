@@ -307,7 +307,11 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
   const reattribuer = async () => {
     if (!ouverte) return;
     if (!peutReattribuer(profile)) { uAlert("Seul un administrateur peut confier une conversation à quelqu'un d'autre."); return; }
-    const gens = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && u.role !== "client");
+    // ⚠ 01/10/2026 (trouvé en écrivant le chapitre 20) : la liste proposait
+    // le COMPTABLE, qui n'a pas 📲 WhatsApp — confiée à lui, la conversation
+    // n'était plus lisible que par l'administrateur. On ne confie qu'à
+    // quelqu'un qui peut l'ouvrir : LA règle de l'onglet, `aAccesWhatsapp`.
+    const gens = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && aAccesWhatsapp(u));
     if (!gens.length) { uAlert("Aucun membre de l'équipe à qui la confier."); return; }
     const noms = gens.map((u) => `${u.nom} — ${libelleRole(u.role)}`);
     const choix = await uChoix(`📲 Confier la conversation de ${ouverte.nom || ouverte.tel} à qui ?`, noms);
@@ -452,7 +456,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
           {tousConvs.length === 0 && (
             <div className="px-4 py-6 text-sm text-slate-400 text-center">
               Aucune conversation WhatsApp pour l'instant.
-              <div className="mt-2 text-xs">Elles apparaissent ici dès qu'un client répond à un message parti du numéro BMI.</div>
+              <div className="mt-2 text-xs">Elles apparaissent ici dès qu'un client écrit au numéro BMI, ou répond à un message qui en est parti.</div>
             </div>
           )}
           {tousConvs.length > 0 && convs.length === 0 && (
