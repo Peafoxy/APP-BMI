@@ -12104,5 +12104,33 @@ titre("✏️ Modifier une proforma (30/09/2026, « a, 2 oui, 3 oui »)");
     && /Remise supérieure à 3 % sur un proforma/.test(s34) && /sur le même proforma/.test(s34));
 }
 
+titre("🧰 Outillage : ce que l'écran dit est vrai (01/10/2026, chapitre 19 du manuel)");
+{
+  // ⚠ Trouvé en écrivant le chapitre 19 : la question « Déclarer perdu » d'un
+  // outil RANGÉ écrivait « Il était rangé à ${ou(outil)} » EN TOUTES LETTRES —
+  // une phrase entre guillemets droits ne remplit pas ses trous. Contrôle
+  // GÉNÉRAL : aucune chaîne entre guillemets de src/ ni api/ ne porte « ${ ».
+  // On lit le CODE (l'arbre du fichier), pas le texte : un gabarit entre
+  // accents graves est légitime.
+  const { parse } = await import("@babel/parser");
+  const parcourir = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? parcourir(join(d, e.name)) : /\.(jsx?|mjs)$/.test(e.name) ? [join(d, e.name)] : []);
+  const fautifs = [];
+  for (const f of [...parcourir("src"), ...parcourir("api")]) {
+    const arbre = parse(readFileSync(f, "utf8"), { sourceType: "module", plugins: ["jsx"] });
+    const voir = (n) => {
+      if (!n || typeof n !== "object") return;
+      if (Array.isArray(n)) { n.forEach(voir); return; }
+      if (n.type === "StringLiteral" && /\$\{[A-Za-z_]/.test(n.value)) fautifs.push(`${f}:${n.loc.start.line}`);
+      for (const k in n) if (k !== "loc") voir(n[k]);
+    };
+    voir(arbre.program);
+  }
+  test("★★ aucune phrase entre guillemets droits ne porte un trou « ${…} » qui ne se remplira jamais (src et api)", fautifs.length === 0);
+  if (fautifs.length) console.log("     fautifs :", fautifs.join(", "));
+  const ou = readFileSync("src/screens/Outillage.jsx", "utf8");
+  test("★ ✏️ Corriger la fiche : le lieu se change par une sortie PUIS un retour (un outil rangé ne « rentre » pas une seconde fois)",
+    /Pour le ranger ailleurs, enregistrez une sortie puis son retour/.test(ou) && !/enregistrez un retour pour le reposer/.test(ou));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

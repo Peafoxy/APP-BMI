@@ -501,9 +501,9 @@ export function Outillage({ db, save, profile }) {
   };
 
   // ---- 🔧 RÉPARATION : chez QUI, son NUMÉRO, la PANNE, le PRIX (Timo,
-  // 18/09/2026). ⚠ Le prix est une INFORMATION portée par l'outil : il
-  // n'écrit AUCUNE dépense — créer une charge sans que Timo l'ait demandé
-  // toucherait ses comptes.
+  // 18/09/2026). ⚠ Le prix est une DÉPENSE (« oui, mets le prix de
+  // réparation dans les dépenses », le même jour) : au dépôt s'il est
+  // connu, sinon au retour — jamais deux.
   // Le tiroir : la même limite qu'à la saisie d'une dépense (Timo, 15/09/2026)
   // — le tiroir PLUS ce qu'il reste dans l'enveloppe.
   // ⚠ Plus de « boutique regardée » : la caisse proposée pour une réparation
@@ -635,7 +635,7 @@ export function Outillage({ db, save, profile }) {
   const perdre = async (outil) => {
     if (garde()) return;
     const resp = responsableDeLaPerte(outil);
-    const motif = await uPrompt(`Déclarer « ${outil.nom} » PERDU.${resp ? `\n\nIl était sous la responsabilité de ${resp.nom}.` : "\n\nIl était rangé à ${ou(outil)} : personne n'en répondait."}\n\nQue s'est-il passé ?`, "");
+    const motif = await uPrompt(`Déclarer « ${outil.nom} » PERDU.${resp ? `\n\nIl était sous la responsabilité de ${resp.nom}.` : `\n\nIl était rangé à ${ou(outil)} : personne n'en répondait.`}\n\nQue s'est-il passé ?`, "");
     if (motif === null) return;
     const refus = critiquePerte(outil, { motif });
     if (refus) { uAlert(refus); return; }
@@ -772,8 +772,9 @@ export function Outillage({ db, save, profile }) {
   };
 
   // ---- 🧰 CE QUE LA BOÎTE CONTIENT : la liste se règle par l'administrateur
-  // (c'est du matériel acheté, comme l'ajout d'un outil). Un outil qui porte
-  // une liste EST une boîte — pas de case à cocher de plus.
+  // (c'est du matériel acheté, comme l'ajout d'un outil). Une caisse se dit
+  // À LA CRÉATION, par sa case (Timo, 18/09/2026) : une perceuse n'a rien
+  // à contenir.
   const ajouterAuContenu = (boite) => {
     if (garde()) return;
     if (refuserSaufAdmin(profile, "Régler ce que contient une boîte")) return;
@@ -1181,7 +1182,7 @@ export function Outillage({ db, save, profile }) {
                   <Field label="Prix d'achat (F)"><input type="number" className={inputCls} value={fiche.prix_achat} onChange={(e) => setFiche({ ...fiche, prix_achat: e.target.value })} /></Field>
                 </div>
                 <div className="text-xs text-slate-500 mt-2">
-                  Son histoire, ses mouvements et sa liste ne bougent pas. <b>Le lieu ne se corrige pas ici</b> : il est déduit du dernier retour — enregistrez un retour pour le reposer. Il est rangé à <b>{lieuDeRangement(o) || "—"}</b>.
+                  Son histoire, ses mouvements et sa liste ne bougent pas. <b>Le lieu ne se corrige pas ici</b> : il est déduit du dernier retour. Pour le ranger ailleurs, enregistrez une sortie puis son retour : celui qui le reçoit dit où il le range. Il est rangé à <b>{lieuDeRangement(o) || "—"}</b>.
                 </div>
                 <div className="flex gap-2 mt-3">
                   <button onClick={enregistrerFiche} className={btnDark}>Enregistrer la correction</button>
