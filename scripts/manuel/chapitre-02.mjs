@@ -60,7 +60,7 @@ export const CHAPITRE = {
         ["Commercial", "À commission, apporte des clients", "Nouvelle commande, Dimensionnement, Tous les devis, Prospects, Clients installés, Mes tâches, Messages, WhatsApp, Ma commission, Équipe (s'il est chef), Créer un client, Contrats"],
         ["Technicien (commission)", "Installe, à commission", "Comme le commercial, plus Primes reçues, Dépenses (les siennes), Outillage"],
         ["Technicien BMI (salarié)", "Installe, salarié ; peut être chef des techniciens", "Dimensionnement, Tous les devis, Clients installés, Prospects, Mes tâches, Équipe (s'il est chef), Ma commission, Messages, WhatsApp, Salaire, Créer un client, Contrats, Dépenses, Outillage"],
-        ["Responsable Commercial (salarié)", "Dirige les commerciaux", "Équipe, Prospects, Mes tâches, Clients installés, Dimensionnement, Tous les devis, Contrats, Messages, WhatsApp, Ma commission, Salaire, Créer un client"],
+        ["Responsable Commercial (salarié)", "Dirige les commerciaux", "Équipe, Ventes, Prospects, Mes tâches, Clients installés, Dimensionnement, Tous les devis, Contrats, Messages, WhatsApp, Ma commission, Salaire, Créer un client"],
         ["Comptable (lecture seule)", "Consulte, exporte, pointe les décaissements", "Tableau de bord, Rentabilité, Dépenses, Chez le comptable, Dettes, Caisse, Stocks, Clients, Historique, Messages, Salaire, Créer un client"],
         ["Administrateur", "Dirige", "Tout, y compris Salaires (tous), Utilisateurs, Historique, Paramètres"],
         ["Client", "A acheté chez BMI", "Mon espace, Messages, Mes données, Mes contrats"],

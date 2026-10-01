@@ -2214,7 +2214,7 @@ export const LIBELLE_ONGLET = {
   commission: "💵 Ma commission", taches: "✅ Mes tâches", salaire: "💵 Salaire", espace_client: "🏠 Mon espace", ravitaillement: "🚚 Ravitaillement",
   nouveau_client: "🙋 Créer un client", tous_devis: "📋 Tous les devis", chez_comptable: "🧾 Chez le comptable",
   primes_remises: "💰 Primes remises", primes_recues: "💰 Primes reçues",
-  contrats: "📄 Contrats", mes_contrats: "📄 Mes contrats", outillage: "🧰 Outillage",
+  contrats: "📄 Contrats", mes_contrats: "📄 Mes contrats", outillage: "🧰 Outillage", transfert: "🔁 Transfert",
   // ⚠ « MES » données, pas « VOS » (Timo, 19/09/2026) : c'est le client qui
   // vient chercher ce qui le concerne. Le mot suit la place.
   mes_donnees: "🔒 Mes données",
@@ -2228,7 +2228,7 @@ export const ONGLETS_ROLE = {
   admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "whatsapp", "salaires", "users", "historique", "parametres", "travaux", "outillage"],
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "whatsapp", "commission", "equipe", "nouveau_client", "contrats"],
   technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "whatsapp", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses", "outillage"],
-  resp_commercial: ["equipe", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "whatsapp", "commission", "salaire", "nouveau_client"],
+  resp_commercial: ["equipe", "ventes", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "whatsapp", "commission", "salaire", "nouveau_client"],
   // ⚠ CHEF TECHNICIEN (17/09/2026, Timo : « ouvre le rôle technicien BMI »).
   // Le chef des techniciens de BMI est un SALARIÉ : le seul rôle qui lui
   // convient est « technicien BMI ». Or ce rôle ne pouvait même pas être
@@ -2241,8 +2241,13 @@ export const ONGLETS_ROLE = {
   // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
   technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "whatsapp", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
   magasinier: ["stocks", "salaire", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux"],
-  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "depenses", "dettes", "clients", "caisse", "salaire", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats", "travaux"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux"],
+  // ⚠ 01/10/2026 : alignée sur App.jsx — « 📤 Dépenses » retiré (le vendeur
+  // ne l'a plus depuis le 15/09), « 🏠 Clients installés » ajouté (il l'a).
+  // Pareil pour 🔁 Transfert du gérant et 💰 Ventes du resp. commercial :
+  // un onglet absent d'ici ne se retire pas dans 🔐 Pouvoirs, et une
+  // notification n'ouvre pas son écran.
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "dettes", "clients", "caisse", "salaire", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats", "travaux"],
   // ⚠ Le comptable N'A PLUS 📲 WhatsApp (20/09/2026, décision « 2a » de Timo) :
   // il garde 💬 Messages. Voir `aAccesWhatsapp` dans lib/whatsappConversations.js.
   comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],

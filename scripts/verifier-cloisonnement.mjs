@@ -12313,6 +12313,23 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     const ligne = role === "commercial" ? m[1].replace(/\.\.\.\(isTechnicien \? \[\[[^\]]*\]\] : \[\]\)/g, "") : m[1];
     return [...ligne.matchAll(/\["(\w+)",/g)].map((x) => x[1]);
   };
+  // ⚠ 01/10/2026 (en écrivant le guide du comptable) : App.jsx lui donnait
+  // encore 📲 WhatsApp, retiré par Timo le 20/09 (« 2a ») — l'onglet s'ouvrait
+  // vide. Et quatre onglets affichés n'étaient pas dans ONGLETS_ROLE (donc
+  // impossibles à retirer dans 🔐 Pouvoirs, et une notification n'ouvrait pas
+  // leur écran). Les deux listes doivent dire la MÊME chose, rôle par rôle.
+  {
+    const cal = readFileSync("src/lib/calculs.js", "utf8");
+    const bloc = cal.slice(cal.indexOf("export const ONGLETS_ROLE = {"));
+    for (const role of Object.keys(BRANCHE)) {
+      const m = bloc.match(new RegExp("\\n\\s*" + role + ": \\[([^\\]]*)\\]"));
+      const liste = m ? [...m[1].matchAll(/"(\w+)"/g)].map((x) => x[1]) : null;
+      const affiches = ongletsDe(role);
+      const ecart = liste && affiches ? [...affiches.filter((o) => !liste.includes(o)).map((o) => "affiché seul : " + o), ...liste.filter((o) => !affiches.includes(o)).map((o) => "Pouvoirs seul : " + o)] : ["introuvable"];
+      test(`★ ${role} : les onglets affichés (App.jsx) sont exactement ceux de ONGLETS_ROLE${ecart.length ? " — " + ecart.join(", ") : ""}`, ecart.length === 0);
+    }
+    test("★ le comptable n'a pas 📲 WhatsApp (décision « 2a », 20/09/2026)", !(ongletsDe("comptable") || ["whatsapp"]).includes("whatsapp"));
+  }
   const numerosChapitres = readdirSync("scripts/manuel").map((f) => f.match(/^chapitre-(\d+)\.mjs$/)).filter(Boolean).map((m) => Number(m[1]));
   const guides = readdirSync("scripts/manuel/guides").filter((f) => /^guide-.+\.mjs$/.test(f));
   test("★ au moins un guide par poste existe (le vendeur d'abord)", guides.includes("guide-vendeur.mjs"));
