@@ -4646,11 +4646,20 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     // ⚠ RETOURNÉ le 29/09/2026 : la proforma et le parrainage passent par
     // LA règle `ouvrirWhatsAppApresAnnonce` (ce qui va se passer se dit AVANT).
     ["src/screens/Ventes.jsx", "ouvrirWhatsAppApresAnnonce"],
-    ["src/screens/EspaceClient.jsx", "ouvrirWhatsAppApresAnnonce"], ["src/screens/ClientsInstalles.jsx", "envoyerWhatsApp"], ["src/screens/ClientsInstalles.jsx", "ouvrirWhatsAppApresAnnonce"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
+    ["src/screens/EspaceClient.jsx", "ouvrirWhatsAppApresAnnonce"], ["src/screens/Commerciaux.jsx", "lienWhatsApp"],
+    // ⚠ RETOURNÉ le 01/10/2026 : 🏠 Clients installés (PV, avenant) et
+    // 🧲 Prospects (accueil, relance) envoient du NUMÉRO BMI (envoyerModele) ;
+    // l'ouverture WhatsApp est leur repli — contrôlé juste après.
   ]) {
     const src = readFileSync(f, "utf8");
     // (13/09/2026 : lib/comptesClients.js écrit « ./core.js » — la chaîne lue par le serveur des notifications exige l'extension.)
     test(`★ ${f} passe par ${fn} de lib/core.js`, new RegExp(`import \\{[^}]*\\b${fn}\\b[^}]*\\} from "(\\.\\./)*(\\./)?(lib/)?core(\\.js)?"`).test(src) && src.includes(`${fn}(`));
+  }
+  for (const f of ["src/screens/ClientsInstalles.jsx", "src/screens/Prospects.jsx"]) {
+    const src = readFileSync(f, "utf8");
+    test(`★ ${f} envoie du numéro BMI par envoyerModele (src/whatsapp.js), et n'ouvre plus WhatsApp lui-même (RETOURNÉ le 01/10/2026)`,
+      /envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/whatsapp"/.test(src) && /await envoyerModele\(\{/.test(src)
+      && !/\benvoyerWhatsApp\(/.test(src) && !/\bouvrirWhatsAppApresAnnonce\(/.test(src));
   }
   {
     const src = readFileSync("src/screens/Clients.jsx", "utf8");
@@ -4671,8 +4680,11 @@ titre("WhatsApp : UNE règle pour le lien et l'envoi (doublon A10, Timo : « lan
     const directs = (srcCC.match(/envoyerWhatsApp\(tel, lignes\.join\("\\n"\)\);/g) || []).length
       + (srcCC.match(/return ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignes\.join\("\\n"\), annonce, prevenir \}\);/g) || []).length;
     const parTexte = (srcCC.match(/return envoyerWhatsApp\(tel, texteIdentifiants(Client|Employe)\([^)]*\), demanderConfirmation\);/g) || []).length;
-    test("★ les quatre messages de comptesClients (client, employé, accueil et relance prospect) envoient par la règle commune",
-      directs === 2 && parTexte === 2);
+    // ⚠ RETOURNÉ le 01/10/2026 : l'accueil et la relance d'un prospect
+    // partent du NUMÉRO BMI (modèles `accueil_prospect`, `relance_prospect`) ;
+    // leurs deux textes d'ici sont RETIRÉS. Restent les deux identifiants.
+    test("★ les deux messages d'identifiants de comptesClients (client, employé) envoient par la règle commune — l'accueil et la relance d'un prospect n'y sont plus (RETOURNÉ le 01/10/2026)",
+      directs === 0 && parTexte === 2 && !/envoyer(Accueil|Relance)ProspectWhatsApp/.test(srcCC));
   }
   // ⚠ CONTRÔLE RETOURNÉ LE 19/09/2026 (« lance l'étape 1 ») : le devis ne
   // passe plus par `envoyerWhatsApp` EN DIRECT — il passe par `envoyerModele`
@@ -4749,10 +4761,14 @@ titre("Contrat et PV : UN fichier (lib/contrat.js) — numéros, plan de règlem
   // plus cette fonction du tout. Éprouvé en remettant les codes : il tombe.
   {
     const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
-    const corps = (ci.match(/const construireMessagePv = \(c, lien\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+    // ⚠ RETOURNÉ le 01/10/2026 : le texte est celui du modèle
+    // `lien_signature_pv` (lib/whatsappModeles.js), mot pour mot.
+    const corps = (ci.match(/const construireMessagePv = \(c, jeton\) => ([^\n]*)/) || [])[1] || "";
+    const modeleTxt = readFileSync("src/lib/whatsappModeles.js", "utf8");
+    const textePv = (modeleTxt.match(/export const TEXTE_LIEN_SIGNATURE_PV = \[([\s\S]*?)\]\.join/) || [])[1] || "";
     test("★ le message du lien de signature du PV ne porte plus les codes du client (ni mot de passe, ni identifiant, ni motDePasseConnu) — seuls le créateur et l'administrateur lisent les codes",
-      corps.length > 0 && !/mot de passe/i.test(corps) && !/identifiant/i.test(corps) && !/motDePasseConnu/.test(corps)
-      && /avec vos accès habituels/.test(corps) && /Ou sans compte, en cliquant sur ce lien/.test(corps)
+      /texteEnvoi\(envoiLienPv\(/.test(corps) && !/mot de passe|identifiant|motDePasseConnu/i.test(corps)
+      && textePv.length > 0 && !/mot de passe|identifiant/i.test(textePv) && /sans compte/.test(textePv)
       && !/motDePasseConnu/.test(ci));
   }
 }

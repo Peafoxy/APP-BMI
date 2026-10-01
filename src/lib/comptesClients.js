@@ -239,35 +239,11 @@ export function envoyerIdentifiantsEmployeWhatsApp(nomAffiche, identifiant, motD
   return envoyerWhatsApp(tel, texteIdentifiantsEmploye(nomAffiche, identifiant, motDePasse, role), demanderConfirmation);
 }
 
-// Simple accusé de prise de contact envoyé à un nouveau prospect — pas
-// d'identifiants ici, il n'est pas encore client (voir convertirEnClient).
-// ⚠ 29/09/2026 (décision « a ») : l'écran l'ANNONCE avant l'ouverture —
-// un enregistrement qui ouvre WhatsApp sans prévenir surprend.
-export function envoyerAccueilProspectWhatsApp(nomAffiche, tel, { annonce, prevenir } = {}) {
-  const lignes = [
-    `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
-    ``,
-    `Merci pour votre intérêt pour BMI TOGO ! Un technicien BMI vous recontacte très prochainement pour la suite.`,
-    ``,
-    `BMI TOGO — Les bâtiments modernes et intelligents`,
-  ];
-  return ouvrirWhatsAppApresAnnonce({ tel, texte: lignes.join("\n"), annonce, prevenir });
-}
-
-// Relance WhatsApp d'un prospect — UN CLIC : le message est déjà prêt, il
-// ne reste qu'à l'envoyer. Pas une automatisation à zéro clic (WhatsApp ne
-// le permet pas gratuitement, voir échange avec Timo) mais tout le travail
-// de recherche et de rédaction disparaît.
-export function envoyerRelanceProspectWhatsApp(nomAffiche, tel) {
-  const lignes = [
-    `Bonjour ${String(nomAffiche || "").toUpperCase()},`,
-    ``,
-    `Je me permets de revenir vers vous concernant votre projet avec BMI TOGO — êtes-vous toujours intéressé ? Je reste à votre disposition pour en discuter.`,
-    ``,
-    `BMI TOGO — Les bâtiments modernes et intelligents`,
-  ];
-  envoyerWhatsApp(tel, lignes.join("\n"));
-}
+// 📲 L'accueil et la relance d'un prospect partent du NUMÉRO BMI depuis le
+// 01/10/2026 (modèles `accueil_prospect` et `relance_prospect`, textes de
+// Timo — lib/whatsappModeles.js, `texteEnvoi`). Les deux textes d'ici, qui
+// ouvraient WhatsApp sur le téléphone, sont RETIRÉS : le repli reprend le
+// texte du modèle, mot pour mot.
 
 // ============ RELANCE D'UN DEVIS SANS RÉPONSE (Timo, 09/09/2026) ============
 // « Les clients à qui on a envoyé des devis et qui ne réagissent pas : où les

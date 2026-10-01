@@ -8,12 +8,12 @@ import { useState, Fragment } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient, ADRESSE_APP } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
-import { messageIdentifiants } from "../lib/whatsappModeles";
-import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, envoyerWhatsApp, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant } from "../lib/whatsappModeles";
+import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
@@ -500,20 +500,32 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // l'application où un tiers lisait les codes d'un client. Le client a reçu
   // ses accès à la création (modèle `espace`, du numéro BMI) ; ici on lui
   // rappelle seulement OÙ signer. Le banc l'impose (verifier-cloisonnement).
-  const construireMessagePv = (c, lien) => {
-    const compte = c.user_id ? (db.users || []).find((u) => u.id === c.user_id) : null;
-    const intro = `Bonjour ${c.prenom || ""} ${c.nom},\n\nVos travaux d'installation (${c.type_installation}) sont terminés. Merci de confirmer la réception en signant le procès-verbal.`;
-    if (compte) {
-      return `${intro}\n\n👉 Directement depuis votre espace client sur ${ADRESSE_APP}, avec vos accès habituels.\n\n👉 Ou sans compte, en cliquant sur ce lien :\n${lien}\n\nBMI Togo`;
-    }
-    return `${intro}\n\n${lien}\n\nBMI Togo`;
-  };
+  // 📲 01/10/2026 : le texte est celui du modèle `lien_signature_pv`, mot
+  // pour mot (créé par Timo chez YCloud) — il part du numéro BMI, et sert de
+  // repli quand le numéro BMI ne peut pas envoyer. Toujours SANS les codes.
+  const construireMessagePv = (c, jeton) => texteEnvoi(envoiLienPv({ nom: `${c.nom} ${c.prenom || ""}`, installation: c.type_installation, jeton }));
 
   const genererEtEnvoyerLienPv = (c) => {
     const jeton = genererJetonSignature();
     const numero = numeroPv(c);
-    const lien = `https://bmitogo.com/signature/${jeton}`;
-    return { jeton, numero, texte: construireMessagePv(c, lien) };
+    return { jeton, numero, texte: construireMessagePv(c, jeton) };
+  };
+
+  // 📲 UN chemin pour le PV et l'avenant : le modèle du numéro BMI, puis
+  // l'ouverture WhatsApp d'aujourd'hui en repli. ⚠ LE MUR : l'espace du
+  // CHANTIER, jamais celui de qui clique. Parti du numéro BMI → une ligne
+  // dans 📲 WhatsApp, qui ne donne la conversation à personne.
+  const envoyerDuNumeroBmi = async (c, envoi, annonceRepli) => {
+    const r = await envoyerModele({ tel: c.tel, modele: envoi.modele, variables: envoi.variables,
+      espaceFormation: !!espaceDuChantier(db, c, profile), texteRepli: texteEnvoi(envoi),
+      prevenir: uAlert, demanderConfirmation: uConfirm, annonceRepli });
+    if (r.auto) {
+      save((e) => ({
+        ...e,
+        messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: c.tel, nom: `${c.nom} ${c.prenom || ""}`.trim(), modele: envoi.modele, variables: envoi.variables, ref: { chantier_id: c.id }, envoi: r }),
+      }));
+    }
+    return r;
   };
 
   // ⚠ Demande Timo : dès que le chantier passe « terminé », le lien de
@@ -538,16 +550,18 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       uAlert(`✅ Travaux déclarés terminés.\n\n⚠ Le lien de signature n'a PAS pu être envoyé automatiquement : ${!c.adresse_contrat ? "l'« Adresse formelle (pour le PV) »" : "le numéro de téléphone"} manque sur la fiche. Renseignez-le, puis utilisez « Envoyer pour signature ».`);
       return;
     }
-    const { jeton, numero, texte } = genererEtEnvoyerLienPv(c);
+    const { jeton, numero } = genererEtEnvoyerLienPv(c);
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, ...champs, ...champsLienPv(jeton, numero) }
         : x)),
     }, `Installation ${c.nom} ${c.prenom} déclarée TERMINÉE par ${profile.nom} — lien de signature envoyé automatiquement (${numero})`);
-    // Dit AVANT l'ouverture (règle du 29/09/2026), jamais après.
-    await ouvrirWhatsAppApresAnnonce({ tel: c.tel, texte, prevenir: uAlert, demanderConfirmation: uConfirm,
-      annonce: "✅ Travaux déclarés terminés.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le lien de signature du PV, à envoyer au client." });
+    // 📲 Du numéro BMI d'abord. Repli : dit AVANT l'ouverture (règle du
+    // 29/09/2026), jamais après.
+    const r = await envoyerDuNumeroBmi(c, envoiLienPv({ nom: `${c.nom} ${c.prenom || ""}`, installation: c.type_installation, jeton }),
+      "✅ Travaux déclarés terminés.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le lien de signature du PV, à envoyer au client.");
+    if (r.auto) await uAlert(`✅ Travaux déclarés terminés.\n\n📲 Le lien de signature du PV est parti du numéro BMI à ${c.nom} ${c.prenom || ""}.`);
   };
 
   // ---- ENVOI DU LIEN DE SIGNATURE (contrat de réception) ----
@@ -561,14 +575,17 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (refuserSaufAdmin(profile, "Envoyer le lien de signature du PV")) return;
     if (!c.adresse_contrat) { uAlert("Merci de renseigner l'« Adresse formelle (pour le PV) » sur la fiche de ce chantier avant d'envoyer le lien de signature."); return; }
     if (!c.tel) { uAlert("Aucun numéro de téléphone enregistré pour ce client."); return; }
-    const { jeton, numero, texte } = genererEtEnvoyerLienPv(c);
+    const { jeton, numero } = genererEtEnvoyerLienPv(c);
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, ...champsLienPv(jeton, numero) }
         : x)),
     }, `Lien de signature du PV envoyé — ${c.nom} ${c.prenom || ""} (${numero})`);
-    envoyerWhatsApp(c.tel, texte);
+    // 📲 Du numéro BMI ; sans fenêtre avant (décision « b » du 29/09/2026 :
+    // le bouton dit ce qu'il fait). Repli : l'ouverture d'aujourd'hui.
+    const r = await envoyerDuNumeroBmi(c, envoiLienPv({ nom: `${c.nom} ${c.prenom || ""}`, installation: c.type_installation, jeton }));
+    if (r.auto) await uAlert(`📲 Lien de signature du PV envoyé du numéro BMI à ${c.nom} ${c.prenom || ""}.`);
   };
 
   // ⚠ « Pose seule » (demande Timo) : le règlement de la main d'œuvre se
@@ -631,15 +648,16 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (refuserSaufAdmin(profile, "Envoyer un avenant de levée de réserves")) return;
     if (!await uConfirm(`Les réserves de ${c.nom} ${c.prenom} ont-elles bien été corrigées ?\n\nUn nouveau lien de signature (avenant de levée de réserves, référençant le PV ${c.contrat_numero || "initial"}) sera envoyé au client.`)) return;
     const jeton = genererJetonSignature();
-    const lien = `https://bmitogo.com/avenant/${jeton}`;
-    const texte = `Bonjour ${c.prenom || ""} ${c.nom},\n\nLes réserves signalées sur votre installation ont été corrigées. Merci de confirmer en signant l'avenant, directement depuis votre téléphone :\n\n${lien}\n\nBMI Togo`;
+    // 📲 01/10/2026 : le modèle `avenant_reserves`, son texte en repli.
+    const envoiAv = envoiAvenant({ nom: `${c.nom} ${c.prenom || ""}`, pv: c.contrat_numero, jeton });
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
         ? { ...x, avenant_jeton: jeton, avenant_jeton_le: new Date().toISOString(), avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
         : x)),
     }, `Avenant de levée de réserves envoyé — ${c.nom} ${c.prenom} (par ${profile.nom})`);
-    envoyerWhatsApp(c.tel, texte);
+    const r = await envoyerDuNumeroBmi(c, envoiAv);
+    if (r.auto) await uAlert(`📲 Avenant envoyé du numéro BMI à ${c.nom} ${c.prenom || ""}.`);
   };
 
   const ouvrirRepartition = (c) => {

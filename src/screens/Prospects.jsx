@@ -7,17 +7,17 @@ import { Fragment, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces } from "../whatsapp";
-import { messageIdentifiants } from "../lib/whatsappModeles";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { messageIdentifiants, texteEnvoi, envoiAccueilProspect, envoiRelanceProspect, projetDansLaPhrase, texteVariable } from "../lib/whatsappModeles";
 import { prospectAcquis, estDemandeAssistant, prendreEnCharge, critiquePriseEnCharge } from "../lib/prospects";
 import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace } from "../lib/calculs";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
@@ -25,9 +25,23 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
   const voitTout = isAdmin || estChef || profile.role === "resp_commercial";
   const categories = db.categories_prospects.filter((c) => c.actif !== false);
   const [nouvelleCat, setNouvelleCat] = useState("");
-  const vide = { categorie: categories[0]?.nom || "", localisation: "", nom: "", tel: "", nature: "", statut: "Favorable", interet: "Intéressé", relance: "", lat: null, lng: null };
+  const vide = { categorie: categories[0]?.nom || "", projet: "", localisation: "", nom: "", tel: "", nature: "", statut: "Favorable", interet: "Intéressé", relance: "", lat: null, lng: null };
   const [f, setF] = useState(vide);
   const [carteOuverte, setCarteOuverte] = useState(false);
+  // 🎯 LE PROJET (décision « a », 01/10/2026) : la relance du numéro BMI le
+  // nomme (« votre projet d'installation solaire »). La liste = les métiers
+  // réglés dans ⚙ Paramètres, sauf « Autre », qui se TAPE. Le texte libre
+  // « Nature du chantier / besoin » ne part JAMAIS au client (notes internes).
+  const PROJET_AUTRE = "✏️ Autre…";
+  const projetsProposes = domainesDefinis(db).map((d) => d && d.nom).filter((n) => n && !/^autre$/i.test(n));
+  const [projetLibre, setProjetLibre] = useState(false);
+  const demanderProjet = async (nom) => {
+    const choix = await uChoix(`De quel projet s'agit-il pour ${nom} ?\n\nIl sera écrit dans le message (« votre projet … ») et gardé sur sa fiche.`, [...projetsProposes, PROJET_AUTRE]);
+    if (!choix) return "";
+    if (choix !== PROJET_AUTRE) return choix;
+    const t = await uPrompt("Le projet, en quelques mots (ex : vidéosurveillance, éclairage) :", "");
+    return texteVariable(t);
+  };
   const [filtreRelance, setFiltreRelance] = useState(false);
   const [q, setQ] = useState("");
   // Le besoin d'UN prospect déplié à la fois (règle de dépliage de 💰 Ventes).
@@ -54,15 +68,25 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
     // ⚠ Cloisonnement : un prospect n'appartient à aucune boutique — sans
     // cette marque, une fiche inventée pendant un entraînement entrait dans
     // la vraie file de relance des commerciaux.
-    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, ...marqueEspace(db, profile, f.boutique) };
-    // WhatsApp est ouvert AVANT le save, de façon strictement synchrone (sinon
-    // le navigateur bloque l'ouverture — cf. correctif du même souci sur le proforma).
+    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, projet: texteVariable(f.projet), ...marqueEspace(db, profile, f.boutique) };
     save({ ...db, prospects: [p, ...db.prospects] }, `Nouveau prospect « ${f.nom} » (${f.categorie}) — ${profile.nom}`);
     setF(vide);
+    setProjetLibre(false);
     setCarteOuverte(false);
-    // Décision « a » (29/09/2026) : ANNONCÉ avant l'ouverture de WhatsApp.
-    await envoyerAccueilProspectWhatsApp(f.nom, f.tel, { prevenir: uAlert,
-      annonce: `✅ Prospect « ${f.nom} » enregistré.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le message d'accueil, à lui envoyer.` });
+    // 📲 01/10/2026 : le message d'accueil part du NUMÉRO BMI (modèle
+    // `accueil_prospect`, texte de Timo). Repli — formation, refus, modèle
+    // pas encore approuvé : l'ouverture d'aujourd'hui, ANNONCÉE avant
+    // (décision « a » du 29/09/2026). ⚠ LE MUR : l'espace de la FICHE.
+    const envoi = envoiAccueilProspect({ nom: f.nom });
+    const r = await envoyerModele({ tel: f.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!p.formation,
+      texteRepli: texteEnvoi(envoi), prevenir: uAlert, demanderConfirmation: uConfirm,
+      annonceRepli: `✅ Prospect « ${f.nom} » enregistré.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le message d'accueil, à lui envoyer.` });
+    if (r.auto) {
+      // La conversation revient au commercial qui l'a enregistré, si elle
+      // n'est à personne (comme « ✍️ Écrire ») : la réponse lui arrive.
+      save((e) => ({ ...e, messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: f.tel, nom: f.nom, modele: envoi.modele, variables: envoi.variables, ref: { prospect_id: p.id }, donnerAuSender: true, envoi: r }) }));
+      await uAlert(`✅ Prospect « ${f.nom} » enregistré.\n\n📲 Le message d'accueil est parti du numéro BMI.`);
+    }
   };
 
   const supprimer = async (p) => {
@@ -235,15 +259,40 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
     save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? toucher({ ...x, relance: d.trim() }) : x)) }, `Relance mise à jour pour ${p.nom}`);
   };
 
-  // Relance WhatsApp EN UN CLIC : le message part directement, et on note
-  // silencieusement le contact dans l'historique (remet à jour la dernière
-  // activité, sort le prospect de l'état « dormant » si besoin) — sans
-  // aucune boîte de dialogue qui ralentirait le geste.
-  const relancerWhatsApp = (p) => {
+  // 📲 RELANCE DU NUMÉRO BMI (01/10/2026, modèle `relance_prospect`) : elle
+  // NOMME le projet (décision « a ») — demandé une fois s'il manque, puis
+  // gardé sur la fiche. Une question AVANT de partir (la règle des relances :
+  // un clic à côté ne se rattrape pas). Repli sans fenêtre de plus (décision
+  // « b » du 29/09/2026), avec le texte du modèle mot pour mot. Le contact se
+  // note dans l'historique (dernière activité, sortie de l'état « dormant »).
+  const relancerWhatsApp = async (p) => {
     if (refuserSaufProprietaire(profile, p.commercial, "Relancer un prospect")) return;
-    envoyerRelanceProspectWhatsApp(p.nom, p.tel);
-    const historique = [{ date: today(), par: profile.nom, note: "Relance WhatsApp envoyée" }, ...(p.contacts || [])];
-    save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? toucher({ ...x, contacts: historique }) : x)) }, `Relance WhatsApp envoyée à ${p.nom}`);
+    let projet = texteVariable(p.projet);
+    const projetDemande = !projet;
+    if (!projet) { projet = await demanderProjet(p.nom); if (!projet) return; }
+    const envoi = envoiRelanceProspect({ nom: p.nom, auteur: profile.nom, projet: projetDansLaPhrase(projet) });
+    if (!envoi) return;
+    if (!await uConfirm(`Relancer ${p.nom} (${p.tel}) du numéro WhatsApp BMI, au sujet de son projet ${projetDansLaPhrase(projet)} ?`)) return;
+    const r = await envoyerModele({ tel: p.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!p.formation,
+      texteRepli: texteEnvoi(envoi), prevenir: uAlert, demanderConfirmation: uConfirm });
+    if (!r.auto && !r.parti && !projetDemande) return;
+    const note = r.auto ? "Relance WhatsApp envoyée du numéro BMI" : "Relance WhatsApp envoyée";
+    save((e) => ({
+      ...e,
+      prospects: (e.prospects || []).map((x) => (x.id === p.id
+        ? (r.auto || r.parti ? toucher({ ...x, projet, contacts: [{ date: today(), par: profile.nom, note }, ...(x.contacts || [])] }) : { ...x, projet })
+        : x)),
+      messages: r.auto ? messagesAvecLigneEnvoi(e.messages, { profile, tel: p.tel, nom: p.nom, modele: envoi.modele, variables: envoi.variables, ref: { prospect_id: p.id }, donnerAuSender: true, envoi: r }) : e.messages,
+    }), r.auto || r.parti ? `Relance WhatsApp envoyée à ${p.nom}` : `Projet de ${p.nom} : ${projet}`);
+    if (r.auto) await uAlert(`📲 Relance envoyée du numéro BMI à ${p.nom}.`);
+  };
+
+  // 🎯 Changer le projet d'un prospect (son commercial, l'administrateur).
+  const changerProjet = async (p) => {
+    if (refuserSaufProprietaire(profile, p.commercial, "Changer le projet d'un prospect")) return;
+    const projet = await demanderProjet(p.nom);
+    if (!projet) return;
+    save({ ...db, prospects: db.prospects.map((x) => (x.id === p.id ? { ...x, projet } : x)) }, `Projet de ${p.nom} : ${projet}`);
   };
 
   // ---- Liste : ses propres prospects (Commercial) ou tous (Admin) ----
@@ -282,7 +331,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
   // jusqu'à ce que quelqu'un la prenne en charge.
   let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom || estDemandeAssistant(p));
   if (filtreRelance) liste = liste.filter((p) => p.relance && p.relance <= today());
-  if (q) liste = liste.filter((p) => correspond(p.nom + " " + p.tel + " " + p.localisation, q));
+  if (q) liste = liste.filter((p) => correspond(p.nom + " " + p.tel + " " + p.localisation + " " + (p.projet || ""), q));
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;
@@ -344,6 +393,15 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                   <select className={inputCls} value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })}>
                     {categories.map((c) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
                   </select>
+                </Field>
+                <Field label="Projet">
+                  <select className={inputCls} data-projet-prospect value={projetLibre ? PROJET_AUTRE : f.projet}
+                    onChange={(e) => { const v = e.target.value; if (v === PROJET_AUTRE) { setProjetLibre(true); setF({ ...f, projet: "" }); } else { setProjetLibre(false); setF({ ...f, projet: v }); } }}>
+                    <option value="">— Choisir —</option>
+                    {projetsProposes.map((n) => <option key={n} value={n}>{n}</option>)}
+                    <option value={PROJET_AUTRE}>{PROJET_AUTRE}</option>
+                  </select>
+                  {projetLibre && <input className={inputCls + " mt-1"} value={f.projet} onChange={(e) => setF({ ...f, projet: e.target.value })} placeholder="Ex : vidéosurveillance, éclairage" />}
                 </Field>
                 <Field label="Nom du prospect"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
                 <Field label="Numéro">
@@ -429,7 +487,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
           </div>
         </div>
         <table className="w-full text-sm min-w-[900px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie / projet", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucun prospect pour l'instant.</td></tr>}
             {listePage.map((p) => {
@@ -447,7 +505,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
                   <td className="px-3 py-2">{p.tel}</td>
-                  <td className="px-3 py-2 text-slate-500">{p.categorie}</td>
+                  <td className="px-3 py-2 text-slate-500">
+                    {p.categorie}
+                    {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
+                  </td>
                   <td className="px-3 py-2">
                     {p.localisation || (p.lat ? "" : "—")}
                     {p.lat && p.lng && (
@@ -484,6 +545,9 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
                     {!isAdmin && <button onClick={() => modifierRelance(p)} className="text-xs font-bold text-sky-800 underline mr-2">Relance</button>}
                     {enRetard && p.tel && (isAdmin || p.commercial === profile.nom) && (
                       <button onClick={() => relancerWhatsApp(p)} className="text-xs font-bold text-white bg-orange-600 rounded px-2 py-0.5 hover:bg-orange-700 mr-2">📱 Relancer</button>
+                    )}
+                    {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
+                      <button onClick={() => changerProjet(p)} className="text-xs font-bold text-sky-800 underline mr-2">🎯 Projet</button>
                     )}
                     {voitTout && aDroit(db, profile, "act_reaffecter") && <button onClick={() => reassigner(p)} className="text-xs font-bold text-sky-800 underline mr-2">Réassigner</button>}
                     {estDemandeAssistant(p) && !p.archive && (

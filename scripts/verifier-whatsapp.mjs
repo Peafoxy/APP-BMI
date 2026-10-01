@@ -91,10 +91,17 @@ const ATTENDU = {
   // seule, 3 jours après le PV. UTILITY, quatre trous, serveur seul.
   rappel_solde_pose: { categorie: "utility", n: 4 },
   proforma: { categorie: "marketing", n: 8 },
+  // ⚠ LES VINGT-DEUXIÈME À VINGT-CINQUIÈME (01/10/2026, « Lance ») : le lien
+  // de signature du PV et l'avenant (UTILITY), l'accueil et la relance d'un
+  // prospect (MARKETING).
+  lien_signature_pv: { categorie: "utility", n: 3 },
+  avenant_reserves: { categorie: "utility", n: 3 },
+  accueil_prospect: { categorie: "marketing", n: 1 },
+  relance_prospect: { categorie: "marketing", n: 3 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les vingt et un modèles sont là, et eux seuls (RETOURNÉ le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les vingt-cinq modèles sont là, et eux seuls (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1281,8 +1288,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
-  test("★ les modèles à ligne (RETOURNÉ le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration");
+  test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,avenant_reserves,bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect");
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3096,8 +3103,10 @@ titre("㊱ 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHAT
   if (apres.length) console.log("     fautifs :", apres.join(", "));
   // 3. Les endroits réparés passent par la règle, avec leur annonce.
   const ci = sansComm(lire("src/screens/ClientsInstalles.jsx"));
-  test("★ 🏠 Déclarer terminé : annoncé AVANT l'ouverture du lien du PV",
-    /await ouvrirWhatsAppApresAnnonce\(\{ tel: c\.tel, texte, prevenir: uAlert,[\s\S]{0,120}annonce: "✅ Travaux déclarés terminés\.\\n\\nAppuyez sur OK/.test(ci));
+  // ⚠ RETOURNÉ le 01/10/2026 : le lien part du numéro BMI ; le REPLI garde
+  // son annonce AVANT l'ouverture (annonceRepli).
+  test("★ 🏠 Déclarer terminé : repli annoncé AVANT l'ouverture du lien du PV",
+    /envoyerDuNumeroBmi\(c, envoiLienPv\([^\n]*\n\s*"✅ Travaux déclarés terminés\.\\n\\nAppuyez sur OK/.test(ci) && /prevenir: uAlert, demanderConfirmation: uConfirm, annonceRepli \}\)/.test(ci));
   test("★ 🏠 Mon espace → Parrainer : annoncé AVANT", /await ouvrirWhatsAppApresAnnonce\(\{ tel, texte: lignesMsg\.join\("\\n"\), prevenir: uAlert,[\s\S]{0,260}Appuyez sur OK : WhatsApp s'ouvre pour le prévenir/.test(sansComm(lire("src/screens/EspaceClient.jsx"))));
   const ven = sansComm(lire("src/screens/Ventes.jsx"));
   const corpsPf = ven.slice(ven.indexOf("const proformaWhatsApp = async"), ven.indexOf("\n  };", ven.indexOf("const proformaWhatsApp = async")));
@@ -3106,11 +3115,20 @@ titre("㊱ 🪟 UNE RÈGLE POUR LA FENÊTRE QUI ACCOMPAGNE UNE OUVERTURE DE WHAT
     && /Joignez-y le PDF/.test(corpsPf) && !/envoyerWhatsApp\(/.test(corpsPf));
   const pro = sansComm(lire("src/screens/Prospects.jsx"));
   const corpsAj = pro.slice(pro.indexOf("const ajouter = async"), pro.indexOf("\n  };", pro.indexOf("const ajouter = async")));
-  test("★ 🧲 Ajouter un prospect (décision « a ») : enregistré, PUIS annoncé, PUIS WhatsApp",
-    corpsAj.indexOf("save(") > 0 && corpsAj.indexOf("save(") < corpsAj.indexOf("envoyerAccueilProspectWhatsApp(")
-    && /prevenir: uAlert,[\s\S]*Appuyez sur OK : WhatsApp s'ouvre avec le message d'accueil/.test(corpsAj));
+  // ⚠ RETOURNÉ le 01/10/2026 : l'accueil part du numéro BMI ; le REPLI
+  // garde l'annonce AVANT (décision « a »).
+  test("★ 🧲 Ajouter un prospect (décision « a ») : enregistré, PUIS numéro BMI, repli annoncé AVANT",
+    corpsAj.indexOf("save(") > 0 && corpsAj.indexOf("save(") < corpsAj.indexOf("envoyerModele(")
+    && /annonceRepli: `✅ Prospect « \$\{f\.nom\} » enregistré\.\\n\\nAppuyez sur OK : WhatsApp s'ouvre avec le message d'accueil/.test(corpsAj));
+  // ⚠ RETOURNÉ le 01/10/2026 : relance, signature et avenant partent du
+  // numéro BMI ; leur repli n'ajoute AUCUNE annonce (décision « b »).
+  const corpsRel = pro.slice(pro.indexOf("const relancerWhatsApp = async"), pro.indexOf("\n  };", pro.indexOf("const relancerWhatsApp = async")));
+  const corpsSig = ci.slice(ci.indexOf("const envoyerPourSignature = async"), ci.indexOf("\n  };", ci.indexOf("const envoyerPourSignature = async")));
+  const corpsAv = ci.slice(ci.indexOf("const envoyerAvenant = async"), ci.indexOf("\n  };", ci.indexOf("const envoyerAvenant = async")));
   test("★ 🧲 Relancer, 🏠 Envoyer pour signature / Avenant, 🔒 Mes données (décision « b ») : pas de fenêtre en plus",
-    /envoyerRelanceProspectWhatsApp\(p\.nom, p\.tel\);/.test(pro) && /envoyerWhatsApp\(boutiqueContact\.tel,/.test(sansComm(lire("src/screens/MesDonnees.jsx"))));
+    /envoyerModele\(/.test(corpsRel) && !/annonceRepli/.test(corpsRel)
+    && /envoyerDuNumeroBmi\(c, envoiLienPv\(\{[^)]*\}\)\);/.test(corpsSig) && /envoyerDuNumeroBmi\(c, envoiAv\);/.test(corpsAv)
+    && /envoyerWhatsApp\(boutiqueContact\.tel,/.test(sansComm(lire("src/screens/MesDonnees.jsx"))));
   test("★ 📲 « ✍️ Écrire » : la réponse qui n'arrivera pas ici se dit AVANT", /annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec le texte\. Le message partira de VOTRE numéro/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
   test("★ ☀️ Devis envoyé à la main : UNE fenêtre avant (accès ratés compris), rien après",
     /annonceRepli: `\$\{motifAcces \?/.test(srcPartages) && !/await uAlert\(`Ses accès ne sont pas partis/.test(srcPartages));
@@ -3200,6 +3218,57 @@ titre("㊲ 🔧 LA POSE SEULE : 70 % AVANT DE PROGRAMMER, 30 % AU PV, LE RAPPEL 
     && /clientParti = true;/.test(corps) && /client: clientParti, admin: r\.admin/.test(corps)
     && corps.indexOf('from("dettes").select') < corps.indexOf('from("dettes").update'));
   test("★ serveur : l'alerte part aux administrateurs, dans la tournée", /destinataires: idsAdmins\(db, false\)/.test(corps) && /\.\.\.soldes\.notifications/.test(api));
+}
+
+titre("㊵ LE PV, L'AVENANT, L'ACCUEIL ET LA RELANCE D'UN PROSPECT PARTENT DU NUMÉRO BMI (01/10/2026, « Lance »)");
+{
+  const M3 = await import("../src/lib/whatsappModeles.js");
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const ci = sansComm(lire("src/screens/ClientsInstalles.jsx"));
+  const pro = sansComm(lire("src/screens/Prospects.jsx"));
+  // Les textes, mot pour mot ceux créés chez YCloud.
+  test("★★ les quatre textes : bloc de contact (e-mail, numéros, site), adresse du lien FIXE dans le modèle, seul le code est un trou",
+    /https:\/\/bmitogo\.com\/signature\/\{\{3\}\}/.test(M3.TEXTE_LIEN_SIGNATURE_PV) && /https:\/\/bmitogo\.com\/avenant\/\{\{3\}\}/.test(M3.TEXTE_AVENANT_RESERVES)
+    && [M3.TEXTE_LIEN_SIGNATURE_PV, M3.TEXTE_AVENANT_RESERVES, M3.TEXTE_ACCUEIL_PROSPECT, M3.TEXTE_RELANCE_PROSPECT].every((t) => /contact@bmitogo\.com/.test(t) && /\+228 99 96 84 88 \/ \+228 91 13 05 11/.test(t) && /www\.bmitogo\.com/.test(t) && /^Bonjour \{\{1\}\},/.test(t)));
+  test("★ la relance est la version de Timo (retour à la ligne après « {{3}} : », « Etes »)",
+    /votre projet \{\{3\}\} :\nEtes-vous toujours intéressé \?/.test(M3.TEXTE_RELANCE_PROSPECT));
+  test("★ catégories : PV et avenant utility, accueil et relance marketing ; les quatre en service",
+    M3.MODELES.lien_signature_pv.categorie === "utility" && M3.MODELES.avenant_reserves.categorie === "utility"
+    && M3.MODELES.accueil_prospect.categorie === "marketing" && M3.MODELES.relance_prospect.categorie === "marketing"
+    && ["lien_signature_pv", "avenant_reserves", "accueil_prospect", "relance_prospect"].every((m) => M3.MODELES_EN_SERVICE.includes(m)));
+  const pv = M3.envoiLienPv({ nom: "KOFFI Ama", installation: "Solaire", jeton: "a1b2c3d4" });
+  test("★★ le PV : nom, installation en minuscules, CODE seul ; le texte rempli porte l'adresse entière",
+    pv.variables.join("|") === "KOFFI Ama|solaire|a1b2c3d4" && /https:\/\/bmitogo\.com\/signature\/a1b2c3d4\n/.test(M3.texteEnvoi(pv))
+    && M3.envoiLienPv({ nom: "X", installation: "Autre", jeton: "z" }).variables[1] === "BMI TOGO" && M3.envoiLienPv({ nom: "X", jeton: "" }) === null);
+  const av = M3.envoiAvenant({ nom: "KOFFI", pv: "PV-2026-0012", jeton: "q9" });
+  test("★ l'avenant : nom, numéro du PV, code", av.variables.join("|") === "KOFFI|PV-2026-0012|q9" && /procès-verbal N° PV-2026-0012/.test(M3.texteEnvoi(av)));
+  test("★★ la ligne du fil ne porte JAMAIS le code du lien (une clé de signature)",
+    !/a1b2c3d4/.test(M3.ligneEnvoiModele(pv.modele, pv.variables)) && !/q9/.test(M3.ligneEnvoiModele(av.modele, av.variables))
+    && M3.ligneEnvoiModele(pv.modele, pv.variables).startsWith(M3.PREFIXE_LIGNE_ENVOI));
+  test("★★ le projet s'accorde après « votre projet » (décision « a »)",
+    M3.projetDansLaPhrase("Solaire") === "d'installation solaire" && M3.projetDansLaPhrase("Forage") === "de forage"
+    && M3.projetDansLaPhrase("Éclairage") === "d'éclairage" && M3.projetDansLaPhrase("Vidéo surveillance") === "de vidéo surveillance"
+    && M3.projetDansLaPhrase("") === "");
+  test("★★ sans projet, aucune relance ne part (jamais « votre projet  : »)",
+    M3.envoiRelanceProspect({ nom: "Kofi", auteur: "AMA", projet: "" }) === null
+    && M3.envoiRelanceProspect({ nom: "Kofi", auteur: "AMA", projet: "d'installation solaire" }).variables.join("|") === "KOFI|AMA|d'installation solaire");
+  // L'écran : le mur, la question, le projet demandé, la nature jamais envoyée.
+  const corpsRel = pro.slice(pro.indexOf("const relancerWhatsApp = async"), pro.indexOf("const changerProjet"));
+  test("★★ 🧲 relance : le projet DEMANDÉ s'il manque, UNE question avant le numéro BMI, le mur = la FICHE",
+    corpsRel.indexOf("demanderProjet(") > 0 && corpsRel.indexOf("demanderProjet(") < corpsRel.indexOf("if (!await uConfirm(`Relancer")
+    && corpsRel.indexOf("if (!await uConfirm(`Relancer") < corpsRel.indexOf("envoyerModele(") && /espaceFormation: !!p\.formation/.test(corpsRel)
+    && /texteRepli: texteEnvoi\(envoi\)/.test(corpsRel) && /projet,/.test(corpsRel));
+  test("★★ le texte libre « Nature du chantier » ne part JAMAIS au client", !/nature/.test(corpsRel) && !/\.nature/.test(pro.slice(pro.indexOf("const ajouter = async"), pro.indexOf("const supprimer = async (p)"))));
+  const corpsAj = pro.slice(pro.indexOf("const ajouter = async"), pro.indexOf("const supprimer = async (p)"));
+  test("★ 🧲 accueil : le mur = la fiche, la conversation revient au commercial si elle n'est à personne",
+    /espaceFormation: !!p\.formation/.test(corpsAj) && /donnerAuSender: true/.test(corpsAj) && /texteRepli: texteEnvoi\(envoi\)/.test(corpsAj));
+  test("★ 🧲 la liste « Projet » = les métiers de ⚙ Paramètres (sans « Autre ») + « ✏️ Autre… » tapé ; il s'affiche et se cherche",
+    /domainesDefinis\(db\)\.map\(\(d\) => d && d\.nom\)\.filter\(\(n\) => n && !\/\^autre\$\/i\.test\(n\)\)/.test(pro)
+    && /data-projet-prospect/.test(pro) && /data-projet>/.test(pro) && /\(p\.projet \|\| ""\)/.test(pro));
+  const corpsEnv = ci.slice(ci.indexOf("const envoyerDuNumeroBmi = async"), ci.indexOf("\n  };", ci.indexOf("const envoyerDuNumeroBmi = async")));
+  test("★★ 🏠 PV et avenant : le mur = l'espace du CHANTIER, la ligne ne donne la conversation à personne, le repli = le texte du modèle",
+    /espaceFormation: !!espaceDuChantier\(db, c, profile\)/.test(corpsEnv) && !/donnerAuSender/.test(corpsEnv)
+    && /texteRepli: texteEnvoi\(envoi\)/.test(corpsEnv) && /if \(r\.auto\)/.test(corpsEnv));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

@@ -2,6 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 15 : Chantiers et travaux
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
+// lib/whatsappModeles.js (lien_signature_pv, avenant_reserves — 01/10/2026),
 // screens/ClientsInstalles.jsx (« 🏠 Nouveau client installé » — Nom, Prénom,
 // Numéro, 🔑 Compte client (+ Créer), Type d'installation, Date
 // d'installation, Prochain entretien, 🧾 Vente rattachée, 🛡 Garantie (mois),
@@ -125,7 +126,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "E. Fin des travaux et PV de réception"],
       ["etapes", [
-        { titre: "🏁 Marquer terminé (le chef ⭐ ou l'administrateur)", texte: "Le chantier passe « Terminé — en attente du client ». L'application prévient, puis **WhatsApp s'ouvre avec le lien de signature du PV**, à envoyer au client. Le lien ne porte **aucun code** du client." },
+        { titre: "🏁 Marquer terminé (le chef ⭐ ou l'administrateur)", texte: "Le chantier passe « Terminé — en attente du client ». Le **lien de signature du PV part tout seul du numéro WhatsApp BMI** au client (« Vos travaux d'installation (solaire) sont terminés… », l'adresse du lien, l'e-mail, les numéros et le site), et l'écran le confirme. Le message ne porte **aucun code** du client. Si le numéro BMI ne peut pas envoyer (formation, réseau, modèle pas encore approuvé), l'écran le dit, puis WhatsApp s'ouvre sur votre téléphone avec le même texte." },
         { titre: "S'il manque l'adresse formelle ou le numéro", texte: "Les travaux sont déclarés terminés, mais le lien ne part pas : le message dit ce qui manque. Renseignez-le, puis **📤 Envoyer pour signature** (administrateur)." },
         { titre: "Le client signe", texte: "Sur son téléphone, par le lien (sans compte), ou depuis son espace client. Il accepte **sans réserve** (✅ Réceptionné) ou **avec réserves** (⚠ Réserves émises)." },
         { titre: "📄 Voir le PV", texte: "Le PV signé (numéro PV-année-…) s'imprime depuis la ligne." },
@@ -133,7 +134,7 @@ export const CHAPITRE = {
       ["h3", "F. Les réserves et l'avenant"],
       ["etapes", [
         { titre: "Corriger sur le terrain", texte: "L'administrateur peut fixer le **délai convenu pour la levée des réserves** dans le dossier ; il apparaîtra sur le PV." },
-        { titre: "📤 Envoyer l'avenant (réserves corrigées)", texte: "L'administrateur confirme que les réserves sont corrigées : un nouveau lien part au client. Pendant l'attente : « 📤 Avenant en attente de signature »." },
+        { titre: "📤 Envoyer l'avenant (réserves corrigées)", texte: "L'administrateur confirme que les réserves sont corrigées : un nouveau lien part au client **du numéro WhatsApp BMI** (même repli). Pendant l'attente : « 📤 Avenant en attente de signature »." },
         { titre: "Le client signe l'avenant", texte: "Le chantier passe **✅ Réceptionné** pour de bon." },
       ]],
       ["h3", "G. Répartir les frais d'installation (administrateur)"],
@@ -160,8 +161,8 @@ export const CHAPITRE = {
         ["Enregistrer le client", "🏠 Nouveau client installé", "Crée la fiche dans l'espace regardé."],
         ["▸ Dossier", "Ligne", "Ouvre le dossier ; la page vient à lui, « Fermer » ramène sur la ligne."],
         ["✅ Programmer l'installation", "Dossier", "Fixe date, équipe et chef ; prévient l'équipe et le client."],
-        ["🏁 Marquer terminé", "Ligne", "Déclare les travaux terminés et ouvre WhatsApp avec le lien du PV."],
-        ["📤 Envoyer pour signature", "Ligne", "Renvoie le lien du PV (administrateur)."],
+        ["🏁 Marquer terminé", "Ligne", "Déclare les travaux terminés et envoie le lien du PV du numéro BMI (repli : WhatsApp sur l'appareil)."],
+        ["📤 Envoyer pour signature", "Ligne", "Renvoie le lien du PV du numéro BMI (administrateur)."],
         ["⚠ Forcer sans signature", "Ligne", "Réceptionne sans PV — exception, trace rouge permanente sur la fiche."],
         ["📤 Envoyer l'avenant (réserves corrigées)", "Ligne", "Envoie le lien de l'avenant après correction des réserves."],
         ["📄 Voir le PV", "Ligne", "Imprime le PV signé."],

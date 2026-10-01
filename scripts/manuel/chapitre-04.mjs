@@ -9,8 +9,9 @@
 // estDormant, joursSansActivite, toucher, refuserSaufProprietaire,
 // peutReaffecter, ONGLETS_ROLE, ACTIONS_POUVOIR « 🔁 Réaffecter les
 // prospects », comptesAvecCeNumero), lib/comptesClients.js
-// (envoyerAccueilProspectWhatsApp, envoyerRelanceProspectWhatsApp,
-// identifiantClient, fabriquerCompteClient), lib/validationDevis.js (le
+// (identifiantClient, fabriquerCompteClient), lib/whatsappModeles.js
+// (accueil_prospect, relance_prospect, projetDansLaPhrase — 01/10/2026),
+// lib/validationDevis.js (le
 // badge « ⏳ Devis validé — attend le paiement »), screens/Ventes.jsx (le
 // prospect devient « Client acquis » quand son devis est encaissé),
 // screens/Clients.jsx (🙋 Créer un client avec « Prospect » coché),
@@ -69,17 +70,18 @@ export const CHAPITRE = {
       ["h3", "A. Enregistrer un prospect"],
       ["etapes", [
         { titre: "Ouvrir 🧲 Prospects, cadre « Nouveau prospect »", texte: "La « Catégorie » (Particulier d'office), le « Nom du prospect », le « Numéro » — les deux derniers sont **obligatoires** (« Le nom et le numéro du prospect sont obligatoires. »)." },
+        { titre: "Choisir le « Projet »", texte: "La liste propose les métiers réglés dans ⚙ Paramètres (Solaire, Forage, Vidéo surveillance…) ; **« ✏️ Autre… »** ouvre une case pour le taper (« éclairage »). Facultatif ici — mais c'est lui que la relance écrira au client (« votre projet d'installation solaire »). S'il manque, la relance le demandera une fois." },
         { titre: "Lire le cadre ambre, s'il apparaît sous le numéro", texte: "« ⚠ Déjà client : NOM — numéro » : cette personne a **déjà un compte client**. Un clic remet son nom et son numéro. On peut quand même l'enregistrer comme prospect (un client peut avoir un nouveau projet), mais on ne lui recréera pas de compte." },
         { titre: "Où il est, ce qu'il veut", texte: "« Localisation (quartier, repère) » en texte, et **« 📍 Choisir sur la carte »** pour poser un point (le bouton devient « Position ✓ »). « Nature du chantier / besoin (facultatif) » : l'exemple à l'écran dit tout — « électrifier une maison 4 pièces, 3 ventilateurs + frigo. Pas encore de budget arrêté. Rappeler après le 15. »" },
         { titre: "Avis, intérêt, relance", texte: "« Avis » : Favorable ou Défavorable. « Intérêt » : Intéressé ou Désintéressé. « Date de relance (facultatif) » : le jour où il faut le rappeler — c'est cette date qui allume la case 🔔." },
-        { titre: "« ➕ Enregistrer le prospect »", texte: "La fiche est créée à votre nom, dans l'espace où vous êtes. **WhatsApp s'ouvre** sur son numéro avec un mot d'accueil : « Bonjour NOM, Merci pour votre intérêt pour BMI TOGO ! Un technicien BMI vous recontacte très prochainement pour la suite. » — on appuie sur Envoyer. Le journal note « Nouveau prospect « NOM » (Catégorie) — VOUS »." },
+        { titre: "« ➕ Enregistrer le prospect »", texte: "La fiche est créée à votre nom, dans l'espace où vous êtes. Le **mot d'accueil part tout seul du numéro WhatsApp BMI** : « Bonjour NOM, 🙏 Merci pour votre intérêt pour BMI TOGO ! Un conseiller BMI vous recontacte très prochainement pour donner suite à votre projet… » suivi de l'e-mail, des numéros et du site. L'écran confirme : « 📲 Le message d'accueil est parti du numéro BMI. » Le journal note « Nouveau prospect « NOM » (Catégorie) — VOUS »." },
       ]],
-      ["attention", "**Ce mot d'accueil part de VOTRE téléphone**, pas du numéro BMI, et il ne porte aucun identifiant : le prospect n'est pas encore client. Pour écrire à quelqu'un **depuis le numéro BMI** sans devis, c'est « ✍️ Écrire » dans 📲 WhatsApp (chapitre 20)."],
+      ["attention", "**Si le numéro BMI ne peut pas envoyer** (espace formation, réseau, modèle pas encore approuvé par Meta), l'écran le dit d'abord, puis **WhatsApp s'ouvre sur VOTRE téléphone avec le même texte** : on appuie sur Envoyer. Le mot d'accueil ne porte aucun identifiant : le prospect n'est pas encore client. Parti du numéro BMI, il entre dans 📲 WhatsApp, et la conversation vous revient si elle n'est à personne : sa réponse arrive chez vous (chapitre 20)."],
 
       ["h3", "B. Suivre, relancer, noter"],
       ["etapes", [
         { titre: "Chaque matin : la case 🔔", texte: "« 🔔 À relancer aujourd'hui » compte ceux dont la date de relance est arrivée ou dépassée. « Voir les N prospect(s) à relancer → » ou le bouton « 🔔 À relancer (N) » filtre la liste ; ces lignes sont **sur fond orange**, la date de relance en orange gras." },
-        { titre: "« 📱 Relancer »", texte: "Sur une ligne en retard : WhatsApp s'ouvre avec le texte prêt — « Je me permets de revenir vers vous concernant votre projet avec BMI TOGO — êtes-vous toujours intéressé ? … » — et l'application note **toute seule** « Relance WhatsApp envoyée » dans l'historique du prospect. Un clic, pas de question." },
+        { titre: "« 📱 Relancer »", texte: "Sur une ligne en retard. Si la fiche n'a pas de projet, l'application le **demande une fois** (la même liste) et le garde. Puis une question : « Relancer NOM (numéro) du numéro WhatsApp BMI, au sujet de son projet d'installation solaire ? ». Sur « OK », le message part **du numéro BMI** : « C'est VOTRE NOM de BMI TOGO. Je me permets de revenir vers vous concernant votre projet d'installation solaire : Etes-vous toujours intéressé ? … ». L'historique note **tout seul** « Relance WhatsApp envoyée du numéro BMI ». Si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur votre téléphone avec le même texte." },
         { titre: "« 📞 Contacté »", texte: "Après un appel ou une visite : « Vous venez de contacter « NOM » ? Ce que ça a donné (facultatif) : ». La note s'ajoute à l'historique (les 20 dernières), la date d'activité est remise à aujourd'hui. **Sans ce bouton, un prospect qu'on appelle toutes les semaines finirait « dormant » quand même.**" },
         { titre: "« Relance »", texte: "Change la date de relance (une case de date ; vide = plus de relance). La ligne sort du filtre 🔔 jusqu'à la nouvelle date." },
         { titre: "Lire les pastilles de la colonne « Avis »", texte: "Favorable (vert) / Défavorable (rouge) ; **« 💤 Dormant — N mois »** quand rien ne s'est passé depuis 150 jours ; **« 📦 motif »** s'il est archivé ; **« ⏳ Devis validé — attend le paiement »** quand son devis est signé mais pas encore encaissé (le survol dit le montant, la date et la boutique de paiement)." },
@@ -123,19 +125,21 @@ export const CHAPITRE = {
         ["Catégorie", "Particulier, Entreprise, Administration, ou celles ajoutées par l'administrateur."],
         ["Nom du prospect / Numéro", "Obligatoires. Le numéro est comparé aux comptes existants (« ⚠ Déjà client »)."],
         ["Localisation (quartier, repère) · 📍 Choisir sur la carte", "Le texte pour s'y retrouver, le point sur la carte pour y aller : la liste montre « 📍 Voir sur la carte » (Google Maps)."],
-        ["Nature du chantier / besoin (facultatif)", "Ce qu'il veut, en une phrase. Se lit sous la localisation, en italique avec 🔧."],
+        ["Projet", "Un métier de ⚙ Paramètres, ou « ✏️ Autre… » à taper. Il s'écrit dans la relance (« votre projet de forage ») et se lit sous la catégorie (« 🎯 Forage »)."],
+        ["Nature du chantier / besoin (facultatif)", "Ce qu'il veut, en une phrase, et vos notes. Se lit sur sa propre ligne sous le prospect (un clic l'ouvre en entier). **Il ne part JAMAIS au client.**"],
         ["Avis / Intérêt", "Deux pastilles dans la liste : Favorable/Défavorable, Intéressé/Désintéressé."],
         ["Date de relance (facultatif)", "Le jour où il faut le rappeler. C'est ce qui nourrit 🔔."],
-        ["➕ Enregistrer le prospect", "Crée la fiche à votre nom et ouvre WhatsApp avec le mot d'accueil."],
+        ["➕ Enregistrer le prospect", "Crée la fiche à votre nom et envoie le mot d'accueil du numéro BMI (repli : WhatsApp sur votre téléphone)."],
       ]}],
       ["h3", "La liste"],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
-        ["Rechercher…", "Nom, numéro ou localisation — la règle de toute recherche (sans accents, chaque mot dans n'importe quel ordre)."],
+        ["Rechercher…", "Nom, numéro, localisation ou projet — la règle de toute recherche (sans accents, chaque mot dans n'importe quel ordre)."],
         ["Afficher les clients acquis (N)", "Remet les convertis dans la liste."],
         ["💤 Dormants (N) / 📦 Archivés (N) / 🔔 À relancer (N)", "Trois filtres ; un second clic revient à la liste active."],
-        ["Colonnes", "Date · Nom · Numéro · Catégorie · Localisation (+ carte, + besoin) · Avis (+ pastilles d'état) · Intérêt · Relance · Commercial (administrateur seulement) · les boutons."],
+        ["Colonnes", "Nom (figé quand on fait défiler) · Date · Numéro · Catégorie / projet · Localisation (+ carte) · Avis (+ pastilles d'état) · Intérêt · Relance · Commercial (administrateur seulement) · les boutons."],
         ["Relance", "Change la date de relance (pas pour l'administrateur)."],
-        ["📱 Relancer", "N'apparaît que si la relance est en retard et que le prospect a un numéro. WhatsApp + note automatique."],
+        ["📱 Relancer", "N'apparaît que si la relance est en retard et que le prospect a un numéro. Une question, puis le message du numéro BMI, nommant le projet ; note automatique."],
+        ["🎯 Projet", "Change le projet de la fiche (son commercial, l'administrateur)."],
         ["Réassigner", "Change le commercial responsable (pouvoir requis)."],
         ["📞 Contacté", "Note un contact, avec ce que ça a donné. Le survol dit la dernière activité."],
         ["✅ Convertir en client", "Crée le compte, envoie les accès, passe la fiche « Client acquis »."],
@@ -149,8 +153,8 @@ export const CHAPITRE = {
       ["ul", [
         "**La fiche naît à votre nom et dans votre espace** (réel ou formation). Un prospect créé en formation n'entre jamais dans la vraie file de relance, et l'inverse.",
         "**Toute modification horodate la fiche** : Contacté, Relance, 📱 Relancer, Réassigner, Archiver. C'est cette date qui sert au calcul du dormant : **150 jours** sans rien = « 💤 Dormant — N mois ». Un converti ou un archivé n'est jamais compté dormant.",
-        "**Le mot d'accueil et la relance partent de votre téléphone** (WhatsApp s'ouvre, vous appuyez sur Envoyer). Ils ne portent aucun identifiant. Aucune trace « livré » ou « lu » n'existe.",
-        "**« 📱 Relancer » écrit l'historique tout seul** (« Relance WhatsApp envoyée ») : pas de question, pour que le geste reste rapide.",
+        "**Le mot d'accueil et la relance partent du numéro WhatsApp BMI** (modèles approuvés par Meta). Ils ne portent aucun identifiant. Parti du numéro BMI, chaque message entre dans 📲 WhatsApp, et la conversation revient au commercial si elle n'est à personne. Sinon (formation, réseau, refus), WhatsApp s'ouvre sur votre téléphone avec le même texte.",
+        "**« 📱 Relancer » pose UNE question avant de partir** : un message parti du numéro BMI ne se rattrape pas. Il écrit ensuite l'historique tout seul. Il nomme le PROJET de la fiche — jamais la « Nature du chantier », qui garde vos notes internes.",
         "**Un devis signé pose le badge « ⏳ Devis validé — attend le paiement »** sur la fiche du prospect ; **un devis encaissé** dans 💰 Ventes la passe « Client acquis », avec la vente et le compte rattachés — le rapprochement se fait par le compte, sinon par les 8 derniers chiffres du numéro.",
         "**« ✅ Convertir en client »** fabrique le compte exactement comme 🙋 Créer un client : identifiant = le nom (chiffres du numéro accolés s'il est pris), mot de passe de 6 caractères recalculable, message aux administrateurs « 🙋 Nouveau client créé par … », accès par le modèle WhatsApp du numéro BMI (~4 F), repli sur l'ouverture WhatsApp.",
         "**Le journal** (🕘 Historique) garde chaque geste : « Nouveau prospect « X » (Catégorie) — VOUS », « 📞 X contacté par VOUS — note », « Relance WhatsApp envoyée à X », « 📦 Prospect « X » archivé — motif », « Prospect « X » réactivé », « Prospect « X » réassigné de A à B », « Prospect « X » CONVERTI en client par VOUS », « Suppression prospect « X » ».",
@@ -196,8 +200,8 @@ export const CHAPITRE = {
         ["Supprimer un prospect qui ne répond plus", "La fiche disparaît, avec son historique : on ne saura jamais pourquoi il est parti.", "📦 Archiver avec le motif « Ne répond plus » ; ↩ Réactiver plus tard."],
         ["Un chef d'équipe veut relancer le prospect d'un autre", "« 🔒 … réservé à l'administrateur ou au commercial rattaché (NOM). »", "Le lui réassigner d'abord (« Réassigner »), ou demander au commercial rattaché."],
         ["« Réassigner » n'apparaît pas", "Le compte n'a pas le pouvoir « 🔁 Réaffecter les prospects », ou n'est ni administrateur, ni responsable, ni chef.", "L'administrateur vérifie 🔐 Pouvoirs (chapitre 2)."],
-        ["WhatsApp ne s'ouvre pas à l'enregistrement", "Le numéro est illisible, ou WhatsApp n'est pas installé sur l'appareil.", "Vérifier le numéro sur la fiche ; l'accueil peut être renvoyé plus tard avec « 📱 Relancer » (quand la relance est en retard) ou depuis 📲 WhatsApp."],
-        ["Le mot d'accueil part de mon numéro personnel", "C'est voulu : le prospect n'est pas client, aucun modèle du numéro BMI ne lui correspond.", "Pour écrire depuis le numéro BMI : 📲 WhatsApp → « ✍️ Écrire » (chapitre 20)."],
+        ["Le mot d'accueil n'est pas parti du numéro BMI", "Le numéro est illisible, l'espace est la formation, le réseau manque, ou Meta n'a pas encore approuvé le modèle. L'écran le dit, puis WhatsApp s'ouvre sur votre téléphone.", "Appuyer sur Envoyer dans WhatsApp ; vérifier le numéro sur la fiche. Pour écrire plus tard du numéro BMI : 📲 WhatsApp → « ✍️ Écrire » (chapitre 20)."],
+        ["La relance me demande le projet", "La fiche n'en a pas (ancien prospect, demande de l'assistant WhatsApp).", "Le choisir une fois : il reste sur la fiche. « 🎯 Projet » le change ensuite."],
         ["Un administrateur cherche le formulaire « Nouveau prospect »", "Il n'existe pas pour lui : il n'a pas de prospects à son nom.", "Le commercial enregistre ; l'administrateur réassigne, lit, gère les catégories."],
       ]}],
     ]},
@@ -205,8 +209,8 @@ export const CHAPITRE = {
     // ── 10
     { titre: "Cas pratiques de formation", blocs: [
       ["cas", [
-        { situation: "Sur un chantier, un voisin demande au technicien KOSSI « combien pour une maison de 4 pièces ». Il n'a pas de budget, il veut qu'on le rappelle après le 15.", reponse: "🧲 Prospects → Nouveau prospect : Particulier, nom, numéro, « Quartier Bè, près de la pharmacie » + point sur la carte, nature « maison 4 pièces, pas de budget, rappeler après le 15 », Avis Favorable, Intérêt Intéressé, Date de relance le 16. « ➕ Enregistrer » : WhatsApp s'ouvre avec le mot d'accueil, KOSSI envoie. Le 16, la ligne s'allume dans 🔔." },
-        { situation: "Le 16, KOSSI a trois lignes en orange dans 🔔 À relancer.", reponse: "Pour chacune : « 📱 Relancer » (WhatsApp prêt, la note « Relance WhatsApp envoyée » s'écrit seule), ou un appel puis « 📞 Contacté » avec ce que ça a donné. Puis « Relance » pour poser la prochaine date. Le soir, la case 🔔 est à zéro." },
+        { situation: "Sur un chantier, un voisin demande au technicien KOSSI « combien pour une maison de 4 pièces ». Il n'a pas de budget, il veut qu'on le rappelle après le 15.", reponse: "🧲 Prospects → Nouveau prospect : Particulier, nom, numéro, « Quartier Bè, près de la pharmacie » + point sur la carte, nature « maison 4 pièces, pas de budget, rappeler après le 15 », Avis Favorable, Intérêt Intéressé, Date de relance le 16. Projet : Solaire. « ➕ Enregistrer » : le mot d'accueil part du numéro BMI. Le 16, la ligne s'allume dans 🔔." },
+        { situation: "Le 16, KOSSI a trois lignes en orange dans 🔔 À relancer.", reponse: "Pour chacune : « 📱 Relancer » (une question, puis le message du numéro BMI qui nomme son projet ; la note s'écrit seule), ou un appel puis « 📞 Contacté » avec ce que ça a donné. Puis « Relance » pour poser la prochaine date. Le soir, la case 🔔 est à zéro." },
         { situation: "Un prospect enregistré en avril n'a plus donné signe de vie ; on est en septembre.", reponse: "Il est « 💤 Dormant — 5 mois ». KOSSI tente une dernière relance ; sans réponse, « 📦 Archiver » avec le motif « Ne répond plus ». Il sort de la liste active mais reste consultable dans « 📦 Archivés », et réactivable pour une campagne." },
         { situation: "Le prospect AMA a dit oui au devis que KOSSI lui a envoyé, elle passera payer à la boutique.", reponse: "Rien à faire dans 🧲 Prospects : le devis validé a déjà posé « ⏳ Devis validé — attend le paiement » sur sa ligne. Quand la boutique encaissera le devis, AMA passera « Client acquis » toute seule." },
         { situation: "Un contact dit oui pour un achat en boutique, sans devis, et veut suivre ses affaires depuis son téléphone.", reponse: "« ✅ Convertir en client » : la confirmation montre l'identifiant et le mot de passe, le compte est créé, les accès partent du numéro BMI (ou WhatsApp s'ouvre en repli). La fiche passe « Client acquis »." },
@@ -220,7 +224,7 @@ export const CHAPITRE = {
       ["p", "**En espace formation**, avec un compte de commercial et un formateur qui regarde l'écran :"],
       ["ol", [
         "Enregistrer un prospect « TEST KOFFI » avec un numéro convenu, une localisation avec le point sur la carte, une nature de besoin, et une date de relance **à hier**. Fermer WhatsApp sans envoyer.",
-        "Constater la case « 🔔 À relancer aujourd'hui » à 1 et la ligne orange. Cliquer « 📱 Relancer », fermer WhatsApp, puis montrer la note « Relance WhatsApp envoyée » (survol de « 📞 Contacté » : dernière activité aujourd'hui).",
+        "Constater la case « 🔔 À relancer aujourd'hui » à 1 et la ligne orange. Cliquer « 📱 Relancer », répondre à la question, puis montrer la note « Relance WhatsApp envoyée » (survol de « 📞 Contacté » : dernière activité aujourd'hui).",
         "Cliquer « 📞 Contacté » avec la note « pas encore décidé », puis « Relance » pour poser une date dans une semaine. Vérifier que 🔔 repasse à 0.",
         "Enregistrer un second prospect avec le numéro d'un client de formation existant : montrer « ⚠ Déjà client ». Puis essayer « ✅ Convertir en client » sur lui : lire le refus.",
         "Archiver TEST KOFFI avec le motif « Reporté à plus tard » ; le retrouver dans « 📦 Archivés » ; le réactiver.",
@@ -245,7 +249,7 @@ export const CHAPITRE = {
       ["questions", [
         "Au bout de combien de temps sans activité un prospect devient-il dormant ? Quels gestes remettent le compteur à zéro ?",
         "Quelle différence entre « 📦 Archiver » et « Suppr. » ? Lequel choisir pour un prospect qui ne répond plus ?",
-        "Le mot d'accueil envoyé à l'enregistrement part-il du numéro BMI ? Comment écrire depuis le numéro BMI à un prospect ?",
+        "D'où part le mot d'accueil envoyé à l'enregistrement ? Que se passe-t-il si le numéro BMI ne peut pas l'envoyer ? Pourquoi la « Nature du chantier » ne part-elle jamais au client ?",
         "Qui peut relancer le prospect d'un collègue absent, et par quel geste ?",
         "Un prospect a signé son devis : que voit-on sur sa ligne, et quand devient-il « Client acquis » ?",
         "Comment se calcule le taux de conversion ?",

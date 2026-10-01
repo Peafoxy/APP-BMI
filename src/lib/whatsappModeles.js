@@ -170,6 +170,18 @@ export const MODELES = {
   // prix, comme un devis (leçon du refus INCORRECT_CATEGORY, 19/09). La
   // liste des articles tient sur UNE ligne (la règle du reçu détaillé).
   proforma: { categorie: "marketing", variables: ["client", "numero", "date", "boutique", "articles", "total", "fin", "telephone"] },
+  // 📲 01/10/2026, Timo : « y a-t-il encore des messages WhatsApp sans modèle
+  // Méta ? » → quatre textes, créés par lui chez YCloud, puis « Lance ». Le
+  // lien de signature du PV et l'avenant : UTILITY (un contrat signé, des
+  // travaux livrés). ⚠ Le DÉBUT de l'adresse est écrit dans le modèle, seul
+  // le CODE du lien est un trou : le client lit la vraie adresse de BMI.
+  lien_signature_pv: { categorie: "utility", variables: ["client", "installation", "code"] },
+  avenant_reserves: { categorie: "utility", variables: ["client", "pv", "code"] },
+  // L'accueil et la relance d'un prospect : MARKETING (de la prospection).
+  // ⚠ La relance nomme le PROJET (décision « a » : une liste « Projet » sur
+  // la fiche du prospect) ; l'accueil, non (« NON pour l'accueil »).
+  accueil_prospect: { categorie: "marketing", variables: ["client"] },
+  relance_prospect: { categorie: "marketing", variables: ["client", "auteur", "projet"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -205,6 +217,10 @@ export const MODELES_EN_SERVICE = [
   // repli sur l'ouverture WhatsApp d'aujourd'hui (texte complet, PDF à
   // joindre), et le refus se dit en français.
   "proforma",
+  // 01/10/2026 : le PV, l'avenant, l'accueil et la relance d'un prospect. En
+  // service AVANT l'accord de Meta : d'ici là, repli sur l'ouverture
+  // WhatsApp d'aujourd'hui, avec le texte du modèle, et le refus en français.
+  "lien_signature_pv", "avenant_reserves", "accueil_prospect", "relance_prospect",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -685,6 +701,12 @@ const LIGNES_ENVOI = {
   recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
   bon_reprise: ([, , , numero, date, recu, client, article, motif, valeur, reglement]) => `Bon de reprise N° ${numero} envoyé à ${client} : ${article} repris le ${date} (reçu ${recu}), motif : ${motif}, valeur ${valeur}. ${reglement}.`,
   proforma: ([client, numero, date, boutique, articles, total, fin]) => `Proforma N° ${numero} envoyée à ${client} : ${articles}, total ${total}, du ${date} (${boutique}), valable jusqu'au ${fin}.`,
+  // ⚠ Le CODE du lien n'est jamais écrit dans le fil : c'est une clé de
+  // signature, le personnel qui lit la conversation n'en a pas besoin.
+  lien_signature_pv: ([client, installation]) => `Lien de signature du PV envoyé à ${client} (installation ${installation}).`,
+  avenant_reserves: ([client, pv]) => `Lien de signature de l'avenant de levée de réserves (PV N° ${pv}) envoyé à ${client}.`,
+  accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
+  relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1085,6 +1107,126 @@ export function envoiProforma({ proforma, boutique, fin, fmt }) {
   const articles = listeArticlesRecu(pf.lignes, LIMITE_MESSAGE_META - sansListe.length);
   if (!articles) return null;
   return { modele: "proforma", variables: [client, numero, date, bq, articles, total, finTxt, telephone] };
+}
+
+// ---------------------------------------------------------------
+// 📲 LE PV, L'AVENANT, L'ACCUEIL ET LA RELANCE D'UN PROSPECT (01/10/2026)
+// ---------------------------------------------------------------
+// Les quatre textes, MOT POUR MOT ceux créés par Timo chez YCloud : ils
+// servent aussi de REPLI (l'ouverture WhatsApp quand le numéro BMI ne peut
+// pas envoyer) — le client reçoit la même chose des deux côtés.
+// ⚠ `relance_prospect` est la version de Timo (capture du 01/10/2026) : un
+// retour à la ligne après « {{3}} : », et « Etes » sans accent. On la garde
+// telle quelle ; s'il la corrige chez YCloud, on la corrige ici.
+const BLOC_CONTACT_COMPLET = [
+  "Pour toute préoccupation, veuillez écrire à :",
+  "📧 contact@bmitogo.com",
+  "",
+  "Ou appeler :",
+  `📞 ${NUMEROS_BMI}`,
+  "",
+  "www.bmitogo.com",
+  "",
+  "BMI TOGO — Les bâtiments modernes et intelligents",
+  "💙💚 Merci de faire partie de nos clients !",
+];
+const BLOC_CONTACT_COURT = [
+  "📧 contact@bmitogo.com",
+  `📞 ${NUMEROS_BMI}`,
+  "🌐 www.bmitogo.com",
+  "",
+  "BMI TOGO — Les bâtiments modernes et intelligents",
+];
+export const ADRESSE_SIGNATURE_PV = "https://bmitogo.com/signature/";
+export const ADRESSE_AVENANT = "https://bmitogo.com/avenant/";
+export const TEXTE_LIEN_SIGNATURE_PV = [
+  "Bonjour {{1}},",
+  "Vos travaux d'installation ({{2}}) sont terminés.",
+  "Merci de confirmer la réception en signant le procès-verbal :",
+  "👉 depuis votre espace client sur gestion.bmitogo.com, si vous en avez un ;",
+  "👉 ou directement par ce lien, sans compte :",
+  `${ADRESSE_SIGNATURE_PV}{{3}}`,
+  "",
+  ...BLOC_CONTACT_COMPLET,
+].join("\n");
+export const TEXTE_AVENANT_RESERVES = [
+  "Bonjour {{1}},",
+  "Les réserves signalées sur votre installation ont été corrigées.",
+  "Merci de confirmer en signant l'avenant de levée de réserves (procès-verbal N° {{2}}), directement depuis votre téléphone :",
+  `${ADRESSE_AVENANT}{{3}}`,
+  "",
+  ...BLOC_CONTACT_COMPLET,
+].join("\n");
+export const TEXTE_ACCUEIL_PROSPECT = [
+  "Bonjour {{1}},",
+  "🙏 Merci pour votre intérêt pour BMI TOGO !",
+  "Un conseiller BMI vous recontacte très prochainement pour donner suite à votre projet.",
+  "Vous pouvez aussi répondre directement à ce message.",
+  "",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
+export const TEXTE_RELANCE_PROSPECT = [
+  "Bonjour {{1}},",
+  "C'est {{2}} de BMI TOGO.",
+  "Je me permets de revenir vers vous concernant votre projet {{3}} :",
+  "Etes-vous toujours intéressé ?",
+  "Répondez simplement à ce message, je reste à votre disposition pour en discuter.",
+  "",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
+const TEXTES_SANS_RECU = {
+  lien_signature_pv: TEXTE_LIEN_SIGNATURE_PV, avenant_reserves: TEXTE_AVENANT_RESERVES,
+  accueil_prospect: TEXTE_ACCUEIL_PROSPECT, relance_prospect: TEXTE_RELANCE_PROSPECT,
+};
+// Le texte d'un envoi, trous remplis (le repli, le banc).
+export function texteEnvoi(envoi) {
+  const t = envoi && TEXTES_SANS_RECU[envoi.modele];
+  return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
+}
+const nomOuClient = (nom) => texteVariable(nom) || "cher client";
+// L'installation en minuscules (« solaire »), la règle du rappel d'entretien :
+// « Autre » ou rien → « BMI TOGO » (Meta refuse un trou vide).
+const installationLisible = (type) => {
+  const t = texteVariable(type);
+  return !t || /^autre$/i.test(t) ? "BMI TOGO" : t.toLowerCase();
+};
+// ⚠ Le code est la FIN de l'adresse du lien, jamais l'adresse entière.
+export function envoiLienPv({ nom, installation, jeton }) {
+  const code = texteVariable(jeton);
+  if (!code) return null;
+  return { modele: "lien_signature_pv", variables: [nomOuClient(nom), installationLisible(installation), code] };
+}
+export function envoiAvenant({ nom, pv, jeton }) {
+  const code = texteVariable(jeton);
+  if (!code) return null;
+  return { modele: "avenant_reserves", variables: [nomOuClient(nom), texteVariable(pv) || "initial", code] };
+}
+export function envoiAccueilProspect({ nom }) {
+  return { modele: "accueil_prospect", variables: [nomOuClient(String(nom || "").toUpperCase())] };
+}
+// ⚠ Sans projet, rien : l'écran le DEMANDE avant (décision « a »), on
+// n'envoie jamais « votre projet  : » avec un trou vide.
+export function envoiRelanceProspect({ nom, auteur, projet }) {
+  const p = texteVariable(projet);
+  if (!p) return null;
+  return { modele: "relance_prospect", variables: [nomOuClient(String(nom || "").toUpperCase()), texteVariable(auteur) || "un conseiller", p] };
+}
+
+// ---- LE PROJET D'UN PROSPECT (décision « a », 01/10/2026) ----
+// La fiche porte le NOM du projet tel qu'on l'a choisi (« Solaire »,
+// « Forage », ou ce qu'on a tapé) ; la relance l'ACCORDE après « votre
+// projet » : « d'installation solaire », « de forage », « d'éclairage ».
+// Deux métiers d'origine ont une tournure à eux ; tout le reste prend
+// « de » (« d' » devant une voyelle ou un h muet), en minuscules.
+const TOURNURES_PROJET = { solaire: "d'installation solaire", garage: "de portail ou de garage" };
+export function projetDansLaPhrase(projet) {
+  const p = texteVariable(projet);
+  if (!p) return "";
+  const bas = p.toLowerCase();
+  const sansAccent = bas.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (TOURNURES_PROJET[sansAccent]) return TOURNURES_PROJET[sansAccent];
+  if (/^(de |d'|d’)/.test(bas)) return bas;
+  return /^[aeiouyh]/.test(sansAccent) ? `d'${bas}` : `de ${bas}`;
 }
 
 // Le texte lisible (pour le fil, le banc, un jour un repli à la main).
