@@ -97,7 +97,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     ...categoriesAutres.map((c) => ({ valeur: c, detail: `Autre métier — stock de ${boutique}` })),
   ];
   const propositionsArticle = (cat) => articlesDeCategorie(cat).map((p) => ({
-    valeur: p.nom, id: p.id, detail: `${fmt(p.prix_vente)} F` + (p.categorie ? ` · ${p.categorie}` : ""),
+    valeur: p.nom, id: p.id, detail: `${fmt(p.prix_vente)}` + (p.categorie ? ` · ${p.categorie}` : ""),
   }));
 
   const articlesDeCategorie = (cat) => {

@@ -10,7 +10,7 @@ import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
 import { ADRESSE_APP, chiffresTel } from "../lib/comptesClients";
 import { creerFilleulEnLigne } from "../supabaseClient";
 import { PAIEMENTS } from "../lib/constants";
-import { uid, fmt, today, dFR, telDigits, definirMotDePasse, totalVente, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
+import { uid, fmt, fmtFcfa, today, dFR, telDigits, definirMotDePasse, totalVente, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, marqueEspace } from "../lib/calculs";
@@ -732,15 +732,15 @@ export function EspaceClient({ db, profile, save, setTab }) {
                         <div className="mt-4 rounded-xl border-2 border-sky-300 bg-sky-50 p-3">
                           <div className="font-bold text-sky-900">💰 Où en est votre paiement</div>
                           <div className="text-sm text-slate-700 mt-1 space-y-0.5">
-                            <div>Montant total : <b>{fmt(d.total)} F</b></div>
-                            {solde !== Number(d.total) && <div>Acompte prévu avant travaux : {fmt(Number(d.total) - solde)} F</div>}
-                            {verse > 0 && <div>Déjà versé sur le solde : {fmt(verse)} F</div>}
-                            <div className="text-base font-bold text-sky-900">Reste à payer : {fmt(reste)} F</div>
+                            <div>Montant total : <b>{fmt(d.total)}</b></div>
+                            {solde !== Number(d.total) && <div>Acompte prévu avant travaux : {fmt(Number(d.total) - solde)}</div>}
+                            {verse > 0 && <div>Déjà versé sur le solde : {fmt(verse)}</div>}
+                            <div className="text-base font-bold text-sky-900">Reste à payer : {fmt(reste)}</div>
                           </div>
                           {(maDette?.paiements || []).length > 0 && (
                             <div className="mt-2 pt-2 border-t border-sky-200 text-xs text-slate-600">
                               {maDette.paiements.map((v, i) => (
-                                <div key={i}>• {dFR(v.date)} — {fmt(v.montant)} F</div>
+                                <div key={i}>• {dFR(v.date)} — {fmt(v.montant)}</div>
                               ))}
                             </div>
                           )}
@@ -756,7 +756,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                               )}
                               {pl.statut === PLAN_ACCEPTE && reste > 0 && suivante && (
                                 <div className={`mt-1 text-sm font-bold ${enRetard ? "text-red-700" : "text-green-800"}`}>
-                                  {enRetard ? "⚠ Versement en retard" : "Prochain versement"} : {fmt(suivante.montant)} F le {dFR(suivante.date)}
+                                  {enRetard ? "⚠ Versement en retard" : "Prochain versement"} : {fmt(suivante.montant)} le {dFR(suivante.date)}
                                 </div>
                               )}
                               {pl.statut === PLAN_ACCEPTE && reste === 0 && <div className="mt-1 text-sm font-bold text-green-800">✅ Soldé — merci !</div>}
@@ -928,7 +928,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 <p>Et :</p>
                 <p>{partieClientContrat({ nom: profile.nom_base || profile.nom, prenom: d.prenom || profile.prenom, tel: profile.tel, entreprise: d.entreprise || null })}</p>
                 {d.pose_seule ? (<>
-                  <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>{totalEquipementsBMI > 0 ? ", ainsi que la fourniture des équipements complémentaires listés ci-dessous" : ""}, pour un <b>montant total dû à BMI TOGO de {fmt(d.total)} FCFA</b>, se décomposant comme suit : main d'œuvre de pose — <b>{fmt(d.total - totalEquipementsBMI)} FCFA</b>{totalEquipementsBMI > 0 ? <> ; équipements fournis par BMI TOGO — <b>{fmt(totalEquipementsBMI)} FCFA</b></> : null}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.
+                  <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>{totalEquipementsBMI > 0 ? ", ainsi que la fourniture des équipements complémentaires listés ci-dessous" : ""}, pour un <b>montant total dû à BMI TOGO de {fmtFcfa(d.total)}</b>, se décomposant comme suit : main d'œuvre de pose — <b>{fmtFcfa(d.total - totalEquipementsBMI)}</b>{totalEquipementsBMI > 0 ? <> ; équipements fournis par BMI TOGO — <b>{fmtFcfa(totalEquipementsBMI)}</b></> : null}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.
                     {totalEquipementsBMI > 0 && <span className="block mt-1"><b>Équipements fournis par BMI TOGO :</b><ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{equipementsBMI.map((l, i) => <li key={i}>{l.article} — quantité : {l.qte}</li>)}</ul></span>}</p>
                   {totalEquipementsBMI > 0 && (
                     <p><b>Article 1 bis — Garantie, propriété et risques des équipements fournis par BMI TOGO.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement, le cas échéant."} Ces équipements demeurent la propriété de BMI TOGO jusqu'au paiement intégral du prix convenu ; les risques de perte, vol ou détérioration les concernant sont transférés au Client à compter de leur livraison ou de leur installation. Ces dispositions ne s'appliquent en aucun cas au matériel apporté par le Client lui-même (Article 2).</p>
@@ -951,12 +951,12 @@ export function EspaceClient({ db, profile, save, setTab }) {
                   <p><b>Article 17 — Litiges.</b> Tout différend sera réglé à l'amiable ; à défaut, les tribunaux compétents de la République Togolaise seront seuls compétents.</p>
                   <p><b>Article 18 — Défaut de paiement.</b> En cas de non-paiement à l'échéance convenue, BMI TOGO pourra suspendre toute intervention restant à exécuter et réclamer le paiement des sommes dues.</p>
                 </>) : (<>
-                <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de {fmt(d.total)} FCFA. Le devis accepté, ainsi que ses éventuelles annexes techniques, nomenclatures, fiches techniques et plans validés par les parties, font partie intégrante du présent contrat. Ils définissent notamment les équipements fournis, leurs quantités, leurs caractéristiques principales et les prestations d'installation comprises dans le prix. Toute prestation ou fourniture non expressément prévue dans ces documents fait l'objet d'un devis complémentaire soumis à l'accord préalable du Client.
+                <p><b>Article 1 — Objet.</b> Le présent contrat a pour objet la fourniture, l'installation, les essais et la mise en service des équipements prévus au devis accepté, pour un montant total de {fmtFcfa(d.total)}. Le devis accepté, ainsi que ses éventuelles annexes techniques, nomenclatures, fiches techniques et plans validés par les parties, font partie intégrante du présent contrat. Ils définissent notamment les équipements fournis, leurs quantités, leurs caractéristiques principales et les prestations d'installation comprises dans le prix. Toute prestation ou fourniture non expressément prévue dans ces documents fait l'objet d'un devis complémentaire soumis à l'accord préalable du Client.
                   {listeEquipements.length > 0 && <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{listeEquipements.map((l, i) => <li key={i}>{l}</li>)}</ul>}</p>
                 <p><b>Article 2 — Documents remis.</b> BMI TOGO remettra au Client les fiches techniques, le rapport de mise en service, les consignes d'utilisation et de sécurité.</p>
                 <p><b>Article 3 — Modalités de paiement.</b> {pctAcompteAffiche >= 100
-                  ? `Le prix est payable intégralement, soit ${fmt(d.total)} FCFA, avant le commencement des travaux.`
-                  : `Un acompte de ${pctAcompteAffiche} % du montant total, soit ${fmt(montantAcompte)} FCFA, est exigible avant le commencement des travaux. Le solde, soit ${fmt(d.total - montantAcompte)} FCFA, est exigible selon les modalités prévues à l'Article 21.`}</p>
+                  ? `Le prix est payable intégralement, soit ${fmtFcfa(d.total)}, avant le commencement des travaux.`
+                  : `Un acompte de ${pctAcompteAffiche} % du montant total, soit ${fmtFcfa(montantAcompte)}, est exigible avant le commencement des travaux. Le solde, soit ${fmtFcfa(d.total - montantAcompte)}, est exigible selon les modalités prévues à l'Article 21.`}</p>
                 <p><b>Article 4 — Délai d'exécution.</b> Les travaux seront exécutés dans un délai indicatif de {d.delai_installation || "à convenir avec le Client"} à compter du paiement de l'acompte ou de la signature du présent contrat, selon le cas. Ce délai pourra être prolongé en cas de force majeure ou de retard imputable au Client, sans que cela n'engage la responsabilité de BMI TOGO.</p>
                 <p><b>Article 5 — Garanties des équipements.</b> {garanties.length > 0 ? garanties.join(" ; ") + "." : "Selon la garantie fabricant de chaque équipement."}</p>
                 <p><b>Article 6 — Garantie d'installation.</b> BMI TOGO garantit les travaux d'installation pendant 12 mois à compter de la signature du procès-verbal de réception, contre tout défaut lié à la pose. En cas de dysfonctionnement, BMI TOGO procède d'abord à un diagnostic pour déterminer l'origine du problème. Si le défaut relève de l'installation, la réparation est prise en charge intégralement et gratuitement par BMI TOGO. Si le défaut relève de l'équipement lui-même, BMI TOGO accompagne le Client dans les démarches de prise en charge auprès du fabricant ou du fournisseur ; le remplacement ou la réparation est soumis aux conditions de garantie du fabricant, et les frais de main-d'œuvre, de déplacement ou de réinstallation pourront être facturés au Client si ceux-ci ne sont pas pris en charge par le fabricant. Cette garantie ne constitue pas une garantie de performance des équipements : toute baisse de performance liée au vieillissement normal, aux conditions climatiques, à une mauvaise utilisation ou à des facteurs externes relève, le cas échéant, de la garantie du fabricant.</p>
@@ -992,7 +992,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                 const lignes = plan.type === "mensuel" ? echeancier({ ...plan, montant_mensuel: Number(plan.montant_mensuel || 0) }, solde) : [];
                 return (
                   <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-                    <div className="font-bold text-amber-900 text-sm">Comment allez-vous régler le solde de {fmt(solde)} F ?</div>
+                    <div className="font-bold text-amber-900 text-sm">Comment allez-vous régler le solde de {fmt(solde)} ?</div>
                     <label className="flex items-start gap-2 mt-2 text-sm text-slate-700 cursor-pointer">
                       <input type="radio" name="plan" className="mt-1" checked={plan.type === "solde_signature"}
                         onChange={() => setPlan({ ...plan, type: "solde_signature" })} />
@@ -1014,7 +1014,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                         </div>
                         {lignes.length > 0 && (
                           <div className="text-xs font-semibold text-amber-900">
-                            → {lignes.length} versement(s), le dernier de {fmt(lignes[lignes.length - 1].montant)} F le {dFR(lignes[lignes.length - 1].date)}
+                            → {lignes.length} versement(s), le dernier de {fmt(lignes[lignes.length - 1].montant)} le {dFR(lignes[lignes.length - 1].date)}
                           </div>
                         )}
                       </div>
@@ -1054,7 +1054,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                   <p><b>Objet.</b> Le présent avenant constate que les réserves émises lors de la réception initiale (contrat N° {fiche.contrat_numero || "—"}) ont été corrigées par le Prestataire, à savoir : <i>{fiche.contrat_reserve_texte || "—"}</i>. En signant, le Client confirme la réception définitive, sans réserve, de la prestation.</p>
                 ) : (
                   <>
-                    <p><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>{fiche.type_installation}</b> réalisés à l'adresse suivante : <b>{fiche.adresse_contrat || "—"}</b>, pour un montant total de <b>{fmt(montant)} FCFA</b>.</p>
+                    <p><b>Article 1 — Objet.</b> Le présent procès-verbal constate la réception, par le Client, des travaux de <b>{fiche.type_installation}</b> réalisés à l'adresse suivante : <b>{fiche.adresse_contrat || "—"}</b>, pour un montant total de <b>{fmtFcfa(montant)}</b>.</p>
                     <p><b>Article 2 — Matériel installé{fiche.pose_seule ? " (fourni par le Client)" : ""}.</b> {(fiche.materiel || []).length > 0
                       ? <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>{fiche.materiel.map((m, i) => <li key={i}>{m.nom} — quantité : {m.qte}{m.serie ? ` — N° de série : ${m.serie}` : ""}</li>)}</ul>
                       : "Liste du matériel non renseignée."}{fiche.pose_seule && <span className="block text-xs text-slate-500 mt-1">Ce matériel a été fourni par le Client — BMI Togo n'assure que la pose.</span>}{chef && <span className="block text-xs text-slate-500 mt-1">Constaté par {chef.nom}, chef d'équipe.</span>}</p>

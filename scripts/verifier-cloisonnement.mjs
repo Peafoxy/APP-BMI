@@ -12132,5 +12132,21 @@ titre("🧰 Outillage : ce que l'écran dit est vrai (01/10/2026, chapitre 19 du
     /Pour le ranger ailleurs, enregistrez une sortie puis son retour/.test(ou) && !/enregistrez un retour pour le reposer/.test(ou));
 }
 
+titre("🏠 Espace client : un montant ne porte jamais son « F » deux fois (01/10/2026, chapitre 21 du manuel)");
+{
+  // ⚠ Trouvé en écrivant le chapitre 21 : « Montant total : 120 000 F F »
+  // dans l'espace client, et « 1 200 000 F FCFA » dans les contrats et le PV
+  // (imprimés ET à l'écran) — `fmt` colle DÉJÀ le « F ». Contrôle GÉNÉRAL sur
+  // src et api : aucun `fmt(…)` suivi d'une unité tapée à la main.
+  const parcourir = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? parcourir(join(d, e.name)) : /\.(jsx?|mjs)$/.test(e.name) ? [join(d, e.name)] : []);
+  const motif = /fmt\((?:[^()]|\([^()]*\))*\)\}? ?F(?:CFA)?\b/;
+  const fautifs = [...parcourir("src"), ...parcourir("api")].filter((f) => motif.test(readFileSync(f, "utf8")));
+  test("★★ aucun montant n'écrit son « F » deux fois : jamais « fmt(…) F » ni « fmt(…) FCFA » (src et api)", fautifs.length === 0);
+  if (fautifs.length) console.log("     fautifs :", fautifs.join(", "));
+  const v = Core.fmtFcfa(1200000);
+  test("★ fmtFcfa écrit « 1 200 000 FCFA », une seule unité ; un montant absent reste « — »",
+    /^1\s200\s000 FCFA$/.test(v) && !/F F/.test(v) && Core.fmtFcfa(null) === "—");
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

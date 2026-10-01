@@ -523,6 +523,11 @@ export const nouvelleDepense = (profile, { boutique, categorie, description, mon
   ...reste,
 });
 export const fmt = (n) => (n === 0 || n ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " F" : "—");
+// ⚠ 01/10/2026 (trouvé en écrivant le chapitre 21) : les contrats écrivaient
+// « 1 200 000 F FCFA » et l'espace client « 120 000 F F » — `fmt` colle DÉJÀ
+// le « F ». Un document qui dit « FCFA » passe par CETTE fonction, jamais par
+// `fmt(…)` suivi d'une unité tapée à la main (le banc l'interdit).
+export const fmtFcfa = (n) => fmt(n).replace(/ F$/, " FCFA");
 // ⚠ `fmt` est LE format de L'ARGENT : il arrondit au franc et colle « F ».
 // Une MESURE ne s'écrit jamais comme ça (défaut trouvé par Timo, 20/09/2026,
 // capture : « Débit max : 0 F → 2 F » alors qu'il avait tapé 1,5 — la valeur

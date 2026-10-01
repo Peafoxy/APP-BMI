@@ -558,7 +558,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                             {pl.statut === PLAN_ACCEPTE && ` — accepté par ${pl.decide_par || "?"} le ${dFR(pl.decide_le)}`}
                             {pl.statut === PLAN_REJETE && ` — refusé par ${pl.decide_par || "?"} le ${dFR(pl.decide_le)}`}
                           </div>
-                          <div className="text-sm text-slate-700 mt-1">Solde concerné : <b>{fmt(solde)} F</b></div>
+                          <div className="text-sm text-slate-700 mt-1">Solde concerné : <b>{fmt(solde)}</b></div>
                           <div className="text-sm text-slate-800 font-semibold mt-0.5">{resumePlan(pl, solde)}</div>
                           {/* ⚠ La ligne qui permet de juger en une seconde, au lieu
                               d'aller relire l'Article 4 du contrat. */}
@@ -679,7 +679,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
               <div className="apercu-contrat max-h-[38vh] overflow-y-auto border border-slate-200 rounded-lg p-3 bg-slate-50" dangerouslySetInnerHTML={{ __html: html }} />
               {solde > 0 && (
                 <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-                  <div className="font-bold text-amber-900 text-sm">Comment le client réglera-t-il le solde de {fmt(solde)} F ?</div>
+                  <div className="font-bold text-amber-900 text-sm">Comment le client réglera-t-il le solde de {fmt(solde)} ?</div>
                   <label className="flex items-start gap-2 mt-2 text-sm text-slate-700 cursor-pointer">
                     <input type="radio" name="plan-boutique" className="mt-1" checked={plan.type === "solde_signature"} onChange={() => setPlan({ ...plan, type: "solde_signature" })} />
                     <span>La <b>totalité</b> à la signature du PV de réception (ou dans les 3 jours)</span>
@@ -695,7 +695,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                         <span className="text-sm text-slate-600">F, à partir du</span>
                         <input type="date" className={inputCls + " sm:w-44"} value={plan.premiere_echeance} onChange={(e) => setPlan({ ...plan, premiere_echeance: e.target.value })} />
                       </div>
-                      {lignes.length > 0 && <div className="text-xs font-semibold text-amber-900">→ {lignes.length} versement(s), le dernier de {fmt(lignes[lignes.length - 1].montant)} F le {dFR(lignes[lignes.length - 1].date)}</div>}
+                      {lignes.length > 0 && <div className="text-xs font-semibold text-amber-900">→ {lignes.length} versement(s), le dernier de {fmt(lignes[lignes.length - 1].montant)} le {dFR(lignes[lignes.length - 1].date)}</div>}
                     </div>
                   )}
                   <div className="text-[11px] text-slate-500 mt-2">Le plan sera soumis à l'administrateur principal, comme depuis l'espace client.</div>
