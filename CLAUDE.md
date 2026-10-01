@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 20 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 729 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable)
+npm run verifier-whatsapp        # 745 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI »)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -4569,9 +4569,42 @@ lit mal est pire qu'un banc absent).
   conseil technique. On se fie au service d'IA ; le personnel lit tout dans
   📲 WhatsApp. ⚠ Il conseille « en général », pas selon les choix de BMI
   (48 V, lithium…) : l'option **B** — un mémo « Nos choix BMI » dans
-  ⚙ Paramètres — a été proposée et **NON retenue** (« A »). Ne pas la
-  construire sans sa demande.
+  ⚙ Paramètres — a été proposée et **NON retenue** (« A ») — ~~ne pas la
+  construire sans sa demande~~ **RETOURNÉ le 01/10/2026** : il l'a demandée
+  (voir § « 🧮 LE TOTAL ET 📝 NOS CHOIX BMI » ci-dessous).
 - Banc ㉖ (496), éprouvé en retirant l'interdit du prix « en général ».
+
+### 🧮 LE TOTAL CALCULÉ PAR L'APPLICATION, ET 📝 « NOS CHOIX BMI » (01/10/2026, « lance les deux »)
+- Timo : « il peut réagir vraiment avec un client comme un conseiller ? » →
+  réponse honnête (oui en grande partie ; deux limites qui se voient : il ne
+  donne aucun total, et il conseille « en général », pas comme BMI) → « lance
+  les deux ».
+- **🧮 Le cinquième outil, `calculer_total`** (lib/assistantIA.js,
+  `totalArticles`) : l'IA passe les NOMS EXACTS rendus par `chercher_article`
+  et les quantités dites par le client ; **l'application** multiplie et
+  additionne au prix du stock, **boutique par boutique, jamais un mélange**
+  (une boutique qui n'a pas TOUT ne chiffre pas ; deux boutiques au même prix
+  = une réponse qui les nomme ; on ne choisit pas une boutique à la place du
+  client), « sur commande » dit, **articles seuls, hors pose et transport**
+  (`PHRASE_TOTAL`). Le juge n'accepte QUE les montants rendus (prix unitaires,
+  lignes, totaux) : un total calculé par l'IA reste JETÉ. ⚠ **Une quantité non
+  dite est REFUSÉE** (0, 1,5, un mot) : on ne suppose jamais un nombre ; un
+  article introuvable ou sans prix, refusé ; 20 lignes au plus. Le serveur lui
+  passe le MÊME stock que la recherche (boutiques RÉELLES, le mur).
+- **📝 « Nos choix BMI »** : ⚙ Paramètres → 🤖 Assistant, **administrateur
+  PRINCIPAL seul** (revérifié DANS le geste), champ `assistant_memo` sur les
+  boutiques (**rien à coller**), lu sur une boutique RÉELLE seulement
+  (`memoAssistant`). Il entre dans la consigne (`consignePour({ memo })`) :
+  l'IA conseille SELON ces choix plutôt qu'en général, en disant que c'est ce
+  que BMI recommande. ⚠ **Pas de prix dedans** (`critiqueMemoAssistant` le
+  refuse : le juge jetterait les réponses), ni dette / crédit / mot de passe,
+  1 500 caractères au plus. ⚠ Le menu à chiffres ne le lit pas. ⚠ Le juge ne
+  vérifie toujours pas la JUSTESSE d'un conseil technique.
+- Banc ㊷ (`verifier-whatsapp`, 16 contrôles), éprouvé en remettant quatre
+  fautes (deux boutiques mélangées, le mémo lu en formation, un prix accepté
+  dans le mémo, la garde du principal retirée) : chacune tombe. Quatre
+  contrôles RETOURNÉS (cinq outils ; l'appel de la consigne avec le mémo ×3).
+  Chapitres 20 et 23 du manuel à jour. Rien à coller dans Supabase.
 
 ### 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE SEULE FOIS (25/09/2026, « lance les deux »)
 - Captures Timo : « ce n'est pas agréable à regarder… tous les détails dans

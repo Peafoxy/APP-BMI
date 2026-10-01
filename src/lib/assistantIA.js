@@ -106,6 +106,7 @@ ${activites}
 
 CE QUE TU AS LE DROIT DE DIRE
 - Le prix, la disponibilité (« disponible » ou « sur commande ») et les caractéristiques d'un article, UNIQUEMENT tels que l'outil chercher_article te les donne. Tu recopies le prix exactement, tu ne l'arrondis pas, tu ne le convertis pas.
+- UN TOTAL pour une quantité ou pour plusieurs articles (« combien pour 3 panneaux et 2 batteries ? »), UNIQUEMENT par l'outil calculer_total, que tu recopies tel quel : tu ne fais JAMAIS une multiplication ni une addition toi-même. Ce total est INDICATIF : articles seuls, hors pose et transport, au prix du stock d'une boutique — ce n'est pas un devis.
 - Présenter les activités de BMI TOGO avec les mots ci-dessus.
 - Poser des questions pour comprendre le besoin (appareils à alimenter, heures d'utilisation, ville ou quartier) avant d'enregistrer une demande de devis.
 - Dire que tu ne sais pas, et proposer un conseiller.
@@ -128,6 +129,7 @@ COMMENT TU T'Y PRENDS
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium ») et réponds avec ce qu'il rend. S'il ne trouve rien, dis-le et propose un autre nom ou un conseiller.
+- Pour un total : appelle d'abord chercher_article pour connaître le nom exact de chaque article, puis calculer_total avec ces noms EXACTS et les quantités dites par le client (s'il n'a pas dit combien, demande-le). Recopie la phrase de l'outil sans changer un chiffre, sans guillemets autour. Si l'outil refuse, dis ce qui manque — ne donne aucun chiffre.
 - Si l'outil rend une « description » pour un article, c'est BMI TOGO qui l'a écrite : tu peux la redire pour expliquer ce qu'est l'article et à quoi il sert, sans rien y ajouter. Sans description, tu ne décris pas l'article au-delà de son nom.
 - Si le client veut t'apprendre quelque chose sur un produit : dis que tu ne retiens rien d'une conversation à l'autre, mais que l'équipe BMI TOGO peut l'ajouter à la fiche du produit.
 - Pour une installation SOLAIRE, demande TOUJOURS, pour CHAQUE appareil : COMBIEN il y en a (le nombre), combien d'heures par jour il fonctionne, et sa puissance si le client la connaît. Ne suppose jamais qu'il y en a un seul : tant que le nombre d'un appareil n'est pas dit, redemande-le avant d'estimer. « une ampoule » ou « 1 ampoule » est un nombre ; « les ampoules » ou « quelques lumières » n'en est PAS un. Dans estimer_solaire, écris le nombre tel que le client l'a donné, n'en invente jamais.
@@ -140,7 +142,7 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Tu réponds au dernier message du client, en tenant compte de ce qui a été dit avant dans la conversation.`;
 
 // Un mot sur le client, quand on le connaît — ajouté à la consigne.
-export const consignePour = ({ client = null, nouvelle = false, metiers = [] } = {}) => {
+export const consignePour = ({ client = null, nouvelle = false, metiers = [], memo = "" } = {}) => {
   const qui = client?.nom
     ? `LE CLIENT : il s'appelle ${client.nom} et a un compte chez BMI TOGO (tu peux l'appeler par son nom). Pour une demande de devis, son nom est connu : ne le redemande pas.`
     : `LE CLIENT : ce numéro n'a pas de compte chez BMI TOGO, son nom est inconnu. Pour une demande de devis, demande-lui son nom avant d'enregistrer.`;
@@ -155,7 +157,13 @@ export const consignePour = ({ client = null, nouvelle = false, metiers = [] } =
   const met = noms.length
     ? `\n\nLES MÉTIERS DE BMI TOGO RÉGLÉS DANS L'APPLICATION : ${noms.join(", ")}. Ce sont des métiers de BMI TOGO : tu n'en exclus aucun.`
     : "";
-  return `${CONSIGNE_IA}\n\n${qui}\n\n${salut}${met}`;
+  // 📝 « Nos choix BMI » (01/10/2026, « lance les deux ») : écrits par la
+  // direction dans ⚙ Paramètres. Ils PRIMENT sur le conseil général.
+  const m = String(memo || "").trim();
+  const choix = m
+    ? `\n\nLES CHOIX DE BMI TOGO (écrits par la direction de BMI TOGO — ce sont des faits de BMI, tu peux les dire) :\n${m}\nQuand l'un de ces choix répond à la question du client, tu conseilles SELON LUI, plutôt qu'en général, en disant que c'est ce que BMI TOGO recommande ou installe. Tu n'en tires jamais un prix, un délai ou une promesse : les montants ne viennent que des outils.`
+    : "";
+  return `${CONSIGNE_IA}\n\n${qui}\n\n${salut}${met}${choix}`;
 };
 
 // Le filet derrière la consigne : sur une conversation NOUVELLE, une réponse
@@ -203,6 +211,28 @@ export const OUTILS_IA = [
       type: "object",
       properties: { description: { type: "string", description: "Les appareils décrits par le client, avec ses mots : « 2 clims 1,5 CV 8 h par jour, 10 ampoules toute la nuit, un congélateur 24 h sur 24 »" } },
       required: ["description"],
+    },
+  },
+  {
+    name: "calculer_total",
+    description: "Calcule avec les prix du stock de BMI TOGO le TOTAL d'une quantité ou de plusieurs articles (articles seuls, hors pose et transport). Donner le nom EXACT de chaque article tel que chercher_article l'a rendu, et la quantité dite par le client. Si les articles sont dans plusieurs boutiques à des prix différents, rend un total par boutique ; préciser « boutique » pour n'en avoir qu'une. Refuse un article introuvable, sans prix, ou une quantité non dite.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lignes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              article: { type: "string", description: "Le nom exact de l'article, tel que rendu par chercher_article" },
+              quantite: { type: "number", description: "Le nombre dit par le client (entier, au moins 1)" },
+            },
+            required: ["article", "quantite"],
+          },
+        },
+        boutique: { type: "string", description: "Facultatif : la boutique dont on veut les prix" },
+      },
+      required: ["lignes"],
     },
   },
   {
@@ -267,6 +297,90 @@ export function besoinSansEstimation(texte) {
   return gardees || brut;
 }
 
+// ---- 🧮 LE TOTAL, CALCULÉ PAR L'APPLICATION (01/10/2026, « lance les deux ») ----
+// Timo voulait un assistant qui réponde comme un conseiller : « 3 panneaux,
+// combien ? ». L'IA ne calcule JAMAIS (le juge jette tout montant qu'aucun
+// outil n'a donné) : c'est cette règle qui multiplie et additionne, au prix
+// du stock, boutique par boutique — jamais un mélange de deux boutiques, on
+// ne choisit pas une boutique à la place du client. Articles seuls : ni pose,
+// ni transport, ni remise. Rend { ok, motif } ou { ok, texte, montants }.
+export const MAX_LIGNES_TOTAL = 20;
+export const MAX_QUANTITE_TOTAL = 10000;
+const cleNom = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const fmtTotal = (n) => `${Math.round(Number(n || 0)).toLocaleString("fr-FR")} F`;
+export function totalArticles(articles, lignes, boutique = "") {
+  const ls = Array.isArray(lignes) ? lignes : [];
+  if (!ls.length) return { ok: false, motif: "Aucun article donné." };
+  if (ls.length > MAX_LIGNES_TOTAL) return { ok: false, motif: `Trop d'articles (${MAX_LIGNES_TOTAL} au plus) : proposer une demande de devis.` };
+  const voulue = cleNom(boutique);
+  const tous = (articles || []).filter((a) => a && a.nom && (!voulue || cleNom(a.boutique) === voulue));
+  if (voulue && !tous.length) return { ok: false, motif: `Aucun article dans la boutique « ${boutique} ».` };
+  const demandes = [];
+  for (const l of ls) {
+    const q = Number(l && l.quantite);
+    const nomA = String((l && l.article) || "").trim();
+    if (!nomA) return { ok: false, motif: "Un article n'a pas de nom." };
+    if (!Number.isInteger(q) || q < 1 || q > MAX_QUANTITE_TOTAL) return { ok: false, motif: `La quantité de « ${nomA} » n'est pas un nombre entier dit par le client : la lui demander.` };
+    let memes = tous.filter((a) => cleNom(a.nom) === cleNom(nomA));
+    if (!memes.length) {
+      const proches = chercherArticles(tous, nomA);
+      const noms = [...new Set(proches.map((a) => cleNom(a.nom)))];
+      if (noms.length === 1) memes = tous.filter((a) => cleNom(a.nom) === noms[0]);
+    }
+    if (!memes.length) return { ok: false, motif: `« ${nomA} » est introuvable : appeler chercher_article et reprendre le nom exact.` };
+    demandes.push({ cle: cleNom(memes[0].nom), nom: memes[0].nom, quantite: q });
+  }
+  const boutiques = [...new Set(tous.map((a) => a.boutique))].sort((x, y) => x.localeCompare(y, "fr"));
+  const parBoutique = [];
+  for (const b of boutiques) {
+    const lignesB = [];
+    let complet = true;
+    for (const d of demandes) {
+      const a = tous.find((x) => x.boutique === b && cleNom(x.nom) === d.cle);
+      if (!a || !(Number(a.prix) > 0)) { complet = false; break; }
+      lignesB.push({ nom: a.nom, quantite: d.quantite, prix: Math.round(Number(a.prix)), montant: Math.round(Number(a.prix)) * d.quantite, disponible: !!a.disponible });
+    }
+    if (complet) parBoutique.push({ boutique: b, lignes: lignesB, total: lignesB.reduce((s, x) => s + x.montant, 0) });
+  }
+  if (!parBoutique.length) return { ok: false, motif: "Aucune boutique n'a tous ces articles avec un prix : proposer une demande de devis ou un conseiller." };
+  // Deux boutiques au même total et aux mêmes lignes = une seule réponse.
+  const uniques = [];
+  for (const p of parBoutique) {
+    const meme = uniques.find((u) => u.total === p.total && u.lignes.every((l, i) => l.prix === p.lignes[i].prix));
+    if (meme) meme.boutiques.push(p.boutique); else uniques.push({ ...p, boutiques: [p.boutique] });
+  }
+  const bloc = (u) => {
+    const detail = u.lignes.map((l) => `• ${l.quantite} × ${l.nom} : ${fmtTotal(l.montant)}${l.quantite > 1 ? ` (${fmtTotal(l.prix)} l'unité)` : ""}${l.disponible ? "" : " — sur commande"}`).join("\n");
+    return `À ${u.boutiques.join(" et ")} :\n${detail}\nTotal : ${fmtTotal(u.total)}`;
+  };
+  const texte = `${uniques.map(bloc).join("\n\n")}\n\n${PHRASE_TOTAL}`;
+  const montants = [...new Set(uniques.flatMap((u) => [u.total, ...u.lignes.flatMap((l) => [l.prix, l.montant])]))];
+  return { ok: true, texte, montants, parBoutique: uniques };
+}
+export const PHRASE_TOTAL = "Prix indicatif des articles seuls, hors pose et transport ; un conseiller BMI TOGO vous confirme le prix exact dans un devis.";
+
+// ---- 📝 « NOS CHOIX BMI » — le mémo de la direction (01/10/2026) ----
+// L'assistant conseillait « en général » (décision « A », 25/09) ; Timo veut
+// qu'il conseille COMME LA MAISON (48 V, lithium…). Le mémo est écrit dans
+// ⚙ Paramètres → 🤖 Assistant (administrateur PRINCIPAL), rangé sur les
+// boutiques (`assistant_memo`, rien à coller), lu sur une boutique RÉELLE
+// seulement (le mur). ⚠ PAS DE PRIX dedans : le juge jette tout montant
+// qu'aucun outil n'a donné — un prix écrit ici ferait jeter les réponses.
+export const MEMO_ASSISTANT_MAX = 1500;
+export const memoAssistant = (boutiques) => {
+  const b = (boutiques || []).find((x) => x && !x.formation && String(x.assistant_memo || "").trim());
+  return b ? String(b.assistant_memo).trim() : "";
+};
+export const poserMemoAssistant = (boutiques, texte) =>
+  (boutiques || []).map((b) => ({ ...b, assistant_memo: String(texte || "").trim() }));
+export function critiqueMemoAssistant(texte) {
+  const t = String(texte || "").trim();
+  if (t.length > MEMO_ASSISTANT_MAX) return `Le mémo est trop long (${t.length} caractères, ${MEMO_ASSISTANT_MAX} au plus) : gardez l'essentiel.`;
+  if (montantsCites(t).length) return "Pas de prix dans le mémo : l'assistant ne cite que les prix du stock. Retirez les montants (les prix se règlent sur les fiches des articles).";
+  if (MOTS_INTERDITS_IA.test(t)) return "Le mémo parle de dette, de crédit, de solde ou de mot de passe : l'assistant n'a pas le droit d'en parler. Retirez ces mots.";
+  return "";
+}
+
 export function executerOutil(nom, entree = {}, contexte = {}) {
   const e = entree || {};
   if (nom === "chercher_article") {
@@ -303,6 +417,14 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
     return {
       resultat: `Estimation calculée par l'application. Recopier cette phrase telle quelle, sans changer un chiffre : « ${phrase} » Puis proposer d'enregistrer une demande de devis.`,
       effets: { prix: [est.bas, est.haut], demandeDevis: null, conseiller: false, estimation: { bas: est.bas, haut: est.haut, texte: phrase, appareils: description } },
+    };
+  }
+  if (nom === "calculer_total") {
+    const t = totalArticles(contexte.articles || [], e.lignes, e.boutique);
+    if (!t.ok) return { resultat: `Pas de total. ${t.motif} Ne donner AUCUN chiffre.`, effets: { prix: [], demandeDevis: null, conseiller: false } };
+    return {
+      resultat: `Total calculé par l'application. Recopier cette phrase telle quelle, sans changer un chiffre : « ${t.texte} »`,
+      effets: { prix: t.montants, demandeDevis: null, conseiller: false },
     };
   }
   if (nom === "passer_conseiller") {

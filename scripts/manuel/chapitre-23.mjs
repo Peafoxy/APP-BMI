@@ -45,7 +45,7 @@ export const CHAPITRE = {
         ["Ouvrir ⚙ Paramètres", "**L'administrateur.** Aucun autre rôle n'a cet onglet."],
         ["Boutiques (création, infos reçu, logo, couleur, GPS, loyer, comptes mobiles, préfixe), catalogue, banques, appareils, note du dimensionnement, sauvegarde, synchronisation", "Tout administrateur."],
         ["💼 Fonds de caisse ; 👁 Je regarde ; supprimer une boutique **avec ses données** ; restaurer une sauvegarde", "**L'administrateur principal seul.**"],
-        ["🤖 Assistant WhatsApp (couper, changer de mode), 👨‍💼 Alerte, ⭐ Avis Google", "**L'administrateur principal seul** (les autres lisent l'état)."],
+        ["🤖 Assistant WhatsApp (couper, changer de mode, 📝 Nos choix BMI), 👨‍💼 Alerte, ⭐ Avis Google", "**L'administrateur principal seul** (les autres lisent l'état)."],
         ["Onglets 🎨 Apparence, 🔒 Données personnelles, 🗑 Corbeille", "**L'administrateur principal seul** : ces onglets n'existent pas pour les autres."],
         ["👑 Transférer le rôle de principal ; 🧨 réinitialiser", "**L'administrateur principal seul.**"],
       ]}],
@@ -114,6 +114,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "État", texte: "« ● En service » ou « ○ Coupé » ; **Couper l'assistant** / **Remettre l'assistant**." },
         { titre: "Façon de répondre", texte: "**🗣 Conversation par IA** (d'office) ou **🔢 Menu à chiffres**. L'IA a besoin de deux réglages côté serveur : sans eux, le menu répond à sa place." },
+        { titre: "📝 Nos choix BMI", texte: "Ce que BMI TOGO recommande ou installe (« Nous installons en 48 V… »), puis **✅ Enregistrer les choix**. En conversation par IA, l'assistant conseille SELON ces choix plutôt qu'en général. **Pas de prix** : l'application refuse un mémo qui en porte (les prix viennent du stock) ; 1 500 caractères au plus." },
         { titre: "👨‍💼 Alerte", texte: "Votre numéro WhatsApp personnel : le numéro BMI vous prévient une fois par demande de conseiller. Vide = coupée." },
         { titre: "⭐ Avis Google", texte: "Le lien de votre fiche Google ; **Couper** arrête les demandes d'avis." },
       ]],

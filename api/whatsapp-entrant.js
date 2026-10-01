@@ -32,7 +32,7 @@ import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssist
 // 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
 // qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
 // la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
-import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation, metiersDesBoutiques } from "../src/lib/assistantIA.js";
+import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation, metiersDesBoutiques, memoAssistant } from "../src/lib/assistantIA.js";
 // L'estimation solaire lit LA règle du vendeur et LA liste des appareils.
 import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } from "../src/lib/choixSolaire.js";
 import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
@@ -360,11 +360,12 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   if (modeAssistant(boutiques) === "ia" && ia.pret) {
     try {
       const conv = await converserAvecIA({
-        consigne: consignePour({ client: clientIA, nouvelle, metiers: metiersDesBoutiques(boutiques) }),
+        consigne: consignePour({ client: clientIA, nouvelle, metiers: metiersDesBoutiques(boutiques), memo: memoAssistant(boutiques) }),
         messages: messagesPourIA(fil),
         appeler: (corps) => appelerIA(corps, ia),
         executer: async (nom, entree) => executerOutil(nom, entree, {
-          articles: nom === "chercher_article" ? await chargerArticles() : [],
+          // 🧮 Le total (calculer_total) lit le MÊME stock que la recherche.
+          articles: nom === "chercher_article" || nom === "calculer_total" ? await chargerArticles() : [],
           client: clientIA,
           ...(nom === "estimer_solaire" ? await contexteSolaire() : {}),
         }),

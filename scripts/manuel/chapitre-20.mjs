@@ -126,6 +126,7 @@ export const CHAPITRE = {
         "Il **se tait** dès qu'une conversation est confiée, ou qu'un employé a répondu il y a moins de 24 h.",
         "Quand le client demande une personne, la ligne porte « **👨‍💼 Attend un conseiller depuis 12 min** » et le fil une bande ambre. **Répondez-lui** : la bande disparaît dès qu'une personne écrit.",
         "Une demande de devis prise par l'assistant arrive dans 🧲 Prospects (chapitre 4).",
+        "En conversation par IA, il peut donner **un total** (« 3 panneaux 400 W ») : c'est **l'application** qui le calcule au prix du stock, boutique par boutique, **articles seuls, hors pose et transport** — jamais l'IA. Il conseille selon **« Nos choix BMI »** quand la direction les a écrits (chapitre 23), sinon en général.",
       ]],
     ]},
 

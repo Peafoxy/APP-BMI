@@ -15,7 +15,7 @@ import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
@@ -27,7 +27,7 @@ import { mesOutils, sortieEnCours } from "../lib/outillage";
 // 🔒 LE DROIT À L'EFFACEMENT (Timo, 18/09/2026) — voir lib/effacementClient.js.
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme, clientsSansSuite, journalEffacementGroupe } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
-import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION } from "../lib/assistantIA";
+import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION, memoAssistant, poserMemoAssistant, critiqueMemoAssistant, MEMO_ASSISTANT_MAX } from "../lib/assistantIA";
 import { alerteConseillerDe, poserAlerteConseiller, critiqueNumeroAlerte, TEXTE_ALERTE_CONSEILLER, TEXTE_DEMANDE_AVIS } from "../lib/whatsappModeles";
 import { lienAvisGoogle, poserAvisGoogle, critiqueLienAvis, LIEN_AVIS_GOOGLE_DEFAUT, JOURS_APRES_RECEPTION } from "../lib/demandeAvis";
 import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT, JOURS_AVANT_ARCHIVE } from "../lib/conservation";
@@ -659,6 +659,25 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       ? "Faire discuter l'assistant par l'intelligence artificielle ? Les messages des clients seront lus par un service situé hors du Togo pour préparer la réponse (le client n'en est pas informé : décision du 24/09/2026). Le menu à chiffres reprend tout seul si le service ne répond pas."
       : "Revenir au menu à chiffres ? Plus aucun message de client ne sera lu par le service d'IA.")) return;
     save({ ...db, boutiques: poserModeAssistant(db.boutiques, mode) }, mode === "ia" ? "Assistant WhatsApp : conversation par IA" : "Assistant WhatsApp : menu à chiffres");
+  };
+
+  // 📝 « Nos choix BMI » (01/10/2026, « lance les deux ») : ce que la maison
+  // recommande ou installe, pour que l'assistant conseille COMME BMI et pas
+  // seulement « en général ». Principal seul, revérifié DANS le geste ; lu par
+  // le serveur sur une boutique RÉELLE ; jamais de prix (le juge les jetterait).
+  const memoActuel = memoAssistant(db.boutiques);
+  const [memoSaisi, setMemoSaisi] = useState(memoActuel);
+  const enregistrerMemo = async () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Écrire les choix de BMI pour l'assistant WhatsApp")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const texte = memoSaisi.trim();
+    const motif = critiqueMemoAssistant(texte);
+    if (motif) { uAlert(motif); return; }
+    if (texte === memoActuel) { uAlert("Rien n'a changé."); return; }
+    if (!await uConfirm(texte
+      ? "Enregistrer ces choix ? L'assistant les suivra quand il conseille un client, et les présentera comme ce que BMI TOGO recommande. Ils sont envoyés au service d'IA avec chaque conversation."
+      : "Vider les choix de BMI ? L'assistant reviendra au conseil général seul.")) return;
+    save({ ...db, boutiques: poserMemoAssistant(db.boutiques, texte) }, texte ? "Assistant WhatsApp : choix de BMI mis à jour" : "Assistant WhatsApp : choix de BMI vidés");
   };
 
   // 👨‍💼 L'alerte WhatsApp à l'administrateur (25/09/2026, « Lance avec ce
@@ -1869,7 +1888,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <div className="text-xs text-slate-500 mb-3">
           Quand un client écrit au numéro BMI et que la conversation n'est à personne, l'assistant répond tout seul.
           <b> En conversation par IA</b>, il discute en phrases et pose ses questions ; tout ce qu'il affirme vient de l'application :
-          prix et disponibilité d'un article (jamais la quantité en stock), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller,
+          prix et disponibilité d'un article (jamais la quantité en stock), le <b>total</b> d'une quantité ou de plusieurs articles (calculé par l'application au prix du stock, articles seuls, hors pose et transport), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller,
           et pour le <b>solaire seulement</b> une <b>estimation indicative en fourchette</b> (± 15 %, pose comprise, calculée avec les réglages d'office — 1 jour d'autonomie, 5 h de soleil, 48 V, lithium — et le stock réel des boutiques), notée sur la fiche du prospect.
           Il n'invente <b>jamais</b> un fait de BMI (un prix, un délai, une caractéristique d'article) — il peut donner un conseil général dans vos métiers, présenté comme tel —, ne parle <b>jamais</b> d'une dette ni d'un crédit, ne se fait jamais passer pour une personne ; une réponse qui sortirait de ces règles est jetée avant de partir.
           <b> En menu à chiffres</b>, il propose les huit choix de votre mot d'accueil.
@@ -1897,6 +1916,23 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             Chaque nouvelle conversation commence par cette phrase, que l'IA ne peut pas oublier : « {PHRASE_PRESENTATION} »
           </div>
         )}
+        <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="choix-bmi">
+          <div className="font-semibold text-sm">📝 Nos choix BMI — ce que l'assistant recommande</div>
+          <div className="text-xs text-slate-500 mt-1">
+            Écrivez ce que BMI TOGO recommande ou installe (par exemple : « Nous installons en 48 V. Nous recommandons les batteries lithium. Pour un portail coulissant de plus de 400 kg, moteur… »).
+            En conversation par IA, l'assistant conseille selon ces choix plutôt qu'en général, et dit que c'est ce que BMI recommande.
+            <b> Pas de prix ici</b> : les prix viennent toujours du stock. {MEMO_ASSISTANT_MAX} caractères au plus.
+          </div>
+          <div className="mt-2">
+            <ChampQuiGrandit valeur={memoSaisi} onChange={setMemoSaisi} placeholder="Nous installons en 48 V…" maxLignes={20} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {jeSuisPrincipal && <button onClick={enregistrerMemo} className={btnDark}>✅ Enregistrer les choix</button>}
+            <span className="text-xs" data-choix-etat={memoActuel ? "actif" : "vide"}>
+              {memoActuel ? <span className="text-emerald-700 font-bold">● {memoActuel.length} caractères en service</span> : <span className="text-slate-500">○ Aucun choix écrit : conseil général seulement</span>}
+            </span>
+          </div>
+        </div>
         <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="alerte-conseiller">
           <div className="font-semibold text-sm">👨‍💼 Alerte sur votre WhatsApp quand un client demande un conseiller</div>
           <div className="text-xs text-slate-500 mt-1">

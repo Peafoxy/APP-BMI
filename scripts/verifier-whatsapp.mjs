@@ -1849,8 +1849,8 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   // ── LES OUTILS : trois, et rien d'autre
   // ⚠ RETOURNÉ le 24/09/2026 : un quatrième outil, estimer_solaire
   // (décisions de Timo « 1 valeur par défaut, 2 en fourchette, 3 solaire »).
-  test("★★ quatre outils exactement — chercher un article, enregistrer une demande de devis, estimer le solaire, passer la main — chacun avec son schéma",
-    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,passer_conseiller"
+  test("★★ cinq outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,passer_conseiller"
     && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
   const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
   test("★★ chercher_article passe par LA règle de recherche et rend prix, disponible (oui/non), boutique — JAMAIS une quantité",
@@ -1971,8 +1971,8 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
   // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
-    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
-    && /executerOutil\(nom, entree, \{\s*articles: nom === "chercher_article" \? await chargerArticles\(\) : \[\],/.test(corpsR)
+    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    && /executerOutil\(nom, entree, \{[^}]*?articles: nom === "chercher_article" \|\| nom === "calculer_total" \? await chargerArticles\(\) : \[\],/.test(corpsR)
     && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
   test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA comprise : un seul envoi YCloud, APRÈS l'IA et le menu, AVANT toute écriture",
@@ -2177,7 +2177,7 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     && I.reponseDepuisIA({ texte: "Bonjour 👋 Je ne peux pas lire les vidéos.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === `${I.PHRASE_PRESENTATION}\n\nJe ne peux pas lire les vidéos.`
     && I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === I.PHRASE_PRESENTATION
     && I.reponseDepuisIA({ texte: "Bonjour Kossi", effets: { prix: [] }, juge: { ok: true }, nouvelle: false }).texte === "Bonjour Kossi"
-    && /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
+    && /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
   test("★ LA QUANTITÉ SE DEMANDE : pour le solaire, la consigne exige le NOMBRE de chaque appareil avant d'estimer, et interdit de supposer qu'il y en a un seul",
     /COMBIEN il y en a \(le nombre\)/.test(I.CONSIGNE_IA) && /Ne suppose jamais qu'il y en a un seul/.test(I.CONSIGNE_IA));
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
@@ -2340,7 +2340,7 @@ titre("㊳ L'ASSISTANT NE DIT JAMAIS CE QUE BMI NE FAIT PAS (30/09/2026, capture
       const m = I.metiersDesBoutiques(bq); const c = I.consignePour({ metiers: m });
       return m.join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION : Solaire, Forage/.test(c); })());
   test("★ le serveur les passe à la consigne",
-    /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
+    /consignePour\(\{ client: clientIA, nouvelle, metiers: metiersDesBoutiques\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -3282,6 +3282,71 @@ titre("㊶ 💬 MESSAGES ET 📲 WHATSAPP : CE QUE L'ÉCRAN DIT EST VRAI (01/10/
     /dès qu'un client écrit au numéro BMI, ou répond à un message qui en est parti/.test(wa));
   test("★ 💬 Messages : le client lit QUI reçoit son message (les techniciens de SON chantier, pas tous)",
     /l'administration, les techniciens de votre chantier et votre commercial/.test(lire("src/screens/Messagerie.jsx")));
+}
+
+titre("㊷ L'ASSISTANT DONNE UN TOTAL CALCULÉ PAR L'APPLICATION, ET CONSEILLE SELON « NOS CHOIX BMI » (01/10/2026, « lance les deux »)");
+// L'IA ne calcule jamais : `calculer_total` multiplie et additionne au prix
+// du stock, boutique par boutique ; le juge n'accepte que ses montants. Le
+// mémo de la direction entre dans la consigne, lu sur une boutique RÉELLE.
+{
+  const I = await import("../src/lib/assistantIA.js");
+  const stock = [
+    { nom: "Panneau 400W", categorie: "Panneaux", boutique: "DEMAKPOE", prix: 85000, disponible: true },
+    { nom: "Panneau 400W", categorie: "Panneaux", boutique: "APESSITO", prix: 90000, disponible: true },
+    { nom: "Batterie lithium 48V", categorie: "Batteries", boutique: "DEMAKPOE", prix: 600000, disponible: false },
+    { nom: "Câble 6 mm", categorie: "Câbles", boutique: "DEMAKPOE", prix: 1500, disponible: true },
+    { nom: "Câble 6 mm", categorie: "Câbles", boutique: "APESSITO", prix: 1500, disponible: true },
+    { nom: "Moteur central", categorie: "Moteurs", boutique: "APESSITO", prix: 0, disponible: true },
+  ];
+  const t1 = I.totalArticles(stock, [{ article: "Panneau 400W", quantite: 3 }]);
+  test("★★ 3 panneaux : un total PAR BOUTIQUE au prix de SON stock (255 000 et 270 000), jamais un mélange",
+    t1.ok && t1.parBoutique.length === 2 && t1.parBoutique.map((u) => u.total).sort((a, b) => a - b).join() === "255000,270000"
+    && t1.montants.includes(255000) && t1.montants.includes(270000) && t1.montants.includes(85000));
+  test("★★ le juge ACCEPTE la phrase de l'outil recopiée telle quelle — et elle dit « articles seuls, hors pose et transport »",
+    I.garderReponse(t1.texte, { prixConnus: t1.montants }).ok === true && t1.texte.includes(I.PHRASE_TOTAL) && /hors pose et transport/.test(I.PHRASE_TOTAL));
+  test("★★ un total CALCULÉ PAR L'IA (pas par l'outil) est toujours JETÉ",
+    I.garderReponse("3 panneaux vous feront 255 000 F.", { prixConnus: [85000] }).ok === false);
+  const t2 = I.totalArticles(stock, [{ article: "Panneau 400W", quantite: 3 }, { article: "Batterie lithium 48V", quantite: 1 }]);
+  test("★★ plusieurs articles : seule une boutique qui a TOUT chiffre (DEMAKPOE, 855 000) ; « sur commande » est dit",
+    t2.ok && t2.parBoutique.length === 1 && t2.parBoutique[0].total === 855000 && /sur commande/.test(t2.texte) && !/APESSITO/.test(t2.texte) && /^À DEMAKPOE :/.test(t2.texte));
+  const t3 = I.totalArticles(stock, [{ article: "Câble 6 mm", quantite: 10 }]);
+  test("★ deux boutiques au même prix = UNE réponse qui les nomme toutes les deux",
+    t3.ok && t3.parBoutique.length === 1 && t3.parBoutique[0].boutiques.length === 2 && t3.parBoutique[0].total === 15000);
+  test("★ la boutique demandée seule",
+    (() => { const t = I.totalArticles(stock, [{ article: "Panneau 400W", quantite: 2 }], "apessito"); return t.ok && t.parBoutique.length === 1 && t.parBoutique[0].total === 180000; })());
+  test("★★ une quantité non dite (0, 1,5, un mot) est REFUSÉE — on ne suppose jamais un nombre",
+    [0, 1.5, "deux", undefined, -2].every((q) => I.totalArticles(stock, [{ article: "Panneau 400W", quantite: q }]).ok === false));
+  test("★★ un article introuvable, ou sans prix, est REFUSÉ",
+    I.totalArticles(stock, [{ article: "Onduleur 10 kW", quantite: 1 }]).ok === false
+    && I.totalArticles(stock, [{ article: "Moteur central", quantite: 1 }]).ok === false);
+  test("★ trop de lignes : refusé, on propose un devis",
+    I.totalArticles(stock, Array.from({ length: I.MAX_LIGNES_TOTAL + 1 }, () => ({ article: "Câble 6 mm", quantite: 1 }))).ok === false);
+  const ex = I.executerOutil("calculer_total", { lignes: [{ article: "Panneau 400W", quantite: 3 }] }, { articles: stock });
+  const exNon = I.executerOutil("calculer_total", { lignes: [{ article: "Panneau 400W", quantite: 0 }] }, { articles: stock });
+  test("★★ l'outil donne au juge EXACTEMENT ses montants ; refusé, il n'en donne AUCUN",
+    ex.effets.prix.includes(255000) && ex.effets.conseiller === false && exNon.effets.prix.length === 0 && /AUCUN chiffre/.test(exNon.resultat));
+  test("★★ la consigne : un total UNIQUEMENT par calculer_total, jamais une multiplication de l'IA, et la quantité se demande",
+    /UNIQUEMENT par l'outil calculer_total/.test(I.CONSIGNE_IA) && /JAMAIS une multiplication ni une addition toi-même/.test(I.CONSIGNE_IA)
+    && /s'il n'a pas dit combien, demande-le/.test(I.CONSIGNE_IA));
+
+  // 📝 Le mémo
+  test("★★ le mémo se lit sur une boutique RÉELLE seulement (le mur)",
+    I.memoAssistant([{ nom: "F", formation: true, assistant_memo: "Entraînement" }, { nom: "R", assistant_memo: "Nous installons en 48 V." }]) === "Nous installons en 48 V."
+    && I.memoAssistant([{ nom: "F", formation: true, assistant_memo: "Entraînement" }]) === "");
+  test("★★ un mémo avec un PRIX, un sujet réservé, ou trop long est REFUSÉ ; un mémo ordinaire passe",
+    !!I.critiqueMemoAssistant("Batterie lithium à 600 000 F") && !!I.critiqueMemoAssistant("On ne fait pas de crédit")
+    && !!I.critiqueMemoAssistant("x".repeat(I.MEMO_ASSISTANT_MAX + 1)) && I.critiqueMemoAssistant("Nous installons en 48 V. Nous recommandons le lithium.") === "");
+  test("★★ la consigne porte le mémo et dit de conseiller SELON lui ; sans mémo, aucune section",
+    /LES CHOIX DE BMI TOGO[\s\S]*Nous installons en 48 V\.[\s\S]*SELON LUI/.test(I.consignePour({ memo: "Nous installons en 48 V." }))
+    && !/LES CHOIX DE BMI TOGO/.test(I.consignePour({})));
+  const par = lire("src/screens/Parametres.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const corpsM = par.slice(par.indexOf("const enregistrerMemo = async"), par.indexOf("};", par.indexOf("const enregistrerMemo = async")));
+  test("★★ ⚙ Paramètres : écrire le mémo = l'administrateur PRINCIPAL, revérifié DANS le geste, critiqué avant d'écrire",
+    /refuserSaufAdminPrincipal\(db, profile,/.test(corpsM) && /bloquerSiLecture\(db, profile\)/.test(corpsM)
+    && /critiqueMemoAssistant\(texte\)/.test(corpsM) && /poserMemoAssistant\(db\.boutiques, texte\)/.test(corpsM)
+    && /data-reglage="choix-bmi"/.test(par) && /jeSuisPrincipal && <button onClick=\{enregistrerMemo\}/.test(par));
+  test("★ le serveur passe le mémo à la consigne",
+    /memo: memoAssistant\(boutiques\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
