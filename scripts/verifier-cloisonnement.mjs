@@ -12296,6 +12296,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   };
   const app = readFileSync("src/App.jsx", "utf8");
   const BRANCHE = {
+    admin: /const tabs = isAdmin\n\s*\? (\[\[[^\n]*)/,
     vendeur: /\n\s*: (\[\["ventes", "💰 Ventes"\][^\n]*)/,
     gerant: /isGerant\n\s*\? (\[\[[^\n]*)/,
     magasinier: /isMagasinier\n\s*\? (\[\[[^\n]*)/,
