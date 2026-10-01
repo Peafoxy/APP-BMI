@@ -46,7 +46,7 @@ import { estimationSolaire, texteEstimation } from "./choixSolaire.js";
 // lui-même, il n'y a pas de « menu » ni de « produit » à retenir.
 export const ETAPE_IA = "ia";
 export const MAX_TOURS_OUTILS = 4;       // au plus 4 allers-retours d'outils par réponse
-export const MAX_MESSAGES_MEMOIRE = 24;  // les 24 dernières lignes du fil, pas plus
+export const MAX_MESSAGES_MEMOIRE = 40;  // les 40 dernières lignes du fil (01/10/2026 : 24 faisait oublier ses promesses)
 export const MAX_LONGUEUR_REPONSE = 1500;
 export const MAX_TOKENS_REPONSE = 600;
 
@@ -62,6 +62,9 @@ export const MAX_TOKENS_REPONSE = 600;
 export const PHRASE_PRESENTATION = "👋 Bonjour et bienvenue chez BMI TOGO !\n\n🤖 Je suis l’assistant virtuel de BMI TOGO, conçu pour vous renseigner et vous orienter.\n\n👤 À tout moment, écrivez « conseiller » pour parler directement à un membre de notre équipe.\n\nComment puis-je vous aider aujourd’hui ?";
 // Quand l'IA touche à un sujet qui lui est fermé (dette, crédit, compte),
 // on ne cherche pas à reformuler : une phrase fixe, et une personne.
+// Quand l'IA n'a rien pu dire de bon (réponse jetée deux fois, ou panne) au
+// MILIEU d'une conversation : une phrase neutre, jamais le menu à chiffres.
+export const REPONSE_REPRISE_IA = "Pardon, je n'ai pas réussi à formuler une réponse fiable à cette question. Pouvez-vous la reformuler, ou la préciser ? Je reste avec vous.";
 export const REPONSE_SUJET_RESERVE = `Pour tout ce qui concerne un paiement, un règlement ou votre compte client, un conseiller BMI TOGO vous répond sur ce numéro. Vous pouvez aussi consulter votre espace client sur gestion.bmitogo.com.\n\n${SIGNATURE_BMI}`;
 
 // ---- « QUE FAITES-VOUS ? » — LE TEXTE DE TIMO, MOT POUR MOT (24/09/2026) ----
@@ -107,7 +110,7 @@ ${activites}
 - 🧾 Devis, établis par un vendeur de BMI TOGO — tu enregistres la DEMANDE par l'outil enregistrer_demande_devis.
 - ☀️ Pour le solaire seulement, une ESTIMATION indicative en fourchette — par l'outil estimer_solaire.
 - 🔧 SAV et assistance technique, et 👨‍💼 conseillers — par l'outil passer_conseiller.
-- 💧 Pour un forage : le choix d'une pompe d'après le niveau de l'eau et le besoin en eau — par l'outil choisir_pompe.
+- 💧 Pour un forage : le choix d'une pompe d'après le niveau de l'eau et le besoin en eau — par l'outil choisir_pompe ; le nombre de panneaux pour faire tourner une pompe solaire — par l'outil panneaux_pour_pompe.
 
 CE QUE TU AS LE DROIT DE DIRE
 - Le prix, la disponibilité (« disponible » ou « sur commande ») et les caractéristiques d'un article (métier, catégorie, tension, puissance, profondeur et débit d'une pompe, hybride, garanties, lien de la fiche technique, description), UNIQUEMENT tels que l'outil chercher_article te les donne. Tu recopies le prix exactement, tu ne l'arrondis pas, tu ne le convertis pas.
@@ -115,7 +118,9 @@ CE QUE TU AS LE DROIT DE DIRE
 - Présenter les activités de BMI TOGO avec les mots ci-dessus.
 - Poser des questions pour comprendre le besoin (appareils à alimenter, heures d'utilisation, ville ou quartier) avant d'enregistrer une demande de devis.
 - Dire que tu ne sais pas, et proposer un conseiller.
-- LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO (énergie solaire, domotique, motorisation de portails, portes, volets et garages, ventilation VMC) : tu peux expliquer, comparer et orienter avec tes connaissances générales — par exemple la différence entre un système hybride et un système autonome, entre une batterie lithium et une batterie gel, pourquoi un appareil allumé jour et nuit demande surtout de la batterie, comment orienter des panneaux, quel type de moteur convient à un portail battant, coulissant ou à un rideau métallique, à quoi sert une VMC. Tu le présentes toujours comme un conseil GÉNÉRAL (« en général », « le plus souvent »), tu précises qu'un conseiller BMI TOGO confirme pour son cas précis, puis tu ramènes vers une solution concrète : chercher un article, estimer (solaire) ou enregistrer une demande de devis.
+- LES CALCULS TECHNIQUES qui ne sont pas de l'argent : énergie d'une batterie (tension × ampères-heures : 51,2 V × 100 Ah ≈ 5,1 kWh, dont environ 80 % utilisables pour une lithium), consommation d'un appareil (watts × heures), ce qu'une batterie peut alimenter pendant combien d'heures, hauteur ou débit d'eau. Tu les fais toi-même, à partir des caractéristiques données par les outils ou par le client, en disant que c'est un ordre de grandeur. Seuls les MONTANTS EN FRANCS viennent des outils.
+- Les tensions : une batterie lithium de 51,2 V est une batterie « 48 V » (25,6 V = 24 V, 12,8 V = 12 V) ; c'est la même famille de système.
+- LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO (énergie solaire, pompage solaire et forage, domotique, motorisation de portails, portes, volets et garages, ventilation VMC, et tout autre métier réglé dans l'application) : tu peux expliquer, comparer et orienter avec tes connaissances générales — par exemple la différence entre un système hybride et un système autonome, entre une batterie lithium et une batterie gel, pourquoi un appareil allumé jour et nuit demande surtout de la batterie, comment orienter des panneaux, quel type de moteur convient à un portail battant, coulissant ou à un rideau métallique, à quoi sert une VMC. Tu le présentes toujours comme un conseil GÉNÉRAL (« en général », « le plus souvent »), tu précises qu'un conseiller BMI TOGO confirme pour son cas précis, puis tu ramènes vers une solution concrète : chercher un article, estimer (solaire) ou enregistrer une demande de devis.
 
 CE QUE TU NE DIS JAMAIS
 - Que BMI TOGO NE FAIT PAS quelque chose (« ne fait pas partie de nos services », « nous ne faisons pas… ») : les listes ci-dessus ne sont PAS complètes, et tu ne sais pas tout ce que fait BMI TOGO. Si le client parle d'un métier qui n'y figure pas (forage, pompe, vidéosurveillance, électricité…), cherche d'abord un article avec chercher_article ; puis propose d'enregistrer une demande de devis, ou passe la main à un conseiller qui confirmera.
@@ -126,15 +131,19 @@ CE QUE TU NE DIS JAMAIS
 - Le nombre exact d'articles en stock : seulement « disponible » ou « sur commande ».
 - Une dette, un crédit, un solde, un montant dû, un mot de passe, un identifiant : tu ne connais pas les comptes des clients. Tu renvoies à l'espace client (gestion.bmitogo.com) et tu proposes un conseiller par l'outil passer_conseiller.
 - Un devis chiffré, une promesse d'installation, une remise, une date : seul un vendeur de BMI TOGO s'engage. Tu enregistres la demande, une personne rappelle.
-- Une opinion sur un concurrent, une information sur un autre client, un avis médical, juridique ou financier.
+- Une opinion sur un concurrent nommé, une information sur un autre client, un avis médical, juridique ou financier.
 
 COMMENT TU T'Y PRENDS
+- 🗣 TU RESTES DANS LA CONVERSATION. Tu ne proposes PAS un conseiller ni une demande de devis à chaque message : c'est lassant. Un conseiller seulement si le client le demande, ou pour une panne, une réclamation, une question d'argent ou de compte, ou quand aucun outil ne peut répondre. Une demande de devis, propose-la UNE fois, au moment où le client a un besoin clair, puis n'y reviens que s'il en reparle. Si le client te dit qu'il veut rester avec toi, tu ne proposes plus de conseiller sauf s'il le demande.
+- 💡 TU PROPOSES TOI-MÊME. Si le client te demande une proposition sans donner de détails (« pour une maison modeste, fais-moi une proposition »), tu ne refuses pas : tu poses toi-même un EXEMPLE chiffré en appareils (par exemple 6 ampoules LED 6 h par jour, 1 réfrigérateur 24 h sur 24, 1 téléviseur 5 h, 2 ventilateurs 8 h), tu dis clairement que c'est un exemple à ajuster, et tu lances l'outil adapté (estimer_solaire) sur cet exemple. Le client corrige ensuite ce qui ne lui correspond pas.
+- 🏢 BMI TOGO, TU EN PARLES AVEC CONVICTION. Si le client demande si BMI TOGO est sérieuse ou à qui confier son projet, tu réponds positivement avec des faits : une étude et un dimensionnement faits pour lui, l'installation par nos équipes, un contrat, un procès-verbal de réception, des garanties, la maintenance et le suivi après la pose, et un conseiller qui répond sur ce numéro. Tu ne dénigres jamais une autre entreprise et tu n'inventes aucun chiffre (années, nombre de clients).
 - ⭐ LA RÈGLE DE BMI TOGO POUR TOUTE QUESTION DANS SES MÉTIERS : d'abord tu RENSEIGNES le client de manière générale (comment ça marche, ce qu'il faut regarder, les questions à se poser) ; ENSUITE tu passes au PARTICULIER : tu cherches dans NOTRE stock avec chercher_article (ou choisir_pompe, estimer_solaire) et tu lui PROPOSES des articles précis de BMI TOGO qui répondent à son besoin, avec leur prix et leur disponibilité tels que l'outil les donne. Tu termines par une suite concrète : un total (calculer_total), une demande de devis, ou un conseiller. Ne t'arrête jamais au conseil général quand le stock peut répondre.
 - Si le client demande ce que fait BMI TOGO (« que faites-vous ? », « vos services ? », « vous faites quoi ? ») : réponds avec le texte ci-dessous, TEL QUEL, sans rien changer, sans guillemets autour. C'est la seule réponse qui peut dépasser 6 lignes.
 ---
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium », « pompe forage ») — le métier compte aussi (« forage » trouve les articles rangés dans le métier Forage). S'il ne trouve rien, essaie un mot plus court ou plus général (« pompe », « batterie »), puis dis-le et propose un autre nom ou un conseiller.
+- Pour les PANNEAUX d'une pompe solaire (« combien de panneaux pour cette pompe ? ») : appelle panneaux_pour_pompe avec le nom exact de la pompe ; recopie sa phrase sans changer un chiffre, sans guillemets autour.
 - Pour une POMPE de forage : demande au client le NIVEAU DE L'EAU PENDANT LE POMPAGE (le niveau dynamique — c'est le foreur qui le donne, ce n'est pas la profondeur du forage), la hauteur du réservoir au-dessus du sol, la longueur de tuyau, et son besoin en eau en litres par jour. Puis appelle choisir_pompe. Tu proposes les pompes qu'il rend. ⚠ Tu ne promets JAMAIS un débit à une profondeur donnée : une pompe ne donne pas son débit maximal à sa profondeur maximale (le débit max se mesure en surface). Le débit réel à sa hauteur se lit sur la fiche du fabricant, et un conseiller le confirme. Sans le niveau dynamique, tu ne choisis pas de pompe : tu expliques pourquoi il le faut.
 - Pour un total : appelle d'abord chercher_article pour connaître le nom exact de chaque article, puis calculer_total avec ces noms EXACTS et les quantités dites par le client (s'il n'a pas dit combien, demande-le). Recopie la phrase de l'outil sans changer un chiffre, sans guillemets autour. Si l'outil refuse, dis ce qui manque — ne donne aucun chiffre.
 - Si l'outil rend une « description » pour un article, c'est BMI TOGO qui l'a écrite : tu peux la redire pour expliquer ce qu'est l'article et à quoi il sert, sans rien y ajouter. Sans description, tu ne décris pas l'article au-delà de son nom.
@@ -143,7 +152,7 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Quand le client a décrit ses appareils (lesquels, combien de chacun, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
 - Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis (le besoin avec les mots du client seulement, jamais l'estimation ni un montant : l'application garde l'estimation à part). Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
-- Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro.
+- Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro, et qu'il peut revenir vers toi à tout moment en écrivant « assistant ».
 - Une photo, un document ou un message vocal : tu ne peux pas les lire ; dis-le et appelle passer_conseiller.
 - Si le client écrit dans une autre langue, réponds simplement en français.
 - Tu réponds au dernier message du client, en tenant compte de ce qui a été dit avant dans la conversation.`;
@@ -263,6 +272,15 @@ export const OUTILS_IA = [
         litres_par_jour: { type: "number", description: "Le besoin en eau par jour, en litres" },
       },
       required: ["niveau_dynamique_m", "litres_par_jour"],
+    },
+  },
+  {
+    name: "panneaux_pour_pompe",
+    description: "Pour une pompe SOLAIRE du stock : calcule le nombre approximatif de panneaux pour la faire tourner (puissance de la pompe × 1,3, divisée par la puissance du panneau le plus puissant du stock, arrondi au panneau supérieur) et le prix de ces panneaux dans chaque boutique. Donner le nom exact de la pompe tel que chercher_article ou choisir_pompe l'a rendu. Refuse si la puissance de la pompe n'est pas renseignée.",
+    input_schema: {
+      type: "object",
+      properties: { pompe: { type: "string", description: "Le nom exact de la pompe" } },
+      required: ["pompe"],
     },
   },
   {
@@ -411,6 +429,50 @@ export function critiqueMemoAssistant(texte) {
   return "";
 }
 
+// ---- ☀️💧 LES PANNEAUX D'UNE POMPE SOLAIRE (01/10/2026, « marge 1,3, le plus puissant du stock ») ----
+// Puissance de la pompe × 1,3 (les pertes et les heures de faible soleil),
+// divisée par la puissance du panneau le PLUS PUISSANT du stock, arrondie au
+// panneau supérieur. Le prix vient du stock, boutique par boutique (jamais un
+// mélange). ⚠ Une estimation : le câblage (série / parallèle pour atteindre la
+// tension de la pompe) peut demander un panneau de plus ; un conseiller confirme.
+export const MARGE_PANNEAUX_POMPE = 1.3;
+const sansAcc = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+export const wattsDuPanneau = (a) => {
+  if (Number(a?.puissance_kw) > 0) return Math.round(Number(a.puissance_kw) * 1000);
+  const m = /(\d{2,4})\s*w(?:c|att)?\b/i.exec(String(a?.nom || ""));
+  return m ? Number(m[1]) : 0;
+};
+export const estPanneau = (a) => /panneau/.test(sansAcc(`${a?.categorie} ${a?.nom}`)) && !/support|rail|etrier|cable|connecteur/.test(sansAcc(a?.nom));
+export function panneauxPourPompe(articles, nomPompe) {
+  const tous = (articles || []).filter(Boolean);
+  const cle = sansAcc(String(nomPompe || "").trim()).replace(/\s+/g, " ");
+  if (!cle) return { ok: false, motif: "Aucune pompe donnée." };
+  let pompe = tous.find((a) => sansAcc(a.nom).replace(/\s+/g, " ") === cle);
+  if (!pompe) {
+    const proches = chercherArticles(tous.filter((a) => /pompe/.test(sansAcc(a.categorie))), nomPompe);
+    if (proches.length && new Set(proches.map((a) => a.nom)).size === 1) pompe = proches[0];
+  }
+  if (!pompe) return { ok: false, motif: `La pompe « ${nomPompe} » est introuvable : appeler chercher_article et reprendre le nom exact.` };
+  const kw = Number(pompe.puissance_kw) || 0;
+  if (!(kw > 0)) return { ok: false, motif: `La puissance de « ${pompe.nom} » n'est pas renseignée sur sa fiche : proposer un conseiller.` };
+  const panneaux = tous.filter((a) => estPanneau(a) && wattsDuPanneau(a) > 0);
+  if (!panneaux.length) return { ok: false, motif: "Aucun panneau solaire avec sa puissance dans le stock." };
+  const wMax = Math.max(...panneaux.map(wattsDuPanneau));
+  const lesPlusPuissants = panneaux.filter((a) => wattsDuPanneau(a) === wMax);
+  const puissanceVisee = Math.round(kw * 1000 * MARGE_PANNEAUX_POMPE);
+  const nombre = Math.max(1, Math.ceil(puissanceVisee / wMax));
+  const nomPanneau = lesPlusPuissants.find((a) => a.disponible)?.nom || lesPlusPuissants[0].nom;
+  const parBoutique = lesPlusPuissants.filter((a) => sansAcc(a.nom) === sansAcc(nomPanneau) && Number(a.prix) > 0)
+    .map((a) => ({ boutique: a.boutique, prix: Math.round(Number(a.prix)), total: Math.round(Number(a.prix)) * nombre, disponible: !!a.disponible }))
+    .sort((x, y) => x.boutique.localeCompare(y.boutique, "fr"));
+  const virgule = (n) => String(n).replace(".", ",");
+  const prixTxt = parBoutique.length
+    ? ` ${parBoutique.map((b) => `À ${b.boutique} : ${nombre} × ${fmtTotal(b.prix)} = ${fmtTotal(b.total)}${b.disponible ? "" : " (sur commande)"}`).join(" ; ")}.`
+    : "";
+  const texte = `Pour la pompe ${pompe.nom} (${virgule(kw)} kW) : environ ${nombre} × ${nomPanneau} (${virgule(kw)} kW × ${virgule(MARGE_PANNEAUX_POMPE)} = ${puissanceVisee} W visés).${prixTxt} Estimation indicative des panneaux seuls : le câblage pour atteindre la tension de la pompe peut demander un ajustement, un conseiller BMI TOGO confirme.`;
+  return { ok: true, nombre, panneau: nomPanneau, puissanceVisee, texte, montants: [...new Set(parBoutique.flatMap((b) => [b.prix, b.total]))], parBoutique };
+}
+
 // Ce qu'un article dit à l'IA : la fiche entière que le client peut lire
 // (01/10/2026, « pas seulement la fiche des pompes… de tous les articles »),
 // rien d'autre — jamais la quantité, jamais un prix d'achat, jamais les notes
@@ -445,6 +507,14 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
       effets: { prix: trouves.map((a) => a.prix), demandeDevis: null, conseiller: false },
     };
   }
+  if (nom === "panneaux_pour_pompe") {
+    const r = panneauxPourPompe(contexte.articles || [], e.pompe);
+    if (!r.ok) return { resultat: `Pas de calcul. ${r.motif} Ne donner AUCUN chiffre de prix.`, effets: { prix: [], demandeDevis: null, conseiller: false } };
+    return {
+      resultat: `Calcul de l'application. Recopier cette phrase telle quelle, sans changer un chiffre : « ${r.texte} »`,
+      effets: { prix: r.montants, demandeDevis: null, conseiller: false },
+    };
+  }
   if (nom === "choisir_pompe") {
     const pompes = (contexte.articles || []).filter((a) => a && /pompe/i.test(String(a.categorie || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
     const saisie = {
@@ -459,7 +529,10 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
       hauteur_a_faire_monter_m: et.hmt,
       detail: `eau ${et.eau} m + réservoir ${et.reservoir} m + frottements estimés ${et.pertes} m`,
       debit_necessaire_m3h: et.debit,
-      pompes_qui_montent_assez_haut: conviennent.map(articlePourIA),
+      pompes_qui_montent_assez_haut: conviennent.map((a) => {
+        const pan = panneauxPourPompe(contexte.articles || [], a.nom);
+        return { ...articlePourIA(a), ...(pan.ok ? { panneaux_solaires_estimes: `${pan.nombre} × ${pan.panneau} (${pan.puissanceVisee} W visés)` } : {}) };
+      }),
       pompes_trop_courtes: et.tropCourtes.slice(0, 4).map((a) => `${a.nom} (jusqu'à ${a.profondeur_max_m} m)`),
       pompes_sans_fiche: et.sansFiche.length,
       a_dire_au_client: AVERTISSEMENT_COURBE.replace("Avant de promettre un débit au client, vérifiez-le", "Le débit réel à cette hauteur se vérifie"),
@@ -507,7 +580,7 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
   if (nom === "passer_conseiller") {
     const type = ["conseiller", "sav", "paiement"].includes(e.type) ? e.type : "conseiller";
     return {
-      resultat: `Une personne de BMI TOGO prend le relais (${type}). Dire au client qu'un conseiller lui répond sur ce numéro, sans rien promettre d'autre.`,
+      resultat: `Une personne de BMI TOGO prend le relais (${type}). Dire au client qu'un conseiller lui répond sur ce numéro, sans rien promettre d'autre, et qu'il peut revenir vers l'assistant à tout moment en écrivant « assistant ».`,
       effets: { prix: [], demandeDevis: null, conseiller: true, type },
     };
   }
@@ -606,6 +679,29 @@ export async function converserAvecIA({ consigne, messages, appeler, executer, o
     suite.push({ role: "user", content: resultats });
   }
   return { texte, effets, tours };
+}
+
+// ---- UNE RÉPONSE JETÉE SE RÉÉCRIT UNE FOIS (01/10/2026) ----
+// Capture Timo : une réponse refusée par le juge faisait surgir le menu à
+// chiffres au milieu de la conversation. Désormais on dit à l'IA POURQUOI sa
+// réponse n'est pas partie, et elle réécrit une fois. Pas de seconde chance
+// sur un sujet réservé (la phrase fixe s'en charge) ni quand un outil a déjà
+// AGI (demande enregistrée, main passée : la phrase fixe le dit).
+export const noteDeReecriture = (motif) => `[Contrôle de BMI TOGO — message interne, pas du client] Ta réponse précédente n'a pas été envoyée : ${motif}. Réécris ta réponse au dernier message du client sans ce défaut (un montant en francs ne vient que d'un outil ; ne dis jamais que BMI TOGO ne fait pas quelque chose).`;
+export const peutReecrire = (juge, effets) => !!juge && !juge.ok && !juge.reserve && !(effets && (effets.demandeDevis || effets.conseiller));
+export async function converserAvecJuge({ consigne, messages, appeler, executer, outils = OUTILS_IA, maxTokens = MAX_TOKENS_REPONSE } = {}) {
+  const premier = await converserAvecIA({ consigne, messages, appeler, executer, outils, maxTokens });
+  let juge = garderReponse(premier.texte, { prixConnus: premier.effets.prix });
+  if (!peutReecrire(juge, premier.effets)) return { ...premier, juge, reecrit: false };
+  const suite = [...(messages || []), { role: "assistant", content: premier.texte || "…" }, { role: "user", content: noteDeReecriture(juge.motif) }];
+  const second = await converserAvecIA({ consigne, messages: suite, appeler, executer, outils, maxTokens });
+  const effets = {
+    ...second.effets,
+    prix: [...premier.effets.prix, ...second.effets.prix],
+    estimation: second.effets.estimation || premier.effets.estimation,
+  };
+  juge = garderReponse(second.texte, { prixConnus: effets.prix });
+  return { texte: second.texte, effets, tours: premier.tours + second.tours, juge, reecrit: true, motifPremier: garderReponse(premier.texte, { prixConnus: premier.effets.prix }).motif };
 }
 
 // L'étape à écrire sur la ligne : conseiller (silence ensuite), sinon « ia ».

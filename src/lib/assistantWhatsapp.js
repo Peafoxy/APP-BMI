@@ -117,10 +117,16 @@ export const estLigneAssistant = (m) => !!m && !!m.wa_assistant && m.de_id === I
 // ---- CE QUE LE CLIENT A TAPÉ ----
 // Un chiffre seul (avec ou sans son emoji ⃣) est TOUJOURS un choix du menu,
 // à n'importe quelle étape ; « menu » et « 0 » ramènent à l'accueil.
+export const MOTS_RETOUR_ASSISTANT = ["assistant", "l'assistant", "assistant bmi", "revenir a l'assistant", "retour assistant"];
 export function interpreterEntree(texte) {
   const t = sansAccents(String(texte || "").replace(/️|⃣/g, ""));
   if (!t) return { vide: true, chiffre: null, menu: false, texte: "" };
   if (t === "menu" || t === "0" || t === "accueil") return { vide: false, chiffre: null, menu: true, texte: t };
+  // 🤖 « assistant » : le client REVIENT à l'assistant après lui avoir
+  // passé la main à un conseiller (Timo, 01/10/2026 : « il peut toujours
+  // proposer un conseiller, mais avoir la possibilité de revenir à
+  // l'assistant »). La conversation continue, elle ne recommence pas.
+  if (MOTS_RETOUR_ASSISTANT.includes(t)) return { vide: false, chiffre: null, menu: false, assistant: true, texte: String(texte || "").trim() };
   const m = /^([1-8])\s*[.)]?$/.exec(t);
   return { vide: false, chiffre: m ? Number(m[1]) : null, menu: false, texte: String(texte || "").trim() };
 }
@@ -203,12 +209,28 @@ export function decisionAssistant({ fil, proprietaireId = "", actif = true, main
   if (!estLigneAssistant(precedent)) return { repondre: false, etape: null, pourquoi: "un employé a répondu il y a moins de 24 h" };
   const etape = precedent.wa_assistant.etape;
   if (etape === ETAPE_CONSEILLER) {
-    return entree.menu
-      ? { repondre: true, etape: null, pourquoi: "le client redemande le menu" }
-      : { repondre: false, etape: ETAPE_CONSEILLER, pourquoi: "une personne doit prendre le relais" };
+    if (entree.menu) return { repondre: true, etape: null, pourquoi: "le client redemande le menu" };
+    // ⚠ Le retour à l'assistant ne rouvre PAS une conversation : pas de
+    // nouvelle présentation, l'IA reprend avec le fil (étape menu = suite).
+    if (entree.assistant) return { repondre: true, etape: ETAPE_MENU, pourquoi: "le client revient à l'assistant", retour: true, memoire: {} };
+    return { repondre: false, etape: ETAPE_CONSEILLER, pourquoi: "une personne doit prendre le relais" };
   }
   // La mémoire de l'étape (le besoin déjà décrit, en attendant le nom) suit.
   return { repondre: true, etape: ETAPES.includes(etape) ? etape : ETAPE_MENU, pourquoi: "suite de l'échange", memoire: precedent.wa_assistant.memoire || {} };
+}
+
+// La conversation est-elle une conversation de l'IA EN COURS ? (le dernier mot
+// de BMI est une ligne de l'IA). Alors une panne ne doit pas y faire surgir le
+// menu à chiffres (capture Timo, 01/10/2026 : « Quel produit cherchez-vous ? »
+// au milieu d'une question sur les panneaux d'une pompe).
+export function conversationIAEnCours(fil) {
+  const liste = Array.isArray(fil) ? fil : [];
+  for (let i = liste.length - 1; i >= 0; i--) {
+    const m = liste[i];
+    if (!m || m.wa_entrant || m.wa_systeme || m.canal === "whatsapp_entete") continue;
+    return !!(m.wa_assistant && m.wa_assistant.ia && m.wa_assistant.etape !== ETAPE_CONSEILLER);
+  }
+  return false;
 }
 
 // ---- LES ARTICLES QU'ON PEUT CITER ----
@@ -283,14 +305,29 @@ export function articlesPourAssistant({ produits = [], boutiques = [], ventes = 
     }));
 }
 
+// ⚡ LA TENSION SE CHERCHE (01/10/2026, capture Timo : « une batterie de
+// 51,2 V c'est une batterie de 48 V » — l'assistant ne la trouvait pas).
+// Une lithium porte sa tension RÉELLE (51,2 / 25,6 / 12,8 V) ; le métier dit
+// 48 / 24 / 12 V. Les deux se trouvent, et « 48 V » tapé vaut « 48v ».
+const TENSIONS_NOMINALES = [["51,2", "48v"], ["51.2", "48v"], ["25,6", "24v"], ["25.6", "24v"], ["12,8", "12v"], ["12.8", "12v"]];
+export function motsDeTension(a) {
+  const t = `${a?.nom || ""} ${a?.tension || ""}`.toLowerCase();
+  const mots = [];
+  for (const [reel, nominal] of TENSIONS_NOMINALES) if (t.includes(reel)) mots.push(nominal);
+  const ten = String(a?.tension || "").replace(/\s+/g, "").toLowerCase();
+  if (ten) mots.push(/v$/.test(ten) ? ten : `${ten}v`);
+  return mots.join(" ");
+}
+// « 48 V » → « 48v », « 51,2 V » → « 51,2v » : le nombre et son unité collés.
+const requeteTension = (q) => String(q || "").replace(/(\d+(?:[.,]\d+)?)\s+v\b/gi, "$1v");
 export const MAX_ARTICLES_CITES = 6;
 export function chercherArticles(articles, requete) {
-  const q = String(requete || "").trim();
+  const q = requeteTension(String(requete || "").trim());
   if (q.length < 2) return [];
   return (articles || [])
     // On cherche aussi dans le MÉTIER (« pompe forage » trouve les pompes
     // rangées dans Forage, 01/10/2026) et dans ce que la fiche dit.
-    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${a.description || ""}${a.hybride ? " hybride" : ""}`, q))
+    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${motsDeTension(a)} ${a.description || ""}${a.hybride ? " hybride" : ""}`, q))
     .sort((a, b) => (a.disponible === b.disponible ? a.nom.localeCompare(b.nom, "fr") : a.disponible ? -1 : 1))
     .slice(0, MAX_ARTICLES_CITES);
 }
@@ -338,7 +375,7 @@ export function reponseAssistant({ etape, texte, media = null, client = null, ar
   // Un envoi sans un mot (photo, note vocale, document) : une personne regarde.
   if (entree.vide && media) return { texte: `Merci pour votre envoi. Un conseiller BMI TOGO le regarde et vous répond sur ce numéro.\n\n${SIGNATURE_BMI}`, etape: ETAPE_CONSEILLER, conseiller: true };
   if (entree.vide) return null;
-  if (entree.menu) return { texte: TEXTE_ACCUEIL, etape: ETAPE_MENU, conseiller: false };
+  if (entree.menu || entree.assistant) return { texte: TEXTE_ACCUEIL, etape: ETAPE_MENU, conseiller: false };
   if (entree.chiffre) return reponseAuChoix(entree.chiffre, client);
   // Un message LIBRE, là où on attend un choix ou un nom d'article : on
   // regarde d'abord si un mot du client désigne une ligne du menu, puis le
@@ -365,8 +402,10 @@ export function reponseAssistant({ etape, texte, media = null, client = null, ar
 // réemploie quand sa propre réponse est jetée par le juge : la demande a
 // bien été enregistrée, ou une personne prend le relais — on le dit avec
 // les mêmes mots que le menu, jamais avec un texte inventé.
-export const texteDemandeEnregistree = (nom) => `✅ Merci ${nom}, votre demande de devis est enregistrée. Un conseiller BMI TOGO vous contacte sur ce numéro pour la compléter et vous proposer une offre.\n\n${SIGNATURE_BMI}`;
-export const TEXTE_RELAIS_CONSEILLER = `👨‍💼 Un conseiller BMI TOGO prend le relais sur ce numéro. Écrivez-lui votre demande, il vous répond dès que possible.\n\n${SIGNATURE_BMI}`;
+// La porte de retour, dite à chaque fois qu'on passe la main (01/10/2026).
+export const PHRASE_RETOUR_ASSISTANT = "🤖 Pour revenir à l'assistant, écrivez simplement « assistant ».";
+export const texteDemandeEnregistree = (nom) => `✅ Merci ${nom}, votre demande de devis est enregistrée. Un conseiller BMI TOGO vous contacte sur ce numéro pour la compléter et vous proposer une offre.\n\n${PHRASE_RETOUR_ASSISTANT}\n\n${SIGNATURE_BMI}`;
+export const TEXTE_RELAIS_CONSEILLER = `👨‍💼 Un conseiller BMI TOGO prend le relais sur ce numéro. Écrivez-lui votre demande, il vous répond dès que possible.\n\n${PHRASE_RETOUR_ASSISTANT}\n\n${SIGNATURE_BMI}`;
 
 function demandeEnregistree(nom, besoin) {
   return { texte: texteDemandeEnregistree(nom), etape: ETAPE_CONSEILLER, conseiller: true, demandeDevis: { nom, besoin } };

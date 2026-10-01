@@ -28,11 +28,11 @@ import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, alerteConseillerDe, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 // 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
 // ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
-import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, ETAPE_MENU, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
+import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, conversationIAEnCours, ETAPE_MENU, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
 // 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
 // qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
 // la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
-import { consignePour, messagesPourIA, executerOutil, converserAvecIA, garderReponse, reponseDepuisIA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation, domainesPourIA, memoAssistant } from "../src/lib/assistantIA.js";
+import { consignePour, messagesPourIA, executerOutil, converserAvecJuge, reponseDepuisIA, REPONSE_REPRISE_IA, ETAPE_IA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation, domainesPourIA, memoAssistant } from "../src/lib/assistantIA.js";
 // L'estimation solaire lit LA règle du vendeur et LA liste des appareils.
 import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } from "../src/lib/choixSolaire.js";
 import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
@@ -359,7 +359,8 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   const ia = configIA();
   if (modeAssistant(boutiques) === "ia" && ia.pret) {
     try {
-      const conv = await converserAvecIA({
+      // Une réponse jetée par le juge se RÉÉCRIT une fois (01/10/2026).
+      const conv = await converserAvecJuge({
         consigne: consignePour({ client: clientIA, nouvelle, metiers: domainesPourIA(boutiques), memo: memoAssistant(boutiques) }),
         messages: messagesPourIA(fil),
         appeler: (corps) => appelerIA(corps, ia),
@@ -367,17 +368,24 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
           // 🧮 Le total (calculer_total) lit le MÊME stock que la recherche.
           // 💧 Le choix d'une pompe aussi (01/10/2026) : les pompes du MÊME
           // stock, et les frottements réglés dans ⚙ Paramètres (réelles).
-          articles: ["chercher_article", "calculer_total", "choisir_pompe"].includes(nom) ? await chargerArticles() : [],
+          articles: ["chercher_article", "calculer_total", "choisir_pompe", "panneaux_pour_pompe"].includes(nom) ? await chargerArticles() : [],
           pertesPct: (reelles.find((b) => Number(b.pertes_tuyau_pct) > 0) || {}).pertes_tuyau_pct,
           client: clientIA,
           ...(nom === "estimer_solaire" ? await contexteSolaire() : {}),
         }),
       });
-      const juge = garderReponse(conv.texte, { prixConnus: conv.effets.prix });
+      const juge = conv.juge;
+      if (conv.reecrit) console.error("[whatsapp-entrant] IA : première réponse jetée —", conv.motifPremier, "(réécrite une fois)");
       r = reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle, nom: clientIA?.nom || "" });
       if (!juge.ok) console.error("[whatsapp-entrant] IA : réponse jetée —", juge.motif, r ? "(phrase fixe envoyée)" : "(le menu reprend)");
     } catch (e) {
       console.error("[whatsapp-entrant] IA indisponible, le menu reprend —", e?.message || e);
+    }
+    // ⚠ Au MILIEU d'une conversation de l'IA, le menu à chiffres ne coupe pas
+    // la parole (capture Timo, 01/10/2026) : une phrase neutre, et l'IA reprend
+    // au message suivant.
+    if (!r && conversationIAEnCours(fil)) {
+      r = { texte: REPONSE_REPRISE_IA, etape: ETAPE_IA, conseiller: false, demandeDevis: null, ia: true, repli: "reprise" };
     }
   }
 

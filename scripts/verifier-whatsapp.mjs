@@ -1852,8 +1852,8 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   // ── LES OUTILS : trois, et rien d'autre
   // ⚠ RETOURNÉ le 24/09/2026 : un quatrième outil, estimer_solaire
   // (décisions de Timo « 1 valeur par défaut, 2 en fourchette, 3 solaire »).
-  test("★★ six outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, passer la main — chacun avec son schéma",
-    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,passer_conseiller"
+  test("★★ sept outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe, + panneaux_pour_pompe) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, les panneaux d'une pompe, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,panneaux_pour_pompe,passer_conseiller"
     && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
   const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
   // ⚠ RETOURNÉ le 01/10/2026 : un champ VIDE (ici la tension) ne part plus — on n'écrit pas « tension : ».
@@ -1976,16 +1976,17 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
   // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
-    /converserAvecIA\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
-    && /executerOutil\(nom, entree, \{[^}]*?articles: \["chercher_article", "calculer_total", "choisir_pompe"\]\.includes\(nom\) \? await chargerArticles\(\) : \[\],/.test(corpsR)
-    && /const juge = garderReponse\(conv\.texte, \{ prixConnus: conv\.effets\.prix \}\);\s*r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
+    // ⚠ RETOURNÉ le 01/10/2026 : converserAvecJuge (une réponse jetée se réécrit une fois), le juge vient de lui.
+    /converserAvecJuge\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    && /executerOutil\(nom, entree, \{[^}]*?articles: \["chercher_article", "calculer_total", "choisir_pompe", "panneaux_pour_pompe"\]\.includes\(nom\) \? await chargerArticles\(\) : \[\],/.test(corpsR)
+    && /const juge = conv\.juge;[\s\S]{0,200}r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
   test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA comprise : un seul envoi YCloud, APRÈS l'IA et le menu, AVANT toute écriture",
     (corpsR.match(/envoyerYCloud\(/g) || []).length === 1
     && corpsR.indexOf("converserAvecIA(") < corpsR.indexOf("envoyerYCloud(") && corpsR.indexOf("reponseAssistant(") < corpsR.indexOf("envoyerYCloud(")
     && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("messages").insert(') && corpsR.indexOf("envoyerYCloud(") < corpsR.indexOf('.from("prospects").insert('));
   test("★★ une IA qui trébuche (réseau, refus, réponse jetée) ne laisse jamais le client sans réponse : try/catch, journal, et le menu — sans la mention « hors du Togo », retirée à la demande de Timo (RETOURNÉ le 24/09/2026)",
-    /try \{\s*const conv = await converserAvecIA/.test(corpsR) && /catch \(e\) \{\s*console\.error\("\[whatsapp-entrant\] IA indisponible, le menu reprend/.test(corpsR)
+    /try \{\s*(?:\/\/[^\n]*\s*)*const conv = await converserAvecJuge/.test(corpsR) && /catch \(e\) \{\s*console\.error\("\[whatsapp-entrant\] IA indisponible, le menu reprend/.test(corpsR)
     && !/avecMention|MENTION_SERVICE_EXTERIEUR/.test(corpsR));
   test("★ la ligne écrite porte la marque `ia`, la demande de devis part par la même écriture qu'avant, la fiche légère suit sans propriétaire",
     // ⚠ RETOURNÉ le 24/09/2026 : la mémoire porte aussi l'estimation donnée.
@@ -2303,7 +2304,8 @@ titre("㉖ LE CONSEIL GÉNÉRAL DANS LES MÉTIERS DE BMI (25/09/2026, décision 
   const I = await import("../src/lib/assistantIA.js");
   const C = I.CONSIGNE_IA;
   test("★★ le conseil général est OUVERT, dans les métiers de BMI, présenté comme général et confirmé par un conseiller, puis ramené vers un article, une estimation ou un devis",
-    /LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO/.test(C) && /énergie solaire, domotique, motorisation/.test(C) && /ventilation VMC/.test(C)
+    // ⚠ RETOURNÉ le 01/10/2026 : le pompage solaire et le forage entrent dans la liste du conseil général.
+    /LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO/.test(C) && /énergie solaire, pompage solaire et forage, domotique, motorisation/.test(C) && /ventilation VMC/.test(C)
     && /conseil GÉNÉRAL \(« en général »/.test(C) && /un conseiller BMI TOGO confirme pour son cas précis/.test(C)
     && /tu ramènes vers une solution concrète/.test(C));
   test("★★ les FAITS de BMI restent aux outils : rien d'inventé sur BMI (prix, délai, garantie, article précis, stock)",
@@ -3431,8 +3433,124 @@ titre("㊸ L'ASSISTANT VOIT NOS MÉTIERS ET LA FICHE DE TOUS LES ARTICLES, ET CH
   test("★★ les métiers arrivent dans la consigne AVEC leurs familles (« Forage (Pompe, Tuyaux) »), boutiques réelles seulement",
     /Forage \(Pompe, Tuyaux\)/.test(I.consignePour({ metiers: I.domainesPourIA(boutiques) })) && !/Entraînement/.test(I.consignePour({ metiers: I.domainesPourIA(boutiques) })));
   test("★ le serveur donne à choisir_pompe le MÊME stock et les frottements réglés (boutiques réelles)",
-    /\["chercher_article", "calculer_total", "choisir_pompe"\]\.includes\(nom\) \? await chargerArticles\(\)/.test(lire("api/whatsapp-entrant.js"))
+    /\["chercher_article", "calculer_total", "choisir_pompe", "panneaux_pour_pompe"\]\.includes\(nom\) \? await chargerArticles\(\)/.test(lire("api/whatsapp-entrant.js"))
     && /pertesPct: \(reelles\.find\(\(b\) => Number\(b\.pertes_tuyau_pct\) > 0\)/.test(lire("api/whatsapp-entrant.js")));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㊹ L'ASSISTANT RESTE DANS LA CONVERSATION : réécriture, retour « assistant », 48 V, panneaux d'une pompe (01/10/2026, « lance tout, marge 1,3, le plus puissant du stock »)");
+// Captures Timo (22:48 → 23:19) : le menu à chiffres surgissait au milieu de
+// l'échange, le conseiller revenait à chaque message, la lithium 51,2 V
+// n'était pas « du 48 V », et aucun outil ne disait combien de panneaux pour
+// une pompe. Puis : « il peut toujours proposer un conseiller, mais avoir la
+// possibilité de revenir à l'assistant ».
+{
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const il = (min) => new Date(Date.now() - min * 60e3).toISOString();
+  const ent = (texte, min) => ({ id: `e${min}`, canal: "whatsapp", wa_tel: "90112233", wa_entrant: true, ts: il(min), texte });
+  const robot = (etape, min, ia = true) => ({ id: `r${min}`, canal: "whatsapp", wa_tel: "90112233", de_id: "assistant-bmi", ts: il(min), texte: "…", wa_assistant: { etape, ...(ia ? { ia: true } : {}) } });
+
+  // ── Le retour à l'assistant
+  const apresRelais = [ent("je veux un conseiller", 10), robot(A.ETAPE_CONSEILLER, 9)];
+  const dRetour = A.decisionAssistant({ fil: [...apresRelais, ent("Assistant", 1)] });
+  test("★★ « assistant » après un relais : l'assistant REVIENT — et la conversation CONTINUE (pas de nouvelle présentation)",
+    dRetour.repondre === true && dRetour.retour === true && dRetour.etape === A.ETAPE_MENU && I.conversationNouvelle(dRetour) === false);
+  test("★★ tout autre message après un relais : il se tait toujours (le conseiller garde la main)",
+    A.decisionAssistant({ fil: [...apresRelais, ent("bonjour, j'attends", 1)] }).repondre === false);
+  test("★ « menu » rouvre toujours l'accueil (inchangé)",
+    A.decisionAssistant({ fil: [...apresRelais, ent("menu", 1)] }).etape === null);
+  test("★★ le relais et la demande enregistrée DISENT la porte de retour, et passent le juge",
+    A.TEXTE_RELAIS_CONSEILLER.includes(A.PHRASE_RETOUR_ASSISTANT) && A.texteDemandeEnregistree("KOFFI").includes(A.PHRASE_RETOUR_ASSISTANT)
+    && I.garderReponse(A.TEXTE_RELAIS_CONSEILLER, { prixConnus: [] }).ok && !I.METIER_NIE.test(A.TEXTE_RELAIS_CONSEILLER));
+  test("★ en mode menu, « assistant » rouvre l'accueil",
+    A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "assistant" }).texte === A.TEXTE_ACCUEIL);
+  test("★ passer_conseiller dit à l'IA d'annoncer le retour possible",
+    /« assistant »/.test(I.executerOutil("passer_conseiller", { motif: "x", type: "conseiller" }).resultat));
+
+  // ── La tension se cherche
+  const batt = [
+    { nom: "Batterie lithium 51,2V 100AH", categorie: "Batteries", boutique: "DEMAKPOE", prix: 500000, disponible: true, tension: "" },
+    { nom: "Batterie Gel 12V 200AH", categorie: "Batteries", boutique: "DEMAKPOE", prix: 165000, disponible: true, tension: "12" },
+    { nom: "Batterie lithium 24V 300AH", categorie: "Batteries", boutique: "DEMAKPOE", prix: 550000, disponible: true, tension: "" },
+    { nom: "Batterie Felicity", categorie: "Batteries", boutique: "DEMAKPOE", prix: 400000, disponible: true, tension: "48" },
+  ];
+  const noms = (q) => A.chercherArticles(batt, q).map((a) => a.nom).sort().join("|");
+  test("★★ « batterie 48V » trouve la lithium 51,2 V ET la batterie dont la fiche dit 48 V — et rien d'autre",
+    noms("batterie 48V") === "Batterie Felicity|Batterie lithium 51,2V 100AH");
+  test("★★ « batterie 48 v » (espace) vaut « 48v »", noms("batterie 48 v") === noms("batterie 48V"));
+  test("★ « batterie 51,2V » se trouve toujours tel quel ; « batterie 24V » ne ramène pas la 51,2 V",
+    noms("batterie 51,2V") === "Batterie lithium 51,2V 100AH" && !/51,2/.test(noms("batterie 24V")));
+
+  // ── Les panneaux d'une pompe
+  const stock = [
+    { nom: "3PWSS 1,5-95-48-400", categorie: "Pompe", boutique: "DEMAKPOE", prix: 90000, disponible: true, puissance_kw: 0.4, profondeur_max_m: 95 },
+    { nom: "3PWSS 2.0-130-96-750W", categorie: "Pompe", boutique: "DEMAKPOE", prix: 110000, disponible: true, puissance_kw: 0.75, profondeur_max_m: 130 },
+    { nom: "Pompe sans puissance", categorie: "Pompe", boutique: "DEMAKPOE", prix: 50000, disponible: true, profondeur_max_m: 70 },
+    { nom: "Panneau 400W", categorie: "Panneaux solaires", boutique: "DEMAKPOE", prix: 85000, disponible: true },
+    { nom: "Panneau 550W", categorie: "Panneaux solaires", boutique: "DEMAKPOE", prix: 110000, disponible: true },
+    { nom: "Panneau 550W", categorie: "Panneaux solaires", boutique: "APESSITO", prix: 115000, disponible: false },
+    { nom: "Support panneau 600W", categorie: "Panneaux solaires", boutique: "DEMAKPOE", prix: 5000, disponible: true },
+  ];
+  const p4 = I.panneauxPourPompe(stock, "3PWSS 1,5-95-48-400");
+  const p7 = I.panneauxPourPompe(stock, "3pwss 2.0-130-96-750w");
+  test("★★ la marge est 1,3 et le panneau le PLUS PUISSANT du stock (jamais un support) : 0,4 kW → 520 W → 1 × Panneau 550W",
+    I.MARGE_PANNEAUX_POMPE === 1.3 && p4.ok && p4.puissanceVisee === 520 && p4.nombre === 1 && p4.panneau === "Panneau 550W");
+  test("★★ 0,75 kW → 975 W → 2 panneaux (arrondi au panneau SUPÉRIEUR)", p7.ok && p7.puissanceVisee === 975 && p7.nombre === 2);
+  test("★★ le prix vient du stock, boutique par boutique (jamais un mélange), « sur commande » dit",
+    p7.parBoutique.map((b) => `${b.boutique}:${b.total}`).join("|") === "APESSITO:230000|DEMAKPOE:220000" && /sur commande/.test(p7.texte));
+  test("★★ le juge accepte sa phrase, avec ses montants seulement",
+    I.garderReponse(p7.texte, { prixConnus: p7.montants }).ok && !I.garderReponse(p7.texte, { prixConnus: [] }).ok);
+  test("★★ une pompe sans puissance sur sa fiche : refus, AUCUN prix permis",
+    (() => { const r = I.executerOutil("panneaux_pour_pompe", { pompe: "Pompe sans puissance" }, { articles: stock }); return /puissance/.test(r.resultat) && r.effets.prix.length === 0; })());
+  test("★★ choisir_pompe donne pour chaque pompe proposée les panneaux estimés",
+    (() => { const r = JSON.parse(I.executerOutil("choisir_pompe", { niveau_dynamique_m: 60, litres_par_jour: 3000 }, { articles: stock }).resultat);
+      return r.pompes_qui_montent_assez_haut.find((a) => a.nom.startsWith("3PWSS 1,5"))?.panneaux_solaires_estimes === "1 × Panneau 550W (520 W visés)"; })());
+  test("★ la phrase dit que c'est une estimation et que le câblage peut demander un ajustement",
+    /Estimation indicative/.test(p4.texte) && /câblage/.test(p4.texte));
+
+  // ── La réponse jetée se réécrit une fois
+  const faux = (reponses) => { const appels = []; return { appels, appeler: async (corps) => { appels.push(corps); const t = reponses[Math.min(appels.length - 1, reponses.length - 1)]; return { stop_reason: "end_turn", content: [{ type: "text", text: t }] }; } }; };
+  const msgs = [{ role: "user", content: "combien de panneaux pour la pompe ?" }];
+  const f1 = faux(["Il vous faut 2 panneaux, environ 170 000 F.", "Il vous faut environ 2 panneaux ; je peux vous donner leur prix exact."]);
+  const c1 = await I.converserAvecJuge({ consigne: "x", messages: msgs, appeler: f1.appeler, executer: () => ({ resultat: "", effets: {} }) });
+  test("★★ une réponse jetée (montant inventé) est RÉÉCRITE une fois, et la seconde part",
+    c1.reecrit === true && c1.juge.ok === true && f1.appels.length === 2 && /prix exact/.test(c1.texte));
+  test("★★ l'IA apprend POURQUOI : la note de réécriture arrive comme dernier message, après sa réponse refusée",
+    (() => { const m = f1.appels[1].messages; return m[m.length - 2].role === "assistant" && /170 000/.test(m[m.length - 2].content) && /Contrôle de BMI TOGO/.test(m[m.length - 1].content) && /montant non donné/.test(m[m.length - 1].content); })());
+  const f2 = faux(["Votre solde est de…", "x"]);
+  const c2 = await I.converserAvecJuge({ consigne: "x", messages: msgs, appeler: f2.appeler, executer: () => ({ resultat: "", effets: {} }) });
+  test("★★ jamais de seconde chance sur un SUJET RÉSERVÉ (la phrase fixe s'en charge)", c2.reecrit === false && f2.appels.length === 1 && c2.juge.reserve === true);
+  test("★★ jamais de réécriture quand un outil a déjà AGI (demande enregistrée, main passée)",
+    I.peutReecrire({ ok: false }, { conseiller: true }) === false && I.peutReecrire({ ok: false }, { demandeDevis: { nom: "x" } }) === false && I.peutReecrire({ ok: false }, {}) === true);
+  const f3 = faux(["Comptez 999 000 F.", "Toujours 888 000 F."]);
+  const c3 = await I.converserAvecJuge({ consigne: "x", messages: msgs, appeler: f3.appeler, executer: () => ({ resultat: "", effets: {} }) });
+  test("★ une seule réécriture : deux échecs → la seconde réponse reste jetée (pas de troisième appel)",
+    f3.appels.length === 2 && c3.juge.ok === false);
+
+  // ── Le menu ne coupe plus une conversation de l'IA
+  test("★★ conversationIAEnCours : vrai après une ligne de l'IA, faux après le menu, après un relais, ou sans rien",
+    A.conversationIAEnCours([ent("a", 5), robot(I.ETAPE_IA, 4), ent("b", 1)]) === true
+    && A.conversationIAEnCours([ent("a", 5), robot(A.ETAPE_MENU, 4, false), ent("b", 1)]) === false
+    && A.conversationIAEnCours([ent("a", 5), robot(A.ETAPE_CONSEILLER, 4), ent("b", 1)]) === false
+    && A.conversationIAEnCours([ent("a", 1)]) === false);
+  const srv = lire("api/whatsapp-entrant.js");
+  test("★★ le serveur : au milieu d'une conversation de l'IA, une phrase neutre (REPONSE_REPRISE_IA) AVANT que le menu puisse reprendre",
+    /if \(!r && conversationIAEnCours\(fil\)\) \{\s*r = \{ texte: REPONSE_REPRISE_IA, etape: ETAPE_IA/.test(srv)
+    && srv.indexOf("conversationIAEnCours(fil)") < srv.indexOf("r = reponseAssistant({"));
+  test("★ la phrase neutre passe le juge et ne parle pas de menu", I.garderReponse(I.REPONSE_REPRISE_IA, { prixConnus: [] }).ok && !/menu|tapez/i.test(I.REPONSE_REPRISE_IA));
+
+  // ── La consigne
+  const C = I.CONSIGNE_IA;
+  test("★★ il RESTE dans la conversation : pas de conseiller ni de devis à chaque message",
+    /Tu ne proposes PAS un conseiller ni une demande de devis à chaque message/.test(C) && /propose-la UNE fois/.test(C));
+  test("★★ il PROPOSE lui-même un exemple quand le client le demande, annoncé comme exemple, et l'estime",
+    /TU PROPOSES TOI-MÊME/.test(C) && /un EXEMPLE chiffré en appareils/.test(C) && /estimer_solaire\) sur cet exemple/.test(C));
+  test("★★ il parle de BMI avec conviction, sur des faits, sans dénigrer ni inventer de chiffre",
+    /TU EN PARLES AVEC CONVICTION/.test(C) && /Tu ne dénigres jamais une autre entreprise/.test(C) && /tu n'inventes aucun chiffre/.test(C));
+  test("★★ les calculs techniques sont permis (énergie d'une batterie…), les francs restent aux outils ; 51,2 V = 48 V",
+    /LES CALCULS TECHNIQUES qui ne sont pas de l'argent/.test(C) && /Seuls les MONTANTS EN FRANCS viennent des outils/.test(C) && /51,2 V est une batterie « 48 V »/.test(C));
+  test("★ la mémoire passe à 40 messages", I.MAX_MESSAGES_MEMOIRE === 40);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 20 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 764 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe)
+npm run verifier-whatsapp        # 793 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -4649,6 +4649,47 @@ lit mal est pire qu'un banc absent).
   quatre imports de assistantIA, deux de assistantWhatsapp, les clés d'un
   article (+ `metier`, un champ vide ne part plus), l'appel des métiers ×3.
   Chapitres 8 et 20 à jour. Rien à coller dans Supabase.
+
+### 🗣 L'ASSISTANT RESTE DANS LA CONVERSATION (01/10/2026, « lance tout, marge 1,3, le plus puissant du stock »)
+- Vingt captures de Timo (22:48 → 23:19, « il y a beaucoup d'insuffisance »).
+  ⚠ Jusqu'à ~23:11 c'était encore la 2.101.406 (envoi de la 407 à 23:09) :
+  le refus du forage et les pompes « sans précision » venaient de là.
+- **a) Une réponse jetée se RÉÉCRIT une fois** (`converserAvecJuge`,
+  `noteDeReecriture`, `peutReecrire` — lib/assistantIA.js) : l'IA reçoit sa
+  réponse refusée PUIS la raison, et réécrit. Jamais sur un sujet réservé,
+  jamais quand un outil a déjà agi (demande enregistrée, main passée) ; une
+  seule fois. **Au milieu d'une conversation de l'IA, le menu à chiffres ne
+  coupe plus la parole** (`conversationIAEnCours`, lib/assistantWhatsapp.js) :
+  `REPONSE_REPRISE_IA`, phrase neutre — le menu reste le repli d'une
+  conversation nouvelle.
+- **b) Les panneaux d'une pompe solaire** : septième outil
+  `panneaux_pour_pompe` (`panneauxPourPompe`) — puissance × **1,3**
+  (`MARGE_PANNEAUX_POMPE`, sa décision) ÷ le panneau **le plus puissant du
+  stock** (sa décision ; la puissance lue sur la fiche, sinon dans le nom
+  « 550W » ; jamais un support), arrondi au supérieur ; prix par boutique,
+  jamais un mélange. `choisir_pompe` porte aussi les panneaux estimés de
+  chaque pompe. Phrase « estimation… le câblage peut demander un ajustement ».
+- **c) Le conseiller seulement si le client le demande ou si le sujet
+  l'exige** (panne, argent, compte), le devis proposé UNE fois. ⚠ **Et le
+  RETOUR** (sa précision : « il peut toujours proposer un conseiller, mais
+  avoir la possibilité de revenir à l'assistant ») : après un relais, le client
+  écrit **« assistant »** (`MOTS_RETOUR_ASSISTANT`, `decisionAssistant` →
+  `retour`, étape menu : la conversation CONTINUE, pas de nouvelle
+  présentation) ; le relais et la demande enregistrée le disent
+  (`PHRASE_RETOUR_ASSISTANT`), passer_conseiller aussi.
+- **d)** il propose lui-même un EXEMPLE d'appareils quand on le lui demande,
+  l'annonce comme exemple et l'estime ; **e)** la tension se cherche
+  (`motsDeTension` : 51,2 V = 48 V, 25,6 = 24, 12,8 = 12, et la Tension de la
+  fiche ; « 48 V » tapé = « 48v ») ; **f)** les calculs techniques (énergie
+  d'une batterie, consommation) sont permis, les francs restent aux outils ;
+  **g)** BMI avec conviction, sur des faits, sans dénigrer ni inventer de
+  chiffre ; **h)** mémoire 40 messages (`MAX_MESSAGES_MEMOIRE`).
+- Banc ㊹ (`verifier-whatsapp`, 29), éprouvé en remettant cinq fautes
+  (réécriture retirée, marge 1, tension non cherchée, retour retiré, phrase
+  neutre retirée) : chacune tombe. Contrôles RETOURNÉS : sept outils, l'appel
+  par `converserAvecJuge` ×2, la liste du conseil général (+ pompage et
+  forage), les outils qui chargent le stock ×2. Chapitre 20 à jour. Rien à
+  coller dans Supabase.
 
 ### 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE SEULE FOIS (25/09/2026, « lance les deux »)
 - Captures Timo : « ce n'est pas agréable à regarder… tous les détails dans
