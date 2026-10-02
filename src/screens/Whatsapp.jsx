@@ -22,7 +22,7 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi, PanneauQuiSeMontre } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -112,6 +112,8 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     : tousConvs.filter((c) => correspond(`${c.nom || ""} ${motsDuNumero(c.tel).join(" ")}`, recherche));
   const ouverte = convs.find((c) => c.cle === cleOuverte) || null;
   const fil = ouverte ? filWa(messages, ouverte.cle) : [];
+  // Le fil s'ouvre sur son DERNIER message (règle commune, ui.jsx).
+  const boiteFil = useFilSurSaFin(ouverte?.cle || "", fil.length);
 
   // ⚠ Une conversation GRISÉE ne porte ni fil ni non-lus : sa date vient de
   // sa fiche légère (`c.derniere`), la seule chose qu'on ait d'elle.
@@ -502,7 +504,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
                   : "🛟 Support — personne ne l'a engagée, tout le personnel la voit"}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
+            <div ref={boiteFil.ref} onScroll={boiteFil.onScroll} data-fil-boite="" className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
               {fil.length === 0 && <div className="text-center text-slate-400 text-sm py-8">Aucun message pour l'instant.</div>}
               {/* 🤖 Une réponse de l'assistant (24/09/2026) se voit du côté
                   de BMI, mais PAS comme celle d'une personne : cadre clair,

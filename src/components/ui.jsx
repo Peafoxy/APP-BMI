@@ -285,6 +285,39 @@ export function revenirSurLaLigne(id) {
   }, 30);
 }
 
+// ============ UN FIL DE MESSAGES S'OUVRE SUR SA FIN ============
+// Timo (02/10/2026) : « quand tu ouvres une discussion, elle affiche le début,
+// jamais la fin ». UNE règle pour 📲 WhatsApp et 💬 Messages : la BOÎTE du fil
+// descend jusqu'au dernier message à l'ouverture, et suit les nouveaux messages
+// si l'on était déjà en bas (on ne tire pas vers le bas quelqu'un qui relit
+// plus haut). ⚠ On fait défiler la BOÎTE, jamais la page.
+export const MARGE_BAS_FIL = 80; // « en bas » à 80 px près
+export function finDuFil(el) {
+  if (!el) return;
+  el.scrollTop = el.scrollHeight;
+}
+// `cle` : la conversation ouverte ; `nombre` : le nombre de messages du fil.
+// Rend la référence à poser sur la boîte qui défile (avec son onScroll).
+export function useFilSurSaFin(cle, nombre) {
+  const ref = useRef(null);
+  const enBas = useRef(true);
+  const onScroll = () => {
+    const el = ref.current;
+    if (el) enBas.current = el.scrollHeight - el.scrollTop - el.clientHeight <= MARGE_BAS_FIL;
+  };
+  useEffect(() => {
+    enBas.current = true;
+    finDuFil(ref.current);
+    // Une photo qui finit de charger allonge le fil : on redescend une fois.
+    const t = setTimeout(() => finDuFil(ref.current), 300);
+    return () => clearTimeout(t);
+  }, [cle]);
+  useEffect(() => {
+    if (enBas.current) finDuFil(ref.current);
+  }, [nombre]);
+  return { ref, onScroll };
+}
+
 // ============ COMPOSANT DE CHARGEMENT ============
 export function LoadingSpinner() {
   return (

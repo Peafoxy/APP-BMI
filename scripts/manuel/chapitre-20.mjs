@@ -77,7 +77,7 @@ export const CHAPITRE = {
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. 💬 Messages — écrire à un collègue ou à un groupe"],
       ["etapes", [
-        { titre: "Cliquer la conversation", texte: "Dans la liste de gauche. Ses messages non lus sont marqués **lus** à l'ouverture." },
+        { titre: "Cliquer la conversation", texte: "Dans la liste de gauche. Ses messages non lus sont marqués **lus** à l'ouverture, et le fil s'ouvre sur **le dernier message**." },
         { titre: "Écrire puis « Envoyer »", texte: "Dans « Votre message… » (Entrée envoie aussi). Le message part avec la synchronisation : il arrive chez l'autre dès que son appareil se met à jour." },
         { titre: "Un groupe (administrateur)", texte: "« + Nouveau » à côté de 👥 Groupes : « Nom du groupe » (ex. : Chantier Agoè), puis cocher les membres, « Créer le groupe ». Dans un groupe ouvert : « Membres » pour en ajouter ou en retirer, « Supprimer » efface le groupe **et tous ses messages**, sans retour." },
       ]],
@@ -99,7 +99,7 @@ export const CHAPITRE = {
 
       ["h3", "D. 📲 WhatsApp — répondre"],
       ["etapes", [
-        { titre: "Ouvrir la conversation", texte: "Les non lues sont dans « 🔴 Nouveaux messages » ; les autres dans « Conversations » (10 lignes, puis on fait défiler ; les plus vieilles passent dans « Conversations anciennes »). « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises." },
+        { titre: "Ouvrir la conversation", texte: "Les non lues sont dans « 🔴 Nouveaux messages » ; les autres dans « Conversations » (10 lignes, puis on fait défiler ; les plus vieilles passent dans « Conversations anciennes »). « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises. Le fil s'ouvre sur **le dernier message** ; pour relire le début, on remonte dans le fil." },
         { titre: "Écrire « Votre réponse, envoyée du numéro BMI… » puis « Envoyer »", texte: "Le message part **du numéro BMI**. Il ne s'écrit dans le fil **que s'il est vraiment parti** ; sinon l'écran dit pourquoi, en français." },
         { titre: "Lire les coches", texte: "**✓** parti · **✓✓ gris** arrivé sur son téléphone · **✓✓ bleu** lu · **❌ Non reçu** avec le motif. Un client qui a coupé les confirmations de lecture reste à ✓✓ gris." },
       ]],

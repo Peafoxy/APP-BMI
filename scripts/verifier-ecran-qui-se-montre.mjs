@@ -37,7 +37,7 @@ const entree = join(dossier, "entree.jsx");
 writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut } from "${process.cwd()}/src/components/ui.jsx";
+import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin } from "${process.cwd()}/src/components/ui.jsx";
 const LIGNES = Array.from({ length: 60 }, (_, i) => "L" + i);
 function Liste({ ouvrir }) {
   return <table><tbody>{LIGNES.map((id) => (
@@ -74,9 +74,24 @@ function Temoin() {
     <Liste ouvrir={setO} />
   </div>;
 }
+// 💬 Un FIL de messages (📲 WhatsApp, 💬 Messages) : il s'ouvre sur sa FIN.
+function Fil({ regle }) {
+  const [conv, setConv] = useState(null);
+  const [n, setN] = useState(40);
+  const boite = useFilSurSaFin(regle ? (conv || "") : "", n);
+  const props = regle ? { ref: boite.ref, onScroll: boite.onScroll } : {};
+  return <div>
+    <button data-conv="A" onClick={() => { setConv("A"); setN(40); }}>A</button>
+    <button data-conv="B" onClick={() => { setConv("B"); setN(40); }}>B</button>
+    <button data-nouveau onClick={() => setN((x) => x + 1)}>+</button>
+    {conv && <div data-fil-boite {...props} style={{ height: 200, overflowY: "auto" }}>
+      {Array.from({ length: n }, (_, i) => <div key={i} data-msg={i} style={{ height: 30 }}>{conv} {i}</div>)}
+    </div>}
+  </div>;
+}
 window.remonterEnHaut = remonterEnHaut;
 const quoi = new URLSearchParams(location.search).get("q");
-createRoot(document.getElementById("r")).render(quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
+createRoot(document.getElementById("r")).render(quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
@@ -138,6 +153,29 @@ console.log("\nremonterEnHaut : un autre écran s'affiche depuis son haut");
   await attendre(300);
   test("la page repart en haut", (await page.evaluate(() => window.scrollY)) === 0);
 }
+console.log("\nUn fil de messages s'ouvre sur sa FIN (Timo, 02/10/2026 : « elle affiche le début, jamais la fin »)");
+{
+  const dernierVisible = async () => page.$eval("[data-fil-boite]", (b) => {
+    const r = b.getBoundingClientRect(); const d = b.querySelector("[data-msg]:last-child").getBoundingClientRect();
+    return d.bottom <= r.bottom + 1 && d.top >= r.top - 1;
+  });
+  const enHaut = async () => page.$eval("[data-fil-boite]", (b) => b.scrollTop);
+  await page.goto(`file://${html}?q=filtemoin`); await attendre(200);
+  await page.click('[data-conv="A"]'); await attendre(400);
+  test("TÉMOIN : sans la règle, le fil s'ouvre sur son DÉBUT (le dernier message est caché)", !(await dernierVisible()) && (await enHaut()) === 0);
+  await page.goto(`file://${html}?q=fil`); await attendre(200);
+  const y0 = await page.evaluate(() => window.scrollY);
+  await page.click('[data-conv="A"]'); await attendre(400);
+  test("ouvrir une conversation → le DERNIER message est à l'écran", await dernierVisible());
+  test("… et c'est la BOÎTE qui défile, jamais la page", (await page.evaluate(() => window.scrollY)) === y0);
+  await page.click("[data-nouveau]"); await attendre(200);
+  test("un nouveau message arrive pendant qu'on est en bas → on le voit", await dernierVisible());
+  await page.$eval("[data-fil-boite]", (b) => { b.scrollTop = 0; b.dispatchEvent(new Event("scroll")); }); await attendre(100);
+  await page.click("[data-nouveau]"); await attendre(200);
+  test("… mais si l'on relit plus haut, un nouveau message ne tire pas vers le bas", (await enHaut()) === 0);
+  await page.click('[data-conv="B"]'); await attendre(400);
+  test("ouvrir une AUTRE conversation → elle aussi s'ouvre sur sa fin", await dernierVisible());
+}
 test("aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
 await nav.close();
 
@@ -165,6 +203,10 @@ const DE = src("src/screens/Depenses.jsx");
 test("📤 Dépenses : ✏️ Modifier vient à l'écran et ramène sur la ligne", /\{modif && \(<PanneauQuiSeMontre cle=\{modif\.d\.id\} retour=\{modif\.d\.id\}>/.test(DE) && /data-ligne=\{x\.id\}/.test(DE));
 const WA = src("src/screens/Whatsapp.jsx");
 test("📲 WhatsApp : « ✍️ Lui écrire quand même » amène le formulaire à l'écran", /\{contact && \(<PanneauQuiSeMontre/.test(WA));
+test("📲 WhatsApp et 💬 Messages : la boîte du fil passe par useFilSurSaFin (UNE règle, ui.jsx)",
+  /export function useFilSurSaFin/.test(ui)
+  && /useFilSurSaFin\(ouverte\?\.cle \|\| "", fil\.length\)/.test(WA) && /ref=\{boiteFil\.ref\} onScroll=\{boiteFil\.onScroll\}/.test(WA)
+  && /useFilSurSaFin\(conv \?/.test(src("src/screens/Messagerie.jsx")) && /ref=\{boiteFil\.ref\} onScroll=\{boiteFil\.onScroll\}/.test(src("src/screens/Messagerie.jsx")));
 const APP = src("src/App.jsx");
 test("un changement d'onglet (« 📋 → devis », « Facturer », « Reprendre »…) affiche le nouvel écran depuis son haut",
   /if \(ongletPrecedent\.current === tab\) return;\s*ongletPrecedent\.current = tab;\s*remonterEnHaut\(\);/.test(APP));

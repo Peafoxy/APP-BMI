@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
-import { Field, inputCls, btnDark, uConfirm } from "../components/ui";
+import { Field, inputCls, btnDark, uConfirm, useFilSurSaFin } from "../components/ui";
 import { utilisateursDeLEspace, refuserSaufAdmin, peutVoirFilClient } from "../lib/calculs";
 import { separerNonLues } from "../lib/conversations";
 
@@ -149,6 +149,8 @@ export function Messagerie({ db, save, profile }) {
   };
 
   const fil = messagesDe(conv);
+  // Le fil s'ouvre sur son DERNIER message (règle commune, ui.jsx).
+  const boiteFil = useFilSurSaFin(conv ? `${conv.type}:${conv.id}` : "", fil.length);
   const groupeOuvert = conv?.type === "groupe" ? groupes.find((g) => g.id === conv.id) : null;
   const nomConv = conv
     ? conv.type === "client"
@@ -245,7 +247,7 @@ export function Messagerie({ db, save, profile }) {
             {groupeOuvert && !isAdmin && (
               <div className="border-b border-slate-100 px-4 py-1.5 text-xs text-slate-400">Membres : {(groupeOuvert.membres || []).map((id) => db.users.find((u) => u.id === id)?.nom).filter(Boolean).join(", ")}</div>
             )}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
+            <div ref={boiteFil.ref} onScroll={boiteFil.onScroll} data-fil-boite="" className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
               {fil.length === 0 && <div className="text-center text-slate-400 text-sm py-8">Aucun message pour l'instant. Écrivez le premier !</div>}
               {fil.map((m) => (
                 <div key={m.id} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
