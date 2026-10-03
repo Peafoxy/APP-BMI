@@ -10847,6 +10847,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /const prospectsDevis = sansSuite\.filter\(\(c\) => !c\.archive\)/.test(ut));
     test("★★ 🧲 Prospects : la liste « Comptes avec devis » passe par la règle de l'espace regardé et le filtre du commercial — jamais db.users",
       /clientsSansSuiteDeLEspace\(db, profile\)\.filter\(\(c\) => prospectVisiblePour\(c, profile, voitTout\)\)/.test(pr)
+      // 03/10/2026 : du plus NOUVEAU au plus ancien (date du dernier devis, décroissante)
+      && /\.sort\(\(a, b\) => String\(b\.reference\)\.localeCompare\(String\(a\.reference\)\)\)/.test(pr)
       && /data-comptes-avec-devis/.test(pr)
       && /onVoirDevis=\{\(\) => setTab\("tous_devis"\)\}/.test(app));
   }

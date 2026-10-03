@@ -95,7 +95,7 @@ export const CHAPITRE = {
       ]],
 
       ["h3", "Les comptes avec devis, rien acheté"],
-      ["p", "Sous le tableau, le cadre **« 📄 Comptes avec devis, rien acheté (N) »** liste les comptes qui ont reçu un devis sans en valider aucun ni rien acheter : ce sont encore des prospects, même si leur compte existe. Chaque ligne dit le numéro, le nombre de devis, la date et le montant du dernier, qui l'a établi, et « 📁 Archivé » s'il dort depuis plus de 30 jours. **« 📋 Voir ses devis »** ouvre 📋 Tous les devis, où l'on relance ou corrige. Le commercial n'y voit que les comptes dont il a établi un devis ; l'administrateur, le responsable commercial et le chef d'équipe, tous. Ils quittent le cadre tout seuls au premier devis validé ou au premier achat."],
+      ["p", "Sous le tableau, le cadre **« 📄 Comptes avec devis, rien acheté (N) »** liste les comptes qui ont reçu un devis sans en valider aucun ni rien acheter : ce sont encore des prospects, même si leur compte existe. Chaque ligne dit le numéro, le nombre de devis, la date et le montant du dernier, qui l'a établi, et « 📁 Archivé » s'il dort depuis plus de 30 jours. Les plus récents sont en haut (date du dernier devis). **« 📋 Voir ses devis »** ouvre 📋 Tous les devis, où l'on relance ou corrige. Le commercial n'y voit que les comptes dont il a établi un devis ; l'administrateur, le responsable commercial et le chef d'équipe, tous. Ils quittent le cadre tout seuls au premier devis validé ou au premier achat."],
 
       ["h3", "D. Convertir en client"],
       ["etapes", [

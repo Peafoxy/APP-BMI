@@ -339,7 +339,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // déjà filtrée par l'espace regardé ; une LECTURE — le compte reste un
   // compte client, ses gestes restent dans 📋 Tous les devis. Le commercial
   // ne voit que les comptes dont il a établi un devis.
-  const comptesAvecDevis = clientsSansSuiteDeLEspace(db, profile).filter((c) => prospectVisiblePour(c, profile, voitTout));
+  // Du plus NOUVEAU au plus ancien (capture Timo, 03/10/2026 : « classer du
+  // plus nouveau au plus ancien ») : la date du dernier devis, décroissante.
+  const comptesAvecDevis = clientsSansSuiteDeLEspace(db, profile).filter((c) => prospectVisiblePour(c, profile, voitTout))
+    .sort((a, b) => String(b.reference).localeCompare(String(a.reference)));
   const [voirComptesDevis, setVoirComptesDevis] = useState(true);
 
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;

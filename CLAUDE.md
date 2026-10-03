@@ -2482,6 +2482,8 @@ lit mal est pire qu'un banc absent).
   (les acheteurs, comptoir compris) n'a pas bougé.
 - **🧲 Prospects** : cadre « 📄 Comptes avec devis, rien acheté » (archivés
   compris, badge), « 📋 Voir ses devis » → 📋 Tous les devis (`onVoirDevis`).
+  **Du plus NOUVEAU au plus ancien** (capture Timo, 03/10/2026) : date du
+  dernier devis, décroissante.
   Le commercial n'y voit que les comptes dont il a établi un devis (`par_id`,
   sinon le nom) ; admin, resp. commercial, chef d'équipe : tous.
 - Banc (`verifier-cloisonnement`, 5 contrôles), éprouvé en remettant trois
