@@ -5216,6 +5216,13 @@ lit mal est pire qu'un banc absent).
     dans les relevés 👤 DG et 🏦 BANQUE (`compteSigne`, `parSigne`,
     caissesCentrales.js) — avant, la retenue d'un salaire viré était ignorée
     et la banque sortait le salaire brut.
+  - **Un VIREMENT demande aussi d'où il part** (03/10/2026, Timo : « virement
+    veut dire payer… donc pas obligatoirement par banque » → « oui ») : 🏦
+    BANQUE (`SOURCE_BANQUE`), 👤 Chez le DG (`paye_avec: "dg"`), 🧾 Chez le
+    comptable (`paye_avec: "comptable"`, sortie de sa caisse quand il pointe
+    « Remis », le comptable prévenu) — BANQUE seule en formation —, puis la
+    boutique à qui IMPUTER la charge : la ligne « Salaires » se lit dans
+    📤 Dépenses de CETTE boutique. Jamais compté deux fois (banc éprouvé).
   - ⚠ **Pas touchés** (non demandés, à proposer) : la prime d'installation,
     la CNSS, les fournisseurs, le remboursement d'un crédit (une ENTRÉE) —
     ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),

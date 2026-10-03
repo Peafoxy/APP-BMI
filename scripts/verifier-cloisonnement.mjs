@@ -6859,8 +6859,23 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     test("★ 💸 « D'où sort l'argent ? » propose la caisse de CHAQUE boutique de l'espace regardé, puis « Chez le DG » et « Chez le comptable » en RÉEL seulement",
       /boutiquesVisibles\(db, profile, boutiquesVente\(db\)\)/.test(corpsS) && /const reel = !espaceDuCompte\(db, profile\);/.test(corpsS)
       && /\.\.\.\(reel \? \[SOURCE_DG, NOM_CAISSE_COMPTABLE\] : \[\]\)/.test(corpsS) && /D'où sort l'argent \?/.test(corpsS));
-    test("★ 💸 un VIREMENT bancaire ne demande pas de caisse : l'argent sort de 🏦 BANQUE, on demande seulement la boutique à qui imputer la charge",
-      /normPaiement\(moyen\) === "Virement bancaire"[\s\S]{0,120}await imputer\(\)[\s\S]{0,120}BANQUE \(charge imputée/.test(corpsS));
+    // RETOURNÉ le 03/10/2026 (Timo : « virement veut dire payer… donc pas obligatoirement par banque ») :
+    // un virement demande lui aussi d'où sort l'argent — BANQUE, DG ou comptable (réel), puis l'imputation.
+    test("★ 💸 un VIREMENT demande « D'où sort l'argent ? » : 🏦 BANQUE, 👤 Chez le DG, 🧾 Chez le comptable (BANQUE seule en formation), puis la boutique à qui imputer la charge",
+      /normPaiement\(moyen\) === "Virement bancaire"[\s\S]{0,400}reel \? await uChoix\(`\$\{titre\}\\n\\nD'où sort l'argent \?`, \[SOURCE_BANQUE, SOURCE_DG, NOM_CAISSE_COMPTABLE\]\) : SOURCE_BANQUE/.test(corpsS)
+      && /source === SOURCE_DG\) return \{ boutique: bq, champs: \{ paye_avec: PAYE_AVEC_DG \}/.test(corpsS)
+      && /source === NOM_CAISSE_COMPTABLE\) return \{ boutique: bq, champs: \{ paye_avec: PAYE_AVEC_COMPTABLE \}[\s\S]{0,160}notifier: NOM_CAISSE_COMPTABLE/.test(corpsS)
+      && /await imputer\(\)[\s\S]{0,600}BANQUE \(charge imputée/.test(corpsS));
+    {
+      const dbV = { depenses: [
+        { id: "v1", boutique: "APESSITO", categorie: "Salaires", montant: 35000, paiement: "Virement bancaire", date: "2026-10-03", par: "TIMO", paye_avec: "dg", validation: { statut: "validee" } },
+        { id: "v2", boutique: "APESSITO", categorie: "Salaires", montant: 40000, paiement: "Virement bancaire", date: "2026-10-03", par: "TIMO", paye_avec: "comptable", decaisse_le: "2026-10-03", decaisse_par: "COMPTA", validation: { statut: "validee" } },
+        { id: "v3", boutique: "APESSITO", categorie: "Salaires", montant: 50000, paiement: "Virement bancaire", date: "2026-10-03", par: "TIMO", validation: { statut: "validee" } },
+      ] };
+      const bV = Cg.mouvementsBanque(dbV, ["APESSITO"]), dV = Cg.mouvementsDG(dbV, ["APESSITO"]), cV = Cg.mouvementsComptable(dbV);
+      test("★ 💸 un virement payé par le DG sort de chez le DG, payé par le comptable sort de sa caisse, payé par BMI sort de la BANQUE — jamais deux fois",
+        bV.totalSorties === 50000 && dV.totalSorties === 35000 && cV.totalSorties === 40000);
+    }
     test("★ 💸 « Chez le DG » écrit paye_avec « dg » (sa caisse, puis apport automatique) et ne prévient aucune boutique",
       /champs: \{ paye_avec: PAYE_AVEC_DG \}[\s\S]{0,120}notifier: null/.test(corpsS));
     test("★ 💸 un paiement en ESPÈCES depuis une boutique respecte la limite du tiroir (tiroir + enveloppe), comme une dépense ordinaire",

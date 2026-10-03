@@ -25,7 +25,7 @@ import { clientsSansSuite } from "./effacementClient";
 // pas de salaire à amputer : la retenue se prend sur sa part d'installation.
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
 import { fondsAVerser, critiqueSortieTiroir } from "./versements";
-import { PAYE_AVEC_DG } from "./validationDepenses";
+import { PAYE_AVEC_DG, PAYE_AVEC_COMPTABLE } from "./validationDepenses";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -822,9 +822,11 @@ export async function choisirBoutiqueDebitG(db, u, titre, profile) {
 // chez le DG, un virement demandait une « caisse » alors que l'argent part de
 // la banque, et un salaire en espèces pouvait vider un tiroir sous zéro
 // (la limite d'une dépense ordinaire ne s'appliquait pas).
-// - Virement bancaire → l'argent sort de 🏦 BANQUE (le relevé le compte déjà :
-//   dépense par virement, payée avec la caisse) ; on ne demande que la
-//   boutique à qui IMPUTER la charge.
+// - Virement bancaire → « D'où sort l'argent ? » : 🏦 BANQUE (le relevé le
+//   compte : dépense par virement, payée avec la caisse), 👤 Chez le DG
+//   (paye_avec « dg »), 🧾 Chez le comptable (paye_avec « comptable », sortie
+//   de sa caisse quand il la pointe « Remis ») — en formation, BANQUE seule ;
+//   puis la boutique à qui IMPUTER la charge (03/10/2026).
 // - Espèces / Flooz / Mixx → « D'où sort l'argent ? » : la caisse de chaque
 //   boutique, 👤 Chez le DG (paye_avec « dg » : sa caisse, puis apport
 //   automatique s'il n'y en a pas assez — compte de l'exploitant), 🧾 Chez le
@@ -833,6 +835,7 @@ export async function choisirBoutiqueDebitG(db, u, titre, profile) {
 //   une dépense ordinaire (critiqueSortieTiroir).
 // Rend { boutique, champs, libelle, notifier } ou null (annulé / refusé).
 export const SOURCE_DG = "👤 Chez le DG (argent de BMI chez le DG)";
+export const SOURCE_BANQUE = "🏦 BANQUE (compte de BMI à la banque)";
 export const PREFIXE_CAISSE = "La caisse de ";
 export async function choisirSourcePaiementG(db, u, titre, profile, moyen, montant) {
   const noms = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom);
@@ -844,12 +847,19 @@ export async function choisirSourcePaiementG(db, u, titre, profile, moyen, monta
   const ordonnes = defaut ? [defaut, ...noms.filter((n) => n !== defaut)] : noms;
   const imputer = async () => (ordonnes.length === 1 ? ordonnes[0]
     : uChoix(`${titre}\n\nÀ quelle boutique imputer cette charge ?${defaut ? ` (habituellement : ${defaut})` : ""}`, ordonnes));
+  const reel = !espaceDuCompte(db, profile);
   if (normPaiement(moyen) === "Virement bancaire") {
+    // Timo (03/10/2026) : « virement veut dire payer… donc pas obligatoirement
+    // par banque ». Un virement peut partir du compte de BMI, du DG ou du
+    // comptable ; la charge reste imputée à une boutique dans les trois cas.
+    const source = reel ? await uChoix(`${titre}\n\nD'où sort l'argent ?`, [SOURCE_BANQUE, SOURCE_DG, NOM_CAISSE_COMPTABLE]) : SOURCE_BANQUE;
+    if (source === null) return null;
     const bq = await imputer();
     if (bq === null) return null;
+    if (source === SOURCE_DG) return { boutique: bq, champs: { paye_avec: PAYE_AVEC_DG }, libelle: `👤 Chez le DG, par virement (charge imputée à ${bq})`, notifier: null };
+    if (source === NOM_CAISSE_COMPTABLE) return { boutique: bq, champs: { paye_avec: PAYE_AVEC_COMPTABLE }, libelle: `🧾 Chez le comptable, par virement (charge imputée à ${bq})`, notifier: NOM_CAISSE_COMPTABLE };
     return { boutique: bq, champs: {}, libelle: `🏦 BANQUE (charge imputée à ${bq})`, notifier: null };
   }
-  const reel = !espaceDuCompte(db, profile);
   const options = [...ordonnes.map((n) => PREFIXE_CAISSE + n), ...(reel ? [SOURCE_DG, NOM_CAISSE_COMPTABLE] : [])];
   const choix = options.length === 1 ? options[0] : await uChoix(`${titre}\n\nD'où sort l'argent ?`, options);
   if (choix === null) return null;
