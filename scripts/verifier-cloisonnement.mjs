@@ -6847,6 +6847,39 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
   test("★ BANQUE : entrées = les versements BANQUE validés (200 000, banque et bordereau dans le libellé) ; sorties = les virements bancaires qui comptent (150 000 + 2 500 — ni l'attente, ni l'avance perso, ni les espèces, ni un versement) ; solde 47 500",
     bq.totalEntrees === 200000 && /Ecobank — bordereau B-1/.test(bq.entrees[0].libelle) && bq.totalSorties === 152500 && bq.sorties.map((m) => m.id).sort().join("|") === "b1|b3" && bq.solde === 47500
     && Cg.mouvementsDG(dbG, []).mouvements.length === 0 && Cg.mouvementsBanque({}, ["APESSITO"]).solde === 0 && Cg.CAISSE_DG === "Chez le DG" && Cg.CAISSE_BANQUE === "BANQUE");
+  // 💸 D'OÙ SORT L'ARGENT QUAND ON PAIE UNE PERSONNE (Timo, 03/10/2026, « a, lance ») :
+  // salaire, commissions, avance, crédit BMI — UNE question, choisirSourcePaiementG.
+  {
+    const calS = readFileSync("src/lib/calculs.js", "utf8");
+    const corpsS = calS.slice(calS.indexOf("export async function choisirSourcePaiementG"), calS.indexOf("// Prévient la ou les bonnes personnes", calS.indexOf("export async function choisirSourcePaiementG")));
+    const corpsV = calS.slice(calS.indexOf("export async function envoyerVirementG"), calS.indexOf("// À partir de ce nombre de clients apportés"));
+    const eqS = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+    const utS = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    test("★ 💸 « D'où sort l'argent ? » propose la caisse de CHAQUE boutique de l'espace regardé, puis « Chez le DG » et « Chez le comptable » en RÉEL seulement",
+      /boutiquesVisibles\(db, profile, boutiquesVente\(db\)\)/.test(corpsS) && /const reel = !espaceDuCompte\(db, profile\);/.test(corpsS)
+      && /\.\.\.\(reel \? \[SOURCE_DG, NOM_CAISSE_COMPTABLE\] : \[\]\)/.test(corpsS) && /D'où sort l'argent \?/.test(corpsS));
+    test("★ 💸 un VIREMENT bancaire ne demande pas de caisse : l'argent sort de 🏦 BANQUE, on demande seulement la boutique à qui imputer la charge",
+      /normPaiement\(moyen\) === "Virement bancaire"[\s\S]{0,120}await imputer\(\)[\s\S]{0,120}BANQUE \(charge imputée/.test(corpsS));
+    test("★ 💸 « Chez le DG » écrit paye_avec « dg » (sa caisse, puis apport automatique) et ne prévient aucune boutique",
+      /champs: \{ paye_avec: PAYE_AVEC_DG \}[\s\S]{0,120}notifier: null/.test(corpsS));
+    test("★ 💸 un paiement en ESPÈCES depuis une boutique respecte la limite du tiroir (tiroir + enveloppe), comme une dépense ordinaire",
+      /normPaiement\(moyen\) === "Espèces"[\s\S]{0,200}critiqueSortieTiroir\(/.test(corpsS) && /return null; \}/.test(corpsS));
+    test("★ 💸 le virement de salaire passe par la question commune, porte la source sur la dépense ET sur la retenue, et ne prévient que la caisse qui a payé",
+      /choisirSourcePaiementG\(db, u, `Salaire de/.test(corpsV) && (corpsV.match(/\.\.\.src\.champs,/g) || []).length === 2
+      && /src\.notifier \? messagesNotifSortieCaisse\(db, profile, src\.notifier/.test(corpsV) && !/choisirBoutiqueDebitG/.test(corpsV));
+    test("★ 💸 les TROIS paiements de commission de 👑 Mon équipe passent par la question commune (plus « Boutique dont la caisse est débitée ? »)",
+      (eqS.match(/await choisirSourcePaiementG\(/g) || []).length === 3 && !/choisirBoutiqueDebitG/.test(eqS)
+      && (eqS.match(/\.\.\.src\.champs/g) || []).length >= 3);
+    test("★ 💸 l'avance et le crédit BMI de 👥 Utilisateurs passent par la question commune ; le REMBOURSEMENT (une entrée) garde le choix d'une boutique",
+      (utS.match(/await choisirSourcePaiementG\(/g) || []).length === 2 && /choisirBoutiqueDebit\(u, `Remboursement de/.test(utS));
+    const dbN = { depenses: [
+      { id: "s1", boutique: "APESSITO", categorie: "Salaires", montant: 120000, paiement: "Espèces", date: "2026-10-03", par: "TIMO", paye_avec: "dg", validation: { statut: "validee" } },
+      { id: "s2", boutique: "APESSITO", categorie: "Prêt au personnel", montant: -20000, paiement: "Espèces", date: "2026-10-03", par: "TIMO", paye_avec: "dg", validation: { statut: "validee" } },
+    ] };
+    const dgN = Cg.mouvementsDG(dbN, ["APESSITO"]);
+    test("★ 💸 un salaire payé « Chez le DG » avec une retenue de crédit : la retenue se lit en ENTRÉE (20 000), jamais en sortie négative — net sorti 100 000",
+      dgN.totalSorties === 120000 && dgN.totalEntrees === 20000 && dgN.solde === -100000 && dgN.entrees.some((m) => m.id === "s2" && m.montant === 20000) && !dgN.sorties.some((m) => m.montant < 0));
+  }
   // La caisse du comptable, sur le même modèle : ses pointages font foi.
   const dbK = { depenses: [
     { id: "m1", boutique: "Chez le comptable", categorie: "Versement de fonds", montant: -70000, versement_id: "x", decaisse_le: "2026-09-11", decaisse_par: "MARIE", description: "Versement du 10/09/2026 reçu de APESSITO" },

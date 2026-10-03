@@ -10,7 +10,7 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirBoutiqueDebitG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur} from "../lib/calculs";
+import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -252,9 +252,10 @@ export function MonEquipe({ db, save, profile }) {
     if (c.due <= 0) { uAlert("Aucune commission d'équipe en attente pour " + c.u.nom + "."); return; }
     const moyen = await demanderMoyenPaiement(`pour ${c.u.nom}`, "Espèces", "Moyen de paiement", c.u);
     if (moyen === null) return;
-    const bq = await choisirBoutiqueDebitG(db, c.u, `Commission d'équipe de ${fmt(c.due)} à ${c.u.nom}`, profile);
-    if (bq === null) return;
-    if (!await uConfirm(`Payer ${fmt(c.due)} de commission d'équipe à ${c.u.nom} ?\n\n${c.tauxEq} % sur les commissions de ses ${c.nbFilleuls} recrue(s).\nSortie de caisse ${bq} : ${fmt(c.due)}`)) return;
+    const src = await choisirSourcePaiementG(db, c.u, `Commission d'équipe de ${fmt(c.due)} à ${c.u.nom}`, profile, moyen, c.due);
+    if (src === null) return;
+    const bq = src.boutique;
+    if (!await uConfirm(`Payer ${fmt(c.due)} de commission d'équipe à ${c.u.nom} ?\n\n${c.tauxEq} % sur les commissions de ses ${c.nbFilleuls} recrue(s).\nSortie : ${src.libelle} — ${fmt(c.due)}`)) return;
     if (dejaReglees(new Set(c.ventesDues), (v) => v.override_payee)) return;
     const ids = new Set(c.ventesDues);
     const dep = nouvelleDepense(profile, {
@@ -262,6 +263,7 @@ export function MonEquipe({ db, save, profile }) {
       description: `Commission d'équipe — ${c.u.nom} (${c.tauxEq} % sur ${c.nbFilleuls} recrue(s))`,
       montant: c.due, moyen, auto: "commission_equipe", user_id: c.u.id,
       ...mentionVirement(c.u, moyen),
+      ...src.champs,
     });
     save({
       ...db,
@@ -274,11 +276,11 @@ export function MonEquipe({ db, save, profile }) {
       messages: [
         nouveauMessage(profile, { a_id: c.u.id,
           texte: `💰 Votre commission d'équipe vous a été payée : ${fmt(c.due)} (${normPaiement(moyen)}) — ${c.tauxEq} % sur les commissions de vos ${c.nbFilleuls} recrue(s). Retrouvez le détail dans « Ma commission ».` }),
-        ...messagesNotifPaiementCommission(db, profile, bq, c.u.nom, c.due),
+        ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, c.u.nom, c.due) : []),
         ...(db.messages || []),
       ],
     }, `Commission d'équipe payée à ${c.u.nom} : ${fmt(c.due)}`);
-    uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}. Sortie de caisse : ${bq}.`);
+    uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}. Sortie : ${src.libelle}.`);
   };
 
   // Nombre de CLIENTS DISTINCTS apportés depuis toujours (pas seulement sur la période)
@@ -350,14 +352,15 @@ export function MonEquipe({ db, save, profile }) {
     // les ventes ne savent rien dire (anciennes lignes sans moyen).
     const moyen = a.moyenHabituel || a.moyenClient || await demanderMoyenPaiement(`pour ${a.nom}`);
     if (moyen === null) return;
-    const bq = await choisirBoutiqueDebitG(db, {}, `Commission de ${fmt(a.due)} à l'apporteur ${a.nom}`, profile);
-    if (bq === null) return;
+    const src = await choisirSourcePaiementG(db, {}, `Commission de ${fmt(a.due)} à l'apporteur ${a.nom}`, profile, moyen, a.due);
+    if (src === null) return;
+    const bq = src.boutique;
     // ⚠ On ne pose plus la question — la confirmation NOMME donc le moyen ET
     // D'OÙ IL VIENT : ne pas demander n'est pas la même chose que ne pas dire.
     // De l'argent ne part jamais sur une hypothèse tue.
     const origineMoyen = a.moyenHabituel ? " — son moyen retenu (✏️ Moyen pour en changer)"
       : a.moyenClient ? " — le moyen par lequel le client a payé (✏️ Moyen pour en changer)" : "";
-    if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n💳 Moyen : ${moyen}${origineMoyen}\n\n${a.ventes.length} vente(s)${a.poses.length ? ` et ${a.poses.length} pose(s) seule(s)` : ""} concernée(s).\nSortie de caisse ${bq} : ${fmt(a.due)}.`)) return;
+    if (!await uConfirm(`Payer ${fmt(a.due)} de commission à ${a.nom}${a.tel ? ` (${a.tel})` : ""} ?\n\n💳 Moyen : ${moyen}${origineMoyen}\n\n${a.ventes.length} vente(s)${a.poses.length ? ` et ${a.poses.length} pose(s) seule(s)` : ""} concernée(s).\nSortie : ${src.libelle} — ${fmt(a.due)}.`)) return;
     if (dejaReglees(new Set(a.ventes), (v) => v.apporteur?.payee)) return;
     const idsPoses = new Set(a.poses);
     // La même garde pour les dettes de pose : réglées ailleurs entre-temps, rien ne part.
@@ -370,6 +373,7 @@ export function MonEquipe({ db, save, profile }) {
       boutique: bq, categorie: "Commissions",
       description: `Commission apporteur externe — ${a.nom}${a.tel ? ` (${a.tel})` : ""}`,
       montant: a.due, moyen, auto: "commission_ext",
+      ...src.champs,
     });
     save({
       ...db,
@@ -379,9 +383,9 @@ export function MonEquipe({ db, save, profile }) {
       ventes: db.ventes.map((v) => (ids.has(v.id) ? { ...v, apporteur: { ...v.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : v)),
       dettes: (db.dettes || []).map((d) => (idsPoses.has(d.id) ? { ...d, apporteur: { ...d.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : d)),
       depenses: [dep, ...db.depenses],
-      messages: [...messagesNotifPaiementCommission(db, profile, bq, a.nom, a.due), ...(db.messages || [])],
+      messages: [...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, a.nom, a.due) : []), ...(db.messages || [])],
     }, `Commission de ${fmt(a.due)} payée à l'apporteur externe ${a.nom}`);
-    uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée — sortie de caisse : ${bq}.`);
+    uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée — sortie : ${src.libelle}.`);
   };
 
   // ✏️ Changer le moyen d'un apporteur — la SEULE porte pour sortir du moyen
@@ -435,9 +439,10 @@ export function MonEquipe({ db, save, profile }) {
     if (st.commissionDue === 0) { uAlert("Aucune commission en attente pour " + st.u.nom + " sur cette période."); return; }
     const moyen = await demanderMoyenPaiement(`pour ${st.u.nom}`, "Espèces", "Moyen de paiement", st.u);
     if (moyen === null) return;
-    const bq = await choisirBoutiqueDebitG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile);
-    if (bq === null) return;
-    if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} — ${st.idsAPayer.length} vente(s) au taux de ${st.u.taux_commission ?? 0} % (rabais éventuels déduits).\n\nSortie de caisse ${bq} : ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).` +
+    const src = await choisirSourcePaiementG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile, moyen, st.commissionDue);
+    if (src === null) return;
+    const bq = src.boutique;
+    if (!await uConfirm(`Payer la commission de ${st.u.nom} ?\n\nMontant : ${fmt(st.commissionDue)} — ${st.idsAPayer.length} vente(s) au taux de ${st.u.taux_commission ?? 0} % (rabais éventuels déduits).\n\nSortie : ${src.libelle} — ${fmt(st.commissionDue)}\nElle sera enregistrée en dépense « Commissions ».\n\nCes ventes ne seront plus comptées (action définitive).` +
       (st.nbReception > 0 ? `\n\n⏳ ${st.nbReception} vente(s) attendent la réception de l'installation (${fmt(st.geleReception)}) : elles ne sont PAS payées aujourd'hui.` : "") +
       (st.nbPaiement > 0 ? `\n\n💰 ${st.nbPaiement} vente(s) sont réceptionnées mais le client n'a pas fini de payer — il doit encore ${fmt(st.resteClients)}. Ces ${fmt(st.gelePaiement)} deviendront dus d'eux-mêmes dès que la dette sera soldée.` : ""))) return;
     if (dejaReglees(new Set(st.idsAPayer), (v) => v.commission_payee)) return;
@@ -453,6 +458,7 @@ export function MonEquipe({ db, save, profile }) {
       boutique: bq, categorie: "Commissions",
       description: `Commission — ${st.u.nom} (${ids.size} vente(s))`,
       montant: st.commissionDue, moyen, auto: "commission", user_id: st.u.id,
+      ...src.champs,
     });
     save({
       ...db,
@@ -465,11 +471,11 @@ export function MonEquipe({ db, save, profile }) {
         // paiement n'apparaissait que dans la caisse, jamais chez lui.
         nouveauMessage(profile, { a_id: st.u.id,
           texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s) de la période. Retrouvez le détail dans « Ma commission ».` }),
-        ...messagesNotifPaiementCommission(db, profile, bq, st.u.nom, st.commissionDue),
+        ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, st.u.nom, st.commissionDue) : []),
         ...(db.messages || []),
       ],
     }, `Commission payée à ${st.u.nom} : ${fmt(st.commissionDue)} (validée par ${profile.nom})`);
-    uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie de caisse : ${bq}.`);
+    uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie : ${src.libelle}.`);
   };
 
   // ---- VALIDATION DES TÂCHES ----

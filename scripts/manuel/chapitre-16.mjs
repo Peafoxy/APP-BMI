@@ -99,7 +99,7 @@ export const CHAPITRE = {
       ["h3", "C. Payer la commission d'un commercial (👑 Équipe)"],
       ["etapes", [
         { titre: "Choisir la période", texte: "Ce mois, Cette année, ou Depuis le début. La commission due ne compte que les ventes **pas encore réglées** et **exigibles**." },
-        { titre: "✓ Marquer payé", texte: "Sur la ligne du commercial. Choisir le **moyen de paiement** (la banque de sa fiche est rappelée), puis **la caisse débitée** (une boutique de l'espace, ou « Chez le comptable » en réel)." },
+        { titre: "✓ Marquer payé", texte: "Sur la ligne du commercial. Choisir le **moyen de paiement** (la banque de sa fiche est rappelée), puis **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** sort de 🏦 BANQUE, l'application demande seulement à quelle boutique imputer la charge." },
         { titre: "Lire la confirmation", texte: "Montant, nombre de ventes, taux ; et ce qui **n'est pas** payé aujourd'hui (⏳ réception, 💰 client qui doit encore). **Action définitive** pour ces ventes." },
         { titre: "Ce qui s'écrit", texte: "Une dépense **« Commissions »** dans la caisse choisie ; le montant exact est inscrit sur chaque vente ; le commercial reçoit un message ; le vendeur (ou le comptable) de la caisse est prévenu." },
       ]],
@@ -108,12 +108,12 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Devenir chef", texte: "**Automatiquement à 5 recrues** (commerciaux ou techniciens dont il est le parrain — 👥 Utilisateurs → 🤝 Parrain), ou **nommé** par l'administrateur (« Nommer chef »). Un technicien BMI peut être nommé chef." },
         { titre: "Sa part", texte: "Un pourcentage de la commission de chaque recrue (**10 %** d'office, « ⭐ Équipe … % »). Même règle de gel : rien tant que la vente de la recrue est gelée." },
-        { titre: "✓ Payer (cadre ⭐ Chefs d'équipe)", texte: "Moyen, caisse, confirmation : une dépense « Commissions » (commission d'équipe), un message au chef." },
+        { titre: "✓ Payer (cadre ⭐ Chefs d'équipe)", texte: "Moyen, « D'où sort l'argent ? », confirmation : une dépense « Commissions » (commission d'équipe), un message au chef." },
       ]],
       ["h3", "E. L'apporteur externe 🤝"],
       ["etapes", [
         { titre: "Il se déclare sur la vente ou dans le devis", texte: "Nom, téléphone, **3 %** grisé (chapitres 5 et 13). Il n'a **pas de compte** : il n'existe que sur ses ventes." },
-        { titre: "✓ Payer (cadre 🤝 Apporteurs externes)", texte: "**Aucune question sur le moyen** : il est payé **par le moyen avec lequel le client a payé** (« 💳 Mobile Money (Flooz) — comme le client a payé »). La confirmation le nomme." },
+        { titre: "✓ Payer (cadre 🤝 Apporteurs externes)", texte: "**Aucune question sur le moyen** : il est payé **par le moyen avec lequel le client a payé** (« 💳 Mobile Money (Flooz) — comme le client a payé »). La confirmation le nomme. Puis « D'où sort l'argent ? », comme pour les autres paiements." },
         { titre: "✏️ Moyen", texte: "Pour le payer autrement : on choisit une fois, c'est retenu (« choisi »)." },
         { titre: "🎖 Promouvoir commercial (administrateur)", texte: "À partir de **5 clients apportés** (« 🎖 Éligible commercial ») : un compte commercial est créé, avec identifiant, mot de passe provisoire et taux." },
       ]],

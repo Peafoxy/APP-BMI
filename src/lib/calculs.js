@@ -24,6 +24,8 @@ import { clientsSansSuite } from "./effacementClient";
 // 🧰 Un outil perdu se rembourse. Pour un technicien à COMMISSION, il n'y a
 // pas de salaire à amputer : la retenue se prend sur sa part d'installation.
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
+import { fondsAVerser, critiqueSortieTiroir } from "./versements";
+import { PAYE_AVEC_DG } from "./validationDepenses";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -762,6 +764,62 @@ export async function choisirBoutiqueDebitG(db, u, titre, profile) {
   return b; // null = annulé ; sinon une valeur EXACTE de la liste, jamais autre chose
 }
 
+// ⚠⚠ D'OÙ SORT L'ARGENT QUAND ON PAIE UNE PERSONNE (Timo, 03/10/2026,
+// capture du virement de salaire : « on peut ajouter les différentes caisses
+// pour déduire des caisses boutique, DG, comptable ? » → « a, lance » : la
+// MÊME question pour le salaire, les commissions, l'avance et le crédit BMI).
+// Avant, « Boutique dont la caisse est débitée ? » ne connaissait que les
+// boutiques et le comptable : on ne pouvait pas payer avec l'argent de BMI
+// chez le DG, un virement demandait une « caisse » alors que l'argent part de
+// la banque, et un salaire en espèces pouvait vider un tiroir sous zéro
+// (la limite d'une dépense ordinaire ne s'appliquait pas).
+// - Virement bancaire → l'argent sort de 🏦 BANQUE (le relevé le compte déjà :
+//   dépense par virement, payée avec la caisse) ; on ne demande que la
+//   boutique à qui IMPUTER la charge.
+// - Espèces / Flooz / Mixx → « D'où sort l'argent ? » : la caisse de chaque
+//   boutique, 👤 Chez le DG (paye_avec « dg » : sa caisse, puis apport
+//   automatique s'il n'y en a pas assez — compte de l'exploitant), 🧾 Chez le
+//   comptable. DG et comptable : RÉEL seulement (sans jumelle de formation).
+// - Espèces d'une boutique → la limite du tiroir (tiroir + enveloppe), comme
+//   une dépense ordinaire (critiqueSortieTiroir).
+// Rend { boutique, champs, libelle, notifier } ou null (annulé / refusé).
+export const SOURCE_DG = "👤 Chez le DG (argent de BMI chez le DG)";
+export const PREFIXE_CAISSE = "La caisse de ";
+export async function choisirSourcePaiementG(db, u, titre, profile, moyen, montant) {
+  const noms = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom);
+  if (noms.length === 0) {
+    uAlert("Aucune caisse disponible pour votre espace de travail.\n\nDemandez à l'administrateur de créer une boutique correspondante avant d'enregistrer ce paiement.");
+    return null;
+  }
+  const defaut = u?.boutique && noms.includes(u.boutique) ? u.boutique : null;
+  const ordonnes = defaut ? [defaut, ...noms.filter((n) => n !== defaut)] : noms;
+  const imputer = async () => (ordonnes.length === 1 ? ordonnes[0]
+    : uChoix(`${titre}\n\nÀ quelle boutique imputer cette charge ?${defaut ? ` (habituellement : ${defaut})` : ""}`, ordonnes));
+  if (normPaiement(moyen) === "Virement bancaire") {
+    const bq = await imputer();
+    if (bq === null) return null;
+    return { boutique: bq, champs: {}, libelle: `🏦 BANQUE (charge imputée à ${bq})`, notifier: null };
+  }
+  const reel = !espaceDuCompte(db, profile);
+  const options = [...ordonnes.map((n) => PREFIXE_CAISSE + n), ...(reel ? [SOURCE_DG, NOM_CAISSE_COMPTABLE] : [])];
+  const choix = options.length === 1 ? options[0] : await uChoix(`${titre}\n\nD'où sort l'argent ?`, options);
+  if (choix === null) return null;
+  if (choix === NOM_CAISSE_COMPTABLE) return { boutique: NOM_CAISSE_COMPTABLE, champs: {}, libelle: NOM_CAISSE_COMPTABLE, notifier: NOM_CAISSE_COMPTABLE };
+  if (choix === SOURCE_DG) {
+    const bq = await imputer();
+    if (bq === null) return null;
+    return { boutique: bq, champs: { paye_avec: PAYE_AVEC_DG }, libelle: `👤 Chez le DG (charge imputée à ${bq})`, notifier: null };
+  }
+  const bq = String(choix).slice(PREFIXE_CAISSE.length);
+  if (!noms.includes(bq)) return null;
+  if (normPaiement(moyen) === "Espèces") {
+    const p = fondsAVerser(db, bq, totalVente);
+    const refus = critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste: "Ce paiement", boutique: bq, avecAvance: false });
+    if (refus) { uAlert(`${refus}\n\nChoisissez une autre caisse${reel ? ", ou « Chez le DG »" : ""}.`); return null; }
+  }
+  return { boutique: bq, champs: {}, libelle: bq, notifier: bq };
+}
+
 // Prévient la ou les bonnes personnes qu'une sortie de caisse vient d'être
 // réglée (commission, salaire, avance, crédit, prime d'installation…) et
 // d'où l'argent est sorti — pour que la caisse concernée (boutique ou
@@ -1134,11 +1192,12 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   if (moyen === null) return;
   const ref = await uPrompt("Référence ou note (facultatif) :", "");
   if (ref === null) return;
-  const bq = await choisirBoutiqueDebitG(db, u, `Virement de ${fmt(montant)} à ${u.nom}`, profile);
-  if (bq === null) return;
+  const src = await choisirSourcePaiementG(db, u, `Salaire de ${fmt(montant)} à ${u.nom}`, profile, moyen, montant);
+  if (src === null) return;
+  const bq = src.boutique;
   const retenue = (u.credits || []).filter((c) => c.statut === "approuve")
     .reduce((s, c) => s + (c.echeances || []).filter((e) => e.mois === m && !e.paye).reduce((t, e) => t + Number(e.montant || 0), 0), 0);
-  if (!await uConfirm(`Envoyer un virement de ${fmt(montant)} à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie de caisse ${bq || ""} : ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
+  if (!await uConfirm(`Envoyer un virement de ${fmt(montant)} à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie : ${src.libelle} — ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
   const virement = {
     id: uid(), mois: m, montant, moyen: String(moyen).trim(), ref: String(ref).trim(), boutique: bq,
     statut: "envoye", date_envoi: today(), par: profile.nom
@@ -1147,21 +1206,23 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     boutique: bq, categorie: "Salaires",
     description: `Salaire ${libelleMoisFR(m)} — ${u.nom}`,
     montant: montant + retenue, moyen, auto: "virement", user_id: u.id,
+    ...src.champs,
   })];
   if (retenue > 0) {
     deps.push(nouvelleDepense(profile, {
       boutique: bq, categorie: "Prêt au personnel",
       description: `Remboursement crédit BMI retenu sur salaire ${libelleMoisFR(m)} — ${u.nom}`,
       montant: -retenue, moyen, auto: "retenue", user_id: u.id,
+      ...src.champs,
     }));
   }
   save({
     ...db,
     users: db.users.map((x) => (x.id === u.id ? { ...x, virements: [...(x.virements || []), virement], credits: appliquerRetenuesCredit(x, m, profile.nom) } : x)),
     depenses: [...deps, ...db.depenses],
-    messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Salaire versé à"), ...(db.messages || [])],
+    messages: [...(src.notifier ? messagesNotifSortieCaisse(db, profile, src.notifier, u.nom, montant, "Salaire versé à") : []), ...(db.messages || [])],
   }, `Virement de ${fmt(montant)} envoyé à ${u.nom} (${libelleMoisFR(m)})`);
-  uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires ».`);
+  uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires » — sortie : ${src.libelle}.`);
 }
 
 // À partir de ce nombre de clients apportés, un apporteur externe devient

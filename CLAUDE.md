@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2135 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2143 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5196,6 +5196,30 @@ lit mal est pire qu'un banc absent).
   Cinq contrôles RETOURNÉS (la carte DG devenue composant, `nouvelleDepense`
   ×18, la liste hors charges, le mot « Entrées » qui suit `mots`, les cartes
   nommées comptées dans deux fichiers).
+
+### 💸 PAYER UNE PERSONNE : « D'OÙ SORT L'ARGENT ? » (03/10/2026, « a, lance »)
+- Capture Timo (virement de salaire) : « on peut ajouter les différentes
+  caisses… boutique, DG, comptable ? ». **UNE question pour le salaire, les
+  trois commissions de 👑 Mon équipe, l'avance et le crédit BMI** :
+  `choisirSourcePaiementG(db, u, titre, profile, moyen, montant)` (calculs.js)
+  → `{ boutique, champs, libelle, notifier }`. Le moyen est demandé AVANT.
+  - **Virement bancaire** → sort de 🏦 BANQUE ; on ne demande que la boutique
+    à qui IMPUTER la charge. **Espèces / mobile** → la caisse de chaque
+    boutique de l'espace regardé, puis **👤 Chez le DG** (`paye_avec: "dg"` :
+    sa caisse, puis apport automatique de l'exploitant) et **🧾 Chez le
+    comptable** — DG et comptable en RÉEL seulement.
+  - **Espèces d'une boutique = la limite du tiroir** (`critiqueSortieTiroir`,
+    tiroir + enveloppe) : refusé, on choisit une autre caisse ou le DG.
+  - La source va sur la dépense ET sur la retenue de crédit (`...src.champs`) ;
+    on ne prévient que la caisse qui a payé (`src.notifier`, null pour DG /
+    banque). ⚠ **Une ligne NÉGATIVE (retenue de crédit) se lit en ENTRÉE**
+    dans les relevés 👤 DG et 🏦 BANQUE (`compteSigne`, `parSigne`,
+    caissesCentrales.js) — avant, la retenue d'un salaire viré était ignorée
+    et la banque sortait le salaire brut.
+  - ⚠ **Pas touchés** (non demandés, à proposer) : la prime d'installation,
+    la CNSS, les fournisseurs, le remboursement d'un crédit (une ENTRÉE) —
+    ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),
+    éprouvé en remettant trois fautes : chacune tombe.
 
 ### 📱 FLOOZ ET MIXX/T-MONEY : LE SOLDE D'UN COMPTE MOBILE (21/09/2026)
 - Timo, après avoir encaissé 160 000 F par Mixx et payé 40 000 F de commission

@@ -91,16 +91,17 @@ export const CHAPITRE = {
       ["h3", "C. Une prime ou une avance (administrateur)"],
       ["etapes", [
         { titre: "+ Prime", texte: "Le mois, le montant, un motif. **Rien ne sort de la caisse** : la prime est payée avec le salaire du mois." },
-        { titre: "− Avance", texte: "Le mois, le montant, un motif, puis **la caisse qui paie** et le **moyen de paiement** (la banque de la fiche est rappelée). L'argent part **tout de suite** : une dépense « Salaires » est écrite, et l'avance sera retirée du net de ce mois." },
+        { titre: "− Avance", texte: "Le mois, le montant, un motif, puis le **moyen de paiement** (la banque de la fiche est rappelée) et **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** sort de 🏦 BANQUE, l'application demande seulement à quelle boutique imputer la charge. L'argent part **tout de suite** : une dépense « Salaires » est écrite, et l'avance sera retirée du net de ce mois." },
       ]],
 
       ["h3", "D. Verser le salaire (administrateur)"],
       ["etapes", [
         { titre: "💸 Virement", texte: "Depuis la ligne de l'employé dans 💵 Salaires (le mois est déjà choisi) ou depuis ⋯ Gérer (on choisit le mois)." },
         { titre: "Le montant", texte: "La fenêtre détaille le calcul — base, primes, avances, retenue crédit, **retenue CNSS**, net — puis ce qui a déjà été envoyé ce mois et le **reste à verser**, proposé d'office. On peut verser en plusieurs fois." },
-        { titre: "Moyen, référence, caisse", texte: "Le moyen (« Virement bancaire » d'office), une référence facultative, puis la caisse qui paie." },
+        { titre: "Moyen, référence, d'où sort l'argent", texte: "Le moyen (« Virement bancaire » d'office), une référence facultative, puis **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** sort de 🏦 BANQUE, l'application demande seulement à quelle boutique imputer la charge. La confirmation dit d'où l'argent sort." },
         { titre: "Ce qui s'écrit", texte: "Une dépense **« Salaires »**, et si une échéance de crédit tombe ce mois-là, son remboursement est noté. Le virement reste **⏳ En attente** jusqu'à ce que l'employé confirme." },
       ]],
+      ["note", "**Payé « Chez le DG »** : l'argent sort de la caisse de BMI chez le DG ; s'il n'y en a pas assez, le reste devient un apport de l'exploitant (📊 Tableau de bord → 👤 DG). Une retenue de crédit BMI s'y lit en entrée. **Payé depuis une boutique** : seul le vendeur ou le gérant de CETTE boutique est prévenu."],
       ["attention", "**Annuler virement** ne vaut que pour un virement **pas encore confirmé** par l'employé ; ses écritures de caisse sont retirées avec lui."],
 
       ["h3", "E. L'employé confirme qu'il a reçu son argent"],
@@ -112,7 +113,7 @@ export const CHAPITRE = {
       ["h3", "F. Le crédit BMI"],
       ["etapes", [
         { titre: "La demande (l'employé)", texte: "💵 Mon salaire → 🏦 Crédit BMI : montant souhaité, **motif** obligatoire, et le remboursement — **par retenue sur salaire** (1 à 36 mensualités) ou **libre**. Une seule demande en examen à la fois ; elle s'annule tant qu'elle attend." },
-        { titre: "La décision (administrateur)", texte: "👥 Utilisateurs → 🏦 Crédits BMI → **Approuver** : le montant accordé, le nombre de mensualités, un commentaire, la caisse et le moyen de remise. Une dépense « Prêt au personnel » sort de la caisse. **Refuser** demande un motif, que l'employé lit." },
+        { titre: "La décision (administrateur)", texte: "👥 Utilisateurs → 🏦 Crédits BMI → **Approuver** : le montant accordé, le nombre de mensualités, un commentaire, le moyen de remise et « D'où sort l'argent ? » (la même question que le salaire). Une dépense « Prêt au personnel » est écrite. **Refuser** demande un motif, que l'employé lit." },
         { titre: "Le remboursement", texte: "Sur salaire : chaque mois, l'échéance est retirée du net et notée payée au virement. Libre : **+ Remboursement** enregistre ce que l'employé rend (jamais plus que le reste dû)." },
       ]],
 

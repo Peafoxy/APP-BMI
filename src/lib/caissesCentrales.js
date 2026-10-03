@@ -46,6 +46,13 @@ export const libellePastille = (nom, nomTerrain) => (nom === CAISSE_DG ? "👤 D
 
 const parDateDesc = (a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`);
 const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) > 0;
+// Une ligne NÉGATIVE compte aussi (la retenue d'un crédit BMI sur un salaire,
+// 03/10/2026) : elle se lit en ENTRÉE. Zéro = rejetée, jamais comptée.
+const compteSigne = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) !== 0;
+// Range une liste de mouvements : le négatif part en entrée, montant positif.
+const parSigne = (entrees, sorties) => bilanCaisse(
+  entrees.concat(sorties.filter((m) => m.montant < 0).map((m) => ({ ...m, sens: "entree", montant: -m.montant }))),
+  sorties.filter((m) => m.montant >= 0));
 
 // Les versements validés vers une destination, depuis les boutiques données.
 const entreesVersements = (db, destination, nomsBoutiques) => (db.depenses || [])
@@ -74,7 +81,7 @@ export function mouvementsDG(db, nomsBoutiques) {
   const sorties = sortiesFondsRemis(db, DEST_DG, nomsBoutiques).concat((db.depenses || []).flatMap((d) => {
     if (!nomsBoutiques.includes(d.boutique)) return [];
     const lignes = [];
-    if (d.paye_avec === PAYE_AVEC_DG && compte(d)) {
+    if (d.paye_avec === PAYE_AVEC_DG && compteSigne(d)) {
       lignes.push({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` });
     }
     if (d.remboursement?.moyen === MOYEN_REMB_DG && compte(d)) {
@@ -82,15 +89,15 @@ export function mouvementsDG(db, nomsBoutiques) {
     }
     return lignes;
   }));
-  return bilanCaisse(entrees, sorties);
+  return parSigne(entrees, sorties);
 }
 
 export function mouvementsBanque(db, nomsBoutiques) {
   const entrees = entreesVersements(db, DEST_BANQUE, nomsBoutiques).concat(entreesFondsRepris(db, DEST_BANQUE, nomsBoutiques));
   const sorties = sortiesFondsRemis(db, DEST_BANQUE, nomsBoutiques).concat((db.depenses || [])
-    .filter((d) => nomsBoutiques.includes(d.boutique) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compte(d))
+    .filter((d) => nomsBoutiques.includes(d.boutique) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compteSigne(d))
     .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` })));
-  return bilanCaisse(entrees, sorties);
+  return parSigne(entrees, sorties);
 }
 
 // La caisse du comptable : ce qu'il a réellement encaissé, ce qu'il a

@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -878,17 +878,19 @@ export function Users({ db, save, profile }) {
     // Une AVANCE est de l'argent réellement remis à l'employé : elle sort de la caisse.
     // (Une PRIME, elle, sera versée avec le salaire du mois : pas de sortie immédiate.)
     if (type === "avance") {
-      const bq = await choisirBoutiqueDebit(u, `Avance de ${fmt(montant)} à ${u.nom}`);
-      if (bq === null) return;
       const moyen = await demanderMoyenPaiement("", "Espèces", "Moyen de paiement", u);
       if (moyen === null) return;
+      const src = await choisirSourcePaiementG(db, u, `Avance de ${fmt(montant)} à ${u.nom}`, profile, moyen, montant);
+      if (src === null) return;
+      const bq = src.boutique;
       const dep = nouvelleDepense(profile, {
         boutique: bq, categorie: "Salaires",
         description: `Avance sur salaire ${libelleMoisFR(mois.trim())} — ${u.nom}`,
         montant, moyen, auto: "avance", user_id: u.id,
         ...mentionVirement(u, moyen),
+        ...src.champs,
       });
-      next = { ...next, depenses: [dep, ...next.depenses], messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Avance versée à"), ...(db.messages || [])] };
+      next = { ...next, depenses: [dep, ...next.depenses], messages: [...(src.notifier ? messagesNotifSortieCaisse(db, profile, src.notifier, u.nom, montant, "Avance versée à") : []), ...(db.messages || [])] };
     }
 
     save(next, `${type === "prime" ? "Prime" : "Avance"} de ${fmt(montant)} pour ${u.nom} (${mois.trim()})${motif.trim() ? " — " + motif.trim() : ""}`);
@@ -944,23 +946,25 @@ export function Users({ db, save, profile }) {
     if (note === null) return;
     const moyen = await demanderMoyenPaiement("", "Espèces", "Moyen de remise des fonds", u);
     if (moyen === null) return;
-    const bq = await choisirBoutiqueDebit(u, `Crédit de ${fmt(montant)} à ${u.nom}`);
-    if (bq === null) return;
+    const src = await choisirSourcePaiementG(db, u, `Crédit de ${fmt(montant)} à ${u.nom}`, profile, moyen, montant);
+    if (src === null) return;
+    const bq = src.boutique;
     const resume = c.mode === "salaire"
       ? `${mensualites} mensualité(s) de ${fmt(Math.round(montant / mensualites))} retenues sur salaire, à partir de ${libelleMoisFR(echeances[0].mois)}.`
       : "Remboursement libre (versements enregistrés par l'administration).";
-    if (!await uConfirm(`Accorder un crédit de ${fmt(montant)} à ${u.nom} ?\n\n${resume}\n\nSortie de caisse ${bq || ""} : ${fmt(montant)} (compte « Prêt au personnel »).`)) return;
+    if (!await uConfirm(`Accorder un crédit de ${fmt(montant)} à ${u.nom} ?\n\n${resume}\n\nSortie : ${src.libelle} — ${fmt(montant)} (compte « Prêt au personnel »).`)) return;
     const credit = { ...c, statut: "approuve", montant_accorde: montant, mensualites, echeances, commentaire: note.trim(), date_decision: today(), decide_par: profile.nom, boutique: bq };
     const dep = nouvelleDepense(profile, {
       boutique: bq, categorie: "Prêt au personnel",
       description: `Crédit BMI accordé à ${u.nom}${c.motif ? " — " + c.motif : ""}`,
       montant, moyen, auto: "credit", user_id: u.id, credit_id: c.id,
+      ...src.champs,
     });
     save({
       ...db,
       users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? credit : y)) } : x)),
       depenses: [dep, ...db.depenses],
-      messages: [...messagesNotifSortieCaisse(db, profile, bq, u.nom, montant, "Crédit BMI accordé à"), ...(db.messages || [])],
+      messages: [...(src.notifier ? messagesNotifSortieCaisse(db, profile, src.notifier, u.nom, montant, "Crédit BMI accordé à") : []), ...(db.messages || [])],
     }, `Crédit BMI de ${fmt(montant)} accordé à ${u.nom}`);
     uAlert(`✅ Crédit de ${fmt(montant)} accordé à ${u.nom}. Sortie de caisse enregistrée.`);
   };
