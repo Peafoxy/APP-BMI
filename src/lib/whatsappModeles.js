@@ -182,6 +182,11 @@ export const MODELES = {
   // la fiche du prospect) ; l'accueil, non (« NON pour l'accueil »).
   accueil_prospect: { categorie: "marketing", variables: ["client"] },
   relance_prospect: { categorie: "marketing", variables: ["client", "auteur", "projet"] },
+  // 💸 03/10/2026, Timo : « un modèle YCloud pour envoi automatique de
+  // message de virement avec le numéro BMI », puis SON texte. UTILITY (un
+  // paiement fait). Le trou 7 = le RÔLE et le NUMÉRO de celui qui a payé
+  // (« Comptable 91123456 », sa précision).
+  virement_salaire: { categorie: "utility", variables: ["employe", "mois", "date", "montant", "moyen", "reference", "initiateur"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -221,6 +226,9 @@ export const MODELES_EN_SERVICE = [
   // service AVANT l'accord de Meta : d'ici là, repli sur l'ouverture
   // WhatsApp d'aujourd'hui, avec le texte du modèle, et le refus en français.
   "lien_signature_pv", "avenant_reserves", "accueil_prospect", "relance_prospect",
+  // 03/10/2026 : l'avis de paiement d'un salaire. En service AVANT l'accord
+  // de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
+  "virement_salaire",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -292,12 +300,15 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // depuis la vente pour qui a le droit : celui qui a envoyé (le vendeur qui a
 // encaissé, ou qui a fait le geste) et l'administrateur PRINCIPAL.
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour"];
+// 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
+// collègues qui voient la conversation (celui qui a payé et le principal).
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire"];
 const LIGNES_MASQUEES = {
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   bon_reprise: "🔒 Bon de reprise envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
+  virement_salaire: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
 };
 export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
 export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
@@ -707,6 +718,7 @@ const LIGNES_ENVOI = {
   avenant_reserves: ([client, pv]) => `Lien de signature de l'avenant de levée de réserves (PV N° ${pv}) envoyé à ${client}.`,
   accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
+  virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1454,4 +1466,44 @@ export function critiqueNumeroAlerte(tel) {
 // Les trois trous, dans l'ordre du modèle. Jamais un trou vide (Meta refuse).
 export function variablesAlerte({ administrateur, client, numero } = {}) {
   return [texteVariable(administrateur) || "administrateur", texteVariable(client) || "client sans nom", texteVariable(numero) || "numéro inconnu"];
+}
+
+// ---------------------------------------------------------------
+// 💸 L'AVIS DE PAIEMENT D'UN SALAIRE — `virement_salaire` (03/10/2026)
+// ---------------------------------------------------------------
+// Le texte de Timo, mot pour mot chez Meta (UTILITY, fr).
+export const TEXTE_VIREMENT_SALAIRE = [
+  "Bonjour {{1}},",
+  "BMI TOGO vous informe que votre salaire de {{2}} a été payé le {{3}}.",
+  "Montant : {{4}} {{5}}. Référence : {{6}}.",
+  "Merci de confirmer la réception depuis votre espace sur :",
+  "gestion.bmitogo.com, dans l\u2019onglet « Salaire ».",
+  "{{7}}",
+  "E-mail : contact@bmitogo.com",
+].join("\n");
+// Rend null sans numéro sur la fiche de l'employé ou sans montant.
+// `reference` = celle tapée au virement, sinon le N° du bulletin (Meta refuse
+// un trou vide). `initiateur` = { role, tel } de celui qui paie — son numéro,
+// sinon celui de BMI. Cette règle n'importe rien : l'écran passe le libellé
+// du rôle, le mois en lettres, le format d'argent et de date.
+export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen, reference, initiateur, fmt, dFR }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  const role = texteVariable(initiateur?.role) || "BMI TOGO";
+  const numero = texteVariable(initiateur?.tel) || NUMERO_BMI_PRINCIPAL;
+  return {
+    modele: "virement_salaire",
+    variables: [
+      texteVariable(employe) || "cher collaborateur",
+      texteVariable(mois) || "ce mois",
+      d(date) || "aujourd'hui",
+      f(m),
+      moyenVersement(moyen),
+      texteVariable(reference) || "—",
+      `${role} ${numero}`,
+    ],
+  };
 }

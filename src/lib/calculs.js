@@ -9,7 +9,9 @@
 // ============================================================
 import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
-import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME } from "./core";
+import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME, numeroBulletin } from "./core";
+import { envoiVirementSalaire } from "./whatsappModeles";
+import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES, MOYENS_ENCAISSEMENT } from "./constants";
 import { mettreAuPanier } from "./panier";
@@ -1326,7 +1328,31 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     depenses: [...deps, ...db.depenses],
     messages: [...(src.notifier ? messagesNotifSortieCaisse(db, profile, src.notifier, u.nom, montant, "Salaire versé à") : []), ...(db.messages || [])],
   }, `Virement de ${fmt(montant)} envoyé à ${u.nom} (${libelleMoisFR(m)})`);
-  uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires » — sortie : ${src.libelle}.`);
+  // 💸 L'AVIS DE PAIEMENT PART DU NUMÉRO BMI, TOUT SEUL (Timo, 03/10/2026,
+  // modèle `virement_salaire`, son texte) : vers le numéro de la fiche de
+  // l'employé, sans question et sans repli (WhatsApp ne s'ouvre pas) ; le mur
+  // = l'espace du COMPTE de l'employé ; la ligne du fil est PRIVÉE (celui qui
+  // a payé et l'administrateur principal en lisent le détail).
+  const fiche = (db.users || []).find((x) => x.id === u.id) || u;
+  const moi = (db.users || []).find((x) => x.id === profile.id) || profile;
+  const formation = estCompteFormation(db, fiche);
+  const envoi = envoiVirementSalaire({
+    employe: fiche.nom_complet || fiche.nom, tel: fiche.tel, mois: libelleMoisFR(m), date: today(),
+    montant, moyen, reference: String(ref).trim() || numeroBulletin(m, u.id),
+    initiateur: { role: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, tel: moi.tel }, fmt, dFR,
+  });
+  let note = "";
+  if (!envoi) {
+    if (!formation) note = `\n\n📲 Aucun avis WhatsApp : la fiche de ${u.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞).`;
+  } else {
+    const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
+    const r = await envoyerRecuSansQuestion({
+      envoi, tel: fiche.tel, nom: u.nom, espaceFormation: formation, save, profile,
+      ref: { salaire_user_id: u.id, virement_id: virement.id }, noms: { titre: "Avis de salaire", sujet: "L'avis de salaire" },
+    });
+    if (r) note = `\n\n${r}`;
+  }
+  uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires » — sortie : ${src.libelle}.${note}`);
 }
 
 // À partir de ce nombre de clients apportés, un apporteur externe devient

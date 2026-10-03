@@ -98,10 +98,12 @@ const ATTENDU = {
   avenant_reserves: { categorie: "utility", n: 3 },
   accueil_prospect: { categorie: "marketing", n: 1 },
   relance_prospect: { categorie: "marketing", n: 3 },
+  // 03/10/2026 : l'avis de paiement d'un salaire (texte de Timo).
+  virement_salaire: { categorie: "utility", n: 7 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les vingt-cinq modèles sont là, et eux seuls (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les vingt-six modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1293,7 +1295,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,avenant_reserves,bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect");
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,avenant_reserves,bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3051,8 +3053,29 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   recu.wa_prive === true && recu.vente_id === "V9" && /^🔒 Reçu de vente envoyé au client/.test(recu.texte || "")
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
-test("★ les quatre modèles privés : les deux reçus de vente, le bon de reprise, le bon de retour — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "bon_reprise,bon_retour,recu_vente,recu_vente_detail" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+// RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
+test("★ les cinq modèles privés : les deux reçus de vente, le bon de reprise, le bon de retour, l'avis de salaire — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "bon_reprise,bon_retour,recu_vente,recu_vente_detail,virement_salaire" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+{
+  // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
+  const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
+  const texteS = eS ? eS.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), M.TEXTE_VIREMENT_SALAIRE) : "";
+  test("★ 💸 l'avis de salaire : le texte de Timo mot pour mot, sept trous dans l'ordre (nom, mois, date, montant, moyen, référence, rôle + numéro de celui qui paie)",
+    !!eS && eS.modele === "virement_salaire" && eS.variables.join("|") === "AKPOSSOGNA Kossiwa|octobre 2026|03/10/2026|35000 F|en espèces|BP-202610-ROBS|Comptable 91123456"
+    && /^Bonjour AKPOSSOGNA Kossiwa,\nBMI TOGO vous informe que votre salaire de octobre 2026 a été payé le 03\/10\/2026\.\nMontant : 35000 F en espèces\. Référence : BP-202610-ROBS\.\nMerci de confirmer la réception depuis votre espace sur :\ngestion\.bmitogo\.com, dans l.onglet « Salaire »\.\nComptable 91123456\nE-mail : contact@bmitogo\.com$/.test(texteS));
+  test("★ 💸 sans numéro sur la fiche ou sans montant, rien ne part ; sans référence tapée et sans numéro de celui qui paie, jamais un trou vide",
+    M.envoiVirementSalaire({ employe: "X", tel: "", montant: 1000 }) === null && M.envoiVirementSalaire({ employe: "X", tel: "90112233", montant: 0 }) === null
+    && (() => { const e = M.envoiVirementSalaire({ employe: "X", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 1000, moyen: "Virement bancaire", reference: "", initiateur: { role: "Administrateur" } }); return e && e.variables.every((v) => String(v).trim()) && /\+228 99 96 84 88$/.test(e.variables[6]) && /virement/i.test(e.variables[4]); })());
+  test("★ 💸 la ligne rangée dans 📲 WhatsApp ne porte pas le salaire : phrase neutre, lisible par celui qui a payé et le principal",
+    M.lignePrivee("virement_salaire") && /détail réservé/.test(M.ligneMasquee("virement_salaire")) && !/35000/.test(M.ligneMasquee("virement_salaire")));
+  const calS = readFileSync("src/lib/calculs.js", "utf8");
+  const corpsVS = calS.slice(calS.indexOf("export async function envoyerVirementG"), calS.indexOf("// À partir de ce nombre de clients apportés"));
+  test("★ 💸 le virement de salaire envoie l'avis TOUT SEUL (sans question ni repli), APRÈS l'enregistrement, vers la fiche de l'employé ; le mur = l'espace de SON compte ; la référence par défaut = le N° du bulletin",
+    /envoiVirementSalaire\(\{/.test(corpsVS) && /envoyerRecuSansQuestion\(\{/.test(corpsVS) && corpsVS.indexOf("save({") < corpsVS.indexOf("envoyerRecuSansQuestion(")
+    && /espaceFormation: formation/.test(corpsVS) && /const formation = estCompteFormation\(db, fiche\)/.test(corpsVS)
+    && /numeroBulletin\(m, u\.id\)/.test(corpsVS) && /ref: \{ salaire_user_id: u\.id, virement_id: virement\.id \}/.test(corpsVS)
+    && /numeroBulletin\(mois, u\.id\)/.test(readFileSync("src/lib/impression.js", "utf8")));
+}
 test("★ un envoi ordinaire (devis, relance, dette) garde son texte en clair : il n'est pas privé, et une ligne sans marque ne se « déverrouille » pas",
   !M.lignePrivee("devis_disponible") && !M.lignePrivee("relance_devis") && !M.lignePrivee("rappel_dette") && M.ligneMasquee("relance_devis") === ""
   && !M.peutLireLignePrivee({ texte: "x" }, { id: "KOSSI" }, true));

@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, fmtFcfa, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp } from "./core";
+import { today, dFR, fmt, fmtFcfa, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp } from "./core";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
@@ -730,7 +730,7 @@ export function imprimerBulletin(u, mois, db) {
   const avances = (u.avances || []).filter((x) => x.mois === mois);
   const credits = (u.credits || []).filter((c) => c.statut === "approuve" && resteCredit(c) > 0);
   const roleLbl = u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "technicien_bmi" ? "Technicien BMI" : "Vendeur";
-  const numero = `BP-${mois.replace("-", "")}-${String(u.id).slice(0, 4).toUpperCase()}`;
+  const numero = numeroBulletin(mois, u.id);
 
   const ligne = (lib, montant, signe) =>
     `<tr><td>${esc(lib)}</td><td class="${signe === "-" ? "moins" : signe === "+" ? "plus" : ""}">${signe === "-" ? "−" : signe === "+" ? "+" : ""}${fmt(Math.abs(Number(montant) || 0))}</td></tr>`;

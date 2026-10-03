@@ -13,10 +13,11 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, ligneEnvoiModele } from "./whatsappModeles";
-import { lignesVente, totalVente, fmt, dFR } from "./core";
+import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, ligneEnvoiModele } from "./whatsappModeles";
+import { lignesVente, totalVente, fmt, dFR, numeroBulletin } from "./core";
 import { montantEncaisseVente } from "./versements";
 import { bonReprise, bonRetour, retoursDeVente } from "./bons";
+import { libelleMoisFR } from "./calculs";
 
 // Les deux reçus d'une vente, le DÉTAILLÉ d'abord (l'ordre de l'envoi).
 // `avance` / `reste` : ceux de la dette née de la vente quand l'écran les a,
@@ -39,6 +40,15 @@ export const bonsDeLaVente = (db, vente) => [
 // Le détail d'une ligne privée, ou "" si la vente n'est pas sur cet appareil.
 export function texteLignePrivee(m, db) {
   if (!m || !m.wa_prive) return "";
+  // 💸 L'avis de salaire : recomposé depuis le virement de la fiche (la paie
+  // ne descend que chez l'administrateur, le comptable et l'intéressé).
+  if (m.wa_modele === "virement_salaire") {
+    const u = (db?.users || []).find((x) => x.id === m.salaire_user_id);
+    const v = (u?.virements || []).find((x) => x.id === m.virement_id);
+    if (!u || !v) return "";
+    const e = envoiVirementSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, reference: v.ref || numeroBulletin(v.mois, u.id), initiateur: { role: v.par, tel: " " }, fmt, dFR });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
   const idVente = m.vente_id || m.bon_vente_id;
   const vente = (db?.ventes || []).find((v) => v.id === idVente);
   if (!vente) return "";

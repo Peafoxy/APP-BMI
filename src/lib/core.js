@@ -585,6 +585,9 @@ export const nombreFr = (n, unite = "") => {
   return unite ? `${texte} ${unite}` : texte;
 };
 export const today = () => new Date().toISOString().slice(0, 10);
+// Le numéro d'un bulletin de paie : UNE règle, lue par le bulletin imprimé
+// et par l'avis de salaire WhatsApp (sa référence quand aucune n'est tapée).
+export const numeroBulletin = (mois, userId) => `BP-${String(mois || "").replace("-", "")}-${String(userId || "").slice(0, 4).toUpperCase()}`;
 export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
 // L'heure du geste, « 14:12 » — L'HEURE DE LOMÉ, jamais celle du réglage de
 // l'appareil (25/09/2026, capture Timo : une vente d'ANGELE affichée à 18:44

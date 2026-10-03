@@ -198,6 +198,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.vente_id ? { vente_id: ref.vente_id } : {}),
     ...(ref && ref.bon_numero ? { bon_numero: ref.bon_numero } : {}),
     ...(ref && ref.bon_vente_id ? { bon_vente_id: ref.bon_vente_id } : {}),
+    ...(ref && ref.salaire_user_id ? { salaire_user_id: ref.salaire_user_id, virement_id: ref.virement_id } : {}),
     ...(prive ? { wa_prive: true } : {}),
     ...prop,
     ...champsEnvoi(envoi),
@@ -315,7 +316,7 @@ export async function chargerMediaWa(messageId) {
 // ligne entre dans 📲 WhatsApp sans donner la conversation à personne. Rend
 // la phrase à afficher discrètement (vide si rien à dire : pas de numéro,
 // formation — le cas normal ne dérange personne).
-export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {} }) {
+export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" } }) {
   if (!envoi) return "";
   const r = await envoyerModele({ tel, modele: envoi.modele, variables: envoi.variables, espaceFormation, sansRepli: true });
   if (r.auto) {
@@ -325,7 +326,7 @@ export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation
         messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }),
       }));
     }
-    return `📲 Reçu envoyé du numéro BMI à ${nom}.`;
+    return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}.`;
   }
-  return r.motif && !motifAttendu(r.motif) ? `Le reçu n'est pas parti du numéro BMI : ${r.motif}` : "";
+  return r.motif && !motifAttendu(r.motif) ? `${noms.sujet} n'est pas parti du numéro BMI : ${r.motif}` : "";
 }

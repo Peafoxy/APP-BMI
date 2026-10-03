@@ -5228,6 +5228,30 @@ lit mal est pire qu'un banc absent).
     ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),
     éprouvé en remettant trois fautes : chacune tombe.
 
+### 📲 L'AVIS DE PAIEMENT D'UN SALAIRE PART DU NUMÉRO BMI — `virement_salaire` (03/10/2026, le texte de Timo)
+- Timo : « un modèle YCloud pour envoi automatique de message de virement
+  avec le numéro BMI », puis SON texte (`TEXTE_VIREMENT_SALAIRE`, mot pour
+  mot chez Meta, UTILITY, fr) — sept trous : nom (`nom_complet` sinon
+  `nom`), mois en lettres, date, montant, moyen (`moyenVersement`),
+  référence (celle tapée, sinon `numeroBulletin`, core.js — UNE règle avec
+  le bulletin imprimé), et **{{7}} = le rôle et le numéro de celui qui paie**
+  (« Comptable 91123456 », sa précision ; sans numéro → le numéro BMI).
+  `envoiVirementSalaire` (lib/whatsappModeles.js).
+- Envoyé par `envoyerVirementG` APRÈS l'enregistrement, **tout seul, sans
+  question ni repli** (`envoyerRecuSansQuestion`, chargé à la demande), vers
+  le numéro de la fiche de l'employé ; sans numéro, la confirmation le dit.
+  ⚠ Le mur = l'espace du COMPTE de l'employé. ⚠ **Ligne PRIVÉE** dans
+  📲 WhatsApp (`MODELES_PRIVES`) : phrase neutre, détail recomposé depuis le
+  virement (`texteLignePrivee`) pour celui qui a payé et le principal — le
+  salaire d'un collègue ne se lit pas (décision non contredite par Timo).
+  ⚠ Salaire seulement (pas les avances ni les commissions — non demandé).
+  ⚠ Son texte dit « salaire de octobre » (pas « d'octobre ») : c'est le sien.
+- **À faire par Timo : créer `virement_salaire` chez YCloud** (utility, fr).
+  D'ici l'accord, rien ne part et la confirmation dit pourquoi. ~4 F.
+  Banc (`verifier-whatsapp`, 4 contrôles), éprouvé. Trois contrôles
+  RETOURNÉS (vingt-six modèles, les modèles à ligne, cinq privés). Rien à
+  coller dans Supabase.
+
 ### 📥 UN CRÉDIT BMI D'AVANT L'APPLICATION, ET UN PRÊT N'EST PAS UNE CHARGE (03/10/2026, « lance 1 et 2, et oui pour la charge »)
 - Capture Timo (🕘 Historique) : le crédit d'ANGELE (400 000 F restants d'un
   prêt remis AVANT l'application) avait été saisi par « Approuver », qui
